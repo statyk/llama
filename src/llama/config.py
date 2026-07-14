@@ -10,6 +10,7 @@ DEFAULT_ROOT = Path.home() / ".llama"
 class LLMTaskConfig(BaseModel):
     backend: str = "claude_cli"
     model: str | None = None
+    tier: Literal["low", "medium", "high"] | None = None
 
 
 class Config(BaseModel):

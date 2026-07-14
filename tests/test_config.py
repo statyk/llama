@@ -30,3 +30,24 @@ def test_load_and_task_fallback(tmp_path: Path):
     assert cfg.audio_format == "flac"
     assert cfg.llm_for("synthesize").model == "claude-opus-4-8"
     assert cfg.llm_for("interpret").model == "claude-sonnet-5"  # falls back to default
+
+
+import pytest
+from pydantic import ValidationError
+
+from llama.config import LLMTaskConfig
+
+
+def test_tier_accepts_valid_values(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text('[llm.synthesize]\ntier = "medium"\n')
+    cfg = load_config(p)
+    assert cfg.llm_for("synthesize").tier == "medium"
+    assert LLMTaskConfig().tier is None
+
+
+def test_tier_rejects_invalid_value(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text('[llm.synthesize]\ntier = "turbo"\n')
+    with pytest.raises(ValidationError):
+        load_config(p)
