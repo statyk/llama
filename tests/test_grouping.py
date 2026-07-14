@@ -43,3 +43,10 @@ def test_num_reviews_coerced():
     rec = cands[0].recordings[0]
     assert rec.num_reviews == 7
     assert rec.avg_rating == 4.2
+
+
+def test_list_valued_numeric_fields_coerced():
+    cands = group_candidates("GratefulDead", [doc("a", num_reviews=[7], avg_rating=[4.2])])
+    rec = cands[0].recordings[0]
+    assert rec.num_reviews == 7
+    assert rec.avg_rating == 4.2

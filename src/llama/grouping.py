@@ -19,14 +19,15 @@ def group_candidates(collection: str, docs: list[dict]) -> list[Candidate]:
         date = str(_first(doc.get("date")) or "")[:10]
         if not date:
             continue
+        rating = _first(doc.get("avg_rating"))
         rec = RecordingSummary(
             identifier=doc["identifier"],
             title=str(_first(doc.get("title")) or ""),
             date=date,
             venue=_first(doc.get("venue")) or None,
             coverage=_first(doc.get("coverage")) or None,
-            avg_rating=float(doc["avg_rating"]) if doc.get("avg_rating") is not None else None,
-            num_reviews=int(doc.get("num_reviews") or 0),
+            avg_rating=float(rating) if rating is not None else None,
+            num_reviews=int(_first(doc.get("num_reviews")) or 0),
             description=str(_first(doc.get("description")) or "") or None,
         )
         pid = f"{collection}/{date}"
