@@ -51,3 +51,25 @@ def test_tier_rejects_invalid_value(tmp_path: Path):
     p.write_text('[llm.synthesize]\ntier = "turbo"\n')
     with pytest.raises(ValidationError):
         load_config(p)
+
+
+def test_setlistfm_and_structure_defaults():
+    cfg = Config()
+    assert cfg.setlistfm.api_key is None
+    assert cfg.structure.guard_min_minutes == 100
+    assert cfg.structure.guard_min_tracks == 16
+    assert cfg.structure.align_coverage_threshold == 0.8
+
+
+def test_setlistfm_and_structure_from_toml(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text(
+        '[setlistfm]\napi_key = "k123"\n\n'
+        "[structure]\nguard_min_minutes = 90\nguard_min_tracks = 12\n"
+        "align_coverage_threshold = 0.5\n"
+    )
+    cfg = load_config(p)
+    assert cfg.setlistfm.api_key == "k123"
+    assert cfg.structure.guard_min_minutes == 90
+    assert cfg.structure.guard_min_tracks == 12
+    assert cfg.structure.align_coverage_threshold == 0.5
