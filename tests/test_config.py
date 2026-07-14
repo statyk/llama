@@ -73,3 +73,31 @@ def test_setlistfm_and_structure_from_toml(tmp_path):
     assert cfg.structure.guard_min_minutes == 90
     assert cfg.structure.guard_min_tracks == 12
     assert cfg.structure.align_coverage_threshold == 0.5
+
+
+def test_llm_tiers_lifted_from_llm_table(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text(
+        '[llm.tiers.openrouter]\nmedium = "deepseek/deepseek-chat-v3"\n'
+        '[llm.tiers.claude_cli]\nhigh = "sonnet"\n'
+        '[llm.synthesize]\ntier = "high"\n'
+    )
+    cfg = load_config(p)
+    assert cfg.tiers == {
+        "openrouter": {"medium": "deepseek/deepseek-chat-v3"},
+        "claude_cli": {"high": "sonnet"},
+    }
+    # "tiers" is reserved: it must not appear as a task entry
+    assert "tiers" not in cfg.llm
+    assert cfg.llm_for("synthesize").tier == "high"
+
+
+def test_llm_tiers_rejects_unknown_tier_key(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text('[llm.tiers.openrouter]\nturbo = "some/model"\n')
+    with pytest.raises(ValidationError):
+        load_config(p)
+
+
+def test_tiers_defaults_empty():
+    assert Config().tiers == {}
