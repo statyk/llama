@@ -25,6 +25,9 @@ implementation plan this was built from. The approved design spec is
 and emits a self-contained "show package" (verified audio, m3u, manifest with
 track titles/set breaks, LLM-written DJ notes) for an automated in-house radio
 station. Usage tilts heavily toward Grateful Dead shows (two sets + encore).
+LLM model choice is tiered (low/medium/high -> haiku/sonnet/opus on the
+claude_cli backend): Sonnet by default, Opus for deep_research/synthesize,
+overridable per task via `[llm.<task>]` `tier` or `model` in config.
 
 ## Architecture (from the spec — the short version)
 

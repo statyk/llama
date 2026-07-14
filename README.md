@@ -17,6 +17,12 @@ Optional config at `~/.llama/config.toml`:
 
     [llm.default]
     backend = "claude_cli"           # requires the `claude` CLI on PATH
+    # Model tiers: low=haiku, medium=sonnet, high=opus (claude_cli).
+    # Defaults: sonnet for most tasks; opus for deep_research and synthesize.
+
+    [llm.synthesize]
+    # tier = "medium"                # example: cheaper synthesis
+    # model = "claude-opus-4-8"      # example: exact pin, bypasses tiers
 
 ## Use
 
