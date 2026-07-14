@@ -1,4 +1,5 @@
 """Live tests against real archive.org. Run explicitly: pytest -m live -q"""
+import os
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,8 @@ from llama.setlist import parse_setlist
 from llama.stages.search import SEARCH_FIELDS
 
 IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
+
+SETLISTFM_KEY = os.environ.get("SETLISTFM_API_KEY")  # read at import: see tests/conftest.py
 
 
 @pytest.mark.live
@@ -34,3 +37,16 @@ def test_real_item_spam_is_filtered(tmp_path: Path):
     assert len(kept_names) >= 20  # full show, all discs
     parsed = parse_setlist(str(md["metadata"].get("description", "")))
     assert parsed.confidence in ("high", "medium")
+
+
+@pytest.mark.live
+@pytest.mark.skipif(not SETLISTFM_KEY, reason="needs SETLISTFM_API_KEY")
+def test_setlistfm_live_winterland_1974(tmp_path):
+    from llama.setlistfm import SetlistFMClient
+
+    c = SetlistFMClient(tmp_path / "cache", SETLISTFM_KEY)
+    got = c.setlist("Grateful Dead", "1974-02-24", venue="Winterland Arena",
+                    city="San Francisco, CA")
+    assert got is not None
+    songs = [s["name"] for st in got["sets"]["set"] for s in st["song"]]
+    assert any("Dark Star" in s for s in songs)
