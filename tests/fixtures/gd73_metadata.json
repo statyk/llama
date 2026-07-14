@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "identifier": "gd73-06-10.sbd.hollister.174.sbeok.shnf",
+    "collection": ["GratefulDead", "etree"],
+    "creator": "Grateful Dead",
+    "date": "1973-06-10",
+    "venue": "RFK Stadium",
+    "coverage": "Washington, DC",
+    "source": "SBD",
+    "lineage": "SBD > Master Reel > DAT > CD > SHN",
+    "description": "Set 1:\nMorning Dew\nChina Cat Sunflower > I Know You Rider\n\nSet 2:\nDark Star > Eyes of the World\n\nEncore:\nJohnny B. Goode"
+  },
+  "files": [
+    {"name": "gd73-06-10d1t01.shn", "source": "original", "format": "Shorten", "md5": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"},
+    {"name": "gd73-06-10d1t02.shn", "source": "original", "format": "Shorten", "md5": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"},
+    {"name": "gd73-06-10d1t03.shn", "source": "original", "format": "Shorten", "md5": "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3"},
+    {"name": "gd73-06-10d2t01.shn", "source": "original", "format": "Shorten", "md5": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4"},
+    {"name": "gd73-06-10d2t02.shn", "source": "original", "format": "Shorten", "md5": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"},
+    {"name": "gd73-06-10d3t01.shn", "source": "original", "format": "Shorten", "md5": "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6"},
+    {"name": "gd73-06-10d1t01.mp3", "source": "derivative", "original": "gd73-06-10d1t01.shn", "format": "VBR MP3", "length": "11:04", "md5": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1", "title": "Morning Dew"},
+    {"name": "gd73-06-10d1t02.mp3", "source": "derivative", "original": "gd73-06-10d1t02.shn", "format": "VBR MP3", "length": "07:32", "md5": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2", "title": "China Cat Sunflower"},
+    {"name": "gd73-06-10d1t03.mp3", "source": "derivative", "original": "gd73-06-10d1t03.shn", "format": "VBR MP3", "length": "06:11", "md5": "b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3", "title": "I Know You Rider"},
+    {"name": "gd73-06-10d2t01.mp3", "source": "derivative", "original": "gd73-06-10d2t01.shn", "format": "VBR MP3", "length": "31:48", "md5": "b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4", "title": "Dark Star"},
+    {"name": "gd73-06-10d2t02.mp3", "source": "derivative", "original": "gd73-06-10d2t02.shn", "format": "VBR MP3", "length": "17:20", "md5": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5", "title": "Eyes of the World"},
+    {"name": "gd73-06-10d3t01.mp3", "source": "derivative", "original": "gd73-06-10d3t01.shn", "format": "VBR MP3", "length": "04:59", "md5": "b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6"},
+    {"name": "FOLLOW-ME @BYPIKENO.mp3", "source": "original", "format": "VBR MP3", "length": "0:29", "md5": "dead00000000000000000000000000ff"},
+    {"name": "gd73-06-10.txt", "source": "original", "format": "Text", "md5": "cccccccccccccccccccccccccccccccc"},
+    {"name": "gd73-06-10.md5", "source": "original", "format": "Checksums", "md5": "dddddddddddddddddddddddddddddddd"}
+  ],
+  "reviews": [
+    {"reviewer": "deadhead73", "reviewtitle": "I WAS THERE", "reviewbody": "Best day of my life, absolutely magical, you had to be there man.", "stars": "5", "reviewdate": "2004-08-01"},
+    {"reviewer": "couchtaper", "reviewtitle": "Monumental soundboard", "reviewbody": "Never attended; judging purely by the tape this is crisp and the Dark Star is monumental. Slight hiss on set 1.", "stars": "5", "reviewdate": "2011-02-14"}
+  ]
+}
