@@ -24,7 +24,10 @@ def match_artists(proposed: list[str], collections: list[dict], max_artists: int
 
     Containment is word-set based (every word of the shorter name appears in the
     longer one), not literal substring — e.g. "Doc Watson" must match "Doc and
-    Merle Watson" even though "and Merle" splits the words apart.
+    Merle Watson" even though "and Merle" splits the words apart. Containment
+    only applies when the shorter side has at least 2 words; single-word names
+    (e.g. "War") match only by normalized equality, so they can't subset-match
+    an unrelated multi-word title that happens to contain that word.
     """
     normed = [(c, _norm(str(c.get("title") or ""))) for c in collections if c.get("identifier")]
     out: list[dict] = []
@@ -43,7 +46,8 @@ def match_artists(proposed: list[str], collections: list[dict], max_artists: int
                 break
             if best is None:
                 ct_words = set(ct.split())
-                if n_words <= ct_words or ct_words <= n_words:
+                shorter_len = min(len(n_words), len(ct_words))
+                if shorter_len >= 2 and (n_words <= ct_words or ct_words <= n_words):
                     best = c
         if best and best["identifier"] not in seen:
             seen.add(best["identifier"])

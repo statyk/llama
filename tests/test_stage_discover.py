@@ -65,6 +65,15 @@ def test_cap_and_dedup():
     assert len({a["identifier"] for a in got}) == 10
 
 
+def test_single_word_names_match_by_equality_only():
+    cols = [{"identifier": "WarrenHaynes", "title": "Warren Haynes Presents War Stories"},
+            {"identifier": "War", "title": "War"}]
+    got = match_artists(["War"], cols)
+    assert [a["identifier"] for a in got] == ["War"]
+    # and with no exact-title collection present, a single word matches nothing
+    assert match_artists(["War"], cols[:1]) == []
+
+
 def test_zero_matches_writes_empty(tmp_path: Path):
     ws = RunWorkspace(tmp_path, "r1")
     fake = FakeProvider(completes=[proposed(["Nick Drake"])])
