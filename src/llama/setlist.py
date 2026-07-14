@@ -15,6 +15,12 @@ _NOISE = re.compile(
     r"|\bsbd\b|\bdat\b|\bflac\b|\bshn\b|cassette|master reel|\bvia\b|d\d+t\d+\s*$|disc\s*\d)",
     re.I,
 )
+# Older LMA items often give the whole setlist as one unbroken, comma/segue-separated
+# line with no per-set headers or line breaks at all. A per-line length cap would throw
+# the entire thing out, so the length guard against prose noise is applied per split
+# song title instead — legitimate titles are short; a paragraph of unstructured text
+# with no separators becomes one implausibly long "title" and is dropped here.
+MAX_TITLE_LEN = 80
 
 
 def _split_songs(chunk: str) -> list[tuple[str, bool]]:
@@ -45,7 +51,7 @@ def parse_setlist(description: str) -> ParsedSetlist:
     saw_marker = False
     items: list[SetlistItem] = []
     for line in lines:
-        if not line or len(line) > 160:
+        if not line:
             continue
         m = _SET_LINE.match(line)
         if m:
@@ -65,6 +71,8 @@ def parse_setlist(description: str) -> ParsedSetlist:
                 rest = line
         rest = _TRACK_PREFIX.sub("", rest)
         for title, segue in _split_songs(rest):
+            if len(title) > MAX_TITLE_LEN:
+                continue  # implausibly long fragment - prose, not a song title
             items.append(
                 SetlistItem(
                     title=title,

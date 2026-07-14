@@ -70,3 +70,30 @@ def test_encore_marker_does_not_eat_song_titles():
         "Eyes of the World", "El Paso", "Ripple", "And We Bid You Goodnight", "Attics of My Life",
     ]
     assert [i.set for i in parsed.items] == ["1", "1", "encore", "encore", "encore"]
+
+
+def test_unbroken_single_line_setlist_is_medium():
+    # Real-world archive.org convention (e.g. many early-2000s LMA uploads): the whole
+    # setlist as one long comma/segue-separated line, no per-set headers, no line breaks.
+    desc = (
+        "Morning Dew, Beat It On Down The Line, Ramble On Rose, Jack Straw, Box Of Rain, "
+        "They Love Each Other, Row Jimmy, El Paso, Bird Song, Dark Star-> He's Gone-> "
+        "Wharf Rat-> Truckin', Sugar Magnolia, Johnny B. Goode"
+    )
+    parsed = parse_setlist(desc)
+    assert len(parsed.items) >= 5
+    assert all(i.set == "1" for i in parsed.items)
+    assert parsed.confidence == "medium"
+
+
+def test_unstructured_prose_paragraph_stays_low():
+    # A long, unbroken paragraph with no set markers and no comma/segue separators at
+    # all collapses to a single implausibly-long "title" fragment and must not count.
+    prose = (
+        "The crowd at this show was unusually quiet during the first half but grew "
+        "louder and more energetic as the night went on until everyone was dancing "
+        "together near the stage by the end of the second half of the evening."
+    )
+    parsed = parse_setlist(prose)
+    assert parsed.items == []
+    assert parsed.confidence == "low"
