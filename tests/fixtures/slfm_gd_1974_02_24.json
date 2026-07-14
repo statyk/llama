@@ -1,0 +1,39 @@
+{
+  "type": "setlists",
+  "itemsPerPage": 20,
+  "page": 1,
+  "total": 1,
+  "setlist": [
+    {
+      "id": "73d1f9bd",
+      "eventDate": "24-02-1974",
+      "artist": {"mbid": "6faa7ca7-0d99-4a5e-bfa6-1fd5037520c6", "name": "Grateful Dead"},
+      "venue": {
+        "id": "23d63b83",
+        "name": "Winterland",
+        "city": {"name": "San Francisco", "state": "California", "stateCode": "CA",
+                 "country": {"code": "US", "name": "United States"}}
+      },
+      "sets": {
+        "set": [
+          {"song": [
+            {"name": "U.S. Blues"}, {"name": "Mexicali Blues"}, {"name": "Brown-Eyed Women"},
+            {"name": "Beat It on Down the Line"}, {"name": "Candyman"}, {"name": "Jack Straw"},
+            {"name": "China Cat Sunflower"}, {"name": "I Know You Rider"}, {"name": "El Paso"},
+            {"name": "Loser"}, {"name": "Playing in the Band"}
+          ]},
+          {"song": [
+            {"name": "Cumberland Blues"}, {"name": "It Must Have Been the Roses"},
+            {"name": "Big River"}, {"name": "Bertha"}, {"name": "Weather Report Suite"},
+            {"name": "Row Jimmy"}, {"name": "Ship of Fools"}, {"name": "The Promised Land"},
+            {"name": "Dark Star"}, {"name": "Morning Dew"}, {"name": "Sugar Magnolia"},
+            {"name": "Not Fade Away"}, {"name": "Goin' Down the Road Feeling Bad"},
+            {"name": "Not Fade Away"}
+          ]},
+          {"encore": 1, "song": [{"name": "It's All Over Now, Baby Blue"}]}
+        ]
+      },
+      "url": "https://www.setlist.fm/setlist/grateful-dead/1974/winterland-san-francisco-ca-73d1f9bd.html"
+    }
+  ]
+}
