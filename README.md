@@ -17,12 +17,19 @@ Optional config at `~/.llama/config.toml`:
 
     [llm.default]
     backend = "claude_cli"           # requires the `claude` CLI on PATH
-    # Model tiers: low=haiku, medium=sonnet, high=opus (claude_cli).
-    # Defaults: sonnet for most tasks; opus for deep_research and synthesize.
+    # backend = "openrouter"         # HTTP alternative; set OPENROUTER_API_KEY
+    # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
+    # gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
+    # Defaults: medium for most tasks; high for deep_research and synthesize.
+    # If a task's output fails validation twice, the final retry runs one
+    # tier up (exact `model` pins never escalate).
 
     [llm.synthesize]
     # tier = "medium"                # example: cheaper synthesis
     # model = "claude-opus-4-8"      # example: exact pin, bypasses tiers
+
+    [llm.tiers.openrouter]
+    # medium = "deepseek/deepseek-chat-v3"  # retarget what a tier means per backend
 
 ## Use
 

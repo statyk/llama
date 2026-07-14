@@ -25,9 +25,11 @@ implementation plan this was built from. The approved design spec is
 and emits a self-contained "show package" (verified audio, m3u, manifest with
 track titles/set breaks, LLM-written DJ notes) for an automated in-house radio
 station. Usage tilts heavily toward Grateful Dead shows (two sets + encore).
-LLM model choice is tiered (low/medium/high -> haiku/sonnet/opus on the
-claude_cli backend): Sonnet by default, Opus for deep_research/synthesize,
-overridable per task via `[llm.<task>]` `tier` or `model` in config.
+LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
+gemini-flash/sonnet-4.5/opus-4.1 on openrouter): medium by default, high for
+deep_research/synthesize, overridable per task via `[llm.<task>]` `tier`/`model`
+or per backend via `[llm.tiers.<backend>]`; a failed validation's final retry
+escalates one tier (pins never escalate).
 
 ## Architecture (from the spec — the short version)
 
@@ -41,9 +43,10 @@ overridable per task via `[llm.<task>]` `tier` or `model` in config.
   (artist + date + venue), not archive.org item id.
 - **LLM layer:** provider abstraction with two capabilities — `complete`
   (schema-validated, no tools) and `research` (needs web search). Dev backend
-  shells out to headless `claude -p`; OpenRouter comes later; a `fake` backend
-  serves tests. Set/segue structure is performance-level: gather builds a
-  canonical setlist from every recording's description plus setlist.fm
+  shells out to headless `claude -p`; `openrouter` is the HTTP alternative
+  (opt-in, needs `OPENROUTER_API_KEY`, research via the web plugin); a `fake`
+  backend serves tests. Set/segue structure is performance-level: gather builds
+  a canonical setlist from every recording's description plus setlist.fm
   (optional, key via `SETLISTFM_API_KEY` or `[setlistfm] api_key`; absent key
   = best-effort LMA-only) and aligns it onto the chosen recording's tracks
   (`structure.py`), falling back to the `align_structure` LLM touchpoint for
