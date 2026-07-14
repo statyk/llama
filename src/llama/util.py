@@ -26,3 +26,13 @@ def length_seconds(val) -> float | None:
         return float(s)
     except ValueError:
         return None
+
+
+def reviews_digest(reviews: list[dict], limit: int = 5) -> str:
+    """Trimmed listener-review digest: what synthesize consumes and packages ship."""
+    parts = []
+    for r in reviews[:limit]:
+        title = str(r.get("reviewtitle") or "").strip()
+        body = str(r.get("reviewbody") or "").strip()[:800]
+        parts.append(f"- {title}: {body}" if title else f"- {body}")
+    return "\n".join(parts) or "(no reviews)"
