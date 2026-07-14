@@ -1,0 +1,39 @@
+import math
+import re
+
+LINEAGE_SCORES = {"sbd": 3.0, "matrix": 2.5, "aud": 1.0, "unknown": 0.0}
+
+_MATRIX = re.compile(r"matrix|\bmtx\b", re.I)
+_SBD = re.compile(r"\bsbd\b|soundboard", re.I)
+_AUD = re.compile(r"\baud\b|\baudience\b", re.I)
+
+
+def lineage_class(identifier: str, metadata: dict) -> str:
+    text = identifier + " " + " ".join(
+        str(metadata.get(k, "")) for k in ("lineage", "source", "title")
+    )
+    if _MATRIX.search(text):
+        return "matrix"
+    if _SBD.search(text):
+        return "sbd"
+    if _AUD.search(text):
+        return "aud"
+    return "unknown"
+
+
+def score_recording(
+    *,
+    lineage: str,
+    avg_rating: float | None,
+    num_reviews: int,
+    has_wanted_format: bool,
+    completeness: float,
+    complaints: int,
+) -> float:
+    score = LINEAGE_SCORES.get(lineage, 0.0)
+    score += (avg_rating or 0.0) * math.log10(1 + max(num_reviews, 0))
+    if has_wanted_format:
+        score += 0.5
+    score += completeness  # 0..1: kept-track count vs best sibling
+    score -= 0.5 * min(complaints, 4)
+    return round(score, 3)
