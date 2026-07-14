@@ -20,7 +20,7 @@ from llama.stages.winnow import run_winnow
 from llama.util import slugify
 from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
 
-VALID_STAGES = {"search", "winnow", "select", "gather", "research", "synthesize", "package"}
+VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
 app = typer.Typer(help="Live Music Archive -> radio station pipeline")
@@ -62,6 +62,7 @@ def _show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
         "select": [show_ws.selection],
         "gather": [show_ws.show, show_ws.reviews],
         "research": [show_ws.research],
+        "vet": [show_ws.vetting],
         "synthesize": [show_ws.dj_notes_json, show_ws.dj_notes_md],
         "package": [show_ws.package_dir / "manifest.json"],
     }[stage]
@@ -75,7 +76,8 @@ def _print_shortlist(entries: list[ShortlistEntry]) -> None:
 
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
-             count: int, auto: bool, human_gate: bool, force: bool = False) -> None:
+             count: int, auto: bool, human_gate: bool, force: bool = False,
+             script: bool = False) -> None:
     providers = make_providers(config)
     artists = None
     if criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
@@ -121,7 +123,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     for entry in chosen:
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
-                               force=force, setlistfm=setlistfm, structure_cfg=config.structure)
+                               force=force, script=script, setlistfm=setlistfm,
+                               structure_cfg=config.structure)
         except (TaskFailed, LLMError, IAError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
@@ -141,6 +144,8 @@ def find(
     limit: int = typer.Option(0, "--limit", help="How many shows (0 = let the query decide)"),
     auto: bool = typer.Option(False, "--auto", help="No prompts; take top-ranked"),
     run_name: str = typer.Option(None, "--run-name"),
+    script: bool = typer.Option(False, "--script/--no-script",
+                                help="Also generate the verbatim DJ script (extra high-tier LLM call)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """One-off: find, vet, research, and package shows matching QUERY."""
@@ -149,7 +154,7 @@ def find(
     ws = RunWorkspace(config.root, name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
     count = limit or criteria.count
-    _execute(config, ia, ledger, ws, criteria, count, auto, human_gate=False)
+    _execute(config, ia, ledger, ws, criteria, count, auto, human_gate=False, script=script)
 
 
 @app.command()
@@ -158,6 +163,8 @@ def run(
     stage: str = typer.Option(None, "--stage", help="Force re-run of one stage"),
     auto: bool = typer.Option(True, "--auto/--interactive"),
     force: bool = typer.Option(False, "--force"),
+    script: bool = typer.Option(False, "--script/--no-script",
+                                help="Also generate the verbatim DJ script (extra high-tier LLM call)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Replay an existing run from its artifacts (stages skip work already done)."""
@@ -186,7 +193,8 @@ def run(
                         if path.exists():
                             path.unlink()
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False, force=force and stage is None)
+             human_gate=False, force=force and stage is None,
+             script=script or stage == "synthesize")
 
 
 @app.command()
@@ -252,13 +260,14 @@ def profile_add(
     query: str,
     count: int = typer.Option(1, "--count"),
     human_gate: bool = typer.Option(False, "--human-gate"),
+    script: bool = typer.Option(False, "--script"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Interpret QUERY once and save it as a named standing profile."""
     config, _, _ = _setup(config_path)
     scratch = RunWorkspace(config.root, f"profile-setup-{name}")
     criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
-    profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate)
+    profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate, script=script)
     path = save_profile(config.root, profile)
     typer.echo(f"saved: {path}")
 
@@ -275,7 +284,7 @@ def profile_run(
     ws = RunWorkspace(config.root, f"{date.today().isoformat()}-{name}")
     write_artifact(ws.criteria, profile.criteria)
     _execute(config, ia, ledger, ws, profile.criteria, profile.count, auto,
-             human_gate=profile.human_gate)
+             human_gate=profile.human_gate, script=profile.script)
 
 
 @profile_app.command("list")

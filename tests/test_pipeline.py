@@ -37,6 +37,12 @@ NOTES = json.dumps({
     "mentioned_songs": ["Morning Dew", "Dark Star", "Johnny B. Goode"],
 })
 
+VET = json.dumps({
+    "asserted_songs": ["Morning Dew", "Dark Star"],
+    "asserted_dates": ["1973-06-10"],
+    "context": "Peak 1973, RFK Stadium",
+})
+
 
 class FakeIA:
     def __init__(self, *args, **kwargs):
@@ -66,6 +72,7 @@ def fake_providers(config):
         "deep_research": FakeProvider(researches=["## Reputation\nLegendary RFK show."]),
         "synthesize": FakeProvider(completes=[NOTES]),
         "align_structure": FakeProvider(),
+        "vet_research": FakeProvider(completes=[VET]),
     }
 
 
@@ -83,7 +90,7 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, [
-        "find", "GD 1973 best soundboard", "--auto",
+        "find", "GD 1973 best soundboard", "--auto", "--script",
         "--run-name", "testrun", "--config", str(tmp_path / "config.toml"),
     ])
     assert result.exit_code == 0, result.output
@@ -98,6 +105,10 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     assert (pkg / "audio" / "01 - Morning Dew.mp3").exists()
     assert (pkg / "playlist.m3u").read_text().splitlines()[1] == "audio/01 - Morning Dew.mp3"
     assert (pkg / "dj-notes.md").exists()
+    assert (pkg / "research.md").exists()
+    assert (pkg / "reviews.md").exists()
+    assert manifest["schema_version"] == 2
+    assert manifest["show"]["context"] == "Peak 1973, RFK Stadium"
     # ledger records the clean show
     ledger_lines = (tmp_path / "ledger.jsonl").read_text().splitlines()
     assert json.loads(ledger_lines[0])["performance_id"] == "GratefulDead/1973-06-10"
@@ -112,7 +123,7 @@ def test_show_failure_is_isolated_and_raw_output_saved(tmp_path: Path, monkeypat
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, [
-        "find", "GD 1973", "--auto", "--run-name", "testrun3",
+        "find", "GD 1973", "--auto", "--script", "--run-name", "testrun3",
         "--config", str(tmp_path / "config.toml"),
     ])
     assert result.exit_code == 0, result.output
@@ -136,11 +147,55 @@ def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypat
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, [
-        "find", "GD 1973", "--auto", "--run-name", "testrun2",
+        "find", "GD 1973", "--auto", "--script", "--run-name", "testrun2",
         "--config", str(tmp_path / "config.toml"),
     ])
     assert result.exit_code == 0
     assert "needs-review" in result.output
     show_dir = tmp_path / "runs" / "testrun2" / "shows" / "gratefuldead-1973-06-10"
+    assert not (show_dir / "package" / "manifest.json").exists()
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_find_default_skips_script(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    providers = fake_providers(None)
+    providers["synthesize"] = FakeProvider()  # any call would raise: queue is empty
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--run-name", "noscript",
+        "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+    pkg = tmp_path / "runs" / "noscript" / "shows" / "gratefuldead-1973-06-10" / "package"
+    manifest = json.loads((pkg / "manifest.json").read_text())
+    assert manifest["dj_notes"] is None
+    assert manifest["research"] == "research.md"
+    assert manifest["set_breaks"][0]["note_index"] is None
+    assert manifest["show"]["context"] == "Peak 1973, RFK Stadium"
+    assert (pkg / "research.md").exists() and (pkg / "reviews.md").exists()
+    assert not (pkg / "dj-notes.md").exists()
+
+
+def test_vet_failure_skips_show_before_packaging(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    providers = fake_providers(None)
+    providers["vet_research"] = FakeProvider(completes=[json.dumps({
+        "asserted_songs": ["Werewolves of London"], "asserted_dates": [], "context": "",
+    })])
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--run-name", "badresearch",
+        "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+    assert "needs-review" in result.output
+    show_dir = tmp_path / "runs" / "badresearch" / "shows" / "gratefuldead-1973-06-10"
+    saved = json.loads((show_dir / "show.json").read_text())
+    assert any("unknown song" in f for f in saved["review_flags"])
     assert not (show_dir / "package" / "manifest.json").exists()
     assert not (tmp_path / "ledger.jsonl").exists()
