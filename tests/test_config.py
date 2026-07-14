@@ -1,6 +1,14 @@
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from llama.config import Config, load_config
+
+
+def test_invalid_audio_format_raises(tmp_path: Path):
+    with pytest.raises(ValidationError):
+        Config(audio_format="wav")
 
 
 def test_missing_file_gives_defaults(tmp_path: Path):

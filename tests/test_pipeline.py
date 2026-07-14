@@ -96,6 +96,28 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     assert json.loads(ledger_lines[0])["status"] == "selected"
 
 
+def test_show_failure_is_isolated_and_raw_output_saved(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    providers = fake_providers(None)
+    providers["synthesize"] = FakeProvider(completes=["not json"] * 3)
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--run-name", "testrun3",
+        "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+    assert "FAILED" in result.output
+
+    show_dir = tmp_path / "runs" / "testrun3" / "shows" / "gratefuldead-1973-06-10"
+    failure = show_dir / "llm-failure.txt"
+    assert failure.exists()
+    assert failure.read_text() == "not json"
+    assert not (show_dir / "package" / "manifest.json").exists()
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
 def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     providers = fake_providers(None)

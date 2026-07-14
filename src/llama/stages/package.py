@@ -18,6 +18,8 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes, force: b
     audio_dir.mkdir(parents=True, exist_ok=True)
     md5s = {f["name"]: f.get("md5") for f in ia.metadata(show.identifier).get("files", [])}
 
+    venue_city = ", ".join(p for p in [show.venue, show.city] if p)
+
     packaged: list[ManifestTrack] = []
     flags: list[str] = []
     for t in show.tracks:
@@ -28,7 +30,7 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes, force: b
         tag_audio(
             dest,
             artist=show.artist,
-            album=f"{show.date} {show.venue or ''}".strip(),
+            album=f"{show.date} {venue_city}".strip(),
             title=t.title, track=t.index, date=show.date, comment=show.identifier,
         )
         real = read_duration(dest)

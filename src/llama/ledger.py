@@ -30,5 +30,7 @@ class Ledger:
     def remove(self, performance_id: str) -> int:
         before = self.entries()
         kept = [e for e in before if e.performance_id != performance_id]
-        self.path.write_text("".join(e.model_dump_json() + "\n" for e in kept))
+        tmp = self.path.with_suffix(".jsonl.tmp")
+        tmp.write_text("".join(e.model_dump_json() + "\n" for e in kept))
+        tmp.replace(self.path)
         return len(before) - len(kept)

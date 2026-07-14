@@ -7,7 +7,7 @@ def test_lineage_from_identifier_and_metadata():
     assert lineage_class("gd83-10-21.aud.walker", {}) == "aud"
     assert lineage_class("gd95-07-09.unknown", {"source": "Soundboard > DAT"}) == "sbd"
     # 'aud' must not fire on substrings like 'auditorium'
-    assert lineage_class("gd78-05-16", {"venue": "Municipal Auditorium"}) == "unknown"
+    assert lineage_class("gd78-05-16", {"title": "Municipal Auditorium"}) == "unknown"
 
 
 def test_sbd_beats_aud_at_equal_ratings():

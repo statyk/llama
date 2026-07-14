@@ -81,7 +81,8 @@ def run_winnow(
     for i in range(0, len(payload), batch_size):
         batch = payload[i : i + batch_size]
         result = run_json_task(score_provider, "score_reviews", QualityBatch,
-                               candidates_json=json.dumps(batch, indent=2))
+                               candidates_json=json.dumps(batch, indent=2),
+                               soft_preferences=criteria.soft_preferences or "(none)")
         for a in result.assessments:
             a.reviewed_identifier = reviewed.get(a.performance_id, "")
             assessments[a.performance_id] = a

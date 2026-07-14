@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 import llama.cli as cli
 from llama.ledger import Ledger
 from llama.models import (
-    Candidate, LedgerEntry, QualityAssessment, RecordingSummary, ShortlistEntry,
+    Candidate, Criteria, LedgerEntry, QualityAssessment, RecordingSummary, ShortlistEntry,
 )
 from llama.workspace import RunWorkspace, read_model_list, write_artifact
 
@@ -75,6 +75,50 @@ def test_deliver_copies_package_and_records(tmp_path: Path):
     entries = Ledger(tmp_path / "ledger.jsonl").entries()
     assert entries[0].status == "delivered"
     assert entries[0].performance_id == "GratefulDead/1973-06-10"
+
+
+def test_deliver_refuses_needs_review_without_force(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    show_dir = tmp_path / "runs" / "r1" / "shows" / "gratefuldead-1973-06-10"
+    pkg = show_dir / "package"
+    (pkg / "audio").mkdir(parents=True)
+    (pkg / "manifest.json").write_text(json.dumps({
+        "schema_version": 1,
+        "show": {"artist": "Grateful Dead", "date": "1973-06-10", "venue": "RFK",
+                 "city": None, "context": ""},
+        "source": {"performance_id": "GratefulDead/1973-06-10"},
+        "tracks": [], "set_breaks": [],
+        "dj_notes": {"intro": "i", "set_intros": {}, "outro": "o"},
+        "total_duration_sec": 0, "set_durations_sec": {},
+    }))
+    (show_dir / "show.json").write_text(json.dumps({
+        "performance_id": "GratefulDead/1973-06-10", "identifier": "gd73",
+        "artist": "Grateful Dead", "date": "1973-06-10", "venue": "RFK",
+        "needs_review": True, "review_flags": ["duration mismatch on 01.mp3"],
+    }))
+    dest = tmp_path / "station-inbox"
+
+    result = runner.invoke(cli.app, ["deliver", str(show_dir), "--dest", str(dest), "--config", cfg])
+    assert result.exit_code == 1
+    assert "needs-review" in result.output
+    assert not dest.exists()
+
+    forced = runner.invoke(cli.app, ["deliver", str(show_dir), "--dest", str(dest),
+                                     "--force", "--config", cfg])
+    assert forced.exit_code == 0, forced.output
+    assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
+
+
+def test_run_unknown_stage_exits_with_message(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, Criteria(query="q"))
+
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--stage", "bogus", "--config", cfg])
+    assert result.exit_code == 1
+    assert "unknown stage" in result.output
 
 
 def test_profile_add_and_list(tmp_path: Path, monkeypatch):

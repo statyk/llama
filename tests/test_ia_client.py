@@ -65,6 +65,19 @@ def test_retries_exhausted_raises(tmp_path: Path):
         ia.search("q", ["identifier"])
 
 
+def test_4xx_does_not_retry(tmp_path: Path):
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(404)
+
+    ia = make_client(tmp_path, handler)
+    with pytest.raises(IAError):
+        ia.search("q", ["identifier"])
+    assert calls["n"] == 1
+
+
 def test_download_verifies_md5(tmp_path: Path):
     body = b"fake audio bytes"
 

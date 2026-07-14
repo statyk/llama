@@ -46,13 +46,20 @@ class IAClient:
             self._throttle()
             try:
                 resp = self.client.get(url, params=params)
-                if resp.status_code >= 500:
-                    raise IAError(f"archive.org returned {resp.status_code}")
-                resp.raise_for_status()
-                return resp
-            except (httpx.TransportError, httpx.HTTPStatusError, IAError) as e:
+            except httpx.TransportError as e:
                 last = e
-                time.sleep(self.backoff_s * (2**attempt))
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.backoff_s * (2**attempt))
+                continue
+            if 400 <= resp.status_code < 500:
+                # Client errors are not transient: retrying won't help.
+                raise IAError(f"archive.org returned {resp.status_code} for {url}")
+            if resp.status_code >= 500:
+                last = IAError(f"archive.org returned {resp.status_code}")
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.backoff_s * (2**attempt))
+                continue
+            return resp
         raise IAError(f"GET {url} failed after {self.max_retries} attempts: {last}") from last
 
     def _cached(self, key: str, fetch) -> dict | list:
@@ -103,5 +110,6 @@ class IAClient:
             except httpx.HTTPError as e:
                 last = e
                 tmp.unlink(missing_ok=True)
-                time.sleep(self.backoff_s * (2**attempt))
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.backoff_s * (2**attempt))
         raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last

@@ -6,8 +6,9 @@ from pathlib import Path
 import typer
 
 from llama.config import Config, load_config
-from llama.ia_client import IAClient
+from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
+from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import Profile, load_profile, save_profile
@@ -15,7 +16,10 @@ from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.util import slugify
-from llama.workspace import RunWorkspace, read_model, read_model_list, write_artifact
+from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
+
+VALID_STAGES = {"search", "winnow", "select", "gather", "research", "synthesize", "package"}
+RUN_LEVEL_STAGES = {"search", "winnow"}
 
 app = typer.Typer(help="Live Music Archive -> radio station pipeline")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -46,6 +50,21 @@ def _setup(config_path: Path | None) -> tuple[Config, IAClient, Ledger]:
     return config, ia, ledger
 
 
+def _parse_ranks(text: str) -> set[int]:
+    """Ignore non-numeric tokens so junk input never tracebacks."""
+    return {int(p) for p in text.split(",") if p.strip().isdigit()}
+
+
+def _show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
+    return {
+        "select": [show_ws.selection],
+        "gather": [show_ws.show, show_ws.reviews],
+        "research": [show_ws.research],
+        "synthesize": [show_ws.dj_notes_json, show_ws.dj_notes_md],
+        "package": [show_ws.package_dir / "manifest.json"],
+    }[stage]
+
+
 def _print_shortlist(entries: list[ShortlistEntry]) -> None:
     for e in entries:
         c = e.candidate
@@ -67,7 +86,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         picks = typer.prompt("Process which ranks? (comma-separated, empty = top picks)",
                              default="", show_default=False)
         if picks.strip():
-            wanted = {int(p) for p in picks.split(",")}
+            wanted = _parse_ranks(picks)
             for e in shortlist:
                 e.approved = e.rank in wanted
             write_artifact(ws.shortlist, shortlist)
@@ -76,7 +95,15 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         typer.echo(f"Shortlist awaits review: llama review {ws.dir}")
         return
     for entry in chosen:
-        pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format, force=force)
+        try:
+            pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format, force=force)
+        except (TaskFailed, LLMError, IAError) as exc:
+            if isinstance(exc, TaskFailed) and exc.raw_output:
+                failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
+                failure_path.parent.mkdir(parents=True, exist_ok=True)
+                failure_path.write_text(exc.raw_output)
+            typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+            continue
         if pkg:
             typer.echo(f"packaged: {pkg}")
         else:
@@ -114,11 +141,25 @@ def run(
     if not ws.criteria.exists():
         typer.echo(f"no criteria.json in {ws.dir}", err=True)
         raise typer.Exit(1)
+    if stage is not None and stage not in VALID_STAGES:
+        typer.echo(f"unknown stage {stage!r}; valid: {sorted(VALID_STAGES)}", err=True)
+        raise typer.Exit(1)
     criteria = read_model(ws.criteria, Criteria)
     if stage and force:
-        targets = {"search": ws.candidates, "winnow": ws.shortlist}
-        if stage in targets and targets[stage].exists():
-            targets[stage].unlink()
+        if stage in RUN_LEVEL_STAGES:
+            targets = {"search": ws.candidates, "winnow": ws.shortlist}
+            if targets[stage].exists():
+                targets[stage].unlink()
+        else:
+            shows_dir = ws.dir / "shows"
+            if shows_dir.exists():
+                for show_dir in sorted(shows_dir.iterdir()):
+                    if not show_dir.is_dir():
+                        continue
+                    show_ws = ShowWorkspace(show_dir)
+                    for path in _show_stage_artifacts(show_ws, stage):
+                        if path.exists():
+                            path.unlink()
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=force and stage is None)
 
@@ -134,7 +175,7 @@ def review(
     entries = read_model_list(ws.shortlist, ShortlistEntry)
     _print_shortlist(entries)
     picks = typer.prompt("Approve which ranks? (comma-separated)")
-    wanted = {int(p) for p in picks.split(",") if p.strip()}
+    wanted = _parse_ranks(picks)
     for e in entries:
         e.approved = e.rank in wanted
     write_artifact(ws.shortlist, entries)
@@ -145,6 +186,7 @@ def review(
 def deliver(
     show_dir: Path,
     dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
+    force: bool = typer.Option(False, "--force", help="Deliver even if the show is marked needs-review"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Copy a show package to the station's watched folder and record delivery."""
@@ -155,6 +197,16 @@ def deliver(
     if target_dir is None:
         typer.echo("no --dest given and no delivery_path in config", err=True)
         raise typer.Exit(1)
+    show_json = show_dir / "show.json"
+    if show_json.exists() and not force:
+        show_data = _json.loads(show_json.read_text())
+        if show_data.get("needs_review"):
+            flags = ", ".join(show_data.get("review_flags", []))
+            typer.echo(
+                f"refusing to deliver: show is marked needs-review ({flags}); use --force to override",
+                err=True,
+            )
+            raise typer.Exit(1)
     pkg = show_dir / "package"
     manifest = _json.loads((pkg / "manifest.json").read_text())
     out = target_dir / show_dir.name

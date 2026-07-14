@@ -1,5 +1,6 @@
 import tomllib
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -14,7 +15,7 @@ class LLMTaskConfig(BaseModel):
 class Config(BaseModel):
     root: Path = DEFAULT_ROOT
     delivery_path: Path | None = None
-    audio_format: str = "mp3"  # "mp3" | "flac"
+    audio_format: Literal["mp3", "flac"] = "mp3"
     llm: dict[str, LLMTaskConfig] = Field(default_factory=dict)
 
     def llm_for(self, task: str) -> LLMTaskConfig:

@@ -11,6 +11,8 @@ crowd noise) separately from opinions about the performance.
 Candidates (JSON):
 {{candidates_json}}
 
+Programmer's style/mood guidance (weigh shows matching it higher): {{soft_preferences}}
+
 Respond with ONLY JSON in this shape:
 {"assessments": [
   {"performance_id": "<echo the candidate's performance_id exactly>",
