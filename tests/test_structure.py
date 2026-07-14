@@ -1,5 +1,5 @@
 from llama.models import ParsedSetlist, SetlistItem, SourcedParse, Track
-from llama.structure import align, blend_segues, from_setlistfm, norm_title, rank_parses
+from llama.structure import align, blend_segues, from_setlistfm, norm_title, rank_parses, structure_guard
 
 
 def sp(source, sets_titles, confidence="high"):
@@ -156,3 +156,26 @@ def test_align_empty_inputs():
     assert r.sets == [] and r.coverage == 0.0
     r = align([tr(1, "A")], ParsedSetlist())
     assert r.sets == ["1"] and r.coverage == 0.0
+
+
+def _tracks(n, dur=300.0):
+    return [Track(index=i + 1, set="1", title=f"S{i}", filename=f"t{i}.mp3",
+                  duration_sec=dur, segue=False, title_source="tags") for i in range(n)]
+
+
+def test_guard_fires_on_long_duration_no_breaks():
+    assert structure_guard(_tracks(10, dur=700.0), []) == "single-set structure for a long show"
+
+
+def test_guard_fires_on_track_count_even_without_durations():
+    assert structure_guard(_tracks(20, dur=None), []) == "single-set structure for a long show"
+
+
+def test_guard_silent_on_short_single_set_and_any_multiset():
+    assert structure_guard(_tracks(8, dur=300.0), []) is None          # 40 min, 8 tracks
+    assert structure_guard(_tracks(30, dur=700.0), [11]) is None       # has a break
+
+
+def test_guard_respects_thresholds():
+    assert structure_guard(_tracks(10, dur=700.0), [], min_minutes=200) is None
+    assert structure_guard(_tracks(10, dur=None), [], min_tracks=10) is not None

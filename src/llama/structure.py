@@ -110,3 +110,16 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3) -
     conflicts = [it.title for k, it in enumerate(items) if k not in matched_idx]
     return AlignResult(sets=sets, segues=segues, matched=matched,
                        coverage=coverage, conflicts=conflicts)
+
+
+def structure_guard(tracks: list[Track], set_breaks: list[int],
+                    min_minutes: int = 100, min_tracks: int = 16) -> str | None:
+    """A long show with zero set breaks is implausible - flag for review."""
+    if set_breaks or not tracks:
+        return None
+    total = sum(t.duration_sec for t in tracks if t.duration_sec)
+    long_by_time = total >= min_minutes * 60
+    long_by_count = len(tracks) >= min_tracks
+    if long_by_time or long_by_count:
+        return "single-set structure for a long show"
+    return None
