@@ -73,6 +73,11 @@ class ParsedSetlist(BaseModel):
     confidence: str = "low"  # "high" | "medium" | "low"
 
 
+class SourcedParse(BaseModel):
+    source: str  # "setlist.fm" | "chosen" | "lma:<identifier>" | "llm"
+    parsed: ParsedSetlist
+
+
 class Track(BaseModel):
     index: int  # 1-based play order
     set: str
