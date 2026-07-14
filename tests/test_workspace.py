@@ -43,3 +43,8 @@ def test_workspace_layout(tmp_path: Path):
     assert sws.show.name == "show.json"
     assert sws.package_dir.name == "package"
     assert sws.dj_notes_md.name == "dj-notes.md"
+
+
+def test_run_workspace_artists_path(tmp_path: Path):
+    ws = RunWorkspace(tmp_path, "r")
+    assert ws.artists == ws.dir / "artists.json"

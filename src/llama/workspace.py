@@ -58,6 +58,7 @@ class RunWorkspace:
         self.criteria = self.dir / "criteria.json"
         self.candidates = self.dir / "candidates.json"
         self.shortlist = self.dir / "shortlist.json"
+        self.artists = self.dir / "artists.json"
 
     def show_ws(self, performance_id: str) -> ShowWorkspace:
         return ShowWorkspace(self.dir / "shows" / slugify(performance_id))
