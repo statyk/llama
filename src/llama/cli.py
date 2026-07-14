@@ -1,5 +1,6 @@
 import logging
-from datetime import date
+import shutil
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import typer
@@ -7,8 +8,9 @@ import typer
 from llama.config import Config, load_config
 from llama.ia_client import IAClient
 from llama.ledger import Ledger
-from llama.models import Criteria, ShortlistEntry
+from llama.models import Criteria, LedgerEntry, ShortlistEntry
 from llama.pipeline import choose_entries, make_providers, process_show
+from llama.profiles import Profile, load_profile, save_profile
 from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
@@ -17,6 +19,11 @@ from llama.workspace import RunWorkspace, read_model, read_model_list, write_art
 
 app = typer.Typer(help="Live Music Archive -> radio station pipeline")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+profile_app = typer.Typer(help="Standing criteria profiles for recurring segments")
+ledger_app = typer.Typer(help="Broadcast-history ledger")
+app.add_typer(profile_app, name="profile")
+app.add_typer(ledger_app, name="ledger")
 
 
 @app.callback()
@@ -114,3 +121,118 @@ def run(
             targets[stage].unlink()
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=force and stage is None)
+
+
+@app.command()
+def review(
+    run_dir: Path,
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Human gate: approve/prune a run's shortlist before processing."""
+    config, _, _ = _setup(config_path)
+    ws = RunWorkspace(config.root, run_dir.name)
+    entries = read_model_list(ws.shortlist, ShortlistEntry)
+    _print_shortlist(entries)
+    picks = typer.prompt("Approve which ranks? (comma-separated)")
+    wanted = {int(p) for p in picks.split(",") if p.strip()}
+    for e in entries:
+        e.approved = e.rank in wanted
+    write_artifact(ws.shortlist, entries)
+    typer.echo(f"approved: {sorted(wanted)}")
+
+
+@app.command()
+def deliver(
+    show_dir: Path,
+    dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Copy a show package to the station's watched folder and record delivery."""
+    import json as _json
+
+    config, _, ledger = _setup(config_path)
+    target_dir = dest or config.delivery_path
+    if target_dir is None:
+        typer.echo("no --dest given and no delivery_path in config", err=True)
+        raise typer.Exit(1)
+    pkg = show_dir / "package"
+    manifest = _json.loads((pkg / "manifest.json").read_text())
+    out = target_dir / show_dir.name
+    shutil.copytree(pkg, out, dirs_exist_ok=True)
+    show = manifest["show"]
+    ledger.record(LedgerEntry(
+        performance_id=manifest["source"].get("performance_id", show_dir.name),
+        artist=show["artist"], date=show["date"], venue=show.get("venue"),
+        status="delivered", run=show_dir.parent.parent.name,
+        recorded_at=datetime.now(timezone.utc).isoformat(),
+    ))
+    typer.echo(f"delivered: {out}")
+
+
+@profile_app.command("add")
+def profile_add(
+    name: str,
+    query: str,
+    count: int = typer.Option(1, "--count"),
+    human_gate: bool = typer.Option(False, "--human-gate"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Interpret QUERY once and save it as a named standing profile."""
+    config, _, _ = _setup(config_path)
+    scratch = RunWorkspace(config.root, f"profile-setup-{name}")
+    criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
+    profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate)
+    path = save_profile(config.root, profile)
+    typer.echo(f"saved: {path}")
+
+
+@profile_app.command("run")
+def profile_run(
+    name: str,
+    auto: bool = typer.Option(False, "--auto"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Find and process the profile's next N shows, avoiding ledger duplicates."""
+    config, ia, ledger = _setup(config_path)
+    profile = load_profile(config.root, name)
+    ws = RunWorkspace(config.root, f"{date.today().isoformat()}-{name}")
+    write_artifact(ws.criteria, profile.criteria)
+    _execute(config, ia, ledger, ws, profile.criteria, profile.count, auto,
+             human_gate=profile.human_gate)
+
+
+@profile_app.command("list")
+def profile_list(config_path: Path = typer.Option(None, "--config")):
+    config, _, _ = _setup(config_path)
+    profiles_dir = config.root / "profiles"
+    for p in sorted(profiles_dir.glob("*.toml")) if profiles_dir.exists() else []:
+        typer.echo(p.stem)
+
+
+@ledger_app.command("list")
+def ledger_list(config_path: Path = typer.Option(None, "--config")):
+    _, _, ledger = _setup(config_path)
+    for e in ledger.entries():
+        typer.echo(f"{e.recorded_at[:10]}  {e.status:9s}  {e.performance_id}  ({e.run})")
+
+
+@ledger_app.command("add")
+def ledger_add(
+    performance_id: str,
+    artist: str = typer.Option(..., "--artist"),
+    show_date: str = typer.Option(..., "--date"),
+    status: str = typer.Option("selected", "--status"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    _, _, ledger = _setup(config_path)
+    ledger.record(LedgerEntry(performance_id=performance_id, artist=artist, date=show_date,
+                              status=status, run="manual",
+                              recorded_at=datetime.now(timezone.utc).isoformat()))
+    typer.echo(f"recorded: {performance_id} ({status})")
+
+
+@ledger_app.command("remove")
+def ledger_remove(performance_id: str, config_path: Path = typer.Option(None, "--config")):
+    _, _, ledger = _setup(config_path)
+    n = ledger.remove(performance_id)
+    typer.echo(f"removed {n} entries")
