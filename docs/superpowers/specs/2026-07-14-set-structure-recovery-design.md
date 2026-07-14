@@ -60,8 +60,8 @@ run_gather(show_ws, ia, provider, candidate, identifier, setlistfm=None, ...)
        d. segue blend: winner supplies sets/order; segue flags overlaid
           from the best LMA parse by position-matched normalized title
        e. LLM extract_setlist fallback only if NO source yields a usable
-          parse — now run against the best available description, not
-          just the chosen recording's
+          parse — run against the longest non-empty description across
+          the performance's recordings, not just the chosen recording's
   3. resolve_titles(kept, canonical)                          (cascade unchanged:
        tags → setlist → sibling → filename/unresolved)
   4. align structure onto tracks:
@@ -105,8 +105,9 @@ repeat runs are offline.
 - `rank_parses(parses: list[SourcedParse]) -> SourcedParse | None` — the
   ranked pick-best.
 - `blend_segues(winner: ParsedSetlist, best_lma: ParsedSetlist) -> ParsedSetlist`
-  — overlays segue flags by position-matched normalized title; unmatched
-  titles keep `segue=False`.
+  — overlays segue flags by in-order normalized-title occurrence matching
+  (the same matching rule `align` uses, so repeated songs pair with the
+  right occurrence); unmatched titles keep `segue=False`.
 - `align(tracks: list[Track], canonical: ParsedSetlist) -> AlignResult` —
   ordered position-aware aligner (two-pointer with lookahead, LCS-flavored):
   repeated songs map to their in-order occurrences; skips tolerated on both
@@ -116,8 +117,8 @@ repeat runs are offline.
   coverage, unaligned indices, and conflicts.
 - `structure_guard(tracks, set_breaks, min_minutes, min_tracks) -> str | None`
   — returns the review-flag string or `None`. Runs on the final structure.
-  Missing per-file durations blind only the duration arm; the track-count
-  arm still works.
+  Duration is the sum of kept tracks' `duration_sec`; missing per-file
+  durations blind only the duration arm; the track-count arm still works.
 
 ### Config (`config.py`)
 
@@ -216,8 +217,8 @@ Fixtures:
   `scripts/capture_fixture.py` — second canonical fixture set alongside
   gd73-06-10.
 - One captured real setlist.fm response for 1974-02-24 plus a no-match
-  response, checked in as JSON; capture script gains a `--setlistfm` mode
-  (or a small sibling script).
+  response, checked in as JSON; `scripts/capture_fixture.py` gains a
+  `--setlistfm` flag.
 
 Unit tests (`tests/test_structure.py`): `from_setlistfm` conversion and
 stub rejection; `rank_parses` ordering rules; `blend_segues` position
