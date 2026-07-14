@@ -140,6 +140,18 @@ class DJNotes(BaseModel):
     mentioned_songs: list[str] = Field(default_factory=list)
 
 
+class ResearchVetting(BaseModel):
+    """What research.md asserts about this show, extracted for grounding checks."""
+    asserted_songs: list[str] = Field(default_factory=list)
+    asserted_dates: list[str] = Field(default_factory=list)
+    context: str = ""  # one-line era/tour context for the manifest
+
+
+class VettingResult(BaseModel):
+    vetting: ResearchVetting
+    flags: list[str] = Field(default_factory=list)  # empty = research passed
+
+
 class ManifestTrack(BaseModel):
     index: int
     set: str

@@ -37,3 +37,12 @@ def test_ledger_entry():
         date="1973-06-10", status="selected", run="r1", recorded_at="2026-07-14T00:00:00+00:00",
     )
     assert e.venue is None
+
+
+def test_research_vetting_defaults():
+    from llama.models import ResearchVetting, VettingResult
+
+    v = ResearchVetting()
+    assert v.asserted_songs == [] and v.asserted_dates == [] and v.context == ""
+    r = VettingResult(vetting=v)
+    assert r.flags == []
