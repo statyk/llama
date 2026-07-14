@@ -39,11 +39,17 @@ def run_discover(ws, provider, ia, criteria, *, max_artists: int = 10,
    New LLM task key `propose_artists`, default tier `medium`.
 3. **Match (deterministic):** normalize proposed names and collection titles
    (lowercase, strip punctuation — same normalization style as `songs.py`);
-   a proposed name matches a collection when normalized-equal, or when one
-   normalized string contains the other (handles "Doc Watson" vs
-   "Doc and Merle Watson"). A proposed name keeps at most its single best
-   match (equality beats containment; first-listed wins ties). Order is the
-   LLM's ranking; cap at `max_artists`.
+   a proposed name matches a collection when normalized-equal, or by
+   word-set containment — every word of the shorter name appears in the
+   longer one (handles "Doc Watson" vs "Doc and Merle Watson", where plain
+   substring matching fails) — guarded so containment requires the shorter
+   side to have ≥2 words (single-word names like "War" match by equality
+   only, to avoid grabbing unrelated titles). A proposed name keeps at most
+   its single best match (equality beats containment; first-listed wins
+   ties). Order is the LLM's ranking; cap at `max_artists`.
+   *(Amended during execution: the original substring rule failed its own
+   Doc Watson example; word-set containment with the single-word guard is
+   what shipped.)*
 4. Write `artists.json` to the run workspace: `[{"identifier", "title"}]`.
    Standard stage discipline: skip-if-exists unless force, atomic write.
    Zero matches: write the empty list, and the CLI reports "none of the

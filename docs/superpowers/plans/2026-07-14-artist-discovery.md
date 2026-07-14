@@ -14,7 +14,7 @@
 
 - Trigger condition exactly: `criteria.collection is None and criteria.artist is None and criteria.soft_preferences` — otherwise discover never runs and no `artists.json` exists.
 - Collections enumeration query exactly: `collection:etree AND mediatype:collection`, fields `["identifier", "title"]`, `rows=10000` (disk-cached by the existing IAClient).
-- Matching: normalized (lowercase, apostrophes dropped, punctuation → space, whitespace collapsed) equality beats containment (either direction); one best collection per proposed name; first-listed collection wins ties; LLM order preserved; deduped; capped at `max_artists=10`.
+- Matching: normalized (lowercase, apostrophes dropped, punctuation → space, whitespace collapsed) equality beats containment; containment is word-set based (shorter name's words ⊆ longer name's words) and requires the shorter side to have ≥2 words (amended during execution — plain substring failed the Doc Watson case; single-word names match by equality only); one best collection per proposed name; first-listed collection wins ties; LLM order preserved; deduped; capped at `max_artists=10`.
 - Zero matches: write the empty list; CLI reports `none of the proposed artists were found on the LMA - try naming an artist or broadening the style` to stderr and returns without searching.
 - New LLM task key `propose_artists`, default tier `medium`. Prompt placeholders exactly: `query`, `soft_preferences`, `date_from`, `date_to`.
 - `run_search(..., artists=None)` behavior byte-identical to today.
