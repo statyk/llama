@@ -179,3 +179,30 @@ def test_guard_silent_on_short_single_set_and_any_multiset():
 def test_guard_respects_thresholds():
     assert structure_guard(_tracks(10, dur=700.0), [], min_minutes=200) is None
     assert structure_guard(_tracks(10, dur=None), [], min_tracks=10) is not None
+
+
+from llama.models import AlignedStructure, AlignedTrack
+from llama.structure import apply_llm_alignment
+
+
+def test_apply_llm_alignment_builds_result():
+    tracks = _tracks(3)
+    resp = AlignedStructure(tracks=[
+        AlignedTrack(index=1, set="1", segue=True, matched_title="A"),
+        AlignedTrack(index=3, set="encore", segue=False, matched_title=""),
+        AlignedTrack(index=2, set="2", segue=False, matched_title="B"),
+    ])
+    r = apply_llm_alignment(tracks, resp)
+    assert r.sets == ["1", "2", "encore"]      # reordered by index
+    assert r.segues == [True, False, False]
+    assert r.matched == [True, True, False]
+    assert abs(r.coverage - 2 / 3) < 1e-9
+
+
+def test_apply_llm_alignment_rejects_bad_indices_or_sets():
+    tracks = _tracks(2)
+    missing = AlignedStructure(tracks=[AlignedTrack(index=1, set="1")])
+    assert apply_llm_alignment(tracks, missing) is None
+    bad_set = AlignedStructure(tracks=[AlignedTrack(index=1, set="1"),
+                                       AlignedTrack(index=2, set="afterparty")])
+    assert apply_llm_alignment(tracks, bad_set) is None

@@ -7,7 +7,7 @@ the chosen recording's tracks.
 """
 import re
 
-from llama.models import AlignResult, ParsedSetlist, SetlistItem, SourcedParse, Track
+from llama.models import AlignedStructure, AlignResult, ParsedSetlist, SetlistItem, SourcedParse, Track
 from llama.songs import normalize_song
 
 # "E: Baby Blue" / "Encore: Casey Jones" - structure markers embedded in a title.
@@ -123,3 +123,21 @@ def structure_guard(tracks: list[Track], set_breaks: list[int],
     if long_by_time or long_by_count:
         return "single-set structure for a long show"
     return None
+
+
+_VALID_SETS = {"1", "2", "3", "encore"}
+
+
+def apply_llm_alignment(tracks: list[Track], resp: AlignedStructure) -> AlignResult | None:
+    """Convert an align_structure LLM response to an AlignResult, or None if
+    the response does not cover exactly the track indices with valid sets."""
+    by_idx = {a.index: a for a in resp.tracks}
+    if set(by_idx) != set(range(1, len(tracks) + 1)) or len(by_idx) != len(resp.tracks):
+        return None
+    ordered = [by_idx[i] for i in range(1, len(tracks) + 1)]
+    if any(a.set not in _VALID_SETS for a in ordered):
+        return None
+    matched = [bool(a.matched_title) for a in ordered]
+    coverage = (sum(matched) / len(tracks)) if tracks else 0.0
+    return AlignResult(sets=[a.set for a in ordered], segues=[a.segue for a in ordered],
+                       matched=matched, coverage=coverage)

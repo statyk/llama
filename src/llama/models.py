@@ -86,6 +86,17 @@ class AlignResult(BaseModel):
     conflicts: list[str] = Field(default_factory=list)
 
 
+class AlignedTrack(BaseModel):
+    index: int
+    set: str
+    segue: bool = False
+    matched_title: str = ""
+
+
+class AlignedStructure(BaseModel):
+    tracks: list[AlignedTrack]
+
+
 class Track(BaseModel):
     index: int  # 1-based play order
     set: str
