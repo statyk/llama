@@ -56,3 +56,38 @@ def test_run_research_task(monkeypatch):
     fake = FakeProvider(researches=["# Findings"])
     assert tasks.run_research_task(fake, "deep_research", topic="RFK 73") == "# Findings"
     assert fake.calls == [("research", "Research RFK 73")]
+
+
+def test_run_json_task_escalates_on_final_attempt(monkeypatch):
+    use_template(monkeypatch, "Q: {{q}}")
+    base = FakeProvider(completes=["bad", "still bad"])
+    escalated = FakeProvider(completes=['{"value": 9}'])
+    result = tasks.run_json_task([base, base, escalated], "interpret", Answer, q="x")
+    assert result.value == 9
+    assert len(base.calls) == 2
+    assert len(escalated.calls) == 1
+    assert "previous response was invalid" in escalated.calls[0][1]
+
+
+def test_run_json_task_short_ladder_reuses_last_rung(monkeypatch):
+    use_template(monkeypatch, "Q: {{q}}")
+    only = FakeProvider(completes=["bad", "bad", '{"value": 3}'])
+    assert tasks.run_json_task([only], "interpret", Answer, q="x").value == 3
+
+
+def test_run_research_task_uses_first_rung(monkeypatch):
+    use_template(monkeypatch, "Research {{topic}}")
+    base = FakeProvider(researches=["# Findings"])
+    escalated = FakeProvider()
+    assert tasks.run_research_task([base, escalated], "deep_research", topic="x") == "# Findings"
+    assert escalated.calls == []
+
+
+def test_make_providers_builds_ladders():
+    from llama.config import Config
+    from llama.pipeline import make_providers
+    providers = make_providers(Config())
+    # interpret is a medium task: base, base, escalated-to-high
+    assert [p.model for p in providers["interpret"]] == ["sonnet", "sonnet", "opus"]
+    # synthesize is already high: no headroom
+    assert [p.model for p in providers["synthesize"]] == ["opus", "opus", "opus"]

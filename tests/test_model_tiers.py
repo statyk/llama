@@ -1,7 +1,7 @@
 import pytest
 
 from llama.config import Config, LLMTaskConfig
-from llama.llm import DEFAULT_TIERS, TIER_MODELS, provider_for, resolve_model
+from llama.llm import DEFAULT_TIERS, TIER_MODELS, provider_for, provider_ladder, resolve_model
 from llama.llm.openrouter import OpenRouterProvider
 from llama.llm.provider import LLMError
 
@@ -110,3 +110,33 @@ def test_tiers_only_backend_fails_at_provider_construction():
     assert resolve_model(cfg, "interpret") == ("custom", "x/y")
     with pytest.raises(LLMError, match="unknown LLM backend"):
         provider_for(cfg, "interpret")
+
+
+def test_ladder_escalates_final_attempt(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    cfg = Config(llm={"default": LLMTaskConfig(backend="openrouter")})
+    ladder = provider_ladder(cfg, "interpret")  # medium task: final rung one tier up
+    assert [p.model for p in ladder] == [
+        "anthropic/claude-sonnet-4.5",
+        "anthropic/claude-sonnet-4.5",
+        "anthropic/claude-opus-4.1",
+    ]
+
+
+def test_ladder_high_tier_has_no_headroom():
+    ladder = provider_ladder(Config(), "synthesize")
+    assert [p.model for p in ladder] == ["opus", "opus", "opus"]
+
+
+def test_ladder_model_pin_never_escalates():
+    cfg = Config(llm={"interpret": LLMTaskConfig(model="claude-opus-4-8")})
+    ladder = provider_ladder(cfg, "interpret")
+    assert [p.model for p in ladder] == ["claude-opus-4-8"] * 3
+
+
+def test_ladder_low_tier_escalates_to_medium():
+    cfg = Config(llm={"default": LLMTaskConfig(backend="claude_cli", tier="low")},
+                 tiers={"claude_cli": {"medium": "sonnet-cheap"}})
+    # low escalates to medium, and the escalated rung honors the config overlay
+    assert [p.model for p in provider_ladder(cfg, "interpret")] == [
+        "haiku", "haiku", "sonnet-cheap"]

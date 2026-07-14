@@ -61,3 +61,26 @@ def _construct(backend: str, model: str, task: str) -> LLMProvider:
 def provider_for(config: Config, task: str) -> LLMProvider:
     backend, model = resolve_model(config, task)
     return _construct(backend, model, task)
+
+
+# One step up per tier; high has no headroom.
+ESCALATE = {"low": "medium", "medium": "high", "high": "high"}
+
+
+def provider_ladder(config: Config, task: str, attempts: int = 3) -> list[LLMProvider]:
+    """One provider per attempt: [base, ..., base, escalated].
+
+    The final attempt runs one tier up on the same backend. Explicit model
+    pins, high-tier tasks, and merged tables lacking the escalated tier
+    never escalate (the ladder is all base rungs).
+    """
+    cfg = config.llm_for(task)
+    base = provider_for(config, task)
+    if attempts <= 1 or cfg.model:
+        return [base] * max(attempts, 1)
+    tier = cfg.tier or DEFAULT_TIERS.get(task, "medium")
+    up = ESCALATE[tier]
+    up_model = _tier_table(config, cfg.backend).get(up)
+    if up == tier or up_model is None:
+        return [base] * attempts
+    return [base] * (attempts - 1) + [_construct(cfg.backend, up_model, task)]

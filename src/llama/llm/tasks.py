@@ -1,9 +1,20 @@
 import re
+from collections.abc import Sequence
 from importlib import resources
 
 from pydantic import BaseModel, ValidationError
 
 from llama.llm.provider import LLMProvider, TaskFailed
+
+ProviderOrLadder = LLMProvider | Sequence[LLMProvider]
+
+
+def _as_ladder(provider: ProviderOrLadder) -> list[LLMProvider]:
+    if isinstance(provider, (list, tuple)):
+        if not provider:
+            raise ValueError("empty provider ladder")
+        return list(provider)
+    return [provider]
 
 
 def load_prompt(name: str) -> str:
@@ -33,18 +44,19 @@ def extract_json(text: str) -> str:
 
 
 def run_json_task(
-    provider: LLMProvider,
+    provider: ProviderOrLadder,
     task: str,
     schema: type[BaseModel],
     *,
     retries: int = 2,
     **inputs,
 ) -> BaseModel:
+    ladder = _as_ladder(provider)
     prompt = render(load_prompt(task), **inputs)
     attempt_prompt = prompt
     raw = ""
-    for _ in range(retries + 1):
-        raw = provider.complete(attempt_prompt)
+    for attempt in range(retries + 1):
+        raw = ladder[min(attempt, len(ladder) - 1)].complete(attempt_prompt)
         try:
             return schema.model_validate_json(extract_json(raw))
         except (ValidationError, ValueError) as err:
@@ -56,5 +68,5 @@ def run_json_task(
     raise TaskFailed(f"LLM task {task!r} failed after {retries + 1} attempts", raw_output=raw)
 
 
-def run_research_task(provider: LLMProvider, task: str, **inputs) -> str:
-    return provider.research(render(load_prompt(task), **inputs))
+def run_research_task(provider: ProviderOrLadder, task: str, **inputs) -> str:
+    return _as_ladder(provider)[0].research(render(load_prompt(task), **inputs))

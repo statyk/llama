@@ -4,7 +4,7 @@ from pathlib import Path
 
 from llama.config import Config
 from llama.ledger import Ledger
-from llama.llm import provider_for
+from llama.llm import provider_ladder
 from llama.models import LedgerEntry, Show, ShortlistEntry
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
@@ -22,7 +22,7 @@ TASK_KEYS = ["interpret", "score_reviews", "light_research",
 
 
 def make_providers(config: Config) -> dict:
-    return {key: provider_for(config, key) for key in TASK_KEYS}
+    return {key: provider_ladder(config, key) for key in TASK_KEYS}
 
 
 def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool):
