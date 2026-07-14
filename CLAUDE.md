@@ -47,7 +47,7 @@ overridable per task via `[llm.<task>]` `tier` or `model` in config.
   (optional, key via `SETLISTFM_API_KEY` or `[setlistfm] api_key`; absent key
   = best-effort LMA-only) and aligns it onto the chosen recording's tracks
   (`structure.py`), falling back to the `align_structure` LLM touchpoint for
-  messy alignments. Seven named touchpoints, each with a prompt template file
+  messy alignments. Eight named touchpoints, each with a prompt template file
   under `prompts/` and a Pydantic output schema. LLM calls live only at stage
   boundaries — everything else is deterministic.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
