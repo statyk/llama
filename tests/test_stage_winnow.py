@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from llama.ledger import Ledger
@@ -91,3 +92,20 @@ def test_winnow_skips_if_artifact_exists(tmp_path: Path):
     run_winnow(ws, fake, fake, StubIA(), crit, led)
     again = run_winnow(ws, FakeProvider(), FakeProvider(), StubIA(), crit, led)  # empty queues: must not call LLM
     assert len(again) == 1
+
+
+def test_winnow_logs_progress(tmp_path: Path, caplog):
+    cands = [candidate(f"GratefulDead/1974-0{i}-01", f"1974-0{i}-01") for i in range(1, 6)]
+    ws, led = setup(tmp_path, cands)
+    pids = [c.performance_id for c in cands]
+    fake = FakeProvider(
+        completes=[assessments_json(pids[:2]), assessments_json(pids[2:4]), assessments_json(pids[4:])],
+        researches=["r"] * 5,
+    )
+    crit = Criteria(query="q", collection="GratefulDead")
+    with caplog.at_level(logging.INFO, logger="llama"):
+        run_winnow(ws, fake, fake, StubIA(), crit, led, batch_size=2)
+    messages = [r.getMessage() for r in caplog.records]
+    assert "winnow: fetching reviews 5/5" in messages
+    assert "winnow: scoring reviews batch 3/3" in messages
+    assert any(m.startswith("winnow: researching ") and m.endswith("(5/5)") for m in messages)

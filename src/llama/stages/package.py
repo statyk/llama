@@ -1,9 +1,12 @@
+import logging
 from pathlib import Path
 
 from llama.audio import packaged_filename, read_duration, tag_audio
 from llama.manifest import build_manifest, m3u_text
 from llama.models import DJNotes, ManifestTrack, Show
 from llama.workspace import ShowWorkspace, read_model, write_artifact
+
+log = logging.getLogger("llama")
 
 DURATION_TOLERANCE_S = 5.0
 
@@ -26,6 +29,7 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes, force: b
         out_name = packaged_filename(t.index, t.title, Path(t.filename).suffix)
         dest = audio_dir / out_name
         if not dest.exists() or force:
+            log.info("downloading %d/%d: %s", t.index, len(show.tracks), t.filename)
             ia.download_file(show.identifier, t.filename, dest, md5=md5s.get(t.filename))
         tag_audio(
             dest,

@@ -6,6 +6,7 @@ from llama.llm.tasks import run_json_task, run_research_task
 from llama.models import Candidate, Criteria, QualityBatch, ShortlistEntry
 from llama.setlist import parse_setlist
 from llama.songs import matches_sequence
+from llama.status import step
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -60,7 +61,8 @@ def run_winnow(
 
     payload = []
     reviewed: dict[str, str] = {}
-    for c in survivors:
+    for i, c in enumerate(survivors, 1):
+        log.info("winnow: fetching reviews %d/%d", i, len(survivors))
         best = _best_recording(c)
         md = ia.metadata(best.identifier)
         reviewed[c.performance_id] = best.identifier
@@ -78,11 +80,13 @@ def run_winnow(
         })
 
     assessments = {}
-    for i in range(0, len(payload), batch_size):
+    n_batches = (len(payload) + batch_size - 1) // batch_size
+    for bi, i in enumerate(range(0, len(payload), batch_size), 1):
         batch = payload[i : i + batch_size]
-        result = run_json_task(score_provider, "score_reviews", QualityBatch,
-                               candidates_json=json.dumps(batch, indent=2),
-                               soft_preferences=criteria.soft_preferences or "(none)")
+        with step(f"winnow: scoring reviews batch {bi}/{n_batches}"):
+            result = run_json_task(score_provider, "score_reviews", QualityBatch,
+                                   candidates_json=json.dumps(batch, indent=2),
+                                   soft_preferences=criteria.soft_preferences or "(none)")
         for a in result.assessments:
             a.reviewed_identifier = reviewed.get(a.performance_id, "")
             assessments[a.performance_id] = a
@@ -94,11 +98,12 @@ def run_winnow(
 
     entries: list[ShortlistEntry] = []
     for rank, (c, a) in enumerate(top, 1):
-        rep = run_research_task(
-            research_provider, "light_research",
-            artist=criteria.artist or criteria.collection or c.collection,
-            date=c.date, venue=c.venue or "unknown venue",
-        )
+        with step(f"winnow: researching {c.performance_id} ({rank}/{len(top)})"):
+            rep = run_research_task(
+                research_provider, "light_research",
+                artist=criteria.artist or criteria.collection or c.collection,
+                date=c.date, venue=c.venue or "unknown venue",
+            )
         entries.append(ShortlistEntry(candidate=c, assessment=a,
                                       external_reputation=rep, rank=rank))
     write_artifact(ws.shortlist, entries)

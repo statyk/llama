@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from llama.models import DJNotes, Show, Track
@@ -82,3 +83,12 @@ def test_package_skips_when_manifest_exists(tmp_path: Path):
     run_package(sws, ia, show, make_notes())
     run_package(sws, ia, show, make_notes())
     assert len(ia.downloads) == 2  # no re-downloads on second call
+
+
+def test_package_logs_downloads(tmp_path: Path, caplog):
+    sws, show = setup(tmp_path)
+    with caplog.at_level(logging.INFO, logger="llama"):
+        run_package(sws, StubIA(), show, make_notes())
+    messages = [r.getMessage() for r in caplog.records]
+    assert "downloading 1/2: d1t01.mp3" in messages
+    assert "downloading 2/2: d2t01.mp3" in messages
