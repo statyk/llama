@@ -11,6 +11,7 @@ EXPECTED = {
     "extract_setlist": {"description"},
     "deep_research": {"artist", "date", "venue", "dossier", "setlist"},
     "synthesize": {"show_json", "research", "reviews_digest", "sets", "n_breaks"},
+    "propose_artists": {"query", "soft_preferences", "date_from", "date_to"},
 }
 
 

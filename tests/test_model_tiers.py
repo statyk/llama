@@ -53,4 +53,5 @@ def test_tables_match_spec():
         "interpret": "medium", "score_reviews": "medium",
         "light_research": "medium", "extract_setlist": "medium",
         "deep_research": "high", "synthesize": "high",
+        "propose_artists": "medium",
     }

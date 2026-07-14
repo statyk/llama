@@ -141,3 +141,7 @@ class LedgerEntry(BaseModel):
     status: str  # "selected" | "delivered" | "rejected"
     run: str
     recorded_at: str  # ISO-8601 UTC
+
+
+class ProposedArtists(BaseModel):
+    artists: list[str] = Field(default_factory=list)
