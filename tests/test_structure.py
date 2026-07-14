@@ -1,5 +1,5 @@
 from llama.models import ParsedSetlist, SetlistItem, SourcedParse
-from llama.structure import from_setlistfm, norm_title, rank_parses
+from llama.structure import blend_segues, from_setlistfm, norm_title, rank_parses
 
 
 def sp(source, sets_titles, confidence="high"):
@@ -60,3 +60,31 @@ def test_rank_ties_go_to_first_listed_and_empty_is_unrankable():
     assert rank_parses([a, b], 5).source == "chosen"
     assert rank_parses([SourcedParse(source="chosen", parsed=ParsedSetlist())], 5) is None
     assert rank_parses([], 5) is None
+
+
+def pl(*titles_segues, confidence="high"):
+    items = [SetlistItem(title=t, normalized=norm_title(t), set="1", segue=g)
+             for t, g in titles_segues]
+    return ParsedSetlist(items=items, confidence=confidence)
+
+
+def test_blend_overlays_lma_segues_onto_winner():
+    winner = pl(("China Cat Sunflower", False), ("I Know You Rider", False), ("Loser", False))
+    lma = pl(("China Cat Sunflower", True), ("I Know You Rider", False), ("Loser", False))
+    out = blend_segues(winner, lma)
+    assert [i.segue for i in out.items] == [True, False, False]
+    assert out.confidence == winner.confidence
+
+
+def test_blend_matches_repeated_songs_in_order():
+    winner = pl(("Not Fade Away", False), ("GDTRFB", False), ("Not Fade Away", False))
+    lma = pl(("Not Fade Away", True), ("GDTRFB", True), ("Not Fade Away", False))
+    out = blend_segues(winner, lma)
+    assert [i.segue for i in out.items] == [True, True, False]
+
+
+def test_blend_noop_when_lma_missing_same_or_segue_free():
+    winner = pl(("A", False), ("B", False))
+    assert blend_segues(winner, None) is winner
+    assert blend_segues(winner, winner) is winner
+    assert blend_segues(winner, pl(("A", False), ("B", False))) is winner

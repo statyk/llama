@@ -58,3 +58,19 @@ def rank_parses(parses: list[SourcedParse], target_count: int) -> SourcedParse |
     # max() keeps the first maximal element, so callers list the chosen
     # recording first to win ties among copy-paste descriptions.
     return max(candidates, key=key)
+
+
+def blend_segues(winner: ParsedSetlist, lma: ParsedSetlist | None) -> ParsedSetlist:
+    """Overlay LMA segue notation onto the winning parse (taper descriptions
+    carry segues; setlist.fm generally does not)."""
+    if lma is None or lma is winner or not any(i.segue for i in lma.items):
+        return winner
+    pools: dict[str, list[SetlistItem]] = {}
+    for it in lma.items:
+        pools.setdefault(it.normalized, []).append(it)
+    items = []
+    for it in winner.items:
+        pool = pools.get(it.normalized)
+        src = pool.pop(0) if pool else None
+        items.append(it.model_copy(update={"segue": src.segue}) if src else it)
+    return ParsedSetlist(items=items, confidence=winner.confidence)
