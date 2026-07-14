@@ -3,3 +3,5 @@
 *.shn
 __pycache__/
 .venv/
+.superpowers/
+.venv/
