@@ -46,6 +46,7 @@ class ShowWorkspace:
         self.show = dir / "show.json"
         self.reviews = dir / "reviews.json"
         self.research = dir / "research.md"
+        self.vetting = dir / "vetting.json"
         self.dj_notes_md = dir / "dj-notes.md"
         self.dj_notes_json = dir / "dj-notes.json"
         self.package_dir = dir / "package"
