@@ -11,6 +11,7 @@ COLLECTIONS_QUERY = "collection:etree AND mediatype:collection"
 
 _PUNCT = re.compile(r"[^a-z0-9 ]+")
 _WS = re.compile(r"\s+")
+_STOPWORDS = {"the", "a", "an", "and", "of"}
 
 
 def _norm(name: str) -> str:
@@ -24,10 +25,16 @@ def match_artists(proposed: list[str], collections: list[dict], max_artists: int
 
     Containment is word-set based (every word of the shorter name appears in the
     longer one), not literal substring — e.g. "Doc Watson" must match "Doc and
-    Merle Watson" even though "and Merle" splits the words apart. Containment
-    only applies when the shorter side has at least 2 words; single-word names
+    Merle Watson" even though "and Merle" splits the words apart. Stopwords
+    ({"the", "a", "an", "and", "of"}) are stripped before this comparison, so
+    stopword-heavy names like "The Band" or "The Who" can't subset-match
+    unrelated titles ("The Allman Brothers Band", "The Guess Who") on the
+    strength of shared stopwords alone. Containment only applies when the
+    shorter (post-stopword) side has at least 2 words; single-word names
     (e.g. "War") match only by normalized equality, so they can't subset-match
-    an unrelated multi-word title that happens to contain that word.
+    an unrelated multi-word title that happens to contain that word. Equality
+    comparison is on the full normalized string (stopwords included), so "The
+    Band" still exact-matches a collection titled "The Band".
     """
     normed = [(c, _norm(str(c.get("title") or ""))) for c in collections if c.get("identifier")]
     out: list[dict] = []
@@ -36,7 +43,7 @@ def match_artists(proposed: list[str], collections: list[dict], max_artists: int
         n = _norm(name)
         if not n:
             continue
-        n_words = set(n.split())
+        n_words = set(n.split()) - _STOPWORDS
         best = None
         for c, ct in normed:
             if not ct:
@@ -45,7 +52,7 @@ def match_artists(proposed: list[str], collections: list[dict], max_artists: int
                 best = c
                 break
             if best is None:
-                ct_words = set(ct.split())
+                ct_words = set(ct.split()) - _STOPWORDS
                 shorter_len = min(len(n_words), len(ct_words))
                 if shorter_len >= 2 and (n_words <= ct_words or ct_words <= n_words):
                     best = c

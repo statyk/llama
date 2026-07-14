@@ -91,7 +91,11 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                  default="", show_default=False)
             wanted = _parse_ranks(picks)
             if wanted:
-                artists = [a for i, a in enumerate(artists, 1) if i in wanted]
+                pruned = [a for i, a in enumerate(artists, 1) if i in wanted]
+                if not pruned:
+                    typer.echo("no valid selections - keeping none; aborting run", err=True)
+                    return
+                artists = pruned
                 write_artifact(ws.artists, artists)
     run_search(ws, ia, criteria, artists=artists, force=force)
     shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,

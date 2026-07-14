@@ -208,6 +208,19 @@ def test_fuzzy_query_zero_matches_exits_cleanly(tmp_path, monkeypatch):
     assert ia.etree_queries == []
 
 
+def test_fuzzy_query_invalid_prune_aborts(tmp_path, monkeypatch):
+    ia = _fuzzy_setup(tmp_path, monkeypatch)
+    result = runner.invoke(cli.app, [
+        "find", "folk 60s-70s", "--run-name", "fz4",
+        "--config", str(tmp_path / "config.toml"),
+    ], input="99\n")
+    assert result.exit_code == 0, result.output
+    assert "no valid selections" in result.output
+    assert ia.etree_queries == []
+    saved = json.loads((tmp_path / "runs" / "fz4" / "artists.json").read_text())
+    assert len(saved) == 3  # artifact NOT overwritten with the empty prune
+
+
 def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     from llama.llm.fake import FakeProvider
     cfg = str(tmp_path / "config.toml")

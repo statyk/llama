@@ -74,6 +74,19 @@ def test_single_word_names_match_by_equality_only():
     assert match_artists(["War"], cols[:1]) == []
 
 
+def test_stopword_heavy_names_do_not_containment_match():
+    cols = [{"identifier": "AllmanBrothers", "title": "The Allman Brothers Band"},
+            {"identifier": "TheBand", "title": "The Band"}]
+    got = match_artists(["The Band"], cols)
+    assert [a["identifier"] for a in got] == ["TheBand"]  # equality, not containment
+    assert match_artists(["The Who"], [{"identifier": "GuessWho", "title": "The Guess Who"}]) == []
+
+
+def test_stopwords_removed_before_containment():
+    cols = [{"identifier": "DocWatson", "title": "Doc and Merle Watson"}]
+    assert match_artists(["Doc Watson"], cols)[0]["identifier"] == "DocWatson"
+
+
 def test_zero_matches_writes_empty(tmp_path: Path):
     ws = RunWorkspace(tmp_path, "r1")
     fake = FakeProvider(completes=[proposed(["Nick Drake"])])
