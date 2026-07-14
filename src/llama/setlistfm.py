@@ -31,8 +31,11 @@ def _pick(setlists: list[dict], venue: str | None, city: str | None) -> dict | N
         v = s.get("venue") or {}
         if _name_match(venue, v.get("name") or ""):
             return s
-        if city and _name_match(city, (v.get("city") or {}).get("name") or ""):
-            return s
+    if city:
+        for s in setlists:
+            v = s.get("venue") or {}
+            if _name_match(city, (v.get("city") or {}).get("name") or ""):
+                return s
     return None
 
 
@@ -67,19 +70,33 @@ class SetlistFMClient:
 
     def setlist(self, artist: str, date: str,
                 venue: str | None = None, city: str | None = None) -> dict | None:
-        """The setlist.fm setlist for (artist, date) matching venue/city, or None."""
-        key = "slfm_" + hashlib.sha1(f"{artist}|{date}".encode()).hexdigest()
-        path = self.cache_dir / f"{key}.json"
-        if path.exists():
-            data = json.loads(path.read_text())
-        else:
-            data = self._search(artist, date)
-            if data is None:
-                return None  # transient failure: try again next run
-            tmp = path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(data))
-            tmp.replace(path)
-        return _pick(data.get("setlist", []), venue, city)
+        """The setlist.fm setlist for (artist, date) matching venue/city, or None.
+
+        Never raises: any failure (network, malformed response, corrupted
+        cache) degrades to None so setlist.fm lookups never fail gather.
+        """
+        try:
+            key = "slfm_" + hashlib.sha1(f"{artist}|{date}".encode()).hexdigest()
+            path = self.cache_dir / f"{key}.json"
+            if path.exists():
+                data = json.loads(path.read_text())
+            else:
+                data = self._search(artist, date)
+                if data is None:
+                    return None  # transient failure: try again next run
+                if not data.get("setlist"):
+                    cleaned = normalize_song(artist)
+                    if cleaned and cleaned != artist.lower():
+                        retried = self._search(cleaned, date)
+                        if retried is not None:
+                            data = retried
+                tmp = path.with_suffix(".tmp")
+                tmp.write_text(json.dumps(data))
+                tmp.replace(path)
+            return _pick(data.get("setlist", []), venue, city)
+        except Exception as err:
+            log.warning("setlist.fm lookup failed: %s", err)
+            return None
 
     def _search(self, artist: str, date: str) -> dict | None:
         y, m, d = date.split("-")

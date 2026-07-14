@@ -140,6 +140,9 @@ def run_gather(
             except (TaskFailed, LLMError) as err:
                 log.warning("align_structure failed: %s", err)
         if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
+            # Deliberate trade-off: apply_llm_alignment never populates
+            # conflicts, so any deterministic-alignment conflicts are
+            # dropped when the LLM realignment wins.
             result, alignment = llm_result, "llm"
         else:
             flags.append("low-confidence structure alignment")

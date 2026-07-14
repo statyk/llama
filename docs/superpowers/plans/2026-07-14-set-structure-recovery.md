@@ -4,7 +4,7 @@
 
 **Goal:** Build the canonical performance-level setlist from all recordings of a show (plus optional setlist.fm), align it onto the chosen recording's tracks, and flag long shows that still come out single-set.
 
-**Architecture:** Two new modules — `setlistfm.py` (HTTP client mirroring `IAClient`: throttle, retry, disk cache, never raises past itself) and `structure.py` (pure logic: convert/rank/blend/align/guard) — orchestrated by the existing gather stage. One new LLM touchpoint (`align_structure`, the 7th) recovers messy alignments. A `StructureInfo` provenance block on `Show` records which source won and how alignment went.
+**Architecture:** Two new modules — `setlistfm.py` (HTTP client mirroring `IAClient`: throttle, retry, disk cache, never raises past itself) and `structure.py` (pure logic: convert/rank/blend/align/guard) — orchestrated by the existing gather stage. One new LLM touchpoint (`align_structure`, the 8th) recovers messy alignments. A `StructureInfo` provenance block on `Show` records which source won and how alignment went.
 
 **Tech Stack:** Python 3.11+, pydantic v2, httpx, typer, pytest. Spec: `docs/superpowers/specs/2026-07-14-set-structure-recovery-design.md`.
 

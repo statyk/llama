@@ -135,7 +135,7 @@ align_coverage_threshold = 0.8
 `Config` gains `setlistfm: SetlistFMConfig` and `structure: StructureConfig`
 sub-models with those defaults.
 
-### New LLM touchpoint: `align_structure` (7th named task)
+### New LLM touchpoint: `align_structure` (8th named task)
 
 - Prompt template `prompts/align_structure.md`: given the ordered track list
   (filenames, tag titles, durations) and the canonical setlist, return
