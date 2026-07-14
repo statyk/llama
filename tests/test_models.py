@@ -28,7 +28,7 @@ def test_manifest_schema_version():
         dj_notes=DJNotes(intro="hi", set_intros={}, outro="bye"),
         total_duration_sec=0.0, set_durations_sec={},
     )
-    assert m.schema_version == 1
+    assert m.schema_version == 2
 
 
 def test_ledger_entry():

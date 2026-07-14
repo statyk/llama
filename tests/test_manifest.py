@@ -31,8 +31,8 @@ def make_packaged():
 
 
 def test_build_manifest():
-    m = build_manifest(make_show(), make_notes(), make_packaged())
-    assert m.schema_version == 1
+    m = build_manifest(make_show(), make_notes(), make_packaged(), context=make_notes().context)
+    assert m.schema_version == 2
     assert m.show == {"artist": "Grateful Dead", "date": "1973-06-10",
                       "venue": "RFK Stadium", "city": "Washington, DC", "context": "Peak 73"}
     assert m.source["identifier"] == "gd73" and m.source["lineage"] == "SBD > DAT"
@@ -48,3 +48,20 @@ def test_m3u_text():
     assert lines[0] == "#EXTM3U"
     assert lines[1] == "audio/01 - Morning Dew.mp3"
     assert text.endswith("\n")
+
+
+def test_build_manifest_without_notes():
+    from llama.manifest import build_manifest
+    from llama.models import ManifestTrack, Show, Track
+
+    show = Show(performance_id="p", identifier="i", artist="a", date="1973-06-10",
+                tracks=[Track(index=1, set="1", title="t", filename="f.mp3", title_source="tags")],
+                set_breaks=[1])
+    packaged = [ManifestTrack(index=1, set="1", title="t", filename="01 - t.mp3", duration_sec=60.0)]
+    m = build_manifest(show, None, packaged, context="ctx", research="research.md",
+                       reviews="reviews.md", research_vetted=True)
+    assert m.schema_version == 2
+    assert m.dj_notes is None
+    assert m.set_breaks[0].note_index is None
+    assert m.show["context"] == "ctx"
+    assert m.research == "research.md" and m.research_vetted is True

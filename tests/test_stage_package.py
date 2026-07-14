@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 
-from llama.models import DJNotes, Show, Track
+from llama.models import DJNotes, ResearchVetting, Show, Track, VettingResult
 from llama.stages import package as package_stage
 from llama.stages.package import run_package
 from llama.workspace import ShowWorkspace, write_artifact
@@ -40,7 +40,8 @@ def make_show():
 
 
 def make_notes():
-    return DJNotes(intro="i", outro="o", set_intros={"1": "a", "2": "b"}, set_break_notes=["x"])
+    return DJNotes(context="from the notes", intro="i", outro="o",
+                   set_intros={"1": "a", "2": "b"}, set_break_notes=["x"])
 
 
 def setup(tmp_path: Path):
@@ -92,3 +93,45 @@ def test_package_logs_downloads(tmp_path: Path, caplog):
     messages = [r.getMessage() for r in caplog.records]
     assert "downloading 1/2: d1t01.mp3" in messages
     assert "downloading 2/2: d2t01.mp3" in messages
+
+
+def write_vetting(sws, context="Peak 1973, RFK", flags=None):
+    write_artifact(sws.vetting, VettingResult(
+        vetting=ResearchVetting(context=context), flags=flags or []))
+
+
+def test_package_ships_research_reviews_and_vetting_context(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    write_artifact(sws.research, "## Reputation\nLegendary.")
+    write_artifact(sws.reviews, [{"reviewtitle": "Wow", "reviewbody": "great tape"}])
+    write_vetting(sws)
+    pkg = run_package(sws, StubIA(), show, make_notes())
+    assert (pkg / "research.md").read_text() == "## Reputation\nLegendary."
+    assert (pkg / "reviews.md").read_text() == "- Wow: great tape"
+    m = json.loads((pkg / "manifest.json").read_text())
+    assert m["schema_version"] == 2
+    assert m["research"] == "research.md" and m["reviews"] == "reviews.md"
+    assert m["research_vetted"] is True
+    assert m["show"]["context"] == "Peak 1973, RFK"  # vetting wins over notes.context
+
+
+def test_package_without_script(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    write_artifact(sws.show, show)  # no dj-notes.md written
+    write_artifact(sws.research, "r")
+    write_vetting(sws)
+    pkg = run_package(sws, StubIA(), show, notes=None)
+    assert not (pkg / "dj-notes.md").exists()
+    m = json.loads((pkg / "manifest.json").read_text())
+    assert m["dj_notes"] is None
+    assert m["set_breaks"] == [{"after_track": 1, "note_index": None}]
+    assert (pkg / "reviews.md").read_text() == "(no reviews)"
+
+
+def test_package_without_vetting_falls_back_to_notes_context(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    pkg = run_package(sws, StubIA(), show, make_notes())
+    m = json.loads((pkg / "manifest.json").read_text())
+    assert m["show"]["context"] == make_notes().context
+    assert m["research"] is None and m["research_vetted"] is False

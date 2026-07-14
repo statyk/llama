@@ -163,16 +163,19 @@ class ManifestTrack(BaseModel):
 
 class SetBreak(BaseModel):
     after_track: int
-    note_index: int  # index into dj_notes.set_break_notes
+    note_index: int | None = None  # index into dj_notes.set_break_notes when a script exists
 
 
 class Manifest(BaseModel):
-    schema_version: int = 1
+    schema_version: int = 2
     show: dict
     source: dict
     tracks: list[ManifestTrack]
     set_breaks: list[SetBreak]
-    dj_notes: DJNotes
+    dj_notes: DJNotes | None = None
+    research: str | None = None  # relative path within the package
+    reviews: str | None = None
+    research_vetted: bool = False
     total_duration_sec: float
     set_durations_sec: dict[str, float]
 

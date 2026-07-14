@@ -3,15 +3,16 @@ from pathlib import Path
 
 from llama.audio import packaged_filename, read_duration, tag_audio
 from llama.manifest import build_manifest, m3u_text
-from llama.models import DJNotes, ManifestTrack, Show
-from llama.workspace import ShowWorkspace, read_model, write_artifact
+from llama.models import DJNotes, ManifestTrack, Show, VettingResult
+from llama.util import reviews_digest
+from llama.workspace import ShowWorkspace, read_json, read_model, write_artifact
 
 log = logging.getLogger("llama")
 
 DURATION_TOLERANCE_S = 5.0
 
 
-def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes, force: bool = False) -> Path:
+def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = None, force: bool = False) -> Path:
     pkg = show_ws.package_dir
     manifest_path = pkg / "manifest.json"
     if manifest_path.exists() and not force:
@@ -45,7 +46,24 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes, force: b
                                       duration_sec=real if real is not None else t.duration_sec,
                                       segue=t.segue))
 
-    write_artifact(manifest_path, build_manifest(show, notes, packaged))
+    context = notes.context if notes is not None else ""
+    vetted = False
+    if show_ws.vetting.exists():
+        vr = read_model(show_ws.vetting, VettingResult)
+        if vr.vetting.context:
+            context = vr.vetting.context
+        vetted = not vr.flags
+
+    research_name = None
+    if show_ws.research.exists():
+        write_artifact(pkg / "research.md", show_ws.research.read_text())
+        research_name = "research.md"
+    reviews = read_json(show_ws.reviews) if show_ws.reviews.exists() else []
+    write_artifact(pkg / "reviews.md", reviews_digest(reviews))
+
+    write_artifact(manifest_path, build_manifest(
+        show, notes, packaged, context=context,
+        research=research_name, reviews="reviews.md", research_vetted=vetted))
     write_artifact(pkg / "playlist.m3u", m3u_text([t.filename for t in packaged]))
     if show_ws.dj_notes_md.exists():
         write_artifact(pkg / "dj-notes.md", show_ws.dj_notes_md.read_text())
