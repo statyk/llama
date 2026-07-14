@@ -1,0 +1,116 @@
+import json
+from pathlib import Path
+
+from typer.testing import CliRunner
+
+import llama.cli as cli
+import llama.pipeline as pipeline
+from llama.llm.fake import FakeProvider
+
+runner = CliRunner()
+FIXTURE = Path(__file__).parent / "fixtures" / "gd73_metadata.json"
+IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
+
+CRITERIA = json.dumps({
+    "query": "x", "collection": "GratefulDead", "artist": "Grateful Dead",
+    "date_from": "1973-01-01", "date_to": "1973-12-31",
+    "setlist_constraints": [], "soft_preferences": None,
+    "min_avg_rating": 3.5, "min_reviews": 2, "count": 1,
+})
+
+
+def assessments(pid: str) -> str:
+    return json.dumps({"assessments": [{
+        "performance_id": pid, "quality_score": 9.5,
+        "non_attendee_evidence": "couchtaper praises the tape",
+        "recording_complaints": [], "rationale": "monumental Dark Star",
+    }]})
+
+
+NOTES = json.dumps({
+    "context": "Peak 1973",
+    "intro": "Tonight, the Grateful Dead at RFK Stadium.",
+    "set_intros": {"1": "Morning Dew opens.", "2": "A monumental Dark Star.",
+                   "encore": "Johnny B. Goode."},
+    "set_break_notes": ["End of set one.", "End of set two."],
+    "outro": "From the hollister soundboard.",
+    "mentioned_songs": ["Morning Dew", "Dark Star", "Johnny B. Goode"],
+})
+
+
+class FakeIA:
+    def __init__(self, *args, **kwargs):
+        self.fixture = json.loads(FIXTURE.read_text())
+
+    def search(self, query, fields, rows=500):
+        return [{"identifier": IDENT, "date": "1973-06-10T00:00:00Z",
+                 "venue": "RFK Stadium", "coverage": "Washington, DC",
+                 "avg_rating": 4.8, "num_reviews": 40,
+                 "description": self.fixture["metadata"]["description"]}]
+
+    def metadata(self, identifier):
+        return self.fixture
+
+    def download_file(self, identifier, filename, dest, md5=None):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"\x00" * 64)
+        return dest
+
+
+def fake_providers(config):
+    return {
+        "interpret": FakeProvider(completes=[CRITERIA]),
+        "score_reviews": FakeProvider(completes=[assessments("GratefulDead/1973-06-10")]),
+        "light_research": FakeProvider(researches=["Widely ranked top-5 1973 (example.org)"]),
+        "extract_setlist": FakeProvider(),
+        "deep_research": FakeProvider(researches=["## Reputation\nLegendary RFK show."]),
+        "synthesize": FakeProvider(completes=[NOTES]),
+    }
+
+
+def test_find_end_to_end(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(pipeline, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973 best soundboard", "--auto",
+        "--run-name", "testrun", "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+
+    show_dir = tmp_path / "runs" / "testrun" / "shows" / "gratefuldead-1973-06-10"
+    pkg = show_dir / "package"
+    manifest = json.loads((pkg / "manifest.json").read_text())
+    assert manifest["show"]["artist"] == "Grateful Dead"
+    assert len(manifest["tracks"]) == 6
+    assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0},
+                                      {"after_track": 5, "note_index": 1}]
+    assert (pkg / "audio" / "01 - Morning Dew.mp3").exists()
+    assert (pkg / "playlist.m3u").read_text().splitlines()[1] == "audio/01 - Morning Dew.mp3"
+    assert (pkg / "dj-notes.md").exists()
+    # ledger records the clean show
+    ledger_lines = (tmp_path / "ledger.jsonl").read_text().splitlines()
+    assert json.loads(ledger_lines[0])["performance_id"] == "GratefulDead/1973-06-10"
+    assert json.loads(ledger_lines[0])["status"] == "selected"
+
+
+def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    providers = fake_providers(None)
+    providers["synthesize"] = FakeProvider(completes=[
+        json.dumps({**json.loads(NOTES), "mentioned_songs": ["Fake Invented Song"]})
+    ])
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--run-name", "testrun2",
+        "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0
+    assert "needs-review" in result.output
+    show_dir = tmp_path / "runs" / "testrun2" / "shows" / "gratefuldead-1973-06-10"
+    assert not (show_dir / "package" / "manifest.json").exists()
+    assert not (tmp_path / "ledger.jsonl").exists()
