@@ -24,6 +24,12 @@ Optional config at `~/.llama/config.toml`:
     # If a task's output fails validation twice, the final retry runs one
     # tier up (exact `model` pins never escalate).
 
+    [llm.deep_research]
+    # backend = "claude_cli"         # recommended when the default backend is
+    # openrouter: openrouter research is single-shot web-search grounding,
+    # weaker than the claude CLI's agentic multi-step research, and research
+    # quality is audible on air. Mixing backends per task is supported.
+
     [llm.synthesize]
     # tier = "medium"                # example: cheaper synthesis
     # model = "claude-opus-4-8"      # example: exact pin, bypasses tiers
