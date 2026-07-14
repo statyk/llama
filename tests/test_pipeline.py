@@ -65,7 +65,15 @@ def fake_providers(config):
         "extract_setlist": FakeProvider(),
         "deep_research": FakeProvider(researches=["## Reputation\nLegendary RFK show."]),
         "synthesize": FakeProvider(completes=[NOTES]),
+        "align_structure": FakeProvider(),
     }
+
+
+def test_make_providers_includes_align_structure():
+    from llama.config import Config
+    from llama.pipeline import make_providers
+
+    assert "align_structure" in make_providers(Config())
 
 
 def test_find_end_to_end(tmp_path: Path, monkeypatch):

@@ -42,15 +42,20 @@ overridable per task via `[llm.<task>]` `tier` or `model` in config.
 - **LLM layer:** provider abstraction with two capabilities — `complete`
   (schema-validated, no tools) and `research` (needs web search). Dev backend
   shells out to headless `claude -p`; OpenRouter comes later; a `fake` backend
-  serves tests. Six named touchpoints, each with a prompt template file under
-  `prompts/` and a Pydantic output schema. LLM calls live only at stage
+  serves tests. Set/segue structure is performance-level: gather builds a
+  canonical setlist from every recording's description plus setlist.fm
+  (optional, key via `SETLISTFM_API_KEY` or `[setlistfm] api_key`; absent key
+  = best-effort LMA-only) and aligns it onto the chosen recording's tracks
+  (`structure.py`), falling back to the `align_structure` LLM touchpoint for
+  messy alignments. Eight named touchpoints, each with a prompt template file
+  under `prompts/` and a Pydantic output schema. LLM calls live only at stage
   boundaries — everything else is deterministic.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,
   duration mismatches, low-confidence setlist parse, DJ notes contradicting
-  the setlist) marks a show `needs-review` rather than shipping; `--auto` runs
-  skip such shows.
+  the setlist, a long show with zero set breaks) marks a show `needs-review`
+  rather than shipping; `--auto` runs skip such shows.
 
 ## Domain gotchas
 

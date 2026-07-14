@@ -12,6 +12,7 @@ DEFAULT_TIERS = {
     "deep_research": "high",
     "synthesize": "high",
     "propose_artists": "medium",
+    "align_structure": "medium",
 }
 
 # Backend -> tier -> model. claude_cli uses the CLI's stable aliases so the

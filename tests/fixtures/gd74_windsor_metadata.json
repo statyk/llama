@@ -1,0 +1,1834 @@
+{
+  "metadata": {
+    "identifier": "gd74-02-24.sbd.windsor.199.sbefail.shnf",
+    "mediatype": "etree",
+    "subject": "Live concert",
+    "publicdate": "2004-04-14 10:51:03",
+    "creator": "Grateful Dead",
+    "description": "U.S. Blues, Mexicali Blues, Brown Eyed Women, Beat It On Down The Line, Candyman, Jack Straw, China Cat Sunflower-> I Know You Rider, El Paso, Loser, Playin' In The Band Cumberland Blues, It Must Have Been The Roses, Big River, Bertha, Weather Report Suite Prelude-> Weather Report Suite Part 1-> Let It Grow-> Row Jimmy-> Ship of Fools, Promised Land, Dark Star-> Morning Dew, Sugar Magnolia, Not Fade Away-> Goin' Down The Road Feelin' Bad-> Not Fade Away, E: It's All Over Now Baby Blue (Soundcheck before this show, or 2/22/74?): Let It Grow, They Love Each Other, U. S. Blues #1 -> U. S. Blues #2, Attics Of My Life, It Must Have Been The Roses -> Jam",
+    "coverage": "San Francisco, CA",
+    "md5s": "0eadf22c7fec802d9f90601d0a5ed917 *GD_022474_D1_T01.shn\nf8474e5d17c1acc4ea9cfc0cf7b45427 *GD_022474_D1_T02.shn\n94f1ee7c57149a1e0eecd1e4a58e077e *GD_022474_D1_T03.shn\n993a9340a9bf8e2dba181d0d13e7f7c1 *GD_022474_D1_T04.shn\ne9ed3fa5f2e804530f63bb8d9ba1dc73 *GD_022474_D1_T05.shn\n0d237e1a2c0dff045c34869387dc77d6 *GD_022474_D1_T06.shn\n9cfc1561706a26c144959a90f64c0716 *GD_022474_D1_T07.shn\nd1b749d6e4e463143de20525e5fce78b *GD_022474_D1_T08.shn\nca5a3eb996e1f6510e5a40731cc0a90e *GD_022474_D1_T09.shn\n71d9ef665666eb79fd6a2667aa225969 *GD_022474_D1_T10.shn\nea79e8a31ee3ce670b07412aea413485 *GD_022474_D2_T01.shn\nc68f4642cdbbef1c238215ffdd166fd2 *GD_022474_D2_T02.shn\n8906d0443792b6c0a311d361653f10f4 *GD_022474_D2_T03.shn\nf2be2a41bbd8bc0fdf1ec334ff04f02d *GD_022474_D2_T04.shn\nfd7a1bd455cfc16f30281254a3893cbf *GD_022474_D2_T05.shn\nc313d617a69e630da774c8fd8c16f8bd *GD_022474_D3_T01.shn\n52c4ae96cb5492419167fc42bd00996f *GD_022474_D3_T02.shn\n0bee7619bd31e27dfcea6c9a3e73ddd7 *GD_022474_D3_T03.shn\n3e177e10c712683c3a2c1e10cf96b27f *GD_022474_D3_T04.shn\nb87b0a66388e98022abaa5c8699c137a *GD_022474_D3_T05.shn\naa59f29079a4052708ca77d6006ca574 *GD_022474_D3_T06.shn\n4b38e99232799976fe3caa91c8c6a52d *GD_022474_D4_T01.shn\n62feda21a5fb89cb53195dda48cd550e *GD_022474_D4_T02.shn\n92fb5f4e850a679b8f85fe17959075f5 *GD_022474_D4_T03.shn\nefd3adae969a18ae8caf8b093390fcf3 *GD_022474_D4_T04.shn\n88626a3210a8da1e3fa1d552b2be893e *GD_022474_D4_T05.shn\n5d16d5b618fb7bdbbc321cde099443a3 *GD_022474_D4_T06.shn\n82951d046e498ccff69419d6c382140d *GD_022474_D4_T07.shn",
+    "date": "1974-02-24",
+    "uploader": "jon@archive.org",
+    "addeddate": "2004-04-14 10:51:03",
+    "adder": "jon@archive.org",
+    "pick": "0",
+    "updatedate": "2005-03-23 10:54:02",
+    "updater": "Brad Leblanc",
+    "notes": "SBD> Master Reel> PCM> DAT> Fostex D5 DAT> Marantz Professional \nPMD-320 CD Master> Ricoh MP-6200 series CD-R> HP 8200i CDRW Drive (EAC)>\nSHNCD; via Jay Serafin, Stephen Windsor; note d4 is 73:52, not 74:06 as stated\nin accompanying info file, and thus does not require overburning (possibly\nwas EZCD artifact?); no flaws noticed",
+    "source": "Soundboard",
+    "lineage": "SBD > Master Reel > PCM > DAT > Fostex D5 DAT > Marantz Professional PMD-320 CD Master > Ricoh MP-6200 series CD-R > HP 8200i CDRW Drive (EAC) > SHN",
+    "venue": "Winterland Arena",
+    "discs": "0",
+    "has_mp3": "1",
+    "shndiscs": "2",
+    "type": "sound",
+    "year": "1974",
+    "collection": [
+      "GratefulDead",
+      "etree",
+      "stream_only"
+    ],
+    "title": "Grateful Dead Live at Winterland Arena on 1974-02-24",
+    "backup_location": "ia903600_5",
+    "access-restricted-item": "true"
+  },
+  "files": [
+    {
+      "name": "GD_022474_D1_T01.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T01.shn",
+      "format": "Columbia Peaks",
+      "md5": "11a88cc0eae173c4e3e98e1afd71fba4"
+    },
+    {
+      "name": "GD_022474_D1_T01.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T01.shn",
+      "format": "VBR MP3",
+      "length": "07:56",
+      "md5": "b2f09e4b10eab1275c6bbd6079cf6766",
+      "title": "US Blues"
+    },
+    {
+      "name": "GD_022474_D1_T01.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T01.shn",
+      "format": "Ogg Vorbis",
+      "length": "476.04",
+      "md5": "e9500000a6331fae39f60e4eb385c4ef"
+    },
+    {
+      "name": "GD_022474_D1_T01.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T01.shn",
+      "format": "PNG",
+      "md5": "31ba46b066baa85276a52987a2d68f62"
+    },
+    {
+      "name": "GD_022474_D1_T01.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "265.68",
+      "md5": "0eadf22c7fec802d9f90601d0a5ed917",
+      "title": "US Blues"
+    },
+    {
+      "name": "GD_022474_D1_T02.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T02.shn",
+      "format": "Columbia Peaks",
+      "md5": "d6a8b5c22359870ac9682d092ed24350"
+    },
+    {
+      "name": "GD_022474_D1_T02.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T02.shn",
+      "format": "VBR MP3",
+      "length": "03:38",
+      "md5": "36a2e157bb6136d2af52aec684d7f7c4",
+      "title": "Mexicali Blues"
+    },
+    {
+      "name": "GD_022474_D1_T02.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T02.shn",
+      "format": "Ogg Vorbis",
+      "length": "218.51",
+      "md5": "dfd3fcde3aeca3111d687232b5d8f320"
+    },
+    {
+      "name": "GD_022474_D1_T02.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T02.shn",
+      "format": "PNG",
+      "md5": "dcf1c15571be31b37fcd9efe25182042"
+    },
+    {
+      "name": "GD_022474_D1_T02.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "123.94",
+      "md5": "f8474e5d17c1acc4ea9cfc0cf7b45427",
+      "title": "Mexicali Blues"
+    },
+    {
+      "name": "GD_022474_D1_T03.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T03.shn",
+      "format": "Columbia Peaks",
+      "md5": "fec68579b312d56056048b70f100f547"
+    },
+    {
+      "name": "GD_022474_D1_T03.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T03.shn",
+      "format": "VBR MP3",
+      "length": "06:28",
+      "md5": "8be5acb58d28836c4642e52ddf11230f",
+      "title": "Brown Eyed Women"
+    },
+    {
+      "name": "GD_022474_D1_T03.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T03.shn",
+      "format": "Ogg Vorbis",
+      "length": "388.45",
+      "md5": "b6540dbb94122c3a7fa7af795491d312"
+    },
+    {
+      "name": "GD_022474_D1_T03.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T03.shn",
+      "format": "PNG",
+      "md5": "bca3db787eabb5adee497961701ece2d"
+    },
+    {
+      "name": "GD_022474_D1_T03.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "189.42",
+      "md5": "94f1ee7c57149a1e0eecd1e4a58e077e",
+      "title": "Brown Eyed Women"
+    },
+    {
+      "name": "GD_022474_D1_T04.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T04.shn",
+      "format": "Columbia Peaks",
+      "md5": "61ea04441ee2e04bf76b02e383ade16d"
+    },
+    {
+      "name": "GD_022474_D1_T04.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T04.shn",
+      "format": "VBR MP3",
+      "length": "03:50",
+      "md5": "e12ffd67c8eeb5f4a9ea2fd634fa6783",
+      "title": "Beat It On Down The Line"
+    },
+    {
+      "name": "GD_022474_D1_T04.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T04.shn",
+      "format": "Ogg Vorbis",
+      "length": "230.21",
+      "md5": "a697cdfc88f0a459f1afba83d3f4b98b"
+    },
+    {
+      "name": "GD_022474_D1_T04.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T04.shn",
+      "format": "PNG",
+      "md5": "9f7d3bca5adf13507f60aeed8cae8b3b"
+    },
+    {
+      "name": "GD_022474_D1_T04.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "135.75",
+      "md5": "993a9340a9bf8e2dba181d0d13e7f7c1",
+      "title": "Beat It On Down The Line"
+    },
+    {
+      "name": "GD_022474_D1_T05.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T05.shn",
+      "format": "Columbia Peaks",
+      "md5": "c2e2f9abd40ec78a138f5c01ca78a9fa"
+    },
+    {
+      "name": "GD_022474_D1_T05.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T05.shn",
+      "format": "VBR MP3",
+      "length": "07:27",
+      "md5": "69b8cf74dafd67089658b98860600b1c",
+      "title": "Candyman"
+    },
+    {
+      "name": "GD_022474_D1_T05.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T05.shn",
+      "format": "Ogg Vorbis",
+      "length": "447.38",
+      "md5": "e4fd3e174d487a16958f36f817ec9fa2"
+    },
+    {
+      "name": "GD_022474_D1_T05.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T05.shn",
+      "format": "PNG",
+      "md5": "810c72b4ee6c857cd53531388f9c8004"
+    },
+    {
+      "name": "GD_022474_D1_T05.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "219.44",
+      "md5": "e9ed3fa5f2e804530f63bb8d9ba1dc73",
+      "title": "Candyman"
+    },
+    {
+      "name": "GD_022474_D1_T06.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T06.shn",
+      "format": "Columbia Peaks",
+      "md5": "f3c482c0117262e8742d96a4736e1a02"
+    },
+    {
+      "name": "GD_022474_D1_T06.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T06.shn",
+      "format": "VBR MP3",
+      "length": "05:46",
+      "md5": "60cc27c1758951a4a97921e2fed7dc22",
+      "title": "Jack Straw"
+    },
+    {
+      "name": "GD_022474_D1_T06.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T06.shn",
+      "format": "Ogg Vorbis",
+      "length": "346.08",
+      "md5": "1d840c411037923db18b698b338f1c93"
+    },
+    {
+      "name": "GD_022474_D1_T06.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T06.shn",
+      "format": "PNG",
+      "md5": "c99df0ca87e59e3a863e72e817829c00"
+    },
+    {
+      "name": "GD_022474_D1_T06.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "179",
+      "md5": "0d237e1a2c0dff045c34869387dc77d6",
+      "title": "Jack Straw"
+    },
+    {
+      "name": "GD_022474_D1_T07.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T07.shn",
+      "format": "Columbia Peaks",
+      "md5": "0010c41906717d34bc0dad7bed7f4b98"
+    },
+    {
+      "name": "GD_022474_D1_T07.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T07.shn",
+      "format": "VBR MP3",
+      "length": "06:16",
+      "md5": "7d57952cc60e279e23593eb14fc03ae1",
+      "title": "China Cat Sunflower >"
+    },
+    {
+      "name": "GD_022474_D1_T07.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T07.shn",
+      "format": "Ogg Vorbis",
+      "length": "376.73",
+      "md5": "ce7dc56f3a127458f3ac25471629f215"
+    },
+    {
+      "name": "GD_022474_D1_T07.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T07.shn",
+      "format": "PNG",
+      "md5": "7f47e5dd5d217c974da08f147b6daa51"
+    },
+    {
+      "name": "GD_022474_D1_T07.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "213.53",
+      "md5": "9cfc1561706a26c144959a90f64c0716",
+      "title": "China Cat Sunflower >"
+    },
+    {
+      "name": "GD_022474_D1_T08.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T08.shn",
+      "format": "Columbia Peaks",
+      "md5": "efdaf384e1469d1e5bf25e828a203612"
+    },
+    {
+      "name": "GD_022474_D1_T08.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T08.shn",
+      "format": "VBR MP3",
+      "length": "10:23",
+      "md5": "58731e76bd9732861757f27fd30724cd",
+      "title": "I Know You Rider"
+    },
+    {
+      "name": "GD_022474_D1_T08.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T08.shn",
+      "format": "Ogg Vorbis",
+      "length": "623.45",
+      "md5": "2dd751d475b1687cdb8e15ec440a1ce1"
+    },
+    {
+      "name": "GD_022474_D1_T08.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T08.shn",
+      "format": "PNG",
+      "md5": "84897c7541f63f775c9fe15d7a77bdae"
+    },
+    {
+      "name": "GD_022474_D1_T08.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "372.21",
+      "md5": "d1b749d6e4e463143de20525e5fce78b",
+      "title": "I Know You Rider"
+    },
+    {
+      "name": "GD_022474_D1_T09.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T09.shn",
+      "format": "Columbia Peaks",
+      "md5": "577528747e0787ab06f1283d91f8b341"
+    },
+    {
+      "name": "GD_022474_D1_T09.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T09.shn",
+      "format": "VBR MP3",
+      "length": "05:12",
+      "md5": "0997088a195e90f8e2d522399034773e",
+      "title": "El Paso"
+    },
+    {
+      "name": "GD_022474_D1_T09.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T09.shn",
+      "format": "Ogg Vorbis",
+      "length": "312.65",
+      "md5": "6e24ccf04d29b73de66c08137044fbda"
+    },
+    {
+      "name": "GD_022474_D1_T09.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T09.shn",
+      "format": "PNG",
+      "md5": "4db64e68bb30fb3054d7245c783e78c2"
+    },
+    {
+      "name": "GD_022474_D1_T09.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "178.84",
+      "md5": "ca5a3eb996e1f6510e5a40731cc0a90e",
+      "title": "El Paso"
+    },
+    {
+      "name": "GD_022474_D1_T10.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D1_T10.shn",
+      "format": "Columbia Peaks",
+      "md5": "f3ee1617121564bd4f407830094a923e"
+    },
+    {
+      "name": "GD_022474_D1_T10.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D1_T10.shn",
+      "format": "VBR MP3",
+      "length": "06:39",
+      "md5": "41feef0de202dde24545c0dc356be3fc",
+      "title": "Loser"
+    },
+    {
+      "name": "GD_022474_D1_T10.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D1_T10.shn",
+      "format": "Ogg Vorbis",
+      "length": "399.03",
+      "md5": "d6d4f46153753e3a3c74a62712fc750d"
+    },
+    {
+      "name": "GD_022474_D1_T10.png",
+      "source": "derivative",
+      "original": "GD_022474_D1_T10.shn",
+      "format": "PNG",
+      "md5": "9fa17881a5c7dbfa79f2abfad8cec180"
+    },
+    {
+      "name": "GD_022474_D1_T10.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "216.1",
+      "md5": "71d9ef665666eb79fd6a2667aa225969",
+      "title": "Loser"
+    },
+    {
+      "name": "GD_022474_D2_T01.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D2_T01.shn",
+      "format": "Columbia Peaks",
+      "md5": "3a55f81f2462c560f8ca2ca7b888c457"
+    },
+    {
+      "name": "GD_022474_D2_T01.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D2_T01.shn",
+      "format": "VBR MP3",
+      "length": "18:55",
+      "md5": "7ca86ff24391940ca1bf77112e60be3f",
+      "title": "Playin' In The Band"
+    },
+    {
+      "name": "GD_022474_D2_T01.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D2_T01.shn",
+      "format": "Ogg Vorbis",
+      "length": "1135.61",
+      "md5": "196885e8972d0b3db42c2a1ba254fd63"
+    },
+    {
+      "name": "GD_022474_D2_T01.png",
+      "source": "derivative",
+      "original": "GD_022474_D2_T01.shn",
+      "format": "PNG",
+      "md5": "4f6e58512740d68bb72d0a69f64ba074"
+    },
+    {
+      "name": "GD_022474_D2_T01.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "679.59",
+      "md5": "ea79e8a31ee3ce670b07412aea413485",
+      "title": "Playin' In The Band"
+    },
+    {
+      "name": "GD_022474_D2_T02.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D2_T02.shn",
+      "format": "Columbia Peaks",
+      "md5": "44d310e7f58bb1107a60211ac06e66df"
+    },
+    {
+      "name": "GD_022474_D2_T02.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D2_T02.shn",
+      "format": "VBR MP3",
+      "length": "06:26",
+      "md5": "18b9ec9c944d51b4ac72b6d44b54268a",
+      "title": "Cumberland Blues"
+    },
+    {
+      "name": "GD_022474_D2_T02.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D2_T02.shn",
+      "format": "Ogg Vorbis",
+      "length": "386.08",
+      "md5": "9401f73e7cf66a184d8f5195917005f1"
+    },
+    {
+      "name": "GD_022474_D2_T02.png",
+      "source": "derivative",
+      "original": "GD_022474_D2_T02.shn",
+      "format": "PNG",
+      "md5": "da68351f3d4a50b4adea310cc9228191"
+    },
+    {
+      "name": "GD_022474_D2_T02.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "219.34",
+      "md5": "c68f4642cdbbef1c238215ffdd166fd2",
+      "title": "Cumberland Blues"
+    },
+    {
+      "name": "GD_022474_D2_T03.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D2_T03.shn",
+      "format": "Columbia Peaks",
+      "md5": "3209298424a18c814eaf2c61679432aa"
+    },
+    {
+      "name": "GD_022474_D2_T03.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D2_T03.shn",
+      "format": "VBR MP3",
+      "length": "05:22",
+      "md5": "2061f69f0a8294036ba3ee36aa5e7cf6",
+      "title": "It Must Have Been the Roses"
+    },
+    {
+      "name": "GD_022474_D2_T03.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D2_T03.shn",
+      "format": "Ogg Vorbis",
+      "length": "322.82",
+      "md5": "dd5774f7fdb9fb407e1ecf7f23fb1596"
+    },
+    {
+      "name": "GD_022474_D2_T03.png",
+      "source": "derivative",
+      "original": "GD_022474_D2_T03.shn",
+      "format": "PNG",
+      "md5": "2ab6a77dccf08d2dab543ccfe7386d33"
+    },
+    {
+      "name": "GD_022474_D2_T03.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "170.59",
+      "md5": "8906d0443792b6c0a311d361653f10f4",
+      "title": "It Must Have Been the Roses"
+    },
+    {
+      "name": "GD_022474_D2_T04.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D2_T04.shn",
+      "format": "Columbia Peaks",
+      "md5": "468e83c8638894fdac839a93ec13bbff"
+    },
+    {
+      "name": "GD_022474_D2_T04.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D2_T04.shn",
+      "format": "VBR MP3",
+      "length": "05:07",
+      "md5": "b82303f68701d0bae9eaa350be6c5c45",
+      "title": "Big River"
+    },
+    {
+      "name": "GD_022474_D2_T04.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D2_T04.shn",
+      "format": "Ogg Vorbis",
+      "length": "307.77",
+      "md5": "cc3193cfface747eb0d3391517721fb4"
+    },
+    {
+      "name": "GD_022474_D2_T04.png",
+      "source": "derivative",
+      "original": "GD_022474_D2_T04.shn",
+      "format": "PNG",
+      "md5": "918d0afca8657ac51b00a8f1b845b523"
+    },
+    {
+      "name": "GD_022474_D2_T04.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "173.54",
+      "md5": "f2be2a41bbd8bc0fdf1ec334ff04f02d",
+      "title": "Big River"
+    },
+    {
+      "name": "GD_022474_D2_T05.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D2_T05.shn",
+      "format": "Columbia Peaks",
+      "md5": "fb20cacc1a370420176fa9bb851b7ed9"
+    },
+    {
+      "name": "GD_022474_D2_T05.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D2_T05.shn",
+      "format": "VBR MP3",
+      "length": "06:21",
+      "md5": "567fa1f3c60b67197a54b1e6933305a4",
+      "title": "Bertha"
+    },
+    {
+      "name": "GD_022474_D2_T05.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D2_T05.shn",
+      "format": "Ogg Vorbis",
+      "length": "381.06",
+      "md5": "a0df57ed270c3c484dc65927c2dff5c6"
+    },
+    {
+      "name": "GD_022474_D2_T05.png",
+      "source": "derivative",
+      "original": "GD_022474_D2_T05.shn",
+      "format": "PNG",
+      "md5": "d5a94539fea10516fb8dbeced2e4d740"
+    },
+    {
+      "name": "GD_022474_D2_T05.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "235.97",
+      "md5": "fd7a1bd455cfc16f30281254a3893cbf",
+      "title": "Bertha"
+    },
+    {
+      "name": "GD_022474_D3_T01.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D3_T01.shn",
+      "format": "Columbia Peaks",
+      "md5": "37793f6ebf3ea32aae27324d98970745"
+    },
+    {
+      "name": "GD_022474_D3_T01.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D3_T01.shn",
+      "format": "VBR MP3",
+      "length": "05:05",
+      "md5": "580398e12c8e9a8ad1bb6d972320b739",
+      "title": "Weather Report Suite Prelude >"
+    },
+    {
+      "name": "GD_022474_D3_T01.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D3_T01.shn",
+      "format": "Ogg Vorbis",
+      "length": "305.65",
+      "md5": "de8d3522a5158845460539493e27ef5f"
+    },
+    {
+      "name": "GD_022474_D3_T01.png",
+      "source": "derivative",
+      "original": "GD_022474_D3_T01.shn",
+      "format": "PNG",
+      "md5": "acf9fb3fb349b5e34cb6405aeb35b8e1"
+    },
+    {
+      "name": "GD_022474_D3_T01.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "149.63",
+      "md5": "c313d617a69e630da774c8fd8c16f8bd",
+      "title": "Weather Report Suite Prelude >"
+    },
+    {
+      "name": "GD_022474_D3_T02.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D3_T02.shn",
+      "format": "Columbia Peaks",
+      "md5": "0fb9ff56411976861503d25947e793a5"
+    },
+    {
+      "name": "GD_022474_D3_T02.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D3_T02.shn",
+      "format": "VBR MP3",
+      "length": "01:22",
+      "md5": "0bac634d6e2e07608acea31716f692f5",
+      "title": "Weather Report Suite Part I >"
+    },
+    {
+      "name": "GD_022474_D3_T02.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D3_T02.shn",
+      "format": "Ogg Vorbis",
+      "length": "82.72",
+      "md5": "dd379467cbe0992bfe9591152c376ed5"
+    },
+    {
+      "name": "GD_022474_D3_T02.png",
+      "source": "derivative",
+      "original": "GD_022474_D3_T02.shn",
+      "format": "PNG",
+      "md5": "b97e55f486bfa5f29cfe9ef86d12b352"
+    },
+    {
+      "name": "GD_022474_D3_T02.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "47.51",
+      "md5": "52c4ae96cb5492419167fc42bd00996f",
+      "title": "Weather Report Suite Part I >"
+    },
+    {
+      "name": "GD_022474_D3_T03.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D3_T03.shn",
+      "format": "Columbia Peaks",
+      "md5": "8f53f22cff8d48a6b67419030266849c"
+    },
+    {
+      "name": "GD_022474_D3_T03.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D3_T03.shn",
+      "format": "VBR MP3",
+      "length": "09:07",
+      "md5": "156b1c2e271caec302b1f589a37eeac5",
+      "title": "Let It Grow >"
+    },
+    {
+      "name": "GD_022474_D3_T03.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D3_T03.shn",
+      "format": "Ogg Vorbis",
+      "length": "547.67",
+      "md5": "4a314e96fa489bca1ac6e4c63d9eb703"
+    },
+    {
+      "name": "GD_022474_D3_T03.png",
+      "source": "derivative",
+      "original": "GD_022474_D3_T03.shn",
+      "format": "PNG",
+      "md5": "9e02da940965764da374172e733320e5"
+    },
+    {
+      "name": "GD_022474_D3_T03.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "337.09",
+      "md5": "0bee7619bd31e27dfcea6c9a3e73ddd7",
+      "title": "Let It Grow >"
+    },
+    {
+      "name": "GD_022474_D3_T04.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D3_T04.shn",
+      "format": "Columbia Peaks",
+      "md5": "d983dedbc81b6337b7707bcc3ceeef81"
+    },
+    {
+      "name": "GD_022474_D3_T04.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D3_T04.shn",
+      "format": "VBR MP3",
+      "length": "07:45",
+      "md5": "5af223c1a0078dabc88c8de1daa8ce53",
+      "title": "Row Jimmy"
+    },
+    {
+      "name": "GD_022474_D3_T04.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D3_T04.shn",
+      "format": "Ogg Vorbis",
+      "length": "465.64",
+      "md5": "856e6a2610ab52be9bad72ea074b5ff3"
+    },
+    {
+      "name": "GD_022474_D3_T04.png",
+      "source": "derivative",
+      "original": "GD_022474_D3_T04.shn",
+      "format": "PNG",
+      "md5": "0d0071b48e0c306aa9c6c591557d6875"
+    },
+    {
+      "name": "GD_022474_D3_T04.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "238.97",
+      "md5": "3e177e10c712683c3a2c1e10cf96b27f",
+      "title": "Row Jimmy"
+    },
+    {
+      "name": "GD_022474_D3_T05.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D3_T05.shn",
+      "format": "Columbia Peaks",
+      "md5": "8576e4817a24643956cf52667f5e3fdc"
+    },
+    {
+      "name": "GD_022474_D3_T05.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D3_T05.shn",
+      "format": "VBR MP3",
+      "length": "05:58",
+      "md5": "0cf127024e49aea664a85b8f8bc92701",
+      "title": "Ship Of Fools"
+    },
+    {
+      "name": "GD_022474_D3_T05.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D3_T05.shn",
+      "format": "Ogg Vorbis",
+      "length": "357.98",
+      "md5": "65cf7015c27b3155abaeca4e5f5288db"
+    },
+    {
+      "name": "GD_022474_D3_T05.png",
+      "source": "derivative",
+      "original": "GD_022474_D3_T05.shn",
+      "format": "PNG",
+      "md5": "7efeb0e4b5ebcd3834ee4943929b0c81"
+    },
+    {
+      "name": "GD_022474_D3_T05.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "195.31",
+      "md5": "b87b0a66388e98022abaa5c8699c137a",
+      "title": "Ship Of Fools"
+    },
+    {
+      "name": "GD_022474_D3_T06.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D3_T06.shn",
+      "format": "Columbia Peaks",
+      "md5": "c07b542e3312c62219485985af5c0168"
+    },
+    {
+      "name": "GD_022474_D3_T06.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D3_T06.shn",
+      "format": "VBR MP3",
+      "length": "03:29",
+      "md5": "e0634e7a09d4ecb680207932930e8b4e",
+      "title": "Promised Land"
+    },
+    {
+      "name": "GD_022474_D3_T06.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D3_T06.shn",
+      "format": "Ogg Vorbis",
+      "length": "209.8",
+      "md5": "70889970322e8cc80ff4bbdd706dc722"
+    },
+    {
+      "name": "GD_022474_D3_T06.png",
+      "source": "derivative",
+      "original": "GD_022474_D3_T06.shn",
+      "format": "PNG",
+      "md5": "9333a1dbcf835323fe2557f86003a4c4"
+    },
+    {
+      "name": "GD_022474_D3_T06.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "129.63",
+      "md5": "aa59f29079a4052708ca77d6006ca574",
+      "title": "Promised Land"
+    },
+    {
+      "name": "GD_022474_D4_T01.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D4_T01.shn",
+      "format": "Columbia Peaks",
+      "md5": "565ff5c1481c08670fd3a7c6c0aaefc8"
+    },
+    {
+      "name": "GD_022474_D4_T01.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D4_T01.shn",
+      "format": "VBR MP3",
+      "length": "29:02",
+      "md5": "7739d44919b1486b665fb016a93e6963",
+      "title": "Dark Star >"
+    },
+    {
+      "name": "GD_022474_D4_T01.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D4_T01.shn",
+      "format": "Ogg Vorbis",
+      "length": "1742.88",
+      "md5": "5873b9b3b830ac7cb6fd4c6b644ba55b"
+    },
+    {
+      "name": "GD_022474_D4_T01.png",
+      "source": "derivative",
+      "original": "GD_022474_D4_T01.shn",
+      "format": "PNG",
+      "md5": "84ec4cd81d53cc1c7b973a793bde11d4"
+    },
+    {
+      "name": "GD_022474_D4_T01.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "998.42",
+      "md5": "4b38e99232799976fe3caa91c8c6a52d",
+      "title": "Dark Star >"
+    },
+    {
+      "name": "GD_022474_D4_T02.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D4_T02.shn",
+      "format": "Columbia Peaks",
+      "md5": "42862f6f79ccdef285cb050810c35cdd"
+    },
+    {
+      "name": "GD_022474_D4_T02.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D4_T02.shn",
+      "format": "VBR MP3",
+      "length": "13:39",
+      "md5": "b281b51fd8419912dbf36cb583a0dcbb",
+      "title": "Morning Dew"
+    },
+    {
+      "name": "GD_022474_D4_T02.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D4_T02.shn",
+      "format": "Ogg Vorbis",
+      "length": "819.12",
+      "md5": "bb714966f247d0b370a50c4dc93f5b3b"
+    },
+    {
+      "name": "GD_022474_D4_T02.png",
+      "source": "derivative",
+      "original": "GD_022474_D4_T02.shn",
+      "format": "PNG",
+      "md5": "f3b981eded04afcb897616c0563cb256"
+    },
+    {
+      "name": "GD_022474_D4_T02.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "452.08",
+      "md5": "62feda21a5fb89cb53195dda48cd550e",
+      "title": "Morning Dew"
+    },
+    {
+      "name": "GD_022474_D4_T03.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D4_T03.shn",
+      "format": "Columbia Peaks",
+      "md5": "0e0ed06304c4b7c44edb64e6efe4494d"
+    },
+    {
+      "name": "GD_022474_D4_T03.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D4_T03.shn",
+      "format": "VBR MP3",
+      "length": "08:48",
+      "md5": "c6ea8ae849663fa6cad2749ef349c3b8",
+      "title": "Sugar Magnolia >"
+    },
+    {
+      "name": "GD_022474_D4_T03.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D4_T03.shn",
+      "format": "Ogg Vorbis",
+      "length": "528",
+      "md5": "7660577fbc0b44df02388ce959a92f87"
+    },
+    {
+      "name": "GD_022474_D4_T03.png",
+      "source": "derivative",
+      "original": "GD_022474_D4_T03.shn",
+      "format": "PNG",
+      "md5": "257b5a898fb180cf2fad9a1af6f656c4"
+    },
+    {
+      "name": "GD_022474_D4_T03.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "339.53",
+      "md5": "92fb5f4e850a679b8f85fe17959075f5",
+      "title": "Sugar Magnolia >"
+    },
+    {
+      "name": "GD_022474_D4_T04.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D4_T04.shn",
+      "format": "Columbia Peaks",
+      "md5": "dbcd0041f1f8586f8bd638f12031ebdc"
+    },
+    {
+      "name": "GD_022474_D4_T04.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D4_T04.shn",
+      "format": "VBR MP3",
+      "length": "04:59",
+      "md5": "11e008c538200ec18f2538e91d890d2f",
+      "title": "Not Fade Away >"
+    },
+    {
+      "name": "GD_022474_D4_T04.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D4_T04.shn",
+      "format": "Ogg Vorbis",
+      "length": "299.62",
+      "md5": "424cb2c3aae18a931d6160ba59b1e29f"
+    },
+    {
+      "name": "GD_022474_D4_T04.png",
+      "source": "derivative",
+      "original": "GD_022474_D4_T04.shn",
+      "format": "PNG",
+      "md5": "2b83f15fc7d93f164325a2d690a04e3f"
+    },
+    {
+      "name": "GD_022474_D4_T04.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "177.69",
+      "md5": "efd3adae969a18ae8caf8b093390fcf3",
+      "title": "Not Fade Away >"
+    },
+    {
+      "name": "GD_022474_D4_T05.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D4_T05.shn",
+      "format": "Columbia Peaks",
+      "md5": "c30fe2ad0531cb686a598283a0ae5ca0"
+    },
+    {
+      "name": "GD_022474_D4_T05.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D4_T05.shn",
+      "format": "VBR MP3",
+      "length": "07:14",
+      "md5": "f71bb833370b0eb92b60fa045152a726",
+      "title": "Goin' Down The Road Feeling Bad >"
+    },
+    {
+      "name": "GD_022474_D4_T05.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D4_T05.shn",
+      "format": "Ogg Vorbis",
+      "length": "434.18",
+      "md5": "71d534837889ae56b686224a4df3bdf3"
+    },
+    {
+      "name": "GD_022474_D4_T05.png",
+      "source": "derivative",
+      "original": "GD_022474_D4_T05.shn",
+      "format": "PNG",
+      "md5": "e4a30c3cc4683e294bed20119cf7bd31"
+    },
+    {
+      "name": "GD_022474_D4_T05.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "267.38",
+      "md5": "88626a3210a8da1e3fa1d552b2be893e",
+      "title": "Goin' Down The Road Feeling Bad >"
+    },
+    {
+      "name": "GD_022474_D4_T06.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D4_T06.shn",
+      "format": "Columbia Peaks",
+      "md5": "7539ffaa7a65ad6ea2da1ce4d31557b1"
+    },
+    {
+      "name": "GD_022474_D4_T06.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D4_T06.shn",
+      "format": "VBR MP3",
+      "length": "03:50",
+      "md5": "ed436c01de9ee9633a73615914ef61ba",
+      "title": "Not Fade Away"
+    },
+    {
+      "name": "GD_022474_D4_T06.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D4_T06.shn",
+      "format": "Ogg Vorbis",
+      "length": "230.34",
+      "md5": "ce78df7616b87545183ba5c0d8edc84a"
+    },
+    {
+      "name": "GD_022474_D4_T06.png",
+      "source": "derivative",
+      "original": "GD_022474_D4_T06.shn",
+      "format": "PNG",
+      "md5": "4ea21322bba083b25b2c90c7329e5df3"
+    },
+    {
+      "name": "GD_022474_D4_T06.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "141.22",
+      "md5": "5d16d5b618fb7bdbbc321cde099443a3",
+      "title": "Not Fade Away"
+    },
+    {
+      "name": "GD_022474_D4_T07.afpk",
+      "source": "derivative",
+      "original": "GD_022474_D4_T07.shn",
+      "format": "Columbia Peaks",
+      "md5": "f0bfe58c46ba38f405f1fbf0ee3dd655"
+    },
+    {
+      "name": "GD_022474_D4_T07.mp3",
+      "source": "derivative",
+      "original": "GD_022474_D4_T07.shn",
+      "format": "VBR MP3",
+      "length": "06:18",
+      "md5": "0d74eed87d536cdb67342cb5b2c921f0",
+      "title": "E: It's All Over Now, Baby Blue"
+    },
+    {
+      "name": "GD_022474_D4_T07.ogg",
+      "source": "derivative",
+      "original": "GD_022474_D4_T07.shn",
+      "format": "Ogg Vorbis",
+      "length": "378.01",
+      "md5": "2a232e67373f1569569b62c595dce7cf"
+    },
+    {
+      "name": "GD_022474_D4_T07.png",
+      "source": "derivative",
+      "original": "GD_022474_D4_T07.shn",
+      "format": "PNG",
+      "md5": "d9439f584625aaa1b5d73527015cf31f"
+    },
+    {
+      "name": "GD_022474_D4_T07.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "195.56",
+      "md5": "82951d046e498ccff69419d6c382140d",
+      "title": "E: It's All Over Now, Baby Blue"
+    },
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "JPEG Thumb",
+      "md5": "ffe24b6695c3906dbbfdfeeade05b10e"
+    },
+    {
+      "name": "gd1974-02-24-all.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "daf11c09054366797798f851bc0803ef"
+    },
+    {
+      "name": "gd1974-02-24.199.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "8242496a471db8dca88c10a23702654c"
+    },
+    {
+      "name": "gd74-02-24.sbd.windsor.199.sbefail.shnf_archive.torrent",
+      "source": "original",
+      "format": "Archive BitTorrent",
+      "md5": "b90acad44e90b94cd054765f05a9a713"
+    },
+    {
+      "name": "gd74-02-24.sbd.windsor.199.sbefail.shnf_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "a1be93d200b5beb6ef7325620576de9a"
+    },
+    {
+      "name": "gd74-02-24.sbd.windsor.199.sbefail.shnf_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "f99c241e409d720dc89134ae4f07b6da"
+    },
+    {
+      "name": "gd74-02-24.sbd.windsor.199.sbefail.shnf_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "adb2acfd41dd9d2b1db59bd0e9a67045"
+    },
+    {
+      "name": "shntool.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "df62b131f56e4606e161450b0f46582f"
+    }
+  ],
+  "reviews": [
+    {
+      "review_id": "13290",
+      "reviewbody": "Great show, highly recommend this set, but I wish the rest of it was here in SBD. I have seen it around.",
+      "reviewtitle": "Where's the rest of the SBD?",
+      "reviewer": "happytrails",
+      "reviewdate": "2004-05-18 06:59:56",
+      "createdate": "2004-05-18 06:59:56",
+      "stars": "4"
+    },
+    {
+      "review_id": "16482",
+      "reviewbody": "Oh my God-where's the rest of the show? Surely someone has the SBD in SHN, I've had one for years. Look on GD Live?? Just a monster show, 4 CD's worth. Jerry is on home base in SF and batting 100. He starts both sets with US Blues and  Cumberland (which blazes BTW)and that should tell us something. Great versions of many favorite songs like Candyman, Loser and BE Women. And the second time for Roses! Let it Grow growls, leaps and sails. Now take a break, get ready for Set 2. Are you sitting down? The Dark Star>Morning Dew combo is always a show stopper (see 1972 and also 9/10/74) - this one is my favorite of all and the next best 74 Star after 5/14. And just when NFA is still ringing in your ears, they pull out Baby Blue!! Not since 9/26/72. Should have been a Dick's Picks. The 2 other nights are worth getting, but this outshines them both. One of the last great Dark Stars of the 1970's. Heartily recommended.\nDr. Flashback ;-)",
+      "reviewtitle": "Top 5!",
+      "reviewer": "dr. flashback",
+      "reviewdate": "2004-07-12 04:29:54",
+      "createdate": "2004-07-12 04:29:54",
+      "stars": "5"
+    },
+    {
+      "review_id": "16789",
+      "reviewbody": "The entire show with the same lineage is available at gdlive.com: http://www.gdlive.com/shn/gd74-02-24.shnf/",
+      "reviewtitle": "The rest",
+      "reviewer": "docgonzo",
+      "reviewdate": "2004-07-15 13:30:14",
+      "createdate": "2004-07-15 13:30:14",
+      "stars": "4"
+    },
+    {
+      "review_id": "25208",
+      "reviewbody": "The band is in top form.  WRS is blistering and on time.  What a great driver Billy K. was.\n\nWonder if they all sounded like this?  Thanks to forward thinking and hard work, we have these, today 30 years later, with this quality and fans getting their fill.  Outside of the masters,  what else could you ask for?\n\nDon't take my word for it, listen and/or download for yourself.",
+      "reviewtitle": "Over the Top Nugget",
+      "reviewer": "deadtothecore",
+      "reviewdate": "2004-11-27 08:50:01",
+      "createdate": "2004-11-17 18:31:56",
+      "stars": "5"
+    },
+    {
+      "review_id": "28042",
+      "reviewbody": "I went to GDLive and downloaded each song individually but had a problem with d4t1. Fortunately d4t1 is Dark Star which is available here. Also, combine discs 2 and 3 to make a 3cd set instead of 4.",
+      "reviewtitle": "Great Show",
+      "reviewer": "woodyland",
+      "reviewdate": "2005-01-02 12:53:40",
+      "createdate": "2005-01-02 12:53:40",
+      "stars": "5"
+    },
+    {
+      "review_id": "22067",
+      "reviewbody": "This recording is EXCELLENT.  I've had this show on tape for years and Set 2 is all you really need.........except for the China>Rider and Playin'.  \nThe Dark Star>Dew is epic and clocks in at about 45 minutes.  It takes a full 19 minutes until Jerry finds the 1st verse and then after a serious meltdown it's time for your \"mind to leave your body\".  Indeed Billy is driving this entire jam and might be his best ever performance. I'd rank this in my top 5 Dark Star's ever.\nI also really like the rare Baby Blue encore.  A great 2cd package!",
+      "reviewtitle": "WHOA!",
+      "reviewer": "mgags",
+      "reviewdate": "2005-01-25 17:33:03",
+      "createdate": "2004-10-02 17:13:21",
+      "stars": "5"
+    },
+    {
+      "review_id": "30111",
+      "reviewbody": "This is a must have! a SERIOUS must have! the power of Jerry commands you, Bobby's vocals are sublime and Donna manages to keep reasonably silent through out the proceedings! whew! This is a show that takes you somewhere and calls off the search... get it now.",
+      "reviewtitle": "Jeepers! ! !",
+      "reviewer": "chief boabab",
+      "reviewdate": "2005-01-27 01:50:22",
+      "createdate": "2005-01-27 01:50:22",
+      "stars": "5"
+    },
+    {
+      "review_id": "36326",
+      "reviewbody": "1974 rules!!!!!!!!",
+      "reviewtitle": "Sorry Primal fans...",
+      "reviewer": "Rhodes Man",
+      "reviewdate": "2005-03-26 18:12:55",
+      "createdate": "2005-03-26 18:12:55",
+      "stars": "5"
+    },
+    {
+      "review_id": "41028",
+      "reviewbody": "I don't think this show overall is as good as the reviewers say below.  However, this Dark Star>Morning Dew is one of the top 5 moments in GD history.  The rest of the show is excellent, but the DS>Dew makes this show.  One of the best Dark Stars I have ever heard in my life.  Also listen to Jerry's last solo in Morning Dew.  It is like his fingers are melting the guitar.  UNREAL!",
+      "reviewtitle": "Excellent",
+      "reviewer": "Scott Moen",
+      "reviewdate": "2005-05-10 12:16:33",
+      "createdate": "2005-05-10 12:16:33",
+      "stars": "5"
+    },
+    {
+      "review_id": "41401",
+      "reviewbody": "I saw my first show in Philadelphia in the Summer of 1973, just before Watkins Glen. These tapes, of this show, capture the full dynamic of Jerry's playing better than anything I can recall in that last 30 years or so. For what it's worth, and because no one else has mentioned it, this has by far the most incredible version of Promised Land I have EVER heard.",
+      "reviewtitle": "1973 -1974",
+      "reviewer": "fmichael",
+      "reviewdate": "2005-05-15 20:34:44",
+      "createdate": "2005-05-15 20:34:44",
+      "stars": "5"
+    },
+    {
+      "review_id": "41451",
+      "reviewbody": "This is a great show, one of the best of the year, and better than any of the closing 5 at Winterland, IMO.\n\nIt also fits easily on 3 CD's; put Promised Land at the beginning of \"disc 4\" (now disc 3), and the rest of \"disc 3\" at the end of disc 2.  Does anyone still burn 74 min CD's??",
+      "reviewtitle": "Great show",
+      "reviewer": "Rob Bertrando",
+      "reviewdate": "2005-05-16 16:32:42",
+      "createdate": "2005-05-16 16:32:42",
+      "stars": "5"
+    },
+    {
+      "review_id": "45564",
+      "reviewbody": "I used to have a hissy tape of this, which I've long since destroyed accidently but I treasured it. It was one of my favorite shows despite the fact I only had the second set. Of all the Dark Star>Morning Dews I've heard, this one is second only to 9/21/72. This is one of the better Dews out there, along with 8/6/71 and 2/24/68. Definitely worth getting. BTW, around the 24-minute mark in Dark Star, I hear quite pronounced Spanish Jam teases from Bob. I'm surprised that nobody else, not even Deadlists, has pointed that out.",
+      "reviewtitle": "2/24/74",
+      "reviewer": "phleshy",
+      "reviewdate": "2005-07-08 06:16:52",
+      "createdate": "2005-07-08 06:16:52",
+      "stars": "5"
+    },
+    {
+      "review_id": "48714",
+      "reviewbody": "10/18 was always my favorite Dark Star>Morning Dew from '74 but this one is right there with it. A must show from a stellar year.",
+      "reviewtitle": "beautiful show",
+      "reviewer": "luckymw",
+      "reviewdate": "2005-08-18 20:17:28",
+      "createdate": "2005-08-18 20:17:28",
+      "stars": "5"
+    },
+    {
+      "review_id": "48814",
+      "reviewbody": "A great rocking Bertha, a virtuoso Jerry performance on El Paso and Cumberland Blues (one of the best CBs, actually), a Playin'in the Band that goes to some fascinating places. The Weather Report Suites of November '73 are better, but Jerry heats it up towards the end, resolving into a nice Row Jimmy and a perfect Ship of Fools. A sweet Morning Dew that slowly builds to a climax not once, but twice. (The 6-18-74 Dew is also great. The best Dews are in 1974.) After that, the rest of the gig is non-stop high energy. The joint was jumping that night.",
+      "reviewtitle": "Another great '74 show",
+      "reviewer": "L. Rosley",
+      "reviewdate": "2005-08-20 20:16:05",
+      "createdate": "2005-08-20 00:54:20",
+      "stars": "5"
+    },
+    {
+      "review_id": "48869",
+      "reviewbody": "The only thing that's memorable to me is the transition between \"Dark Star\" and \"Morning Dew,\" the most stellar ever.  And they've done this paring a few times.  As to the best year for \"Morning Dew,\" it would be 1973, followed by '77.  '74 is the best all around year, however.",
+      "reviewtitle": "Re:",
+      "reviewer": "Lewis/Klitschko",
+      "reviewdate": "2005-08-20 21:40:12",
+      "createdate": "2005-08-20 21:40:12",
+      "stars": "5"
+    },
+    {
+      "review_id": "49740",
+      "reviewbody": "Wow!  I can not believe no one has really said how f-ing amazing this segue (UJB-like jam) from China>Rider is!  Of all the UJB-like segues from China>Rider from late 1973-1974, this is my favorite, with 5-26-73's premature version as runner up.  5-26-73 was such a unique jam...all heads should check it out if you haven't already.  Anyway this one is just a roller coaster....Jerry nails it!!!!!!!   The rest of the show is cookin'.  Playin' is out of this world!  Dark Star>Dew is spectacular!  This is the best sound quality for any 1974 show on this archive!  Get it!!!\n\nDamn I forgot...check out Jerry's brilliance on Jack Straw.  This is in my top 5 Jack Straws...his licks are so f-ing smooth!\n\nOK, now on the topic of the beautiful UJB-like segue jam from Chin>Rider.  I can not believe so many people do not know about this jam...and also how many people think it is Mind Left Body jam.  It is not MLB jam.  MLB jam is completely unrelated to this segue jam.  If you want a MLB jam, listen to 10/17/74 - Spanish Jam > MLB jam.     \n\nThe UJB-like segue from China>Rider made its debut in a spring 1973 show (5/26/73 is really cool)...and survived through the 5 night Winterland run in 10/74.  Although it is in a totally different key than UJB, it has that sort of groove to it.  IMO, the best ever UJB-like segue jam is this 2/24/74 Winterland!  Damn! Jerry's tone is just crystal clear and in your face...he really nails it with a special touch this night!  The one on the bonus disc from the movie does not touch 2/24/74.",
+      "reviewtitle": "segue from Chine>Rider!!!!!!!!!!",
+      "reviewer": "hyperboy",
+      "reviewdate": "2005-09-07 11:06:49",
+      "createdate": "2005-09-01 06:09:04",
+      "stars": "5"
+    },
+    {
+      "review_id": "50979",
+      "reviewbody": "This show is the real deal and china rider just sings from up high. I saw the GD movie on public tv for the umpteenth time last night and it got me nostalgic for a hot Winterland '74. This is a hornet's nest of sizzling energy to be listened to NOW.\n\nThey could have shut it down at the end of the glorius Dew but have plenty of fire left and bang out a cranking Sugar Mag and supreme NFA>GTRFB>NFA - This is the one you take to the afterlife.",
+      "reviewtitle": "Believe the hype - Jerry waits 30 mins before the first lyrics in Dark Star",
+      "reviewer": "capn doubledose",
+      "reviewdate": "2005-09-17 16:41:40",
+      "createdate": "2005-09-17 09:57:06",
+      "stars": "5"
+    },
+    {
+      "review_id": "44825",
+      "reviewbody": "So let me say this with out getting one up set been  a fan for the past 10 years and last night eas the first time to see the GD movie. I know, I know its hard to believe but when  I saw it just made me mad for some good 74 winterland and let me tell ya my fellow friends I found it with this show it is just a mind blowin ,Fanfuckintastic show pardin my french but this show just leaks crazy of of fine grateful dead music and the sound is just right on .74 what a year for the gratest band in the world.",
+      "reviewtitle": "Filled with fine GD music!!!!!!!",
+      "reviewer": "jerseyfolk",
+      "reviewdate": "2005-09-25 18:38:46",
+      "createdate": "2005-06-29 00:34:22",
+      "stars": "5"
+    },
+    {
+      "review_id": "53927",
+      "reviewbody": "I'll probably get roasted for this review and I usually don't bother posting uncomplementary reviews as each can decide for themselves. This is a show that you just want to be good, but to be fair I would say that it is more laid back almost to the point of being uninspired. The set list is absolutely amazing. Long and full of all the hits. Perhaps I just need to listen to it in a more relaxed mood. Let me say that the Cow Palace show the next night was my first Dick's Picks and it's never been one of my favorites either. The sound quality is good but it's definitely a quieter and more contemplative show. The many moods of the Grateful Dead...",
+      "reviewtitle": "Laid back and not the most energetic show",
+      "reviewer": "macfawlty",
+      "reviewdate": "2005-10-25 12:48:46",
+      "createdate": "2005-10-25 12:48:46",
+      "stars": "4"
+    },
+    {
+      "review_id": "58646",
+      "reviewbody": "Wait until the wee hours when everyone else is asleep and dreaming, turn the lights off, put on your headphones, and follow the second Dark Star to the right, then straight on till morning.",
+      "reviewtitle": "5 Stars",
+      "reviewer": "MCSZ",
+      "reviewdate": "2005-12-27 00:40:55",
+      "createdate": "2005-12-27 00:40:55",
+      "stars": "5"
+    },
+    {
+      "review_id": "62277",
+      "reviewbody": "There is Spanish Jam (only about 1 minute) near the end of Dark Star.  Great sound quality.  Download this puppy.",
+      "reviewtitle": "A very good show",
+      "reviewer": "smgarcia",
+      "reviewdate": "2006-02-13 15:37:08",
+      "createdate": "2006-02-13 15:37:08",
+      "stars": "5"
+    },
+    {
+      "review_id": "64317",
+      "reviewbody": "Best AM Dew ever. Smoking set lists, and performance.",
+      "reviewtitle": "my humble opinion",
+      "reviewer": "where's the JGB?",
+      "reviewdate": "2006-03-12 18:50:07",
+      "createdate": "2006-03-12 18:50:07",
+      "stars": "5"
+    },
+    {
+      "review_id": "65990",
+      "reviewbody": "...that this is indeed a great show...but I've always felt this run was just a smidgen overrated. I don't think any of these, good as they are, hold up to the monsters of mid to late June. This one (2/24) would make my Top 10 of '74 but not my Top 5. Nice sounding recording, though.",
+      "reviewtitle": "No question...",
+      "reviewer": "skuzzlebutt",
+      "reviewdate": "2006-04-12 05:44:33",
+      "createdate": "2006-04-05 11:47:50",
+      "stars": "4"
+    },
+    {
+      "review_id": "59400",
+      "reviewbody": "this run at the winterland is probubly better than the oct group, the sound is rich and full, with 73 not to far off in the distance,years blend into each other, even if you can define a distinct sound of 74, that wouldn't be fully developed until about May, leaving the earlyer stuff on the cusp with a uniqueness to it. Darkstar Dew just one of many greats.\nhappy to share with a responsible fans, email me @ fieldhouse11277@hotmail.com",
+      "reviewtitle": "very cool stuff",
+      "reviewer": "rollandfin",
+      "reviewdate": "2006-04-18 16:42:16",
+      "createdate": "2006-01-06 16:14:56",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Someone put down China>Rider, but from what I've heard thus far (2/3 thru China Cat) it's one of the most mellow renditions I've heard, totally digging it. \n\nThe introduction by Bill Graham is great, \"Whatever's going on in the world, wars or kidnappings, this is a peaceful Sunday night with the Grateful Dead\"",
+      "reviewtitle": "Good Stuff",
+      "stars": "5",
+      "reviewer": "sky dog",
+      "createdate": "2006-05-20 22:34:18",
+      "reviewdate": "2006-05-20 22:34:18"
+    },
+    {
+      "reviewbody": "The UJB transition in China Rider is awesome!\n\nThe rest of the show is soooo good.  Great setlist with an amazing Dark Star right into Dew.",
+      "reviewtitle": "China Rider",
+      "stars": "5",
+      "reviewer": "amichels",
+      "createdate": "2006-06-23 17:41:50",
+      "reviewdate": "2006-06-23 17:41:50"
+    },
+    {
+      "reviewbody": "Let me tell you about my experience with this show. Back in the mid-1980's I got my hands on a sdbd cassette copy of this show. I carried it with me everywhere I went and played it all the time. Through the years it wore down and I lost the tape. This entire show is not only magical but IMHO has some sort of Divine intervention. This recording is crystal clear and it's mind boggling to imagine how human beings can make music like this. Since I've gotten my hands on this soundboard copy I've listened to it A LOT. The Morning Dew is the best ever!!! (Augusta MN. 1984 is a close 2nd). When I catch a buzz and turn off the lights, light a candle, and listen to this Dew, it's beyond description. Many times I've had an out of body experience where (during the Dew) my spirit and soul is litterally transported back to 1974 and I'm in the Winterland Arena. I can feel the energy and feel what the band (esp. Jerry) is experiencing at that moment in time. I've tried this with other shows and songs but never had the powerful transformation in time like this Morning Dew. This is all without LSD. The last jam in AM Dew I can feel A presence guiding Jerry, that jam is not only the band but SOMETHING else too. The end of the show is soooooo sweet. The end of Not Fade Bobby is litterally shredding his vocal chords, Not Fade AWAAAAAAAAAAAY. The best and sweetest Baby Blue ever!!! Make sure that when you listen to the Dew you have it turned up loud. Jerry and the band bring this to a whisper and he fizzles the notes away. If anyone knows of other shows out there that they have had this type of experience please email me and let me know: scottlacey2000@msn.com",
+      "reviewtitle": "The Best Dew Ever",
+      "stars": "5",
+      "reviewer": "Wings A Mile Long",
+      "createdate": "2006-07-15 19:25:13",
+      "reviewdate": "2006-07-15 19:25:13"
+    },
+    {
+      "reviewbody": "this would be my drug of choice. The set list is perfect. Billy Kreutzmann's performance is jaw dropping - fluid, expressive, and jazzy as hell (that pretty much sums up the Dead's year in '74). The China/Rider from this show is without peer. This one takes you soaring like no other and should be enshrined as the China/Rider for all time. Okay, maybe that's a bit much, but damn, it still blows me away every time I hear it. Did they know they just totally nailed it that night? Dark to Dew is almost too much of a good thing. This is a show for the ages. Get it and spend lots of time with it. You will anyway.",
+      "reviewtitle": "In the Greatful Dead's '74 medicine chest...",
+      "stars": "5",
+      "reviewer": "bizzbugg",
+      "createdate": "2006-07-24 23:27:15",
+      "reviewdate": "2006-07-24 23:27:15"
+    },
+    {
+      "reviewbody": "That's what this set is about. Taken as a whole, it has mystic qualities. The lyrics and music, together the voice of an undefined tribe, choices and emotions. Thank you, Grateful Dead, for allowing the sounds from this peaceful Sunday night in 1974 to reach my ears. You had achieved 'moments of blinding brilliance' strung end on end. Listening to this set, I always end up thinking of my friend Bill. Thanks for that, too.",
+      "reviewtitle": "choices and emotion",
+      "stars": "5",
+      "reviewer": "crazyshepherdtoo",
+      "createdate": "2006-09-09 04:10:22",
+      "reviewdate": "2006-09-09 04:10:22"
+    },
+    {
+      "reviewbody": "My #1.\nThe purest expression of the human experience ever uttered.  Souls connecting directly to souls, transcending the medium, nullifying any consideration of time and space.\nTime travellers view from their invisible seats, returning to experience this one moment in time.\nThis is what it was all about, folks.\nA blend of emotion and psychic energy so unique it defies any logical description, and thwarts any attempt at explanation.\nThis was the Grateful Dead.",
+      "reviewtitle": "This is it",
+      "stars": "5",
+      "reviewer": "tbrad",
+      "createdate": "2006-11-14 02:52:37",
+      "reviewdate": "2006-11-14 02:52:37"
+    },
+    {
+      "reviewbody": "Tremendous 1974 Dark Star!",
+      "reviewtitle": "Phenomenal Show!",
+      "stars": "5",
+      "reviewer": "Cliff Hucker",
+      "createdate": "2007-01-04 02:05:40",
+      "reviewdate": "2007-01-04 02:05:40"
+    },
+    {
+      "reviewbody": "Dark Star>Morning Dew is amazing...Probably one of my top five Dark Stars. Epic and exploratory. \nThe Weather Report and China>Rider are also exemplary. \nGood sound quality too. Anyone wanna hook me up with a B&P?",
+      "reviewtitle": "Tremendous",
+      "stars": "5",
+      "reviewer": "TheDaliTrauma",
+      "createdate": "2007-01-05 01:19:02",
+      "reviewdate": "2007-01-05 01:19:02"
+    },
+    {
+      "reviewbody": "For some reason, some '74 shows have the Kavorka that can really spook ya when you get inside.  This is the kind a stuff that makes the Dead beyond that hole R&R genre.  I originally gave it a four and a half but couldn't round down.",
+      "reviewtitle": "The Spook Within",
+      "reviewer": "Wally Gator",
+      "reviewdate": "2007-04-07 22:12:45",
+      "createdate": "2007-04-07 22:12:45",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "I wouldn't normally listen to the drums, but an earlier review prompted me to do so. Incredible. Billy keeps a crazy uptempo beat on Brown Eyed Women - really interesting version of the song. I think part of the reason this night is so good for the rythm is because the drums are up there in this mix.\n\nGreat show overall, too. I mean, look at the setlist, and think of 74 as a year in general. Absolutely incredible.",
+      "reviewtitle": "oh, but the drums",
+      "reviewer": "vivek.tata",
+      "reviewdate": "2007-05-17 22:05:16",
+      "createdate": "2007-05-17 22:05:16",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "must of been the roses... one of my fav. tunes. but not this one thanks to donna.",
+      "reviewtitle": "shut up donna",
+      "reviewer": "Chiefwigumsboy00",
+      "reviewdate": "2007-07-03 15:46:22",
+      "createdate": "2007-07-03 15:46:22",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "http://en.wikipedia.org/wiki/Wall_of_Sound_%28Grateful_Dead%29\n\n74 rocked for a reason\n\nAugustus Owsley Stanley III",
+      "reviewtitle": "read up",
+      "reviewer": "GratefulPothead",
+      "reviewdate": "2007-07-22 16:02:05",
+      "createdate": "2007-07-22 16:02:05",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "I have to give this show 5 stars for recording quality. When you compare it to other shows in 74, giving it 4 stars is being generous but 3 stars would be far too harsh. Freedom Hall and Seland Auditorium are far more inspired shows.\n\nNone the less, it is a solid 74 show, which was a great year.",
+      "reviewtitle": "Excellent Sound Quality",
+      "reviewer": "DHEd",
+      "reviewdate": "2007-07-27 01:42:55",
+      "createdate": "2007-07-27 01:42:55",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "Dead in top early 70's form. It's funny, the \"Playin'\" jam with Keith's electric piano recalls an unlikely similarity to Miles Davis's work from '69-'74---it's like the white hippy version of \"Bitches Brew\". Try it! Had to get that out.",
+      "reviewtitle": "Playin'",
+      "reviewer": "bacculus",
+      "reviewdate": "2007-08-29 06:34:38",
+      "createdate": "2007-08-29 06:34:38",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "china/rider..all i have to say..im new how do i download this show so i can put it on a cd",
+      "reviewtitle": "wow",
+      "reviewer": "fluffhead7420",
+      "reviewdate": "2007-09-11 13:40:48",
+      "createdate": "2007-09-11 13:40:48",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Well the name of the jam between china>rider isnt the Mind Left Body Jam, but has been called the Mud Love Buddy Jam, like on dicks picks 12..... but i think thats only because of some dispute with a record label or somthing like that",
+      "reviewtitle": "China>Rider",
+      "reviewer": "alanizj",
+      "reviewdate": "2007-10-11 06:58:07",
+      "createdate": "2007-10-11 06:58:07",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "At 11:00 this morning, we went from China Cat into I Know You Rider. Suffice it to say that there will be very little serious work for coming out of this office the rest of the day.\n\nJust about as good as I can remember it getting.",
+      "reviewtitle": "So Much For Work Today",
+      "reviewer": "Geoffsky",
+      "reviewdate": "2007-10-22 15:15:25",
+      "createdate": "2007-10-22 15:15:25",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Throughout the show, Jerry improvises before songs begin their singing sections.  It is clearly a time at which the boundaries of the grateful dead music are being challenged.  A perfect irony at the point of origin for the dead, and then, the source of rejuvenation and resurgence of creativity.  You can tell that Jerry is forward looking at this show.  You can also hear one of the more peaceful sets in the era.  With all that having been said; it seems like Jerry is a little impatient at this show, and while he improvises at the beginning of songs like never before really; he is a little too quick to start a song and not caring enough about the progressions from song to song.",
+      "reviewtitle": "Where the Dead Began",
+      "reviewer": "deadreview",
+      "reviewdate": "2007-11-15 23:09:47",
+      "createdate": "2007-11-15 23:09:47",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "this is pure dead lsd 25 perfect can i download and burn it or is it a dick pik",
+      "reviewtitle": "trouble downloading",
+      "reviewer": "labor1206",
+      "reviewdate": "2008-01-07 02:39:01",
+      "createdate": "2008-01-07 02:39:01",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This is one of the weakest performances I have listened to from 1974.  Jerry seems comatosed on most of the songs.  I have not yet listened to anything past weather Reportbut unless things changed this show is one to forget with the exception of the jam between China Rider.  love Miami and Louisville from summer.",
+      "reviewtitle": "Sorry not this night",
+      "reviewer": "lcj72835",
+      "reviewdate": "2008-01-11 15:25:00",
+      "createdate": "2008-01-11 15:25:00",
+      "stars": "2"
+    },
+    {
+      "reviewbody": "Hey lcj72835 you are quite funny. You give 3-14-81 5 stars and rip this fantastic show. Give me a break. 2-24-74 is a monster. Compare setlists and compare the chops. There is no comparison. This is a top 10 show from 74 and blows any 81 show out of the water. Get respectable",
+      "reviewtitle": "lcj72835",
+      "reviewer": "countmlbjam",
+      "reviewdate": "2008-01-11 17:10:58",
+      "createdate": "2008-01-11 17:10:58",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "as other reviewers have noted -- this show rocks!! man is 74 a good vintage. This show has hit me today exactly as it hit Geoffsky down below. I turned on at Candyman, a sweet long version, then Jack Straw the barometer for every show, then one of the best (all subjective of course) China/Rider's I have heard. It peaks hard at the end of Rider!! god I love the grateful dead. \n\nof course 5 stars -- this band is seldom off.\n\nall hale the archives!\n\n(~);",
+      "reviewtitle": "god I love this band",
+      "reviewer": "scum beat",
+      "reviewdate": "2008-02-12 19:47:12",
+      "createdate": "2008-02-12 19:47:12",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "i know it's all a matter of opinion, but i don't know how you can consider this show weak.  it's a solid early 70's setlist and the boys are on all night. a  sweet candyman & jack straw, an incredible china/rider, a good dark star with a spanish jam tease that flows into MD. the good vibes from the night before came through the music again in this show",
+      "reviewtitle": "lcj72835",
+      "reviewer": "caseytheconductor",
+      "reviewdate": "2008-10-24 00:39:54",
+      "createdate": "2008-10-24 00:39:54",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "The deusenberg is firing on all 16 cylinders at the last concert played with the \"flat\" wall of sound -the month after, they set up their \"tall\" wall at cow palace.\nI love Jackstraw and China/rider - these are among my faves. Man, can anyone out there build a time machine so I can go back and spend about 3 years following the dead -starting around Oct '71??",
+      "reviewtitle": "Beautiful",
+      "reviewer": "minndead",
+      "reviewdate": "2009-01-10 01:47:24",
+      "createdate": "2009-01-10 01:47:24",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "I've got to say that unless you were actually at this show, then hold your tongue. There's just no way you can comment on this show just from the tapes, the energy being there is different and unique. Wise up, kid...and try to enjoy something you've apparently never experienced live, that being the early '70's shows. Graditude is a core principle for happiness, so be GRATEFUL for what we have.",
+      "reviewtitle": "To lcj72835...",
+      "reviewer": "ststephen49",
+      "reviewdate": "2009-02-24 16:08:50",
+      "createdate": "2009-02-24 16:04:25",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "The boys were young and so was the audience. We  had the bursting energy of youth and felt the pulse of the universe in our veins. Jerry was thin, his hair was dark, (for that matter, so was I and so was mine). Bobby had a long straight pony tail and looked like he should be dating the girls Pig was singing about. And somehow, when the band got outrageous as they got, it was Pig out in front with his vocals. Take your hands out of your pockets! It was a lifetime away from Black Muddy River.",
+      "reviewtitle": "Early 70's Shows",
+      "reviewer": "RooseveltStadium72",
+      "reviewdate": "2009-03-09 04:31:18",
+      "createdate": "2009-02-25 06:23:23",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "No weak spots, and all the jazzy-honey goodness of late-'73. Their live sound would start to change slightly after these Winterland shows; more rocking, with a somewhat heavier distortion in Jerry's guitar. I'm sure this has something to do with the Wall of Sound being unveiled at the very next show on 3/23. Not a bad thing, at all, just the next step in the Dead's evolution. Most of the songs from Nov. '73 thru Feb. '74, however, sound like Jerry is plugged straight into the amp, with hardly any distortion pedals being used at all, except during the interstellar freak-out jams.\n\nSo basically this show is the last of \"The Honey Year,\" imo. Just an all-around killer show. One of the last truly otherworldly Dark Stars, though not quite on the level of 11/11/73, but you can hardly fault it for that. Also, one of the best China Cat>Riders of the year, up there with 6/26, imo.\n\nThis whole run is great, and I would go so far as to say the previous night equals this, if not surpasses. And 2/22 is definitely no slouch either. Get the whole run if you love the laid-back, jazzy, epic Dead.",
+      "reviewtitle": "Amazing....",
+      "reviewer": "pulp79",
+      "reviewdate": "2009-05-01 04:22:25",
+      "createdate": "2009-03-31 03:08:05",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Grate 74 show. Very nice sbd. For those of you who have the know how to download this disc two and three fit easily on an eighty minute disc. Better yet do what I did. Buy yourself a modern stereo that plays mp3 discs. My aud collection consists of two hundred sixty nine shows. they fit on one hundred four mp3 discs. If they were on regular discs it would take probably eight or nine hundred discs.",
+      "reviewtitle": "2-24-74",
+      "reviewer": "BIG_R",
+      "reviewdate": "2009-08-12 21:54:39",
+      "createdate": "2009-08-12 00:50:10",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Update 11/18/09:\n\nlistening to this show rite now. it really is just one highlight after another. loser just SPARKLES. and OMG...that row jimmy coming out of LIG is just amazing! really slowed down and almost reggae like, and how 'bout jerry's slide! un-frikin'-believable. this is top shelf stuff. easily one of the best all-time. this, 6/18 and 5/19 are all essential '74.\n\n**************************************************\na classic early '74 show that sounds more like late '73, well played, and the newer songs (U.S. Blues and Ship) sound great. an absolutely SUBLIME candyman, amazing china>rider, and very unique weather report. promised land is the most rockin' verison i've ever heard! and how 'bout that cumberland...one HOT tamale! playin' is good but not even close to the best of '74 (that goes to 8/6/74 easily) but i should give another listen. the dark star is a great mellow version and i love the spanish tease. it all ends with a rollicking NFA that is one of my recent faves.\n\nfind this along with 2/23 - both must haves!",
+      "reviewtitle": "Great!!!",
+      "reviewer": "clementinescaboose",
+      "reviewdate": "2009-11-18 09:19:29",
+      "createdate": "2009-09-28 19:04:06",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This has to be prime time for the era.  Sunday nite of the 3 day set and they finally relaxed.  My first GD concert thanks to buddy Tom.  Great space in this one and wonderful teases.\n\nThis is so much more appreciated, after going thru the timeline of really great stuff over the years. \n \nLLTD\n  \n(Hope Tom is still tuning in.)",
+      "reviewtitle": "Late to the Party",
+      "reviewer": "FriendofTom",
+      "reviewdate": "2009-10-03 04:36:52",
+      "createdate": "2009-10-03 04:34:12",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Well let me tell you, I am old enough to have been there, over and over again. Most of the concerts I saw in the 70's were in Boston, NY and Philly. It's hard for me to fairly compare those of the later years because my head was in a different place by that time (even though I saw as many in the 80's as I did in the 70's). So when I say this, maybe it isn't unbiased. There was nothing like the 1973 & 74 years, along with that very special 1977 Spring time period. Enjoy these incredible archives. It's as close as you'll ever get to being there.",
+      "reviewtitle": "to the maine man",
+      "reviewer": "geraldusa",
+      "reviewdate": "2010-01-16 20:36:25",
+      "createdate": "2010-01-16 17:50:12",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "i have no idea by what people mean when they say jerry was asleep at this show.  the dark star-> dew is worth the price of admission alone.\n\nhad i been old enough to see '74 shows at the winterland, i doubt my feet would yet be touching the ground.\n\nthis was the wake of the 1960s flood, indeed: \"Good to know you got shoes to wear when you find the floor, Why hold out for more?\"\n\nmind bogglingly good.  it begs to be in your collection.",
+      "reviewtitle": "yeah",
+      "reviewer": "mid-maine",
+      "reviewdate": "2010-01-16 18:38:46",
+      "createdate": "2010-01-16 18:38:46",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "The setlist above includes some Soundcheck? songs which do not appear in the files it seems.  Are these available?  US Blues #1 and #2, It Must Have Been Roses, Jam, etc...",
+      "reviewtitle": "Soundcheck?",
+      "reviewer": "tatittle",
+      "reviewdate": "2010-08-20 14:43:10",
+      "createdate": "2010-08-20 14:43:10",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This show is monumentally...average. Yeah, the Dew is pretty good, and the Dark Star has a cool exit jam, and there's a good Cumberland blues in there somewhere, but...most songs are played just \"okay\". china>rider just average, and nfa>gdtrfb is weak. Neither of these should suck at any Dead show, they are great songs! Anyway, in conclusion: Meh. The previous night is way better.",
+      "reviewtitle": "Sorry guys, I'm just not too impressed",
+      "reviewer": "Zaorish",
+      "reviewdate": "2011-02-02 16:11:17",
+      "createdate": "2011-02-02 16:11:17",
+      "stars": "3"
+    },
+    {
+      "reviewbody": "I am impressed. the sound quality is as good as you will find. the playing is excellent. This is one of my favorite 74 shows.",
+      "reviewtitle": "1974-02-24",
+      "reviewer": "grifftrain2000",
+      "reviewdate": "2011-03-15 13:16:16",
+      "createdate": "2011-03-15 13:16:16",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This show is not without some flaws. I love the GD, and there's no doubt in my mind that even a flawed Dead show is better than almost anything else I can think of. And this show does not have any major flaws. In fact, this show is well-played, technically sound, and really a very good 1974 show (much better than the official Steal Your Face).\n\nHowever, I'm not a huge fan on 1974 shows in general. 1973 was a giant year for the Dead. They experimented and grew in many different ways. Their energy was phenomenal. 1974, on the other hand, found the boys polishing rough edges more than blazing new trails. It is more subdued and less unpredictable, and therein lies my troubles with 1974. Predictability is not one of my favorite attributes of the GD.\n\nIf you are into really polished, well played shows, you can probably reverse my thinking 180 degrees... but if like me, you enjoy spontaneity and chaos, you are better off with a great 1973 show.\n\nWith all that said, the China/Rider here is a keeper... very tasty. And the Playin' and WRS are really good too.\n\nTechnically, this recording takes about 3 or 4 songs before the mix settles in (Mexicali sounds almost like Billy and a monitor feed of Bobby's voice), but after that it gets quite good. By the 2nd set it is stellar. The transfer is perfect.\n\nOverall, well worth adding to your collection!",
+      "reviewtitle": "I Know This Show Is A Classic, But...",
+      "reviewer": "aybesea69",
+      "reviewdate": "2011-10-26 19:42:57",
+      "createdate": "2011-10-26 19:42:57",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "Others have referenced my concern as well about what started to happen to the Dead's approach during this period. Were things getting too laid back that they started getting \"lazy\" in their playing? I think this becomes most evident in the typical \"first set\" songs. Even going back into '73, compare typical first set tunes (Bertha, Jack Straw, Ramble On Rose, Mexicali, Tenn. Jed, etc...) to how all this stuff got played on the Europe 72 tour. Every tune on those nights was played with snap, with inspiration, crisp and tight as if their lives depended on it. As we move through 73 and into 74, all lot of these tunes just start to sound sluggish. \n\nThis period still has its moments of course: the improvisational jams throughout Playing in the Band, or He's Gone>Truckin'>Other One, Eyes of the World, WRS, the exploratory Dark Stars. These still capture the Dead at what they do best -- they are like Impressionist paintings. So, it's 4 stars for \"very good.\"",
+      "reviewtitle": "Getting too laid back?",
+      "reviewer": "peasant",
+      "reviewdate": "2011-12-06 21:15:53",
+      "createdate": "2011-12-06 21:15:53",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "0*8^)~",
+      "reviewtitle": "*****",
+      "reviewer": "n2thelite",
+      "reviewdate": "2012-05-12 15:34:40",
+      "createdate": "2012-05-12 15:34:40",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Hard to say when one show is better than another in the '72-'74 era, but this one stands out. One of my favorites from '74 (also 5/25 Santa Barbara and 6/23 Miami).\nHighlights: Candyman, China>Rider, Loser, Playin'.\nCumberland, Bertha, Let It Grow, Dark Star.\nRest really good.",
+      "reviewtitle": "Fantastic show",
+      "reviewer": "reviewr",
+      "reviewdate": "2013-02-24 04:37:54",
+      "createdate": "2013-02-24 04:37:54",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Yeah, they played 3 sets. Yeah, they had the wall of sound. Yeah, it was the Winterland. But when you get past all that hype, it's just a band with a really loud sound system, too stoned to decide what they want to play. I've heard some '74 shows that I think rank among the best, but this sounds weak, empty & indecisive. The quality of this soundboard is also era-typically harsh, albeit very clear. Each to his own though.",
+      "reviewtitle": "--",
+      "reviewer": "njpg",
+      "reviewdate": "2013-02-25 04:26:36",
+      "createdate": "2013-02-25 04:26:36",
+      "stars": "2"
+    },
+    {
+      "reviewbody": "I read these comments from mavens like yourself and often wonder what planet they are coming from - First of all it's not The Winterland it was Winterland. Number two - listen to the show if you are going to comment - You sound ridiculous.",
+      "reviewtitle": "njpg",
+      "reviewer": "bookdaddy",
+      "reviewdate": "2013-02-26 00:02:06",
+      "createdate": "2013-02-25 20:43:33",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "I'm always a little suspect of deadheads who think 73 & 74 was to \"laid back\" or \"unfocused & lazy\". For myself this was the high point for the Band. 72's crisp experimentation was a perfect Segway into 73's voyage into improvisational space jazz turned into a rounding off to smoother spaces of 74. As the seventies went on they still had their moments but never would they be what they were, in 73 & 74 they could do no wrong. By the eighties my days of attending live shows was over. To my ears 73 & 74 are all 5 star shows.....",
+      "reviewtitle": "Suspect",
+      "reviewer": "lp357",
+      "reviewdate": "2014-03-23 22:41:07",
+      "createdate": "2014-03-23 22:41:07",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "i always  love  folks  who  pretend  to sound like they  know  what  they  are saying,  sort of like folks  who pretend they can play  their  instruments,  but  to the bitter  end  were still  accused of  not  quite knowing how,  especially the  reluctant leader,  no  conductor he.\n\nbut the things that are given critique,  \"era-typically\"  (why not  create  a word  that will stand up to time,  like conversate,  as in, to musically  conversate) are what makes this great.\nand you have to start by mentioning the fact of analog  tape,  an era thing,  of mostly past, for which we are all poorer,  and without, frankly, the music  ain't quite,  but then\nthis 'un  actually is quite,  and \n\ni especially  love the parts where the poor  drug-crazed band  couldn't  figure out what song the were playing,  like  the no you  or is that china hat?\n\ni don't  know,  maybe it  was the \\\n\nqualudes?",
+      "reviewtitle": "\"era-typically\"",
+      "reviewer": "grasshopper's nipples",
+      "reviewdate": "2015-02-25 09:18:17",
+      "createdate": "2015-02-25 09:18:17",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Fucking awesome show all around. Everything was good. Highlights include Loser, Playin', Let it Grow, Dark Star > Morning Dew, Sugar Magnolia > NFA > GDTRFB > NFA. \n\nLet it Grow is definitely growing on me as a song. \n\nLoved this show, next up for me to listen to is 10/19/74!",
+      "reviewtitle": "Awesome",
+      "reviewer": "JoshuaDublin",
+      "reviewdate": "2015-07-13 17:30:49",
+      "createdate": "2015-07-13 17:30:49",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "I would describe this show as I would Jerry`s playing style: fluid. I have noticed that some individuals have remarked that the pace is too restrained here. \nAt the time this was recorded, in the early 70`s, there were many musical technicians at work who were all too eager to display there speedy runs and aggressive playing. This is not to knock bands like Led Zeppelin, Black Sabbath Santana and so forth. It is only to say that this is why Jerry has been irreplaceable, because his playing was fluid and generally more restrained. All the credit to him and the rest of the GD for not getting caught up in the whole Rocking Blues Band Trip. They were that, but of course so much more. Really, the more that I listen to shows from 70 to 77, the more that I realize it is a feeble attempt to get carried away with comparisons as each one of these years are golden! If you don`t understand why this show is great now, and in fact you dig the GD. then chances are you`ll come back to it later and have a light bulb moment. Otherwise, there is not much more to add to the other substantially good reviews given to this show.",
+      "reviewtitle": "Spoiled For Choice!",
+      "reviewer": "dreatimeland",
+      "reviewdate": "2015-08-05 08:01:41",
+      "createdate": "2015-08-05 08:01:41",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "calling any version of something and for this post I'll stick to DEAD songs 'the best ever.' ITs basically a 'fool's errand.'\n\nas an example, 'Morning Dew.' When I critique' a version I look at a number of things. Garcia's vocal phrasing/singing on the different verses. He might nail 'heard a baby cry' (this version is nice but the version from the show opening version at Boston Music Hall in Nov 73 is  up there as a GREAT, emotional reading etc. Then there is the 'young man.' verse again this is a nice version, 'best ever??\" probably not.Then you have the 1st 'guitar break, ' this version Garcia does well where Phil is somewhat reserved compared to other versions.Then there's the 2nd final guitar break, this one Garcia does well but there are better versions Phil's contribution, bass playing on this is also in my opinion NOT his best. Again check out the 1st Dew from Boston in Nov phil stands out as well as Garcia on the 2nd , final guitar break. Im not saying that that Boston version is the 'best ever' either. But it does have certain attributes that put it 'up there.'To elaborate further regarding that Boston version from 11/73  Garcia's phrasing/singing etc on the 'Young man' verse is good but not up there with best ever versions as the earlier 'baby cry' verse is in my opinion up there in the 'best ever' territory perhaps NOT 'best ever' but it is 'up there.' \n\nThese are not the only aspects I 'evaluate' when I try and critique a Morning Dew either. I havent even mentioned Weir's contributions, Bil's etc or the recording quality.\n\nIf the recording quality is bad it makes it hard to evaluate Garcia's tone,play, ditto for Phil and the rest of the band. etc, etc\n\nBottom line: my point is that rarely if ever do you have a version of a song where they nail EVERY aspect of the song where it is the 'BEST EVER.' Some parts/aspects are great, best ever material but other aspects are not.",
+      "reviewtitle": "Best EVER ?????",
+      "reviewer": "tanman82",
+      "reviewdate": "2015-11-12 17:18:17",
+      "createdate": "2015-11-12 17:18:17",
+      "stars": "3"
+    },
+    {
+      "reviewbody": "This is such a lovely wrs. I wish it was longer, much longer...",
+      "reviewtitle": "More Weather Report",
+      "reviewer": "Awenindo",
+      "reviewdate": "2016-02-25 10:11:31",
+      "createdate": "2016-02-25 10:11:31",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "What is all the crap about. It was always about the moment. As Garcia said. 'When I am done they can have it' Very giving. Where are the Allman Brothers with recordings. Nowhere\n\nSo as far as critics go enjoy or shut up.\n\nOfficial Deadhead",
+      "reviewtitle": "I was there",
+      "reviewer": "tripstar",
+      "reviewdate": "2017-04-06 14:37:53",
+      "createdate": "2017-04-06 14:37:53",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "I love this dark star. They sound so fluid and the candyman is also good. Great recording. During darkstar Jerrys' playing is very dynamic when he starts hitting the scales (3:14-10:02).",
+      "reviewtitle": "Dark Star",
+      "reviewer": "drewski1972",
+      "reviewer_itemname": "@drewski1972",
+      "reviewdate": "2017-12-30 17:09:53",
+      "createdate": "2017-12-30 17:09:53",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Recommend going to the 'Date of the show' which is available in the GD collection section and check out your options on DEAD LIST. I sometimes just scroll thru a whole year of setlists-- just to get a feel for the years shows. I find it easier to navigate thru the different versions of a show in the Dead List Project plus they give you a just the main facts basic overview. (I am not big on 'audience' so I usually work my way thru the SOUNDBOARDS on a given night.)\nWith all the reviews for this show here , it might take much of this show just to check them all out. \nDon't want to ignore this show with my infomercial on DEAD LISTS. I would say that Night Two has the best Psychedelia but all 3 of these shows are very sweet.\nNever pass by a Dark Star>Morning Dew\n(I also like that this is pre-Seastones which to me is the only part of 74-Dead that I do take a pass on.)\nOh yeah if you want to compare different years to each other the THIS DAY IN HISTORY (TDIH) is pretty helpful.\nOn how to get thru an entire show from 94 & 95? \nNot a clue!",
+      "reviewtitle": "Dead list project",
+      "reviewer": "c-freedom",
+      "reviewer_itemname": "@c-freedom",
+      "reviewdate": "2018-02-03 02:53:48",
+      "createdate": "2018-02-03 02:53:48",
+      "stars": "0"
+    },
+    {
+      "reviewbody": "http://www.deaddisc.com/disc/Daves_Picks_13.htm",
+      "reviewtitle": "Woooooooozer",
+      "reviewer": "fncaesar",
+      "reviewer_itemname": "@fncaesar",
+      "reviewdate": "2018-02-03 04:06:50",
+      "createdate": "2018-02-03 04:06:50",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "The Baby Blue encore rally does something for me. Its so tender, sweet, and young. Miss you Jer.",
+      "reviewtitle": "Its all over now",
+      "reviewer": "himountainpaul",
+      "reviewer_itemname": "@himountainpaul",
+      "reviewdate": "2018-06-14 20:18:40",
+      "createdate": "2018-06-14 20:18:40",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "I loved Winterland. Lucky for me it was almost in my back yard. This show was particularly fun.\nFrom Bill Graham's intro, \"What ever is going on with the rest of the world whether it be wars, or kidnapping or crimes this is a peaceful Sunday night with the Grateful Dead\", until the last note was sweetness.\nI went to all five shows.\nThey called it the last one.\nYeah right. As Jerry would say, \"You got the Do Re, I got the me!",
+      "reviewtitle": "Good ole Winterland",
+      "reviewer": "popeman",
+      "reviewer_itemname": "@popeman",
+      "reviewdate": "2019-08-16 00:34:34",
+      "createdate": "2019-08-16 00:34:34",
+      "stars": "4"
+    },
+    {
+      "reviewtitle": "2 23 74 is really good .. then I find this",
+      "reviewbody": "The show of 2 23 74 is exquisite \nI  can't wait to get this \n3 stars for the night before and I'll be back soon to see how this went",
+      "stars": "3",
+      "reviewer": "Matt Hahn171",
+      "reviewdate": "2025-10-08 15:18:09",
+      "createdate": "2025-10-08 15:18:09",
+      "reviewer_itemname": "@matt_hahn171"
+    }
+  ]
+}

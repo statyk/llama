@@ -1,0 +1,1156 @@
+{
+  "metadata": {
+    "identifier": "gd1974-02-24.sbd.miller.116902.flac16",
+    "title": "Grateful Dead Live at Winterland Arena on 1974-02-24",
+    "creator": "Grateful Dead",
+    "mediatype": "etree",
+    "collection": [
+      "GratefulDead",
+      "etree",
+      "stream_only"
+    ],
+    "type": "sound",
+    "description": "Set 1\n\nU.S. Blues, Mexicali Blues, Brown Eyed Women, Beat It On Down The Line, Candyman, Jack Straw, China Cat Sunflower > I Know You Rider, El Paso, Loser, Playin' In The Band\n\nSet 2\n\nCumberland Blues, It Must Have Been The Roses, Big River, Bertha, Weather Report Suite Prelude > Weather Report Suite Part 1 > Let It Grow > Row Jimmy > Ship Of Fools, Promised Land, Dark Star > Morning Dew, Sugar Magnolia, Not Fade Away > Going Down The Road Feelin' Bad > Not Fade Away\n\nE: It's All Over Now Baby Blue",
+    "date": "1974-02-24",
+    "year": "1974",
+    "subject": "Soundboard;Charlie Miller",
+    "addeddate": "2011-11-05 16:28:52",
+    "uploader": "mvernon54@yahoo.com",
+    "venue": "Winterland Arena",
+    "coverage": "San Francisco, CA",
+    "source": "SBD -> Master Reel -> Dat (44.1k)",
+    "lineage": "Dat (Tascam DA-20) -> Tascam SS-R05 -> Adobe Audition v3 -> Samplitude Professional v11.2 -> FLAC",
+    "transferer": "Charlie Miller",
+    "runtime": "224:35.08",
+    "md5s": "adcf36afd9be7f17b384f8f4315ff7b0 *gd74-02-24d1t01.flac c36f962d5d9c955b4796da14e46c060a *gd74-02-24d1t02.flac 2854ea0573fe406474bfd196a800a28d *gd74-02-24d1t03.flac 2c53ff2cb2b88356b52b9b205c413f51 *gd74-02-24d1t04.flac 985bef9fb88839f35c8dd80b14de33f9 *gd74-02-24d1t05.flac 0b5b577362e12235c594c73b3d56eeb7 *gd74-02-24d1t06.flac 44fa2c1876137a219f9654aec6ec8a06 *gd74-02-24d1t07.flac 353f0315e6bc97f453ec0c48b5b42c07 *gd74-02-24d1t08.flac 3c41b09691338f65dc6d10debd8a63df *gd74-02-24d1t09.flac 074ab963bb6935cd745c8c9bf1d65c8f *gd74-02-24d1t10.flac f1f0bdc81479997feae14a5a39c9b7e6 *gd74-02-24d1t11.flac 87f94191d2a4fa7998bb90d3d35249d3 *gd74-02-24d2t01.flac 20ac54007491605ccb402664e80c53cb *gd74-02-24d2t02.flac be0ff0554affad8264f82b042f230423 *gd74-02-24d2t03.flac 08e1d05c5888ce2e40c3beccdb093e72 *gd74-02-24d2t04.flac 04ca49c9d2192fe999b593e2d9ca3033 *gd74-02-24d2t05.flac b311dcc9b4dd877a51e7321c79952c89 *gd74-02-24d2t06.flac 3979f5856ae73519d5908f497427aed0 *gd74-02-24d2t07.flac ea07c4026353d72e3086b32cce207359 *gd74-02-24d2t08.flac 74c2b3675961784391a7452960958506 *gd74-02-24d3t01.flac 3567ad0bc67b6248c9f8983f9e11d26b *gd74-02-24d3t02.flac d1b0de72aef04f763663ce60ec2f5e61 *gd74-02-24d3t03.flac a1a7474ae2b714b1f4c9ed49f7fd5745 *gd74-02-24d3t04.flac 72447b2abdd1518721267d3214ddf6c9 *gd74-02-24d3t05.flac f8c261e28570a473c0f3962ad31f88f1 *gd74-02-24d3t06.flac ac86e94223f66b088ea9ae2bf2015493 *gd74-02-24d3t07.flac 525d875bd93f12278a3d33192b9d87c3 *gd74-02-24d3t08.flac",
+    "notes": "Notes:\n-- All disc changes are seamless\n-- Numerous flaws were cleaned up\n-- There is a Spanish Jam in Dark Star\n-- Tape flips in Row Jimmy and Dark Star\n-- Thanks to David Gans for lending me his Dats\n-- Thanks to Joe B. Jones for his help with the pitch correction",
+    "updatedate": "2011-11-05 16:35:06",
+    "updater": "Matthew Vernon",
+    "publicdate": "2011-11-05 17:34:03",
+    "backup_location": "ia903705_10",
+    "access-restricted-item": "true"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "9db8cf23d77dc21ad43b2d2a00662b1c"
+    },
+    {
+      "name": "gd1974-02-24.sbd.miller.116902.flac16.ffp",
+      "source": "derivative",
+      "original": [
+        "gd74-02-24d1t01.flac",
+        "gd74-02-24d1t02.flac",
+        "gd74-02-24d1t03.flac",
+        "gd74-02-24d1t04.flac",
+        "gd74-02-24d1t05.flac",
+        "gd74-02-24d1t06.flac",
+        "gd74-02-24d1t07.flac",
+        "gd74-02-24d1t08.flac",
+        "gd74-02-24d1t09.flac",
+        "gd74-02-24d1t10.flac",
+        "gd74-02-24d1t11.flac",
+        "gd74-02-24d2t01.flac",
+        "gd74-02-24d2t02.flac",
+        "gd74-02-24d2t03.flac",
+        "gd74-02-24d2t04.flac",
+        "gd74-02-24d2t05.flac",
+        "gd74-02-24d2t06.flac",
+        "gd74-02-24d2t07.flac",
+        "gd74-02-24d2t08.flac",
+        "gd74-02-24d3t01.flac",
+        "gd74-02-24d3t02.flac",
+        "gd74-02-24d3t03.flac",
+        "gd74-02-24d3t04.flac",
+        "gd74-02-24d3t05.flac",
+        "gd74-02-24d3t06.flac",
+        "gd74-02-24d3t07.flac",
+        "gd74-02-24d3t08.flac"
+      ],
+      "format": "Flac FingerPrint",
+      "md5": "b04b23039b93bde9ed7bee965a35f33d"
+    },
+    {
+      "name": "gd1974-02-24.sbd.miller.116902.flac16.md5",
+      "source": "derivative",
+      "original": [
+        "gd74-02-24d1t01.flac",
+        "gd74-02-24d1t02.flac",
+        "gd74-02-24d1t03.flac",
+        "gd74-02-24d1t04.flac",
+        "gd74-02-24d1t05.flac",
+        "gd74-02-24d1t06.flac",
+        "gd74-02-24d1t07.flac",
+        "gd74-02-24d1t08.flac",
+        "gd74-02-24d1t09.flac",
+        "gd74-02-24d1t10.flac",
+        "gd74-02-24d1t11.flac",
+        "gd74-02-24d2t01.flac",
+        "gd74-02-24d2t02.flac",
+        "gd74-02-24d2t03.flac",
+        "gd74-02-24d2t04.flac",
+        "gd74-02-24d2t05.flac",
+        "gd74-02-24d2t06.flac",
+        "gd74-02-24d2t07.flac",
+        "gd74-02-24d2t08.flac",
+        "gd74-02-24d3t01.flac",
+        "gd74-02-24d3t02.flac",
+        "gd74-02-24d3t03.flac",
+        "gd74-02-24d3t04.flac",
+        "gd74-02-24d3t05.flac",
+        "gd74-02-24d3t06.flac",
+        "gd74-02-24d3t07.flac",
+        "gd74-02-24d3t08.flac"
+      ],
+      "format": "Checksums",
+      "md5": "334c8f7a6b6aa47b84bae5d8fe2296c1"
+    },
+    {
+      "name": "gd1974-02-24.sbd.miller.116902.flac16_archive.torrent",
+      "source": "original",
+      "format": "Archive BitTorrent",
+      "md5": "b90acad44e90b94cd054765f05a9a713"
+    },
+    {
+      "name": "gd1974-02-24.sbd.miller.116902.flac16_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "ca5f24dde7b9d60394f06ec6c8451615"
+    },
+    {
+      "name": "gd1974-02-24.sbd.miller.116902.flac16_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "656096af223cc435c8b69b327cf896dd"
+    },
+    {
+      "name": "gd1974-02-24.sbd.miller.116902.flac16_reviews.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "797db4fc7b694b2a60132af7953fc581"
+    },
+    {
+      "name": "gd74-02-24.116902.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "c62e37b1dbe8abaeba59b787f9d53d35"
+    },
+    {
+      "name": "gd74-02-24.ffp",
+      "source": "original",
+      "format": "Flac FingerPrint",
+      "md5": "b5ba7429e5979e5e184839fc0da8536d"
+    },
+    {
+      "name": "gd74-02-24.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "7fadb4eef1342a91bc1c75e72bff432f"
+    },
+    {
+      "name": "gd74-02-24d1t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "98.44",
+      "md5": "adcf36afd9be7f17b384f8f4315ff7b0",
+      "title": "Introduction"
+    },
+    {
+      "name": "gd74-02-24d1t01.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t01.flac",
+      "format": "VBR MP3",
+      "length": "01:38",
+      "md5": "5b1d9e72d78f121e0f370d721685b909",
+      "title": "Introduction"
+    },
+    {
+      "name": "gd74-02-24d1t01.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "92.83",
+      "md5": "b224d2405cd630f4900e0c179801f765"
+    },
+    {
+      "name": "gd74-02-24d1t01.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t01.flac",
+      "format": "PNG",
+      "md5": "911d1a4e3c0e2885b61535884225b6a4"
+    },
+    {
+      "name": "gd74-02-24d1t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "379.24",
+      "md5": "c36f962d5d9c955b4796da14e46c060a",
+      "title": "U.S. Blues"
+    },
+    {
+      "name": "gd74-02-24d1t02.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t02.flac",
+      "format": "VBR MP3",
+      "length": "06:19",
+      "md5": "0dd0d328551de6c780aa948d3e29432b",
+      "title": "U.S. Blues"
+    },
+    {
+      "name": "gd74-02-24d1t02.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "375.12",
+      "md5": "a913dbb6650d899f8f6f379971bb0c2c"
+    },
+    {
+      "name": "gd74-02-24d1t02.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t02.flac",
+      "format": "PNG",
+      "md5": "af131075d43d9a0ca540e2045e8af30e"
+    },
+    {
+      "name": "gd74-02-24d1t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "221.57",
+      "md5": "2854ea0573fe406474bfd196a800a28d",
+      "title": "Mexicali Blues"
+    },
+    {
+      "name": "gd74-02-24d1t03.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t03.flac",
+      "format": "VBR MP3",
+      "length": "03:41",
+      "md5": "b71fd056f32c59b95085b2f74b4ae836",
+      "title": "Mexicali Blues"
+    },
+    {
+      "name": "gd74-02-24d1t03.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "218.48",
+      "md5": "325b3275a4471d0ddda46e79516d6e54"
+    },
+    {
+      "name": "gd74-02-24d1t03.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t03.flac",
+      "format": "PNG",
+      "md5": "d38e344450d65a1080ff56ec7d3d8609"
+    },
+    {
+      "name": "gd74-02-24d1t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "391.21",
+      "md5": "2c53ff2cb2b88356b52b9b205c413f51",
+      "title": "Brown Eyed Women"
+    },
+    {
+      "name": "gd74-02-24d1t04.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t04.flac",
+      "format": "VBR MP3",
+      "length": "06:31",
+      "md5": "ff0798366432e7d0ae351c513cbdbfe6",
+      "title": "Brown Eyed Women"
+    },
+    {
+      "name": "gd74-02-24d1t04.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "388.18",
+      "md5": "144e45f7f23d8ac1ee9d0310c55dcfd2"
+    },
+    {
+      "name": "gd74-02-24d1t04.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t04.flac",
+      "format": "PNG",
+      "md5": "b69e4d9a30df3774d6538f14e13af838"
+    },
+    {
+      "name": "gd74-02-24d1t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "229.85",
+      "md5": "985bef9fb88839f35c8dd80b14de33f9",
+      "title": "Beat It On Down The Line"
+    },
+    {
+      "name": "gd74-02-24d1t05.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t05.flac",
+      "format": "VBR MP3",
+      "length": "03:49",
+      "md5": "07b66e2e489a6d1180d9740000478b3c",
+      "title": "Beat It On Down The Line"
+    },
+    {
+      "name": "gd74-02-24d1t05.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "226.99",
+      "md5": "5204d098f959b21e94a664f47923991a"
+    },
+    {
+      "name": "gd74-02-24d1t05.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t05.flac",
+      "format": "PNG",
+      "md5": "2f127e4cd15883ba12a88957104e636f"
+    },
+    {
+      "name": "gd74-02-24d1t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "452.53",
+      "md5": "0b5b577362e12235c594c73b3d56eeb7",
+      "title": "Candyman"
+    },
+    {
+      "name": "gd74-02-24d1t06.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t06.flac",
+      "format": "VBR MP3",
+      "length": "07:32",
+      "md5": "b8dc246c8b1ccd1302b4f8af4207fd94",
+      "title": "Candyman"
+    },
+    {
+      "name": "gd74-02-24d1t06.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "448.83",
+      "md5": "98aad6116d78869a6380f2ef37410ca0"
+    },
+    {
+      "name": "gd74-02-24d1t06.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t06.flac",
+      "format": "PNG",
+      "md5": "6f631b8393dc0139c24c515738293800"
+    },
+    {
+      "name": "gd74-02-24d1t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "348.3",
+      "md5": "44fa2c1876137a219f9654aec6ec8a06",
+      "title": "Jack Straw"
+    },
+    {
+      "name": "gd74-02-24d1t07.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t07.flac",
+      "format": "VBR MP3",
+      "length": "05:48",
+      "md5": "abd7d7b4fb1e2f92ac74fe4604c499d6",
+      "title": "Jack Straw"
+    },
+    {
+      "name": "gd74-02-24d1t07.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "344.49",
+      "md5": "df12af5ff36705e4e0b055f87cfcae74"
+    },
+    {
+      "name": "gd74-02-24d1t07.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t07.flac",
+      "format": "PNG",
+      "md5": "5306afb297fc9c63ac5f8b77c5bc21d1"
+    },
+    {
+      "name": "gd74-02-24d1t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "599.85",
+      "md5": "353f0315e6bc97f453ec0c48b5b42c07",
+      "title": "China Cat Sunflower ->"
+    },
+    {
+      "name": "gd74-02-24d1t08.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t08.flac",
+      "format": "VBR MP3",
+      "length": "09:59",
+      "md5": "1e31402522922ac2229408e20fbd6abd",
+      "title": "China Cat Sunflower ->"
+    },
+    {
+      "name": "gd74-02-24d1t08.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "596.26",
+      "md5": "4284c37993df3460883ff6941da7e9e6"
+    },
+    {
+      "name": "gd74-02-24d1t08.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t08.flac",
+      "format": "PNG",
+      "md5": "2b553d24408b7cccdb8f390eb41ae008"
+    },
+    {
+      "name": "gd74-02-24d1t09.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "407.36",
+      "md5": "3c41b09691338f65dc6d10debd8a63df",
+      "title": "I Know You Rider"
+    },
+    {
+      "name": "gd74-02-24d1t09.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t09.flac",
+      "format": "VBR MP3",
+      "length": "06:47",
+      "md5": "67e2a167683ea22395a77b16891a0189",
+      "title": "I Know You Rider"
+    },
+    {
+      "name": "gd74-02-24d1t09.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t09.flac",
+      "format": "Ogg Vorbis",
+      "length": "404.32",
+      "md5": "4d256084508cc07d25d1639244befba6"
+    },
+    {
+      "name": "gd74-02-24d1t09.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t09.flac",
+      "format": "PNG",
+      "md5": "d5fa0d8c1df04b5cf16a9b154465a90d"
+    },
+    {
+      "name": "gd74-02-24d1t10.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "314.98",
+      "md5": "074ab963bb6935cd745c8c9bf1d65c8f",
+      "title": "El Paso"
+    },
+    {
+      "name": "gd74-02-24d1t10.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t10.flac",
+      "format": "VBR MP3",
+      "length": "05:15",
+      "md5": "48cbed54e3f007d387e281332fcfbfed",
+      "title": "El Paso"
+    },
+    {
+      "name": "gd74-02-24d1t10.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t10.flac",
+      "format": "Ogg Vorbis",
+      "length": "310.93",
+      "md5": "8ce6cb14a1756943020b136d97078017"
+    },
+    {
+      "name": "gd74-02-24d1t10.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t10.flac",
+      "format": "PNG",
+      "md5": "097df8f24c7771eaf6be4b161c9d92cf"
+    },
+    {
+      "name": "gd74-02-24d1t11.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "412.73",
+      "md5": "f1f0bdc81479997feae14a5a39c9b7e6",
+      "title": "Loser"
+    },
+    {
+      "name": "gd74-02-24d1t11.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d1t11.flac",
+      "format": "VBR MP3",
+      "length": "06:52",
+      "md5": "40f4b0d9361327a8cd0a0a0d944e0c5e",
+      "title": "Loser"
+    },
+    {
+      "name": "gd74-02-24d1t11.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d1t11.flac",
+      "format": "Ogg Vorbis",
+      "length": "408.97",
+      "md5": "3320dc872d86a98c8fd702259d063ae0"
+    },
+    {
+      "name": "gd74-02-24d1t11.png",
+      "source": "derivative",
+      "original": "gd74-02-24d1t11.flac",
+      "format": "PNG",
+      "md5": "35e0b3ab052e86db5724a447589257b4"
+    },
+    {
+      "name": "gd74-02-24d2t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "1121.92",
+      "md5": "87f94191d2a4fa7998bb90d3d35249d3",
+      "title": "Playing In The Band"
+    },
+    {
+      "name": "gd74-02-24d2t01.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d2t01.flac",
+      "format": "VBR MP3",
+      "length": "18:41",
+      "md5": "3aabe5c55202e90431413125f4d5ca22",
+      "title": "Playing In The Band"
+    },
+    {
+      "name": "gd74-02-24d2t01.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d2t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "1118.65",
+      "md5": "b826cb86d1fd9eaaf6f5a932f456a53e"
+    },
+    {
+      "name": "gd74-02-24d2t01.png",
+      "source": "derivative",
+      "original": "gd74-02-24d2t01.flac",
+      "format": "PNG",
+      "md5": "b24eac72c6803ada8d8d76f78f44a663"
+    },
+    {
+      "name": "gd74-02-24d2t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "509.73",
+      "md5": "20ac54007491605ccb402664e80c53cb",
+      "title": "Cumberland Blues"
+    },
+    {
+      "name": "gd74-02-24d2t02.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d2t02.flac",
+      "format": "VBR MP3",
+      "length": "08:29",
+      "md5": "51404f3005116ad9d7fdd8a66fa932b1",
+      "title": "Cumberland Blues"
+    },
+    {
+      "name": "gd74-02-24d2t02.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d2t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "505.99",
+      "md5": "e9319d30491556928485ca5888a0981c"
+    },
+    {
+      "name": "gd74-02-24d2t02.png",
+      "source": "derivative",
+      "original": "gd74-02-24d2t02.flac",
+      "format": "PNG",
+      "md5": "de4033a2e2a1fb3017c3409f138a0b4f"
+    },
+    {
+      "name": "gd74-02-24d2t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "344.3",
+      "md5": "be0ff0554affad8264f82b042f230423",
+      "title": "It Must Have Been The Roses"
+    },
+    {
+      "name": "gd74-02-24d2t03.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d2t03.flac",
+      "format": "VBR MP3",
+      "length": "05:44",
+      "md5": "52d10dff295d4912790caabde5b2ef9f",
+      "title": "It Must Have Been The Roses"
+    },
+    {
+      "name": "gd74-02-24d2t03.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d2t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "341.31",
+      "md5": "6062086755bc9f8be8970ce234672834"
+    },
+    {
+      "name": "gd74-02-24d2t03.png",
+      "source": "derivative",
+      "original": "gd74-02-24d2t03.flac",
+      "format": "PNG",
+      "md5": "388a797907f449c31457c86596e382e5"
+    },
+    {
+      "name": "gd74-02-24d2t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "344.88",
+      "md5": "08e1d05c5888ce2e40c3beccdb093e72",
+      "title": "Big River"
+    },
+    {
+      "name": "gd74-02-24d2t04.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d2t04.flac",
+      "format": "VBR MP3",
+      "length": "05:44",
+      "md5": "51fd5d87eb0f8a244529749bd6e02f69",
+      "title": "Big River"
+    },
+    {
+      "name": "gd74-02-24d2t04.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d2t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "342.19",
+      "md5": "c3accec393ba917083757c0f49c5866e"
+    },
+    {
+      "name": "gd74-02-24d2t04.png",
+      "source": "derivative",
+      "original": "gd74-02-24d2t04.flac",
+      "format": "PNG",
+      "md5": "8f6681eb1cbc6001161ed421cb930462"
+    },
+    {
+      "name": "gd74-02-24d2t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "398.32",
+      "md5": "04ca49c9d2192fe999b593e2d9ca3033",
+      "title": "Bertha"
+    },
+    {
+      "name": "gd74-02-24d2t05.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d2t05.flac",
+      "format": "VBR MP3",
+      "length": "06:38",
+      "md5": "b803d88446c35d2a78c51dcdac47cc47",
+      "title": "Bertha"
+    },
+    {
+      "name": "gd74-02-24d2t05.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d2t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "394.56",
+      "md5": "f3209f3d8b5b38dc41f2919852106639"
+    },
+    {
+      "name": "gd74-02-24d2t05.png",
+      "source": "derivative",
+      "original": "gd74-02-24d2t05.flac",
+      "format": "PNG",
+      "md5": "a1d06ba12c1dad61054b1299ffd9b260"
+    },
+    {
+      "name": "gd74-02-24d2t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "942.45",
+      "md5": "b311dcc9b4dd877a51e7321c79952c89",
+      "title": "Weather Report Suite ->"
+    },
+    {
+      "name": "gd74-02-24d2t06.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d2t06.flac",
+      "format": "VBR MP3",
+      "length": "15:42",
+      "md5": "43fb24c55e8d269855110c3f54c8f2a2",
+      "title": "Weather Report Suite ->"
+    },
+    {
+      "name": "gd74-02-24d2t06.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d2t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "938.93",
+      "md5": "6f5c970777c801c302436fef7ab0f2a4"
+    },
+    {
+      "name": "gd74-02-24d2t06.png",
+      "source": "derivative",
+      "original": "gd74-02-24d2t06.flac",
+      "format": "PNG",
+      "md5": "4a383e3abbf3d2031ae6a02003252208"
+    },
+    {
+      "name": "gd74-02-24d2t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "654.05",
+      "md5": "3979f5856ae73519d5908f497427aed0",
+      "title": "Row Jimmy"
+    },
+    {
+      "name": "gd74-02-24d2t07.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d2t07.flac",
+      "format": "VBR MP3",
+      "length": "10:54",
+      "md5": "eecced37c69b99c5db0b90f4ddc052da",
+      "title": "Row Jimmy"
+    },
+    {
+      "name": "gd74-02-24d2t07.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d2t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "650.35",
+      "md5": "156a27a8de238cf549c8686aa814e46f"
+    },
+    {
+      "name": "gd74-02-24d2t07.png",
+      "source": "derivative",
+      "original": "gd74-02-24d2t07.flac",
+      "format": "PNG",
+      "md5": "f9edb3a24b34d77904ebab0082d67350"
+    },
+    {
+      "name": "gd74-02-24d2t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "399.78",
+      "md5": "ea07c4026353d72e3086b32cce207359",
+      "title": "Ship Of Fools"
+    },
+    {
+      "name": "gd74-02-24d2t08.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d2t08.flac",
+      "format": "VBR MP3",
+      "length": "06:39",
+      "md5": "f50f6ecf802b2e4f68b772d4395621e2",
+      "title": "Ship Of Fools"
+    },
+    {
+      "name": "gd74-02-24d2t08.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d2t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "395.25",
+      "md5": "f74d09ec2afa121c97319090926a6ad6"
+    },
+    {
+      "name": "gd74-02-24d2t08.png",
+      "source": "derivative",
+      "original": "gd74-02-24d2t08.flac",
+      "format": "PNG",
+      "md5": "6613e61759cf03cd477cf4e5730a0d29"
+    },
+    {
+      "name": "gd74-02-24d3t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "354.32",
+      "md5": "74c2b3675961784391a7452960958506",
+      "title": "Promised Land"
+    },
+    {
+      "name": "gd74-02-24d3t01.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d3t01.flac",
+      "format": "VBR MP3",
+      "length": "05:54",
+      "md5": "fd80f0277e27bc4204a8c931907c8693",
+      "title": "Promised Land"
+    },
+    {
+      "name": "gd74-02-24d3t01.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d3t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "350.69",
+      "md5": "4b6483bdead237a12d4f00f3221d7a1b"
+    },
+    {
+      "name": "gd74-02-24d3t01.png",
+      "source": "derivative",
+      "original": "gd74-02-24d3t01.flac",
+      "format": "PNG",
+      "md5": "2f0081af6ac0b20bc767788279e88026"
+    },
+    {
+      "name": "gd74-02-24d3t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "1761.4",
+      "md5": "3567ad0bc67b6248c9f8983f9e11d26b",
+      "title": "Dark Star ->"
+    },
+    {
+      "name": "gd74-02-24d3t02.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d3t02.flac",
+      "format": "VBR MP3",
+      "length": "29:21",
+      "md5": "15f3a49eb7f0187a68623bf13fb523bb",
+      "title": "Dark Star ->"
+    },
+    {
+      "name": "gd74-02-24d3t02.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d3t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "1757.3",
+      "md5": "86787a1158ad5248623e65057a73cd8a"
+    },
+    {
+      "name": "gd74-02-24d3t02.png",
+      "source": "derivative",
+      "original": "gd74-02-24d3t02.flac",
+      "format": "PNG",
+      "md5": "3829c2c4ffaf4a0c09a465f7b3b9a336"
+    },
+    {
+      "name": "gd74-02-24d3t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "843.41",
+      "md5": "d1b0de72aef04f763663ce60ec2f5e61",
+      "title": "Morning Dew"
+    },
+    {
+      "name": "gd74-02-24d3t03.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d3t03.flac",
+      "format": "VBR MP3",
+      "length": "14:03",
+      "md5": "8109fa2cb82fab0299f9429c8a1b479f",
+      "title": "Morning Dew"
+    },
+    {
+      "name": "gd74-02-24d3t03.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d3t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "839.69",
+      "md5": "ef3a6cb68eb451f8e86d09f87b340b83"
+    },
+    {
+      "name": "gd74-02-24d3t03.png",
+      "source": "derivative",
+      "original": "gd74-02-24d3t03.flac",
+      "format": "PNG",
+      "md5": "47297159c235a33f17521c7e9d18a367"
+    },
+    {
+      "name": "gd74-02-24d3t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "537.69",
+      "md5": "a1a7474ae2b714b1f4c9ed49f7fd5745",
+      "title": "Sugar Magnolia ->"
+    },
+    {
+      "name": "gd74-02-24d3t04.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d3t04.flac",
+      "format": "VBR MP3",
+      "length": "08:57",
+      "md5": "b2bfee6d6e47bcd1b76b9c2c52664e15",
+      "title": "Sugar Magnolia ->"
+    },
+    {
+      "name": "gd74-02-24d3t04.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d3t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "534.13",
+      "md5": "c802ea04900b35c037609537ab541e34"
+    },
+    {
+      "name": "gd74-02-24d3t04.png",
+      "source": "derivative",
+      "original": "gd74-02-24d3t04.flac",
+      "format": "PNG",
+      "md5": "5ea8d5ea0090f081d2c436baf4f58a3f"
+    },
+    {
+      "name": "gd74-02-24d3t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "291.66",
+      "md5": "72447b2abdd1518721267d3214ddf6c9",
+      "title": "Not Fade Away ->"
+    },
+    {
+      "name": "gd74-02-24d3t05.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d3t05.flac",
+      "format": "VBR MP3",
+      "length": "04:51",
+      "md5": "76beda9308ed007f4502c91654731f64",
+      "title": "Not Fade Away ->"
+    },
+    {
+      "name": "gd74-02-24d3t05.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d3t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "287.24",
+      "md5": "7e7223fe692713f776d093214f6a2131"
+    },
+    {
+      "name": "gd74-02-24d3t05.png",
+      "source": "derivative",
+      "original": "gd74-02-24d3t05.flac",
+      "format": "PNG",
+      "md5": "f095a1b1e7d36a658e105a9419d59f0c"
+    },
+    {
+      "name": "gd74-02-24d3t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "447.2",
+      "md5": "f8c261e28570a473c0f3962ad31f88f1",
+      "title": "Goin' Down The Road Feeling Bad ->"
+    },
+    {
+      "name": "gd74-02-24d3t06.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d3t06.flac",
+      "format": "VBR MP3",
+      "length": "07:27",
+      "md5": "bc50e8735870b6ef9dbd097f01b513ff",
+      "title": "Goin' Down The Road Feeling Bad ->"
+    },
+    {
+      "name": "gd74-02-24d3t06.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d3t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "444.5",
+      "md5": "9f9848da6c40d7c9de4678ac3c178802"
+    },
+    {
+      "name": "gd74-02-24d3t06.png",
+      "source": "derivative",
+      "original": "gd74-02-24d3t06.flac",
+      "format": "PNG",
+      "md5": "e5cb55e97c1c318b52a14d0a98bb47ef"
+    },
+    {
+      "name": "gd74-02-24d3t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "278.17",
+      "md5": "ac86e94223f66b088ea9ae2bf2015493",
+      "title": "Not Fade Away"
+    },
+    {
+      "name": "gd74-02-24d3t07.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d3t07.flac",
+      "format": "VBR MP3",
+      "length": "04:38",
+      "md5": "8409de5bb4a7ef364c543910b8fa7552",
+      "title": "Not Fade Away"
+    },
+    {
+      "name": "gd74-02-24d3t07.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d3t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "275.16",
+      "md5": "282cfcfa4b2857ddb653518ecb4a103c"
+    },
+    {
+      "name": "gd74-02-24d3t07.png",
+      "source": "derivative",
+      "original": "gd74-02-24d3t07.flac",
+      "format": "PNG",
+      "md5": "2dc31808991adcfedd12fd9c4a8b6f84"
+    },
+    {
+      "name": "gd74-02-24d3t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "389.69",
+      "md5": "525d875bd93f12278a3d33192b9d87c3",
+      "title": "It's All Over Now, Baby Blue"
+    },
+    {
+      "name": "gd74-02-24d3t08.mp3",
+      "source": "derivative",
+      "original": "gd74-02-24d3t08.flac",
+      "format": "VBR MP3",
+      "length": "06:29",
+      "md5": "2f989ed3775cd62d12952d29597cb0a0",
+      "title": "It's All Over Now, Baby Blue"
+    },
+    {
+      "name": "gd74-02-24d3t08.ogg",
+      "source": "derivative",
+      "original": "gd74-02-24d3t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "386.56",
+      "md5": "ec40d7a0dfd3b3f0e0e3a44ed3227cee"
+    },
+    {
+      "name": "gd74-02-24d3t08.png",
+      "source": "derivative",
+      "original": "gd74-02-24d3t08.flac",
+      "format": "PNG",
+      "md5": "08656792ad5c6499d8e9df597994df26"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewbody": "I've loved this show and listened to it frequently since I first acquired a copy back in Summer of '09.  When I first heard it, it didn't immediately grab me because the mix was less than ideal to my ears... drums a bit high and instrument separation not great. Fortunately the quality of the music made any mix issues irrelevant. Well this upgrade by Charlie Miller is simply ambrosia. The balance of the instruments is fantastic and the tonal clarity and detail in Jerry's guitar is superb. The music is much more \"alive\" to my ears and it feels like I'm hearing this show for the first time. Thanks CM!",
+      "reviewtitle": "Excellent upgrade!",
+      "reviewer": "deadpolitics",
+      "reviewdate": "2011-11-17 02:23:59",
+      "createdate": "2011-11-17 02:23:59",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Incredible audio quality of a great show. This show really comes alive with this CM upgrade. If your a fan of 74, even if you had this show, this upgrade is a must. Thanks for your work Charlie Miller.\nI love the guitar on Candyman starting at the 3;25 mark. Very trippy sounding",
+      "reviewtitle": "1974/02/24",
+      "reviewer": "grifftrain2000",
+      "reviewdate": "2011-12-01 23:00:18",
+      "createdate": "2011-11-30 14:08:41",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Sound 10. Show ? how can I rate this? Just listen. There are no words that I know of. Thank you Charlie Miller.\n How bout this OH MY GOD!!!!!!!!!. Just Listen you will see. Grand Slam in the Bottom of the 9th with 2 outs game 7 of the World Series",
+      "reviewtitle": "Pure Bliss",
+      "reviewer": "sharkmanlpn",
+      "reviewdate": "2012-02-23 21:59:55",
+      "createdate": "2012-02-23 21:59:55",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Like it, yes.",
+      "reviewtitle": "good show good sound",
+      "reviewer": "quidity",
+      "reviewdate": "2012-02-25 03:11:40",
+      "createdate": "2012-02-25 03:11:40",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "i started this show on WRS, just because its a WOS and this was the first notes played over my new home theater/audio...i have never been so close to Jerry and Bob and have Phil shake the foundations of the building like this before. it's almost better than being there, but sure is the closest thing i'll come to a wayback machine. i can't wait to start playing some flak files....guess now i will have to stop recording on cd's and move all my music to dvd's....hats off to Mr. Miller as always, you have made many smile sir...and a gracious thank you to those who have made all this come to be, bless ya all!",
+      "reviewtitle": "true bliss",
+      "reviewer": "TDCarowindz",
+      "reviewdate": "2012-06-13 19:40:36",
+      "createdate": "2012-06-13 19:40:36",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "\"Whatever's going on in the rest of the world, if it's wars or kidnappings or crimes, this is a peaceful Sunday night with the Grateful Dead.\" \n\nA perfect intro to a near perfect show on the tail end of a phenomenal run. This show is a a perfect example of what I call heavy smoothness. Throughout the show, no matter the tune, they seem to maintain an effortless high that just lasts and lasts. Nothing seems forced and everything is played with conviction and poise which translates ever so nicely from the tape to the space in between my ears. This shows represents everything I love about the band, all wrapped up in a nice little three and a half hour package. All my favorite elements represented nicely with a wonderful, almost heartfelt vibe from the band. \n\nThe first set start with Bill Graham\u2019s wonderful intro followed by an excellent US Blues opener that really sets the tone for the entire evening. The next five tunes, Mexicali through Jack Straw are all very good in their own right. I think the Jack Straw stands out the most as it is almost just exactly perfect. Jerry and Bobby just sound great, and Jerry\u2019s soloing is laid back but ever present throughout the entire tune. So easy on the ears and wound up really nicely. Incredible Jack if there ever was one. Next on my list of standouts is the China>Rider. I mean, how good is this? Jerry\u2019s work almost sounds a little twangy during China, very cool and unique. Each go round they come back slower and end even faster, very cool indeed. Not your average freight train transition here, more of a tricky-heavy-smoothie transition right here. Kinda like you have been listening and grooving to it for a few minutes before you really realize they already moved it right into Rider. Really great little jam tucked into the transition. Sweet! Ok, so the last of the heavies for the first set is the obvious, Playin\u2019 .This one is very reminiscent of others from the period with a few subtle differences. They keep the pace up a little on this one, and never really slow it down too too much. Its very jazzy and at times Jerry was reminding me of Wes Montgomery the way he was throwing around those muted chords here and there. Make no mistake, it still had all the freakiness and then some, but I thought it was livelier and jazzier than others I have heard from the period. First set is done and I am happy. What a great listen so far and really easy on the ears. \n\nThe second set starts off beautifully with a Cumberland for the ages. This one is smooth and heavy, with Phil showing the way as he should on this tune. Jerry\u2019s soloing is quick but not fast, and every note seems to be right where he wants it to be. Love this tune and this version. Great way to open the second set. Roses, Big River and Bertha were all well done, with Big River being the best of the three. They always did this tune with a real sense of purpose during this era, and this version is no exception. Roses was no slouch either, as I believe this was only the second or third time they played it live. Next up is WRS>LIG>Row Jimmy and I thought they were pretty standard and nothing too out of the ordinary. SOF and Promised Land followed and again, good but not great. Bobby was really getting down during Promised Land however. Now, on to Dark Star>Dew which is one of the obvious highlights of the show. It takes the boys about twenty minutes to even get the first verse out, and well worth the wait. This DS is pretty damn spooky, and after said first verse it is truly face melting time. I thought I heard Spanish Jam firing up around the 25 minute mark, but then again I could be wrong. This is one for the ages that goes right into an all timer Dew. Fuckin Dew-riffic right here. As good if not better than my personal fav of 6/18/74. Just incredible stuff being laid down right here. Emotional and sharp, and as heavy as could be. Watch out for this one, it may just knock you on your ass if you are not careful. Its that good. Smags is well done and the closing combo of NFA>GDTRFB>NFA is wonderful. They really bring the house down with the encore though, Baby Blue. Delicate and emotional, heavy and smooth. Just the way it should be. Bring the house lights up and that is that. Imagine for a moment what it would have been like to see a show during this time of this caliber. Incredible, just incredible. I give this show an A+ with my very highest recommendation. I think its only a matter of time before this run is chosen for the box set treatment. An all time performance was given on this evening my friends, make no mistake about it.",
+      "reviewtitle": "Epochal 1974",
+      "reviewer": "Skobud",
+      "reviewdate": "2013-01-30 15:53:00",
+      "createdate": "2013-01-30 15:28:41",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Ah, on a Sunday night in late Feb I left Winterland a happy camper wondering if this band could get me any warmer inside. What was the attraction?\n\nThat's what the lady at Ticketron in Sears smugly asked me when I purchased tix for all three nights back in December. I tried to explain it was because they didn't do their New Years eve show because of the gas shortage crisis we were all enduring. The speed limit had been reduced to 55 and everyone was complaining on on edge -- we had not experienced anything so austere. It was the beginning of the end for all of us if you know what I mean. Nothing before had so thoroughly shaken our collective souls like the gas crisis. The attraction was that I needed a heavy dosing of Grateful Dead, so I went all three nights.\n\nThis was not a particularly outstanding performance. Nothing about it completely left me speechless. In fact, this night seemed rather slovenly in execution except every song seems to rebound from initial strains of weakness into an almost rage-out.\n\nThe only question for me on this brisk stroll back to my car was how well my body and brain was going to respond to the lack of sleep I had prepared my weary body for the next day at work and lemme tell ya, when you get home at around 3 am and get up to that alarm clock screaming at 6 you know you are done in for it. May as well just shrug it off and get into it the best you could.\n\nOh, why did I go to a show in San Francisco on a Sunday night knowing I would be trashed the next day at the job? Foolish, foolish misspent youth. I survived.\n\nNow, looking back, and listening to the glistening sound of this concert once again, I am glad I did it. I would have never had another chance.\n\nSince then we had been subject to a lot of crises and they seem to be getting more and more frequent -- to the point where we've adapted and become rather immune.\n\nBut back in early 74 we caught the first glimpses of what was to become commonplace -- the ending of our sweet life.\n\nYou can never have those good times back -- those free and footloose times of being 25 years old in a wide open city and digging on the tunes of the Grateful Dead. It'll never be the same.\n\nGlad I went.",
+      "reviewtitle": "A Happy Camper",
+      "reviewer": "Evan  S.  Hunt",
+      "reviewdate": "2013-04-21 04:34:09",
+      "createdate": "2013-04-21 04:34:09",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "bill grahams intro is perfect.the dead on their home turf,the wonderful winterland san fran,ca,usa.the confidence shows as every song is played so perfect and the sound is supurb  thanks charlie your a true artisan to your craft.",
+      "reviewtitle": "winterland 74' the omnipotent gratefudead!",
+      "reviewer": "gr8fuldad73",
+      "reviewdate": "2013-05-11 07:11:06",
+      "createdate": "2013-05-11 07:11:06",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "My one and only complaint is finding enough peace and quiet time to listen to these marathon shows from 1973-1974\noh well \"I got no chance of losing this time\"\nGOOD OL' GRATEFUL DEAD!!!\nnote: sound is so fine.",
+      "reviewtitle": "I picked a good one...",
+      "reviewer": "c-freedom",
+      "reviewdate": "2014-02-27 23:24:58",
+      "createdate": "2014-02-27 23:24:58",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This is just a totally slammin show and the fidelity  is incredible.\n\nIf you look at the lineage and that it is a Charlie Miller, you would expect it to be really nice.  It is freaking excellent.  Thank you Charlie -- this is a true gem. \n\nAnd what a killer show:  It is one of those magic nights when everything just works.  A direct hit on my pleasure center anyway.\n\nI'm a huge China-->Rider fan and particularly fond of the 73-74 versions.  This one may well be the best of them all.  I like it better than Providence 6/26/74 by a pretty good amount and it joins and may even nudge out my other favorite versions, which include 6/22/73, 5/17/74, and 9/4/80.  \n\nIf you don't like this show, well, may I suggest trying to enjoy the visual arts because you are missing the music piece in your brain.\n\nThis is one of those ever so nice 5 stars on performance and 5 stars on recording:  Both are extraordinary.  This one does it all.  Make sure that if your ship ever sinks that you put this show in your life vest to listen to while you wait on that desert island to be rescued.  You might wind up hiding from the rescuers.\n\nRobin:  \"Holy Aural Ecstasy Batman.\"\nBatman:  \"Precisely Robin.  Get this one Citizens.\"",
+      "reviewtitle": "A Charlie Spectacular",
+      "reviewer": "Go Faster, Get Rounder",
+      "reviewdate": "2014-08-05 18:45:13",
+      "createdate": "2014-07-28 14:46:34",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "i'd shine my light through the cold, \ncolorado rain",
+      "reviewtitle": "seriously.",
+      "reviewer": "The Dirty Mac",
+      "reviewdate": "2015-02-25 04:06:56",
+      "createdate": "2015-02-25 04:02:49",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "China->Rider, best ever!",
+      "reviewtitle": "great era for them, great show",
+      "reviewer": "Virgil909",
+      "reviewdate": "2015-05-23 22:50:22",
+      "createdate": "2015-05-23 22:50:22",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This is a good one. They were really \"on\" that night, more than 41 years ago.  I am new to this site. Can anyone tell me if there is a way to download this? Thanks.",
+      "reviewtitle": "October 14, 2015",
+      "reviewer": "Black Elk",
+      "reviewdate": "2015-10-15 03:27:35",
+      "createdate": "2015-10-15 03:25:46",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "I love this Weather Report! Read about it at gratefuldeadoftheday.com and had to give it a listen. Was not disappointed.",
+      "reviewtitle": "Fabulous",
+      "reviewer": "Wharf Rat '77",
+      "reviewdate": "2016-02-24 22:30:06",
+      "createdate": "2016-02-24 22:30:06",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "<br />End of first run of the year, testing the mic cancellation system and the new cabinets that would soon be stacked into the Wall of Sound (the wall stacks were first erected a month later at the Cow Palace. The complete Wall of Sound touring rig, with the center speakers and all of the McIntosh amps, premiered in Reno in May). I recall having some of this as filler on a hot source that used to circulate (where did the AUDS go?). It's a better show than the next (the Cow Palace) overall and a consistent run. The 2nd set is 2hr:15min.\n\nFirst Set. This is the second <i>U.S. Blues</i> (post-rewrite) - there were mix/board/PA problems every night of this run and it takes several songs to sort. Donna comes out on <i>Beat it on Down the Line</i>-5, which is better than previous nights. <i>Candyman</i> is where things first gel (Bobby tried for a Big River), though it's out of tune. They had only played 4 in '73 before this. The <i>Jack Straw</i> is good but these would be awesome in the fall. The peak is the very weavy <i>China>Rider</i>. Hoo hoo; game on! After that it's hot through a great <i>Playin'</i> - though beware Donnaskreech\u2122 .\n\nSecond Set. <i>It Must Have Been the Roses</i> is the  2nd one (sounds like Bobby wanted Big Railroad - which was on the shelf at the time). Still a work in progress - also out of tune. All but a few of the rest are above average. Billy's fantastic on the shuffle in <i>Big River</i> but the magic happens in the end solo. The <i>Weather Report Suite</i> is one of the draws of '74. Always welcome, it has great moments and Keith on Hammond, though there are better examples from '74. <i>Row Jimmy</i> is down-tempo for '74 and is followed by another slow one. <i>Promised Land</i> wins, followed by a long <i>Dark Star</i>. It's one of just 6 in '74 and has some cool sections, but nothing landmark (19min in to the  lyrics!), just a good 'ol Dark Star. <i>Morning Dew</i> takes off at the very end of the jam. <i>Sugar Mag</i> is far from a great '74 and codas with Bobby clearing his throat and Donna trying to make up for it more audibly. Restoring, <i>Not Fade</i> is just about perfect, into a likewise <i>Goin' Down the Road</i>. In the NFA reprise, Bobby starts losing his voice. Month off to heal vox. There was only one <i>Baby Blue</i> in '74  and it's the 1st since Sep72.\n\n<u>1st Set</u>: \u00a0B-\n<u>2nd Set</u>: B-\nOverall = 3\u00bd stars\n\nHighlights:\nChina Cat Sunflower>I Know You Rider - one of 74's best; up there with 8/5, 9/10, 10/17 & 10/20\nPlaying in the Band - great jam; very jazz\nNot Fade Away>Goin' Down the Road Feelin' Bad - 2nd best sequence of the show\n\nSOURCES: The miller.116902 is the upgrade; and <b>Dave's 13</b>. There are AUDs in circ. There's a 22sec cut in Row Jimmy on most SBDs, which have an inaudible splice cutting the whole first solo and a verse  (2:32>4:32) . The Gans>Miller 116902 source plays it out, missing only 3:22>3:46; <b>Dave's 13</b> patches with a smoothed and beefed AUD source.\n\nskobud & doug - inspired reviews\nBlack Elk Speaks - right above the lightning skull, note \"stream only\" for this copy of this source. Just fyi in case - Today there are many options for streaming from a pro sound card and/or hi-fidelity adapter (or USB audio interface) to your stereo or to quality [maybe wireless] headphones, etc. You are not limited to laptop and {the gods forbid} shite earbuds.",
+      "reviewtitle": "New cabs",
+      "reviewer": "Mind Wondrin",
+      "reviewdate": "2016-08-04 01:35:59",
+      "createdate": "2016-08-03 11:33:03",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "Wow!!  Relistening to this run of shows after the lead in from this year's 30 Days.  These 3 shows at Winterland capture the band at their finest.  As others have said, the China Cat>Rider is perfect with that hypnotic jam that was previewed in 1973 showing full development as one song leads to another.\nIf this show ended at Dew, that probably would have been enough, but to continue on to a Sugar Mag>NFA>GDTRFB>NFA is just over the top.\nThe sound quality could not be better with Bobby right where he should be in the mix.\nI loved the band in all of their eras and the different sounds and meaning they presented, but hearing this show confirms why my personal ride that started in the late 60's continues to this day.\nThank you Charlie Miller whoever you are and wherever you are.  I'd be embarrassed to admit how much time I have spent listening to your recordings/uploads.\nThis helps to make the darkness of these political times give.",
+      "reviewtitle": "S/P 30 Days of the Dead",
+      "reviewer": "cassidy>benson>casey",
+      "reviewdate": "2016-12-04 01:15:51",
+      "createdate": "2016-12-04 01:15:51",
+      "stars": "5"
+    },
+    {
+      "reviewtitle": "Thank You!",
+      "reviewbody": "No review but a big thanks.",
+      "stars": "5",
+      "reviewer": "BigBerthaJones2",
+      "reviewdate": "2025-12-10 16:17:07",
+      "createdate": "2025-12-10 16:17:07",
+      "reviewer_itemname": "@bigberthajones2"
+    }
+  ]
+}
