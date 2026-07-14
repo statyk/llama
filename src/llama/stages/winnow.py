@@ -33,7 +33,8 @@ def _passes_mechanical(c: Candidate, criteria: Criteria) -> bool:
 
 def run_winnow(
     ws: RunWorkspace,
-    provider,
+    score_provider,
+    research_provider,
     ia,
     criteria: Criteria,
     ledger: Ledger,
@@ -79,7 +80,7 @@ def run_winnow(
     assessments = {}
     for i in range(0, len(payload), batch_size):
         batch = payload[i : i + batch_size]
-        result = run_json_task(provider, "score_reviews", QualityBatch,
+        result = run_json_task(score_provider, "score_reviews", QualityBatch,
                                candidates_json=json.dumps(batch, indent=2))
         for a in result.assessments:
             a.reviewed_identifier = reviewed.get(a.performance_id, "")
@@ -93,7 +94,7 @@ def run_winnow(
     entries: list[ShortlistEntry] = []
     for rank, (c, a) in enumerate(top, 1):
         rep = run_research_task(
-            provider, "light_research",
+            research_provider, "light_research",
             artist=criteria.artist or criteria.collection or c.collection,
             date=c.date, venue=c.venue or "unknown venue",
         )

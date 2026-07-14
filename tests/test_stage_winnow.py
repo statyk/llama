@@ -56,7 +56,7 @@ def test_winnow_full_flow(tmp_path: Path):
         completes=[assessments_json(["GratefulDead/1973-06-10"])],
         researches=["Ranked #3 all-time on some blog (blog.example)"],
     )
-    entries = run_winnow(ws, fake, StubIA(), crit, led)
+    entries = run_winnow(ws, fake, fake, StubIA(), crit, led)
     assert [e.candidate.performance_id for e in entries] == ["GratefulDead/1973-06-10"]
     assert entries[0].rank == 1
     assert entries[0].approved is None
@@ -74,7 +74,7 @@ def test_winnow_batches_llm_calls(tmp_path: Path):
         researches=["r"] * 5,
     )
     crit = Criteria(query="q", collection="GratefulDead")
-    entries = run_winnow(ws, fake, StubIA(), crit, led, batch_size=2)
+    entries = run_winnow(ws, fake, fake, StubIA(), crit, led, batch_size=2)
     assert len(entries) == 5
     n_completes = sum(1 for kind, _ in fake.calls if kind == "complete")
     assert n_completes == 3
@@ -88,6 +88,6 @@ def test_winnow_skips_if_artifact_exists(tmp_path: Path):
     ws, led = setup(tmp_path, cands)
     crit = Criteria(query="q", collection="GratefulDead")
     fake = FakeProvider(completes=[assessments_json([cands[0].performance_id])], researches=["r"])
-    run_winnow(ws, fake, StubIA(), crit, led)
-    again = run_winnow(ws, FakeProvider(), StubIA(), crit, led)  # empty queues: must not call LLM
+    run_winnow(ws, fake, fake, StubIA(), crit, led)
+    again = run_winnow(ws, FakeProvider(), FakeProvider(), StubIA(), crit, led)  # empty queues: must not call LLM
     assert len(again) == 1
