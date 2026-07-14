@@ -4,10 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Design phase — no code exists yet. The approved design spec is
-`docs/superpowers/specs/2026-07-14-llama-design.md`; read it before doing any
-work here. Next step in the workflow is an implementation plan
-(superpowers:writing-plans), then implementation.
+Implemented. The full pipeline (interpret through package) works offline
+against the `fake` LLM backend and real archive.org fixtures; see
+`docs/superpowers/plans/2026-07-14-llama.md` for the task-by-task
+implementation plan this was built from. The approved design spec is
+`docs/superpowers/specs/2026-07-14-llama-design.md`.
+
+## Commands
+
+- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`
+- Test: `pytest -q` (offline, deterministic). Single test: `pytest tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
+- Live tests (real archive.org, no LLM): `pytest -m live -q`
+- Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
+- Run: `llama find "..."`, `llama profile run <name>`, `llama review <run-dir>`, `llama deliver <show-dir>`
 
 ## What this is
 
