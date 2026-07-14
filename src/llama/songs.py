@@ -7,6 +7,7 @@ DEFAULT_ALIASES: dict[str, str] = {
     "rider": "i know you rider",
     "gdtrfb": "goin down the road feeling bad",
     "going down the road feeling bad": "goin down the road feeling bad",
+    "going down the road feelin bad": "goin down the road feeling bad",
     "goin down the road feelin bad": "goin down the road feeling bad",
     "playin in the band": "playing in the band",
     "nfa": "not fade away",

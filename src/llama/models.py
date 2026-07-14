@@ -78,6 +78,14 @@ class SourcedParse(BaseModel):
     parsed: ParsedSetlist
 
 
+class AlignResult(BaseModel):
+    sets: list[str]
+    segues: list[bool]
+    matched: list[bool]
+    coverage: float
+    conflicts: list[str] = Field(default_factory=list)
+
+
 class Track(BaseModel):
     index: int  # 1-based play order
     set: str

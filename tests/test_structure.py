@@ -1,5 +1,5 @@
-from llama.models import ParsedSetlist, SetlistItem, SourcedParse
-from llama.structure import blend_segues, from_setlistfm, norm_title, rank_parses
+from llama.models import ParsedSetlist, SetlistItem, SourcedParse, Track
+from llama.structure import align, blend_segues, from_setlistfm, norm_title, rank_parses
 
 
 def sp(source, sets_titles, confidence="high"):
@@ -88,3 +88,71 @@ def test_blend_noop_when_lma_missing_same_or_segue_free():
     assert blend_segues(winner, None) is winner
     assert blend_segues(winner, winner) is winner
     assert blend_segues(winner, pl(("A", False), ("B", False))) is winner
+
+
+def tr(idx, title):
+    return Track(index=idx, set="1", title=title, filename=f"t{idx:02d}.mp3",
+                 duration_sec=300.0, segue=False, title_source="tags")
+
+
+def canon(*rows):
+    """rows: (set, title, segue)"""
+    items = [SetlistItem(title=t, normalized=norm_title(t), set=s, segue=g)
+             for s, t, g in rows]
+    return ParsedSetlist(items=items, confidence="high")
+
+
+def test_align_exact_match():
+    c = canon(("1", "A", True), ("1", "B", False), ("2", "C", False))
+    r = align([tr(1, "A"), tr(2, "B"), tr(3, "C")], c)
+    assert r.sets == ["1", "1", "2"]
+    assert r.segues == [True, False, False]
+    assert r.coverage == 1.0
+    assert r.conflicts == []
+
+
+def test_align_repeated_songs_map_in_order():
+    c = canon(("2", "Not Fade Away", True), ("2", "GDTRFB", True), ("2", "Not Fade Away", False),
+              ("encore", "Baby Blue", False))
+    r = align([tr(1, "Not Fade Away >"), tr(2, "GDTRFB >"), tr(3, "Not Fade Away"),
+               tr(4, "E: Baby Blue")], c)
+    assert r.sets == ["2", "2", "2", "encore"]
+    assert r.segues == [True, True, False, False]
+    assert r.coverage == 1.0
+
+
+def test_align_skips_merged_canonical_item_via_lookahead():
+    # Recording merges "WRS Part 1" into the Prelude file: canonical has 3 items,
+    # the recording 2 files. "Let It Grow" is found 2 items ahead.
+    c = canon(("2", "Weather Report Suite Prelude", True),
+              ("2", "Weather Report Suite Part 1", True),
+              ("2", "Let It Grow", True),
+              ("2", "Row Jimmy", False),
+              ("2", "Ship of Fools", False))
+    r = align([tr(1, "Weather Report Suite Prelude >"), tr(2, "Let It Grow >"),
+               tr(3, "Row Jimmy"), tr(4, "Ship of Fools")], c)
+    assert r.sets == ["2", "2", "2", "2"]
+    assert r.coverage == 1.0
+    assert r.conflicts == ["Weather Report Suite Part 1"]
+
+
+def test_align_unmatched_tracks_inherit_previous_set():
+    c = canon(("1", "A", False), ("2", "B", False))
+    r = align([tr(1, "A"), tr(2, "Tuning"), tr(3, "B"), tr(4, "Crowd")], c)
+    assert r.sets == ["1", "1", "2", "2"]
+    assert r.matched == [True, False, True, False]
+    assert r.coverage == 0.5
+    assert r.segues[1] is False
+
+
+def test_align_first_track_unmatched_defaults_to_set_1():
+    c = canon(("1", "B", False))
+    r = align([tr(1, "Intro"), tr(2, "B")], c)
+    assert r.sets == ["1", "1"]
+
+
+def test_align_empty_inputs():
+    r = align([], canon(("1", "A", False)))
+    assert r.sets == [] and r.coverage == 0.0
+    r = align([tr(1, "A")], ParsedSetlist())
+    assert r.sets == ["1"] and r.coverage == 0.0

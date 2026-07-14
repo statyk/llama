@@ -7,7 +7,7 @@ the chosen recording's tracks.
 """
 import re
 
-from llama.models import ParsedSetlist, SetlistItem, SourcedParse
+from llama.models import AlignResult, ParsedSetlist, SetlistItem, SourcedParse, Track
 from llama.songs import normalize_song
 
 # "E: Baby Blue" / "Encore: Casey Jones" - structure markers embedded in a title.
@@ -74,3 +74,39 @@ def blend_segues(winner: ParsedSetlist, lma: ParsedSetlist | None) -> ParsedSetl
         src = pool.pop(0) if pool else None
         items.append(it.model_copy(update={"segue": src.segue}) if src else it)
     return ParsedSetlist(items=items, confidence=winner.confidence)
+
+
+def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3) -> "AlignResult":
+    """Map canonical set/segue structure onto tracks, in recording order.
+
+    Two-pointer with lookahead: a track matches the next canonical item with
+    the same normalized title within `lookahead` positions, so repeated songs
+    pair with the right occurrence and merged/split tracks skip over the gap.
+    """
+    items = canonical.items
+    sets: list[str] = []
+    segues: list[bool] = []
+    matched: list[bool] = []
+    matched_idx: set[int] = set()
+    j = 0
+    for t in tracks:
+        norm = norm_title(t.title)
+        hit = next(
+            (k for k in range(j, min(j + 1 + lookahead, len(items)))
+             if items[k].normalized == norm),
+            None,
+        )
+        if hit is None:
+            sets.append(sets[-1] if sets else "1")
+            segues.append(False)
+            matched.append(False)
+        else:
+            sets.append(items[hit].set)
+            segues.append(items[hit].segue)
+            matched.append(True)
+            matched_idx.add(hit)
+            j = hit + 1
+    coverage = (sum(matched) / len(tracks)) if tracks else 0.0
+    conflicts = [it.title for k, it in enumerate(items) if k not in matched_idx]
+    return AlignResult(sets=sets, segues=segues, matched=matched,
+                       coverage=coverage, conflicts=conflicts)
