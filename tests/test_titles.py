@@ -34,8 +34,9 @@ def test_tags_win_and_setlist_fills_gaps():
     tracks = resolve_titles(files, make_setlist())
     assert [t.title_source for t in tracks] == ["tags", "tags", "setlist", "tags", "setlist", "setlist"]
     assert tracks[2].title == "I Know You Rider"
-    assert tracks[5].set == "encore"
-    assert tracks[1].segue is True
+    # placeholders: structure stamping (real set/segue) moved to gather
+    assert tracks[5].set == "1"
+    assert tracks[1].segue is False
     assert tracks[0].duration_sec == 300.0
     assert [t.index for t in tracks] == [1, 2, 3, 4, 5, 6]
 
@@ -48,7 +49,7 @@ def test_sibling_fallback_when_setlist_misaligned():
         "Dark Star", "Eyes of the World", "Johnny B. Goode",
     ])
     assert all(t.title_source == "sibling" for t in tracks)
-    # sets recovered by matching resolved titles back into the (partial) setlist
+    # placeholder set - structure stamping moved to gather
     assert tracks[0].set == "1"
 
 
@@ -60,8 +61,13 @@ def test_unresolved_flagged_not_guessed():
 
 
 def test_set_breaks():
+    # set_breaks() itself is unchanged - it just reads Track.set - but
+    # resolve_titles no longer stamps real sets, so this test stamps them
+    # the way gather.py now does (from llama.structure.align) before calling it.
     tracks = resolve_titles(
         make_files(["Morning Dew", "China Cat Sunflower", None, "Dark Star", None, None]),
         make_setlist(),
     )
+    real_sets = [item.set for item in make_setlist().items]
+    tracks = [t.model_copy(update={"set": s}) for t, s in zip(tracks, real_sets)]
     assert set_breaks(tracks) == [3, 5]  # after track 3 (set 1->2) and track 5 (set 2->encore)

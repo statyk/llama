@@ -97,6 +97,13 @@ class AlignedStructure(BaseModel):
     tracks: list[AlignedTrack]
 
 
+class StructureInfo(BaseModel):
+    source: str  # "setlist.fm" | "chosen" | "lma:<identifier>" | "llm"
+    alignment: str  # "deterministic" | "llm"
+    coverage: float
+    conflicts: list[str] = Field(default_factory=list)
+
+
 class Track(BaseModel):
     index: int  # 1-based play order
     set: str
@@ -121,6 +128,7 @@ class Show(BaseModel):
     source_url: str = ""
     needs_review: bool = False
     review_flags: list[str] = Field(default_factory=list)
+    structure: StructureInfo | None = None
 
 
 class DJNotes(BaseModel):
