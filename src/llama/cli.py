@@ -12,6 +12,7 @@ from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import Profile, load_profile, save_profile
+from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
@@ -116,9 +117,11 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     if chosen is None:
         typer.echo(f"Shortlist awaits review: llama review {ws.dir}")
         return
+    setlistfm = make_client(config)
     for entry in chosen:
         try:
-            pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format, force=force)
+            pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
+                               force=force, setlistfm=setlistfm, structure_cfg=config.structure)
         except (TaskFailed, LLMError, IAError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"

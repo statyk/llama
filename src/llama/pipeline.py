@@ -17,7 +17,8 @@ from llama.workspace import RunWorkspace, read_json, read_model
 log = logging.getLogger("llama")
 
 TASK_KEYS = ["interpret", "score_reviews", "light_research",
-             "extract_setlist", "deep_research", "synthesize", "propose_artists"]
+             "extract_setlist", "deep_research", "synthesize", "propose_artists",
+             "align_structure"]
 
 
 def make_providers(config: Config) -> dict:
@@ -43,6 +44,8 @@ def process_show(
     run_name: str,
     audio_format: str = "mp3",
     force: bool = False,
+    setlistfm=None,
+    structure_cfg=None,
 ) -> Path | None:
     cand = entry.candidate
     show_ws = run_ws.show_ws(cand.performance_id)
@@ -53,7 +56,9 @@ def process_show(
                                           audio_format=audio_format, force=force)
     with step(f"[{pid}] gathering"):
         show = run_gather(show_ws, ia, providers["extract_setlist"], cand, identifier,
-                          audio_format=audio_format, force=force)
+                          audio_format=audio_format, force=force,
+                          align_provider=providers.get("align_structure"),
+                          setlistfm=setlistfm, structure_cfg=structure_cfg)
     dossier = entry.assessment.rationale
     if entry.external_reputation:
         dossier += "\n\nExternal reputation: " + entry.external_reputation
