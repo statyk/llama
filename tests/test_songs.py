@@ -27,3 +27,8 @@ def test_matches_sequence_adjacent_only():
 
 def test_gdtrfb_going_feelin_variant_normalizes():
     assert normalize_song("Going Down The Road Feelin' Bad") == "goin down the road feeling bad"
+
+
+def test_us_blues_period_variant_normalizes():
+    assert normalize_song("U.S. Blues") == "us blues"
+    assert normalize_song("US Blues") == "us blues"

@@ -124,12 +124,7 @@ def test_gather_recovers_structure_from_sibling(tmp_path: Path):
     assert show.structure is not None
     assert show.structure.source == f"lma:{M_IDENT}"
     assert show.structure.alignment == "deterministic"
-    # 26/27: Miller's description spells the opener "U.S. Blues" (normalizes
-    # to "u s blues" - normalize_song turns punctuation into spaces), while
-    # windsor's own tag is "US Blues" ("us blues") - the one genuine
-    # alignment miss in this fixture pair. Still well above the guard
-    # threshold, so needs_review stays False below.
-    assert show.structure.coverage == 26 / 27
+    assert show.structure.coverage == 1.0
     # segues from the sibling's taper notation
     assert show.tracks[6].segue is True                # China Cat Sunflower >
     assert show.tracks[12].segue is False               # Roses: windsor's own junk parse said True

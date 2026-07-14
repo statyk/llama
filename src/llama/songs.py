@@ -5,6 +5,7 @@ import re
 DEFAULT_ALIASES: dict[str, str] = {
     "china cat": "china cat sunflower",
     "rider": "i know you rider",
+    "u s blues": "us blues",
     "gdtrfb": "goin down the road feeling bad",
     "going down the road feeling bad": "goin down the road feeling bad",
     "going down the road feelin bad": "goin down the road feeling bad",
