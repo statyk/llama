@@ -28,6 +28,9 @@ Optional config at `~/.llama/config.toml`:
 
     llama find "GD shows 73-74 with a china>rider"
     llama find "top 10 Grateful Dead shows of the 1980s" --auto
+    llama find "well-known folk/acoustic performer, 1960s-70s, highly rated"
+                                     # artist-less queries propose artists first
+                                     # (interactive runs let you prune the list)
     llama profile add sunday-dead-hour "classic Grateful Dead" --count 1 --human-gate
     llama profile run sunday-dead-hour
     llama review <run-dir>           # approve/prune a shortlist

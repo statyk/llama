@@ -121,6 +121,93 @@ def test_run_unknown_stage_exits_with_message(tmp_path: Path):
     assert "unknown stage" in result.output
 
 
+FUZZY_CRITERIA = json.dumps({
+    "query": "x", "collection": None, "artist": None,
+    "date_from": "1960-01-01", "date_to": "1979-12-31",
+    "setlist_constraints": [], "soft_preferences": "folk/acoustic, well known",
+    "min_avg_rating": 3.5, "min_reviews": 3, "count": 1,
+})
+
+ARTIST_COLLECTIONS = [
+    {"identifier": "JoanBaez", "title": "Joan Baez"},
+    {"identifier": "DocWatson", "title": "Doc and Merle Watson"},
+    {"identifier": "TownesVanZandt", "title": "Townes Van Zandt"},
+]
+
+
+class FuzzyFakeIA:
+    def __init__(self, *args, **kwargs):
+        self.etree_queries = []
+
+    def search(self, query, fields, rows=500):
+        if "mediatype:collection" in query:
+            return ARTIST_COLLECTIONS
+        self.etree_queries.append(query)
+        return []  # no shows: pipeline ends at "No shows survived winnowing."
+
+
+def fuzzy_providers(config):
+    from llama.llm.fake import FakeProvider
+    return {
+        "interpret": FakeProvider(completes=[FUZZY_CRITERIA]),
+        "propose_artists": FakeProvider(completes=[json.dumps(
+            {"artists": ["Joan Baez", "Doc Watson", "Townes Van Zandt"]})]),
+        "score_reviews": FakeProvider(),
+        "light_research": FakeProvider(),
+        "extract_setlist": FakeProvider(),
+        "deep_research": FakeProvider(),
+        "synthesize": FakeProvider(),
+    }
+
+
+def _fuzzy_setup(tmp_path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ia = FuzzyFakeIA()
+    monkeypatch.setattr(cli, "make_providers", fuzzy_providers)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: ia)
+    return ia
+
+
+def test_fuzzy_query_interactive_prune(tmp_path, monkeypatch):
+    ia = _fuzzy_setup(tmp_path, monkeypatch)
+    result = runner.invoke(cli.app, [
+        "find", "folk 60s-70s", "--run-name", "fz",
+        "--config", str(tmp_path / "config.toml"),
+    ], input="2\n")
+    assert result.exit_code == 0, result.output
+    assert "Doc and Merle Watson" in result.output
+    assert len(ia.etree_queries) == 1
+    assert "collection:DocWatson" in ia.etree_queries[0]
+    saved = json.loads((tmp_path / "runs" / "fz" / "artists.json").read_text())
+    assert [a["identifier"] for a in saved] == ["DocWatson"]
+
+
+def test_fuzzy_query_auto_uses_all(tmp_path, monkeypatch):
+    ia = _fuzzy_setup(tmp_path, monkeypatch)
+    result = runner.invoke(cli.app, [
+        "find", "folk 60s-70s", "--auto", "--run-name", "fz2",
+        "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+    assert len(ia.etree_queries) == 3
+
+
+def test_fuzzy_query_zero_matches_exits_cleanly(tmp_path, monkeypatch):
+    ia = _fuzzy_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: {
+        **fuzzy_providers(config),
+        "propose_artists": __import__("llama.llm.fake", fromlist=["FakeProvider"]).FakeProvider(
+            completes=[json.dumps({"artists": ["Nick Drake"]})]),
+    })
+    result = runner.invoke(cli.app, [
+        "find", "folk 60s-70s", "--auto", "--run-name", "fz3",
+        "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+    assert "none of the proposed artists" in result.output
+    assert ia.etree_queries == []
+
+
 def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     from llama.llm.fake import FakeProvider
     cfg = str(tmp_path / "config.toml")

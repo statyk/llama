@@ -44,3 +44,35 @@ def test_run_search_groups_and_writes(tmp_path: Path):
     # skip-if-exists: no second IA call
     run_search(ws, ia, Criteria(query="q", collection="GratefulDead"))
     assert len(ia.queries) == 1
+
+
+def test_run_search_fans_out_per_artist(tmp_path: Path):
+    docs_by_collection = {
+        "JoanBaez": [{"identifier": "jb1963-11-23", "date": "1963-11-23T00:00:00Z",
+                      "venue": "Club 47"}],
+        "DocWatson": [{"identifier": "dw1964-03-07", "date": "1964-03-07T00:00:00Z",
+                       "venue": "Ash Grove"}],
+    }
+
+    class FanStubIA:
+        def __init__(self):
+            self.queries = []
+
+        def search(self, query, fields, rows=500):
+            self.queries.append(query)
+            for ident, docs in docs_by_collection.items():
+                if f"collection:{ident}" in query:
+                    return docs
+            return []
+
+    ws = RunWorkspace(tmp_path, "r1")
+    ia = FanStubIA()
+    artists = [{"identifier": "JoanBaez", "title": "Joan Baez"},
+               {"identifier": "DocWatson", "title": "Doc and Merle Watson"}]
+    crit = Criteria(query="q", date_from="1960-01-01", date_to="1969-12-31")
+    cands = run_search(ws, ia, crit, artists=artists)
+    assert len(ia.queries) == 2
+    assert all("mediatype:etree" in q and "date:[1960-01-01 TO 1969-12-31]" in q
+               for q in ia.queries)
+    pids = sorted(c.performance_id for c in cands)
+    assert pids == ["DocWatson/1964-03-07", "JoanBaez/1963-11-23"]

@@ -17,7 +17,7 @@ from llama.workspace import RunWorkspace, read_json, read_model
 log = logging.getLogger("llama")
 
 TASK_KEYS = ["interpret", "score_reviews", "light_research",
-             "extract_setlist", "deep_research", "synthesize"]
+             "extract_setlist", "deep_research", "synthesize", "propose_artists"]
 
 
 def make_providers(config: Config) -> dict:

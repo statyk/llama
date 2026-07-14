@@ -12,6 +12,7 @@ from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import Profile, load_profile, save_profile
+from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
@@ -75,7 +76,24 @@ def _print_shortlist(entries: list[ShortlistEntry]) -> None:
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False) -> None:
     providers = make_providers(config)
-    run_search(ws, ia, criteria, force=force)
+    artists = None
+    if criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
+        artists = run_discover(ws, providers["propose_artists"], ia, criteria, force=force)
+        if not artists:
+            typer.echo("none of the proposed artists were found on the LMA - "
+                       "try naming an artist or broadening the style", err=True)
+            return
+        if not auto:
+            typer.echo("Proposed artists:")
+            for i, a in enumerate(artists, 1):
+                typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
+            picks = typer.prompt("Search which artists? (comma-separated, empty = all)",
+                                 default="", show_default=False)
+            wanted = _parse_ranks(picks)
+            if wanted:
+                artists = [a for i, a in enumerate(artists, 1) if i in wanted]
+                write_artifact(ws.artists, artists)
+    run_search(ws, ia, criteria, artists=artists, force=force)
     shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
                            shortlist_size=max(12, count), force=force)
     if not shortlist:
