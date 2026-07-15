@@ -56,23 +56,24 @@ def test_tier_rejects_invalid_value(tmp_path: Path):
 def test_setlistfm_and_structure_defaults():
     cfg = Config()
     assert cfg.setlistfm.api_key is None
-    assert cfg.structure.guard_min_minutes == 100
-    assert cfg.structure.guard_min_tracks == 16
+    assert cfg.structure.guard_min_minutes == 150
     assert cfg.structure.align_coverage_threshold == 0.8
+    assert cfg.winnow.max_metadata_fetch == 40
 
 
 def test_setlistfm_and_structure_from_toml(tmp_path):
     p = tmp_path / "config.toml"
     p.write_text(
         '[setlistfm]\napi_key = "k123"\n\n'
-        "[structure]\nguard_min_minutes = 90\nguard_min_tracks = 12\n"
-        "align_coverage_threshold = 0.5\n"
+        "[structure]\nguard_min_minutes = 90\n"
+        "align_coverage_threshold = 0.5\n\n"
+        "[winnow]\nmax_metadata_fetch = 80\n"
     )
     cfg = load_config(p)
     assert cfg.setlistfm.api_key == "k123"
     assert cfg.structure.guard_min_minutes == 90
-    assert cfg.structure.guard_min_tracks == 12
     assert cfg.structure.align_coverage_threshold == 0.5
+    assert cfg.winnow.max_metadata_fetch == 80
 
 
 def test_llm_tiers_lifted_from_llm_table(tmp_path: Path):

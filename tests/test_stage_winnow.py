@@ -94,6 +94,54 @@ def test_winnow_skips_if_artifact_exists(tmp_path: Path):
     assert len(again) == 1
 
 
+def test_winnow_truncation_samples_across_years(tmp_path: Path):
+    # 4 shows in 1969 (most-reviewed first: 30/20/10/5) + 2 in 1977; cap 4.
+    # Old behavior kept the first 4 chronologically = all 1969. Stratified
+    # sampling must keep the two most-reviewed of each year.
+    cands = [
+        candidate("GratefulDead/1969-02-01", "1969-02-01", reviews=5),
+        candidate("GratefulDead/1969-03-01", "1969-03-01", reviews=30),
+        candidate("GratefulDead/1969-04-01", "1969-04-01", reviews=10),
+        candidate("GratefulDead/1969-05-01", "1969-05-01", reviews=20),
+        candidate("GratefulDead/1977-05-08", "1977-05-08", reviews=8),
+        candidate("GratefulDead/1977-05-09", "1977-05-09", reviews=4),
+    ]
+    ws, led = setup(tmp_path, cands)
+    expected = ["GratefulDead/1969-03-01", "GratefulDead/1969-05-01",
+                "GratefulDead/1977-05-08", "GratefulDead/1977-05-09"]
+    fake = FakeProvider(completes=[assessments_json(expected)], researches=["r"] * 4)
+    crit = Criteria(query="q", collection="GratefulDead")
+    entries = run_winnow(ws, fake, fake, StubIA(), crit, led, max_metadata_fetch=4)
+    assert sorted(e.candidate.performance_id for e in entries) == sorted(expected)
+
+
+def test_winnow_shortlist_cut_spreads_years(tmp_path: Path):
+    # Scores: 1977 shows 9.0 and 8.0, 1969 show 7.0. A shortlist of 2 must
+    # not be the two 1977 shows; it takes each year's best, ranked by score.
+    cands = [
+        candidate("GratefulDead/1977-05-08", "1977-05-08"),
+        candidate("GratefulDead/1977-05-09", "1977-05-09"),
+        candidate("GratefulDead/1969-12-07", "1969-12-07"),
+    ]
+    ws, led = setup(tmp_path, cands)
+    fake = FakeProvider(
+        completes=[json.dumps({"assessments": [
+            {"performance_id": "GratefulDead/1977-05-08", "quality_score": 9.0,
+             "non_attendee_evidence": "e", "recording_complaints": [], "rationale": "r"},
+            {"performance_id": "GratefulDead/1977-05-09", "quality_score": 8.0,
+             "non_attendee_evidence": "e", "recording_complaints": [], "rationale": "r"},
+            {"performance_id": "GratefulDead/1969-12-07", "quality_score": 7.0,
+             "non_attendee_evidence": "e", "recording_complaints": [], "rationale": "r"},
+        ]})],
+        researches=["r"] * 2,
+    )
+    crit = Criteria(query="q", collection="GratefulDead")
+    entries = run_winnow(ws, fake, fake, StubIA(), crit, led, shortlist_size=2)
+    assert [e.candidate.performance_id for e in entries] == [
+        "GratefulDead/1977-05-08", "GratefulDead/1969-12-07"]
+    assert [e.rank for e in entries] == [1, 2]
+
+
 def test_winnow_logs_progress(tmp_path: Path, caplog):
     cands = [candidate(f"GratefulDead/1974-0{i}-01", f"1974-0{i}-01") for i in range(1, 6)]
     ws, led = setup(tmp_path, cands)

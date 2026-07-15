@@ -46,6 +46,36 @@ def test_normalize_date_common_forms():
     assert normalize_date("the summer of '73") is None
 
 
+def test_normalize_date_strips_leading_weekday():
+    # Research prose loves the full form: "Sunday, December 7, 1969".
+    assert normalize_date("Sunday, December 7, 1969") == "1969-12-07"
+    assert normalize_date("Sun Dec 7, 1969") == "1969-12-07"
+    assert normalize_date("Sunday, December 7") == "--12-07"
+
+
+def test_normalize_date_yearless_forms():
+    # Research prose often names the date without a year ("on December 2 the
+    # band..."); normalize to the ISO 8601 year-less form for comparison.
+    assert normalize_date("December 2") == "--12-02"
+    assert normalize_date("June 10th") == "--06-10"
+    assert normalize_date("2 December") == "--12-02"
+    assert normalize_date("not a date") is None
+
+
+def test_yearless_date_matching_show_passes(tmp_path: Path):
+    sws, show = setup(tmp_path)  # show date 1973-06-10
+    fake = FakeProvider(completes=[vet_json(asserted_dates=["June 10"])])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == []
+
+
+def test_yearless_date_mismatch_flags_wrong_date(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    fake = FakeProvider(completes=[vet_json(asserted_dates=["December 2"])])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == ["research asserts wrong date: December 2"]
+
+
 def test_clean_research_passes_and_writes_vetting(tmp_path: Path):
     sws, show = setup(tmp_path)
     fake = FakeProvider(completes=[vet_json()])

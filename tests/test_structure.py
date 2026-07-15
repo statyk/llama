@@ -164,21 +164,37 @@ def _tracks(n, dur=300.0):
 
 
 def test_guard_fires_on_long_duration_no_breaks():
-    assert structure_guard(_tracks(10, dur=700.0), []) == "single-set structure for a long show"
+    # 28 tracks x 460s ≈ 215 min: two-set-show territory with no breaks.
+    assert structure_guard(_tracks(28, dur=460.0), []) == \
+        "single-set structure for a long show (215 min)"
 
 
-def test_guard_fires_on_track_count_even_without_durations():
-    assert structure_guard(_tracks(20, dur=None), []) == "single-set structure for a long show"
+def test_guard_allows_real_long_single_sets():
+    # GD 1969-12-07 Fillmore West: 12 tracks, ~106 min, genuinely one set
+    # (multi-band bill). Anything under 2.5 hours is plausible as one set.
+    assert structure_guard(_tracks(12, dur=530.0), []) is None
+
+
+def test_guard_ignores_track_count():
+    # Many short songs in one set is normal club-show shape; count is not a signal.
+    assert structure_guard(_tracks(21, dur=220.0), []) is None   # ~77 min, 21 tracks
+    assert structure_guard(_tracks(20, dur=None), []) is None    # no durations known
+
+
+def test_guard_fires_when_multiset_evidence_lost_in_alignment():
+    got = structure_guard(_tracks(8, dur=300.0), [], evidence_sets={"1", "2"})
+    assert got == "setlist evidence shows multiple sets but alignment found none"
 
 
 def test_guard_silent_on_short_single_set_and_any_multiset():
     assert structure_guard(_tracks(8, dur=300.0), []) is None          # 40 min, 8 tracks
     assert structure_guard(_tracks(30, dur=700.0), [11]) is None       # has a break
+    assert structure_guard(_tracks(30, dur=700.0), [11], evidence_sets={"1", "2"}) is None
 
 
 def test_guard_respects_thresholds():
-    assert structure_guard(_tracks(10, dur=700.0), [], min_minutes=200) is None
-    assert structure_guard(_tracks(10, dur=None), [], min_tracks=10) is not None
+    assert structure_guard(_tracks(28, dur=460.0), [], min_minutes=300) is None
+    assert structure_guard(_tracks(12, dur=530.0), [], min_minutes=90) is not None
 
 
 from llama.models import AlignedStructure, AlignedTrack

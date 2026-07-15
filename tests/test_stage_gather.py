@@ -163,7 +163,7 @@ def test_gather_flags_long_flat_show(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(md), FakeProvider(), cand, ident)
     assert show.needs_review is True
-    assert "single-set structure for a long show" in show.review_flags
+    assert any(f.startswith("single-set structure for a long show") for f in show.review_flags)
 
 
 def test_gather_low_coverage_uses_llm_alignment(tmp_path: Path):

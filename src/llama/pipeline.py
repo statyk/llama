@@ -11,6 +11,7 @@ from llama.stages.package import run_package
 from llama.stages.research import run_research
 from llama.stages.select_recording import run_select_recording
 from llama.stages.synthesize import run_synthesize
+from llama.util import spread_across_years
 from llama.stages.vet_research import run_vet_research
 from llama.status import step
 from llama.workspace import RunWorkspace, read_json, read_model
@@ -29,11 +30,12 @@ def make_providers(config: Config) -> dict:
 def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool):
     approved = [e for e in shortlist if e.approved is True]
     if approved:
-        return approved[:count]
+        return approved[:count]  # explicit human picks: no spreading
     if human_gate:
         return None  # gate required, nothing approved yet
     unrejected = [e for e in shortlist if e.approved is not False]
-    return unrejected[:count]
+    picked = spread_across_years(unrejected, lambda e: e.candidate.date, count)
+    return sorted(picked, key=lambda e: e.rank)
 
 
 def process_show(

@@ -17,6 +17,10 @@ Optional config at `~/.llama/config.toml`:
     delivery_path = "/station/inbox" # for `llama deliver`
     audio_format = "mp3"             # or "flac"
 
+    [winnow]
+    max_metadata_fetch = 40          # review-fetch budget; sampled evenly
+                                     # across years when survivors exceed it
+
     [llm.default]
     backend = "claude_cli"           # requires the `claude` CLI on PATH
     # backend = "openrouter"         # HTTP alternative; set OPENROUTER_API_KEY
@@ -48,9 +52,19 @@ Optional config at `~/.llama/config.toml`:
                                      # (interactive runs let you prune the list)
     llama profile add sunday-dead-hour "classic Grateful Dead" --count 1 --human-gate
     llama profile run sunday-dead-hour
-    llama review <run-dir>           # approve/prune a shortlist
+    llama review <run-dir>           # approve a shortlist, optionally process it
+    llama run <run-dir>              # resume/replay a run; finished stages are skipped
+    llama show <show-dir> [--clear]  # inspect (or overrule) a needs-review hold
     llama deliver <show-dir>         # copy package to the station inbox
     llama ledger list                # broadcast history / dedup
+
+Two different human gates, easy to conflate: `llama review` answers "which
+shortlisted shows are worth processing" (gate 1). Separately, a processed
+show can be held as **needs-review** when a stage flags something suspicious
+(`needs-review, skipped: ...`, gate 2) — inspect and clear that with
+`llama show`. See [docs/workflow.md](docs/workflow.md) for the full pipeline
+map, every flag, and a troubleshooting table — start there if a run didn't
+do what you expected.
 
 ### Explore artists
 

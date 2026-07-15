@@ -31,11 +31,144 @@ def test_review_approves_selected_ranks(tmp_path: Path):
     ws = RunWorkspace(tmp_path, "r1")
     write_artifact(ws.shortlist, make_entries())
     result = runner.invoke(cli.app, ["review", str(ws.dir), "--config",
-                                     str(tmp_path / "config.toml")], input="1\n")
+                                     str(tmp_path / "config.toml")], input="1\nn\n")
     assert result.exit_code == 0, result.output
     entries = read_model_list(ws.shortlist, ShortlistEntry)
     assert entries[0].approved is True
-    assert entries[1].approved is False
+    assert entries[1].approved is None       # unnamed ranks are left undecided
+    assert f"llama run {ws.dir}" in result.output
+
+
+def test_review_empty_input_changes_nothing(tmp_path: Path):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.shortlist, make_entries())
+    result = runner.invoke(cli.app, ["review", str(ws.dir), "--config",
+                                     str(tmp_path / "config.toml")], input="\n")
+    assert result.exit_code == 0, result.output
+    assert "unchanged" in result.output
+    entries = read_model_list(ws.shortlist, ShortlistEntry)
+    assert all(e.approved is None for e in entries)
+
+
+def test_review_can_continue_straight_into_processing(tmp_path: Path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: calls.append((a, k)))
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    write_artifact(ws.shortlist, make_entries())
+    result = runner.invoke(cli.app, ["review", str(ws.dir), "--config",
+                                     str(tmp_path / "config.toml")], input="1\ny\n")
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 1
+
+
+def _flagged_show(tmp_path: Path) -> ShowWorkspace:
+    from llama.models import Show
+
+    sws = ShowWorkspace(tmp_path / "runs" / "r1" / "shows" / "mekons-1989-12-02")
+    write_artifact(sws.show, Show(
+        performance_id="Mekons/1989-12-02", identifier="mek89", artist="Mekons",
+        date="1989-12-02", venue="Metro", needs_review=True,
+        review_flags=["single-set structure for a long show"],
+    ))
+    return sws
+
+
+def test_show_prints_flags(tmp_path: Path):
+    sws = _flagged_show(tmp_path)
+    result = runner.invoke(cli.app, ["show", str(sws.dir)])
+    assert result.exit_code == 0, result.output
+    assert "needs-review: yes" in result.output
+    assert "single-set structure for a long show" in result.output
+
+
+def test_show_clear_overrules_the_hold(tmp_path: Path):
+    sws = _flagged_show(tmp_path)
+    result = runner.invoke(cli.app, ["show", str(sws.dir), "--clear"])
+    assert result.exit_code == 0, result.output
+    saved = json.loads(sws.show.read_text())
+    assert saved["needs_review"] is False
+    assert saved["review_flags"] == []
+    assert "llama run" in result.output      # points at the resume command
+
+
+def test_show_errors_without_show_json(tmp_path: Path):
+    result = runner.invoke(cli.app, ["show", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "no show.json" in result.output
+
+
+def _approved_run(tmp_path: Path) -> tuple[str, RunWorkspace]:
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    entries = make_entries()
+    entries[0].approved = True
+    write_artifact(ws.shortlist, entries)
+    return cfg, ws
+
+
+def test_bare_force_with_approvals_asks_before_wiping(tmp_path: Path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: calls.append(1))
+    cfg, ws = _approved_run(tmp_path)
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--force", "--config", cfg],
+                           input="n\n")
+    assert result.exit_code == 1
+    assert not calls
+    entries = read_model_list(ws.shortlist, ShortlistEntry)
+    assert entries[0].approved is True       # nothing was wiped
+
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--force", "--config", cfg],
+                           input="y\n")
+    assert result.exit_code == 0, result.output
+    assert calls
+
+
+def test_bare_force_without_approvals_does_not_prompt(tmp_path: Path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: calls.append(1))
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    write_artifact(ws.shortlist, make_entries())    # no approvals recorded
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--force", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert calls
+
+
+def test_stage_force_cascades_to_downstream_artifacts(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+    cfg, ws = _approved_run(tmp_path)
+    sws = ws.show_ws("GratefulDead/1973-06-10")
+    for path in [sws.selection, sws.show, sws.reviews, sws.vetting, sws.dj_notes_json]:
+        write_artifact(path, "{}")
+    write_artifact(sws.research, "research")
+    write_artifact(sws.dj_notes_md, "notes")
+    write_artifact(sws.package_dir / "manifest.json", "{}")
+
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--stage", "gather",
+                                     "--force", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert sws.selection.exists()            # upstream stage untouched
+    for path in [sws.show, sws.reviews, sws.research, sws.vetting,
+                 sws.dj_notes_json, sws.dj_notes_md, sws.package_dir / "manifest.json"]:
+        assert not path.exists(), path
+
+
+def test_search_force_also_drops_stale_shortlist(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+    cfg, ws = _approved_run(tmp_path)
+    write_artifact(ws.candidates, [])
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--stage", "search",
+                                     "--force", "--config", cfg], input="y\n")
+    assert result.exit_code == 0, result.output
+    assert not ws.candidates.exists()
+    assert not ws.shortlist.exists()
 
 
 def test_ledger_commands(tmp_path: Path):

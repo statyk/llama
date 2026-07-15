@@ -32,8 +32,10 @@ def _year(y: int) -> int:
 
 
 def normalize_date(text: str) -> str | None:
-    """Normalize common prose date spellings to YYYY-MM-DD; None if unparseable."""
+    """Normalize common prose date spellings to YYYY-MM-DD; year-less forms
+    ("December 2") to ISO 8601 --MM-DD; None if unparseable."""
     s = re.sub(r"\s+", " ", text.strip().lower().replace(",", " ").replace(".", " ")).strip()
+    s = re.sub(r"^(?:mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?|sun)(?:day)? ", "", s)
     m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", s)
     if m:
         return f"{int(m[1]):04d}-{int(m[2]):02d}-{int(m[3]):02d}"
@@ -46,6 +48,12 @@ def normalize_date(text: str) -> str | None:
     m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)? ([a-z]+) '?(\d{2,4})", s)
     if m and _month(m[2]):
         return f"{_year(int(m[3])):04d}-{_month(m[2]):02d}-{int(m[1]):02d}"
+    m = re.fullmatch(r"([a-z]+) (\d{1,2})(?:st|nd|rd|th)?", s)
+    if m and _month(m[1]):
+        return f"--{_month(m[1]):02d}-{int(m[2]):02d}"
+    m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)? ([a-z]+)", s)
+    if m and _month(m[2]):
+        return f"--{_month(m[2]):02d}-{int(m[1]):02d}"
     return None
 
 
@@ -60,6 +68,9 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> list[str]:
         norm = normalize_date(date_text)
         if norm is None:
             flags.append(f"{_VET_FLAG_PREFIX}unparseable date: {date_text}")
+        elif norm.startswith("--"):  # year-less: match on month and day
+            if not show.date.endswith(norm[1:]):
+                flags.append(f"{_VET_FLAG_PREFIX}wrong date: {date_text}")
         elif norm != show.date:
             flags.append(f"{_VET_FLAG_PREFIX}wrong date: {date_text}")
     return flags
