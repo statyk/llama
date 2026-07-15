@@ -1,10 +1,13 @@
 import hashlib
 import json
+import logging
 import time
 from pathlib import Path
 from urllib.parse import quote
 
 import httpx
+
+log = logging.getLogger("llama")
 
 SEARCH_URL = "https://archive.org/advancedsearch.php"
 METADATA_URL = "https://archive.org/metadata/{identifier}"
@@ -41,27 +44,30 @@ class IAClient:
             time.sleep(wait)
         self._last_request = time.monotonic()
 
-    def _get(self, url: str, params: dict | None = None) -> httpx.Response:
+    def _get(self, url: str, params: dict | None = None, *,
+             max_retries: int | None = None, backoff_s: float | None = None) -> httpx.Response:
+        retries = max_retries if max_retries is not None else self.max_retries
+        backoff = backoff_s if backoff_s is not None else self.backoff_s
         last: Exception | None = None
-        for attempt in range(self.max_retries):
+        for attempt in range(retries):
             self._throttle()
             try:
                 resp = self.client.get(url, params=params)
             except httpx.TransportError as e:
                 last = e
-                if attempt < self.max_retries - 1:
-                    time.sleep(self.backoff_s * (2**attempt))
+                if attempt < retries - 1:
+                    time.sleep(backoff * (2**attempt))
                 continue
             if 400 <= resp.status_code < 500:
                 # Client errors are not transient: retrying won't help.
                 raise IAError(f"archive.org returned {resp.status_code} for {url}")
             if resp.status_code >= 500:
                 last = IAError(f"archive.org returned {resp.status_code}")
-                if attempt < self.max_retries - 1:
-                    time.sleep(self.backoff_s * (2**attempt))
+                if attempt < retries - 1:
+                    time.sleep(backoff * (2**attempt))
                 continue
             return resp
-        raise IAError(f"GET {url} failed after {self.max_retries} attempts: {last}") from last
+        raise IAError(f"GET {url} failed after {retries} attempts: {last}") from last
 
     def _cached(self, key: str, fetch) -> dict | list:
         path = self.cache_dir / f"{key}.json"
@@ -84,7 +90,11 @@ class IAClient:
 
     def scrape(self, query: str, fields: list[str], count: int = 10000) -> list[dict]:
         """Cursor-paginated bulk listing via the scrape API. Not disk-cached:
-        callers persist aggregates (e.g. the artist index), not raw pages."""
+        callers persist aggregates (e.g. the artist index), not raw pages.
+
+        More patient than the default policy: a ~30-page bulk pull should ride
+        out a multi-second archive.org 5xx burst rather than die mid-build.
+        """
         out: list[dict] = []
         cursor: str | None = None
         while True:
@@ -92,10 +102,13 @@ class IAClient:
             if cursor:
                 params["cursor"] = cursor
             try:
-                data = self._get(SCRAPE_URL, params).json()
+                data = self._get(SCRAPE_URL, params,
+                                 max_retries=max(5, self.max_retries),
+                                 backoff_s=self.backoff_s * 2).json()
             except json.JSONDecodeError as e:
                 raise IAError(f"scrape returned non-JSON for {query!r}") from e
             out.extend(data.get("items", []))
+            log.info("scrape: %s/%s docs", f"{len(out):,}", f"{data.get('total', 0):,}")
             cursor = data.get("cursor")
             if not cursor:
                 return out

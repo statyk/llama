@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -205,3 +206,17 @@ def test_find_matching_artists_caps_at_max_results():
     fake = FakeProvider(completes=[matches_json(("GratefulDead", "a"), ("RobynHitchcock", "b"))])
     got = find_matching_artists(fake, POOL, "q", max_results=1)
     assert len(got) == 1
+
+
+def test_build_via_load_or_build_announces_step(tmp_path: Path, caplog):
+    with caplog.at_level(logging.INFO, logger="llama"):
+        load_or_build(ScrapeStubIA(), tmp_path)
+    assert any("building artist index" in r.message and "a minute or two" in r.message
+               for r in caplog.records)
+
+
+def test_find_matching_artists_announces_step(caplog):
+    fake = FakeProvider(completes=[matches_json(("GratefulDead", "x"))])
+    with caplog.at_level(logging.INFO, logger="llama"):
+        find_matching_artists(fake, POOL, "q", max_results=5)
+    assert any("matching artists" in r.message for r in caplog.records)

@@ -15,6 +15,7 @@ from pathlib import Path
 from llama.ia_client import IAError
 from llama.llm.tasks import run_json_task
 from llama.models import ArtistMatches
+from llama.status import step
 from llama.workspace import write_artifact
 
 log = logging.getLogger("llama")
@@ -38,7 +39,6 @@ def _parse_year(val) -> int | None:
 
 
 def build_index(ia) -> dict:
-    log.info("building artist index: ~30 requests, about a minute")
     stats: dict[str, dict] = {}
     for c in ia.scrape(COLLECTIONS_QUERY, ["identifier", "title", "downloads"]):
         ident = c.get("identifier")
@@ -95,7 +95,8 @@ def load_or_build(
         except (json.JSONDecodeError, KeyError, ValueError):
             pass  # corrupt index: fall through to rebuild
     try:
-        data = build_index(ia)
+        with step("building artist index (~30 requests, a minute or two)"):
+            data = build_index(ia)
     except IAError as exc:
         if path.exists():
             try:
@@ -137,11 +138,12 @@ def render_artist_table(artists: list[dict]) -> str:
 def find_matching_artists(provider, artists: list[dict], query: str, max_results: int) -> list[dict]:
     """One inventory-in-context LLM call; identifiers joined back against the
     filtered index, so a hallucinated identifier can never reach the caller."""
-    result = run_json_task(
-        provider, "find_artists", ArtistMatches,
-        query=query, max_results=max_results,
-        artist_table=render_artist_table(artists),
-    )
+    with step("matching artists against the LMA inventory (LLM)"):
+        result = run_json_task(
+            provider, "find_artists", ArtistMatches,
+            query=query, max_results=max_results,
+            artist_table=render_artist_table(artists),
+        )
     by_id = {a["identifier"]: a for a in artists}
     out: list[dict] = []
     for m in result.matches:

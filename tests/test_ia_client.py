@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 from pathlib import Path
 
 import httpx
@@ -161,3 +162,36 @@ def test_scrape_non_json_200_raises(tmp_path: Path):
     ia = make_client(tmp_path, handler)
     with pytest.raises(IAError):
         ia.scrape("q", ["identifier"])
+
+
+def test_scrape_survives_502_burst_beyond_default_retries(tmp_path: Path):
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] <= 4:
+            return httpx.Response(502)
+        return httpx.Response(200, json={"items": [{"identifier": "A"}], "count": 1, "total": 1})
+
+    ia = make_client(tmp_path, handler)  # instance default max_retries=3
+    docs = ia.scrape("q", ["identifier"])
+    assert [d["identifier"] for d in docs] == ["A"]
+    assert calls["n"] == 5  # four 502s outlast search's 3 attempts; scrape rides them out
+
+
+def test_scrape_logs_progress_per_page(tmp_path: Path, caplog):
+    pages = [
+        {"items": [{"identifier": "A"}, {"identifier": "B"}], "count": 2,
+         "cursor": "next-1", "total": 3},
+        {"items": [{"identifier": "C"}], "count": 1, "total": 3},
+    ]
+    n = {"i": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        n["i"] += 1
+        return httpx.Response(200, json=pages[n["i"] - 1])
+
+    ia = make_client(tmp_path, handler)
+    with caplog.at_level(logging.INFO, logger="llama"):
+        ia.scrape("q", ["identifier"], count=2)
+    assert [r.message for r in caplog.records] == ["scrape: 2/3 docs", "scrape: 3/3 docs"]
