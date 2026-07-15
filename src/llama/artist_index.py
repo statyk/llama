@@ -6,9 +6,14 @@ per-artist recording counts and year coverage. The aggregated JSON file is
 the cache; raw pages are never persisted.
 """
 
+import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from llama.ia_client import IAError
+from llama.workspace import write_artifact
 
 log = logging.getLogger("llama")
 
@@ -62,3 +67,50 @@ def build_index(ia) -> dict:
         "built_at": datetime.now(timezone.utc).isoformat(),
         "artists": sorted(stats.values(), key=lambda s: s["identifier"]),
     }
+
+
+INDEX_FILENAME = "artist_index.json"
+
+
+def load_or_build(
+    ia,
+    cache_dir: Path,
+    *,
+    ttl_days: int = 30,
+    refresh: bool = False,
+    now: datetime | None = None,
+) -> list[dict]:
+    """The artists list from the cached index, rebuilding when missing or
+    older than ttl_days. A failed rebuild falls back to a stale file (with a
+    warning) rather than dying; with no file at all, the IAError propagates."""
+    path = cache_dir / INDEX_FILENAME
+    now = now or datetime.now(timezone.utc)
+    if path.exists() and not refresh:
+        data = json.loads(path.read_text())
+        if now - datetime.fromisoformat(data["built_at"]) < timedelta(days=ttl_days):
+            return data["artists"]
+    try:
+        data = build_index(ia)
+    except IAError as exc:
+        if path.exists():
+            data = json.loads(path.read_text())
+            log.warning("artist index rebuild failed (%s); using stale index from %s",
+                        exc, data["built_at"])
+            return data["artists"]
+        raise
+    write_artifact(path, json.dumps(data, indent=2))
+    return data["artists"]
+
+
+def filter_artists(artists: list[dict], min_recordings: int, min_downloads: int) -> list[dict]:
+    """The backyard-band gate: enough recordings OR enough downloads."""
+    return [a for a in artists
+            if a["recordings"] >= min_recordings or a["downloads"] >= min_downloads]
+
+
+def fmt_count(n: int) -> str:
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}k"
+    return str(n)

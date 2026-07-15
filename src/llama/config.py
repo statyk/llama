@@ -25,6 +25,11 @@ class StructureConfig(BaseModel):
     align_coverage_threshold: float = 0.8
 
 
+class ArtistsConfig(BaseModel):
+    min_recordings: int = 25
+    min_downloads: int = 50000
+
+
 class Config(BaseModel):
     root: Path = DEFAULT_ROOT
     delivery_path: Path | None = None
@@ -32,6 +37,7 @@ class Config(BaseModel):
     llm: dict[str, LLMTaskConfig] = Field(default_factory=dict)
     setlistfm: SetlistFMConfig = Field(default_factory=SetlistFMConfig)
     structure: StructureConfig = Field(default_factory=StructureConfig)
+    artists: ArtistsConfig = Field(default_factory=ArtistsConfig)
     tiers: dict[str, dict[Tier, str]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
