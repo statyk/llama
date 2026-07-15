@@ -4,3 +4,7 @@
 __pycache__/
 .venv/
 .superpowers/
+build/
+dist/
+dist-release/
+src/llama/_version.py
