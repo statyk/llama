@@ -16,7 +16,7 @@ implementation plan this was built from. The approved design spec is
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
-- Run: `llama find "..."`, `llama profile run <name>`, `llama review <run-dir>`, `llama deliver <show-dir>`
+- Run: `llama find "..."`, `llama artists "..."`, `llama profile run <name>`, `llama review <run-dir>`, `llama deliver <show-dir>`
 
 ## What this is
 

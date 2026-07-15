@@ -50,3 +50,17 @@ def test_setlistfm_live_winterland_1974(tmp_path):
     assert got is not None
     songs = [s["name"] for st in got["sets"]["set"] for s in st["song"]]
     assert any("Dark Star" in s for s in songs)
+
+
+@pytest.mark.live
+def test_scrape_api_shape(tmp_path):
+    """One real scrape request: the collections pass returns thousands of
+    artist docs with the fields the index build depends on."""
+    from llama.artist_index import COLLECTIONS_QUERY
+    from llama.ia_client import IAClient
+
+    ia = IAClient(cache_dir=tmp_path / "cache")
+    docs = ia.scrape(COLLECTIONS_QUERY, ["identifier", "title", "downloads"])
+    assert len(docs) > 5000
+    sample = docs[0]
+    assert "identifier" in sample

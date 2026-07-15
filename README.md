@@ -44,13 +44,27 @@ Optional config at `~/.llama/config.toml`:
     llama find "GD shows 73-74 with a china>rider"
     llama find "top 10 Grateful Dead shows of the 1980s" --auto
     llama find "well-known folk/acoustic performer, 1960s-70s, highly rated"
-                                     # artist-less queries propose artists first
+                                     # artist-less queries match artists against the index first
                                      # (interactive runs let you prune the list)
     llama profile add sunday-dead-hour "classic Grateful Dead" --count 1 --human-gate
     llama profile run sunday-dead-hour
     llama review <run-dir>           # approve/prune a shortlist
     llama deliver <show-dir>         # copy package to the station inbox
     llama ledger list                # broadcast history / dedup
+
+### Explore artists
+
+    llama artists "jangly 80s college rock"     # NL search, ranked with stats
+    llama artists                               # deepest catalogs, no LLM call
+    llama artists --all "obscure tape scene"    # include the long tail
+    llama artists --refresh                     # force an index rebuild
+
+The first call builds a local artist index (one collections request plus
+~30 scrape pages over all LMA items, about a minute); it auto-refreshes
+after 30 days. Small collections are hidden unless they clear the
+`[artists]` thresholds in config (defaults: 25 recordings or 50k
+downloads); `--min-recordings` / `--min-downloads` / `--all` override
+per invocation.
 
 ## Tests
 

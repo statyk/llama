@@ -190,10 +190,6 @@ class LedgerEntry(BaseModel):
     recorded_at: str  # ISO-8601 UTC
 
 
-class ProposedArtists(BaseModel):
-    artists: list[str] = Field(default_factory=list)
-
-
 class ArtistMatch(BaseModel):
     identifier: str
     reason: str = ""
