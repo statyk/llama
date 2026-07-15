@@ -1,6 +1,7 @@
 from llama.llm.tasks import run_json_task
 from llama.models import DJNotes, Show
 from llama.songs import normalize_song
+from llama.util import reviews_digest
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
 
@@ -43,15 +44,6 @@ def render_notes_md(notes: DJNotes, show: Show) -> str:
     return "\n".join(lines)
 
 
-def _reviews_digest(reviews: list[dict], limit: int = 5) -> str:
-    parts = []
-    for r in reviews[:limit]:
-        title = str(r.get("reviewtitle") or "").strip()
-        body = str(r.get("reviewbody") or "").strip()[:800]
-        parts.append(f"- {title}: {body}" if title else f"- {body}")
-    return "\n".join(parts) or "(no reviews)"
-
-
 def run_synthesize(
     show_ws: ShowWorkspace,
     provider,
@@ -68,7 +60,7 @@ def run_synthesize(
         provider, "synthesize", DJNotes,
         show_json=show.model_dump_json(indent=2),
         research=research_md or "(no research available)",
-        reviews_digest=_reviews_digest(reviews),
+        reviews_digest=reviews_digest(reviews),
         sets=", ".join(f'"{s}"' for s in sets),
         n_breaks=len(show.set_breaks),
     )

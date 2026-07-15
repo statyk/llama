@@ -1,8 +1,10 @@
 # llama
 
 Finds concerts on archive.org's Live Music Archive, vets them for quality,
-researches the specific performance, and packages audio + DJ notes for an
-automated radio station.
+researches the specific performance (fact-checking the research against the
+setlist before it ships), and packages audio + notes for an automated radio
+station. A verbatim DJ script is opt-in (`--script`, or `script = true` on a
+profile).
 
 ## Setup
 
@@ -56,3 +58,29 @@ Optional config at `~/.llama/config.toml`:
     pytest -m live -q  # hits real archive.org (no LLM)
 
 See `docs/superpowers/specs/2026-07-14-llama-design.md` for the design.
+
+## Package format (v2)
+
+A delivered show package contains:
+
+- `audio/` — verified, tagged tracks (`01 - Morning Dew.mp3`, ...)
+- `playlist.m3u`
+- `manifest.json` — `schema_version: 2`; tracks, set breaks, durations,
+  source lineage, `show.context`, pointers `research` / `reviews`, and
+  `research_vetted`
+- `research.md` — web-researched show notes, grounding-checked against the
+  setlist (`vet` stage) before packaging
+- `reviews.md` — trimmed listener-review digest (top 5, 800 chars each)
+- `dj-notes.md` + `manifest.dj_notes` — verbatim DJ script, present only when
+  the run generated one (`--script`, or `script = true` on a profile)
+
+### Downstream synthesis contract
+
+If your DJ (human or LLM) writes its own spoken copy from this package, it
+inherits the factual guard this pipeline applies to its own scripts:
+
+- every song mentioned must match a track title in `manifest.tracks`
+- set intros must cover exactly the sets present in `manifest.tracks[].set`
+- one break note per entry in `manifest.set_breaks`
+
+Copy that names songs or sets not in the manifest must not air.

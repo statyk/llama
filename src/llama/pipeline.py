@@ -5,12 +5,13 @@ from pathlib import Path
 from llama.config import Config
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
-from llama.models import LedgerEntry, Show, ShortlistEntry
+from llama.models import DJNotes, LedgerEntry, Show, ShortlistEntry
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
 from llama.stages.research import run_research
 from llama.stages.select_recording import run_select_recording
 from llama.stages.synthesize import run_synthesize
+from llama.stages.vet_research import run_vet_research
 from llama.status import step
 from llama.workspace import RunWorkspace, read_json, read_model
 
@@ -18,7 +19,7 @@ log = logging.getLogger("llama")
 
 TASK_KEYS = ["interpret", "score_reviews", "light_research",
              "extract_setlist", "deep_research", "synthesize", "propose_artists",
-             "align_structure"]
+             "align_structure", "vet_research"]
 
 
 def make_providers(config: Config) -> dict:
@@ -44,6 +45,7 @@ def process_show(
     run_name: str,
     audio_format: str = "mp3",
     force: bool = False,
+    script: bool = False,
     setlistfm=None,
     structure_cfg=None,
 ) -> Path | None:
@@ -64,14 +66,25 @@ def process_show(
         dossier += "\n\nExternal reputation: " + entry.external_reputation
     with step(f"[{pid}] researching"):
         research_md = run_research(show_ws, providers["deep_research"], show, dossier, force=force)
-    reviews = read_json(show_ws.reviews) if show_ws.reviews.exists() else []
-    with step(f"[{pid}] synthesizing"):
-        notes = run_synthesize(show_ws, providers["synthesize"], show, research_md, reviews, force=force)
-
-    show = read_model(show_ws.show, Show)  # synthesize may have flagged it
+    with step(f"[{pid}] vetting research"):
+        run_vet_research(show_ws, providers["vet_research"], show, research_md, force=force)
+    show = read_model(show_ws.show, Show)  # vet may have flagged it
     if show.needs_review:
         log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
         return None
+    notes = None
+    if not script and show_ws.dj_notes_json.exists():
+        # replaying a later stage (e.g. package) from a prior --script run: reuse the
+        # cached script so the rebuilt manifest agrees with the dj-notes.md in the package.
+        notes = read_model(show_ws.dj_notes_json, DJNotes)
+    if script:
+        reviews = read_json(show_ws.reviews) if show_ws.reviews.exists() else []
+        with step(f"[{pid}] synthesizing"):
+            notes = run_synthesize(show_ws, providers["synthesize"], show, research_md, reviews, force=force)
+        show = read_model(show_ws.show, Show)  # synthesize may have flagged it
+        if show.needs_review:
+            log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
+            return None
     with step(f"[{pid}] packaging"):
         pkg = run_package(show_ws, ia, show, notes, force=force)
     show = read_model(show_ws.show, Show)  # package may have flagged it

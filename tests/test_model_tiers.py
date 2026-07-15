@@ -56,6 +56,7 @@ def test_tables_match_spec():
         "deep_research": "high", "synthesize": "high",
         "propose_artists": "medium",
         "align_structure": "medium",
+        "vet_research": "low",
     }
 
 
@@ -140,3 +141,9 @@ def test_ladder_low_tier_escalates_to_medium():
     # low escalates to medium, and the escalated rung honors the config overlay
     assert [p.model for p in provider_ladder(cfg, "interpret")] == [
         "haiku", "haiku", "sonnet-cheap"]
+
+
+def test_vet_research_defaults_to_low_tier():
+    from llama.llm import DEFAULT_TIERS
+
+    assert DEFAULT_TIERS["vet_research"] == "low"

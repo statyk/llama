@@ -8,7 +8,7 @@ from llama.ledger import Ledger
 from llama.models import (
     Candidate, Criteria, LedgerEntry, QualityAssessment, RecordingSummary, ShortlistEntry,
 )
-from llama.workspace import RunWorkspace, read_model_list, write_artifact
+from llama.workspace import RunWorkspace, ShowWorkspace, read_model_list, write_artifact
 
 runner = CliRunner()
 
@@ -238,3 +238,16 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     assert (tmp_path / "profiles" / "sunday-dead.toml").exists()
     listing = runner.invoke(cli.app, ["profile", "list", "--config", cfg])
     assert "sunday-dead" in listing.output
+
+
+def test_stage_vet_is_valid_and_maps_to_vetting_artifact(tmp_path: Path):
+    assert "vet" in cli.VALID_STAGES
+    sws = ShowWorkspace(tmp_path / "s")
+    assert cli._show_stage_artifacts(sws, "vet") == [sws.vetting]
+
+
+def test_stage_research_maps_to_research_and_vetting(tmp_path: Path):
+    # re-researching with --force must also drop vetting.json so the fresh
+    # document is re-vetted rather than shipping under the old extraction.
+    sws = ShowWorkspace(tmp_path / "s")
+    assert cli._show_stage_artifacts(sws, "research") == [sws.research, sws.vetting]

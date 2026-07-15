@@ -12,6 +12,7 @@ class Profile(BaseModel):
     criteria: Criteria
     count: int = 1
     human_gate: bool = False
+    script: bool = False  # also generate the verbatim DJ script (extra high-tier call)
 
 
 def save_profile(root: Path, profile: Profile) -> Path:

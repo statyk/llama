@@ -140,6 +140,18 @@ class DJNotes(BaseModel):
     mentioned_songs: list[str] = Field(default_factory=list)
 
 
+class ResearchVetting(BaseModel):
+    """What research.md asserts about this show, extracted for grounding checks."""
+    asserted_songs: list[str] = Field(default_factory=list)
+    asserted_dates: list[str] = Field(default_factory=list)
+    context: str = ""  # one-line era/tour context for the manifest
+
+
+class VettingResult(BaseModel):
+    vetting: ResearchVetting
+    flags: list[str] = Field(default_factory=list)  # empty = research passed
+
+
 class ManifestTrack(BaseModel):
     index: int
     set: str
@@ -151,16 +163,19 @@ class ManifestTrack(BaseModel):
 
 class SetBreak(BaseModel):
     after_track: int
-    note_index: int  # index into dj_notes.set_break_notes
+    note_index: int | None = None  # index into dj_notes.set_break_notes when a script exists
 
 
 class Manifest(BaseModel):
-    schema_version: int = 1
+    schema_version: int = 2
     show: dict
     source: dict
     tracks: list[ManifestTrack]
     set_breaks: list[SetBreak]
-    dj_notes: DJNotes
+    dj_notes: DJNotes | None = None
+    research: str | None = None  # relative path within the package
+    reviews: str | None = None
+    research_vetted: bool = False
     total_duration_sec: float
     set_durations_sec: dict[str, float]
 

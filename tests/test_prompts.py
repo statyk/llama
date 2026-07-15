@@ -13,6 +13,7 @@ EXPECTED = {
     "synthesize": {"show_json", "research", "reviews_digest", "sets", "n_breaks"},
     "propose_artists": {"query", "soft_preferences", "date_from", "date_to"},
     "align_structure": {"tracks", "setlist"},
+    "vet_research": {"research"},
 }
 
 
@@ -22,3 +23,9 @@ def test_prompt_loads_with_placeholders(name, placeholders):
     found = set(re.findall(r"\{\{(\w+)\}\}", text))
     assert found == placeholders
     assert len(text) > 200  # a real prompt, not a stub
+
+
+def test_vet_research_prompt_excludes_context_mentions():
+    text = load_prompt("vet_research")
+    assert text.count("Exclude") >= 2  # once for songs, once for dates
+    assert "AT THIS SHOW" in text

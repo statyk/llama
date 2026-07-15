@@ -22,22 +22,24 @@ implementation plan this was built from. The approved design spec is
 
 `llama` — a Python CLI that finds concerts on archive.org's Live Music Archive
 (LMA), winnows them for quality, researches the specific performance online,
-and emits a self-contained "show package" (verified audio, m3u, manifest with
-track titles/set breaks, LLM-written DJ notes) for an automated in-house radio
+and emits a self-contained "show package" (verified audio, m3u, manifest v2
+with track titles/set breaks, vetted research + reviews digest; verbatim DJ
+script opt-in via --script or profile script) for an automated in-house radio
 station. Usage tilts heavily toward Grateful Dead shows (two sets + encore).
 LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
 gemini-flash/sonnet-4.5/opus-4.1 on openrouter): medium by default, high for
-deep_research/synthesize, overridable per task via `[llm.<task>]` `tier`/`model`
-or per backend via `[llm.tiers.<backend>]`; a failed validation's final retry
-escalates one tier (pins never escalate).
+deep_research/synthesize, low for vet_research, overridable per task via
+`[llm.<task>]` `tier`/`model` or per backend via `[llm.tiers.<backend>]`; a
+failed validation's final retry escalates one tier (pins never escalate).
 
 ## Architecture (from the spec — the short version)
 
 - **Staged pipeline over an on-disk workspace** (default `~/.llama/`):
   interpret → search (wide net) → winnow (quality gate + optional human gate)
-  → select-recording → gather → research → synthesize → package. Every stage
-  reads/writes plain files in a per-run directory; stages write outputs only on
-  success and are individually re-runnable with `--force`.
+  → select-recording → gather → research → vet (grounding check) →
+  synthesize (opt-in) → package. Every stage reads/writes plain files in a
+  per-run directory; stages write outputs only on success and are
+  individually re-runnable with `--force`.
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments with a `ledger.jsonl` dedup history keyed by performance identity
   (artist + date + venue), not archive.org item id.
@@ -50,15 +52,16 @@ escalates one tier (pins never escalate).
   (optional, key via `SETLISTFM_API_KEY` or `[setlistfm] api_key`; absent key
   = best-effort LMA-only) and aligns it onto the chosen recording's tracks
   (`structure.py`), falling back to the `align_structure` LLM touchpoint for
-  messy alignments. Eight named touchpoints, each with a prompt template file
+  messy alignments. Nine named touchpoints, each with a prompt template file
   under `prompts/` and a Pydantic output schema. LLM calls live only at stage
   boundaries — everything else is deterministic.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,
   duration mismatches, low-confidence setlist parse, DJ notes contradicting
-  the setlist, a long show with zero set breaks) marks a show `needs-review`
-  rather than shipping; `--auto` runs skip such shows.
+  the setlist, a long show with zero set breaks, research asserting songs or
+  dates that don't belong to the show) marks a show `needs-review` rather
+  than shipping; `--auto` runs skip such shows.
 
 ## Domain gotchas
 
