@@ -59,6 +59,7 @@ def test_normalize_date_yearless_forms():
     assert normalize_date("December 2") == "--12-02"
     assert normalize_date("June 10th") == "--06-10"
     assert normalize_date("2 December") == "--12-02"
+    assert normalize_date("3/2") == "--03-02"
     assert normalize_date("not a date") is None
 
 
@@ -106,12 +107,15 @@ def test_segue_chains_match_partwise(tmp_path: Path):
 
 
 def test_segue_chain_with_unknown_part_still_flags(tmp_path: Path):
+    # A chain with any unknown part counts as unknown; two of two unknown
+    # assertions crosses the wrong-show threshold.
     sws, show = setup(tmp_path)
     fake = FakeProvider(completes=[vet_json(
-        asserted_songs=["Morning Dew > Werewolves of London"])])
+        asserted_songs=["Morning Dew > Werewolves of London", "Excitable Boy"])])
     result = run_vet_research(sws, fake, show, "r")
     assert result.flags == [
-        "research asserts unknown song: Morning Dew > Werewolves of London"]
+        "research asserts unknown song: Morning Dew > Werewolves of London",
+        "research asserts unknown song: Excitable Boy"]
 
 
 def test_comma_in_title_matches_whole_before_splitting(tmp_path: Path):
@@ -125,22 +129,65 @@ def test_comma_in_title_matches_whole_before_splitting(tmp_path: Path):
     assert result.flags == []
 
 
-def test_unknown_song_flags_needs_review(tmp_path: Path):
+def test_mostly_unknown_songs_flag_needs_review(tmp_path: Path):
+    # Wrong-show research: most assertions don't ground.
     sws, show = setup(tmp_path)
-    fake = FakeProvider(completes=[vet_json(asserted_songs=["Werewolves of London"])])
+    fake = FakeProvider(completes=[vet_json(
+        asserted_songs=["Werewolves of London", "Excitable Boy", "Morning Dew"])])
     result = run_vet_research(sws, fake, show, "r")
-    assert result.flags == ["research asserts unknown song: Werewolves of London"]
+    assert result.flags == ["research asserts unknown song: Werewolves of London",
+                            "research asserts unknown song: Excitable Boy"]
     saved = json.loads(sws.show.read_text())
     assert saved["needs_review"] is True
     assert saved["review_flags"] == result.flags
 
 
-def test_wrong_and_unparseable_dates_flag(tmp_path: Path):
+def test_single_stray_song_does_not_block(tmp_path: Path):
+    # One unmatched title among grounded ones is a tracklist gap or variant,
+    # not evidence of wrong-show research.
+    sws, show = setup(tmp_path)
+    fake = FakeProvider(completes=[vet_json(
+        asserted_songs=["Morning Dew", "Dark Star", "And We Bid You Goodnight"])])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == []
+    assert json.loads(sws.show.read_text())["needs_review"] is False
+
+
+def test_minority_unknowns_do_not_block(tmp_path: Path):
+    # Two strays out of seven assertions: under a third, still no block.
+    sws, show = setup(tmp_path)
+    grounded = ["Morning Dew", "Dark Star", "Johnny B. Goode", "JBG", "Morning Dew!"]
+    fake = FakeProvider(completes=[vet_json(
+        asserted_songs=grounded + ["Jam", "Drums"])])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == []
+
+
+def test_title_variants_match_by_containment(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    show.tracks += [
+        Track(index=4, set="2", title="Caution (Do Not Step on Tracks)",
+              filename="d.mp3", title_source="tags"),
+        Track(index=5, set="2", title="Weather Report Suite Prelude",
+              filename="e.mp3", title_source="tags"),
+        Track(index=6, set="2", title="Saturday Night",
+              filename="f.mp3", title_source="tags"),
+    ]
+    write_artifact(sws.show, show)
+    fake = FakeProvider(completes=[vet_json(asserted_songs=[
+        "Caution",                    # assertion inside track title
+        "Weather Report Suite",       # assertion is a prefix of the track
+        "One More Saturday Night",    # track title inside the assertion
+    ])])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == []
+
+
+def test_wrong_date_flags_unparseable_does_not(tmp_path: Path):
     sws, show = setup(tmp_path)
     fake = FakeProvider(completes=[vet_json(asserted_dates=["1977-05-08", "that legendary night"])])
     result = run_vet_research(sws, fake, show, "r")
-    assert "research asserts wrong date: 1977-05-08" in result.flags
-    assert "research asserts unparseable date: that legendary night" in result.flags
+    assert result.flags == ["research asserts wrong date: 1977-05-08"]
 
 
 def test_skips_when_vetting_exists(tmp_path: Path):
@@ -161,8 +208,8 @@ def test_revet_after_artifact_delete_leaves_research_alone(tmp_path: Path):
 
 def test_clean_revet_clears_vet_flags(tmp_path: Path):
     sws, show = setup(tmp_path)
-    run_vet_research(sws, FakeProvider(completes=[vet_json(asserted_songs=["Werewolves of London"])]),
-                     show, "r")
+    bad = vet_json(asserted_songs=["Werewolves of London", "Excitable Boy"])
+    run_vet_research(sws, FakeProvider(completes=[bad]), show, "r")
     assert json.loads(sws.show.read_text())["needs_review"] is True
     sws.vetting.unlink()
     result = run_vet_research(sws, FakeProvider(completes=[vet_json()]), show, "r")
@@ -174,13 +221,14 @@ def test_clean_revet_clears_vet_flags(tmp_path: Path):
 
 def test_revet_does_not_duplicate_flags(tmp_path: Path):
     sws, show = setup(tmp_path)
-    bad = vet_json(asserted_songs=["Werewolves of London"])
+    bad = vet_json(asserted_songs=["Werewolves of London", "Excitable Boy"])
     run_vet_research(sws, FakeProvider(completes=[bad]), show, "r")
     sws.vetting.unlink()
     result = run_vet_research(sws, FakeProvider(completes=[bad]), show, "r")
-    assert result.flags == ["research asserts unknown song: Werewolves of London"]
+    assert result.flags == ["research asserts unknown song: Werewolves of London",
+                            "research asserts unknown song: Excitable Boy"]
     saved = json.loads(sws.show.read_text())
-    assert saved["review_flags"] == ["research asserts unknown song: Werewolves of London"]
+    assert saved["review_flags"] == result.flags
 
 
 def test_clean_revet_preserves_non_vet_flags(tmp_path: Path):

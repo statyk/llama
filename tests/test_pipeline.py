@@ -235,7 +235,8 @@ def test_vet_failure_skips_show_before_packaging(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     providers = fake_providers(None)
     providers["vet_research"] = FakeProvider(completes=[json.dumps({
-        "asserted_songs": ["Werewolves of London"], "asserted_dates": [], "context": "",
+        "asserted_songs": ["Werewolves of London", "Excitable Boy"],
+        "asserted_dates": [], "context": "",
     })])
     monkeypatch.setattr(cli, "make_providers", lambda config: providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)

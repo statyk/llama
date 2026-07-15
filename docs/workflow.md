@@ -136,9 +136,9 @@ flags that can be set, and by which stage:
 | `setlist evidence shows multiple sets but alignment found none` | gather | Sources say multi-set; the aligned tracks came out flat |
 | `single-set structure for a long show (N min)` | gather | 150+ minutes (configurable `guard_min_minutes`) with zero set breaks — past the plausible length of one uninterrupted set |
 | `no playable tracks` | gather | Junk filtering left nothing |
-| `research asserts unknown song: X` | vet | Research names a song that isn't in this show |
-| `research asserts wrong date: X` | vet | Research names a date that isn't this show's date |
-| `research asserts unparseable date: X` | vet | Research names a date the checker couldn't normalize (year-less dates like "December 2" are matched against the show's month and day, not flagged) |
+| `research asserts unknown song: X` | vet | Most of the research's song assertions don't match this show's tracks (≥2 unknown and more than a third of all assertions — the wrong-show signal). Titles match loosely: segue chains ("A > B") check per-song, and prose variants ("Caution", "One More Saturday Night") match tracks by containment. One or two strays never block |
+| `research asserts wrong date: X` | vet | Research names a date that isn't this show's date (year-less forms like "December 2" or "3/2" compare against the show's month and day) |
+| ~~unparseable date~~ | vet | No longer blocks: a date the checker can't parse is recorded in `vetting.json` but can't-verify is not a contradiction |
 | `dj notes mention unknown song / nonexistent set / missing set intros / break count mismatch` | synthesize | The DJ script contradicts the manifest |
 | `duration mismatch on <file>` | package | Downloaded audio's real length disagrees with metadata |
 
