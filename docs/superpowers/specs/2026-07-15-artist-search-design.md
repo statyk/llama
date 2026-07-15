@@ -182,6 +182,10 @@ already takes minutes, logged clearly.
 - Genre metadata from collections (LMA doesn't expose reliable tags).
 - Embedding-based retrieval to shrink the prompt below the filtered
   list; unnecessary at ~30–40k tokens.
+- Guarding `--all` combined with a query: the full 9.3k-artist table is
+  ~150–200k input tokens and can exceed a medium-tier context window,
+  failing with a provider error rather than a friendly message. Noted at
+  final review; add a size warning if it bites in practice.
 
 ## Testing
 
