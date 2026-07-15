@@ -108,14 +108,14 @@ This is the single most confusing part of the system, so here it is plainly:
 | **Granularity** | The run's shortlist | One show |
 | **Lives in** | `shortlist.json` (`approved: true/false/null`) | `shows/<show>/show.json` (`needs_review` + `review_flags`) |
 | **Set by** | You (interactive prompt, or `llama review`) | The pipeline (gather/vet/synthesize/package flags) |
-| **Cleared by** | `llama review <run-dir>` | Nothing in the CLI today — see below |
+| **Cleared by** | `llama review <run-dir>` | `llama show <show-dir> --clear` (after you inspect) |
 | **What it blocks** | Processing starting at all | Packaging (or delivery, if flagged during packaging) |
 
 **Gate 1** appears interactively during `llama find` ("Process which
 ranks?"), or — for a `--human-gate` profile run with `--auto` — as the printed
 message `Shortlist awaits review: llama review <run-dir>`. `llama review`
-records your picks; it does **not** start processing. Resume the run
-afterwards with `llama run <run-dir>`.
+records your picks and then offers to process them on the spot; decline and
+it prints the resume command (`llama run <run-dir>`) instead.
 
 **Gate 2** fires per show, any time a stage records a review flag in
 `show.json`. The pipeline checks it at three points (after vet, after
@@ -132,22 +132,22 @@ flags that can be set, and by which stage:
 | `no playable tracks` | gather | Junk filtering left nothing |
 | `research asserts unknown song: X` | vet | Research names a song that isn't in this show |
 | `research asserts wrong date: X` | vet | Research names a date that isn't this show's date |
-| `research asserts unparseable date: X` | vet | Research names a date the checker couldn't normalize |
+| `research asserts unparseable date: X` | vet | Research names a date the checker couldn't normalize (year-less dates like "December 2" are matched against the show's month and day, not flagged) |
 | `dj notes mention unknown song / nonexistent set / missing set intros / break count mismatch` | synthesize | The DJ script contradicts the manifest |
 | `duration mismatch on <file>` | package | Downloaded audio's real length disagrees with metadata |
 
 **Clearing gate 2.** There is deliberately no `--force`-through-processing
-flag: a flagged show stays held until a human looks. Today that means one of:
+flag: a flagged show stays held until a human looks. Looking means
+`llama show <run-dir>/shows/<show>` — it prints the flags and state. Then:
 
 - **Fix the input and re-run the stage that flagged it.** Vet flags are
   self-clearing: `llama run <run-dir> --stage vet --force` re-vets and
   recomputes (its own old flags are dropped first). Gather flags likewise
   clear if a re-gather (`--stage gather --force`) produces clean structure —
   e.g. after adding a setlist.fm API key.
-- **Overrule it by hand.** If you've inspected the show and the flags are
-  false alarms: edit `shows/<show>/show.json`, set `"needs_review": false`
-  and `"review_flags": []`, then `llama run <run-dir>`. Later stages skip
-  finished work and packaging proceeds. This is the only override path.
+- **Overrule it.** If the flags are false alarms:
+  `llama show <run-dir>/shows/<show> --clear`, then `llama run <run-dir>`.
+  Later stages skip finished work and packaging proceeds.
 - **Deliver-time-only flags** (`duration mismatch`) are the one case where a
   package already exists; `llama deliver <show-dir> --force` overrides the
   delivery refusal.
@@ -166,19 +166,30 @@ call).
 stage skips work whose output already exists, so this is how you continue
 after a crash, after `llama review`, or after fixing something by hand.
 
-- `--stage <name> --force` deletes that one stage's outputs first (for every
-  show in the run) and re-runs from there. Valid stages: `search`, `winnow`,
-  `select`, `gather`, `research`, `vet`, `synthesize`, `package`.
-- Bare `--force` re-runs **everything**, including winnow — **this rebuilds
-  `shortlist.json` and wipes any approvals you recorded**. Reach for
-  `--stage X --force` first.
+- `--stage <name> --force` deletes that stage's outputs **and everything
+  downstream of it** (for every show in the run), then re-runs — later
+  stages can never reuse artifacts derived from the pre-force state. Valid
+  stages: `search`, `winnow`, `select`, `gather`, `research`, `vet`,
+  `synthesize`, `package`. Forcing `search` also drops the shortlist.
+- Bare `--force` re-runs **everything**, including winnow — this rebuilds
+  `shortlist.json`. If approvals were recorded on it, llama asks for
+  confirmation before wiping them. Reach for `--stage X --force` first.
 - Defaults to `--auto` (no prompts), unlike `find`.
 
 ### `llama review <run-dir>`
-Gate 1 only: prints the shortlist, asks which ranks to approve, writes the
-answer into `shortlist.json`. Every rank you *don't* name is marked rejected
-for this run. It does not process anything — follow with
-`llama run <run-dir>`. It has no connection to needs-review (gate 2).
+Gate 1 only: prints the shortlist, asks which ranks to approve, and writes
+the answer into `shortlist.json`. Ranks you don't name are left undecided
+(once anything is approved, only approved entries are processed). It then
+offers to process the approved shows immediately; decline and it prints the
+`llama run` command to do it later. Empty input changes nothing. It has no
+connection to needs-review (gate 2).
+
+### `llama show <show-dir> [--clear]`
+Gate 2: inspect one show's needs-review state — flags, recording, whether a
+package exists. `--clear` overrules the hold (clears `needs_review` and the
+flags) after you've judged them false alarms; follow with
+`llama run <run-dir>` to package. Takes the show directory
+(`<run-dir>/shows/<artist-date>/`).
 
 ### `llama deliver <show-dir> [--dest DIR] [--force]`
 Copies `<show-dir>/package/` into the station's watched folder
@@ -210,23 +221,20 @@ entries suppress a performance in future winnows; `rejected` entries do too.
 ## Recipes
 
 **A `find` printed `needs-review, skipped` for a show I want.**
-Read the flags: `cat <run-dir>/shows/<show>/show.json | python3 -m json.tool | grep -A5 review`.
-If a flag is a false alarm, hand-clear it (see gate 2 above) and
-`llama run <run-dir>`. If it's real (e.g. unresolved titles), fix the cause
-and `--stage <stage> --force`.
+`llama show <run-dir>/shows/<show>` to read the flags. If a flag is a false
+alarm, `llama show <show-dir> --clear` and `llama run <run-dir>`. If it's
+real (e.g. unresolved titles), fix the cause and `--stage <stage> --force`.
 
 **I approved via `llama review` — now what?**
-`llama run <run-dir>`. Approval only records your picks.
+Say yes when it offers to process, or `llama run <run-dir>` later.
 
 **A stage failed with an LLM error.**
 The raw output is in `shows/<show>/llm-failure.txt`. Just re-run
 `llama run <run-dir>` — completed stages are skipped, the failed one retries.
 
 **I want a different recording of the same show.**
-Stage forcing does *not* cascade — `--stage select --force` re-picks, but
-gather/package outputs still exist and would be reused. Delete the whole
-show directory (`rm -r <run-dir>/shows/<show>`) and `llama run <run-dir>`
-to rebuild that show cleanly from selection onward.
+`llama run <run-dir> --stage select --force` — forcing cascades, so
+gather through package rebuild from the newly picked recording.
 
 **Re-research a show.**
 `llama run <run-dir> --stage research --force` — this also deletes
@@ -240,9 +248,9 @@ It's not in the ledger. Deliver it, or `llama ledger add <performance-id>
 
 | You see | It means | Do |
 |---|---|---|
-| `Shortlist awaits review: llama review <dir>` | Gate 1 is waiting (human-gate profile) | `llama review <dir>`, then `llama run <dir>` |
-| `approved: [1]` (from review) | Picks recorded, nothing processed yet | `llama run <dir>` |
-| `needs-review, skipped: <show>` | Gate 2: a flag was set during processing | Inspect `show.json` flags; fix or hand-clear, then `llama run <dir>` |
+| `Shortlist awaits review: llama review <dir>` | Gate 1 is waiting (human-gate profile) | `llama review <dir>` (it offers to process after) |
+| `approved: [1]` (from review) | Picks recorded | Say yes at the process prompt, or `llama run <dir>` later |
+| `needs-review, skipped: <show>` | Gate 2: a flag was set during processing | `llama show <show-dir>`; fix or `--clear`, then `llama run <dir>` |
 | `skipping <show>: needs review (…)` (log line) | Same as above, with the flags inline | Same |
 | `holding <show>: flagged during packaging (…)` | Package built but audio verification flagged it | Inspect; `llama deliver --force` if acceptable |
 | `refusing to deliver: … use --force` | Delivering a needs-review show | Inspect, then `--force` if intended |

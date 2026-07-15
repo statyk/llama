@@ -11,7 +11,7 @@ from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
-from llama.models import Criteria, LedgerEntry, ShortlistEntry
+from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import Profile, load_profile, save_profile
 from llama.setlistfm import make_client
@@ -24,6 +24,9 @@ from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_
 
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
+# Forcing a show-level stage also drops everything downstream of it, so a
+# replay can never package artifacts derived from the pre-force state.
+SHOW_STAGE_ORDER = ["select", "gather", "research", "vet", "synthesize", "package"]
 
 app = typer.Typer(help="Live Music Archive -> radio station pipeline")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -247,21 +250,30 @@ def run(
         typer.echo(f"unknown stage {stage!r}; valid: {sorted(VALID_STAGES)}", err=True)
         raise typer.Exit(1)
     criteria = read_model(ws.criteria, Criteria)
+    if force and stage in (None, "search") and ws.shortlist.exists():
+        entries = read_model_list(ws.shortlist, ShortlistEntry)
+        if any(e.approved is not None for e in entries):
+            typer.echo("this rebuilds the shortlist and discards the approvals recorded on it")
+            if not typer.confirm("Continue?", default=False):
+                raise typer.Exit(1)
     if stage and force:
-        if stage in RUN_LEVEL_STAGES:
-            targets = {"search": ws.candidates, "winnow": ws.shortlist}
-            if targets[stage].exists():
-                targets[stage].unlink()
+        if stage == "search":
+            doomed = [ws.candidates, ws.shortlist]  # a stale shortlist would block re-winnowing
+        elif stage == "winnow":
+            doomed = [ws.shortlist]
         else:
+            doomed = []
             shows_dir = ws.dir / "shows"
             if shows_dir.exists():
                 for show_dir in sorted(shows_dir.iterdir()):
                     if not show_dir.is_dir():
                         continue
                     show_ws = ShowWorkspace(show_dir)
-                    for path in _show_stage_artifacts(show_ws, stage):
-                        if path.exists():
-                            path.unlink()
+                    for st in SHOW_STAGE_ORDER[SHOW_STAGE_ORDER.index(stage):]:
+                        doomed += _show_stage_artifacts(show_ws, st)
+        for path in doomed:
+            if path.exists():
+                path.unlink()
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=force and stage is None,
              script=script or stage == "synthesize")
@@ -270,19 +282,64 @@ def run(
 @app.command()
 def review(
     run_dir: Path,
+    script: bool = typer.Option(False, "--script/--no-script",
+                                help="Pass --script through if you process immediately"),
     config_path: Path = typer.Option(None, "--config"),
 ):
-    """Human gate: approve/prune a run's shortlist before processing."""
-    config, _, _ = _setup(config_path)
+    """Human gate: approve a run's shortlist, then optionally process it."""
+    config, ia, ledger = _setup(config_path)
     ws = RunWorkspace(config.root, run_dir.name)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
     _print_shortlist(entries)
-    picks = typer.prompt("Approve which ranks? (comma-separated)")
-    wanted = _parse_ranks(picks)
+    picks = typer.prompt("Approve which ranks? (comma-separated)",
+                         default="", show_default=False)
+    wanted = _parse_ranks(picks) & {e.rank for e in entries}
+    if not wanted:
+        typer.echo("no matching ranks given; shortlist unchanged")
+        return
     for e in entries:
-        e.approved = e.rank in wanted
+        if e.rank in wanted:
+            e.approved = True   # unnamed ranks stay undecided, not rejected
     write_artifact(ws.shortlist, entries)
     typer.echo(f"approved: {sorted(wanted)}")
+    if typer.confirm("Process approved shows now?", default=True):
+        criteria = read_model(ws.criteria, Criteria)
+        _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
+                 human_gate=False, script=script)
+    else:
+        typer.echo(f"next: llama run {ws.dir}")
+
+
+@app.command()
+def show(
+    show_dir: Path,
+    clear: bool = typer.Option(False, "--clear",
+                               help="Overrule the hold: clear needs-review and its flags"),
+):
+    """Inspect one show's needs-review state (and optionally clear it)."""
+    sws = ShowWorkspace(show_dir)
+    if not sws.show.exists():
+        typer.echo(f"no show.json in {show_dir}", err=True)
+        raise typer.Exit(1)
+    s = read_model(sws.show, Show)
+    place = ", ".join(p for p in [s.venue, s.city] if p)
+    typer.echo(f"{s.artist}  {s.date}  {place}".rstrip())
+    typer.echo(f"recording: {s.identifier}  ({len(s.tracks)} tracks)")
+    typer.echo(f"packaged: {'yes' if (sws.package_dir / 'manifest.json').exists() else 'no'}")
+    if not s.needs_review:
+        typer.echo("needs-review: no")
+        return
+    typer.echo("needs-review: yes")
+    for f in s.review_flags:
+        typer.echo(f"  - {f}")
+    if clear:
+        s.needs_review = False
+        s.review_flags = []
+        write_artifact(sws.show, s)
+        typer.echo("cleared")
+        typer.echo(f"next: llama run {show_dir.parent.parent}")
+    else:
+        typer.echo("to overrule after inspecting: llama show --clear " + str(show_dir))
 
 
 @app.command()
