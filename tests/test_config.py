@@ -57,7 +57,6 @@ def test_setlistfm_and_structure_defaults():
     cfg = Config()
     assert cfg.setlistfm.api_key is None
     assert cfg.structure.guard_min_minutes == 100
-    assert cfg.structure.guard_min_tracks == 16
     assert cfg.structure.align_coverage_threshold == 0.8
 
 
@@ -65,13 +64,12 @@ def test_setlistfm_and_structure_from_toml(tmp_path):
     p = tmp_path / "config.toml"
     p.write_text(
         '[setlistfm]\napi_key = "k123"\n\n'
-        "[structure]\nguard_min_minutes = 90\nguard_min_tracks = 12\n"
+        "[structure]\nguard_min_minutes = 90\n"
         "align_coverage_threshold = 0.5\n"
     )
     cfg = load_config(p)
     assert cfg.setlistfm.api_key == "k123"
     assert cfg.structure.guard_min_minutes == 90
-    assert cfg.structure.guard_min_tracks == 12
     assert cfg.structure.align_coverage_threshold == 0.5
 
 

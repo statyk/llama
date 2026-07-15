@@ -151,7 +151,8 @@ def run_gather(
               for t, s, g in zip(tracks, result.sets, result.segues)]
     breaks = set_breaks(tracks)
     guard = structure_guard(tracks, breaks,
-                            structure_cfg.guard_min_minutes, structure_cfg.guard_min_tracks)
+                            evidence_sets={i.set for i in canonical.items},
+                            min_minutes=structure_cfg.guard_min_minutes)
     if guard:
         flags.append(guard)
 

@@ -167,18 +167,25 @@ def test_guard_fires_on_long_duration_no_breaks():
     assert structure_guard(_tracks(10, dur=700.0), []) == "single-set structure for a long show"
 
 
-def test_guard_fires_on_track_count_even_without_durations():
-    assert structure_guard(_tracks(20, dur=None), []) == "single-set structure for a long show"
+def test_guard_ignores_track_count():
+    # Many short songs in one set is normal club-show shape; count is not a signal.
+    assert structure_guard(_tracks(21, dur=220.0), []) is None   # ~77 min, 21 tracks
+    assert structure_guard(_tracks(20, dur=None), []) is None    # no durations known
+
+
+def test_guard_fires_when_multiset_evidence_lost_in_alignment():
+    got = structure_guard(_tracks(8, dur=300.0), [], evidence_sets={"1", "2"})
+    assert got == "setlist evidence shows multiple sets but alignment found none"
 
 
 def test_guard_silent_on_short_single_set_and_any_multiset():
     assert structure_guard(_tracks(8, dur=300.0), []) is None          # 40 min, 8 tracks
     assert structure_guard(_tracks(30, dur=700.0), [11]) is None       # has a break
+    assert structure_guard(_tracks(30, dur=700.0), [11], evidence_sets={"1", "2"}) is None
 
 
 def test_guard_respects_thresholds():
     assert structure_guard(_tracks(10, dur=700.0), [], min_minutes=200) is None
-    assert structure_guard(_tracks(10, dur=None), [], min_tracks=10) is not None
 
 
 from llama.models import AlignedStructure, AlignedTrack
