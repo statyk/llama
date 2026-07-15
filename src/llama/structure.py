@@ -114,10 +114,11 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3) -
 
 def structure_guard(tracks: list[Track], set_breaks: list[int],
                     evidence_sets: set[str] | None = None,
-                    min_minutes: int = 100) -> str | None:
+                    min_minutes: int = 150) -> str | None:
     """Flag single-set structure only on real evidence of a problem: the
     setlist sources showed multiple sets that alignment lost, or the show
-    runs implausibly long for one uninterrupted set. Track count alone is
+    runs implausibly long for one uninterrupted set (single sets past 2.5
+    hours are rare; two-set shows usually exceed it). Track count alone is
     not a signal - plenty of artists play 20+ short songs in one set."""
     if set_breaks or not tracks:
         return None
@@ -125,7 +126,7 @@ def structure_guard(tracks: list[Track], set_breaks: list[int],
         return "setlist evidence shows multiple sets but alignment found none"
     total = sum(t.duration_sec for t in tracks if t.duration_sec)
     if total >= min_minutes * 60:
-        return "single-set structure for a long show"
+        return f"single-set structure for a long show ({total / 60:.0f} min)"
     return None
 
 

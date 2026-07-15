@@ -128,7 +128,7 @@ flags that can be set, and by which stage:
 | `low-confidence setlist` | gather | The best setlist parse is shaky |
 | `low-confidence structure alignment` | gather | Setlist found, but it doesn't line up with the actual tracks (even after LLM fallback) |
 | `setlist evidence shows multiple sets but alignment found none` | gather | Sources say multi-set; the aligned tracks came out flat |
-| `single-set structure for a long show` | gather | 100+ minutes (configurable) with zero set breaks |
+| `single-set structure for a long show (N min)` | gather | 150+ minutes (configurable `guard_min_minutes`) with zero set breaks — past the plausible length of one uninterrupted set |
 | `no playable tracks` | gather | Junk filtering left nothing |
 | `research asserts unknown song: X` | vet | Research names a song that isn't in this show |
 | `research asserts wrong date: X` | vet | Research names a date that isn't this show's date |

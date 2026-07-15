@@ -35,6 +35,7 @@ def normalize_date(text: str) -> str | None:
     """Normalize common prose date spellings to YYYY-MM-DD; year-less forms
     ("December 2") to ISO 8601 --MM-DD; None if unparseable."""
     s = re.sub(r"\s+", " ", text.strip().lower().replace(",", " ").replace(".", " ")).strip()
+    s = re.sub(r"^(?:mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?|sun)(?:day)? ", "", s)
     m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", s)
     if m:
         return f"{int(m[1]):04d}-{int(m[2]):02d}-{int(m[3]):02d}"

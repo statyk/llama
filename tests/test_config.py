@@ -56,7 +56,7 @@ def test_tier_rejects_invalid_value(tmp_path: Path):
 def test_setlistfm_and_structure_defaults():
     cfg = Config()
     assert cfg.setlistfm.api_key is None
-    assert cfg.structure.guard_min_minutes == 100
+    assert cfg.structure.guard_min_minutes == 150
     assert cfg.structure.align_coverage_threshold == 0.8
 
 

@@ -46,6 +46,13 @@ def test_normalize_date_common_forms():
     assert normalize_date("the summer of '73") is None
 
 
+def test_normalize_date_strips_leading_weekday():
+    # Research prose loves the full form: "Sunday, December 7, 1969".
+    assert normalize_date("Sunday, December 7, 1969") == "1969-12-07"
+    assert normalize_date("Sun Dec 7, 1969") == "1969-12-07"
+    assert normalize_date("Sunday, December 7") == "--12-07"
+
+
 def test_normalize_date_yearless_forms():
     # Research prose often names the date without a year ("on December 2 the
     # band..."); normalize to the ISO 8601 year-less form for comparison.

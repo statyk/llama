@@ -164,7 +164,15 @@ def _tracks(n, dur=300.0):
 
 
 def test_guard_fires_on_long_duration_no_breaks():
-    assert structure_guard(_tracks(10, dur=700.0), []) == "single-set structure for a long show"
+    # 28 tracks x 460s ≈ 215 min: two-set-show territory with no breaks.
+    assert structure_guard(_tracks(28, dur=460.0), []) == \
+        "single-set structure for a long show (215 min)"
+
+
+def test_guard_allows_real_long_single_sets():
+    # GD 1969-12-07 Fillmore West: 12 tracks, ~106 min, genuinely one set
+    # (multi-band bill). Anything under 2.5 hours is plausible as one set.
+    assert structure_guard(_tracks(12, dur=530.0), []) is None
 
 
 def test_guard_ignores_track_count():
@@ -185,7 +193,8 @@ def test_guard_silent_on_short_single_set_and_any_multiset():
 
 
 def test_guard_respects_thresholds():
-    assert structure_guard(_tracks(10, dur=700.0), [], min_minutes=200) is None
+    assert structure_guard(_tracks(28, dur=460.0), [], min_minutes=300) is None
+    assert structure_guard(_tracks(12, dur=530.0), [], min_minutes=90) is not None
 
 
 from llama.models import AlignedStructure, AlignedTrack

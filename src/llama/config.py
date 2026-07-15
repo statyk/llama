@@ -20,7 +20,7 @@ class SetlistFMConfig(BaseModel):
 
 
 class StructureConfig(BaseModel):
-    guard_min_minutes: int = 100
+    guard_min_minutes: int = 150
     align_coverage_threshold: float = 0.8
 
 
