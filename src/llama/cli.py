@@ -19,6 +19,7 @@ from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
+from llama.status import configure_logging
 from llama.util import slugify
 from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
 
@@ -26,7 +27,7 @@ VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synt
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
 app = typer.Typer(help="Live Music Archive -> radio station pipeline")
-logging.basicConfig(level=logging.INFO, format="%(message)s")
+configure_logging()
 
 profile_app = typer.Typer(help="Standing criteria profiles for recurring segments")
 ledger_app = typer.Typer(help="Broadcast-history ledger")
