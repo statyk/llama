@@ -48,9 +48,19 @@ Optional config at `~/.llama/config.toml`:
                                      # (interactive runs let you prune the list)
     llama profile add sunday-dead-hour "classic Grateful Dead" --count 1 --human-gate
     llama profile run sunday-dead-hour
-    llama review <run-dir>           # approve/prune a shortlist
+    llama review <run-dir>           # approve/prune a shortlist (records picks only)
+    llama run <run-dir>              # resume/replay a run; finished stages are skipped
     llama deliver <show-dir>         # copy package to the station inbox
     llama ledger list                # broadcast history / dedup
+
+Two different human gates, easy to conflate: `llama review` answers "which
+shortlisted shows are worth processing" (follow it with `llama run` — review
+only records your picks). Separately, a processed show can be held as
+**needs-review** when a stage flags something suspicious (`needs-review,
+skipped: ...`); the flags live in the show's `show.json`. See
+[docs/workflow.md](docs/workflow.md) for the full pipeline map, every flag,
+and a troubleshooting table — start there if a run didn't do what you
+expected.
 
 ### Explore artists
 
