@@ -5,9 +5,11 @@ from pathlib import Path
 
 import typer
 
+from llama.artist_index import filter_artists, find_matching_artists, fmt_count, load_or_build
 from llama.config import Config, load_config
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
+from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry
 from llama.pipeline import choose_entries, make_providers, process_show
@@ -73,6 +75,16 @@ def _print_shortlist(entries: list[ShortlistEntry]) -> None:
         c = e.candidate
         typer.echo(f"{e.rank:2d}. {c.date}  {c.venue or '?':30.30s}  "
                    f"score {e.assessment.quality_score:.1f}  {e.assessment.rationale[:80]}")
+
+
+def _print_artists(rows: list[dict]) -> None:
+    for i, a in enumerate(rows, 1):
+        years = (f"{a['year_min']}-{a['year_max']}"
+                 if a.get("year_min") is not None else "?")
+        typer.echo(f"{i:2d}. {a['title']:<40.40s} {a['recordings']:>6d} rec  "
+                   f"{years:>9s}  {fmt_count(a['downloads']):>7s} dl")
+        if a.get("reason"):
+            typer.echo(f"      {a['reason']}")
 
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
@@ -155,6 +167,44 @@ def find(
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
     count = limit or criteria.count
     _execute(config, ia, ledger, ws, criteria, count, auto, human_gate=False, script=script)
+
+
+@app.command()
+def artists(
+    query: str = typer.Argument(None, help="Natural-language artist query (omit to list by catalog size)"),
+    limit: int = typer.Option(20, "--limit", help="Max artists to show"),
+    min_recordings: int = typer.Option(None, "--min-recordings",
+                                       help="Junk filter floor (default from [artists] config)"),
+    min_downloads: int = typer.Option(None, "--min-downloads",
+                                      help="Junk filter floor (default from [artists] config)"),
+    all_artists: bool = typer.Option(False, "--all", help="Skip the junk filter entirely"),
+    refresh: bool = typer.Option(False, "--refresh", help="Force an artist index rebuild"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Search LMA artists with a natural-language query, or list the deepest catalogs."""
+    config, ia, _ = _setup(config_path)
+    try:
+        index = load_or_build(ia, config.root / "cache", refresh=refresh)
+    except IAError as exc:
+        typer.echo(f"artist index build failed: {exc}", err=True)
+        raise typer.Exit(1)
+    mr = min_recordings if min_recordings is not None else config.artists.min_recordings
+    md = min_downloads if min_downloads is not None else config.artists.min_downloads
+    pool = index if all_artists else filter_artists(index, mr, md)
+    if not pool:
+        typer.echo("no artists pass the current thresholds - "
+                   "lower --min-recordings/--min-downloads or use --all")
+        return
+    if query is None:
+        _print_artists(sorted(pool, key=lambda a: -a["recordings"])[:limit])
+        return
+    matches = find_matching_artists(provider_ladder(config, "find_artists"),
+                                    pool, query, max_results=limit)
+    if not matches:
+        typer.echo("no matching artists - try a broader query, "
+                   "lower thresholds, or --all")
+        return
+    _print_artists(matches)
 
 
 @app.command()
