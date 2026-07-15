@@ -122,7 +122,7 @@ jobs:
         run: |
           set -euo pipefail
           cd dist-release
-          shasum -a 256 llama-* > SHA256SUMS
+          sha256sum llama-* > SHA256SUMS
           echo "=== SHA256SUMS ==="; cat SHA256SUMS
       - name: Create GitHub Release
         shell: bash
