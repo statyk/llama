@@ -32,8 +32,24 @@ app.add_typer(profile_app, name="profile")
 app.add_typer(ledger_app, name="ledger")
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        import llama
+
+        typer.echo(llama.__version__)
+        raise typer.Exit()
+
+
 @app.callback()
-def main() -> None:
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Print the llama version and exit.",
+    ),
+) -> None:
     """Find, vet, research, and package LMA concerts for broadcast."""
 
 
