@@ -91,7 +91,10 @@ class IAClient:
             params: dict = {"q": query, "fields": ",".join(fields), "count": count}
             if cursor:
                 params["cursor"] = cursor
-            data = self._get(SCRAPE_URL, params).json()
+            try:
+                data = self._get(SCRAPE_URL, params).json()
+            except json.JSONDecodeError as e:
+                raise IAError(f"scrape returned non-JSON for {query!r}") from e
             out.extend(data.get("items", []))
             cursor = data.get("cursor")
             if not cursor:

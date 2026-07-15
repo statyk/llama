@@ -103,7 +103,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                        "try naming an artist or broadening the style", err=True)
             return
         if not auto:
-            typer.echo("Proposed artists:")
+            typer.echo("Matched artists:")
             for i, a in enumerate(artists, 1):
                 typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
             picks = typer.prompt("Search which artists? (comma-separated, empty = all)",

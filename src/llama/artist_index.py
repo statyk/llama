@@ -88,14 +88,20 @@ def load_or_build(
     path = cache_dir / INDEX_FILENAME
     now = now or datetime.now(timezone.utc)
     if path.exists() and not refresh:
-        data = json.loads(path.read_text())
-        if now - datetime.fromisoformat(data["built_at"]) < timedelta(days=ttl_days):
-            return data["artists"]
+        try:
+            data = json.loads(path.read_text())
+            if now - datetime.fromisoformat(data["built_at"]) < timedelta(days=ttl_days):
+                return data["artists"]
+        except (json.JSONDecodeError, KeyError, ValueError):
+            pass  # corrupt index: fall through to rebuild
     try:
         data = build_index(ia)
     except IAError as exc:
         if path.exists():
-            data = json.loads(path.read_text())
+            try:
+                data = json.loads(path.read_text())
+            except (json.JSONDecodeError, KeyError, ValueError):
+                raise exc from None
             log.warning("artist index rebuild failed (%s); using stale index from %s",
                         exc, data["built_at"])
             return data["artists"]
@@ -111,7 +117,7 @@ def filter_artists(artists: list[dict], min_recordings: int, min_downloads: int)
 
 
 def fmt_count(n: int) -> str:
-    if n >= 1_000_000:
+    if n >= 999_950:
         return f"{n / 1_000_000:.1f}M"
     if n >= 1_000:
         return f"{n / 1_000:.1f}k"

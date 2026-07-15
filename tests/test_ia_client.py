@@ -152,3 +152,12 @@ def test_scrape_client_error_raises(tmp_path: Path):
     ia = make_client(tmp_path, handler)
     with pytest.raises(IAError):
         ia.scrape("q", ["identifier"])
+
+
+def test_scrape_non_json_200_raises(tmp_path: Path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"not json")
+
+    ia = make_client(tmp_path, handler)
+    with pytest.raises(IAError):
+        ia.scrape("q", ["identifier"])

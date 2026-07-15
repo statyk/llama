@@ -127,6 +127,18 @@ def test_load_or_build_raises_without_any_index(tmp_path: Path):
         load_or_build(FailingIA(), tmp_path)
 
 
+def test_load_or_build_rebuilds_on_corrupt_cache(tmp_path: Path):
+    (tmp_path / "artist_index.json").write_text("not json{garbage")
+    artists = load_or_build(ScrapeStubIA(), tmp_path)
+    assert {a["identifier"] for a in artists} == {"GratefulDead", "RobynHitchcock", "BackyardBand"}
+
+
+def test_load_or_build_corrupt_cache_and_failing_ia_raises(tmp_path: Path):
+    (tmp_path / "artist_index.json").write_text("not json{garbage")
+    with pytest.raises(IAError):
+        load_or_build(FailingIA(), tmp_path)
+
+
 def test_filter_artists_or_semantics():
     artists = [
         {"identifier": "Deep", "recordings": 100, "downloads": 0},
@@ -143,6 +155,7 @@ def test_fmt_count():
     assert fmt_count(226766373) == "226.8M"
     assert fmt_count(54321) == "54.3k"
     assert fmt_count(950) == "950"
+    assert fmt_count(999_999) == "1.0M"
 
 
 POOL = [
