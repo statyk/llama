@@ -9,6 +9,7 @@ import httpx
 SEARCH_URL = "https://archive.org/advancedsearch.php"
 METADATA_URL = "https://archive.org/metadata/{identifier}"
 DOWNLOAD_URL = "https://archive.org/download/{identifier}/{filename}"
+SCRAPE_URL = "https://archive.org/services/search/v1/scrape"
 
 
 class IAError(Exception):
@@ -80,6 +81,21 @@ class IAClient:
             return self._get(SEARCH_URL, params).json()["response"]["docs"]
 
         return self._cached(key, fetch)
+
+    def scrape(self, query: str, fields: list[str], count: int = 10000) -> list[dict]:
+        """Cursor-paginated bulk listing via the scrape API. Not disk-cached:
+        callers persist aggregates (e.g. the artist index), not raw pages."""
+        out: list[dict] = []
+        cursor: str | None = None
+        while True:
+            params: dict = {"q": query, "fields": ",".join(fields), "count": count}
+            if cursor:
+                params["cursor"] = cursor
+            data = self._get(SCRAPE_URL, params).json()
+            out.extend(data.get("items", []))
+            cursor = data.get("cursor")
+            if not cursor:
+                return out
 
     def metadata(self, identifier: str) -> dict:
         def fetch() -> dict:

@@ -108,3 +108,47 @@ def test_download_url_encodes_filename(tmp_path: Path):
     ia = make_client(tmp_path, handler)
     ia.download_file("gd73", "file with space.mp3", tmp_path / "o.mp3")
     assert "%20" in seen["path"]
+
+
+def test_scrape_follows_cursor(tmp_path: Path):
+    pages = [
+        {"items": [{"identifier": "A"}, {"identifier": "B"}], "count": 2,
+         "cursor": "next-1", "total": 3},
+        {"items": [{"identifier": "C"}], "count": 1, "total": 3},
+    ]
+    seen = {"params": []}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"].append(dict(request.url.params))
+        return httpx.Response(200, json=pages[len(seen["params"]) - 1])
+
+    ia = make_client(tmp_path, handler)
+    docs = ia.scrape("collection:etree AND mediatype:collection",
+                     ["identifier", "title", "downloads"], count=2)
+    assert [d["identifier"] for d in docs] == ["A", "B", "C"]
+    assert seen["params"][0]["fields"] == "identifier,title,downloads"
+    assert seen["params"][0]["count"] == "2"
+    assert "cursor" not in seen["params"][0]
+    assert seen["params"][1]["cursor"] == "next-1"
+
+
+def test_scrape_is_not_disk_cached(tmp_path: Path):
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(200, json={"items": [{"identifier": "A"}], "count": 1, "total": 1})
+
+    ia = make_client(tmp_path, handler)
+    ia.scrape("q", ["identifier"])
+    ia.scrape("q", ["identifier"])
+    assert calls["n"] == 2
+
+
+def test_scrape_client_error_raises(tmp_path: Path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": "bad"})
+
+    ia = make_client(tmp_path, handler)
+    with pytest.raises(IAError):
+        ia.scrape("q", ["identifier"])
