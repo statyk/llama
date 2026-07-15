@@ -1,0 +1,134 @@
+name: release
+
+# Build llama's four self-contained binaries across the self-hosted fleet and
+# attach them to a GitHub Release. Unsigned: no on-box secrets, GITHUB_TOKEN only.
+# PyInstaller does not cross-compile, so each artifact is built on native hardware.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, e.g. 0.1.0 (required for manual runs)."
+        required: false
+        type: string
+      dry_run:
+        description: "Plan only — run build.py in dry-run mode; no artifacts, no release."
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # required to create the GitHub Release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      dry_run: ${{ steps.resolve.outputs.dry_run }}
+    steps:
+      - id: resolve
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          IN_VERSION: ${{ inputs.version }}
+          IN_DRY: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ]; then
+            ver="${REF_NAME#v}"; dry="false"
+          else
+            ver="$IN_VERSION"; dry="${IN_DRY:-false}"
+          fi
+          if [ -z "$ver" ]; then
+            echo "::error::version is required (push a v* tag or pass the version input)"; exit 1
+          fi
+          # Strict allowlist — neutralises shell metacharacters a crafted tag could carry.
+          if ! printf '%s' "$ver" | grep -Eq '^[A-Za-z0-9._+-]+$'; then
+            echo "::error::version '$ver' contains disallowed characters"; exit 1
+          fi
+          {
+            echo "version=$ver"
+            echo "dry_run=$dry"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved: version=$ver dry_run=$dry"
+
+  build:
+    needs: prep
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux,   arch: x64,   labels: [self-hosted, linux, x64] }
+          - { os: linux,   arch: arm64, labels: [self-hosted, linux, arm64] }
+          - { os: macos,   arch: arm64, labels: [self-hosted, macos, arm64] }
+          - { os: windows, arch: x64,   labels: [self-hosted, windows, x64] }
+    runs-on: ${{ matrix.labels }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          . .venv/bin/activate 2>/dev/null || source .venv/Scripts/activate
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Build
+        shell: bash
+        env:
+          VER: ${{ needs.prep.outputs.version }}
+          DRY: ${{ needs.prep.outputs.dry_run }}
+        run: |
+          set -euo pipefail
+          . .venv/bin/activate 2>/dev/null || source .venv/Scripts/activate
+          if [ "$DRY" = "true" ]; then
+            python packaging/build.py --version "$VER" --dry-run
+          else
+            python packaging/build.py --version "$VER"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: needs.prep.outputs.dry_run != 'true'
+        with:
+          name: ${{ matrix.os }}-${{ matrix.arch }}
+          path: dist-release/*
+          if-no-files-found: error
+
+  release:
+    needs: [prep, build]
+    if: needs.prep.outputs.dry_run != 'true'
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VER: ${{ needs.prep.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-release
+          merge-multiple: true
+      - name: Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist-release
+          shasum -a 256 llama-* > SHA256SUMS
+          echo "=== SHA256SUMS ==="; cat SHA256SUMS
+      - name: Create GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "v$VER" \
+            --title "v$VER" \
+            --notes "llama $VER — self-contained binaries. Verify with SHA256SUMS." \
+            dist-release/llama-* dist-release/SHA256SUMS
