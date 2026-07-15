@@ -19,7 +19,7 @@ log = logging.getLogger("llama")
 
 TASK_KEYS = ["interpret", "score_reviews", "light_research",
              "extract_setlist", "deep_research", "synthesize", "propose_artists",
-             "align_structure", "vet_research"]
+             "find_artists", "align_structure", "vet_research"]
 
 
 def make_providers(config: Config) -> dict:

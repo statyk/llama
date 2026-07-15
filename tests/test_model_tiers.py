@@ -55,6 +55,7 @@ def test_tables_match_spec():
         "light_research": "medium", "extract_setlist": "medium",
         "deep_research": "high", "synthesize": "high",
         "propose_artists": "medium",
+        "find_artists": "medium",
         "align_structure": "medium",
         "vet_research": "low",
     }

@@ -4,8 +4,16 @@ from pathlib import Path
 
 import pytest
 
-from llama.artist_index import build_index, filter_artists, fmt_count, load_or_build
+from llama.artist_index import (
+    build_index,
+    filter_artists,
+    find_matching_artists,
+    fmt_count,
+    load_or_build,
+    render_artist_table,
+)
 from llama.ia_client import IAError
+from llama.llm.fake import FakeProvider
 
 COLLECTIONS = [
     {"identifier": "GratefulDead", "title": "Grateful Dead", "downloads": 226766373},
@@ -135,3 +143,52 @@ def test_fmt_count():
     assert fmt_count(226766373) == "226.8M"
     assert fmt_count(54321) == "54.3k"
     assert fmt_count(950) == "950"
+
+
+POOL = [
+    {"identifier": "GratefulDead", "title": "Grateful Dead", "recordings": 18271,
+     "downloads": 226766373, "year_min": 1965, "year_max": 1995},
+    {"identifier": "RobynHitchcock", "title": "Robyn Hitchcock", "recordings": 985,
+     "downloads": 1311958, "year_min": 1996, "year_max": 2014},
+]
+
+
+def matches_json(*pairs):
+    return json.dumps({"matches": [{"identifier": i, "reason": r} for i, r in pairs]})
+
+
+def test_render_artist_table_line_format():
+    table = render_artist_table(POOL)
+    lines = table.splitlines()
+    assert lines[0] == "GratefulDead | Grateful Dead | 18271 recordings | 1965-1995 | 226.8M downloads"
+    assert lines[1].startswith("RobynHitchcock | Robyn Hitchcock | 985 recordings | 1996-2014")
+
+
+def test_render_artist_table_unknown_years():
+    row = {"identifier": "X", "title": "X", "recordings": 0, "downloads": 5,
+           "year_min": None, "year_max": None}
+    assert "| ? |" in render_artist_table([row])
+
+
+def test_find_matching_artists_joins_stats_and_reason():
+    fake = FakeProvider(completes=[matches_json(("RobynHitchcock", "jangly songwriter"))])
+    got = find_matching_artists(fake, POOL, "jangly college rock", max_results=5)
+    assert len(got) == 1
+    assert got[0]["identifier"] == "RobynHitchcock"
+    assert got[0]["recordings"] == 985
+    assert got[0]["reason"] == "jangly songwriter"
+    prompt = fake.calls[0][1]
+    assert "jangly college rock" in prompt
+    assert "GratefulDead | Grateful Dead" in prompt
+
+
+def test_find_matching_artists_drops_hallucinated_identifiers():
+    fake = FakeProvider(completes=[matches_json(("NickDrake", "x"), ("GratefulDead", "y"))])
+    got = find_matching_artists(fake, POOL, "q", max_results=5)
+    assert [a["identifier"] for a in got] == ["GratefulDead"]
+
+
+def test_find_matching_artists_caps_at_max_results():
+    fake = FakeProvider(completes=[matches_json(("GratefulDead", "a"), ("RobynHitchcock", "b"))])
+    got = find_matching_artists(fake, POOL, "q", max_results=1)
+    assert len(got) == 1

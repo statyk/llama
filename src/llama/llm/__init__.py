@@ -13,6 +13,7 @@ DEFAULT_TIERS = {
     "deep_research": "high",
     "synthesize": "high",
     "propose_artists": "medium",
+    "find_artists": "medium",
     "align_structure": "medium",
     "vet_research": "low",
 }

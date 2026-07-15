@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from llama.ia_client import IAError
+from llama.llm.tasks import run_json_task
+from llama.models import ArtistMatches
 from llama.workspace import write_artifact
 
 log = logging.getLogger("llama")
@@ -114,3 +116,34 @@ def fmt_count(n: int) -> str:
     if n >= 1_000:
         return f"{n / 1_000:.1f}k"
     return str(n)
+
+
+def render_artist_table(artists: list[dict]) -> str:
+    lines = []
+    for a in artists:
+        years = (f"{a['year_min']}-{a['year_max']}"
+                 if a.get("year_min") is not None else "?")
+        lines.append(f"{a['identifier']} | {a['title']} | {a['recordings']} recordings"
+                     f" | {years} | {fmt_count(a['downloads'])} downloads")
+    return "\n".join(lines)
+
+
+def find_matching_artists(provider, artists: list[dict], query: str, max_results: int) -> list[dict]:
+    """One inventory-in-context LLM call; identifiers joined back against the
+    filtered index, so a hallucinated identifier can never reach the caller."""
+    result = run_json_task(
+        provider, "find_artists", ArtistMatches,
+        query=query, max_results=max_results,
+        artist_table=render_artist_table(artists),
+    )
+    by_id = {a["identifier"]: a for a in artists}
+    out: list[dict] = []
+    for m in result.matches:
+        a = by_id.get(m.identifier)
+        if a is None:
+            log.warning("find_artists: dropping unknown identifier %r", m.identifier)
+            continue
+        out.append({**a, "reason": m.reason})
+        if len(out) >= max_results:
+            break
+    return out
