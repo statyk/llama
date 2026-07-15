@@ -93,9 +93,13 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     providers = make_providers(config)
     artists = None
     if criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
-        artists = run_discover(ws, providers["propose_artists"], ia, criteria, force=force)
+        artists = run_discover(ws, providers["find_artists"], ia, criteria,
+                               cache_dir=config.root / "cache",
+                               min_recordings=config.artists.min_recordings,
+                               min_downloads=config.artists.min_downloads,
+                               force=force)
         if not artists:
-            typer.echo("none of the proposed artists were found on the LMA - "
+            typer.echo("no matching artists found on the LMA - "
                        "try naming an artist or broadening the style", err=True)
             return
         if not auto:
