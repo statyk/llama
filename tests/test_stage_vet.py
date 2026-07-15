@@ -93,6 +93,38 @@ def test_alias_matching_uses_normalize_song(tmp_path: Path):
     assert result.flags == []
 
 
+def test_segue_chains_match_partwise(tmp_path: Path):
+    # Research prose uses standard notation: "A > B", comma-joined closers,
+    # aliases inside chains. Every part is a known track here - no flags.
+    sws, show = setup(tmp_path)
+    chains = ["Morning Dew > Dark Star",
+              "Dark Star > Johnny B. Goode, Morning Dew",
+              "JBG > Morning Dew"]
+    fake = FakeProvider(completes=[vet_json(asserted_songs=chains)])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == []
+
+
+def test_segue_chain_with_unknown_part_still_flags(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    fake = FakeProvider(completes=[vet_json(
+        asserted_songs=["Morning Dew > Werewolves of London"])])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == [
+        "research asserts unknown song: Morning Dew > Werewolves of London"]
+
+
+def test_comma_in_title_matches_whole_before_splitting(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    show.tracks.append(Track(index=4, set="encore", title="Baby, What You Want Me to Do",
+                             filename="d.mp3", title_source="tags"))
+    write_artifact(sws.show, show)
+    fake = FakeProvider(completes=[vet_json(
+        asserted_songs=["Baby, What You Want Me to Do"])])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == []
+
+
 def test_unknown_song_flags_needs_review(tmp_path: Path):
     sws, show = setup(tmp_path)
     fake = FakeProvider(completes=[vet_json(asserted_songs=["Werewolves of London"])])

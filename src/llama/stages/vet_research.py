@@ -57,12 +57,31 @@ def normalize_date(text: str) -> str | None:
     return None
 
 
+_SEGUE_SPLIT = re.compile(r"\s*(?:->|>|→)\s*")
+
+
+def _known_song(name: str, known: set[str]) -> bool:
+    """Research prose asserts songs in standard live notation: single titles,
+    segue chains ("China Cat Sunflower > I Know You Rider"), and comma-joined
+    runs. Match the whole string first (titles may contain commas), then
+    part-wise - a chain is known only if every part is."""
+    if normalize_song(name) in known:
+        return True
+    parts = [p for p in _SEGUE_SPLIT.split(name) if p.strip()]
+    if len(parts) > 1:
+        return all(_known_song(p, known) for p in parts)
+    parts = [p for p in name.split(",") if p.strip()]
+    if len(parts) > 1:
+        return all(normalize_song(p) in known for p in parts)
+    return False
+
+
 def grounding_flags(vetting: ResearchVetting, show: Show) -> list[str]:
     """Deterministic check: research assertions must match this show. Zero tokens."""
     flags: list[str] = []
     known = {normalize_song(t.title) for t in show.tracks}
     for song in vetting.asserted_songs:
-        if normalize_song(song) not in known:
+        if not _known_song(song, known):
             flags.append(f"{_VET_FLAG_PREFIX}unknown song: {song}")
     for date_text in vetting.asserted_dates:
         norm = normalize_date(date_text)
