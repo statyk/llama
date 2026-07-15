@@ -84,7 +84,7 @@ and it is what gate 2 reads. When a show is held, this file says why.
 |---|---|---|---|
 | interpret | yes | `criteria.json` | Query → structured criteria (artist, era, count, constraints) |
 | discover | yes | `artists.json` | Artist-less queries only: match style against the LMA artist index |
-| search | no | `candidates.json` | Wide-net archive.org search; groups recordings by performance identity (artist + date + venue) |
+| search | no | `candidates.json` | Wide-net archive.org search via the cursor-paginated scrape API — every matching recording, uncapped; groups recordings by performance identity (artist + date + venue). Complete recording lists matter downstream: siblings feed set-structure recovery and recording selection |
 | winnow | yes ×2 | `shortlist.json` | Ledger dedup → mechanical floors (rating/review count, setlist constraints) → LLM review scoring → light web research on the top 12+. When survivors exceed the review-fetch budget (`[winnow] max_metadata_fetch`, default 40), it samples them evenly across years — most-reviewed first within each year — and the shortlist cut likewise takes each year's best, so multi-era queries come back as a mix instead of one hot year |
 | select-recording | no | `selection.json` | Picks the best *recording* of the performance (lineage, track completeness) |
 | gather | maybe | `show.json`, `reviews.json` | Junk-filters files, resolves track titles (tags → setlist → siblings), builds canonical set structure from all recordings + setlist.fm, aligns it onto tracks; LLM only as alignment/extraction fallback |

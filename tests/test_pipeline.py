@@ -48,7 +48,7 @@ class FakeIA:
     def __init__(self, *args, **kwargs):
         self.fixture = json.loads(FIXTURE.read_text())
 
-    def search(self, query, fields, rows=500):
+    def scrape(self, query, fields, count=10000):
         return [{"identifier": IDENT, "date": "1973-06-10T00:00:00Z",
                  "venue": "RFK Stadium", "coverage": "Washington, DC",
                  "avg_rating": 4.8, "num_reviews": 40,

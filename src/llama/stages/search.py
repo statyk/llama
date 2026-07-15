@@ -29,8 +29,11 @@ def build_query(criteria: Criteria) -> str:
 def run_search(
     ws: RunWorkspace, ia, criteria: Criteria,
     artists: list[dict] | None = None,
-    rows: int = 500, force: bool = False,
+    force: bool = False,
 ) -> list[Candidate]:
+    """Wide net means ALL matching recordings: the cursor-paginated scrape API,
+    not a single capped page - every recording of a performance feeds structure
+    recovery and recording selection downstream."""
     if not should_run(ws.candidates, force):
         return read_model_list(ws.candidates, Candidate)
     if artists:
@@ -39,11 +42,11 @@ def run_search(
             log.info("search: %s (%d/%d)", artist.get("title") or artist["identifier"],
                      i, len(artists))
             fanned = criteria.model_copy(update={"collection": artist["identifier"]})
-            docs = ia.search(build_query(fanned), SEARCH_FIELDS, rows=rows)
+            docs = ia.scrape(build_query(fanned), SEARCH_FIELDS)
             candidates.extend(group_candidates(artist["identifier"], docs))
         candidates.sort(key=lambda c: (c.date, c.performance_id))
     else:
-        docs = ia.search(build_query(criteria), SEARCH_FIELDS, rows=rows)
+        docs = ia.scrape(build_query(criteria), SEARCH_FIELDS)
         label = criteria.collection or criteria.artist or "unknown"
         candidates = group_candidates(label, docs)
     write_artifact(ws.candidates, candidates)

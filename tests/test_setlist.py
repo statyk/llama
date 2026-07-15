@@ -50,6 +50,23 @@ def test_html_breaks_and_inline_set_marker():
     assert parsed.confidence == "high"
 
 
+def test_inline_set_markers_without_line_breaks():
+    # Real Veneta '72 convention: the whole three-set show on ONE line, set
+    # markers inline, numbered encores. Every set must be recovered.
+    desc = ("Set I: Promised Land, Sugaree, Me & My Uncle, China Cat Sunflower >"
+            "I Know You Rider, Bertha Set II: Playin' in the Band, He's Gone, "
+            "Jack Straw Set III: Dark Star> El Paso, Sing Me Back Home, "
+            "Sugar Magnolia, E1: Casey Jones, E2: Saturday Night")
+    parsed = parse_setlist(desc)
+    by_set = {}
+    for i in parsed.items:
+        by_set.setdefault(i.set, []).append(i.title)
+    assert set(by_set) == {"1", "2", "3", "encore"}
+    assert by_set["3"] == ["Dark Star", "El Paso", "Sing Me Back Home", "Sugar Magnolia"]
+    assert by_set["encore"] == ["Casey Jones", "Saturday Night"]
+    assert parsed.confidence == "high"
+
+
 def test_no_markers_is_medium():
     desc = "Bertha\nSugaree\nDeal\nLoser\nCasey Jones"
     parsed = parse_setlist(desc)

@@ -10,7 +10,7 @@ class StubIA:
         self.docs = docs
         self.queries = []
 
-    def search(self, query, fields, rows=500):
+    def scrape(self, query, fields, count=10000):
         self.queries.append(query)
         return self.docs
 
@@ -58,7 +58,7 @@ def test_run_search_fans_out_per_artist(tmp_path: Path):
         def __init__(self):
             self.queries = []
 
-        def search(self, query, fields, rows=500):
+        def scrape(self, query, fields, count=10000):
             self.queries.append(query)
             for ident, docs in docs_by_collection.items():
                 if f"collection:{ident}" in query:

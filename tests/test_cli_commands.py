@@ -274,11 +274,10 @@ class FuzzyFakeIA:
 
     def scrape(self, query, fields, count=10000):
         if "mediatype:collection" in query:
-            return ARTIST_COLLECTIONS
-        return []  # no items: downloads alone pass the filter
-
-    def search(self, query, fields, rows=500):
-        self.etree_queries.append(query)
+            return ARTIST_COLLECTIONS  # artist-index build: collections pass
+        if query.startswith("collection:etree"):
+            return []  # artist-index build: per-item counts pass
+        self.etree_queries.append(query)  # search stage
         return []  # no shows: pipeline ends at "No shows survived winnowing."
 
 

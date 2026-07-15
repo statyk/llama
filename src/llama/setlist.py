@@ -6,7 +6,14 @@ from llama.songs import normalize_song
 _SET_LINE = re.compile(
     r"^(?:set\s*(one|two|three|i{1,3}|[123])|([123])(?:st|nd|rd)\s+set)\s*[:\-]?\s*(.*)$", re.I
 )
-_ENCORE_LINE = re.compile(r"^(?:encore|e)\s*(?::|-\s|$)\s*(.*)$", re.I)
+_ENCORE_LINE = re.compile(r"^(?:encore|e\d?)\s*(?::|-\s|$)\s*(.*)$", re.I)
+# A set/encore marker mid-line ("... Bertha Set II: Playin' ...") starts a new
+# set: break the line there. Inline markers must carry a colon/dash - unlike
+# line-start markers - so prose like "the second set" never splits a title.
+_INLINE_MARKER = re.compile(
+    r"\s+(?=(?:set\s*(?:one|two|three|i{1,3}|[123])|[123](?:st|nd|rd)\s+set|encore|e\d)\s*[:\-])",
+    re.I,
+)
 _TRACK_PREFIX = re.compile(r"^\s*(?:d\d+t\d+|t\d{1,2})\s*[\s.\-:]+", re.I)
 _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": "3"}
 # Lines that are lineage/provenance chatter, not songs. Checked before song splitting.
@@ -39,6 +46,7 @@ def _split_songs(chunk: str) -> list[tuple[str, bool]]:
 def parse_setlist(description: str) -> ParsedSetlist:
     text = re.sub(r"<br\s*/?>", "\n", description, flags=re.I)
     text = re.sub(r"<[^>]+>", "\n", text)
+    text = _INLINE_MARKER.sub("\n", text)
     lines = [ln.strip() for ln in text.splitlines()]
     # If any set/encore marker exists, the setlist starts there: header lines above
     # (band name, venue, lineage) must not be parsed as songs.
