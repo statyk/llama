@@ -74,6 +74,33 @@ A delivered show package contains:
 - `dj-notes.md` + `manifest.dj_notes` — verbatim DJ script, present only when
   the run generated one (`--script`, or `script = true` on a profile)
 
+### Script mode does not change the data
+
+Whether a run used `--script` has no effect on the content or quality of
+anything else in the package. Research runs before the script decision is
+consulted (same prompt, same inputs, same model tier), the vet grounding
+check runs unconditionally right after it, and `reviews.md` and the
+manifest's show data (including `show.context`, which comes from the vet
+extraction) are built identically in both modes. `research.md` is the same
+bytes either way.
+
+The two modes differ only in scrutiny and availability, and both
+differences err safe:
+
+- **Script-on packages cleared one extra gate.** The generated script is
+  cross-checked against the setlist (`factual_guard`), which occasionally
+  catches prose-level research contamination that assertion-level vetting
+  can't see — a wrong-show anecdote surfacing as a bad song name in the
+  patter. A script-on run may therefore hold a subtly-bad show for review
+  that a script-off run would ship.
+- **Script-on runs have one extra failure point.** A synthesize call that
+  exhausts its retries skips the show entirely — it affects whether a
+  package is produced, never what's inside one.
+
+Consumers can rely on `research.md`, `reviews.md`, and the manifest meaning
+exactly the same thing regardless of mode; `--script` only determines
+whether the script artifacts exist.
+
 ### Downstream synthesis contract
 
 If your DJ (human or LLM) writes its own spoken copy from this package, it
