@@ -66,7 +66,7 @@ failed validation's final retry escalates one tier (pins never escalate).
 ## Domain gotchas
 
 - archive.org items contain junk: `gd73-06-10.sbd.hollister.174.sbeok.shnf`
-  (sample m3u in repo root) includes a spam file `FOLLOW-ME @BYPIKENO.mp3`
+  (the canonical test fixture) includes a spam file `FOLLOW-ME @BYPIKENO.mp3`
   that would play on air if file lists were trusted. Filter to originals (or
   derivatives of originals) matching the item's dominant filename convention
   with plausible durations.
