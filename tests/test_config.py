@@ -101,3 +101,15 @@ def test_llm_tiers_rejects_unknown_tier_key(tmp_path: Path):
 
 def test_tiers_defaults_empty():
     assert Config().tiers == {}
+
+
+def test_artists_config_defaults_and_override(tmp_path):
+    from llama.config import load_config
+
+    assert load_config(tmp_path / "missing.toml").artists.min_recordings == 25
+    assert load_config(tmp_path / "missing.toml").artists.min_downloads == 50000
+    p = tmp_path / "config.toml"
+    p.write_text("[artists]\nmin_recordings = 5\nmin_downloads = 1000\n")
+    cfg = load_config(p)
+    assert cfg.artists.min_recordings == 5
+    assert cfg.artists.min_downloads == 1000

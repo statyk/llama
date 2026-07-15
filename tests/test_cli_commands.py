@@ -129,9 +129,9 @@ FUZZY_CRITERIA = json.dumps({
 })
 
 ARTIST_COLLECTIONS = [
-    {"identifier": "JoanBaez", "title": "Joan Baez"},
-    {"identifier": "DocWatson", "title": "Doc and Merle Watson"},
-    {"identifier": "TownesVanZandt", "title": "Townes Van Zandt"},
+    {"identifier": "JoanBaez", "title": "Joan Baez", "downloads": 900000},
+    {"identifier": "DocWatson", "title": "Doc and Merle Watson", "downloads": 800000},
+    {"identifier": "TownesVanZandt", "title": "Townes Van Zandt", "downloads": 700000},
 ]
 
 
@@ -139,19 +139,29 @@ class FuzzyFakeIA:
     def __init__(self, *args, **kwargs):
         self.etree_queries = []
 
-    def search(self, query, fields, rows=500):
+    def scrape(self, query, fields, count=10000):
         if "mediatype:collection" in query:
             return ARTIST_COLLECTIONS
+        return []  # no items: downloads alone pass the filter
+
+    def search(self, query, fields, rows=500):
         self.etree_queries.append(query)
         return []  # no shows: pipeline ends at "No shows survived winnowing."
+
+
+def fuzzy_matches():
+    return json.dumps({"matches": [
+        {"identifier": "JoanBaez", "reason": "folk icon"},
+        {"identifier": "DocWatson", "reason": "flatpicking"},
+        {"identifier": "TownesVanZandt", "reason": "songwriter"},
+    ]})
 
 
 def fuzzy_providers(config):
     from llama.llm.fake import FakeProvider
     return {
         "interpret": FakeProvider(completes=[FUZZY_CRITERIA]),
-        "propose_artists": FakeProvider(completes=[json.dumps(
-            {"artists": ["Joan Baez", "Doc Watson", "Townes Van Zandt"]})]),
+        "find_artists": FakeProvider(completes=[fuzzy_matches()]),
         "score_reviews": FakeProvider(),
         "light_research": FakeProvider(),
         "extract_setlist": FakeProvider(),
@@ -196,15 +206,15 @@ def test_fuzzy_query_zero_matches_exits_cleanly(tmp_path, monkeypatch):
     ia = _fuzzy_setup(tmp_path, monkeypatch)
     monkeypatch.setattr(cli, "make_providers", lambda config: {
         **fuzzy_providers(config),
-        "propose_artists": __import__("llama.llm.fake", fromlist=["FakeProvider"]).FakeProvider(
-            completes=[json.dumps({"artists": ["Nick Drake"]})]),
+        "find_artists": __import__("llama.llm.fake", fromlist=["FakeProvider"]).FakeProvider(
+            completes=[json.dumps({"matches": [{"identifier": "NickDrake", "reason": "x"}]})]),
     })
     result = runner.invoke(cli.app, [
         "find", "folk 60s-70s", "--auto", "--run-name", "fz3",
         "--config", str(tmp_path / "config.toml"),
     ])
     assert result.exit_code == 0, result.output
-    assert "none of the proposed artists" in result.output
+    assert "no matching artists" in result.output
     assert ia.etree_queries == []
 
 
