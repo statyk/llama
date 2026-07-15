@@ -4,8 +4,14 @@ import subprocess
 from llama.llm.provider import LLMError
 
 # complete() must be pure text->text; research() may search the web and nothing else.
-COMPLETE_DISALLOWED = "Bash,Edit,Write,Read,Glob,Grep,WebSearch,WebFetch"
+# --allowedTools only auto-approves; it does not shrink the toolset, so delegation
+# and background tools (subagents, skills, workflows) must be disallowed explicitly:
+# they end the headless turn with narration while the work runs elsewhere, and the
+# caller would capture that narration as the output.
+_DELEGATION = "Task,Agent,Skill,Workflow,SlashCommand,TodoWrite"
+COMPLETE_DISALLOWED = "Bash,Edit,Write,Read,Glob,Grep,WebSearch,WebFetch," + _DELEGATION
 RESEARCH_ALLOWED = "WebSearch,WebFetch"
+RESEARCH_DISALLOWED = "Bash,Edit,Write,Read,Glob,Grep," + _DELEGATION
 
 
 class ClaudeCLIProvider:
@@ -41,4 +47,5 @@ class ClaudeCLIProvider:
         return self._run(prompt, ["--disallowedTools", COMPLETE_DISALLOWED])
 
     def research(self, brief: str) -> str:
-        return self._run(brief, ["--allowedTools", RESEARCH_ALLOWED])
+        return self._run(brief, ["--allowedTools", RESEARCH_ALLOWED,
+                                 "--disallowedTools", RESEARCH_DISALLOWED])

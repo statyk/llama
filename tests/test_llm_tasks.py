@@ -83,6 +83,41 @@ def test_run_research_task_uses_first_rung(monkeypatch):
     assert escalated.calls == []
 
 
+NARRATION = ("The research workflow is running in the background — "
+             "I'll have the results when it finishes.")
+REPORT = "## Reputation\nx\n## Performance highlights\ny\n## Context\nz\n## Recording notes\nw"
+SECTIONS = ["## Reputation", "## Performance highlights", "## Context", "## Recording notes"]
+
+
+def test_run_research_task_rejects_narration_and_retries(monkeypatch):
+    use_template(monkeypatch, "Research {{topic}}")
+    fake = FakeProvider(researches=[NARRATION, REPORT])
+    out = tasks.run_research_task(fake, "deep_research", required_sections=SECTIONS, topic="x")
+    assert out == REPORT
+    assert len(fake.calls) == 2
+    assert "missing sections" in fake.calls[1][1]
+    assert "## Reputation" in fake.calls[1][1]
+
+
+def test_run_research_task_exhausts_and_preserves_raw(monkeypatch):
+    use_template(monkeypatch, "Research {{topic}}")
+    fake = FakeProvider(researches=[NARRATION, NARRATION, NARRATION])
+    with pytest.raises(TaskFailed) as exc:
+        tasks.run_research_task(fake, "deep_research", required_sections=SECTIONS,
+                                retries=2, topic="x")
+    assert exc.value.raw_output == NARRATION
+
+
+def test_run_research_task_escalates_on_final_attempt(monkeypatch):
+    use_template(monkeypatch, "Research {{topic}}")
+    base = FakeProvider(researches=[NARRATION, NARRATION])
+    escalated = FakeProvider(researches=[REPORT])
+    out = tasks.run_research_task([base, base, escalated], "deep_research",
+                                  required_sections=SECTIONS, topic="x")
+    assert out == REPORT
+    assert len(base.calls) == 2 and len(escalated.calls) == 1
+
+
 def test_make_providers_builds_ladders():
     from llama.config import Config
     from llama.pipeline import make_providers

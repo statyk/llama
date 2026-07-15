@@ -69,7 +69,9 @@ def fake_providers(config):
         "score_reviews": FakeProvider(completes=[assessments("GratefulDead/1973-06-10")]),
         "light_research": FakeProvider(researches=["Widely ranked top-5 1973 (example.org)"]),
         "extract_setlist": FakeProvider(),
-        "deep_research": FakeProvider(researches=["## Reputation\nLegendary RFK show."]),
+        "deep_research": FakeProvider(researches=[
+            "## Reputation\nLegendary RFK show.\n## Performance highlights\nDark Star.\n"
+            "## Context\nPeak 73 tour.\n## Recording notes\nHollister SBD."]),
         "synthesize": FakeProvider(completes=[NOTES]),
         "align_structure": FakeProvider(),
         "vet_research": FakeProvider(completes=[VET]),

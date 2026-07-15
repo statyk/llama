@@ -32,16 +32,25 @@ def test_complete_locks_down_tools_and_parses_result(monkeypatch):
     assert cmd[:2] == ["claude", "-p"]
     assert "--output-format" in cmd and "json" in cmd
     assert "--model" in cmd and "claude-sonnet-5" in cmd
-    assert "--disallowedTools" in cmd
+    disallowed = cmd[cmd.index("--disallowedTools") + 1]
+    for tool in ("Bash", "Task", "Agent", "Skill", "Workflow"):
+        assert tool in disallowed
     assert seen["input"] == "say hello"
 
 
-def test_research_allows_web_tools(monkeypatch):
+def test_research_allows_web_tools_but_no_delegation(monkeypatch):
     seen = {}
     patch_run(monkeypatch, FakeProc(stdout=json.dumps({"result": "found"})), seen)
     assert ClaudeCLIProvider().research("dig") == "found"
-    i = seen["cmd"].index("--allowedTools")
-    assert "WebSearch" in seen["cmd"][i + 1]
+    cmd = seen["cmd"]
+    allowed = cmd[cmd.index("--allowedTools") + 1]
+    assert "WebSearch" in allowed and "WebFetch" in allowed
+    # Background/delegation tools end the headless turn with narration while
+    # the work runs elsewhere; the caller would capture narration as output.
+    disallowed = cmd[cmd.index("--disallowedTools") + 1]
+    for tool in ("Task", "Agent", "Skill", "Workflow", "Bash"):
+        assert tool in disallowed
+    assert "Web" not in disallowed
 
 
 def test_nonzero_exit_raises(monkeypatch):

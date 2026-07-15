@@ -22,3 +22,7 @@ Write markdown with exactly these sections:
 
 Cite sources inline as (Source Name — URL). If a section has nothing solid, write one
 line saying so.
+
+Do this research yourself, in this session, using web search and fetch only. Do not
+launch background tasks, subagents, or workflows, and do not reply with a status update
+or a promise of later results: your reply must be the finished report itself.

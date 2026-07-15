@@ -68,5 +68,31 @@ def run_json_task(
     raise TaskFailed(f"LLM task {task!r} failed after {retries + 1} attempts", raw_output=raw)
 
 
-def run_research_task(provider: ProviderOrLadder, task: str, **inputs) -> str:
-    return _as_ladder(provider)[0].research(render(load_prompt(task), **inputs))
+def run_research_task(
+    provider: ProviderOrLadder,
+    task: str,
+    *,
+    required_sections: Sequence[str] = (),
+    retries: int = 2,
+    **inputs,
+) -> str:
+    """Run a research task; when required_sections is given, reject replies
+    that lack them (status narration, refusals, partial reports) and retry
+    with feedback, escalating the ladder like run_json_task."""
+    ladder = _as_ladder(provider)
+    prompt = render(load_prompt(task), **inputs)
+    attempt_prompt = prompt
+    raw = ""
+    for attempt in range(retries + 1):
+        raw = ladder[min(attempt, len(ladder) - 1)].research(attempt_prompt)
+        missing = [s for s in required_sections if s.lower() not in raw.lower()]
+        if not missing:
+            return raw
+        attempt_prompt = (
+            prompt
+            + "\n\nYour previous reply was not the report (missing sections: "
+            + ", ".join(missing)
+            + "). Do the research now, in this session, and reply with ONLY the"
+            + " finished markdown report."
+        )
+    raise TaskFailed(f"LLM task {task!r} failed after {retries + 1} attempts", raw_output=raw)
