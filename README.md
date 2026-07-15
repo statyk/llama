@@ -17,6 +17,10 @@ Optional config at `~/.llama/config.toml`:
     delivery_path = "/station/inbox" # for `llama deliver`
     audio_format = "mp3"             # or "flac"
 
+    [winnow]
+    max_metadata_fetch = 40          # review-fetch budget; sampled evenly
+                                     # across years when survivors exceed it
+
     [llm.default]
     backend = "claude_cli"           # requires the `claude` CLI on PATH
     # backend = "openrouter"         # HTTP alternative; set OPENROUTER_API_KEY

@@ -28,6 +28,24 @@ def length_seconds(val) -> float | None:
         return None
 
 
+def spread_across_years(items: list, date_of, n: int) -> list:
+    """Pick up to n items, round-robin across years, preserving preference
+    order within each year. Items must arrive best-first; the year cycle
+    follows each year's first appearance, so the overall best item is always
+    picked first. With a single year this is exactly items[:n]."""
+    buckets: dict[str, list] = {}
+    for item in items:
+        buckets.setdefault(str(date_of(item))[:4], []).append(item)
+    picked: list = []
+    while len(picked) < n and any(buckets.values()):
+        for bucket in buckets.values():
+            if bucket:
+                picked.append(bucket.pop(0))
+                if len(picked) >= n:
+                    break
+    return picked
+
+
 def reviews_digest(reviews: list[dict], limit: int = 5) -> str:
     """Trimmed listener-review digest: what synthesize consumes and packages ship."""
     parts = []

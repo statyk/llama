@@ -7,6 +7,7 @@ from llama.models import Candidate, Criteria, QualityBatch, ShortlistEntry
 from llama.setlist import parse_setlist
 from llama.songs import matches_sequence
 from llama.status import step
+from llama.util import spread_across_years
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -55,9 +56,18 @@ def run_winnow(
     log.info("winnow: %d candidates -> %d after ledger -> %d after mechanical",
              len(candidates), len(pool), len(survivors))
     if len(survivors) > max_metadata_fetch:
-        log.warning("winnow: truncating %d survivors to %d for review fetch (raise max_metadata_fetch to widen)",
-                    len(survivors), max_metadata_fetch)
-        survivors = survivors[:max_metadata_fetch]
+        log.warning("winnow: sampling %d of %d survivors across years for review fetch "
+                    "(raise [winnow] max_metadata_fetch to widen)",
+                    max_metadata_fetch, len(survivors))
+        # Per-year best-evidence first, then round-robin the years, so every
+        # era gets scored instead of the chronologically-first N.
+        def evidence(c: Candidate):
+            return (sum(r.num_reviews for r in c.recordings),
+                    max((r.avg_rating or 0.0) for r in c.recordings))
+        prefer = sorted(survivors, key=evidence, reverse=True)
+        keep = {c.performance_id
+                for c in spread_across_years(prefer, lambda c: c.date, max_metadata_fetch)}
+        survivors = [c for c in survivors if c.performance_id in keep]
 
     payload = []
     reviewed: dict[str, str] = {}
@@ -94,7 +104,9 @@ def run_winnow(
     scored = [(c, assessments[c.performance_id]) for c in survivors
               if c.performance_id in assessments]
     scored.sort(key=lambda pair: pair[1].quality_score, reverse=True)
-    top = scored[:shortlist_size]
+    # Each year's best first: a hot year must not monopolize the shortlist.
+    top = spread_across_years(scored, lambda pair: pair[0].date, shortlist_size)
+    top.sort(key=lambda pair: pair[1].quality_score, reverse=True)
 
     entries: list[ShortlistEntry] = []
     for rank, (c, a) in enumerate(top, 1):

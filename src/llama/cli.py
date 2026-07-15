@@ -137,7 +137,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 write_artifact(ws.artists, artists)
     run_search(ws, ia, criteria, artists=artists, force=force)
     shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
-                           shortlist_size=max(12, count), force=force)
+                           shortlist_size=max(12, count),
+                           max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
     if not shortlist:
         typer.echo("No shows survived winnowing.")
         return

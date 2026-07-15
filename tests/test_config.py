@@ -58,6 +58,7 @@ def test_setlistfm_and_structure_defaults():
     assert cfg.setlistfm.api_key is None
     assert cfg.structure.guard_min_minutes == 150
     assert cfg.structure.align_coverage_threshold == 0.8
+    assert cfg.winnow.max_metadata_fetch == 40
 
 
 def test_setlistfm_and_structure_from_toml(tmp_path):
@@ -65,12 +66,14 @@ def test_setlistfm_and_structure_from_toml(tmp_path):
     p.write_text(
         '[setlistfm]\napi_key = "k123"\n\n'
         "[structure]\nguard_min_minutes = 90\n"
-        "align_coverage_threshold = 0.5\n"
+        "align_coverage_threshold = 0.5\n\n"
+        "[winnow]\nmax_metadata_fetch = 80\n"
     )
     cfg = load_config(p)
     assert cfg.setlistfm.api_key == "k123"
     assert cfg.structure.guard_min_minutes == 90
     assert cfg.structure.align_coverage_threshold == 0.5
+    assert cfg.winnow.max_metadata_fetch == 80
 
 
 def test_llm_tiers_lifted_from_llm_table(tmp_path: Path):

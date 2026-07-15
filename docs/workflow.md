@@ -85,7 +85,7 @@ and it is what gate 2 reads. When a show is held, this file says why.
 | interpret | yes | `criteria.json` | Query → structured criteria (artist, era, count, constraints) |
 | discover | yes | `artists.json` | Artist-less queries only: match style against the LMA artist index |
 | search | no | `candidates.json` | Wide-net archive.org search; groups recordings by performance identity (artist + date + venue) |
-| winnow | yes ×2 | `shortlist.json` | Ledger dedup → mechanical floors (rating/review count, setlist constraints) → LLM review scoring → light web research on the top 12+ |
+| winnow | yes ×2 | `shortlist.json` | Ledger dedup → mechanical floors (rating/review count, setlist constraints) → LLM review scoring → light web research on the top 12+. When survivors exceed the review-fetch budget (`[winnow] max_metadata_fetch`, default 40), it samples them evenly across years — most-reviewed first within each year — and the shortlist cut likewise takes each year's best, so multi-era queries come back as a mix instead of one hot year |
 | select-recording | no | `selection.json` | Picks the best *recording* of the performance (lineage, track completeness) |
 | gather | maybe | `show.json`, `reviews.json` | Junk-filters files, resolves track titles (tags → setlist → siblings), builds canonical set structure from all recordings + setlist.fm, aligns it onto tracks; LLM only as alignment/extraction fallback |
 | research | yes | `research.md` | Deep web research on the specific performance |
@@ -97,6 +97,12 @@ Winnow's philosophy: the LMA archives everything, so mere presence means
 nothing, and LMA reviews skew toward people who attended the show. The
 scoring prompt demands merit-based praise, and light research looks for the
 show's reputation *outside* the archive.
+
+Variety is deliberate: when a query spans years, the fetch budget, the
+shortlist cut, and the final auto-pick all round-robin across years (best
+score first within each) rather than taking a pure top-N — a run for
+"1969-1977" comes back as a spread, not thirteen shows from one hot year.
+Explicit `llama review` approvals are never spread; your picks are your picks.
 
 ## The two human gates (don't confuse them)
 
@@ -257,4 +263,4 @@ It's not in the ledger. Deliver it, or `llama ledger add <performance-id>
 | `FAILED <show>: …` | LLM/network failure mid-show | `llama run <dir>` retries just the missing pieces; see `llm-failure.txt` |
 | `No shows survived winnowing.` | Nothing passed dedup + mechanical floors + scoring | Broaden the query, lower floors, or check the ledger |
 | `no matching artists found on the LMA` | Artist-less query matched nothing in the index | Name an artist or broaden the style terms |
-| `winnow: truncating N survivors to 40` | More candidates than the review-fetch budget | Fine for most runs; narrow the query if the cut worries you |
+| `winnow: sampling 40 of N survivors across years` | More candidates than the review-fetch budget; scoring pool sampled evenly per year | Fine for most runs; raise `[winnow] max_metadata_fetch` in config to score more |

@@ -24,6 +24,12 @@ class StructureConfig(BaseModel):
     align_coverage_threshold: float = 0.8
 
 
+class WinnowConfig(BaseModel):
+    # Review-fetch budget: when more candidates survive the mechanical gate,
+    # winnow samples this many evenly across years instead of scoring all.
+    max_metadata_fetch: int = 40
+
+
 class ArtistsConfig(BaseModel):
     min_recordings: int = 25
     min_downloads: int = 50000
@@ -37,6 +43,7 @@ class Config(BaseModel):
     setlistfm: SetlistFMConfig = Field(default_factory=SetlistFMConfig)
     structure: StructureConfig = Field(default_factory=StructureConfig)
     artists: ArtistsConfig = Field(default_factory=ArtistsConfig)
+    winnow: WinnowConfig = Field(default_factory=WinnowConfig)
     tiers: dict[str, dict[Tier, str]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
