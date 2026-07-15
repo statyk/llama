@@ -95,3 +95,39 @@ def test_revet_after_artifact_delete_leaves_research_alone(tmp_path: Path):
     sws.vetting.unlink()
     run_vet_research(sws, FakeProvider(completes=[vet_json()]), show, "original research")
     assert sws.research.read_text() == "original research"
+
+
+def test_clean_revet_clears_vet_flags(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    run_vet_research(sws, FakeProvider(completes=[vet_json(asserted_songs=["Werewolves of London"])]),
+                     show, "r")
+    assert json.loads(sws.show.read_text())["needs_review"] is True
+    sws.vetting.unlink()
+    result = run_vet_research(sws, FakeProvider(completes=[vet_json()]), show, "r")
+    assert result.flags == []
+    saved = json.loads(sws.show.read_text())
+    assert saved["needs_review"] is False
+    assert not any(f.startswith("research asserts ") for f in saved["review_flags"])
+
+
+def test_revet_does_not_duplicate_flags(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    bad = vet_json(asserted_songs=["Werewolves of London"])
+    run_vet_research(sws, FakeProvider(completes=[bad]), show, "r")
+    sws.vetting.unlink()
+    result = run_vet_research(sws, FakeProvider(completes=[bad]), show, "r")
+    assert result.flags == ["research asserts unknown song: Werewolves of London"]
+    saved = json.loads(sws.show.read_text())
+    assert saved["review_flags"] == ["research asserts unknown song: Werewolves of London"]
+
+
+def test_clean_revet_preserves_non_vet_flags(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    show.review_flags = ["duration mismatch on 01.mp3"]
+    show.needs_review = True
+    write_artifact(sws.show, show)
+    result = run_vet_research(sws, FakeProvider(completes=[vet_json()]), show, "r")
+    assert result.flags == []
+    saved = json.loads(sws.show.read_text())
+    assert saved["review_flags"] == ["duration mismatch on 01.mp3"]
+    assert saved["needs_review"] is True

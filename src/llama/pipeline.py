@@ -5,7 +5,7 @@ from pathlib import Path
 from llama.config import Config
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
-from llama.models import LedgerEntry, Show, ShortlistEntry
+from llama.models import DJNotes, LedgerEntry, Show, ShortlistEntry
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
 from llama.stages.research import run_research
@@ -73,6 +73,10 @@ def process_show(
         log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
         return None
     notes = None
+    if not script and show_ws.dj_notes_json.exists():
+        # replaying a later stage (e.g. package) from a prior --script run: reuse the
+        # cached script so the rebuilt manifest agrees with the dj-notes.md in the package.
+        notes = read_model(show_ws.dj_notes_json, DJNotes)
     if script:
         reviews = read_json(show_ws.reviews) if show_ws.reviews.exists() else []
         with step(f"[{pid}] synthesizing"):

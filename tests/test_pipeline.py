@@ -179,6 +179,56 @@ def test_find_default_skips_script(tmp_path: Path, monkeypatch):
     assert not (pkg / "dj-notes.md").exists()
 
 
+def test_package_replay_without_script_keeps_cached_notes(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(pipeline, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    cfg = str(tmp_path / "config.toml")
+
+    first = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--script", "--run-name", "replay",
+        "--config", cfg,
+    ])
+    assert first.exit_code == 0, first.output
+    run_dir = tmp_path / "runs" / "replay"
+
+    # Re-package WITHOUT --script: cached dj-notes.json must still drive the manifest.
+    replay = runner.invoke(cli.app, [
+        "run", str(run_dir), "--stage", "package", "--force", "--config", cfg,
+    ])
+    assert replay.exit_code == 0, replay.output
+
+    pkg = run_dir / "shows" / "gratefuldead-1973-06-10" / "package"
+    manifest = json.loads((pkg / "manifest.json").read_text())
+    assert manifest["dj_notes"] is not None
+    assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0},
+                                      {"after_track": 5, "note_index": 1}]
+    assert (pkg / "dj-notes.md").exists()
+
+
+def test_stage_synthesize_implies_script(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(pipeline, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    cfg = str(tmp_path / "config.toml")
+
+    first = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--run-name", "synthreplay", "--config", cfg,
+    ])
+    assert first.exit_code == 0, first.output
+    show_dir = tmp_path / "runs" / "synthreplay" / "shows" / "gratefuldead-1973-06-10"
+    assert not (show_dir / "dj-notes.json").exists()
+
+    replay = runner.invoke(cli.app, [
+        "run", str(show_dir.parent.parent), "--stage", "synthesize", "--force",
+        "--config", cfg,
+    ])
+    assert replay.exit_code == 0, replay.output
+    assert (show_dir / "dj-notes.json").exists()
+
+
 def test_vet_failure_skips_show_before_packaging(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     providers = fake_providers(None)

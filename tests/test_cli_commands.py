@@ -244,3 +244,10 @@ def test_stage_vet_is_valid_and_maps_to_vetting_artifact(tmp_path: Path):
     assert "vet" in cli.VALID_STAGES
     sws = ShowWorkspace(tmp_path / "s")
     assert cli._show_stage_artifacts(sws, "vet") == [sws.vetting]
+
+
+def test_stage_research_maps_to_research_and_vetting(tmp_path: Path):
+    # re-researching with --force must also drop vetting.json so the fresh
+    # document is re-vetted rather than shipping under the old extraction.
+    sws = ShowWorkspace(tmp_path / "s")
+    assert cli._show_stage_artifacts(sws, "research") == [sws.research, sws.vetting]

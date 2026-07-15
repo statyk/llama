@@ -61,7 +61,7 @@ def _show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
     return {
         "select": [show_ws.selection],
         "gather": [show_ws.show, show_ws.reviews],
-        "research": [show_ws.research],
+        "research": [show_ws.research, show_ws.vetting],
         "vet": [show_ws.vetting],
         "synthesize": [show_ws.dj_notes_json, show_ws.dj_notes_md],
         "package": [show_ws.package_dir / "manifest.json"],
