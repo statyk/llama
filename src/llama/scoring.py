@@ -34,6 +34,10 @@ def score_recording(
     score += (avg_rating or 0.0) * math.log10(1 + max(num_reviews, 0))
     if has_wanted_format:
         score += 0.5
-    score += completeness  # 0..1: kept-track count vs best sibling
+    # Completeness (0..1, kept-track count vs best sibling) scales the whole
+    # score: a fragment of the show forfeits up to half its appeal, so a
+    # hot-rated partial recording loses to a complete one of the same
+    # performance, while lineage still dominates across recording types.
+    score *= 0.5 + 0.5 * completeness
     score -= 0.5 * min(complaints, 4)
     return round(score, 3)

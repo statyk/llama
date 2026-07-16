@@ -56,15 +56,24 @@ def run_synthesize(
         return read_model(show_ws.dj_notes_json, DJNotes)
 
     sets = sorted({t.set for t in show.tracks}, key=lambda x: (x == "encore", x))
-    notes = run_json_task(
-        provider, "synthesize", DJNotes,
+    inputs = dict(
         show_json=show.model_dump_json(indent=2),
         research=research_md or "(no research available)",
         reviews_digest=reviews_digest(reviews),
         sets=", ".join(f'"{s}"' for s in sets),
         n_breaks=len(show.set_breaks),
     )
-    problems = factual_guard(notes, show)
+    feedback = ""
+    for _attempt in range(2):
+        notes = run_json_task(provider, "synthesize", DJNotes, feedback=feedback, **inputs)
+        problems = factual_guard(notes, show)
+        if not problems:
+            break
+        feedback = (
+            "IMPORTANT: your previous script failed fact-checking: "
+            + "; ".join(problems)
+            + ". Fix every problem; use exactly the sets and break count above."
+        )
     if problems:
         current = read_model(show_ws.show, Show)
         current.review_flags = current.review_flags + problems

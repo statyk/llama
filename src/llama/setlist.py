@@ -1,3 +1,4 @@
+import html
 import re
 
 from llama.models import ParsedSetlist, SetlistItem
@@ -46,6 +47,7 @@ def _split_songs(chunk: str) -> list[tuple[str, bool]]:
 def parse_setlist(description: str) -> ParsedSetlist:
     text = re.sub(r"<br\s*/?>", "\n", description, flags=re.I)
     text = re.sub(r"<[^>]+>", "\n", text)
+    text = html.unescape(text)  # "&gt;" segues, "&amp;" in titles
     text = _INLINE_MARKER.sub("\n", text)
     lines = [ln.strip() for ln in text.splitlines()]
     # If any set/encore marker exists, the setlist starts there: header lines above

@@ -141,7 +141,7 @@ def test_align_unmatched_tracks_inherit_previous_set():
     r = align([tr(1, "A"), tr(2, "Tuning"), tr(3, "B"), tr(4, "Crowd")], c)
     assert r.sets == ["1", "1", "2", "2"]
     assert r.matched == [True, False, True, False]
-    assert r.coverage == 0.5
+    assert r.coverage == 1.0  # Tuning/Crowd are filler, excluded from coverage
     assert r.segues[1] is False
 
 
@@ -149,6 +149,24 @@ def test_align_first_track_unmatched_defaults_to_set_1():
     c = canon(("1", "B", False))
     r = align([tr(1, "Intro"), tr(2, "B")], c)
     assert r.sets == ["1", "1"]
+
+
+def test_alignment_coverage_ignores_filler_tracks():
+    # Real case (GD 1977-05-07): a third of the tracks are Tune Up / Equipment
+    # Repairs / Crowd filler that no canonical setlist contains. Coverage is
+    # measured over song-like tracks only.
+    c = canon(("1", "A", False), ("1", "B", False), ("2", "C", False))
+    tracks = [tr(1, "Tune Up"), tr(2, "A"), tr(3, "Equipment Repairs"),
+              tr(4, "B"), tr(5, "Stage Annoucements"), tr(6, "C"),
+              tr(7, "Crowd Noise")]
+    r = align(tracks, c)
+    assert r.coverage == 1.0
+    assert r.sets == ["1", "1", "1", "1", "1", "2", "2"]  # filler inherits sets
+
+
+def test_alignment_coverage_all_filler_is_zero():
+    r = align([tr(1, "Tuning"), tr(2, "Applause")], canon(("1", "A", False)))
+    assert r.coverage == 0.0
 
 
 def test_align_empty_inputs():

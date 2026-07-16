@@ -12,6 +12,7 @@ Listener review excerpts:
 {{reviews_digest}}
 
 This show has these sets: {{sets}}. There are {{n_breaks}} set break(s).
+{{feedback}}
 
 Respond with ONLY JSON in this shape:
 {"context": "<one line placing the show in its era/tour>",

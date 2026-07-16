@@ -34,4 +34,24 @@ def test_complaints_penalize_capped():
 def test_none_rating_is_zero_not_error():
     s = score_recording(lineage="unknown", avg_rating=None, num_reviews=0,
                         has_wanted_format=False, completeness=0.5, complaints=0)
-    assert s == 0.5
+    assert s == 0.0  # zero evidence stays zero regardless of completeness
+
+
+def test_fragment_loses_to_fuller_recording_of_same_show():
+    # Real case (GD 1969-11-02): a 6-of-13-track sbd fragment with a hotter
+    # rating must not beat a complete sbd of the same performance.
+    frag = score_recording(lineage="sbd", avg_rating=5.0, num_reviews=6,
+                           has_wanted_format=True, completeness=6 / 13, complaints=0)
+    full = score_recording(lineage="sbd", avg_rating=4.7, num_reviews=4,
+                           has_wanted_format=True, completeness=1.0, complaints=0)
+    assert full > frag
+
+
+def test_completeness_does_not_flip_lineage_preference():
+    # Real case (GD 1970-09-19): a complete audience tape must not beat a
+    # good sbd fragment just by being longer - lineage still dominates.
+    sbd_fragment = score_recording(lineage="sbd", avg_rating=4.9, num_reviews=30,
+                                   has_wanted_format=True, completeness=8 / 23, complaints=0)
+    full_aud = score_recording(lineage="aud", avg_rating=4.5, num_reviews=5,
+                               has_wanted_format=True, completeness=1.0, complaints=0)
+    assert sbd_fragment > full_aud

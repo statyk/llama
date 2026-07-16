@@ -67,6 +67,15 @@ def test_inline_set_markers_without_line_breaks():
     assert parsed.confidence == "high"
 
 
+def test_html_entities_unescape_before_parsing():
+    # Common LMA convention: segues written as &gt; and ampersands as &amp;.
+    desc = "Set 1: Bertha, Me &amp; My Uncle, Drums &gt; The Wheel &gt; Wharf Rat"
+    parsed = parse_setlist(desc)
+    assert [i.title for i in parsed.items] == [
+        "Bertha", "Me & My Uncle", "Drums", "The Wheel", "Wharf Rat"]
+    assert parsed.items[2].segue is True and parsed.items[3].segue is True
+
+
 def test_no_markers_is_medium():
     desc = "Bertha\nSugaree\nDeal\nLoser\nCasey Jones"
     parsed = parse_setlist(desc)

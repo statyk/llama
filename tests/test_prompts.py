@@ -10,7 +10,7 @@ EXPECTED = {
     "light_research": {"artist", "date", "venue"},
     "extract_setlist": {"description"},
     "deep_research": {"artist", "date", "venue", "dossier", "setlist"},
-    "synthesize": {"show_json", "research", "reviews_digest", "sets", "n_breaks"},
+    "synthesize": {"show_json", "research", "reviews_digest", "sets", "n_breaks", "feedback"},
     "find_artists": {"query", "max_results", "artist_table"},
     "align_structure": {"tracks", "setlist"},
     "vet_research": {"research"},

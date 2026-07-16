@@ -13,6 +13,18 @@ from llama.songs import normalize_song
 # "E: Baby Blue" / "Encore: Casey Jones" - structure markers embedded in a title.
 _STRUCTURE_PREFIX = re.compile(r"^\s*(?:e|encore)\s*:\s*", re.I)
 
+# Non-song tracks (tuning, repairs, announcements, crowd noise) that no
+# canonical setlist contains; they must not count against alignment coverage.
+_FILLER = re.compile(
+    r"tun(?:ing|e\s*-?\s*up)|repairs?|announ?ce|applause|crowd|banter"
+    r"|soundcheck|equipment",
+    re.I,
+)
+
+
+def is_filler(title: str) -> bool:
+    return bool(_FILLER.search(title))
+
 _CONF_RANK = {"low": 0, "medium": 1, "high": 2}
 
 
@@ -106,10 +118,17 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3) -
             matched.append(True)
             matched_idx.add(hit)
             j = hit + 1
-    coverage = (sum(matched) / len(tracks)) if tracks else 0.0
+    coverage = _songish_coverage(tracks, matched)
     conflicts = [it.title for k, it in enumerate(items) if k not in matched_idx]
     return AlignResult(sets=sets, segues=segues, matched=matched,
                        coverage=coverage, conflicts=conflicts)
+
+
+def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
+    """Matched fraction over song-like tracks only: filler (tuning, repairs,
+    crowd) can never match a canonical setlist and must not drag coverage."""
+    songish = [m for t, m in zip(tracks, matched) if not is_filler(t.title)]
+    return (sum(songish) / len(songish)) if songish else 0.0
 
 
 def structure_guard(tracks: list[Track], set_breaks: list[int],
@@ -143,6 +162,6 @@ def apply_llm_alignment(tracks: list[Track], resp: AlignedStructure) -> AlignRes
     if any(a.set not in _VALID_SETS for a in ordered):
         return None
     matched = [bool(a.matched_title) for a in ordered]
-    coverage = (sum(matched) / len(tracks)) if tracks else 0.0
+    coverage = _songish_coverage(tracks, matched)
     return AlignResult(sets=[a.set for a in ordered], segues=[a.segue for a in ordered],
                        matched=matched, coverage=coverage)

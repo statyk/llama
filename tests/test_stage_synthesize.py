@@ -64,11 +64,28 @@ def test_synthesize_writes_notes_and_md(tmp_path: Path):
     assert json.loads(sws.show.read_text())["needs_review"] is False
 
 
+def test_synthesize_retries_with_guard_feedback(tmp_path: Path):
+    # Real case (Veneta '72): the LLM wrote an intro for nonexistent "set 5".
+    # One corrective retry must fix it instead of holding the show.
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    write_artifact(sws.show, show)
+    bad = json.dumps(notes_dict(
+        set_intros={"1": "a", "2": "b", "5": "??", "encore": "c"}))
+    fake = FakeProvider(completes=[bad, json.dumps(notes_dict())])
+    notes = run_synthesize(sws, fake, show, research_md="", reviews=[])
+    assert set(notes.set_intros) == {"1", "2", "encore"}
+    assert json.loads(sws.show.read_text())["needs_review"] is False
+    retry_prompt = fake.calls[1][1]
+    assert "fact-check" in retry_prompt and "nonexistent set: 5" in retry_prompt
+
+
 def test_synthesize_guard_failure_marks_needs_review(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
     show = make_show()
     write_artifact(sws.show, show)
-    fake = FakeProvider(completes=[json.dumps(notes_dict(mentioned_songs=["Fake Song"]))])
+    bad = json.dumps(notes_dict(mentioned_songs=["Fake Song"]))
+    fake = FakeProvider(completes=[bad, bad])  # retry also fails
     run_synthesize(sws, fake, show, research_md="", reviews=[])
     saved = json.loads(sws.show.read_text())
     assert saved["needs_review"] is True

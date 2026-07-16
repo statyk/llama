@@ -142,9 +142,8 @@ def test_show_failure_is_isolated_and_raw_output_saved(tmp_path: Path, monkeypat
 def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     providers = fake_providers(None)
-    providers["synthesize"] = FakeProvider(completes=[
-        json.dumps({**json.loads(NOTES), "mentioned_songs": ["Fake Invented Song"]})
-    ])
+    bad_notes = json.dumps({**json.loads(NOTES), "mentioned_songs": ["Fake Invented Song"]})
+    providers["synthesize"] = FakeProvider(completes=[bad_notes, bad_notes])  # retry also fails
     monkeypatch.setattr(cli, "make_providers", lambda config: providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
