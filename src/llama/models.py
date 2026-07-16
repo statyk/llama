@@ -21,6 +21,10 @@ class Criteria(BaseModel):
     # Persisted run intent (stamped by find/profile-run, honored on replay):
     # whether this run also generates the verbatim DJ script.
     script: bool = False
+    # Max share of a multi-artist shortlist/auto-pick one artist may hold
+    # (ceil(n * cap) slots) while other artists still have candidates.
+    # 1.0 = pure best-first; at or below 1/n = one-per-artist round-robin.
+    artist_cap: float = Field(default=1 / 3, gt=0, le=1)
 
 
 class RecordingSummary(BaseModel):

@@ -160,6 +160,22 @@ def test_winnow_shortlist_spreads_across_artists(tmp_path: Path):
     assert "GarageATrois" in picked and "SnarkyPuppy" in picked
 
 
+def test_winnow_shortlist_honors_criteria_artist_cap(tmp_path: Path):
+    cands = [candidate("CharlieHunter/2002-07-05", "2002-07-05"),
+             candidate("CharlieHunter/2000-08-23", "2000-08-23"),
+             candidate("CharlieHunter/2001-12-08", "2001-12-08"),
+             candidate("GarageATrois/1998-04-25", "1998-04-25"),
+             candidate("SnarkyPuppy/2014-03-01", "2014-03-01")]
+    ws, led = setup(tmp_path, cands)
+    pids = [c.performance_id for c in cands]
+    fake = FakeProvider(completes=[assessments_json(pids)], researches=["r"] * 4)
+    # cap raised to 1.0: pure best-first, CharlieHunter may sweep
+    entries = run_winnow(ws, fake, fake, StubIA(), Criteria(query="jazz", artist_cap=1.0),
+                         led, shortlist_size=4, batch_size=10)
+    assert [e.candidate.collection for e in entries] == \
+        ["CharlieHunter", "CharlieHunter", "CharlieHunter", "GarageATrois"]
+
+
 def test_winnow_logs_progress(tmp_path: Path, caplog):
     cands = [candidate(f"GratefulDead/1974-0{i}-01", f"1974-0{i}-01") for i in range(1, 6)]
     ws, led = setup(tmp_path, cands)

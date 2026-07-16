@@ -138,7 +138,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             for e in shortlist:
                 e.approved = e.rank in wanted
             write_artifact(ws.shortlist, shortlist)
-    chosen = choose_entries(shortlist, count, human_gate and auto)
+    chosen = choose_entries(shortlist, count, human_gate and auto,
+                            artist_cap=criteria.artist_cap)
     if chosen is None:
         typer.echo(f"Shortlist awaits review: llama review {ws.dir}")
         return
@@ -170,6 +171,9 @@ def find(
     run_name: str = typer.Option(None, "--run-name"),
     script: bool = typer.Option(False, "--script/--no-script",
                                 help="Also generate the verbatim DJ script (extra high-tier LLM call)"),
+    artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
+                                     help="Max share of the shortlist one artist may hold "
+                                          "(1.0 = pure best-first; default 1/3)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """One-off: find, vet, research, and package shows matching QUERY."""
@@ -183,6 +187,8 @@ def find(
         updates["count"] = limit
     if script:
         updates["script"] = True
+    if artist_cap is not None:
+        updates["artist_cap"] = artist_cap
     if updates:
         criteria = criteria.model_copy(update=updates)
         write_artifact(ws.criteria, criteria)
@@ -379,12 +385,17 @@ def profile_add(
     count: int = typer.Option(1, "--count"),
     human_gate: bool = typer.Option(False, "--human-gate"),
     script: bool = typer.Option(False, "--script"),
+    artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
+                                     help="Max share of this profile's shortlist one artist "
+                                          "may hold (1.0 = pure best-first; default 1/3)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Interpret QUERY once and save it as a named standing profile."""
     config, _, _ = _setup(config_path)
     scratch = RunWorkspace(config.root, f"profile-setup-{name}")
     criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
+    if artist_cap is not None:
+        criteria = criteria.model_copy(update={"artist_cap": artist_cap})
     profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate, script=script)
     path = save_profile(config.root, profile)
     typer.echo(f"saved: {path}")

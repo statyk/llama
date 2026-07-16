@@ -1,3 +1,4 @@
+import math
 import re
 
 
@@ -63,6 +64,37 @@ def spread_across_artists(items: list, artist_of, date_of, n: int) -> list:
         return spread_across_years(items, date_of, n)
     ordered = [spread_across_years(b, date_of, len(b)) for b in buckets.values()]
     return _round_robin(ordered, n)
+
+
+def cap_across_artists(items: list, artist_of, date_of, n: int, cap: float) -> list:
+    """Pick up to n items best-first, but while other artists still have
+    candidates no artist may hold more than ceil(n * cap) slots — quality
+    earns the slots, the cap only bounds dominance. Each artist's own slots
+    are spread across years. cap=1.0 is pure best-first; cap at or below 1/n
+    degenerates to one-per-artist round-robin. If every artist hits the cap
+    before n slots fill, the rest relax to best-first. With a single artist
+    this is exactly spread_across_years."""
+    buckets: dict[str, list] = {}
+    for item in items:
+        buckets.setdefault(artist_of(item), []).append(item)
+    if len(buckets) <= 1:
+        return spread_across_years(items, date_of, n)
+    # Year-spread queue per artist: score order decides WHOSE turn a slot is,
+    # the queue decides WHICH of their shows fills it.
+    queues = {a: spread_across_years(b, date_of, len(b)) for a, b in buckets.items()}
+    max_per = max(1, math.ceil(n * cap))
+    picked: list = []
+    counts = {a: 0 for a in queues}
+    for item in items:
+        if len(picked) >= n:
+            return picked
+        a = artist_of(item)
+        if counts[a] < max_per:
+            counts[a] += 1
+            picked.append(queues[a].pop(0))
+    taken = {id(x) for x in picked}
+    leftovers = [x for x in items if id(x) not in taken]
+    return picked + leftovers[: n - len(picked)]
 
 
 def reviews_digest(reviews: list[dict], limit: int = 5) -> str:

@@ -388,9 +388,12 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
     add = runner.invoke(cli.app, ["profile", "add", "sunday-dead", "GD classics",
-                                  "--count", "2", "--human-gate", "--config", cfg])
+                                  "--count", "2", "--human-gate", "--artist-cap", "0.5",
+                                  "--config", cfg])
     assert add.exit_code == 0, add.output
     assert (tmp_path / "profiles" / "sunday-dead.toml").exists()
+    from llama.profiles import load_profile
+    assert load_profile(tmp_path, "sunday-dead").criteria.artist_cap == 0.5
     listing = runner.invoke(cli.app, ["profile", "list", "--config", cfg])
     assert "sunday-dead" in listing.output
 

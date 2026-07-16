@@ -85,7 +85,7 @@ and it is what gate 2 reads. When a show is held, this file says why.
 | interpret | yes | `criteria.json` | Query → structured criteria (artist, era, count, constraints) |
 | discover | yes | `artists.json` | Artist-less queries only: match style against the LMA artist index |
 | search | no | `candidates.json` | Wide-net archive.org search via the cursor-paginated scrape API — every matching recording, uncapped; groups recordings by performance identity (artist + date + venue). Complete recording lists matter downstream: siblings feed set-structure recovery and recording selection |
-| winnow | yes ×2 | `shortlist.json` | Ledger dedup → mechanical floors (rating/review count, setlist constraints) → LLM review scoring → light web research on the top 12+. When survivors exceed the review-fetch budget (`[winnow] max_metadata_fetch`, default 40), it samples them evenly across artists, then years — best evidence first — and the shortlist cut spreads the same way, so multi-era queries come back as a mix instead of one hot year and style profiles as a mix of artists instead of one deep catalog |
+| winnow | yes ×2 | `shortlist.json` | Ledger dedup → mechanical floors (rating/review count, setlist constraints) → LLM review scoring → light web research on the top 12+. When survivors exceed the review-fetch budget (`[winnow] max_metadata_fetch`, default 40), it samples them evenly across artists, then years — best evidence first. The shortlist cut is best-score-first with per-artist share capped at `artist_cap` (default 1/3), so style profiles come back a mix of artists instead of one deep catalog, and multi-era queries a mix instead of one hot year |
 | select-recording | no | `selection.json` | Picks the best *recording* of the performance: lineage (SBD > MTX > AUD, era-overridable — early-80s GD inverts to MTX > AUD > SBD), ratings, completeness (scales the score: fragments lose to fuller tapes), and `[selection.tapers]` reputation bonuses (miller/seamons for GD; newest revision of a taper preferred) |
 | gather | maybe | `show.json`, `reviews.json` | Junk-filters files, resolves track titles (tags → setlist → siblings), builds canonical set structure from all recordings + setlist.fm, aligns it onto tracks; LLM only as alignment/extraction fallback |
 | research | yes | `research.md` | Deep web research on the specific performance |
@@ -98,13 +98,22 @@ nothing, and LMA reviews skew toward people who attended the show. The
 scoring prompt demands merit-based praise, and light research looks for the
 show's reputation *outside* the archive.
 
-Variety is deliberate: the fetch budget, the shortlist cut, and the final
-auto-pick all round-robin across artists first (when the run spans several),
-then across years within each artist (best score first throughout) rather
-than taking a pure top-N — a run for "1969-1977" comes back as a spread, not
-thirteen shows from one hot year, and a style profile comes back as a mix of
-artists, not one deep catalog's greatest hits. Explicit `llama review`
-approvals are never spread; your picks are your picks.
+Variety is deliberate, but quality earns the slots. The shortlist cut and
+the final auto-pick fill best-score-first with one bound: while other
+artists still have candidates, no artist may hold more than a share of the
+batch (`--artist-cap` on `find`/`profile add`, default 1/3 — at most
+⌈n×cap⌉ slots). A dominant catalog is bounded, not rationed: weaker artists
+appear only if their scores earn it, and if everyone else runs out the cap
+relaxes rather than under-delivering. Each artist's own slots spread across
+years, so single-artist runs keep the era mix ("1969-1977" comes back as a
+spread, not one hot year). `--artist-cap 1.0` restores pure top-N; a tiny
+cap forces one-per-artist rotation. The review-fetch sampling stays evenly
+spread across artists and years so the cap operates on real scores.
+
+Variety guarantees exist within a single batch only — nothing rotates
+across runs, and the ledger's job is dedup, not rotation. Want no artist
+repeated across your next N shows? Generate the N in one run. Explicit
+`llama review` approvals are never spread; your picks are your picks.
 
 ## The two human gates (don't confuse them)
 
