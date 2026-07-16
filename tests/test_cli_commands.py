@@ -40,6 +40,20 @@ def test_review_approves_selected_ranks(tmp_path: Path):
     assert f"llama run {ws.dir}" in result.output
 
 
+def test_review_shortlist_shows_artist(tmp_path: Path):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    entries = make_entries()
+    entries[1].candidate.collection = "mekons"  # multi-artist profile
+    write_artifact(ws.shortlist, entries)
+    result = runner.invoke(cli.app, ["review", str(ws.dir), "--config",
+                                     str(tmp_path / "config.toml")], input="\n")
+    assert result.exit_code == 0, result.output
+    lines = result.output.splitlines()
+    assert any("GratefulDead" in ln and "1973-06-10" in ln for ln in lines)
+    assert any("mekons" in ln and "1973-06-11" in ln for ln in lines)
+
+
 def test_review_empty_input_changes_nothing(tmp_path: Path):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     ws = RunWorkspace(tmp_path, "r1")
