@@ -25,9 +25,6 @@ from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_
 
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
-# Forcing a show-level stage also drops everything downstream of it, so a
-# replay can never package artifacts derived from the pre-force state.
-SHOW_STAGE_ORDER = ["select", "gather", "research", "vet", "synthesize", "package"]
 
 app = typer.Typer(help="Live Music Archive -> radio station pipeline")
 configure_logging()
@@ -79,17 +76,6 @@ def _parse_ranks(text: str) -> set[int]:
     return {int(p) for p in text.split(",") if p.strip().isdigit()}
 
 
-def _show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
-    return {
-        "select": [show_ws.selection],
-        "gather": [show_ws.show, show_ws.reviews],
-        "research": [show_ws.research, show_ws.vetting],
-        "vet": [show_ws.vetting],
-        "synthesize": [show_ws.dj_notes_json, show_ws.dj_notes_md],
-        "package": [show_ws.package_dir / "manifest.json"],
-    }[stage]
-
-
 def _print_shortlist(entries: list[ShortlistEntry]) -> None:
     for e in entries:
         c = e.candidate
@@ -109,7 +95,7 @@ def _print_artists(rows: list[dict]) -> None:
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
-             script: bool = False) -> None:
+             script: bool = False, force_stage: str | None = None) -> None:
     providers = make_providers(config)
     artists = None
     if criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
@@ -161,7 +147,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
                                force=force, script=script, setlistfm=setlistfm,
-                               structure_cfg=config.structure, selection_cfg=config.selection)
+                               structure_cfg=config.structure, selection_cfg=config.selection,
+                               force_stage=force_stage)
         except (TaskFailed, LLMError, IAError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
@@ -190,8 +177,17 @@ def find(
     name = run_name or f"{date.today().isoformat()}-{slugify(query)[:40]}"
     ws = RunWorkspace(config.root, name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
-    count = limit or criteria.count
-    _execute(config, ia, ledger, ws, criteria, count, auto, human_gate=False, script=script)
+    # Stamp explicit flags into the run's criteria so replays behave the same.
+    updates = {}
+    if limit:
+        updates["count"] = limit
+    if script:
+        updates["script"] = True
+    if updates:
+        criteria = criteria.model_copy(update=updates)
+        write_artifact(ws.criteria, criteria)
+    _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
+             human_gate=False, script=script)
 
 
 @app.command()
@@ -238,8 +234,8 @@ def run(
     stage: str = typer.Option(None, "--stage", help="Force re-run of one stage"),
     auto: bool = typer.Option(True, "--auto/--interactive"),
     force: bool = typer.Option(False, "--force"),
-    script: bool = typer.Option(False, "--script/--no-script",
-                                help="Also generate the verbatim DJ script (extra high-tier LLM call)"),
+    script: bool = typer.Option(None, "--script/--no-script",
+                                help="Override the run's persisted script setting"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Replay an existing run from its artifacts (stages skip work already done)."""
@@ -258,27 +254,20 @@ def run(
             typer.echo("this rebuilds the shortlist and discards the approvals recorded on it")
             if not typer.confirm("Continue?", default=False):
                 raise typer.Exit(1)
-    if stage and force:
-        if stage == "search":
-            doomed = [ws.candidates, ws.shortlist]  # a stale shortlist would block re-winnowing
-        elif stage == "winnow":
-            doomed = [ws.shortlist]
-        else:
-            doomed = []
-            shows_dir = ws.dir / "shows"
-            if shows_dir.exists():
-                for show_dir in sorted(shows_dir.iterdir()):
-                    if not show_dir.is_dir():
-                        continue
-                    show_ws = ShowWorkspace(show_dir)
-                    for st in SHOW_STAGE_ORDER[SHOW_STAGE_ORDER.index(stage):]:
-                        doomed += _show_stage_artifacts(show_ws, st)
+    if stage and force and stage in RUN_LEVEL_STAGES:
+        # a stale shortlist would block re-winnowing after a fresh search
+        doomed = [ws.candidates, ws.shortlist] if stage == "search" else [ws.shortlist]
         for path in doomed:
             if path.exists():
                 path.unlink()
+    # Show-level stage forcing is applied per chosen show at process time
+    # (force_stage), never as a bulk sweep: shows that are not reprocessed
+    # this run must keep their artifacts and packages intact.
+    effective_script = criteria.script if script is None else script
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=force and stage is None,
-             script=script or stage == "synthesize")
+             script=effective_script or stage == "synthesize",
+             force_stage=stage if (force and stage not in (None, *RUN_LEVEL_STAGES)) else None)
 
 
 @app.command()
@@ -411,8 +400,12 @@ def profile_run(
     config, ia, ledger = _setup(config_path)
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, f"{date.today().isoformat()}-{name}")
-    write_artifact(ws.criteria, profile.criteria)
-    _execute(config, ia, ledger, ws, profile.criteria, profile.count, auto,
+    # Stamp count and script into the run's criteria: a later `llama run` on
+    # this dir must behave like the profile, not like the interpreted defaults.
+    criteria = profile.criteria.model_copy(update={"count": profile.count,
+                                                   "script": profile.script})
+    write_artifact(ws.criteria, criteria)
+    _execute(config, ia, ledger, ws, criteria, profile.count, auto,
              human_gate=profile.human_gate, script=profile.script)
 
 

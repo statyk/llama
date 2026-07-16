@@ -230,6 +230,32 @@ def test_stage_synthesize_implies_script(tmp_path: Path, monkeypatch):
     assert (show_dir / "dj-notes.json").exists()
 
 
+def test_stage_force_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path, monkeypatch):
+    # Per-show deletion at process time: the chosen show's forced stage and
+    # everything downstream rebuild; earlier artifacts are reused.
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    cfg = str(tmp_path / "config.toml")
+
+    first = runner.invoke(cli.app, ["find", "GD 1973", "--auto",
+                                    "--run-name", "stageforce", "--config", cfg])
+    assert first.exit_code == 0, first.output
+    show_dir = tmp_path / "runs" / "stageforce" / "shows" / "gratefuldead-1973-06-10"
+    (show_dir / "research.md").write_text("OLD SENTINEL")
+
+    fresh = fake_providers(None)
+    fresh["interpret"] = FakeProvider()      # criteria replayed from disk
+    fresh["score_reviews"] = FakeProvider()  # shortlist replayed from disk
+    fresh["light_research"] = FakeProvider()
+    monkeypatch.setattr(cli, "make_providers", lambda config: fresh)
+    replay = runner.invoke(cli.app, ["run", str(show_dir.parent.parent),
+                                     "--stage", "research", "--force", "--config", cfg])
+    assert replay.exit_code == 0, replay.output
+    assert (show_dir / "research.md").read_text() != "OLD SENTINEL"  # re-researched
+    assert (show_dir / "package" / "manifest.json").exists()          # repackaged
+
+
 def test_vet_failure_skips_show_before_packaging(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     providers = fake_providers(None)

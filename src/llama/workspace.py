@@ -52,6 +52,30 @@ class ShowWorkspace:
         self.package_dir = dir / "package"
 
 
+# Show-level stage order: forcing a stage drops its artifacts and everything
+# downstream, so a replay can never package outputs derived from pre-force state.
+SHOW_STAGE_ORDER = ["select", "gather", "research", "vet", "synthesize", "package"]
+
+
+def show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
+    return {
+        "select": [show_ws.selection],
+        "gather": [show_ws.show, show_ws.reviews],
+        "research": [show_ws.research, show_ws.vetting],
+        "vet": [show_ws.vetting],
+        "synthesize": [show_ws.dj_notes_json, show_ws.dj_notes_md],
+        "package": [show_ws.package_dir / "manifest.json"],
+    }[stage]
+
+
+def drop_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> None:
+    """Delete one show's artifacts for `stage` and every stage after it."""
+    for st in SHOW_STAGE_ORDER[SHOW_STAGE_ORDER.index(stage):]:
+        for path in show_stage_artifacts(show_ws, st):
+            if path.exists():
+                path.unlink()
+
+
 class RunWorkspace:
     def __init__(self, root: Path, name: str):
         self.name = name

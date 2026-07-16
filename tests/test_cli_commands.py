@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -8,7 +9,7 @@ from llama.ledger import Ledger
 from llama.models import (
     Candidate, Criteria, LedgerEntry, QualityAssessment, RecordingSummary, ShortlistEntry,
 )
-from llama.workspace import RunWorkspace, ShowWorkspace, read_model_list, write_artifact
+from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
 
 runner = CliRunner()
 
@@ -141,19 +142,17 @@ def test_bare_force_without_approvals_does_not_prompt(tmp_path: Path, monkeypatc
     assert calls
 
 
-def test_stage_force_cascades_to_downstream_artifacts(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    cfg, ws = _approved_run(tmp_path)
-    sws = ws.show_ws("GratefulDead/1973-06-10")
+def test_drop_stage_artifacts_cascades_for_one_show(tmp_path: Path):
+    from llama.workspace import drop_stage_artifacts
+
+    sws = ShowWorkspace(tmp_path / "s")
     for path in [sws.selection, sws.show, sws.reviews, sws.vetting, sws.dj_notes_json]:
         write_artifact(path, "{}")
     write_artifact(sws.research, "research")
     write_artifact(sws.dj_notes_md, "notes")
     write_artifact(sws.package_dir / "manifest.json", "{}")
 
-    result = runner.invoke(cli.app, ["run", str(ws.dir), "--stage", "gather",
-                                     "--force", "--config", cfg])
-    assert result.exit_code == 0, result.output
+    drop_stage_artifacts(sws, "gather")
     assert sws.selection.exists()            # upstream stage untouched
     for path in [sws.show, sws.reviews, sws.research, sws.vetting,
                  sws.dj_notes_json, sws.dj_notes_md, sws.package_dir / "manifest.json"]:
@@ -382,14 +381,85 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     assert "sunday-dead" in listing.output
 
 
+def test_profile_run_stamps_count_and_script_into_run_criteria(tmp_path: Path, monkeypatch):
+    # Replaying a profile's run dir must behave like the profile: count and
+    # script live in the run's criteria.json, not only in the profile.
+    from llama.llm.fake import FakeProvider
+    from llama.models import Criteria as C
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    save_profile(tmp_path, Profile(name="classic", criteria=C(query="GD classics"),
+                                   count=13, script=True))
+    captured = {}
+
+    def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
+                     force=False, script=False, force_stage=None):
+        captured.update(count=count, script=script, criteria=criteria)
+
+    monkeypatch.setattr(cli, "_execute", fake_execute)
+    result = runner.invoke(cli.app, ["profile", "run", "classic", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert captured["count"] == 13 and captured["script"] is True
+    saved = read_model(RunWorkspace(tmp_path, f"{date.today().isoformat()}-classic").criteria, C)
+    assert saved.count == 13 and saved.script is True
+
+
+def test_run_inherits_script_and_count_from_criteria(tmp_path: Path, monkeypatch):
+    from llama.models import Criteria as C
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, C(query="q", count=13, script=True))
+    captured = {}
+
+    def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
+                     force=False, script=False, force_stage=None):
+        captured.update(count=count, script=script)
+
+    monkeypatch.setattr(cli, "_execute", fake_execute)
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert captured == {"count": 13, "script": True}
+
+    # explicit --no-script overrides the persisted flag
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--no-script", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert captured["script"] is False
+
+
+def test_stage_force_deletion_is_deferred_to_processing(tmp_path: Path, monkeypatch):
+    # run() must NOT bulk-delete show artifacts up front: with count < shows
+    # present, unchosen shows would lose their packages and never be rebuilt
+    # (this vaporized 10 manifests in a real run). Deletion happens per chosen
+    # show inside process_show.
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+    cfg, ws = _approved_run(tmp_path)
+    sws = ws.show_ws("GratefulDead/1973-06-10")
+    for path in [sws.selection, sws.show, sws.dj_notes_json]:
+        write_artifact(path, "{}")
+    write_artifact(sws.package_dir / "manifest.json", "{}")
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--stage", "synthesize",
+                                     "--force", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert sws.dj_notes_json.exists()                      # untouched by run()
+    assert (sws.package_dir / "manifest.json").exists()
+
+
 def test_stage_vet_is_valid_and_maps_to_vetting_artifact(tmp_path: Path):
+    from llama.workspace import show_stage_artifacts
+
     assert "vet" in cli.VALID_STAGES
     sws = ShowWorkspace(tmp_path / "s")
-    assert cli._show_stage_artifacts(sws, "vet") == [sws.vetting]
+    assert show_stage_artifacts(sws, "vet") == [sws.vetting]
 
 
 def test_stage_research_maps_to_research_and_vetting(tmp_path: Path):
     # re-researching with --force must also drop vetting.json so the fresh
     # document is re-vetted rather than shipping under the old extraction.
+    from llama.workspace import show_stage_artifacts
+
     sws = ShowWorkspace(tmp_path / "s")
-    assert cli._show_stage_artifacts(sws, "research") == [sws.research, sws.vetting]
+    assert show_stage_artifacts(sws, "research") == [sws.research, sws.vetting]

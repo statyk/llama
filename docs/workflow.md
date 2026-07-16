@@ -173,13 +173,20 @@ stage skips work whose output already exists, so this is how you continue
 after a crash, after `llama review`, or after fixing something by hand.
 
 - `--stage <name> --force` deletes that stage's outputs **and everything
-  downstream of it** (for every show in the run), then re-runs — later
-  stages can never reuse artifacts derived from the pre-force state. Valid
-  stages: `search`, `winnow`, `select`, `gather`, `research`, `vet`,
-  `synthesize`, `package`. Forcing `search` also drops the shortlist.
+  downstream of it**, then re-runs — later stages can never reuse artifacts
+  derived from the pre-force state. Deletion happens **per show, at process
+  time, only for the shows chosen this run** — shows not selected for
+  reprocessing keep their artifacts and packages intact. Valid stages:
+  `search`, `winnow`, `select`, `gather`, `research`, `vet`, `synthesize`,
+  `package`. Forcing `search` also drops the shortlist.
 - Bare `--force` re-runs **everything**, including winnow — this rebuilds
   `shortlist.json`. If approvals were recorded on it, llama asks for
   confirmation before wiping them. Reach for `--stage X --force` first.
+- Replays are faithful: the run's `criteria.json` carries the `count` and
+  `script` settings it was created with (`find --limit/--script` and
+  `profile run` stamp them), so `llama run` processes the same number of
+  shows with the same script setting. `--script`/`--no-script` explicitly
+  overrides the persisted flag.
 - Defaults to `--auto` (no prompts), unlike `find`.
 
 ### `llama review <run-dir>`

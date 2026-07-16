@@ -18,6 +18,9 @@ class Criteria(BaseModel):
     min_avg_rating: float = 3.5
     min_reviews: int = 3
     count: int = 1
+    # Persisted run intent (stamped by find/profile-run, honored on replay):
+    # whether this run also generates the verbatim DJ script.
+    script: bool = False
 
 
 class RecordingSummary(BaseModel):

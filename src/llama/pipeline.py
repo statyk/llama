@@ -14,7 +14,7 @@ from llama.stages.synthesize import run_synthesize
 from llama.util import spread_across_years
 from llama.stages.vet_research import run_vet_research
 from llama.status import step
-from llama.workspace import RunWorkspace, read_json, read_model
+from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_model
 
 log = logging.getLogger("llama")
 
@@ -51,9 +51,12 @@ def process_show(
     setlistfm=None,
     structure_cfg=None,
     selection_cfg=None,
+    force_stage: str | None = None,
 ) -> Path | None:
     cand = entry.candidate
     show_ws = run_ws.show_ws(cand.performance_id)
+    if force_stage:
+        drop_stage_artifacts(show_ws, force_stage)
 
     pid = cand.performance_id
     with step(f"[{pid}] selecting recording"):
