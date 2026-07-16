@@ -106,6 +106,13 @@ def run_winnow(
 
     scored = [(c, assessments[c.performance_id]) for c in survivors
               if c.performance_id in assessments]
+    floored = [p for p in scored if p[1].quality_score >= criteria.min_quality_score]
+    if len(floored) < len(scored):
+        log.warning("winnow: %d of %d scored shows fell below the quality floor "
+                    "(%.1f) and were dropped - the pool may be thinning; adjust "
+                    "min_quality_score or broaden the criteria",
+                    len(scored) - len(floored), len(scored), criteria.min_quality_score)
+    scored = floored
     scored.sort(key=lambda pair: pair[1].quality_score, reverse=True)
     # Neither a hot year nor one deep catalog may monopolize the shortlist:
     # best score first, dominance bounded by the profile's artist_cap.

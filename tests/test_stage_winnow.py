@@ -24,9 +24,11 @@ class StubIA:
         return {"reviews": [{"reviewtitle": "great", "reviewbody": "crisp tape", "stars": "5"}]}
 
 
-def assessments_json(pids: list[str]) -> str:
+def assessments_json(pids: list[str], scores: list[float] | None = None) -> str:
     return json.dumps({"assessments": [
-        {"performance_id": pid, "quality_score": 9.0 - i, "non_attendee_evidence": "e",
+        {"performance_id": pid,
+         "quality_score": scores[i] if scores else 9.0 - 0.5 * i,
+         "non_attendee_evidence": "e",
          "recording_complaints": [], "rationale": "solid"}
         for i, pid in enumerate(pids)
     ]})
@@ -174,6 +176,30 @@ def test_winnow_shortlist_honors_criteria_artist_cap(tmp_path: Path):
                          led, shortlist_size=4, batch_size=10)
     assert [e.candidate.collection for e in entries] == \
         ["CharlieHunter", "CharlieHunter", "CharlieHunter", "GarageATrois"]
+
+
+def test_winnow_quality_floor_drops_low_scores_and_warns(tmp_path: Path, caplog):
+    cands = [candidate(f"GratefulDead/1974-0{i}-01", f"1974-0{i}-01") for i in range(1, 4)]
+    ws, led = setup(tmp_path, cands)
+    pids = [c.performance_id for c in cands]
+    fake = FakeProvider(completes=[assessments_json(pids, scores=[9.0, 6.0, 4.5])],
+                        researches=["r"] * 2)
+    with caplog.at_level(logging.WARNING, logger="llama"):
+        entries = run_winnow(ws, fake, fake, StubIA(), Criteria(query="q"), led, batch_size=10)
+    # 4.5 falls below the default 6.0 floor; 6.0 exactly meets it
+    assert [e.assessment.quality_score for e in entries] == [9.0, 6.0]
+    assert any("below the quality floor" in r.getMessage() for r in caplog.records)
+
+
+def test_winnow_quality_floor_is_per_criteria(tmp_path: Path):
+    cands = [candidate(f"GratefulDead/1974-0{i}-01", f"1974-0{i}-01") for i in range(1, 4)]
+    ws, led = setup(tmp_path, cands)
+    pids = [c.performance_id for c in cands]
+    fake = FakeProvider(completes=[assessments_json(pids, scores=[9.0, 6.0, 4.5])],
+                        researches=["r"] * 3)
+    entries = run_winnow(ws, fake, fake, StubIA(),
+                         Criteria(query="q", min_quality_score=0.0), led, batch_size=10)
+    assert len(entries) == 3  # floor disabled: nothing dropped
 
 
 def test_winnow_logs_progress(tmp_path: Path, caplog):

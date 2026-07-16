@@ -67,7 +67,9 @@ Optional config at `~/.llama/config.toml`:
     llama profile add sunday-dead-hour "classic Grateful Dead" --count 1 --human-gate
     llama profile add jazz "well-regarded jazz-adjacent live sets" --count 13 --artist-cap 0.25
                                      # multi-artist profiles: one artist may hold at most
-                                     # ceil(count*cap) picks while others have candidates
+                                     # ceil(count*cap) picks while others have candidates;
+                                     # --min-score (default 6.0) floors the LLM review score
+                                     # so a thinning pool fails loudly, never fades quietly
     llama profile run sunday-dead-hour
     llama review <run-dir>           # approve a shortlist, optionally process it
     llama run <run-dir>              # resume/replay a run; finished stages are skipped

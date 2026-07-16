@@ -174,6 +174,9 @@ def find(
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of the shortlist one artist may hold "
                                           "(1.0 = pure best-first; default 1/3)"),
+    min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
+                                    help="Quality floor (0-10) on the LLM review score; "
+                                         "lower-scored shows never shortlist (default 6.0)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """One-off: find, vet, research, and package shows matching QUERY."""
@@ -189,6 +192,8 @@ def find(
         updates["script"] = True
     if artist_cap is not None:
         updates["artist_cap"] = artist_cap
+    if min_score is not None:
+        updates["min_quality_score"] = min_score
     if updates:
         criteria = criteria.model_copy(update=updates)
         write_artifact(ws.criteria, criteria)
@@ -388,14 +393,22 @@ def profile_add(
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of this profile's shortlist one artist "
                                           "may hold (1.0 = pure best-first; default 1/3)"),
+    min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
+                                    help="Quality floor (0-10) on the LLM review score; "
+                                         "lower-scored shows never shortlist (default 6.0)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Interpret QUERY once and save it as a named standing profile."""
     config, _, _ = _setup(config_path)
     scratch = RunWorkspace(config.root, f"profile-setup-{name}")
     criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
+    updates = {}
     if artist_cap is not None:
-        criteria = criteria.model_copy(update={"artist_cap": artist_cap})
+        updates["artist_cap"] = artist_cap
+    if min_score is not None:
+        updates["min_quality_score"] = min_score
+    if updates:
+        criteria = criteria.model_copy(update=updates)
     profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate, script=script)
     path = save_profile(config.root, profile)
     typer.echo(f"saved: {path}")
