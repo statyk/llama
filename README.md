@@ -18,8 +18,8 @@ Optional config at `~/.llama/config.toml`:
     audio_format = "mp3"             # or "flac"
 
     [winnow]
-    max_metadata_fetch = 40          # review-fetch budget; sampled evenly
-                                     # across years when survivors exceed it
+    max_metadata_fetch = 40          # review-fetch budget; sampled evenly across
+                                     # artists and years when survivors exceed it
 
     # Recording selection ships GD-tuned defaults (shown here); override per
     # collection. Taper bonuses match identifier substrings; among revisions

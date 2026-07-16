@@ -13,7 +13,7 @@ DESC = "Set 1:\nMorning Dew\nChina Cat Sunflower > I Know You Rider\nLooks Like 
 
 def candidate(pid: str, date: str, desc: str | None = DESC, rating: float = 4.5, reviews: int = 10):
     return Candidate(
-        performance_id=pid, collection="GratefulDead", date=date, venue="V",
+        performance_id=pid, collection=pid.split("/")[0], date=date, venue="V",
         recordings=[RecordingSummary(identifier=f"{pid.split('/')[-1]}.sbd", date=date,
                                      avg_rating=rating, num_reviews=reviews, description=desc)],
     )
@@ -140,6 +140,24 @@ def test_winnow_shortlist_cut_spreads_years(tmp_path: Path):
     assert [e.candidate.performance_id for e in entries] == [
         "GratefulDead/1977-05-08", "GratefulDead/1969-12-07"]
     assert [e.rank for e in entries] == [1, 2]
+
+
+def test_winnow_shortlist_spreads_across_artists(tmp_path: Path):
+    # a style profile where one artist's catalog out-scores everyone else's
+    cands = [candidate("CharlieHunter/2002-07-05", "2002-07-05"),
+             candidate("CharlieHunter/2000-08-23", "2000-08-23"),
+             candidate("CharlieHunter/2001-12-08", "2001-12-08"),
+             candidate("GarageATrois/1998-04-25", "1998-04-25"),
+             candidate("SnarkyPuppy/2014-03-01", "2014-03-01")]
+    ws, led = setup(tmp_path, cands)
+    pids = [c.performance_id for c in cands]  # scores 9.0 down to 5.0 in this order
+    fake = FakeProvider(completes=[assessments_json(pids)], researches=["r"] * 4)
+    entries = run_winnow(ws, fake, fake, StubIA(), Criteria(query="jazz"), led,
+                         shortlist_size=4, batch_size=10)
+    picked = [e.candidate.collection for e in entries]
+    # every artist represented before CharlieHunter gets a second slot
+    assert picked.count("CharlieHunter") == 2
+    assert "GarageATrois" in picked and "SnarkyPuppy" in picked
 
 
 def test_winnow_logs_progress(tmp_path: Path, caplog):
