@@ -12,6 +12,10 @@ request, best fit first. Weigh:
 - era overlap between the request and the years covered
 - catalog depth (more recordings = deeper LMA coverage to draw from)
 
+Exclusions in the request are hard constraints, not preferences: if it says
+"not X" / "no X" / "avoid X", never pick an artist matching X, no matter how
+well they fit otherwise.
+
 Only use identifiers that appear in the inventory. Never invent one.
 If nothing fits, return an empty list.
 

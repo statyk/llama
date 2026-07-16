@@ -50,7 +50,10 @@ def test_discover_matches_orders_and_writes(tmp_path: Path):
     ]  # LLM ranking kept; reasons not persisted in the artifact
     assert json.loads(ws.artists.read_text()) == got
     prompt = fake.calls[0][1]
-    assert "folk/acoustic, well known" in prompt      # soft prefs reach the LLM
+    assert "well-known folk/acoustic performer 60s-70s" in prompt  # verbatim request
+    # interpret's soft_preferences paraphrase must NOT ride along: it restates
+    # the request and paraphrase loses exclusions ("not blues-rock")
+    assert "folk/acoustic, well known" not in prompt
     assert "1960-01-01" in prompt                     # era reaches the LLM
     assert "TinyBand" not in prompt                   # junk-filtered out of the table
 
