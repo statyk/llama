@@ -161,7 +161,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
                                force=force, script=script, setlistfm=setlistfm,
-                               structure_cfg=config.structure)
+                               structure_cfg=config.structure, selection_cfg=config.selection)
         except (TaskFailed, LLMError, IAError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"

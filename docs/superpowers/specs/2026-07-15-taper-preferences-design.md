@@ -31,9 +31,10 @@ seamons = 1.0
   complete tape unless ratings justify it.
 - **Newest revision preferred:** when several recordings of one performance
   match the same pattern, only the newest gets the full bonus; the rest get
-  half. Newness = item `addeddate` metadata (already fetched during
-  selection); fallback = the largest integer token in the identifier (the
-  shnid: `miller.32350` > `miller.32273`); missing dates sort oldest.
+  half. Newness = the shnid (largest integer token in the identifier:
+  `miller.32350` > `miller.32273`), with `addeddate` metadata as tiebreak
+  only — verified live that upload date misorders revisions (the older
+  1969-11-02 miller transfer was uploaded a year after the newer one).
 - A recording matching multiple patterns takes the largest applicable bonus.
 - Magnitude rationale: +2.0 is two-thirds of the SBD-over-AUD lineage gap —
   decisive between comparable tapes, but a 5-star/80-review alternative can

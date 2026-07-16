@@ -24,6 +24,31 @@ class StructureConfig(BaseModel):
     align_coverage_threshold: float = 0.8
 
 
+class LineageEra(BaseModel):
+    """Replace the global lineage base scores for one collection + date window."""
+    collection: str
+    date_from: str  # YYYY-MM-DD, inclusive
+    date_to: str
+    scores: dict[str, float]  # keys: sbd / matrix / aud / unknown
+
+
+def _default_tapers() -> dict[str, dict[str, float]]:
+    # Charlie Miller's transfers are the community gold standard; Seamons next.
+    return {"GratefulDead": {"miller": 2.0, "seamons": 1.0}}
+
+
+def _default_lineage_eras() -> list[LineageEra]:
+    # Early-80s GD soundboards are often poor; matrixes and audience tapes shine.
+    return [LineageEra(collection="GratefulDead",
+                       date_from="1980-01-01", date_to="1987-12-31",
+                       scores={"matrix": 3.0, "aud": 2.0, "sbd": 1.0})]
+
+
+class SelectionConfig(BaseModel):
+    tapers: dict[str, dict[str, float]] = Field(default_factory=_default_tapers)
+    lineage_eras: list[LineageEra] = Field(default_factory=_default_lineage_eras)
+
+
 class WinnowConfig(BaseModel):
     # Review-fetch budget: when more candidates survive the mechanical gate,
     # winnow samples this many evenly across years instead of scoring all.
@@ -44,6 +69,7 @@ class Config(BaseModel):
     structure: StructureConfig = Field(default_factory=StructureConfig)
     artists: ArtistsConfig = Field(default_factory=ArtistsConfig)
     winnow: WinnowConfig = Field(default_factory=WinnowConfig)
+    selection: SelectionConfig = Field(default_factory=SelectionConfig)
     tiers: dict[str, dict[Tier, str]] = Field(default_factory=dict)
 
     @model_validator(mode="before")

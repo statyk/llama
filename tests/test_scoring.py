@@ -47,6 +47,22 @@ def test_fragment_loses_to_fuller_recording_of_same_show():
     assert full > frag
 
 
+def test_taper_bonus_adds_to_base_score():
+    kw = dict(lineage="sbd", avg_rating=4.0, num_reviews=10,
+              has_wanted_format=True, completeness=1.0, complaints=0)
+    assert score_recording(taper_bonus=2.0, **kw) == score_recording(**kw) + 2.0
+
+
+def test_lineage_scores_override_inverts_preference():
+    kw = dict(avg_rating=4.0, num_reviews=10, has_wanted_format=True,
+              completeness=1.0, complaints=0)
+    era = {"matrix": 3.0, "aud": 2.0, "sbd": 1.0}  # early-80s GD: boards are rough
+    assert score_recording(lineage="aud", lineage_scores=era, **kw) > \
+        score_recording(lineage="sbd", lineage_scores=era, **kw)
+    assert score_recording(lineage="matrix", lineage_scores=era, **kw) > \
+        score_recording(lineage="aud", lineage_scores=era, **kw)
+
+
 def test_completeness_does_not_flip_lineage_preference():
     # Real case (GD 1970-09-19): a complete audience tape must not beat a
     # good sbd fragment just by being longer - lineage still dominates.

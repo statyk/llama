@@ -59,6 +59,10 @@ def test_setlistfm_and_structure_defaults():
     assert cfg.structure.guard_min_minutes == 150
     assert cfg.structure.align_coverage_threshold == 0.8
     assert cfg.winnow.max_metadata_fetch == 40
+    assert cfg.selection.tapers["GratefulDead"] == {"miller": 2.0, "seamons": 1.0}
+    era = cfg.selection.lineage_eras[0]
+    assert (era.collection, era.date_from, era.date_to) == ("GratefulDead", "1980-01-01", "1987-12-31")
+    assert era.scores == {"matrix": 3.0, "aud": 2.0, "sbd": 1.0}
 
 
 def test_setlistfm_and_structure_from_toml(tmp_path):
@@ -67,13 +71,20 @@ def test_setlistfm_and_structure_from_toml(tmp_path):
         '[setlistfm]\napi_key = "k123"\n\n'
         "[structure]\nguard_min_minutes = 90\n"
         "align_coverage_threshold = 0.5\n\n"
-        "[winnow]\nmax_metadata_fetch = 80\n"
+        "[winnow]\nmax_metadata_fetch = 80\n\n"
+        "[selection.tapers.GratefulDead]\nmiller = 5.0\n\n"
+        "[[selection.lineage_eras]]\ncollection = \"GratefulDead\"\n"
+        'date_from = "1980-01-01"\ndate_to = "1984-12-31"\n'
+        "scores = { matrix = 4.0, aud = 1.0, sbd = 0.5 }\n"
     )
     cfg = load_config(p)
     assert cfg.setlistfm.api_key == "k123"
     assert cfg.structure.guard_min_minutes == 90
     assert cfg.structure.align_coverage_threshold == 0.5
     assert cfg.winnow.max_metadata_fetch == 80
+    assert cfg.selection.tapers["GratefulDead"] == {"miller": 5.0}  # replaces default
+    assert cfg.selection.lineage_eras[0].date_to == "1984-12-31"
+    assert cfg.selection.lineage_eras[0].scores["matrix"] == 4.0
 
 
 def test_llm_tiers_lifted_from_llm_table(tmp_path: Path):

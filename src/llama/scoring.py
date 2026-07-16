@@ -29,9 +29,13 @@ def score_recording(
     has_wanted_format: bool,
     completeness: float,
     complaints: int,
+    taper_bonus: float = 0.0,
+    lineage_scores: dict[str, float] | None = None,
 ) -> float:
-    score = LINEAGE_SCORES.get(lineage, 0.0)
+    table = LINEAGE_SCORES if lineage_scores is None else lineage_scores
+    score = table.get(lineage, 0.0)
     score += (avg_rating or 0.0) * math.log10(1 + max(num_reviews, 0))
+    score += taper_bonus  # reputation rides with lineage, inside the completeness scale
     if has_wanted_format:
         score += 0.5
     # Completeness (0..1, kept-track count vs best sibling) scales the whole

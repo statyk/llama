@@ -21,6 +21,20 @@ Optional config at `~/.llama/config.toml`:
     max_metadata_fetch = 40          # review-fetch budget; sampled evenly
                                      # across years when survivors exceed it
 
+    # Recording selection ships GD-tuned defaults (shown here); override per
+    # collection. Taper bonuses match identifier substrings; among revisions
+    # by the same taper the newest gets the full bonus. lineage_eras replace
+    # the global sbd/matrix/aud base scores inside a date window.
+    [selection.tapers.GratefulDead]
+    miller = 2.0                     # Charlie Miller: community gold standard
+    seamons = 1.0
+
+    [[selection.lineage_eras]]       # early-80s boards are rough: MTX > AUD > SBD
+    collection = "GratefulDead"
+    date_from = "1980-01-01"
+    date_to = "1987-12-31"
+    scores = { matrix = 3.0, aud = 2.0, sbd = 1.0 }
+
     [llm.default]
     backend = "claude_cli"           # requires the `claude` CLI on PATH
     # backend = "openrouter"         # HTTP alternative; set OPENROUTER_API_KEY

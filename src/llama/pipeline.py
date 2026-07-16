@@ -50,6 +50,7 @@ def process_show(
     script: bool = False,
     setlistfm=None,
     structure_cfg=None,
+    selection_cfg=None,
 ) -> Path | None:
     cand = entry.candidate
     show_ws = run_ws.show_ws(cand.performance_id)
@@ -57,7 +58,8 @@ def process_show(
     pid = cand.performance_id
     with step(f"[{pid}] selecting recording"):
         identifier = run_select_recording(show_ws, ia, cand, entry.assessment,
-                                          audio_format=audio_format, force=force)
+                                          audio_format=audio_format, force=force,
+                                          selection=selection_cfg)
     with step(f"[{pid}] gathering"):
         show = run_gather(show_ws, ia, providers["extract_setlist"], cand, identifier,
                           audio_format=audio_format, force=force,
