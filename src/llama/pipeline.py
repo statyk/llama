@@ -11,7 +11,7 @@ from llama.stages.package import run_package
 from llama.stages.research import run_research
 from llama.stages.select_recording import run_select_recording
 from llama.stages.synthesize import run_synthesize
-from llama.util import spread_across_artists
+from llama.util import cap_across_artists
 from llama.stages.vet_research import run_vet_research
 from llama.status import step
 from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_model
@@ -27,15 +27,16 @@ def make_providers(config: Config) -> dict:
     return {key: provider_ladder(config, key) for key in TASK_KEYS}
 
 
-def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool):
+def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool,
+                   artist_cap: float = 1 / 3):
     approved = [e for e in shortlist if e.approved is True]
     if approved:
         return approved[:count]  # explicit human picks: no spreading
     if human_gate:
         return None  # gate required, nothing approved yet
     unrejected = [e for e in shortlist if e.approved is not False]
-    picked = spread_across_artists(unrejected, lambda e: e.candidate.collection,
-                                   lambda e: e.candidate.date, count)
+    picked = cap_across_artists(unrejected, lambda e: e.candidate.collection,
+                                lambda e: e.candidate.date, count, artist_cap)
     return sorted(picked, key=lambda e: e.rank)
 
 

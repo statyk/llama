@@ -338,3 +338,6 @@ def test_choose_entries_spreads_artists_on_auto_pick():
     picked = choose_entries(entries, 3, human_gate=False)
     assert [e.candidate.collection for e in picked] == \
         ["CharlieHunter", "GarageATrois", "SnarkyPuppy"]
+    # a raised artist_cap lets quality dominate again
+    picked = choose_entries(entries, 3, human_gate=False, artist_cap=1.0)
+    assert [e.candidate.collection for e in picked] == ["CharlieHunter"] * 3

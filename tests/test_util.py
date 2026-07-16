@@ -83,3 +83,67 @@ def test_spread_across_artists_single_artist_falls_back_to_year_spread():
              ("c", "GratefulDead", "1969-12-07")]
     artist_of, date_of = (lambda it: it[1]), (lambda it: it[2])
     assert [it[0] for it in spread_across_artists(items, artist_of, date_of, 2)] == ["a", "c"]
+
+
+ARTIST_OF, DATE_OF = (lambda it: it[1]), (lambda it: it[2])
+
+
+def test_cap_across_artists_bounds_dominance_without_guaranteeing_inclusion():
+    from llama.util import cap_across_artists
+
+    # score order: CharlieHunter's catalog out-scores everyone
+    items = [("h1", "CH", "2002-01-01"), ("h2", "CH", "2000-01-01"),
+             ("h3", "CH", "2001-01-01"), ("h4", "CH", "2003-01-01"),
+             ("g1", "GAT", "1998-01-01"), ("s1", "SP", "2014-01-01"),
+             ("a1", "Allmark", "2010-01-01")]
+    # n=6, cap=1/3 -> at most 2 CH slots while alternatives remain; once every
+    # other artist is in, the last slot relaxes back to CH's next-best
+    picked = [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 6, 1 / 3)]
+    assert picked == ["h1", "h2", "g1", "s1", "a1", "h3"]
+
+
+def test_cap_across_artists_cap_one_is_pure_best_first():
+    from llama.util import cap_across_artists
+
+    items = [("h1", "CH", "2002-01-01"), ("h2", "CH", "2000-01-01"),
+             ("h3", "CH", "2001-01-01"), ("g1", "GAT", "1998-01-01")]
+    assert [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 3, 1.0)] == \
+        ["h1", "h2", "h3"]
+
+
+def test_cap_across_artists_tiny_cap_is_one_per_artist():
+    from llama.util import cap_across_artists
+
+    items = [("h1", "CH", "2002-01-01"), ("h2", "CH", "2000-01-01"),
+             ("g1", "GAT", "1998-01-01"), ("s1", "SP", "2014-01-01")]
+    assert [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 3, 0.01)] == \
+        ["h1", "g1", "s1"]
+
+
+def test_cap_across_artists_relaxes_when_every_artist_is_capped():
+    from llama.util import cap_across_artists
+
+    # 2 artists, n=4, cap=1/4 -> max_per=1; caps only cover 2 slots, the
+    # remaining 2 relax to best-first instead of under-delivering
+    items = [("h1", "CH", "2002-01-01"), ("h2", "CH", "2000-01-01"),
+             ("g1", "GAT", "1998-01-01"), ("g2", "GAT", "1999-01-01")]
+    picked = [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 4, 0.25)]
+    assert picked == ["h1", "g1", "h2", "g2"]
+
+
+def test_cap_across_artists_year_spreads_within_an_artists_slots():
+    from llama.util import cap_across_artists
+
+    # CH's two slots go to his best show per year, not his two best 2002 shows
+    items = [("h1", "CH", "2002-01-01"), ("h2", "CH", "2002-06-01"),
+             ("h3", "CH", "1994-01-01"), ("g1", "GAT", "1998-01-01")]
+    picked = [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 3, 0.5)]
+    assert picked == ["h1", "h3", "g1"]
+
+
+def test_cap_across_artists_single_artist_falls_back_to_year_spread():
+    from llama.util import cap_across_artists
+
+    items = [("a", "GD", "1977-05-08"), ("b", "GD", "1977-05-09"), ("c", "GD", "1969-12-07")]
+    assert [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 2, 1 / 3)] == \
+        ["a", "c"]

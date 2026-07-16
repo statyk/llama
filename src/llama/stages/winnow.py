@@ -7,7 +7,7 @@ from llama.models import Candidate, Criteria, QualityBatch, ShortlistEntry
 from llama.setlist import parse_setlist
 from llama.songs import matches_sequence
 from llama.status import detail, step
-from llama.util import spread_across_artists
+from llama.util import cap_across_artists, spread_across_artists
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -107,9 +107,11 @@ def run_winnow(
     scored = [(c, assessments[c.performance_id]) for c in survivors
               if c.performance_id in assessments]
     scored.sort(key=lambda pair: pair[1].quality_score, reverse=True)
-    # Neither a hot year nor one deep catalog may monopolize the shortlist.
-    top = spread_across_artists(scored, lambda pair: pair[0].collection,
-                                lambda pair: pair[0].date, shortlist_size)
+    # Neither a hot year nor one deep catalog may monopolize the shortlist:
+    # best score first, dominance bounded by the profile's artist_cap.
+    top = cap_across_artists(scored, lambda pair: pair[0].collection,
+                             lambda pair: pair[0].date, shortlist_size,
+                             criteria.artist_cap)
     top.sort(key=lambda pair: pair[1].quality_score, reverse=True)
 
     entries: list[ShortlistEntry] = []
