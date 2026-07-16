@@ -8,3 +8,4 @@ build/
 dist/
 dist-release/
 src/llama/_version.py
+.coverage
