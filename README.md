@@ -70,6 +70,11 @@ Optional config at `~/.llama/config.toml`:
                                      # ceil(count*cap) picks while others have candidates;
                                      # --min-score (default 6.0) floors the LLM review score
                                      # so a thinning pool fails loudly, never fades quietly
+    llama profile add funky "funk, soul, R&B" --count 13 \
+        --artists "Galactic, Lettuce, Soulive, Dumpstaphunk"
+                                     # pin the roster: runs skip the LLM artist matcher and
+                                     # search exactly these (test-drive with `llama artists`,
+                                     # freeze what you like; typos fail at add time)
     llama profile run sunday-dead-hour
     llama review <run-dir>           # approve a shortlist, optionally process it
     llama run <run-dir>              # resume/replay a run; finished stages are skipped

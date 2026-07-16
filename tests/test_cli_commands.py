@@ -482,3 +482,73 @@ def test_stage_research_maps_to_research_and_vetting(tmp_path: Path):
 
     sws = ShowWorkspace(tmp_path / "s")
     assert show_stage_artifacts(sws, "research") == [sws.research, sws.vetting]
+
+
+PIN_INDEX = [
+    {"identifier": "Galactic", "title": "Galactic"},
+    {"identifier": "Lettuce", "title": "Lettuce"},
+    {"identifier": "Soulive", "title": "Soulive"},
+]
+
+
+def test_profile_add_pins_resolved_artists(tmp_path: Path, monkeypatch):
+    from llama.llm.fake import FakeProvider
+    from llama.profiles import load_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    criteria_json = json.dumps({"query": "funk"})
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
+    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache: PIN_INDEX)
+    result = runner.invoke(cli.app, ["profile", "add", "funky", "funk",
+                                     "--artists", "galactic, lettuce", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "pinned: Galactic (Galactic), Lettuce (Lettuce)" in result.output
+    assert load_profile(tmp_path, "funky").criteria.artists == ["Galactic", "Lettuce"]
+
+
+def test_profile_add_rejects_unknown_pinned_artist(tmp_path: Path, monkeypatch):
+    from llama.llm.fake import FakeProvider
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[json.dumps({"query": "funk"})])})
+    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache: PIN_INDEX)
+    result = runner.invoke(cli.app, ["profile", "add", "funky", "funk",
+                                     "--artists", "Zebra Ensemble", "--config", cfg])
+    assert result.exit_code == 1
+    assert "cannot pin artists" in result.output
+    assert not (tmp_path / "profiles" / "funky.toml").exists()
+
+
+def test_pinned_artists_skip_discover_and_prune(tmp_path: Path, monkeypatch):
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    save_profile(tmp_path, Profile(
+        name="funky",
+        criteria=Criteria(query="funk", soft_preferences="funky",
+                          artists=["Galactic", "Lettuce"]),
+    ))
+
+    def boom(*a, **k):
+        raise AssertionError("discover must not run for a pinned roster")
+
+    seen = {}
+    monkeypatch.setattr(cli, "run_discover", boom)
+    monkeypatch.setattr(cli, "run_search",
+                        lambda ws, ia, criteria, artists=None, force=False: seen.update(artists=artists) or [])
+    monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: [])
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"score_reviews": None, "light_research": None})
+    # interactive mode (auto=False): a pinned roster must not prompt either
+    result = runner.invoke(cli.app, ["profile", "run", "funky", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "pinned artists: Galactic, Lettuce" in result.output
+    assert [a["identifier"] for a in seen["artists"]] == ["Galactic", "Lettuce"]
+    run_dir = tmp_path / "runs"
+    artists_files = list(run_dir.glob("*/artists.json"))
+    assert len(artists_files) == 1  # roster recorded in the run dir

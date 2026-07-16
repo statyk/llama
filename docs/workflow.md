@@ -226,10 +226,21 @@ package directory.
 Search the LMA artist index with a natural-language query, or with no query
 list the deepest catalogs. `--all` bypasses the junk-filter floors.
 
-### `llama profile add <name> "query" [--count N] [--human-gate] [--no-script]`
+This is the **test-drive** for a profile/find query: it calls the same LLM
+matcher on the same request text with the same budget (20; `[artists]
+max_matched` in config governs the pipeline side), so its list previews what
+a run would search. The matcher is still an LLM — two calls can rank
+differently — so when you've settled on a roster, pin it (below) and runs
+stop consulting the matcher at all.
+
+### `llama profile add <name> "query" [--count N] [--human-gate] [--no-script] [--artists "..."]`
 Interprets the query once and saves it as a standing profile.
 `--human-gate` makes `profile run --auto` stop at gate 1 instead of
-self-approving.
+self-approving. `--artists "Galactic, Lettuce, ..."` pins the roster:
+names resolve against the artist index at add time (typos and ambiguity
+fail immediately), and every run of the profile searches exactly those
+artists — deterministic, no LLM matching, no prune prompt. Edit the
+`artists` list under `[criteria]` in the profile TOML to change it later.
 
 ### `llama profile run <name> [--auto]`
 Runs the profile as a new dated run, skipping performances already in the

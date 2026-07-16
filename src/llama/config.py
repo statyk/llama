@@ -58,6 +58,9 @@ class WinnowConfig(BaseModel):
 class ArtistsConfig(BaseModel):
     min_recordings: int = 25
     min_downloads: int = 50000
+    # LLM artist-match budget for find/profile discovery; matches the
+    # `llama artists` default so test-driving a query previews the same slate.
+    max_matched: int = 20
 
 
 class Config(BaseModel):

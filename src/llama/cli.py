@@ -5,7 +5,9 @@ from pathlib import Path
 
 import typer
 
-from llama.artist_index import filter_artists, find_matching_artists, fmt_count, load_or_build
+from llama.artist_index import (
+    filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
+)
 from llama.config import Config, load_config
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
@@ -98,11 +100,17 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              script: bool = False, force_stage: str | None = None) -> None:
     providers = make_providers(config)
     artists = None
-    if criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
+    if criteria.artists:
+        # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
+        artists = [{"identifier": a, "title": a} for a in criteria.artists]
+        write_artifact(ws.artists, artists)
+        typer.echo("pinned artists: " + ", ".join(criteria.artists))
+    elif criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
         artists = run_discover(ws, providers["find_artists"], ia, criteria,
                                cache_dir=config.root / "cache",
                                min_recordings=config.artists.min_recordings,
                                min_downloads=config.artists.min_downloads,
+                               max_artists=config.artists.max_matched,
                                force=force)
         if not artists:
             typer.echo("no matching artists found on the LMA - "
@@ -399,10 +407,13 @@ def profile_add(
     min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
                                     help="Quality floor (0-10) on the LLM review score; "
                                          "lower-scored shows never shortlist (default 6.0)"),
+    artists: str = typer.Option(None, "--artists",
+                                help="Pin the artist roster (comma-separated names); runs skip "
+                                     "the LLM matcher and search exactly these"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Interpret QUERY once and save it as a named standing profile."""
-    config, _, _ = _setup(config_path)
+    config, ia, _ = _setup(config_path)
     scratch = RunWorkspace(config.root, f"profile-setup-{name}")
     criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
     updates = {}
@@ -410,6 +421,16 @@ def profile_add(
         updates["artist_cap"] = artist_cap
     if min_score is not None:
         updates["min_quality_score"] = min_score
+    if artists:
+        names = [n.strip() for n in artists.split(",") if n.strip()]
+        index = load_or_build(ia, config.root / "cache")
+        try:
+            resolved = resolve_artists(index, names)
+        except ValueError as e:
+            typer.echo(f"cannot pin artists: {e}", err=True)
+            raise typer.Exit(1)
+        updates["artists"] = [a["identifier"] for a in resolved]
+        typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
     if updates:
         criteria = criteria.model_copy(update=updates)
     profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate, script=script)
