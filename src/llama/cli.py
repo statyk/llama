@@ -79,7 +79,7 @@ def _parse_ranks(text: str) -> set[int]:
 def _print_shortlist(entries: list[ShortlistEntry]) -> None:
     for e in entries:
         c = e.candidate
-        typer.echo(f"{e.rank:2d}. {c.date}  {c.venue or '?':30.30s}  "
+        typer.echo(f"{e.rank:2d}. {c.date}  {c.collection:18.18s}  {c.venue or '?':26.26s}  "
                    f"score {e.assessment.quality_score:.1f}  {e.assessment.rationale[:80]}")
 
 

@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from llama.status import _fmt_elapsed, step
+from llama.status import NarrationHandler, _fmt_elapsed, detail, step
 
 
 def test_fmt_elapsed():
@@ -114,4 +114,57 @@ def test_tty_heartbeat_respects_no_color(monkeypatch, capsys):
         time.sleep(0.12)
     err = capsys.readouterr().err
     assert "still working: slow call" in err
-    assert "\x1b[" not in err
+    assert "\x1b[2m" not in err  # no dimming; \r/erase-line control codes are fine
+
+
+def test_tty_heartbeat_redraws_in_place(monkeypatch, capsys):
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+    with step("slow call", interval_s=0.05):
+        time.sleep(0.2)
+    err = capsys.readouterr().err
+    assert err.count("still working: slow call") >= 2  # redrew several times...
+    assert "\n" not in err                             # ...without stacking lines
+    assert err.endswith("\r\x1b[2K")                   # and erased itself when done
+
+
+def test_detail_on_tty_updates_transient_line(monkeypatch, capsys):
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+    with step("packaging", interval_s=60):
+        detail("downloading 3/17: d1t03.mp3")
+    err = capsys.readouterr().err
+    assert "downloading 3/17: d1t03.mp3" in err
+    assert "\n" not in err
+    assert err.endswith("\r\x1b[2K")
+
+
+def test_detail_non_tty_is_a_plain_log_line(monkeypatch, caplog, capsys):
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: False)
+    with caplog.at_level(logging.INFO, logger="llama"):
+        with step("packaging", interval_s=0.01):
+            detail("downloading 3/17: d1t03.mp3")
+    assert [r.message for r in caplog.records] == ["packaging", "downloading 3/17: d1t03.mp3"]
+    assert capsys.readouterr().err == ""
+
+
+def test_detail_outside_step_is_a_plain_log_line(monkeypatch, caplog):
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+    with caplog.at_level(logging.INFO, logger="llama"):
+        detail("downloading 3/17: d1t03.mp3")
+    assert [r.message for r in caplog.records] == ["downloading 3/17: d1t03.mp3"]
+
+
+def test_log_lines_clear_transient_before_printing(monkeypatch, capsys):
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+    llama_log = logging.getLogger("llama")
+    handler = NarrationHandler(sys.stderr)
+    handler.setFormatter(NarrationFormatter(tty=True, color=False))
+    llama_log.addHandler(handler)
+    try:
+        with step("gathering", interval_s=0.05):
+            time.sleep(0.12)  # transient line is on screen
+            llama_log.warning("uh oh")
+    finally:
+        llama_log.removeHandler(handler)
+    err = capsys.readouterr().err
+    # the warning line starts on a cleared line, not appended to the heartbeat
+    assert "\r\x1b[2Kwarning: uh oh\n" in err
