@@ -117,6 +117,38 @@ def filter_artists(artists: list[dict], min_recordings: int, min_downloads: int)
             if a["recordings"] >= min_recordings or a["downloads"] >= min_downloads]
 
 
+def _norm(s: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def resolve_artists(index: list[dict], names: list[str]) -> list[dict]:
+    """Resolve human-typed artist names to index entries, order preserved.
+
+    Exact normalized match on identifier or title first, then a UNIQUE
+    normalized-substring match; anything else raises ValueError so a typo in
+    a pinned roster fails at profile-add time, not silently at run time."""
+    resolved: list[dict] = []
+    for name in names:
+        want = _norm(name)
+        if not want:
+            raise ValueError(f"empty artist name in {names!r}")
+        exact = [a for a in index
+                 if _norm(a["identifier"]) == want or _norm(a["title"]) == want]
+        if exact:
+            resolved.append(exact[0])
+            continue
+        partial = [a for a in index
+                   if want in _norm(a["identifier"]) or want in _norm(a["title"])]
+        if len(partial) == 1:
+            resolved.append(partial[0])
+        elif not partial:
+            raise ValueError(f"no LMA artist matches {name!r}")
+        else:
+            options = ", ".join(a["identifier"] for a in partial[:8])
+            raise ValueError(f"{name!r} is ambiguous on the LMA: {options}")
+    return resolved
+
+
 def fmt_count(n: int) -> str:
     if n >= 999_950:
         return f"{n / 1_000_000:.1f}M"

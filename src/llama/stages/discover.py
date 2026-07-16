@@ -28,7 +28,7 @@ def run_discover(
     cache_dir: Path,
     min_recordings: int = 25,
     min_downloads: int = 50000,
-    max_artists: int = 10,
+    max_artists: int = 20,  # same budget as `llama artists`: test-drives must preview the real slate
     force: bool = False,
 ) -> list[dict]:
     if not should_run(ws.artists, force):

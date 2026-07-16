@@ -64,8 +64,20 @@ def test_discover_caps_at_max_artists(tmp_path: Path):
     ws = RunWorkspace(tmp_path, "r1")
     fake = FakeProvider(completes=[matches(*((f"A{i}", "fits") for i in range(15)))])
     got = run_discover(ws, fake, StubIA(collections=cols, items=[]), crit(),
-                       cache_dir=tmp_path / "cache")
+                       cache_dir=tmp_path / "cache", max_artists=10)
     assert len(got) == 10
+
+
+def test_discover_default_budget_matches_llama_artists(tmp_path: Path):
+    # test-driving a query with `llama artists` (limit 20) must preview the
+    # same slate a profile/find discovery sees
+    cols = [{"identifier": f"A{i}", "title": f"Artist {i}", "downloads": 60000}
+            for i in range(25)]
+    ws = RunWorkspace(tmp_path, "r1")
+    fake = FakeProvider(completes=[matches(*((f"A{i}", "fits") for i in range(25)))])
+    got = run_discover(ws, fake, StubIA(collections=cols, items=[]), crit(),
+                       cache_dir=tmp_path / "cache")
+    assert len(got) == 20
 
 
 def test_zero_matches_writes_empty(tmp_path: Path):

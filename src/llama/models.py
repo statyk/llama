@@ -30,6 +30,10 @@ class Criteria(BaseModel):
     # never reach the shortlist, so a drying-up profile comes back short and
     # says so instead of quietly shipping mediocre shows.
     min_quality_score: float = Field(default=6.0, ge=0, le=10)
+    # Pinned artist roster (LMA collection identifiers). Non-empty = skip the
+    # LLM artist matcher entirely and fan the search out over exactly these -
+    # deterministic runs for standing profiles.
+    artists: list[str] = Field(default_factory=list)
 
 
 class RecordingSummary(BaseModel):

@@ -220,3 +220,30 @@ def test_find_matching_artists_announces_step(caplog):
     with caplog.at_level(logging.INFO, logger="llama"):
         find_matching_artists(fake, POOL, "q", max_results=5)
     assert any("matching artists" in r.message for r in caplog.records)
+
+
+def test_resolve_artists_exact_partial_and_errors():
+    import pytest
+
+    from llama.artist_index import resolve_artists
+
+    index = [
+        {"identifier": "Galactic", "title": "Galactic"},
+        {"identifier": "KarlDenson", "title": "Karl Denson's Tiny Universe"},
+        {"identifier": "Lettuce", "title": "Lettuce"},
+        {"identifier": "mekons", "title": "The Mekons"},
+        {"identifier": "NewMastersounds", "title": "New Mastersounds"},
+        {"identifier": "SoundTribeSector9", "title": "Sound Tribe Sector 9"},
+    ]
+    # exact normalized matches on title or identifier, case/punctuation-blind
+    got = resolve_artists(index, ["galactic", "karl denson's tiny universe", "MEKONS"])
+    assert [a["identifier"] for a in got] == ["Galactic", "KarlDenson", "mekons"]
+    # unique substring resolves
+    assert resolve_artists(index, ["mastersounds"])[0]["identifier"] == "NewMastersounds"
+    # ambiguous substring names the candidates
+    index.append({"identifier": "GalacticEmpire", "title": "Galactic Empire"})
+    with pytest.raises(ValueError, match="ambiguous"):
+        resolve_artists(index, ["galac"])
+    # unknown fails loudly (typos surface at pin time, not run time)
+    with pytest.raises(ValueError, match="no LMA artist"):
+        resolve_artists(index, ["Phish Tribute Zebra"])
