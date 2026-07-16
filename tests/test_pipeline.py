@@ -315,3 +315,26 @@ def test_choose_entries_spreads_years_on_auto_pick():
     approved = [entry(1, "1977-05-08", approved=True), entry(2, "1977-05-09", approved=True),
                 entry(3, "1969-12-07")]
     assert [e.rank for e in choose_entries(approved, 2, human_gate=False)] == [1, 2]
+
+
+def test_choose_entries_spreads_artists_on_auto_pick():
+    from llama.models import Candidate, QualityAssessment, RecordingSummary, ShortlistEntry
+    from llama.pipeline import choose_entries
+
+    def entry(rank, collection, date):
+        pid = f"{collection}/{date}"
+        return ShortlistEntry(
+            rank=rank,
+            candidate=Candidate(performance_id=pid, collection=collection, date=date,
+                                recordings=[RecordingSummary(identifier=f"id{rank}")]),
+            assessment=QualityAssessment(performance_id=pid, quality_score=10.0 - rank,
+                                         rationale="r"),
+        )
+
+    # one artist's catalog dominates the top ranks of a style profile
+    entries = [entry(1, "CharlieHunter", "2002-07-05"), entry(2, "CharlieHunter", "2000-08-23"),
+               entry(3, "CharlieHunter", "2001-12-08"), entry(4, "GarageATrois", "1998-04-25"),
+               entry(5, "SnarkyPuppy", "2014-03-01")]
+    picked = choose_entries(entries, 3, human_gate=False)
+    assert [e.candidate.collection for e in picked] == \
+        ["CharlieHunter", "GarageATrois", "SnarkyPuppy"]

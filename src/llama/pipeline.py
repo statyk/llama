@@ -11,7 +11,7 @@ from llama.stages.package import run_package
 from llama.stages.research import run_research
 from llama.stages.select_recording import run_select_recording
 from llama.stages.synthesize import run_synthesize
-from llama.util import spread_across_years
+from llama.util import spread_across_artists
 from llama.stages.vet_research import run_vet_research
 from llama.status import step
 from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_model
@@ -34,7 +34,8 @@ def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool
     if human_gate:
         return None  # gate required, nothing approved yet
     unrejected = [e for e in shortlist if e.approved is not False]
-    picked = spread_across_years(unrejected, lambda e: e.candidate.date, count)
+    picked = spread_across_artists(unrejected, lambda e: e.candidate.collection,
+                                   lambda e: e.candidate.date, count)
     return sorted(picked, key=lambda e: e.rank)
 
 
