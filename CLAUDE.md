@@ -24,7 +24,7 @@ implementation plan this was built from. The approved design spec is
 (LMA), winnows them for quality, researches the specific performance online,
 and emits a self-contained "show package" (verified audio, m3u, manifest v2
 with track titles/set breaks, vetted research + reviews digest; verbatim DJ
-script opt-in via --script or profile script) for an automated in-house radio
+script on by default; --no-script or profile script=false opts out) for an automated in-house radio
 station. Usage tilts heavily toward Grateful Dead shows (two sets + encore).
 LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
 gemini-flash/sonnet-4.5/opus-4.1 on openrouter): medium by default, high for
@@ -37,7 +37,7 @@ failed validation's final retry escalates one tier (pins never escalate).
 - **Staged pipeline over an on-disk workspace** (default `~/.llama/`):
   interpret → search (wide net) → winnow (quality gate + optional human gate)
   → select-recording → gather → research → vet (grounding check) →
-  synthesize (opt-in) → package. Every stage reads/writes plain files in a
+  synthesize (default-on) → package. Every stage reads/writes plain files in a
   per-run directory; stages write outputs only on success and are
   individually re-runnable with `--force`.
 - **Two modes:** one-off queries, and standing criteria profiles for recurring

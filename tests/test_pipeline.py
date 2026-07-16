@@ -158,7 +158,24 @@ def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypat
     assert not (tmp_path / "ledger.jsonl").exists()
 
 
-def test_find_default_skips_script(tmp_path: Path, monkeypatch):
+def test_find_default_includes_script(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--run-name", "defscript",
+        "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+    pkg = tmp_path / "runs" / "defscript" / "shows" / "gratefuldead-1973-06-10" / "package"
+    manifest = json.loads((pkg / "manifest.json").read_text())
+    assert manifest["dj_notes"] is not None
+    assert manifest["set_breaks"][0]["note_index"] == 0
+    assert (pkg / "dj-notes.md").exists()
+
+
+def test_find_no_script_skips_script(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     providers = fake_providers(None)
     providers["synthesize"] = FakeProvider()  # any call would raise: queue is empty
@@ -166,7 +183,7 @@ def test_find_default_skips_script(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, [
-        "find", "GD 1973", "--auto", "--run-name", "noscript",
+        "find", "GD 1973", "--auto", "--no-script", "--run-name", "noscript",
         "--config", str(tmp_path / "config.toml"),
     ])
     assert result.exit_code == 0, result.output
@@ -216,7 +233,8 @@ def test_stage_synthesize_implies_script(tmp_path: Path, monkeypatch):
     cfg = str(tmp_path / "config.toml")
 
     first = runner.invoke(cli.app, [
-        "find", "GD 1973", "--auto", "--run-name", "synthreplay", "--config", cfg,
+        "find", "GD 1973", "--auto", "--no-script", "--run-name", "synthreplay",
+        "--config", cfg,
     ])
     assert first.exit_code == 0, first.output
     show_dir = tmp_path / "runs" / "synthreplay" / "shows" / "gratefuldead-1973-06-10"
@@ -235,12 +253,12 @@ def test_find_stamps_limit_and_script_into_criteria(tmp_path: Path, monkeypatch)
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, ["find", "GD 1973", "--limit", "5", "--script",
+    result = runner.invoke(cli.app, ["find", "GD 1973", "--limit", "5", "--no-script",
                                      "--run-name", "stamped",
                                      "--config", str(tmp_path / "config.toml")])
     assert result.exit_code == 0, result.output
     saved = json.loads((tmp_path / "runs" / "stamped" / "criteria.json").read_text())
-    assert saved["count"] == 5 and saved["script"] is True
+    assert saved["count"] == 5 and saved["script"] is False
 
 
 def test_stage_force_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path, monkeypatch):

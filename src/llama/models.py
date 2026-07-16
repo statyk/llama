@@ -19,8 +19,9 @@ class Criteria(BaseModel):
     min_reviews: int = 3
     count: int = 1
     # Persisted run intent (stamped by find/profile-run, honored on replay):
-    # whether this run also generates the verbatim DJ script.
-    script: bool = False
+    # whether this run also generates the verbatim DJ script (on by default;
+    # --no-script opts out).
+    script: bool = True
     # Max share of a multi-artist shortlist/auto-pick one artist may hold
     # (ceil(n * cap) slots) while other artists still have candidates.
     # 1.0 = pure best-first; at or below 1/n = one-per-artist round-robin.

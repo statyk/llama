@@ -3,8 +3,8 @@
 Finds concerts on archive.org's Live Music Archive, vets them for quality,
 researches the specific performance (fact-checking the research against the
 setlist before it ships), and packages audio + notes for an automated radio
-station. A verbatim DJ script is opt-in (`--script`, or `script = true` on a
-profile).
+station. A verbatim DJ script is included by default (`--no-script`, or
+`script = false` on a profile, opts out).
 
 ## Setup
 
@@ -118,12 +118,13 @@ A delivered show package contains:
 - `research.md` — web-researched show notes, grounding-checked against the
   setlist (`vet` stage) before packaging
 - `reviews.md` — trimmed listener-review digest (top 5, 800 chars each)
-- `dj-notes.md` + `manifest.dj_notes` — verbatim DJ script, present only when
-  the run generated one (`--script`, or `script = true` on a profile)
+- `dj-notes.md` + `manifest.dj_notes` — verbatim DJ script, present by
+  default; absent when the run opted out (`--no-script`, or `script = false`
+  on a profile)
 
 ### Script mode does not change the data
 
-Whether a run used `--script` has no effect on the content or quality of
+Whether a run generated a script has no effect on the content or quality of
 anything else in the package. Research runs before the script decision is
 consulted (same prompt, same inputs, same model tier), the vet grounding
 check runs unconditionally right after it, and `reviews.md` and the
@@ -145,8 +146,8 @@ differences err safe:
   package is produced, never what's inside one.
 
 Consumers can rely on `research.md`, `reviews.md`, and the manifest meaning
-exactly the same thing regardless of mode; `--script` only determines
-whether the script artifacts exist.
+exactly the same thing regardless of mode; the script setting only
+determines whether the script artifacts exist.
 
 ### Downstream synthesis contract
 
