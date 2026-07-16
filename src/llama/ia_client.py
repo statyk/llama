@@ -1,13 +1,12 @@
 import hashlib
 import json
-import logging
 import time
 from pathlib import Path
 from urllib.parse import quote
 
 import httpx
 
-log = logging.getLogger("llama")
+from llama.status import detail
 
 SEARCH_URL = "https://archive.org/advancedsearch.php"
 METADATA_URL = "https://archive.org/metadata/{identifier}"
@@ -108,7 +107,7 @@ class IAClient:
             except json.JSONDecodeError as e:
                 raise IAError(f"scrape returned non-JSON for {query!r}") from e
             out.extend(data.get("items", []))
-            log.info("scrape: %s/%s docs", f"{len(out):,}", f"{data.get('total', 0):,}")
+            detail(f"scrape: {len(out):,}/{data.get('total', 0):,} docs")
             cursor = data.get("cursor")
             if not cursor:
                 return out

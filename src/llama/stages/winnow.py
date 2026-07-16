@@ -6,7 +6,7 @@ from llama.llm.tasks import run_json_task, run_research_task
 from llama.models import Candidate, Criteria, QualityBatch, ShortlistEntry
 from llama.setlist import parse_setlist
 from llama.songs import matches_sequence
-from llama.status import step
+from llama.status import detail, step
 from llama.util import spread_across_years
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
@@ -71,35 +71,37 @@ def run_winnow(
 
     payload = []
     reviewed: dict[str, str] = {}
-    for i, c in enumerate(survivors, 1):
-        log.info("winnow: fetching reviews %d/%d", i, len(survivors))
-        best = _best_recording(c)
-        md = ia.metadata(best.identifier)
-        reviewed[c.performance_id] = best.identifier
-        payload.append({
-            "performance_id": c.performance_id,
-            "date": c.date,
-            "venue": c.venue,
-            "avg_rating": best.avg_rating,
-            "num_reviews": best.num_reviews,
-            "reviews": [
-                {"title": r.get("reviewtitle"), "stars": r.get("stars"),
-                 "body": str(r.get("reviewbody") or "")[:1500]}
-                for r in md.get("reviews", [])[:10]
-            ],
-        })
+    with step(f"winnow: fetching reviews ({len(survivors)} shows)"):
+        for i, c in enumerate(survivors, 1):
+            best = _best_recording(c)
+            detail(f"{i}/{len(survivors)}: {best.identifier}")
+            md = ia.metadata(best.identifier)
+            reviewed[c.performance_id] = best.identifier
+            payload.append({
+                "performance_id": c.performance_id,
+                "date": c.date,
+                "venue": c.venue,
+                "avg_rating": best.avg_rating,
+                "num_reviews": best.num_reviews,
+                "reviews": [
+                    {"title": r.get("reviewtitle"), "stars": r.get("stars"),
+                     "body": str(r.get("reviewbody") or "")[:1500]}
+                    for r in md.get("reviews", [])[:10]
+                ],
+            })
 
     assessments = {}
     n_batches = (len(payload) + batch_size - 1) // batch_size
-    for bi, i in enumerate(range(0, len(payload), batch_size), 1):
-        batch = payload[i : i + batch_size]
-        with step(f"winnow: scoring reviews batch {bi}/{n_batches}"):
+    with step(f"winnow: scoring reviews ({n_batches} batches)"):
+        for bi, i in enumerate(range(0, len(payload), batch_size), 1):
+            batch = payload[i : i + batch_size]
+            detail(f"batch {bi}/{n_batches}")
             result = run_json_task(score_provider, "score_reviews", QualityBatch,
                                    candidates_json=json.dumps(batch, indent=2),
                                    soft_preferences=criteria.soft_preferences or "(none)")
-        for a in result.assessments:
-            a.reviewed_identifier = reviewed.get(a.performance_id, "")
-            assessments[a.performance_id] = a
+            for a in result.assessments:
+                a.reviewed_identifier = reviewed.get(a.performance_id, "")
+                assessments[a.performance_id] = a
 
     scored = [(c, assessments[c.performance_id]) for c in survivors
               if c.performance_id in assessments]
@@ -109,14 +111,15 @@ def run_winnow(
     top.sort(key=lambda pair: pair[1].quality_score, reverse=True)
 
     entries: list[ShortlistEntry] = []
-    for rank, (c, a) in enumerate(top, 1):
-        with step(f"winnow: researching {c.performance_id} ({rank}/{len(top)})"):
+    with step(f"winnow: researching shortlist ({len(top)} shows)"):
+        for rank, (c, a) in enumerate(top, 1):
+            detail(f"{c.performance_id} ({rank}/{len(top)})")
             rep = run_research_task(
                 research_provider, "light_research",
                 artist=criteria.artist or criteria.collection or c.collection,
                 date=c.date, venue=c.venue or "unknown venue",
             )
-        entries.append(ShortlistEntry(candidate=c, assessment=a,
-                                      external_reputation=rep, rank=rank))
+            entries.append(ShortlistEntry(candidate=c, assessment=a,
+                                          external_reputation=rep, rank=rank))
     write_artifact(ws.shortlist, entries)
     return entries

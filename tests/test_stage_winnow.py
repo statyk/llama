@@ -154,6 +154,9 @@ def test_winnow_logs_progress(tmp_path: Path, caplog):
     with caplog.at_level(logging.INFO, logger="llama"):
         run_winnow(ws, fake, fake, StubIA(), crit, led, batch_size=2)
     messages = [r.getMessage() for r in caplog.records]
-    assert "winnow: fetching reviews 5/5" in messages
-    assert "winnow: scoring reviews batch 3/3" in messages
-    assert any(m.startswith("winnow: researching ") and m.endswith("(5/5)") for m in messages)
+    assert "winnow: fetching reviews (5 shows)" in messages
+    assert any(m.startswith("5/5:") for m in messages)
+    assert "winnow: scoring reviews (3 batches)" in messages
+    assert "batch 3/3" in messages
+    assert "winnow: researching shortlist (5 shows)" in messages
+    assert any(m.endswith("(5/5)") for m in messages)
