@@ -1,5 +1,7 @@
 import json
+import os
 import subprocess
+import sys
 
 from llama.llm.provider import LLMError
 
@@ -14,6 +16,25 @@ RESEARCH_ALLOWED = "WebSearch,WebFetch"
 RESEARCH_DISALLOWED = "Bash,Edit,Write,Read,Glob,Grep," + _DELEGATION
 
 
+def _subprocess_env() -> dict | None:
+    """Environment for the claude subprocess.
+
+    The frozen (PyInstaller) binary points LD_LIBRARY_PATH at its own bundled
+    libraries; a dynamically-linked child loading those can crash on startup.
+    Restore the loader path the bootloader saved. None = inherit unchanged.
+    """
+    if not getattr(sys, "frozen", False):
+        return None
+    env = os.environ.copy()
+    for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):
+        orig = env.pop(f"{var}_ORIG", None)
+        if orig is not None:
+            env[var] = orig
+        else:
+            env.pop(var, None)
+    return env
+
+
 class ClaudeCLIProvider:
     def __init__(self, model: str | None = None, binary: str = "claude", timeout_s: int = 900):
         self.model = model
@@ -26,12 +47,15 @@ class ClaudeCLIProvider:
             cmd += ["--model", self.model]
         try:
             proc = subprocess.run(
-                cmd, input=prompt, capture_output=True, text=True, timeout=self.timeout_s
+                cmd, input=prompt, capture_output=True, text=True, timeout=self.timeout_s,
+                env=_subprocess_env(),
             )
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             raise LLMError(f"claude invocation failed: {e}") from e
         if proc.returncode != 0:
-            raise LLMError(f"claude exited {proc.returncode}: {proc.stderr[:500]}")
+            # claude often reports failures (auth, bad flags) on stdout
+            detail = (proc.stderr.strip() or proc.stdout.strip())[:500]
+            raise LLMError(f"claude exited {proc.returncode}: {detail}")
         try:
             data = json.loads(proc.stdout)
         except json.JSONDecodeError as e:

@@ -59,6 +59,41 @@ def test_nonzero_exit_raises(monkeypatch):
         ClaudeCLIProvider().complete("x")
 
 
+def test_nonzero_exit_falls_back_to_stdout_detail(monkeypatch):
+    # claude reports auth/usage failures on stdout with an empty stderr;
+    # the error must carry that detail instead of a bare exit code
+    patch_run(monkeypatch, FakeProc(returncode=1, stdout="Invalid API key - run /login\n"), {})
+    with pytest.raises(LLMError, match="Invalid API key"):
+        ClaudeCLIProvider().complete("x")
+
+
+def test_frozen_binary_restores_loader_path_for_subprocess(monkeypatch):
+    import sys
+    from llama.llm import claude_cli
+
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["env"] = kwargs.get("env")
+        return FakeProc(stdout=json.dumps({"result": "ok"}))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    # unfrozen: inherit the environment untouched
+    ClaudeCLIProvider().complete("x")
+    assert seen["env"] is None
+
+    # frozen: PyInstaller's bundled-library loader path must not leak to claude
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/_MEIxyz/lib")
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/usr/lib/real")
+    monkeypatch.setenv("DYLD_LIBRARY_PATH", "/tmp/_MEIxyz/lib")  # no _ORIG saved
+    ClaudeCLIProvider().complete("x")
+    assert seen["env"]["LD_LIBRARY_PATH"] == "/usr/lib/real"
+    assert "LD_LIBRARY_PATH_ORIG" not in seen["env"]
+    assert "DYLD_LIBRARY_PATH" not in seen["env"]
+
+
 def test_bad_json_and_error_payload_raise(monkeypatch):
     patch_run(monkeypatch, FakeProc(stdout="not json"), {})
     with pytest.raises(LLMError):
