@@ -9,9 +9,11 @@ log = logging.getLogger("llama")
 
 
 def _compose_query(criteria: Criteria) -> str:
+    # criteria.query is always the verbatim request; appending interpret's
+    # soft_preferences paraphrase of the same request added nothing and
+    # diluted exclusions ("not blues-rock" doesn't survive paraphrase).
+    # Only the era bounds are structured signal worth adding.
     parts = [criteria.query]
-    if criteria.soft_preferences:
-        parts.append(f"Style/mood: {criteria.soft_preferences}")
     if criteria.date_from or criteria.date_to:
         parts.append(f"Era: {criteria.date_from or 'any'} to {criteria.date_to or 'any'}")
     return "\n".join(parts)
