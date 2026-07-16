@@ -79,8 +79,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m venv .venv
-          . .venv/bin/activate 2>/dev/null || source .venv/Scripts/activate
+          # Windows exposes `python`/`python3` as Microsoft Store alias stubs
+          # that error out; pick an interpreter that actually runs, preferring
+          # `python`, then `python3`, then the alias-proof `py` launcher.
+          PY=""
+          for c in python python3 py; do
+            if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys' >/dev/null 2>&1; then
+              PY="$c"; break
+            fi
+          done
+          [ -n "$PY" ] || { echo "::error::no working python interpreter found on runner"; exit 1; }
+          echo "using interpreter: $PY ($("$PY" -c 'import sys; print(sys.version.split()[0])'))"
+          "$PY" -m venv .venv
+          . .venv/bin/activate 2>/dev/null || . .venv/Scripts/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
       - name: Build
