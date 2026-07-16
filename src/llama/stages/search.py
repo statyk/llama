@@ -1,10 +1,7 @@
-import logging
-
 from llama.grouping import group_candidates
 from llama.models import Candidate, Criteria
+from llama.status import detail, step
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
-
-log = logging.getLogger("llama")
 
 SEARCH_FIELDS = [
     "identifier", "title", "date", "venue", "coverage",
@@ -38,15 +35,16 @@ def run_search(
         return read_model_list(ws.candidates, Candidate)
     if artists:
         candidates: list[Candidate] = []
-        for i, artist in enumerate(artists, 1):
-            log.info("search: %s (%d/%d)", artist.get("title") or artist["identifier"],
-                     i, len(artists))
-            fanned = criteria.model_copy(update={"collection": artist["identifier"]})
-            docs = ia.scrape(build_query(fanned), SEARCH_FIELDS)
-            candidates.extend(group_candidates(artist["identifier"], docs))
+        with step(f"searching the LMA ({len(artists)} artists)"):
+            for i, artist in enumerate(artists, 1):
+                detail(f"{artist.get('title') or artist['identifier']} ({i}/{len(artists)})")
+                fanned = criteria.model_copy(update={"collection": artist["identifier"]})
+                docs = ia.scrape(build_query(fanned), SEARCH_FIELDS)
+                candidates.extend(group_candidates(artist["identifier"], docs))
         candidates.sort(key=lambda c: (c.date, c.performance_id))
     else:
-        docs = ia.scrape(build_query(criteria), SEARCH_FIELDS)
+        with step("searching the LMA"):
+            docs = ia.scrape(build_query(criteria), SEARCH_FIELDS)
         label = criteria.collection or criteria.artist or "unknown"
         candidates = group_candidates(label, docs)
     write_artifact(ws.candidates, candidates)
