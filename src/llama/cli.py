@@ -169,8 +169,9 @@ def find(
     limit: int = typer.Option(0, "--limit", help="How many shows (0 = let the query decide)"),
     auto: bool = typer.Option(False, "--auto", help="No prompts; take top-ranked"),
     run_name: str = typer.Option(None, "--run-name"),
-    script: bool = typer.Option(False, "--script/--no-script",
-                                help="Also generate the verbatim DJ script (extra high-tier LLM call)"),
+    script: bool = typer.Option(True, "--script/--no-script",
+                                help="Verbatim DJ script (high-tier LLM call), on by default; "
+                                     "--no-script skips it"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of the shortlist one artist may hold "
                                           "(1.0 = pure best-first; default 1/3)"),
@@ -188,8 +189,8 @@ def find(
     updates = {}
     if limit:
         updates["count"] = limit
-    if script:
-        updates["script"] = True
+    if not script:
+        updates["script"] = False
     if artist_cap is not None:
         updates["artist_cap"] = artist_cap
     if min_score is not None:
@@ -284,8 +285,9 @@ def run(
 @app.command()
 def review(
     run_dir: Path,
-    script: bool = typer.Option(False, "--script/--no-script",
-                                help="Pass --script through if you process immediately"),
+    script: bool = typer.Option(None, "--script/--no-script",
+                                help="Override the run's persisted script setting "
+                                     "if you process immediately"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Human gate: approve a run's shortlist, then optionally process it."""
@@ -307,7 +309,8 @@ def review(
     if typer.confirm("Process approved shows now?", default=True):
         criteria = read_model(ws.criteria, Criteria)
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
-                 human_gate=False, script=script)
+                 human_gate=False,
+                 script=criteria.script if script is None else script)
     else:
         typer.echo(f"next: llama run {ws.dir}")
 
@@ -389,7 +392,7 @@ def profile_add(
     query: str,
     count: int = typer.Option(1, "--count"),
     human_gate: bool = typer.Option(False, "--human-gate"),
-    script: bool = typer.Option(False, "--script"),
+    script: bool = typer.Option(True, "--script/--no-script"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of this profile's shortlist one artist "
                                           "may hold (1.0 = pure best-first; default 1/3)"),

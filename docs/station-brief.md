@@ -59,7 +59,7 @@ by the slugified performance id, then records the delivery in its ledger:
 │   └── ...
 ├── research.md
 ├── reviews.md
-└── dj-notes.md          (only when a DJ script was requested)
+└── dj-notes.md          (default; absent only if the run opted out)
 ```
 
 The copy is a plain recursive copy — **not atomic**, and there is no
@@ -103,7 +103,8 @@ supporting material. Field-by-field:
     { "after_track": 8, "note_index": 0 }  // break falls after play-order index 8;
   ],                                       // note_index → dj_notes.set_break_notes[i],
                                            // null when no script exists
-  "dj_notes": {                            // null unless a script was requested
+  "dj_notes": {                            // present by default; null only when
+                                           // the run opted out (--no-script)
     "context": "one-line era context",
     "intro": "verbatim show intro …",
     "set_intros": { "1": "…", "2": "…", "encore": "…" },
@@ -137,12 +138,14 @@ supporting material. Field-by-field:
   in the manifest tells you whether it passed with zero flags.
 - **`reviews.md`** — trimmed listener-review digest (top 5 reviews,
   ≤800 chars each) from the source archive.org item.
-- **`dj-notes.md`** — human-readable rendering of `dj_notes`; present only
-  when the run requested a script.
+- **`dj-notes.md`** — human-readable rendering of `dj_notes`; present by
+  default, absent only when the run opted out with `--no-script`.
 
 ### Contract details worth knowing
 
-- **Scripts are opt-in and their absence changes nothing else.** Research,
+- **Scripts ship by default; opting out changes nothing else.** Runs can
+  skip the script with `--no-script`, so consumers should still handle a
+  null `dj_notes`. Research,
   vetting, reviews, and all structural data are identical whether or not
   `dj_notes` exists. If the station generates its own on-air speech from
   `research.md`/`reviews.md`, it inherits the obligation to stay grounded
