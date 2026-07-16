@@ -112,6 +112,55 @@ def test_unbroken_single_line_setlist_is_medium():
     assert parsed.confidence == "medium"
 
 
+# --- Corpus of real archive.org descriptions that broke the parser once. ---
+# Each string is verbatim (or minimally trimmed) from a live item. When a new
+# pathological description surfaces, add it here with its expected outcome.
+
+VENETA_BRAVERMAN = (
+    "Set I: Promised Land, Sugaree, Me & My Uncle, Deal, Black Throated Wind, "
+    "China Cat Sunflower >I Know You Rider, Mexicali Blues, Bertha Set II: "
+    "Playin' in the Band, He's Gone, Jack Straw, Bird Song, Greatest Story Ever Told "
+    "Set III: Dark Star> El Paso, Sing Me Back Home, Sugar Magnolia, "
+    "E1: Casey Jones, E2: Saturday Night"
+)
+
+BOSTON_77_ENTITIES = (
+    "Set I Bertha Cassidy Deal Jack Straw Peggy-O New Minglewood Blues "
+    "Mississippi Half-Step Uptown Toodleloo &gt; Big River Tennessee Jed "
+    "The Music Never Stopped Set II Terrapin Station Samson & Delilah "
+    "Friend Of The Devil Estimated Prophet Eyes Of The World &gt; Drums &gt; "
+    "The Wheel &gt; Wharf Rat &gt; Around & Around Encore: U.S. Blues"
+)
+
+VENETA_SPACE_SEPARATED = (
+    "Set One The Promised Land Sugaree Me And My Uncle Deal Black Throated Wind "
+    "China Cat Sunflower I Know You Rider Mexicali Blues Bertha"
+)
+
+
+def test_corpus_veneta_inline_markers_and_numbered_encores():
+    p = parse_setlist(VENETA_BRAVERMAN)
+    assert {i.set for i in p.items} == {"1", "2", "3", "encore"}
+    assert p.confidence == "high"
+    assert len(p.items) >= 18
+
+
+def test_corpus_entity_segues_do_not_mangle_titles():
+    p = parse_setlist(BOSTON_77_ENTITIES)
+    titles = [i.title for i in p.items]
+    assert "Wharf Rat" in titles and "The Wheel" in titles
+    assert not any("&" in t and "gt" in t for t in titles)  # no '&gt' residue
+
+
+def test_corpus_space_separated_setlist_degrades_gracefully():
+    # No commas, no segue marks: undecipherable deterministically. The parser
+    # must not invent paragraph-length "titles"; it reports low confidence so
+    # ranking prefers a sibling parse or the LLM extraction fallback.
+    p = parse_setlist(VENETA_SPACE_SEPARATED)
+    assert p.confidence == "low"
+    assert all(len(i.title) <= 80 for i in p.items)
+
+
 def test_unstructured_prose_paragraph_stays_low():
     # A long, unbroken paragraph with no set markers and no comma/segue separators at
     # all collapses to a single implausibly-long "title" fragment and must not count.

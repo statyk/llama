@@ -230,6 +230,19 @@ def test_stage_synthesize_implies_script(tmp_path: Path, monkeypatch):
     assert (show_dir / "dj-notes.json").exists()
 
 
+def test_find_stamps_limit_and_script_into_criteria(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+    result = runner.invoke(cli.app, ["find", "GD 1973", "--limit", "5", "--script",
+                                     "--run-name", "stamped",
+                                     "--config", str(tmp_path / "config.toml")])
+    assert result.exit_code == 0, result.output
+    saved = json.loads((tmp_path / "runs" / "stamped" / "criteria.json").read_text())
+    assert saved["count"] == 5 and saved["script"] is True
+
+
 def test_stage_force_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path, monkeypatch):
     # Per-show deletion at process time: the chosen show's forced stage and
     # everything downstream rebuild; earlier artifacts are reused.

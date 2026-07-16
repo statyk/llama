@@ -53,6 +53,55 @@ def test_setlistfm_live_winterland_1974(tmp_path):
 
 
 @pytest.mark.live
+def test_scrape_finds_every_recording_of_a_performance(tmp_path: Path):
+    """Regression: a single 500-row search page once dropped 5 of Veneta's 7
+    copies - including every one whose description carries the set structure."""
+    ia = IAClient(cache_dir=tmp_path / "cache")
+    docs = ia.scrape(
+        "mediatype:etree AND collection:GratefulDead AND date:[1972-08-27 TO 1972-08-27]",
+        SEARCH_FIELDS,
+    )
+    assert len(docs) >= 7
+    cands = group_candidates("GratefulDead", docs)
+    veneta = next(c for c in cands if c.date == "1972-08-27")
+    assert len(veneta.recordings) >= 7
+
+
+@pytest.mark.live
+def test_structure_recovers_from_real_metadata_descriptions(tmp_path: Path):
+    """Veneta '72 is three sets; at least one real description must parse to
+    multi-set at high confidence (entities, inline markers and all)."""
+    ia = IAClient(cache_dir=tmp_path / "cache")
+    md = ia.metadata("gd72-08-27.sbd.braverman.16582.sbefail.shnf")
+    desc = md["metadata"].get("description") or ""
+    if isinstance(desc, list):
+        desc = "\n".join(str(d) for d in desc)
+    parsed = parse_setlist(str(desc))
+    assert parsed.confidence == "high"
+    assert {"1", "2", "3"} <= {i.set for i in parsed.items}
+
+
+@pytest.mark.live
+def test_selection_prefers_newest_complete_miller(tmp_path: Path):
+    """Regression: GD 1969-11-02 once selected a 6-track fragment over the
+    newest complete Charlie Miller sbd (and addeddate misorders the millers,
+    so this also pins shnid-based revision ordering)."""
+    from llama.models import QualityAssessment
+    from llama.stages.select_recording import run_select_recording
+    from llama.workspace import ShowWorkspace
+
+    ia = IAClient(cache_dir=tmp_path / "cache")
+    docs = ia.scrape(
+        "mediatype:etree AND collection:GratefulDead AND date:[1969-11-02 TO 1969-11-02]",
+        SEARCH_FIELDS,
+    )
+    cand = next(c for c in group_candidates("GratefulDead", docs) if c.date == "1969-11-02")
+    a = QualityAssessment(performance_id=cand.performance_id, quality_score=9.0, rationale="r")
+    chosen = run_select_recording(ShowWorkspace(tmp_path / "s"), ia, cand, a)
+    assert chosen == "gd1969-11-02.sbd.miller.32350.sbeok.flac16"
+
+
+@pytest.mark.live
 def test_scrape_api_shape(tmp_path):
     """One real scrape request: the collections pass returns thousands of
     artist docs with the fields the index build depends on."""
