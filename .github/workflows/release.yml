@@ -113,6 +113,10 @@ jobs:
           name: ${{ matrix.os }}-${{ matrix.arch }}
           path: dist-release/*
           if-no-files-found: error
+          # Only needed for minutes, until the release job attaches these to
+          # the GitHub Release; 90-day default would eat the private-repo
+          # Actions storage quota (~70MB/run against a 500MB free tier).
+          retention-days: 1
 
   release:
     needs: [prep, build]
