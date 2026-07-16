@@ -74,7 +74,7 @@ jobs:
     runs-on: ${{ matrix.labels }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up project
         shell: bash
         run: |
@@ -107,7 +107,7 @@ jobs:
           else
             python packaging/build.py --version "$VER"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: needs.prep.outputs.dry_run != 'true'
         with:
           name: ${{ matrix.os }}-${{ matrix.arch }}
@@ -127,8 +127,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       VER: ${{ needs.prep.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: dist-release
           merge-multiple: true
