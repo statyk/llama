@@ -199,6 +199,10 @@ def find(
     min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
                                     help="Quality floor (0-10) on the LLM review score; "
                                          "lower-scored shows never shortlist (default 6.0)"),
+    year_cap: float = typer.Option(None, "--year-cap", min=0.0, max=1.0,
+                                   help="Max share of the shortlist one year may hold "
+                                        "(default 1.0 = scores decide the year mix; "
+                                        "set low for an era tour)"),
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
@@ -219,6 +223,8 @@ def find(
         updates["artist_cap"] = artist_cap
     if min_score is not None:
         updates["min_quality_score"] = min_score
+    if year_cap is not None:
+        updates["year_cap"] = year_cap
     if updates:
         criteria = criteria.model_copy(update=updates)
         write_artifact(ws.criteria, criteria)
@@ -431,6 +437,10 @@ def profile_add(
     min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
                                     help="Quality floor (0-10) on the LLM review score; "
                                          "lower-scored shows never shortlist (default 6.0)"),
+    year_cap: float = typer.Option(None, "--year-cap", min=0.0, max=1.0,
+                                   help="Max share of this profile's shortlist one year "
+                                        "may hold (default 1.0 = scores decide; set low "
+                                        "for an era tour)"),
     artists: str = typer.Option(None, "--artists",
                                 help="Pin the artist roster (comma-separated names); runs skip "
                                      "the LLM matcher and search exactly these"),
@@ -445,6 +455,8 @@ def profile_add(
         updates["artist_cap"] = artist_cap
     if min_score is not None:
         updates["min_quality_score"] = min_score
+    if year_cap is not None:
+        updates["year_cap"] = year_cap
     if artists:
         names = [n.strip() for n in artists.split(",") if n.strip()]
         index = load_or_build(ia, config.root / "cache")

@@ -471,6 +471,7 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
                         lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
     add = runner.invoke(cli.app, ["profile", "add", "sunday-dead", "GD classics",
                                   "--count", "2", "--human-gate", "--artist-cap", "0.5",
+                                  "--year-cap", "0.25",
                                   "--min-score", "7.5", "--config", cfg])
     assert add.exit_code == 0, add.output
     assert (tmp_path / "profiles" / "sunday-dead.toml").exists()
@@ -478,8 +479,26 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     saved = load_profile(tmp_path, "sunday-dead")
     assert saved.criteria.artist_cap == 0.5
     assert saved.criteria.min_quality_score == 7.5
+    assert saved.criteria.year_cap == 0.25
     listing = runner.invoke(cli.app, ["profile", "list", "--config", cfg])
     assert "sunday-dead" in listing.output
+
+
+def test_find_stamps_year_cap_into_run_criteria(tmp_path: Path, monkeypatch):
+    from llama.llm.fake import FakeProvider
+    from llama.models import Criteria as C
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    criteria_json = json.dumps({"query": "x", "collection": "GratefulDead"})
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+    result = runner.invoke(cli.app, ["find", "GD classics", "--year-cap", "0.5",
+                                     "--run-name", "yc", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    saved = read_model(RunWorkspace(tmp_path, "yc").criteria, C)
+    assert saved.year_cap == 0.5
 
 
 def test_profile_run_stamps_count_and_script_into_run_criteria(tmp_path: Path, monkeypatch):
