@@ -1,5 +1,6 @@
 import logging
 import shutil
+import textwrap
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -78,11 +79,21 @@ def _parse_ranks(text: str) -> set[int]:
     return {int(p) for p in text.split(",") if p.strip().isdigit()}
 
 
-def _print_shortlist(entries: list[ShortlistEntry]) -> None:
+RATIONALE_WIDTH = 90   # wrap column for the indented rationale block
+RATIONALE_LINES = 3    # default cap; --full-rationale lifts it
+
+
+def _print_shortlist(entries: list[ShortlistEntry], full: bool = False) -> None:
     for e in entries:
         c = e.candidate
         typer.echo(f"{e.rank:2d}. {c.date}  {c.collection:18.18s}  {c.venue or '?':26.26s}  "
-                   f"score {e.assessment.quality_score:.1f}  {e.assessment.rationale[:80]}")
+                   f"score {e.assessment.quality_score:.1f}")
+        lines = textwrap.wrap(e.assessment.rationale, width=RATIONALE_WIDTH)
+        if not full and len(lines) > RATIONALE_LINES:
+            lines = lines[:RATIONALE_LINES]
+            lines[-1] += " …"
+        for ln in lines:
+            typer.echo(f"      {ln}")
 
 
 def _print_artists(rows: list[dict]) -> None:
@@ -97,7 +108,8 @@ def _print_artists(rows: list[dict]) -> None:
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
-             script: bool = False, force_stage: str | None = None) -> None:
+             script: bool = False, force_stage: str | None = None,
+             full_rationale: bool = False) -> None:
     providers = make_providers(config)
     artists = None
     if criteria.artists:
@@ -137,7 +149,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     if not shortlist:
         typer.echo("No shows survived winnowing.")
         return
-    _print_shortlist(shortlist)
+    _print_shortlist(shortlist, full=full_rationale)
     if not auto and all(e.approved is None for e in shortlist):
         picks = typer.prompt("Process which ranks? (comma-separated, empty = top picks)",
                              default="", show_default=False)
@@ -186,6 +198,9 @@ def find(
     min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
                                     help="Quality floor (0-10) on the LLM review score; "
                                          "lower-scored shows never shortlist (default 6.0)"),
+    full_rationale: bool = typer.Option(False, "--full-rationale",
+                                        help="Show each shortlisted show's full selection "
+                                             "rationale (default: first few lines)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """One-off: find, vet, research, and package shows matching QUERY."""
@@ -207,7 +222,7 @@ def find(
         criteria = criteria.model_copy(update=updates)
         write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False, script=script)
+             human_gate=False, script=script, full_rationale=full_rationale)
 
 
 @app.command()
@@ -256,6 +271,9 @@ def run(
     force: bool = typer.Option(False, "--force"),
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the run's persisted script setting"),
+    full_rationale: bool = typer.Option(False, "--full-rationale",
+                                        help="Show each shortlisted show's full selection "
+                                             "rationale (default: first few lines)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Replay an existing run from its artifacts (stages skip work already done)."""
@@ -287,7 +305,8 @@ def run(
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=force and stage is None,
              script=effective_script or stage == "synthesize",
-             force_stage=stage if (force and stage not in (None, *RUN_LEVEL_STAGES)) else None)
+             force_stage=stage if (force and stage not in (None, *RUN_LEVEL_STAGES)) else None,
+             full_rationale=full_rationale)
 
 
 @app.command()
@@ -296,13 +315,16 @@ def review(
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the run's persisted script setting "
                                      "if you process immediately"),
+    full_rationale: bool = typer.Option(False, "--full-rationale",
+                                        help="Show each shortlisted show's full selection "
+                                             "rationale (default: first few lines)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Human gate: approve a run's shortlist, then optionally process it."""
     config, ia, ledger = _setup(config_path)
     ws = RunWorkspace(config.root, run_dir.name)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
-    _print_shortlist(entries)
+    _print_shortlist(entries, full=full_rationale)
     picks = typer.prompt("Approve which ranks? (comma-separated)",
                          default="", show_default=False)
     wanted = _parse_ranks(picks) & {e.rank for e in entries}
@@ -318,7 +340,8 @@ def review(
         criteria = read_model(ws.criteria, Criteria)
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
                  human_gate=False,
-                 script=criteria.script if script is None else script)
+                 script=criteria.script if script is None else script,
+                 full_rationale=full_rationale)
     else:
         typer.echo(f"next: llama run {ws.dir}")
 
@@ -442,6 +465,9 @@ def profile_add(
 def profile_run(
     name: str,
     auto: bool = typer.Option(False, "--auto"),
+    full_rationale: bool = typer.Option(False, "--full-rationale",
+                                        help="Show each shortlisted show's full selection "
+                                             "rationale (default: first few lines)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Find and process the profile's next N shows, avoiding ledger duplicates."""
@@ -454,7 +480,8 @@ def profile_run(
                                                    "script": profile.script})
     write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, profile.count, auto,
-             human_gate=profile.human_gate, script=profile.script)
+             human_gate=profile.human_gate, script=profile.script,
+             full_rationale=full_rationale)
 
 
 @profile_app.command("list")

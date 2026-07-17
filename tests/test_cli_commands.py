@@ -54,6 +54,88 @@ def test_review_shortlist_shows_artist(tmp_path: Path):
     assert any("mekons" in ln and "1973-06-11" in ln for ln in lines)
 
 
+LONG_RATIONALE = " ".join(f"w{i:03d}" for i in range(120))  # ~600 chars, unique tokens
+
+
+def _long_rationale_entries():
+    entries = make_entries()
+    entries[0].assessment.rationale = LONG_RATIONALE
+    return entries
+
+
+def test_shortlist_wraps_long_rationale_and_truncates(capsys):
+    cli._print_shortlist(_long_rationale_entries())
+    out = capsys.readouterr().out
+    assert "w040" in out                     # well past the old 80-char cutoff
+    assert "w119" not in out                 # tail still clipped by default
+    assert "…" in out                        # clipping is visible
+
+
+def test_shortlist_full_shows_entire_rationale(capsys):
+    cli._print_shortlist(_long_rationale_entries(), full=True)
+    out = capsys.readouterr().out
+    assert "w119" in out
+    assert "…" not in out
+
+
+def test_shortlist_short_rationale_has_no_ellipsis(capsys):
+    cli._print_shortlist(make_entries())
+    out = capsys.readouterr().out
+    assert "great show" in out
+    assert "…" not in out
+
+
+def test_review_full_rationale_flag(tmp_path: Path):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.shortlist, _long_rationale_entries())
+    result = runner.invoke(cli.app, ["review", str(ws.dir), "--full-rationale",
+                                     "--config", str(tmp_path / "config.toml")], input="\n")
+    assert result.exit_code == 0, result.output
+    assert "w119" in result.output
+
+
+def test_find_and_profile_run_pass_full_rationale_to_execute(tmp_path: Path, monkeypatch):
+    from llama.llm.fake import FakeProvider
+    from llama.models import Criteria as C
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    captured = {}
+    monkeypatch.setattr(cli, "_execute",
+                        lambda *a, **k: captured.update(full_rationale=k.get("full_rationale")))
+
+    criteria_json = json.dumps({"query": "x", "collection": "GratefulDead", "count": 1})
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
+    result = runner.invoke(cli.app, ["find", "GD classics", "--full-rationale",
+                                     "--run-name", "fr", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert captured["full_rationale"] is True
+
+    save_profile(tmp_path, Profile(name="classic", criteria=C(query="GD classics")))
+    result = runner.invoke(cli.app, ["profile", "run", "classic", "--full-rationale",
+                                     "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert captured["full_rationale"] is True
+
+
+def test_run_passes_full_rationale_to_execute(tmp_path: Path, monkeypatch):
+    from llama.models import Criteria as C
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, C(query="q"))
+    captured = {}
+    monkeypatch.setattr(cli, "_execute",
+                        lambda *a, **k: captured.update(full_rationale=k.get("full_rationale")))
+    result = runner.invoke(cli.app, ["run", str(ws.dir), "--full-rationale", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert captured["full_rationale"] is True
+
+
 def test_review_empty_input_changes_nothing(tmp_path: Path):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     ws = RunWorkspace(tmp_path, "r1")
@@ -414,7 +496,7 @@ def test_profile_run_stamps_count_and_script_into_run_criteria(tmp_path: Path, m
     captured = {}
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, force_stage=None):
+                     force=False, script=False, force_stage=None, full_rationale=False):
         captured.update(count=count, script=script, criteria=criteria)
 
     monkeypatch.setattr(cli, "_execute", fake_execute)
@@ -435,7 +517,7 @@ def test_run_inherits_script_and_count_from_criteria(tmp_path: Path, monkeypatch
     captured = {}
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, force_stage=None):
+                     force=False, script=False, force_stage=None, full_rationale=False):
         captured.update(count=count, script=script)
 
     monkeypatch.setattr(cli, "_execute", fake_execute)
