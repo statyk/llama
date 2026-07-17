@@ -116,7 +116,7 @@ def run_winnow(
                     len(scored) - len(floored), len(scored), criteria.min_quality_score)
     scored = floored
     scored.sort(key=lambda pair: (pair[1].quality_score, *_evidence(pair[0])),
-               reverse=True)
+                reverse=True)
     # Neither a hot year nor one deep catalog may monopolize the shortlist:
     # best score first, dominance bounded by the profile's artist_cap/year_cap.
     top = cap_across_artists(scored, lambda pair: pair[0].collection,

@@ -102,7 +102,8 @@ Quality earns the slots; caps only bound dominance. The shortlist cut and
 the final auto-pick fill best-score-first with two optional bounds: while
 other artists still have candidates, no artist may hold more than a share
 of the batch (`--artist-cap` on `find`/`profile add`, default 1/3 — at
-most ⌈n×cap⌉ slots), and `--year-cap` does the same per year. `year_cap`
+most ⌈n×cap⌉ slots), and `--year-cap` does the same per year (on
+multi-artist runs, within each artist's own slots). `year_cap`
 defaults to 1.0 (off): an unranged Dead query comes back 70s-heavy if
 that's what the scores say. Set it for an era tour — `--year-cap 0.25`
 keeps any year to a quarter of the batch; at or below 1/count it's strict
@@ -296,4 +297,4 @@ It's not in the ledger. Deliver it, or `llama ledger add <performance-id>
 | `No shows survived winnowing.` | Nothing passed dedup + mechanical floors + scoring | Broaden the query, lower floors, or check the ledger |
 | `winnow: N of M scored shows fell below the quality floor` | LLM scores under `min_quality_score` (default 6.0) were dropped | Expected while a pool is healthy; if it recurs and runs come back short, the well is drying — broaden criteria, or lower `--min-score` if you'd rather ship marginal shows |
 | `no matching artists found on the LMA` | Artist-less query matched nothing in the index | Name an artist or broaden the style terms |
-| `winnow: sampling 40 of N survivors across artists and years` | More candidates than the review-fetch budget; scoring pool sampled evenly per artist, then per year | Fine for most runs; raise `[winnow] max_metadata_fetch` in config to score more |
+| `winnow: sampling N of M survivors for review fetch` | More candidates than the review-fetch budget; the best-evidenced are scored, bounded by `artist_cap`/`year_cap` | Fine for most runs; raise `[winnow] max_metadata_fetch` in config to score more |

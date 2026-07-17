@@ -209,6 +209,10 @@ def find(
     config_path: Path = typer.Option(None, "--config"),
 ):
     """One-off: find, vet, research, and package shows matching QUERY."""
+    if artist_cap == 0.0 or year_cap == 0.0:
+        typer.echo("--artist-cap/--year-cap must be above 0 "
+                   "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
+        raise typer.Exit(1)
     config, ia, ledger = _setup(config_path)
     name = run_name or f"{date.today().isoformat()}-{slugify(query)[:40]}"
     ws = RunWorkspace(config.root, name)
@@ -447,6 +451,10 @@ def profile_add(
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Interpret QUERY once and save it as a named standing profile."""
+    if artist_cap == 0.0 or year_cap == 0.0:
+        typer.echo("--artist-cap/--year-cap must be above 0 "
+                   "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
+        raise typer.Exit(1)
     config, ia, _ = _setup(config_path)
     scratch = RunWorkspace(config.root, f"profile-setup-{name}")
     criteria = run_interpret(scratch, make_providers(config)["interpret"], query)

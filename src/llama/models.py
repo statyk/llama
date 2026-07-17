@@ -29,6 +29,7 @@ class Criteria(BaseModel):
     # Max share of the shortlist/auto-pick one YEAR may hold, same semantics
     # as artist_cap. 1.0 (default) = off: scores alone decide the year mix.
     # Set it (e.g. 0.25, or <=1/count for strict rotation) for an era tour.
+    # On multi-artist runs the year cap applies within each artist's own slots.
     year_cap: float = Field(default=1.0, gt=0, le=1)
     # Quality floor on the LLM review score (0-10): scored shows below it
     # never reach the shortlist, so a drying-up profile comes back short and

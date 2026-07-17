@@ -95,6 +95,26 @@ def test_review_full_rationale_flag(tmp_path: Path):
     assert "w119" in result.output
 
 
+def test_zero_caps_are_rejected_before_they_poison_criteria(tmp_path: Path, monkeypatch):
+    from llama.llm.fake import FakeProvider
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    criteria_json = json.dumps({"query": "x", "collection": "GratefulDead"})
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[criteria_json] * 4)})
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+    for flag in ("--year-cap", "--artist-cap"):
+        result = runner.invoke(cli.app, ["find", "GD", flag, "0.0",
+                                         "--run-name", "z", "--config", cfg])
+        assert result.exit_code == 1, f"find {flag} 0.0 must be rejected"
+        assert "must be above 0" in result.output
+        result = runner.invoke(cli.app, ["profile", "add", "z", "GD", flag, "0.0",
+                                         "--config", cfg])
+        assert result.exit_code == 1, f"profile add {flag} 0.0 must be rejected"
+        assert "must be above 0" in result.output
+
+
 def test_find_and_profile_run_pass_full_rationale_to_execute(tmp_path: Path, monkeypatch):
     from llama.llm.fake import FakeProvider
     from llama.models import Criteria as C

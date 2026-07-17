@@ -30,12 +30,13 @@ def length_seconds(val) -> float | None:
 
 
 def capped_pick(items: list, key_of, n: int, cap: float) -> list:
-    """Pick up to n items best-first, but while other buckets still have
-    candidates no bucket (keyed by key_of) may hold more than ceil(n * cap)
-    slots — quality earns the slots, the cap only bounds dominance.
-    cap=1.0 is pure best-first; cap at or below 1/n degenerates to
-    one-per-bucket round-robin. If every bucket hits the cap before n slots
-    fill, the rest relax to best-first. Items must arrive best-first."""
+    """Pick up to n items best-first, but no bucket (keyed by key_of) may
+    hold more than ceil(n * cap) slots until every bucket is at its cap;
+    any remaining slots then relax to best-first — quality earns the slots,
+    the cap only bounds dominance. cap=1.0 is pure best-first; cap at or
+    below 1/n degenerates to one-per-bucket round-robin. If every bucket
+    hits the cap before n slots fill, the rest relax to best-first. Items
+    must arrive best-first."""
     buckets: dict[str, list] = {}
     for item in items:
         buckets.setdefault(str(key_of(item)), []).append(item)
