@@ -47,7 +47,8 @@ these defaults with `llama config init` (`--stdout` to print instead):
     # backend = "openrouter"         # HTTP alternative; set OPENROUTER_API_KEY
     # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
     # gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
-    # Defaults: medium for most tasks; high for deep_research and synthesize.
+    # Defaults: medium for most tasks; high for deep_research and synthesize;
+    # low for vet_research.
     # If a task's output fails validation twice, the final retry runs one
     # tier up (exact `model` pins never escalate).
 
@@ -71,7 +72,9 @@ GratefulDead bonuses vanish unless restated), and any
 level down, an era's `scores` map replaces the whole lineage table: an
 omitted class (`sbd`/`matrix`/`aud`/`unknown`) scores 0.0, not its global
 value. `llama config init` writes all defaults out explicitly so additive
-edits keep them.
+edits keep them. The trap runs both ways: deleting a seeded table or block
+restores its built-in default (absence = default) — to truly clear one, set
+it empty (e.g. `lineage_eras = []` under `[selection]`).
 
 ## Use
 

@@ -115,7 +115,8 @@ backend = "claude_cli"             # requires the `claude` CLI on PATH
 # backend = "openrouter"           # HTTP alternative; set OPENROUTER_API_KEY
 # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
 # gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
-# Defaults: medium for most tasks; high for deep_research and synthesize.
+# Defaults: medium for most tasks; high for deep_research and synthesize;
+# low for vet_research.
 # A failed validation's final retry escalates one tier (pins never escalate).
 
 # [llm.deep_research]
@@ -158,6 +159,9 @@ seamons = 1.0
 # match a show wins. `scores` replaces the ENTIRE lineage table (global
 # base: sbd 3.0, matrix 2.5, aud 1.0, unknown 0.0) - an omitted class
 # scores 0.0, so spell out every class you care about.
+# Deleting a table/block here restores its built-in default (absence =
+# default); to truly clear one, set it empty, e.g. lineage_eras = []
+# under [selection].
 [[selection.lineage_eras]]
 collection = "GratefulDead"   # early-80s boards are rough: MTX > AUD > SBD
 date_from = "1980-01-01"
