@@ -330,6 +330,15 @@ warning. Nothing is ever deleted. `--dry-run` prints the plan. Until the
 migration runs, commands that touch shows refuse with
 ``run `llama migrate` first``.
 
+### `llama config init [--stdout] [--config PATH]`
+Seed `~/.llama/config.toml` (or `--config PATH`) with the baked-in
+defaults as a fully-commented TOML file. Refuses to overwrite an existing
+file; `--stdout` prints the template instead. Exists because config
+values **replace** defaults rather than merging: any
+`[selection.tapers.*]` or `[[selection.lineage_eras]]` you add replaces
+the built-in GD tuning unless the defaults are restated — which the
+seeded file does for you.
+
 ### `llama artists ["query"] [--limit N] [--all] [--refresh]`
 Search the LMA artist index with a natural-language query, or with no query
 list the deepest catalogs. `--all` bypasses the junk-filter floors.

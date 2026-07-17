@@ -11,7 +11,8 @@ station. A verbatim DJ script is included by default (`--no-script`, or
     python3 -m venv .venv && source .venv/bin/activate
     pip install -e ".[dev]"
 
-Optional config at `~/.llama/config.toml`:
+Optional config at `~/.llama/config.toml` — seed a fully-commented copy of
+these defaults with `llama config init` (`--stdout` to print instead):
 
     root = "/path/to/workdir"        # default ~/.llama
     delivery_path = "/station/inbox" # for `llama deliver`
@@ -62,6 +63,15 @@ Optional config at `~/.llama/config.toml`:
 
     [llm.tiers.openrouter]
     # medium = "deepseek/deepseek-chat-v3"  # retarget what a tier means per backend
+
+Config values **replace** built-in defaults — nothing merges. Adding any
+`[selection.tapers.<Band>]` table replaces the whole taper set (the
+GratefulDead bonuses vanish unless restated), and any
+`[[selection.lineage_eras]]` block replaces the built-in era list. One
+level down, an era's `scores` map replaces the whole lineage table: an
+omitted class (`sbd`/`matrix`/`aud`/`unknown`) scores 0.0, not its global
+value. `llama config init` writes all defaults out explicitly so additive
+edits keep them.
 
 ## Use
 
