@@ -165,6 +165,7 @@ class ResearchVetting(BaseModel):
     """What research.md asserts about this show, extracted for grounding checks."""
     asserted_songs: list[str] = Field(default_factory=list)
     asserted_dates: list[str] = Field(default_factory=list)
+    asserted_set_count: int | None = None  # explicit totals only; encores excluded
     context: str = ""  # one-line era/tour context for the manifest
 
 

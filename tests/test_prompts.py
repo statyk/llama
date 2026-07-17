@@ -29,3 +29,9 @@ def test_vet_research_prompt_excludes_context_mentions():
     text = load_prompt("vet_research")
     assert text.count("Exclude") >= 2  # once for songs, once for dates
     assert "AT THIS SHOW" in text
+
+
+def test_vet_research_prompt_extracts_set_count():
+    text = load_prompt("vet_research")
+    assert "asserted_set_count" in text
+    assert "encore" in text.lower()  # encores must not count as sets

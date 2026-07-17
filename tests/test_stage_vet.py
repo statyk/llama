@@ -183,6 +183,36 @@ def test_title_variants_match_by_containment(tmp_path: Path):
     assert result.flags == []
 
 
+def test_asserted_set_count_mismatch_flags(tmp_path: Path):
+    # The steepcanyonrangers-2002-07-07 case: a mis-parsed description left the
+    # structure single-set while research correctly reported two sets.
+    sws, show = setup(tmp_path)
+    show.tracks = [Track(index=1, set="1", title="Morning Dew",
+                         filename="a.mp3", title_source="tags")]
+    show.set_breaks = []
+    write_artifact(sws.show, show)
+    fake = FakeProvider(completes=[vet_json(asserted_songs=["Morning Dew"],
+                                            asserted_set_count=2)])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == ["research asserts 2 sets but structure has 1"]
+    assert json.loads(sws.show.read_text())["needs_review"] is True
+
+
+def test_asserted_set_count_ignores_encore(tmp_path: Path):
+    # Show has sets 1, 2, encore: "two sets" is correct, encore is not a set.
+    sws, show = setup(tmp_path)
+    fake = FakeProvider(completes=[vet_json(asserted_set_count=2)])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == []
+
+
+def test_absent_set_count_passes(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    fake = FakeProvider(completes=[vet_json(asserted_set_count=None)])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == []
+
+
 def test_wrong_date_flags_unparseable_does_not(tmp_path: Path):
     sws, show = setup(tmp_path)
     fake = FakeProvider(completes=[vet_json(asserted_dates=["1977-05-08", "that legendary night"])])

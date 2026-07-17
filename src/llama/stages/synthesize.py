@@ -1,8 +1,19 @@
+import re
+
 from llama.llm.tasks import run_json_task
 from llama.models import DJNotes, Show
 from llama.songs import normalize_song
 from llama.util import reviews_digest
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
+
+# Set-count claims in script prose. "sets of ..." ("two sets of fiddle tunes")
+# is a quantity of songs, not a set count, so it never counts as a claim.
+_SET_COUNT_CLAIM = re.compile(
+    r"\b(both|two|three|four|[234])\s+(?:\w+\s+)?sets\b(?!\s+of\b)", re.I
+)
+_ORDINAL_SET = re.compile(r"\b(second|third|fourth)\s+set\b", re.I)
+_COUNT_WORDS = {"both": 2, "two": 2, "three": 3, "four": 4, "2": 2, "3": 3, "4": 4}
+_ORDINALS = {"second": 2, "third": 3, "fourth": 4}
 
 
 def factual_guard(notes: DJNotes, show: Show) -> list[str]:
@@ -24,6 +35,22 @@ def factual_guard(notes: DJNotes, show: Show) -> list[str]:
             f"set-break note count mismatch: {len(notes.set_break_notes)} notes"
             f" for {len(show.set_breaks)} breaks"
         )
+    # Free-text set-count claims: structured fields above can be consistent
+    # while the intro prose still tells listeners "they played two sets".
+    prose = " ".join([notes.context, notes.intro, notes.outro,
+                      *notes.set_intros.values(), *notes.set_break_notes])
+    n_sets = len({t.set for t in show.tracks if t.set != "encore"})
+    claimed = {_COUNT_WORDS[m.group(1).lower()] for m in _SET_COUNT_CLAIM.finditer(prose)}
+    for n in sorted(claimed):
+        if n != n_sets:
+            problems.append(f"dj notes claim {n} sets but structure has {n_sets}")
+    implied = {_ORDINALS[m.group(1).lower()]: m.group(1).lower()
+               for m in _ORDINAL_SET.finditer(prose)}
+    for n, word in sorted(implied.items()):
+        if n > n_sets:
+            problems.append(
+                f"dj notes mention the {word} set but structure has {n_sets} sets"
+            )
     return problems
 
 

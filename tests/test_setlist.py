@@ -137,6 +137,37 @@ VENETA_SPACE_SEPARATED = (
     "China Cat Sunflower I Know You Rider Mexicali Blues Bertha"
 )
 
+SCR_STAGE_SETS = """Early Set - Grove Stage
+
+1. Intro
+2. New Song
+3. Norma Jean
+4. Sittin' Alone in the Moonlight
+5. Done Gone
+6. Carolina Home
+7. Mr. Taylor's New Home
+8. Hibritton Mountain
+9. Don't Let My Heart Be Lonesome
+10. Tennessee Blues
+
+
+Late Set - Meadow Stage
+
+11. T'aint True
+12. Big Jet Airplane
+13. Summer's Gone
+14. The Dusty Miller
+15. The Wicked Path of Sin
+16. Live and Let Live
+17. 8:45?
+18. I'll Take the Blame
+19. Five More Days
+20. Alabama Jubilee
+21. Devil in Disguise
+22. Endless Highway
+23. (I've Got My) Future on Ice
+24. Rawhide"""
+
 
 def test_corpus_veneta_inline_markers_and_numbered_encores():
     p = parse_setlist(VENETA_BRAVERMAN)
@@ -159,6 +190,42 @@ def test_corpus_space_separated_setlist_degrades_gracefully():
     p = parse_setlist(VENETA_SPACE_SEPARATED)
     assert p.confidence == "low"
     assert all(len(i.title) <= 80 for i in p.items)
+
+
+def test_corpus_labeled_stage_sets_and_numbered_lists():
+    # steepcanyonrangers 2002-07-07: festival sets labeled "Early Set - Grove
+    # Stage" / "Late Set - Meadow Stage" with a numbered song list. The old
+    # parser saw no set markers (everything landed in set 1) and kept the
+    # "3. " list prefixes, which poisoned alignment downstream.
+    p = parse_setlist(SCR_STAGE_SETS)
+    by_set: dict[str, list[str]] = {}
+    for i in p.items:
+        by_set.setdefault(i.set, []).append(i.title)
+    assert set(by_set) == {"1", "2"}
+    assert by_set["1"] == [
+        "Intro", "New Song", "Norma Jean", "Sittin' Alone in the Moonlight",
+        "Done Gone", "Carolina Home", "Mr. Taylor's New Home", "Hibritton Mountain",
+        "Don't Let My Heart Be Lonesome", "Tennessee Blues",
+    ]
+    assert by_set["2"][0] == "T'aint True" and by_set["2"][-1] == "Rawhide"
+    assert "8:45?" in by_set["2"]  # prefix "17. " stripped, title digits kept
+    assert p.confidence == "high"
+
+
+def test_labeled_set_with_colon_keeps_inline_songs():
+    # Colon after a labeled header introduces songs; a dash introduces a
+    # stage/venue label, never songs.
+    desc = "Acoustic Set: Ripple, Attics of My Life\nElectric Set: Sugar Magnolia"
+    p = parse_setlist(desc)
+    assert [(i.set, i.title) for i in p.items] == [
+        ("1", "Ripple"), ("1", "Attics of My Life"), ("2", "Sugar Magnolia")]
+
+
+def test_spelled_ordinal_set_headers():
+    desc = "First Set:\nBertha\nSugaree\nSecond Set:\nTruckin'\nDeal\nEncore:\nRipple"
+    p = parse_setlist(desc)
+    assert [i.set for i in p.items] == ["1", "1", "2", "2", "encore"]
+    assert p.confidence == "high"
 
 
 def test_unstructured_prose_paragraph_stays_low():

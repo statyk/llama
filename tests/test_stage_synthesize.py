@@ -50,6 +50,54 @@ def test_guard_catches_fabrications_and_mismatches():
     assert any("count mismatch" in p for p in problems)
 
 
+def make_single_set_show():
+    show = make_show()
+    show.tracks = [Track(index=1, set="1", title="Morning Dew",
+                         filename="a.mp3", title_source="tags")]
+    show.set_breaks = []
+    return show
+
+
+def single_set_notes(**overrides):
+    d = notes_dict(set_intros={"1": "Opens with Morning Dew."},
+                   set_break_notes=[], mentioned_songs=["Morning Dew"])
+    d.update(overrides)
+    return d
+
+
+def test_guard_catches_set_count_claim_in_prose():
+    # The steepcanyonrangers-2002-07-07 case: structurally consistent notes
+    # whose intro prose still claims two sets against a single-set structure.
+    notes = DJNotes(**single_set_notes(
+        intro="They actually played two sets that day, and both sets cook."))
+    problems = factual_guard(notes, make_single_set_show())
+    assert problems == ["dj notes claim 2 sets but structure has 1"]
+
+
+def test_guard_catches_set_count_claim_with_adjective():
+    notes = DJNotes(**single_set_notes(outro="Both festival sets, young band."))
+    problems = factual_guard(notes, make_single_set_show())
+    assert problems == ["dj notes claim 2 sets but structure has 1"]
+
+
+def test_guard_catches_ordinal_set_claim():
+    notes = DJNotes(**notes_dict(outro="The third set peak says it all."))
+    problems = factual_guard(notes, make_show())
+    assert problems == ["dj notes mention the third set but structure has 2 sets"]
+
+
+def test_guard_allows_consistent_set_count_prose():
+    notes = DJNotes(**notes_dict(
+        intro="Two sets plus an encore tonight, and the second set is huge."))
+    assert factual_guard(notes, make_show()) == []
+
+
+def test_guard_ignores_sets_of_phrases():
+    notes = DJNotes(**single_set_notes(
+        intro="Two sets of fiddle tunes bookend the show."))
+    assert factual_guard(notes, make_single_set_show()) == []
+
+
 def test_synthesize_writes_notes_and_md(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
     show = make_show()

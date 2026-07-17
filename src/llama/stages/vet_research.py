@@ -116,6 +116,13 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> list[str]:
                 flags.append(f"{_VET_FLAG_PREFIX}wrong date: {date_text}")
         elif norm != show.date:
             flags.append(f"{_VET_FLAG_PREFIX}wrong date: {date_text}")
+    if vetting.asserted_set_count is not None and show.tracks:
+        actual = len({t.set for t in show.tracks if t.set != "encore"})
+        if vetting.asserted_set_count != actual:
+            flags.append(
+                f"{_VET_FLAG_PREFIX}{vetting.asserted_set_count} sets"
+                f" but structure has {actual}"
+            )
     return flags
 
 
