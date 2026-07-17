@@ -131,19 +131,95 @@ def test_cap_across_artists_relaxes_when_every_artist_is_capped():
     assert picked == ["h1", "g1", "h2", "g2"]
 
 
-def test_cap_across_artists_year_spreads_within_an_artists_slots():
+def test_cap_across_artists_year_spread_is_opt_in_within_an_artists_slots():
     from llama.util import cap_across_artists
 
-    # CH's two slots go to his best show per year, not his two best 2002 shows
+    items = [("h1", "CH", "2002-01-01"), ("h2", "CH", "2002-06-01"),
+             ("h3", "CH", "1994-01-01"), ("g1", "GAT", "1998-01-01")]
+    # default (year_cap off): CH's two slots are his two best shows
+    assert [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 3, 0.5)] == \
+        ["h1", "h2", "g1"]
+
+
+def test_cap_across_artists_single_artist_is_year_capped_pick():
+    from llama.util import cap_across_artists
+
+    items = [("a", "GD", "1977-05-08"), ("b", "GD", "1977-05-09"),
+             ("c", "GD", "1969-12-07")]
+    # year_cap off (default): plain top-n
+    assert [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 2, 1 / 3)] == \
+        ["a", "b"]
+
+
+def test_capped_pick_cap_one_is_identity_prefix():
+    from llama.util import capped_pick
+
+    items = [("a", "1977"), ("b", "1977"), ("c", "1969")]
+    assert capped_pick(items, lambda it: it[1], 2, 1.0) == items[:2]
+
+
+def test_capped_pick_soft_cap_bounds_dominance():
+    from llama.util import capped_pick
+
+    # best-first: three 1977 shows out-rank everything
+    items = [("a", "1977"), ("b", "1977"), ("c", "1977"),
+             ("d", "1972"), ("e", "1969")]
+    # n=4, cap=1/2 -> at most 2 per year while other years have candidates
+    picked = capped_pick(items, lambda it: it[1], 4, 0.5)
+    assert picked == [("a", "1977"), ("b", "1977"), ("d", "1972"), ("e", "1969")]
+
+
+def test_capped_pick_tiny_cap_is_one_per_bucket_then_relaxes():
+    from llama.util import capped_pick
+
+    items = [("a", "1977"), ("b", "1977"), ("c", "1969"), ("d", "1972")]
+    # max_per=1: one per year in score order, then best-first relax
+    assert capped_pick(items, lambda it: it[1], 4, 0.25) == \
+        [("a", "1977"), ("c", "1969"), ("d", "1972"), ("b", "1977")]
+
+
+def test_capped_pick_single_bucket_is_plain_top_n():
+    from llama.util import capped_pick
+
+    items = [("a", "1977"), ("b", "1977")]
+    assert capped_pick(items, lambda it: it[1], 1, 0.1) == [("a", "1977")]
+
+
+def test_cap_across_artists_year_cap_off_is_score_order_within_artist():
+    from llama.util import cap_across_artists
+
+    # CH's two best shows are both 2002; year_cap off must NOT swap in 1994
     items = [("h1", "CH", "2002-01-01"), ("h2", "CH", "2002-06-01"),
              ("h3", "CH", "1994-01-01"), ("g1", "GAT", "1998-01-01")]
     picked = [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 3, 0.5)]
+    assert picked == ["h1", "h2", "g1"]
+
+
+def test_cap_across_artists_year_cap_caps_within_an_artists_slots():
+    from llama.util import cap_across_artists
+
+    items = [("h1", "CH", "2002-01-01"), ("h2", "CH", "2002-06-01"),
+             ("h3", "CH", "1994-01-01"), ("g1", "GAT", "1998-01-01")]
+    # year_cap 0.25 on CH's 3-show queue -> ceil(3*0.25)=1 per year
+    picked = [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 3, 0.5,
+                                                 year_cap=0.25)]
     assert picked == ["h1", "h3", "g1"]
 
 
-def test_cap_across_artists_single_artist_falls_back_to_year_spread():
+def test_cap_across_artists_single_artist_year_cap_off_is_top_n():
     from llama.util import cap_across_artists
 
-    items = [("a", "GD", "1977-05-08"), ("b", "GD", "1977-05-09"), ("c", "GD", "1969-12-07")]
+    items = [("a", "GD", "1977-05-08"), ("b", "GD", "1977-05-09"),
+             ("c", "GD", "1969-12-07")]
     assert [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 2, 1 / 3)] == \
-        ["a", "c"]
+        ["a", "b"]
+
+
+def test_cap_across_artists_single_artist_year_cap_bounds_years():
+    from llama.util import cap_across_artists
+
+    items = [("a", "GD", "1977-05-08"), ("b", "GD", "1977-05-09"),
+             ("c", "GD", "1969-12-07")]
+    # n=2, year_cap=0.5 -> ceil(1)=1 per year: old round-robin behavior
+    assert [it[0] for it in cap_across_artists(items, ARTIST_OF, DATE_OF, 2, 1 / 3,
+                                               year_cap=0.5)] == ["a", "c"]

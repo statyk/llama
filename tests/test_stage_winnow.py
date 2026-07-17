@@ -117,31 +117,21 @@ def test_winnow_truncation_samples_across_years(tmp_path: Path):
     assert sorted(e.candidate.performance_id for e in entries) == sorted(expected)
 
 
-def test_winnow_shortlist_cut_spreads_years(tmp_path: Path):
-    # Scores: 1977 shows 9.0 and 8.0, 1969 show 7.0. A shortlist of 2 must
-    # not be the two 1977 shows; it takes each year's best, ranked by score.
+def test_winnow_shortlist_cut_default_is_best_score_first(tmp_path: Path):
+    # year_cap off (default): a shortlist of 2 is the two best-scored shows
+    # even though both are 1977.
     cands = [
         candidate("GratefulDead/1977-05-08", "1977-05-08"),
         candidate("GratefulDead/1977-05-09", "1977-05-09"),
         candidate("GratefulDead/1969-12-07", "1969-12-07"),
     ]
     ws, led = setup(tmp_path, cands)
-    fake = FakeProvider(
-        completes=[json.dumps({"assessments": [
-            {"performance_id": "GratefulDead/1977-05-08", "quality_score": 9.0,
-             "non_attendee_evidence": "e", "recording_complaints": [], "rationale": "r"},
-            {"performance_id": "GratefulDead/1977-05-09", "quality_score": 8.0,
-             "non_attendee_evidence": "e", "recording_complaints": [], "rationale": "r"},
-            {"performance_id": "GratefulDead/1969-12-07", "quality_score": 7.0,
-             "non_attendee_evidence": "e", "recording_complaints": [], "rationale": "r"},
-        ]})],
-        researches=["r"] * 2,
-    )
+    pids = [c.performance_id for c in cands]  # scores 9.0, 8.5, 8.0
+    fake = FakeProvider(completes=[assessments_json(pids)], researches=["r"] * 2)
     crit = Criteria(query="q", collection="GratefulDead")
     entries = run_winnow(ws, fake, fake, StubIA(), crit, led, shortlist_size=2)
     assert [e.candidate.performance_id for e in entries] == [
-        "GratefulDead/1977-05-08", "GratefulDead/1969-12-07"]
-    assert [e.rank for e in entries] == [1, 2]
+        "GratefulDead/1977-05-08", "GratefulDead/1977-05-09"]
 
 
 def test_winnow_shortlist_spreads_across_artists(tmp_path: Path):

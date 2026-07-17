@@ -310,7 +310,7 @@ def test_vet_failure_skips_show_before_packaging(tmp_path: Path, monkeypatch):
     assert not (tmp_path / "ledger.jsonl").exists()
 
 
-def test_choose_entries_spreads_years_on_auto_pick():
+def test_choose_entries_year_cap_is_opt_in_on_auto_pick():
     from llama.models import Candidate, QualityAssessment, RecordingSummary, ShortlistEntry
     from llama.pipeline import choose_entries
 
@@ -326,10 +326,9 @@ def test_choose_entries_spreads_years_on_auto_pick():
 
     entries = [entry(1, "1977-05-08"), entry(2, "1977-05-09"),
                entry(3, "1969-12-07"), entry(4, "1972-08-27")]
-    # auto pick of 2: each year's best, in rank order - not ranks 1+2 (both 1977)
-    picked = choose_entries(entries, 2, human_gate=False)
-    assert [e.rank for e in picked] == [1, 3]
-    # explicit approvals are a human decision: no spreading applied
+    # default: rank order, even though ranks 1+2 are both 1977
+    assert [e.rank for e in choose_entries(entries, 2, human_gate=False)] == [1, 2]
+    # explicit approvals are a human decision: never capped
     approved = [entry(1, "1977-05-08", approved=True), entry(2, "1977-05-09", approved=True),
                 entry(3, "1969-12-07")]
     assert [e.rank for e in choose_entries(approved, 2, human_gate=False)] == [1, 2]
