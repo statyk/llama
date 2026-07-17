@@ -26,6 +26,10 @@ class Criteria(BaseModel):
     # (ceil(n * cap) slots) while other artists still have candidates.
     # 1.0 = pure best-first; at or below 1/n = one-per-artist round-robin.
     artist_cap: float = Field(default=1 / 3, gt=0, le=1)
+    # Max share of the shortlist/auto-pick one YEAR may hold, same semantics
+    # as artist_cap. 1.0 (default) = off: scores alone decide the year mix.
+    # Set it (e.g. 0.25, or <=1/count for strict rotation) for an era tour.
+    year_cap: float = Field(default=1.0, gt=0, le=1)
     # Quality floor on the LLM review score (0-10): scored shows below it
     # never reach the shortlist, so a drying-up profile comes back short and
     # says so instead of quietly shipping mediocre shows.

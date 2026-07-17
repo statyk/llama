@@ -7,7 +7,7 @@ from llama.models import Candidate, Criteria, QualityBatch, ShortlistEntry
 from llama.setlist import parse_setlist
 from llama.songs import matches_sequence
 from llama.status import detail, step
-from llama.util import cap_across_artists, spread_across_artists
+from llama.util import cap_across_artists
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -15,6 +15,11 @@ log = logging.getLogger("llama")
 
 def _best_recording(c: Candidate):
     return max(c.recordings, key=lambda r: (r.num_reviews, r.avg_rating or 0.0))
+
+
+def _evidence(c: Candidate):
+    return (sum(r.num_reviews for r in c.recordings),
+            max((r.avg_rating or 0.0) for r in c.recordings))
 
 
 def _passes_mechanical(c: Candidate, criteria: Criteria) -> bool:
@@ -56,18 +61,15 @@ def run_winnow(
     log.info("winnow: %d candidates -> %d after ledger -> %d after mechanical",
              len(candidates), len(pool), len(survivors))
     if len(survivors) > max_metadata_fetch:
-        log.warning("winnow: sampling %d of %d survivors across artists and years "
-                    "for review fetch (raise [winnow] max_metadata_fetch to widen)",
+        log.warning("winnow: sampling %d of %d survivors for review fetch - "
+                    "best evidence first, bounded by artist_cap/year_cap "
+                    "(raise [winnow] max_metadata_fetch to widen)",
                     max_metadata_fetch, len(survivors))
-        # Best-evidence first, then round-robin artists (years within each), so
-        # every artist and era gets scored instead of the deepest catalog's N.
-        def evidence(c: Candidate):
-            return (sum(r.num_reviews for r in c.recordings),
-                    max((r.avg_rating or 0.0) for r in c.recordings))
-        prefer = sorted(survivors, key=evidence, reverse=True)
+        prefer = sorted(survivors, key=_evidence, reverse=True)
         keep = {c.performance_id
-                for c in spread_across_artists(prefer, lambda c: c.collection,
-                                               lambda c: c.date, max_metadata_fetch)}
+                for c in cap_across_artists(prefer, lambda c: c.collection,
+                                            lambda c: c.date, max_metadata_fetch,
+                                            criteria.artist_cap, criteria.year_cap)}
         survivors = [c for c in survivors if c.performance_id in keep]
 
     payload = []
@@ -113,13 +115,15 @@ def run_winnow(
                     "min_quality_score or broaden the criteria",
                     len(scored) - len(floored), len(scored), criteria.min_quality_score)
     scored = floored
-    scored.sort(key=lambda pair: pair[1].quality_score, reverse=True)
+    scored.sort(key=lambda pair: (pair[1].quality_score, *_evidence(pair[0])),
+               reverse=True)
     # Neither a hot year nor one deep catalog may monopolize the shortlist:
-    # best score first, dominance bounded by the profile's artist_cap.
+    # best score first, dominance bounded by the profile's artist_cap/year_cap.
     top = cap_across_artists(scored, lambda pair: pair[0].collection,
                              lambda pair: pair[0].date, shortlist_size,
-                             criteria.artist_cap)
-    top.sort(key=lambda pair: pair[1].quality_score, reverse=True)
+                             criteria.artist_cap, criteria.year_cap)
+    top.sort(key=lambda pair: (pair[1].quality_score, *_evidence(pair[0])),
+             reverse=True)
 
     entries: list[ShortlistEntry] = []
     with step(f"winnow: researching shortlist ({len(top)} shows)"):
