@@ -1,10 +1,12 @@
 import json
+import tomllib
 from datetime import date
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 import llama.cli as cli
+from llama.config import DEFAULT_CONFIG_TOML
 from llama.ledger import Ledger
 from llama.models import (
     Candidate, Criteria, LedgerEntry, Provenance, QualityAssessment, RecordingSummary, Show,
@@ -963,3 +965,37 @@ def test_redo_without_provenance_errors(tmp_path: Path):
                                      "--config", cfg])
     assert result.exit_code == 1
     assert "provenance.json" in result.output and "migrate" in result.output
+
+
+def test_config_init_writes_template(tmp_path: Path):
+    target = tmp_path / "config.toml"
+    result = runner.invoke(cli.app, ["config", "init", "--config", str(target)])
+    assert result.exit_code == 0, result.output
+    assert target.read_text() == DEFAULT_CONFIG_TOML
+    tomllib.loads(target.read_text())        # parseable
+    assert str(target) in result.output
+    assert "replace" in result.output        # the no-merge reminder
+
+
+def test_config_init_refuses_existing(tmp_path: Path):
+    target = tmp_path / "config.toml"
+    target.write_text('audio_format = "flac"\n')
+    result = runner.invoke(cli.app, ["config", "init", "--config", str(target)])
+    assert result.exit_code == 1
+    assert "already exists" in result.output
+    assert target.read_text() == 'audio_format = "flac"\n'   # untouched
+
+
+def test_config_init_defaults_to_root(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(cli, "DEFAULT_ROOT", tmp_path)
+    result = runner.invoke(cli.app, ["config", "init"])
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "config.toml").read_text() == DEFAULT_CONFIG_TOML
+
+
+def test_config_init_stdout_prints_and_writes_nothing(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(cli, "DEFAULT_ROOT", tmp_path)
+    result = runner.invoke(cli.app, ["config", "init", "--stdout"])
+    assert result.exit_code == 0, result.output
+    assert "[[selection.lineage_eras]]" in result.output
+    assert not (tmp_path / "config.toml").exists()

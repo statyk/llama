@@ -9,7 +9,7 @@ import typer
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
-from llama.config import Config, load_config
+from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
@@ -36,6 +36,9 @@ profile_app = typer.Typer(help="Standing criteria profiles for recurring segment
 ledger_app = typer.Typer(help="Broadcast-history ledger")
 app.add_typer(profile_app, name="profile")
 app.add_typer(ledger_app, name="ledger")
+
+config_app = typer.Typer(help="Config file utilities")
+app.add_typer(config_app, name="config")
 
 
 def _version_callback(value: bool) -> None:
@@ -641,6 +644,29 @@ def runs(config_path: Path = typer.Option(None, "--config")):
         counts = by_run.get(d.name, Counter())
         summary = "  ".join(f"{s} {n}" for s, n in sorted(counts.items())) or "no shows"
         typer.echo(f"{d.name:34.34s} {summary:40.40s} {query:40.40s}")
+
+
+@config_app.command("init")
+def config_init(
+    stdout: bool = typer.Option(False, "--stdout",
+                                help="Print the default config instead of writing a file"),
+    config_path: Path = typer.Option(None, "--config",
+                                     help="Target file (default ~/.llama/config.toml)"),
+):
+    """Seed a config file with the baked-in defaults, fully commented."""
+    if stdout:
+        typer.echo(DEFAULT_CONFIG_TOML, nl=False)
+        return
+    target = config_path or DEFAULT_ROOT / "config.toml"
+    if target.exists():
+        typer.echo(f"{target} already exists - not overwriting "
+                   "(delete it first if you mean to reseed)", err=True)
+        raise typer.Exit(1)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(DEFAULT_CONFIG_TOML)
+    typer.echo(f"wrote {target}")
+    typer.echo("note: config values replace built-in defaults (no merging); "
+               "the defaults are written out so additive edits keep them")
 
 
 @profile_app.command("add")
