@@ -28,15 +28,16 @@ def make_providers(config: Config) -> dict:
 
 
 def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool,
-                   artist_cap: float = 1 / 3):
+                   artist_cap: float = 1 / 3, year_cap: float = 1.0):
     approved = [e for e in shortlist if e.approved is True]
     if approved:
-        return approved[:count]  # explicit human picks: no spreading
+        return approved[:count]  # explicit human picks: no capping
     if human_gate:
         return None  # gate required, nothing approved yet
     unrejected = [e for e in shortlist if e.approved is not False]
     picked = cap_across_artists(unrejected, lambda e: e.candidate.collection,
-                                lambda e: e.candidate.date, count, artist_cap)
+                                lambda e: e.candidate.date, count, artist_cap,
+                                year_cap)
     return sorted(picked, key=lambda e: e.rank)
 
 

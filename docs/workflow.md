@@ -85,7 +85,7 @@ and it is what gate 2 reads. When a show is held, this file says why.
 | interpret | yes | `criteria.json` | Query → structured criteria (artist, era, count, constraints) |
 | discover | yes | `artists.json` | Artist-less queries only: match style against the LMA artist index |
 | search | no | `candidates.json` | Wide-net archive.org search via the cursor-paginated scrape API — every matching recording, uncapped; groups recordings by performance identity (artist + date + venue). Complete recording lists matter downstream: siblings feed set-structure recovery and recording selection |
-| winnow | yes ×2 | `shortlist.json` | Ledger dedup → mechanical floors (rating/review count, setlist constraints) → LLM review scoring → quality floor (`min_quality_score`, default 6.0: lower-scored shows are dropped with a warning, so a thinning pool comes back short and loud instead of quietly mediocre) → light web research on the top 12+. When survivors exceed the review-fetch budget (`[winnow] max_metadata_fetch`, default 40), it samples them evenly across artists, then years — best evidence first. The shortlist cut is best-score-first with per-artist share capped at `artist_cap` (default 1/3), so style profiles come back a mix of artists instead of one deep catalog, and multi-era queries a mix instead of one hot year |
+| winnow | yes ×2 | `shortlist.json` | Ledger dedup → mechanical floors (rating/review count, setlist constraints) → LLM review scoring → quality floor (`min_quality_score`, default 6.0: lower-scored shows are dropped with a warning, so a thinning pool comes back short and loud instead of quietly mediocre) → light web research on the top 12+. When survivors exceed the review-fetch budget (`[winnow] max_metadata_fetch`, default 40), it samples the best-evidenced, bounded by `artist_cap`/`year_cap`. The shortlist cut is best-score-first with per-artist share capped at `artist_cap` (default 1/3) and per-year share capped at `year_cap` (default 1.0 = off — scores decide the year mix); equal scores tie-break on review evidence, not date |
 | select-recording | no | `selection.json` | Picks the best *recording* of the performance: lineage (SBD > MTX > AUD, era-overridable — early-80s GD inverts to MTX > AUD > SBD), ratings, completeness (scales the score: fragments lose to fuller tapes), and `[selection.tapers]` reputation bonuses (miller/seamons for GD; newest revision of a taper preferred) |
 | gather | maybe | `show.json`, `reviews.json` | Junk-filters files, resolves track titles (tags → setlist → siblings), builds canonical set structure from all recordings + setlist.fm, aligns it onto tracks; LLM only as alignment/extraction fallback |
 | research | yes | `research.md` | Deep web research on the specific performance |
@@ -98,22 +98,26 @@ nothing, and LMA reviews skew toward people who attended the show. The
 scoring prompt demands merit-based praise, and light research looks for the
 show's reputation *outside* the archive.
 
-Variety is deliberate, but quality earns the slots. The shortlist cut and
-the final auto-pick fill best-score-first with one bound: while other
-artists still have candidates, no artist may hold more than a share of the
-batch (`--artist-cap` on `find`/`profile add`, default 1/3 — at most
-⌈n×cap⌉ slots). A dominant catalog is bounded, not rationed: weaker artists
-appear only if their scores earn it, and if everyone else runs out the cap
-relaxes rather than under-delivering. Each artist's own slots spread across
-years, so single-artist runs keep the era mix ("1969-1977" comes back as a
-spread, not one hot year). `--artist-cap 1.0` restores pure top-N; a tiny
-cap forces one-per-artist rotation. The review-fetch sampling stays evenly
-spread across artists and years so the cap operates on real scores.
+Quality earns the slots; caps only bound dominance. The shortlist cut and
+the final auto-pick fill best-score-first with two optional bounds: while
+other artists still have candidates, no artist may hold more than a share
+of the batch (`--artist-cap` on `find`/`profile add`, default 1/3 — at
+most ⌈n×cap⌉ slots), and `--year-cap` does the same per year (on
+multi-artist runs, within each artist's own slots). `year_cap`
+defaults to 1.0 (off): an unranged Dead query comes back 70s-heavy if
+that's what the scores say. Set it for an era tour — `--year-cap 0.25`
+keeps any year to a quarter of the batch; at or below 1/count it's strict
+one-per-year rotation ("1969-1977" as a spread). Either cap at 1.0
+restores pure top-N; a dominant artist or year is bounded, not rationed,
+and if everything else runs out the cap relaxes rather than
+under-delivering. The review-fetch sampling honors the same caps, and
+equal scores tie-break on review evidence rather than date (score bands
+cluster, and a date tie-break would quietly favor the earliest years).
 
 Variety guarantees exist within a single batch only — nothing rotates
 across runs, and the ledger's job is dedup, not rotation. Want no artist
 repeated across your next N shows? Generate the N in one run. Explicit
-`llama review` approvals are never spread; your picks are your picks.
+`llama review` approvals are never capped; your picks are your picks.
 
 ## The two human gates (don't confuse them)
 
@@ -293,4 +297,4 @@ It's not in the ledger. Deliver it, or `llama ledger add <performance-id>
 | `No shows survived winnowing.` | Nothing passed dedup + mechanical floors + scoring | Broaden the query, lower floors, or check the ledger |
 | `winnow: N of M scored shows fell below the quality floor` | LLM scores under `min_quality_score` (default 6.0) were dropped | Expected while a pool is healthy; if it recurs and runs come back short, the well is drying — broaden criteria, or lower `--min-score` if you'd rather ship marginal shows |
 | `no matching artists found on the LMA` | Artist-less query matched nothing in the index | Name an artist or broaden the style terms |
-| `winnow: sampling 40 of N survivors across artists and years` | More candidates than the review-fetch budget; scoring pool sampled evenly per artist, then per year | Fine for most runs; raise `[winnow] max_metadata_fetch` in config to score more |
+| `winnow: sampling N of M survivors for review fetch` | More candidates than the review-fetch budget; the best-evidenced are scored, bounded by `artist_cap`/`year_cap` | Fine for most runs; raise `[winnow] max_metadata_fetch` in config to score more |

@@ -5,6 +5,7 @@ def test_criteria_defaults_and_roundtrip():
     c = Criteria(query="GD 73-74 with a china>rider")
     assert c.min_avg_rating == 3.5 and c.min_reviews == 3 and c.count == 1
     assert c.setlist_constraints == []
+    assert c.year_cap == 1.0
     again = Criteria.model_validate_json(c.model_dump_json())
     assert again == c
 

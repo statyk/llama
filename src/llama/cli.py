@@ -159,7 +159,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 e.approved = e.rank in wanted
             write_artifact(ws.shortlist, shortlist)
     chosen = choose_entries(shortlist, count, human_gate and auto,
-                            artist_cap=criteria.artist_cap)
+                            artist_cap=criteria.artist_cap,
+                            year_cap=criteria.year_cap)
     if chosen is None:
         typer.echo(f"Shortlist awaits review: llama review {ws.dir}")
         return
@@ -198,12 +199,20 @@ def find(
     min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
                                     help="Quality floor (0-10) on the LLM review score; "
                                          "lower-scored shows never shortlist (default 6.0)"),
+    year_cap: float = typer.Option(None, "--year-cap", min=0.0, max=1.0,
+                                   help="Max share of the shortlist one year may hold "
+                                        "(default 1.0 = scores decide the year mix; "
+                                        "set low for an era tour)"),
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """One-off: find, vet, research, and package shows matching QUERY."""
+    if artist_cap == 0.0 or year_cap == 0.0:
+        typer.echo("--artist-cap/--year-cap must be above 0 "
+                   "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
+        raise typer.Exit(1)
     config, ia, ledger = _setup(config_path)
     name = run_name or f"{date.today().isoformat()}-{slugify(query)[:40]}"
     ws = RunWorkspace(config.root, name)
@@ -218,6 +227,8 @@ def find(
         updates["artist_cap"] = artist_cap
     if min_score is not None:
         updates["min_quality_score"] = min_score
+    if year_cap is not None:
+        updates["year_cap"] = year_cap
     if updates:
         criteria = criteria.model_copy(update=updates)
         write_artifact(ws.criteria, criteria)
@@ -430,12 +441,20 @@ def profile_add(
     min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
                                     help="Quality floor (0-10) on the LLM review score; "
                                          "lower-scored shows never shortlist (default 6.0)"),
+    year_cap: float = typer.Option(None, "--year-cap", min=0.0, max=1.0,
+                                   help="Max share of this profile's shortlist one year "
+                                        "may hold (default 1.0 = scores decide; set low "
+                                        "for an era tour)"),
     artists: str = typer.Option(None, "--artists",
                                 help="Pin the artist roster (comma-separated names); runs skip "
                                      "the LLM matcher and search exactly these"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Interpret QUERY once and save it as a named standing profile."""
+    if artist_cap == 0.0 or year_cap == 0.0:
+        typer.echo("--artist-cap/--year-cap must be above 0 "
+                   "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
+        raise typer.Exit(1)
     config, ia, _ = _setup(config_path)
     scratch = RunWorkspace(config.root, f"profile-setup-{name}")
     criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
@@ -444,6 +463,8 @@ def profile_add(
         updates["artist_cap"] = artist_cap
     if min_score is not None:
         updates["min_quality_score"] = min_score
+    if year_cap is not None:
+        updates["year_cap"] = year_cap
     if artists:
         names = [n.strip() for n in artists.split(",") if n.strip()]
         index = load_or_build(ia, config.root / "cache")
