@@ -17,6 +17,11 @@ Optional config at `~/.llama/config.toml`:
     delivery_path = "/station/inbox" # for `llama deliver`
     audio_format = "mp3"             # or "flac"
 
+    [setlistfm]
+    api_key = "..."                  # or SETLISTFM_API_KEY env var; optional —
+                                     # without it set-structure recovery is
+                                     # best-effort from LMA descriptions only
+
     [winnow]
     max_metadata_fetch = 40          # review-fetch budget; when survivors exceed it
                                      # the best-evidenced are sampled, bounded by
@@ -79,19 +84,29 @@ Optional config at `~/.llama/config.toml`:
                                      # search exactly these (test-drive with `llama artists`,
                                      # freeze what you like; typos fail at add time)
     llama profile run sunday-dead-hour
-    llama review <run-dir>           # approve a shortlist, optionally process it
-    llama run <run-dir>              # resume/replay a run; finished stages are skipped
-    llama show <show-dir> [--clear]  # inspect (or overrule) a needs-review hold
-    llama deliver <show-dir>         # copy package to the station inbox
+    llama status                     # every show + its state, held-for-review first
+    llama runs                       # runs with per-state show counts
+    llama review countryish          # approve a run's shortlist, optionally process it
+    llama run countryish             # resume/replay a run; finished stages are skipped
+    llama show 1973-06-10 [--clear]  # inspect (or overrule) a needs-review hold
+    llama redo 1973-06-10 --from vet # re-run one show's pipeline from a stage
+    llama deliver 1973-06-10         # copy package to the station inbox
     llama ledger list                # broadcast history / dedup
+
+Shows and runs are addressed by **name or any unique substring** (paths
+still work): `llama show 1973-06-10` finds `gratefuldead-1973-06-10`; an
+ambiguous substring fails loudly and lists the candidates. Upgrading from
+a pre-0.4 workspace? Run `llama migrate` once — it moves show dirs nested
+under `runs/` into the canonical `~/.llama/shows/` library.
 
 Two different human gates, easy to conflate: `llama review` answers "which
 shortlisted shows are worth processing" (gate 1). Separately, a processed
 show can be held as **needs-review** when a stage flags something suspicious
-(`needs-review, skipped: ...`, gate 2) — inspect and clear that with
-`llama show`. See [docs/workflow.md](docs/workflow.md) for the full pipeline
-map, every flag, and a troubleshooting table — start there if a run didn't
-do what you expected.
+(`needs-review, skipped: ...`, gate 2) — `llama status --held` lists those,
+`llama show` inspects and clears one, and `llama redo` re-runs it from the
+flagged stage. See [docs/workflow.md](docs/workflow.md) for the full
+pipeline map, every flag, and a troubleshooting table — start there if a
+run didn't do what you expected.
 
 ### Explore artists
 

@@ -26,10 +26,21 @@ llama find "query"          llama profile run <name>
                                           package ──► llama deliver
 ```
 
-Every stage reads and writes plain files in a per-run directory under
-`~/.llama/runs/`. Stages **skip work whose output file already exists**, so any
-command that touches a run is cheap to re-execute — this is the core mechanic
-behind resuming, and behind most of the answers in this guide.
+Every stage reads and writes plain files. Run-level artifacts (criteria,
+candidates, shortlist) live in a per-run directory under `~/.llama/runs/`;
+show-level artifacts live in a canonical **shows library** at
+`~/.llama/shows/<slug>/` — one directory per performance, shared across
+runs. Stages **skip work whose output file already exists**, so any command
+that touches a run or show is cheap to re-execute — this is the core
+mechanic behind resuming, and behind most of the answers in this guide.
+Because the library is shared, a performance that surfaces again in a later
+run lands on the same directory and reuses the expensive work (research,
+package) already done.
+
+Day to day, the workspace is show-centric: `llama status` is the triage
+view (what's held, what's packaged and ready to deliver), and
+`llama redo <show> --from <stage>` re-runs one show's pipeline tail without
+touching its run or any other show.
 
 There are two modes:
 
@@ -50,33 +61,71 @@ Everything lives under `~/.llama/` (configurable as `root` in
 ├── ledger.jsonl                 # broadcast history (dedup + audit)
 ├── cache/                       # archive.org responses + artist index
 ├── profiles/<name>.toml         # standing profiles
-└── runs/<run-name>/             # one directory per run
-    ├── criteria.json            # interpreted query (interpret stage)
-    ├── candidates.json          # every performance found (search stage)
-    ├── shortlist.json           # ranked + scored top shows (winnow stage)
-    ├── artists.json             # artist-less queries only: matched artists
-    └── shows/<artist-date>/     # one directory per processed show
-        ├── selection.json       # which recording won and why
-        ├── show.json            # tracks, sets, flags — THE show state file
-        ├── reviews.json         # raw listener reviews
-        ├── research.md          # deep-research output
-        ├── vetting.json         # grounding-check results
-        ├── dj-notes.md/.json    # verbatim DJ script (default; absent with --no-script)
-        ├── llm-failure.txt      # raw LLM output if a task failed validation
-        └── package/             # the deliverable
-            ├── manifest.json    # schema v2: tracks, sets, durations, context
-            ├── playlist.m3u
-            ├── audio/           # verified, tagged tracks
-            ├── research.md
-            ├── reviews.md
-            └── dj-notes.md      # absent only with --no-script
+├── runs/<run-name>/             # run-level artifacts only
+│   ├── criteria.json            # interpreted query (interpret stage)
+│   ├── candidates.json          # every performance found (search stage)
+│   ├── shortlist.json           # ranked + scored top shows (winnow stage)
+│   └── artists.json             # artist-less queries only: matched artists
+└── shows/<slug>/                # canonical shows library: one dir per
+    │                            # performance, slug = slugified performance id
+    │                            # (gratefuldead-1973-06-10), shared across runs
+    ├── provenance.json          # which run processed it, winnow dossier,
+    │                            # script setting — what `redo` replays from
+    ├── selection.json           # which recording won and why
+    ├── show.json                # tracks, sets, flags — THE show state file
+    ├── reviews.json             # raw listener reviews
+    ├── research.md              # deep-research output
+    ├── vetting.json             # grounding-check results
+    ├── dj-notes.md/.json        # verbatim DJ script (default; absent with --no-script)
+    ├── llm-failure.txt          # raw LLM output if a task failed validation
+    └── package/                 # the deliverable
+        ├── manifest.json        # schema v2: tracks, sets, durations, context
+        ├── playlist.m3u
+        ├── audio/               # verified, tagged tracks
+        ├── research.md
+        ├── reviews.md
+        └── dj-notes.md          # absent only with --no-script
 ```
 
 Run names default to `YYYY-MM-DD-<slugified-query>` for `find` and
-`YYYY-MM-DD-<profile-name>` for profiles.
+`YYYY-MM-DD-<profile-name>` for profiles. Show slugs come from the
+performance identity (artist + date), so they are stable across runs by
+construction.
 
-`show.json` deserves a callout: it carries `needs_review` and `review_flags`,
-and it is what gate 2 reads. When a show is held, this file says why.
+Two files deserve a callout:
+
+- `show.json` carries `needs_review` and `review_flags`, and it is what
+  gate 2 reads. When a show is held, this file says why.
+- `provenance.json` is written every time a show is processed: which run
+  caused it, the winnow dossier and quality assessment, and the script
+  setting. It is what lets `llama redo` re-run a show standalone — the
+  originating run directory doesn't even need to exist anymore.
+
+Workspaces created before v0.4 nested show dirs under each run
+(`runs/<run>/shows/<slug>/`). `llama migrate` moves them into the library
+(one-time, idempotent); until it runs, any command that touches shows
+refuses and tells you to migrate first.
+
+## Names and states: the catalog
+
+Every command that takes a show or run accepts a **name, a unique
+substring, or a path**: exact match wins, otherwise a substring that
+matches exactly one candidate resolves to it, otherwise the command fails
+loudly and lists the matches. `llama show 1973-06-10` is the typical form;
+`llama run countryish` resolves `2026-07-16-countryish`.
+
+A show's **state** is never stored — it is derived from which artifacts
+exist plus the ledger, so it cannot go stale:
+
+| State | Derived from | Meaning |
+|---|---|---|
+| `held` | `show.json` has `needs_review: true` | Gate 2 hold; sorts first in `llama status`, flags shown inline |
+| `delivered` | ledger has a `delivered` entry for the performance | Shipped to the station |
+| `packaged` | `package/manifest.json` exists | Ready to deliver |
+| `scripted` / `vetted` / `researched` / `gathered` / `selected` | deepest stage artifact present | In-flight (or abandoned mid-pipeline) |
+
+`llama status` is the triage table over these states; `llama runs`
+summarizes per-run show counts. Both are in the command reference below.
 
 ## The stages
 
@@ -127,16 +176,17 @@ This is the single most confusing part of the system, so here it is plainly:
 |---|---|---|
 | **Question it asks** | "Which of these shows should we spend money processing?" | "Is this processed show clean enough to air?" |
 | **Granularity** | The run's shortlist | One show |
-| **Lives in** | `shortlist.json` (`approved: true/false/null`) | `shows/<show>/show.json` (`needs_review` + `review_flags`) |
+| **Lives in** | `runs/<run>/shortlist.json` (`approved: true/false/null`) | `shows/<slug>/show.json` (`needs_review` + `review_flags`) |
 | **Set by** | You (interactive prompt, or `llama review`) | The pipeline (gather/vet/synthesize/package flags) |
-| **Cleared by** | `llama review <run-dir>` | `llama show <show-dir> --clear` (after you inspect) |
+| **Cleared by** | `llama review <run>` | `llama show <show> --clear` (after you inspect) |
+| **Surfaced by** | `Shortlist awaits review:` message | `llama status --held` |
 | **What it blocks** | Processing starting at all | Packaging (or delivery, if flagged during packaging) |
 
 **Gate 1** appears interactively during `llama find` ("Process which
 ranks?"), or — for a `--human-gate` profile run with `--auto` — as the printed
-message `Shortlist awaits review: llama review <run-dir>`. `llama review`
+message `Shortlist awaits review: llama review <run>`. `llama review`
 records your picks and then offers to process them on the spot; decline and
-it prints the resume command (`llama run <run-dir>`) instead.
+it prints the resume command (`llama run <run>`) instead.
 
 **Gate 2** fires per show, any time a stage records a review flag in
 `show.json`. The pipeline checks it at three points (after vet, after
@@ -159,33 +209,58 @@ flags that can be set, and by which stage:
 
 **Clearing gate 2.** There is deliberately no `--force`-through-processing
 flag: a flagged show stays held until a human looks. Looking means
-`llama show <run-dir>/shows/<show>` — it prints the flags and state. Then:
+`llama show <show>` — it prints the flags, state, and a table of which
+stage artifacts exist. Then:
 
 - **Fix the input and re-run the stage that flagged it.** Vet flags are
-  self-clearing: `llama run <run-dir> --stage vet --force` re-vets and
-  recomputes (its own old flags are dropped first). Gather flags likewise
-  clear if a re-gather (`--stage gather --force`) produces clean structure —
-  e.g. after adding a setlist.fm API key.
+  self-clearing: `llama redo <show> --from vet` re-vets and recomputes
+  (its own old flags are dropped first). Gather flags likewise clear if a
+  re-gather (`llama redo <show> --from gather`) produces clean structure —
+  e.g. after adding a setlist.fm API key. `redo` keeps the expensive
+  `research.md` by default.
 - **Overrule it.** If the flags are false alarms:
-  `llama show <run-dir>/shows/<show> --clear`, then `llama run <run-dir>`.
-  Later stages skip finished work and packaging proceeds.
+  `llama show <show> --clear`, then `llama redo <show> --from package`
+  (the `--clear` output prints exactly this next step). Earlier stages'
+  artifacts are reused and packaging proceeds.
 - **Deliver-time-only flags** (`duration mismatch`) are the one case where a
-  package already exists; `llama deliver <show-dir> --force` overrides the
+  package already exists; `llama deliver <show> --force` overrides the
   delivery refusal.
 
 ## Command reference
+
+In every command below, `<show>` and `<run>` mean "name, unique substring,
+or path" — see [Names and states](#names-and-states-the-catalog).
 
 ### `llama find "query" [--limit N] [--auto] [--no-script] [--run-name NAME]`
 One-off end-to-end run. Interactive by default: artist-less queries let you
 prune the matched-artist list, and the shortlist prompt asks which ranks to
 process (empty answer = top picks). `--auto` skips all prompts and takes the
 top-ranked shows. The verbatim DJ script is generated by default (one extra
-high-tier LLM call per show); `--no-script` skips it.
+high-tier LLM call per show); `--no-script` skips it. Winnow knobs:
+`--artist-cap`, `--year-cap`, `--min-score` (see the winnow discussion
+above). `--full-rationale` prints each shortlisted show's complete
+selection rationale instead of the first few lines (also available on
+`run`, `review`, and `profile run`).
 
-### `llama run <run-dir> [--stage S --force] [--interactive] [--no-script]`
+### `llama status [--held] [--packaged] [--run NAME] [--artist SUBSTR] [--all] [--json]`
+The triage table: every show in the library with its derived state, artist,
+date, and originating run; held shows sort first with their flags indented
+beneath. By default only the 5 most recently delivered shows are kept in
+the listing — `--all` shows every delivered show. `--held` / `--packaged`
+filter to one state ("what needs my judgment" / "what's ready to ship"),
+`--run` filters to shows processed by that exact run name, `--artist`
+substring-matches the artist, and `--json` emits the records for scripting.
+
+### `llama runs`
+One line per run: name, show-state counts (via each show's provenance), and
+the run's query. The run-side companion to `llama status`.
+
+### `llama run <run> [--stage S --force] [--interactive] [--no-script]`
 **The resume/replay command.** Re-executes a run from its artifacts; every
 stage skips work whose output already exists, so this is how you continue
 after a crash, after `llama review`, or after fixing something by hand.
+To re-run a stage for a *single show*, reach for `llama redo` instead —
+`--stage --force` here applies to every show the run processes.
 
 - `--stage <name> --force` deletes that stage's outputs **and everything
   downstream of it**, then re-runs — later stages can never reuse artifacts
@@ -204,7 +279,7 @@ after a crash, after `llama review`, or after fixing something by hand.
   overrides the persisted flag.
 - Defaults to `--auto` (no prompts), unlike `find`.
 
-### `llama review <run-dir>`
+### `llama review <run>`
 Gate 1 only: prints the shortlist, asks which ranks to approve, and writes
 the answer into `shortlist.json`. Ranks you don't name are left undecided
 (once anything is approved, only approved entries are processed). It then
@@ -212,19 +287,48 @@ offers to process the approved shows immediately; decline and it prints the
 `llama run` command to do it later. Empty input changes nothing. It has no
 connection to needs-review (gate 2).
 
-### `llama show <show-dir> [--clear]`
-Gate 2: inspect one show's needs-review state — flags, recording, whether a
-package exists. `--clear` overrules the hold (clears `needs_review` and the
-flags) after you've judged them false alarms; follow with
-`llama run <run-dir>` to package. Takes the show directory
-(`<run-dir>/shows/<artist-date>/`).
+### `llama show <show> [--clear]`
+Gate 2: inspect one show — artist/date/venue, chosen recording, derived
+state, a table of stage artifacts (present + age, or missing), and the
+needs-review flags. `--clear` overrules the hold (clears `needs_review` and
+the flags) after you've judged them false alarms, and prints the follow-up
+(`llama redo <show> --from package`).
 
-### `llama deliver <show-dir> [--dest DIR] [--force]`
-Copies `<show-dir>/package/` into the station's watched folder
+### `llama redo <show> --from STAGE [--with-research] [--script/--no-script]`
+Re-run one show's pipeline from a stage onward, standalone — no run replay,
+no other show touched. `--from` is required; stages:
+`select | gather | research | vet | synthesize | package`. It deletes that
+stage's artifacts **and everything downstream**, then re-runs the tail
+using the show's `provenance.json` (candidate, winnow dossier, script
+setting) — the originating run directory is not needed.
+
+- **`research.md` is kept by default** on `--from select`/`--from gather`:
+  it's the expensive high-tier call and depends on performance identity,
+  not recording choice; vet's grounding checks are the safety net if a
+  structural fix leaves it slightly stale. `--with-research` drops it too;
+  `--from research` redoes it by definition.
+- The script setting recorded at process time is replayed;
+  `--script`/`--no-script` overrides it.
+- A show without `provenance.json` (pre-migration artifact or hand-built
+  dir) errors — run `llama migrate`, or reprocess it via its run once.
+
+### `llama deliver <show> [--dest DIR] [--force]`
+Copies the show's `package/` into the station's watched folder
 (`delivery_path` from config, or `--dest`) and records a `delivered` ledger
-entry. Refuses if the show is marked needs-review; `--force` overrides.
-Takes the **show directory** (the one containing `show.json`), not the
-package directory.
+entry (run attribution from `provenance.json`). Refuses if the show is
+marked needs-review; `--force` overrides. `llama status --packaged` lists
+what's ready to deliver.
+
+### `llama migrate [--dry-run]`
+One-time layout migration after upgrading to v0.4+: moves every
+`runs/*/shows/*` directory into the canonical `shows/` library and
+backfills `provenance.json` from each run's shortlist. Idempotent — an
+already-migrated slug is skipped. On a slug collision (the same
+performance processed under two runs), the directory with the deepest
+pipeline progress wins; the loser is left in place under its run with a
+warning. Nothing is ever deleted. `--dry-run` prints the plan. Until the
+migration runs, commands that touch shows refuse with
+``run `llama migrate` first``.
 
 ### `llama artists ["query"] [--limit N] [--all] [--refresh]`
 Search the LMA artist index with a natural-language query, or with no query
@@ -249,8 +353,8 @@ artists — deterministic, no LLM matching, no prune prompt. Edit the
 ### `llama profile run <name> [--auto]`
 Runs the profile as a new dated run, skipping performances already in the
 ledger. With `--human-gate` and `--auto`, stops at
-`Shortlist awaits review: llama review <run-dir>`; approve, then
-`llama run <run-dir>`.
+`Shortlist awaits review: llama review <run>`; approve, then
+`llama run <run>`.
 
 ### `llama profile list` / `llama ledger list` / `llama ledger add` / `llama ledger remove`
 Housekeeping. The ledger is the dedup memory: `selected` and `delivered`
@@ -259,41 +363,60 @@ entries suppress a performance in future winnows; `rejected` entries do too.
 
 ## Recipes
 
-**A `find` printed `needs-review, skipped` for a show I want.**
-`llama show <run-dir>/shows/<show>` to read the flags. If a flag is a false
-alarm, `llama show <show-dir> --clear` and `llama run <run-dir>`. If it's
-real (e.g. unresolved titles), fix the cause and `--stage <stage> --force`.
+**What's the state of everything? / What came in overnight?**
+`llama status` — held shows first with their flags, then packaged
+(ready to deliver), then in-flight. `llama status --packaged` is the
+ship-it worklist; `llama deliver <show>` each one.
+
+**A run printed `needs-review, skipped` for a show I want.**
+`llama show <show>` to read the flags. If a flag is a false alarm,
+`llama show <show> --clear` and then `llama redo <show> --from package`.
+If it's real (e.g. unresolved titles), fix the cause and
+`llama redo <show> --from <stage>`.
 
 **I approved via `llama review` — now what?**
-Say yes when it offers to process, or `llama run <run-dir>` later.
+Say yes when it offers to process, or `llama run <run>` later.
 
 **A stage failed with an LLM error.**
-The raw output is in `shows/<show>/llm-failure.txt`. Just re-run
-`llama run <run-dir>` — completed stages are skipped, the failed one retries.
+The raw output is in `shows/<slug>/llm-failure.txt`. Just re-run
+`llama run <run>` — completed stages are skipped, the failed one retries.
 
 **I want a different recording of the same show.**
-`llama run <run-dir> --stage select --force` — forcing cascades, so
-gather through package rebuild from the newly picked recording.
+`llama redo <show> --from select` — the drop cascades, so gather through
+package rebuild from the newly picked recording. `research.md` is kept
+(it's about the performance, not the recording); add `--with-research` if
+you want it redone too.
 
 **Re-research a show.**
-`llama run <run-dir> --stage research --force` — this also deletes
-`vetting.json`, so the new research gets re-vetted.
+`llama redo <show> --from research` — this also deletes `vetting.json`,
+so the new research gets re-vetted.
 
 **The same show keeps coming back in every profile run.**
 It's not in the ledger. Deliver it, or `llama ledger add <performance-id>
 --artist A --date D --status rejected` to suppress it.
 
+**A search or winnow decision looks wrong (run-level, not one show).**
+Stage forcing at the run level still exists:
+`llama run <run> --stage winnow --force` rebuilds the shortlist
+(confirming first if approvals would be lost); `--stage search --force`
+re-searches and drops the shortlist with it.
+
 ## Troubleshooting: message → meaning → action
 
 | You see | It means | Do |
 |---|---|---|
-| `Shortlist awaits review: llama review <dir>` | Gate 1 is waiting (human-gate profile) | `llama review <dir>` (it offers to process after) |
-| `approved: [1]` (from review) | Picks recorded | Say yes at the process prompt, or `llama run <dir>` later |
-| `needs-review, skipped: <show>` | Gate 2: a flag was set during processing | `llama show <show-dir>`; fix or `--clear`, then `llama run <dir>` |
+| `Shortlist awaits review: llama review <run>` | Gate 1 is waiting (human-gate profile) | `llama review <run>` (it offers to process after) |
+| `approved: [1]` (from review) | Picks recorded | Say yes at the process prompt, or `llama run <run>` later |
+| `needs-review, skipped: <show>` | Gate 2: a flag was set during processing | `llama show <show>`; fix (`llama redo --from <stage>`) or `--clear`, then `llama redo <show> --from package` |
 | `skipping <show>: needs review (…)` (log line) | Same as above, with the flags inline | Same |
 | `holding <show>: flagged during packaging (…)` | Package built but audio verification flagged it | Inspect; `llama deliver --force` if acceptable |
 | `refusing to deliver: … use --force` | Delivering a needs-review show | Inspect, then `--force` if intended |
-| `FAILED <show>: …` | LLM/network failure mid-show | `llama run <dir>` retries just the missing pieces; see `llm-failure.txt` |
+| `FAILED <show>: …` | LLM/network failure mid-show | `llama run <run>` retries just the missing pieces; see `llm-failure.txt` |
+| `N show dirs still nested under runs/ - run llama migrate first` | Pre-v0.4 layout detected | `llama migrate --dry-run` to see the plan, then `llama migrate` |
+| `'x' is ambiguous` + a list | Substring matched several shows/runs | Use a longer substring or a full name from the list |
+| `no show matches 'x'` / `no run matches 'x'` | Resolver found nothing | `llama status` / `llama runs` to see what exists |
+| `no provenance.json in … - run llama migrate` | `redo` on a show that predates provenance tracking | `llama migrate` backfills it; or reprocess once via its run |
+| `left in place (collision or already migrated): …` | Two runs held the same slug; the shallower copy stays put | Nothing deleted; inspect the leftover under `runs/<run>/shows/` and remove it by hand if unwanted |
 | `No shows survived winnowing.` | Nothing passed dedup + mechanical floors + scoring | Broaden the query, lower floors, or check the ledger |
 | `winnow: N of M scored shows fell below the quality floor` | LLM scores under `min_quality_score` (default 6.0) were dropped | Expected while a pool is healthy; if it recurs and runs come back short, the well is drying — broaden criteria, or lower `--min-score` if you'd rather ship marginal shows |
 | `no matching artists found on the LMA` | Artist-less query matched nothing in the index | Name an artist or broaden the style terms |
