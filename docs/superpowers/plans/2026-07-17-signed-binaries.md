@@ -21,9 +21,9 @@
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>` and
   `Claude-Session: https://claude.ai/code/session_01KZjRuTv8v58qy5izqvxiFF`
 
-**Operator-owned open questions (do not block implementation; the guarded template + defaults let the plan proceed):**
-1. `packaging/metadata.json` real Azure values (`CodeSigningAccountName` / `CertificateProfileName` / `Endpoint`) — committed as a placeholder-guarded template; the operator fills real values once.
-2. macOS notary profile — code defaults to `llama-notary`; operator either creates that profile once or sets `LLAMA_NOTARY_PROFILE=litcat-notary` to reuse the existing one.
+**Operator decisions folded in (resolved before execution):**
+1. `packaging/metadata.json` reuses litcat's real Azure Trusted Signing values verbatim (`Endpoint` `https://eus.codesigning.azure.net/`, `CodeSigningAccountName` `LitCat`, `CertificateProfileName` `bogsoft`) — the operator accepts llama binaries carrying LitCat's publisher identity, so the Windows leg works immediately on ITCHY. The placeholder-guard code stays (for a future profile change).
+2. macOS notary profile reuses the existing `litcat-notary` profile: the `--notary-profile` default is `litcat-notary`, so no per-runner env setup is needed. Overridable via `LLAMA_NOTARY_PROFILE` / `--notary-profile`.
 
 ---
 
@@ -133,20 +133,20 @@ def test_identity_ambiguous_raises():
 
 def test_notary_api_key_path():
     env = {"LLAMA_NOTARY_KEY": "/k.p8", "LLAMA_NOTARY_KEY_ID": "KID", "LLAMA_NOTARY_ISSUER": "ISS"}
-    args, kind = build.resolve_notary_auth(env, "llama-notary", None, None)
+    args, kind = build.resolve_notary_auth(env, "litcat-notary", None, None)
     assert args == ["--key", "/k.p8", "--key-id", "KID", "--issuer", "ISS"]
     assert "API key" in kind
 
 
 def test_notary_apple_id_team_from_env():
     env = {"LLAMA_NOTARY_APPLE_ID": "me@x.com", "LLAMA_NOTARY_PASSWORD": "pw", "LLAMA_NOTARY_TEAM_ID": "T9"}
-    args, _ = build.resolve_notary_auth(env, "llama-notary", None, None)
+    args, _ = build.resolve_notary_auth(env, "litcat-notary", None, None)
     assert args == ["--apple-id", "me@x.com", "--password", "pw", "--team-id", "T9"]
 
 
 def test_notary_apple_id_team_parsed_from_identity():
     env = {"LLAMA_NOTARY_APPLE_ID": "me@x.com", "LLAMA_NOTARY_PASSWORD": "pw"}
-    args, _ = build.resolve_notary_auth(env, "llama-notary", None, "Developer ID Application: X (TEAM42)")
+    args, _ = build.resolve_notary_auth(env, "litcat-notary", None, "Developer ID Application: X (TEAM42)")
     assert args[-2:] == ["--team-id", "TEAM42"]
 
 
@@ -157,14 +157,14 @@ def test_notary_apple_id_without_team_raises():
 
 
 def test_notary_profile_with_keychain():
-    args, kind = build.resolve_notary_auth({}, "llama-notary", "/kc.db", None)
-    assert args == ["--keychain-profile", "llama-notary", "--keychain", "/kc.db"]
-    assert "llama-notary" in kind
+    args, kind = build.resolve_notary_auth({}, "litcat-notary", "/kc.db", None)
+    assert args == ["--keychain-profile", "litcat-notary", "--keychain", "/kc.db"]
+    assert "litcat-notary" in kind
 
 
 def test_notary_profile_without_keychain():
-    args, _ = build.resolve_notary_auth({}, "llama-notary", None, None)
-    assert args == ["--keychain-profile", "llama-notary"]
+    args, _ = build.resolve_notary_auth({}, "litcat-notary", None, None)
+    assert args == ["--keychain-profile", "litcat-notary"]
 
 
 # --- misc mac helpers -------------------------------------------------------
@@ -417,8 +417,8 @@ def main() -> None:
     ap.add_argument("--identity",
                     help="macOS Developer ID Application identity "
                          "(default: auto-detect / LLAMA_CODESIGN_IDENTITY)")
-    ap.add_argument("--notary-profile", default=os.environ.get("LLAMA_NOTARY_PROFILE", "llama-notary"),
-                    help="notarytool keychain profile (default llama-notary / LLAMA_NOTARY_PROFILE)")
+    ap.add_argument("--notary-profile", default=os.environ.get("LLAMA_NOTARY_PROFILE", "litcat-notary"),
+                    help="notarytool keychain profile (default litcat-notary / LLAMA_NOTARY_PROFILE)")
     args = ap.parse_args()
 
     ext = "zip" if sys.platform == "win32" else "tar.gz"
@@ -479,15 +479,15 @@ Claude-Session: https://claude.ai/code/session_01KZjRuTv8v58qy5izqvxiFF"
   - `windows_sign(binary: Path, env: dict | None = None) -> None`
   - `main()` gains a `sys.platform == "win32"` signing dispatch.
 
-- [ ] **Step 1: Write the metadata template**
+- [ ] **Step 1: Write the metadata file**
 
-Create `packaging/metadata.json` (placeholder-guarded — `windows_sign` refuses to sign until the operator fills real values; account/profile/endpoint are open question #1):
+Create `packaging/metadata.json` with litcat's real Azure Trusted Signing values (operator decision 1: llama reuses litcat's signing profile verbatim, so the Windows leg works immediately on ITCHY). The placeholder-guard code in `windows_sign` (Step 4) stays for a future profile change, but this file holds real values, not placeholders:
 
 ```json
 {
   "Endpoint": "https://eus.codesigning.azure.net/",
-  "CodeSigningAccountName": "<my-account-name>",
-  "CertificateProfileName": "<my-profile-name>",
+  "CodeSigningAccountName": "LitCat",
+  "CertificateProfileName": "bogsoft",
   "ExcludeCredentials": [
     "ManagedIdentityCredential",
     "InteractiveBrowserCredential"
@@ -811,7 +811,13 @@ signing/notarization failure fails the leg — we never silently ship unsigned.
 - A **Developer ID Application** certificate in the login keychain (shared with
   the litcat runner on the same box). `build.py` auto-detects the sole such
   identity; override with `LLAMA_CODESIGN_IDENTITY` or `--identity`.
-- A **notarytool credential**. Either create a llama profile once:
+- A **notarytool credential**. `build.py` defaults its profile to
+  `litcat-notary`, the profile litcat already set up on this box (pinned to the
+  login keychain) — so **no per-runner setup is needed**; llama reuses it as-is.
+  To point elsewhere, set `LLAMA_NOTARY_PROFILE` or pass `--notary-profile`. If
+  you ever want a dedicated llama profile, create one once (pin `--keychain` to
+  the login keychain — notarytool otherwise stores it in the data-protection
+  keychain, which a runner session can't read):
 
   ```bash
   xcrun notarytool store-credentials "llama-notary" \
@@ -820,12 +826,9 @@ signing/notarization failure fails the leg — we never silently ship unsigned.
     --keychain "$HOME/Library/Keychains/login.keychain-db"
   ```
 
-  (Pin `--keychain` to the login keychain — notarytool otherwise stores the
-  profile in the data-protection keychain, which a runner session can't read.)
-  Or reuse the existing `litcat-notary` profile by setting
-  `LLAMA_NOTARY_PROFILE=litcat-notary` in the runner env. Headless alternatives
-  (any one, keychain-free) via runner env: `LLAMA_NOTARY_KEY`/`_KEY_ID`/`_ISSUER`
-  (App Store Connect API key) or `LLAMA_NOTARY_APPLE_ID`/`_PASSWORD`/`_TEAM_ID`.
+  Headless alternatives (any one, keychain-free) via runner env:
+  `LLAMA_NOTARY_KEY`/`_KEY_ID`/`_ISSUER` (App Store Connect API key) or
+  `LLAMA_NOTARY_APPLE_ID`/`_PASSWORD`/`_TEAM_ID`.
 - If the runner session can't use the login keychain's private key
   (`errSecInternalComponent`), provide the identity as a `.p12` via
   `LLAMA_SIGNING_P12` (+ `LLAMA_SIGNING_P12_PASSWORD`,
@@ -839,9 +842,12 @@ signing/notarization failure fails the leg — we never silently ship unsigned.
   Signing Tools (x64 `signtool.exe`).
 - `az login` (or a service-principal credential the dlib's credential chain can
   use) so signing reaches your Azure Trusted Signing account with no CI secret.
-- Fill `packaging/metadata.json` with your real `Endpoint`,
-  `CodeSigningAccountName`, and `CertificateProfileName` (the committed file is a
-  placeholder-guarded template; `build.py` refuses to sign until it is edited).
+- `packaging/metadata.json` is committed with litcat's real Azure Trusted
+  Signing values (account `LitCat`, profile `bogsoft`, `eus` endpoint), which
+  llama reuses — so signing works immediately on ITCHY with no edit. (llama
+  binaries therefore carry LitCat's publisher identity, an accepted tradeoff.)
+  `build.py` still refuses to sign if the file is ever reverted to placeholder
+  values, guarding a future profile change.
 
 ## Verifying a signed build
 
@@ -850,7 +856,7 @@ signing/notarization failure fails the leg — we never silently ship unsigned.
   ```bash
   codesign --verify --strict --verbose=2 dist/llama
   spctl --assess --type exec --verbose=2 dist/llama
-  xcrun notarytool history --keychain-profile llama-notary \
+  xcrun notarytool history --keychain-profile litcat-notary \
     --keychain "$HOME/Library/Keychains/login.keychain-db"
   ```
 
@@ -906,8 +912,9 @@ implementation; the Windows half needs a runner build.
 
 - [ ] **Step 1: macOS local signed build (on the Mac mini)**
 
-Ensure the login-keychain Developer ID + a `llama-notary` profile (or
-`LLAMA_NOTARY_PROFILE=litcat-notary`) are present, then:
+The login-keychain Developer ID and the `litcat-notary` profile (the build's
+default) are already present on this box from litcat's setup, so no extra setup
+is needed. Then:
 
 ```bash
 python packaging/build.py --version 0.0.0-verify
@@ -923,7 +930,7 @@ Expected: PyInstaller builds `dist/llama`; `codesign` succeeds; `codesign
 ```bash
 codesign --verify --strict --verbose=2 dist/llama
 spctl --assess --type exec --verbose=2 dist/llama
-xcrun notarytool history --keychain-profile llama-notary \
+xcrun notarytool history --keychain-profile litcat-notary \
   --keychain "$HOME/Library/Keychains/login.keychain-db" | head
 dist/llama --version   # signed binary still runs
 ```

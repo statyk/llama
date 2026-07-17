@@ -91,7 +91,7 @@ runner, which is how the box works for litcat today).
 (`LLAMA_NOTARY_KEY`/`_KEY_ID`/`_ISSUER`) → Apple ID + app-specific password
 (`LLAMA_NOTARY_APPLE_ID`/`_PASSWORD`, team id from `LLAMA_NOTARY_TEAM_ID` or
 parsed from the identity's trailing `(TEAMID)`) → keychain profile
-(`LLAMA_NOTARY_PROFILE`, default `llama-notary`) pinned with `--keychain` to
+(`LLAMA_NOTARY_PROFILE`, default `litcat-notary` — see decision below) pinned with `--keychain` to
 `~/Library/Keychains/login.keychain-db` (notarytool otherwise stores/reads the
 profile in the data-protection keychain, unreadable in a runner session). A
 logged-in operator uses the profile; the env-var paths exist for a truly
@@ -145,9 +145,11 @@ if `metadata.json` still holds placeholder values.
   entitlement is dropped — llama is a headless CLI.)
 - `packaging/metadata.json` — Azure Trusted Signing config
   (`Endpoint`, `CodeSigningAccountName`, `CertificateProfileName`,
-  `ExcludeCredentials`), same shape as litcat's. Account/profile/endpoint values
-  are **open questions** for the operator (see below); the file carries a
-  placeholder-guard sentinel so an unedited template can never sign.
+  `ExcludeCredentials`). Per operator decision, llama reuses litcat's real
+  values verbatim (`LitCat` / `bogsoft` / `eus` endpoint), so the Windows leg
+  signs immediately on ITCHY (llama binaries carry LitCat's publisher identity —
+  an accepted tradeoff). The `check_metadata_not_placeholder` guard stays for a
+  future profile change.
 
 Neither file is a secret: the entitlements are public policy; the Azure account
 and profile *names* are not credentials (litcat commits its real
@@ -187,8 +189,8 @@ with no signing secrets in CI. `permissions` stays `contents: write`.
 ### Documentation
 
 - `docs/releasing.md` (new): what gets signed, the one-time machine setup on
-  each box (Developer ID in login keychain; the `llama-notary` profile or
-  reusing `litcat-notary`; ITCHY's ArtifactSigningClientTools + `az` login +
+  each box (Developer ID in login keychain; reusing the `litcat-notary` profile
+  by default; ITCHY's ArtifactSigningClientTools + `az` login +
   `metadata.json`), the **no-staple / online-first-run** macOS limitation,
   `--skip-sign` for local builds, and the verification commands.
 - `README.md`: one line noting the mac binary is signed + notarized (Gatekeeper-
@@ -227,20 +229,18 @@ implementation. Windows verification realistically needs a `workflow_dispatch`
 release run on ITCHY — proposed as a documented manual verification, flagged as
 residual risk.
 
-## Open questions (operator-owned)
+## Resolved decisions (were open questions)
 
-1. **Windows Azure Trusted Signing identity for `metadata.json`.** Which
-   `CodeSigningAccountName` / `CertificateProfileName` / `Endpoint` should
-   `llama` sign under? Reusing litcat's exact profile (`LitCat`/`bogsoft`) would
-   stamp llama's exe with LitCat's publisher identity, which is probably not
-   wanted; a llama-specific certificate profile under the same Azure account is
-   the likely answer. This determines the committed `metadata.json` values and
-   whether the machine-side `az` credential on ITCHY has access to that profile.
-2. **macOS notarization profile.** Create a new `llama-notary` keychain profile
-   on the Mac mini (one-time `xcrun notarytool store-credentials "llama-notary"
-   --keychain ~/Library/Keychains/login.keychain-db …`), or reuse the existing
-   `litcat-notary` profile via `LLAMA_NOTARY_PROFILE=litcat-notary` (same Apple
-   ID/team works to notarize any app)? Default in code is `llama-notary`.
+1. **Windows Azure Trusted Signing identity for `metadata.json`.** RESOLVED:
+   reuse litcat's profile verbatim — `metadata.json` carries `LitCat` /
+   `bogsoft` / the `eus` endpoint. llama binaries will carry LitCat's publisher
+   identity (accepted), and the machine-side `az` credential on ITCHY already
+   has access, so the Windows leg signs immediately with no repo edit.
+2. **macOS notarization profile.** RESOLVED: reuse the existing `litcat-notary`
+   profile (same Apple ID/team notarizes any app). The `--notary-profile`
+   default is `litcat-notary`, so no per-runner env setup is needed; override
+   via `LLAMA_NOTARY_PROFILE` / `--notary-profile`. A dedicated `llama-notary`
+   profile remains an option if the publisher split is ever wanted.
 
 ## Out of scope
 
