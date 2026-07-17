@@ -222,9 +222,12 @@ def macos_sign(binary: Path, identity: str | None, notary_profile: str,
         zip_path = binary.with_suffix(".notarize.zip")
         if zip_path.exists():
             zip_path.unlink()
-        subprocess.run(["ditto", "-c", "-k", str(binary), str(zip_path)], check=True)
-        subprocess.run(["xcrun", "notarytool", "submit", str(zip_path), *auth, "--wait"], check=True)
-        zip_path.unlink()
+        try:
+            subprocess.run(["ditto", "-c", "-k", str(binary), str(zip_path)], check=True)
+            subprocess.run(["xcrun", "notarytool", "submit", str(zip_path), *auth, "--wait"], check=True)
+        finally:
+            if zip_path.exists():
+                zip_path.unlink()
         # Bare Mach-O: no stapling. Best-effort Gatekeeper assessment (don't fail on it).
         subprocess.run(["spctl", "--assess", "--type", "exec", "--verbose=2", str(binary)], check=False)
         print(f"signed + notarized: {binary} (not stapled — Gatekeeper checks online on first run)")
@@ -243,7 +246,7 @@ def check_metadata_not_placeholder(text: str) -> None:
     if "<my-account-name>" in text or "<my-profile-name>" in text:
         raise SystemExit(
             "packaging/metadata.json still has placeholder values — set "
-            "CodeSigningAccountName / CertificateProfileName / Endpoint before signing."
+            "CodeSigningAccountName / CertificateProfileName before signing."
         )
 
 

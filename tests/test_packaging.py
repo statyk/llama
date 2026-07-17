@@ -243,3 +243,21 @@ def test_main_dry_run_win32_plan(monkeypatch, capsys):
     monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.2.3", "--dry-run"])
     build.main()
     assert "signtool" in capsys.readouterr().out
+
+
+def test_main_signing_failure_aborts_before_package(monkeypatch):
+    calls = []
+    monkeypatch.setattr(build, "write_version_file", lambda v: None)
+    monkeypatch.setattr(build, "run_pyinstaller", lambda v: None)
+    monkeypatch.setattr(build, "smoke_test", lambda v: None)
+    monkeypatch.setattr(build, "package", lambda v: calls.append("package"))
+
+    def boom(*a, **k):
+        raise build.subprocess.CalledProcessError(1, "codesign")
+
+    monkeypatch.setattr(build, "macos_sign", boom)
+    monkeypatch.setattr(build.sys, "platform", "darwin")
+    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0"])
+    with pytest.raises(build.subprocess.CalledProcessError):
+        build.main()
+    assert "package" not in calls

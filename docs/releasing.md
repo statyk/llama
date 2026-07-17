@@ -48,12 +48,20 @@ signing/notarization failure fails the leg — we never silently ship unsigned.
 
   Headless alternatives (any one, keychain-free) via runner env:
   `LLAMA_NOTARY_KEY`/`_KEY_ID`/`_ISSUER` (App Store Connect API key) or
-  `LLAMA_NOTARY_APPLE_ID`/`_PASSWORD`/`_TEAM_ID`.
+  `LLAMA_NOTARY_APPLE_ID`/`_PASSWORD`/`_TEAM_ID`. `LLAMA_NOTARY_KEYCHAIN`
+  overrides which keychain holds the notary profile (default: the login
+  keychain; set it empty to use the session's default keychain instead) —
+  `build.py` honors it when pinning the `--keychain-profile` lookup.
 - If the runner session can't use the login keychain's private key
   (`errSecInternalComponent`), provide the identity as a `.p12` via
   `LLAMA_SIGNING_P12` (+ `LLAMA_SIGNING_P12_PASSWORD`,
   `LLAMA_SIGNING_KEYCHAIN_PASSWORD`); `build.py` imports it into a throwaway
-  keychain it manages itself.
+  keychain it manages itself. The identity string itself is still resolved
+  from the keychain by default (via `security find-identity`), so if the
+  Developer ID cert isn't otherwise visible to that command on this runner,
+  also set `LLAMA_CODESIGN_IDENTITY` (or pass `--identity`) — the `.p12`
+  supplies a session-usable key, but auto-detection still needs to see the
+  cert.
 
 ### ITCHY (Windows runner)
 
