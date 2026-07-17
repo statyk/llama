@@ -79,6 +79,7 @@ def drop_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> None:
 
 class RunWorkspace:
     def __init__(self, root: Path, name: str):
+        self.root = root
         self.name = name
         self.dir = root / "runs" / name
         self.criteria = self.dir / "criteria.json"
@@ -87,4 +88,4 @@ class RunWorkspace:
         self.artists = self.dir / "artists.json"
 
     def show_ws(self, performance_id: str) -> ShowWorkspace:
-        return ShowWorkspace(self.dir / "shows" / slugify(performance_id))
+        return ShowWorkspace(self.root / "shows" / slugify(performance_id))

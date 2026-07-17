@@ -39,7 +39,7 @@ def test_workspace_layout(tmp_path: Path):
     assert ws.candidates.name == "candidates.json"
     assert ws.shortlist.name == "shortlist.json"
     sws = ws.show_ws("GratefulDead/1973-06-10")
-    assert sws.dir == ws.dir / "shows" / "gratefuldead-1973-06-10"
+    assert sws.dir == tmp_path / "shows" / "gratefuldead-1973-06-10"
     assert sws.show.name == "show.json"
     assert sws.package_dir.name == "package"
     assert sws.dj_notes_md.name == "dj-notes.md"

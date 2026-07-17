@@ -97,7 +97,7 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     ])
     assert result.exit_code == 0, result.output
 
-    show_dir = tmp_path / "runs" / "testrun" / "shows" / "gratefuldead-1973-06-10"
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     pkg = show_dir / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["show"]["artist"] == "Grateful Dead"
@@ -131,7 +131,7 @@ def test_show_failure_is_isolated_and_raw_output_saved(tmp_path: Path, monkeypat
     assert result.exit_code == 0, result.output
     assert "FAILED" in result.output
 
-    show_dir = tmp_path / "runs" / "testrun3" / "shows" / "gratefuldead-1973-06-10"
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     failure = show_dir / "llm-failure.txt"
     assert failure.exists()
     assert failure.read_text() == "not json"
@@ -153,7 +153,7 @@ def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypat
     ])
     assert result.exit_code == 0
     assert "needs-review" in result.output
-    show_dir = tmp_path / "runs" / "testrun2" / "shows" / "gratefuldead-1973-06-10"
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     assert not (show_dir / "package" / "manifest.json").exists()
     assert not (tmp_path / "ledger.jsonl").exists()
 
@@ -168,7 +168,7 @@ def test_find_default_includes_script(tmp_path: Path, monkeypatch):
         "--config", str(tmp_path / "config.toml"),
     ])
     assert result.exit_code == 0, result.output
-    pkg = tmp_path / "runs" / "defscript" / "shows" / "gratefuldead-1973-06-10" / "package"
+    pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_notes"] is not None
     assert manifest["set_breaks"][0]["note_index"] == 0
@@ -187,7 +187,7 @@ def test_find_no_script_skips_script(tmp_path: Path, monkeypatch):
         "--config", str(tmp_path / "config.toml"),
     ])
     assert result.exit_code == 0, result.output
-    pkg = tmp_path / "runs" / "noscript" / "shows" / "gratefuldead-1973-06-10" / "package"
+    pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_notes"] is None
     assert manifest["research"] == "research.md"
@@ -217,7 +217,7 @@ def test_package_replay_without_script_keeps_cached_notes(tmp_path: Path, monkey
     ])
     assert replay.exit_code == 0, replay.output
 
-    pkg = run_dir / "shows" / "gratefuldead-1973-06-10" / "package"
+    pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_notes"] is not None
     assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0},
@@ -237,11 +237,11 @@ def test_stage_synthesize_implies_script(tmp_path: Path, monkeypatch):
         "--config", cfg,
     ])
     assert first.exit_code == 0, first.output
-    show_dir = tmp_path / "runs" / "synthreplay" / "shows" / "gratefuldead-1973-06-10"
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     assert not (show_dir / "dj-notes.json").exists()
 
     replay = runner.invoke(cli.app, [
-        "run", str(show_dir.parent.parent), "--stage", "synthesize", "--force",
+        "run", str(tmp_path / "runs" / "synthreplay"), "--stage", "synthesize", "--force",
         "--config", cfg,
     ])
     assert replay.exit_code == 0, replay.output
@@ -272,7 +272,7 @@ def test_stage_force_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path,
     first = runner.invoke(cli.app, ["find", "GD 1973", "--auto",
                                     "--run-name", "stageforce", "--config", cfg])
     assert first.exit_code == 0, first.output
-    show_dir = tmp_path / "runs" / "stageforce" / "shows" / "gratefuldead-1973-06-10"
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     (show_dir / "research.md").write_text("OLD SENTINEL")
 
     fresh = fake_providers(None)
@@ -280,7 +280,7 @@ def test_stage_force_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path,
     fresh["score_reviews"] = FakeProvider()  # shortlist replayed from disk
     fresh["light_research"] = FakeProvider()
     monkeypatch.setattr(cli, "make_providers", lambda config: fresh)
-    replay = runner.invoke(cli.app, ["run", str(show_dir.parent.parent),
+    replay = runner.invoke(cli.app, ["run", str(tmp_path / "runs" / "stageforce"),
                                      "--stage", "research", "--force", "--config", cfg])
     assert replay.exit_code == 0, replay.output
     assert (show_dir / "research.md").read_text() != "OLD SENTINEL"  # re-researched
@@ -303,7 +303,7 @@ def test_vet_failure_skips_show_before_packaging(tmp_path: Path, monkeypatch):
     ])
     assert result.exit_code == 0, result.output
     assert "needs-review" in result.output
-    show_dir = tmp_path / "runs" / "badresearch" / "shows" / "gratefuldead-1973-06-10"
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     saved = json.loads((show_dir / "show.json").read_text())
     assert any("unknown song" in f for f in saved["review_flags"])
     assert not (show_dir / "package" / "manifest.json").exists()
@@ -378,8 +378,7 @@ def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
 
     from llama.models import Provenance
     from llama.workspace import read_model
-    prov_path = (tmp_path / "runs" / "provrun" / "shows"
-                 / "gratefuldead-1973-06-10" / "provenance.json")
+    prov_path = tmp_path / "shows" / "gratefuldead-1973-06-10" / "provenance.json"
     prov = read_model(prov_path, Provenance)
     assert prov.performance_id == "GratefulDead/1973-06-10"
     assert prov.run == "provrun"

@@ -191,7 +191,7 @@ def test_review_can_continue_straight_into_processing(tmp_path: Path, monkeypatc
 def _flagged_show(tmp_path: Path) -> ShowWorkspace:
     from llama.models import Show
 
-    sws = ShowWorkspace(tmp_path / "runs" / "r1" / "shows" / "mekons-1989-12-02")
+    sws = ShowWorkspace(tmp_path / "shows" / "mekons-1989-12-02")
     write_artifact(sws.show, Show(
         performance_id="Mekons/1989-12-02", identifier="mek89", artist="Mekons",
         date="1989-12-02", venue="Metro", needs_review=True,
@@ -310,7 +310,7 @@ def test_ledger_commands(tmp_path: Path):
 def test_deliver_copies_package_and_records(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    show_dir = tmp_path / "runs" / "r1" / "shows" / "gratefuldead-1973-06-10"
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     pkg = show_dir / "package"
     (pkg / "audio").mkdir(parents=True)
     (pkg / "manifest.json").write_text(json.dumps({
@@ -335,7 +335,7 @@ def test_deliver_copies_package_and_records(tmp_path: Path):
 def test_deliver_refuses_needs_review_without_force(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    show_dir = tmp_path / "runs" / "r1" / "shows" / "gratefuldead-1973-06-10"
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     pkg = show_dir / "package"
     (pkg / "audio").mkdir(parents=True)
     (pkg / "manifest.json").write_text(json.dumps({
