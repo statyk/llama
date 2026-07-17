@@ -85,6 +85,13 @@ def test_shortlist_short_rationale_has_no_ellipsis(capsys):
     assert "…" not in out
 
 
+def test_shortlist_entries_are_visually_separated(capsys):
+    cli._print_shortlist(make_entries())
+    lines = capsys.readouterr().out.splitlines()
+    assert lines.count("") == 1              # one separator for two entries...
+    assert lines[2] == ""                    # ...between the blocks, not trailing
+
+
 def test_review_full_rationale_flag(tmp_path: Path):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     ws = RunWorkspace(tmp_path, "r1")

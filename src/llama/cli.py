@@ -84,7 +84,9 @@ RATIONALE_LINES = 3    # default cap; --full-rationale lifts it
 
 
 def _print_shortlist(entries: list[ShortlistEntry], full: bool = False) -> None:
-    for e in entries:
+    for i, e in enumerate(entries):
+        if i:
+            typer.echo()
         c = e.candidate
         typer.echo(f"{e.rank:2d}. {c.date}  {c.collection:18.18s}  {c.venue or '?':26.26s}  "
                    f"score {e.assessment.quality_score:.1f}")
