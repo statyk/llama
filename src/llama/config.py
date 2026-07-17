@@ -94,3 +94,73 @@ def load_config(path: Path | None = None) -> Config:
     if not path.exists():
         return Config()
     return Config.model_validate(tomllib.loads(path.read_text()))
+
+
+# Seeded by `llama config init`. Kept in sync with the defaults above by
+# tests/test_config.py::test_default_config_template_matches_defaults.
+DEFAULT_CONFIG_TOML = """\
+# llama config - seeded by `llama config init` with the baked-in defaults.
+#
+# IMPORTANT: a value here REPLACES its built-in default; nothing merges.
+# Any [selection.tapers.*] table replaces the entire taper set, and any
+# [[selection.lineage_eras]] block replaces the entire built-in era list.
+# The defaults are written out below so additive edits keep them.
+
+# root = "/path/to/workdir"        # workspace root; default ~/.llama
+# delivery_path = "/station/inbox" # target for `llama deliver`
+audio_format = "mp3"               # or "flac"
+
+[llm.default]
+backend = "claude_cli"             # requires the `claude` CLI on PATH
+# backend = "openrouter"           # HTTP alternative; set OPENROUTER_API_KEY
+# Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
+# gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
+# Defaults: medium for most tasks; high for deep_research and synthesize.
+# A failed validation's final retry escalates one tier (pins never escalate).
+
+# [llm.deep_research]
+# backend = "claude_cli"   # pin research to the claude CLI when the default
+#                          # backend is openrouter: its agentic multi-step
+#                          # research is stronger, and quality is audible on air
+
+# [llm.synthesize]
+# tier = "medium"            # example: cheaper synthesis
+# model = "claude-opus-4-8"  # example: exact pin, bypasses tiers
+
+# [llm.tiers.openrouter]
+# medium = "deepseek/deepseek-chat-v3"  # retarget what a tier means per backend
+
+# [setlistfm]
+# api_key = "..."          # or SETLISTFM_API_KEY env var; without a key,
+#                          # set-structure recovery is LMA-descriptions only
+
+[winnow]
+max_metadata_fetch = 40    # review-fetch budget: when more survivors than
+                           # this, the best-evidenced are sampled for scoring
+
+[artists]
+min_recordings = 25        # hide artists below these floors from the index
+min_downloads = 50000
+max_matched = 20           # LLM artist-match budget for artist-less queries
+
+[structure]
+guard_min_minutes = 150    # hold single-set shows longer than this for review
+align_coverage_threshold = 0.8
+
+# Recording selection. Taper bonuses match identifier substrings; among
+# revisions by the same taper the newest gets the full bonus, the rest half.
+[selection.tapers.GratefulDead]
+miller = 2.0               # Charlie Miller: community gold standard
+seamons = 1.0
+
+# Era overrides for lineage scoring. Multiple [[selection.lineage_eras]]
+# blocks are allowed; the first whose collection and (inclusive) date window
+# match a show wins. `scores` replaces the ENTIRE lineage table (global
+# base: sbd 3.0, matrix 2.5, aud 1.0, unknown 0.0) - an omitted class
+# scores 0.0, so spell out every class you care about.
+[[selection.lineage_eras]]
+collection = "GratefulDead"   # early-80s boards are rough: MTX > AUD > SBD
+date_from = "1980-01-01"
+date_to = "1987-12-31"
+scores = { matrix = 3.0, aud = 2.0, sbd = 1.0 }
+"""

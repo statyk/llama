@@ -1,9 +1,10 @@
+import tomllib
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-from llama.config import Config, load_config
+from llama.config import Config, DEFAULT_CONFIG_TOML, load_config
 
 
 def test_invalid_audio_format_raises(tmp_path: Path):
@@ -125,3 +126,26 @@ def test_artists_config_defaults_and_override(tmp_path):
     cfg = load_config(p)
     assert cfg.artists.min_recordings == 5
     assert cfg.artists.min_downloads == 1000
+
+
+def test_default_config_template_matches_defaults():
+    # The seeded file, untouched, must behave exactly like no config file.
+    parsed = Config.model_validate(tomllib.loads(DEFAULT_CONFIG_TOML))
+    default = Config()
+    assert parsed.model_dump(exclude={"llm"}) == default.model_dump(exclude={"llm"})
+    # [llm.default] is written out for editability; it must be exactly the
+    # built-in fallback, and the only llm entry present.
+    assert set(parsed.llm) == {"default"}
+    assert parsed.llm_for("interpret") == default.llm_for("interpret")
+
+
+def test_default_config_template_states_selection_defaults():
+    # The whole point: the GD tuning is explicit, so additive edits keep it.
+    data = tomllib.loads(DEFAULT_CONFIG_TOML)
+    assert data["selection"]["tapers"]["GratefulDead"] == {"miller": 2.0, "seamons": 1.0}
+    assert data["selection"]["lineage_eras"] == [{
+        "collection": "GratefulDead",
+        "date_from": "1980-01-01",
+        "date_to": "1987-12-31",
+        "scores": {"matrix": 3.0, "aud": 2.0, "sbd": 1.0},
+    }]
