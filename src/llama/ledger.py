@@ -23,6 +23,10 @@ class Ledger:
         return {e.performance_id for e in self.entries() if e.status == "rejected"}
 
     def record(self, entry: LedgerEntry) -> None:
+        """Append-once: a replayed run must not duplicate history rows."""
+        for e in self.entries():
+            if (e.performance_id, e.status, e.run) == (entry.performance_id, entry.status, entry.run):
+                return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a") as f:
             f.write(entry.model_dump_json() + "\n")

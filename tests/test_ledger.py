@@ -29,3 +29,16 @@ def test_remove(tmp_path: Path):
     led.record(entry("a", status="delivered"))
     assert led.remove("a") == 2
     assert [e.performance_id for e in led.entries()] == ["b"]
+
+
+def test_record_is_idempotent_per_performance_status_run(tmp_path):
+    ledger = Ledger(tmp_path / "ledger.jsonl")
+    e = LedgerEntry(performance_id="GratefulDead/1973-06-10", artist="Grateful Dead",
+                    date="1973-06-10", status="selected", run="r1",
+                    recorded_at="2026-07-17T00:00:00+00:00")
+    ledger.record(e)
+    ledger.record(e.model_copy(update={"recorded_at": "2026-07-18T00:00:00+00:00"}))
+    assert len(ledger.entries()) == 1
+    # different status for the same performance still records
+    ledger.record(e.model_copy(update={"status": "delivered"}))
+    assert len(ledger.entries()) == 2
