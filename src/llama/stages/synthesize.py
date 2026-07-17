@@ -63,10 +63,15 @@ def render_notes_md(notes: DJNotes, show: Show) -> str:
     if notes.context:
         lines += [f"*{notes.context}*", ""]
     lines += ["## Show intro", notes.intro, ""]
-    for s in sorted(notes.set_intros, key=lambda x: (x == "encore", x)):
+    # Reading order is show order: break N wraps up set N, so it follows
+    # set N's intro and precedes the next set's.
+    ordered = sorted(notes.set_intros, key=lambda x: (x == "encore", x))
+    for i, s in enumerate(ordered):
         lines += [f"## {_set_label(s)} intro", notes.set_intros[s], ""]
-    for i, note in enumerate(notes.set_break_notes, 1):
-        lines += [f"## Set break {i}", note, ""]
+        if i < len(notes.set_break_notes):
+            lines += [f"## Set break {i + 1}", notes.set_break_notes[i], ""]
+    for i in range(len(ordered), len(notes.set_break_notes)):  # orphaned extras
+        lines += [f"## Set break {i + 1}", notes.set_break_notes[i], ""]
     lines += ["## Outro", notes.outro, ""]
     return "\n".join(lines)
 

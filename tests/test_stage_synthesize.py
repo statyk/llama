@@ -3,7 +3,7 @@ from pathlib import Path
 
 from llama.llm.fake import FakeProvider
 from llama.models import DJNotes, Show, Track
-from llama.stages.synthesize import factual_guard, run_synthesize
+from llama.stages.synthesize import factual_guard, render_notes_md, run_synthesize
 from llama.workspace import ShowWorkspace, write_artifact
 
 
@@ -96,6 +96,17 @@ def test_guard_ignores_sets_of_phrases():
     notes = DJNotes(**single_set_notes(
         intro="Two sets of fiddle tunes bookend the show."))
     assert factual_guard(notes, make_single_set_show()) == []
+
+
+def test_notes_md_interleaves_breaks_with_set_intros():
+    # The DJ reads the file top to bottom during the show: break 1 wraps up
+    # set 1, so it must sit between the set 1 and set 2 intros, not after
+    # all intros (real case: gratefuldead-1977-02-26).
+    md = render_notes_md(DJNotes(**notes_dict()), make_show())
+    headers = [ln for ln in md.splitlines() if ln.startswith("## ")]
+    assert headers == ["## Show intro", "## Set 1 intro", "## Set break 1",
+                       "## Set 2 intro", "## Set break 2", "## Encore intro",
+                       "## Outro"]
 
 
 def test_synthesize_writes_notes_and_md(tmp_path: Path):
