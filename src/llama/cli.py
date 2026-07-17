@@ -159,7 +159,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 e.approved = e.rank in wanted
             write_artifact(ws.shortlist, shortlist)
     chosen = choose_entries(shortlist, count, human_gate and auto,
-                            artist_cap=criteria.artist_cap)
+                            artist_cap=criteria.artist_cap,
+                            year_cap=criteria.year_cap)
     if chosen is None:
         typer.echo(f"Shortlist awaits review: llama review {ws.dir}")
         return

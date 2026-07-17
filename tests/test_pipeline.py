@@ -328,10 +328,14 @@ def test_choose_entries_year_cap_is_opt_in_on_auto_pick():
                entry(3, "1969-12-07"), entry(4, "1972-08-27")]
     # default: rank order, even though ranks 1+2 are both 1977
     assert [e.rank for e in choose_entries(entries, 2, human_gate=False)] == [1, 2]
+    # year_cap 0.5 -> one per year: each year's best in rank order
+    assert [e.rank for e in choose_entries(entries, 2, human_gate=False,
+                                           year_cap=0.5)] == [1, 3]
     # explicit approvals are a human decision: never capped
     approved = [entry(1, "1977-05-08", approved=True), entry(2, "1977-05-09", approved=True),
                 entry(3, "1969-12-07")]
-    assert [e.rank for e in choose_entries(approved, 2, human_gate=False)] == [1, 2]
+    assert [e.rank for e in choose_entries(approved, 2, human_gate=False,
+                                           year_cap=0.5)] == [1, 2]
 
 
 def test_choose_entries_spreads_artists_on_auto_pick():
