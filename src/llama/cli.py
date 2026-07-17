@@ -521,6 +521,32 @@ def status(
             typer.echo(f"      - {f}")
 
 
+@app.command()
+def runs(config_path: Path = typer.Option(None, "--config")):
+    """List runs with their criteria and show-state counts."""
+    from collections import Counter
+
+    from llama.catalog import iter_shows
+
+    config, _, ledger = _setup(config_path)
+    by_run: dict[str, Counter] = {}
+    for e in iter_shows(config.root, ledger):
+        if e.provenance:
+            by_run.setdefault(e.provenance.run, Counter())[e.state] += 1
+    runs_dir = config.root / "runs"
+    run_dirs = sorted(d for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
+    if not run_dirs:
+        typer.echo("no runs")
+        return
+    for d in run_dirs:
+        query = ""
+        if (d / "criteria.json").exists():
+            query = read_model(RunWorkspace(config.root, d.name).criteria, Criteria).query
+        counts = by_run.get(d.name, Counter())
+        summary = "  ".join(f"{s} {n}" for s, n in sorted(counts.items())) or "no shows"
+        typer.echo(f"{d.name:34.34s} {summary:40.40s} {query:40.40s}")
+
+
 @profile_app.command("add")
 def profile_add(
     name: str,

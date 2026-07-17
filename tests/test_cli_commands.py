@@ -776,3 +776,18 @@ def test_status_refuses_legacy_layout(tmp_path: Path):
     result = runner.invoke(cli.app, ["status", "--config", cfg])
     assert result.exit_code == 1
     assert "llama migrate" in result.output
+
+
+def test_runs_lists_runs_with_counts(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "2026-07-16-countryish")
+    write_artifact(ws.criteria, Criteria(query="countryish bluegrass"))
+    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "2026-07-16-countryish")
+    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "2026-07-16-countryish",
+               held=True)
+    result = runner.invoke(cli.app, ["runs", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "2026-07-16-countryish" in result.output
+    assert "countryish bluegrass" in result.output
+    assert "held 1" in result.output and "packaged 1" in result.output
