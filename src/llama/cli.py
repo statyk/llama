@@ -430,6 +430,28 @@ def deliver(
     typer.echo(f"delivered: {out}")
 
 
+@app.command()
+def migrate(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the plan, move nothing"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """One-time move of runs/*/shows/* into the canonical shows/ library."""
+    from llama.migrate import apply_migration, plan_migration
+
+    config, _, _ = _setup(config_path)
+    moves = plan_migration(config.root)
+    if not moves:
+        typer.echo("nothing to migrate")
+        return
+    for m in moves:
+        action = "move" if m.winner else "skip (collision/already migrated)"
+        typer.echo(f"{action}: {m.src} -> {m.dest}")
+    if dry_run:
+        return
+    apply_migration(config.root, moves)
+    typer.echo(f"migrated {sum(m.winner for m in moves)} shows to {config.root / 'shows'}")
+
+
 @profile_app.command("add")
 def profile_add(
     name: str,
