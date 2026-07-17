@@ -24,7 +24,7 @@ from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
 from llama.util import slugify
-from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
+from llama.workspace import RunWorkspace, read_model, read_model_list, write_artifact
 
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
@@ -374,22 +374,50 @@ def review(
         typer.echo(f"next: llama run {ws.dir}")
 
 
+def _resolve_show_or_exit(config, ledger, name: str):
+    from llama.catalog import CatalogError, resolve_show
+
+    _legacy_guard(config.root)
+    try:
+        return resolve_show(config.root, ledger, name)
+    except CatalogError as err:
+        typer.echo(str(err), err=True)
+        for m in err.matches:
+            typer.echo(f"  {m}", err=True)
+        raise typer.Exit(1)
+
+
 @app.command()
 def show(
-    show_dir: Path,
+    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
     clear: bool = typer.Option(False, "--clear",
                                help="Overrule the hold: clear needs-review and its flags"),
+    config_path: Path = typer.Option(None, "--config"),
 ):
-    """Inspect one show's needs-review state (and optionally clear it)."""
-    sws = ShowWorkspace(show_dir)
+    """Inspect one show: state, stage artifacts, needs-review flags."""
+    config, _, ledger = _setup(config_path)
+    entry = _resolve_show_or_exit(config, ledger, name)
+    sws = entry.ws
     if not sws.show.exists():
-        typer.echo(f"no show.json in {show_dir}", err=True)
+        typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
         raise typer.Exit(1)
     s = read_model(sws.show, Show)
     place = ", ".join(p for p in [s.venue, s.city] if p)
     typer.echo(f"{s.artist}  {s.date}  {place}".rstrip())
     typer.echo(f"recording: {s.identifier}  ({len(s.tracks)} tracks)")
-    typer.echo(f"packaged: {'yes' if (sws.package_dir / 'manifest.json').exists() else 'no'}")
+    typer.echo(f"state: {entry.state}   path: {sws.dir}")
+    typer.echo("stages:")
+    artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
+                 ("research.md", sws.research), ("vetting.json", sws.vetting),
+                 ("dj-notes.json", sws.dj_notes_json),
+                 ("package/manifest.json", sws.package_dir / "manifest.json")]
+    now = datetime.now(timezone.utc).timestamp()
+    for label, path in artifacts:
+        if path.exists():
+            age_days = (now - path.stat().st_mtime) / 86400
+            typer.echo(f"  {label:22s} {age_days:5.1f}d old")
+        else:
+            typer.echo(f"  {label:22s} missing")
     if not s.needs_review:
         typer.echo("needs-review: no")
         return
@@ -401,14 +429,14 @@ def show(
         s.review_flags = []
         write_artifact(sws.show, s)
         typer.echo("cleared")
-        typer.echo(f"next: llama run {show_dir.parent.parent}")
+        typer.echo(f"next: llama redo {entry.slug} --from package")
     else:
-        typer.echo("to overrule after inspecting: llama show --clear " + str(show_dir))
+        typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
 
 
 @app.command()
 def deliver(
-    show_dir: Path,
+    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
     dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
     force: bool = typer.Option(False, "--force", help="Deliver even if the show is marked needs-review"),
     config_path: Path = typer.Option(None, "--config"),
@@ -417,6 +445,8 @@ def deliver(
     import json as _json
 
     config, _, ledger = _setup(config_path)
+    entry = _resolve_show_or_exit(config, ledger, name)
+    show_dir = entry.ws.dir
     target_dir = dest or config.delivery_path
     if target_dir is None:
         typer.echo("no --dest given and no delivery_path in config", err=True)
@@ -436,10 +466,11 @@ def deliver(
     out = target_dir / show_dir.name
     shutil.copytree(pkg, out, dirs_exist_ok=True)
     show = manifest["show"]
+    run_name = entry.provenance.run if entry.provenance else "unknown"
     ledger.record(LedgerEntry(
         performance_id=manifest["source"].get("performance_id", show_dir.name),
         artist=show["artist"], date=show["date"], venue=show.get("venue"),
-        status="delivered", run=show_dir.parent.parent.name,
+        status="delivered", run=run_name,
         recorded_at=datetime.now(timezone.utc).isoformat(),
     ))
     typer.echo(f"delivered: {out}")

@@ -202,25 +202,33 @@ def _flagged_show(tmp_path: Path) -> ShowWorkspace:
 
 
 def test_show_prints_flags(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     sws = _flagged_show(tmp_path)
-    result = runner.invoke(cli.app, ["show", str(sws.dir)])
+    result = runner.invoke(cli.app, ["show", str(sws.dir), "--config", cfg])
     assert result.exit_code == 0, result.output
     assert "needs-review: yes" in result.output
     assert "single-set structure for a long show" in result.output
 
 
 def test_show_clear_overrules_the_hold(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     sws = _flagged_show(tmp_path)
-    result = runner.invoke(cli.app, ["show", str(sws.dir), "--clear"])
+    result = runner.invoke(cli.app, ["show", str(sws.dir), "--clear", "--config", cfg])
     assert result.exit_code == 0, result.output
     saved = json.loads(sws.show.read_text())
     assert saved["needs_review"] is False
     assert saved["review_flags"] == []
-    assert "llama run" in result.output      # points at the resume command
+    assert "llama redo" in result.output     # points at the resume command
 
 
 def test_show_errors_without_show_json(tmp_path: Path):
-    result = runner.invoke(cli.app, ["show", str(tmp_path)])
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = ShowWorkspace(tmp_path / "shows" / "bare-1970-01-01")
+    write_artifact(sws.selection, "{}")      # a show dir that has no show.json yet
+    result = runner.invoke(cli.app, ["show", "bare", "--config", cfg])
     assert result.exit_code == 1
     assert "no show.json" in result.output
 
@@ -308,59 +316,49 @@ def test_ledger_commands(tmp_path: Path):
     assert Ledger(tmp_path / "ledger.jsonl").entries() == []
 
 
+def _full_manifest(sws: ShowWorkspace, pid: str, artist: str, show_date: str) -> None:
+    """Overwrite the bare seeded manifest with a delivery-ready v2 manifest."""
+    (sws.package_dir / "audio").mkdir(parents=True, exist_ok=True)
+    write_artifact(sws.package_dir / "manifest.json", {
+        "schema_version": 2,
+        "show": {"artist": artist, "date": show_date, "venue": "RFK",
+                 "city": None, "context": ""},
+        "source": {"performance_id": pid},
+        "tracks": [], "set_breaks": [],
+        "total_duration_sec": 0, "set_durations_sec": {},
+    })
+
+
 def test_deliver_copies_package_and_records(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
-    pkg = show_dir / "package"
-    (pkg / "audio").mkdir(parents=True)
-    (pkg / "manifest.json").write_text(json.dumps({
-        "schema_version": 1,
-        "show": {"artist": "Grateful Dead", "date": "1973-06-10", "venue": "RFK",
-                 "city": None, "context": ""},
-        "source": {"performance_id": "GratefulDead/1973-06-10"},
-        "tracks": [], "set_breaks": [],
-        "dj_notes": {"intro": "i", "set_intros": {}, "outro": "o"},
-        "total_duration_sec": 0, "set_durations_sec": {},
-    }))
+    sws = _seed_show(tmp_path, "gratefuldead-1973-06-10", "GratefulDead/1973-06-10", "myrun")
+    _full_manifest(sws, "GratefulDead/1973-06-10", "Grateful Dead", "1973-06-10")
     dest = tmp_path / "station-inbox"
-    result = runner.invoke(cli.app, ["deliver", str(show_dir), "--dest", str(dest),
+    result = runner.invoke(cli.app, ["deliver", str(sws.dir), "--dest", str(dest),
                                      "--config", cfg])
     assert result.exit_code == 0, result.output
     assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
     entries = Ledger(tmp_path / "ledger.jsonl").entries()
     assert entries[0].status == "delivered"
     assert entries[0].performance_id == "GratefulDead/1973-06-10"
+    assert entries[0].run == "myrun"       # run now comes from provenance
 
 
 def test_deliver_refuses_needs_review_without_force(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
-    pkg = show_dir / "package"
-    (pkg / "audio").mkdir(parents=True)
-    (pkg / "manifest.json").write_text(json.dumps({
-        "schema_version": 1,
-        "show": {"artist": "Grateful Dead", "date": "1973-06-10", "venue": "RFK",
-                 "city": None, "context": ""},
-        "source": {"performance_id": "GratefulDead/1973-06-10"},
-        "tracks": [], "set_breaks": [],
-        "dj_notes": {"intro": "i", "set_intros": {}, "outro": "o"},
-        "total_duration_sec": 0, "set_durations_sec": {},
-    }))
-    (show_dir / "show.json").write_text(json.dumps({
-        "performance_id": "GratefulDead/1973-06-10", "identifier": "gd73",
-        "artist": "Grateful Dead", "date": "1973-06-10", "venue": "RFK",
-        "needs_review": True, "review_flags": ["duration mismatch on 01.mp3"],
-    }))
+    sws = _seed_show(tmp_path, "gratefuldead-1973-06-10", "GratefulDead/1973-06-10",
+                     "myrun", held=True)
+    _full_manifest(sws, "GratefulDead/1973-06-10", "Grateful Dead", "1973-06-10")
     dest = tmp_path / "station-inbox"
 
-    result = runner.invoke(cli.app, ["deliver", str(show_dir), "--dest", str(dest), "--config", cfg])
+    result = runner.invoke(cli.app, ["deliver", str(sws.dir), "--dest", str(dest), "--config", cfg])
     assert result.exit_code == 1
     assert "needs-review" in result.output
     assert not dest.exists()
 
-    forced = runner.invoke(cli.app, ["deliver", str(show_dir), "--dest", str(dest),
+    forced = runner.invoke(cli.app, ["deliver", str(sws.dir), "--dest", str(dest),
                                      "--force", "--config", cfg])
     assert forced.exit_code == 0, forced.output
     assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
@@ -791,3 +789,56 @@ def test_runs_lists_runs_with_counts(tmp_path: Path):
     assert "2026-07-16-countryish" in result.output
     assert "countryish bluegrass" in result.output
     assert "held 1" in result.output and "packaged 1" in result.output
+
+
+def test_show_resolves_by_name_and_lists_stages(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _seed_show(tmp_path, "mekons-1989-12-02", "mekons/1989-12-02", "r1", held=True)
+    result = runner.invoke(cli.app, ["show", "mek", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "needs-review: yes" in result.output
+    assert "show.json" in result.output          # stage table
+    assert "research.md" in result.output
+    assert "missing" in result.output            # research.md was never written
+
+
+def test_show_ambiguous_name_fails_loud(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1")
+    _seed_show(tmp_path, "aab-1970-01-01", "aab/1970-01-01", "r1")
+    result = runner.invoke(cli.app, ["show", "aa", "--config", cfg])
+    assert result.exit_code == 1
+    assert "aaa-1970-01-01" in result.output and "aab-1970-01-01" in result.output
+
+
+def test_show_clear_still_works_by_name(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = _seed_show(tmp_path, "mekons-1989-12-02", "mekons/1989-12-02", "r1", held=True)
+    result = runner.invoke(cli.app, ["show", "mekons", "--clear", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert read_model(sws.show, Show).needs_review is False
+
+
+def test_deliver_by_name_records_provenance_run(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "myrun")
+    (sws.package_dir / "audio").mkdir(parents=True, exist_ok=True)
+    write_artifact(sws.package_dir / "manifest.json", {
+        "schema_version": 2,
+        "show": {"artist": "aaa", "date": "1970-01-01", "venue": None,
+                 "city": None, "context": ""},
+        "source": {"performance_id": "aaa/1970-01-01"},
+        "tracks": [], "set_breaks": [],
+        "total_duration_sec": 0, "set_durations_sec": {},
+    })
+    dest = tmp_path / "inbox"
+    result = runner.invoke(cli.app, ["deliver", "aaa", "--dest", str(dest),
+                                     "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert (dest / "aaa-1970-01-01" / "manifest.json").exists()
+    entries = Ledger(tmp_path / "ledger.jsonl").entries()
+    assert entries[0].status == "delivered" and entries[0].run == "myrun"
