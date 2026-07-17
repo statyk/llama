@@ -495,9 +495,15 @@ def status(
         entries = [e for e in entries if artist.lower() in e.artist.lower()]
     entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
     if not all_shows and not (held or packaged):
-        delivered = [e for e in entries if e.state == "delivered"]
-        keep = {id(e) for e in delivered[-RECENT_DELIVERED:]}
-        entries = [e for e in entries if e.state != "delivered" or id(e) in keep]
+        recorded: dict[str, str] = {}
+        for le in ledger.entries():
+            if le.status == "delivered":
+                slug = slugify(le.performance_id)
+                recorded[slug] = max(le.recorded_at, recorded.get(slug, ""))
+        delivered = sorted((e for e in entries if e.state == "delivered"),
+                           key=lambda e: recorded.get(e.slug, ""))
+        keep = {e.slug for e in delivered[-RECENT_DELIVERED:]}
+        entries = [e for e in entries if e.state != "delivered" or e.slug in keep]
     if as_json:
         typer.echo(_json.dumps([{
             "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,

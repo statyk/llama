@@ -684,7 +684,8 @@ def test_pinned_artists_skip_discover_and_prune(tmp_path: Path, monkeypatch):
 
 
 def _seed_show(root: Path, slug: str, pid: str, run: str, *, held=False,
-               packaged=True, delivered=False):
+               packaged=True, delivered=False,
+               recorded_at="2026-07-17T00:00:00+00:00"):
     sws = ShowWorkspace(root / "shows" / slug)
     write_artifact(sws.provenance, Provenance(
         performance_id=pid, run=run, dossier="d",
@@ -703,7 +704,7 @@ def _seed_show(root: Path, slug: str, pid: str, run: str, *, held=False,
     if delivered:
         Ledger(root / "ledger.jsonl").record(LedgerEntry(
             performance_id=pid, artist=pid.split("/")[0], date=pid.split("/")[1],
-            status="delivered", run=run, recorded_at="2026-07-17T00:00:00+00:00"))
+            status="delivered", run=run, recorded_at=recorded_at))
     return sws
 
 
@@ -730,6 +731,31 @@ def test_status_orders_held_first_and_filters(tmp_path: Path):
     by_run = runner.invoke(cli.app, ["status", "--run", "r2", "--config", cfg])
     assert "ccc-1972-01-01" in by_run.output
     assert "bbb-1971-01-01" not in by_run.output
+
+
+def test_status_recent_delivered_keeps_most_recent_not_slug_order(tmp_path: Path):
+    """The 5-show trim must keep the most recently delivered shows, not the
+    alphabetically-last slugs. Seed 7 delivered shows where recency and slug
+    order disagree: "a" and "b" sort first but were delivered most recently;
+    "f" and "g" sort last but were delivered longest ago."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    letters = ["a", "b", "c", "d", "e", "f", "g"]
+    # descending recency: a is newest, g is oldest.
+    for i, letter in enumerate(letters):
+        hour = 7 - i
+        _seed_show(tmp_path, f"{letter}-1970-01-01", f"{letter}/1970-01-01", "r1",
+                  delivered=True, recorded_at=f"2026-07-17T{hour:02d}:00:00+00:00")
+
+    result = runner.invoke(cli.app, ["status", "--config", cfg])
+    assert result.exit_code == 0, result.output
+
+    # Most recently delivered 5 (a, b, c, d, e) must survive the trim.
+    for letter in ["a", "b", "c", "d", "e"]:
+        assert f"{letter}-1970-01-01" in result.output, result.output
+    # Oldest deliveries (f, g) — alphabetically last but stalest — must be trimmed.
+    for letter in ["f", "g"]:
+        assert f"{letter}-1970-01-01" not in result.output, result.output
 
 
 def test_status_json(tmp_path: Path):
