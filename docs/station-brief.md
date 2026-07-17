@@ -45,9 +45,11 @@ times.
 
 ## Delivery mechanics (current)
 
-`llama deliver <show-dir>` copies the package directory into a
-**watched folder** (`delivery_path` in llama's config, or `--dest`), named
-by the slugified performance id, then records the delivery in its ledger:
+`llama deliver <name>` (name or unique substring; a path still works) copies
+the package directory into a **watched folder** (`delivery_path` in llama's
+config, or `--dest`), named by the slugified performance id, then records
+the delivery in its ledger. `llama status --packaged` shows what's ready to
+hand off:
 
 ```
 <delivery_path>/gratefuldead-1973-06-10/

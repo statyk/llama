@@ -16,7 +16,11 @@ implementation plan this was built from. The approved design spec is
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
-- Run: `llama find "..."`, `llama artists "..."`, `llama profile run <name>`, `llama review <run-dir>`, `llama deliver <show-dir>`
+- Run: `llama find "..."`, `llama artists "..."`, `llama profile run <name>`,
+  `llama status` (global triage view), `llama runs`, `llama show <name>`,
+  `llama redo <name> --from <stage>`, `llama review <run>`, `llama deliver <name>`.
+  Shows/runs are addressed by name or unique substring; paths still work.
+  One-time after upgrading: `llama migrate` moves nested show dirs to `~/.llama/shows/`.
 
 ## What this is
 
@@ -37,9 +41,11 @@ failed validation's final retry escalates one tier (pins never escalate).
 - **Staged pipeline over an on-disk workspace** (default `~/.llama/`):
   interpret → search (wide net) → winnow (quality gate + optional human gate)
   → select-recording → gather → research → vet (grounding check) →
-  synthesize (default-on) → package. Every stage reads/writes plain files in a
-  per-run directory; stages write outputs only on success and are
-  individually re-runnable with `--force`.
+  synthesize (default-on) → package. Every stage reads/writes plain files;
+  run-level artifacts live in a per-run directory, show-level artifacts in a
+  canonical `shows/<slug>/` library (one dir per performance, reused across
+  runs); stages write outputs only on success and are individually
+  re-runnable (`llama redo <show> --from <stage>`).
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments with a `ledger.jsonl` dedup history keyed by performance identity
   (artist + date + venue), not archive.org item id.
