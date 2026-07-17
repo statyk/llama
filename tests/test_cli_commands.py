@@ -375,6 +375,27 @@ def test_run_unknown_stage_exits_with_message(tmp_path: Path):
     assert "unknown stage" in result.output
 
 
+def test_review_resolves_run_by_substring(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "2026-07-16-countryish")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    write_artifact(ws.shortlist, make_entries())
+    result = runner.invoke(cli.app, ["review", "countryish", "--config", cfg],
+                           input="1\nn\n")
+    assert result.exit_code == 0, result.output
+    entries = read_model_list(ws.shortlist, ShortlistEntry)
+    assert entries[0].approved is True
+
+
+def test_run_unknown_name_fails_loud(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    result = runner.invoke(cli.app, ["run", "nope", "--config", cfg])
+    assert result.exit_code == 1
+    assert "no run matches" in result.output
+
+
 FUZZY_CRITERIA = json.dumps({
     "query": "x", "collection": None, "artist": None,
     "date_from": "1960-01-01", "date_to": "1979-12-31",

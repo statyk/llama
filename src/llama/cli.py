@@ -293,7 +293,7 @@ def artists(
 
 @app.command()
 def run(
-    run_dir: Path,
+    run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
     stage: str = typer.Option(None, "--stage", help="Force re-run of one stage"),
     auto: bool = typer.Option(True, "--auto/--interactive"),
     force: bool = typer.Option(False, "--force"),
@@ -306,7 +306,7 @@ def run(
 ):
     """Replay an existing run from its artifacts (stages skip work already done)."""
     config, ia, ledger = _setup(config_path)
-    ws = RunWorkspace(config.root, run_dir.name)
+    ws = _resolve_run_or_exit(config, run_name)
     if not ws.criteria.exists():
         typer.echo(f"no criteria.json in {ws.dir}", err=True)
         raise typer.Exit(1)
@@ -339,7 +339,7 @@ def run(
 
 @app.command()
 def review(
-    run_dir: Path,
+    run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the run's persisted script setting "
                                      "if you process immediately"),
@@ -350,7 +350,7 @@ def review(
 ):
     """Human gate: approve a run's shortlist, then optionally process it."""
     config, ia, ledger = _setup(config_path)
-    ws = RunWorkspace(config.root, run_dir.name)
+    ws = _resolve_run_or_exit(config, run_name)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
     _print_shortlist(entries, full=full_rationale)
     picks = typer.prompt("Approve which ranks? (comma-separated)",
@@ -372,6 +372,19 @@ def review(
                  full_rationale=full_rationale)
     else:
         typer.echo(f"next: llama run {ws.dir}")
+
+
+def _resolve_run_or_exit(config, name: str) -> RunWorkspace:
+    from llama.catalog import CatalogError, resolve_run
+
+    _legacy_guard(config.root)
+    try:
+        return RunWorkspace(config.root, resolve_run(config.root, name))
+    except CatalogError as err:
+        typer.echo(str(err), err=True)
+        for m in err.matches:
+            typer.echo(f"  {m}", err=True)
+        raise typer.Exit(1)
 
 
 def _resolve_show_or_exit(config, ledger, name: str):

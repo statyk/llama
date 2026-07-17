@@ -122,7 +122,7 @@ def resolve_show(root: Path, ledger: Ledger, name: str) -> CatalogEntry:
 
 def resolve_run(root: Path, name: str) -> str:
     p = Path(name).expanduser()
-    if p.is_dir() and (p / "criteria.json").exists():
+    if p.is_dir():  # an existing path is an exact match
         name = p.name
     runs_dir = root / "runs"
     runs = sorted(d.name for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
