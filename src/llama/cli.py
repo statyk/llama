@@ -74,6 +74,21 @@ def _setup(config_path: Path | None) -> tuple[Config, IAClient, Ledger]:
     return config, ia, ledger
 
 
+def _legacy_guard(root: Path) -> None:
+    from llama.catalog import legacy_show_dirs
+
+    legacy = legacy_show_dirs(root)
+    if legacy:
+        typer.echo(f"{len(legacy)} show dirs still nested under runs/ - "
+                   "run `llama migrate` first", err=True)
+        raise typer.Exit(1)
+
+
+_STATE_RANK = {"held": 0, "packaged": 1, "scripted": 2, "vetted": 3,
+               "researched": 4, "gathered": 5, "selected": 6, "delivered": 7}
+RECENT_DELIVERED = 5
+
+
 def _parse_ranks(text: str) -> set[int]:
     """Ignore non-numeric tokens so junk input never tracebacks."""
     return {int(p) for p in text.split(",") if p.strip().isdigit()}
@@ -450,6 +465,54 @@ def migrate(
         return
     apply_migration(config.root, moves)
     typer.echo(f"migrated {sum(m.winner for m in moves)} shows to {config.root / 'shows'}")
+
+
+@app.command()
+def status(
+    held: bool = typer.Option(False, "--held", help="Only shows held for review"),
+    packaged: bool = typer.Option(False, "--packaged", help="Only packaged, undelivered shows"),
+    run: str = typer.Option(None, "--run", help="Only shows processed by this run"),
+    artist: str = typer.Option(None, "--artist", help="Substring filter on artist"),
+    all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
+    as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Triage view: every show and its state, held-for-review first."""
+    import json as _json
+
+    from llama.catalog import iter_shows
+
+    config, _, ledger = _setup(config_path)
+    _legacy_guard(config.root)
+    entries = iter_shows(config.root, ledger)
+    if held:
+        entries = [e for e in entries if e.state == "held"]
+    if packaged:
+        entries = [e for e in entries if e.state == "packaged"]
+    if run:
+        entries = [e for e in entries if e.provenance and e.provenance.run == run]
+    if artist:
+        entries = [e for e in entries if artist.lower() in e.artist.lower()]
+    entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
+    if not all_shows and not (held or packaged):
+        delivered = [e for e in entries if e.state == "delivered"]
+        keep = {id(e) for e in delivered[-RECENT_DELIVERED:]}
+        entries = [e for e in entries if e.state != "delivered" or id(e) in keep]
+    if as_json:
+        typer.echo(_json.dumps([{
+            "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
+            "run": e.provenance.run if e.provenance else None,
+            "flags": e.flags, "path": str(e.ws.dir),
+        } for e in entries], indent=2))
+        return
+    if not entries:
+        typer.echo("no shows")
+        return
+    for e in entries:
+        run_name = e.provenance.run if e.provenance else "?"
+        typer.echo(f"{e.slug:42.42s} {e.state:10s} {e.artist:20.20s} {e.date:10s} {run_name}")
+        for f in e.flags:
+            typer.echo(f"      - {f}")
 
 
 @profile_app.command("add")

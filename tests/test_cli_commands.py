@@ -7,7 +7,8 @@ from typer.testing import CliRunner
 import llama.cli as cli
 from llama.ledger import Ledger
 from llama.models import (
-    Candidate, Criteria, LedgerEntry, QualityAssessment, RecordingSummary, ShortlistEntry,
+    Candidate, Criteria, LedgerEntry, Provenance, QualityAssessment, RecordingSummary, Show,
+    ShortlistEntry, Track,
 )
 from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
 
@@ -680,3 +681,72 @@ def test_pinned_artists_skip_discover_and_prune(tmp_path: Path, monkeypatch):
     run_dir = tmp_path / "runs"
     artists_files = list(run_dir.glob("*/artists.json"))
     assert len(artists_files) == 1  # roster recorded in the run dir
+
+
+def _seed_show(root: Path, slug: str, pid: str, run: str, *, held=False,
+               packaged=True, delivered=False):
+    sws = ShowWorkspace(root / "shows" / slug)
+    write_artifact(sws.provenance, Provenance(
+        performance_id=pid, run=run, dossier="d",
+        candidate=Candidate(performance_id=pid, collection=pid.split("/")[0],
+                            date=pid.split("/")[1],
+                            recordings=[RecordingSummary(identifier="x")]),
+        processed_at="2026-07-17T00:00:00+00:00"))
+    write_artifact(sws.show, Show(
+        performance_id=pid, identifier="x", artist=pid.split("/")[0],
+        date=pid.split("/")[1],
+        tracks=[Track(index=1, set="1", title="T", filename="a.mp3",
+                      title_source="tags")],
+        needs_review=held, review_flags=["two sets missing"] if held else []))
+    if packaged:
+        write_artifact(sws.package_dir / "manifest.json", {"schema_version": 2})
+    if delivered:
+        Ledger(root / "ledger.jsonl").record(LedgerEntry(
+            performance_id=pid, artist=pid.split("/")[0], date=pid.split("/")[1],
+            status="delivered", run=run, recorded_at="2026-07-17T00:00:00+00:00"))
+    return sws
+
+
+def test_status_orders_held_first_and_filters(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", delivered=True)
+    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "r1", held=True)
+    _seed_show(tmp_path, "ccc-1972-01-01", "ccc/1972-01-01", "r2")
+
+    result = runner.invoke(cli.app, ["status", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    lines = [ln for ln in result.output.splitlines() if ln.strip()]
+    rows = [ln for ln in lines if not ln.startswith("      ")]  # drop flag detail lines
+    assert rows[0].startswith("bbb-1971-01-01")       # held first
+    assert "two sets missing" in result.output
+    assert "packaged" in rows[1]                       # ccc next
+    assert "delivered" in rows[-1]                     # aaa last
+
+    held_only = runner.invoke(cli.app, ["status", "--held", "--config", cfg])
+    assert "bbb-1971-01-01" in held_only.output
+    assert "ccc-1972-01-01" not in held_only.output
+
+    by_run = runner.invoke(cli.app, ["status", "--run", "r2", "--config", cfg])
+    assert "ccc-1972-01-01" in by_run.output
+    assert "bbb-1971-01-01" not in by_run.output
+
+
+def test_status_json(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1")
+    result = runner.invoke(cli.app, ["status", "--json", "--config", cfg])
+    rows = json.loads(result.output)
+    assert rows[0]["slug"] == "aaa-1970-01-01"
+    assert rows[0]["state"] == "packaged"
+    assert rows[0]["run"] == "r1"
+
+
+def test_status_refuses_legacy_layout(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "runs" / "r1" / "shows" / "old").mkdir(parents=True)
+    result = runner.invoke(cli.app, ["status", "--config", cfg])
+    assert result.exit_code == 1
+    assert "llama migrate" in result.output
