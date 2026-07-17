@@ -18,8 +18,9 @@ Optional config at `~/.llama/config.toml`:
     audio_format = "mp3"             # or "flac"
 
     [winnow]
-    max_metadata_fetch = 40          # review-fetch budget; sampled evenly across
-                                     # artists and years when survivors exceed it
+    max_metadata_fetch = 40          # review-fetch budget; when survivors exceed it
+                                     # the best-evidenced are sampled, bounded by
+                                     # artist_cap/year_cap
 
     # Recording selection ships GD-tuned defaults (shown here); override per
     # collection. Taper bonuses match identifier substrings; among revisions
@@ -68,6 +69,8 @@ Optional config at `~/.llama/config.toml`:
     llama profile add jazz "well-regarded jazz-adjacent live sets" --count 13 --artist-cap 0.25
                                      # multi-artist profiles: one artist may hold at most
                                      # ceil(count*cap) picks while others have candidates;
+                                     # --year-cap does the same per year (default off:
+                                     # scores decide the year mix; set it for an era tour);
                                      # --min-score (default 6.0) floors the LLM review score
                                      # so a thinning pool fails loudly, never fades quietly
     llama profile add funky "funk, soul, R&B" --count 13 \
