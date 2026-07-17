@@ -13,9 +13,11 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -23,6 +25,8 @@ SPEC = PROJECT_ROOT / "packaging" / "llama.spec"
 DIST = PROJECT_ROOT / "dist"
 DIST_RELEASE = PROJECT_ROOT / "dist-release"
 VERSION_FILE = PROJECT_ROOT / "src" / "llama" / "_version.py"
+ENTITLEMENTS = PROJECT_ROOT / "packaging" / "llama.entitlements"
+METADATA = PROJECT_ROOT / "packaging" / "metadata.json"
 
 
 def os_slug() -> str:
@@ -83,6 +87,143 @@ def smoke_test(version: str) -> None:
     print(f"smoke test OK: llama --version -> {got}")
 
 
+# --- macOS code signing + notarization -------------------------------------
+# The mac artifact is a BARE onefile Mach-O (not a .app), so it is codesigned
+# with the hardened runtime + entitlements and notarized, but CANNOT be stapled
+# (stapler only staples bundles/DMGs/installers). Gatekeeper does an online
+# notarization check on first run instead. The signed binary must ship UNCHANGED
+# after submission — re-signing would change its cdhash and break that check.
+
+
+def resolve_codesign_identity(explicit: str | None, env: dict, find_identity_output: str) -> str:
+    """Developer ID Application identity. Precedence: explicit > env > sole match
+    in `security find-identity -v -p codesigning`. Fail on zero / ambiguous."""
+    ident = explicit or env.get("LLAMA_CODESIGN_IDENTITY")
+    if ident:
+        return ident
+    names = sorted(set(re.findall(r'"(Developer ID Application:[^"]+)"', find_identity_output)))
+    if not names:
+        raise SystemExit(
+            "no 'Developer ID Application' identity found in the login keychain.\n"
+            "  Set LLAMA_CODESIGN_IDENTITY or pass --identity, or build with --skip-sign.\n"
+            "  List identities: security find-identity -v -p codesigning"
+        )
+    if len(names) > 1:
+        raise SystemExit(
+            f"multiple Developer ID Application identities found: {names}\n"
+            "  Disambiguate with LLAMA_CODESIGN_IDENTITY or --identity."
+        )
+    return names[0]
+
+
+def _team_from_identity(identity: str | None) -> str:
+    m = re.search(r"\(([A-Z0-9]+)\)\s*$", identity or "")
+    return m.group(1) if m else ""
+
+
+def resolve_notary_auth(env: dict, profile: str, keychain: str | None,
+                        identity: str | None) -> tuple[list[str], str]:
+    """notarytool auth args + human description. Precedence: API key >
+    Apple-ID+password > keychain profile (pinned with --keychain)."""
+    key, key_id, issuer = (env.get("LLAMA_NOTARY_KEY"), env.get("LLAMA_NOTARY_KEY_ID"),
+                           env.get("LLAMA_NOTARY_ISSUER"))
+    if key and key_id and issuer:
+        return (["--key", key, "--key-id", key_id, "--issuer", issuer], f"API key ({key_id})")
+    apple_id, password = env.get("LLAMA_NOTARY_APPLE_ID"), env.get("LLAMA_NOTARY_PASSWORD")
+    if apple_id and password:
+        team = env.get("LLAMA_NOTARY_TEAM_ID") or _team_from_identity(identity)
+        if not team:
+            raise SystemExit(
+                "notary Apple-ID auth needs a team id: set LLAMA_NOTARY_TEAM_ID "
+                "(or use a signing identity ending in '(TEAMID)')."
+            )
+        return (["--apple-id", apple_id, "--password", password, "--team-id", team],
+                f"Apple ID ({apple_id}, team {team})")
+    args = ["--keychain-profile", profile]
+    if keychain:
+        args += ["--keychain", str(keychain)]
+    return (args, f"keychain profile '{profile}'")
+
+
+def wants_dedicated_keychain(env: dict) -> bool:
+    return bool(env.get("LLAMA_SIGNING_P12"))
+
+
+def codesign_cmd(binary: Path, identity: str, entitlements: Path) -> list[str]:
+    return ["codesign", "--force", "--options", "runtime",
+            "--entitlements", str(entitlements), "--sign", identity, str(binary)]
+
+
+def _user_keychains() -> list[str]:
+    out = subprocess.run(["security", "list-keychains", "-d", "user"],
+                         capture_output=True, text=True).stdout
+    return [ln.strip().strip('"') for ln in out.splitlines() if ln.strip()]
+
+
+def _setup_signing_keychain(env: dict):
+    """Headless codesign: import LLAMA_SIGNING_P12 into a throwaway keychain we
+    unlock ourselves (the login keychain's key is unusable from a background
+    runner session). Returns a teardown callable."""
+    p12 = env["LLAMA_SIGNING_P12"]
+    p12_pw = env.get("LLAMA_SIGNING_P12_PASSWORD")
+    kc_pw = env.get("LLAMA_SIGNING_KEYCHAIN_PASSWORD")
+    if not Path(p12).exists():
+        raise SystemExit(f"LLAMA_SIGNING_P12 not found: {p12}")
+    if not p12_pw or not kc_pw:
+        raise SystemExit("set LLAMA_SIGNING_P12_PASSWORD and LLAMA_SIGNING_KEYCHAIN_PASSWORD "
+                         "alongside LLAMA_SIGNING_P12")
+    tmp = str(Path(tempfile.gettempdir()) / f"llama-signing-{os.getpid()}.keychain-db")
+    orig = _user_keychains()
+    subprocess.run(["security", "create-keychain", "-p", kc_pw, tmp], check=True)
+    subprocess.run(["security", "set-keychain-settings", tmp], check=True)
+    subprocess.run(["security", "unlock-keychain", "-p", kc_pw, tmp], check=True)
+    subprocess.run(["security", "import", p12, "-k", tmp, "-P", p12_pw,
+                    "-T", "/usr/bin/codesign"], check=True)
+    subprocess.run(["security", "set-key-partition-list", "-S",
+                    "apple-tool:,apple:,codesign:", "-s", "-k", kc_pw, tmp], check=True)
+    subprocess.run(["security", "list-keychains", "-d", "user", "-s", tmp, *orig], check=True)
+
+    def teardown():
+        subprocess.run(["security", "list-keychains", "-d", "user", "-s", *orig], check=False)
+        subprocess.run(["security", "delete-keychain", tmp], check=False)
+
+    return teardown
+
+
+def macos_sign(binary: Path, identity: str | None, notary_profile: str,
+               env: dict | None = None) -> None:
+    env = os.environ if env is None else env
+    if not ENTITLEMENTS.exists():
+        raise SystemExit(f"entitlements file missing: {ENTITLEMENTS}")
+    found = subprocess.run(["security", "find-identity", "-v", "-p", "codesigning"],
+                           capture_output=True, text=True).stdout
+    ident = resolve_codesign_identity(identity, env, found)
+    teardown = _setup_signing_keychain(env) if wants_dedicated_keychain(env) else None
+    try:
+        print(f"codesign: {ident}")
+        subprocess.run(codesign_cmd(binary, ident, ENTITLEMENTS), check=True)
+        subprocess.run(["codesign", "--verify", "--strict", "--verbose=2", str(binary)], check=True)
+
+        if "LLAMA_NOTARY_KEYCHAIN" in env:
+            keychain = env["LLAMA_NOTARY_KEYCHAIN"] or None
+        else:
+            keychain = str(Path.home() / "Library" / "Keychains" / "login.keychain-db")
+        auth, kind = resolve_notary_auth(env, notary_profile, keychain, ident)
+        print(f"notarize: {kind}")
+        zip_path = binary.with_suffix(".notarize.zip")
+        if zip_path.exists():
+            zip_path.unlink()
+        subprocess.run(["ditto", "-c", "-k", str(binary), str(zip_path)], check=True)
+        subprocess.run(["xcrun", "notarytool", "submit", str(zip_path), *auth, "--wait"], check=True)
+        zip_path.unlink()
+        # Bare Mach-O: no stapling. Best-effort Gatekeeper assessment (don't fail on it).
+        subprocess.run(["spctl", "--assess", "--type", "exec", "--verbose=2", str(binary)], check=False)
+        print(f"signed + notarized: {binary} (not stapled — Gatekeeper checks online on first run)")
+    finally:
+        if teardown:
+            teardown()
+
+
 def package(version: str) -> Path:
     DIST_RELEASE.mkdir(parents=True, exist_ok=True)
     stem = f"llama-{version}-{os_slug()}-{arch_slug()}"
@@ -99,21 +240,44 @@ def package(version: str) -> Path:
     return Path(archive)
 
 
+def _print_sign_plan(args) -> None:
+    if args.skip_sign:
+        print("  sign: SKIPPED (--skip-sign)")
+        return
+    if sys.platform == "darwin":
+        print("  sign: codesign --options runtime --entitlements packaging/llama.entitlements")
+        print("  notarize: xcrun notarytool submit --wait  (no stapling — online check on first run)")
+    else:
+        print("  sign: n/a (linux)")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--version", required=True)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--skip-sign", action="store_true",
+                    help="produce an unsigned build (local/dev; the release workflow never passes this)")
+    ap.add_argument("--identity",
+                    help="macOS Developer ID Application identity "
+                         "(default: auto-detect / LLAMA_CODESIGN_IDENTITY)")
+    ap.add_argument("--notary-profile", default=os.environ.get("LLAMA_NOTARY_PROFILE", "litcat-notary"),
+                    help="notarytool keychain profile (default litcat-notary / LLAMA_NOTARY_PROFILE)")
     args = ap.parse_args()
 
     ext = "zip" if sys.platform == "win32" else "tar.gz"
     planned = f"dist-release/llama-{args.version}-{os_slug()}-{arch_slug()}.{ext}"
     if args.dry_run:
         print(f"dry-run: would build and package {planned}")
+        _print_sign_plan(args)
         return
 
     write_version_file(args.version)
     run_pyinstaller(args.version)
     smoke_test(args.version)
+    if not args.skip_sign:
+        binary = DIST / exe_name()
+        if sys.platform == "darwin":
+            macos_sign(binary, args.identity, args.notary_profile)
     package(args.version)
 
 
