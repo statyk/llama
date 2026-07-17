@@ -145,3 +145,101 @@ def test_main_darwin_signs_then_packages(monkeypatch):
     monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0"])
     build.main()
     assert calls == ["macos_sign", "package"]
+
+
+# --- metadata config --------------------------------------------------------
+
+def test_metadata_has_expected_keys():
+    data = json.loads((ROOT / "packaging" / "metadata.json").read_text())
+    assert set(data) >= {"Endpoint", "CodeSigningAccountName",
+                         "CertificateProfileName", "ExcludeCredentials"}
+
+
+def test_check_metadata_placeholder_raises():
+    with pytest.raises(SystemExit):
+        build.check_metadata_not_placeholder('{"CodeSigningAccountName": "<my-account-name>"}')
+
+
+def test_check_metadata_real_passes():
+    build.check_metadata_not_placeholder('{"CodeSigningAccountName": "llama"}')  # no raise
+
+
+# --- signtool discovery -----------------------------------------------------
+
+def test_discover_signtool_prefers_fixed(tmp_path):
+    fixed = tmp_path / "fixed" / "signtool.exe"
+    fixed.parent.mkdir(parents=True)
+    fixed.write_text("")
+    assert build.discover_signtool(fixed, tmp_path) == fixed
+
+
+def test_discover_signtool_picks_newest_x64(tmp_path):
+    missing = tmp_path / "missing.exe"
+    for ver in ("10.0.19041.0", "10.0.28000.0"):
+        d = tmp_path / "bin" / ver / "x64"
+        d.mkdir(parents=True)
+        (d / "signtool.exe").write_text("")
+    got = build.discover_signtool(missing, tmp_path / "bin")
+    assert got.parent.parent.name == "10.0.28000.0"
+
+
+def test_discover_signtool_none_raises(tmp_path):
+    with pytest.raises(SystemExit):
+        build.discover_signtool(tmp_path / "x.exe", tmp_path / "empty")
+
+
+# --- signtool argv ----------------------------------------------------------
+
+def test_signtool_sign_cmd_argv():
+    cmd = build.signtool_sign_cmd(
+        Path("/s/signtool.exe"), Path("/d/dlib.dll"), Path("/m/metadata.json"),
+        "http://ts", "SHA256", [Path("/x/llama.exe")],
+    )
+    assert cmd == [
+        "/s/signtool.exe", "sign", "/v", "/debug", "/fd", "SHA256",
+        "/tr", "http://ts", "/td", "SHA256",
+        "/dlib", "/d/dlib.dll", "/dmdf", "/m/metadata.json", "/x/llama.exe",
+    ]
+
+
+# --- az PATH healing --------------------------------------------------------
+
+def test_ensure_az_noop_when_present():
+    env = {"PATH": "/x"}
+    assert build.ensure_az_on_path(env, which=lambda *a, **k: "/usr/bin/az") is env
+
+
+def test_ensure_az_prepends_wbin(tmp_path):
+    (tmp_path / "az.cmd").write_text("")
+    out = build.ensure_az_on_path({"PATH": "/x"}, candidate_dirs=[str(tmp_path)],
+                                  which=lambda *a, **k: None)
+    assert out["PATH"].startswith(str(tmp_path))
+
+
+def test_ensure_az_noop_when_absent(tmp_path):
+    env = {"PATH": "/x"}
+    out = build.ensure_az_on_path(env, candidate_dirs=[str(tmp_path / "nope")],
+                                  which=lambda *a, **k: None)
+    assert out == env
+
+
+# --- main() win32 dispatch --------------------------------------------------
+
+def test_main_win32_signs_then_packages(monkeypatch):
+    calls = []
+    monkeypatch.setattr(build, "write_version_file", lambda v: None)
+    monkeypatch.setattr(build, "run_pyinstaller", lambda v: None)
+    monkeypatch.setattr(build, "smoke_test", lambda v: None)
+    monkeypatch.setattr(build, "package", lambda v: calls.append("package"))
+    monkeypatch.setattr(build, "windows_sign", lambda *a, **k: calls.append("windows_sign"))
+    monkeypatch.setattr(build.sys, "platform", "win32")
+    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0"])
+    build.main()
+    assert calls == ["windows_sign", "package"]
+
+
+def test_main_dry_run_win32_plan(monkeypatch, capsys):
+    monkeypatch.setattr(build.sys, "platform", "win32")
+    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.2.3", "--dry-run"])
+    build.main()
+    assert "signtool" in capsys.readouterr().out

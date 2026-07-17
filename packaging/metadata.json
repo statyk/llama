@@ -1,0 +1,9 @@
+{
+  "Endpoint": "https://eus.codesigning.azure.net/",
+  "CodeSigningAccountName": "LitCat",
+  "CertificateProfileName": "bogsoft",
+  "ExcludeCredentials": [
+    "ManagedIdentityCredential",
+    "InteractiveBrowserCredential"
+  ]
+}

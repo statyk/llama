@@ -28,6 +28,15 @@ VERSION_FILE = PROJECT_ROOT / "src" / "llama" / "_version.py"
 ENTITLEMENTS = PROJECT_ROOT / "packaging" / "llama.entitlements"
 METADATA = PROJECT_ROOT / "packaging" / "metadata.json"
 
+TIMESTAMP_URL = "http://timestamp.acs.microsoft.com"
+FILE_DIGEST = "SHA256"
+SIGNTOOL_FIXED = Path(r"C:\Program Files (x86)\Windows Kits\10\bin\10.0.28000.0\x64\signtool.exe")
+SIGNTOOL_KITS_BIN = Path(r"C:\Program Files (x86)\Windows Kits\10\bin")
+AZ_WBIN_DIRS = (
+    r"C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin",
+    r"C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin",
+)
+
 
 def os_slug() -> str:
     if sys.platform == "darwin":
@@ -224,6 +233,74 @@ def macos_sign(binary: Path, identity: str | None, notary_profile: str,
             teardown()
 
 
+# --- Windows Authenticode signing (Azure Trusted Signing) ------------------
+# One `signtool sign` call on the onefile .exe, using the x64 signtool.exe +
+# Azure.CodeSigning.Dlib.dll driven by packaging/metadata.json. Azure auth is
+# the machine-side `az` login on the runner — no CI secret.
+
+
+def check_metadata_not_placeholder(text: str) -> None:
+    if "<my-account-name>" in text or "<my-profile-name>" in text:
+        raise SystemExit(
+            "packaging/metadata.json still has placeholder values — set "
+            "CodeSigningAccountName / CertificateProfileName / Endpoint before signing."
+        )
+
+
+def discover_signtool(fixed_path: Path, kits_bin_dir: Path) -> Path:
+    if fixed_path.exists():
+        return fixed_path
+    cands = sorted((p for p in kits_bin_dir.glob("**/x64/signtool.exe")),
+                   key=str, reverse=True)
+    if cands:
+        return cands[0]
+    raise SystemExit(
+        f"no x64 signtool.exe found under {kits_bin_dir}. "
+        "Install the Windows SDK Signing Tools."
+    )
+
+
+def signtool_sign_cmd(signtool: Path, dlib: Path, metadata: Path,
+                      timestamp: str, digest: str, files: list) -> list[str]:
+    return [str(signtool), "sign", "/v", "/debug", "/fd", digest,
+            "/tr", timestamp, "/td", digest, "/dlib", str(dlib),
+            "/dmdf", str(metadata), *[str(f) for f in files]]
+
+
+def ensure_az_on_path(env: dict, candidate_dirs=AZ_WBIN_DIRS, which=shutil.which) -> dict:
+    """The dlib's credential shells out to `az`; a runner whose PATH predates the
+    az install won't find it. Prepend az's wbin dir for the sign subprocess."""
+    if which("az", path=env.get("PATH")):
+        return env
+    for d in candidate_dirs:
+        if (Path(d) / "az.cmd").exists():
+            return {**env, "PATH": d + os.pathsep + env.get("PATH", "")}
+    return env
+
+
+def windows_sign(binary: Path, env: dict | None = None) -> None:
+    env = dict(os.environ if env is None else env)
+    dlib = (Path(env.get("LOCALAPPDATA", "")) / "Microsoft"
+            / "MicrosoftArtifactSigningClientTools" / "Azure.CodeSigning.Dlib.dll")
+    if not dlib.exists():
+        raise SystemExit(f"Azure.CodeSigning.Dlib.dll not found at {dlib}. "
+                         "Is ArtifactSigningClientTools installed?")
+    if not METADATA.exists():
+        raise SystemExit(f"signing metadata missing: {METADATA}")
+    check_metadata_not_placeholder(METADATA.read_text(encoding="utf-8"))
+    signtool = discover_signtool(SIGNTOOL_FIXED, SIGNTOOL_KITS_BIN)
+    env = ensure_az_on_path(env)
+    print(f"signtool: {signtool}")
+    subprocess.run(signtool_sign_cmd(signtool, dlib, METADATA, TIMESTAMP_URL,
+                                     FILE_DIGEST, [binary]), check=True, env=env)
+    verify = subprocess.run([str(signtool), "verify", "/pa", "/q", str(binary)])
+    if verify.returncode != 0:
+        print(f"WARNING: signtool verify returned {verify.returncode} for {binary} "
+              "(signed, but verify was non-zero)")
+    else:
+        print(f"signed + verified: {binary}")
+
+
 def package(version: str) -> Path:
     DIST_RELEASE.mkdir(parents=True, exist_ok=True)
     stem = f"llama-{version}-{os_slug()}-{arch_slug()}"
@@ -247,6 +324,8 @@ def _print_sign_plan(args) -> None:
     if sys.platform == "darwin":
         print("  sign: codesign --options runtime --entitlements packaging/llama.entitlements")
         print("  notarize: xcrun notarytool submit --wait  (no stapling — online check on first run)")
+    elif sys.platform == "win32":
+        print("  sign: signtool sign /dlib Azure.CodeSigning.Dlib /dmdf packaging/metadata.json")
     else:
         print("  sign: n/a (linux)")
 
@@ -278,6 +357,8 @@ def main() -> None:
         binary = DIST / exe_name()
         if sys.platform == "darwin":
             macos_sign(binary, args.identity, args.notary_profile)
+        elif sys.platform == "win32":
+            windows_sign(binary)
     package(args.version)
 
 
