@@ -69,10 +69,14 @@ def show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
     }[stage]
 
 
-def drop_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> None:
-    """Delete one show's artifacts for `stage` and every stage after it."""
+def drop_stage_artifacts(show_ws: ShowWorkspace, stage: str, keep_research: bool = False) -> None:
+    """Delete one show's artifacts for `stage` and every stage after it.
+    keep_research spares research.md (the expensive deep-research output)
+    while still dropping everything derived from it."""
     for st in SHOW_STAGE_ORDER[SHOW_STAGE_ORDER.index(stage):]:
         for path in show_stage_artifacts(show_ws, st):
+            if keep_research and path == show_ws.research:
+                continue
             if path.exists():
                 path.unlink()
 

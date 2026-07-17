@@ -3,7 +3,8 @@ from pathlib import Path
 
 from llama.models import Criteria
 from llama.workspace import (
-    RunWorkspace, read_json, read_model, read_model_list, should_run, write_artifact,
+    RunWorkspace, ShowWorkspace, drop_stage_artifacts, read_json, read_model, read_model_list,
+    should_run, write_artifact,
 )
 
 
@@ -48,3 +49,15 @@ def test_workspace_layout(tmp_path: Path):
 def test_run_workspace_artists_path(tmp_path: Path):
     ws = RunWorkspace(tmp_path, "r")
     assert ws.artists == ws.dir / "artists.json"
+
+
+def test_drop_stage_artifacts_can_keep_research(tmp_path):
+    sws = ShowWorkspace(tmp_path / "s")
+    for p in [sws.selection, sws.show, sws.research, sws.vetting, sws.dj_notes_json]:
+        write_artifact(p, "x")
+    drop_stage_artifacts(sws, "gather", keep_research=True)
+    assert sws.selection.exists()
+    assert not sws.show.exists() and not sws.vetting.exists()
+    assert sws.research.exists()          # preserved
+    drop_stage_artifacts(sws, "research")
+    assert not sws.research.exists()      # default still drops it

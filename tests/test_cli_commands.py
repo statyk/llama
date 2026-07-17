@@ -863,3 +863,46 @@ def test_deliver_by_name_records_provenance_run(tmp_path: Path):
     assert (dest / "aaa-1970-01-01" / "manifest.json").exists()
     entries = Ledger(tmp_path / "ledger.jsonl").entries()
     assert entries[0].status == "delivered" and entries[0].run == "myrun"
+
+
+def test_redo_requires_from_and_reruns_tail(tmp_path: Path, monkeypatch):
+    # tests/ has no __init__.py; pytest puts the tests dir on sys.path
+    from test_pipeline import FakeIA, fake_providers
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    # First, produce a real packaged show via find (writes provenance).
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--script", "--run-name", "redorun",
+        "--config", cfg,
+    ])
+    assert result.exit_code == 0, result.output
+    sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
+    research_before = sws.research.read_text()
+
+    # --from is required
+    missing = runner.invoke(cli.app, ["redo", "gratefuldead", "--config", cfg])
+    assert missing.exit_code != 0
+
+    result = runner.invoke(cli.app, ["redo", "gratefuldead", "--from", "gather",
+                                     "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert sws.show.exists() and (sws.package_dir / "manifest.json").exists()
+    assert sws.research.read_text() == research_before   # preserved by default
+
+
+def test_redo_without_provenance_errors(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = ShowWorkspace(tmp_path / "shows" / "orphan-1970-01-01")
+    write_artifact(sws.show, Show(
+        performance_id="orphan/1970-01-01", identifier="x", artist="orphan",
+        date="1970-01-01", tracks=[Track(index=1, set="1", title="T",
+                                         filename="a.mp3", title_source="tags")]))
+    result = runner.invoke(cli.app, ["redo", "orphan", "--from", "vet",
+                                     "--config", cfg])
+    assert result.exit_code == 1
+    assert "provenance.json" in result.output and "migrate" in result.output

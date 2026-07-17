@@ -490,6 +490,50 @@ def deliver(
 
 
 @app.command()
+def redo(
+    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
+    from_stage: str = typer.Option(..., "--from",
+                                   help="Stage to re-run from: select|gather|research|vet|synthesize|package"),
+    with_research: bool = typer.Option(False, "--with-research",
+                                       help="Also drop research.md (kept by default)"),
+    script: bool = typer.Option(None, "--script/--no-script",
+                                help="Override the script setting recorded at process time"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
+    from llama.models import Provenance, QualityAssessment
+    from llama.workspace import drop_stage_artifacts
+
+    show_stages = VALID_STAGES - RUN_LEVEL_STAGES
+    if from_stage not in show_stages:
+        typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
+        raise typer.Exit(1)
+    config, ia, ledger = _setup(config_path)
+    entry = _resolve_show_or_exit(config, ledger, name)
+    if entry.provenance is None:
+        typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                   "run `llama migrate` (or reprocess via its run) first", err=True)
+        raise typer.Exit(1)
+    prov = entry.provenance
+    keep_research = not with_research and from_stage in ("select", "gather")
+    drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+    shortlist_entry = ShortlistEntry(
+        rank=1, candidate=prov.candidate,
+        assessment=QualityAssessment(performance_id=prov.performance_id,
+                                     quality_score=0.0, rationale=prov.dossier))
+    ws = RunWorkspace(config.root, prov.run)
+    effective_script = prov.script if script is None else script
+    pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                       prov.run, config.audio_format, script=effective_script,
+                       setlistfm=make_client(config), structure_cfg=config.structure,
+                       selection_cfg=config.selection)
+    if pkg:
+        typer.echo(f"packaged: {pkg}")
+    else:
+        typer.echo(f"needs-review, skipped: {prov.performance_id}")
+
+
+@app.command()
 def migrate(
     dry_run: bool = typer.Option(False, "--dry-run", help="Print the plan, move nothing"),
     config_path: Path = typer.Option(None, "--config"),
