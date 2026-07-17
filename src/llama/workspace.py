@@ -43,6 +43,7 @@ class ShowWorkspace:
     def __init__(self, dir: Path):
         self.dir = dir
         self.selection = dir / "selection.json"
+        self.provenance = dir / "provenance.json"
         self.show = dir / "show.json"
         self.reviews = dir / "reviews.json"
         self.research = dir / "research.md"

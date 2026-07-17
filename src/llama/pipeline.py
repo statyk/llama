@@ -5,7 +5,7 @@ from pathlib import Path
 from llama.config import Config
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
-from llama.models import DJNotes, LedgerEntry, Show, ShortlistEntry
+from llama.models import DJNotes, LedgerEntry, Provenance, Show, ShortlistEntry
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
 from llama.stages.research import run_research
@@ -14,7 +14,7 @@ from llama.stages.synthesize import run_synthesize
 from llama.util import cap_across_artists
 from llama.stages.vet_research import run_vet_research
 from llama.status import step
-from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_model
+from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_model, write_artifact
 
 log = logging.getLogger("llama")
 
@@ -62,6 +62,13 @@ def process_show(
         drop_stage_artifacts(show_ws, force_stage)
 
     pid = cand.performance_id
+    dossier = entry.assessment.rationale
+    if entry.external_reputation:
+        dossier += "\n\nExternal reputation: " + entry.external_reputation
+    write_artifact(show_ws.provenance, Provenance(
+        performance_id=pid, run=run_name, dossier=dossier, candidate=cand,
+        script=script, processed_at=datetime.now(timezone.utc).isoformat(),
+    ))
     with step(f"[{pid}] selecting recording"):
         identifier = run_select_recording(show_ws, ia, cand, entry.assessment,
                                           audio_format=audio_format, force=force,
@@ -71,9 +78,6 @@ def process_show(
                           audio_format=audio_format, force=force,
                           align_provider=providers.get("align_structure"),
                           setlistfm=setlistfm, structure_cfg=structure_cfg)
-    dossier = entry.assessment.rationale
-    if entry.external_reputation:
-        dossier += "\n\nExternal reputation: " + entry.external_reputation
     with step(f"[{pid}] researching"):
         research_md = run_research(show_ws, providers["deep_research"], show, dossier, force=force)
     with step(f"[{pid}] vetting research"):

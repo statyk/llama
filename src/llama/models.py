@@ -212,6 +212,17 @@ class LedgerEntry(BaseModel):
     recorded_at: str  # ISO-8601 UTC
 
 
+class Provenance(BaseModel):
+    """Why this show exists: the run and shortlist context that processed it.
+    Lets redo/deliver work standalone after the originating run is gone."""
+    performance_id: str
+    run: str
+    dossier: str = ""  # shortlist rationale + external reputation, as fed to research
+    candidate: Candidate
+    script: bool = True
+    processed_at: str  # ISO-8601 UTC
+
+
 class ArtistMatch(BaseModel):
     identifier: str
     reason: str = ""

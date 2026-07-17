@@ -362,3 +362,29 @@ def test_choose_entries_spreads_artists_on_auto_pick():
     # a raised artist_cap lets quality dominate again
     picked = choose_entries(entries, 3, human_gate=False, artist_cap=1.0)
     assert [e.candidate.collection for e in picked] == ["CharlieHunter"] * 3
+
+
+def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(pipeline, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973 best soundboard", "--auto", "--script",
+        "--run-name", "provrun", "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+
+    from llama.models import Provenance
+    from llama.workspace import read_model
+    prov_path = (tmp_path / "runs" / "provrun" / "shows"
+                 / "gratefuldead-1973-06-10" / "provenance.json")
+    prov = read_model(prov_path, Provenance)
+    assert prov.performance_id == "GratefulDead/1973-06-10"
+    assert prov.run == "provrun"
+    assert prov.script is True
+    assert "monumental Dark Star" in prov.dossier          # rationale
+    assert "Widely ranked top-5" in prov.dossier           # external reputation
+    assert prov.candidate.collection == "GratefulDead"
+    assert prov.processed_at  # ISO timestamp present
