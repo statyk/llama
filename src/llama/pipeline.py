@@ -67,6 +67,7 @@ def process_show(
         dossier += "\n\nExternal reputation: " + entry.external_reputation
     write_artifact(show_ws.provenance, Provenance(
         performance_id=pid, run=run_name, dossier=dossier, candidate=cand,
+        assessment=entry.assessment,
         script=script, processed_at=datetime.now(timezone.utc).isoformat(),
     ))
     with step(f"[{pid}] selecting recording"):

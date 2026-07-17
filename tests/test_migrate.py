@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -47,6 +46,7 @@ def test_migrate_moves_and_backfills_provenance(tmp_path: Path):
     assert prov.performance_id == "GratefulDead/1973-06-10"
     assert "great show" in prov.dossier and "ranked top-5" in prov.dossier
     assert prov.script is True
+    assert prov.assessment is not None and prov.assessment.quality_score == 9.0
 
 
 def test_migrate_collision_deeper_wins_loser_stays(tmp_path: Path):
@@ -72,6 +72,23 @@ def test_migrate_idempotent_and_existing_target_wins(tmp_path: Path):
     apply_migration(tmp_path, moves)
     assert legacy.exists()
     assert plan_migration(tmp_path) == moves  # stable on re-run
+
+
+def test_status_clean_after_collision_migration(tmp_path: Path):
+    # After a collision, the loser stays nested under runs/ (never-delete),
+    # but its slug now exists canonically - so the legacy guard must let the
+    # CLI through instead of deadlocking every command forever.
+    seed_run(tmp_path, "r1", "gratefuldead-1973-06-10",
+             "GratefulDead/1973-06-10", packaged=True)
+    seed_run(tmp_path, "r2", "gratefuldead-1973-06-10",
+             "GratefulDead/1973-06-10", packaged=False)
+    apply_migration(tmp_path, plan_migration(tmp_path))
+    assert (tmp_path / "runs" / "r2" / "shows" / "gratefuldead-1973-06-10").exists()
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    result = runner.invoke(cli.app, ["status", "--config",
+                                     str(tmp_path / "config.toml")])
+    assert result.exit_code == 0, result.output
+    assert "gratefuldead-1973-06-10" in result.output
 
 
 def test_migrate_cli_dry_run_moves_nothing(tmp_path: Path):

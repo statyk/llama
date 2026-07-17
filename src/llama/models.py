@@ -219,6 +219,10 @@ class Provenance(BaseModel):
     run: str
     dossier: str = ""  # shortlist rationale + external reputation, as fed to research
     candidate: Candidate
+    # Winnow assessment (quality_score, recording_complaints, reviewed_identifier)
+    # so redo --from select avoids complained-about recordings. Optional/None
+    # keeps old provenance.json files parseable.
+    assessment: QualityAssessment | None = None
     script: bool = True
     processed_at: str  # ISO-8601 UTC
 

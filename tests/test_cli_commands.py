@@ -788,6 +788,27 @@ def test_status_json(tmp_path: Path):
     assert rows[0]["run"] == "r1"
 
 
+def test_find_refuses_legacy_layout(tmp_path: Path):
+    # find is a big show-writer: on a legacy workspace it must refuse before
+    # manufacturing fresh canonical show dirs (permanent collisions).
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "runs" / "r1" / "shows" / "old").mkdir(parents=True)
+    result = runner.invoke(cli.app, ["find", "x", "--config", cfg])
+    assert result.exit_code == 1
+    assert "llama migrate" in result.output
+
+
+def test_profile_run_refuses_legacy_layout(tmp_path: Path):
+    # The guard must fire before load_profile, so no profile file is needed.
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "runs" / "r1" / "shows" / "old").mkdir(parents=True)
+    result = runner.invoke(cli.app, ["profile", "run", "whatever", "--config", cfg])
+    assert result.exit_code == 1
+    assert "llama migrate" in result.output
+
+
 def test_status_refuses_legacy_layout(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -892,6 +913,42 @@ def test_redo_requires_from_and_reruns_tail(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert sws.show.exists() and (sws.package_dir / "manifest.json").exists()
     assert sws.research.read_text() == research_before   # preserved by default
+
+
+def test_redo_from_select_keeps_winnow_assessment(tmp_path: Path, monkeypatch):
+    # redo --from select must feed run_select_recording the original winnow
+    # assessment (quality_score + recording_complaints), not a zeroed stub.
+    from test_pipeline import FakeIA, fake_providers
+    from llama.models import Provenance
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, [
+        "find", "GD 1973", "--auto", "--script", "--run-name", "redosel",
+        "--config", cfg,
+    ])
+    assert result.exit_code == 0, result.output
+    sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
+
+    # Inject a recording complaint into the persisted winnow assessment so we
+    # can prove redo preserves it (rather than rebuilding an empty stub).
+    prov = read_model(sws.provenance, Provenance)
+    assert prov.assessment is not None and prov.assessment.quality_score == 9.5
+    prov.assessment.recording_complaints = ["hiss on side two (badtaper)"]
+    write_artifact(sws.provenance, prov)
+
+    result = runner.invoke(cli.app, ["redo", "gratefuldead", "--from", "select",
+                                     "--config", cfg])
+    assert result.exit_code == 0, result.output
+
+    prov = read_model(sws.provenance, Provenance)
+    assert prov.assessment is not None
+    assert prov.assessment.quality_score == 9.5                    # preserved
+    assert prov.assessment.recording_complaints == ["hiss on side two (badtaper)"]
+    assert prov.assessment.rationale == prov.dossier               # dossier round-trip
 
 
 def test_redo_without_provenance_errors(tmp_path: Path):

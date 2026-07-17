@@ -387,3 +387,5 @@ def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
     assert "Widely ranked top-5" in prov.dossier           # external reputation
     assert prov.candidate.collection == "GratefulDead"
     assert prov.processed_at  # ISO timestamp present
+    assert prov.assessment is not None                     # winnow assessment carried
+    assert prov.assessment.quality_score == 9.5

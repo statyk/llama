@@ -56,7 +56,8 @@ def _backfill_provenance(root: Path, move: Move) -> None:
                 dossier += "\n\nExternal reputation: " + entry.external_reputation
             write_artifact(ws.provenance, Provenance(
                 performance_id=entry.candidate.performance_id, run=move.run,
-                dossier=dossier, candidate=entry.candidate, script=script,
+                dossier=dossier, candidate=entry.candidate,
+                assessment=entry.assessment, script=script,
                 processed_at=datetime.now(timezone.utc).isoformat()))
             return
     log.warning("no shortlist entry for %s in %s: left without provenance",

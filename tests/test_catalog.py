@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import pytest
@@ -6,7 +5,7 @@ import pytest
 from llama.catalog import (CatalogError, derive_state, iter_shows, legacy_show_dirs,
                            resolve_run, resolve_show, stage_depth)
 from llama.ledger import Ledger
-from llama.models import Candidate, LedgerEntry, Provenance, RecordingSummary, Show, Track
+from llama.models import Candidate, Provenance, RecordingSummary, Show, Track
 from llama.workspace import ShowWorkspace, write_artifact
 
 
@@ -126,3 +125,18 @@ def test_legacy_show_dirs(tmp_path: Path):
     legacy.mkdir(parents=True)
     assert legacy_show_dirs(tmp_path) == [legacy]
     assert legacy_show_dirs(tmp_path / "elsewhere") == []
+
+
+def test_unmigrated_show_dirs_excludes_slugs_present_canonically(tmp_path: Path):
+    from llama.catalog import unmigrated_show_dirs
+
+    # A collision loser / already-migrated remnant: slug exists under shows/.
+    (tmp_path / "runs" / "r1" / "shows" / "dupe").mkdir(parents=True)
+    (tmp_path / "shows" / "dupe").mkdir(parents=True)
+    # A genuinely unmigrated legacy dir: no canonical slug yet.
+    fresh = tmp_path / "runs" / "r2" / "shows" / "fresh"
+    fresh.mkdir(parents=True)
+
+    assert unmigrated_show_dirs(tmp_path) == [fresh]
+    # legacy_show_dirs still sees both, so migrate can warn about the loser.
+    assert len(legacy_show_dirs(tmp_path)) == 2

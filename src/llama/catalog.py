@@ -135,3 +135,15 @@ def legacy_show_dirs(root: Path) -> list[Path]:
     if not runs_dir.is_dir():
         return []
     return sorted(d for d in runs_dir.glob("*/shows/*") if d.is_dir())
+
+
+def unmigrated_show_dirs(root: Path) -> list[Path]:
+    """Legacy dirs whose slug is NOT already present under root/shows/.
+
+    A leftover whose slug exists canonically is a warned-about collision loser
+    (kept in place by the never-delete rule) or an already-migrated remnant -
+    not a reason to block the CLI. Only genuinely unmigrated dirs count.
+    """
+    shows_dir = root / "shows"
+    existing = {d.name for d in shows_dir.iterdir()} if shows_dir.is_dir() else set()
+    return [d for d in legacy_show_dirs(root) if d.name not in existing]

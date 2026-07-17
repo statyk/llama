@@ -75,9 +75,9 @@ def _setup(config_path: Path | None) -> tuple[Config, IAClient, Ledger]:
 
 
 def _legacy_guard(root: Path) -> None:
-    from llama.catalog import legacy_show_dirs
+    from llama.catalog import unmigrated_show_dirs
 
-    legacy = legacy_show_dirs(root)
+    legacy = unmigrated_show_dirs(root)
     if legacy:
         typer.echo(f"{len(legacy)} show dirs still nested under runs/ - "
                    "run `llama migrate` first", err=True)
@@ -231,6 +231,7 @@ def find(
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
     config, ia, ledger = _setup(config_path)
+    _legacy_guard(config.root)  # refuse before writing fresh canonical show dirs
     name = run_name or f"{date.today().isoformat()}-{slugify(query)[:40]}"
     ws = RunWorkspace(config.root, name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
@@ -501,7 +502,7 @@ def redo(
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
-    from llama.models import Provenance, QualityAssessment
+    from llama.models import QualityAssessment
     from llama.workspace import drop_stage_artifacts
 
     show_stages = VALID_STAGES - RUN_LEVEL_STAGES
@@ -517,10 +518,17 @@ def redo(
     prov = entry.provenance
     keep_research = not with_research and from_stage in ("select", "gather")
     drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+    # Keep the winnow assessment (quality_score + recording_complaints) so
+    # select-recording still avoids complained-about recordings; override only
+    # the rationale so the dossier round-trip stays stable (it already carries
+    # the external-reputation suffix). Fall back to a zero stub for pre-fix
+    # provenance.json files that predate the assessment field.
+    assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+                  if prov.assessment is not None
+                  else QualityAssessment(performance_id=prov.performance_id,
+                                         quality_score=0.0, rationale=prov.dossier))
     shortlist_entry = ShortlistEntry(
-        rank=1, candidate=prov.candidate,
-        assessment=QualityAssessment(performance_id=prov.performance_id,
-                                     quality_score=0.0, rationale=prov.dossier))
+        rank=1, candidate=prov.candidate, assessment=assessment)
     ws = RunWorkspace(config.root, prov.run)
     effective_script = prov.script if script is None else script
     pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
@@ -700,6 +708,7 @@ def profile_run(
 ):
     """Find and process the profile's next N shows, avoiding ledger duplicates."""
     config, ia, ledger = _setup(config_path)
+    _legacy_guard(config.root)  # refuse before writing fresh canonical show dirs
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, f"{date.today().isoformat()}-{name}")
     # Stamp count and script into the run's criteria: a later `llama run` on
