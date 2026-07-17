@@ -1,8 +1,12 @@
 name: release
 
 # Build llama's four self-contained binaries across the self-hosted fleet and
-# attach them to a GitHub Release. Unsigned: no on-box secrets, GITHUB_TOKEN only.
-# PyInstaller does not cross-compile, so each artifact is built on native hardware.
+# attach them to a GitHub Release. The macOS and Windows binaries are signed by
+# packaging/build.py using credentials that live ON the runners (Developer ID
+# keychain + notarytool profile on the Mac mini; Azure Trusted Signing on ITCHY)
+# and never enter GitHub — GITHUB_TOKEN is the only secret. Linux is unsigned
+# (verify via SHA256SUMS). PyInstaller does not cross-compile, so each artifact
+# is built on native hardware. See docs/releasing.md for per-box setup.
 
 on:
   push:

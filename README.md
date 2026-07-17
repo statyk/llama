@@ -76,6 +76,12 @@ edits keep them. The trap runs both ways: deleting a seeded table or block
 restores its built-in default (absence = default) — to truly clear one, set
 it empty (e.g. `lineage_eras = []` under `[selection]`).
 
+Release binaries (attached to each GitHub Release) are signed: the macOS build
+is Developer ID-signed and notarized (Gatekeeper-clean; because it is a bare
+executable it can't be stapled, so first run does an online notarization check),
+and the Windows build is Authenticode-signed via Azure Trusted Signing. The
+Linux builds are unsigned — verify them against `SHA256SUMS`.
+
 ## Use
 
     llama find "GD shows 73-74 with a china>rider"
