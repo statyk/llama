@@ -49,6 +49,7 @@ class RecordingSummary(BaseModel):
     coverage: str | None = None
     avg_rating: float | None = None
     num_reviews: int = 0
+    downloads: int = 0
     description: str | None = None
 
 

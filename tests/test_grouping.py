@@ -50,3 +50,14 @@ def test_list_valued_numeric_fields_coerced():
     rec = cands[0].recordings[0]
     assert rec.num_reviews == 7
     assert rec.avg_rating == 4.2
+
+
+def test_downloads_mapped_and_defaulted():
+    docs = [
+        {"identifier": "gd73-a", "date": "1973-06-10", "downloads": [1500]},
+        {"identifier": "gd73-b", "date": "1973-06-10"},
+    ]
+    cands = group_candidates("GratefulDead", docs)
+    recs = {r.identifier: r for r in cands[0].recordings}
+    assert recs["gd73-a"].downloads == 1500
+    assert recs["gd73-b"].downloads == 0
