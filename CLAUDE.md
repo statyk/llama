@@ -20,7 +20,6 @@ implementation plan this was built from. The approved design spec is
   `llama status` (global triage view), `llama runs`, `llama show <name>`,
   `llama redo <name> --from <stage>`, `llama review <run>`, `llama deliver <name>`.
   Shows/runs are addressed by name or unique substring; paths still work.
-  One-time after upgrading: `llama migrate` moves nested show dirs to `~/.llama/shows/`.
   `llama config init` seeds a commented config of the baked-in defaults
   (config values replace defaults; nothing merges).
 

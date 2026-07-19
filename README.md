@@ -114,9 +114,7 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
 
 Shows and runs are addressed by **name or any unique substring** (paths
 still work): `llama show 1973-06-10` finds `gratefuldead-1973-06-10`; an
-ambiguous substring fails loudly and lists the candidates. Upgrading from
-a pre-0.4 workspace? Run `llama migrate` once — it moves show dirs nested
-under `runs/` into the canonical `~/.llama/shows/` library.
+ambiguous substring fails loudly and lists the candidates.
 
 Two different human gates, easy to conflate: `llama review` answers "which
 shortlisted shows are worth processing" (gate 1). Separately, a processed

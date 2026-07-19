@@ -790,36 +790,6 @@ def test_status_json(tmp_path: Path):
     assert rows[0]["run"] == "r1"
 
 
-def test_find_refuses_legacy_layout(tmp_path: Path):
-    # find is a big show-writer: on a legacy workspace it must refuse before
-    # manufacturing fresh canonical show dirs (permanent collisions).
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    (tmp_path / "runs" / "r1" / "shows" / "old").mkdir(parents=True)
-    result = runner.invoke(cli.app, ["find", "x", "--config", cfg])
-    assert result.exit_code == 1
-    assert "llama migrate" in result.output
-
-
-def test_profile_run_refuses_legacy_layout(tmp_path: Path):
-    # The guard must fire before load_profile, so no profile file is needed.
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    (tmp_path / "runs" / "r1" / "shows" / "old").mkdir(parents=True)
-    result = runner.invoke(cli.app, ["profile", "run", "whatever", "--config", cfg])
-    assert result.exit_code == 1
-    assert "llama migrate" in result.output
-
-
-def test_status_refuses_legacy_layout(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    (tmp_path / "runs" / "r1" / "shows" / "old").mkdir(parents=True)
-    result = runner.invoke(cli.app, ["status", "--config", cfg])
-    assert result.exit_code == 1
-    assert "llama migrate" in result.output
-
-
 def test_runs_lists_runs_with_counts(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -964,7 +934,7 @@ def test_redo_without_provenance_errors(tmp_path: Path):
     result = runner.invoke(cli.app, ["redo", "orphan", "--from", "vet",
                                      "--config", cfg])
     assert result.exit_code == 1
-    assert "provenance.json" in result.output and "migrate" in result.output
+    assert "provenance.json" in result.output and "reprocess" in result.output
 
 
 def test_config_init_writes_template(tmp_path: Path):

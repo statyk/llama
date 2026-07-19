@@ -101,11 +101,6 @@ Two files deserve a callout:
   setting. It is what lets `llama redo` re-run a show standalone — the
   originating run directory doesn't even need to exist anymore.
 
-Workspaces created before v0.4 nested show dirs under each run
-(`runs/<run>/shows/<slug>/`). `llama migrate` moves them into the library
-(one-time, idempotent); until it runs, any command that touches shows
-refuses and tells you to migrate first.
-
 ## Names and states: the catalog
 
 Every command that takes a show or run accepts a **name, a unique
@@ -309,8 +304,8 @@ setting) — the originating run directory is not needed.
   `--from research` redoes it by definition.
 - The script setting recorded at process time is replayed;
   `--script`/`--no-script` overrides it.
-- A show without `provenance.json` (pre-migration artifact or hand-built
-  dir) errors — run `llama migrate`, or reprocess it via its run once.
+- A show without `provenance.json` (hand-built dir) errors — reprocess it
+  via its run once.
 
 ### `llama deliver <show> [--dest DIR] [--force]`
 Copies the show's `package/` into the station's watched folder
@@ -318,17 +313,6 @@ Copies the show's `package/` into the station's watched folder
 entry (run attribution from `provenance.json`). Refuses if the show is
 marked needs-review; `--force` overrides. `llama status --packaged` lists
 what's ready to deliver.
-
-### `llama migrate [--dry-run]`
-One-time layout migration after upgrading to v0.4+: moves every
-`runs/*/shows/*` directory into the canonical `shows/` library and
-backfills `provenance.json` from each run's shortlist. Idempotent — an
-already-migrated slug is skipped. On a slug collision (the same
-performance processed under two runs), the directory with the deepest
-pipeline progress wins; the loser is left in place under its run with a
-warning. Nothing is ever deleted. `--dry-run` prints the plan. Until the
-migration runs, commands that touch shows refuse with
-``run `llama migrate` first``.
 
 ### `llama config init [--stdout] [--config PATH]`
 Seed `~/.llama/config.toml` (or `--config PATH`) with the baked-in
@@ -421,11 +405,9 @@ re-searches and drops the shortlist with it.
 | `holding <show>: flagged during packaging (…)` | Package built but audio verification flagged it | Inspect; `llama deliver --force` if acceptable |
 | `refusing to deliver: … use --force` | Delivering a needs-review show | Inspect, then `--force` if intended |
 | `FAILED <show>: …` | LLM/network failure mid-show | `llama run <run>` retries just the missing pieces; see `llm-failure.txt` |
-| `N show dirs still nested under runs/ - run llama migrate first` | Pre-v0.4 layout detected | `llama migrate --dry-run` to see the plan, then `llama migrate` |
 | `'x' is ambiguous` + a list | Substring matched several shows/runs | Use a longer substring or a full name from the list |
 | `no show matches 'x'` / `no run matches 'x'` | Resolver found nothing | `llama status` / `llama runs` to see what exists |
-| `no provenance.json in … - run llama migrate` | `redo` on a show that predates provenance tracking | `llama migrate` backfills it; or reprocess once via its run |
-| `left in place (collision or already migrated): …` | Two runs held the same slug; the shallower copy stays put | Nothing deleted; inspect the leftover under `runs/<run>/shows/` and remove it by hand if unwanted |
+| `no provenance.json in … - reprocess it via its run` | `redo` on a hand-built show with no provenance | Reprocess once via its run to write `provenance.json` |
 | `No shows survived winnowing.` | Nothing passed dedup + mechanical floors + scoring | Broaden the query, lower floors, or check the ledger |
 | `winnow: N of M scored shows fell below the quality floor` | LLM scores under `min_quality_score` (default 6.0) were dropped | Expected while a pool is healthy; if it recurs and runs come back short, the well is drying — broaden criteria, or lower `--min-score` if you'd rather ship marginal shows |
 | `no matching artists found on the LMA` | Artist-less query matched nothing in the index | Name an artist or broaden the style terms |

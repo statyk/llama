@@ -39,19 +39,6 @@ _STAGES = [
     ("vetting", 4, "vetted"),
     ("dj_notes_json", 5, "scripted"),
 ]
-STAGE_DEPTH = {"select": 1, "gather": 2, "research": 3, "vet": 4,
-               "synthesize": 5, "package": 6}
-
-
-def stage_depth(ws: ShowWorkspace) -> int:
-    """Deepest completed stage (0 = nothing). Used for migration collisions."""
-    depth = 0
-    for attr, d, _ in _STAGES:
-        if getattr(ws, attr).exists():
-            depth = d
-    if (ws.package_dir / "manifest.json").exists():
-        depth = 6
-    return depth
 
 
 def _performance_id(ws: ShowWorkspace) -> str | None:
@@ -127,23 +114,3 @@ def resolve_run(root: Path, name: str) -> str:
     runs_dir = root / "runs"
     runs = sorted(d.name for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
     return _resolve(name, runs, "run")
-
-
-def legacy_show_dirs(root: Path) -> list[Path]:
-    """Show directories still nested under runs (pre-migration layout)."""
-    runs_dir = root / "runs"
-    if not runs_dir.is_dir():
-        return []
-    return sorted(d for d in runs_dir.glob("*/shows/*") if d.is_dir())
-
-
-def unmigrated_show_dirs(root: Path) -> list[Path]:
-    """Legacy dirs whose slug is NOT already present under root/shows/.
-
-    A leftover whose slug exists canonically is a warned-about collision loser
-    (kept in place by the never-delete rule) or an already-migrated remnant -
-    not a reason to block the CLI. Only genuinely unmigrated dirs count.
-    """
-    shows_dir = root / "shows"
-    existing = {d.name for d in shows_dir.iterdir()} if shows_dir.is_dir() else set()
-    return [d for d in legacy_show_dirs(root) if d.name not in existing]

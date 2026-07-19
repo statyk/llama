@@ -77,16 +77,6 @@ def _setup(config_path: Path | None) -> tuple[Config, IAClient, Ledger]:
     return config, ia, ledger
 
 
-def _legacy_guard(root: Path) -> None:
-    from llama.catalog import unmigrated_show_dirs
-
-    legacy = unmigrated_show_dirs(root)
-    if legacy:
-        typer.echo(f"{len(legacy)} show dirs still nested under runs/ - "
-                   "run `llama migrate` first", err=True)
-        raise typer.Exit(1)
-
-
 _STATE_RANK = {"held": 0, "packaged": 1, "scripted": 2, "vetted": 3,
                "researched": 4, "gathered": 5, "selected": 6, "delivered": 7}
 RECENT_DELIVERED = 5
@@ -234,7 +224,6 @@ def find(
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
     config, ia, ledger = _setup(config_path)
-    _legacy_guard(config.root)  # refuse before writing fresh canonical show dirs
     name = run_name or f"{date.today().isoformat()}-{slugify(query)[:40]}"
     ws = RunWorkspace(config.root, name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
@@ -381,7 +370,6 @@ def review(
 def _resolve_run_or_exit(config, name: str) -> RunWorkspace:
     from llama.catalog import CatalogError, resolve_run
 
-    _legacy_guard(config.root)
     try:
         return RunWorkspace(config.root, resolve_run(config.root, name))
     except CatalogError as err:
@@ -394,7 +382,6 @@ def _resolve_run_or_exit(config, name: str) -> RunWorkspace:
 def _resolve_show_or_exit(config, ledger, name: str):
     from llama.catalog import CatalogError, resolve_show
 
-    _legacy_guard(config.root)
     try:
         return resolve_show(config.root, ledger, name)
     except CatalogError as err:
@@ -519,7 +506,7 @@ def redo(
     entry = _resolve_show_or_exit(config, ledger, name)
     if entry.provenance is None:
         typer.echo(f"no provenance.json in {entry.ws.dir} - "
-                   "run `llama migrate` (or reprocess via its run) first", err=True)
+                   "reprocess it via its run first", err=True)
         raise typer.Exit(1)
     prov = entry.provenance
     keep_research = not with_research and from_stage in ("select", "gather")
@@ -548,28 +535,6 @@ def redo(
 
 
 @app.command()
-def migrate(
-    dry_run: bool = typer.Option(False, "--dry-run", help="Print the plan, move nothing"),
-    config_path: Path = typer.Option(None, "--config"),
-):
-    """One-time move of runs/*/shows/* into the canonical shows/ library."""
-    from llama.migrate import apply_migration, plan_migration
-
-    config, _, _ = _setup(config_path)
-    moves = plan_migration(config.root)
-    if not moves:
-        typer.echo("nothing to migrate")
-        return
-    for m in moves:
-        action = "move" if m.winner else "skip (collision/already migrated)"
-        typer.echo(f"{action}: {m.src} -> {m.dest}")
-    if dry_run:
-        return
-    apply_migration(config.root, moves)
-    typer.echo(f"migrated {sum(m.winner for m in moves)} shows to {config.root / 'shows'}")
-
-
-@app.command()
 def status(
     held: bool = typer.Option(False, "--held", help="Only shows held for review"),
     packaged: bool = typer.Option(False, "--packaged", help="Only packaged, undelivered shows"),
@@ -585,7 +550,6 @@ def status(
     from llama.catalog import iter_shows
 
     config, _, ledger = _setup(config_path)
-    _legacy_guard(config.root)
     entries = iter_shows(config.root, ledger)
     if held:
         entries = [e for e in entries if e.state == "held"]
@@ -737,7 +701,6 @@ def profile_run(
 ):
     """Find and process the profile's next N shows, avoiding ledger duplicates."""
     config, ia, ledger = _setup(config_path)
-    _legacy_guard(config.root)  # refuse before writing fresh canonical show dirs
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, f"{date.today().isoformat()}-{name}")
     # Stamp count and script into the run's criteria: a later `llama run` on

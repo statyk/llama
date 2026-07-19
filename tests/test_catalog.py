@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from llama.catalog import (CatalogError, derive_state, iter_shows, legacy_show_dirs,
-                           resolve_run, resolve_show, stage_depth)
+from llama.catalog import (CatalogError, derive_state, iter_shows,
+                           resolve_run, resolve_show)
 from llama.ledger import Ledger
 from llama.models import Candidate, Provenance, RecordingSummary, Show, Track
 from llama.workspace import ShowWorkspace, write_artifact
@@ -77,12 +77,6 @@ def test_delivered_beats_packaged(tmp_path: Path):
     assert state == "delivered"
 
 
-def test_stage_depth(tmp_path: Path):
-    ws = build(tmp_path, "s", stages={"select", "gather"})
-    assert stage_depth(ws) == 2
-    assert stage_depth(ShowWorkspace(tmp_path / "shows" / "empty")) == 0
-
-
 def test_iter_shows_and_resolve(tmp_path: Path):
     build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
     build(tmp_path, "mekons-1989-12-02", stages={"select", "gather"},
@@ -118,25 +112,3 @@ def test_resolve_run(tmp_path: Path):
         resolve_run(tmp_path, "2026-07-16")
     with pytest.raises(CatalogError):
         resolve_run(tmp_path, "nope")
-
-
-def test_legacy_show_dirs(tmp_path: Path):
-    legacy = tmp_path / "runs" / "r1" / "shows" / "old-show"
-    legacy.mkdir(parents=True)
-    assert legacy_show_dirs(tmp_path) == [legacy]
-    assert legacy_show_dirs(tmp_path / "elsewhere") == []
-
-
-def test_unmigrated_show_dirs_excludes_slugs_present_canonically(tmp_path: Path):
-    from llama.catalog import unmigrated_show_dirs
-
-    # A collision loser / already-migrated remnant: slug exists under shows/.
-    (tmp_path / "runs" / "r1" / "shows" / "dupe").mkdir(parents=True)
-    (tmp_path / "shows" / "dupe").mkdir(parents=True)
-    # A genuinely unmigrated legacy dir: no canonical slug yet.
-    fresh = tmp_path / "runs" / "r2" / "shows" / "fresh"
-    fresh.mkdir(parents=True)
-
-    assert unmigrated_show_dirs(tmp_path) == [fresh]
-    # legacy_show_dirs still sees both, so migrate can warn about the loser.
-    assert len(legacy_show_dirs(tmp_path)) == 2
