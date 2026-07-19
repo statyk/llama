@@ -1,5 +1,30 @@
+import re
+
 from llama.models import ParsedSetlist, Track
 from llama.util import length_seconds
+
+# Identifier prefix embedded in tag titles ("gd73-06-10d1t04 Here Comes
+# Sunshine"): 2-5 letters, 2- or 4-digit year, -/. separated date, then
+# optional disc/track tokens. Adapted from deadstream, extended to 4-digit
+# years.
+_ID_PREFIX = re.compile(r"^[a-zA-Z]{2,5}_*\d{2}(?:\d{2})?[-.]\d{2}[-.]\d{2}\s*(?:[td]\d+)*")
+_AUDIO_EXT = re.compile(r"\.(?:mp3|flac|ogg|shn)\s*$", re.I)
+_EDGE_JUNK = " \t-–—_.|"
+
+
+def clean_tag_title(raw: str | None) -> str:
+    """Strip identifier prefix / audio extension from an embedded tag title.
+    "unknown" is never a real title and maps to ""."""
+    s = _ID_PREFIX.sub("", str(raw or "").strip())
+    s = _AUDIO_EXT.sub("", s)
+    s = s.strip(_EDGE_JUNK)
+    return "" if s.lower() == "unknown" else s
+
+
+def is_real_title(cleaned: str) -> bool:
+    """At least 3 ASCII letters: accepts real short titles (Deal, Jam),
+    rejects date-less filename residue (d1t02)."""
+    return sum(ch.isascii() and ch.isalpha() for ch in cleaned) >= 3
 
 
 def resolve_titles(
@@ -17,8 +42,8 @@ def resolve_titles(
 
     tracks: list[Track] = []
     for pos, f in enumerate(files):
-        tag_title = str(f.get("title") or "").strip()
-        if tag_title:
+        tag_title = clean_tag_title(f.get("title"))
+        if is_real_title(tag_title):
             title, source = tag_title, "tags"
         elif aligned:
             title, source = aligned[pos].title, "setlist"

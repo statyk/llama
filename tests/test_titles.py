@@ -1,5 +1,7 @@
+import pytest
+
 from llama.models import ParsedSetlist, SetlistItem
-from llama.titles import resolve_titles, set_breaks
+from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_breaks
 
 
 def make_setlist() -> ParsedSetlist:
@@ -71,3 +73,44 @@ def test_set_breaks():
     real_sets = [item.set for item in make_setlist().items]
     tracks = [t.model_copy(update={"set": s}) for t, s in zip(tracks, real_sets)]
     assert set_breaks(tracks) == [3, 5]  # after track 3 (set 1->2) and track 5 (set 2->encore)
+
+
+@pytest.mark.parametrize("raw,cleaned", [
+    ("gd73-06-10d1t04 Here Comes Sunshine", "Here Comes Sunshine"),
+    ("gd1977-05-08t12 Scarlet Begonias.flac", "Scarlet Begonias"),
+    ("gd73.06.10d1t01 - Morning Dew", "Morning Dew"),
+    ("gd73-06-10d1t04.mp3", ""),          # pure filename residue
+    ("unknown", ""),
+    ("Unknown", ""),
+    ("Here Comes Sunshine", "Here Comes Sunshine"),  # plain titles untouched
+    ("Deal", "Deal"),
+    (None, ""),
+])
+def test_clean_tag_title(raw, cleaned):
+    assert clean_tag_title(raw) == cleaned
+
+
+@pytest.mark.parametrize("cleaned,real", [
+    ("Deal", True), ("Jam", True), ("Here Comes Sunshine", True),
+    ("d1t02", False), ("", False), ("A B", False),
+])
+def test_is_real_title(cleaned, real):
+    assert is_real_title(cleaned) is real
+
+
+def test_junk_tag_title_falls_through_cascade():
+    # tag is filename residue -> cleaned to junk -> setlist wins
+    files = make_files(["gd73-06-10d1t01.mp3", "China Cat Sunflower",
+                        None, "Dark Star", None, None])
+    tracks = resolve_titles(files, make_setlist())
+    assert tracks[0].title == "Morning Dew"
+    assert tracks[0].title_source == "setlist"
+
+
+def test_tag_title_is_stored_cleaned():
+    files = make_files(["gd73-06-10d1t01 Morning Dew", "China Cat Sunflower",
+                        "I Know You Rider", "Dark Star", "Eyes of the World",
+                        "Johnny B. Goode"])
+    tracks = resolve_titles(files, make_setlist())
+    assert tracks[0].title == "Morning Dew"
+    assert tracks[0].title_source == "tags"
