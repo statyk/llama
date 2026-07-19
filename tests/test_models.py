@@ -47,3 +47,11 @@ def test_research_vetting_defaults():
     assert v.asserted_songs == [] and v.asserted_dates == [] and v.context == ""
     r = VettingResult(vetting=v)
     assert r.flags == []
+
+
+def test_show_date_fields_default_for_old_artifacts():
+    from llama.models import Show, VettingResult, ResearchVetting
+    s = Show(performance_id="p", identifier="i", artist="a", date="1976-01-01")
+    assert s.item_date is None and s.date_source == "item"
+    v = VettingResult(vetting=ResearchVetting())
+    assert v.adopted_date is None

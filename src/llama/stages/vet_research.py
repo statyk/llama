@@ -97,25 +97,54 @@ def _known_song(name: str, known: list[list[str]]) -> bool:
     return _title_match(name, known)
 
 
-def grounding_flags(vetting: ResearchVetting, show: Show) -> list[str]:
+def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], str | None]:
     """Deterministic check: research contradicting this show flags for review.
     The gate exists to catch wrong-show research, so a couple of unmatched
     titles (tracklist gaps, odd variants) pass; a mostly-unmatched set, or a
-    date that belongs to a different show, blocks. Zero tokens."""
+    date that belongs to a different show, blocks. One exception: an archive
+    year-only placeholder date (YYYY-01-01) contradicted by unanimous,
+    well-grounded research is corrected, not flagged - returns the adopted
+    date as the second element. Zero tokens."""
     flags: list[str] = []
     known = [normalize_song(t.title).split() for t in show.tracks]
     unknown = [s for s in vetting.asserted_songs if not _known_song(s, known)]
-    if len(unknown) >= 2 and len(unknown) * 3 > len(vetting.asserted_songs):
+    songs_grounded = not (len(unknown) >= 2 and len(unknown) * 3 > len(vetting.asserted_songs))
+    if not songs_grounded:
         flags += [f"{_VET_FLAG_PREFIX}unknown song: {s}" for s in unknown]
-    for date_text in vetting.asserted_dates:
-        norm = normalize_date(date_text)
+
+    full: dict[str, str] = {}      # normalized YYYY-MM-DD -> first surface text
+    yearless: dict[str, str] = {}  # normalized --MM-DD -> first surface text
+    for text in vetting.asserted_dates:
+        norm = normalize_date(text)
         if norm is None:
             continue  # can't verify is not a contradiction; kept in vetting.json
-        if norm.startswith("--"):  # year-less: match on month and day
+        (yearless if norm.startswith("--") else full).setdefault(norm, text)
+
+    mismatched = {n: t for n, t in full.items() if n != show.date}
+    placeholder = show.date.endswith("-01-01") and show.date_source == "item"
+    adopted: str | None = None
+    if placeholder and songs_grounded and len(full) == 1 and len(mismatched) == 1:
+        candidate = next(iter(mismatched))
+        if candidate[:4] == show.date[:4] and all(
+            candidate.endswith(y[1:]) for y in yearless
+        ):
+            adopted = candidate
+
+    if adopted is None:
+        for norm, text in mismatched.items():
+            if placeholder:
+                flags.append(
+                    f"{_VET_FLAG_PREFIX}{norm}; item date {show.date}"
+                    " looks like a year-only placeholder"
+                )
+            else:
+                flags.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
+        for norm, text in yearless.items():  # year-less: match on month and day
             if not show.date.endswith(norm[1:]):
-                flags.append(f"{_VET_FLAG_PREFIX}wrong date: {date_text}")
-        elif norm != show.date:
-            flags.append(f"{_VET_FLAG_PREFIX}wrong date: {date_text}")
+                flags.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
+
+    # Set-count check is independent of the date decision: an adoption must
+    # not swallow a genuine structure contradiction.
     if vetting.asserted_set_count is not None and show.tracks:
         actual = len({t.set for t in show.tracks if t.set != "encore"})
         if vetting.asserted_set_count != actual:
@@ -123,7 +152,7 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> list[str]:
                 f"{_VET_FLAG_PREFIX}{vetting.asserted_set_count} sets"
                 f" but structure has {actual}"
             )
-    return flags
+    return flags, adopted
 
 
 def run_vet_research(
@@ -132,14 +161,18 @@ def run_vet_research(
     if not should_run(show_ws.vetting, force):
         return read_model(show_ws.vetting, VettingResult)
     vetting = run_json_task(provider, "vet_research", ResearchVetting, research=research_md)
-    flags = grounding_flags(vetting, show)
+    flags, adopted = grounding_flags(vetting, show)
     # Rewrite show.json every run: drop our own prior flags (so a corrected re-vet clears
     # needs_review and repeats don't duplicate), keep flags from other stages, and recompute.
     current = read_model(show_ws.show, Show)
+    if adopted:
+        current.item_date = current.date
+        current.date = adopted
+        current.date_source = "research"
     kept = [f for f in current.review_flags if not f.startswith(_VET_FLAG_PREFIX)]
     current.review_flags = kept + flags
     current.needs_review = bool(current.review_flags)
     write_artifact(show_ws.show, current)
-    result = VettingResult(vetting=vetting, flags=flags)
+    result = VettingResult(vetting=vetting, flags=flags, adopted_date=adopted)
     write_artifact(show_ws.vetting, result)
     return result

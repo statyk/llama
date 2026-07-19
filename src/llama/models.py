@@ -143,6 +143,10 @@ class Show(BaseModel):
     date: str
     venue: str | None = None
     city: str | None = None
+    # Presentation date is correctable (vet may adopt a research date over an
+    # archive year-only placeholder); performance identity never changes.
+    item_date: str | None = None  # original archive date, set only when corrected
+    date_source: str = "item"  # "item" | "research"
     tracks: list[Track] = Field(default_factory=list)
     set_breaks: list[int] = Field(default_factory=list)  # play-order index after which a break falls
     excluded_files: list[dict] = Field(default_factory=list)  # {"filename":..., "reasons":[...]}
@@ -175,6 +179,7 @@ class ResearchVetting(BaseModel):
 class VettingResult(BaseModel):
     vetting: ResearchVetting
     flags: list[str] = Field(default_factory=list)  # empty = research passed
+    adopted_date: str | None = None  # research date adopted over a placeholder
 
 
 class ManifestTrack(BaseModel):

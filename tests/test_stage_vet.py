@@ -4,7 +4,7 @@ from pathlib import Path
 from llama.llm.fake import FakeProvider
 from llama.models import Show, Track
 from llama.stages.vet_research import normalize_date, run_vet_research
-from llama.workspace import ShowWorkspace, write_artifact
+from llama.workspace import ShowWorkspace, read_model, write_artifact
 
 
 def make_show():
@@ -271,3 +271,118 @@ def test_clean_revet_preserves_non_vet_flags(tmp_path: Path):
     saved = json.loads(sws.show.read_text())
     assert saved["review_flags"] == ["duration mismatch on 01.mp3"]
     assert saved["needs_review"] is True
+
+
+def placeholder_show():
+    s = make_show()
+    s.performance_id = "CountryJoe/1976-01-01"
+    s.date = "1976-01-01"
+    return s
+
+
+def cj_dates():
+    return ["1976-02-08", "Sunday, February 8, 1976", "Feb 8, 1976",
+            "February, 8th 1976"]
+
+
+def test_placeholder_date_adopted_from_research(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.show, placeholder_show())
+    fake = FakeProvider(completes=[vet_json(asserted_dates=cj_dates())])
+    result = run_vet_research(sws, fake, placeholder_show(), "r")
+    assert result.flags == []
+    assert result.adopted_date == "1976-02-08"
+    s = json.loads(sws.show.read_text())
+    assert s["date"] == "1976-02-08"
+    assert s["item_date"] == "1976-01-01"
+    assert s["date_source"] == "research"
+    assert s["needs_review"] is False
+
+
+def test_adopted_revet_is_idempotent(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.show, placeholder_show())
+    fake = FakeProvider(completes=[vet_json(asserted_dates=cj_dates()),
+                                   vet_json(asserted_dates=cj_dates())])
+    run_vet_research(sws, fake, placeholder_show(), "r")
+    corrected = read_model(sws.show, Show)
+    sws.vetting.unlink()  # force the re-vet
+    result = run_vet_research(sws, fake, corrected, "r")
+    assert result.flags == []
+    assert result.adopted_date is None  # nothing left to adopt
+    s = json.loads(sws.show.read_text())
+    assert s["date"] == "1976-02-08" and s["date_source"] == "research"
+
+
+def test_no_adoption_on_non_placeholder_date_dedups_flags(tmp_path: Path):
+    sws, show = setup(tmp_path)  # date 1973-06-10 - not a placeholder
+    fake = FakeProvider(completes=[vet_json(
+        asserted_dates=["1973-07-27", "July 27, 1973", "Jul 27, 1973"])])
+    result = run_vet_research(sws, fake, show, "r")
+    assert result.flags == ["research asserts wrong date: 1973-07-27"]
+    assert result.adopted_date is None
+    assert json.loads(sws.show.read_text())["date"] == "1973-06-10"
+
+
+def test_no_adoption_on_conflicting_research_dates(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.show, placeholder_show())
+    fake = FakeProvider(completes=[vet_json(
+        asserted_dates=["1976-02-08", "1976-03-01"])])
+    result = run_vet_research(sws, fake, placeholder_show(), "r")
+    assert result.adopted_date is None
+    assert sorted(result.flags) == [
+        "research asserts 1976-02-08; item date 1976-01-01 looks like a year-only placeholder",
+        "research asserts 1976-03-01; item date 1976-01-01 looks like a year-only placeholder",
+    ]
+    assert json.loads(sws.show.read_text())["date"] == "1976-01-01"
+
+
+def test_no_adoption_on_yearless_contradiction(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.show, placeholder_show())
+    fake = FakeProvider(completes=[vet_json(
+        asserted_dates=["1976-02-08", "December 2"])])
+    result = run_vet_research(sws, fake, placeholder_show(), "r")
+    assert result.adopted_date is None
+    assert ("research asserts 1976-02-08; item date 1976-01-01 looks like"
+            " a year-only placeholder") in result.flags
+
+
+def test_no_adoption_across_years(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.show, placeholder_show())
+    fake = FakeProvider(completes=[vet_json(asserted_dates=["1977-02-08"])])
+    result = run_vet_research(sws, fake, placeholder_show(), "r")
+    assert result.adopted_date is None
+    assert result.flags == [
+        "research asserts 1977-02-08; item date 1976-01-01 looks like a year-only placeholder",
+    ]
+
+
+def test_adoption_does_not_swallow_set_count_mismatch(tmp_path: Path):
+    # Date adoption resolves the date; an independent structure contradiction
+    # must still hold the show.
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.show, placeholder_show())
+    fake = FakeProvider(completes=[vet_json(asserted_dates=cj_dates(),
+                                            asserted_set_count=4)])
+    result = run_vet_research(sws, fake, placeholder_show(), "r")
+    assert result.adopted_date == "1976-02-08"
+    assert result.flags == ["research asserts 4 sets but structure has 2"]
+    s = json.loads(sws.show.read_text())
+    assert s["date"] == "1976-02-08" and s["needs_review"] is True
+
+
+def test_no_adoption_when_songs_do_not_ground(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.show, placeholder_show())
+    fake = FakeProvider(completes=[vet_json(
+        asserted_songs=["Alien Song A", "Alien Song B", "Alien Song C"],
+        asserted_dates=["1976-02-08"])])
+    result = run_vet_research(sws, fake, placeholder_show(), "r")
+    assert result.adopted_date is None
+    assert ("research asserts 1976-02-08; item date 1976-01-01 looks like"
+            " a year-only placeholder") in result.flags
+    assert any("unknown song" in f for f in result.flags)
+    assert json.loads(sws.show.read_text())["date"] == "1976-01-01"
