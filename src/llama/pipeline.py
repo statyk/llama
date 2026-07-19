@@ -54,6 +54,7 @@ def process_show(
     setlistfm=None,
     structure_cfg=None,
     selection_cfg=None,
+    jerrybase_enabled: bool = True,
     force_stage: str | None = None,
 ) -> Path | None:
     cand = entry.candidate
@@ -78,7 +79,8 @@ def process_show(
         show = run_gather(show_ws, ia, providers["extract_setlist"], cand, identifier,
                           audio_format=audio_format, force=force,
                           align_provider=providers.get("align_structure"),
-                          setlistfm=setlistfm, structure_cfg=structure_cfg)
+                          setlistfm=setlistfm, structure_cfg=structure_cfg,
+                          jerrybase_enabled=jerrybase_enabled)
     with step(f"[{pid}] researching"):
         research_md = run_research(show_ws, providers["deep_research"], show, dossier, force=force)
     with step(f"[{pid}] vetting research"):

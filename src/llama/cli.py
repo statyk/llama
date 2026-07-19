@@ -180,6 +180,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
                                force=force, script=script, setlistfm=setlistfm,
                                structure_cfg=config.structure, selection_cfg=config.selection,
+                               jerrybase_enabled=config.jerrybase.enabled,
                                force_stage=force_stage)
         except (TaskFailed, LLMError, IAError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
@@ -527,6 +528,7 @@ def redo(
     pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
                        prov.run, config.audio_format, script=effective_script,
                        setlistfm=make_client(config), structure_cfg=config.structure,
+                       jerrybase_enabled=config.jerrybase.enabled,
                        selection_cfg=config.selection)
     if pkg:
         typer.echo(f"packaged: {pkg}")

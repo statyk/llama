@@ -1,5 +1,7 @@
 import logging
+import re
 
+from llama import jerrybase
 from llama.config import StructureConfig
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.ia_client import IAError
@@ -14,6 +16,12 @@ from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_bre
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
 log = logging.getLogger("llama")
+
+
+def _norm_place(s: str) -> str:
+    """Lowercase, alphanumerics and spaces only, collapsed whitespace - the
+    normal form for comparing archive and jerrybase venue strings."""
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", (s or "").lower()).split())
 
 
 def _description(meta: dict) -> str:
@@ -87,6 +95,7 @@ def run_gather(
     align_provider=None,
     setlistfm=None,
     structure_cfg: StructureConfig | None = None,
+    jerrybase_enabled: bool = False,
 ) -> Show:
     if not should_run(show_ws.show, force):
         return read_model(show_ws.show, Show)
@@ -94,6 +103,7 @@ def run_gather(
 
     md = ia.metadata(identifier)
     meta = md.get("metadata", {})
+    artist = str(_creator(meta) or candidate.collection)
     want = FORMAT_BY_AUDIO[audio_format]
     kept, excluded, ordering = filter_files(md.get("files", []), want_format=want)
 
@@ -101,7 +111,7 @@ def run_gather(
     # setlist.fm when configured, ranked pick-best.
     parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
     if setlistfm is not None:
-        raw = setlistfm.setlist(_creator(meta) or candidate.collection, candidate.date,
+        raw = setlistfm.setlist(artist, candidate.date,
                                 venue=candidate.venue, city=candidate.city)
         converted = from_setlistfm(raw) if raw else None
         if converted is not None:
@@ -127,33 +137,67 @@ def run_gather(
         siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))
     tracks = resolve_titles(kept, canonical, sibling_titles=siblings)
 
+    # Jerrybase structure evidence (no-op for artists absent from the dataset).
+    events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
+    event = events[0] if len(events) == 1 else None
+
     result = align(tracks, canonical)
     alignment = "deterministic"
     flags = []
     if canonical.items and result.coverage < structure_cfg.align_coverage_threshold:
-        llm_result = None
-        if align_provider is not None:
-            try:
-                resp = run_json_task(align_provider, "align_structure", AlignedStructure,
-                                     tracks=_format_tracks(tracks),
-                                     setlist=_format_setlist(canonical))
-                llm_result = apply_llm_alignment(tracks, resp)
-            except (TaskFailed, LLMError) as err:
-                log.warning("align_structure failed: %s", err)
-        if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
-            # Deliberate trade-off: apply_llm_alignment never populates
-            # conflicts, so any deterministic-alignment conflicts are
-            # dropped when the LLM realignment wins.
-            result, alignment = llm_result, "llm"
+        anchored = jerrybase.anchor_breaks(tracks, event) if event is not None else None
+        if anchored is not None:
+            # Deterministic break anchoring from jerrybase closers: skip the LLM.
+            result = result.model_copy(update={"sets": anchored})
+            alignment = "jerrybase"
+            notes.append("set breaks anchored from jerrybase")
         else:
-            flags.append("low-confidence structure alignment")
+            llm_result = None
+            if align_provider is not None:
+                try:
+                    resp = run_json_task(align_provider, "align_structure", AlignedStructure,
+                                         tracks=_format_tracks(tracks),
+                                         setlist=_format_setlist(canonical))
+                    llm_result = apply_llm_alignment(tracks, resp)
+                except (TaskFailed, LLMError) as err:
+                    log.warning("align_structure failed: %s", err)
+            if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
+                # Deliberate trade-off: apply_llm_alignment never populates
+                # conflicts, so any deterministic-alignment conflicts are
+                # dropped when the LLM realignment wins.
+                result, alignment = llm_result, "llm"
+            else:
+                flags.append("low-confidence structure alignment")
 
     tracks = [t.model_copy(update={"set": s, "segue": g})
               for t, s, g in zip(tracks, result.sets, result.segues)]
     breaks = set_breaks(tracks)
+
+    # Multi-event tripwire (groundwork only: identity/ledger unchanged here).
+    if len(events) > 1:
+        venue_list = ", ".join(sorted({e.venue for e in events}))
+        flags.append(f"multi-event date: {len(events)} jerrybase events at {venue_list}")
+
+    # Venue enrichment + cross-check (single-event only; never overwrite a venue).
+    venue, city, venue_source = candidate.venue, candidate.city, "item"
+    if event is not None:
+        if not (venue and venue.strip()):
+            venue, city, venue_source = event.venue, event.city, "jerrybase"
+        elif _norm_place(venue) != _norm_place(event.venue):
+            flags.append(f"venue mismatch: archive '{venue}' vs jerrybase '{event.venue}'")
+
+    # Closer tripwire (single-event, non-anchored alignments; anchoring places
+    # breaks at closers by construction, so it cannot contradict itself).
+    if event is not None and alignment != "jerrybase":
+        hard, soft = jerrybase.closer_contradictions(tracks, event)
+        flags += hard
+        notes += soft
+
+    expected_sets = len({s.name for s in event.sets}) if event is not None else None
     guard = structure_guard(tracks, breaks,
                             evidence_sets={i.set for i in canonical.items},
-                            min_minutes=structure_cfg.guard_min_minutes)
+                            min_minutes=structure_cfg.guard_min_minutes,
+                            expected_set_count=expected_sets)
     if guard:
         flags.append(guard)
 
@@ -173,10 +217,11 @@ def run_gather(
     show = Show(
         performance_id=candidate.performance_id,
         identifier=identifier,
-        artist=str(_creator(meta) or candidate.collection),
+        artist=artist,
         date=candidate.date,
-        venue=candidate.venue,
-        city=candidate.city,
+        venue=venue,
+        city=city,
+        venue_source=venue_source,
         tracks=tracks,
         set_breaks=breaks,
         excluded_files=excluded,

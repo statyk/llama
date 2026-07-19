@@ -863,7 +863,12 @@ def test_redo_requires_from_and_reruns_tail(tmp_path: Path, monkeypatch):
     from test_pipeline import FakeIA, fake_providers
 
     cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    # gd73-06-10 is a real in-dataset jerrybase performance; disable jerrybase so
+    # this end-to-end find+redo test stays isolated from the dataset (the
+    # synthesized candidate's "RFK Stadium" venue differs from jerrybase's
+    # "Robert F. Kennedy Stadium", which would otherwise flag needs-review).
+    (tmp_path / "config.toml").write_text(
+        f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 

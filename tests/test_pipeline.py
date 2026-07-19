@@ -11,6 +11,14 @@ runner = CliRunner()
 FIXTURE = Path(__file__).parent / "fixtures" / "gd73_metadata.json"
 IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
 
+# gd73-06-10 is a real in-dataset jerrybase performance; end-to-end tests that
+# expect a clean packaged show use a synthesized candidate whose venue ("RFK
+# Stadium") differs from jerrybase's ("Robert F. Kennedy Stadium"). Disable
+# jerrybase for those tests so they stay isolated from the dataset (byte-identical
+# to pre-feature behavior). Tests exercising jerrybase itself live in
+# tests/test_stage_gather.py and call run_gather(..., jerrybase_enabled=True).
+JB_OFF = "\n[jerrybase]\nenabled = false\n"
+
 CRITERIA = json.dumps({
     "query": "x", "collection": "GratefulDead", "artist": "Grateful Dead",
     "date_from": "1973-01-01", "date_to": "1973-12-31",
@@ -86,7 +94,7 @@ def test_make_providers_includes_align_structure():
 
 
 def test_find_end_to_end(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     monkeypatch.setattr(pipeline, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
@@ -118,7 +126,7 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
 
 
 def test_show_failure_is_isolated_and_raw_output_saved(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     providers = fake_providers(None)
     providers["synthesize"] = FakeProvider(completes=["not json"] * 3)
     monkeypatch.setattr(cli, "make_providers", lambda config: providers)
@@ -159,7 +167,7 @@ def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypat
 
 
 def test_find_default_includes_script(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
@@ -176,7 +184,7 @@ def test_find_default_includes_script(tmp_path: Path, monkeypatch):
 
 
 def test_find_no_script_skips_script(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     providers = fake_providers(None)
     providers["synthesize"] = FakeProvider()  # any call would raise: queue is empty
     monkeypatch.setattr(cli, "make_providers", lambda config: providers)
@@ -198,7 +206,7 @@ def test_find_no_script_skips_script(tmp_path: Path, monkeypatch):
 
 
 def test_package_replay_without_script_keeps_cached_notes(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     monkeypatch.setattr(pipeline, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
@@ -226,7 +234,7 @@ def test_package_replay_without_script_keeps_cached_notes(tmp_path: Path, monkey
 
 
 def test_stage_synthesize_implies_script(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     monkeypatch.setattr(pipeline, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
@@ -264,7 +272,7 @@ def test_find_stamps_limit_and_script_into_criteria(tmp_path: Path, monkeypatch)
 def test_stage_force_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path, monkeypatch):
     # Per-show deletion at process time: the chosen show's forced stage and
     # everything downstream rebuild; earlier artifacts are reused.
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
     cfg = str(tmp_path / "config.toml")

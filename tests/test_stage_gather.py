@@ -241,3 +241,112 @@ def test_prefixed_tag_titles_align(tmp_path: Path):
     assert tagged and all(not t.title.startswith("gd73") for t in tagged)
     assert "low-confidence structure alignment" not in show.review_flags
     assert show.order_source in ("track-tags", "filename")  # recorded on the artifact
+
+
+from llama import jerrybase
+from llama.models import JerrybaseEvent, JerrybaseSet
+
+
+def _jb_event(closers_and_names, venue="V", city="C"):
+    return JerrybaseEvent(
+        event_id="1", venue=venue, city=city, state="ST",
+        sets=[JerrybaseSet(name=n, closer=c, break_length="long")
+              for c, n in closers_and_names],
+    )
+
+
+def test_gather_multi_event_flag(tmp_path, monkeypatch):
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [
+        _jb_event([("I Know You Rider", "1")], venue="Fillmore East"),
+        _jb_event([("Johnny B. Goode", "1")], venue="Fillmore East"),
+    ])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert show.needs_review is True
+    assert any(f.startswith("multi-event date: 2 jerrybase events") for f in show.review_flags)
+
+
+def test_gather_adopts_venue_when_candidate_absent(tmp_path, monkeypatch):
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("I Know You Rider", "1"), ("Eyes of the World", "2"),
+         ("Johnny B. Goode", "encore")],
+        venue="Barton Hall", city="Ithaca")])
+    cand = make_candidate()
+    cand.venue = None
+    cand.city = None
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), cand, IDENT, jerrybase_enabled=True)
+    assert show.venue == "Barton Hall"
+    assert show.city == "Ithaca"
+    assert show.venue_source == "jerrybase"
+    assert show.needs_review is False
+
+
+def test_gather_flags_venue_mismatch_never_overwrites(tmp_path, monkeypatch):
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("I Know You Rider", "1"), ("Eyes of the World", "2"),
+         ("Johnny B. Goode", "encore")],
+        venue="Robert F. Kennedy Stadium", city="Washington")])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert show.venue == "RFK Stadium"          # candidate venue preserved
+    assert show.venue_source == "item"
+    assert any("venue mismatch" in f for f in show.review_flags)
+
+
+def test_gather_confident_but_contradicted_break_flags(tmp_path, monkeypatch):
+    # gd73 aligns confidently to sets 1,1,1,2,2,encore (breaks [3,5]); jerrybase
+    # says set 1 ends on China Cat Sunflower (track 2, mid-set 1) -> tripwire.
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("China Cat Sunflower", "1"), ("Eyes of the World", "2"),
+         ("Johnny B. Goode", "encore")])])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert show.needs_review is True
+    assert any("China Cat Sunflower" in f and "set break" in f for f in show.review_flags)
+
+
+def test_gather_flags_set_count_mismatch(tmp_path, monkeypatch):
+    # jerrybase says 2 sets (closers at boundaries); alignment has 3 -> mismatch.
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("I Know You Rider", "1"), ("Johnny B. Goode", "2")])])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert any("jerrybase shows 2" in f for f in show.review_flags)
+
+
+def test_gather_anchoring_rescues_low_confidence_without_llm(tmp_path, monkeypatch):
+    md = json.loads(FIXTURE.read_text())
+    # Replace the description with a DIFFERENT setlist so deterministic alignment
+    # covers almost nothing (low confidence) while the real tag titles remain.
+    md["metadata"]["description"] = (
+        "Set 1:\nBertha\nJack Straw > Deal\n\n"
+        "Set 2:\nTruckin > Wharf Rat\n\nEncore:\nOne More Saturday Night\n")
+    # jerrybase closers reference the real tag titles; anchoring breaks after
+    # China Cat Sunflower (track 2) and Eyes of the World (track 5).
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("China Cat Sunflower", "1"), ("Eyes of the World", "2")])])
+    sws = ShowWorkspace(tmp_path / "show")
+    fake_align = FakeProvider()
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT,
+                      align_provider=fake_align, jerrybase_enabled=True)
+    assert fake_align.calls == []  # anchoring short-circuited the LLM fallback
+    assert show.set_breaks == [2]
+    assert show.structure is not None and show.structure.alignment == "jerrybase"
+    assert "set breaks anchored from jerrybase" in show.structure.conflicts
+    assert "low-confidence structure alignment" not in show.review_flags
+
+
+def test_gather_jerrybase_disabled_is_noop(tmp_path, monkeypatch):
+    def _boom(a, d):
+        raise AssertionError("lookup must not be called when disabled")
+    monkeypatch.setattr(jerrybase, "lookup", _boom)
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=False)
+    assert show.needs_review is False
+    assert show.venue_source == "item"
