@@ -11,7 +11,7 @@ def load_files() -> list[dict]:
 
 
 def test_keeps_real_tracks_sorted():
-    kept, _ = filter_files(load_files())
+    kept, _, _ = filter_files(load_files())
     assert [f["name"] for f in kept] == [
         "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
         "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3",
@@ -19,14 +19,14 @@ def test_keeps_real_tracks_sorted():
 
 
 def test_spam_file_excluded_with_reasons():
-    _, excluded = filter_files(load_files())
+    _, excluded, _ = filter_files(load_files())
     spam = next(e for e in excluded if e["filename"] == "FOLLOW-ME @BYPIKENO.mp3")
     assert "filename convention mismatch" in spam["reasons"]
     assert "implausibly short" in spam["reasons"]
 
 
 def test_non_audio_files_ignored_silently():
-    _, excluded = filter_files(load_files())
+    _, excluded, _ = filter_files(load_files())
     names = {e["filename"] for e in excluded}
     assert "gd73-06-10.txt" not in names  # not want_format: never a candidate, not logged
 
@@ -36,5 +36,56 @@ def test_orphan_derivative_excluded():
         {"name": "x1t01.mp3", "source": "derivative", "original": "ghost.shn",
          "format": "VBR MP3", "length": "05:00"},
     ]
-    _, excluded = filter_files(files)
+    _, excluded, _ = filter_files(files)
     assert excluded[0]["reasons"] == ["derivative of unknown original"]
+
+
+def _mp3(name, track=None, source="original", original=None, length="300.0"):
+    d = {"name": name, "format": "VBR MP3", "source": source, "length": length}
+    if track is not None:
+        d["track"] = track
+    if original is not None:
+        d["original"] = original
+    return d
+
+
+def test_unique_track_tags_reorder():
+    # filename order d1t01,d1t02,d1t03 but tags say d1t03 plays first
+    files = [_mp3("gd73d1t01.mp3", track="2"), _mp3("gd73d1t02.mp3", track="3/16"),
+             _mp3("gd73d1t03.mp3", track="1")]
+    kept, _, ordering = filter_files(files)
+    assert [f["name"] for f in kept] == ["gd73d1t03.mp3", "gd73d1t01.mp3", "gd73d1t02.mp3"]
+    assert ordering == {"order_source": "track-tags", "reordered": True}
+
+
+def test_track_tags_agreeing_with_filenames_not_flagged():
+    files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d1t02.mp3", track="2")]
+    _, _, ordering = filter_files(files)
+    assert ordering == {"order_source": "track-tags", "reordered": False}
+
+
+def test_duplicate_track_tags_fall_back_to_filename_order():
+    # per-disc numbering restarts at 1 -> ambiguous -> filename order
+    files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d2t01.mp3", track="1")]
+    kept, _, ordering = filter_files(files)
+    assert [f["name"] for f in kept] == ["gd73d1t01.mp3", "gd73d2t01.mp3"]
+    assert ordering == {"order_source": "filename", "reordered": False}
+
+
+def test_missing_track_tag_falls_back_to_filename_order():
+    files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d1t02.mp3")]
+    _, _, ordering = filter_files(files)
+    assert ordering["order_source"] == "filename"
+
+
+def test_derivative_inherits_original_track_number():
+    # originals are Shorten (not the wanted format) but carry the tags
+    files = [
+        {"name": "gd73d1t01.shn", "format": "Shorten", "source": "original", "track": "2"},
+        {"name": "gd73d1t02.shn", "format": "Shorten", "source": "original", "track": "1"},
+        _mp3("gd73d1t01.mp3", source="derivative", original="gd73d1t01.shn"),
+        _mp3("gd73d1t02.mp3", source="derivative", original="gd73d1t02.shn"),
+    ]
+    kept, _, ordering = filter_files(files)
+    assert [f["name"] for f in kept] == ["gd73d1t02.mp3", "gd73d1t01.mp3"]
+    assert ordering == {"order_source": "track-tags", "reordered": True}

@@ -1,9 +1,11 @@
+import math
 import re
 
 from llama.config import SelectionConfig
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.models import Candidate, QualityAssessment
 from llama.scoring import lineage_class, score_recording
+from llama.titles import clean_tag_title, is_real_title
 from llama.workspace import ShowWorkspace, read_json, should_run, write_artifact
 
 
@@ -58,12 +60,15 @@ def run_select_recording(
         md = ia.metadata(rec.identifier)
         meta = md.get("metadata", {})
         files = md.get("files", [])
-        kept, _ = filter_files(files, want_format=want)
+        kept, _, _ = filter_files(files, want_format=want)
         prepared.append({
             "rec": rec,
             "lineage": lineage_class(rec.identifier, meta),
             "has_format": bool(kept),
             "kept_tracks": len(kept),
+            "title_fraction": (
+                sum(1 for f in kept if is_real_title(clean_tag_title(f.get("title")))) / len(kept)
+            ) if kept else 0.0,
             "addeddate": str(meta.get("addeddate") or ""),
             "complaints": len(assessment.recording_complaints)
             if rec.identifier == assessment.reviewed_identifier else 0,
@@ -72,8 +77,12 @@ def run_select_recording(
     bonuses = _taper_bonuses(selection.tapers.get(candidate.collection, {}), prepared)
     era_scores = _era_lineage_scores(selection, candidate.collection, candidate.date)
     max_kept = max((p["kept_tracks"] for p in prepared), default=0) or 1
+    max_log_downloads = max((math.log1p(p["rec"].downloads) for p in prepared), default=0.0)
     scores = {}
     for p in prepared:
+        downloads_norm = (
+            math.log1p(p["rec"].downloads) / max_log_downloads if max_log_downloads else 0.0
+        )
         scores[p["rec"].identifier] = {
             "score": score_recording(
                 lineage=p["lineage"],
@@ -83,10 +92,14 @@ def run_select_recording(
                 completeness=p["kept_tracks"] / max_kept,
                 complaints=p["complaints"],
                 taper_bonus=bonuses[p["rec"].identifier],
+                downloads_norm=downloads_norm,
+                title_fraction=p["title_fraction"],
                 lineage_scores=era_scores,
             ),
             "lineage": p["lineage"],
             "kept_tracks": p["kept_tracks"],
+            "downloads_norm": round(downloads_norm, 3),
+            "title_fraction": round(p["title_fraction"], 3),
         }
     chosen = max(scores, key=lambda ident: scores[ident]["score"])
     write_artifact(show_ws.selection, {"identifier": chosen, "scores": scores})

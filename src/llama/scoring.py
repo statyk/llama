@@ -3,6 +3,12 @@ import re
 
 LINEAGE_SCORES = {"sbd": 3.0, "matrix": 2.5, "aud": 1.0, "unknown": 0.0}
 
+# Bounded additive terms (spec 2026-07-19-deadstream-lessons): both at
+# most format-bonus scale so they decide same-lineage ties but can never
+# flip sbd-vs-aud (lineage gap >= 2.0).
+DOWNLOADS_WEIGHT = 0.75  # x sibling-relative log1p(downloads) in [0, 1]
+TITLE_WEIGHT = 0.5  # x fraction of kept files with a real embedded title
+
 _MATRIX = re.compile(r"matrix|\bmtx\b", re.I)
 _SBD = re.compile(r"\bsbd\b|soundboard", re.I)
 _AUD = re.compile(r"\baud\b|\baudience\b", re.I)
@@ -30,12 +36,16 @@ def score_recording(
     completeness: float,
     complaints: int,
     taper_bonus: float = 0.0,
+    downloads_norm: float = 0.0,
+    title_fraction: float = 0.0,
     lineage_scores: dict[str, float] | None = None,
 ) -> float:
     table = LINEAGE_SCORES if lineage_scores is None else lineage_scores
     score = table.get(lineage, 0.0)
     score += (avg_rating or 0.0) * math.log10(1 + max(num_reviews, 0))
     score += taper_bonus  # reputation rides with lineage, inside the completeness scale
+    score += DOWNLOADS_WEIGHT * downloads_norm
+    score += TITLE_WEIGHT * title_fraction
     if has_wanted_format:
         score += 0.5
     # Completeness (0..1, kept-track count vs best sibling) scales the whole

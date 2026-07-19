@@ -10,7 +10,7 @@ from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
 from llama.setlist import parse_setlist
 from llama.structure import (align, apply_llm_alignment, blend_segues,
                              from_setlistfm, rank_parses, structure_guard)
-from llama.titles import resolve_titles, set_breaks
+from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_breaks
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -34,9 +34,10 @@ def _sibling_titles(ia, candidate: Candidate, identifier: str, want: str, n: int
     for rec in candidate.recordings:
         if rec.identifier == identifier:
             continue
-        kept, _ = filter_files(ia.metadata(rec.identifier).get("files", []), want_format=want)
-        if len(kept) == n and all(str(f.get("title") or "").strip() for f in kept):
-            return [f["title"] for f in sorted(kept, key=lambda f: f["name"])]
+        kept, _, _ = filter_files(ia.metadata(rec.identifier).get("files", []), want_format=want)
+        titles = [clean_tag_title(f.get("title")) for f in kept]
+        if len(kept) == n and all(is_real_title(t) for t in titles):
+            return titles
     return None
 
 
@@ -94,7 +95,7 @@ def run_gather(
     md = ia.metadata(identifier)
     meta = md.get("metadata", {})
     want = FORMAT_BY_AUDIO[audio_format]
-    kept, excluded = filter_files(md.get("files", []), want_format=want)
+    kept, excluded, ordering = filter_files(md.get("files", []), want_format=want)
 
     # Canonical performance setlist: every recording's description, plus
     # setlist.fm when configured, ranked pick-best.
@@ -120,7 +121,7 @@ def run_gather(
         canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
 
     siblings = None
-    if any(not str(f.get("title") or "").strip() for f in kept) and (
+    if any(not is_real_title(clean_tag_title(f.get("title"))) for f in kept) and (
         canonical.confidence == "low" or len(canonical.items) != len(kept)
     ):
         siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))
@@ -179,6 +180,8 @@ def run_gather(
         tracks=tracks,
         set_breaks=breaks,
         excluded_files=excluded,
+        order_source=ordering["order_source"],
+        reordered=ordering["reordered"],
         lineage=meta.get("lineage") or meta.get("source"),
         source_url=f"https://archive.org/details/{identifier}",
         needs_review=bool(flags),

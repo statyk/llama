@@ -5,7 +5,7 @@ from llama.workspace import RunWorkspace, read_model_list, should_run, write_art
 
 SEARCH_FIELDS = [
     "identifier", "title", "date", "venue", "coverage",
-    "avg_rating", "num_reviews", "description",
+    "avg_rating", "num_reviews", "downloads", "description",
 ]
 
 

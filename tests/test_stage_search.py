@@ -76,3 +76,8 @@ def test_run_search_fans_out_per_artist(tmp_path: Path):
                for q in ia.queries)
     pids = sorted(c.performance_id for c in cands)
     assert pids == ["DocWatson/1964-03-07", "JoanBaez/1963-11-23"]
+
+
+def test_search_requests_downloads_field():
+    from llama.stages.search import SEARCH_FIELDS
+    assert "downloads" in SEARCH_FIELDS

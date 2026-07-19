@@ -49,6 +49,7 @@ class RecordingSummary(BaseModel):
     coverage: str | None = None
     avg_rating: float | None = None
     num_reviews: int = 0
+    downloads: int = 0
     description: str | None = None
 
 
@@ -145,6 +146,8 @@ class Show(BaseModel):
     tracks: list[Track] = Field(default_factory=list)
     set_breaks: list[int] = Field(default_factory=list)  # play-order index after which a break falls
     excluded_files: list[dict] = Field(default_factory=list)  # {"filename":..., "reasons":[...]}
+    order_source: str = "filename"  # "track-tags" | "filename" (canonical play order source)
+    reordered: bool = False  # track tags disagreed with filename order
     lineage: str | None = None
     source_url: str = ""
     needs_review: bool = False

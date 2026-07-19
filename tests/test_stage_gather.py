@@ -202,3 +202,42 @@ def test_gather_llm_alignment_garbage_falls_back_and_flags(tmp_path: Path):
     assert show.needs_review is True
     assert "low-confidence structure alignment" in show.review_flags
     assert show.structure.alignment == "deterministic"
+
+
+def test_sibling_titles_are_cleaned(tmp_path: Path):
+    md = json.loads(FIXTURE.read_text())
+    titles = ["Morning Dew", "China Cat Sunflower", "I Know You Rider",
+              "Dark Star", "Eyes of the World", "Johnny B. Goode"]
+    chosen = {"metadata": dict(md["metadata"], description=""),
+              "files": [dict(f) for f in md["files"]]}
+    for f in chosen["files"]:
+        f.pop("title", None)
+    sib = {"metadata": dict(md["metadata"], description=""),
+           "files": [dict(f) for f in md["files"]]}
+    # Restrict to the dominant naming convention: the fixture's spam file
+    # ("FOLLOW-ME @BYPIKENO.mp3") is also tagged "VBR MP3" and would sort
+    # alphabetically first, shifting every title assignment below by one.
+    sib_audio = [f for f in sib["files"]
+                 if f.get("format") == "VBR MP3" and f["name"].startswith("gd73-06-10d")]
+    for f, title in zip(sorted(sib_audio, key=lambda f: f["name"]), titles):
+        f["title"] = f"gd73-06-10d1t01 {title}"  # id-prefixed tag
+    ia = MultiIA({IDENT: chosen, "gd73-06-10.aud.sibling": sib})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier="gd73-06-10.aud.sibling"))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+    assert [t.title for t in show.tracks] == titles          # prefix stripped
+    assert all(t.title_source == "sibling" for t in show.tracks)
+
+
+def test_prefixed_tag_titles_align(tmp_path: Path):
+    md = json.loads(FIXTURE.read_text())
+    md = {"metadata": dict(md["metadata"]), "files": [dict(f) for f in md["files"]]}
+    for f in md["files"]:
+        if f.get("title"):
+            f["title"] = f"gd73-06-10d1t01 {f['title']}"
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    tagged = [t for t in show.tracks if t.title_source == "tags"]
+    assert tagged and all(not t.title.startswith("gd73") for t in tagged)
+    assert "low-confidence structure alignment" not in show.review_flags
+    assert show.order_source in ("track-tags", "filename")  # recorded on the artifact

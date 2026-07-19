@@ -28,6 +28,7 @@ def group_candidates(collection: str, docs: list[dict]) -> list[Candidate]:
             coverage=_first(doc.get("coverage")) or None,
             avg_rating=float(rating) if rating is not None else None,
             num_reviews=int(_first(doc.get("num_reviews")) or 0),
+            downloads=int(_first(doc.get("downloads")) or 0),
             description=str(_first(doc.get("description")) or "") or None,
         )
         pid = f"{collection}/{date}"
