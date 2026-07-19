@@ -122,3 +122,43 @@ def test_lookup_cornell_short_break_before_encore():
 
 def test_lookup_unknown_returns_empty():
     assert jerrybase.lookup("Nonexistent Artist", "1900-01-01") == []
+
+
+from llama.models import JerrybaseSet, Track
+
+
+def _tracks(titles):
+    return [Track(index=i + 1, set="1", title=t, filename=f"{i+1:02d}.mp3",
+                  title_source="tags") for i, t in enumerate(titles)]
+
+
+def _event(closers_and_names):
+    return JerrybaseEvent(
+        event_id="1", venue="V", city="C", state="ST",
+        sets=[JerrybaseSet(name=n, closer=c, break_length="long")
+              for c, n in closers_and_names],
+    )
+
+
+def test_anchor_breaks_places_sets_from_closers():
+    tracks = _tracks(["A", "B", "C", "D", "E", "F"])
+    event = _event([("C", "1"), ("E", "2")])
+    assert jerrybase.anchor_breaks(tracks, event) == ["1", "1", "1", "2", "2", "2"]
+
+
+def test_anchor_breaks_none_when_closer_missing():
+    tracks = _tracks(["A", "B", "C"])
+    event = _event([("C", "1"), ("Z", "2")])
+    assert jerrybase.anchor_breaks(tracks, event) is None
+
+
+def test_anchor_breaks_none_when_closer_ambiguous():
+    tracks = _tracks(["A", "C", "B", "C"])  # "C" appears twice
+    event = _event([("C", "1")])
+    assert jerrybase.anchor_breaks(tracks, event) is None
+
+
+def test_anchor_breaks_none_when_out_of_order():
+    tracks = _tracks(["A", "E", "C", "D"])
+    event = _event([("C", "1"), ("E", "2")])  # E precedes C in tracks
+    assert jerrybase.anchor_breaks(tracks, event) is None

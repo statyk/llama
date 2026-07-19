@@ -129,3 +129,31 @@ def lookup(artist: str, date: str) -> list[JerrybaseEvent]:
     """Jerrybase events for (artist, date). Empty = no evidence; length > 1 =
     multi-event date. Never raises."""
     return _load().get((artist_key(artist), date), [])
+
+
+def anchor_breaks(tracks: list[Track], event: JerrybaseEvent) -> list[str] | None:
+    """Assign each track a set name by anchoring jerrybase set closers onto
+    tracks (matched via norm_title). Succeeds only if every closer matches
+    exactly one track and the matched positions are strictly increasing; then
+    tracks up to and including closer i take set i's name, tracks after the last
+    closer take the last set's name. Returns per-track set names (parallel to
+    tracks) or None on any missing/ambiguous/out-of-order closer."""
+    positions: list[int] = []
+    for st in event.sets:
+        target = norm_title(st.closer)
+        hits = [i for i, t in enumerate(tracks) if norm_title(t.title) == target]
+        if len(hits) != 1:
+            return None
+        positions.append(hits[0])
+    if any(positions[k] >= positions[k + 1] for k in range(len(positions) - 1)):
+        return None
+    if not positions:
+        return None
+    names = [s.name for s in event.sets]
+    out: list[str] = []
+    si = 0
+    for i in range(len(tracks)):
+        while si < len(positions) and i > positions[si]:
+            si += 1
+        out.append(names[min(si, len(names) - 1)])
+    return out
