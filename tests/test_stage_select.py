@@ -144,3 +144,55 @@ def test_skips_when_selection_exists(tmp_path: Path):
             raise AssertionError("must not re-fetch")
 
     assert run_select_recording(sws, ExplodingIA(), make_candidate(), assessment()) == "gd73-06-10.sbd"
+
+
+class TitledIA:
+    """Two same-lineage siblings; only .titled has real embedded titles."""
+
+    def __init__(self):
+        titled = [dict(mp3("gd73x-t01.mp3"), title="Morning Dew"),
+                  dict(mp3("gd73x-t02.mp3"), title="Dark Star")]
+        bare = [mp3("gd73y-t01.mp3"), mp3("gd73y-t02.mp3")]
+        self.md = {"gd73.aud.titled": {"metadata": {"source": "AUD"}, "files": titled},
+                   "gd73.aud.bare": {"metadata": {"source": "AUD"}, "files": bare}}
+
+    def metadata(self, identifier):
+        return self.md[identifier]
+
+
+def _pair_candidate(a, b, downloads=(0, 0)):
+    return Candidate(
+        performance_id="GratefulDead/1973-06-10", collection="GratefulDead",
+        date="1973-06-10",
+        recordings=[RecordingSummary(identifier=a, downloads=downloads[0]),
+                    RecordingSummary(identifier=b, downloads=downloads[1])],
+    )
+
+
+def test_title_fraction_breaks_same_lineage_tie(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "show")
+    cand = _pair_candidate("gd73.aud.bare", "gd73.aud.titled")
+    chosen = run_select_recording(sws, TitledIA(), cand, assessment(reviewed=""))
+    assert chosen == "gd73.aud.titled"
+    sel = json.loads(sws.selection.read_text())
+    assert sel["scores"]["gd73.aud.titled"]["title_fraction"] == 1.0
+    assert sel["scores"]["gd73.aud.bare"]["title_fraction"] == 0.0
+
+
+def test_downloads_break_same_lineage_tie(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "show")
+    cand = _pair_candidate("gd73.aud.bare", "gd73.aud.titled", downloads=(120000, 0))
+    # bare has the crowd behind it; titled has tags. 0.75 > 0.5 -> bare wins.
+    chosen = run_select_recording(sws, TitledIA(), cand, assessment(reviewed=""))
+    assert chosen == "gd73.aud.bare"
+    sel = json.loads(sws.selection.read_text())
+    assert sel["scores"]["gd73.aud.bare"]["downloads_norm"] == 1.0
+    assert sel["scores"]["gd73.aud.titled"]["downloads_norm"] == 0.0
+
+
+def test_zero_downloads_everywhere_is_neutral(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "show")
+    cand = _pair_candidate("gd73.aud.bare", "gd73.aud.titled")
+    run_select_recording(sws, TitledIA(), cand, assessment(reviewed=""))
+    sel = json.loads(sws.selection.read_text())
+    assert all(v["downloads_norm"] == 0.0 for v in sel["scores"].values())
