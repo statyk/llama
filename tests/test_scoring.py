@@ -71,3 +71,31 @@ def test_completeness_does_not_flip_lineage_preference():
     full_aud = score_recording(lineage="aud", avg_rating=4.5, num_reviews=5,
                                has_wanted_format=True, completeness=1.0, complaints=0)
     assert sbd_fragment > full_aud
+
+
+def test_downloads_and_title_terms_are_additive_and_bounded():
+    kw = dict(lineage="matrix", avg_rating=4.0, num_reviews=10,
+              has_wanted_format=True, completeness=1.0, complaints=0)
+    base = score_recording(**kw)
+    assert score_recording(downloads_norm=1.0, **kw) == round(base + 0.75, 3)
+    assert score_recording(title_fraction=1.0, **kw) == round(base + 0.5, 3)
+    # defaults preserve old behavior
+    assert score_recording(downloads_norm=0.0, title_fraction=0.0, **kw) == base
+
+
+def test_new_terms_cannot_flip_sbd_vs_aud():
+    kw = dict(avg_rating=4.5, num_reviews=20, has_wanted_format=True,
+              completeness=1.0, complaints=0)
+    maxed_aud = score_recording(lineage="aud", downloads_norm=1.0,
+                                title_fraction=1.0, **kw)
+    bare_sbd = score_recording(lineage="sbd", **kw)
+    assert bare_sbd > maxed_aud
+
+
+def test_new_terms_scale_with_completeness():
+    kw = dict(lineage="sbd", avg_rating=None, num_reviews=0,
+              has_wanted_format=False, complaints=0)
+    full = score_recording(completeness=1.0, downloads_norm=1.0, **kw)
+    half = score_recording(completeness=0.0, downloads_norm=1.0, **kw)
+    # at completeness 0 the whole score (incl. the new term) is halved
+    assert half == round(full / 2, 3)
