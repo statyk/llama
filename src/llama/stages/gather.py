@@ -10,7 +10,7 @@ from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
 from llama.setlist import parse_setlist
 from llama.structure import (align, apply_llm_alignment, blend_segues,
                              from_setlistfm, rank_parses, structure_guard)
-from llama.titles import resolve_titles, set_breaks
+from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_breaks
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -35,8 +35,9 @@ def _sibling_titles(ia, candidate: Candidate, identifier: str, want: str, n: int
         if rec.identifier == identifier:
             continue
         kept, _, _ = filter_files(ia.metadata(rec.identifier).get("files", []), want_format=want)
-        if len(kept) == n and all(str(f.get("title") or "").strip() for f in kept):
-            return [f["title"] for f in kept]
+        titles = [clean_tag_title(f.get("title")) for f in kept]
+        if len(kept) == n and all(is_real_title(t) for t in titles):
+            return titles
     return None
 
 
@@ -120,7 +121,7 @@ def run_gather(
         canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
 
     siblings = None
-    if any(not str(f.get("title") or "").strip() for f in kept) and (
+    if any(not is_real_title(clean_tag_title(f.get("title"))) for f in kept) and (
         canonical.confidence == "low" or len(canonical.items) != len(kept)
     ):
         siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))
