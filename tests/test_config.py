@@ -139,6 +139,20 @@ def test_default_config_template_matches_defaults():
     assert parsed.llm_for("interpret") == default.llm_for("interpret")
 
 
+def test_jerrybase_enabled_default_on():
+    from llama.config import Config
+
+    assert Config().jerrybase.enabled is True
+
+
+def test_jerrybase_disabled_from_toml(tmp_path):
+    from llama.config import load_config
+
+    p = tmp_path / "config.toml"
+    p.write_text("[jerrybase]\nenabled = false\n")
+    assert load_config(p).jerrybase.enabled is False
+
+
 def test_default_config_template_states_selection_defaults():
     # The whole point: the GD tuning is explicit, so additive edits keep it.
     data = tomllib.loads(DEFAULT_CONFIG_TOML)

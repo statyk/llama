@@ -19,6 +19,12 @@ class SetlistFMConfig(BaseModel):
     api_key: str | None = None
 
 
+class JerrybaseConfig(BaseModel):
+    # Vendored, offline, no key - so on by default (unlike setlist.fm). No
+    # thresholds: break anchoring is all-or-nothing by design.
+    enabled: bool = True
+
+
 class StructureConfig(BaseModel):
     guard_min_minutes: int = 150
     align_coverage_threshold: float = 0.8
@@ -69,6 +75,7 @@ class Config(BaseModel):
     audio_format: Literal["mp3", "flac"] = "mp3"
     llm: dict[str, LLMTaskConfig] = Field(default_factory=dict)
     setlistfm: SetlistFMConfig = Field(default_factory=SetlistFMConfig)
+    jerrybase: JerrybaseConfig = Field(default_factory=JerrybaseConfig)
     structure: StructureConfig = Field(default_factory=StructureConfig)
     artists: ArtistsConfig = Field(default_factory=ArtistsConfig)
     winnow: WinnowConfig = Field(default_factory=WinnowConfig)
@@ -134,6 +141,11 @@ backend = "claude_cli"             # requires the `claude` CLI on PATH
 # [setlistfm]
 # api_key = "..."          # or SETLISTFM_API_KEY env var; without a key,
 #                          # set-structure recovery is LMA-descriptions only
+
+[jerrybase]
+enabled = true             # vendored offline set-structure evidence (break
+                           # anchoring + set-count/venue/multi-event tripwires);
+                           # set false to ignore the dataset entirely
 
 [winnow]
 max_metadata_fetch = 40    # review-fetch budget: when more survivors than
