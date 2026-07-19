@@ -420,7 +420,10 @@ def show(
         raise typer.Exit(1)
     s = read_model(sws.show, Show)
     place = ", ".join(p for p in [s.venue, s.city] if p)
-    typer.echo(f"{s.artist}  {s.date}  {place}".rstrip())
+    date_str = s.date
+    if s.date_source == "research" and s.item_date:
+        date_str = f"{s.date} (item date {s.item_date}, corrected via research)"
+    typer.echo(f"{s.artist}  {date_str}  {place}".rstrip())
     typer.echo(f"recording: {s.identifier}  ({len(s.tracks)} tracks)")
     typer.echo(f"state: {entry.state}   path: {sws.dir}")
     typer.echo("stages:")

@@ -999,3 +999,17 @@ def test_config_init_stdout_prints_and_writes_nothing(tmp_path: Path, monkeypatc
     assert result.exit_code == 0, result.output
     assert "[[selection.lineage_eras]]" in result.output
     assert not (tmp_path / "config.toml").exists()
+
+
+def test_show_displays_corrected_date(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = ShowWorkspace(tmp_path / "shows" / "countryjoe-1976-01-01")
+    write_artifact(sws.show, Show(
+        performance_id="CountryJoe/1976-01-01", identifier="cjm76",
+        artist="Country Joe McDonald", date="1976-02-08",
+        item_date="1976-01-01", date_source="research", venue="WDR studio",
+    ))
+    result = runner.invoke(cli.app, ["show", str(sws.dir), "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "1976-02-08 (item date 1976-01-01, corrected via research)" in result.output
