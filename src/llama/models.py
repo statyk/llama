@@ -90,6 +90,21 @@ class SetlistItem(BaseModel):
     segue: bool = False  # runs directly into the following song
 
 
+class JerrybaseSet(BaseModel):
+    name: str  # "1" | "2" | "3" | "encore"
+    closer: str  # raw closing-song title (matched via structure.norm_title)
+    break_length: str  # "long" | "short"
+    song_count: int | None = None  # isong delta from the prior set; None for the first
+
+
+class JerrybaseEvent(BaseModel):
+    event_id: str
+    venue: str
+    city: str
+    state: str
+    sets: list["JerrybaseSet"] = Field(default_factory=list)
+
+
 class ParsedSetlist(BaseModel):
     items: list[SetlistItem] = Field(default_factory=list)
     confidence: str = "low"  # "high" | "medium" | "low"
@@ -143,6 +158,7 @@ class Show(BaseModel):
     date: str
     venue: str | None = None
     city: str | None = None
+    venue_source: str = "item"  # "item" | "jerrybase" (venue adopted from jerrybase)
     # Presentation date is correctable (vet may adopt a research date over an
     # archive year-only placeholder); performance identity never changes.
     item_date: str | None = None  # original archive date, set only when corrected

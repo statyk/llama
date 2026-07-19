@@ -55,3 +55,29 @@ def test_show_date_fields_default_for_old_artifacts():
     assert s.item_date is None and s.date_source == "item"
     v = VettingResult(vetting=ResearchVetting())
     assert v.adopted_date is None
+
+
+def test_jerrybase_models_construct():
+    from llama.models import JerrybaseEvent, JerrybaseSet
+
+    ev = JerrybaseEvent(
+        event_id="2673", venue="Barton Hall, Cornell University",
+        city="Ithaca", state="NY",
+        sets=[
+            JerrybaseSet(name="1", closer="Dancin' In The Streets", break_length="long"),
+            JerrybaseSet(name="2", closer="Morning Dew", break_length="short", song_count=7),
+            JerrybaseSet(name="encore", closer="One More Saturday Night",
+                         break_length="long", song_count=1),
+        ],
+    )
+    assert ev.sets[0].song_count is None
+    assert ev.sets[1].break_length == "short"
+    assert [s.name for s in ev.sets] == ["1", "2", "encore"]
+
+
+def test_show_venue_source_defaults_to_item():
+    from llama.models import Show
+
+    s = Show(performance_id="X/2020-01-01", identifier="x", artist="X",
+             date="2020-01-01")
+    assert s.venue_source == "item"
