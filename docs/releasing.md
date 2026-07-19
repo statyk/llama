@@ -28,16 +28,40 @@ signing/notarization failure fails the leg — we never silently ship unsigned.
 
 ### Mac mini (macOS runner)
 
+> **Per-runner env is required.** The runner is a launchd LaunchAgent, and that
+> session cannot use the login keychain's private key — `codesign` fails with
+> `errSecInternalComponent` even though the identity is present and the keychain
+> is unlocked (it succeeds from an interactive shell on the same box, which is
+> what makes this easy to mis-verify). The credentials therefore have to reach
+> the runner as environment variables, in `~/projects/runners/.env`:
+>
+> ```
+> LLAMA_CODESIGN_IDENTITY=Developer ID Application: … (TEAMID)
+> LLAMA_SIGNING_P12=/path/to/developer-id.p12
+> LLAMA_SIGNING_P12_PASSWORD=…
+> LLAMA_SIGNING_KEYCHAIN_PASSWORD=…      # any throwaway value
+> LLAMA_NOTARY_APPLE_ID=you@example.com
+> LLAMA_NOTARY_PASSWORD=…                # app-specific password
+> ```
+>
+> These mirror litcat's `~/projects/runners/litcat-runner/.env` one-for-one
+> (`LITCAT_*` → `LLAMA_*`) and reuse the same `.p12`. `LLAMA_NOTARY_TEAM_ID` is
+> optional — `build.py` derives the team from the identity string. `chmod 600`
+> the file, and `launchctl kickstart -k gui/$(id -u)/<runner-label>` after
+> editing it; the runner only reads `.env` at start.
+
 - A **Developer ID Application** certificate in the login keychain (shared with
   the litcat runner on the same box). `build.py` auto-detects the sole such
   identity; override with `LLAMA_CODESIGN_IDENTITY` or `--identity`.
 - A **notarytool credential**. `build.py` defaults its profile to
-  `litcat-notary`, the profile litcat already set up on this box (pinned to the
-  login keychain) — so **no per-runner setup is needed**; llama reuses it as-is.
-  To point elsewhere, set `LLAMA_NOTARY_PROFILE` or pass `--notary-profile`. If
-  you ever want a dedicated llama profile, create one once (pin `--keychain` to
-  the login keychain — notarytool otherwise stores it in the data-protection
-  keychain, which a runner session can't read):
+  `litcat-notary`, the profile litcat set up on this box (pinned to the login
+  keychain). In practice the LaunchAgent session can't read it either, so the
+  runner uses the keychain-free `LLAMA_NOTARY_APPLE_ID`/`_PASSWORD` route above;
+  the profile remains the default for interactive/local builds. To point
+  elsewhere, set `LLAMA_NOTARY_PROFILE` or pass `--notary-profile`. If you ever
+  want a dedicated llama profile, create one once (pin `--keychain` to the login
+  keychain — notarytool otherwise stores it in the data-protection keychain,
+  which a runner session can't read):
 
   ```bash
   xcrun notarytool store-credentials "llama-notary" \
@@ -68,8 +92,16 @@ signing/notarization failure fails the leg — we never silently ship unsigned.
 - Install **Microsoft.Azure.ArtifactSigningClientTools** (provides
   `Azure.CodeSigning.Dlib.dll` under `%LOCALAPPDATA%`) and the Windows SDK
   Signing Tools (x64 `signtool.exe`).
-- `az login` (or a service-principal credential the dlib's credential chain can
-  use) so signing reaches your Azure Trusted Signing account with no CI secret.
+- An Azure credential **visible to the runner service's own session** — the same
+  trap as the Mac. The dlib uses `DefaultAzureCredential`, so an `az login` done
+  in your desktop session is not necessarily seen by the runner; the failure is
+  `AzureCliCredential authentication failed: Please run 'az login'` and, at the
+  end, `SignTool Error: SignerSign() failed (0x80004005)`. Either `az login` as
+  the account the runner service actually runs as, or — more durable — put a
+  service principal in the runner's own env file so `EnvironmentCredential`
+  picks it up: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`.
+  Restart the runner service after editing. Mirror whatever litcat's ITCHY
+  runner already uses — it signs successfully on that box.
 - `packaging/metadata.json` is committed with litcat's real Azure Trusted
   Signing values (account `LitCat`, profile `bogsoft`, `eus` endpoint), which
   llama reuses — so signing works immediately on ITCHY with no edit. (llama
