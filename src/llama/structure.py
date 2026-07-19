@@ -133,13 +133,23 @@ def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
 
 def structure_guard(tracks: list[Track], set_breaks: list[int],
                     evidence_sets: set[str] | None = None,
-                    min_minutes: int = 150) -> str | None:
-    """Flag single-set structure only on real evidence of a problem: the
-    setlist sources showed multiple sets that alignment lost, or the show
-    runs implausibly long for one uninterrupted set (single sets past 2.5
-    hours are rare; two-set shows usually exceed it). Track count alone is
-    not a signal - plenty of artists play 20+ short songs in one set."""
-    if set_breaks or not tracks:
+                    min_minutes: int = 150,
+                    expected_set_count: int | None = None) -> str | None:
+    """Flag suspicious structure. When expected_set_count is given (jerrybase
+    evidence), an aligned distinct-set-label count (including "encore") that
+    differs is flagged even when breaks exist. Otherwise: flag single-set
+    structure only on real evidence of a problem - the setlist sources showed
+    multiple sets that alignment lost, or the show runs implausibly long for one
+    uninterrupted set (single sets past 2.5 hours are rare; two-set shows
+    usually exceed it). Track count alone is not a signal - plenty of artists
+    play 20+ short songs in one set."""
+    if not tracks:
+        return None
+    if expected_set_count is not None:
+        actual = len({t.set for t in tracks})
+        if actual != expected_set_count:
+            return f"structure has {actual} sets but jerrybase shows {expected_set_count}"
+    if set_breaks:
         return None
     if evidence_sets and len(evidence_sets) > 1:
         return "setlist evidence shows multiple sets but alignment found none"

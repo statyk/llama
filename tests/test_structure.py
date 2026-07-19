@@ -215,6 +215,42 @@ def test_guard_respects_thresholds():
     assert structure_guard(_tracks(12, dur=530.0), [], min_minutes=90) is not None
 
 
+def _guard_tracks(sets, dur=60):
+    from llama.models import Track
+    return [Track(index=i + 1, set=s, title=f"T{i}", filename=f"{i}.mp3",
+                  duration_sec=dur, title_source="tags") for i, s in enumerate(sets)]
+
+
+def test_structure_guard_flags_set_count_mismatch():
+    from llama.titles import set_breaks
+    from llama.structure import structure_guard
+
+    tracks = _guard_tracks(["1", "1", "2", "2", "encore"])
+    breaks = set_breaks(tracks)
+    flag = structure_guard(tracks, breaks, expected_set_count=2)
+    assert flag is not None
+    assert "3" in flag and "2" in flag
+
+
+def test_structure_guard_no_flag_when_set_count_matches():
+    from llama.titles import set_breaks
+    from llama.structure import structure_guard
+
+    tracks = _guard_tracks(["1", "1", "2", "2", "encore"])
+    breaks = set_breaks(tracks)
+    assert structure_guard(tracks, breaks, expected_set_count=3) is None
+
+
+def test_structure_guard_preserves_old_behavior_without_expected_count():
+    from llama.titles import set_breaks
+    from llama.structure import structure_guard
+
+    tracks = _guard_tracks(["1", "1", "1"], dur=200 * 60)  # long single set
+    assert structure_guard(tracks, set_breaks(tracks)) is not None
+    short = _guard_tracks(["1", "1", "1"], dur=60)
+    assert structure_guard(short, set_breaks(short)) is None
+
+
 from llama.models import AlignedStructure, AlignedTrack
 from llama.structure import apply_llm_alignment
 
