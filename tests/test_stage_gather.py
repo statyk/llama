@@ -227,3 +227,17 @@ def test_sibling_titles_are_cleaned(tmp_path: Path):
     show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
     assert [t.title for t in show.tracks] == titles          # prefix stripped
     assert all(t.title_source == "sibling" for t in show.tracks)
+
+
+def test_prefixed_tag_titles_align(tmp_path: Path):
+    md = json.loads(FIXTURE.read_text())
+    md = {"metadata": dict(md["metadata"]), "files": [dict(f) for f in md["files"]]}
+    for f in md["files"]:
+        if f.get("title"):
+            f["title"] = f"gd73-06-10d1t01 {f['title']}"
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    tagged = [t for t in show.tracks if t.title_source == "tags"]
+    assert tagged and all(not t.title.startswith("gd73") for t in tagged)
+    assert "low-confidence structure alignment" not in show.review_flags
+    assert show.order_source in ("track-tags", "filename")  # recorded on the artifact
