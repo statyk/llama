@@ -157,3 +157,30 @@ def anchor_breaks(tracks: list[Track], event: JerrybaseEvent) -> list[str] | Non
             si += 1
         out.append(names[min(si, len(names) - 1)])
     return out
+
+
+def closer_contradictions(tracks: list[Track],
+                          event: JerrybaseEvent) -> tuple[list[str], list[str]]:
+    """Cross-check jerrybase closers against tracks that already carry final set
+    labels. Returns (hard_flags, soft_notes): a closer matched to exactly one
+    track that is not the last track of its set is a hard flag (needs-review); a
+    closer absent from the tracks is a soft note (context only). Ambiguous
+    closers (multiple matches) are ignored."""
+    if not tracks:
+        return [], []
+    breaks = {t.index for t, nxt in zip(tracks, tracks[1:]) if nxt.set != t.set}
+    last_index = tracks[-1].index
+    hard: list[str] = []
+    soft: list[str] = []
+    for st in event.sets:
+        target = norm_title(st.closer)
+        hits = [t for t in tracks if norm_title(t.title) == target]
+        if not hits:
+            soft.append(f"jerrybase set closer '{st.closer}' not found in tracks")
+            continue
+        if len(hits) != 1:
+            continue  # ambiguous: no reliable position check
+        tk = hits[0]
+        if not (tk.index in breaks or tk.index == last_index):
+            hard.append(f"jerrybase set closer '{st.closer}' is not at a set break")
+    return hard, soft

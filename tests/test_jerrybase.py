@@ -162,3 +162,32 @@ def test_anchor_breaks_none_when_out_of_order():
     tracks = _tracks(["A", "E", "C", "D"])
     event = _event([("C", "1"), ("E", "2")])  # E precedes C in tracks
     assert jerrybase.anchor_breaks(tracks, event) is None
+
+
+def _tracks_with_sets(pairs):
+    return [Track(index=i + 1, set=s, title=t, filename=f"{i+1:02d}.mp3",
+                  title_source="tags") for i, (t, s) in enumerate(pairs)]
+
+
+def test_closer_contradictions_none_when_closers_at_boundaries():
+    tracks = _tracks_with_sets([("A", "1"), ("B", "1"), ("C", "2"), ("D", "2")])
+    event = _event([("B", "1"), ("D", "2")])  # both closers end their sets
+    hard, soft = jerrybase.closer_contradictions(tracks, event)
+    assert hard == []
+    assert soft == []
+
+
+def test_closer_contradictions_flags_mid_set_closer():
+    tracks = _tracks_with_sets([("A", "1"), ("B", "1"), ("C", "1"), ("D", "2")])
+    event = _event([("B", "1")])  # jerrybase says set 1 ends on B, but C is still set 1
+    hard, soft = jerrybase.closer_contradictions(tracks, event)
+    assert any("B" in f and "set break" in f for f in hard)
+    assert soft == []
+
+
+def test_closer_contradictions_soft_note_when_closer_absent():
+    tracks = _tracks_with_sets([("A", "1"), ("B", "1")])
+    event = _event([("Z", "1")])
+    hard, soft = jerrybase.closer_contradictions(tracks, event)
+    assert hard == []
+    assert any("Z" in n for n in soft)
