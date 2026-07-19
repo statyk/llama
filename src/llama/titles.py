@@ -35,8 +35,9 @@ def resolve_titles(
     """Resolve track titles (tags -> setlist -> sibling -> unresolved).
 
     Sets and segues are placeholders here; llama.structure.align stamps the
-    real values from the canonical performance setlist."""
-    files = sorted(kept_files, key=lambda f: f["name"])
+    real values from the canonical performance setlist. Callers pass
+    kept_files in canonical play order (filter_files decides it)."""
+    files = kept_files
     n = len(files)
     aligned = setlist.items if (setlist.confidence != "low" and len(setlist.items) == n) else None
 

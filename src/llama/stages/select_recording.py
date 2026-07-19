@@ -58,7 +58,7 @@ def run_select_recording(
         md = ia.metadata(rec.identifier)
         meta = md.get("metadata", {})
         files = md.get("files", [])
-        kept, _ = filter_files(files, want_format=want)
+        kept, _, _ = filter_files(files, want_format=want)
         prepared.append({
             "rec": rec,
             "lineage": lineage_class(rec.identifier, meta),

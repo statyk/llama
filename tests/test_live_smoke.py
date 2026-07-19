@@ -31,7 +31,7 @@ def test_search_and_group_real(tmp_path: Path):
 def test_real_item_spam_is_filtered(tmp_path: Path):
     ia = IAClient(cache_dir=tmp_path / "cache")
     md = ia.metadata(IDENT)
-    kept, excluded = filter_files(md["files"])
+    kept, excluded, _ = filter_files(md["files"])
     kept_names = [f["name"] for f in kept]
     assert all(n.startswith("gd73-06-10") for n in kept_names)
     assert len(kept_names) >= 20  # full show, all discs

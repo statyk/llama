@@ -34,9 +34,9 @@ def _sibling_titles(ia, candidate: Candidate, identifier: str, want: str, n: int
     for rec in candidate.recordings:
         if rec.identifier == identifier:
             continue
-        kept, _ = filter_files(ia.metadata(rec.identifier).get("files", []), want_format=want)
+        kept, _, _ = filter_files(ia.metadata(rec.identifier).get("files", []), want_format=want)
         if len(kept) == n and all(str(f.get("title") or "").strip() for f in kept):
-            return [f["title"] for f in sorted(kept, key=lambda f: f["name"])]
+            return [f["title"] for f in kept]
     return None
 
 
@@ -94,7 +94,7 @@ def run_gather(
     md = ia.metadata(identifier)
     meta = md.get("metadata", {})
     want = FORMAT_BY_AUDIO[audio_format]
-    kept, excluded = filter_files(md.get("files", []), want_format=want)
+    kept, excluded, ordering = filter_files(md.get("files", []), want_format=want)
 
     # Canonical performance setlist: every recording's description, plus
     # setlist.fm when configured, ranked pick-best.
@@ -179,6 +179,8 @@ def run_gather(
         tracks=tracks,
         set_breaks=breaks,
         excluded_files=excluded,
+        order_source=ordering["order_source"],
+        reordered=ordering["reordered"],
         lineage=meta.get("lineage") or meta.get("source"),
         source_url=f"https://archive.org/details/{identifier}",
         needs_review=bool(flags),
