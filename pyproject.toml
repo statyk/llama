@@ -6,6 +6,8 @@ build-backend = "hatchling.build"
 name = "llama-radio"
 version = "0.1.0"
 description = "Live Music Archive -> automated radio station pipeline"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "typer>=0.12",

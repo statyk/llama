@@ -199,3 +199,11 @@ inherits the factual guard this pipeline applies to its own scripts:
 - one break note per entry in `manifest.set_breaks`
 
 Copy that names songs or sets not in the manifest must not air.
+
+## Licensing
+
+llama is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE) for the
+full text. `src/llama/data/set_breaks.csv` is vendored from the
+[eichblatt/deadstream](https://github.com/eichblatt/deadstream) project
+(also GPL-3.0) — see `src/llama/data/README.md` for vendoring details and
+attribution.
