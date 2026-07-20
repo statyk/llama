@@ -27,6 +27,7 @@ def run_search(
     ws: RunWorkspace, ia, criteria: Criteria,
     artists: list[dict] | None = None,
     force: bool = False,
+    jerrybase_enabled: bool = True,
 ) -> list[Candidate]:
     """Wide net means ALL matching recordings: the cursor-paginated scrape API,
     not a single capped page - every recording of a performance feeds structure
@@ -40,12 +41,13 @@ def run_search(
                 detail(f"{artist.get('title') or artist['identifier']} ({i}/{len(artists)})")
                 fanned = criteria.model_copy(update={"collection": artist["identifier"]})
                 docs = ia.scrape(build_query(fanned), SEARCH_FIELDS)
-                candidates.extend(group_candidates(artist["identifier"], docs))
+                candidates.extend(group_candidates(artist["identifier"], docs,
+                                                   jerrybase_enabled=jerrybase_enabled))
         candidates.sort(key=lambda c: (c.date, c.performance_id))
     else:
         with step("searching the LMA"):
             docs = ia.scrape(build_query(criteria), SEARCH_FIELDS)
         label = criteria.collection or criteria.artist or "unknown"
-        candidates = group_candidates(label, docs)
+        candidates = group_candidates(label, docs, jerrybase_enabled=jerrybase_enabled)
     write_artifact(ws.candidates, candidates)
     return candidates

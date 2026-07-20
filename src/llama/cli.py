@@ -152,7 +152,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                     return
                 artists = pruned
                 write_artifact(ws.artists, artists)
-    run_search(ws, ia, criteria, artists=artists, force=force)
+    run_search(ws, ia, criteria, artists=artists, force=force,
+               jerrybase_enabled=config.jerrybase.enabled)
     shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
                            shortlist_size=max(12, count),
                            max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)

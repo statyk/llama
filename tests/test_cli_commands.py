@@ -690,7 +690,8 @@ def test_pinned_artists_skip_discover_and_prune(tmp_path: Path, monkeypatch):
     seen = {}
     monkeypatch.setattr(cli, "run_discover", boom)
     monkeypatch.setattr(cli, "run_search",
-                        lambda ws, ia, criteria, artists=None, force=False: seen.update(artists=artists) or [])
+                        lambda ws, ia, criteria, artists=None, force=False, jerrybase_enabled=True:
+                            seen.update(artists=artists) or [])
     monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: [])
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"score_reviews": None, "light_research": None})
