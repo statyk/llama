@@ -24,6 +24,16 @@ def _coverage(text: str) -> tuple[int, Counter]:
     return len(rows), Counter(r["artist"] for r in rows)
 
 
+def _require_artist_column(text: str) -> None:
+    """Exit cleanly (message + non-zero status, no traceback) when the CSV has
+    no 'artist' column, rather than crashing deep inside _coverage."""
+    fields = csv.DictReader(io.StringIO(text)).fieldnames
+    if not fields or "artist" not in fields:
+        print(f"error: downloaded CSV has no 'artist' column (columns: {fields}); "
+              f"refusing to overwrite {VENDORED}", file=sys.stderr)
+        raise SystemExit(1)
+
+
 def main() -> None:
     ref = sys.argv[1] if len(sys.argv) > 1 else "main"
     url = RAW_URL.format(ref=ref)
@@ -31,6 +41,7 @@ def main() -> None:
     resp = httpx.get(url, timeout=120, follow_redirects=True)
     resp.raise_for_status()
     new_text = resp.text
+    _require_artist_column(new_text)
 
     old_text = VENDORED.read_text(encoding="utf-8") if VENDORED.exists() else ""
     old_n, old_cov = _coverage(old_text) if old_text else (0, Counter())
@@ -43,7 +54,7 @@ def main() -> None:
         if o != n:
             print(f"  {a}: {o} -> {n} ({n - o:+d})")
 
-    VENDORED.write_text(new_text, encoding="utf-8")
+    VENDORED.write_bytes(resp.content)  # exact upstream bytes (no CRLF rewrite)
     print(f"wrote {VENDORED}")
     print(f"REMINDER: update the pinned commit SHA in {VENDORED.parent / 'README.md'} "
           f"(ref was '{ref}').")
