@@ -359,6 +359,24 @@ def test_gather_anchoring_rescues_low_confidence_without_llm(tmp_path, monkeypat
     assert "low-confidence structure alignment" not in show.review_flags
 
 
+def test_gather_records_soft_closer_notes_without_setlist_parse(tmp_path, monkeypatch):
+    # Empty description -> no LMA parse and no LLM fallback (best is None), so
+    # tracks resolve from the fixture's tags. A jerrybase closer absent from the
+    # tracks must still be recorded as a soft note despite there being no
+    # setlist source.
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = ""
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("Truckin", "1")], venue="RFK Stadium")])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert show.structure is not None
+    assert show.structure.source == "none"
+    assert any("Truckin" in c and "not found in tracks" in c
+               for c in show.structure.conflicts)
+
+
 def test_gather_jerrybase_disabled_is_noop(tmp_path, monkeypatch):
     def _boom(a, d):
         raise AssertionError("lookup must not be called when disabled")

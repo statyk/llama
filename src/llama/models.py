@@ -135,7 +135,7 @@ class AlignedStructure(BaseModel):
 
 
 class StructureInfo(BaseModel):
-    source: str  # "setlist.fm" | "chosen" | "lma:<identifier>" | "llm"
+    source: str  # "setlist.fm" | "chosen" | "lma:<identifier>" | "llm" | "none"
     alignment: str  # "deterministic" | "llm"
     coverage: float
     conflicts: list[str] = Field(default_factory=list)

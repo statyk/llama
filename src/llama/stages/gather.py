@@ -203,8 +203,9 @@ def run_gather(
         flags.append("no playable tracks")
 
     structure_info = None
-    if best is not None:
-        structure_info = StructureInfo(source=best.source, alignment=alignment,
+    if best is not None or notes:
+        source = best.source if best is not None else "none"
+        structure_info = StructureInfo(source=source, alignment=alignment,
                                        coverage=result.coverage,
                                        conflicts=result.conflicts + notes)
 
