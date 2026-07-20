@@ -284,6 +284,23 @@ def test_gather_adopts_venue_when_candidate_absent(tmp_path, monkeypatch):
 
 
 def test_gather_flags_venue_mismatch_never_overwrites(tmp_path, monkeypatch):
+    # A genuinely different venue must still trip the flag, and never overwrite
+    # the candidate's venue.
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("I Know You Rider", "1"), ("Eyes of the World", "2"),
+         ("Johnny B. Goode", "encore")],
+        venue="Boston Garden", city="Boston")])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert show.venue == "RFK Stadium"          # candidate venue preserved
+    assert show.venue_source == "item"
+    assert any("venue mismatch" in f for f in show.review_flags)
+
+
+def test_gather_venue_equivalent_passes_no_mismatch(tmp_path, monkeypatch):
+    # Spec integration test: archive "RFK Stadium" vs jerrybase "Robert F.
+    # Kennedy Stadium" is a high-confidence equivalence -> no mismatch flag.
     monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
         [("I Know You Rider", "1"), ("Eyes of the World", "2"),
          ("Johnny B. Goode", "encore")],
@@ -291,9 +308,10 @@ def test_gather_flags_venue_mismatch_never_overwrites(tmp_path, monkeypatch):
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
                       jerrybase_enabled=True)
-    assert show.venue == "RFK Stadium"          # candidate venue preserved
+    assert show.venue == "RFK Stadium"          # never overwritten
     assert show.venue_source == "item"
-    assert any("venue mismatch" in f for f in show.review_flags)
+    assert not any("venue mismatch" in f for f in show.review_flags)
+    assert show.needs_review is False
 
 
 def test_gather_confident_but_contradicted_break_flags(tmp_path, monkeypatch):

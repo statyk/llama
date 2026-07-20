@@ -1,5 +1,4 @@
 import logging
-import re
 
 from llama import jerrybase
 from llama.config import StructureConfig
@@ -11,17 +10,12 @@ from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
                           SourcedParse, StructureInfo)
 from llama.setlist import parse_setlist
 from llama.structure import (align, apply_llm_alignment, blend_segues,
-                             from_setlistfm, rank_parses, structure_guard)
+                             from_setlistfm, rank_parses, structure_guard,
+                             venues_equivalent)
 from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_breaks
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
 log = logging.getLogger("llama")
-
-
-def _norm_place(s: str) -> str:
-    """Lowercase, alphanumerics and spaces only, collapsed whitespace - the
-    normal form for comparing archive and jerrybase venue strings."""
-    return " ".join(re.sub(r"[^a-z0-9 ]", " ", (s or "").lower()).split())
 
 
 def _description(meta: dict) -> str:
@@ -183,7 +177,7 @@ def run_gather(
     if event is not None:
         if not (venue and venue.strip()):
             venue, city, venue_source = event.venue, event.city, "jerrybase"
-        elif _norm_place(venue) != _norm_place(event.venue):
+        elif not venues_equivalent(venue, event.venue):
             flags.append(f"venue mismatch: archive '{venue}' vs jerrybase '{event.venue}'")
 
     # Closer tripwire (single-event, non-anchored alignments; anchoring places
