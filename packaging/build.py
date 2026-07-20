@@ -298,10 +298,9 @@ def windows_sign(binary: Path, env: dict | None = None) -> None:
                                      FILE_DIGEST, [binary]), check=True, env=env)
     verify = subprocess.run([str(signtool), "verify", "/pa", "/q", str(binary)])
     if verify.returncode != 0:
-        print(f"WARNING: signtool verify returned {verify.returncode} for {binary} "
-              "(signed, but verify was non-zero)")
-    else:
-        print(f"signed + verified: {binary}")
+        raise SystemExit(f"signtool verify returned {verify.returncode} for {binary}: "
+                         "signing could not be verified.")
+    print(f"signed + verified: {binary}")
 
 
 def package(version: str) -> Path:

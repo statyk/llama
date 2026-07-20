@@ -245,6 +245,42 @@ def test_main_dry_run_win32_plan(monkeypatch, capsys):
     assert "signtool" in capsys.readouterr().out
 
 
+# --- windows_sign verify handling --------------------------------------------
+
+class _FakeCompleted:
+    def __init__(self, returncode):
+        self.returncode = returncode
+
+
+def _windows_sign_env(tmp_path):
+    dlib_dir = tmp_path / "Microsoft" / "MicrosoftArtifactSigningClientTools"
+    dlib_dir.mkdir(parents=True)
+    (dlib_dir / "Azure.CodeSigning.Dlib.dll").write_text("")
+    return {"LOCALAPPDATA": str(tmp_path)}
+
+
+def test_windows_sign_raises_when_verify_nonzero(monkeypatch, tmp_path):
+    env = _windows_sign_env(tmp_path)
+    monkeypatch.setattr(build, "discover_signtool", lambda *a, **k: Path("signtool.exe"))
+
+    def fake_run(cmd, *a, **k):
+        if "verify" in cmd:
+            return _FakeCompleted(1)
+        return _FakeCompleted(0)
+
+    monkeypatch.setattr(build.subprocess, "run", fake_run)
+    with pytest.raises(SystemExit):
+        build.windows_sign(Path("/x/llama.exe"), env=env)
+
+
+def test_windows_sign_prints_verified_on_success(monkeypatch, tmp_path, capsys):
+    env = _windows_sign_env(tmp_path)
+    monkeypatch.setattr(build, "discover_signtool", lambda *a, **k: Path("signtool.exe"))
+    monkeypatch.setattr(build.subprocess, "run", lambda cmd, *a, **k: _FakeCompleted(0))
+    build.windows_sign(Path("/x/llama.exe"), env=env)
+    assert "signed + verified" in capsys.readouterr().out
+
+
 def test_main_signing_failure_aborts_before_package(monkeypatch):
     calls = []
     monkeypatch.setattr(build, "write_version_file", lambda v: None)
