@@ -1,12 +1,14 @@
 name: release
 
-# Build llama's four self-contained binaries across the self-hosted fleet and
+# Build llama's four self-contained binaries on GitHub-hosted runners and
 # attach them to a GitHub Release. The macOS and Windows binaries are signed by
-# packaging/build.py using credentials that live ON the runners (Developer ID
-# keychain + notarytool profile on the Mac mini; Azure Trusted Signing on ITCHY)
-# and never enter GitHub — GITHUB_TOKEN is the only secret. Linux is unsigned
-# (verify via SHA256SUMS). PyInstaller does not cross-compile, so each artifact
-# is built on native hardware. See docs/releasing.md for per-box setup.
+# packaging/build.py using credentials stored as GitHub Actions secrets: a
+# Developer ID `.p12` + notary Apple-ID credentials for macOS, and Azure
+# Trusted Signing service-principal credentials for Windows. Linux is
+# unsigned (verify via SHA256SUMS). PyInstaller does not cross-compile, so
+# each artifact is built on native hardware. Note: the linux/arm64 leg uses
+# `ubuntu-24.04-arm`, which requires this repository to be public. See
+# docs/releasing.md for background.
 
 on:
   push:
@@ -22,6 +24,10 @@ on:
         description: "Plan only — run build.py in dry-run mode; no artifacts, no release."
         type: boolean
         default: false
+      skip_release:
+        description: "Full rehearsal: build + sign for real and upload artifacts, but skip creating the GitHub Release."
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # required to create the GitHub Release
@@ -32,11 +38,12 @@ concurrency:
 
 jobs:
   prep:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       dry_run: ${{ steps.resolve.outputs.dry_run }}
+      skip_release: ${{ steps.resolve.outputs.skip_release }}
     steps:
       - id: resolve
         shell: bash
@@ -45,12 +52,13 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           IN_VERSION: ${{ inputs.version }}
           IN_DRY: ${{ inputs.dry_run }}
+          IN_SKIP: ${{ inputs.skip_release }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "push" ]; then
-            ver="${REF_NAME#v}"; dry="false"
+            ver="${REF_NAME#v}"; dry="false"; skip="false"
           else
-            ver="$IN_VERSION"; dry="${IN_DRY:-false}"
+            ver="$IN_VERSION"; dry="${IN_DRY:-false}"; skip="${IN_SKIP:-false}"
           fi
           if [ -z "$ver" ]; then
             echo "::error::version is required (push a v* tag or pass the version input)"; exit 1
@@ -62,8 +70,9 @@ jobs:
           {
             echo "version=$ver"
             echo "dry_run=$dry"
+            echo "skip_release=$skip"
           } >> "$GITHUB_OUTPUT"
-          echo "Resolved: version=$ver dry_run=$dry"
+          echo "Resolved: version=$ver dry_run=$dry skip_release=$skip"
 
   build:
     needs: prep
@@ -71,14 +80,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: linux,   arch: x64,   labels: [self-hosted, linux, x64] }
-          - { os: linux,   arch: arm64, labels: [self-hosted, linux, arm64] }
-          - { os: macos,   arch: arm64, labels: [self-hosted, macos, arm64] }
-          - { os: windows, arch: x64,   labels: [self-hosted, windows, x64] }
-    runs-on: ${{ matrix.labels }}
-    timeout-minutes: 30
+          - { os: linux,   arch: x64,   runner: ubuntu-latest,      timeout: 30 }
+          - { os: linux,   arch: arm64, runner: ubuntu-24.04-arm,   timeout: 30 }
+          - { os: macos,   arch: arm64, runner: macos-latest,       timeout: 45 }
+          - { os: windows, arch: x64,   runner: windows-latest,     timeout: 30 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Set up project
         shell: bash
         run: |
@@ -98,11 +110,40 @@ jobs:
           . .venv/bin/activate 2>/dev/null || . .venv/Scripts/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+      - name: Prepare macOS signing
+        if: matrix.os == 'macos' && needs.prep.outputs.dry_run != 'true'
+        shell: bash
+        env:
+          LLAMA_SIGNING_P12_BASE64: ${{ secrets.LLAMA_SIGNING_P12_BASE64 }}
+        run: |
+          set -euo pipefail
+          p12_path="$RUNNER_TEMP/signing.p12"
+          printf '%s' "$LLAMA_SIGNING_P12_BASE64" | base64 --decode > "$p12_path"
+          [ -s "$p12_path" ] || { echo "::error::decoded signing.p12 is empty"; exit 1; }
+          {
+            echo "LLAMA_SIGNING_P12=$p12_path"
+            echo "LLAMA_SIGNING_KEYCHAIN_PASSWORD=$(openssl rand -hex 24)"
+          } >> "$GITHUB_ENV"
+      - name: Install Trusted Signing dlib
+        if: matrix.os == 'windows' && needs.prep.outputs.dry_run != 'true'
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Trusted.Signing.Client -x -OutputDirectory "$env:RUNNER_TEMP\tsc"
+          $dest = "$env:LOCALAPPDATA\Microsoft\MicrosoftArtifactSigningClientTools"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path "$env:RUNNER_TEMP\tsc\Microsoft.Trusted.Signing.Client\bin\x64\*" -Destination $dest -Recurse -Force
       - name: Build
         shell: bash
         env:
           VER: ${{ needs.prep.outputs.version }}
           DRY: ${{ needs.prep.outputs.dry_run }}
+          LLAMA_CODESIGN_IDENTITY: ${{ matrix.os == 'macos' && secrets.LLAMA_CODESIGN_IDENTITY || '' }}
+          LLAMA_SIGNING_P12_PASSWORD: ${{ matrix.os == 'macos' && secrets.LLAMA_SIGNING_P12_PASSWORD || '' }}
+          LLAMA_NOTARY_APPLE_ID: ${{ matrix.os == 'macos' && secrets.LLAMA_NOTARY_APPLE_ID || '' }}
+          LLAMA_NOTARY_PASSWORD: ${{ matrix.os == 'macos' && secrets.LLAMA_NOTARY_PASSWORD || '' }}
+          AZURE_CLIENT_ID: ${{ matrix.os == 'windows' && secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_TENANT_ID: ${{ matrix.os == 'windows' && secrets.AZURE_TENANT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ matrix.os == 'windows' && secrets.AZURE_CLIENT_SECRET || '' }}
         run: |
           set -euo pipefail
           . .venv/bin/activate 2>/dev/null || source .venv/Scripts/activate
@@ -117,15 +158,14 @@ jobs:
           name: ${{ matrix.os }}-${{ matrix.arch }}
           path: dist-release/*
           if-no-files-found: error
-          # Only needed for minutes, until the release job attaches these to
-          # the GitHub Release; 90-day default would eat the private-repo
-          # Actions storage quota (~70MB/run against a 500MB free tier).
+          # Artifacts are only a short-lived handoff to the release job below,
+          # which attaches them to the GitHub Release; 1 day is plenty.
           retention-days: 1
 
   release:
     needs: [prep, build]
-    if: needs.prep.outputs.dry_run != 'true'
-    runs-on: [self-hosted, linux, x64]
+    if: needs.prep.outputs.dry_run != 'true' && needs.prep.outputs.skip_release != 'true'
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       GH_TOKEN: ${{ github.token }}
