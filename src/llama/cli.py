@@ -408,6 +408,8 @@ def show(
         raise typer.Exit(1)
     s = read_model(sws.show, Show)
     place = ", ".join(p for p in [s.venue, s.city] if p)
+    if s.venue_source == "jerrybase" and place:
+        place = f"{place} (venue from jerrybase)"
     date_str = s.date
     if s.date_source == "research" and s.item_date:
         date_str = f"{s.date} (item date {s.item_date}, corrected via research)"

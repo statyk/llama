@@ -988,3 +988,17 @@ def test_show_displays_corrected_date(tmp_path: Path):
     result = runner.invoke(cli.app, ["show", str(sws.dir), "--config", cfg])
     assert result.exit_code == 0, result.output
     assert "1976-02-08 (item date 1976-01-01, corrected via research)" in result.output
+
+
+def test_show_displays_jerrybase_venue_provenance(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = ShowWorkspace(tmp_path / "shows" / "gd-1977-05-08")
+    write_artifact(sws.show, Show(
+        performance_id="GratefulDead/1977-05-08", identifier="gd77",
+        artist="Grateful Dead", date="1977-05-08",
+        venue="Barton Hall, Cornell University", city="Ithaca",
+        venue_source="jerrybase"))
+    result = runner.invoke(cli.app, ["show", str(sws.dir), "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "(venue from jerrybase)" in result.output
