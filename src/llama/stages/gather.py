@@ -11,11 +11,26 @@ from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
                           SourcedParse, StructureInfo)
 from llama.setlist import parse_setlist
 from llama.structure import (align, apply_llm_alignment, blend_segues,
-                             from_setlistfm, rank_parses, structure_guard)
+                             from_setlistfm, norm_title, rank_parses, structure_guard)
 from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_breaks
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
 log = logging.getLogger("llama")
+
+
+_EVENT_SUFFIX = re.compile(r"/e(\d+)$")
+
+
+def _event_kind(pid: str) -> tuple[str | None, int | None]:
+    """Read the per-event grouping suffix: ('event', N) | ('spans', None) |
+    ('unassigned', None) | (None, None)."""
+    m = _EVENT_SUFFIX.search(pid)
+    if m:
+        return "event", int(m.group(1))
+    tail = pid.rsplit("/", 1)[-1]
+    if tail in ("spans", "unassigned"):
+        return tail, None
+    return None, None
 
 
 def _norm_place(s: str) -> str:
@@ -138,8 +153,17 @@ def run_gather(
     tracks = resolve_titles(kept, canonical, sibling_titles=siblings)
 
     # Jerrybase structure evidence (no-op for artists absent from the dataset).
+    # A per-event candidate (/eN) selects events[N-1] for every evidence check.
     events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
-    event = events[0] if len(events) == 1 else None
+    kind, n = _event_kind(candidate.performance_id)
+    if kind == "event" and events and 1 <= n <= len(events):
+        event = events[n - 1]
+    elif kind == "event":
+        event = None
+    elif len(events) == 1:
+        event = events[0]
+    else:
+        event = None
 
     result = align(tracks, canonical)
     alignment = "deterministic"
@@ -173,10 +197,24 @@ def run_gather(
               for t, s, g in zip(tracks, result.sets, result.segues)]
     breaks = set_breaks(tracks)
 
-    # Multi-event tripwire (groundwork only: identity/ledger unchanged here).
-    if len(events) > 1:
+    # Multi-event handling. Held grouping catch-alls flag directly; an
+    # unpartitioned multi-event date keeps the blanket flag (defensive); a
+    # per-event candidate whose aligned tracks span >1 event was mislabeled.
+    if kind == "spans":
+        flags.append(f"tape spans {len(events)} events")
+    elif kind == "unassigned":
+        flags.append("unassigned multi-event recordings")
+    elif kind is None and len(events) > 1:
         venue_list = ", ".join(sorted({e.venue for e in events}))
         flags.append(f"multi-event date: {len(events)} jerrybase events at {venue_list}")
+    elif kind == "event" and len(events) > 1:
+        spanned = sum(
+            1 for ev in events
+            if any(norm_title(t.title) == norm_title(s.closer)
+                   for s in ev.sets for t in tracks)
+        )
+        if spanned > 1:
+            flags.append(f"tape spans {len(events)} events")
 
     # Venue enrichment + cross-check (single-event only; never overwrite a venue).
     venue, city, venue_source = candidate.venue, candidate.city, "item"

@@ -350,3 +350,63 @@ def test_gather_jerrybase_disabled_is_noop(tmp_path, monkeypatch):
                       jerrybase_enabled=False)
     assert show.needs_review is False
     assert show.venue_source == "item"
+
+
+def _event_candidate(suffix):
+    c = make_candidate()
+    c.performance_id = f"GratefulDead/1973-06-10/{suffix}"
+    return c
+
+
+def test_gather_event_suffix_selects_right_event(tmp_path, monkeypatch):
+    # e2's closers are gd73's real set-ends; e1's are songs gd73 never played.
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [
+        _jb_event([("Bertha", "1"), ("Truckin", "2")], venue="Fillmore East", city="New York"),
+        _jb_event([("I Know You Rider", "1"), ("Eyes of the World", "2"),
+                   ("Johnny B. Goode", "encore")], venue="Fillmore West", city="San Francisco"),
+    ])
+    cand = _event_candidate("e2")
+    cand.venue = None
+    cand.city = None
+    show = run_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(), cand, IDENT,
+                      jerrybase_enabled=True)
+    assert show.venue == "Fillmore West"          # events[1] selected, not events[0]
+    assert show.venue_source == "jerrybase"
+    assert not any(f.startswith("multi-event date") for f in show.review_flags)
+    assert not any("tape spans" in f for f in show.review_flags)
+    assert show.needs_review is False
+
+
+def test_gather_flags_tape_that_spans_events(tmp_path, monkeypatch):
+    # /e1 candidate, but tracks carry closers from BOTH events -> mislabeled tape.
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [
+        _jb_event([("I Know You Rider", "1"), ("Eyes of the World", "2"),
+                   ("Johnny B. Goode", "encore")]),
+        _jb_event([("Morning Dew", "1")]),
+    ])
+    show = run_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(),
+                      _event_candidate("e1"), IDENT, jerrybase_enabled=True)
+    assert show.needs_review is True
+    assert "tape spans 2 events" in show.review_flags
+
+
+def test_gather_spans_candidate_flag(tmp_path, monkeypatch):
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [
+        _jb_event([("Turn On Your Lovelight", "1")]),
+        _jb_event([("And We Bid You Good Night", "1")]),
+    ])
+    show = run_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(),
+                      _event_candidate("spans"), IDENT, jerrybase_enabled=True)
+    assert show.needs_review is True
+    assert "tape spans 2 events" in show.review_flags
+
+
+def test_gather_unassigned_candidate_flag(tmp_path, monkeypatch):
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [
+        _jb_event([("Turn On Your Lovelight", "1")]),
+        _jb_event([("And We Bid You Good Night", "1")]),
+    ])
+    show = run_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(),
+                      _event_candidate("unassigned"), IDENT, jerrybase_enabled=True)
+    assert show.needs_review is True
+    assert "unassigned multi-event recordings" in show.review_flags
