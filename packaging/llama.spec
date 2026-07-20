@@ -69,7 +69,7 @@ if sys.platform == "win32":
 
 # The one mandatory bundling step: prompt templates are loaded at runtime via
 # importlib.resources.files("llama.prompts").
-datas = collect_data_files("llama.prompts")
+datas = collect_data_files("llama.prompts") + collect_data_files("llama.data")
 
 a = Analysis(  # type: ignore[name-defined]
     [str(PROJECT_ROOT / "src" / "llama" / "__main__.py")],

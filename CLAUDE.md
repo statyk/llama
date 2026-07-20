@@ -59,8 +59,15 @@ failed validation's final retry escalates one tier (pins never escalate).
   (optional, key via `SETLISTFM_API_KEY` or `[setlistfm] api_key`; absent key
   = best-effort LMA-only) and aligns it onto the chosen recording's tracks
   (`structure.py`), falling back to the `align_structure` LLM touchpoint for
-  messy alignments. Nine named touchpoints, each with a prompt template file
-  under `prompts/` and a Pydantic output schema. LLM calls live only at stage
+  messy alignments. Structure evidence for the Garcia universe also comes from
+  a vendored, offline jerrybase-derived dataset
+  (`src/llama/data/set_breaks.csv`, GPL-3.0 from deadstream; refresh via
+  `scripts/refresh_jerrybase.py`): gather uses it after alignment as a
+  tripwire (multi-event dates, venue mismatch, contradicted set breaks, wrong
+  set count) and a deterministic break-anchoring corrector, never as a
+  setlist source (`[jerrybase] enabled`, default on). Nine named touchpoints,
+  each with a prompt template file under `prompts/` and a Pydantic output
+  schema. LLM calls live only at stage
   boundaries — everything else is deterministic.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
