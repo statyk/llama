@@ -97,8 +97,13 @@ the existing slugging. `llama show`/`status` display the pid as-is.
   single-event date unchanged.
 - Unit (gather): `/eN` candidate uses the right JerrybaseEvent for
   venue/closer/set-count checks; spans-both gather flag.
-- End-to-end (fake backend): a 1970-02-14 run produces two independent
-  candidates → two packages with distinct pids, slugs, ledger entries.
+- End-to-end (fake backend): a 1970-02-14 run produces independent
+  per-event candidates with distinct pids, slugs, and ledger entries.
+  Data reality (verified against archive.org): no early-show-only
+  recording of 1970-02-14 exists — the early set survives only inside
+  complete-evening tapes — so the integration proof is a clean `/e2`
+  package plus a held `/spans` candidate, which exercises the same
+  identity mechanism.
 
 ## Out of scope
 
