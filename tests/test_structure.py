@@ -276,3 +276,34 @@ def test_apply_llm_alignment_rejects_bad_indices_or_sets():
     bad_set = AlignedStructure(tracks=[AlignedTrack(index=1, set="1"),
                                        AlignedTrack(index=2, set="afterparty")])
     assert apply_llm_alignment(tracks, bad_set) is None
+
+
+import pytest
+
+from llama.structure import venues_equivalent
+
+
+@pytest.mark.parametrize("a,b", [
+    ("RFK Stadium", "Robert F. Kennedy Stadium"),   # initialism + shared tail
+    ("MSG", "Madison Square Garden"),               # bare initialism
+    ("Winterland", "Winterland Arena"),             # token subset
+    ("Barton Hall", "Barton Hall, Cornell University"),  # subset, city/school tail
+    ("Fillmore Aud", "Fillmore Auditorium"),        # abbreviation expansion
+    ("Fillmore East", "Fillmore East (New York)"),  # parenthetical tail dropped
+    ("Fillmore Theatre", "Fillmore Theater"),       # theatre/theater
+    ("The Spectrum", "Spectrum"),                   # stopword dropped
+    ("RFK Stadium", "RFK Stadium"),                 # identity
+])
+def test_venues_equivalent_true(a, b):
+    assert venues_equivalent(a, b)
+    assert venues_equivalent(b, a)   # symmetric
+
+
+@pytest.mark.parametrize("a,b", [
+    ("Fillmore East", "Fillmore West"),             # different halls
+    ("Boston Garden", "Boston Music Hall"),         # different venues, shared city
+    ("Winterland", "Warfield"),                     # unrelated
+])
+def test_venues_not_equivalent(a, b):
+    assert not venues_equivalent(a, b)
+    assert not venues_equivalent(b, a)

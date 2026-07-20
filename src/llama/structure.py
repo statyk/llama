@@ -32,6 +32,87 @@ def norm_title(title: str) -> str:
     return normalize_song(_STRUCTURE_PREFIX.sub("", title))
 
 
+# --- Venue equivalence (jerrybase venue-mismatch tripwire) -------------------
+# Conservative, deterministic, offline. Only high-confidence equivalences
+# auto-pass; when uncertain, callers still flag. No fuzzy scoring, no aliases.
+
+# Connective/positional tokens dropped before comparison.
+_PLACE_STOPWORDS = {"the", "at", "of", "and"}
+
+# Token-wise abbreviation expansions applied before matching. Each token maps to
+# the set of full forms it may stand for; two tokens are equal when their
+# expansion sets intersect ("st" is ambiguous, so any matching expansion counts).
+_PLACE_ABBREV = {
+    "aud": {"auditorium"},
+    "theatre": {"theater"},
+    "theater": {"theater"},
+    "univ": {"university"},
+    "coll": {"college"},
+    "mem": {"memorial"},
+    "ctr": {"center"},
+    "cntr": {"center"},
+    "gym": {"gymnasium"},
+    "st": {"street", "state"},
+}
+
+
+def _place_tokens(s: str) -> list[str]:
+    """Shared venue tokenizer: lowercase, alphanumerics only, stopwords dropped.
+    (Replaces gather's old _norm_place; that folded to a joined string, this
+    keeps tokens for subset/initialism comparison.)"""
+    norm = re.sub(r"[^a-z0-9 ]", " ", (s or "").lower())
+    return [t for t in norm.split() if t not in _PLACE_STOPWORDS]
+
+
+def _tokens_equal(a: str, b: str) -> bool:
+    return a == b or bool(_PLACE_ABBREV.get(a, {a}) & _PLACE_ABBREV.get(b, {b}))
+
+
+def _token_subset(sub: list[str], sup: list[str]) -> bool:
+    return bool(sub) and all(any(_tokens_equal(x, y) for y in sup) for x in sub)
+
+
+def _acronym_match(short: list[str], long: list[str]) -> bool:
+    """True if `short`'s tokens match `long`'s in order, where a short token may
+    be an initialism (>=2 letters) spelling a contiguous run of long tokens:
+    [rfk, stadium] matches [robert, f, kennedy, stadium]."""
+    i = j = 0
+    while i < len(short) and j < len(long):
+        s = short[i]
+        if _tokens_equal(s, long[j]):
+            i += 1
+            j += 1
+            continue
+        if len(s) >= 2 and s.isalpha():
+            run = 0
+            k = j
+            while k < len(long) and run < len(s) and long[k][0] == s[run]:
+                run += 1
+                k += 1
+            if run == len(s):
+                i += 1
+                j = k
+                continue
+        return False
+    return i == len(short) and j == len(long)
+
+
+def venues_equivalent(a: str, b: str) -> bool:
+    """Conservative venue-name equivalence for the jerrybase tripwire. Equivalent
+    iff (after tokenizing and dropping stopwords) one token set is a subset of
+    the other, or one side's initialism spells the other (RFK <-> Robert F.
+    Kennedy). Abbreviations (aud/auditorium, theatre/theater, ...) are folded in
+    token-wise. Anything less certain returns False so the caller still flags."""
+    ta, tb = _place_tokens(a), _place_tokens(b)
+    if not ta and not tb:
+        return True
+    if not ta or not tb:
+        return False
+    if _token_subset(ta, tb) or _token_subset(tb, ta):
+        return True
+    return _acronym_match(ta, tb) or _acronym_match(tb, ta)
+
+
 def from_setlistfm(raw: dict) -> ParsedSetlist | None:
     sets = (raw.get("sets") or {}).get("set") or []
     items: list[SetlistItem] = []
