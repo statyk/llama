@@ -81,3 +81,16 @@ def test_run_search_fans_out_per_artist(tmp_path: Path):
 def test_search_requests_downloads_field():
     from llama.stages.search import SEARCH_FIELDS
     assert "downloads" in SEARCH_FIELDS
+
+
+def test_run_search_splits_multi_event_when_enabled(tmp_path: Path):
+    docs = [{"identifier": "gd1970-02-14.late.sbd", "date": "1970-02-14T00:00:00Z",
+             "venue": "Fillmore East", "description": "Casey Jones ... And We Bid You Good Night"}]
+    ia = StubIA(docs)
+    on = run_search(RunWorkspace(tmp_path / "on", "r"), ia,
+                    Criteria(query="q", collection="GratefulDead"), jerrybase_enabled=True)
+    assert [c.performance_id for c in on] == ["GratefulDead/1970-02-14/e2"]
+
+    off = run_search(RunWorkspace(tmp_path / "off", "r"), StubIA(docs),
+                     Criteria(query="q", collection="GratefulDead"), jerrybase_enabled=False)
+    assert [c.performance_id for c in off] == ["GratefulDead/1970-02-14/late"]
