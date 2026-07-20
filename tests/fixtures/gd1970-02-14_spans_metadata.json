@@ -1,0 +1,2025 @@
+{
+  "metadata": {
+    "identifier": "gd1970-02-14.sbd.miller.97644.flac16",
+    "title": "Grateful Dead Live at Fillmore East on 1970-02-14",
+    "creator": "Grateful Dead",
+    "mediatype": "etree",
+    "collection": [
+      "GratefulDead",
+      "etree",
+      "stream_only"
+    ],
+    "type": "sound",
+    "description": "Early Show: \nSet 1: Introduction; Cold Rain And Snow; Dark Star > Saint Stephen > The Eleven > Turn On Your Lovelight\n\nLate Show:\nSet 1: Introduction; Casey Jones; Mama Tried; Hard To Handle\n\nSet 2: Monkey And The Engineer; Dark Hollow; I've Been All Around This World; Wake Up Little Susie > Black Peter; Uncle John's Band; Katie Mae\n\nSet 3: Dancing In The Street; China Cat Sunflower > I Know You Rider > High Time > Dire Wolf Alligator > Drums > Me And My Uncle > Not Fade Away > Mason's Children > Caution (Do Not Stop On Tracks) > Feedback > And We Bid You Good Night",
+    "date": "1970-02-14",
+    "year": "1970",
+    "subject": "Soundboard;Charlie Miller",
+    "publicdate": "2009-03-05 04:38:53",
+    "addeddate": "2009-03-03 01:10:57",
+    "uploader": "mvernon54@yahoo.com",
+    "updater": [
+      "Matthew Vernon",
+      "Matthew Vernon",
+      "Matthew Vernon",
+      "Matthew Vernon"
+    ],
+    "updatedate": [
+      "2009-03-05 04:43:06",
+      "2009-03-05 14:54:36",
+      "2009-08-23 16:05:19",
+      "2009-08-23 16:50:05"
+    ],
+    "venue": "Fillmore East",
+    "coverage": "New York , NY",
+    "source": "SBD -> Master Reel (7 inch 1/2 Track at 15ips) -> Dat (48k)",
+    "lineage": "Dat (Sony R500) -> Sound Devices 744T -> Samplitude Professional v10.2 -> FLAC",
+    "transferer": "Charlie Miller",
+    "runtime": "227:07",
+    "md5s": "2ca0e8b67dd8966e0906b1cc324c95aa *gd70-02-14d1t01.flac\r\na547fb5b10c2c15b6e08e56f01b87fb9 *gd70-02-14d1t02.flac\r\n24ee48fd856c3359227e2285c03f5f6a *gd70-02-14d1t03.flac\r\nf5863a56d8e33a760b504e4f8d5140dd *gd70-02-14d1t04.flac\r\n1a3e3a0f60e42a81b183ef380b0ba893 *gd70-02-14d1t05.flac\r\na9e79001835f3d8f3100b25116f119a1 *gd70-02-14d1t06.flac\r\n1de6e90a6d21c73b0230ff35d237f23c *gd70-02-14d2t01.flac\r\n9f6b0e45f3368b75f94d747f6780db1f *gd70-02-14d2t02.flac\r\n5203128b8dea14fa90a74ddd46514eb8 *gd70-02-14d2t03.flac\r\nceb0c8e1aa5cedfb28d8614ec8915d05 *gd70-02-14d2t04.flac\r\n42c61f1397a54d7ef6c8db51990fd791 *gd70-02-14d2t05.flac\r\n6f0763ae25fb2952106aa6cbb10c10e1 *gd70-02-14d2t06.flac\r\n3116cf2d4c22dd7cae5856f59390bbba *gd70-02-14d2t07.flac\r\n9cd324f0d242592b06d3acbff8269af6 *gd70-02-14d2t08.flac\r\n8ece627a0a613e377c0902175421a484 *gd70-02-14d2t09.flac\r\n660410da8025edb3bd843929f2a66f3e *gd70-02-14d2t10.flac\r\n04d93d79f27b9e206bc642d4f30517b0 *gd70-02-14d2t11.flac\r\n0eadf44c90b38ffbcc7a8ab5104427ff *gd70-02-14d3t01.flac\r\n6ee60c5f4e5e1953029fc13bdbcb8102 *gd70-02-14d3t02.flac\r\nd7e3608af1876ab13a7ea286a6d7e894 *gd70-02-14d3t03.flac\r\n01ea1e5827cd8616674392c9001e4cdf *gd70-02-14d3t04.flac\r\n090e5b0e25cddd10c76d59cfc40908dc *gd70-02-14d3t05.flac\r\n908bb6f36f9728574c13450da1441f77 *gd70-02-14d4t01.flac\r\n59215f6b256ae2510b23c1add4daa7b0 *gd70-02-14d4t02.flac\r\n5115e5888fe357f51814495100bc330e *gd70-02-14d4t03.flac\r\nf8d61d383d2e13d1246ab0c321de4700 *gd70-02-14d4t04.flac\r\na3d22d96f3676b51243ab4187f94d3b4 *gd70-02-14d4t05.flac\r\ncc405deb6243f8f98afec7486cfb2de1 *gd70-02-14d4t06.flac\r\n4953b10070885505cb3fea06a0816082 *gd70-02-14d4t07.flac\r\n50f7630f12d6ef956e09572cfb4fd7ee *gd70-02-14d4t08.flac",
+    "notes": "-- All late show disc changes are seamless\n-- Thanks to Rob Eaton for lending me his Dats\n-- Late show between song tunings patched from shnid=18115\n-- Unpatched reel flip between Saint Stephen and The Eleven",
+    "post_text": "This show has been commercially released as \"Dick's Picks 4\"",
+    "backup_location": "ia903602_30",
+    "access-restricted-item": "true"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "JPEG Thumb",
+      "md5": "720362dc24e51749f029dd01a0fd1cf5"
+    },
+    {
+      "name": "flac-md5.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "3aa5111e861fb37129edf23accb51e55"
+    },
+    {
+      "name": "gd1970-02-14.97644.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "94d7b719531da46da36ae5f69e392798"
+    },
+    {
+      "name": "gd1970-02-14.sbd.miller.97644.flac16_archive.torrent",
+      "source": "original",
+      "format": "Archive BitTorrent",
+      "md5": "b90acad44e90b94cd054765f05a9a713"
+    },
+    {
+      "name": "gd1970-02-14.sbd.miller.97644.flac16_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "1d51c235ed262e2f1b452521211074c5"
+    },
+    {
+      "name": "gd1970-02-14.sbd.miller.97644.flac16_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "1640931224e2303f7c867dc6b35d8e7c"
+    },
+    {
+      "name": "gd1970-02-14.sbd.miller.97644.flac16_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "cff9c37ba80646e1b7da8f69e83747ff"
+    },
+    {
+      "name": "gd70-02-14d1t01.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d1t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "1fd8ab8e539d88cb5e0fb9d085fc814e"
+    },
+    {
+      "name": "gd70-02-14d1t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "51.22",
+      "md5": "2ca0e8b67dd8966e0906b1cc324c95aa",
+      "title": "Introduction"
+    },
+    {
+      "name": "gd70-02-14d1t01.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d1t01.flac",
+      "format": "VBR MP3",
+      "length": "00:51",
+      "md5": "a2a8b935a959e11fd1c945084baf328e",
+      "title": "Introduction"
+    },
+    {
+      "name": "gd70-02-14d1t01.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d1t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "51.23",
+      "md5": "7e4c987c20464faf67b67c3fe04c7507"
+    },
+    {
+      "name": "gd70-02-14d1t01.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t01.flac",
+      "format": "PNG",
+      "md5": "01fc12a6556b7059ea6ce9205246e5d9"
+    },
+    {
+      "name": "gd70-02-14d1t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "bbf761d553908db981b908c60dd08d40"
+    },
+    {
+      "name": "gd70-02-14d1t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "dc7fb38fb502cfa38e131d429d9e9907"
+    },
+    {
+      "name": "gd70-02-14d1t01_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t01.flac",
+      "format": "Spectrogram",
+      "md5": "e9201f002e3a7f31b8bfac8f95c1138e"
+    },
+    {
+      "name": "gd70-02-14d1t02.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d1t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "c4d2e6f4a8dcfc489dfddfb70714a081"
+    },
+    {
+      "name": "gd70-02-14d1t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "504.44",
+      "md5": "a547fb5b10c2c15b6e08e56f01b87fb9",
+      "title": "Cold Rain And Snow"
+    },
+    {
+      "name": "gd70-02-14d1t02.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d1t02.flac",
+      "format": "VBR MP3",
+      "length": "08:24",
+      "md5": "0b7a7495355e9aff0306e4e91cea1088",
+      "title": "Cold Rain And Snow"
+    },
+    {
+      "name": "gd70-02-14d1t02.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d1t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "504.44",
+      "md5": "47c3f5e861450580a14466bd8af1b449"
+    },
+    {
+      "name": "gd70-02-14d1t02.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t02.flac",
+      "format": "PNG",
+      "md5": "8bd4a5f172cdb797af89b435a4b26aae"
+    },
+    {
+      "name": "gd70-02-14d1t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "aaee0c1f448f38d38a8d3f38926f961d"
+    },
+    {
+      "name": "gd70-02-14d1t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "a3846977f05bd4dbd2ac6db818e5740f"
+    },
+    {
+      "name": "gd70-02-14d1t02_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t02.flac",
+      "format": "Spectrogram",
+      "md5": "1a209fcebc8cd3f788536920960ed238"
+    },
+    {
+      "name": "gd70-02-14d1t03.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d1t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "aff38e63ffe1bf59ff4d40198c00d969"
+    },
+    {
+      "name": "gd70-02-14d1t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "1416.98",
+      "md5": "24ee48fd856c3359227e2285c03f5f6a",
+      "title": "Dark Star ->"
+    },
+    {
+      "name": "gd70-02-14d1t03.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d1t03.flac",
+      "format": "VBR MP3",
+      "length": "23:37",
+      "md5": "42754015d070afd907620a7ba1e68c3b",
+      "title": "Dark Star ->"
+    },
+    {
+      "name": "gd70-02-14d1t03.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d1t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "1416.99",
+      "md5": "087741c412eab465cbb925c9f0fd611c"
+    },
+    {
+      "name": "gd70-02-14d1t03.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t03.flac",
+      "format": "PNG",
+      "md5": "5648e5705b3a0f538b2c13f8acde1dae"
+    },
+    {
+      "name": "gd70-02-14d1t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "6a227997a73df4b31fef6b7777766f61"
+    },
+    {
+      "name": "gd70-02-14d1t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "cccb607d1f59e70eeece8519dcfba5f8"
+    },
+    {
+      "name": "gd70-02-14d1t03_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t03.flac",
+      "format": "Spectrogram",
+      "md5": "3fb6206a1d7ed15b8183d1fc0a23f0b9"
+    },
+    {
+      "name": "gd70-02-14d1t04.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d1t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "bb4b09b1c0add9ff32c1bc2855278b44"
+    },
+    {
+      "name": "gd70-02-14d1t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "402.3",
+      "md5": "f5863a56d8e33a760b504e4f8d5140dd",
+      "title": "Saint Stephen ->"
+    },
+    {
+      "name": "gd70-02-14d1t04.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d1t04.flac",
+      "format": "VBR MP3",
+      "length": "06:42",
+      "md5": "6da07cc348e20a29d18af671bdeb08a0",
+      "title": "Saint Stephen ->"
+    },
+    {
+      "name": "gd70-02-14d1t04.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d1t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "402.31",
+      "md5": "e638f45140522034b91eb5182f2b89ab"
+    },
+    {
+      "name": "gd70-02-14d1t04.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t04.flac",
+      "format": "PNG",
+      "md5": "53b536d704268583c4081166a533e8a2"
+    },
+    {
+      "name": "gd70-02-14d1t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "4b79c8767df6dabb184f45c34b4cfc87"
+    },
+    {
+      "name": "gd70-02-14d1t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "b7e640088a812a938d0199471b8bdd6f"
+    },
+    {
+      "name": "gd70-02-14d1t04_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t04.flac",
+      "format": "Spectrogram",
+      "md5": "907eb6741313ba983f2fed892ebdf386"
+    },
+    {
+      "name": "gd70-02-14d1t05.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d1t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "81308c26c16e10c3294e226622cae60b"
+    },
+    {
+      "name": "gd70-02-14d1t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "532.66",
+      "md5": "1a3e3a0f60e42a81b183ef380b0ba893",
+      "title": "The Eleven ->"
+    },
+    {
+      "name": "gd70-02-14d1t05.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d1t05.flac",
+      "format": "VBR MP3",
+      "length": "08:52",
+      "md5": "c5460fe526af2eda4cf5592268d1202c",
+      "title": "The Eleven ->"
+    },
+    {
+      "name": "gd70-02-14d1t05.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d1t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "532.67",
+      "md5": "5d01b2ebe398d2ce5b045ccd60e27168"
+    },
+    {
+      "name": "gd70-02-14d1t05.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t05.flac",
+      "format": "PNG",
+      "md5": "ebfc29bccf8aa4a6c11b199e23f5d28e"
+    },
+    {
+      "name": "gd70-02-14d1t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "3194266d573a94b384c4a2fcd277b1e2"
+    },
+    {
+      "name": "gd70-02-14d1t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "de1bccd7bcfd8a3d2662d9fa5b614e0c"
+    },
+    {
+      "name": "gd70-02-14d1t05_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t05.flac",
+      "format": "Spectrogram",
+      "md5": "52f8066f367f7ba9a9788b3090b52957"
+    },
+    {
+      "name": "gd70-02-14d1t06.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d1t06.flac",
+      "format": "Columbia Peaks",
+      "md5": "eb96ed14e9c01f8a129fb6edb7ab8b49"
+    },
+    {
+      "name": "gd70-02-14d1t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "1448.25",
+      "md5": "a9e79001835f3d8f3100b25116f119a1",
+      "title": "Turn On Your Lovelight"
+    },
+    {
+      "name": "gd70-02-14d1t06.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d1t06.flac",
+      "format": "VBR MP3",
+      "length": "24:08",
+      "md5": "07399310dbb26667c066362bac111519",
+      "title": "Turn On Your Lovelight"
+    },
+    {
+      "name": "gd70-02-14d1t06.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d1t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "1448.25",
+      "md5": "d173c472ca434c4a3b4d4534320648ba"
+    },
+    {
+      "name": "gd70-02-14d1t06.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t06.flac",
+      "format": "PNG",
+      "md5": "e9f52efcb22956d987589c4abaa5c144"
+    },
+    {
+      "name": "gd70-02-14d1t06_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t06_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "4cf813de4829b18a69c59421f1646880"
+    },
+    {
+      "name": "gd70-02-14d1t06_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d1t06.flac",
+      "format": "Essentia Low GZ",
+      "md5": "2963379f4c5d198f05fb146d4b6ca081"
+    },
+    {
+      "name": "gd70-02-14d1t06_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d1t06.flac",
+      "format": "Spectrogram",
+      "md5": "97e99f951ee852d1f31759ada3be951e"
+    },
+    {
+      "name": "gd70-02-14d2t01.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "340b6785e6224ab800384d1fb8ba0c94"
+    },
+    {
+      "name": "gd70-02-14d2t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "237.18",
+      "md5": "1de6e90a6d21c73b0230ff35d237f23c",
+      "title": "Introduction"
+    },
+    {
+      "name": "gd70-02-14d2t01.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t01.flac",
+      "format": "VBR MP3",
+      "length": "03:57",
+      "md5": "0ee9904bc3caf7c2874b55ebbb734962",
+      "title": "Introduction"
+    },
+    {
+      "name": "gd70-02-14d2t01.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "237.19",
+      "md5": "c3f6de87757a36ed74492412e2e474c3"
+    },
+    {
+      "name": "gd70-02-14d2t01.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t01.flac",
+      "format": "PNG",
+      "md5": "beaf16dc14ae9b1a8ef0db9112215ca9"
+    },
+    {
+      "name": "gd70-02-14d2t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "b36db44654a1ca62d80363e42a170b7e"
+    },
+    {
+      "name": "gd70-02-14d2t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "7898ad0be87e6f019df5af1f1644d2d0"
+    },
+    {
+      "name": "gd70-02-14d2t01_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t01.flac",
+      "format": "Spectrogram",
+      "md5": "8cda99f3a6f17f9b243dc8204045062a"
+    },
+    {
+      "name": "gd70-02-14d2t02.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "a40e60aa4d9f80478319feab2b2613af"
+    },
+    {
+      "name": "gd70-02-14d2t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "261.25",
+      "md5": "9f6b0e45f3368b75f94d747f6780db1f",
+      "title": "Casey Jones"
+    },
+    {
+      "name": "gd70-02-14d2t02.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t02.flac",
+      "format": "VBR MP3",
+      "length": "04:21",
+      "md5": "aaa1c9d3e33e7ab9d2261efd9edeb578",
+      "title": "Casey Jones"
+    },
+    {
+      "name": "gd70-02-14d2t02.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "261.25",
+      "md5": "0adb3b672571d897250b45252caa9a53"
+    },
+    {
+      "name": "gd70-02-14d2t02.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t02.flac",
+      "format": "PNG",
+      "md5": "ca6ed6c7f4ab242c3e7ec0c0ed37e7a0"
+    },
+    {
+      "name": "gd70-02-14d2t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "8293debb9f49e7ef744137b0c6d59c87"
+    },
+    {
+      "name": "gd70-02-14d2t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "3b2b07159be84b0b053a69c54a2ffc28"
+    },
+    {
+      "name": "gd70-02-14d2t02_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t02.flac",
+      "format": "Spectrogram",
+      "md5": "c935ad3a1c88d83933adefaf53c13a22"
+    },
+    {
+      "name": "gd70-02-14d2t03.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "f59bc2c7b9b1f81810602086a55b6461"
+    },
+    {
+      "name": "gd70-02-14d2t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "237.64",
+      "md5": "5203128b8dea14fa90a74ddd46514eb8",
+      "title": "Mama Tried"
+    },
+    {
+      "name": "gd70-02-14d2t03.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t03.flac",
+      "format": "VBR MP3",
+      "length": "03:57",
+      "md5": "d12411e8125e839c610db4f38fed3f85",
+      "title": "Mama Tried"
+    },
+    {
+      "name": "gd70-02-14d2t03.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "237.64",
+      "md5": "090da732ed832046ce9e9078349fb903"
+    },
+    {
+      "name": "gd70-02-14d2t03.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t03.flac",
+      "format": "PNG",
+      "md5": "6907a4122587706d2b270182ea5ed141"
+    },
+    {
+      "name": "gd70-02-14d2t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "f61df54d0c737236f2a51f900395a8ab"
+    },
+    {
+      "name": "gd70-02-14d2t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "8227587eb29bb749c7d093a9702aa68f"
+    },
+    {
+      "name": "gd70-02-14d2t03_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t03.flac",
+      "format": "Spectrogram",
+      "md5": "c986209af194012ddd1321218ef52825"
+    },
+    {
+      "name": "gd70-02-14d2t04.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "506de807bf019006a1223e9c9e9de595"
+    },
+    {
+      "name": "gd70-02-14d2t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "810.54",
+      "md5": "ceb0c8e1aa5cedfb28d8614ec8915d05",
+      "title": "Hard To Handle"
+    },
+    {
+      "name": "gd70-02-14d2t04.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t04.flac",
+      "format": "VBR MP3",
+      "length": "13:30",
+      "md5": "10f6c83d191a95d42d308304e696ffbe",
+      "title": "Hard To Handle"
+    },
+    {
+      "name": "gd70-02-14d2t04.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "810.55",
+      "md5": "a08ee15f9a22ad0c97f30240e9218afe"
+    },
+    {
+      "name": "gd70-02-14d2t04.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t04.flac",
+      "format": "PNG",
+      "md5": "b48dff799ca3ad5f2942405becf26304"
+    },
+    {
+      "name": "gd70-02-14d2t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "689c802bb686f4a046985b0caa212502"
+    },
+    {
+      "name": "gd70-02-14d2t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "91c01b98741fd996891200c5326b033a"
+    },
+    {
+      "name": "gd70-02-14d2t04_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t04.flac",
+      "format": "Spectrogram",
+      "md5": "80d02a564616e319aa18d57c00997f14"
+    },
+    {
+      "name": "gd70-02-14d2t05.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "c8d05dde55c41125b0eab3030fdb6996"
+    },
+    {
+      "name": "gd70-02-14d2t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "130.36",
+      "md5": "42c61f1397a54d7ef6c8db51990fd791",
+      "title": "Monkey And The Engineer"
+    },
+    {
+      "name": "gd70-02-14d2t05.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t05.flac",
+      "format": "VBR MP3",
+      "length": "02:10",
+      "md5": "91adb62e29e2c3e63e2d4cedefcf0365",
+      "title": "Monkey And The Engineer"
+    },
+    {
+      "name": "gd70-02-14d2t05.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "130.36",
+      "md5": "0caa108045bb5c7e9113246dd32fba1b"
+    },
+    {
+      "name": "gd70-02-14d2t05.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t05.flac",
+      "format": "PNG",
+      "md5": "c008b50f15a85b978600b9da2021a112"
+    },
+    {
+      "name": "gd70-02-14d2t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "47103933bf4fb7f1e95e459a0d4610c9"
+    },
+    {
+      "name": "gd70-02-14d2t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "592cdde90feda8fa7a04dd5d014a3a5d"
+    },
+    {
+      "name": "gd70-02-14d2t05_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t05.flac",
+      "format": "Spectrogram",
+      "md5": "f4ec2c1b97a6c2c40c6c058f8c97a638"
+    },
+    {
+      "name": "gd70-02-14d2t06.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t06.flac",
+      "format": "Columbia Peaks",
+      "md5": "911d3b37efddf94a62b0f91ce92a093b"
+    },
+    {
+      "name": "gd70-02-14d2t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "206.08",
+      "md5": "6f0763ae25fb2952106aa6cbb10c10e1",
+      "title": "Dark Hollow"
+    },
+    {
+      "name": "gd70-02-14d2t06.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t06.flac",
+      "format": "VBR MP3",
+      "length": "03:26",
+      "md5": "757bae1ddf1095821a424cd351eacae0",
+      "title": "Dark Hollow"
+    },
+    {
+      "name": "gd70-02-14d2t06.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "206.08",
+      "md5": "065dcc87c987d8a9e653652f2c67cc9c"
+    },
+    {
+      "name": "gd70-02-14d2t06.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t06.flac",
+      "format": "PNG",
+      "md5": "85819ad051ad94abce13bff0dd1f9d50"
+    },
+    {
+      "name": "gd70-02-14d2t06_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t06_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "4d56e14b7116904000ede1efe00e7a49"
+    },
+    {
+      "name": "gd70-02-14d2t06_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t06.flac",
+      "format": "Essentia Low GZ",
+      "md5": "039d5f29ae72bdc9c777342a12f7df27"
+    },
+    {
+      "name": "gd70-02-14d2t06_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t06.flac",
+      "format": "Spectrogram",
+      "md5": "9955effe278913448fe9877bc4596f86"
+    },
+    {
+      "name": "gd70-02-14d2t07.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t07.flac",
+      "format": "Columbia Peaks",
+      "md5": "8fa8f7391ca0d262ad06e8e411ccb3a5"
+    },
+    {
+      "name": "gd70-02-14d2t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "261.96",
+      "md5": "3116cf2d4c22dd7cae5856f59390bbba",
+      "title": "I've Been All Around This World"
+    },
+    {
+      "name": "gd70-02-14d2t07.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t07.flac",
+      "format": "VBR MP3",
+      "length": "04:22",
+      "md5": "ad3498d009e0c18ba834bdb8be3bd157",
+      "title": "I've Been All Around This World"
+    },
+    {
+      "name": "gd70-02-14d2t07.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "261.96",
+      "md5": "22d316e71d221535e9554ea2b5fcc2e4"
+    },
+    {
+      "name": "gd70-02-14d2t07.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t07.flac",
+      "format": "PNG",
+      "md5": "508f00decf14cbbbe547eca79ae69619"
+    },
+    {
+      "name": "gd70-02-14d2t07_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t07_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "71b653a1aca8e673ed87cdea571b4de7"
+    },
+    {
+      "name": "gd70-02-14d2t07_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t07.flac",
+      "format": "Essentia Low GZ",
+      "md5": "43d15bf8c9268a812feb82b01cd92767"
+    },
+    {
+      "name": "gd70-02-14d2t07_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t07.flac",
+      "format": "Spectrogram",
+      "md5": "402f4877084805eb2425ef30fbc4eb2e"
+    },
+    {
+      "name": "gd70-02-14d2t08.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t08.flac",
+      "format": "Columbia Peaks",
+      "md5": "8d0bd3be68d80d519e8f1253cadde606"
+    },
+    {
+      "name": "gd70-02-14d2t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "146.54",
+      "md5": "9cd324f0d242592b06d3acbff8269af6",
+      "title": "Wake Up Little Susie ->"
+    },
+    {
+      "name": "gd70-02-14d2t08.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t08.flac",
+      "format": "VBR MP3",
+      "length": "02:26",
+      "md5": "0c466f2f2e1cc6d63b52392f0a763de2",
+      "title": "Wake Up Little Susie ->"
+    },
+    {
+      "name": "gd70-02-14d2t08.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "146.55",
+      "md5": "b46d5ce80800b21331b8e478f752e1ba"
+    },
+    {
+      "name": "gd70-02-14d2t08.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t08.flac",
+      "format": "PNG",
+      "md5": "d48f1f6d3aa92ffcd75706ee36ab54fe"
+    },
+    {
+      "name": "gd70-02-14d2t08_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t08_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "aede394e9ad28bb67ea70fb131063f5b"
+    },
+    {
+      "name": "gd70-02-14d2t08_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t08.flac",
+      "format": "Essentia Low GZ",
+      "md5": "2bfb1f6fc44842065e4230a8137274a7"
+    },
+    {
+      "name": "gd70-02-14d2t08_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t08.flac",
+      "format": "Spectrogram",
+      "md5": "a8c5b83da479fed72df0c551b7232e4d"
+    },
+    {
+      "name": "gd70-02-14d2t09.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t09.flac",
+      "format": "Columbia Peaks",
+      "md5": "ecb34bf7a0d747e9697b0ea725aa7a76"
+    },
+    {
+      "name": "gd70-02-14d2t09.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "444.2",
+      "md5": "8ece627a0a613e377c0902175421a484",
+      "title": "Black Peter"
+    },
+    {
+      "name": "gd70-02-14d2t09.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t09.flac",
+      "format": "VBR MP3",
+      "length": "07:24",
+      "md5": "42729dc49414ff3ae11f480f7309a127",
+      "title": "Black Peter"
+    },
+    {
+      "name": "gd70-02-14d2t09.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t09.flac",
+      "format": "Ogg Vorbis",
+      "length": "444.2",
+      "md5": "05b93bd610ae73216ddc9dde4eb48370"
+    },
+    {
+      "name": "gd70-02-14d2t09.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t09.flac",
+      "format": "PNG",
+      "md5": "19458aefa01fa82e668a0d5badb1164d"
+    },
+    {
+      "name": "gd70-02-14d2t09_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t09_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "9ad76dc12260241097491ecb3c45a6ed"
+    },
+    {
+      "name": "gd70-02-14d2t09_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t09.flac",
+      "format": "Essentia Low GZ",
+      "md5": "9be5f38f04fb363e2bc69ee493d85930"
+    },
+    {
+      "name": "gd70-02-14d2t09_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t09.flac",
+      "format": "Spectrogram",
+      "md5": "0a30b9935fd66c40c9b211087a017384"
+    },
+    {
+      "name": "gd70-02-14d2t10.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t10.flac",
+      "format": "Columbia Peaks",
+      "md5": "fdb4d92a2cb371034c35a246bd878081"
+    },
+    {
+      "name": "gd70-02-14d2t10.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "505.61",
+      "md5": "660410da8025edb3bd843929f2a66f3e",
+      "title": "Uncle John's Band"
+    },
+    {
+      "name": "gd70-02-14d2t10.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t10.flac",
+      "format": "VBR MP3",
+      "length": "08:25",
+      "md5": "c41e09c8d1776de7191a3fda044c432a",
+      "title": "Uncle John's Band"
+    },
+    {
+      "name": "gd70-02-14d2t10.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t10.flac",
+      "format": "Ogg Vorbis",
+      "length": "505.61",
+      "md5": "9dac610de1673ae6d45c6f6a440f95d2"
+    },
+    {
+      "name": "gd70-02-14d2t10.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t10.flac",
+      "format": "PNG",
+      "md5": "fb5be1fce6ef05e6e7b4e24fa1b79d8e"
+    },
+    {
+      "name": "gd70-02-14d2t10_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t10_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "8a3664b55124f8d495f8a5c481d62411"
+    },
+    {
+      "name": "gd70-02-14d2t10_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t10.flac",
+      "format": "Essentia Low GZ",
+      "md5": "9b02b2de1ac20b6c3a9877f70769898e"
+    },
+    {
+      "name": "gd70-02-14d2t10_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t10.flac",
+      "format": "Spectrogram",
+      "md5": "8579bc4ffdb49ff57c4b42090967f1a8"
+    },
+    {
+      "name": "gd70-02-14d2t11.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d2t11.flac",
+      "format": "Columbia Peaks",
+      "md5": "9a084585568400da36e642e4bd32c56a"
+    },
+    {
+      "name": "gd70-02-14d2t11.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "326.18",
+      "md5": "04d93d79f27b9e206bc642d4f30517b0",
+      "title": "Katie Mae"
+    },
+    {
+      "name": "gd70-02-14d2t11.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d2t11.flac",
+      "format": "VBR MP3",
+      "length": "05:26",
+      "md5": "dff752c27d0855f5bef8acc7c803d6bb",
+      "title": "Katie Mae"
+    },
+    {
+      "name": "gd70-02-14d2t11.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d2t11.flac",
+      "format": "Ogg Vorbis",
+      "length": "326.19",
+      "md5": "37a90a402a1497c5335f1f1a235180d8"
+    },
+    {
+      "name": "gd70-02-14d2t11.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t11.flac",
+      "format": "PNG",
+      "md5": "f9d567752e5eabd07124f95ddc115146"
+    },
+    {
+      "name": "gd70-02-14d2t11_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t11_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "6cea53c493424e17e5dc423622d4f905"
+    },
+    {
+      "name": "gd70-02-14d2t11_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d2t11.flac",
+      "format": "Essentia Low GZ",
+      "md5": "4991f534e7d6879c451335d38de88e03"
+    },
+    {
+      "name": "gd70-02-14d2t11_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d2t11.flac",
+      "format": "Spectrogram",
+      "md5": "c89a63c309c7e8e2353b1f1d3b250e9b"
+    },
+    {
+      "name": "gd70-02-14d3t01.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d3t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "d2f2d93188dcf2c59d47a8cf279f7ed0"
+    },
+    {
+      "name": "gd70-02-14d3t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "579.18",
+      "md5": "0eadf44c90b38ffbcc7a8ab5104427ff",
+      "title": "Dancing In The Street"
+    },
+    {
+      "name": "gd70-02-14d3t01.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d3t01.flac",
+      "format": "VBR MP3",
+      "length": "09:39",
+      "md5": "31b397fba25c6ffd45917809e0cc8ee4",
+      "title": "Dancing In The Street"
+    },
+    {
+      "name": "gd70-02-14d3t01.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d3t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "579.19",
+      "md5": "ef4166723aeacdd3a57e296a2998cbe2"
+    },
+    {
+      "name": "gd70-02-14d3t01.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t01.flac",
+      "format": "PNG",
+      "md5": "9aec526e0186becffc1fdf2bd7c42a12"
+    },
+    {
+      "name": "gd70-02-14d3t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "0fe4e554712b9c182295f259068af6bc"
+    },
+    {
+      "name": "gd70-02-14d3t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "e5ac9f909e5e172dfa507820d7835d68"
+    },
+    {
+      "name": "gd70-02-14d3t01_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t01.flac",
+      "format": "Spectrogram",
+      "md5": "be7d667c956387336d0558d5a779fae1"
+    },
+    {
+      "name": "gd70-02-14d3t02.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d3t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "a4e683f54083f33d0a0e49a899c0d5b6"
+    },
+    {
+      "name": "gd70-02-14d3t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "289.28",
+      "md5": "6ee60c5f4e5e1953029fc13bdbcb8102",
+      "title": "China Cat Sunflower ->"
+    },
+    {
+      "name": "gd70-02-14d3t02.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d3t02.flac",
+      "format": "VBR MP3",
+      "length": "04:49",
+      "md5": "8eda8b1069445dc639f1cac405cbf1c2",
+      "title": "China Cat Sunflower ->"
+    },
+    {
+      "name": "gd70-02-14d3t02.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d3t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "289.28",
+      "md5": "83a10b4baeb85f8fc17f8b5a1a859c86"
+    },
+    {
+      "name": "gd70-02-14d3t02.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t02.flac",
+      "format": "PNG",
+      "md5": "68826d8a176e94c5d368baeaf69f9255"
+    },
+    {
+      "name": "gd70-02-14d3t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "fadb470aa515ee779593c307d4bc7392"
+    },
+    {
+      "name": "gd70-02-14d3t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "1586b3b87ac76aad35a269f869f60834"
+    },
+    {
+      "name": "gd70-02-14d3t02_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t02.flac",
+      "format": "Spectrogram",
+      "md5": "fef39d56bf4253f542d7a8336f7a3b6d"
+    },
+    {
+      "name": "gd70-02-14d3t03.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d3t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "e8610a2a2f7098bd5bed75007e807e2d"
+    },
+    {
+      "name": "gd70-02-14d3t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "315.25",
+      "md5": "d7e3608af1876ab13a7ea286a6d7e894",
+      "title": "I Know You Rider ->"
+    },
+    {
+      "name": "gd70-02-14d3t03.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d3t03.flac",
+      "format": "VBR MP3",
+      "length": "05:15",
+      "md5": "56a740bdcf2a787dfeeaa1be7c1d76fe",
+      "title": "I Know You Rider ->"
+    },
+    {
+      "name": "gd70-02-14d3t03.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d3t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "315.25",
+      "md5": "86aee6bf9c2765949b98c23dba36ad31"
+    },
+    {
+      "name": "gd70-02-14d3t03.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t03.flac",
+      "format": "PNG",
+      "md5": "f82a9cf53c4c7a1e032c0d8b109a9d07"
+    },
+    {
+      "name": "gd70-02-14d3t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "07dd6e19aba6df6db2b2c78c6fa15249"
+    },
+    {
+      "name": "gd70-02-14d3t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "d57eeedcda602b515a5a7ce063f8461a"
+    },
+    {
+      "name": "gd70-02-14d3t03_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t03.flac",
+      "format": "Spectrogram",
+      "md5": "2dcad5ca3bd6da572ef0ea7d7372f142"
+    },
+    {
+      "name": "gd70-02-14d3t04.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d3t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "b6cdbfd92f9ed158734ab4a73128250b"
+    },
+    {
+      "name": "gd70-02-14d3t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "400.84",
+      "md5": "01ea1e5827cd8616674392c9001e4cdf",
+      "title": "High Time ->"
+    },
+    {
+      "name": "gd70-02-14d3t04.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d3t04.flac",
+      "format": "VBR MP3",
+      "length": "06:40",
+      "md5": "84d5eb3a9f7dad73d5607f1183146a52",
+      "title": "High Time ->"
+    },
+    {
+      "name": "gd70-02-14d3t04.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d3t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "400.84",
+      "md5": "f56c911c3ffeeb730527f2f264175a00"
+    },
+    {
+      "name": "gd70-02-14d3t04.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t04.flac",
+      "format": "PNG",
+      "md5": "da28779ad49b46c1ef790b517b754eca"
+    },
+    {
+      "name": "gd70-02-14d3t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "5090e6e763ae63cf6d68020ae7600487"
+    },
+    {
+      "name": "gd70-02-14d3t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "8783aafa4e69b846c28626ff4e8c56c4"
+    },
+    {
+      "name": "gd70-02-14d3t04_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t04.flac",
+      "format": "Spectrogram",
+      "md5": "2be600710a51b93f70ce6e3a605c40f3"
+    },
+    {
+      "name": "gd70-02-14d3t05.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d3t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "d277cd42aa1632d30a4a0b2b177d675c"
+    },
+    {
+      "name": "gd70-02-14d3t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "365.42",
+      "md5": "090e5b0e25cddd10c76d59cfc40908dc",
+      "title": "Dire Wolf"
+    },
+    {
+      "name": "gd70-02-14d3t05.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d3t05.flac",
+      "format": "VBR MP3",
+      "length": "06:05",
+      "md5": "c8e98de7caa4153b1c48b72362e73b88",
+      "title": "Dire Wolf"
+    },
+    {
+      "name": "gd70-02-14d3t05.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d3t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "365.43",
+      "md5": "4a6d0f285f60fe0bdb4c170264a89888"
+    },
+    {
+      "name": "gd70-02-14d3t05.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t05.flac",
+      "format": "PNG",
+      "md5": "712abd4dbe272e2f988701903306b8a7"
+    },
+    {
+      "name": "gd70-02-14d3t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "176aa5749d916376947e5ef8e8a70141"
+    },
+    {
+      "name": "gd70-02-14d3t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d3t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "cbd9b586d0c6f38cb3cf83a85e7f2d43"
+    },
+    {
+      "name": "gd70-02-14d3t05_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d3t05.flac",
+      "format": "Spectrogram",
+      "md5": "53c34ca58928e0a4992be2fb1b32f0ed"
+    },
+    {
+      "name": "gd70-02-14d4t01.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d4t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "462a3f5d99845074177ed33381250fa8"
+    },
+    {
+      "name": "gd70-02-14d4t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "231.41",
+      "md5": "908bb6f36f9728574c13450da1441f77",
+      "title": "Alligator ->"
+    },
+    {
+      "name": "gd70-02-14d4t01.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d4t01.flac",
+      "format": "VBR MP3",
+      "length": "03:51",
+      "md5": "663b8fc5e7ed0178d684f8366cf6b727",
+      "title": "Alligator ->"
+    },
+    {
+      "name": "gd70-02-14d4t01.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d4t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "231.41",
+      "md5": "f5e0e382a5da5d3c84e699e35e8d3dc7"
+    },
+    {
+      "name": "gd70-02-14d4t01.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t01.flac",
+      "format": "PNG",
+      "md5": "9dbf2563ccf244b4a7c3eb6166992575"
+    },
+    {
+      "name": "gd70-02-14d4t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "0c9589bcbf1840c92a05bdee6cf31dd8"
+    },
+    {
+      "name": "gd70-02-14d4t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "23397fb6c790352f20d35e1f91737304"
+    },
+    {
+      "name": "gd70-02-14d4t01_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t01.flac",
+      "format": "Spectrogram",
+      "md5": "a4186141ba1ba5fe470e448b88969b4e"
+    },
+    {
+      "name": "gd70-02-14d4t02.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d4t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "09d87afd42f46e40a6b0b4b63d4718f3"
+    },
+    {
+      "name": "gd70-02-14d4t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "752.5",
+      "md5": "59215f6b256ae2510b23c1add4daa7b0",
+      "title": "Drums ->"
+    },
+    {
+      "name": "gd70-02-14d4t02.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d4t02.flac",
+      "format": "VBR MP3",
+      "length": "12:32",
+      "md5": "c60dd98e758a49520e01d4aa11a4a7ef",
+      "title": "Drums ->"
+    },
+    {
+      "name": "gd70-02-14d4t02.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d4t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "752.51",
+      "md5": "fd5c5be60366bb0e3e39fa3d9a3fb5f8"
+    },
+    {
+      "name": "gd70-02-14d4t02.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t02.flac",
+      "format": "PNG",
+      "md5": "2ab69bd6579fccd5450a072c7afca425"
+    },
+    {
+      "name": "gd70-02-14d4t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "687e8be498507cf114d988c2a5309a3d"
+    },
+    {
+      "name": "gd70-02-14d4t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "6ece75dafb9b41bacc972f3c2e93e58d"
+    },
+    {
+      "name": "gd70-02-14d4t02_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t02.flac",
+      "format": "Spectrogram",
+      "md5": "69d279b5436cc4f4987e23f95e224d42"
+    },
+    {
+      "name": "gd70-02-14d4t03.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d4t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "f45a938283849513313f676920963ec4"
+    },
+    {
+      "name": "gd70-02-14d4t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "195.13",
+      "md5": "5115e5888fe357f51814495100bc330e",
+      "title": "Me And My Uncle ->"
+    },
+    {
+      "name": "gd70-02-14d4t03.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d4t03.flac",
+      "format": "VBR MP3",
+      "length": "03:15",
+      "md5": "b283dff310134879ca541f98f0a5fbda",
+      "title": "Me And My Uncle ->"
+    },
+    {
+      "name": "gd70-02-14d4t03.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d4t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "195.13",
+      "md5": "add686bf031ed6ab1b56882cde5e4118"
+    },
+    {
+      "name": "gd70-02-14d4t03.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t03.flac",
+      "format": "PNG",
+      "md5": "82ba9257b4dce12661206c85cfa0073e"
+    },
+    {
+      "name": "gd70-02-14d4t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "adc724fee3a44e954ef83a91612caab3"
+    },
+    {
+      "name": "gd70-02-14d4t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "387f66181ca443a2170864d2de226d37"
+    },
+    {
+      "name": "gd70-02-14d4t03_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t03.flac",
+      "format": "Spectrogram",
+      "md5": "3dd219a21f10147d277280f64a85ed1f"
+    },
+    {
+      "name": "gd70-02-14d4t04.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d4t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "dd9f43ab5841f2693192ecc8d19c3074"
+    },
+    {
+      "name": "gd70-02-14d4t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "837.98",
+      "md5": "f8d61d383d2e13d1246ab0c321de4700",
+      "title": "Not Fade Away ->"
+    },
+    {
+      "name": "gd70-02-14d4t04.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d4t04.flac",
+      "format": "VBR MP3",
+      "length": "13:58",
+      "md5": "070b71b6b74b5eb220b890a71836d1e5",
+      "title": "Not Fade Away ->"
+    },
+    {
+      "name": "gd70-02-14d4t04.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d4t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "837.99",
+      "md5": "ae8dffe89c19f4fb3ecacd56eb697e9f"
+    },
+    {
+      "name": "gd70-02-14d4t04.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t04.flac",
+      "format": "PNG",
+      "md5": "f664eddcb35418d496dbc0368ee0b94a"
+    },
+    {
+      "name": "gd70-02-14d4t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "4d78f55fdcbba45260734a027c47d5e0"
+    },
+    {
+      "name": "gd70-02-14d4t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "54fc0b3bfa740f1ea0a8e2e8540c3673"
+    },
+    {
+      "name": "gd70-02-14d4t04_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t04.flac",
+      "format": "Spectrogram",
+      "md5": "3911e6547b51c0e606383bd78ea5ddc8"
+    },
+    {
+      "name": "gd70-02-14d4t05.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d4t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "31e26643e18cbb15ce57f47822a5199d"
+    },
+    {
+      "name": "gd70-02-14d4t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "232.64",
+      "md5": "a3d22d96f3676b51243ab4187f94d3b4",
+      "title": "Mason's Children ->"
+    },
+    {
+      "name": "gd70-02-14d4t05.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d4t05.flac",
+      "format": "VBR MP3",
+      "length": "03:52",
+      "md5": "4de3f69b312f1630ae4ea6fcb9b23b8d",
+      "title": "Mason's Children ->"
+    },
+    {
+      "name": "gd70-02-14d4t05.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d4t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "232.64",
+      "md5": "562a4615f3cd2209027f68b12142c883"
+    },
+    {
+      "name": "gd70-02-14d4t05.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t05.flac",
+      "format": "PNG",
+      "md5": "f15f2950d2132da854baff764639d89b"
+    },
+    {
+      "name": "gd70-02-14d4t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "13279ecac25397c3bb2f7d96cec76ea3"
+    },
+    {
+      "name": "gd70-02-14d4t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "67bd1006a72a9ef93363f36d76793cba"
+    },
+    {
+      "name": "gd70-02-14d4t05_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t05.flac",
+      "format": "Spectrogram",
+      "md5": "9bfef30f83750fc8bcd31e295d8fce67"
+    },
+    {
+      "name": "gd70-02-14d4t06.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d4t06.flac",
+      "format": "Columbia Peaks",
+      "md5": "76bb0dc5611c72c2119e86de15b9dbdb"
+    },
+    {
+      "name": "gd70-02-14d4t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "865.56",
+      "md5": "cc405deb6243f8f98afec7486cfb2de1",
+      "title": "Caution (Do Not Stop On Tracks) ->"
+    },
+    {
+      "name": "gd70-02-14d4t06.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d4t06.flac",
+      "format": "VBR MP3",
+      "length": "14:25",
+      "md5": "3ab9a81e58dfdc884a37d9e134a294df",
+      "title": "Caution (Do Not Stop On Tracks) ->"
+    },
+    {
+      "name": "gd70-02-14d4t06.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d4t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "865.56",
+      "md5": "e229c6244eb05e56fdcebf51a68d6c0a"
+    },
+    {
+      "name": "gd70-02-14d4t06.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t06.flac",
+      "format": "PNG",
+      "md5": "c3b7a99148f062f6572676522c9f588d"
+    },
+    {
+      "name": "gd70-02-14d4t06_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t06_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "d6f52654651020903f4771bff7c96481"
+    },
+    {
+      "name": "gd70-02-14d4t06_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t06.flac",
+      "format": "Essentia Low GZ",
+      "md5": "38354ecf1b2a4daf773e7cfd4059d5a6"
+    },
+    {
+      "name": "gd70-02-14d4t06_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t06.flac",
+      "format": "Spectrogram",
+      "md5": "a508db1001b7976c9aba041247c284f9"
+    },
+    {
+      "name": "gd70-02-14d4t07.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d4t07.flac",
+      "format": "Columbia Peaks",
+      "md5": "ff7d048a8098fd587672a92072ee5915"
+    },
+    {
+      "name": "gd70-02-14d4t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "522.36",
+      "md5": "4953b10070885505cb3fea06a0816082",
+      "title": "Feedback ->"
+    },
+    {
+      "name": "gd70-02-14d4t07.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d4t07.flac",
+      "format": "VBR MP3",
+      "length": "08:42",
+      "md5": "b06daeda09e7740d75d146f2fbb7db8f",
+      "title": "Feedback ->"
+    },
+    {
+      "name": "gd70-02-14d4t07.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d4t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "522.36",
+      "md5": "8242a5c50c4fca2bee06aadcbc5667b8"
+    },
+    {
+      "name": "gd70-02-14d4t07.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t07.flac",
+      "format": "PNG",
+      "md5": "3adc78a7053eed6ae4c29cabd180ec59"
+    },
+    {
+      "name": "gd70-02-14d4t07_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t07_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "60de49549146e74d55d41237efd02027"
+    },
+    {
+      "name": "gd70-02-14d4t07_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t07.flac",
+      "format": "Essentia Low GZ",
+      "md5": "c5652a2fa1804556c20c862439b94cb0"
+    },
+    {
+      "name": "gd70-02-14d4t07_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t07.flac",
+      "format": "Spectrogram",
+      "md5": "ca69e478831605a00329a6e950b1e1a5"
+    },
+    {
+      "name": "gd70-02-14d4t08.afpk",
+      "source": "derivative",
+      "original": "gd70-02-14d4t08.flac",
+      "format": "Columbia Peaks",
+      "md5": "f05fa79978dcb9429aa549b01e9179ce"
+    },
+    {
+      "name": "gd70-02-14d4t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "116.49",
+      "md5": "50f7630f12d6ef956e09572cfb4fd7ee",
+      "title": "And We Bid You Good Night"
+    },
+    {
+      "name": "gd70-02-14d4t08.mp3",
+      "source": "derivative",
+      "original": "gd70-02-14d4t08.flac",
+      "format": "VBR MP3",
+      "length": "01:56",
+      "md5": "a1a1c13482d059b8a118f1e513609536",
+      "title": "And We Bid You Good Night"
+    },
+    {
+      "name": "gd70-02-14d4t08.ogg",
+      "source": "derivative",
+      "original": "gd70-02-14d4t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "116.49",
+      "md5": "6e45bf85b7f7c5be266b80554e828931"
+    },
+    {
+      "name": "gd70-02-14d4t08.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t08.flac",
+      "format": "PNG",
+      "md5": "4e74ff7f78397d00428cffec92a9cd80"
+    },
+    {
+      "name": "gd70-02-14d4t08_esshigh.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t08_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "33789fbf3c429aa595fd0b3c13c5f863"
+    },
+    {
+      "name": "gd70-02-14d4t08_esslow.json.gz",
+      "source": "derivative",
+      "original": "gd70-02-14d4t08.flac",
+      "format": "Essentia Low GZ",
+      "md5": "f5f6de89f0ab4885e5302a3c308896b1"
+    },
+    {
+      "name": "gd70-02-14d4t08_spectrogram.png",
+      "source": "derivative",
+      "original": "gd70-02-14d4t08.flac",
+      "format": "Spectrogram",
+      "md5": "b4275aa0c32a9df6e0106c346d5f41ab"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewbody": "High Time is beautiful. Dancin' and from Alligator on down is very good. \nThe Eleven from the early show is a real treat, especially in retrospect. \nYou get even more than you shelled out for now.",
+      "reviewtitle": "High Times and Alligators",
+      "reviewer": "chris phillips",
+      "reviewdate": "2015-01-24 23:09:59",
+      "createdate": "2013-06-01 20:22:29",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "a peak performance in a transitional time. amazing show!",
+      "reviewtitle": "!",
+      "reviewer": "DMT",
+      "reviewdate": "2014-12-26 02:25:57",
+      "createdate": "2014-12-26 02:25:57",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "DtD said it well. I'm not comparing this one with the previous night. This is an incredible performance. Post- drums is just explosive all around. So unfortunate that the end of the early show lost such an essential portion of the recording, yet how lucky we are able to stream this at all (again). Great stuff.\n\nI lucked out scoring tickets to the Phil and Friends show scheduled for 2/7/2015--the 1970 celebration. They sold out in about 1/2 hr. I'm tempted to predict this 2/14 setlist, but whatever they do will be wonderful. Or maybe they will schedule David Nelson Band between sets like NRPS were for much of 1970. How cool it is that, although I could not have seen a show in 1970 (not even born yet--1st Dead show was '91, actually) I'll be able to experience perhaps the next best thing...What a treat that will be. Happy 50 years of Dead music to all!",
+      "reviewtitle": "Wow, amazing show...",
+      "reviewer": "barreramusic",
+      "reviewdate": "2015-01-16 02:31:13",
+      "createdate": "2015-01-16 02:11:44",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "It sounded to me that instead of coming back for the second verse of Dark Star they might go for an Uncle john's.\nI just dig this entire evening!\nA big fan of intro by Zacherley before Casey Jones.",
+      "reviewtitle": "Come hear Uncle John's Band",
+      "reviewer": "c-freedom",
+      "reviewdate": "2015-02-14 23:23:15",
+      "createdate": "2015-02-14 23:23:15",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "I utterly revise my earlier review: this is by far the better night, and DP 4 should have just been the complete 14th IMO. The drummers are SO on point, and everybody's having a good night in general.",
+      "reviewtitle": "-",
+      "reviewer": "njpg",
+      "reviewdate": "2017-01-18 20:33:56",
+      "createdate": "2015-05-17 04:18:55",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "The 13th and 14th of February 1970 are two of the most highly regarded shows the Dead ever played...Allow yer ears 2 bear witness...",
+      "reviewtitle": "1 of those \"special\" nights",
+      "reviewer": "pinga",
+      "reviewdate": "2015-05-18 21:40:49",
+      "createdate": "2015-05-18 21:40:49",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Not really a review. I was there for this show, the late show. It was amazing in so many ways. I was there with some friends, we watched from the edge of the balcony. It was just magical, I could see their chemistry, I remember thinking that they had the spark and the drive and so aware of each other. And the music came together so well. There was maybe 200 or 300 people there. The blew the audience away. It ended early in the morning. My life was not the same after that. I still love the Dead. Thank you for this site and the work it takes to keep it up and available.",
+      "reviewtitle": "I was there for this show.",
+      "reviewer": "scates",
+      "reviewdate": "2015-10-21 05:20:49",
+      "createdate": "2015-10-21 05:20:49",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Let it be known",
+      "reviewtitle": "Best NFA Ever",
+      "reviewer": "clementinescaboose",
+      "reviewdate": "2015-11-29 03:24:04",
+      "createdate": "2015-11-29 03:24:04",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "https://www.youtube.com/watch?v=gmPhb-tWgBg#t=23m39s\n\nStarts at Hard to Handle and floats back out into space during Not Fade Away.",
+      "reviewtitle": "Video!",
+      "reviewer": "whit537",
+      "reviewdate": "2017-09-02 09:18:00",
+      "createdate": "2017-09-02 09:18:00",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This Dark Star made its way onto the Long Strange Trip Soundtrack. This is my all-time favorite, just barely topping 9/21/72. I believe this is better than the one from the night before (the one from DP4).",
+      "reviewtitle": "Dark Star",
+      "reviewer": "mperez19",
+      "reviewer_itemname": "@mperez19",
+      "reviewdate": "2018-06-30 03:40:53",
+      "createdate": "2018-06-30 03:40:53",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Along with the previous nights performance, this show is one of the best the Grateful Dead performed in the Pigpen (or any) era. The band are on fire! There are some fantastic jams in the electric songs such as Caution and Not Fade Away. But the acoustic set is fantastic too with great readings of Dark Hollow, I've Been All Around This World, Uncle John's Band and others. I love that the Dead in 1970 started doing small acoustic sets along with their electric ones. The Dick's Picks series was really right with this choice and with the 05/02 Harpur show. The only reason this shows Dark Star, St. Stephen, The Eleven, Lovelight sandwich didn't get used is because of the cut in St. Stephen and the beginning of the Eleven. 1970 has become my favorite year of this amazing band.",
+      "reviewtitle": "I went dowwwwwwwwwn one old day...",
+      "reviewer": "Darrylizer",
+      "reviewer_itemname": "@darrylizer",
+      "reviewdate": "2018-07-27 19:25:52",
+      "createdate": "2018-07-27 17:12:59",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Some discussion, of course, about which of these is the better night. I'm partial to 2/13 - just can't get passed that electric set two triptych-madness - but there's no question that these February '70 shows at the Fillmore East were bona fide events. Allman Brothers sets, to boot...are you kidding me?! Also, I wouldn't argue - looking at you, njpg - if someone favors this show. Most of it appears on Dick's 4 (Casey Jones from set one, the whole electric second) and Bear's Choice (Hard to Handle, Dark Hollow, All Around This World). ",
+      "reviewtitle": "Dick's Picks 4.2",
+      "reviewer": "mcgrupp216",
+      "reviewer_itemname": "@mcgrupp216",
+      "reviewdate": "2020-03-06 21:01:03",
+      "createdate": "2020-03-06 21:01:03",
+      "stars": "4"
+    },
+    {
+      "reviewtitle": "Blame it on the cosine",
+      "reviewbody": "<br /><b><i>Early show</i></b>\nThe early show used to get overlooked; missing from some trades or jumbled in with late show tracks. Now it is recognized as one of the best sets of '70. If you came this night because you had bought their new album, this show was for you - the set gets both a Dawk Staw>Stephen>Eleven and a Lovelight, glowing red-orange. With shows at 8p & 11:30p and three bands, the set had to be more concise.\n\nReady to fly with a jouncy and skittering <i>Cold Rain & Snow</i> that makes for edgy and exciting. Then it's already off into <i>Dawk Staw</i>. It's similar to others from the era, and neither this nor the night before are in my Top Five for the year. Yet in totality it adds up to a standout, but in different ways than the night before. Bobby starts a Feelin' Groovy [@15:30] but immediately drops it, as Jer is orbiting a post-Sputnik. Then Phil tries one @17:40, Bobby picks it up, but again they diverge toward Jer. He travels up to the main theme @19:55, and then starts a rhythm figure [@20:35] \u2026 that's perfect for FG. The whole freaking band jumps on it at the same second [@20:55], as if by conjured magic, and right when it peaks it dovetails back to the secondary theme, so the travelers can return from their chartered trip away. Jer has a certain fluidity here, and compared to the night before the band is interacting at a few degrees angular difference, in both summation and subtraction (cosine of supplementary angles). One ex.<b>:</b> the jam that starts @11:45. Jer is straight up, Bobby is cosecant, which turns Jer's figures arabesque for a few measures. The cube root is <i>St. Stephen</i>. An ace, but unfortunately we are missing the William Tell bridge - and the beginning of <i>The Eleven</i>. The <i>Lovelight</i> is the basic run-through.\n\n<u>Early Show Set</u><b>:</b> B+ \u00a0\u00a0\u00a04\u00bd stars\n\nHighlights:\nCold Rain & Snow - jouncy and exciting\nDark Star - an era classic  \nSt. Stephen -  what we have is aces\n\n<b><i>Late show</i></b>\nA different animal than the early set, and a blowout of a show. Seems there's something for everyone. Back when many of us had just a few tapes from '70, this was considered a major show. Now '70 is a \"plethora\" year, though this is still a must-hear. It divides into three sets, but the band breaks were \"brief\" stage setups. Openers The Allman Bros. also released an album from these shows. There's a gap in the tape record after this - they went to four shows in Texas but we only have  a partial of the last in Austin (while the crew drove to TX the band flew home to begin a couple days' studio work for <b>Workingman's</b>, tracking Dire Wolf). \n\nFirst Set. Emcee John Zacherle hosted a regional Friday night horror show [kids ask your grandparents what that means], and had a '50s hit single \"Dinner wth Drac\" by The Cool Ghoul. Dude was only in his 50s at this time. <i>Casey Jones</i> is spry, short, and Jer comes at the solo sideways. <i>Hard to Handle</i> is also relatively brief (then they already change to acoustic). We all know this one too well, and it's sort of pat compared to the monumental ones from the era, like 4/29/71 or 8/6/71. But it's still a great version. It's followed by classic patter, of the type that mostly only occurred in NYC in the Pig era.\n\t\t\nSecond Set. <i>Monkey & Engineer</i> is a warm-up. The patter may be the only instance of Jer using the word vulgate. <i>Dark Hollow</i> is the classic version. The next couple are better elsewhere, but <i>Black Peter</i> surpasses the day before (<b>Bear's Choice</b>), mainly due to Bobby's choices. It just has a couple tech glitches. The boys work hard to leave it all onstage for <i>Uncle John's</i>. They begin setting up for an electric set but Jer asks if Pig wants to do a solo number first; when he comes out, willing, Jer says \"Let's lay off!\". As Pig sits solo and slings <i>Katie Mae</i>, he abruptly doubles the tempo.\n\nThird Set. It's the continuous set that appeals, the overall effect, the length of the show, the historical trade. The whole may be greater than the parts, but it's certainly a must-hear-once. <i>Dancing in the Street</i> gets good @6:30>7:00. After several average versions comes a solid-enough <i>Dire Wolf</i>, then Bobby explains insider quip/run-out groove etching \"Faster We Go/Fourth Dimension\" for a Head. The next few range average to solid, squarely within GOGD. But the jam turns red in <i>Not Fade</i>. Listen for a St Stephen quote between 9mins>10mins, and then a Goodnight jam. <i>Mason's</i> may be a bit rickety, but it's welcome. As <i>Caution</i> winds to <i>Feedback</i> you may be surprised - the latter is better than the usual.\n\n<u>1st Set</u>: \u00a0B\n<u>2nd Set</u>: B-\n<u>3rd Set</u>: \u00a0C+\nOverall = 3\u00bd stars\n\nHighlights:\nHard to Handle - was = classic version; is = still good\nDark Hollow - Bobby at peak delivery\nBlack Peter - one of year's best acoustic versions\nNot Fade Away -  jam turns red\n\nSOURCES: The early show is normalized, re-pitched and remastered on miller_97644. Dark Star is on the <b>Long Strange Trip Soundtrack</b>. The late show is also best represented by miller_97644. <b>Dick's v4</b> has the third set plus Casey Jones (tunings and patter trimmed). <b>History (Bear's Choice)</b> has Dark Hollow, Been All Around & Hard to Handle. Various silent & blurry video clips exist but the viable one is a synched-audio version of Hard to Handle, usually up on YouTube.",
+      "stars": "4",
+      "reviewer": "Mind Wondrin",
+      "reviewdate": "2021-07-05 11:26:39",
+      "createdate": "2021-05-05 14:52:58",
+      "reviewer_itemname": "@mind_wondrin"
+    },
+    {
+      "reviewtitle": "Love",
+      "reviewbody": "Just found the Allman Brothers' set from this night. \n\nhttps://archive.org/details/allman-brothers-band-fillmore-east-new-york-city-ny-21470\n\nNow I just need to find the Love set to enjoy the complete show. Anybody got any leads?\n\nThe Grateful Dead's set, of course, is quite arguably the most perfect performance ever given by anyone anywhere, from start to finish. 5 stars for the performance and for Charlie Miller's extra crispy handiwork here.",
+      "stars": "5",
+      "reviewer": "endwarr",
+      "reviewdate": "2021-07-14 17:57:58",
+      "createdate": "2021-07-14 17:57:58",
+      "reviewer_itemname": "@endwarr"
+    },
+    {
+      "reviewtitle": "ABB",
+      "reviewbody": "Thank you very much for that link for the Allman Brothers set I appreciate it!\n\nEndwarr.... YouTube has a long hour plus live love concert it's labeled Fillmore West 1970. However, if you read the comments you'll see that there is debate regarding the recording and that it is stated by somebody who would have some information on equivocally that the recordings actually from the film were East which would probably suggest that it's likely from this series of concerts. Obviously just a lot of speculation at this point and it might be too long of a set but given that the Dead seem to have come on very late at night and the Allman Brothers set was relatively short love might have gotten an hour and 9 minutes... check it out!\n\n\nhttps://youtu.be/BfzKhRguxwU\n\n",
+      "stars": "0",
+      "reviewer": "egeff",
+      "reviewdate": "2021-10-20 05:59:29",
+      "createdate": "2021-10-19 06:11:19",
+      "reviewer_itemname": "@egeff"
+    },
+    {
+      "reviewtitle": "Best Ever",
+      "reviewbody": "barton what\u2620\ufe0f",
+      "stars": "5",
+      "reviewer": "Grateful Dead965",
+      "reviewdate": "2025-02-14 17:52:38",
+      "createdate": "2025-02-14 17:52:38",
+      "reviewer_itemname": "@grateful_dead965"
+    }
+  ]
+}

@@ -1,0 +1,1243 @@
+{
+  "metadata": {
+    "identifier": "gd1970-02-14.141007.late.show.sbd.pcm.dalton.miller.clugston.flac1644",
+    "uploader": "mvernon54@yahoo.com",
+    "addeddate": "2018-02-15 04:34:28",
+    "date": "1970-02-14",
+    "curation": "[curator]validator@archive.org[/curator][date]20180215043654[/date][comment]checked for malware[/comment]",
+    "title": "Grateful Dead Live at Fillmore East on 1970-02-14",
+    "creator": "Grateful Dead",
+    "mediatype": "etree",
+    "collection": [
+      "GratefulDead",
+      "etree",
+      "stream_only"
+    ],
+    "type": "sound",
+    "description": "Set 2<br /><br />\nLate Show:<br /><br />\nElectric Set 1:<br /><br />\nCasey Jones, Mama Tried, Hard To Handle<br /><br />\nAcoustic Set 1:<br /><br />\nMonkey And The Engineer, Dark Hollow, I've Been All Around This World*, Wake Up Little Susie > Black Peter, Uncle John's Band, Katie Mae<br /><br />\nElectric Set 2: <br /><br />\nDancin' In The Streets, China Cat Sunflower > I Know You Rider > High Time > Dire Wolf, Alligator > Drums > Me And My Uncle > Not Fade Away > Mason's Children > Caution (Do Not Stop On Tracks) > We Bid You Good Night<br /><br />\nThe Allman Brothers Band Opened",
+    "year": "1970",
+    "subject": "Soundboard;Tim Dalton;Scott Clugston;Charlie Miller;PCM",
+    "venue": "Fillmore East",
+    "coverage": "New York, NY",
+    "source": "Master Soundboard Reels (recorded by the Fillmore crew from under the stage) > PCM",
+    "taper": "Tim Dalton",
+    "transferer": "Scott Clugston and Charlie Miller",
+    "runtime": "155:44.70",
+    "md5s": "ae5e771a57d0f833a738d94b67d9eb80 *gd70-02-14 t01 Banter_Introduction.flac dd90aba417b5592778d1692ac38ff794 *gd70-02-14 t02 Casey Jones.flac 31009056d40999e0afb2e9b8be341c82 *gd70-02-14 t03 Mama Tried.flac 510c688a40f934cf78b136f22b06eaa3 *gd70-02-14 t04 Hard To Handle.flac 363d5acd8901fdf1c119a857901b9055 *gd70-02-14 t05 Tuning_Banter.flac 5acaa937599cc2eb40ec5ee72f59656e *gd70-02-14 t06 Monkey & The Engineer.flac 89207f45f797b7cd0c1106f6a0a68a24 *gd70-02-14 t07 Dark Hollow.flac a32771658d897e6abbbc2c8ea77eecec *gd70-02-14 t08 I've Been All Around This World.flac 12ddfbe5ce887b9dc5b2285ca6aee335 *gd70-02-14 t09 Wake up Little Susie.flac 9fa34cd0f51ea228b9caef35a1868806 *gd70-02-14 t10 Black Peter.flac a68c2c452876b471a8c84d7f498a346f *gd70-02-14 t11 Uncle John's Band.flac 7707d5c1ef5a18a5d5fc59dfe0257d0c *gd70-02-14 t12 Katie Mae.flac ba7a36c51cbb7e5f53c8019755834787 *gd70-02-14 t13 Dancin' In The Streets.flac a718c4f093ae16058c7db5e5cc5a2c00 *gd70-02-14 t14 China Cat Sunflower.flac 76d28127fec3387784bf9898b5d3b98a *gd70-02-14 t15 I Know You Rider.flac baa667e1b353153da5f3f1fb1d60b3fe *gd70-02-14 t16 High Time.flac b23dceb5d28ac163211caa1c99ef7070 *gd70-02-14 t17 Dire Wolf.flac 992281c330d97940d8cffd190cc41d4b *gd70-02-14 t18 Alligator.flac a077e09f0d741989fc89c0c2ab696602 *gd70-02-14 t19 Drums.flac 4746daa52ca8a7e19c12943545db2bcc *gd70-02-14 t20 Me & My Uncle.flac 4d4ad2468e31f5277bda2bbdb680ee96 *gd70-02-14 t21 Not Fade Away.flac ee41c6e0a91f12b7bc7a0f9fe06f919c *gd70-02-14 t22 Mason's Children.flac 44de1e01ea9c5ee1c3842e584e6a4dc8 *gd70-02-14 t23 Caution (Do Not Stop On The Tracks).flac 46b28bfae8d9d57cadda11da4658f695 *gd70-02-14 t24 Feedback.flac 03bbd10b3810172fe526c863f4326918 *gd70-02-14 t25 And We Bid you Good Night.flac",
+    "notes": "Notes:\n- Thanks to Tim Dalton for the source PCM\n- Thanks to Charlie Miller for the transfer\n- Thanks to Charlie Miller for the shnid97644 soundboard source which supplies a 0:03 patch in \"Dancin' In The Streets\", a 1:36 patch in \"Alligator\", a 0:22 patch in \"Caution\", as well as a 0:07 patch in \"Feedback\"\n- Intro to \"Monkey & The Engineeer\" included in \"Monkey & The Engineer\"\n\nMastered by Scott Clugston\nFebruary 14, 2018 - Happy Valentine's Day",
+    "publicdate": "2018-02-17 12:17:45",
+    "backup_location": "ia906608_31",
+    "access-restricted-item": "true"
+  },
+  "files": [
+    {
+      "name": "Gd70-02-14T01Banter_introduction.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T01Banter_introduction.flac",
+      "format": "Columbia Peaks",
+      "md5": "b59d3c3f65d7157bbf520c6bcea608f7"
+    },
+    {
+      "name": "Gd70-02-14T01Banter_introduction.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "213.6",
+      "md5": "ae5e771a57d0f833a738d94b67d9eb80",
+      "title": "gd70-02-14 t01 Banter_Introduction"
+    },
+    {
+      "name": "Gd70-02-14T01Banter_introduction.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T01Banter_introduction.flac",
+      "format": "VBR MP3",
+      "length": "03:33",
+      "md5": "3a65d659b8c1a2027c8a2e7b0aaeec2a",
+      "title": "gd70-02-14 t01 Banter_Introduction"
+    },
+    {
+      "name": "Gd70-02-14T01Banter_introduction.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T01Banter_introduction.flac",
+      "format": "Ogg Vorbis",
+      "length": "213.6",
+      "md5": "57ec80e03dea25971b016c2546b3833a"
+    },
+    {
+      "name": "Gd70-02-14T01Banter_introduction.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T01Banter_introduction.flac",
+      "format": "PNG",
+      "md5": "be97c8774990967515db8f8ef0994810"
+    },
+    {
+      "name": "Gd70-02-14T01Banter_introduction_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T01Banter_introduction.flac",
+      "format": "Spectrogram",
+      "md5": "2b38b405d221617099533419745c13ff"
+    },
+    {
+      "name": "Gd70-02-14T02CaseyJones.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T02CaseyJones.flac",
+      "format": "Columbia Peaks",
+      "md5": "b0c96c023b45b587b239594cb1caf580"
+    },
+    {
+      "name": "Gd70-02-14T02CaseyJones.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "261.61",
+      "md5": "dd90aba417b5592778d1692ac38ff794",
+      "title": "gd70-02-14 t02 Casey Jones"
+    },
+    {
+      "name": "Gd70-02-14T02CaseyJones.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T02CaseyJones.flac",
+      "format": "VBR MP3",
+      "length": "04:21",
+      "md5": "ad5ba2f9a1781f2af7514259fa8dcb61",
+      "title": "gd70-02-14 t02 Casey Jones"
+    },
+    {
+      "name": "Gd70-02-14T02CaseyJones.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T02CaseyJones.flac",
+      "format": "Ogg Vorbis",
+      "length": "261.61",
+      "md5": "5a41314dadf7f4d35120520ffe22a831"
+    },
+    {
+      "name": "Gd70-02-14T02CaseyJones.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T02CaseyJones.flac",
+      "format": "PNG",
+      "md5": "125c33721cf561b9b5dba5fe7bbaf133"
+    },
+    {
+      "name": "Gd70-02-14T02CaseyJones_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T02CaseyJones.flac",
+      "format": "Spectrogram",
+      "md5": "b236c1f61e83bc9a7ee78a676746f03c"
+    },
+    {
+      "name": "Gd70-02-14T03MamaTried.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T03MamaTried.flac",
+      "format": "Columbia Peaks",
+      "md5": "fa769f6c3d746291738ad4d468d7b01c"
+    },
+    {
+      "name": "Gd70-02-14T03MamaTried.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "237.19",
+      "md5": "31009056d40999e0afb2e9b8be341c82",
+      "title": "gd70-02-14 t03 Mama Tried"
+    },
+    {
+      "name": "Gd70-02-14T03MamaTried.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T03MamaTried.flac",
+      "format": "VBR MP3",
+      "length": "03:57",
+      "md5": "b52b6481780232ad1e7f323ccf744a3e",
+      "title": "gd70-02-14 t03 Mama Tried"
+    },
+    {
+      "name": "Gd70-02-14T03MamaTried.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T03MamaTried.flac",
+      "format": "Ogg Vorbis",
+      "length": "237.19",
+      "md5": "786a714e873a33a2e5f9b940764dc21f"
+    },
+    {
+      "name": "Gd70-02-14T03MamaTried.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T03MamaTried.flac",
+      "format": "PNG",
+      "md5": "9581ab4b0e8eca54758ac59a52dd85d2"
+    },
+    {
+      "name": "Gd70-02-14T03MamaTried_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T03MamaTried.flac",
+      "format": "Spectrogram",
+      "md5": "35b4e13a8ce63f14c204172e57eff0ca"
+    },
+    {
+      "name": "Gd70-02-14T04HardToHandle.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T04HardToHandle.flac",
+      "format": "Columbia Peaks",
+      "md5": "d206ff73c3a891207980f60328b796a1"
+    },
+    {
+      "name": "Gd70-02-14T04HardToHandle.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "390.28",
+      "md5": "510c688a40f934cf78b136f22b06eaa3",
+      "title": "gd70-02-14 t04 Hard To Handle"
+    },
+    {
+      "name": "Gd70-02-14T04HardToHandle.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T04HardToHandle.flac",
+      "format": "VBR MP3",
+      "length": "06:30",
+      "md5": "c6969f72360558379cfc065f97a270d3",
+      "title": "gd70-02-14 t04 Hard To Handle"
+    },
+    {
+      "name": "Gd70-02-14T04HardToHandle.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T04HardToHandle.flac",
+      "format": "Ogg Vorbis",
+      "length": "390.28",
+      "md5": "e54fc2d3942c00052b2abc71f1dd75b0"
+    },
+    {
+      "name": "Gd70-02-14T04HardToHandle.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T04HardToHandle.flac",
+      "format": "PNG",
+      "md5": "b23aea5cd4e26c10bf1ae361dde0310c"
+    },
+    {
+      "name": "Gd70-02-14T04HardToHandle_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T04HardToHandle.flac",
+      "format": "Spectrogram",
+      "md5": "e214af55514833a34e27ae3c5f073787"
+    },
+    {
+      "name": "Gd70-02-14T05Tuning_banter.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T05Tuning_banter.flac",
+      "format": "Columbia Peaks",
+      "md5": "6f56cdee7f0d2ff06ebfc1926ff26ed2"
+    },
+    {
+      "name": "Gd70-02-14T05Tuning_banter.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "359.23",
+      "md5": "363d5acd8901fdf1c119a857901b9055",
+      "title": "gd70-02-14 t05 Tuning_Banter"
+    },
+    {
+      "name": "Gd70-02-14T05Tuning_banter.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T05Tuning_banter.flac",
+      "format": "VBR MP3",
+      "length": "05:59",
+      "md5": "d36ba9119352a0b33dc38b052dde1a10",
+      "title": "gd70-02-14 t05 Tuning_Banter"
+    },
+    {
+      "name": "Gd70-02-14T05Tuning_banter.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T05Tuning_banter.flac",
+      "format": "Ogg Vorbis",
+      "length": "359.23",
+      "md5": "3dca01afa25e4ab95e757b16a0fa9fe4"
+    },
+    {
+      "name": "Gd70-02-14T05Tuning_banter.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T05Tuning_banter.flac",
+      "format": "PNG",
+      "md5": "9c3ff2a923747aca6852a05d7cccd6fd"
+    },
+    {
+      "name": "Gd70-02-14T05Tuning_banter_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T05Tuning_banter.flac",
+      "format": "Spectrogram",
+      "md5": "833ca95f1ac90d86c9fc669aa24bd269"
+    },
+    {
+      "name": "Gd70-02-14T06MonkeyTheEngineer.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T06MonkeyTheEngineer.flac",
+      "format": "Columbia Peaks",
+      "md5": "566b071ce24173673c0a98f896c3a338"
+    },
+    {
+      "name": "Gd70-02-14T06MonkeyTheEngineer.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "193.99",
+      "md5": "5acaa937599cc2eb40ec5ee72f59656e",
+      "title": "gd70-02-14 t06 Monkey & The Engineer"
+    },
+    {
+      "name": "Gd70-02-14T06MonkeyTheEngineer.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T06MonkeyTheEngineer.flac",
+      "format": "VBR MP3",
+      "length": "03:14",
+      "md5": "c7697d02287be1b207c462d973adf4b5",
+      "title": "gd70-02-14 t06 Monkey & The Engineer"
+    },
+    {
+      "name": "Gd70-02-14T06MonkeyTheEngineer.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T06MonkeyTheEngineer.flac",
+      "format": "Ogg Vorbis",
+      "length": "193.99",
+      "md5": "ef9655f9f8004a15f9a172a6a44f1ea8"
+    },
+    {
+      "name": "Gd70-02-14T06MonkeyTheEngineer.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T06MonkeyTheEngineer.flac",
+      "format": "PNG",
+      "md5": "ab3fefb681a19b1729989af2ed4e63c8"
+    },
+    {
+      "name": "Gd70-02-14T06MonkeyTheEngineer_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T06MonkeyTheEngineer.flac",
+      "format": "Spectrogram",
+      "md5": "cb5d636e158b8882b23711371effe04e"
+    },
+    {
+      "name": "Gd70-02-14T07DarkHollow.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T07DarkHollow.flac",
+      "format": "Columbia Peaks",
+      "md5": "a561197f82ae798a7fad468539f47d1f"
+    },
+    {
+      "name": "Gd70-02-14T07DarkHollow.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "201.15",
+      "md5": "89207f45f797b7cd0c1106f6a0a68a24",
+      "title": "gd70-02-14 t07 Dark Hollow"
+    },
+    {
+      "name": "Gd70-02-14T07DarkHollow.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T07DarkHollow.flac",
+      "format": "VBR MP3",
+      "length": "03:21",
+      "md5": "cb54aaf995c3f46958fc7fac87b9ee75",
+      "title": "gd70-02-14 t07 Dark Hollow"
+    },
+    {
+      "name": "Gd70-02-14T07DarkHollow.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T07DarkHollow.flac",
+      "format": "Ogg Vorbis",
+      "length": "201.15",
+      "md5": "8c5dbc8eeecc19ac13c2ff6f78c51a0b"
+    },
+    {
+      "name": "Gd70-02-14T07DarkHollow.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T07DarkHollow.flac",
+      "format": "PNG",
+      "md5": "dcf422f65b305b25806a43191dcc2cc7"
+    },
+    {
+      "name": "Gd70-02-14T07DarkHollow_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T07DarkHollow.flac",
+      "format": "Spectrogram",
+      "md5": "59957a512416744f686e8395e97fe61f"
+    },
+    {
+      "name": "Gd70-02-14T08IveBeenAllAroundThisWorld.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T08IveBeenAllAroundThisWorld.flac",
+      "format": "Columbia Peaks",
+      "md5": "47b254d887928566b91d3e21775cdab4"
+    },
+    {
+      "name": "Gd70-02-14T08IveBeenAllAroundThisWorld.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "261.48",
+      "md5": "a32771658d897e6abbbc2c8ea77eecec",
+      "title": "gd70-02-14 t08 I've Been All Around This World"
+    },
+    {
+      "name": "Gd70-02-14T08IveBeenAllAroundThisWorld.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T08IveBeenAllAroundThisWorld.flac",
+      "format": "VBR MP3",
+      "length": "04:21",
+      "md5": "043c3a49ec678767dc2fec25bac0e32c",
+      "title": "gd70-02-14 t08 I've Been All Around This World"
+    },
+    {
+      "name": "Gd70-02-14T08IveBeenAllAroundThisWorld.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T08IveBeenAllAroundThisWorld.flac",
+      "format": "Ogg Vorbis",
+      "length": "261.48",
+      "md5": "87792bea6a01c644d99f5c98cece6ef2"
+    },
+    {
+      "name": "Gd70-02-14T08IveBeenAllAroundThisWorld.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T08IveBeenAllAroundThisWorld.flac",
+      "format": "PNG",
+      "md5": "7f9c0473886b0e87743f53b22810b64d"
+    },
+    {
+      "name": "Gd70-02-14T08IveBeenAllAroundThisWorld_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T08IveBeenAllAroundThisWorld.flac",
+      "format": "Spectrogram",
+      "md5": "3af7a3a390d9a7d2ff366c9c6ced0e61"
+    },
+    {
+      "name": "Gd70-02-14T09WakeUpLittleSusie.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T09WakeUpLittleSusie.flac",
+      "format": "Columbia Peaks",
+      "md5": "97a5a9fd2cd510f2f74acb5b52be52bd"
+    },
+    {
+      "name": "Gd70-02-14T09WakeUpLittleSusie.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "150.31",
+      "md5": "12ddfbe5ce887b9dc5b2285ca6aee335",
+      "title": "gd70-02-14 t09 Wake up Little Susie"
+    },
+    {
+      "name": "Gd70-02-14T09WakeUpLittleSusie.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T09WakeUpLittleSusie.flac",
+      "format": "VBR MP3",
+      "length": "02:30",
+      "md5": "70c0b7ba6e920f3b923786f8e1657490",
+      "title": "gd70-02-14 t09 Wake up Little Susie"
+    },
+    {
+      "name": "Gd70-02-14T09WakeUpLittleSusie.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T09WakeUpLittleSusie.flac",
+      "format": "Ogg Vorbis",
+      "length": "150.31",
+      "md5": "0c36c54f36a14f3e5de7835c0862e150"
+    },
+    {
+      "name": "Gd70-02-14T09WakeUpLittleSusie.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T09WakeUpLittleSusie.flac",
+      "format": "PNG",
+      "md5": "15e6b39872125f0468961788c56c9bc2"
+    },
+    {
+      "name": "Gd70-02-14T09WakeUpLittleSusie_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T09WakeUpLittleSusie.flac",
+      "format": "Spectrogram",
+      "md5": "0d381ae1e2a5217ff78ed4505bdb9f58"
+    },
+    {
+      "name": "Gd70-02-14T10BlackPeter.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T10BlackPeter.flac",
+      "format": "Columbia Peaks",
+      "md5": "430222e5b1ada5caebdf2eb6870905ce"
+    },
+    {
+      "name": "Gd70-02-14T10BlackPeter.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "440.31",
+      "md5": "9fa34cd0f51ea228b9caef35a1868806",
+      "title": "gd70-02-14 t10 Black Peter"
+    },
+    {
+      "name": "Gd70-02-14T10BlackPeter.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T10BlackPeter.flac",
+      "format": "VBR MP3",
+      "length": "07:20",
+      "md5": "0c41918ec6cae2f4fe98666ef5c346fc",
+      "title": "gd70-02-14 t10 Black Peter"
+    },
+    {
+      "name": "Gd70-02-14T10BlackPeter.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T10BlackPeter.flac",
+      "format": "Ogg Vorbis",
+      "length": "440.31",
+      "md5": "41bc4c8b79230c09420b4f5f578261f8"
+    },
+    {
+      "name": "Gd70-02-14T10BlackPeter.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T10BlackPeter.flac",
+      "format": "PNG",
+      "md5": "0fa643f986c7367016a99dae1408bcee"
+    },
+    {
+      "name": "Gd70-02-14T10BlackPeter_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T10BlackPeter.flac",
+      "format": "Spectrogram",
+      "md5": "e29203df24c71f3b509dfa278b09e173"
+    },
+    {
+      "name": "Gd70-02-14T11UncleJohnsBand.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T11UncleJohnsBand.flac",
+      "format": "Columbia Peaks",
+      "md5": "57c9298b165c0a53e8bb34bcd0e40ea7"
+    },
+    {
+      "name": "Gd70-02-14T11UncleJohnsBand.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "503.83",
+      "md5": "4b18b475f39de788b764f9323f608257",
+      "title": "gd70-02-14 t11 Uncle John's Band"
+    },
+    {
+      "name": "Gd70-02-14T11UncleJohnsBand.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T11UncleJohnsBand.flac",
+      "format": "VBR MP3",
+      "length": "08:23",
+      "md5": "7cb0609dadd47fbcae3b7e33baf2d8a2",
+      "title": "gd70-02-14 t11 Uncle John's Band"
+    },
+    {
+      "name": "Gd70-02-14T11UncleJohnsBand.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T11UncleJohnsBand.flac",
+      "format": "Ogg Vorbis",
+      "length": "503.83",
+      "md5": "3295e8b903573bedf377c86775ce8cc0"
+    },
+    {
+      "name": "Gd70-02-14T11UncleJohnsBand.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T11UncleJohnsBand.flac",
+      "format": "PNG",
+      "md5": "df110e0eaa8de8ac2fb0a33e0005cf37"
+    },
+    {
+      "name": "Gd70-02-14T11UncleJohnsBand_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T11UncleJohnsBand.flac",
+      "format": "Spectrogram",
+      "md5": "745c81175da96062e2a0458d09305fc5"
+    },
+    {
+      "name": "Gd70-02-14T12KatieMae.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T12KatieMae.flac",
+      "format": "Columbia Peaks",
+      "md5": "9b501e74f860dd10709dd06bdf1b2f34"
+    },
+    {
+      "name": "Gd70-02-14T12KatieMae.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "472.29",
+      "md5": "7707d5c1ef5a18a5d5fc59dfe0257d0c",
+      "title": "gd70-02-14 t12 Katie Mae"
+    },
+    {
+      "name": "Gd70-02-14T12KatieMae.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T12KatieMae.flac",
+      "format": "VBR MP3",
+      "length": "07:52",
+      "md5": "e35c6ab7b7580786384c46ed626abe45",
+      "title": "gd70-02-14 t12 Katie Mae"
+    },
+    {
+      "name": "Gd70-02-14T12KatieMae.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T12KatieMae.flac",
+      "format": "Ogg Vorbis",
+      "length": "472.29",
+      "md5": "5ac0eacd613d48d34c7c4de36c7e3254"
+    },
+    {
+      "name": "Gd70-02-14T12KatieMae.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T12KatieMae.flac",
+      "format": "PNG",
+      "md5": "5a04eadd80e7af4be8583d4d1b4d9086"
+    },
+    {
+      "name": "Gd70-02-14T12KatieMae_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T12KatieMae.flac",
+      "format": "Spectrogram",
+      "md5": "106fb9526c7551b38c8154a9268e0af7"
+    },
+    {
+      "name": "Gd70-02-14T13DancinInTheStreets.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T13DancinInTheStreets.flac",
+      "format": "Columbia Peaks",
+      "md5": "00566eea465d84f38a1e4e0751330ff2"
+    },
+    {
+      "name": "Gd70-02-14T13DancinInTheStreets.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "579.16",
+      "md5": "ba7a36c51cbb7e5f53c8019755834787",
+      "title": "gd70-02-14 t13 Dancin' In The Streets"
+    },
+    {
+      "name": "Gd70-02-14T13DancinInTheStreets.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T13DancinInTheStreets.flac",
+      "format": "VBR MP3",
+      "length": "09:39",
+      "md5": "03e03ee4531b80d674c6d9f93368f13d",
+      "title": "gd70-02-14 t13 Dancin' In The Streets"
+    },
+    {
+      "name": "Gd70-02-14T13DancinInTheStreets.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T13DancinInTheStreets.flac",
+      "format": "Ogg Vorbis",
+      "length": "579.16",
+      "md5": "3b95ab67ff3c556a5df07741eace21e4"
+    },
+    {
+      "name": "Gd70-02-14T13DancinInTheStreets.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T13DancinInTheStreets.flac",
+      "format": "PNG",
+      "md5": "cf8dd6e3ebd9875f8f43086e00ee429c"
+    },
+    {
+      "name": "Gd70-02-14T13DancinInTheStreets_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T13DancinInTheStreets.flac",
+      "format": "Spectrogram",
+      "md5": "1f2f05b87e42fc25b2722c55765b0164"
+    },
+    {
+      "name": "Gd70-02-14T14ChinaCatSunflower.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T14ChinaCatSunflower.flac",
+      "format": "Columbia Peaks",
+      "md5": "cb4ad729e83d3180a1ada23379840769"
+    },
+    {
+      "name": "Gd70-02-14T14ChinaCatSunflower.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "315.48",
+      "md5": "a718c4f093ae16058c7db5e5cc5a2c00",
+      "title": "gd70-02-14 t14 China Cat Sunflower"
+    },
+    {
+      "name": "Gd70-02-14T14ChinaCatSunflower.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T14ChinaCatSunflower.flac",
+      "format": "VBR MP3",
+      "length": "05:15",
+      "md5": "71fb97c8c4deb1b86c9c5135457b1864",
+      "title": "gd70-02-14 t14 China Cat Sunflower"
+    },
+    {
+      "name": "Gd70-02-14T14ChinaCatSunflower.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T14ChinaCatSunflower.flac",
+      "format": "Ogg Vorbis",
+      "length": "315.48",
+      "md5": "f6c38aa181d70422f4e938113593b19c"
+    },
+    {
+      "name": "Gd70-02-14T14ChinaCatSunflower.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T14ChinaCatSunflower.flac",
+      "format": "PNG",
+      "md5": "d45ac9335248305ce2e44ccca418d1ee"
+    },
+    {
+      "name": "Gd70-02-14T14ChinaCatSunflower_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T14ChinaCatSunflower.flac",
+      "format": "Spectrogram",
+      "md5": "740ef85df6855a01406d8dfa691794e7"
+    },
+    {
+      "name": "Gd70-02-14T15IKnowYouRider.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T15IKnowYouRider.flac",
+      "format": "Columbia Peaks",
+      "md5": "1d3ba3548e820f441c11eeb0754753d2"
+    },
+    {
+      "name": "Gd70-02-14T15IKnowYouRider.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "289.89",
+      "md5": "76d28127fec3387784bf9898b5d3b98a",
+      "title": "gd70-02-14 t15 I Know You Rider"
+    },
+    {
+      "name": "Gd70-02-14T15IKnowYouRider.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T15IKnowYouRider.flac",
+      "format": "VBR MP3",
+      "length": "04:49",
+      "md5": "ffaa6200316c097de2bc1d3ac47a4d0b",
+      "title": "gd70-02-14 t15 I Know You Rider"
+    },
+    {
+      "name": "Gd70-02-14T15IKnowYouRider.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T15IKnowYouRider.flac",
+      "format": "Ogg Vorbis",
+      "length": "289.89",
+      "md5": "dcf165dde0bd85973ae250cfc04056be"
+    },
+    {
+      "name": "Gd70-02-14T15IKnowYouRider.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T15IKnowYouRider.flac",
+      "format": "PNG",
+      "md5": "fd642aa43c70982b5f7f29a47504871c"
+    },
+    {
+      "name": "Gd70-02-14T15IKnowYouRider_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T15IKnowYouRider.flac",
+      "format": "Spectrogram",
+      "md5": "e98a860bf9d75bee1a1a104532af9ce8"
+    },
+    {
+      "name": "Gd70-02-14T16HighTime.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T16HighTime.flac",
+      "format": "Columbia Peaks",
+      "md5": "5ffa7d2a6811aa86fb40fe8b73003873"
+    },
+    {
+      "name": "Gd70-02-14T16HighTime.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "406.55",
+      "md5": "baa667e1b353153da5f3f1fb1d60b3fe",
+      "title": "gd70-02-14 t16 High Time"
+    },
+    {
+      "name": "Gd70-02-14T16HighTime.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T16HighTime.flac",
+      "format": "VBR MP3",
+      "length": "06:46",
+      "md5": "829984535925d667b7b733faa8e423a8",
+      "title": "gd70-02-14 t16 High Time"
+    },
+    {
+      "name": "Gd70-02-14T16HighTime.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T16HighTime.flac",
+      "format": "Ogg Vorbis",
+      "length": "406.55",
+      "md5": "a259f266ca554890d142b3353e188065"
+    },
+    {
+      "name": "Gd70-02-14T16HighTime.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T16HighTime.flac",
+      "format": "PNG",
+      "md5": "e154e24718833fe975d414d54c2a8862"
+    },
+    {
+      "name": "Gd70-02-14T16HighTime_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T16HighTime.flac",
+      "format": "Spectrogram",
+      "md5": "e7d299fbdf75fddda1afa2439ac3b475"
+    },
+    {
+      "name": "Gd70-02-14T17DireWolf.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T17DireWolf.flac",
+      "format": "Columbia Peaks",
+      "md5": "f13d7ab77dddb99d553d622a2e31e81b"
+    },
+    {
+      "name": "Gd70-02-14T17DireWolf.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "299.56",
+      "md5": "b23dceb5d28ac163211caa1c99ef7070",
+      "title": "gd70-02-14 t17 Dire Wolf"
+    },
+    {
+      "name": "Gd70-02-14T17DireWolf.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T17DireWolf.flac",
+      "format": "VBR MP3",
+      "length": "04:59",
+      "md5": "9e00823705ee4659246f3110fabd419d",
+      "title": "gd70-02-14 t17 Dire Wolf"
+    },
+    {
+      "name": "Gd70-02-14T17DireWolf.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T17DireWolf.flac",
+      "format": "Ogg Vorbis",
+      "length": "299.56",
+      "md5": "6abd8a66b8581cf4e793cd5ddb1c3f53"
+    },
+    {
+      "name": "Gd70-02-14T17DireWolf.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T17DireWolf.flac",
+      "format": "PNG",
+      "md5": "2ecd66bf8c84a4dae5c4340631f9af98"
+    },
+    {
+      "name": "Gd70-02-14T17DireWolf_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T17DireWolf.flac",
+      "format": "Spectrogram",
+      "md5": "2e22558249c6abccff7007e081ee0ca5"
+    },
+    {
+      "name": "Gd70-02-14T18Alligator.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T18Alligator.flac",
+      "format": "Columbia Peaks",
+      "md5": "a4246c64471dbd9b5aa6f0b18dad0256"
+    },
+    {
+      "name": "Gd70-02-14T18Alligator.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "232.27",
+      "md5": "992281c330d97940d8cffd190cc41d4b",
+      "title": "gd70-02-14 t18 Alligator"
+    },
+    {
+      "name": "Gd70-02-14T18Alligator.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T18Alligator.flac",
+      "format": "VBR MP3",
+      "length": "03:52",
+      "md5": "adb8df4e400390568cac43b2f0b4b362",
+      "title": "gd70-02-14 t18 Alligator"
+    },
+    {
+      "name": "Gd70-02-14T18Alligator.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T18Alligator.flac",
+      "format": "Ogg Vorbis",
+      "length": "232.27",
+      "md5": "1e6f51f31c1bc20959dccfe04400d30d"
+    },
+    {
+      "name": "Gd70-02-14T18Alligator.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T18Alligator.flac",
+      "format": "PNG",
+      "md5": "a2754df0f3d7f589e31f79d0a8236e51"
+    },
+    {
+      "name": "Gd70-02-14T18Alligator_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T18Alligator.flac",
+      "format": "Spectrogram",
+      "md5": "300dba2f42fb4b7ea1bdf0c333a9a092"
+    },
+    {
+      "name": "Gd70-02-14T19Drums.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T19Drums.flac",
+      "format": "Columbia Peaks",
+      "md5": "8827ab956025aab2cc956098eae1ca52"
+    },
+    {
+      "name": "Gd70-02-14T19Drums.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "749.32",
+      "md5": "a077e09f0d741989fc89c0c2ab696602",
+      "title": "gd70-02-14 t19 Drums"
+    },
+    {
+      "name": "Gd70-02-14T19Drums.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T19Drums.flac",
+      "format": "VBR MP3",
+      "length": "12:29",
+      "md5": "3c84a9be52d920de5b12fd00399276fa",
+      "title": "gd70-02-14 t19 Drums"
+    },
+    {
+      "name": "Gd70-02-14T19Drums.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T19Drums.flac",
+      "format": "Ogg Vorbis",
+      "length": "749.32",
+      "md5": "dbea48c2cbf510b1d8966578da4a1e29"
+    },
+    {
+      "name": "Gd70-02-14T19Drums.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T19Drums.flac",
+      "format": "PNG",
+      "md5": "372cabb692395a073b0ef1215cdf5b0a"
+    },
+    {
+      "name": "Gd70-02-14T19Drums_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T19Drums.flac",
+      "format": "Spectrogram",
+      "md5": "e0e8122bd43c31f1e10fb2f50e6e1889"
+    },
+    {
+      "name": "Gd70-02-14T20MeMyUncle.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T20MeMyUncle.flac",
+      "format": "Columbia Peaks",
+      "md5": "ddeb102c325bd3e699d1c3e57ed82c86"
+    },
+    {
+      "name": "Gd70-02-14T20MeMyUncle.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "193.75",
+      "md5": "4746daa52ca8a7e19c12943545db2bcc",
+      "title": "gd70-02-14 t20 Me & My Uncle"
+    },
+    {
+      "name": "Gd70-02-14T20MeMyUncle.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T20MeMyUncle.flac",
+      "format": "VBR MP3",
+      "length": "03:13",
+      "md5": "c56f35efff9f896c1182e93a5855ba31",
+      "title": "gd70-02-14 t20 Me & My Uncle"
+    },
+    {
+      "name": "Gd70-02-14T20MeMyUncle.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T20MeMyUncle.flac",
+      "format": "Ogg Vorbis",
+      "length": "193.75",
+      "md5": "57dbdf3914530734e91eea1f9ef2cfc2"
+    },
+    {
+      "name": "Gd70-02-14T20MeMyUncle.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T20MeMyUncle.flac",
+      "format": "PNG",
+      "md5": "25c2727939688e9cbb9245feadf26414"
+    },
+    {
+      "name": "Gd70-02-14T20MeMyUncle_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T20MeMyUncle.flac",
+      "format": "Spectrogram",
+      "md5": "cb198c4a3db33735041b8b76b5e0c0f5"
+    },
+    {
+      "name": "Gd70-02-14T21NotFadeAway.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T21NotFadeAway.flac",
+      "format": "Columbia Peaks",
+      "md5": "90ba1e456eff9fa87f6c4615fdb8485a"
+    },
+    {
+      "name": "Gd70-02-14T21NotFadeAway.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "833.59",
+      "md5": "4d4ad2468e31f5277bda2bbdb680ee96",
+      "title": "gd70-02-14 t21 Not Fade Away"
+    },
+    {
+      "name": "Gd70-02-14T21NotFadeAway.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T21NotFadeAway.flac",
+      "format": "VBR MP3",
+      "length": "13:53",
+      "md5": "dd708356ec9f9694ac8a09fa363dd7a9",
+      "title": "gd70-02-14 t21 Not Fade Away"
+    },
+    {
+      "name": "Gd70-02-14T21NotFadeAway.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T21NotFadeAway.flac",
+      "format": "Ogg Vorbis",
+      "length": "833.59",
+      "md5": "eaf126d0f3de00bdae8e4985d0e20af7"
+    },
+    {
+      "name": "Gd70-02-14T21NotFadeAway.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T21NotFadeAway.flac",
+      "format": "PNG",
+      "md5": "885dbdec0817d6eed394ed9778055263"
+    },
+    {
+      "name": "Gd70-02-14T21NotFadeAway_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T21NotFadeAway.flac",
+      "format": "Spectrogram",
+      "md5": "df699331176885355386714edffbc0b9"
+    },
+    {
+      "name": "Gd70-02-14T22MasonsChildren.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T22MasonsChildren.flac",
+      "format": "Columbia Peaks",
+      "md5": "4d9d092977f2c99dca156a7c59f17831"
+    },
+    {
+      "name": "Gd70-02-14T22MasonsChildren.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "228.96",
+      "md5": "ee41c6e0a91f12b7bc7a0f9fe06f919c",
+      "title": "gd70-02-14 t22 Mason's Children"
+    },
+    {
+      "name": "Gd70-02-14T22MasonsChildren.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T22MasonsChildren.flac",
+      "format": "VBR MP3",
+      "length": "03:48",
+      "md5": "57b655ecc986a78e7c6158ec71890798",
+      "title": "gd70-02-14 t22 Mason's Children"
+    },
+    {
+      "name": "Gd70-02-14T22MasonsChildren.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T22MasonsChildren.flac",
+      "format": "Ogg Vorbis",
+      "length": "228.96",
+      "md5": "08e38b281590c9703c589625233858cb"
+    },
+    {
+      "name": "Gd70-02-14T22MasonsChildren.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T22MasonsChildren.flac",
+      "format": "PNG",
+      "md5": "efd2abe8240fca1673be4d0e1483203a"
+    },
+    {
+      "name": "Gd70-02-14T22MasonsChildren_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T22MasonsChildren.flac",
+      "format": "Spectrogram",
+      "md5": "5404fbfce3e81bc69e296c7ce6184457"
+    },
+    {
+      "name": "Gd70-02-14T23CautiondoNotStopOnTheTracks.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T23CautiondoNotStopOnTheTracks.flac",
+      "format": "Columbia Peaks",
+      "md5": "ba890318853f0d62a249c857ca94c291"
+    },
+    {
+      "name": "Gd70-02-14T23CautiondoNotStopOnTheTracks.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "861.6",
+      "md5": "44de1e01ea9c5ee1c3842e584e6a4dc8",
+      "title": "gd70-02-14 t23 Caution (Do Not Stop On The Tracks)"
+    },
+    {
+      "name": "Gd70-02-14T23CautiondoNotStopOnTheTracks.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T23CautiondoNotStopOnTheTracks.flac",
+      "format": "VBR MP3",
+      "length": "14:21",
+      "md5": "a64d5fe8a1ad2777ebd8b24f489f4db4",
+      "title": "gd70-02-14 t23 Caution (Do Not Stop On The Tracks)"
+    },
+    {
+      "name": "Gd70-02-14T23CautiondoNotStopOnTheTracks.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T23CautiondoNotStopOnTheTracks.flac",
+      "format": "Ogg Vorbis",
+      "length": "861.6",
+      "md5": "388aa38941e159116f232ceef6f24810"
+    },
+    {
+      "name": "Gd70-02-14T23CautiondoNotStopOnTheTracks.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T23CautiondoNotStopOnTheTracks.flac",
+      "format": "PNG",
+      "md5": "c0fea0106497391aa8d067452102ae45"
+    },
+    {
+      "name": "Gd70-02-14T23CautiondoNotStopOnTheTracks_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T23CautiondoNotStopOnTheTracks.flac",
+      "format": "Spectrogram",
+      "md5": "8b8121e06b4c129db50961962d202d84"
+    },
+    {
+      "name": "Gd70-02-14T24Feedback.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T24Feedback.flac",
+      "format": "Columbia Peaks",
+      "md5": "c9fdc1252667ff7297106c8263bdaee8"
+    },
+    {
+      "name": "Gd70-02-14T24Feedback.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "520.39",
+      "md5": "46b28bfae8d9d57cadda11da4658f695",
+      "title": "gd70-02-14 t24 Feedback"
+    },
+    {
+      "name": "Gd70-02-14T24Feedback.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T24Feedback.flac",
+      "format": "VBR MP3",
+      "length": "08:40",
+      "md5": "76384e548a679f75a6f6a8324ad29af7",
+      "title": "gd70-02-14 t24 Feedback"
+    },
+    {
+      "name": "Gd70-02-14T24Feedback.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T24Feedback.flac",
+      "format": "Ogg Vorbis",
+      "length": "520.39",
+      "md5": "87552ec4d3c97d093be59649f7c8f1ce"
+    },
+    {
+      "name": "Gd70-02-14T24Feedback.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T24Feedback.flac",
+      "format": "PNG",
+      "md5": "ce39c497c4c375650ab3046cc3c6d078"
+    },
+    {
+      "name": "Gd70-02-14T24Feedback_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T24Feedback.flac",
+      "format": "Spectrogram",
+      "md5": "fd555e03ae420ee60fae896881655ddd"
+    },
+    {
+      "name": "Gd70-02-14T25AndWeBidYouGoodNight.afpk",
+      "source": "derivative",
+      "original": "Gd70-02-14T25AndWeBidYouGoodNight.flac",
+      "format": "Columbia Peaks",
+      "md5": "bf3f153360289ca93847e484b8ceba26"
+    },
+    {
+      "name": "Gd70-02-14T25AndWeBidYouGoodNight.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "146.92",
+      "md5": "03bbd10b3810172fe526c863f4326918",
+      "title": "gd70-02-14 t25 And We Bid you Good Night"
+    },
+    {
+      "name": "Gd70-02-14T25AndWeBidYouGoodNight.mp3",
+      "source": "derivative",
+      "original": "Gd70-02-14T25AndWeBidYouGoodNight.flac",
+      "format": "VBR MP3",
+      "length": "02:26",
+      "md5": "b9b0ffa711400ba57a1d5ce0a743ee96",
+      "title": "gd70-02-14 t25 And We Bid you Good Night"
+    },
+    {
+      "name": "Gd70-02-14T25AndWeBidYouGoodNight.ogg",
+      "source": "derivative",
+      "original": "Gd70-02-14T25AndWeBidYouGoodNight.flac",
+      "format": "Ogg Vorbis",
+      "length": "146.92",
+      "md5": "72f01f6a5f797107e2bba8facec5713e"
+    },
+    {
+      "name": "Gd70-02-14T25AndWeBidYouGoodNight.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T25AndWeBidYouGoodNight.flac",
+      "format": "PNG",
+      "md5": "98d13612f9faa29f05873f1d6d17b7e7"
+    },
+    {
+      "name": "Gd70-02-14T25AndWeBidYouGoodNight_spectrogram.png",
+      "source": "derivative",
+      "original": "Gd70-02-14T25AndWeBidYouGoodNight.flac",
+      "format": "Spectrogram",
+      "md5": "ad9f4b801609df1fc615d2935ea6916f"
+    },
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "c4b0befc7f6a6479e9853f046a487689"
+    },
+    {
+      "name": "gd1970-02-14.141007.late.show.sbd.pcm.dalton.miller.clugston.flac1644_archive.torrent",
+      "source": "original",
+      "format": "Archive BitTorrent",
+      "md5": "a5acc96607fe715d569f9040a8268242"
+    },
+    {
+      "name": "gd1970-02-14.141007.late.show.sbd.pcm.dalton.miller.clugston.flac1644_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "ea8d9ff75314b97749d570b05c696f69"
+    },
+    {
+      "name": "gd1970-02-14.141007.late.show.sbd.pcm.dalton.miller.clugston.flac1644_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "42dc053ca7f41e37e94d35f093b39847"
+    },
+    {
+      "name": "gd1970-02-14.141007.late.show.sbd.pcm.dalton.miller.clugston.flac1644_reviews.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "5ff196ad554bbf2a3fc85f92e96fb6df"
+    },
+    {
+      "name": "gd1970-02-14.late.show.sbd.pcm.dalton.miller.clugston.flac16.ffp",
+      "source": "original",
+      "format": "Flac FingerPrint",
+      "md5": "ffd5fd2459cce8d70c810c9e96193f12"
+    },
+    {
+      "name": "gd1970-02-14.late.show.sbd.pcm.dalton.miller.clugston.flac16.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "c6ad5ce39de9ebb43896465a5dd24107"
+    },
+    {
+      "name": "gd1970-02-14.late.show.sbd.pcm.dalton.miller.clugston.flac16.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "b01d61b2c7e845cd6d7624f99799af96"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewtitle": "The G-d damn Grateful Dead!!!",
+      "reviewbody": "Happy Valentines Day.\nOne of my favorites",
+      "stars": "5",
+      "reviewer": "c-freedom",
+      "reviewdate": "2023-02-14 12:38:04",
+      "createdate": "2023-02-14 12:38:04",
+      "reviewer_itemname": "@c-freedom"
+    }
+  ]
+}
