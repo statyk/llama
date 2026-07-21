@@ -128,10 +128,18 @@ jobs:
         if: matrix.os == 'windows' && needs.prep.outputs.dry_run != 'true'
         shell: pwsh
         run: |
-          nuget install Microsoft.Trusted.Signing.Client -x -OutputDirectory "$env:RUNNER_TEMP\tsc"
+          # Download the .nupkg (a zip) directly and extract it: nuget.exe's
+          # classic `install` intermittently reports "Unable to find package"
+          # against the v3 feed even when the package resolves. Pinned for a
+          # reproducible signing toolchain — bump when Microsoft ships a fix.
+          $ErrorActionPreference = "Stop"
+          $ver = "1.0.95"
+          $nupkg = "$env:RUNNER_TEMP\tsc.zip"
+          Invoke-WebRequest -Uri "https://api.nuget.org/v3-flatcontainer/microsoft.trusted.signing.client/$ver/microsoft.trusted.signing.client.$ver.nupkg" -OutFile $nupkg
+          Expand-Archive -Path $nupkg -DestinationPath "$env:RUNNER_TEMP\tsc" -Force
           $dest = "$env:LOCALAPPDATA\Microsoft\MicrosoftArtifactSigningClientTools"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          Copy-Item -Path "$env:RUNNER_TEMP\tsc\Microsoft.Trusted.Signing.Client\bin\x64\*" -Destination $dest -Recurse -Force
+          Copy-Item -Path "$env:RUNNER_TEMP\tsc\bin\x64\*" -Destination $dest -Recurse -Force
       - name: Build
         shell: bash
         env:
