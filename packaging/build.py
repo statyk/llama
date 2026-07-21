@@ -239,7 +239,9 @@ def macos_sign(binary: Path, identity: str | None, notary_profile: str,
 # --- Windows Authenticode signing (Azure Trusted Signing) ------------------
 # One `signtool sign` call on the onefile .exe, using the x64 signtool.exe +
 # Azure.CodeSigning.Dlib.dll driven by packaging/metadata.json. Azure auth is
-# the machine-side `az` login on the runner — no CI secret.
+# via DefaultAzureCredential — in CI a service principal supplied as
+# AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_CLIENT_SECRET GitHub secrets
+# (EnvironmentCredential); a local `az login` also works for dev builds.
 
 
 def check_metadata_not_placeholder(text: str) -> None:
