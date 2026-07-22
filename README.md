@@ -4,7 +4,9 @@ Finds concerts on archive.org's Live Music Archive, vets them for quality,
 researches the specific performance (fact-checking the research against the
 setlist before it ships), and packages audio + notes for an automated radio
 station. A verbatim DJ script is included by default (`--no-script`, or
-`script = false` on a profile, opts out).
+`script = false` on a profile, opts out). The script can optionally be
+**spoken** — per-segment MP3 clips synthesized via ElevenLabs — opt-in and
+off by default (`--voice`, or a profile's own `voice`).
 
 ## Setup
 
@@ -22,6 +24,16 @@ these defaults with `llama config init` (`--stdout` to print instead):
     api_key = "..."                  # or SETLISTFM_API_KEY env var; optional —
                                      # without it set-structure recovery is
                                      # best-effort from LMA descriptions only
+
+    [tts]
+    enabled = true                   # spoken DJ patter via ElevenLabs; default false.
+                                     # A profile with its own `voice` is voiced even
+                                     # when this is off. Voice implies --script.
+    voice = "..."                    # station-default ElevenLabs voice_id
+    # model = "eleven_multilingual_v2"
+    api_key = "..."                  # or ELEVENLABS_API_KEY env var (env wins)
+                                     # ElevenLabs is the only backend; no local/offline
+                                     # TTS option yet
 
     [winnow]
     max_metadata_fetch = 40          # review-fetch budget; when survivors exceed it
@@ -161,6 +173,8 @@ A delivered show package contains:
 - `dj-notes.md` + `manifest.dj_notes` — verbatim DJ script, present by
   default; absent when the run opted out (`--no-script`, or `script = false`
   on a profile)
+- `dj-audio/` + `manifest.dj_audio` — spoken DJ script (opt-in TTS), present
+  only when voice was active for the show
 
 ### Script mode does not change the data
 
@@ -188,6 +202,39 @@ differences err safe:
 Consumers can rely on `research.md`, `reviews.md`, and the manifest meaning
 exactly the same thing regardless of mode; the script setting only
 determines whether the script artifacts exist.
+
+### Voice mode (opt-in TTS)
+
+The DJ script can additionally be **spoken** via ElevenLabs — off by
+default, and orthogonal to whether other shows in the same run are voiced.
+Enable it globally (`[tts] enabled = true` + `[tts] voice`), per invocation
+(`--voice` on `find`/`run`/`review`/`redo`), or per profile (`--voice
+VOICE_ID` on `profile add`, which opts that profile in even when `[tts]
+enabled` is false — different profiles can speak in different voices).
+Voice always implies script: enabling voice forces the DJ script on even
+against `--no-script`, since there is no text to voice otherwise.
+
+When a show is voiced, `package/dj-audio/` gains one MP3 per script
+segment (`00-intro.mp3`, one `set<key>-intro.mp3` per set, one
+`break<N>.mp3` per set-break note, `99-outro.mp3`), and the manifest gains
+a `dj_audio` block of package-relative paths to them (each `set_breaks`
+entry also gets an `audio` path). See
+[docs/station-brief.md](docs/station-brief.md) for the full contract.
+
+Segments are cached per show by a hash of (text, voice, model), so
+repackaging an unchanged script doesn't re-spend on the paid API; `llama
+redo <show> --from package --voice` re-voices a previously-packaged show
+(it replays the show's recorded voice — set a new `[tts] voice`/profile
+voice first to actually switch voices), and `--force` re-renders
+everything instead of reusing the cache. A plain `llama run <run> --voice`
+on an already-packaged run does **not** re-voice it — the package stage is
+skipped — it prints a note pointing at `redo --from package --voice`. A
+TTS failure (bad key, rate limit, missing key while voice is active) fails
+only that show — no package, no delivery — while the rest of the batch
+continues; retry with `redo --from package` once resolved.
+
+ElevenLabs is the only backend today (`fake` exists for offline tests); a
+local/offline TTS backend is deliberately deferred.
 
 ### Downstream synthesis contract
 

@@ -162,10 +162,16 @@ backend = "claude_cli"             # requires the `claude` CLI on PATH
 #                          # set-structure recovery is LMA-descriptions only
 
 # [tts]                      # spoken DJ patter: per-segment MP3 clips of the
-#                            # DJ script under package/dj-audio/ (ElevenLabs)
-# enabled = true             # default false; a profile with an explicit
-#                            # `voice` is voiced even when this is off
-# voice = "..."              # station default ElevenLabs voice_id
+#                            # DJ script land in package/dj-audio/ (00-intro,
+#                            # set<key>-intro, break<N>, 99-outro), tied
+#                            # together by the manifest's dj_audio block.
+#                            # Enabling voice forces the DJ script on even
+#                            # against --no-script (nothing to voice otherwise).
+# enabled = true             # default false; a profile with its own `voice`
+#                            # is voiced even when this is off
+# backend = "elevenlabs"     # or "fake" for tests; no local backend yet
+# voice = "..."              # station-default ElevenLabs voice_id; a profile
+#                            # can set its own `voice` to override this
 # model = "eleven_multilingual_v2"   # quality default
 # api_key = "..."            # or ELEVENLABS_API_KEY env var (env wins)
 

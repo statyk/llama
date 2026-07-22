@@ -61,7 +61,14 @@ hand off:
 │   └── ...
 ├── research.md
 ├── reviews.md
-└── dj-notes.md          (default; absent only if the run opted out)
+├── dj-notes.md           (default; absent only if the run opted out)
+└── dj-audio/             (opt-in TTS; present only when the show was voiced)
+    ├── 00-intro.mp3
+    ├── set1-intro.mp3
+    ├── set2-intro.mp3
+    ├── break1.mp3
+    ├── ...
+    └── 99-outro.mp3
 ```
 
 The copy is a plain recursive copy — **not atomic**, and there is no
@@ -102,9 +109,11 @@ supporting material. Field-by-field:
     ...
   ],
   "set_breaks": [
-    { "after_track": 8, "note_index": 0 }  // break falls after play-order index 8;
+    { "after_track": 8, "note_index": 0, "audio": "dj-audio/break1.mp3" }
   ],                                       // note_index → dj_notes.set_break_notes[i],
-                                           // null when no script exists
+                                           // null when no script exists; audio →
+                                           // the spoken clip for this break, null
+                                           // unless the show was voiced
   "dj_notes": {                            // present by default; null only when
                                            // the run opted out (--no-script)
     "context": "one-line era context",
@@ -113,6 +122,15 @@ supporting material. Field-by-field:
     "set_break_notes": ["read during break 1", "…"],
     "outro": "verbatim sign-off …",
     "mentioned_songs": ["Morning Dew", "..."]  // every song the script names
+  },
+  "dj_audio": {                             // opt-in TTS; present ONLY when the
+                                           // show was voiced, otherwise null
+    "intro": "dj-audio/00-intro.mp3",
+    "set_intros": { "1": "dj-audio/set1-intro.mp3",
+                    "2": "dj-audio/set2-intro.mp3",
+                    "encore": "dj-audio/setencore-intro.mp3" },
+    "set_breaks": ["dj-audio/break1.mp3"],  // parallel to set_breaks above, in order
+    "outro": "dj-audio/99-outro.mp3"
   },
   "research": "research.md",               // relative pointer, null if absent
   "reviews": "reviews.md",
@@ -142,6 +160,10 @@ supporting material. Field-by-field:
   ≤800 chars each) from the source archive.org item.
 - **`dj-notes.md`** — human-readable rendering of `dj_notes`; present by
   default, absent only when the run opted out with `--no-script`.
+- **`dj-audio/`** — spoken-word MP3 clips of the DJ script (opt-in
+  ElevenLabs TTS), present only when the show was voiced. One file per
+  `dj_audio` path in the manifest; a `segments.json` sidecar in the same
+  directory is llama's internal render cache and can be ignored.
 
 ### Contract details worth knowing
 
@@ -163,6 +185,16 @@ supporting material. Field-by-field:
   framing when there's no script.
 - Filenames are filesystem-safe (unsafe characters replaced), zero-padded,
   and unique within a package.
+- **Spoken DJ audio is opt-in and additive.** `dj_audio` (and `dj-audio/`)
+  exist only for shows llama voiced; a show can have `dj_notes` (text)
+  without `dj_audio` (speech), but never the reverse. Slot the clips
+  as: `dj_audio.intro` before the show starts, each
+  `dj_audio.set_intros["<key>"]` before that set's first track, each
+  `set_breaks[i].audio` during that break (between the two sets it
+  separates), and `dj_audio.outro` after the last track (encore included).
+  `dj_audio.set_breaks` is parallel, in order, to the top-level
+  `set_breaks` array, but prefer each break's own `audio` field so a
+  missing/null entry can't cause an off-by-one.
 
 ## Questions for the station team
 
