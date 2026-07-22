@@ -226,6 +226,7 @@ def test_resolve_artists_exact_partial_and_errors():
     import pytest
 
     from llama.artist_index import resolve_artists
+    from llama.errors import ArtistResolutionError
 
     index = [
         {"identifier": "Galactic", "title": "Galactic"},
@@ -242,8 +243,8 @@ def test_resolve_artists_exact_partial_and_errors():
     assert resolve_artists(index, ["mastersounds"])[0]["identifier"] == "NewMastersounds"
     # ambiguous substring names the candidates
     index.append({"identifier": "GalacticEmpire", "title": "Galactic Empire"})
-    with pytest.raises(ValueError, match="ambiguous"):
+    with pytest.raises(ArtistResolutionError, match="ambiguous"):
         resolve_artists(index, ["galac"])
     # unknown fails loudly (typos surface at pin time, not run time)
-    with pytest.raises(ValueError, match="no LMA artist"):
+    with pytest.raises(ArtistResolutionError, match="no LMA match"):
         resolve_artists(index, ["Phish Tribute Zebra"])

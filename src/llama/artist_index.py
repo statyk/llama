@@ -12,6 +12,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from llama.errors import ArtistResolutionError
 from llama.ia_client import IAError
 from llama.llm.tasks import run_json_task
 from llama.models import ArtistMatches
@@ -125,13 +126,14 @@ def resolve_artists(index: list[dict], names: list[str]) -> list[dict]:
     """Resolve human-typed artist names to index entries, order preserved.
 
     Exact normalized match on identifier or title first, then a UNIQUE
-    normalized-substring match; anything else raises ValueError so a typo in
-    a pinned roster fails at profile-add time, not silently at run time."""
+    normalized-substring match; anything else raises ArtistResolutionError so
+    a typo in a pinned roster fails at profile-add time, not silently at run
+    time."""
     resolved: list[dict] = []
     for name in names:
         want = _norm(name)
         if not want:
-            raise ValueError(f"empty artist name in {names!r}")
+            raise ArtistResolutionError(f"cannot pin artist: empty name in {names!r}")
         exact = [a for a in index
                  if _norm(a["identifier"]) == want or _norm(a["title"]) == want]
         if exact:
@@ -142,10 +144,11 @@ def resolve_artists(index: list[dict], names: list[str]) -> list[dict]:
         if len(partial) == 1:
             resolved.append(partial[0])
         elif not partial:
-            raise ValueError(f"no LMA artist matches {name!r}")
+            raise ArtistResolutionError(f"cannot pin artist: no LMA match for {name!r}")
         else:
             options = ", ".join(a["identifier"] for a in partial[:8])
-            raise ValueError(f"{name!r} is ambiguous on the LMA: {options}")
+            raise ArtistResolutionError(
+                f"cannot pin artist: {name!r} is ambiguous on the LMA: {options}")
     return resolved
 
 

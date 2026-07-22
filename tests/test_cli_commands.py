@@ -659,6 +659,7 @@ def test_profile_add_pins_resolved_artists(tmp_path: Path, monkeypatch):
 
 
 def test_profile_add_rejects_unknown_pinned_artist(tmp_path: Path, monkeypatch):
+    from llama.errors import ArtistResolutionError
     from llama.llm.fake import FakeProvider
 
     cfg = str(tmp_path / "config.toml")
@@ -668,8 +669,11 @@ def test_profile_add_rejects_unknown_pinned_artist(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "load_or_build", lambda ia, cache: PIN_INDEX)
     result = runner.invoke(cli.app, ["profile", "add", "funky", "funk",
                                      "--artists", "Zebra Ensemble", "--config", cfg])
+    # resolve_artists now raises ArtistResolutionError, an uncaught LlamaError that
+    # only main_cli() (not this direct cli.app invocation) renders as clean stderr text.
     assert result.exit_code == 1
-    assert "cannot pin artists" in result.output
+    assert isinstance(result.exception, ArtistResolutionError)
+    assert "cannot pin artist" in str(result.exception)
     assert not (tmp_path / "profiles" / "funky.toml").exists()
 
 

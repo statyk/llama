@@ -684,11 +684,7 @@ def profile_add(
     if artists:
         names = [n.strip() for n in artists.split(",") if n.strip()]
         index = load_or_build(ia, config.root / "cache")
-        try:
-            resolved = resolve_artists(index, names)
-        except ValueError as e:
-            typer.echo(f"cannot pin artists: {e}", err=True)
-            raise typer.Exit(1)
+        resolved = resolve_artists(index, names)
         updates["artists"] = [a["identifier"] for a in resolved]
         typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
     if updates:
