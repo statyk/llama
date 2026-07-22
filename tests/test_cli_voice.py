@@ -125,7 +125,10 @@ def test_run_voice_with_force_does_not_warn(tmp_path: Path, monkeypatch):
         "--config", str(tmp_path / "config.toml"),
     ], input="y\n")
     assert result.exit_code == 0, result.output
-    assert "redo --from package --voice" not in result.output
+    # negation of the without-force assertion: the note (and its
+    # "--from package --voice" fragment) must be absent when --force is set
+    assert "--from package --voice" not in result.output
+    assert "won't be re-voiced" not in result.output
 
 
 def test_profile_run_explicit_voice_opts_in_when_globally_disabled(
