@@ -212,25 +212,29 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         typer.echo(f"Shortlist awaits review: llama review {ws.dir}")
         return
     setlistfm = make_client(config)
-    for entry in chosen:
-        try:
-            pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
-                               force=force, script=script, voice=voice, speech=speech,
-                               setlistfm=setlistfm,
-                               structure_cfg=config.structure, selection_cfg=config.selection,
-                               jerrybase_enabled=config.jerrybase.enabled,
-                               force_stage=force_stage)
-        except (TaskFailed, LLMError, IAError, SpeechError) as exc:
-            if isinstance(exc, TaskFailed) and exc.raw_output:
-                failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
-                failure_path.parent.mkdir(parents=True, exist_ok=True)
-                failure_path.write_text(exc.raw_output)
-            typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
-            continue
-        if pkg:
-            typer.echo(f"packaged: {pkg}")
-        else:
-            typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
+    try:
+        for entry in chosen:
+            try:
+                pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
+                                   force=force, script=script, voice=voice, speech=speech,
+                                   setlistfm=setlistfm,
+                                   structure_cfg=config.structure, selection_cfg=config.selection,
+                                   jerrybase_enabled=config.jerrybase.enabled,
+                                   force_stage=force_stage)
+            except (TaskFailed, LLMError, IAError, SpeechError) as exc:
+                if isinstance(exc, TaskFailed) and exc.raw_output:
+                    failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
+                    failure_path.parent.mkdir(parents=True, exist_ok=True)
+                    failure_path.write_text(exc.raw_output)
+                typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+                continue
+            if pkg:
+                typer.echo(f"packaged: {pkg}")
+            else:
+                typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
+    finally:
+        if speech is not None:
+            speech.close()
 
 
 @app.command()
@@ -575,12 +579,16 @@ def redo(
     effective_voice = _replay_voice(config, prov.voice, voice)
     effective_script = (prov.script if script is None else script) or effective_voice is not None
     speech = speech_provider_for(config, effective_voice) if effective_voice is not None else None
-    pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                       prov.run, config.audio_format, script=effective_script,
-                       voice=effective_voice, speech=speech,
-                       setlistfm=make_client(config), structure_cfg=config.structure,
-                       jerrybase_enabled=config.jerrybase.enabled,
-                       selection_cfg=config.selection)
+    try:
+        pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                           prov.run, config.audio_format, script=effective_script,
+                           voice=effective_voice, speech=speech,
+                           setlistfm=make_client(config), structure_cfg=config.structure,
+                           jerrybase_enabled=config.jerrybase.enabled,
+                           selection_cfg=config.selection)
+    finally:
+        if speech is not None:
+            speech.close()
     if pkg:
         typer.echo(f"packaged: {pkg}")
     else:

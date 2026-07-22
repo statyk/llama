@@ -67,6 +67,30 @@ def test_elevenlabs_error_status_raises():
         make_provider(handler).synthesize("x")
 
 
+def test_elevenlabs_close_closes_underlying_client():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"mp3bytes")
+
+    provider = make_provider(handler)
+    assert provider._client.is_closed is False
+    provider.close()
+    assert provider._client.is_closed is True
+
+
+def test_elevenlabs_context_manager_closes_on_exit():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"mp3bytes")
+
+    with make_provider(handler) as provider:
+        assert provider._client.is_closed is False
+    assert provider._client.is_closed is True
+
+
+def test_fake_speech_provider_close_is_a_noop():
+    fake = FakeSpeechProvider()
+    fake.close()  # must not raise; no hasattr guard needed by callers
+
+
 def test_factory_fake_backend():
     cfg = Config.model_validate({"tts": {"backend": "fake"}})
     assert isinstance(speech_provider_for(cfg, "ignored"), FakeSpeechProvider)

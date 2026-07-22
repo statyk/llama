@@ -39,3 +39,12 @@ class ElevenLabsProvider:
         if not resp.content:
             raise SpeechError("elevenlabs returned empty audio")
         return resp.content
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> "ElevenLabsProvider":
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.close()

@@ -24,3 +24,6 @@ class FakeSpeechProvider:
         if self.fail:
             raise SpeechError("FakeSpeechProvider armed to fail")
         return SILENT_MP3
+
+    def close(self) -> None:
+        """No-op: lets callers close ANY speech provider uniformly."""
