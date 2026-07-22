@@ -265,11 +265,7 @@ def artists(
 ):
     """Search LMA artists with a natural-language query, or list the deepest catalogs."""
     config, ia, _ = _setup(config_path)
-    try:
-        index = load_or_build(ia, config.root / "cache", refresh=refresh)
-    except IAError as exc:
-        typer.echo(f"artist index build failed: {exc}", err=True)
-        raise typer.Exit(1)
+    index = load_or_build(ia, config.root / "cache", refresh=refresh)
     mr = min_recordings if min_recordings is not None else config.artists.min_recordings
     md = min_downloads if min_downloads is not None else config.artists.min_downloads
     pool = index if all_artists else filter_artists(index, mr, md)
@@ -304,7 +300,7 @@ def run(
 ):
     """Replay an existing run from its artifacts (stages skip work already done)."""
     config, ia, ledger = _setup(config_path)
-    ws = _resolve_run_or_exit(config, run_name)
+    ws = _resolve_run(config, run_name)
     if not ws.criteria.exists():
         typer.echo(f"no criteria.json in {ws.dir}", err=True)
         raise typer.Exit(1)
@@ -348,7 +344,7 @@ def review(
 ):
     """Human gate: approve a run's shortlist, then optionally process it."""
     config, ia, ledger = _setup(config_path)
-    ws = _resolve_run_or_exit(config, run_name)
+    ws = _resolve_run(config, run_name)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
     _print_shortlist(entries, full=full_rationale)
     picks = typer.prompt("Approve which ranks? (comma-separated)",
@@ -372,28 +368,16 @@ def review(
         typer.echo(f"next: llama run {ws.dir}")
 
 
-def _resolve_run_or_exit(config, name: str) -> RunWorkspace:
-    from llama.catalog import CatalogError, resolve_run
+def _resolve_run(config, name: str) -> RunWorkspace:
+    from llama.catalog import resolve_run
 
-    try:
-        return RunWorkspace(config.root, resolve_run(config.root, name))
-    except CatalogError as err:
-        typer.echo(str(err), err=True)
-        for m in err.matches:
-            typer.echo(f"  {m}", err=True)
-        raise typer.Exit(1)
+    return RunWorkspace(config.root, resolve_run(config.root, name))
 
 
-def _resolve_show_or_exit(config, ledger, name: str):
-    from llama.catalog import CatalogError, resolve_show
+def _resolve_show(config, ledger, name: str):
+    from llama.catalog import resolve_show
 
-    try:
-        return resolve_show(config.root, ledger, name)
-    except CatalogError as err:
-        typer.echo(str(err), err=True)
-        for m in err.matches:
-            typer.echo(f"  {m}", err=True)
-        raise typer.Exit(1)
+    return resolve_show(config.root, ledger, name)
 
 
 @app.command()
@@ -405,7 +389,7 @@ def show(
 ):
     """Inspect one show: state, stage artifacts, needs-review flags."""
     config, _, ledger = _setup(config_path)
-    entry = _resolve_show_or_exit(config, ledger, name)
+    entry = _resolve_show(config, ledger, name)
     sws = entry.ws
     if not sws.show.exists():
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
@@ -459,7 +443,7 @@ def deliver(
     import json as _json
 
     config, _, ledger = _setup(config_path)
-    entry = _resolve_show_or_exit(config, ledger, name)
+    entry = _resolve_show(config, ledger, name)
     show_dir = entry.ws.dir
     target_dir = dest or config.delivery_path
     if target_dir is None:
@@ -510,7 +494,7 @@ def redo(
         typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
         raise typer.Exit(1)
     config, ia, ledger = _setup(config_path)
-    entry = _resolve_show_or_exit(config, ledger, name)
+    entry = _resolve_show(config, ledger, name)
     if entry.provenance is None:
         typer.echo(f"no provenance.json in {entry.ws.dir} - "
                    "reprocess it via its run first", err=True)

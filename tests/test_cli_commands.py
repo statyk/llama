@@ -391,11 +391,17 @@ def test_review_resolves_run_by_substring(tmp_path: Path):
 
 
 def test_run_unknown_name_fails_loud(tmp_path: Path):
+    from llama.catalog import CatalogError
+
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     result = runner.invoke(cli.app, ["run", "nope", "--config", cfg])
+    # _resolve_run no longer catches CatalogError; only main_cli() (not this direct
+    # cli.app invocation) renders it as clean stderr text, so assert on the
+    # propagated exception instead.
     assert result.exit_code == 1
-    assert "no run matches" in result.output
+    assert isinstance(result.exception, CatalogError)
+    assert "no run matches" in str(result.exception)
 
 
 FUZZY_CRITERIA = json.dumps({
@@ -823,13 +829,20 @@ def test_show_resolves_by_name_and_lists_stages(tmp_path: Path):
 
 
 def test_show_ambiguous_name_fails_loud(tmp_path: Path):
+    from llama.catalog import CatalogError
+
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1")
     _seed_show(tmp_path, "aab-1970-01-01", "aab/1970-01-01", "r1")
     result = runner.invoke(cli.app, ["show", "aa", "--config", cfg])
+    # _resolve_show no longer catches CatalogError; only main_cli() (not this direct
+    # cli.app invocation) renders the candidate list as indented stderr lines, so
+    # assert on the propagated exception's matches instead.
     assert result.exit_code == 1
-    assert "aaa-1970-01-01" in result.output and "aab-1970-01-01" in result.output
+    assert isinstance(result.exception, CatalogError)
+    assert "aaa-1970-01-01" in result.exception.matches
+    assert "aab-1970-01-01" in result.exception.matches
 
 
 def test_show_clear_still_works_by_name(tmp_path: Path):
