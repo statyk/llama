@@ -14,6 +14,7 @@ IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
 
 SETLISTFM_KEY = os.environ.get("SETLISTFM_API_KEY")  # read at import: see tests/conftest.py
 ELEVENLABS_KEY = os.environ.get("ELEVENLABS_API_KEY")  # read at import: see tests/conftest.py
+MISTRAL_KEY = os.environ.get("MISTRAL_API_KEY")  # read at import: see tests/conftest.py
 
 
 @pytest.mark.live
@@ -125,3 +126,18 @@ def test_elevenlabs_synthesize_real():
     audio = p.synthesize("Tonight: the Grateful Dead, live at RFK Stadium.")
     assert len(audio) > 10_000                     # a real clip, not an error body
     assert audio[:3] == b"ID3" or audio[:1] == b"\xff"  # playable MP3 framing
+
+
+@pytest.mark.live
+@pytest.mark.skipif(not MISTRAL_KEY, reason="needs MISTRAL_API_KEY")
+def test_voxtral_synthesize_real():
+    from llama.tts.voxtral import VoxtralProvider
+
+    # "british-dj" is a placeholder preset name pending confirmation against
+    # Mistral's real voice catalog when this test is first run live; the
+    # same reconciliation applies to the ref_audio/voice_id request fields
+    # and the audio_data response field this test exercises end to end.
+    with VoxtralProvider(voice="british-dj", api_key=MISTRAL_KEY) as p:
+        audio = p.synthesize("Good evening from the archive.")
+    assert audio[:3] == b"ID3" or audio[:2] == b"\xff\xfb"  # playable MP3 framing
+    assert len(audio) > 1000
