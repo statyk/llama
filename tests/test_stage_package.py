@@ -200,6 +200,24 @@ def test_package_force_rerenders_all_segments(tmp_path: Path):
     assert len(second.calls) == 5
 
 
+def test_package_shrinking_breaks_prunes_orphan_clips(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    notes = make_notes().model_copy(update={"set_break_notes": ["x", "y"]})
+    run_package(sws, StubIA(), show, notes, speech=FakeSpeechProvider())
+    dj = sws.package_dir / "dj-audio"
+    assert (dj / "break1.mp3").exists()
+    assert (dj / "break2.mp3").exists()
+    (sws.package_dir / "manifest.json").unlink()  # what redo --from package does
+
+    fewer_notes = notes.model_copy(update={"set_break_notes": ["x"]})
+    pkg = run_package(sws, StubIA(), show, fewer_notes, speech=FakeSpeechProvider())
+    assert (dj / "break1.mp3").exists()
+    assert not (dj / "break2.mp3").exists()      # orphan from the shrunk re-synth is gone
+    assert (dj / "segments.json").exists()        # sidecar untouched
+    m = json.loads((pkg / "manifest.json").read_text())
+    assert m["dj_audio"]["set_breaks"] == ["dj-audio/break1.mp3"]
+
+
 def test_package_speech_failure_leaves_no_manifest(tmp_path: Path):
     sws, show = setup(tmp_path)
     with pytest.raises(SpeechError):

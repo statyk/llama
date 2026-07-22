@@ -48,6 +48,10 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool) -> DJAu
             tmp = dest.with_name(dest.name + ".part")
             tmp.write_bytes(data)
             tmp.replace(dest)
+    for existing in audio_dir.glob("*.mp3"):
+        if existing.name not in keys:
+            detail(f"pruning orphan {existing.name}")
+            existing.unlink()
     write_artifact(sidecar, json.dumps(keys, indent=2))
     return DJAudio(
         intro="dj-audio/00-intro.mp3",
