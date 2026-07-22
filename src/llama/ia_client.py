@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 import httpx
 
+from llama.errors import LlamaError
 from llama.status import detail
 
 SEARCH_URL = "https://archive.org/advancedsearch.php"
@@ -14,7 +15,7 @@ DOWNLOAD_URL = "https://archive.org/download/{identifier}/{filename}"
 SCRAPE_URL = "https://archive.org/services/search/v1/scrape"
 
 
-class IAError(Exception):
+class IAError(LlamaError):
     pass
 
 

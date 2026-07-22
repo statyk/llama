@@ -7,16 +7,20 @@ a walk is milliseconds.
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from llama.errors import LlamaError
 from llama.ledger import Ledger
 from llama.models import Provenance, Show
 from llama.workspace import ShowWorkspace, read_model
 
 
-class CatalogError(Exception):
-    """Resolution failure; matches lists the candidates (empty = no match)."""
+class CatalogError(LlamaError):
+    """Resolution failure; matches lists the candidates (empty = no match).
+
+    The candidate list is exposed to the CLI error boundary as `details`.
+    """
 
     def __init__(self, message: str, matches: list[str] | None = None):
-        super().__init__(message)
+        super().__init__(message, details=matches)
         self.matches = matches or []
 
 
