@@ -1,5 +1,7 @@
 import base64
+import hashlib
 import os
+from pathlib import Path
 
 import httpx
 
@@ -31,10 +33,20 @@ class VoxtralProvider:
         if not self.api_key:
             raise SpeechError("Mistral API key missing: "
                               "set MISTRAL_API_KEY or [tts] api_key")
-        self._ref_b64: str | None = None
-        self._preset: str | None = voice
-        # Clone reference handling is added in Task 2.
-        self.voice = voice
+        if clone_ref:
+            try:
+                ref_bytes = Path(clone_ref).read_bytes()
+            except OSError as e:
+                raise SpeechError(f"voice_clone reference unreadable: {e}") from e
+            if not ref_bytes:
+                raise SpeechError(f"voice_clone reference is empty: {clone_ref}")
+            self._ref_b64 = base64.b64encode(ref_bytes).decode()
+            self._preset = None
+            self.voice = "clone:" + hashlib.sha256(ref_bytes).hexdigest()[:16]
+        else:
+            self._ref_b64 = None
+            self._preset = voice
+            self.voice = voice
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
 
     def _body(self, text: str) -> dict:

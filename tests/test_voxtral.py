@@ -95,3 +95,56 @@ def test_close_and_context_manager():
     with make_preset(_ok_audio()) as q:
         assert q._client.is_closed is False
     assert q._client.is_closed is True
+
+
+import hashlib
+
+
+def make_clone(handler, ref_path, *, api_key="k1"):
+    return VoxtralProvider(clone_ref=str(ref_path), api_key=api_key,
+                           transport=httpx.MockTransport(handler))
+
+
+def test_clone_request_uses_ref_audio_not_voice_id(tmp_path):
+    ref = tmp_path / "dj.wav"
+    ref.write_bytes(b"REFERENCE-AUDIO-BYTES")
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"audio_data": base64.b64encode(b"x").decode()})
+
+    make_clone(handler, ref).synthesize("hi")
+    assert seen["body"]["ref_audio"] == base64.b64encode(b"REFERENCE-AUDIO-BYTES").decode()
+    assert "voice_id" not in seen["body"]
+
+
+def test_clone_voice_identity_is_clip_hash(tmp_path):
+    ref = tmp_path / "dj.wav"
+    ref.write_bytes(b"REFERENCE-AUDIO-BYTES")
+    p = make_clone(_ok_audio(), ref)
+    expected = "clone:" + hashlib.sha256(b"REFERENCE-AUDIO-BYTES").hexdigest()[:16]
+    assert p.voice == expected
+
+
+def test_clone_identity_changes_when_clip_changes(tmp_path):
+    a = tmp_path / "a.wav"; a.write_bytes(b"AAAA")
+    b = tmp_path / "b.wav"; b.write_bytes(b"BBBB")
+    assert make_clone(_ok_audio(), a).voice != make_clone(_ok_audio(), b).voice
+
+
+def test_clone_missing_file_raises(tmp_path):
+    with pytest.raises(SpeechError):
+        make_clone(_ok_audio(), tmp_path / "nope.wav")
+
+
+def test_clone_empty_file_raises(tmp_path):
+    ref = tmp_path / "empty.wav"; ref.write_bytes(b"")
+    with pytest.raises(SpeechError):
+        make_clone(_ok_audio(), ref)
+
+
+def test_over_long_segment_raises():
+    from llama.tts.voxtral import MAX_INPUT_CHARS
+    with pytest.raises(SpeechError):
+        make_preset(_ok_audio()).synthesize("x" * (MAX_INPUT_CHARS + 1))
