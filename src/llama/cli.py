@@ -26,6 +26,8 @@ from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
+from llama.tts import speech_provider_for
+from llama.tts.provider import SpeechError
 from llama.util import slugify
 from llama.workspace import RunWorkspace, read_model, read_model_list, write_artifact
 
@@ -90,6 +92,35 @@ def _parse_ranks(text: str) -> set[int]:
     return {int(p) for p in text.split(",") if p.strip().isdigit()}
 
 
+def _resolve_voice(config: Config, want: bool | None,
+                   profile_voice: str | None = None) -> str | None:
+    """Resolve the run's voice id (None = voice off for this run).
+
+    --no-voice (want=False) always wins. An explicit profile voice opts in
+    even when [tts] enabled is false. Otherwise --voice (want=True) or the
+    global flag activates the station default. Voice active with no voice id
+    is an error, never a silent skip.
+    """
+    if want is False:
+        return None
+    if profile_voice:
+        return profile_voice
+    if want is True or config.tts.enabled:
+        if not config.tts.voice:
+            raise SpeechError("voice is active but no voice id is configured: "
+                              "set [tts] voice or give the profile a voice")
+        return config.tts.voice
+    return None
+
+
+def _replay_voice(config: Config, stamped: str | None,
+                  override: bool | None) -> str | None:
+    """Replay idiom: defer to the voice stamped at process time when unset."""
+    if override is None:
+        return stamped
+    return _resolve_voice(config, override, stamped)
+
+
 RATIONALE_WIDTH = 90   # wrap column for the indented rationale block
 RATIONALE_LINES = 3    # default cap; --full-rationale lifts it
 
@@ -121,9 +152,11 @@ def _print_artists(rows: list[dict]) -> None:
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
-             script: bool = False, force_stage: str | None = None,
+             script: bool = False, voice: str | None = None,
+             force_stage: str | None = None,
              full_rationale: bool = False) -> None:
     providers = make_providers(config)
+    speech = speech_provider_for(config, voice) if voice is not None else None
     artists = None
     if criteria.artists:
         # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
@@ -182,11 +215,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     for entry in chosen:
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
-                               force=force, script=script, setlistfm=setlistfm,
+                               force=force, script=script, voice=voice, speech=speech,
+                               setlistfm=setlistfm,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
                                force_stage=force_stage)
-        except (TaskFailed, LLMError, IAError) as exc:
+        except (TaskFailed, LLMError, IAError, SpeechError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
                 failure_path.parent.mkdir(parents=True, exist_ok=True)
@@ -208,6 +242,10 @@ def find(
     script: bool = typer.Option(True, "--script/--no-script",
                                 help="Verbatim DJ script (high-tier LLM call), on by default; "
                                      "--no-script skips it"),
+    voice: bool = typer.Option(None, "--voice/--no-voice",
+                               help="Per-segment spoken DJ audio (ElevenLabs); default "
+                                    "follows [tts] enabled; --voice uses [tts] voice; "
+                                    "voice implies --script"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of the shortlist one artist may hold "
                                           "(1.0 = pure best-first; default 1/3)"),
@@ -229,6 +267,9 @@ def find(
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
     config, ia, ledger = _setup(config_path)
+    voice_id = _resolve_voice(config, voice)
+    if voice_id is not None:
+        script = True  # voice cannot work without the script
     name = run_name or f"{date.today().isoformat()}-{slugify(query)[:40]}"
     ws = RunWorkspace(config.root, name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
@@ -238,6 +279,8 @@ def find(
         updates["count"] = limit
     if not script:
         updates["script"] = False
+    if voice_id is not None:
+        updates["voice"] = voice_id
     if artist_cap is not None:
         updates["artist_cap"] = artist_cap
     if min_score is not None:
@@ -248,7 +291,8 @@ def find(
         criteria = criteria.model_copy(update=updates)
         write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False, script=script, full_rationale=full_rationale)
+             human_gate=False, script=script, voice=voice_id,
+             full_rationale=full_rationale)
 
 
 @app.command()
@@ -293,6 +337,9 @@ def run(
     force: bool = typer.Option(False, "--force"),
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the run's persisted script setting"),
+    voice: bool = typer.Option(None, "--voice/--no-voice",
+                               help="Override the voice recorded at process time "
+                                    "(--voice re-voices, --no-voice strips voice)"),
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
@@ -323,10 +370,12 @@ def run(
     # Show-level stage forcing is applied per chosen show at process time
     # (force_stage), never as a bulk sweep: shows that are not reprocessed
     # this run must keep their artifacts and packages intact.
+    effective_voice = _replay_voice(config, criteria.voice, voice)
     effective_script = criteria.script if script is None else script
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=force and stage is None,
-             script=effective_script or stage == "synthesize",
+             script=effective_script or stage == "synthesize" or effective_voice is not None,
+             voice=effective_voice,
              force_stage=stage if (force and stage not in (None, *RUN_LEVEL_STAGES)) else None,
              full_rationale=full_rationale)
 
@@ -337,6 +386,9 @@ def review(
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the run's persisted script setting "
                                      "if you process immediately"),
+    voice: bool = typer.Option(None, "--voice/--no-voice",
+                               help="Override the voice recorded at process time "
+                                    "(--voice re-voices, --no-voice strips voice)"),
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
@@ -360,9 +412,12 @@ def review(
     typer.echo(f"approved: {sorted(wanted)}")
     if typer.confirm("Process approved shows now?", default=True):
         criteria = read_model(ws.criteria, Criteria)
+        effective_voice = _replay_voice(config, criteria.voice, voice)
+        effective_script = criteria.script if script is None else script
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
                  human_gate=False,
-                 script=criteria.script if script is None else script,
+                 script=effective_script or effective_voice is not None,
+                 voice=effective_voice,
                  full_rationale=full_rationale)
     else:
         typer.echo(f"next: llama run {ws.dir}")
@@ -483,6 +538,9 @@ def redo(
                                        help="Also drop research.md (kept by default)"),
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the script setting recorded at process time"),
+    voice: bool = typer.Option(None, "--voice/--no-voice",
+                               help="Override the voice recorded at process time "
+                                    "(--voice re-voices, --no-voice strips voice)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
@@ -514,9 +572,12 @@ def redo(
     shortlist_entry = ShortlistEntry(
         rank=1, candidate=prov.candidate, assessment=assessment)
     ws = RunWorkspace(config.root, prov.run)
-    effective_script = prov.script if script is None else script
+    effective_voice = _replay_voice(config, prov.voice, voice)
+    effective_script = (prov.script if script is None else script) or effective_voice is not None
+    speech = speech_provider_for(config, effective_voice) if effective_voice is not None else None
     pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
                        prov.run, config.audio_format, script=effective_script,
+                       voice=effective_voice, speech=speech,
                        setlistfm=make_client(config), structure_cfg=config.structure,
                        jerrybase_enabled=config.jerrybase.enabled,
                        selection_cfg=config.selection)
@@ -635,6 +696,9 @@ def profile_add(
     count: int = typer.Option(1, "--count"),
     human_gate: bool = typer.Option(False, "--human-gate"),
     script: bool = typer.Option(True, "--script/--no-script"),
+    voice: str = typer.Option(None, "--voice",
+                              help="ElevenLabs voice_id; voices this profile even when "
+                                   "[tts] enabled is false"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of this profile's shortlist one artist "
                                           "may hold (1.0 = pure best-first; default 1/3)"),
@@ -673,7 +737,8 @@ def profile_add(
         typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
     if updates:
         criteria = criteria.model_copy(update=updates)
-    profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate, script=script)
+    profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate,
+                      script=script, voice=voice)
     path = save_profile(config.root, profile)
     typer.echo(f"saved: {path}")
 
@@ -691,13 +756,16 @@ def profile_run(
     config, ia, ledger = _setup(config_path)
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, f"{date.today().isoformat()}-{name}")
-    # Stamp count and script into the run's criteria: a later `llama run` on
+    voice_id = _resolve_voice(config, None, profile.voice)
+    script = profile.script or voice_id is not None  # voice implies script
+    # Stamp count/script/voice into the run's criteria: a later `llama run` on
     # this dir must behave like the profile, not like the interpreted defaults.
     criteria = profile.criteria.model_copy(update={"count": profile.count,
-                                                   "script": profile.script})
+                                                   "script": script,
+                                                   "voice": voice_id})
     write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, profile.count, auto,
-             human_gate=profile.human_gate, script=profile.script,
+             human_gate=profile.human_gate, script=script, voice=voice_id,
              full_rationale=full_rationale)
 
 
