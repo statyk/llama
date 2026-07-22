@@ -758,7 +758,7 @@ def ledger_remove(performance_id: str, config_path: Path = typer.Option(None, "-
     typer.echo(f"removed {n} entries")
 
 
-def run() -> None:
+def main_cli() -> None:
     """CLI entry point with a single error boundary.
 
     Expected, user-actionable failures (`llama.errors.LlamaError`) print a clean

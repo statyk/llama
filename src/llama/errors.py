@@ -1,7 +1,7 @@
 """Central exception taxonomy.
 
 `LlamaError` is the base for expected, user-actionable failures. The CLI error
-boundary (`llama.cli.run`) catches it and prints `error: <message>` plus any
+boundary (`llama.cli.main_cli`) catches it and prints `error: <message>` plus any
 indented `details`, instead of a traceback. Anything that is NOT a `LlamaError`
 is treated as a bug and surfaces as a plain traceback.
 

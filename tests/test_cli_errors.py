@@ -8,7 +8,7 @@ from llama.errors import LlamaError
 def _run_with(monkeypatch, boom):
     monkeypatch.setattr(cli, "app", boom)
     with pytest.raises(SystemExit) as excinfo:
-        cli.run()
+        cli.main_cli()
     return excinfo.value
 
 

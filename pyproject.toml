@@ -21,7 +21,7 @@ dependencies = [
 dev = ["pytest>=8", "pyinstaller>=6.21"]
 
 [project.scripts]
-llama = "llama.cli:app"
+llama = "llama.cli:main_cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llama"]
