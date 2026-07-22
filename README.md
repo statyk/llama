@@ -5,8 +5,9 @@ researches the specific performance (fact-checking the research against the
 setlist before it ships), and packages audio + notes for an automated radio
 station. A verbatim DJ script is included by default (`--no-script`, or
 `script = false` on a profile, opts out). The script can optionally be
-**spoken** — per-segment MP3 clips synthesized via ElevenLabs — opt-in and
-off by default (`--voice`, or a profile's own `voice`).
+**spoken** — per-segment MP3 clips synthesized via hosted Mistral Voxtral by
+default (ElevenLabs is an opt-in alternative backend) — opt-in and off by
+default (`--voice`, or a profile's own `voice`).
 
 ## Setup
 
@@ -26,14 +27,19 @@ these defaults with `llama config init` (`--stdout` to print instead):
                                      # best-effort from LMA descriptions only
 
     [tts]
-    enabled = true                   # spoken DJ patter via ElevenLabs; default false.
-                                     # A profile with its own `voice` is voiced even
-                                     # when this is off. Voice implies --script.
-    voice = "..."                    # station-default ElevenLabs voice_id
-    # model = "eleven_multilingual_v2"
-    api_key = "..."                  # or ELEVENLABS_API_KEY env var (env wins)
-                                     # ElevenLabs is the only backend; no local/offline
-                                     # TTS option yet
+    enabled = true                   # spoken DJ patter; default false. A profile
+                                     # with its own `voice` is voiced even when
+                                     # this is off. Voice implies --script.
+    backend = "voxtral"              # hosted Mistral Voxtral (default); or
+                                     # "elevenlabs"
+    voice = "..."                    # station-default voxtral preset name (or
+                                     # elevenlabs voice_id when backend="elevenlabs")
+    # voice_clone = "/path/to/ref.wav" # 3-25s reference WAV; when set, voxtral
+                                     # clones it instead and ignores `voice`
+    # model = "..."                 # per-backend default when unset
+                                     # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
+    api_key = "..."                  # or MISTRAL_API_KEY / ELEVENLABS_API_KEY env
+                                     # var (env wins); no local/offline TTS option yet
 
     [winnow]
     max_metadata_fetch = 40          # review-fetch budget; when survivors exceed it
@@ -205,8 +211,10 @@ determines whether the script artifacts exist.
 
 ### Voice mode (opt-in TTS)
 
-The DJ script can additionally be **spoken** via ElevenLabs — off by
-default, and orthogonal to whether other shows in the same run are voiced.
+The DJ script can additionally be **spoken** — off by default, and
+orthogonal to whether other shows in the same run are voiced. The default
+backend is hosted Mistral Voxtral (`voxtral-mini-tts-2603`); set
+`[tts] backend = "elevenlabs"` to use ElevenLabs instead.
 Enable it globally (`[tts] enabled = true` + `[tts] voice`), per invocation
 (`--voice` on `find`/`run`/`review`/`redo`), or per profile (`--voice
 VOICE_ID` on `profile add`, which opts that profile in even when `[tts]
@@ -233,8 +241,12 @@ TTS failure (bad key, rate limit, missing key while voice is active) fails
 only that show — no package, no delivery — while the rest of the batch
 continues; retry with `redo --from package` once resolved.
 
-ElevenLabs is the only backend today (`fake` exists for offline tests); a
-local/offline TTS backend is deliberately deferred.
+Voxtral is the default backend, ElevenLabs an opt-in alternative
+(`fake` exists for offline tests). Voxtral's open weights carry a CC BY-NC
+license, but that's irrelevant here: llama is strictly non-commercial, and
+this integration only calls Mistral's hosted API (a paid commercial
+service), not the weights directly. Self-hosting Voxtral, and any other
+local/offline TTS backend, is deliberately deferred.
 
 ### Downstream synthesis contract
 

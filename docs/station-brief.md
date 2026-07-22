@@ -160,10 +160,11 @@ supporting material. Field-by-field:
   ≤800 chars each) from the source archive.org item.
 - **`dj-notes.md`** — human-readable rendering of `dj_notes`; present by
   default, absent only when the run opted out with `--no-script`.
-- **`dj-audio/`** — spoken-word MP3 clips of the DJ script (opt-in
-  ElevenLabs TTS), present only when the show was voiced. One file per
-  `dj_audio` path in the manifest; a `segments.json` sidecar in the same
-  directory is llama's internal render cache and can be ignored.
+- **`dj-audio/`** — spoken-word MP3 clips of the DJ script (opt-in TTS,
+  hosted Mistral Voxtral by default or ElevenLabs as an alternative
+  backend), present only when the show was voiced. One file per `dj_audio`
+  path in the manifest; a `segments.json` sidecar in the same directory is
+  llama's internal render cache and can be ignored.
 
 ### Contract details worth knowing
 

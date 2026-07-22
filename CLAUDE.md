@@ -30,9 +30,10 @@ implementation plan this was built from. The approved design spec is
 and emits a self-contained "show package" (verified audio, m3u, manifest v2
 with track titles/set breaks, vetted research + reviews digest; verbatim DJ
 script on by default; --no-script or profile script=false opts out) for an automated in-house radio
-station. The script can optionally be spoken via ElevenLabs TTS (`--voice`,
-opt-in, off by default). Usage tilts heavily toward Grateful Dead shows (two
-sets + encore).
+station. The script can optionally be spoken via TTS (`--voice`, opt-in,
+off by default; hosted Mistral Voxtral by default, ElevenLabs as an opt-in
+alternative). Usage tilts heavily toward Grateful Dead shows (two sets +
+encore).
 LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
 gemini-flash/sonnet-4.5/opus-4.1 on openrouter): medium by default, high for
 deep_research/synthesize, low for vet_research, overridable per task via
@@ -77,11 +78,15 @@ failed validation's final retry escalates one tier (pins never escalate).
   LLM calls live only at stage boundaries — everything else is deterministic.
 - **Voice (opt-in TTS):** when `[tts]` voice is active for a show, `package`
   synthesizes per-segment spoken DJ audio through a `SpeechProvider` layer
-  (`src/llama/tts/`: `elevenlabs` + a `fake` test backend, no local backend
-  yet), emitting `package/dj-audio/` (one MP3 per DJ-notes segment) plus a
-  manifest `dj_audio` block. Per-segment caching (keyed on text+voice+model)
-  avoids re-spending on unchanged text; a TTS failure hard-fails just that
-  show's package, same as any other stage failure.
+  (`src/llama/tts/`: `voxtral` — hosted Mistral, default — plus `elevenlabs`
+  and a `fake` test backend; self-hosting Voxtral is deferred, no local
+  backend yet), emitting `package/dj-audio/` (one MP3 per DJ-notes segment)
+  plus a manifest `dj_audio` block. `[tts] voice` is a preset name (Voxtral)
+  or voice_id (ElevenLabs); `[tts] voice_clone` points at a 3-25s reference
+  WAV to clone a custom voice on Voxtral instead, ignoring `voice`.
+  Per-segment caching (keyed on text+voice+model) avoids re-spending on
+  unchanged text; a TTS failure hard-fails just that show's package, same as
+  any other stage failure.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,
