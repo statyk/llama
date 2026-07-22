@@ -210,9 +210,18 @@ class ManifestTrack(BaseModel):
     segue: bool = False
 
 
+class DJAudio(BaseModel):
+    """Per-segment spoken DJ clips, as package-relative paths (dj-audio/...)."""
+    intro: str
+    set_intros: dict[str, str]  # keyed by set: "1", "2", "encore"
+    set_breaks: list[str] = Field(default_factory=list)
+    outro: str
+
+
 class SetBreak(BaseModel):
     after_track: int
     note_index: int | None = None  # index into dj_notes.set_break_notes when a script exists
+    audio: str | None = None  # dj-audio clip for this break slot, when voiced
 
 
 class Manifest(BaseModel):
@@ -222,6 +231,7 @@ class Manifest(BaseModel):
     tracks: list[ManifestTrack]
     set_breaks: list[SetBreak]
     dj_notes: DJNotes | None = None
+    dj_audio: DJAudio | None = None  # present only when voice audio was generated
     research: str | None = None  # relative path within the package
     reviews: str | None = None
     research_vetted: bool = False

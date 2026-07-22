@@ -110,8 +110,8 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["show"]["artist"] == "Grateful Dead"
     assert len(manifest["tracks"]) == 6
-    assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0},
-                                      {"after_track": 5, "note_index": 1}]
+    assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0, "audio": None},
+                                      {"after_track": 5, "note_index": 1, "audio": None}]
     assert (pkg / "audio" / "01 - Morning Dew.mp3").exists()
     assert (pkg / "playlist.m3u").read_text().splitlines()[1] == "audio/01 - Morning Dew.mp3"
     assert (pkg / "dj-notes.md").exists()
@@ -228,8 +228,8 @@ def test_package_replay_without_script_keeps_cached_notes(tmp_path: Path, monkey
     pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_notes"] is not None
-    assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0},
-                                      {"after_track": 5, "note_index": 1}]
+    assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0, "audio": None},
+                                      {"after_track": 5, "note_index": 1, "audio": None}]
     assert (pkg / "dj-notes.md").exists()
 
 

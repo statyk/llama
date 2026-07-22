@@ -63,7 +63,7 @@ def test_package_layout_and_manifest(tmp_path: Path):
     assert ia.downloads == [("d1t01.mp3", "m1"), ("d2t01.mp3", "m2")]  # md5s passed through
     m = json.loads((pkg / "manifest.json").read_text())
     assert m["tracks"][0]["filename"] == "01 - Morning Dew.mp3"
-    assert m["set_breaks"] == [{"after_track": 1, "note_index": 0}]
+    assert m["set_breaks"] == [{"after_track": 1, "note_index": 0, "audio": None}]
     # dummy bytes are unreadable audio -> falls back to metadata duration, no mismatch flag
     assert m["tracks"][0]["duration_sec"] == 600.0
     assert json.loads(sws.show.read_text())["needs_review"] is False
@@ -125,7 +125,7 @@ def test_package_without_script(tmp_path: Path):
     assert not (pkg / "dj-notes.md").exists()
     m = json.loads((pkg / "manifest.json").read_text())
     assert m["dj_notes"] is None
-    assert m["set_breaks"] == [{"after_track": 1, "note_index": None}]
+    assert m["set_breaks"] == [{"after_track": 1, "note_index": None, "audio": None}]
     assert (pkg / "reviews.md").read_text() == "(no reviews)"
 
 

@@ -65,3 +65,25 @@ def test_build_manifest_without_notes():
     assert m.set_breaks[0].note_index is None
     assert m.show["context"] == "ctx"
     assert m.research == "research.md" and m.research_vetted is True
+
+
+def test_build_manifest_with_dj_audio():
+    from llama.models import DJAudio
+
+    dj_audio = DJAudio(
+        intro="dj-audio/00-intro.mp3",
+        set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3",
+                    "encore": "dj-audio/setencore-intro.mp3"},
+        set_breaks=["dj-audio/break1.mp3", "dj-audio/break2.mp3"],
+        outro="dj-audio/99-outro.mp3",
+    )
+    m = build_manifest(make_show(), make_notes(), make_packaged(), dj_audio=dj_audio)
+    assert m.dj_audio == dj_audio
+    assert [b.audio for b in m.set_breaks] == ["dj-audio/break1.mp3", "dj-audio/break2.mp3"]
+    assert [b.note_index for b in m.set_breaks] == [0, 1]  # note wiring unchanged
+
+
+def test_build_manifest_without_dj_audio():
+    m = build_manifest(make_show(), make_notes(), make_packaged())
+    assert m.dj_audio is None
+    assert all(b.audio is None for b in m.set_breaks)
