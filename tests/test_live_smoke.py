@@ -13,6 +13,7 @@ from llama.stages.search import SEARCH_FIELDS
 IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
 
 SETLISTFM_KEY = os.environ.get("SETLISTFM_API_KEY")  # read at import: see tests/conftest.py
+ELEVENLABS_KEY = os.environ.get("ELEVENLABS_API_KEY")  # read at import: see tests/conftest.py
 
 
 @pytest.mark.live
@@ -112,3 +113,15 @@ def test_scrape_api_shape(tmp_path):
     assert len(docs) > 5000
     sample = docs[0]
     assert "identifier" in sample and "title" in sample and "downloads" in sample
+
+
+@pytest.mark.live
+@pytest.mark.skipif(not ELEVENLABS_KEY, reason="needs ELEVENLABS_API_KEY")
+def test_elevenlabs_synthesize_real():
+    from llama.tts.elevenlabs import ElevenLabsProvider
+
+    p = ElevenLabsProvider(voice="21m00Tcm4TlvDq8ikWAM",  # "Rachel", a stock voice
+                           model="eleven_multilingual_v2", api_key=ELEVENLABS_KEY)
+    audio = p.synthesize("Tonight: the Grateful Dead, live at RFK Stadium.")
+    assert len(audio) > 10_000                     # a real clip, not an error body
+    assert audio[:3] == b"ID3" or audio[:1] == b"\xff"  # playable MP3 framing
