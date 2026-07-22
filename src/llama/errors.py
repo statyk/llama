@@ -25,3 +25,7 @@ class LlamaError(Exception):
 
 class ArtistResolutionError(LlamaError):
     """A pinned or queried artist name could not be resolved to an LMA entry."""
+
+
+class ConfigError(LlamaError):
+    """The config file could not be parsed or failed schema validation."""

@@ -2,7 +2,9 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
+
+from llama.errors import ConfigError
 
 DEFAULT_ROOT = Path.home() / ".llama"
 
@@ -100,7 +102,14 @@ def load_config(path: Path | None = None) -> Config:
     path = path or DEFAULT_ROOT / "config.toml"
     if not path.exists():
         return Config()
-    return Config.model_validate(tomllib.loads(path.read_text()))
+    try:
+        data = tomllib.loads(path.read_text())
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"invalid config at {path}: {exc}") from exc
+    try:
+        return Config.model_validate(data)
+    except ValidationError as exc:
+        raise ConfigError(f"invalid config at {path}: {exc}") from exc
 
 
 # Seeded by `llama config init`. Kept in sync with the defaults above by

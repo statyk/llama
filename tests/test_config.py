@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from llama.config import Config, DEFAULT_CONFIG_TOML, load_config
+from llama.errors import ConfigError
 
 
 def test_invalid_audio_format_raises(tmp_path: Path):
@@ -50,7 +51,7 @@ def test_tier_accepts_valid_values(tmp_path: Path):
 def test_tier_rejects_invalid_value(tmp_path: Path):
     p = tmp_path / "config.toml"
     p.write_text('[llm.synthesize]\ntier = "turbo"\n')
-    with pytest.raises(ValidationError):
+    with pytest.raises(ConfigError):
         load_config(p)
 
 
@@ -108,7 +109,7 @@ def test_llm_tiers_lifted_from_llm_table(tmp_path: Path):
 def test_llm_tiers_rejects_unknown_tier_key(tmp_path: Path):
     p = tmp_path / "config.toml"
     p.write_text('[llm.tiers.openrouter]\nturbo = "some/model"\n')
-    with pytest.raises(ValidationError):
+    with pytest.raises(ConfigError):
         load_config(p)
 
 
@@ -151,6 +152,26 @@ def test_jerrybase_disabled_from_toml(tmp_path):
     p = tmp_path / "config.toml"
     p.write_text("[jerrybase]\nenabled = false\n")
     assert load_config(p).jerrybase.enabled is False
+
+
+def test_load_config_bad_toml_raises_config_error(tmp_path):
+    from llama.config import load_config
+
+    bad = tmp_path / "config.toml"
+    bad.write_text('root = "unterminated\n')  # invalid TOML
+    with pytest.raises(ConfigError) as exc:
+        load_config(bad)
+    assert str(bad) in str(exc.value)
+
+
+def test_load_config_schema_violation_raises_config_error(tmp_path):
+    from llama.config import load_config
+
+    bad = tmp_path / "config.toml"
+    bad.write_text('[structure]\nguard_min_minutes = "not-an-int"\n')  # wrong type
+    with pytest.raises(ConfigError) as exc:
+        load_config(bad)
+    assert str(bad) in str(exc.value)
 
 
 def test_default_config_template_states_selection_defaults():
