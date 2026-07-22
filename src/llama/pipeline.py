@@ -51,6 +51,8 @@ def process_show(
     audio_format: str = "mp3",
     force: bool = False,
     script: bool = False,
+    voice: str | None = None,
+    speech=None,
     setlistfm=None,
     structure_cfg=None,
     selection_cfg=None,
@@ -69,7 +71,8 @@ def process_show(
     write_artifact(show_ws.provenance, Provenance(
         performance_id=pid, run=run_name, dossier=dossier, candidate=cand,
         assessment=entry.assessment,
-        script=script, processed_at=datetime.now(timezone.utc).isoformat(),
+        script=script, voice=voice,
+        processed_at=datetime.now(timezone.utc).isoformat(),
     ))
     with step(f"[{pid}] selecting recording"):
         identifier = run_select_recording(show_ws, ia, cand, entry.assessment,
@@ -103,7 +106,7 @@ def process_show(
             log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
             return None
     with step(f"[{pid}] packaging"):
-        pkg = run_package(show_ws, ia, show, notes, force=force)
+        pkg = run_package(show_ws, ia, show, notes, force=force, speech=speech)
     show = read_model(show_ws.show, Show)  # package may have flagged it
     if show.needs_review:
         log.warning("holding %s: flagged during packaging (%s)",

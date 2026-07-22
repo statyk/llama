@@ -397,3 +397,45 @@ def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
     assert prov.processed_at  # ISO timestamp present
     assert prov.assessment is not None                     # winnow assessment carried
     assert prov.assessment.quality_score == 9.5
+
+
+def test_process_show_stamps_voice_and_forwards_speech(tmp_path: Path):
+    from llama.ledger import Ledger
+    from llama.models import (Candidate, Provenance, QualityAssessment,
+                              RecordingSummary, ShortlistEntry)
+    from llama.pipeline import process_show
+    from llama.tts.fake import FakeSpeechProvider
+    from llama.workspace import RunWorkspace, read_model
+
+    fixture = json.loads(FIXTURE.read_text())
+    cand = Candidate(
+        performance_id="GratefulDead/1973-06-10", collection="GratefulDead",
+        date="1973-06-10", venue="RFK Stadium", city="Washington, DC",
+        recordings=[RecordingSummary(identifier=IDENT, avg_rating=4.8, num_reviews=40,
+                                     description=fixture["metadata"]["description"])],
+    )
+    entry = ShortlistEntry(
+        rank=1, candidate=cand,
+        assessment=QualityAssessment(performance_id=cand.performance_id,
+                                     quality_score=9.5, rationale="monumental"))
+    providers = {
+        "extract_setlist": FakeProvider(),
+        "align_structure": FakeProvider(),
+        "deep_research": FakeProvider(researches=[
+            "## Reputation\nLegendary.\n## Performance highlights\nDark Star.\n"
+            "## Context\nPeak 73 tour.\n## Recording notes\nHollister SBD."]),
+        "vet_research": FakeProvider(completes=[VET]),
+        "synthesize": FakeProvider(completes=[NOTES]),
+    }
+    speech = FakeSpeechProvider()
+    ws = RunWorkspace(tmp_path, "voicerun")
+    pkg = process_show(ws, FakeIA(), Ledger(tmp_path / "ledger.jsonl"), entry,
+                       providers, "voicerun", script=True, voice="v-abc",
+                       speech=speech, jerrybase_enabled=False)
+    assert pkg is not None
+    prov = read_model(tmp_path / "shows" / "gratefuldead-1973-06-10" / "provenance.json",
+                      Provenance)
+    assert prov.voice == "v-abc"
+    assert prov.script is True
+    assert len(speech.calls) > 0                      # speech reached run_package
+    assert (pkg / "dj-audio" / "00-intro.mp3").exists()
