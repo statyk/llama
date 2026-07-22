@@ -1,6 +1,8 @@
 import logging
 import shutil
+import sys
 import textwrap
+import traceback
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
+from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
@@ -29,15 +32,15 @@ from llama.workspace import RunWorkspace, read_model, read_model_list, write_art
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
-app = typer.Typer(help="Live Music Archive -> radio station pipeline")
+app = typer.Typer(help="Live Music Archive -> radio station pipeline", pretty_exceptions_enable=False)
 configure_logging()
 
-profile_app = typer.Typer(help="Standing criteria profiles for recurring segments")
-ledger_app = typer.Typer(help="Broadcast-history ledger")
+profile_app = typer.Typer(help="Standing criteria profiles for recurring segments", pretty_exceptions_enable=False)
+ledger_app = typer.Typer(help="Broadcast-history ledger", pretty_exceptions_enable=False)
 app.add_typer(profile_app, name="profile")
 app.add_typer(ledger_app, name="ledger")
 
-config_app = typer.Typer(help="Config file utilities")
+config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
 app.add_typer(config_app, name="config")
 
 
@@ -753,3 +756,29 @@ def ledger_remove(performance_id: str, config_path: Path = typer.Option(None, "-
     _, _, ledger = _setup(config_path)
     n = ledger.remove(performance_id)
     typer.echo(f"removed {n} entries")
+
+
+def run() -> None:
+    """CLI entry point with a single error boundary.
+
+    Expected, user-actionable failures (`llama.errors.LlamaError`) print a clean
+    `error: <message>` plus any indented details and exit 1. `KeyboardInterrupt`
+    exits 130 quietly. Any other exception is a bug: we print a plain traceback
+    ourselves and exit 1 — printing it here (rather than letting it propagate)
+    suppresses the frozen bootloader's `Failed to execute script` line.
+    `SystemExit`/`typer.Exit` from commands pass through untouched.
+    """
+    try:
+        app()
+    except LlamaError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        for detail in exc.details:
+            print(f"  {detail}", file=sys.stderr)
+        raise SystemExit(1)
+    except KeyboardInterrupt:
+        raise SystemExit(130)
+    except BrokenPipeError:
+        raise SystemExit(0)
+    except Exception:
+        traceback.print_exc()
+        raise SystemExit(1)
