@@ -189,10 +189,10 @@ def test_default_config_template_states_selection_defaults():
 def test_tts_defaults():
     cfg = Config()
     assert cfg.tts.enabled is False
-    assert cfg.tts.backend == "elevenlabs"
+    assert cfg.tts.backend == "voxtral"
     assert cfg.tts.voice is None
-    assert cfg.tts.model == "eleven_multilingual_v2"
-    assert cfg.tts.api_key is None
+    assert cfg.tts.voice_clone is None
+    assert cfg.tts.model is None
 
 
 def test_tts_from_toml(tmp_path: Path):

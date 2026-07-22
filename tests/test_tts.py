@@ -98,10 +98,34 @@ def test_factory_fake_backend():
 
 def test_factory_elevenlabs_uses_voice_and_model(monkeypatch):
     monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
-    cfg = Config.model_validate({"tts": {"model": "eleven_turbo_v2_5"}})
+    cfg = Config.model_validate({"tts": {"backend": "elevenlabs", "model": "eleven_turbo_v2_5"}})
     p = speech_provider_for(cfg, "v-abc")
     assert isinstance(p, ElevenLabsProvider)
     assert (p.voice, p.model) == ("v-abc", "eleven_turbo_v2_5")
+
+
+def test_factory_voxtral_is_default_preset(monkeypatch):
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    from llama.tts.voxtral import VoxtralProvider
+    p = speech_provider_for(Config.model_validate({"tts": {"voice": "british-dj"}}), "british-dj")
+    assert isinstance(p, VoxtralProvider)
+    assert p.voice == "british-dj"
+
+
+def test_factory_voxtral_clone_mode(monkeypatch, tmp_path):
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    from llama.tts.voxtral import VoxtralProvider
+    ref = tmp_path / "dj.wav"; ref.write_bytes(b"REF")
+    cfg = Config.model_validate({"tts": {"voice_clone": str(ref)}})
+    p = speech_provider_for(cfg, None)
+    assert isinstance(p, VoxtralProvider)
+    assert p.voice.startswith("clone:")
+
+
+def test_factory_voxtral_no_voice_no_clone_raises(monkeypatch):
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    with pytest.raises(SpeechError):
+        speech_provider_for(Config(), None)
 
 
 def test_factory_no_voice_raises(monkeypatch):

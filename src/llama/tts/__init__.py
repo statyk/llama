@@ -2,6 +2,7 @@ from llama.config import Config
 from llama.tts.elevenlabs import ElevenLabsProvider
 from llama.tts.fake import FakeSpeechProvider
 from llama.tts.provider import SpeechError, SpeechProvider
+from llama.tts.voxtral import VoxtralProvider
 
 
 def speech_provider_for(config: Config, voice: str | None) -> SpeechProvider:
@@ -13,6 +14,12 @@ def speech_provider_for(config: Config, voice: str | None) -> SpeechProvider:
     backend = config.tts.backend
     if backend == "fake":
         return FakeSpeechProvider()
+    if backend == "voxtral":
+        if not (voice or config.tts.voice_clone):
+            raise SpeechError("no Voxtral voice configured: set [tts] voice "
+                              "(preset) or [tts] voice_clone (reference clip)")
+        return VoxtralProvider(voice=voice, clone_ref=config.tts.voice_clone,
+                               model=config.tts.model, api_key=config.tts.api_key)
     if backend == "elevenlabs":
         if not voice:
             raise SpeechError("no TTS voice configured: "

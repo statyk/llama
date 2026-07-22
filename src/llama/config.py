@@ -23,11 +23,12 @@ class SetlistFMConfig(BaseModel):
 
 class TTSConfig(BaseModel):
     """Spoken DJ patter (text-to-speech of the DJ script). Opt-in."""
-    enabled: bool = False               # nothing calls ElevenLabs unless voice is active
-    backend: str = "elevenlabs"         # or "fake" for tests
-    voice: str | None = None            # station default ElevenLabs voice_id
-    model: str = "eleven_multilingual_v2"  # quality default, overridable
-    api_key: str | None = None          # ELEVENLABS_API_KEY env takes precedence
+    enabled: bool = False               # nothing calls a TTS API unless voice is active
+    backend: str = "voxtral"            # or "elevenlabs" / "fake"
+    voice: str | None = None            # voxtral preset name / elevenlabs voice_id
+    voice_clone: str | None = None      # path to a reference WAV; when set, voxtral clones it
+    model: str | None = None            # per-backend default when unset
+    api_key: str | None = None          # MISTRAL_API_KEY / ELEVENLABS_API_KEY env wins
 
 
 class JerrybaseConfig(BaseModel):
@@ -169,11 +170,15 @@ backend = "claude_cli"             # requires the `claude` CLI on PATH
 #                            # against --no-script (nothing to voice otherwise).
 # enabled = true             # default false; a profile with its own `voice`
 #                            # is voiced even when this is off
-# backend = "elevenlabs"     # or "fake" for tests; no local backend yet
-# voice = "..."              # station-default ElevenLabs voice_id; a profile
-#                            # can set its own `voice` to override this
-# model = "eleven_multilingual_v2"   # quality default
-# api_key = "..."            # or ELEVENLABS_API_KEY env var (env wins)
+# backend = "voxtral"        # hosted Mistral Voxtral TTS (default); or
+#                            # "elevenlabs"; or "fake" for tests
+# voice = "..."              # voxtral preset name (or elevenlabs voice_id); a
+#                            # profile can set its own `voice` to override this
+# voice_clone = "..."        # path to a 3-25s reference WAV; when set, voxtral
+#                            # clones that voice (ignores `voice`)
+# model = "..."              # per-backend default when unset
+#                            # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
+# api_key = "..."            # MISTRAL_API_KEY / ELEVENLABS_API_KEY env (env wins)
 
 [jerrybase]
 enabled = true             # vendored offline set-structure evidence (break
