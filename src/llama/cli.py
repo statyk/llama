@@ -343,7 +343,10 @@ def run(
                                 help="Override the run's persisted script setting"),
     voice: bool = typer.Option(None, "--voice/--no-voice",
                                help="Override the voice recorded at process time "
-                                    "(--voice re-voices, --no-voice strips voice)"),
+                                    "(--voice re-voices, --no-voice strips voice). "
+                                    "Re-voicing an already-packaged show needs "
+                                    "'redo --from package --voice' (or "
+                                    "'run --stage package --force --voice')"),
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
@@ -376,6 +379,9 @@ def run(
     # this run must keep their artifacts and packages intact.
     effective_voice = _replay_voice(config, criteria.voice, voice)
     effective_script = criteria.script if script is None else script
+    if effective_voice is not None and not force:
+        typer.echo("note: already-packaged shows won't be re-voiced without --force; "
+                   "use 'llama redo <show> --from package --voice' to re-voice one show")
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=force and stage is None,
              script=effective_script or stage == "synthesize" or effective_voice is not None,

@@ -7,7 +7,9 @@ from typer.testing import CliRunner
 import llama.cli as cli
 from llama.config import Config
 from llama.llm.fake import FakeProvider
+from llama.models import Criteria as CriteriaModel
 from llama.tts.provider import SpeechError
+from llama.workspace import RunWorkspace, write_artifact
 
 runner = CliRunner()
 
@@ -96,6 +98,34 @@ def test_profile_add_voice(tmp_path: Path, monkeypatch):
     ])
     assert result.exit_code == 0, result.output
     assert load_profile(tmp_path, "gdhour").voice == "v-abc"
+
+
+def test_run_voice_without_force_warns_already_packaged_wont_revoice(
+        tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(
+        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\nvoice = "v-abc"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, CriteriaModel(query="q"))
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+    result = runner.invoke(cli.app, [
+        "run", str(ws.dir), "--voice", "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+    assert "redo" in result.output and "--from package --voice" in result.output
+
+
+def test_run_voice_with_force_does_not_warn(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(
+        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\nvoice = "v-abc"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, CriteriaModel(query="q"))
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+    result = runner.invoke(cli.app, [
+        "run", str(ws.dir), "--voice", "--force",
+        "--config", str(tmp_path / "config.toml"),
+    ], input="y\n")
+    assert result.exit_code == 0, result.output
+    assert "redo --from package --voice" not in result.output
 
 
 def test_profile_run_explicit_voice_opts_in_when_globally_disabled(
