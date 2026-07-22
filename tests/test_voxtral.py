@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 
 import httpx
@@ -95,9 +96,6 @@ def test_close_and_context_manager():
     with make_preset(_ok_audio()) as q:
         assert q._client.is_closed is False
     assert q._client.is_closed is True
-
-
-import hashlib
 
 
 def make_clone(handler, ref_path, *, api_key="k1"):

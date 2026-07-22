@@ -42,6 +42,22 @@ def test_resolve_voice_active_without_voice_id_raises():
         cli._resolve_voice(Config(), True)
 
 
+def test_resolve_voice_clone_only_activated_via_flag():
+    cfg = Config.model_validate({"tts": {"voice_clone": "/tmp/ref.wav"}})
+    assert cli._resolve_voice(cfg, True) == "/tmp/ref.wav"
+
+
+def test_resolve_voice_clone_only_activated_via_enabled():
+    cfg = Config.model_validate(
+        {"tts": {"enabled": True, "voice_clone": "/tmp/ref.wav"}})
+    assert cli._resolve_voice(cfg, None) == "/tmp/ref.wav"
+
+
+def test_resolve_voice_no_voice_overrides_clone():
+    cfg = Config.model_validate({"tts": {"voice_clone": "/tmp/ref.wav"}})
+    assert cli._resolve_voice(cfg, False) is None
+
+
 def test_replay_voice_defers_to_stamp():
     cfg = Config.model_validate({"tts": {"voice": "v-global"}})
     assert cli._replay_voice(cfg, "v-stamped", None) == "v-stamped"

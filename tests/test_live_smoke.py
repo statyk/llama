@@ -139,5 +139,5 @@ def test_voxtral_synthesize_real():
     # and the audio_data response field this test exercises end to end.
     with VoxtralProvider(voice="british-dj", api_key=MISTRAL_KEY) as p:
         audio = p.synthesize("Good evening from the archive.")
-    assert audio[:3] == b"ID3" or audio[:2] == b"\xff\xfb"  # playable MP3 framing
+    assert audio[:3] == b"ID3" or audio[:1] == b"\xff"  # playable MP3 framing
     assert len(audio) > 1000

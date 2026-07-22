@@ -106,10 +106,11 @@ def _resolve_voice(config: Config, want: bool | None,
     if profile_voice:
         return profile_voice
     if want is True or config.tts.enabled:
-        if not config.tts.voice:
-            raise SpeechError("voice is active but no voice id is configured: "
-                              "set [tts] voice or give the profile a voice")
-        return config.tts.voice
+        resolved = config.tts.voice or config.tts.voice_clone
+        if not resolved:
+            raise SpeechError("voice is active but none is configured: set "
+                              "[tts] voice, [tts] voice_clone, or a profile voice")
+        return resolved
     return None
 
 
@@ -711,7 +712,8 @@ def profile_add(
     human_gate: bool = typer.Option(False, "--human-gate"),
     script: bool = typer.Option(True, "--script/--no-script"),
     voice: str = typer.Option(None, "--voice",
-                              help="ElevenLabs voice_id; voices this profile even when "
+                              help="Voxtral preset name (or ElevenLabs voice_id when "
+                                   "backend=elevenlabs); voices this profile even when "
                                    "[tts] enabled is false"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of this profile's shortlist one artist "

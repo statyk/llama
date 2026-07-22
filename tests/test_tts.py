@@ -131,7 +131,8 @@ def test_factory_voxtral_no_voice_no_clone_raises(monkeypatch):
 def test_factory_no_voice_raises(monkeypatch):
     monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
     with pytest.raises(SpeechError):
-        speech_provider_for(Config(), None)
+        speech_provider_for(
+            Config.model_validate({"tts": {"backend": "elevenlabs"}}), None)
 
 
 def test_factory_unknown_backend_raises():
