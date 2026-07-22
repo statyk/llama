@@ -2,9 +2,13 @@ import json
 import logging
 from pathlib import Path
 
+import pytest
+
 from llama.models import DJNotes, ResearchVetting, Show, Track, VettingResult
 from llama.stages import package as package_stage
 from llama.stages.package import run_package
+from llama.tts.fake import SILENT_MP3, FakeSpeechProvider
+from llama.tts.provider import SpeechError
 from llama.workspace import ShowWorkspace, write_artifact
 
 
@@ -135,3 +139,77 @@ def test_package_without_vetting_falls_back_to_notes_context(tmp_path: Path):
     m = json.loads((pkg / "manifest.json").read_text())
     assert m["show"]["context"] == make_notes().context
     assert m["research"] is None and m["research_vetted"] is False
+
+
+def test_package_synthesizes_dj_audio_and_manifest_block(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    speech = FakeSpeechProvider()
+    notes = make_notes()
+    pkg = run_package(sws, StubIA(), show, notes, speech=speech)
+    dj = pkg / "dj-audio"
+    for name in ["00-intro.mp3", "set1-intro.mp3", "set2-intro.mp3",
+                 "break1.mp3", "99-outro.mp3"]:
+        assert (dj / name).read_bytes() == SILENT_MP3
+    assert speech.calls == [notes.intro, notes.set_intros["1"], notes.set_intros["2"],
+                            notes.set_break_notes[0], notes.outro]
+    m = json.loads((pkg / "manifest.json").read_text())
+    assert m["dj_audio"] == {
+        "intro": "dj-audio/00-intro.mp3",
+        "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
+        "set_breaks": ["dj-audio/break1.mp3"],
+        "outro": "dj-audio/99-outro.mp3",
+    }
+    assert m["set_breaks"] == [{"after_track": 1, "note_index": 0,
+                                "audio": "dj-audio/break1.mp3"}]
+
+
+def test_package_segment_cache_skips_unchanged(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    run_package(sws, StubIA(), show, make_notes(), speech=FakeSpeechProvider())
+    (sws.package_dir / "manifest.json").unlink()  # what redo --from package does
+    second = FakeSpeechProvider()
+    run_package(sws, StubIA(), show, make_notes(), speech=second)
+    assert second.calls == []  # no re-spend on unchanged text
+
+
+def test_package_changed_text_resynthesizes_only_that_segment(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    run_package(sws, StubIA(), show, make_notes(), speech=FakeSpeechProvider())
+    (sws.package_dir / "manifest.json").unlink()
+    notes = make_notes().model_copy(update={"intro": "a different intro"})
+    second = FakeSpeechProvider()
+    run_package(sws, StubIA(), show, notes, speech=second)
+    assert second.calls == ["a different intro"]
+
+
+def test_package_different_voice_resynthesizes(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    run_package(sws, StubIA(), show, make_notes(), speech=FakeSpeechProvider())
+    (sws.package_dir / "manifest.json").unlink()
+    second = FakeSpeechProvider()
+    second.voice = "other-voice"  # cache key includes the voice
+    run_package(sws, StubIA(), show, make_notes(), speech=second)
+    assert len(second.calls) == 5
+
+
+def test_package_force_rerenders_all_segments(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    run_package(sws, StubIA(), show, make_notes(), speech=FakeSpeechProvider())
+    second = FakeSpeechProvider()
+    run_package(sws, StubIA(), show, make_notes(), force=True, speech=second)
+    assert len(second.calls) == 5
+
+
+def test_package_speech_failure_leaves_no_manifest(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    with pytest.raises(SpeechError):
+        run_package(sws, StubIA(), show, make_notes(),
+                    speech=FakeSpeechProvider(fail=True))
+    assert not (sws.package_dir / "manifest.json").exists()
+
+
+def test_package_voice_without_notes_raises(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    with pytest.raises(SpeechError):
+        run_package(sws, StubIA(), show, notes=None, speech=FakeSpeechProvider())
+    assert not (sws.package_dir / "manifest.json").exists()
