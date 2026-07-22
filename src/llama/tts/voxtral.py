@@ -1,0 +1,76 @@
+import base64
+import os
+
+import httpx
+
+from llama.tts.provider import SpeechError
+
+API_URL = "https://api.mistral.ai/v1/audio/speech"
+DEFAULT_MODEL = "voxtral-mini-tts-2603"
+# Mistral recommends <=~300 words / 2 min audio per request. Conservative
+# char guard; chunk-and-concatenate is deliberately out of scope (see spec).
+MAX_INPUT_CHARS = 2000
+
+
+class VoxtralProvider:
+    def __init__(
+        self,
+        voice: str | None = None,
+        clone_ref: str | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
+        timeout_s: int = 120,
+        transport: httpx.BaseTransport | None = None,
+    ):
+        if not voice and not clone_ref:
+            raise SpeechError("Voxtral needs a preset voice or a clone reference: "
+                              "set [tts] voice or [tts] voice_clone")
+        self.model = model or DEFAULT_MODEL
+        # Env wins over the config key, matching ELEVENLABS_API_KEY handling.
+        self.api_key = os.environ.get("MISTRAL_API_KEY") or api_key
+        if not self.api_key:
+            raise SpeechError("Mistral API key missing: "
+                              "set MISTRAL_API_KEY or [tts] api_key")
+        self._ref_b64: str | None = None
+        self._preset: str | None = voice
+        # Clone reference handling is added in Task 2.
+        self.voice = voice
+        self._client = httpx.Client(timeout=timeout_s, transport=transport)
+
+    def _body(self, text: str) -> dict:
+        body = {"model": self.model, "input": text, "response_format": "mp3"}
+        if self._ref_b64 is not None:
+            body["ref_audio"] = self._ref_b64
+        else:
+            body["voice_id"] = self._preset
+        return body
+
+    def synthesize(self, text: str) -> bytes:
+        if len(text) > MAX_INPUT_CHARS:
+            raise SpeechError(f"DJ segment too long for Voxtral "
+                              f"({len(text)} > {MAX_INPUT_CHARS} chars)")
+        try:
+            resp = self._client.post(
+                API_URL, json=self._body(text),
+                headers={"Authorization": f"Bearer {self.api_key}"},
+            )
+        except httpx.HTTPError as e:
+            raise SpeechError(f"voxtral request failed: {e}") from e
+        if resp.status_code != 200:
+            raise SpeechError(f"voxtral returned {resp.status_code}: {resp.text[:500]}")
+        try:
+            audio_b64 = resp.json().get("audio_data")
+        except ValueError as e:
+            raise SpeechError(f"voxtral returned non-JSON: {resp.text[:200]}") from e
+        if not audio_b64:
+            raise SpeechError("voxtral returned no audio_data")
+        return base64.b64decode(audio_b64)
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> "VoxtralProvider":
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.close()
