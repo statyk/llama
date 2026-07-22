@@ -17,3 +17,12 @@ def test_profile_toml_roundtrip_with_none_fields(tmp_path: Path):
     assert loaded.criteria.setlist_constraints[0].sequence == ["Ripple"]
     assert loaded.human_gate is True and loaded.count == 2
     assert loaded.script is True
+
+
+def test_profile_voice_roundtrip_and_unset_omitted(tmp_path: Path):
+    crit = Criteria(query="q")
+    save_profile(tmp_path, Profile(name="voiced", criteria=crit, voice="v-abc"))
+    assert load_profile(tmp_path, "voiced").voice == "v-abc"
+    path = save_profile(tmp_path, Profile(name="plain", criteria=crit))
+    assert "voice" not in path.read_text()  # TOML has no null: unset is omitted
+    assert load_profile(tmp_path, "plain").voice is None

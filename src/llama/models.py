@@ -22,6 +22,9 @@ class Criteria(BaseModel):
     # whether this run also generates the verbatim DJ script (on by default;
     # --no-script opts out).
     script: bool = True
+    # Resolved TTS voice id for this run (None = no voice); stamped like
+    # `script` so replays behave the same regardless of later config edits.
+    voice: str | None = None
     # Max share of a multi-artist shortlist/auto-pick one artist may hold
     # (ceil(n * cap) slots) while other artists still have candidates.
     # 1.0 = pure best-first; at or below 1/n = one-per-artist round-robin.
@@ -248,6 +251,7 @@ class Provenance(BaseModel):
     # keeps old provenance.json files parseable.
     assessment: QualityAssessment | None = None
     script: bool = True
+    voice: str | None = None  # voice id this show was processed with (None = no voice)
     processed_at: str  # ISO-8601 UTC
 
 

@@ -13,6 +13,9 @@ class Profile(BaseModel):
     count: int = 1
     human_gate: bool = False
     script: bool = True  # verbatim DJ script (high-tier call); --no-script opts out
+    # Explicit ElevenLabs voice_id: voices this profile's runs with it even
+    # when the global [tts] enabled flag is false. None = inherit global.
+    voice: str | None = None
 
 
 def save_profile(root: Path, profile: Profile) -> Path:

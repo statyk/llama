@@ -81,3 +81,17 @@ def test_show_venue_source_defaults_to_item():
     s = Show(performance_id="X/2020-01-01", identifier="x", artist="X",
              date="2020-01-01")
     assert s.venue_source == "item"
+
+
+def test_criteria_and_provenance_voice_default_none():
+    from llama.models import Candidate, Criteria, Provenance, RecordingSummary
+
+    assert Criteria(query="q").voice is None
+    prov = Provenance(
+        performance_id="GratefulDead/1973-06-10", run="r",
+        candidate=Candidate(performance_id="GratefulDead/1973-06-10",
+                            collection="GratefulDead", date="1973-06-10",
+                            recordings=[RecordingSummary(identifier="i")]),
+        processed_at="2026-07-22T00:00:00+00:00",
+    )
+    assert prov.voice is None
