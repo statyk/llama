@@ -114,3 +114,9 @@ def test_factory_unknown_backend_raises():
     cfg = Config.model_validate({"tts": {"backend": "kokoro"}})
     with pytest.raises(SpeechError):
         speech_provider_for(cfg, "v")
+
+
+def test_elevenlabs_model_defaults_when_none():
+    from llama.tts.elevenlabs import DEFAULT_MODEL
+    p = ElevenLabsProvider(voice="v", model=None, api_key="k")
+    assert p.model == DEFAULT_MODEL == "eleven_multilingual_v2"

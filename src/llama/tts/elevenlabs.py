@@ -5,19 +5,20 @@ import httpx
 from llama.tts.provider import SpeechError
 
 API_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+DEFAULT_MODEL = "eleven_multilingual_v2"
 
 
 class ElevenLabsProvider:
     def __init__(
         self,
         voice: str,
-        model: str,
+        model: str | None = None,
         api_key: str | None = None,
         timeout_s: int = 120,
         transport: httpx.BaseTransport | None = None,
     ):
         self.voice = voice
-        self.model = model
+        self.model = model or DEFAULT_MODEL
         # Env wins over the config key, matching SETLISTFM_API_KEY handling.
         self.api_key = os.environ.get("ELEVENLABS_API_KEY") or api_key
         if not self.api_key:
