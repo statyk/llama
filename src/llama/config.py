@@ -21,6 +21,15 @@ class SetlistFMConfig(BaseModel):
     api_key: str | None = None
 
 
+class TTSConfig(BaseModel):
+    """Spoken DJ patter (text-to-speech of the DJ script). Opt-in."""
+    enabled: bool = False               # nothing calls ElevenLabs unless voice is active
+    backend: str = "elevenlabs"         # or "fake" for tests
+    voice: str | None = None            # station default ElevenLabs voice_id
+    model: str = "eleven_multilingual_v2"  # quality default, overridable
+    api_key: str | None = None          # ELEVENLABS_API_KEY env takes precedence
+
+
 class JerrybaseConfig(BaseModel):
     # Vendored, offline, no key - so on by default (unlike setlist.fm). No
     # thresholds: break anchoring is all-or-nothing by design.
@@ -77,6 +86,7 @@ class Config(BaseModel):
     audio_format: Literal["mp3", "flac"] = "mp3"
     llm: dict[str, LLMTaskConfig] = Field(default_factory=dict)
     setlistfm: SetlistFMConfig = Field(default_factory=SetlistFMConfig)
+    tts: TTSConfig = Field(default_factory=TTSConfig)
     jerrybase: JerrybaseConfig = Field(default_factory=JerrybaseConfig)
     structure: StructureConfig = Field(default_factory=StructureConfig)
     artists: ArtistsConfig = Field(default_factory=ArtistsConfig)
@@ -150,6 +160,14 @@ backend = "claude_cli"             # requires the `claude` CLI on PATH
 # [setlistfm]
 # api_key = "..."          # or SETLISTFM_API_KEY env var; without a key,
 #                          # set-structure recovery is LMA-descriptions only
+
+# [tts]                      # spoken DJ patter: per-segment MP3 clips of the
+#                            # DJ script under package/dj-audio/ (ElevenLabs)
+# enabled = true             # default false; a profile with an explicit
+#                            # `voice` is voiced even when this is off
+# voice = "..."              # station default ElevenLabs voice_id
+# model = "eleven_multilingual_v2"   # quality default
+# api_key = "..."            # or ELEVENLABS_API_KEY env var (env wins)
 
 [jerrybase]
 enabled = true             # vendored offline set-structure evidence (break

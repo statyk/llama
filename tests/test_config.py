@@ -184,3 +184,31 @@ def test_default_config_template_states_selection_defaults():
         "date_to": "1987-12-31",
         "scores": {"matrix": 3.0, "aud": 2.0, "sbd": 1.0},
     }]
+
+
+def test_tts_defaults():
+    cfg = Config()
+    assert cfg.tts.enabled is False
+    assert cfg.tts.backend == "elevenlabs"
+    assert cfg.tts.voice is None
+    assert cfg.tts.model == "eleven_multilingual_v2"
+    assert cfg.tts.api_key is None
+
+
+def test_tts_from_toml(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text('[tts]\nenabled = true\nvoice = "v-abc"\n'
+                 'model = "eleven_turbo_v2_5"\napi_key = "k1"\n')
+    cfg = load_config(p)
+    assert cfg.tts.enabled is True
+    assert cfg.tts.voice == "v-abc"
+    assert cfg.tts.model == "eleven_turbo_v2_5"
+    assert cfg.tts.api_key == "k1"
+
+
+def test_default_config_template_documents_tts():
+    # Fully commented: the seeded file must still behave exactly like no config
+    # file (test_default_config_template_matches_defaults guards this), and
+    # [tts] enabled defaults to false.
+    assert "# [tts]" in DEFAULT_CONFIG_TOML
+    assert "ELEVENLABS_API_KEY" in DEFAULT_CONFIG_TOML
