@@ -67,7 +67,7 @@ def test_package_layout_and_manifest(tmp_path: Path):
     assert ia.downloads == [("d1t01.mp3", "m1"), ("d2t01.mp3", "m2")]  # md5s passed through
     m = json.loads((pkg / "manifest.json").read_text())
     assert m["tracks"][0]["filename"] == "01 - Morning Dew.mp3"
-    assert m["set_breaks"] == [{"after_track": 1, "note_index": 0, "audio": None}]
+    assert m["set_breaks"] == [{"after_track": 1}]
     # dummy bytes are unreadable audio -> falls back to metadata duration, no mismatch flag
     assert m["tracks"][0]["duration_sec"] == 600.0
     assert json.loads(sws.show.read_text())["needs_review"] is False
@@ -129,7 +129,7 @@ def test_package_without_script(tmp_path: Path):
     assert not (pkg / "dj-notes.md").exists()
     m = json.loads((pkg / "manifest.json").read_text())
     assert m["dj_notes"] is None
-    assert m["set_breaks"] == [{"after_track": 1, "note_index": None, "audio": None}]
+    assert m["set_breaks"] == [{"after_track": 1}]
     assert (pkg / "reviews.md").read_text() == "(no reviews)"
 
 
@@ -147,20 +147,16 @@ def test_package_synthesizes_dj_audio_and_manifest_block(tmp_path: Path):
     notes = make_notes()
     pkg = run_package(sws, StubIA(), show, notes, speech=speech)
     dj = pkg / "dj-audio"
-    for name in ["00-intro.mp3", "set1-intro.mp3", "set2-intro.mp3",
-                 "break1.mp3", "99-outro.mp3"]:
+    for name in ["set1-intro.mp3", "set2-intro.mp3", "99-outro.mp3"]:
         assert (dj / name).read_bytes() == SILENT_MP3
-    assert speech.calls == [notes.intro, notes.set_intros["1"], notes.set_intros["2"],
-                            notes.set_break_notes[0], notes.outro]
+    assert not (dj / "00-intro.mp3").exists() and not (dj / "break1.mp3").exists()
+    assert speech.calls == [notes.set_intros["1"], notes.set_intros["2"], notes.outro]
     m = json.loads((pkg / "manifest.json").read_text())
     assert m["dj_audio"] == {
-        "intro": "dj-audio/00-intro.mp3",
         "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
-        "set_breaks": ["dj-audio/break1.mp3"],
         "outro": "dj-audio/99-outro.mp3",
     }
-    assert m["set_breaks"] == [{"after_track": 1, "note_index": 0,
-                                "audio": "dj-audio/break1.mp3"}]
+    assert m["set_breaks"] == [{"after_track": 1}]
 
 
 def test_package_segment_cache_skips_unchanged(tmp_path: Path):
@@ -176,10 +172,10 @@ def test_package_changed_text_resynthesizes_only_that_segment(tmp_path: Path):
     sws, show = setup(tmp_path)
     run_package(sws, StubIA(), show, make_notes(), speech=FakeSpeechProvider())
     (sws.package_dir / "manifest.json").unlink()
-    notes = make_notes().model_copy(update={"intro": "a different intro"})
+    notes = make_notes().model_copy(update={"outro": "a different outro"})
     second = FakeSpeechProvider()
     run_package(sws, StubIA(), show, notes, speech=second)
-    assert second.calls == ["a different intro"]
+    assert second.calls == ["a different outro"]
 
 
 def test_package_different_voice_resynthesizes(tmp_path: Path):
@@ -189,7 +185,7 @@ def test_package_different_voice_resynthesizes(tmp_path: Path):
     second = FakeSpeechProvider()
     second.voice = "other-voice"  # cache key includes the voice
     run_package(sws, StubIA(), show, make_notes(), speech=second)
-    assert len(second.calls) == 5
+    assert len(second.calls) == 3  # set1-intro, set2-intro, outro
 
 
 def test_package_force_rerenders_all_segments(tmp_path: Path):
@@ -197,25 +193,26 @@ def test_package_force_rerenders_all_segments(tmp_path: Path):
     run_package(sws, StubIA(), show, make_notes(), speech=FakeSpeechProvider())
     second = FakeSpeechProvider()
     run_package(sws, StubIA(), show, make_notes(), force=True, speech=second)
-    assert len(second.calls) == 5
+    assert len(second.calls) == 3  # set1-intro, set2-intro, outro
 
 
-def test_package_shrinking_breaks_prunes_orphan_clips(tmp_path: Path):
+def test_package_shrinking_set_intros_prunes_orphan_clips(tmp_path: Path):
     sws, show = setup(tmp_path)
-    notes = make_notes().model_copy(update={"set_break_notes": ["x", "y"]})
+    notes = make_notes().model_copy(update={"set_intros": {"1": "a", "2": "b", "encore": "c"}})
     run_package(sws, StubIA(), show, notes, speech=FakeSpeechProvider())
     dj = sws.package_dir / "dj-audio"
-    assert (dj / "break1.mp3").exists()
-    assert (dj / "break2.mp3").exists()
+    assert (dj / "set2-intro.mp3").exists()
+    assert (dj / "setencore-intro.mp3").exists()
     (sws.package_dir / "manifest.json").unlink()  # what redo --from package does
 
-    fewer_notes = notes.model_copy(update={"set_break_notes": ["x"]})
+    fewer_notes = notes.model_copy(update={"set_intros": {"1": "a", "2": "b"}})
     pkg = run_package(sws, StubIA(), show, fewer_notes, speech=FakeSpeechProvider())
-    assert (dj / "break1.mp3").exists()
-    assert not (dj / "break2.mp3").exists()      # orphan from the shrunk re-synth is gone
-    assert (dj / "segments.json").exists()        # sidecar untouched
+    assert (dj / "set2-intro.mp3").exists()
+    assert not (dj / "setencore-intro.mp3").exists()  # orphan from the shrunk re-synth is gone
+    assert (dj / "segments.json").exists()             # sidecar untouched
     m = json.loads((pkg / "manifest.json").read_text())
-    assert m["dj_audio"]["set_breaks"] == ["dj-audio/break1.mp3"]
+    assert m["dj_audio"]["set_intros"] == {"1": "dj-audio/set1-intro.mp3",
+                                           "2": "dj-audio/set2-intro.mp3"}
 
 
 def test_package_speech_failure_leaves_no_manifest(tmp_path: Path):

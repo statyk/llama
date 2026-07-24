@@ -122,10 +122,9 @@ def _synthesize_chunked(text: str, speech) -> bytes:
 
 
 def _segment_texts(notes: DJNotes) -> list[tuple[str, str]]:
-    """(segment file stem, text) in broadcast order."""
-    segs = [("00-intro", notes.intro)]
-    segs += [(f"set{key}-intro", text) for key, text in notes.set_intros.items()]
-    segs += [(f"break{i + 1}", text) for i, text in enumerate(notes.set_break_notes)]
+    """(segment file stem, text) in broadcast order: one lead-in per set, then outro."""
+    ordered = sorted(notes.set_intros, key=lambda x: (x == "encore", x))
+    segs = [(f"set{key}-intro", notes.set_intros[key]) for key in ordered]
     segs.append(("99-outro", notes.outro))
     return segs
 
@@ -171,10 +170,7 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
             existing.unlink()
     write_artifact(sidecar, json.dumps(keys, indent=2))
     return DJAudio(
-        intro="dj-audio/00-intro.mp3",
         set_intros={key: f"dj-audio/set{key}-intro.mp3" for key in notes.set_intros},
-        set_breaks=[f"dj-audio/break{i + 1}.mp3"
-                    for i in range(len(notes.set_break_notes))],
         outro="dj-audio/99-outro.mp3",
     )
 

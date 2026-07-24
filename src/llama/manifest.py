@@ -16,15 +16,7 @@ def build_manifest(
     per_set: dict[str, float] = defaultdict(float)
     for t in packaged:
         per_set[t.set] += t.duration_sec or 0.0
-    breaks = [
-        SetBreak(
-            after_track=idx,
-            note_index=i if notes is not None else None,
-            audio=(dj_audio.set_breaks[i]
-                   if dj_audio is not None and i < len(dj_audio.set_breaks) else None),
-        )
-        for i, idx in enumerate(show.set_breaks)
-    ]
+    breaks = [SetBreak(after_track=idx) for idx in show.set_breaks]
     return Manifest(
         show={"artist": show.artist, "date": show.date, "venue": show.venue,
               "city": show.city, "context": context},

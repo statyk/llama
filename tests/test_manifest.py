@@ -15,8 +15,7 @@ def make_show():
 
 def make_notes():
     return DJNotes(context="Peak 73", intro="i", outro="o",
-                   set_intros={"1": "a", "2": "b", "encore": "c"},
-                   set_break_notes=["x", "y"])
+                   set_intros={"1": "a", "2": "b"}, set_break_notes=["x", "y"])
 
 
 def make_packaged():
@@ -39,7 +38,7 @@ def test_build_manifest():
     assert m.source["performance_id"] == "GratefulDead/1973-06-10"
     assert m.total_duration_sec == 2700.0
     assert m.set_durations_sec == {"1": 600.0, "2": 1800.0, "encore": 300.0}
-    assert [(b.after_track, b.note_index) for b in m.set_breaks] == [(1, 0), (2, 1)]
+    assert [b.after_track for b in m.set_breaks] == [1, 2]
 
 
 def test_m3u_text():
@@ -62,7 +61,7 @@ def test_build_manifest_without_notes():
                        reviews="reviews.md", research_vetted=True)
     assert m.schema_version == 2
     assert m.dj_notes is None
-    assert m.set_breaks[0].note_index is None
+    assert m.set_breaks[0].after_track == 1
     assert m.show["context"] == "ctx"
     assert m.research == "research.md" and m.research_vetted is True
 
@@ -71,19 +70,15 @@ def test_build_manifest_with_dj_audio():
     from llama.models import DJAudio
 
     dj_audio = DJAudio(
-        intro="dj-audio/00-intro.mp3",
-        set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3",
-                    "encore": "dj-audio/setencore-intro.mp3"},
-        set_breaks=["dj-audio/break1.mp3", "dj-audio/break2.mp3"],
+        set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         outro="dj-audio/99-outro.mp3",
     )
     m = build_manifest(make_show(), make_notes(), make_packaged(), dj_audio=dj_audio)
     assert m.dj_audio == dj_audio
-    assert [b.audio for b in m.set_breaks] == ["dj-audio/break1.mp3", "dj-audio/break2.mp3"]
-    assert [b.note_index for b in m.set_breaks] == [0, 1]  # note wiring unchanged
+    assert [b.after_track for b in m.set_breaks] == [1, 2]
 
 
 def test_build_manifest_without_dj_audio():
     m = build_manifest(make_show(), make_notes(), make_packaged())
     assert m.dj_audio is None
-    assert all(b.audio is None for b in m.set_breaks)
+    assert [b.after_track for b in m.set_breaks] == [1, 2]

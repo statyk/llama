@@ -188,10 +188,10 @@ def make_show():
 
 def make_notes():
     return DJNotes(
-        context="ctx",
-        intro="Good evening, night owls. It's June 10th, 1973 at RFK Stadium. "
-              "Let's dig in!",
-        outro="Thanks for listening, folks.", set_intros={}, set_break_notes=[],
+        context="ctx", intro="",
+        set_intros={"1": "Good evening, night owls. It's June 10th, 1973 at RFK "
+                         "Stadium. Let's dig in!"},
+        outro="Thanks for listening, folks.", set_break_notes=[],
     )
 
 
@@ -230,12 +230,12 @@ def test_chunk_true_synthesizes_via_chunked_path(tmp_path: Path):
 
     pkg = run_package(sws, StubIA(), show, notes, speech=speech, chunk=True)
 
-    mp3_path = pkg / "dj-audio" / "00-intro.mp3"
+    mp3_path = pkg / "dj-audio" / "set1-intro.mp3"
     data = mp3_path.read_bytes()
     assert len(data) > 0
     assert data[:3] == b"ID3" or data[0] == 0xFF  # valid MP3 framing
 
-    # The intro splits into 3 sentences; the outro is 1. Chunked mode makes
+    # The set 1 lead-in splits into 3 sentences; the outro is 1. Chunked mode makes
     # one fmt="wav" synthesize call per sentence, so total calls (4) exceed
     # the 2 segments actually rendered.
     assert len(speech.calls) == 4
@@ -248,5 +248,5 @@ def test_chunk_false_uses_single_call_per_segment(tmp_path: Path):
 
     run_package(sws, StubIA(), show, notes, speech=speech, chunk=False)
 
-    # One call per segment (intro, outro), not per sentence.
-    assert speech.calls == [notes.intro, notes.outro]
+    # One call per segment (set 1 lead-in, outro), not per sentence.
+    assert speech.calls == [notes.set_intros["1"], notes.outro]

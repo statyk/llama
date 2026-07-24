@@ -219,16 +219,12 @@ class ManifestTrack(BaseModel):
 
 class DJAudio(BaseModel):
     """Per-segment spoken DJ clips, as package-relative paths (dj-audio/...)."""
-    intro: str
-    set_intros: dict[str, str]  # keyed by set: "1", "2", "encore"
-    set_breaks: list[str] = Field(default_factory=list)
+    set_intros: dict[str, str]  # one lead-in per non-encore set: "1", "2"
     outro: str
 
 
 class SetBreak(BaseModel):
-    after_track: int
-    note_index: int | None = None  # index into dj_notes.set_break_notes when a script exists
-    audio: str | None = None  # dj-audio clip for this break slot, when voiced
+    after_track: int  # physical set boundary; DJ talk rides the next set's lead-in
 
 
 class Manifest(BaseModel):

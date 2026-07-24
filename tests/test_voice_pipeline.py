@@ -102,20 +102,16 @@ def test_voiced_find_end_to_end(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0, result.output
     pkg = tmp_path / "shows" / SHOW_DIR / "package"
     dj = pkg / "dj-audio"
-    for name in ["00-intro.mp3", "set1-intro.mp3", "set2-intro.mp3",
-                 "setencore-intro.mp3", "break1.mp3", "break2.mp3", "99-outro.mp3"]:
+    for name in ["set1-intro.mp3", "set2-intro.mp3",
+                 "setencore-intro.mp3", "99-outro.mp3"]:
         assert (dj / name).read_bytes() == SILENT_MP3
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_audio"] == {
-        "intro": "dj-audio/00-intro.mp3",
         "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3",
                        "encore": "dj-audio/setencore-intro.mp3"},
-        "set_breaks": ["dj-audio/break1.mp3", "dj-audio/break2.mp3"],
         "outro": "dj-audio/99-outro.mp3",
     }
-    assert manifest["set_breaks"] == [
-        {"after_track": 3, "note_index": 0, "audio": "dj-audio/break1.mp3"},
-        {"after_track": 5, "note_index": 1, "audio": "dj-audio/break2.mp3"}]
+    assert manifest["set_breaks"] == [{"after_track": 3}, {"after_track": 5}]
     assert manifest["dj_notes"] is not None
     # run intent + provenance are stamped for replays
     criteria = json.loads((tmp_path / "runs" / "voicerun" / "criteria.json").read_text())
@@ -137,7 +133,7 @@ def test_explicit_voice_flag_opts_in_when_globally_disabled(tmp_path: Path, monk
     cfg = voiced_setup(tmp_path, monkeypatch, cfg_template=UNVOICED_CFG)
     result = find(cfg, "--voice")
     assert result.exit_code == 0, result.output
-    assert (tmp_path / "shows" / SHOW_DIR / "package" / "dj-audio" / "00-intro.mp3").exists()
+    assert (tmp_path / "shows" / SHOW_DIR / "package" / "dj-audio" / "set1-intro.mp3").exists()
 
 
 def test_no_voice_flag_opts_out_when_globally_enabled(tmp_path: Path, monkeypatch):
@@ -220,7 +216,7 @@ def test_presenter_profile_run_end_to_end(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0, result.output
     # presenter implies voice even though [tts] enabled is false
     pkg = tmp_path / "shows" / SHOW_DIR / "package"
-    assert (pkg / "dj-audio" / "00-intro.mp3").read_bytes() == SILENT_MP3
+    assert (pkg / "dj-audio" / "set1-intro.mp3").read_bytes() == SILENT_MP3
     # run intent + provenance stamp the presenter id and title, voice resolved
     run_dir = next((tmp_path / "runs").glob("*-sunday"))
     criteria = json.loads((run_dir / "criteria.json").read_text())

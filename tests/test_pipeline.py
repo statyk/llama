@@ -110,8 +110,7 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["show"]["artist"] == "Grateful Dead"
     assert len(manifest["tracks"]) == 6
-    assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0, "audio": None},
-                                      {"after_track": 5, "note_index": 1, "audio": None}]
+    assert manifest["set_breaks"] == [{"after_track": 3}, {"after_track": 5}]
     assert (pkg / "audio" / "01 - Morning Dew.mp3").exists()
     assert (pkg / "playlist.m3u").read_text().splitlines()[1] == "audio/01 - Morning Dew.mp3"
     assert (pkg / "dj-notes.md").exists()
@@ -179,7 +178,6 @@ def test_find_default_includes_script(tmp_path: Path, monkeypatch):
     pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_notes"] is not None
-    assert manifest["set_breaks"][0]["note_index"] == 0
     assert (pkg / "dj-notes.md").exists()
 
 
@@ -199,7 +197,6 @@ def test_find_no_script_skips_script(tmp_path: Path, monkeypatch):
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_notes"] is None
     assert manifest["research"] == "research.md"
-    assert manifest["set_breaks"][0]["note_index"] is None
     assert manifest["show"]["context"] == "Peak 1973, RFK Stadium"
     assert (pkg / "research.md").exists() and (pkg / "reviews.md").exists()
     assert not (pkg / "dj-notes.md").exists()
@@ -228,8 +225,7 @@ def test_package_replay_without_script_keeps_cached_notes(tmp_path: Path, monkey
     pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_notes"] is not None
-    assert manifest["set_breaks"] == [{"after_track": 3, "note_index": 0, "audio": None},
-                                      {"after_track": 5, "note_index": 1, "audio": None}]
+    assert manifest["set_breaks"] == [{"after_track": 3}, {"after_track": 5}]
     assert (pkg / "dj-notes.md").exists()
 
 
@@ -438,4 +434,4 @@ def test_process_show_stamps_voice_and_forwards_speech(tmp_path: Path):
     assert prov.voice == "v-abc"
     assert prov.script is True
     assert len(speech.calls) > 0                      # speech reached run_package
-    assert (pkg / "dj-audio" / "00-intro.mp3").exists()
+    assert (pkg / "dj-audio" / "set1-intro.mp3").exists()
