@@ -32,22 +32,30 @@ def test_split_multi_sentence():
 
 
 def test_split_no_split_on_abbreviation():
-    text = "This one's a Dr. Fillmore special tonight."
+    # Prefix before "Dr." is >= 20 chars, so the generic short-fragment
+    # merge rule can't be what's suppressing the split - only is_abbrev can.
+    text = "We are thrilled to welcome the one and only Dr. Fillmore to the stage."
     assert _split_sentences(text) == [text]
 
 
 def test_split_no_split_on_vs():
-    text = "Dead vs. the Allmans, a classic old rivalry."
+    # Prefix before "vs." is >= 20 chars, isolating is_abbrev as the only
+    # possible reason for the no-split.
+    text = "Everyone always argued about the Dead vs. the Allmans, a classic old rivalry."
     assert _split_sentences(text) == [text]
 
 
 def test_split_no_split_on_decimal():
-    text = "The date was 6. 10 that year."
+    # Prefix before the decimal point is >= 20 chars, and the next fragment
+    # starts with a digit ("6"), so only is_decimal can suppress the split.
+    text = "The reading that evening was 98. 6 degrees, unusually warm for a June night."
     assert _split_sentences(text) == [text]
 
 
 def test_split_no_split_on_single_letter_initial():
-    text = "It featured Bob W. Weir on guitar."
+    # Prefix before "W." is >= 20 chars, isolating is_initial as the only
+    # possible reason for the no-split.
+    text = "It featured guitarist Bob W. Weir on rhythm guitar tonight."
     assert _split_sentences(text) == [text]
 
 
