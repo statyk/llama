@@ -130,10 +130,26 @@ def test_factory_voxtral_clone_mode(monkeypatch, tmp_path):
     monkeypatch.setenv("MISTRAL_API_KEY", "k")
     from llama.tts.voxtral import VoxtralProvider
     ref = tmp_path / "dj.wav"; ref.write_bytes(b"REF")
-    cfg = Config.model_validate({"tts": {"voice_clone": str(ref)}})
-    p = speech_provider_for(cfg, None)
+    p = speech_provider_for(Config(), None, clone_ref=str(ref))
     assert isinstance(p, VoxtralProvider)
     assert p.voice.startswith("clone:")
+
+
+def test_factory_ignores_config_clone_without_clone_ref(monkeypatch, tmp_path):
+    # Callers own clone resolution (a presenter must fully own its voice):
+    # the factory itself no longer falls back to [tts] voice_clone.
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    ref = tmp_path / "dj.wav"; ref.write_bytes(b"REF")
+    cfg = Config.model_validate({"tts": {"voice_clone": str(ref)}})
+    with pytest.raises(SpeechError):
+        speech_provider_for(cfg, None)
+
+
+def test_factory_elevenlabs_rejects_clone_ref(monkeypatch):
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+    cfg = Config.model_validate({"tts": {"backend": "elevenlabs"}})
+    with pytest.raises(SpeechError):
+        speech_provider_for(cfg, "v-abc", clone_ref="/refs/x.wav")
 
 
 def test_factory_voxtral_no_voice_no_clone_raises(monkeypatch):
