@@ -136,13 +136,18 @@ DEFAULT_CONFIG_TOML = """\
 # [[selection.lineage_eras]] block replaces the entire built-in era list.
 # The defaults are written out below so additive edits keep them.
 
-# root = "/path/to/workdir"        # workspace root; default ~/.llama
-# delivery_path = "/station/inbox" # target for `llama deliver`
-audio_format = "mp3"               # or "flac"
+# workspace root; default ~/.llama
+# root = "/path/to/workdir"
+# target for `llama deliver`
+# delivery_path = "/station/inbox"
+# or "flac"
+audio_format = "mp3"
 
 [llm.default]
-backend = "claude_cli"             # requires the `claude` CLI on PATH
-# backend = "openrouter"           # HTTP alternative; set OPENROUTER_API_KEY
+# requires the `claude` CLI on PATH
+backend = "claude_cli"
+# HTTP alternative; set OPENROUTER_API_KEY
+# backend = "openrouter"
 # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
 # gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
 # Defaults: medium for most tasks; high for deep_research and synthesize;
@@ -150,71 +155,83 @@ backend = "claude_cli"             # requires the `claude` CLI on PATH
 # A failed validation's final retry escalates one tier (pins never escalate).
 
 # [llm.deep_research]
-# backend = "claude_cli"   # pin research to the claude CLI when the default
-#                          # backend is openrouter: its agentic multi-step
-#                          # research is stronger, and quality is audible on air
+# pin research to the claude CLI when the default backend is openrouter: its
+# agentic multi-step research is stronger, and quality is audible on air
+# backend = "claude_cli"
 
 # [llm.synthesize]
-# tier = "medium"            # example: cheaper synthesis
-# model = "claude-opus-4-8"  # example: exact pin, bypasses tiers
+# example: cheaper synthesis
+# tier = "medium"
+# example: exact pin, bypasses tiers
+# model = "claude-opus-4-8"
 
 # [llm.tiers.openrouter]
-# medium = "deepseek/deepseek-chat-v3"  # retarget what a tier means per backend
+# retarget what a tier means per backend
+# medium = "deepseek/deepseek-chat-v3"
 
 # [setlistfm]
-# api_key = "..."          # or SETLISTFM_API_KEY env var; without a key,
-#                          # set-structure recovery is LMA-descriptions only
+# or SETLISTFM_API_KEY env var; without a key, set-structure recovery is
+# LMA-descriptions only
+# api_key = "..."
 
-# [tts]                      # spoken DJ patter: per-segment MP3 clips of the
-#                            # DJ script land in package/dj-audio/ (00-intro,
-#                            # set<key>-intro, break<N>, 99-outro), tied
-#                            # together by the manifest's dj_audio block.
-#                            # Enabling voice forces the DJ script on even
-#                            # against --no-script (nothing to voice otherwise).
-# enabled = true             # default false; a profile with a presenter
-#                            # is voiced even when this is off
-# backend = "voxtral"        # hosted Mistral Voxtral TTS (default); or
-#                            # "elevenlabs"; or "fake" for tests
-# voice = "..."              # the HOUSE voice: voxtral preset name (or
-#                            # elevenlabs voice_id), used when no presenter
-# voice_clone = "..."        # path to a 3-25s reference WAV; when set, voxtral
-#                            # clones that voice (ignores `voice`)
-# model = "..."              # per-backend default when unset
-#                            # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
-# api_key = "..."            # MISTRAL_API_KEY / ELEVENLABS_API_KEY env (env wins)
+# spoken DJ patter: per-segment MP3 clips of the DJ script land in
+# package/dj-audio/ (00-intro, set<key>-intro, break<N>, 99-outro), tied
+# together by the manifest's dj_audio block. Enabling voice forces the DJ
+# script on even against --no-script (nothing to voice otherwise).
+# [tts]
+# default false; a profile with a presenter is voiced even when this is off
+# enabled = true
+# hosted Mistral Voxtral TTS (default); or "elevenlabs"; or "fake" for tests
+# backend = "voxtral"
+# the HOUSE voice: voxtral preset name (or elevenlabs voice_id), used when
+# no presenter
+# voice = "..."
+# path to a 3-25s reference WAV; when set, voxtral clones that voice
+# (ignores `voice`)
+# voice_clone = "..."
+# per-backend default when unset
+# (voxtral-mini-tts-2603 / eleven_multilingual_v2)
+# model = "..."
+# MISTRAL_API_KEY / ELEVENLABS_API_KEY env (env wins)
+# api_key = "..."
 # Hosts live in presenters/<id>.toml (name / sex / voice XOR voice_clone /
 # character); a profile picks one via `presenter = "<id>"` and names its
 # radio show via `title = "..."`.
-# chunk = true               # synthesize each segment sentence-by-sentence and
-#                            # concatenate (single MP3 encode at the end)
-#                            # instead of one TTS call per whole segment;
-#                            # noticeably better prosody/pacing on longer DJ
-#                            # patter at the cost of more provider round-trips
-#                            # per segment. Requires the `lameenc` dependency
-#                            # (installed by default). Default false.
+# synthesize each segment sentence-by-sentence and concatenate (single MP3
+# encode at the end) instead of one TTS call per whole segment; noticeably
+# better prosody/pacing on longer DJ patter at the cost of more provider
+# round-trips per segment. Requires the `lameenc` dependency (installed by
+# default). Default false.
+# chunk = true
 
 [jerrybase]
-enabled = true             # vendored offline set-structure evidence (break
-                           # anchoring + set-count/venue/multi-event tripwires);
-                           # set false to ignore the dataset entirely
+# vendored offline set-structure evidence (break anchoring +
+# set-count/venue/multi-event tripwires); set false to ignore the dataset
+# entirely
+enabled = true
 
 [winnow]
-max_metadata_fetch = 40    # review-fetch budget: when more survivors than
-                           # this, the best-evidenced are sampled for scoring
+# review-fetch budget: when more survivors than this, the best-evidenced are
+# sampled for scoring
+max_metadata_fetch = 40
 
 [artists]
-min_recordings = 25        # hide artists below these floors from the index
+# hide artists below these floors from the index
+min_recordings = 25
 min_downloads = 50000
-max_matched = 20           # LLM artist-match budget for artist-less queries
+# LLM artist-match budget for artist-less queries
+max_matched = 20
 
 [structure]
-guard_min_minutes = 150    # hold single-set shows longer than this for review
+# hold single-set shows longer than this for review
+guard_min_minutes = 150
 align_coverage_threshold = 0.8
 
 # Recording selection. Taper bonuses match identifier substrings; among
 # revisions by the same taper the newest gets the full bonus, the rest half.
 [selection.tapers.GratefulDead]
-miller = 2.0               # Charlie Miller: community gold standard
+# Charlie Miller: community gold standard
+miller = 2.0
 seamons = 1.0
 
 # Era overrides for lineage scoring. Multiple [[selection.lineage_eras]]
@@ -226,7 +243,8 @@ seamons = 1.0
 # default); to truly clear one, set it empty, e.g. lineage_eras = []
 # under [selection].
 [[selection.lineage_eras]]
-collection = "GratefulDead"   # early-80s boards are rough: MTX > AUD > SBD
+# early-80s boards are rough: MTX > AUD > SBD
+collection = "GratefulDead"
 date_from = "1980-01-01"
 date_to = "1987-12-31"
 scores = { matrix = 3.0, aud = 2.0, sbd = 1.0 }
