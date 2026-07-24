@@ -308,8 +308,13 @@ resampling to 44.1/48kHz before encoding (not yet implemented).
 the current house `[tts] voice`, or the profile's presenter's voice).
 `--voice`/`--no-voice` on `find`/`run`/`review`/`redo` only toggle voice on
 or off — there's no per-invocation voice-id override; to actually switch to
-a different voice, change `[tts] voice` (house shows) or edit the
-presenter's `voice`/`voice_clone` (hosted shows) first. `--force` re-renders
+a different voice, change `[tts] voice` (house shows) first. For a hosted
+show it depends on what the presenter uses: editing `voice_clone` (or the
+clip it points to) takes effect on the next `redo --from package --voice`,
+since the clone reference is re-read live — but editing a preset `voice`
+does **not**, because `redo` replays the voice *stamped* on the show at
+process time; only a fresh `llama profile run` picks up a new preset voice.
+`--force` re-renders
 every clip instead of reusing the cache. A plain `llama run <run> --voice`
 on a run whose shows are already packaged does **not** re-voice them — the
 package stage is skipped because its output already exists — it prints a
@@ -513,19 +518,25 @@ so the new research gets re-vetted.
 
 **I want to add (or change) the spoken DJ voice on an already-packaged show.**
 `llama redo <show> --from package --voice`. To switch to a *different*
-voice, set `[tts] voice` (house shows) or edit the presenter's
-`voice`/`voice_clone` (hosted shows) to the new value first — `--voice`
-itself just turns voicing on, it replays the show's already-recorded voice
-if it has one. Unchanged script segments aren't re-synthesized, so this is
+voice, set `[tts] voice` (house shows) first. For a hosted show it depends
+on what the presenter uses: edit `voice_clone` (or the clip it points to)
+and the new clip takes effect, since the clone reference is re-read live;
+editing a preset `voice` does **not** take effect this way, since `redo`
+replays the voice stamped on the show at process time — re-run the show
+fresh (`llama profile run`) to pick up a new preset voice. `--voice` itself
+just turns voicing on, it replays the show's already-recorded voice
+otherwise. Unchanged script segments aren't re-synthesized, so this is
 cheap even against the paid API. `llama redo <show> --from package
 --no-voice` strips voice audio back out.
 
 **I edited a presenter's character — how do I hear the new persona?**
 `llama redo <show> --from synthesize` re-scripts with the new persona
 (deletes and rebuilds `dj-notes.*` and everything downstream, including
-`dj-audio/` if the show is voiced). Swapping only `voice`/`voice_clone`
-with the character unchanged doesn't need a re-script — `redo <show>
---from package --voice` is enough to re-render audio in the new voice.
+`dj-audio/` if the show is voiced). Swapping a presenter's `voice_clone`
+with the character unchanged doesn't need a re-script either — `redo
+<show> --from package --voice` is enough to re-render audio in the new
+voice, since the clone reference is re-read live. Swapping a preset `voice`
+needs a fresh `profile run` instead, same as above.
 
 **The same show keeps coming back in every profile run.**
 It's not in the ledger. Deliver it, or `llama ledger add <performance-id>

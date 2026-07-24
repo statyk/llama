@@ -141,14 +141,14 @@ def test_factory_ignores_config_clone_without_clone_ref(monkeypatch, tmp_path):
     monkeypatch.setenv("MISTRAL_API_KEY", "k")
     ref = tmp_path / "dj.wav"; ref.write_bytes(b"REF")
     cfg = Config.model_validate({"tts": {"voice_clone": str(ref)}})
-    with pytest.raises(SpeechError):
+    with pytest.raises(SpeechError, match="no Voxtral voice configured"):
         speech_provider_for(cfg, None)
 
 
 def test_factory_elevenlabs_rejects_clone_ref(monkeypatch):
     monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
     cfg = Config.model_validate({"tts": {"backend": "elevenlabs"}})
-    with pytest.raises(SpeechError):
+    with pytest.raises(SpeechError, match="voice cloning is Voxtral-only"):
         speech_provider_for(cfg, "v-abc", clone_ref="/refs/x.wav")
 
 

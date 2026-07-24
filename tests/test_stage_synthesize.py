@@ -192,7 +192,8 @@ def test_synthesize_without_presenter_sends_neutral_prompt(tmp_path: Path):
 
 def test_persona_style_contains_identity_rules_and_title():
     style = persona_style(make_presenter(), "Sunday Morning Dead")
-    assert "You are Casey" in style and "male" in style
+    assert "You are Casey" in style
+    assert "You are male; refer to yourself accordingly." in style
     assert "Warm late-night FM veteran" in style
     assert 'Your show is called "Sunday Morning Dead"' in style
     assert "must come from the inputs below" in style          # facts stay grounded
