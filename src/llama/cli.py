@@ -19,6 +19,7 @@ from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
+from llama.presenters import load_presenter
 from llama.profiles import Profile, load_profile, save_profile
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
@@ -712,10 +713,13 @@ def profile_add(
     count: int = typer.Option(1, "--count"),
     human_gate: bool = typer.Option(False, "--human-gate"),
     script: bool = typer.Option(True, "--script/--no-script"),
-    voice: str = typer.Option(None, "--voice",
-                              help="Voxtral preset name (or ElevenLabs voice_id when "
-                                   "backend=elevenlabs); voices this profile even when "
-                                   "[tts] enabled is false"),
+    presenter: str = typer.Option(None, "--presenter",
+                                  help="Host for this show: presenters/<id>.toml; its "
+                                       "voice voices this profile's runs even when "
+                                       "[tts] enabled is false"),
+    title: str = typer.Option(None, "--title",
+                              help="The radio show's on-air name (the host knows it "
+                                   "and says it occasionally)"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of this profile's shortlist one artist "
                                           "may hold (1.0 = pure best-first; default 1/3)"),
@@ -737,6 +741,8 @@ def profile_add(
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
     config, ia, _ = _setup(config_path)
+    if presenter:
+        load_presenter(config.root, presenter)  # fail fast on a typo'd id
     scratch = RunWorkspace(config.root, f"profile-setup-{name}")
     criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
     updates = {}
@@ -755,7 +761,7 @@ def profile_add(
     if updates:
         criteria = criteria.model_copy(update=updates)
     profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate,
-                      script=script, voice=voice)
+                      script=script, presenter=presenter, title=title)
     path = save_profile(config.root, profile)
     typer.echo(f"saved: {path}")
 
@@ -773,13 +779,18 @@ def profile_run(
     config, ia, ledger = _setup(config_path)
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, f"{date.today().isoformat()}-{name}")
-    voice_id = _resolve_voice(config, None, profile.voice)
+    presenter = (load_presenter(config.root, profile.presenter)
+                 if profile.presenter else None)
+    voice_id = _resolve_voice(config, None,
+                              presenter.voice_id if presenter else None)
     script = profile.script or voice_id is not None  # voice implies script
-    # Stamp count/script/voice into the run's criteria: a later `llama run` on
-    # this dir must behave like the profile, not like the interpreted defaults.
+    # Stamp count/script/voice/presenter/title into the run's criteria: a later
+    # `llama run` on this dir must behave like the profile, not the defaults.
     criteria = profile.criteria.model_copy(update={"count": profile.count,
                                                    "script": script,
-                                                   "voice": voice_id})
+                                                   "voice": voice_id,
+                                                   "presenter": profile.presenter,
+                                                   "title": profile.title})
     write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, profile.count, auto,
              human_gate=profile.human_gate, script=script, voice=voice_id,

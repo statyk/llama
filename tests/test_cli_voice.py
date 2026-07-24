@@ -102,18 +102,37 @@ def test_find_no_voice_overrides_global_enable(tmp_path: Path, monkeypatch):
     assert seen["voice"] is None
 
 
-def test_profile_add_voice(tmp_path: Path, monkeypatch):
+def test_profile_add_presenter_and_title(tmp_path: Path, monkeypatch):
+    from llama.presenters import Presenter, save_presenter
     from llama.profiles import load_profile
+
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    save_presenter(tmp_path, Presenter(id="casey", name="Casey", sex="male",
+                                       voice="v-casey", character="Warm FM vet."))
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
+    result = runner.invoke(cli.app, [
+        "profile", "add", "gdhour", "GD 1973", "--presenter", "casey",
+        "--title", "Sunday Morning Dead", "--config", str(tmp_path / "config.toml"),
+    ])
+    assert result.exit_code == 0, result.output
+    saved = load_profile(tmp_path, "gdhour")
+    assert saved.presenter == "casey" and saved.title == "Sunday Morning Dead"
+
+
+def test_profile_add_unknown_presenter_fails_fast(tmp_path: Path, monkeypatch):
+    from llama.presenters import PresenterError
 
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
     result = runner.invoke(cli.app, [
-        "profile", "add", "gdhour", "GD 1973", "--voice", "v-abc",
+        "profile", "add", "gdhour", "GD 1973", "--presenter", "ghost",
         "--config", str(tmp_path / "config.toml"),
     ])
-    assert result.exit_code == 0, result.output
-    assert load_profile(tmp_path, "gdhour").voice == "v-abc"
+    assert result.exit_code != 0
+    assert isinstance(result.exception, PresenterError)
+    assert not (tmp_path / "profiles" / "gdhour.toml").exists()
 
 
 def test_run_voice_without_force_warns_already_packaged_wont_revoice(
@@ -147,16 +166,20 @@ def test_run_voice_with_force_does_not_warn(tmp_path: Path, monkeypatch):
     assert "won't be re-voiced" not in result.output
 
 
-def test_profile_run_explicit_voice_opts_in_when_globally_disabled(
+def test_profile_run_presenter_opts_in_when_globally_disabled(
         tmp_path: Path, monkeypatch):
     from llama.models import Criteria
+    from llama.presenters import Presenter, save_presenter
     from llama.profiles import Profile, save_profile
 
     (tmp_path / "config.toml").write_text(
         f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\n')  # enabled = false
+    save_presenter(tmp_path, Presenter(id="casey", name="Casey", sex="male",
+                                       voice="v-casey", character="Warm FM vet."))
     save_profile(tmp_path, Profile(name="voiced",
                                    criteria=Criteria.model_validate_json(CRITERIA),
-                                   script=False, voice="v-profile"))
+                                   script=False, presenter="casey",
+                                   title="Sunday Morning Dead"))
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
     result = runner.invoke(cli.app, [
@@ -165,6 +188,7 @@ def test_profile_run_explicit_voice_opts_in_when_globally_disabled(
     assert result.exit_code == 0, result.output
     run_dir = next((tmp_path / "runs").glob("*-voiced"))  # named <today>-voiced
     saved = json.loads((run_dir / "criteria.json").read_text())
-    assert saved["voice"] == "v-profile"
-    assert saved["script"] is True          # voice implies script (profile had script=False)
-    assert seen["voice"] == "v-profile" and seen["script"] is True
+    assert saved["voice"] == "v-casey"          # presenter's voice, opted in
+    assert saved["presenter"] == "casey" and saved["title"] == "Sunday Morning Dead"
+    assert saved["script"] is True              # voice implies script (profile had script=False)
+    assert seen["voice"] == "v-casey" and seen["script"] is True

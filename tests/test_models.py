@@ -95,3 +95,20 @@ def test_criteria_and_provenance_voice_default_none():
         processed_at="2026-07-22T00:00:00+00:00",
     )
     assert prov.voice is None
+
+
+def test_criteria_presenter_and_title_default_none():
+    c = Criteria(query="q")
+    assert c.presenter is None and c.title is None
+    again = Criteria.model_validate_json(c.model_dump_json())
+    assert again == c
+
+
+def test_provenance_presenter_fields_default_none():
+    from llama.models import Candidate, Provenance
+
+    p = Provenance(performance_id="x", run="r",
+                   candidate=Candidate(performance_id="x", collection="c",
+                                       date="1970-01-01", recordings=[]),
+                   processed_at="2026-07-24T00:00:00+00:00")
+    assert p.presenter is None and p.title is None

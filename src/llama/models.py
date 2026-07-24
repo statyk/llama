@@ -25,6 +25,13 @@ class Criteria(BaseModel):
     # Resolved TTS voice id for this run (None = no voice); stamped like
     # `script` so replays behave the same regardless of later config edits.
     voice: str | None = None
+    # Presenter id + radio-show title stamped by profile runs (None = house
+    # default / one-off run). The persona TEXT is deliberately NOT stamped:
+    # it resolves live from presenters/<id>.toml at synthesize time, so an
+    # edited character + `redo --from synthesize` takes effect. The voice
+    # string above stays stamped-resolved, as before.
+    presenter: str | None = None
+    title: str | None = None
     # Max share of a multi-artist shortlist/auto-pick one artist may hold
     # (ceil(n * cap) slots) while other artists still have candidates.
     # 1.0 = pure best-first; at or below 1/n = one-per-artist round-robin.
@@ -262,6 +269,8 @@ class Provenance(BaseModel):
     assessment: QualityAssessment | None = None
     script: bool = True
     voice: str | None = None  # voice id this show was processed with (None = no voice)
+    presenter: str | None = None  # presenter id (persona resolves live from its TOML)
+    title: str | None = None      # radio-show title spoken by the presenter
     processed_at: str  # ISO-8601 UTC
 
 

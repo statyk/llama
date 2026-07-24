@@ -13,9 +13,12 @@ class Profile(BaseModel):
     count: int = 1
     human_gate: bool = False
     script: bool = True  # verbatim DJ script (high-tier call); --no-script opts out
-    # Explicit ElevenLabs voice_id: voices this profile's runs with it even
-    # when the global [tts] enabled flag is false. None = inherit global.
-    voice: str | None = None
+    # This radio show's host: presenters/<id>.toml. Naming a presenter voices
+    # this profile's runs even when the global [tts] enabled flag is false.
+    presenter: str | None = None
+    # The radio show's on-air name ("Bluegrass Valley"); the host knows it and
+    # drops it occasionally. Named `title` (rename-safe), not `show_name`.
+    title: str | None = None
 
 
 def save_profile(root: Path, profile: Profile) -> Path:
