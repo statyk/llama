@@ -175,9 +175,9 @@ backend = "claude_cli"
 # api_key = "..."
 
 # spoken DJ patter: per-segment MP3 clips of the DJ script land in
-# package/dj-audio/ (00-intro, set<key>-intro, break<N>, 99-outro), tied
-# together by the manifest's dj_audio block. Enabling voice forces the DJ
-# script on even against --no-script (nothing to voice otherwise).
+# package/dj-audio/ (one set<key>-intro per non-encore set, then 99-outro),
+# tied together by the manifest's dj_audio block. Enabling voice forces the
+# DJ script on even against --no-script (nothing to voice otherwise).
 # [tts]
 # default false; a profile with a presenter is voiced even when this is off
 # enabled = true

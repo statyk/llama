@@ -263,10 +263,11 @@ voice forces the DJ script on even against `--no-script`, since there is no
 text to voice otherwise.
 
 When a show is voiced, `package/dj-audio/` gains one MP3 per script
-segment (`00-intro.mp3`, one `set<key>-intro.mp3` per set, one
-`break<N>.mp3` per set-break note, `99-outro.mp3`), and the manifest gains
-a `dj_audio` block of package-relative paths to them (each `set_breaks`
-entry also gets an `audio` path). See
+segment — one `set<key>-intro.mp3` per non-encore set (the first also opens
+the show) and a closing `99-outro.mp3` — and the manifest gains a `dj_audio`
+block of package-relative paths to them. There is one clip per gap between
+music blocks, so nothing plays back-to-back: the encore has no lead-in (it
+follows the final set), and the outro recaps it. See
 [docs/station-brief.md](docs/station-brief.md) for the full contract.
 
 Segments are cached per show by a hash of (text, voice, model), so
@@ -309,8 +310,8 @@ If your DJ (human or LLM) writes its own spoken copy from this package, it
 inherits the factual guard this pipeline applies to its own scripts:
 
 - every song mentioned must match a track title in `manifest.tracks`
-- set intros must cover exactly the sets present in `manifest.tracks[].set`
-- one break note per entry in `manifest.set_breaks`
+- set lead-ins must cover exactly the non-encore sets present in
+  `manifest.tracks[].set` (the encore gets no lead-in)
 
 Copy that names songs or sets not in the manifest must not air.
 

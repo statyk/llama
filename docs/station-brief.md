@@ -63,12 +63,10 @@ hand off:
 ├── reviews.md
 ├── dj-notes.md           (default; absent only if the run opted out)
 └── dj-audio/             (opt-in TTS; present only when the show was voiced)
-    ├── 00-intro.mp3
-    ├── set1-intro.mp3
+    ├── set1-intro.mp3    (also opens the show)
     ├── set2-intro.mp3
-    ├── break1.mp3
-    ├── ...
-    └── 99-outro.mp3
+    ├── ...               (one per non-encore set; the encore has none)
+    └── 99-outro.mp3      (recaps the encore when there is one)
 ```
 
 The copy is a plain recursive copy — **not atomic**, and there is no
@@ -109,27 +107,22 @@ supporting material. Field-by-field:
     ...
   ],
   "set_breaks": [
-    { "after_track": 8, "note_index": 0, "audio": "dj-audio/break1.mp3" }
-  ],                                       // note_index → dj_notes.set_break_notes[i],
-                                           // null when no script exists; audio →
-                                           // the spoken clip for this break, null
-                                           // unless the show was voiced
+    { "after_track": 8 }                   // physical set boundary only: set 1
+  ],                                       // ends after track 8. The DJ talk for
+                                           // that gap rides the NEXT set's lead-in
+                                           // (set_intros["2"]), not the break.
   "dj_notes": {                            // present by default; null only when
                                            // the run opted out (--no-script)
     "context": "one-line era context",
-    "intro": "verbatim show intro …",
-    "set_intros": { "1": "…", "2": "…", "encore": "…" },
-    "set_break_notes": ["read during break 1", "…"],
-    "outro": "verbatim sign-off …",
+    "set_intros": { "1": "…", "2": "…" },  // one combined lead-in per non-encore
+                                           // set; the encore has none
+    "outro": "verbatim sign-off …",        // recaps the encore when there is one
     "mentioned_songs": ["Morning Dew", "..."]  // every song the script names
   },
   "dj_audio": {                             // opt-in TTS; present ONLY when the
                                            // show was voiced, otherwise null
-    "intro": "dj-audio/00-intro.mp3",
     "set_intros": { "1": "dj-audio/set1-intro.mp3",
-                    "2": "dj-audio/set2-intro.mp3",
-                    "encore": "dj-audio/setencore-intro.mp3" },
-    "set_breaks": ["dj-audio/break1.mp3"],  // parallel to set_breaks above, in order
+                    "2": "dj-audio/set2-intro.mp3" },
     "outro": "dj-audio/99-outro.mp3"
   },
   "research": "research.md",               // relative pointer, null if absent
@@ -182,23 +175,24 @@ supporting material. Field-by-field:
 - **Segues matter on air.** `segue: true` means the audio flows directly
   into the next track (Dead notation "China Cat > Rider"); insertions
   between segued tracks will sound broken.
-- **Set breaks are real intermissions.** `set_breaks` is where a station
-  can insert station IDs, ads, or the corresponding `set_break_notes`
-  entry. Typical Dead shows have 1–2 breaks plus an encore boundary.
+- **Set breaks are real intermissions.** `set_breaks` marks where a station
+  can insert station IDs or ads; the DJ's own between-set talk is already
+  voiced as the next set's lead-in. Typical Dead shows have 1–2 breaks plus
+  an encore boundary.
 - **`show.context`** is a vetted one-liner designed for quick on-air
   framing when there's no script.
 - Filenames are filesystem-safe (unsafe characters replaced), zero-padded,
   and unique within a package.
 - **Spoken DJ audio is opt-in and additive.** `dj_audio` (and `dj-audio/`)
   exist only for shows llama voiced; a show can have `dj_notes` (text)
-  without `dj_audio` (speech), but never the reverse. Slot the clips
-  as: `dj_audio.intro` before the show starts, each
-  `dj_audio.set_intros["<key>"]` before that set's first track, each
-  `set_breaks[i].audio` during that break (between the two sets it
-  separates), and `dj_audio.outro` after the last track (encore included).
-  `dj_audio.set_breaks` is parallel, in order, to the top-level
-  `set_breaks` array, but prefer each break's own `audio` field so a
-  missing/null entry can't cause an off-by-one.
+  without `dj_audio` (speech), but never the reverse. There is exactly one
+  spoken clip per gap between music blocks, so nothing plays back-to-back:
+  slot each `dj_audio.set_intros["<key>"]` before that set's first track
+  (the first set's lead-in also opens the show), and `dj_audio.outro` after
+  the last track. An **encore has no lead-in** — it plays straight after the
+  final set, and the outro (which recaps it) is the only talk after it. A
+  `set_breaks` entry is a physical marker (`after_track`) only; it carries no
+  audio, because the between-set talk lives in the next set's lead-in.
 
 ## Questions for the station team
 
