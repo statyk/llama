@@ -182,3 +182,74 @@ def test_redo_from_package_reuses_cached_segments(tmp_path: Path, monkeypatch):
     assert redo.exit_code == 0, redo.output
     assert "packaged" in redo.output              # re-voiced with the original voice
     assert second.calls == []                     # unchanged segments skipped, no re-spend
+
+
+PRESENTER_CFG = ('{root}\n[jerrybase]\nenabled = false\n'
+                 '[tts]\nbackend = "fake"\n')   # enabled = false; no house voice
+
+
+def presenter_setup(tmp_path, monkeypatch):
+    from llama.models import Criteria as CriteriaModel
+    from llama.presenters import Presenter, save_presenter
+    from llama.profiles import Profile, save_profile
+
+    (tmp_path / "config.toml").write_text(
+        PRESENTER_CFG.format(root=f'root = "{tmp_path}"'))
+    save_presenter(tmp_path, Presenter(
+        id="casey", name="Casey", sex="male", voice="v-casey",
+        character="Warm late-night FM veteran with dry humor."))
+    save_profile(tmp_path, Profile(
+        name="sunday", criteria=CriteriaModel.model_validate_json(CRITERIA),
+        script=False, presenter="casey", title="Sunday Morning Dead"))
+    made = {"synthesize": []}
+
+    def providers(config):
+        p = fake_providers(config)
+        made["synthesize"].append(p["synthesize"])
+        return p
+
+    monkeypatch.setattr(cli, "make_providers", providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    return str(tmp_path / "config.toml"), made
+
+
+def test_presenter_profile_run_end_to_end(tmp_path: Path, monkeypatch):
+    cfg, made = presenter_setup(tmp_path, monkeypatch)
+    result = runner.invoke(cli.app, ["profile", "run", "sunday", "--auto",
+                                     "--config", cfg])
+    assert result.exit_code == 0, result.output
+    # presenter implies voice even though [tts] enabled is false
+    pkg = tmp_path / "shows" / SHOW_DIR / "package"
+    assert (pkg / "dj-audio" / "00-intro.mp3").read_bytes() == SILENT_MP3
+    # run intent + provenance stamp the presenter id and title, voice resolved
+    run_dir = next((tmp_path / "runs").glob("*-sunday"))
+    criteria = json.loads((run_dir / "criteria.json").read_text())
+    assert criteria["voice"] == "v-casey"
+    assert criteria["presenter"] == "casey"
+    assert criteria["title"] == "Sunday Morning Dead"
+    assert criteria["script"] is True   # voice implies script (profile had script=False)
+    prov = json.loads((tmp_path / "shows" / SHOW_DIR / "provenance.json").read_text())
+    assert prov["presenter"] == "casey" and prov["title"] == "Sunday Morning Dead"
+    # the synthesize prompt carried the persona, not the neutral narrator
+    prompt = made["synthesize"][0].calls[0][1]
+    assert "You are Casey" in prompt
+    assert 'Your show is called "Sunday Morning Dead"' in prompt
+    assert "Every fact must come from the\ninputs below" not in prompt
+
+
+def test_redo_from_synthesize_picks_up_edited_character(tmp_path: Path, monkeypatch):
+    from llama.presenters import Presenter, save_presenter
+
+    cfg, made = presenter_setup(tmp_path, monkeypatch)
+    assert runner.invoke(cli.app, ["profile", "run", "sunday", "--auto",
+                                   "--config", cfg]).exit_code == 0
+    # hand-tune the character; redo must re-script from the live file
+    save_presenter(tmp_path, Presenter(
+        id="casey", name="Casey", sex="male", voice="v-casey",
+        character="Now grumpy and terse."))
+    redo = runner.invoke(cli.app, ["redo", "gratefuldead", "--from", "synthesize",
+                                   "--config", cfg])
+    assert redo.exit_code == 0, redo.output
+    prompt = made["synthesize"][1].calls[0][1]   # providers rebuilt once per invoke
+    assert "Now grumpy and terse." in prompt
+    assert "Warm late-night FM veteran" not in prompt
