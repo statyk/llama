@@ -218,6 +218,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             try:
                 pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
                                    force=force, script=script, voice=voice, speech=speech,
+                                   chunk=config.tts.chunk,
                                    setlistfm=setlistfm,
                                    structure_cfg=config.structure, selection_cfg=config.selection,
                                    jerrybase_enabled=config.jerrybase.enabled,
@@ -589,7 +590,7 @@ def redo(
     try:
         pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
                            prov.run, config.audio_format, script=effective_script,
-                           voice=effective_voice, speech=speech,
+                           voice=effective_voice, speech=speech, chunk=config.tts.chunk,
                            setlistfm=make_client(config), structure_cfg=config.structure,
                            jerrybase_enabled=config.jerrybase.enabled,
                            selection_cfg=config.selection)
