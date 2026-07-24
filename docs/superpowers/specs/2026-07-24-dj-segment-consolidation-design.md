@@ -71,6 +71,11 @@ encore recap folds into the outro. Nothing is dropped.
   full combined lead-in), `outro`, `mentioned_songs`.
 - **`DJAudio`**: drop `intro` and `set_breaks`. Keep `set_intros` (keyed,
   non-encore) and `outro`.
+- **`SetBreak`**: drop `note_index` and `audio`. A set break becomes a pure
+  physical marker (`after_track` only). The between-set talk that used to hang
+  off the break now rides on the **next set's lead-in** (`set_intros[next]` /
+  `set<key>-intro.mp3`), so the break entry no longer references a DJ note or
+  clip.
 
 ## Segment files (`src/llama/stages/package.py` `_segment_texts`)
 
@@ -128,10 +133,15 @@ its expected text must be regenerated for the new template.
 One `## Set <n> lead-in` section per non-encore set in order, then `## Outro`.
 The `context` italic line stays. No standalone show-intro or set-break sections.
 
-## Manifest
+## Manifest (`src/llama/manifest.py`)
 
 `dj_notes` embeds the reshaped `DJNotes` and `dj_audio` embeds the reshaped
-`DJAudio` automatically — no manifest code change.
+`DJAudio`. `build_manifest` also changes: the `SetBreak` entries drop the
+`note_index`/`audio` wiring (those pointed at the removed `set_break_notes` /
+`dj_audio.set_breaks`) and become `after_track`-only markers. DJ-audio
+placement is now fully described by `dj_audio.set_intros` (a clip before each
+non-encore set) and `dj_audio.outro` (after the final music); the automation
+already knows set boundaries from the tracks and the `after_track` markers.
 
 ## No migration
 
@@ -142,8 +152,11 @@ regenerated. To adopt the new structure, run
 
 ## Docs to update (live docs only; dated plans/specs stay as historical record)
 
-- `README.md`
-- `docs/station-brief.md`
+- `README.md` — "one break note per entry in `manifest.set_breaks`" and any
+  dj-audio segment description.
+- `docs/station-brief.md` — the `set_breaks` JSON example (drop `note_index` /
+  `audio`) and the prose about playing `set_breaks[i].audio` during a break
+  (now: play the next set's lead-in clip before that set).
 - `src/llama/config.py` — the `[tts]` template line listing
   `(00-intro, set<key>-intro, break<N>, 99-outro)`.
 - `CLAUDE.md` — the dj-audio segment description, if it enumerates the old set.
