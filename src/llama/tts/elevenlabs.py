@@ -1,4 +1,6 @@
+import io
 import os
+import wave
 
 import httpx
 
@@ -6,6 +8,14 @@ from llama.tts.provider import SpeechError
 
 API_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 DEFAULT_MODEL = "eleven_multilingual_v2"
+
+# Chunked synthesis needs raw PCM to concatenate cleanly (package.py
+# _synthesize_chunked). ElevenLabs' pcm_* output_format returns headerless
+# 16-bit little-endian mono PCM at the given rate, not a JSON envelope. This
+# path has not been exercised against a live ElevenLabs call (Voxtral is the
+# backend that has); if it misbehaves in practice, this is the first place
+# to check.
+CHUNK_PCM_RATE = 24000
 
 
 class ElevenLabsProvider:
@@ -26,12 +36,23 @@ class ElevenLabsProvider:
                               "set ELEVENLABS_API_KEY or [tts] api_key")
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
 
-    def synthesize(self, text: str) -> bytes:
+    def synthesize(self, text: str, fmt: str = "mp3") -> bytes:
+        """fmt="wav" requests headerless PCM from ElevenLabs (output_format
+        pcm_24000) and wraps it in a WAV container, for the chunked-synthesis
+        path (package.py _synthesize_chunked) so callers can use the stdlib
+        `wave` module uniformly across backends. See CHUNK_PCM_RATE above.
+        """
+        params = {}
+        headers = {"xi-api-key": self.api_key, "accept": "audio/mpeg"}
+        if fmt == "wav":
+            params["output_format"] = f"pcm_{CHUNK_PCM_RATE}"
+            headers["accept"] = "audio/pcm"
         try:
             resp = self._client.post(
                 API_URL.format(voice_id=self.voice),
                 json={"text": text, "model_id": self.model},
-                headers={"xi-api-key": self.api_key, "accept": "audio/mpeg"},
+                params=params,
+                headers=headers,
             )
         except httpx.HTTPError as e:
             raise SpeechError(f"elevenlabs request failed: {e}") from e
@@ -39,6 +60,14 @@ class ElevenLabsProvider:
             raise SpeechError(f"elevenlabs returned {resp.status_code}: {resp.text[:500]}")
         if not resp.content:
             raise SpeechError("elevenlabs returned empty audio")
+        if fmt == "wav":
+            buf = io.BytesIO()
+            with wave.open(buf, "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)  # 16-bit PCM
+                w.setframerate(CHUNK_PCM_RATE)
+                w.writeframes(resp.content)
+            return buf.getvalue()
         return resp.content
 
     def close(self) -> None:

@@ -49,21 +49,28 @@ class VoxtralProvider:
             self.voice = voice
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
 
-    def _body(self, text: str) -> dict:
-        body = {"model": self.model, "input": text, "response_format": "mp3"}
+    def _body(self, text: str, fmt: str) -> dict:
+        body = {"model": self.model, "input": text, "response_format": fmt}
         if self._ref_b64 is not None:
             body["ref_audio"] = self._ref_b64
         else:
             body["voice_id"] = self._preset
         return body
 
-    def synthesize(self, text: str) -> bytes:
+    def synthesize(self, text: str, fmt: str = "mp3") -> bytes:
+        """fmt="wav" requests response_format="wav" instead of "mp3", for the
+        chunked-synthesis path (package.py _synthesize_chunked): callers get
+        PCM-in-a-WAV-container bytes they can read with stdlib `wave` and
+        concatenate before one MP3 encode. Confirmed against a live Voxtral
+        call: it returns the same base64 `audio_data` JSON envelope as the
+        mp3 path, just with WAV bytes inside.
+        """
         if len(text) > MAX_INPUT_CHARS:
             raise SpeechError(f"DJ segment too long for Voxtral "
                               f"({len(text)} > {MAX_INPUT_CHARS} chars)")
         try:
             resp = self._client.post(
-                API_URL, json=self._body(text),
+                API_URL, json=self._body(text, fmt),
                 headers={"Authorization": f"Bearer {self.api_key}"},
             )
         except httpx.HTTPError as e:

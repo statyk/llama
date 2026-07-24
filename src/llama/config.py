@@ -29,6 +29,9 @@ class TTSConfig(BaseModel):
     voice_clone: str | None = None      # path to a reference WAV; when set, voxtral clones it
     model: str | None = None            # per-backend default when unset
     api_key: str | None = None          # MISTRAL_API_KEY / ELEVENLABS_API_KEY env wins
+    chunk: bool = False                 # synthesize each DJ-notes segment sentence-by-
+                                         # sentence and concatenate, instead of one call
+                                         # per segment (better prosody; needs lameenc)
 
 
 class JerrybaseConfig(BaseModel):
@@ -179,6 +182,13 @@ backend = "claude_cli"             # requires the `claude` CLI on PATH
 # model = "..."              # per-backend default when unset
 #                            # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
 # api_key = "..."            # MISTRAL_API_KEY / ELEVENLABS_API_KEY env (env wins)
+# chunk = true               # synthesize each segment sentence-by-sentence and
+#                            # concatenate (single MP3 encode at the end)
+#                            # instead of one TTS call per whole segment;
+#                            # noticeably better prosody/pacing on longer DJ
+#                            # patter at the cost of more provider round-trips
+#                            # per segment. Requires the `lameenc` dependency
+#                            # (installed by default). Default false.
 
 [jerrybase]
 enabled = true             # vendored offline set-structure evidence (break

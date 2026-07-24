@@ -193,6 +193,13 @@ def test_tts_defaults():
     assert cfg.tts.voice is None
     assert cfg.tts.voice_clone is None
     assert cfg.tts.model is None
+    assert cfg.tts.chunk is False
+
+
+def test_tts_chunk_from_toml(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text("[tts]\nchunk = true\n")
+    assert load_config(p).tts.chunk is True
 
 
 def test_tts_from_toml(tmp_path: Path):
@@ -212,3 +219,5 @@ def test_default_config_template_documents_tts():
     # [tts] enabled defaults to false.
     assert "# [tts]" in DEFAULT_CONFIG_TOML
     assert "ELEVENLABS_API_KEY" in DEFAULT_CONFIG_TOML
+    assert "# chunk" in DEFAULT_CONFIG_TOML
+    assert "lameenc" in DEFAULT_CONFIG_TOML
