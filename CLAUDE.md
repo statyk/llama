@@ -84,9 +84,14 @@ failed validation's final retry escalates one tier (pins never escalate).
   plus a manifest `dj_audio` block. `[tts] voice` is a preset name (Voxtral)
   or voice_id (ElevenLabs); `[tts] voice_clone` points at a 3-25s reference
   WAV to clone a custom voice on Voxtral instead, ignoring `voice`.
-  Per-segment caching (keyed on text+voice+model) avoids re-spending on
+  Per-segment caching (keyed on text+voice+model+chunk) avoids re-spending on
   unchanged text; a TTS failure hard-fails just that show's package, same as
-  any other stage failure.
+  any other stage failure. `[tts] chunk` (default off) synthesizes each
+  segment sentence-by-sentence (via `fmt="wav"` on the provider) and
+  concatenates the PCM before one MP3 encode via `lameenc`, instead of one
+  call for the whole segment — noticeably better prosody on longer patter,
+  at the cost of more provider round-trips per segment; toggling it
+  invalidates the cache for affected clips.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,

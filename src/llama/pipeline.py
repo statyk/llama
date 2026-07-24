@@ -53,6 +53,7 @@ def process_show(
     script: bool = False,
     voice: str | None = None,
     speech=None,
+    chunk: bool = False,
     setlistfm=None,
     structure_cfg=None,
     selection_cfg=None,
@@ -106,7 +107,7 @@ def process_show(
             log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
             return None
     with step(f"[{pid}] packaging"):
-        pkg = run_package(show_ws, ia, show, notes, force=force, speech=speech)
+        pkg = run_package(show_ws, ia, show, notes, force=force, speech=speech, chunk=chunk)
     show = read_model(show_ws.show, Show)  # package may have flagged it
     if show.needs_review:
         log.warning("holding %s: flagged during packaging (%s)",

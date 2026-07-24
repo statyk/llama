@@ -246,8 +246,27 @@ license is irrelevant here. Self-hosting is deliberately out of scope.)
 Voiced shows gain `package/dj-audio/` (one MP3 per script segment) and the
 manifest's `dj_audio` block — see [docs/station-brief.md](station-brief.md)
 for the exact contract. Segments are cached per show by a hash of (text,
-voice, model), so re-packaging with unchanged text doesn't re-spend on the
-paid API.
+voice, model, chunk), so re-packaging with unchanged text doesn't re-spend
+on the paid API.
+
+**`[tts] chunk` (default off): sentence-level chunked synthesis.** Instead
+of one TTS call per script segment, chunk mode splits the segment into
+sentences, synthesizes each one separately (`fmt="wav"`), concatenates the
+raw PCM with a short silence between sentences, and encodes a single MP3 at
+the end via `lameenc`. This gives noticeably better prosody/pacing on
+longer patter — a single long TTS call tends to rush or flatten out — at
+the cost of more provider round-trips per segment. `chunk` is part of the
+per-segment cache key, so flipping it re-renders affected clips on the next
+`redo --from package --voice` (no `--force` needed). It requires the
+`lameenc` dependency (installed by default). The chunked encoder derives
+its MP3 bitrate from the actual sample rate the provider returns (64kbps
+for Voxtral's ~24kHz mono output, rather than a flat 128kbps) to avoid an
+unusual bitrate/sample-rate combination that has been observed to trip up
+some MP3 decoders with cosmetic `overread`/`enddists` warnings; this fix
+hasn't been independently confirmed with `ffmpeg -v error` against a live
+run (no network in the dev sandbox it was built in) — verify on a real
+chunked show, and if warnings persist the documented next step is
+resampling to 44.1/48kHz before encoding (not yet implemented).
 
 **Re-voicing an already-packaged show:** `llama redo <show> --from package
 --voice` re-voices with the show's recorded voice (or, if it had none yet,

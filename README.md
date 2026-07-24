@@ -40,6 +40,8 @@ these defaults with `llama config init` (`--stdout` to print instead):
                                      # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
     api_key = "..."                  # or MISTRAL_API_KEY / ELEVENLABS_API_KEY env
                                      # var (env wins); no local/offline TTS option yet
+    # chunk = true                   # sentence-by-sentence synthesis + concat
+                                     # for better prosody; default false; needs lameenc
 
     [winnow]
     max_metadata_fetch = 40          # review-fetch budget; when survivors exceed it
@@ -247,6 +249,20 @@ license, but that's irrelevant here: llama is strictly non-commercial, and
 this integration only calls Mistral's hosted API (a paid commercial
 service), not the weights directly. Self-hosting Voxtral, and any other
 local/offline TTS backend, is deliberately deferred.
+
+**Chunked synthesis (`[tts] chunk`, default off).** Instead of one TTS call
+per script segment, `chunk = true` synthesizes each *sentence* separately
+(via the provider's `fmt="wav"` path), concatenates the raw PCM with a short
+inter-sentence silence, and encodes a single MP3 at the end — noticeably
+better prosody and pacing on longer DJ patter than one long call, at the
+cost of more provider round-trips per segment. It requires the `lameenc`
+dependency (installed by default) and is part of the per-segment cache key,
+so flipping it re-renders affected clips on the next `redo --from package`.
+The chunked encoder picks its bitrate from the actual sample rate returned
+by the provider (64kbps for a ~24kHz stream, matching Voxtral's real output)
+rather than a fixed 128kbps, to avoid an unusual bitrate/sample-rate
+combination; if `ffmpeg -v error` still reports anything on chunked clips,
+the next step is resampling to 44.1/48kHz before encoding.
 
 ### Downstream synthesis contract
 

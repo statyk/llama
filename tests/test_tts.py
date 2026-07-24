@@ -1,4 +1,6 @@
+import io
 import json
+import wave
 
 import httpx
 import pytest
@@ -6,7 +8,7 @@ import pytest
 from llama.config import Config
 from llama.tts import speech_provider_for
 from llama.tts.elevenlabs import ElevenLabsProvider
-from llama.tts.fake import SILENT_MP3, FakeSpeechProvider
+from llama.tts.fake import SILENT_MP3, SILENT_WAV, FakeSpeechProvider
 from llama.tts.provider import SpeechError, SpeechProvider
 
 
@@ -17,6 +19,18 @@ def test_fake_returns_silent_mp3_and_records_calls():
     assert SILENT_MP3.startswith(b"\xff\xfb")  # a real MPEG frame header
     assert fake.calls == ["Good evening."]
     assert (fake.voice, fake.model) == ("fake-voice", "fake-model")
+
+
+def test_fake_wav_fmt_returns_valid_16bit_wav():
+    fake = FakeSpeechProvider()
+    data = fake.synthesize("Good evening.", fmt="wav")
+    assert data != SILENT_MP3
+    assert data == SILENT_WAV
+    with wave.open(io.BytesIO(data), "rb") as w:
+        assert w.getsampwidth() == 2
+        assert w.getnchannels() == 1
+        assert w.getnframes() > 0
+    assert fake.calls == ["Good evening."]
 
 
 def test_fake_armed_to_fail():
