@@ -30,9 +30,15 @@ implementation plan this was built from. The approved design spec is
 and emits a self-contained "show package" (verified audio, m3u, manifest v2
 with track titles/set breaks, vetted research + reviews digest; verbatim DJ
 script on by default; --no-script or profile script=false opts out) for an automated in-house radio
-station. The script can optionally be spoken via TTS (`--voice`, opt-in,
-off by default; hosted Mistral Voxtral by default, ElevenLabs as an opt-in
-alternative). Usage tilts heavily toward Grateful Dead shows (two sets +
+station. A profile can name a **presenter** (`presenters/<id>.toml`:
+name/sex/character + `voice` XOR `voice_clone`) as its on-air host, which
+persona-styles the DJ script (opinions and paraphrased review sentiment
+allowed; concert facts stay grounded) and voices that profile's runs even
+with TTS off station-wide; with no presenter the script stays in the
+neutral house narrator. The script can optionally be spoken via TTS
+(`--voice`, opt-in, off by default; hosted Mistral Voxtral by default,
+ElevenLabs as an opt-in alternative — presenter voice clones are
+Voxtral-only). Usage tilts heavily toward Grateful Dead shows (two sets +
 encore).
 LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
 gemini-flash/sonnet-4.5/opus-4.1 on openrouter): medium by default, high for
@@ -76,22 +82,37 @@ failed validation's final retry escalates one tier (pins never escalate).
   source (`[jerrybase] enabled`, default on). Nine named touchpoints, each
   with a prompt template file under `prompts/` and a Pydantic output schema.
   LLM calls live only at stage boundaries — everything else is deterministic.
-- **Voice (opt-in TTS):** when `[tts]` voice is active for a show, `package`
+- **Presenters:** a profile can name an on-air host defined in
+  `presenters/<id>.toml` (`name`/`sex`/`character` + exactly one of
+  `voice`/`voice_clone`) via the profile's `presenter`/`title` fields
+  (`Profile.voice` doesn't exist — a named presenter fully owns the run's
+  voice, including its clone_ref, and opts that profile into voice even
+  with `[tts] enabled = false`; no presenter falls back to the house
+  `[tts] voice`/`voice_clone` and the neutral narrator). `synthesize` builds
+  its `{{style}}` block from `persona_style()` when a presenter is present
+  (identity, character, and loosened-but-bounded grounding: opinions and
+  paraphrased review/research sentiment are the host's own, concert facts
+  stay grounded in the show data, no first-hand attendance claims) or the
+  byte-for-byte `NEUTRAL_STYLE` otherwise; `vet`/`factual_guard` are
+  untouched by presenters. Character edits are live: edit the TOML, then
+  `llama redo <show> --from synthesize` re-scripts.
+- **Voice (opt-in TTS):** when a show's voice is active, `package`
   synthesizes per-segment spoken DJ audio through a `SpeechProvider` layer
   (`src/llama/tts/`: `voxtral` — hosted Mistral, default — plus `elevenlabs`
   and a `fake` test backend; self-hosting Voxtral is deferred, no local
   backend yet), emitting `package/dj-audio/` (one MP3 per DJ-notes segment)
   plus a manifest `dj_audio` block. `[tts] voice` is a preset name (Voxtral)
   or voice_id (ElevenLabs); `[tts] voice_clone` points at a 3-25s reference
-  WAV to clone a custom voice on Voxtral instead, ignoring `voice`.
-  Per-segment caching (keyed on text+voice+model+chunk) avoids re-spending on
-  unchanged text; a TTS failure hard-fails just that show's package, same as
-  any other stage failure. `[tts] chunk` (default off) synthesizes each
-  segment sentence-by-sentence (via `fmt="wav"` on the provider) and
-  concatenates the PCM before one MP3 encode via `lameenc`, instead of one
-  call for the whole segment — noticeably better prosody on longer patter,
-  at the cost of more provider round-trips per segment; toggling it
-  invalidates the cache for affected clips.
+  WAV to clone a custom voice on Voxtral instead, ignoring `voice` (a
+  presenter's `voice_clone` is Voxtral-only — the elevenlabs backend
+  rejects it). Per-segment caching (keyed on text+voice+model+chunk) avoids
+  re-spending on unchanged text; a TTS failure hard-fails just that show's
+  package, same as any other stage failure. `[tts] chunk` (default off)
+  synthesizes each segment sentence-by-sentence (via `fmt="wav"` on the
+  provider) and concatenates the PCM before one MP3 encode via `lameenc`,
+  instead of one call for the whole segment — noticeably better prosody on
+  longer patter, at the cost of more provider round-trips per segment;
+  toggling it invalidates the cache for affected clips.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,

@@ -135,7 +135,7 @@ summarizes per-run show counts. Both are in the command reference below.
 | gather | maybe | `show.json`, `reviews.json` | Junk-filters files, resolves track titles (tags → setlist → siblings), builds canonical set structure from all recordings + setlist.fm, aligns it onto tracks; LLM only as alignment/extraction fallback |
 | research | yes | `research.md` | Deep web research on the specific performance |
 | vet | yes | `vetting.json` | Extracts the research's factual claims; deterministic grounding check against the setlist and date |
-| synthesize | yes | `dj-notes.*` | On by default (`--no-script` skips): verbatim DJ script, factually guarded against the manifest |
+| synthesize | yes | `dj-notes.*` | On by default (`--no-script` skips): verbatim DJ script, factually guarded against the manifest — spoken in the profile's presenter's persona when one is set, else the neutral house narrator |
 | package | no | `package/` | Downloads audio (md5-verified), tags it, checks durations, writes manifest v2 + m3u + digests; if voice is active, also synthesizes `dj-audio/` clips (Voxtral by default, or ElevenLabs) and adds the manifest's `dj_audio` block |
 
 Winnow's philosophy: the LMA archives everything, so mere presence means
@@ -229,19 +229,54 @@ default. The default backend is hosted Mistral Voxtral
 (`voxtral-mini-tts-2603`); set `[tts] backend = "elevenlabs"` to speak via
 ElevenLabs instead. Turn voice on globally (`[tts] enabled = true` +
 `[tts] voice` in config), per invocation (`--voice` on `find`/`run`/
-`review`/`redo`), or per profile (`--voice VOICE_ID` on `profile add`,
-which opts that profile in even when `[tts] enabled` is false, so
-different profiles can use different voices). `--no-voice` always turns it
+`review`/`redo`), or per profile by naming a **presenter** (below), which
+opts that profile in even when `[tts] enabled` is false, so different
+profiles can have different hosts and voices. `--no-voice` always turns it
 off for that invocation. **Voice implies script**: turning voice on forces
 the DJ script on even against `--no-script`, since there is nothing to
 voice otherwise.
 
-`[tts] voice` is a preset name on Voxtral (or a voice_id on ElevenLabs).
-For a custom station voice, set `[tts] voice_clone` to a 3-25s reference
-WAV instead — Voxtral clones it and ignores `voice`. (Voxtral's open
-weights are CC BY-NC, but that only matters for self-hosting; llama's
+`[tts] voice` is the **house** voice — a preset name on Voxtral (or a
+voice_id on ElevenLabs) — used whenever a run's profile names no
+presenter. For a custom house voice, set `[tts] voice_clone` to a 3-25s
+reference WAV instead — Voxtral clones it and ignores `voice`. (Voxtral's
+open weights are CC BY-NC, but that only matters for self-hosting; llama's
 non-commercial project only ever calls Mistral's hosted API, so the
 license is irrelevant here. Self-hosting is deliberately out of scope.)
+
+### Presenters: giving a show a host
+
+A **presenter** is a reusable radio-show host — TTS voice + authored
+character + on-air identity — defined by hand in
+`~/.llama/presenters/<id>.toml`:
+
+    name = "Casey"
+    sex = "male"
+    voice = "american-dj"          # or: voice_clone = "/path/to/casey-ref.wav"
+    character = """
+    Warm late-night FM veteran. Dry humor, deep tape-collector knowledge, gets
+    audibly excited about big jams. Keeps it loose but never sloppy.
+    """
+
+A profile references one with `presenter = "<id>"` (`profile add
+--presenter casey`) and names its show with `title = "..."`
+(`--title "Sunday Morning Dead"`) — the host knows the title and drops it
+on air occasionally. Naming a presenter fully owns that profile's voice:
+`voice` XOR `voice_clone` on the presenter supplies the run's TTS voice
+(and clone reference — the house `[tts] voice_clone` never bleeds into a
+presenter's run), and the presenter is voiced even when `[tts] enabled` is
+false. `voice_clone` on a presenter is Voxtral-only — it errors loudly if
+`[tts] backend = "elevenlabs"`.
+
+The presenter's character deliberately loosens `synthesize`'s grounding:
+the host may voice opinions and adopt review/research sentiment as their
+own (paraphrased, never quoted at length), but concert facts — dates,
+venue, songs, set structure, personnel — still come only from the show
+data, and the host never claims to have attended. `vet` and
+`factual_guard` are unchanged and still hold a show for review if a script
+strays. Character edits are live: edit the presenter's TOML, then `llama
+redo <show> --from synthesize` re-scripts with the new persona — nothing
+upstream needs to change.
 
 Voiced shows gain `package/dj-audio/` (one MP3 per script segment) and the
 manifest's `dj_audio` block — see [docs/station-brief.md](station-brief.md)
@@ -270,10 +305,11 @@ resampling to 44.1/48kHz before encoding (not yet implemented).
 
 **Re-voicing an already-packaged show:** `llama redo <show> --from package
 --voice` re-voices with the show's recorded voice (or, if it had none yet,
-the current `[tts] voice`/profile voice). `--voice`/`--no-voice` on
-`find`/`run`/`review`/`redo` only toggle voice on or off — there's no
-per-invocation voice-id override; to actually switch to a different voice,
-change `[tts] voice` (or the profile's `voice`) first. `--force` re-renders
+the current house `[tts] voice`, or the profile's presenter's voice).
+`--voice`/`--no-voice` on `find`/`run`/`review`/`redo` only toggle voice on
+or off — there's no per-invocation voice-id override; to actually switch to
+a different voice, change `[tts] voice` (house shows) or edit the
+presenter's `voice`/`voice_clone` (hosted shows) first. `--force` re-renders
 every clip instead of reusing the cache. A plain `llama run <run> --voice`
 on a run whose shows are already packaged does **not** re-voice them — the
 package stage is skipped because its output already exists — it prints a
@@ -418,14 +454,16 @@ a run would search. The matcher is still an LLM — two calls can rank
 differently — so when you've settled on a roster, pin it (below) and runs
 stop consulting the matcher at all.
 
-### `llama profile add <name> "query" [--count N] [--human-gate] [--no-script] [--voice VOICE_ID] [--artists "..."]`
+### `llama profile add <name> "query" [--count N] [--human-gate] [--no-script] [--presenter ID] [--title "..."] [--artists "..."]`
 Interprets the query once and saves it as a standing profile.
 `--human-gate` makes `profile run --auto` stop at gate 1 instead of
-self-approving. `--voice VOICE_ID` gives this profile its own voice (a
-Voxtral preset name by default, or an ElevenLabs voice_id when
-`[tts] backend = "elevenlabs"`), saved on the profile; it voices every run
-of this profile even when `[tts] enabled` is false globally, so different
-profiles can speak in different voices (voice implies script). `--artists
+self-approving. `--presenter ID` gives this show a host
+(`presenters/<id>.toml`; a typo'd id fails loudly right away), saved on the
+profile; it voices every run of this profile even when `[tts] enabled` is
+false globally, so different profiles can have different hosts and voices
+(voice implies script). `--title "..."` names the show on-air (the host
+knows it and drops it occasionally) — see
+[Presenters](#presenters-giving-a-show-a-host) above. `--artists
 "Galactic, Lettuce, ..."` pins the roster: names resolve against the
 artist index at add time (typos and ambiguity fail immediately), and every
 run of the profile searches exactly those artists — deterministic, no LLM
@@ -475,11 +513,19 @@ so the new research gets re-vetted.
 
 **I want to add (or change) the spoken DJ voice on an already-packaged show.**
 `llama redo <show> --from package --voice`. To switch to a *different*
-voice, set `[tts] voice` (or the profile's `voice`) to the new id first —
-`--voice` itself just turns voicing on, it replays the show's already-
-recorded voice if it has one. Unchanged script segments aren't
-re-synthesized, so this is cheap even against the paid API. `llama redo
-<show> --from package --no-voice` strips voice audio back out.
+voice, set `[tts] voice` (house shows) or edit the presenter's
+`voice`/`voice_clone` (hosted shows) to the new value first — `--voice`
+itself just turns voicing on, it replays the show's already-recorded voice
+if it has one. Unchanged script segments aren't re-synthesized, so this is
+cheap even against the paid API. `llama redo <show> --from package
+--no-voice` strips voice audio back out.
+
+**I edited a presenter's character — how do I hear the new persona?**
+`llama redo <show> --from synthesize` re-scripts with the new persona
+(deletes and rebuilds `dj-notes.*` and everything downstream, including
+`dj-audio/` if the show is voiced). Swapping only `voice`/`voice_clone`
+with the character unchanged doesn't need a re-script — `redo <show>
+--from package --voice` is enough to re-render audio in the new voice.
 
 **The same show keeps coming back in every profile run.**
 It's not in the ledger. Deliver it, or `llama ledger add <performance-id>

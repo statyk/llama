@@ -162,9 +162,12 @@ supporting material. Field-by-field:
   default, absent only when the run opted out with `--no-script`.
 - **`dj-audio/`** — spoken-word MP3 clips of the DJ script (opt-in TTS,
   hosted Mistral Voxtral by default or ElevenLabs as an alternative
-  backend), present only when the show was voiced. One file per `dj_audio`
-  path in the manifest; a `segments.json` sidecar in the same directory is
-  llama's internal render cache and can be ignored.
+  backend), present only when the show was voiced. When the show's profile
+  names a **presenter** (a reusable host: voice + authored character,
+  `presenters/<id>.toml`), `dj-notes`/`dj-audio` speak in that host's persona
+  rather than a neutral narrator — concert facts stay grounded either way.
+  One file per `dj_audio` path in the manifest; a `segments.json` sidecar in
+  the same directory is llama's internal render cache and can be ignored.
 
 ### Contract details worth knowing
 

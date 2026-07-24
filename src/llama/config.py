@@ -171,17 +171,20 @@ backend = "claude_cli"             # requires the `claude` CLI on PATH
 #                            # together by the manifest's dj_audio block.
 #                            # Enabling voice forces the DJ script on even
 #                            # against --no-script (nothing to voice otherwise).
-# enabled = true             # default false; a profile with its own `voice`
+# enabled = true             # default false; a profile with a presenter
 #                            # is voiced even when this is off
 # backend = "voxtral"        # hosted Mistral Voxtral TTS (default); or
 #                            # "elevenlabs"; or "fake" for tests
-# voice = "..."              # voxtral preset name (or elevenlabs voice_id); a
-#                            # profile can set its own `voice` to override this
+# voice = "..."              # the HOUSE voice: voxtral preset name (or
+#                            # elevenlabs voice_id), used when no presenter
 # voice_clone = "..."        # path to a 3-25s reference WAV; when set, voxtral
 #                            # clones that voice (ignores `voice`)
 # model = "..."              # per-backend default when unset
 #                            # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
 # api_key = "..."            # MISTRAL_API_KEY / ELEVENLABS_API_KEY env (env wins)
+# Hosts live in presenters/<id>.toml (name / sex / voice XOR voice_clone /
+# character); a profile picks one via `presenter = "<id>"` and names its
+# radio show via `title = "..."`.
 # chunk = true               # synthesize each segment sentence-by-sentence and
 #                            # concatenate (single MP3 encode at the end)
 #                            # instead of one TTS call per whole segment;

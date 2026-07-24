@@ -4,10 +4,13 @@ Finds concerts on archive.org's Live Music Archive, vets them for quality,
 researches the specific performance (fact-checking the research against the
 setlist before it ships), and packages audio + notes for an automated radio
 station. A verbatim DJ script is included by default (`--no-script`, or
-`script = false` on a profile, opts out). The script can optionally be
-**spoken** — per-segment MP3 clips synthesized via hosted Mistral Voxtral by
-default (ElevenLabs is an opt-in alternative backend) — opt-in and off by
-default (`--voice`, or a profile's own `voice`).
+`script = false` on a profile, opts out). A profile can name a **presenter**
+(`presenters/<id>.toml`) as its on-air host — a persona-authored voice that
+speaks in the first person and can hold opinions. The script can optionally
+be **spoken** — per-segment MP3 clips synthesized via hosted Mistral Voxtral
+by default (ElevenLabs is an opt-in alternative backend; presenter voice
+clones are Voxtral-only) — opt-in and off by default (`--voice`, or naming a
+presenter on the profile).
 
 ## Setup
 
@@ -28,12 +31,15 @@ these defaults with `llama config init` (`--stdout` to print instead):
 
     [tts]
     enabled = true                   # spoken DJ patter; default false. A profile
-                                     # with its own `voice` is voiced even when
+                                     # with a presenter is voiced even when
                                      # this is off. Voice implies --script.
     backend = "voxtral"              # hosted Mistral Voxtral (default); or
                                      # "elevenlabs"
-    voice = "..."                    # station-default voxtral preset name (or
-                                     # elevenlabs voice_id when backend="elevenlabs")
+    voice = "..."                    # HOUSE voxtral preset name (or elevenlabs
+                                     # voice_id when backend="elevenlabs"), used
+                                     # only when a profile names no presenter
+                                     # (presenters/<id>.toml own their voice —
+                                     # see Presenters below)
     # voice_clone = "/path/to/ref.wav" # 3-25s reference WAV; when set, voxtral
                                      # clones it instead and ignores `voice`
     # model = "..."                 # per-backend default when unset
@@ -95,6 +101,35 @@ value. `llama config init` writes all defaults out explicitly so additive
 edits keep them. The trap runs both ways: deleting a seeded table or block
 restores its built-in default (absence = default) — to truly clear one, set
 it empty (e.g. `lineage_eras = []` under `[selection]`).
+
+### Presenters (optional on-air hosts)
+
+A **presenter** is a reusable radio-show host — TTS voice + authored
+character + on-air identity — defined by hand in
+`~/.llama/presenters/<id>.toml`:
+
+    name = "Casey"
+    sex = "male"
+    voice = "american-dj"          # or: voice_clone = "/path/to/casey-ref.wav"
+    character = """
+    Warm late-night FM veteran. Dry humor, deep tape-collector knowledge, gets
+    audibly excited about big jams. Keeps it loose but never sloppy.
+    """
+
+A profile references one with `presenter = "<id>"` and names its show with
+`title = "..."` (`llama profile add sunday-dead-hour "..." --presenter casey
+--title "Sunday Morning Dead"`). Naming a presenter voices that profile's
+runs even when `[tts] enabled` is false (`--no-voice` still strips audio for
+one run); with no presenter, `[tts] voice`/`voice_clone` above is the house
+default and the script stays in the neutral narrator voice. The host knows
+the show's title and drops it on air occasionally, and speaks with
+loosened-but-bounded grounding: opinions and paraphrased review/research
+sentiment are the host's own, but concert facts (dates, venue, songs, set
+structure) still come only from the show data, and the host never claims to
+have been there — the same `vet`/`factual_guard` checks hold a show for
+review either way. `voice_clone` on a presenter is Voxtral-only (errors
+loudly on the ElevenLabs backend). Character edits are live: edit the TOML,
+then `llama redo <show> --from synthesize` re-scripts with the new persona.
 
 Release binaries (attached to each GitHub Release) are signed: the macOS build
 is Developer ID-signed and notarized (Gatekeeper-clean; because it is a bare
@@ -178,7 +213,8 @@ A delivered show package contains:
 - `research.md` — web-researched show notes, grounding-checked against the
   setlist (`vet` stage) before packaging
 - `reviews.md` — trimmed listener-review digest (top 5, 800 chars each)
-- `dj-notes.md` + `manifest.dj_notes` — verbatim DJ script, present by
+- `dj-notes.md` + `manifest.dj_notes` — verbatim DJ script (neutral house
+  narrator, or a profile's presenter's persona when one is set), present by
   default; absent when the run opted out (`--no-script`, or `script = false`
   on a profile)
 - `dj-audio/` + `manifest.dj_audio` — spoken DJ script (opt-in TTS), present
@@ -218,11 +254,13 @@ orthogonal to whether other shows in the same run are voiced. The default
 backend is hosted Mistral Voxtral (`voxtral-mini-tts-2603`); set
 `[tts] backend = "elevenlabs"` to use ElevenLabs instead.
 Enable it globally (`[tts] enabled = true` + `[tts] voice`), per invocation
-(`--voice` on `find`/`run`/`review`/`redo`), or per profile (`--voice
-VOICE_ID` on `profile add`, which opts that profile in even when `[tts]
-enabled` is false — different profiles can speak in different voices).
-Voice always implies script: enabling voice forces the DJ script on even
-against `--no-script`, since there is no text to voice otherwise.
+(`--voice` on `find`/`run`/`review`/`redo`), or per profile by naming a
+**presenter** (`profile add --presenter <id>`, see
+[Presenters](#presenters-optional-on-air-hosts) above), which opts that
+profile in even when `[tts] enabled` is false — different profiles can
+have different hosts and voices. Voice always implies script: enabling
+voice forces the DJ script on even against `--no-script`, since there is no
+text to voice otherwise.
 
 When a show is voiced, `package/dj-audio/` gains one MP3 per script
 segment (`00-intro.mp3`, one `set<key>-intro.mp3` per set, one
@@ -234,8 +272,9 @@ entry also gets an `audio` path). See
 Segments are cached per show by a hash of (text, voice, model), so
 repackaging an unchanged script doesn't re-spend on the paid API; `llama
 redo <show> --from package --voice` re-voices a previously-packaged show
-(it replays the show's recorded voice — set a new `[tts] voice`/profile
-voice first to actually switch voices), and `--force` re-renders
+(it replays the show's recorded voice — to actually switch voices, first
+set a new `[tts] voice` for a house show, or edit the presenter's
+`voice`/`voice_clone` for a hosted show), and `--force` re-renders
 everything instead of reusing the cache. A plain `llama run <run> --voice`
 on an already-packaged run does **not** re-voice it — the package stage is
 skipped — it prints a note pointing at `redo --from package --voice`. A
