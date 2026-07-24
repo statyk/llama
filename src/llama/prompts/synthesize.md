@@ -1,6 +1,4 @@
-Write on-air DJ notes for a full-concert radio broadcast. Every fact must come from the
-inputs below — do not invent stories, dates, personnel, or song details. Voice: warm,
-knowledgeable, economical; written to be read aloud.
+Write on-air DJ notes for a full-concert radio broadcast. {{style}}
 
 Show data (JSON):
 {{show_json}}

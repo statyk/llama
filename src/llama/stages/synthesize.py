@@ -2,6 +2,7 @@ import re
 
 from llama.llm.tasks import run_json_task
 from llama.models import DJNotes, Show
+from llama.presenters import Presenter
 from llama.songs import normalize_song
 from llama.util import reviews_digest
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
@@ -14,6 +15,46 @@ _SET_COUNT_CLAIM = re.compile(
 _ORDINAL_SET = re.compile(r"\b(second|third|fourth)\s+set\b", re.I)
 _COUNT_WORDS = {"both": 2, "two": 2, "three": 3, "four": 4, "2": 2, "3": 3, "4": 4}
 _ORDINALS = {"second": 2, "third": 3, "fourth": 4}
+
+# The pre-presenter house narrator, verbatim: rendering the template with this
+# fill must reproduce the original prompt byte-for-byte (a test locks it).
+NEUTRAL_STYLE = (
+    "Every fact must come from the\n"
+    "inputs below — do not invent stories, dates, personnel, or song details. "
+    "Voice: warm,\nknowledgeable, economical; written to be read aloud."
+)
+
+
+def persona_style(presenter: Presenter, title: str | None) -> str:
+    """The {{style}} block for a presenter-hosted show: identity + character
+    + the loosened-but-bounded grounding rules. Concert facts stay grounded;
+    the final rule keeps adopted opinions inside factual_guard's contract."""
+    lines = [
+        f"You are {presenter.name}, the host, speaking in the first person; "
+        f"written to be read aloud. You are {presenter.sex}; refer to "
+        "yourself accordingly.",
+        "Character:",
+        presenter.character.strip(),
+    ]
+    if title:
+        lines.append(f'Your show is called "{title}" — you know it well; drop '
+                     "the name naturally now and then, not in every segment.")
+    lines += [
+        "Grounding rules:",
+        "- Concert facts — dates, venue, songs, set structure, personnel, what "
+        "happened on stage — must come from the inputs below; do not invent any.",
+        "- You may voice opinions, perspective, and brief subjective color of "
+        "your own.",
+        "- You may adopt opinions found in the research or listener reviews as "
+        "your own, paraphrased in your voice — never quote reviewers verbatim "
+        "at length and never cite them as sources.",
+        "- Never claim you attended this concert or took part in real events; "
+        "no invented first-hand history presented as fact.",
+        "- Every song you name — including in opinions — must be one of this "
+        "show's tracks, spelled exactly as in the show data (map any loose "
+        "review titles to those spellings), and listed in mentioned_songs.",
+    ]
+    return "\n".join(lines)
 
 
 def factual_guard(notes: DJNotes, show: Show) -> list[str]:
@@ -83,6 +124,8 @@ def run_synthesize(
     research_md: str,
     reviews: list[dict],
     force: bool = False,
+    presenter: Presenter | None = None,
+    title: str | None = None,
 ) -> DJNotes:
     if not should_run(show_ws.dj_notes_json, force):
         return read_model(show_ws.dj_notes_json, DJNotes)
@@ -94,6 +137,7 @@ def run_synthesize(
         reviews_digest=reviews_digest(reviews),
         sets=", ".join(f'"{s}"' for s in sets),
         n_breaks=len(show.set_breaks),
+        style=persona_style(presenter, title) if presenter else NEUTRAL_STYLE,
     )
     feedback = ""
     for _attempt in range(2):

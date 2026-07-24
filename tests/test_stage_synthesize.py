@@ -2,8 +2,16 @@ import json
 from pathlib import Path
 
 from llama.llm.fake import FakeProvider
+from llama.llm.tasks import load_prompt
 from llama.models import DJNotes, Show, Track
-from llama.stages.synthesize import factual_guard, render_notes_md, run_synthesize
+from llama.presenters import Presenter
+from llama.stages.synthesize import (
+    NEUTRAL_STYLE,
+    factual_guard,
+    persona_style,
+    render_notes_md,
+    run_synthesize,
+)
 from llama.workspace import ShowWorkspace, write_artifact
 
 
@@ -149,3 +157,77 @@ def test_synthesize_guard_failure_marks_needs_review(tmp_path: Path):
     saved = json.loads(sws.show.read_text())
     assert saved["needs_review"] is True
     assert any("Fake Song" in f for f in saved["review_flags"])
+
+
+ORIGINAL_OPENING = (
+    "Write on-air DJ notes for a full-concert radio broadcast. Every fact must come from the\n"
+    "inputs below — do not invent stories, dates, personnel, or song details. Voice: warm,\n"
+    "knowledgeable, economical; written to be read aloud.\n"
+)
+
+
+def make_presenter(**overrides):
+    d = dict(id="casey", name="Casey", sex="male", voice="v-casey",
+             character="Warm late-night FM veteran with dry humor.")
+    d.update(overrides)
+    return Presenter(**d)
+
+
+def test_neutral_style_reproduces_original_prompt_bytes():
+    # The no-presenter prompt must be byte-for-byte the pre-feature prompt.
+    rendered = load_prompt("synthesize").replace("{{style}}", NEUTRAL_STYLE)
+    assert rendered.startswith(ORIGINAL_OPENING)
+
+
+def test_synthesize_without_presenter_sends_neutral_prompt(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    write_artifact(sws.show, show)
+    fake = FakeProvider(completes=[json.dumps(notes_dict())])
+    run_synthesize(sws, fake, show, research_md="", reviews=[])
+    prompt = fake.calls[0][1]
+    assert "Voice: warm,\nknowledgeable, economical" in prompt
+    assert "Grounding rules:" not in prompt
+
+
+def test_persona_style_contains_identity_rules_and_title():
+    style = persona_style(make_presenter(), "Sunday Morning Dead")
+    assert "You are Casey" in style and "male" in style
+    assert "Warm late-night FM veteran" in style
+    assert 'Your show is called "Sunday Morning Dead"' in style
+    assert "must come from the inputs below" in style          # facts stay grounded
+    assert "adopt opinions found in the research or listener reviews" in style
+    assert "Never claim you attended this concert" in style
+    assert "spelled exactly as in the show data" in style      # guard-coexistence rule
+
+
+def test_persona_style_omits_title_when_none():
+    assert "Your show is called" not in persona_style(make_presenter(), None)
+
+
+def test_synthesize_with_presenter_sends_persona_prompt(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    write_artifact(sws.show, show)
+    fake = FakeProvider(completes=[json.dumps(notes_dict())])
+    run_synthesize(sws, fake, show, research_md="", reviews=[],
+                   presenter=make_presenter(), title="Sunday Morning Dead")
+    prompt = fake.calls[0][1]
+    assert "You are Casey" in prompt and "Grounding rules:" in prompt
+    assert "Every fact must come from the\ninputs below" not in prompt
+
+
+def test_persona_guard_still_catches_unknown_song(tmp_path: Path):
+    # The loosened persona must not weaken the backstop: an adopted opinion
+    # naming a song that is not in this show still trips factual_guard,
+    # retries with feedback, and holds the show on repeated failure.
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    write_artifact(sws.show, show)
+    bad = json.dumps(notes_dict(mentioned_songs=["Shakedown Street"]))
+    fake = FakeProvider(completes=[bad, bad])  # retry also fails
+    run_synthesize(sws, fake, show, research_md="", reviews=[],
+                   presenter=make_presenter(), title=None)
+    saved = json.loads(sws.show.read_text())
+    assert saved["needs_review"] is True
+    assert any("Shakedown Street" in f for f in saved["review_flags"])
