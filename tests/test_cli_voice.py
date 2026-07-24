@@ -192,3 +192,82 @@ def test_profile_run_presenter_opts_in_when_globally_disabled(
     assert saved["presenter"] == "casey" and saved["title"] == "Sunday Morning Dead"
     assert saved["script"] is True              # voice implies script (profile had script=False)
     assert seen["voice"] == "v-casey" and seen["script"] is True
+
+
+def test_speech_for_resolves_clone_ownership(monkeypatch):
+    from llama.presenters import Presenter
+
+    seen = {}
+    monkeypatch.setattr(cli, "speech_provider_for",
+                        lambda config, voice, clone_ref=None:
+                        seen.update(voice=voice, clone_ref=clone_ref))
+    cfg = Config.model_validate({"tts": {"voice_clone": "/station/ref.wav"}})
+    clone_host = Presenter(id="casey", name="Casey", sex="male",
+                           voice_clone="/casey/ref.wav", character="c")
+    cli._speech_for(cfg, "/casey/ref.wav", clone_host)
+    assert seen == {"voice": "/casey/ref.wav", "clone_ref": "/casey/ref.wav"}
+    preset_host = Presenter(id="dana", name="Dana", sex="female",
+                            voice="v-dana", character="c")
+    cli._speech_for(cfg, "v-dana", preset_host)
+    # a preset presenter never inherits the station clone
+    assert seen == {"voice": "v-dana", "clone_ref": None}
+    cli._speech_for(cfg, "/station/ref.wav", None)
+    assert seen == {"voice": "/station/ref.wav", "clone_ref": "/station/ref.wav"}
+    assert cli._speech_for(cfg, None, clone_host) is None
+
+
+def test_run_replay_resolves_presenter_from_criteria(tmp_path: Path, monkeypatch):
+    from llama.presenters import Presenter, save_presenter
+
+    (tmp_path / "config.toml").write_text(
+        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\n')
+    save_presenter(tmp_path, Presenter(id="casey", name="Casey", sex="male",
+                                       voice="v-casey", character="Warm FM vet."))
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, CriteriaModel(
+        query="q", voice="v-casey", presenter="casey", title="Sunday Morning Dead"))
+    seen = {}
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
+    result = runner.invoke(cli.app, ["run", str(ws.dir),
+                                     "--config", str(tmp_path / "config.toml")])
+    assert result.exit_code == 0, result.output
+    assert seen["presenter"].id == "casey" and seen["presenter"].name == "Casey"
+    assert seen["title"] == "Sunday Morning Dead"
+    assert seen["voice"] == "v-casey"
+
+
+def test_run_replay_missing_presenter_file_fails(tmp_path: Path, monkeypatch):
+    from llama.presenters import PresenterError
+
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "r1")
+    write_artifact(ws.criteria, CriteriaModel(query="q", presenter="ghost"))
+    called = []
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: called.append(1))
+    result = runner.invoke(cli.app, ["run", str(ws.dir),
+                                     "--config", str(tmp_path / "config.toml")])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, PresenterError)
+    assert called == []                    # never silently fell back to neutral
+
+
+def test_profile_run_passes_presenter_and_title_to_execute(
+        tmp_path: Path, monkeypatch):
+    from llama.models import Criteria
+    from llama.presenters import Presenter, save_presenter
+    from llama.profiles import Profile, save_profile
+
+    (tmp_path / "config.toml").write_text(
+        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\n')
+    save_presenter(tmp_path, Presenter(id="casey", name="Casey", sex="male",
+                                       voice="v-casey", character="Warm FM vet."))
+    save_profile(tmp_path, Profile(name="hosted",
+                                   criteria=Criteria.model_validate_json(CRITERIA),
+                                   presenter="casey", title="Sunday Morning Dead"))
+    seen = {}
+    monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
+    result = runner.invoke(cli.app, ["profile", "run", "hosted",
+                                     "--config", str(tmp_path / "config.toml")])
+    assert result.exit_code == 0, result.output
+    assert seen["presenter"].id == "casey"
+    assert seen["title"] == "Sunday Morning Dead"

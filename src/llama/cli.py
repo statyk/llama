@@ -19,7 +19,7 @@ from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
-from llama.presenters import load_presenter
+from llama.presenters import Presenter, load_presenter
 from llama.profiles import Profile, load_profile, save_profile
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
@@ -94,23 +94,24 @@ def _parse_ranks(text: str) -> set[int]:
 
 
 def _resolve_voice(config: Config, want: bool | None,
-                   profile_voice: str | None = None) -> str | None:
+                   explicit_voice: str | None = None) -> str | None:
     """Resolve the run's voice id (None = voice off for this run).
 
-    --no-voice (want=False) always wins. An explicit profile voice opts in
-    even when [tts] enabled is false. Otherwise --voice (want=True) or the
-    global flag activates the station default. Voice active with no voice id
-    is an error, never a silent skip.
+    --no-voice (want=False) always wins. An explicit voice — a presenter's,
+    or the stamp on replay — opts in even when [tts] enabled is false.
+    Otherwise --voice (want=True) or the global flag activates the house
+    default. Voice active with no voice id is an error, never a silent skip.
     """
     if want is False:
         return None
-    if profile_voice:
-        return profile_voice
+    if explicit_voice:
+        return explicit_voice
     if want is True or config.tts.enabled:
         resolved = config.tts.voice or config.tts.voice_clone
         if not resolved:
             raise SpeechError("voice is active but none is configured: set "
-                              "[tts] voice, [tts] voice_clone, or a profile voice")
+                              "[tts] voice, [tts] voice_clone, or give the "
+                              "profile a presenter")
         return resolved
     return None
 
@@ -121,6 +122,16 @@ def _replay_voice(config: Config, stamped: str | None,
     if override is None:
         return stamped
     return _resolve_voice(config, override, stamped)
+
+
+def _speech_for(config: Config, voice: str | None, presenter: Presenter | None):
+    """Speech provider for a resolved voice (None = no voice). A presenter
+    fully owns its voice: its voice_clone (or none) is used — the station
+    [tts] voice_clone never bleeds into a presenter's run."""
+    if voice is None:
+        return None
+    clone = presenter.voice_clone if presenter is not None else config.tts.voice_clone
+    return speech_provider_for(config, voice, clone_ref=clone)
 
 
 RATIONALE_WIDTH = 90   # wrap column for the indented rationale block
@@ -155,10 +166,11 @@ def _print_artists(rows: list[dict]) -> None:
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
              script: bool = False, voice: str | None = None,
+             presenter: Presenter | None = None, title: str | None = None,
              force_stage: str | None = None,
              full_rationale: bool = False) -> None:
     providers = make_providers(config)
-    speech = speech_provider_for(config, voice) if voice is not None else None
+    speech = _speech_for(config, voice, presenter)
     artists = None
     if criteria.artists:
         # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
@@ -220,6 +232,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
                                    force=force, script=script, voice=voice, speech=speech,
                                    chunk=config.tts.chunk,
+                                   presenter=presenter, title=title,
                                    setlistfm=setlistfm,
                                    structure_cfg=config.structure, selection_cfg=config.selection,
                                    jerrybase_enabled=config.jerrybase.enabled,
@@ -250,9 +263,9 @@ def find(
                                 help="Verbatim DJ script (high-tier LLM call), on by default; "
                                      "--no-script skips it"),
     voice: bool = typer.Option(None, "--voice/--no-voice",
-                               help="Per-segment spoken DJ audio (ElevenLabs); default "
-                                    "follows [tts] enabled; --voice uses [tts] voice; "
-                                    "voice implies --script"),
+                               help="Per-segment spoken DJ audio; default "
+                                    "follows [tts] enabled; --voice uses the house "
+                                    "[tts] voice; voice implies --script"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of the shortlist one artist may hold "
                                           "(1.0 = pure best-first; default 1/3)"),
@@ -365,6 +378,8 @@ def run(
         typer.echo(f"unknown stage {stage!r}; valid: {sorted(VALID_STAGES)}", err=True)
         raise typer.Exit(1)
     criteria = read_model(ws.criteria, Criteria)
+    presenter = (load_presenter(config.root, criteria.presenter)
+                 if criteria.presenter else None)
     if force and stage in (None, "search") and ws.shortlist.exists():
         entries = read_model_list(ws.shortlist, ShortlistEntry)
         if any(e.approved is not None for e in entries):
@@ -389,6 +404,7 @@ def run(
              human_gate=False, force=force and stage is None,
              script=effective_script or stage == "synthesize" or effective_voice is not None,
              voice=effective_voice,
+             presenter=presenter, title=criteria.title,
              force_stage=stage if (force and stage not in (None, *RUN_LEVEL_STAGES)) else None,
              full_rationale=full_rationale)
 
@@ -425,12 +441,15 @@ def review(
     typer.echo(f"approved: {sorted(wanted)}")
     if typer.confirm("Process approved shows now?", default=True):
         criteria = read_model(ws.criteria, Criteria)
+        presenter = (load_presenter(config.root, criteria.presenter)
+                     if criteria.presenter else None)
         effective_voice = _replay_voice(config, criteria.voice, voice)
         effective_script = criteria.script if script is None else script
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
                  human_gate=False,
                  script=effective_script or effective_voice is not None,
                  voice=effective_voice,
+                 presenter=presenter, title=criteria.title,
                  full_rationale=full_rationale)
     else:
         typer.echo(f"next: llama run {ws.dir}")
@@ -571,6 +590,8 @@ def redo(
                    "reprocess it via its run first", err=True)
         raise typer.Exit(1)
     prov = entry.provenance
+    presenter = (load_presenter(config.root, prov.presenter)
+                 if prov.presenter else None)
     keep_research = not with_research and from_stage in ("select", "gather")
     drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
     # Keep the winnow assessment (quality_score + recording_complaints) so
@@ -587,11 +608,12 @@ def redo(
     ws = RunWorkspace(config.root, prov.run)
     effective_voice = _replay_voice(config, prov.voice, voice)
     effective_script = (prov.script if script is None else script) or effective_voice is not None
-    speech = speech_provider_for(config, effective_voice) if effective_voice is not None else None
+    speech = _speech_for(config, effective_voice, presenter)
     try:
         pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
                            prov.run, config.audio_format, script=effective_script,
                            voice=effective_voice, speech=speech, chunk=config.tts.chunk,
+                           presenter=presenter, title=prov.title,
                            setlistfm=make_client(config), structure_cfg=config.structure,
                            jerrybase_enabled=config.jerrybase.enabled,
                            selection_cfg=config.selection)
@@ -794,6 +816,7 @@ def profile_run(
     write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, profile.count, auto,
              human_gate=profile.human_gate, script=script, voice=voice_id,
+             presenter=presenter, title=profile.title,
              full_rationale=full_rationale)
 
 

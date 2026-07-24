@@ -6,6 +6,7 @@ from llama.config import Config
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
 from llama.models import DJNotes, LedgerEntry, Provenance, Show, ShortlistEntry
+from llama.presenters import Presenter
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
 from llama.stages.research import run_research
@@ -54,6 +55,8 @@ def process_show(
     voice: str | None = None,
     speech=None,
     chunk: bool = False,
+    presenter: Presenter | None = None,
+    title: str | None = None,
     setlistfm=None,
     structure_cfg=None,
     selection_cfg=None,
@@ -73,6 +76,7 @@ def process_show(
         performance_id=pid, run=run_name, dossier=dossier, candidate=cand,
         assessment=entry.assessment,
         script=script, voice=voice,
+        presenter=presenter.id if presenter else None, title=title,
         processed_at=datetime.now(timezone.utc).isoformat(),
     ))
     with step(f"[{pid}] selecting recording"):
@@ -101,7 +105,9 @@ def process_show(
     if script:
         reviews = read_json(show_ws.reviews) if show_ws.reviews.exists() else []
         with step(f"[{pid}] synthesizing"):
-            notes = run_synthesize(show_ws, providers["synthesize"], show, research_md, reviews, force=force)
+            notes = run_synthesize(show_ws, providers["synthesize"], show,
+                                   research_md, reviews, force=force,
+                                   presenter=presenter, title=title)
         show = read_model(show_ws.show, Show)  # synthesize may have flagged it
         if show.needs_review:
             log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))

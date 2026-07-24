@@ -570,7 +570,8 @@ def test_profile_run_stamps_count_and_script_into_run_criteria(tmp_path: Path, m
     captured = {}
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, voice=None, force_stage=None,
+                     force=False, script=False, voice=None,
+                     presenter=None, title=None, force_stage=None,
                      full_rationale=False):
         captured.update(count=count, script=script, criteria=criteria)
 
@@ -592,7 +593,8 @@ def test_run_inherits_script_and_count_from_criteria(tmp_path: Path, monkeypatch
     captured = {}
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, voice=None, force_stage=None,
+                     force=False, script=False, voice=None,
+                     presenter=None, title=None, force_stage=None,
                      full_rationale=False):
         captured.update(count=count, script=script)
 

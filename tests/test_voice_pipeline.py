@@ -163,7 +163,7 @@ def test_voice_implies_script_despite_no_script(tmp_path: Path, monkeypatch):
 def test_speech_failure_fails_show_but_not_batch(tmp_path: Path, monkeypatch):
     cfg = voiced_setup(tmp_path, monkeypatch)
     monkeypatch.setattr(cli, "speech_provider_for",
-                        lambda config, voice: FakeSpeechProvider(fail=True))
+                        lambda config, voice, clone_ref=None: FakeSpeechProvider(fail=True))
     result = find(cfg)
     assert result.exit_code == 0, result.output   # batch loop continues; run exits clean
     assert "FAILED GratefulDead/1973-06-10" in result.output
@@ -176,7 +176,7 @@ def test_redo_from_package_reuses_cached_segments(tmp_path: Path, monkeypatch):
     cfg = voiced_setup(tmp_path, monkeypatch)
     assert find(cfg).exit_code == 0
     second = FakeSpeechProvider()  # same fixed fake voice/model -> same cache keys
-    monkeypatch.setattr(cli, "speech_provider_for", lambda config, voice: second)
+    monkeypatch.setattr(cli, "speech_provider_for", lambda config, voice, clone_ref=None: second)
     redo = runner.invoke(cli.app, ["redo", "gratefuldead", "--from", "package",
                                    "--config", cfg])
     assert redo.exit_code == 0, redo.output
