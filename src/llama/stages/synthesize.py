@@ -64,22 +64,18 @@ def factual_guard(notes: DJNotes, show: Show) -> list[str]:
     for song in notes.mentioned_songs:
         if normalize_song(song) not in known:
             problems.append(f"dj notes mention unknown song: {song}")
-    actual_sets = {t.set for t in show.tracks}
+    # The encore gets no lead-in (Option A): set_intros is keyed by the
+    # non-encore sets only, and must cover every one of them.
+    lead_in_sets = {t.set for t in show.tracks if t.set != "encore"}
     for s in notes.set_intros:
-        if s not in actual_sets:
-            problems.append(f"dj notes reference nonexistent set: {s}")
-    missing = actual_sets - set(notes.set_intros)
+        if s not in lead_in_sets:
+            problems.append(f"dj notes reference nonexistent or encore set: {s}")
+    missing = lead_in_sets - set(notes.set_intros)
     if missing:
         problems.append(f"dj notes missing set intros: {sorted(missing)}")
-    if len(notes.set_break_notes) != len(show.set_breaks):
-        problems.append(
-            f"set-break note count mismatch: {len(notes.set_break_notes)} notes"
-            f" for {len(show.set_breaks)} breaks"
-        )
     # Free-text set-count claims: structured fields above can be consistent
-    # while the intro prose still tells listeners "they played two sets".
-    prose = " ".join([notes.context, notes.intro, notes.outro,
-                      *notes.set_intros.values(), *notes.set_break_notes])
+    # while the lead-in prose still tells listeners "they played two sets".
+    prose = " ".join([notes.context, notes.outro, *notes.set_intros.values()])
     n_sets = len({t.set for t in show.tracks if t.set != "encore"})
     claimed = {_COUNT_WORDS[m.group(1).lower()] for m in _SET_COUNT_CLAIM.finditer(prose)}
     for n in sorted(claimed):
@@ -103,16 +99,10 @@ def render_notes_md(notes: DJNotes, show: Show) -> str:
     lines = [f"# {show.artist} — {show.date}, {show.venue or 'venue unknown'}", ""]
     if notes.context:
         lines += [f"*{notes.context}*", ""]
-    lines += ["## Show intro", notes.intro, ""]
-    # Reading order is show order: break N wraps up set N, so it follows
-    # set N's intro and precedes the next set's.
-    ordered = sorted(notes.set_intros, key=lambda x: (x == "encore", x))
-    for i, s in enumerate(ordered):
-        lines += [f"## {_set_label(s)} intro", notes.set_intros[s], ""]
-        if i < len(notes.set_break_notes):
-            lines += [f"## Set break {i + 1}", notes.set_break_notes[i], ""]
-    for i in range(len(ordered), len(notes.set_break_notes)):  # orphaned extras
-        lines += [f"## Set break {i + 1}", notes.set_break_notes[i], ""]
+    # One lead-in per non-encore set, in show order, then the outro. The
+    # encore has no lead-in (it folds into the final set's music).
+    for s in sorted(notes.set_intros, key=lambda x: (x == "encore", x)):
+        lines += [f"## {_set_label(s)} lead-in", notes.set_intros[s], ""]
     lines += ["## Outro", notes.outro, ""]
     return "\n".join(lines)
 
@@ -131,12 +121,18 @@ def run_synthesize(
         return read_model(show_ws.dj_notes_json, DJNotes)
 
     sets = sorted({t.set for t in show.tracks}, key=lambda x: (x == "encore", x))
+    lead_in_sets = [s for s in sets if s != "encore"]
+    encore_note = (
+        "This show ends with an encore that plays unannounced right after the "
+        "final set — write NO lead-in for it; instead have the outro recap it."
+        if "encore" in sets else ""
+    )
     inputs = dict(
         show_json=show.model_dump_json(indent=2),
         research=research_md or "(no research available)",
         reviews_digest=reviews_digest(reviews),
-        sets=", ".join(f'"{s}"' for s in sets),
-        n_breaks=len(show.set_breaks),
+        lead_in_sets=", ".join(f'"{s}"' for s in lead_in_sets),
+        encore_note=encore_note,
         style=persona_style(presenter, title) if presenter else NEUTRAL_STYLE,
     )
     feedback = ""
@@ -148,7 +144,7 @@ def run_synthesize(
         feedback = (
             "IMPORTANT: your previous script failed fact-checking: "
             + "; ".join(problems)
-            + ". Fix every problem; use exactly the sets and break count above."
+            + ". Fix every problem; write exactly one lead-in per set listed above."
         )
     if problems:
         current = read_model(show_ws.show, Show)

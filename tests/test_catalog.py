@@ -40,8 +40,7 @@ def build(root: Path, slug: str, *, stages: set[str], needs_review=False,
                                                 "asserted_dates": [],
                                                 "context": ""}, "flags": []})
     if "synthesize" in stages:
-        write_artifact(ws.dj_notes_json, {"intro": "i", "set_intros": {},
-                                          "outro": "o"})
+        write_artifact(ws.dj_notes_json, {"set_intros": {"1": "a"}, "outro": "o"})
     if "package" in stages:
         write_artifact(ws.package_dir / "manifest.json", {"schema_version": 2})
     return ws

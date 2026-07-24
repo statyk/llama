@@ -31,11 +31,9 @@ def make_show():
 def notes_dict(**overrides):
     d = {
         "context": "Peak 1973 tour",
-        "intro": "Tonight: the Dead at RFK.",
-        "set_intros": {"1": "Opens with Morning Dew.", "2": "A monumental Dark Star.",
-                       "encore": "Johnny B. Goode sendoff."},
-        "set_break_notes": ["That was set one.", "That was set two."],
-        "outro": "Thanks for listening.",
+        "set_intros": {"1": "Tonight: the Dead at RFK. Opens with Morning Dew.",
+                       "2": "A monumental Dark Star."},
+        "outro": "Johnny B. Goode sends us off. Thanks for listening.",
         "mentioned_songs": ["Morning Dew", "Dark Star", "Johnny B. Goode"],
     }
     d.update(overrides)
@@ -49,13 +47,23 @@ def test_guard_passes_clean_notes():
 def test_guard_catches_fabrications_and_mismatches():
     bad = DJNotes(**notes_dict(
         mentioned_songs=["Morning Dew", "Werewolves of London"],
-        set_intros={"1": "x", "2": "y", "3": "huh", "encore": "z"},
-        set_break_notes=["only one"],
+        set_intros={"1": "x", "2": "y", "3": "huh"},
     ))
     problems = factual_guard(bad, make_show())
     assert any("Werewolves of London" in p for p in problems)
-    assert any("nonexistent set" in p for p in problems)
-    assert any("count mismatch" in p for p in problems)
+    assert any("nonexistent" in p and "3" in p for p in problems)
+
+
+def test_guard_rejects_encore_lead_in():
+    # Option A: the encore gets no lead-in, so an "encore" key is a fault.
+    notes = DJNotes(**notes_dict(set_intros={"1": "a", "2": "b", "encore": "c"}))
+    problems = factual_guard(notes, make_show())
+    assert any("encore" in p for p in problems)
+
+
+def test_guard_requires_every_non_encore_set():
+    notes = DJNotes(**notes_dict(set_intros={"1": "a"}))  # missing set 2
+    assert any("missing set intros" in p for p in factual_guard(notes, make_show()))
 
 
 def make_single_set_show():
@@ -68,16 +76,16 @@ def make_single_set_show():
 
 def single_set_notes(**overrides):
     d = notes_dict(set_intros={"1": "Opens with Morning Dew."},
-                   set_break_notes=[], mentioned_songs=["Morning Dew"])
+                   mentioned_songs=["Morning Dew"])
     d.update(overrides)
     return d
 
 
 def test_guard_catches_set_count_claim_in_prose():
     # The steepcanyonrangers-2002-07-07 case: structurally consistent notes
-    # whose intro prose still claims two sets against a single-set structure.
+    # whose lead-in prose still claims two sets against a single-set structure.
     notes = DJNotes(**single_set_notes(
-        intro="They actually played two sets that day, and both sets cook."))
+        set_intros={"1": "They actually played two sets that day, and both sets cook."}))
     problems = factual_guard(notes, make_single_set_show())
     assert problems == ["dj notes claim 2 sets but structure has 1"]
 
@@ -96,25 +104,34 @@ def test_guard_catches_ordinal_set_claim():
 
 def test_guard_allows_consistent_set_count_prose():
     notes = DJNotes(**notes_dict(
-        intro="Two sets plus an encore tonight, and the second set is huge."))
+        outro="Two sets plus an encore tonight, and the second set is huge."))
     assert factual_guard(notes, make_show()) == []
 
 
 def test_guard_ignores_sets_of_phrases():
     notes = DJNotes(**single_set_notes(
-        intro="Two sets of fiddle tunes bookend the show."))
+        outro="Two sets of fiddle tunes bookend the show."))
     assert factual_guard(notes, make_single_set_show()) == []
 
 
-def test_notes_md_interleaves_breaks_with_set_intros():
-    # The DJ reads the file top to bottom during the show: break 1 wraps up
-    # set 1, so it must sit between the set 1 and set 2 intros, not after
-    # all intros (real case: gratefuldead-1977-02-26).
+def test_notes_md_one_lead_in_per_set_then_outro():
+    # One lead-in section per non-encore set, in order, then the outro. The
+    # encore has no lead-in (it folds into set 2's music); the outro recaps it.
     md = render_notes_md(DJNotes(**notes_dict()), make_show())
     headers = [ln for ln in md.splitlines() if ln.startswith("## ")]
-    assert headers == ["## Show intro", "## Set 1 intro", "## Set break 1",
-                       "## Set 2 intro", "## Set break 2", "## Encore intro",
-                       "## Outro"]
+    assert headers == ["## Set 1 lead-in", "## Set 2 lead-in", "## Outro"]
+
+
+def test_segment_layout_has_no_adjacent_talk():
+    # For a 2-sets-plus-encore show: one clip per non-encore set, then the
+    # outro. No 00-intro, no break*, no encore lead-in.
+    from llama.stages.package import _segment_texts
+
+    show = make_show()
+    stems = [s for s, _ in _segment_texts(DJNotes(**notes_dict()))]
+    assert stems == ["set1-intro", "set2-intro", "99-outro"]
+    non_encore = len({t.set for t in show.tracks if t.set != "encore"})
+    assert len(stems) == non_encore + 1
 
 
 def test_synthesize_writes_notes_and_md(tmp_path: Path):
@@ -123,10 +140,10 @@ def test_synthesize_writes_notes_and_md(tmp_path: Path):
     write_artifact(sws.show, show)
     fake = FakeProvider(completes=[json.dumps(notes_dict())])
     notes = run_synthesize(sws, fake, show, research_md="# R", reviews=[{"reviewbody": "great"}])
-    assert notes.intro.startswith("Tonight")
+    assert notes.set_intros["1"].startswith("Tonight")
     assert sws.dj_notes_json.exists()
     md = sws.dj_notes_md.read_text()
-    assert "## Show intro" in md and "## Encore intro" in md and "## Set break 1" in md
+    assert "## Set 1 lead-in" in md and "## Set 2 lead-in" in md and "## Outro" in md
     # clean notes: show untouched
     assert json.loads(sws.show.read_text())["needs_review"] is False
 
@@ -138,13 +155,13 @@ def test_synthesize_retries_with_guard_feedback(tmp_path: Path):
     show = make_show()
     write_artifact(sws.show, show)
     bad = json.dumps(notes_dict(
-        set_intros={"1": "a", "2": "b", "5": "??", "encore": "c"}))
+        set_intros={"1": "a", "2": "b", "5": "??"}))
     fake = FakeProvider(completes=[bad, json.dumps(notes_dict())])
     notes = run_synthesize(sws, fake, show, research_md="", reviews=[])
-    assert set(notes.set_intros) == {"1", "2", "encore"}
+    assert set(notes.set_intros) == {"1", "2"}
     assert json.loads(sws.show.read_text())["needs_review"] is False
     retry_prompt = fake.calls[1][1]
-    assert "fact-check" in retry_prompt and "nonexistent set: 5" in retry_prompt
+    assert "fact-check" in retry_prompt and "set: 5" in retry_prompt
 
 
 def test_synthesize_guard_failure_marks_needs_review(tmp_path: Path):

@@ -26,7 +26,7 @@ def test_show_defaults():
 def test_manifest_schema_version():
     m = Manifest(
         show={}, source={}, tracks=[], set_breaks=[],
-        dj_notes=DJNotes(intro="hi", set_intros={}, outro="bye"),
+        dj_notes=DJNotes(set_intros={"1": "hi"}, outro="bye"),
         total_duration_sec=0.0, set_durations_sec={},
     )
     assert m.schema_version == 2

@@ -37,11 +37,9 @@ def assessments(pid: str) -> str:
 
 NOTES = json.dumps({
     "context": "Peak 1973",
-    "intro": "Tonight, the Grateful Dead at RFK Stadium.",
-    "set_intros": {"1": "Morning Dew opens.", "2": "A monumental Dark Star.",
-                   "encore": "Johnny B. Goode."},
-    "set_break_notes": ["End of set one.", "End of set two."],
-    "outro": "From the hollister soundboard.",
+    "set_intros": {"1": "Tonight, the Grateful Dead at RFK Stadium. Morning Dew opens.",
+                   "2": "A monumental Dark Star."},
+    "outro": "Johnny B. Goode sends us off. From the hollister soundboard.",
     "mentioned_songs": ["Morning Dew", "Dark Star", "Johnny B. Goode"],
 })
 

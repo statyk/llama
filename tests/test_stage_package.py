@@ -44,8 +44,8 @@ def make_show():
 
 
 def make_notes():
-    return DJNotes(context="from the notes", intro="i", outro="o",
-                   set_intros={"1": "a", "2": "b"}, set_break_notes=["x"])
+    return DJNotes(context="from the notes", outro="o",
+                   set_intros={"1": "a", "2": "b"})
 
 
 def setup(tmp_path: Path):

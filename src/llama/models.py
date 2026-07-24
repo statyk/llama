@@ -187,9 +187,7 @@ class Show(BaseModel):
 
 class DJNotes(BaseModel):
     context: str = ""  # one-line era/tour context
-    intro: str
-    set_intros: dict[str, str]  # keyed by set: "1", "2", "encore"
-    set_break_notes: list[str] = Field(default_factory=list)
+    set_intros: dict[str, str]  # combined lead-in per non-encore set: "1", "2"
     outro: str
     mentioned_songs: list[str] = Field(default_factory=list)
 

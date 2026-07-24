@@ -14,8 +14,7 @@ def make_show():
 
 
 def make_notes():
-    return DJNotes(context="Peak 73", intro="i", outro="o",
-                   set_intros={"1": "a", "2": "b"}, set_break_notes=["x", "y"])
+    return DJNotes(context="Peak 73", outro="o", set_intros={"1": "a", "2": "b"})
 
 
 def make_packaged():

@@ -34,11 +34,9 @@ ASSESSMENTS = json.dumps({"assessments": [{
 
 NOTES = json.dumps({
     "context": "Peak 1973",
-    "intro": "Tonight, the Grateful Dead at RFK Stadium.",
-    "set_intros": {"1": "Morning Dew opens.", "2": "A monumental Dark Star.",
-                   "encore": "Johnny B. Goode."},
-    "set_break_notes": ["End of set one.", "End of set two."],
-    "outro": "From the hollister soundboard.",
+    "set_intros": {"1": "Tonight, the Grateful Dead at RFK Stadium. Morning Dew opens.",
+                   "2": "A monumental Dark Star."},
+    "outro": "Johnny B. Goode sends us off. From the hollister soundboard.",
     "mentioned_songs": ["Morning Dew", "Dark Star", "Johnny B. Goode"],
 })
 
@@ -102,13 +100,12 @@ def test_voiced_find_end_to_end(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0, result.output
     pkg = tmp_path / "shows" / SHOW_DIR / "package"
     dj = pkg / "dj-audio"
-    for name in ["set1-intro.mp3", "set2-intro.mp3",
-                 "setencore-intro.mp3", "99-outro.mp3"]:
+    for name in ["set1-intro.mp3", "set2-intro.mp3", "99-outro.mp3"]:
         assert (dj / name).read_bytes() == SILENT_MP3
+    assert not (dj / "setencore-intro.mp3").exists()  # encore has no lead-in
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["dj_audio"] == {
-        "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3",
-                       "encore": "dj-audio/setencore-intro.mp3"},
+        "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         "outro": "dj-audio/99-outro.mp3",
     }
     assert manifest["set_breaks"] == [{"after_track": 3}, {"after_track": 5}]

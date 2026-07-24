@@ -188,10 +188,10 @@ def make_show():
 
 def make_notes():
     return DJNotes(
-        context="ctx", intro="",
+        context="ctx",
         set_intros={"1": "Good evening, night owls. It's June 10th, 1973 at RFK "
                          "Stadium. Let's dig in!"},
-        outro="Thanks for listening, folks.", set_break_notes=[],
+        outro="Thanks for listening, folks.",
     )
 
 
