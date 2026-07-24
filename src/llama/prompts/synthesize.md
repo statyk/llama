@@ -11,7 +11,8 @@ Listener review excerpts:
 
 Write one lead-in per set: {{lead_in_sets}}. Each set's music is separated by
 the lead-in that precedes it, so a lead-in is the only talk in that gap — no
-separate show intro or set-break segments. {{encore_note}}
+separate show intro or set-break segments.
+{{encore_note}}
 {{feedback}}
 
 Respond with ONLY JSON in this shape:
