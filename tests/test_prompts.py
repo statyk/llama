@@ -34,6 +34,24 @@ def test_synthesize_prompt_guides_spoken_stress():
     assert "stress" in text.lower()
 
 
+def test_synthesize_prompt_forbids_symbol_segues():
+    text = load_prompt("synthesize")
+    low = text.lower()
+    assert '"into"' in low or "the word into" in low
+    assert "greater than" in low  # explains WHY not to use ">"
+
+
+def test_synthesize_prompt_bans_very_short_sentences():
+    assert "short sentence" in load_prompt("synthesize").lower()
+
+
+def test_synthesize_prompt_requires_show_id_every_break():
+    # Every break must re-state artist + date + venue/city for mid-show tune-ins.
+    low = load_prompt("synthesize").lower()
+    assert "artist, date, venue" in low
+    assert "tuning in" in low or "mid-" in low
+
+
 def test_vet_research_prompt_excludes_context_mentions():
     text = load_prompt("vet_research")
     assert text.count("Exclude") >= 2  # once for songs, once for dates
