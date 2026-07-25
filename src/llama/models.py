@@ -185,6 +185,14 @@ class Show(BaseModel):
     structure: StructureInfo | None = None
 
 
+class Overrides(BaseModel):
+    """Hand-authored per-show operator input, durable across re-derivation.
+    Read by gather (exclude) and synthesize (narration); never auto-written by
+    a stage. Absent file == this default."""
+    exclude: list[str] = Field(default_factory=list)   # source filenames to drop
+    narration: str = "full"                            # "full" | "vague"
+
+
 class DJNotes(BaseModel):
     context: str = ""  # one-line era/tour context
     set_intros: dict[str, str]  # combined lead-in per non-encore set: "1", "2"

@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
 
-from llama.models import Criteria
+from llama.models import Criteria, Overrides
 from llama.workspace import (
     RunWorkspace, ShowWorkspace, drop_stage_artifacts, read_json, read_model, read_model_list,
-    should_run, write_artifact,
+    read_overrides, should_run, write_artifact,
 )
 
 
@@ -61,3 +61,16 @@ def test_drop_stage_artifacts_can_keep_research(tmp_path):
     assert sws.research.exists()          # preserved
     drop_stage_artifacts(sws, "research")
     assert not sws.research.exists()      # default still drops it
+
+
+def test_read_overrides_defaults_when_absent(tmp_path):
+    ws = ShowWorkspace(tmp_path / "s")
+    ov = read_overrides(ws)
+    assert ov.exclude == [] and ov.narration == "full"
+
+
+def test_read_overrides_round_trip(tmp_path):
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(exclude=["a.mp3"], narration="vague"))
+    ov = read_overrides(ws)
+    assert ov.exclude == ["a.mp3"] and ov.narration == "vague"
