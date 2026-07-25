@@ -7,6 +7,7 @@ from llama.ledger import Ledger
 from llama.llm import provider_ladder
 from llama.models import DJNotes, LedgerEntry, Provenance, Show, ShortlistEntry
 from llama.presenters import Presenter
+from llama.speech_text import load_lexicon
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
 from llama.stages.research import run_research
@@ -113,7 +114,9 @@ def process_show(
             log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
             return None
     with step(f"[{pid}] packaging"):
-        pkg = run_package(show_ws, ia, show, notes, force=force, speech=speech, chunk=chunk)
+        lexicon = load_lexicon(run_ws.root)
+        pkg = run_package(show_ws, ia, show, notes, force=force, speech=speech,
+                          chunk=chunk, lexicon=lexicon)
     show = read_model(show_ws.show, Show)  # package may have flagged it
     if show.needs_review:
         log.warning("holding %s: flagged during packaging (%s)",

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from llama.models import DJNotes, ResearchVetting, Show, Track, VettingResult
+from llama.speech_text import Lexicon
 from llama.stages import package as package_stage
 from llama.stages.package import run_package
 from llama.tts.fake import SILENT_MP3, FakeSpeechProvider
@@ -228,3 +229,53 @@ def test_package_voice_without_notes_raises(tmp_path: Path):
     with pytest.raises(SpeechError):
         run_package(sws, StubIA(), show, notes=None, speech=FakeSpeechProvider())
     assert not (sws.package_dir / "manifest.json").exists()
+
+
+def _notes_with(text: str) -> DJNotes:
+    # One set-1 lead-in carrying the text under test, plus a plain outro.
+    return DJNotes(context="", set_intros={"1": text}, outro="Goodnight.",
+                   mentioned_songs=[])
+
+
+def test_package_expands_segue_symbol_before_synthesis(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    speech = FakeSpeechProvider()
+    run_package(sws, StubIA(), show, _notes_with("We go Help on the Way > Slipknot now."),
+                speech=speech)
+    spoken = " ".join(speech.calls)
+    assert ">" not in spoken
+    assert "Help on the Way into Slipknot" in spoken
+
+
+def test_package_applies_pronunciation_lexicon(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    speech = FakeSpeechProvider()
+    run_package(sws, StubIA(), show, _notes_with("They opened with Sugaree."),
+                speech=speech, lexicon=Lexicon({"Sugaree": "Shugaree"}))
+    assert any("Shugaree" in c for c in speech.calls)
+    assert not any("Sugaree" in c and "Shugaree" not in c for c in speech.calls)
+
+
+def test_package_leaves_human_notes_unnormalized(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    # A human-readable dj-notes.md already on disk (as synthesize would write).
+    write_artifact(sws.dj_notes_md, "## Set 1 lead-in\nHelp on the Way > Slipknot\n")
+    show = make_show()
+    pkg = run_package(sws, StubIA(), show, _notes_with("Help on the Way > Slipknot"),
+                      speech=FakeSpeechProvider())
+    # The packaged human script keeps the readable ">" form — only audio changed.
+    assert ">" in (pkg / "dj-notes.md").read_text()
+
+
+def test_package_normalization_changes_only_affected_cache_key(tmp_path: Path):
+    # A clean segment keeps its cache across runs (normalize is identity on it).
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    run_package(sws, StubIA(), show, _notes_with("A perfectly clean lead-in here."),
+                speech=FakeSpeechProvider())
+    second = FakeSpeechProvider()
+    run_package(sws, StubIA(), show, _notes_with("A perfectly clean lead-in here."),
+                speech=second)
+    assert second.calls == []  # nothing re-synthesized
