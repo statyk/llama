@@ -7,7 +7,13 @@ then apply a curated pronunciation lexicon that respells names so the backend
 says them right (e.g. Sugaree -> Shugaree). See
 docs/superpowers/specs/2026-07-25-dj-script-speech-quality-design.md.
 """
+import csv
+import logging
 import re
+from importlib import resources
+from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 # Symbols that plausibly appear in DJ prose and that the TTS mis-voices.
 # Ordered literal substitutions; deliberately small (numerals/years are left
@@ -59,3 +65,38 @@ def normalize_for_speech(text: str, lexicon: Lexicon) -> str:
         text = text.replace(symbol, replacement)
     text = lexicon.apply(text)
     return _MULTISPACE.sub(" ", text).strip()
+
+
+def _merge_rows(entries: dict[str, str], f) -> None:
+    """Merge written,spoken rows from an open CSV file into entries in place.
+    Later files override earlier ones; blank/short rows are skipped."""
+    for row in csv.DictReader(f):
+        written = (row.get("written") or "").strip()
+        spoken = (row.get("spoken") or "").strip()
+        if written and spoken:
+            entries[written] = spoken
+
+
+def load_lexicon(root: Path | None = None) -> Lexicon:
+    """The pronunciation lexicon: the baked-in seed
+    (llama.data/pronunciations.csv) plus, if present, a workspace overlay at
+    <root>/pronunciations.csv whose entries add to and override the seed.
+    Malformed or unreadable sources are warned about and skipped — loading the
+    lexicon must never raise (mirrors jerrybase._load)."""
+    entries: dict[str, str] = {}
+    try:
+        with resources.files("llama.data").joinpath("pronunciations.csv").open(
+                "r", encoding="utf-8", newline="") as f:
+            _merge_rows(entries, f)
+    except Exception as err:  # noqa: BLE001 - a bad seed must not break packaging
+        log.warning("pronunciations: could not load baked-in seed: %s", err)
+    if root is not None:
+        overlay = root / "pronunciations.csv"
+        if overlay.exists():
+            try:
+                with overlay.open("r", encoding="utf-8", newline="") as f:
+                    _merge_rows(entries, f)
+            except Exception as err:  # noqa: BLE001 - a bad overlay is ignorable
+                log.warning("pronunciations: ignoring malformed overlay %s: %s",
+                            overlay, err)
+    return Lexicon(entries)

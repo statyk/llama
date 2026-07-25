@@ -1,4 +1,6 @@
-from llama.speech_text import Lexicon, normalize_for_speech
+from pathlib import Path
+
+from llama.speech_text import Lexicon, load_lexicon, normalize_for_speech
 
 
 def test_expands_greater_than_segue_to_into():
@@ -45,3 +47,34 @@ def test_symbols_then_lexicon_and_whitespace_tidied():
 
 def test_empty_lexicon_apply_is_identity():
     assert Lexicon.empty().apply("nothing to do here") == "nothing to do here"
+
+
+def test_load_lexicon_includes_baked_in_seed():
+    lex = load_lexicon()
+    # Seeded, owner-confirmed entries.
+    assert normalize_for_speech("Sugaree", lex) == "Shugaree"
+    assert normalize_for_speech("Mydland", lex) == "Midland"
+
+
+def test_workspace_overlay_adds_and_overrides(tmp_path: Path):
+    (tmp_path / "pronunciations.csv").write_text(
+        "written,spoken,note\n"
+        "Sugaree,Sugar-ee,override the seed\n"
+        "Pigpen,Pig Pen,new entry\n"
+    )
+    lex = load_lexicon(tmp_path)
+    assert normalize_for_speech("Sugaree", lex) == "Sugar-ee"   # overlay wins
+    assert normalize_for_speech("Pigpen", lex) == "Pig Pen"     # added
+    assert normalize_for_speech("Mydland", lex) == "Midland"    # seed still present
+
+
+def test_missing_overlay_is_fine(tmp_path: Path):
+    lex = load_lexicon(tmp_path)  # no pronunciations.csv in tmp_path
+    assert normalize_for_speech("Sugaree", lex) == "Shugaree"
+
+
+def test_malformed_overlay_is_ignored_not_raised(tmp_path: Path, caplog):
+    # A row missing the spoken column is skipped; a totally broken file warns.
+    (tmp_path / "pronunciations.csv").write_text("this is not,valid\ncsv at all")
+    lex = load_lexicon(tmp_path)  # must not raise
+    assert normalize_for_speech("Sugaree", lex) == "Shugaree"  # seed intact
