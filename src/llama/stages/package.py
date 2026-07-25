@@ -8,6 +8,7 @@ from pathlib import Path
 from llama.audio import packaged_filename, read_duration, tag_audio
 from llama.manifest import broadcast_m3u_text, build_manifest, m3u_text
 from llama.models import DJAudio, DJNotes, ManifestTrack, Show, VettingResult
+from llama.speech_text import Lexicon, normalize_for_speech
 from llama.status import detail
 from llama.tts.provider import SpeechError
 from llama.util import reviews_digest
@@ -141,7 +142,7 @@ def _segment_texts(notes: DJNotes) -> list[tuple[str, str]]:
 
 
 def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
-                         chunk: bool = False) -> DJAudio:
+                         chunk: bool = False, lexicon: Lexicon | None = None) -> DJAudio:
     """One MP3 per DJNotes segment under package/dj-audio/.
 
     Segments are keyed by sha256(text + voice + model + chunk) in a sidecar
@@ -158,20 +159,22 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
     [tts] chunk invalidates the affected clips and a redo re-synthesizes
     them (no --force needed).
     """
+    lexicon = lexicon or Lexicon.empty()
     audio_dir = pkg / "dj-audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
     sidecar = audio_dir / "segments.json"
     cached: dict[str, str] = json.loads(sidecar.read_text()) if sidecar.exists() else {}
     keys: dict[str, str] = {}
     for stem, text in _segment_texts(notes):
+        spoken = normalize_for_speech(text, lexicon)
         filename = f"{stem}.mp3"
         dest = audio_dir / filename
         key = hashlib.sha256(
-            f"{text}\n{speech.voice}\n{speech.model}\nchunk={chunk}".encode()).hexdigest()
+            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}".encode()).hexdigest()
         keys[filename] = key
         if force or not dest.exists() or cached.get(filename) != key:
             detail(f"synthesizing {filename}")
-            data = _synthesize_chunked(text, speech) if chunk else speech.synthesize(text)
+            data = _synthesize_chunked(spoken, speech) if chunk else speech.synthesize(spoken)
             tmp = dest.with_name(dest.name + ".part")
             tmp.write_bytes(data)
             tmp.replace(dest)
@@ -187,7 +190,8 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
 
 
 def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = None,
-                force: bool = False, speech=None, chunk: bool = False) -> Path:
+                force: bool = False, speech=None, chunk: bool = False,
+                lexicon: Lexicon | None = None) -> Path:
     pkg = show_ws.package_dir
     manifest_path = pkg / "manifest.json"
     if manifest_path.exists() and not force:
@@ -241,7 +245,7 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = 
         if notes is None:
             raise SpeechError("voice is active but this show has no DJ script; "
                               "rerun with the script enabled")
-        dj_audio = _synthesize_dj_audio(pkg, notes, speech, force, chunk=chunk)
+        dj_audio = _synthesize_dj_audio(pkg, notes, speech, force, chunk=chunk, lexicon=lexicon)
 
     write_artifact(pkg / "playlist.m3u", m3u_text([t.filename for t in packaged]))
     if dj_audio is not None:
