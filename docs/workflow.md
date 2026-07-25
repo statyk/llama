@@ -293,7 +293,12 @@ longer patter — a single long TTS call tends to rush or flatten out — at
 the cost of more provider round-trips per segment. `chunk` is part of the
 per-segment cache key, so flipping it re-renders affected clips on the next
 `redo --from package --voice` (no `--force` needed). It requires the
-`lameenc` dependency (installed by default). The chunked encoder derives
+`lameenc` dependency (installed by default). A too-short trailing sentence
+fragment is folded back into the previous chunk so it isn't voiced as its
+own tiny, context-free clip (which tends to come out as gibberish); and each
+chunk is synthesized with its neighboring sentences as context — ElevenLabs
+uses `previous_text`/`next_text` to keep prosody continuous across chunk
+boundaries, while Voxtral has no such parameter and simply ignores it. The chunked encoder derives
 its MP3 bitrate from the actual sample rate the provider returns (64kbps
 for Voxtral's ~24kHz mono output, rather than a flat 128kbps) to avoid an
 unusual bitrate/sample-rate combination that has been observed to trip up

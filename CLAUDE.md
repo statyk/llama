@@ -112,7 +112,12 @@ failed validation's final retry escalates one tier (pins never escalate).
   provider) and concatenates the PCM before one MP3 encode via `lameenc`,
   instead of one call for the whole segment — noticeably better prosody on
   longer patter, at the cost of more provider round-trips per segment;
-  toggling it invalidates the cache for affected clips.
+  toggling it invalidates the cache for affected clips. The chunker folds a
+  too-short trailing fragment back into the previous sentence (a tiny
+  context-free clip like "Here's set two." makes the backend hallucinate),
+  and passes each chunk's neighbor text to the provider as context — ElevenLabs
+  conditions on `previous_text`/`next_text` for prosody continuity across
+  boundaries; Voxtral has no such field and ignores it.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,
