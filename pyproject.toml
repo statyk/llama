@@ -16,6 +16,7 @@ dependencies = [
     "mutagen>=1.47",
     "tomli-w>=1.0",
     "lameenc>=1.8",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
