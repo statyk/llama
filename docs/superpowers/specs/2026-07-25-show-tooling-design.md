@@ -125,10 +125,12 @@ the note is empty and behavior is byte-for-byte unchanged.
 
 ### `llama show` resolution flags
 
-`llama show <show>` grows three write-then-print flags. Each updates
-`overrides.json` and/or `show.json` and prints the exact next `redo` command;
-**none fires the redo** (mirrors today's `--clear`, keeping the operator in
-control of paid/LLM re-runs).
+`llama show <show>` grows the resolution flags below. Each updates
+`overrides.json` and/or `show.json` and, **by default, prints** the exact
+next `redo` command without firing it (mirrors today's `--clear`, keeping the
+operator in control of paid/LLM re-runs). `--apply` runs that `redo`
+immediately instead of printing it. (Interactive resolution — where the
+prompt itself is the confirmation and always executes — is Part 3.)
 
 | Flag | Effect | Clears hold? | Prints next step |
 |---|---|---|---|
@@ -148,9 +150,9 @@ Rationale for the hold-clearing asymmetry:
   *why* (narration guidance) so the next re-script honors it.
 
 `--exclude` and `--vague`/`--clear` may be combined in one invocation
-(e.g. exclude some tracks *and* accept the rest as vague); the printed next
-step is the earliest applicable stage (`gather` if any exclude changed, else
-`synthesize` for narration, else `package`).
+(e.g. exclude some tracks *and* accept the rest as vague); the printed (or
+`--apply`-run) next step is the earliest applicable stage (`gather` if any
+exclude changed, else `synthesize` for narration, else `package`).
 
 `llama show` output gains an **Overrides** line showing the current
 `exclude` list and `narration` when non-default, so the authored state is
@@ -178,12 +180,12 @@ may or may not carry DJ audio), so it is an **annotation**, not a new state.
 - `--json` records gain `voiced: bool | null` (null = pre-package) and
   `overrides: {exclude, narration}`.
 
-## Part 3 — Shared selectors and bulk operations
+## Part 3 — Shared selectors, `show` resolution, and bulk operations
 
 ### Selector vocabulary (shared)
 
-A single filter vocabulary is reused by `status`, `triage`, and the batch
-forms of `redo`/`deliver`, so selection is learned once:
+A single filter vocabulary is reused by `status`, `show` (set form), and the
+batch forms of `redo`/`deliver`, so selection is learned once:
 
 - `--held`, `--packaged`, `--voiced`, `--unvoiced`
 - `--state NAME` (any derived state: `selected|gathered|researched|vetted|
@@ -195,16 +197,26 @@ Multiple selectors combine with **AND**. Selection is implemented once in
 than re-filtered per command as `status` does today (`cli.py:660-667`); the
 existing `status` filters move onto it.
 
-### 3a. `llama triage [selectors]` — interactive walkthrough (new)
+### 3a. `llama show` — single and set resolution (no separate verb)
 
-The interactive form of the three-resolutions model. Defaults to `--held`;
-selectors narrow the set (e.g. `triage --held --artist grateful`).
+There is deliberately **no `triage` verb**. Its one unique trait —
+iterating a set of held shows — folds into `show`, which already owns
+per-show inspection and (Part 1) per-show resolution. This collapses "inspect
+one show", "resolve one show", and "walk my holds" into one command with no
+duplicated resolution logic.
 
-For each show in turn it prints identity, derived state, the review flags,
-and the **numbered track list**, then prompts:
+`show` takes **either** a single `<slug>` (as today) **or** selectors
+(Part 3's vocabulary; defaults to `--held` when only the set form is used,
+e.g. `llama show --held`, `llama show --held --artist grateful`).
+
+**Interactive resolve (TTY only).** When `show` runs on a TTY against a
+**held** show and no action flag (`--exclude/--vague/--clear/...`) was given,
+after printing identity, state, flags, and the **numbered track list** it
+offers a resolve prompt and **executes** the choice inline (the prompt is the
+confirmation — this is the one place resolution runs without `--apply`):
 
 ```
-[1/4] gratefuldead-1972-08-27   held
+gratefuldead-1972-08-27   held
   - low-confidence structure alignment
    1. Set 1  Bertha                     gd72-08-27d1t01.mp3
    ...
@@ -212,18 +224,26 @@ and the **numbered track list**, then prompts:
   [e]xclude tracks  [v]ague  [c]lear  [s]kip  [q]uit ?
 ```
 
-- **[e]xclude** — pick tracks by index (the walkthrough is the nicest home
-  for a picker; the operator never types filenames), writes
-  `overrides.exclude`, and runs `redo --from gather`.
-- **[v]ague** — writes `overrides.narration=vague`, clears the hold, runs
+- **[e]xclude** — pick tracks by index (the picker's natural home; the
+  operator never types filenames), write `overrides.exclude`, run
+  `redo --from gather`.
+- **[v]ague** — write `overrides.narration=vague`, clear the hold, run
   `redo --from synthesize`.
-- **[c]lear** — clears the hold, runs `redo --from package`.
+- **[c]lear** — clear the hold, run `redo --from package`.
 - **[s]kip** / **[q]uit** — next show / stop.
 
-Unlike the `show` flags (print-next-step), `triage` **runs** the chosen
-resolution inline — the per-show prompt *is* the confirmation, and running
-each fix in the loop is the entire point of a walkthrough. The result
-(re-packaged / still-held / failed) is printed before advancing.
+The result (re-packaged / still-held / failed) prints before advancing.
+
+**Set form = the walkthrough.** `llama show --held` runs that interactive
+resolve over each matching held show in turn — this *is* the former
+`triage`. Non-held shows in a broader selector are inspected and skipped for
+resolution (nothing to resolve).
+
+**Non-interactive stays pure.** Off a TTY (piped/cron), or when a single
+`<slug>` is given with no action flag, `show` only *inspects* — no prompt —
+so existing scripts are unaffected. Machine-readable set output remains
+`status --json`'s job, not `show`'s. Explicit action flags (`--vague`, etc.)
+follow Part 1: print-next-step by default, execute with `--apply`.
 
 ### 3b. Batch `redo` / `deliver` via selectors
 
@@ -244,7 +264,7 @@ Semantics:
   prompts `Proceed? [y/N]`; `--yes` skips the prompt for scripting/cron.
 - **Held shows are excluded** from batch actions unless `--held` is explicitly
   among the selectors — held shows aren't ready to act on. (Resolving held
-  shows is `triage`'s job.)
+  shows is `show`'s job — Part 3a.)
 - Per-show failures don't abort the batch: each is reported (`FAILED
   <show>: …`) and the sweep continues, matching `run`'s per-show failure
   isolation.
@@ -255,7 +275,7 @@ Commands are currently listed in definition order (Typer default). Group them
 into labeled panels via `rich_help_panel` on each command/sub-app:
 
 - **Discover & process:** `find`, `artists`, `profile`, `run`, `review`
-- **Inspect & triage:** `status`, `runs`, `show`, `triage`
+- **Inspect & triage:** `status`, `runs`, `show`
 - **Act on shows:** `redo`, `deliver`
 - **Housekeeping:** `ledger`, `config`, `version`
 
@@ -269,7 +289,8 @@ Purely presentational; no behavior change.
 - No auto-detecting overrides changes to pick a redo stage (the rejected
   "smart redo"); the operator runs the printed `redo`.
 - No `--force`-through-processing for held shows; the hold still gates.
-- No new bulk verb beyond `triage`; batch actions ride existing verbs.
+- No new verbs at all: per-show and set resolution live on `show`, batch
+  actions ride `redo`/`deliver`.
 - No migration or legacy handling: overrides.json is purely additive; a show
   without one behaves exactly as today.
 
@@ -289,14 +310,17 @@ synthetic shows:
 - **show flags:** `--exclude/--include` edit `overrides.json` and print the
   gather next-step without clearing the hold; `--vague` sets narration and
   clears the hold and prints the synthesize next-step; `--full` resets;
-  `--clear` unchanged.
+  `--clear` unchanged; `--apply` runs the resolved `redo` instead of printing
+  it (via a stubbed `process_show`).
 - **catalog voiced + select_shows:** `voiced` derivation from manifest
   `dj_audio`; each selector and their AND-combination.
 - **status:** `--voiced/--unvoiced/--state` filters; voiced/override
   annotations in text and `--json`.
-- **triage:** scripted stdin drives exclude/vague/clear/skip/quit; asserts
-  the right overrides written and the right stage re-run (via a stubbed
-  `process_show`).
+- **show interactive/set resolve:** scripted stdin drives the TTY resolve
+  prompt (exclude-picker/vague/clear/skip/quit), asserting the right overrides
+  written and the right stage re-run (stubbed `process_show`); the set form
+  (`show --held`) iterates the matching set; a single `<slug>` off-TTY or with
+  `--json` never prompts (scripts unaffected).
 - **batch redo/deliver:** selector resolves the expected set, held excluded
   unless `--held`, plan+confirm honored, `--yes` skips, per-show failure
   isolation.
