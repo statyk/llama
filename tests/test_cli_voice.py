@@ -38,6 +38,24 @@ def test_resolve_voice_matrix():
 def test_resolve_voice_active_without_voice_id_raises():
     with pytest.raises(SpeechError):
         cli._resolve_voice(Config.model_validate({"tts": {"enabled": True}}), None)
+
+
+def test_resolve_bed_precedence():
+    from llama.config import Config, TTSConfig
+    from llama.presenters import Presenter
+    from llama.tts.bed import Bed
+
+    station = Config(tts=TTSConfig(bed="/beds/house.wav", bed_gain_db=-18.0))
+    none_cfg = Config(tts=TTSConfig())
+    host = Presenter(id="h", name="Casey", sex="female", voice="v",
+                     character="c", bed="/beds/host.wav")
+    plain = Presenter(id="p", name="Sam", sex="male", voice="v", character="c")
+
+    assert cli.resolve_bed(none_cfg, None) is None                       # nothing set
+    assert cli.resolve_bed(station, None) == Bed(Path("/beds/house.wav"), -18.0)
+    assert cli.resolve_bed(station, host) == Bed(Path("/beds/host.wav"), -18.0)  # presenter wins
+    assert cli.resolve_bed(station, plain) == Bed(Path("/beds/house.wav"), -18.0)  # falls back to station
+    assert cli.resolve_bed(none_cfg, host) == Bed(Path("/beds/host.wav"), -20.0)   # presenter-only, station default gain
     with pytest.raises(SpeechError):
         cli._resolve_voice(Config(), True)
 

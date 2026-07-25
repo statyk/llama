@@ -42,6 +42,18 @@ def test_exactly_one_of_voice_and_clone():
         make(voice="a", voice_clone="/b.wav")
 
 
+def test_presenter_bed_roundtrips_and_omits_when_unset(tmp_path: Path):
+    p = make(bed="/beds/soul.wav")
+    path = save_presenter(tmp_path, p)
+    assert 'bed = "/beds/soul.wav"' in path.read_text()
+    assert load_presenter(tmp_path, "casey").bed == "/beds/soul.wav"
+
+    p2 = make(id="dj2", bed=None)
+    path2 = save_presenter(tmp_path, p2)
+    assert "bed" not in path2.read_text()
+    assert load_presenter(tmp_path, "dj2").bed is None
+
+
 def test_missing_file_raises_presenter_error(tmp_path: Path):
     with pytest.raises(PresenterError) as exc:
         load_presenter(tmp_path, "ghost")

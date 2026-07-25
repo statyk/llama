@@ -32,6 +32,9 @@ class TTSConfig(BaseModel):
     chunk: bool = False                 # synthesize each DJ-notes segment sentence-by-
                                          # sentence and concatenate, instead of one call
                                          # per segment (better prosody; needs lameenc)
+    bed: str | None = None              # path to a 24kHz mono 16-bit WAV played
+                                         # under the DJ voice; None = no bed
+    bed_gain_db: float = -20.0          # bed loudness under the voice (station-level)
 
 
 class JerrybaseConfig(BaseModel):

@@ -20,6 +20,7 @@ class Presenter(BaseModel):
     voice: str | None = None        # voxtral preset name (or elevenlabs voice_id)
     voice_clone: str | None = None  # path to a 3-25s reference WAV (voxtral-only)
     character: str       # free-text persona description shaping tone
+    bed: str | None = None  # optional per-host bed WAV (overrides [tts] bed)
 
     @model_validator(mode="after")
     def _exactly_one_voice(self):

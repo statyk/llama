@@ -213,6 +213,14 @@ def test_tts_from_toml(tmp_path: Path):
     assert cfg.tts.api_key == "k1"
 
 
+def test_tts_bed_fields_default_and_roundtrip():
+    from llama.config import TTSConfig
+    d = TTSConfig()
+    assert d.bed is None and d.bed_gain_db == -20.0
+    c = TTSConfig(bed="/beds/gd.wav", bed_gain_db=-18.0)
+    assert c.bed == "/beds/gd.wav" and c.bed_gain_db == -18.0
+
+
 def test_default_config_template_documents_tts():
     # Fully commented: the seeded file must still behave exactly like no config
     # file (test_default_config_template_matches_defaults guards this), and
