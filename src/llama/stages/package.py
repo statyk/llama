@@ -145,9 +145,11 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
                          chunk: bool = False, lexicon: Lexicon | None = None) -> DJAudio:
     """One MP3 per DJNotes segment under package/dj-audio/.
 
-    Segments are keyed by sha256(text + voice + model + chunk) in a sidecar
-    map (segments.json) written with the audio; matching keys are skipped so
-    a repackage never re-spends on unchanged text. force re-renders
+    Segments are keyed by sha256(the speech-normalized text + voice + model +
+    chunk) in a sidecar map (segments.json) written with the audio; matching
+    keys are skipped so a repackage never re-spends on unchanged text — and
+    editing the pronunciation lexicon or symbol rules also invalidates just
+    the affected clips. force re-renders
     everything. Any provider failure propagates (SpeechError): the manifest
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
