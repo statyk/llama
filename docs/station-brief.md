@@ -167,6 +167,14 @@ supporting material. Field-by-field:
   rather than a neutral narrator — concert facts stay grounded either way.
   One file per `dj_audio` path in the manifest; a `segments.json` sidecar in
   the same directory is llama's internal render cache and can be ignored.
+  When a station default `[tts] bed` (or the host's own `bed` in
+  `presenters/<id>.toml`) is configured, each clip already has a low
+  instrumental bed mixed in underneath — pre-roll, then the bed continues
+  quietly under the voice at `[tts] bed_gain_db` (default -20 dB), then a
+  short tail — so there's nothing further for the station to layer on. Bed
+  WAVs must be 24kHz mono 16-bit; a mismatched or missing bed file
+  hard-fails that show's package. Mixing is pure PCM math via `numpy`; no
+  `ffmpeg` involved.
 
 ### Contract details worth knowing
 
