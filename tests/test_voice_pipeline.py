@@ -110,6 +110,18 @@ def test_voiced_find_end_to_end(tmp_path: Path, monkeypatch):
     }
     assert manifest["set_breaks"] == [{"after_track": 3}, {"after_track": 5}]
     assert manifest["dj_notes"] is not None
+    # broadcast.m3u interleaves DJ audio; playlist.m3u stays music-only.
+    assert "dj-audio/" not in (pkg / "playlist.m3u").read_text()
+    broadcast = (pkg / "broadcast.m3u").read_text().splitlines()
+    assert broadcast[0] == "#EXTM3U"
+    assert broadcast[1] == "dj-audio/set1-intro.mp3"   # set-1 lead-in opens the show
+    assert broadcast[-1] == "dj-audio/99-outro.mp3"    # outro closes it
+    dj_lines = [ln for ln in broadcast if ln.startswith("dj-audio/")]
+    assert dj_lines == ["dj-audio/set1-intro.mp3", "dj-audio/set2-intro.mp3",
+                        "dj-audio/99-outro.mp3"]       # no encore lead-in
+    i2 = broadcast.index("dj-audio/set2-intro.mp3")
+    assert broadcast[i2 + 1].startswith("audio/")               # a track follows the lead-in
+    assert any(ln.startswith("audio/") for ln in broadcast[2:i2])  # set-1 music precedes it
     # run intent + provenance are stamped for replays
     criteria = json.loads((tmp_path / "runs" / "voicerun" / "criteria.json").read_text())
     assert criteria["voice"] == "v-abc"
@@ -123,6 +135,8 @@ def test_globally_disabled_run_is_unvoiced(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0, result.output
     pkg = tmp_path / "shows" / SHOW_DIR / "package"
     assert not (pkg / "dj-audio").exists()
+    assert not (pkg / "broadcast.m3u").exists()  # only written for voiced shows
+    assert (pkg / "playlist.m3u").exists()
     assert json.loads((pkg / "manifest.json").read_text())["dj_audio"] is None
 
 

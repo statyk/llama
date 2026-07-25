@@ -55,6 +55,7 @@ hand off:
 <delivery_path>/gratefuldead-1973-06-10/
 ├── manifest.json
 ├── playlist.m3u
+├── broadcast.m3u        # voiced shows only: playlist with DJ audio interleaved
 ├── audio/
 │   ├── 01 - Morning Dew.mp3
 │   ├── 02 - Beat It On Down the Line.mp3
@@ -143,8 +144,13 @@ supporting material. Field-by-field:
   Durations in the manifest are measured from the actual files; a >5 s
   disagreement with source metadata blocks delivery instead of shipping.
 - **`playlist.m3u`** — minimal `#EXTM3U` with relative `audio/…` paths in
-  play order. Convenience only; the manifest is authoritative (the m3u has
-  no set-break or segue information).
+  play order. Music only. Convenience only; the manifest is authoritative
+  (the m3u has no set-break or segue information).
+- **`broadcast.m3u`** — present only for voiced shows: the same `#EXTM3U`
+  format, but with the `dj-audio/…` clips interleaved into play order (each
+  set's lead-in before that set's first track, the outro last), so it can be
+  played top-to-bottom without reconstructing the sequence from the manifest.
+  This is exactly the interleaving described under "Spoken DJ audio" below.
 - **`research.md`** — web-researched show notes in four fixed sections:
   `## Reputation`, `## Performance highlights`, `## Context`,
   `## Recording notes`. Grounding-checked before packaging; `research_vetted`
