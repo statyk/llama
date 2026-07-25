@@ -174,7 +174,10 @@ supporting material. Field-by-field:
   short tail — so there's nothing further for the station to layer on. Bed
   WAVs must be 24kHz mono 16-bit; a mismatched or missing bed file
   hard-fails that show's package. Mixing is pure PCM math via `numpy`; no
-  `ffmpeg` involved.
+  `ffmpeg` involved. Because mixing needs PCM, bed-active clips are
+  re-encoded to MP3 (24kHz mono, ~64 kbps via `lameenc`) rather than
+  shipping the provider's native MP3 like unbedded clips do — a small,
+  expected bitrate difference.
 
 ### Contract details worth knowing
 

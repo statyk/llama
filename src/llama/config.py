@@ -230,6 +230,9 @@ backend = "claude_cli"
 # bed = "/path/to/bed.wav"
 # bed loudness under the voice, in dB (negative = quieter); default -20
 # bed_gain_db = -20.0
+# because mixing needs PCM, bed-active clips are re-encoded to MP3 (24kHz
+# mono, ~64 kbps via lameenc) rather than shipping the provider's native
+# MP3 like unbedded clips do - a small, expected bitrate difference.
 
 
 [jerrybase]
