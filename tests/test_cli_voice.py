@@ -38,6 +38,8 @@ def test_resolve_voice_matrix():
 def test_resolve_voice_active_without_voice_id_raises():
     with pytest.raises(SpeechError):
         cli._resolve_voice(Config.model_validate({"tts": {"enabled": True}}), None)
+    with pytest.raises(SpeechError):
+        cli._resolve_voice(Config(), True)
 
 
 def test_resolve_bed_precedence():
@@ -56,8 +58,6 @@ def test_resolve_bed_precedence():
     assert cli.resolve_bed(station, host) == Bed(Path("/beds/host.wav"), -18.0)  # presenter wins
     assert cli.resolve_bed(station, plain) == Bed(Path("/beds/house.wav"), -18.0)  # falls back to station
     assert cli.resolve_bed(none_cfg, host) == Bed(Path("/beds/host.wav"), -20.0)   # presenter-only, station default gain
-    with pytest.raises(SpeechError):
-        cli._resolve_voice(Config(), True)
 
 
 def test_resolve_voice_clone_only_activated_via_flag():
