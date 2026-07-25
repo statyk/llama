@@ -16,6 +16,7 @@ from llama.stages.synthesize import run_synthesize
 from llama.util import cap_across_artists
 from llama.stages.vet_research import run_vet_research
 from llama.status import step
+from llama.tts.bed import Bed
 from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_model, write_artifact
 
 log = logging.getLogger("llama")
@@ -56,6 +57,7 @@ def process_show(
     voice: str | None = None,
     speech=None,
     chunk: bool = False,
+    bed: Bed | None = None,
     presenter: Presenter | None = None,
     title: str | None = None,
     setlistfm=None,
@@ -116,7 +118,7 @@ def process_show(
     with step(f"[{pid}] packaging"):
         lexicon = load_lexicon(run_ws.root)
         pkg = run_package(show_ws, ia, show, notes, force=force, speech=speech,
-                          chunk=chunk, lexicon=lexicon)
+                          chunk=chunk, lexicon=lexicon, bed=bed)
     show = read_model(show_ws.show, Show)  # package may have flagged it
     if show.needs_review:
         log.warning("holding %s: flagged during packaging (%s)",

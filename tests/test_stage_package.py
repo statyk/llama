@@ -1,13 +1,16 @@
 import json
 import logging
+import wave
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from llama.models import DJNotes, ResearchVetting, Show, Track, VettingResult
 from llama.speech_text import Lexicon
 from llama.stages import package as package_stage
 from llama.stages.package import run_package
+from llama.tts.bed import Bed
 from llama.tts.fake import SILENT_MP3, FakeSpeechProvider
 from llama.tts.provider import SpeechError
 from llama.workspace import ShowWorkspace, write_artifact
@@ -279,3 +282,75 @@ def test_package_normalization_changes_only_affected_cache_key(tmp_path: Path):
     run_package(sws, StubIA(), show, _notes_with("A perfectly clean lead-in here."),
                 speech=second)
     assert second.calls == []  # nothing re-synthesized
+
+
+def _bed_file(tmp_path: Path, seconds: float = 1.0) -> Path:
+    p = tmp_path / "bed.wav"
+    with wave.open(str(p), "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000)
+        w.writeframes(np.full(int(seconds * 24000), 500, dtype="<i2").tobytes())
+    return p
+
+
+def test_package_bed_active_produces_valid_mp3(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    bed = Bed(_bed_file(tmp_path), -20.0)
+    pkg = run_package(sws, StubIA(), make_show(), make_notes(),
+                      speech=FakeSpeechProvider(), bed=bed)
+    audio = list((pkg / "dj-audio").glob("*.mp3"))
+    assert audio and all(f.stat().st_size > 0 for f in audio)
+
+
+def test_package_bed_works_with_chunk(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    bed = Bed(_bed_file(tmp_path), -20.0)
+    pkg = run_package(sws, StubIA(), make_show(), make_notes(),
+                      speech=FakeSpeechProvider(), bed=bed, chunk=True)
+    assert list((pkg / "dj-audio").glob("*.mp3"))
+
+
+def test_package_bed_gain_change_resynthesizes(tmp_path: Path):
+    # Remove the manifest between runs (not force=True, which would bypass the
+    # segment cache-key check this test exists to verify). Same gain -> cache
+    # hit -> skipped; changed gain -> different key -> re-rendered.
+    sws = ShowWorkspace(tmp_path / "s")
+    bedp = _bed_file(tmp_path)
+    run_package(sws, StubIA(), make_show(), make_notes(),
+                speech=FakeSpeechProvider(), bed=Bed(bedp, -20.0))
+
+    (sws.package_dir / "manifest.json").unlink()
+    same = FakeSpeechProvider()
+    run_package(sws, StubIA(), make_show(), make_notes(),
+                speech=same, bed=Bed(bedp, -20.0))
+    assert same.calls == []                     # unchanged gain -> cache hit
+
+    (sws.package_dir / "manifest.json").unlink()
+    changed = FakeSpeechProvider()
+    run_package(sws, StubIA(), make_show(), make_notes(),
+                speech=changed, bed=Bed(bedp, -10.0))
+    assert changed.calls                        # changed gain -> re-rendered
+
+
+def test_package_no_bed_cache_key_unchanged(tmp_path: Path):
+    # A no-bed run's segment key must be byte-identical to pre-feature behavior,
+    # so a no-bed repackage still skips unchanged clips. Remove the manifest
+    # between runs so the second run actually re-enters _synthesize_dj_audio and
+    # exercises the segment cache (without unlink it would short-circuit on the
+    # manifest-exists guard, making this trivially pass).
+    sws = ShowWorkspace(tmp_path / "s")
+    run_package(sws, StubIA(), make_show(), make_notes(), speech=FakeSpeechProvider())
+    (sws.package_dir / "manifest.json").unlink()
+    second = FakeSpeechProvider()
+    run_package(sws, StubIA(), make_show(), make_notes(), speech=second)
+    assert second.calls == []
+
+
+def test_package_bad_bed_hard_fails(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    bad = tmp_path / "bad.wav"
+    with wave.open(str(bad), "wb") as w:
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(44100)
+        w.writeframes(b"\x00\x00\x00\x00")
+    with pytest.raises(SpeechError, match="24kHz mono 16-bit"):
+        run_package(sws, StubIA(), make_show(), make_notes(),
+                    speech=FakeSpeechProvider(), bed=Bed(bad, -20.0))
