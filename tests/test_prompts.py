@@ -49,7 +49,8 @@ def test_synthesize_prompt_requires_show_id_every_break():
     # Every break must re-state artist + date + venue/city for mid-show tune-ins.
     low = load_prompt("synthesize").lower()
     assert "artist, date, venue" in low
-    assert "tuning in" in low or "mid-" in low
+    assert "every break" in low
+    assert "tuning in" in low
 
 
 def test_vet_research_prompt_excludes_context_mentions():
