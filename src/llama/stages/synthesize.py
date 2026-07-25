@@ -5,7 +5,20 @@ from llama.models import DJNotes, Show
 from llama.presenters import Presenter
 from llama.songs import normalize_song
 from llama.util import reviews_digest
-from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
+from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
+
+_VAGUE_NOTE = (
+    "IMPORTANT — uncertain setlist: this show's song list is incomplete and the "
+    "available sources conflict. Do NOT name specific songs, do NOT assert a set "
+    "count or set structure, and state nothing as fact that the show data does "
+    "not confirm. Speak to the band, the era, the venue, the performance, and its "
+    "reputation instead. Leave mentioned_songs empty."
+)
+
+
+def narration_note(narration: str) -> str:
+    return _VAGUE_NOTE if narration == "vague" else ""
+
 
 # Set-count claims in script prose. "sets of ..." ("two sets of fiddle tunes")
 # is a quantity of songs, not a set count, so it never counts as a claim.
@@ -127,6 +140,7 @@ def run_synthesize(
         "final set — write NO lead-in for it; instead have the outro recap it."
         if "encore" in sets else ""
     )
+    note = narration_note(read_overrides(show_ws).narration)
     inputs = dict(
         show_json=show.model_dump_json(indent=2),
         research=research_md or "(no research available)",
@@ -134,6 +148,7 @@ def run_synthesize(
         lead_in_sets=", ".join(f'"{s}"' for s in lead_in_sets),
         encore_note=encore_note,
         style=persona_style(presenter, title) if presenter else NEUTRAL_STYLE,
+        narration_note=note,
     )
     feedback = ""
     for _attempt in range(2):

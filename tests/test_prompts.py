@@ -11,7 +11,7 @@ EXPECTED = {
     "extract_setlist": {"description"},
     "deep_research": {"artist", "date", "venue", "dossier", "setlist"},
     "synthesize": {"style", "show_json", "research", "reviews_digest",
-                   "lead_in_sets", "encore_note", "feedback"},
+                   "lead_in_sets", "encore_note", "feedback", "narration_note"},
     "find_artists": {"query", "max_results", "artist_table"},
     "align_structure": {"tracks", "setlist"},
     "vet_research": {"research"},
