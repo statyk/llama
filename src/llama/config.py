@@ -136,28 +136,36 @@ DEFAULT_CONFIG_TOML = """\
 # [[selection.lineage_eras]] block replaces the entire built-in era list.
 # The defaults are written out below so additive edits keep them.
 
+
 # workspace root; default ~/.llama
 # root = "/path/to/workdir"
+
 # target for `llama deliver`
 # delivery_path = "/station/inbox"
+
 # or "flac"
 audio_format = "mp3"
+
 
 [llm.default]
 # requires the `claude` CLI on PATH
 backend = "claude_cli"
+
 # HTTP alternative; set OPENROUTER_API_KEY
 # backend = "openrouter"
+
 # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
 # gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
 # Defaults: medium for most tasks; high for deep_research and synthesize;
 # low for vet_research.
 # A failed validation's final retry escalates one tier (pins never escalate).
 
+
 # [llm.deep_research]
 # pin research to the claude CLI when the default backend is openrouter: its
 # agentic multi-step research is stronger, and quality is audible on air
 # backend = "claude_cli"
+
 
 # [llm.synthesize]
 # example: cheaper synthesis
@@ -165,14 +173,17 @@ backend = "claude_cli"
 # example: exact pin, bypasses tiers
 # model = "claude-opus-4-8"
 
+
 # [llm.tiers.openrouter]
 # retarget what a tier means per backend
 # medium = "deepseek/deepseek-chat-v3"
+
 
 # [setlistfm]
 # or SETLISTFM_API_KEY env var; without a key, set-structure recovery is
 # LMA-descriptions only
 # api_key = "..."
+
 
 # spoken DJ patter: per-segment MP3 clips of the DJ script land in
 # package/dj-audio/ (one set<key>-intro per non-encore set, then 99-outro),
@@ -181,22 +192,29 @@ backend = "claude_cli"
 # [tts]
 # default false; a profile with a presenter is voiced even when this is off
 # enabled = true
+
 # hosted Mistral Voxtral TTS (default); or "elevenlabs"; or "fake" for tests
 # backend = "voxtral"
+
 # the HOUSE voice: voxtral preset name (or elevenlabs voice_id), used when
 # no presenter
 # voice = "..."
+
 # path to a 3-25s reference WAV; when set, voxtral clones that voice
 # (ignores `voice`)
 # voice_clone = "..."
+
 # per-backend default when unset
 # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
 # model = "..."
+
 # MISTRAL_API_KEY / ELEVENLABS_API_KEY env (env wins)
 # api_key = "..."
+
 # Hosts live in presenters/<id>.toml (name / sex / voice XOR voice_clone /
 # character); a profile picks one via `presenter = "<id>"` and names its
 # radio show via `title = "..."`.
+
 # synthesize each segment sentence-by-sentence and concatenate (single MP3
 # encode at the end) instead of one TTS call per whole segment; noticeably
 # better prosody/pacing on longer DJ patter at the cost of more provider
@@ -204,28 +222,35 @@ backend = "claude_cli"
 # default). Default false.
 # chunk = true
 
+
 [jerrybase]
 # vendored offline set-structure evidence (break anchoring +
 # set-count/venue/multi-event tripwires); set false to ignore the dataset
 # entirely
 enabled = true
 
+
 [winnow]
 # review-fetch budget: when more survivors than this, the best-evidenced are
 # sampled for scoring
 max_metadata_fetch = 40
 
+
 [artists]
 # hide artists below these floors from the index
 min_recordings = 25
 min_downloads = 50000
+
 # LLM artist-match budget for artist-less queries
 max_matched = 20
+
 
 [structure]
 # hold single-set shows longer than this for review
 guard_min_minutes = 150
+
 align_coverage_threshold = 0.8
+
 
 # Recording selection. Taper bonuses match identifier substrings; among
 # revisions by the same taper the newest gets the full bonus, the rest half.
@@ -233,6 +258,7 @@ align_coverage_threshold = 0.8
 # Charlie Miller: community gold standard
 miller = 2.0
 seamons = 1.0
+
 
 # Era overrides for lineage scoring. Multiple [[selection.lineage_eras]]
 # blocks are allowed; the first whose collection and (inclusive) date window
