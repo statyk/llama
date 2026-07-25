@@ -80,7 +80,8 @@ Everything lives under `~/.llama/` (configurable as `root` in
     ├── llm-failure.txt          # raw LLM output if a task failed validation
     └── package/                 # the deliverable
         ├── manifest.json        # schema v2: tracks, sets, durations, context
-        ├── playlist.m3u
+        ├── playlist.m3u         # music-only play order
+        ├── broadcast.m3u        # voiced shows only: DJ audio interleaved
         ├── audio/               # verified, tagged tracks
         ├── research.md
         ├── reviews.md
@@ -136,7 +137,7 @@ summarizes per-run show counts. Both are in the command reference below.
 | research | yes | `research.md` | Deep web research on the specific performance |
 | vet | yes | `vetting.json` | Extracts the research's factual claims; deterministic grounding check against the setlist and date |
 | synthesize | yes | `dj-notes.*` | On by default (`--no-script` skips): verbatim DJ script, factually guarded against the manifest — spoken in the profile's presenter's persona when one is set, else the neutral house narrator |
-| package | no | `package/` | Downloads audio (md5-verified), tags it, checks durations, writes manifest v2 + m3u + digests; if voice is active, also synthesizes `dj-audio/` clips (Voxtral by default, or ElevenLabs) and adds the manifest's `dj_audio` block |
+| package | no | `package/` | Downloads audio (md5-verified), tags it, checks durations, writes manifest v2 + m3u + digests; if voice is active, also synthesizes `dj-audio/` clips (Voxtral by default, or ElevenLabs), adds the manifest's `dj_audio` block, and writes a `broadcast.m3u` with the DJ audio interleaved into play order |
 
 Winnow's philosophy: the LMA archives everything, so mere presence means
 nothing, and LMA reviews skew toward people who attended the show. The

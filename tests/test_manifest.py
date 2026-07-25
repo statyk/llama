@@ -1,5 +1,10 @@
-from llama.manifest import build_manifest, m3u_text
-from llama.models import DJNotes, ManifestTrack, Show, Track
+from llama.manifest import (
+    broadcast_m3u_text,
+    build_manifest,
+    interleave_broadcast,
+    m3u_text,
+)
+from llama.models import DJAudio, DJNotes, ManifestTrack, Show, Track
 
 
 def make_show():
@@ -45,6 +50,36 @@ def test_m3u_text():
     lines = text.splitlines()
     assert lines[0] == "#EXTM3U"
     assert lines[1] == "audio/01 - Morning Dew.mp3"
+    assert text.endswith("\n")
+
+
+def make_dj_audio():
+    return DJAudio(
+        set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
+        outro="dj-audio/99-outro.mp3",
+    )
+
+
+def test_interleave_broadcast_slots_leadins_and_outro():
+    # Each set's lead-in precedes that set's first track; the encore (no
+    # set_intros key) gets none; the outro closes.
+    assert interleave_broadcast(make_packaged(), make_dj_audio()) == [
+        "dj-audio/set1-intro.mp3",
+        "audio/01 - Morning Dew.mp3",
+        "dj-audio/set2-intro.mp3",
+        "audio/02 - Dark Star.mp3",
+        "audio/03 - Johnny B. Goode.mp3",  # encore: plays straight into the outro
+        "dj-audio/99-outro.mp3",
+    ]
+
+
+def test_broadcast_m3u_text_wraps_interleaved_paths():
+    text = broadcast_m3u_text(make_packaged(), make_dj_audio())
+    lines = text.splitlines()
+    assert lines[0] == "#EXTM3U"
+    assert lines[1] == "dj-audio/set1-intro.mp3"
+    assert lines[2] == "audio/01 - Morning Dew.mp3"
+    assert lines[-1] == "dj-audio/99-outro.mp3"
     assert text.endswith("\n")
 
 

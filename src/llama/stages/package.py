@@ -6,7 +6,7 @@ import wave
 from pathlib import Path
 
 from llama.audio import packaged_filename, read_duration, tag_audio
-from llama.manifest import build_manifest, m3u_text
+from llama.manifest import broadcast_m3u_text, build_manifest, m3u_text
 from llama.models import DJAudio, DJNotes, ManifestTrack, Show, VettingResult
 from llama.status import detail
 from llama.tts.provider import SpeechError
@@ -244,6 +244,10 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = 
         dj_audio = _synthesize_dj_audio(pkg, notes, speech, force, chunk=chunk)
 
     write_artifact(pkg / "playlist.m3u", m3u_text([t.filename for t in packaged]))
+    if dj_audio is not None:
+        # Broadcast order: DJ lead-ins/outro interleaved with the music; the
+        # music-only playlist.m3u above is left untouched.
+        write_artifact(pkg / "broadcast.m3u", broadcast_m3u_text(packaged, dj_audio))
     if show_ws.dj_notes_md.exists():
         write_artifact(pkg / "dj-notes.md", show_ws.dj_notes_md.read_text())
     # Manifest last: it is the package's "outputs written only on success" marker.

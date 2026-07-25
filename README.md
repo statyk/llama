@@ -206,7 +206,9 @@ See `docs/superpowers/specs/2026-07-14-llama-design.md` for the design.
 A delivered show package contains:
 
 - `audio/` — verified, tagged tracks (`01 - Morning Dew.mp3`, ...)
-- `playlist.m3u`
+- `playlist.m3u` — music-only play order
+- `broadcast.m3u` — voiced shows only: playlist with the `dj-audio/` clips
+  interleaved (each set's lead-in before its first track, outro last)
 - `manifest.json` — `schema_version: 2`; tracks, set breaks, durations,
   source lineage, `show.context`, pointers `research` / `reviews`, and
   `research_vetted`
