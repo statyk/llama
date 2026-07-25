@@ -38,9 +38,15 @@ class FakeSpeechProvider:
         self.model = "fake-model"
         self.fail = fail
         self.calls: list[str] = []
+        # Per-call (previous_text, next_text) context, parallel to self.calls,
+        # so tests can assert the chunked path threads neighbor text through.
+        self.context: list[tuple[str | None, str | None]] = []
 
-    def synthesize(self, text: str, fmt: str = "mp3") -> bytes:
+    def synthesize(self, text: str, fmt: str = "mp3", *,
+                   previous_text: str | None = None,
+                   next_text: str | None = None) -> bytes:
         self.calls.append(text)
+        self.context.append((previous_text, next_text))
         if self.fail:
             raise SpeechError("FakeSpeechProvider armed to fail")
         return SILENT_WAV if fmt == "wav" else SILENT_MP3

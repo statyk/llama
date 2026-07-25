@@ -1,5 +1,13 @@
 Write on-air DJ notes for a full-concert radio broadcast. {{style}}
 
+Write for the ear, not the page: this script is read aloud by a synthetic
+voice that puts the stress wherever the phrasing leads. Build each sentence so
+the word that carries its point — the contrast, the surprise, the name — falls
+at a natural stress position (usually near a clause or sentence end) rather
+than buried mid-clause. Prefer wording where a listener's stress lands right
+without any markup; e.g. "it wasn't even their best show that same week" (stress
+on "week"), not a construction that invites stress on the wrong word.
+
 Show data (JSON):
 {{show_json}}
 

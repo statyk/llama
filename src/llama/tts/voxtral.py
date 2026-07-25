@@ -57,13 +57,20 @@ class VoxtralProvider:
             body["voice_id"] = self._preset
         return body
 
-    def synthesize(self, text: str, fmt: str = "mp3") -> bytes:
+    def synthesize(self, text: str, fmt: str = "mp3", *,
+                   previous_text: str | None = None,
+                   next_text: str | None = None) -> bytes:
         """fmt="wav" requests response_format="wav" instead of "mp3", for the
         chunked-synthesis path (package.py _synthesize_chunked): callers get
         PCM-in-a-WAV-container bytes they can read with stdlib `wave` and
         concatenate before one MP3 encode. Confirmed against a live Voxtral
         call: it returns the same base64 `audio_data` JSON envelope as the
         mp3 path, just with WAV bytes inside.
+
+        previous_text/next_text are accepted for interface parity but ignored:
+        Mistral's /v1/audio/speech has no context/continuation field, so each
+        chunk is unavoidably synthesized cold (verified against Mistral's TTS
+        API docs, 2026-07). Cross-chunk prosody conditioning is ElevenLabs-only.
         """
         if len(text) > MAX_INPUT_CHARS:
             raise SpeechError(f"DJ segment too long for Voxtral "
