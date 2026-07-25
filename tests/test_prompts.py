@@ -26,6 +26,14 @@ def test_prompt_loads_with_placeholders(name, placeholders):
     assert len(text) > 200  # a real prompt, not a stub
 
 
+def test_synthesize_prompt_guides_spoken_stress():
+    # The script is spoken by a TTS voice that infers emphasis from phrasing
+    # (Voxtral has no emphasis markup); the prompt must steer toward sentences
+    # whose focus word carries the natural stress rather than burying it.
+    text = load_prompt("synthesize")
+    assert "stress" in text.lower()
+
+
 def test_vet_research_prompt_excludes_context_mentions():
     text = load_prompt("vet_research")
     assert text.count("Exclude") >= 2  # once for songs, once for dates
