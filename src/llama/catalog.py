@@ -9,8 +9,8 @@ from pathlib import Path
 
 from llama.errors import LlamaError
 from llama.ledger import Ledger
-from llama.models import Provenance, Show
-from llama.workspace import ShowWorkspace, read_model
+from llama.models import Overrides, Provenance, Show
+from llama.workspace import ShowWorkspace, read_json, read_model, read_overrides
 
 
 class CatalogError(LlamaError):
@@ -33,6 +33,8 @@ class CatalogEntry:
     provenance: Provenance | None = None
     artist: str = ""
     date: str = ""
+    voiced: bool | None = None
+    overrides: Overrides = field(default_factory=Overrides)
 
 
 # (artifact attribute, depth, state name) from shallowest to deepest.
@@ -71,6 +73,18 @@ def derive_state(ws: ShowWorkspace, delivered: set[str]) -> tuple[str, list[str]
     return state, []
 
 
+def derive_voiced(ws: ShowWorkspace) -> bool | None:
+    """True/False once a package exists (from the manifest's dj_audio block,
+    falling back to a non-empty dj-audio/ dir); None for a pre-package show."""
+    manifest = ws.package_dir / "manifest.json"
+    if not manifest.exists():
+        return None
+    if read_json(manifest).get("dj_audio") is not None:
+        return True
+    audio = ws.package_dir / "dj-audio"
+    return bool(audio.is_dir() and any(audio.glob("*.mp3")))
+
+
 def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
     delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
     entries = []
@@ -88,8 +102,23 @@ def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
         elif prov is not None:
             artist, date = prov.candidate.collection, prov.candidate.date
         entries.append(CatalogEntry(slug=d.name, ws=ws, state=state, flags=flags,
-                                    provenance=prov, artist=artist, date=date))
+                                    provenance=prov, artist=artist, date=date,
+                                    voiced=derive_voiced(ws),
+                                    overrides=read_overrides(ws)))
     return entries
+
+
+def select_shows(entries, *, states=None, voiced=None, artist=None, run=None):
+    out = list(entries)
+    if states:
+        out = [e for e in out if e.state in states]
+    if voiced is not None:
+        out = [e for e in out if e.voiced is voiced]
+    if artist:
+        out = [e for e in out if artist.lower() in e.artist.lower()]
+    if run:
+        out = [e for e in out if e.provenance and e.provenance.run == run]
+    return out
 
 
 def _resolve(name: str, candidates: list[str], kind: str) -> str:
