@@ -227,6 +227,9 @@ backend = "claude_cli"
 
 # bed music (instrumental) played UNDER the DJ voice on voiced shows; must be
 # a 24kHz mono 16-bit WAV. Per-presenter override via the presenter's `bed`.
+# llama never converts audio; prepare the file once with an external tool, e.g.
+# `ffmpeg -i in.mp3 -ac 1 -ar 24000 -c:a pcm_s16le bed.wav` (or sox). A wrong
+# format or missing file hard-fails that show's package.
 # bed = "/path/to/bed.wav"
 # bed loudness under the voice, in dB (negative = quieter); default -20
 # bed_gain_db = -20.0

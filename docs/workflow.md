@@ -322,6 +322,12 @@ anything else, or a missing file, hard-fails that show's package rather
 than shipping silently-wrong audio. Mixing is plain PCM math done with
 `numpy` (a new dependency) — no `ffmpeg` is involved.
 
+`llama` never converts audio, so prepare the bed in the required format once
+with any external tool, e.g. `ffmpeg -i in.mp3 -ac 1 -ar 24000 -c:a pcm_s16le
+bed.wav` (or `sox in.mp3 -r 24000 -c 1 -b 16 bed.wav`); these are one-time prep
+tools, not runtime dependencies. Check with `ffprobe`/`soxi` that the result is
+`pcm_s16le`, 1 channel, 24000 Hz before pointing config at it.
+
 **Re-voicing an already-packaged show:** `llama redo <show> --from package
 --voice` re-voices with the show's recorded voice (or, if it had none yet,
 the current house `[tts] voice`, or the profile's presenter's voice).

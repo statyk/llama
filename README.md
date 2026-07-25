@@ -318,6 +318,21 @@ else (wrong sample rate, stereo, wrong bit depth) or a missing file
 hard-fails the package for that show. Mixing is pure PCM math via `numpy`
 (a new dependency); no `ffmpeg` is involved.
 
+*Preparing a bed file.* `llama` never converts audio — produce the required
+24kHz mono 16-bit WAV once with any external tool and point `[tts] bed` (or a
+presenter's `bed`) at the result. For example, with ffmpeg:
+
+```
+ffmpeg -i your-track.mp3 -ac 1 -ar 24000 -c:a pcm_s16le bed.wav
+```
+
+or with sox: `sox your-track.mp3 -r 24000 -c 1 -b 16 bed.wav`
+(`-ac 1`/`-c 1` = mono, `-ar 24000`/`-r 24000` = 24kHz, `pcm_s16le`/`-b 16` =
+16-bit). These tools are only for this one-time prep — they are **not** runtime
+dependencies of `llama`. Verify a file with
+`ffprobe bed.wav` (or `soxi bed.wav`): it should report `pcm_s16le`, `1
+channel`, `24000 Hz`.
+
 ### Downstream synthesis contract
 
 If your DJ (human or LLM) writes its own spoken copy from this package, it
