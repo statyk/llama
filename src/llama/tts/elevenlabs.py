@@ -36,21 +36,34 @@ class ElevenLabsProvider:
                               "set ELEVENLABS_API_KEY or [tts] api_key")
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
 
-    def synthesize(self, text: str, fmt: str = "mp3") -> bytes:
+    def synthesize(self, text: str, fmt: str = "mp3", *,
+                   previous_text: str | None = None,
+                   next_text: str | None = None) -> bytes:
         """fmt="wav" requests headerless PCM from ElevenLabs (output_format
         pcm_24000) and wraps it in a WAV container, for the chunked-synthesis
         path (package.py _synthesize_chunked) so callers can use the stdlib
         `wave` module uniformly across backends. See CHUNK_PCM_RATE above.
+
+        previous_text/next_text (chunked mode): the adjacent chunks' text.
+        ElevenLabs conditions synthesis on them so prosody flows across chunk
+        boundaries instead of each chunk being spoken cold. A side that has no
+        neighbor (first/last chunk) is left out of the body rather than sent as
+        null.
         """
         params = {}
         headers = {"xi-api-key": self.api_key, "accept": "audio/mpeg"}
         if fmt == "wav":
             params["output_format"] = f"pcm_{CHUNK_PCM_RATE}"
             headers["accept"] = "audio/pcm"
+        body = {"text": text, "model_id": self.model}
+        if previous_text is not None:
+            body["previous_text"] = previous_text
+        if next_text is not None:
+            body["next_text"] = next_text
         try:
             resp = self._client.post(
                 API_URL.format(voice_id=self.voice),
-                json={"text": text, "model_id": self.model},
+                json=body,
                 params=params,
                 headers=headers,
             )

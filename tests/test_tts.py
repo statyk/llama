@@ -61,6 +61,39 @@ def test_elevenlabs_request_shape():
                             "model_id": "eleven_multilingual_v2"}
 
 
+def test_elevenlabs_includes_context_in_body():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, content=b"x")
+
+    make_provider(handler).synthesize(
+        "The middle sentence.", previous_text="What came before.",
+        next_text="What comes after.")
+    assert seen["body"] == {
+        "text": "The middle sentence.",
+        "model_id": "eleven_multilingual_v2",
+        "previous_text": "What came before.",
+        "next_text": "What comes after.",
+    }
+
+
+def test_elevenlabs_sends_only_the_context_side_provided():
+    # A first/last chunk has a neighbor on only one side; the absent side must
+    # be omitted, not sent as null (ElevenLabs treats present-but-null oddly).
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, content=b"x")
+
+    make_provider(handler).synthesize("Final chunk.", previous_text="Prior chunk.")
+    assert seen["body"] == {"text": "Final chunk.", "model_id": "eleven_multilingual_v2",
+                            "previous_text": "Prior chunk."}
+    assert "next_text" not in seen["body"]
+
+
 def test_elevenlabs_env_key_wins_over_config_key(monkeypatch):
     monkeypatch.setenv("ELEVENLABS_API_KEY", "k-env")
     p = ElevenLabsProvider(voice="v", model="m", api_key="k-config")

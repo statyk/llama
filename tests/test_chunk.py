@@ -64,6 +64,16 @@ def test_split_merges_short_fragment():
     assert _split_sentences(text) == [text]
 
 
+def test_split_merges_short_trailing_fragment_backward():
+    # A short final sentence after a long one must fold into the previous
+    # chunk rather than be synthesized as its own tiny, context-free clip -
+    # short isolated inputs make the TTS backend hallucinate phoneme salad
+    # (observed live: GD 1977-05-08 set-2 lead-in ending "Here's set two.").
+    text = ("The second set is where the legend really lives and breathes. "
+            "Here's set two.")
+    assert _split_sentences(text) == [text]
+
+
 def test_split_single_sentence():
     assert _split_sentences("Just one sentence here, folks.") == [
         "Just one sentence here, folks."]
@@ -102,13 +112,32 @@ def test_synthesize_chunked_multi_sentence_produces_one_valid_mp3():
     data = _synthesize_chunked(text, speech)
     assert len(data) > 0
     assert data[:3] == b"ID3" or data[0] == 0xFF  # valid MP3 framing
-    # 3 sentences -> 3 separate fmt="wav" synthesize calls.
-    assert len(speech.calls) == 3
+    # Splits into 3 raw sentences, but the short trailing "Let's dig in!"
+    # (< 20 chars) folds back into the prior sentence rather than becoming its
+    # own tiny clip -> 2 fmt="wav" synthesize calls.
+    assert len(speech.calls) == 2
     assert speech.calls == [
         "Good evening, night owls.",
-        "It's June 10th, 1973 at RFK Stadium.",
-        "Let's dig in!",
+        "It's June 10th, 1973 at RFK Stadium. Let's dig in!",
     ]
+
+
+def test_synthesize_chunked_threads_neighbor_text_as_context():
+    speech = FakeSpeechProvider()
+    text = ("First sentence here, plenty long. Second sentence here, also long. "
+            "Third one here, quite long too.")
+    _synthesize_chunked(text, speech)
+    c1, c2, c3 = speech.calls
+    # Each chunk is synthesized with its actual neighbors as context so a
+    # context-aware backend keeps prosody continuous across the boundaries;
+    # the first/last chunk has None on its open side.
+    assert speech.context == [(None, c2), (c1, c3), (c2, None)]
+
+
+def test_synthesize_chunked_single_sentence_has_no_context():
+    speech = FakeSpeechProvider()
+    _synthesize_chunked("Just one line tonight, spoken alone.", speech)
+    assert speech.context == [(None, None)]
 
 
 def test_synthesize_chunked_single_sentence_still_calls_wav_once():
@@ -133,7 +162,9 @@ class _NonSixteenBitSpeech:
     voice = "x"
     model = "y"
 
-    def synthesize(self, text: str, fmt: str = "mp3") -> bytes:
+    def synthesize(self, text: str, fmt: str = "mp3", *,
+                   previous_text: str | None = None,
+                   next_text: str | None = None) -> bytes:
         return _wav_bytes(sampwidth=1)
 
 
@@ -235,10 +266,10 @@ def test_chunk_true_synthesizes_via_chunked_path(tmp_path: Path):
     assert len(data) > 0
     assert data[:3] == b"ID3" or data[0] == 0xFF  # valid MP3 framing
 
-    # The set 1 lead-in splits into 3 sentences; the outro is 1. Chunked mode makes
-    # one fmt="wav" synthesize call per sentence, so total calls (4) exceed
-    # the 2 segments actually rendered.
-    assert len(speech.calls) == 4
+    # The set 1 lead-in yields 2 chunks (its short trailing "Let's dig in!"
+    # folds back), the outro is 1. Chunked mode makes one fmt="wav" synthesize
+    # call per chunk, so total calls (3) exceed the 2 segments actually rendered.
+    assert len(speech.calls) == 3
 
 
 def test_chunk_false_uses_single_call_per_segment(tmp_path: Path):

@@ -35,8 +35,12 @@ def _split_sentences(text: str) -> list[str]:
     split after common abbreviations, single-letter initials, or decimals
     (a digit immediately before/after the break). Short fragments (< ~20
     chars, e.g. "Dr." mis-split, or "Wow!" before a stray break) are merged
-    into the previous sentence. Not linguistically rigorous - good enough
-    for DJ patter, not a general-purpose sentence segmenter.
+    with an adjacent sentence: a short *previous* chunk absorbs the next part,
+    and a short *current* part (including a short trailing one like "Here's
+    set two.") folds back into the previous chunk. The latter matters because
+    a tiny, context-free fragment synthesized as its own TTS clip makes the
+    backend hallucinate phoneme salad. Not linguistically rigorous - good
+    enough for DJ patter, not a general-purpose sentence segmenter.
     """
     raw_parts = [p.strip() for p in _SENTENCE_SPLIT_RE.split(text.strip()) if p.strip()]
     sentences: list[str] = []
@@ -48,7 +52,8 @@ def _split_sentences(text: str) -> list[str]:
             is_initial = (len(prev_last_word) == 2 and prev_last_word[0].isalpha()
                          and prev_last_word[1] == ".")
             is_decimal = prev_last_word[:-1].isdigit() and part[:1].isdigit()
-            if is_abbrev or is_initial or is_decimal or len(prev) < _MIN_FRAGMENT_LEN:
+            too_short = len(prev) < _MIN_FRAGMENT_LEN or len(part) < _MIN_FRAGMENT_LEN
+            if is_abbrev or is_initial or is_decimal or too_short:
                 sentences[-1] = f"{prev} {part}"
                 continue
         sentences.append(part)
@@ -96,7 +101,13 @@ def _synthesize_chunked(text: str, speech) -> bytes:
     frames: list[bytes] = []
     framerate = channels = sampwidth = None
     for i, sentence in enumerate(sentences):
-        wav_bytes = speech.synthesize(sentence, fmt="wav")
+        # Give each chunk its neighbors as context so a context-aware backend
+        # (ElevenLabs) keeps prosody continuous across the boundary; backends
+        # without such a field (Voxtral) ignore these.
+        previous_text = sentences[i - 1] if i > 0 else None
+        next_text = sentences[i + 1] if i < len(sentences) - 1 else None
+        wav_bytes = speech.synthesize(sentence, fmt="wav",
+                                      previous_text=previous_text, next_text=next_text)
         with wave.open(io.BytesIO(wav_bytes), "rb") as w:
             if framerate is None:
                 framerate, channels, sampwidth = w.getframerate(), w.getnchannels(), w.getsampwidth()
