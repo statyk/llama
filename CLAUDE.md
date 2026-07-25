@@ -117,7 +117,11 @@ failed validation's final retry escalates one tier (pins never escalate).
   context-free clip like "Here's set two." makes the backend hallucinate),
   and passes each chunk's neighbor text to the provider as context — ElevenLabs
   conditions on `previous_text`/`next_text` for prosody continuity across
-  boundaries; Voxtral has no such field and ignores it.
+  boundaries; Voxtral has no such field and ignores it. A `[tts] bed`
+  (per-presenter override `bed` in `presenters/<id>.toml`) mixes a
+  low instrumental bed under each DJ clip — pre-roll, bed-under-voice, then tail,
+  at `[tts] bed_gain_db` (default -20 dB); beds must be 24kHz mono 16-bit WAV
+  (hard-fail on mismatch), mixed via numpy (no ffmpeg).
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,

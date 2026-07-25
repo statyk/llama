@@ -309,6 +309,19 @@ run (no network in the dev sandbox it was built in) — verify on a real
 chunked show, and if warnings persist the documented next step is
 resampling to 44.1/48kHz before encoding (not yet implemented).
 
+**`[tts] bed`: instrumental bed under the DJ voice (default off).** A low
+bed can play under every voiced clip: pre-roll (bed alone), bed-under-voice
+for the duration of the speech, then a tail (bed alone), attenuated by
+`[tts] bed_gain_db` (default **-20 dB**) with a short fade in/out. Set a
+station-wide bed with `[tts] bed = "/path/to/bed.wav"`, or give a specific
+host its own by setting `bed = "..."` in that presenter's
+`presenters/<id>.toml` — a presenter's own bed overrides the station
+default (the gain is always the station `bed_gain_db`, there's no
+per-presenter gain). The bed file must be **24kHz mono 16-bit WAV**;
+anything else, or a missing file, hard-fails that show's package rather
+than shipping silently-wrong audio. Mixing is plain PCM math done with
+`numpy` (a new dependency) — no `ffmpeg` is involved.
+
 **Re-voicing an already-packaged show:** `llama redo <show> --from package
 --voice` re-voices with the show's recorded voice (or, if it had none yet,
 the current house `[tts] voice`, or the profile's presenter's voice).

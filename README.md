@@ -306,6 +306,18 @@ rather than a fixed 128kbps, to avoid an unusual bitrate/sample-rate
 combination; if `ffmpeg -v error` still reports anything on chunked clips,
 the next step is resampling to 44.1/48kHz before encoding.
 
+**Bed music (`[tts] bed`, default off).** A low instrumental bed can play
+under each `dj-audio/` clip: pre-roll (music alone), then the bed continues
+quietly under the voice, then a short tail (music alone) — attenuated by
+`[tts] bed_gain_db` (default **-20 dB**) and faded in/out. Set a station
+default with `[tts] bed = "/path/to/bed.wav"`, or override per host with
+`bed = "..."` in a presenter's `presenters/<id>.toml` (a presenter's own bed
+wins over the station default; the gain is always the station
+`bed_gain_db`). The bed file **must be 24kHz mono 16-bit WAV** — anything
+else (wrong sample rate, stereo, wrong bit depth) or a missing file
+hard-fails the package for that show. Mixing is pure PCM math via `numpy`
+(a new dependency); no `ffmpeg` is involved.
+
 ### Downstream synthesis contract
 
 If your DJ (human or LLM) writes its own spoken copy from this package, it

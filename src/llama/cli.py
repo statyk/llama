@@ -28,6 +28,7 @@ from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
 from llama.tts import speech_provider_for
+from llama.tts.bed import Bed
 from llama.tts.provider import SpeechError
 from llama.util import slugify
 from llama.workspace import RunWorkspace, read_model, read_model_list, write_artifact
@@ -134,6 +135,17 @@ def _speech_for(config: Config, voice: str | None, presenter: Presenter | None):
     return speech_provider_for(config, voice, clone_ref=clone)
 
 
+def resolve_bed(config: Config, presenter: Presenter | None) -> Bed | None:
+    """The bed to play under this run's DJ voice: a presenter's own bed if set,
+    else the station default. Gain is always the station [tts] bed_gain_db. A
+    bed is only used when the run's voice is active (the caller passes it only
+    then). None = no bed."""
+    path = (presenter.bed if presenter is not None and presenter.bed else config.tts.bed)
+    if not path:
+        return None
+    return Bed(Path(path), config.tts.bed_gain_db)
+
+
 RATIONALE_WIDTH = 90   # wrap column for the indented rationale block
 RATIONALE_LINES = 3    # default cap; --full-rationale lifts it
 
@@ -232,6 +244,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
                                    force=force, script=script, voice=voice, speech=speech,
                                    chunk=config.tts.chunk,
+                                   bed=resolve_bed(config, presenter),
                                    presenter=presenter, title=title,
                                    setlistfm=setlistfm,
                                    structure_cfg=config.structure, selection_cfg=config.selection,
@@ -613,6 +626,7 @@ def redo(
         pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
                            prov.run, config.audio_format, script=effective_script,
                            voice=effective_voice, speech=speech, chunk=config.tts.chunk,
+                           bed=resolve_bed(config, presenter),
                            presenter=presenter, title=prov.title,
                            setlistfm=make_client(config), structure_cfg=config.structure,
                            jerrybase_enabled=config.jerrybase.enabled,

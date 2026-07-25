@@ -32,6 +32,9 @@ class TTSConfig(BaseModel):
     chunk: bool = False                 # synthesize each DJ-notes segment sentence-by-
                                          # sentence and concatenate, instead of one call
                                          # per segment (better prosody; needs lameenc)
+    bed: str | None = None              # path to a 24kHz mono 16-bit WAV played
+                                         # under the DJ voice; None = no bed
+    bed_gain_db: float = -20.0          # bed loudness under the voice (station-level)
 
 
 class JerrybaseConfig(BaseModel):
@@ -212,7 +215,7 @@ backend = "claude_cli"
 # api_key = "..."
 
 # Hosts live in presenters/<id>.toml (name / sex / voice XOR voice_clone /
-# character); a profile picks one via `presenter = "<id>"` and names its
+# character / bed); a profile picks one via `presenter = "<id>"` and names its
 # radio show via `title = "..."`.
 
 # synthesize each segment sentence-by-sentence and concatenate (single MP3
@@ -221,6 +224,15 @@ backend = "claude_cli"
 # round-trips per segment. Requires the `lameenc` dependency (installed by
 # default). Default false.
 # chunk = true
+
+# bed music (instrumental) played UNDER the DJ voice on voiced shows; must be
+# a 24kHz mono 16-bit WAV. Per-presenter override via the presenter's `bed`.
+# bed = "/path/to/bed.wav"
+# bed loudness under the voice, in dB (negative = quieter); default -20
+# bed_gain_db = -20.0
+# because mixing needs PCM, bed-active clips are re-encoded to MP3 (24kHz
+# mono, ~64 kbps via lameenc) rather than shipping the provider's native
+# MP3 like unbedded clips do - a small, expected bitrate difference.
 
 
 [jerrybase]

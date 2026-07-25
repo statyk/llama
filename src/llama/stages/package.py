@@ -10,6 +10,7 @@ from llama.manifest import broadcast_m3u_text, build_manifest, m3u_text
 from llama.models import DJAudio, DJNotes, ManifestTrack, Show, VettingResult
 from llama.speech_text import Lexicon, normalize_for_speech
 from llama.status import detail
+from llama.tts.bed import Bed, load_bed_pcm, mix_bed
 from llama.tts.provider import SpeechError
 from llama.util import reviews_digest
 from llama.workspace import ShowWorkspace, read_json, read_model, write_artifact
@@ -79,25 +80,21 @@ def _bitrate_for_rate(framerate: int) -> int:
     return 128
 
 
-def _synthesize_chunked(text: str, speech) -> bytes:
-    """Sentence-by-sentence synthesis + PCM concat + single MP3 encode.
+def _encode_mp3(pcm: bytes, framerate: int, channels: int) -> bytes:
+    """Encode raw int16 PCM to MP3 via lameenc (mono-speech bitrate by rate)."""
+    import lameenc  # lazy: only the PCM paths need it
+    encoder = lameenc.Encoder()
+    encoder.set_bit_rate(_bitrate_for_rate(framerate))
+    encoder.set_in_sample_rate(framerate)
+    encoder.set_channels(channels)
+    encoder.set_quality(2)
+    return encoder.encode(pcm) + encoder.flush()
 
-    Splits `text`, synthesizes each sentence as WAV (fmt="wav"), concatenates
-    the raw PCM frames with ~180ms of inserted silence between sentences,
-    then encodes the whole thing to MP3 once via lameenc. Concatenating raw
-    PCM (rather than stitching MP3 files) avoids frame-boundary/join
-    artifacts between clips.
 
-    NOTE on the bitrate choice: _bitrate_for_rate's mapping is a best-effort
-    fix based on standard LAME/MPEG rate-family guidance (matching the
-    bitrate family to the sample rate), not confirmed against a real
-    `ffmpeg -v error` pass on live chunked audio (no network in the build
-    sandbox). The owner should verify a real chunked run comes back clean;
-    if warnings persist, the documented next step is resampling to 44.1kHz
-    or 48kHz (an MPEG-1 rate) before encoding - out of scope here.
-    """
-    import lameenc  # lazy: only the chunked path needs it
-
+def _chunked_pcm(text: str, speech) -> tuple[bytes, int, int]:
+    """Sentence-by-sentence synthesis + PCM concat (no encode). Returns
+    (pcm, framerate, channels). See _synthesize_chunked for the rationale;
+    this is its PCM half, shared with the bed path."""
     sentences = _split_sentences(text)
     frames: list[bytes] = []
     framerate = channels = sampwidth = None
@@ -121,16 +118,43 @@ def _synthesize_chunked(text: str, speech) -> bytes:
         if i < len(sentences) - 1:
             silence_frames = int(framerate * (_SILENCE_MS / 1000))
             frames.append(bytes(silence_frames * channels * sampwidth))
+    return b"".join(frames), framerate, channels
 
-    pcm = b"".join(frames)
-    encoder = lameenc.Encoder()
-    encoder.set_bit_rate(_bitrate_for_rate(framerate))
-    encoder.set_in_sample_rate(framerate)
-    encoder.set_channels(channels)
-    encoder.set_quality(2)
-    mp3_data = encoder.encode(pcm)
-    mp3_data += encoder.flush()
-    return mp3_data
+
+def _synthesize_chunked(text: str, speech) -> bytes:
+    """Sentence-by-sentence synthesis + PCM concat + single MP3 encode.
+
+    Splits `text`, synthesizes each sentence as WAV (fmt="wav"), concatenates
+    the raw PCM frames with ~180ms of inserted silence between sentences,
+    then encodes the whole thing to MP3 once via lameenc. Concatenating raw
+    PCM (rather than stitching MP3 files) avoids frame-boundary/join
+    artifacts between clips.
+
+    NOTE on the bitrate choice: _bitrate_for_rate's mapping is a best-effort
+    fix based on standard LAME/MPEG rate-family guidance (matching the
+    bitrate family to the sample rate), not confirmed against a real
+    `ffmpeg -v error` pass on live chunked audio (no network in the build
+    sandbox). The owner should verify a real chunked run comes back clean;
+    if warnings persist, the documented next step is resampling to 44.1kHz
+    or 48kHz (an MPEG-1 rate) before encoding - out of scope here.
+    """
+    pcm, framerate, channels = _chunked_pcm(text, speech)
+    return _encode_mp3(pcm, framerate, channels)
+
+
+def _segment_pcm(text: str, speech, chunk: bool) -> tuple[bytes, int, int]:
+    """One DJ segment's voice as raw int16 PCM (pcm, framerate, channels),
+    from either the chunked concat or a single whole-segment fmt='wav' call.
+    Used by the bed path, which needs PCM to mix before encoding."""
+    if chunk:
+        return _chunked_pcm(text, speech)
+    wav_bytes = speech.synthesize(text, fmt="wav")
+    with wave.open(io.BytesIO(wav_bytes), "rb") as w:
+        if w.getsampwidth() != 2:
+            raise SpeechError(
+                f"bed mixing requires 16-bit PCM audio from the speech backend, "
+                f"got {w.getsampwidth() * 8}-bit")
+        return w.readframes(w.getnframes()), w.getframerate(), w.getnchannels()
 
 
 def _segment_texts(notes: DJNotes) -> list[tuple[str, str]]:
@@ -142,14 +166,15 @@ def _segment_texts(notes: DJNotes) -> list[tuple[str, str]]:
 
 
 def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
-                         chunk: bool = False, lexicon: Lexicon | None = None) -> DJAudio:
+                         chunk: bool = False, lexicon: Lexicon | None = None,
+                         bed: Bed | None = None) -> DJAudio:
     """One MP3 per DJNotes segment under package/dj-audio/.
 
     Segments are keyed by sha256(the speech-normalized text + voice + model +
-    chunk) in a sidecar map (segments.json) written with the audio; matching
-    keys are skipped so a repackage never re-spends on unchanged text — and
-    editing the pronunciation lexicon or symbol rules also invalidates just
-    the affected clips. force re-renders
+    chunk [+ bed]) in a sidecar map (segments.json) written with the audio;
+    matching keys are skipped so a repackage never re-spends on unchanged
+    text — and editing the pronunciation lexicon or symbol rules also
+    invalidates just the affected clips. force re-renders
     everything. Any provider failure propagates (SpeechError): the manifest
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
@@ -160,6 +185,14 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
     single-call audio are different renders of the same text, so flipping
     [tts] chunk invalidates the affected clips and a redo re-synthesizes
     them (no --force needed).
+
+    bed (opt-in instrumental bed mixed under the voice, [tts] bed /
+    Presenter.bed): when active, the bed PCM is loaded once and mixed under
+    each segment's voice PCM before a single MP3 encode (see _segment_pcm /
+    mix_bed). The bed's content hash + gain are folded into the cache key so
+    changing the bed file or its gain re-renders affected clips; a no-bed
+    run's key is unaffected (see bed_key below), so existing no-bed caches
+    stay valid.
     """
     lexicon = lexicon or Lexicon.empty()
     audio_dir = pkg / "dj-audio"
@@ -167,16 +200,35 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
     sidecar = audio_dir / "segments.json"
     cached: dict[str, str] = json.loads(sidecar.read_text()) if sidecar.exists() else {}
     keys: dict[str, str] = {}
+    bed_pcm = bed_rate = None
+    bed_key = ""
+    if bed is not None:
+        bed_pcm, bed_rate, _, _ = load_bed_pcm(bed.path)
+        bed_key = f"\nbed={hashlib.sha256(bed_pcm).hexdigest()[:16]}:{bed.gain_db}"
     for stem, text in _segment_texts(notes):
         spoken = normalize_for_speech(text, lexicon)
         filename = f"{stem}.mp3"
         dest = audio_dir / filename
         key = hashlib.sha256(
-            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}".encode()).hexdigest()
+            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}{bed_key}".encode()
+        ).hexdigest()
         keys[filename] = key
         if force or not dest.exists() or cached.get(filename) != key:
             detail(f"synthesizing {filename}")
-            data = _synthesize_chunked(spoken, speech) if chunk else speech.synthesize(spoken)
+            if bed is not None:
+                pcm, rate, channels = _segment_pcm(spoken, speech, chunk)
+                if rate != bed_rate:
+                    raise SpeechError(
+                        f"bed music sample rate {bed_rate}Hz does not match the "
+                        f"voice audio ({rate}Hz)")
+                if channels != 1:
+                    raise SpeechError("bed mixing requires mono voice audio")
+                data = _encode_mp3(mix_bed(pcm, bed_pcm, rate, gain_db=bed.gain_db),
+                                   rate, channels)
+            elif chunk:
+                data = _synthesize_chunked(spoken, speech)
+            else:
+                data = speech.synthesize(spoken)
             tmp = dest.with_name(dest.name + ".part")
             tmp.write_bytes(data)
             tmp.replace(dest)
@@ -193,7 +245,7 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
 
 def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = None,
                 force: bool = False, speech=None, chunk: bool = False,
-                lexicon: Lexicon | None = None) -> Path:
+                lexicon: Lexicon | None = None, bed: Bed | None = None) -> Path:
     pkg = show_ws.package_dir
     manifest_path = pkg / "manifest.json"
     if manifest_path.exists() and not force:
@@ -247,7 +299,8 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = 
         if notes is None:
             raise SpeechError("voice is active but this show has no DJ script; "
                               "rerun with the script enabled")
-        dj_audio = _synthesize_dj_audio(pkg, notes, speech, force, chunk=chunk, lexicon=lexicon)
+        dj_audio = _synthesize_dj_audio(pkg, notes, speech, force, chunk=chunk,
+                                        lexicon=lexicon, bed=bed)
 
     write_artifact(pkg / "playlist.m3u", m3u_text([t.filename for t in packaged]))
     if dj_audio is not None:
