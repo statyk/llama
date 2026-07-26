@@ -386,3 +386,22 @@ def test_no_adoption_when_songs_do_not_ground(tmp_path: Path):
             " a year-only placeholder") in result.flags
     assert any("unknown song" in f for f in result.flags)
     assert json.loads(sws.show.read_text())["date"] == "1976-01-01"
+
+
+def test_vet_does_not_adopt_over_manual_date(tmp_path):
+    # A show whose date was manually overridden must not be re-dated by vet's
+    # placeholder-adoption, even though it looks like a placeholder (YYYY-01-01):
+    # adoption is gated on date_source == "item" (vet_research.py:124).
+    ws = ShowWorkspace(tmp_path / "s")
+    show = Show(performance_id="X/2003-01-01", identifier="x", artist="X",
+                date="2003-01-01", date_source="override", item_date="2003-01-01",
+                tracks=[Track(index=1, set="1", title="A", filename="a.mp3",
+                              title_source="tags")])
+    write_artifact(ws.show, show)
+    # Same-year, unanimous alternate date - exactly the shape vet.py would
+    # otherwise adopt over a genuine "item" placeholder.
+    fake = FakeProvider(completes=[json.dumps({"asserted_dates": ["2003-03-15"]})])
+    result = run_vet_research(ws, fake, show, "research text", force=True)
+    assert result.adopted_date is None
+    assert json.loads(ws.show.read_text())["date_source"] == "override"
+    assert json.loads(ws.show.read_text())["date"] == "2003-01-01"

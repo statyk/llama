@@ -285,6 +285,53 @@ def test_show_exclude_writes_overrides_keeps_hold_prints_gather(tmp_path):
     assert "--from gather" in r.output
 
 
+def test_show_exclude_by_number_resolves_to_filename(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"},
+               needs_review=True)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--exclude", "1",
+                                "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).exclude == ["a.mp3"]   # track 1's filename
+
+
+def test_show_exclude_out_of_range_errors(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"}, needs_review=True)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--exclude", "99", "--config", cfg])
+    assert r.exit_code != 0
+    assert "track 99" in r.output or "out of range" in r.output
+
+
+def test_show_set_venue_and_title_write_overrides_route_gather(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"},
+               needs_review=True)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--set-venue", "My Hall",
+                                "--title", "1=Bertha", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.venue == "My Hall" and ov.titles == {1: "Bertha"}
+    assert "--from gather" in r.output
+
+
+def test_show_set_breaks_and_clear(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    runner.invoke(cli.app, ["show", "gratefuldead", "--set-breaks", "2,4", "--config", cfg])
+    assert read_overrides(ws).set_breaks == [2, 4]
+    runner.invoke(cli.app, ["show", "gratefuldead", "--clear-set-breaks", "--config", cfg])
+    assert read_overrides(ws).set_breaks is None
+
+
 def _approved_run(tmp_path: Path) -> tuple[str, RunWorkspace]:
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -688,6 +735,37 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     assert "sunday-dead" in listing.output
 
 
+def test_profile_artists_set_show_and_clear(tmp_path, monkeypatch):
+    from llama.llm.fake import FakeProvider
+    from llama.profiles import load_profile
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    criteria_json = json.dumps({
+        "query": "q", "collection": "GratefulDead", "artist": "Grateful Dead",
+        "date_from": None, "date_to": None, "setlist_constraints": [],
+        "soft_preferences": None, "min_avg_rating": 4.0, "min_reviews": 3, "count": 1,
+    })
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
+    assert runner.invoke(cli.app, ["profile", "add", "myprof", "q", "--config", cfg]).exit_code == 0
+
+    # offline artist resolution: echo names as identifiers
+    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache: [])
+    monkeypatch.setattr(cli, "resolve_artists",
+                        lambda index, names: [{"identifier": n, "title": n} for n in names])
+
+    r = runner.invoke(cli.app, ["profile", "artists", "myprof",
+                                "--set", "Galactic, Lettuce", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert load_profile(tmp_path, "myprof").criteria.artists == ["Galactic", "Lettuce"]
+
+    shown = runner.invoke(cli.app, ["profile", "artists", "myprof", "--config", cfg])
+    assert "Galactic" in shown.output
+
+    runner.invoke(cli.app, ["profile", "artists", "myprof", "--set", "", "--config", cfg])
+    assert load_profile(tmp_path, "myprof").criteria.artists == []
+
+
 def test_find_stamps_year_cap_into_run_criteria(tmp_path: Path, monkeypatch):
     from llama.llm.fake import FakeProvider
     from llama.models import Criteria as C
@@ -1038,6 +1116,17 @@ def test_show_resolves_by_name_and_lists_stages(tmp_path: Path):
     assert "missing" in result.output            # research.md was never written
 
 
+def test_show_tracks_lists_numbered_tracks(tmp_path: Path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--tracks", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert "tracks:" in r.output
+    assert "1." in r.output and "Morning Dew" in r.output and "a.mp3" in r.output
+
+
 def test_show_ambiguous_name_fails_loud(tmp_path: Path):
     from llama.catalog import CatalogError
 
@@ -1274,3 +1363,42 @@ def test_show_set_form_defaults_to_held(tmp_path, monkeypatch):
     build(tmp_path, "clean-one", stages={"select", "gather"}, needs_review=False)
     r = runner.invoke(cli.app, ["show", "--config", cfg])
     assert "held-one" in r.output and "clean-one" not in r.output
+
+
+def test_presenter_add_and_show(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["presenter", "add", "casey", "--name", "Casey",
+                                "--sex", "male", "--voice", "american-dj",
+                                "--character", "Warm FM veteran.", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert (tmp_path / "presenters" / "casey.toml").exists()
+    shown = runner.invoke(cli.app, ["presenter", "show", "casey", "--config", cfg])
+    assert "Casey" in shown.output and "Warm FM veteran." in shown.output
+    listed = runner.invoke(cli.app, ["presenter", "list", "--config", cfg])
+    assert "casey" in listed.output
+
+
+def test_presenter_add_refuses_overwrite_without_force(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    args = ["presenter", "add", "casey", "--name", "Casey", "--sex", "male",
+            "--voice", "american-dj", "--character", "x", "--config", cfg]
+    assert runner.invoke(cli.app, args).exit_code == 0
+    again = runner.invoke(cli.app, args)
+    assert again.exit_code != 0 and "exists" in again.output
+
+
+def test_presenter_add_character_file_and_voice_xor(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    cf = tmp_path / "c.txt"; cf.write_text("Deep tape collector.\nDry humor.")
+    r = runner.invoke(cli.app, ["presenter", "add", "deej", "--name", "DJ",
+                                "--sex", "female", "--voice-clone", "/ref.wav",
+                                "--character-file", str(cf), "--config", cfg])
+    assert r.exit_code == 0, r.output
+    # voice + voice-clone together must fail (model validator)
+    bad = runner.invoke(cli.app, ["presenter", "add", "x", "--name", "X", "--sex",
+                                  "male", "--voice", "a", "--voice-clone", "/r.wav",
+                                  "--character", "y", "--config", cfg])
+    assert bad.exit_code != 0

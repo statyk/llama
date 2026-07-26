@@ -74,3 +74,20 @@ def test_read_overrides_round_trip(tmp_path):
     write_artifact(ws.overrides, Overrides(exclude=["a.mp3"], narration="vague"))
     ov = read_overrides(ws)
     assert ov.exclude == ["a.mp3"] and ov.narration == "vague"
+
+
+def test_overrides_metadata_fields_round_trip(tmp_path):
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(
+        venue="X Hall", city="Austin, TX", date="2003-04-19",
+        titles={4: "Bertha"}, set_breaks=[9, 17]))
+    ov = read_overrides(ws)
+    assert ov.venue == "X Hall" and ov.city == "Austin, TX" and ov.date == "2003-04-19"
+    assert ov.titles == {4: "Bertha"}          # str JSON key coerced back to int
+    assert ov.set_breaks == [9, 17]
+
+
+def test_overrides_absent_metadata_defaults(tmp_path):
+    ov = read_overrides(ShowWorkspace(tmp_path / "s"))
+    assert ov.venue is None and ov.city is None and ov.date is None
+    assert ov.titles == {} and ov.set_breaks is None

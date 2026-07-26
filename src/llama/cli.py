@@ -20,7 +20,7 @@ from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
-from llama.presenters import Presenter, load_presenter
+from llama.presenters import Presenter, list_presenters, load_presenter, save_presenter
 from llama.profiles import Profile, load_profile, save_profile
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
@@ -60,6 +60,10 @@ app.add_typer(ledger_app, name="ledger", rich_help_panel="Housekeeping")
 
 config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
 app.add_typer(config_app, name="config", rich_help_panel="Housekeeping")
+
+presenter_app = typer.Typer(help="On-air hosts (presenters/<id>.toml)",
+                            pretty_exceptions_enable=False)
+app.add_typer(presenter_app, name="presenter", rich_help_panel="Discover & process")
 
 
 def _version_callback(value: bool) -> None:
@@ -494,8 +498,12 @@ def _resolve_show(config, ledger, name: str):
     return resolve_show(config.root, ledger, name)
 
 
-def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None):
-    from llama.models import Overrides
+_UNSET = object()
+
+
+def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None,
+                    venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
+                    clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False):
     from llama.workspace import read_overrides
 
     ov = read_overrides(show_ws)
@@ -503,9 +511,50 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None):
     for f in add_exclude:
         if f not in exclude:
             exclude.append(f)
-    ov = Overrides(exclude=exclude, narration=narration or ov.narration)
-    write_artifact(show_ws.overrides, ov)
-    return ov
+    titles = dict(ov.titles)
+    for n in clear_titles:
+        titles.pop(int(n), None)
+    for n, t in (set_titles or {}).items():
+        titles[int(n)] = t
+    data = ov.model_copy(update={
+        "exclude": exclude,
+        "narration": narration or ov.narration,
+        "titles": titles,
+    })
+    if venue is not _UNSET:
+        data = data.model_copy(update={"venue": venue})
+    if city is not _UNSET:
+        data = data.model_copy(update={"city": city})
+    if date is not _UNSET:
+        data = data.model_copy(update={"date": date})
+    if clear_set_breaks:
+        data = data.model_copy(update={"set_breaks": None})
+    elif set_breaks is not _UNSET:
+        data = data.model_copy(update={"set_breaks": set_breaks})
+    write_artifact(show_ws.overrides, data)
+    return data
+
+
+def _resolve_exclude_tokens(show_ws, tokens) -> list[str]:
+    """Expand comma groups and map all-digit tokens to that track's filename
+    (via show.json). Non-numeric tokens pass through as filenames."""
+    parts = [p.strip() for tok in tokens for p in str(tok).split(",") if p.strip()]
+    if not any(p.isdigit() for p in parts):
+        return parts
+    if not show_ws.show.exists():
+        raise LlamaError("--exclude by number needs show.json; reference the file by name")
+    tracks = read_model(show_ws.show, Show).tracks
+    by_index = {t.index: t.filename for t in tracks}
+    out = []
+    for p in parts:
+        if p.isdigit():
+            n = int(p)
+            if n not in by_index:
+                raise LlamaError(f"--exclude: no track {n} (show has {len(tracks)} tracks)")
+            out.append(by_index[n])
+        else:
+            out.append(p)
+    return out
 
 
 def _clear_hold(show_ws):
@@ -519,10 +568,24 @@ def _interactive_enabled() -> bool:
     return sys.stdin.isatty()
 
 
-def _pick_excludes(show) -> list[str]:
-    typer.echo("tracks:")
+def _fmt_dur(sec) -> str:
+    if not sec:
+        return "?"
+    return f"{int(sec) // 60}:{int(sec) % 60:02d}"
+
+
+def _format_tracks(show) -> list[str]:
+    lines = ["tracks:"]
     for t in show.tracks:
-        typer.echo(f"  {t.index:2d}. {t.set:6s} {t.title:28.28s} {t.filename}")
+        title = t.title if t.title_source != "unresolved" else "(unknown)"
+        lines.append(f"  {t.index:2d}. set {t.set:4.4s} {title:28.28s} "
+                     f"{t.title_source:10.10s} {t.filename:24.24s} {_fmt_dur(t.duration_sec):>5s}")
+    return lines
+
+
+def _pick_excludes(show) -> list[str]:
+    for line in _format_tracks(show):
+        typer.echo(line)
     picks = _parse_ranks(typer.prompt("exclude which track numbers? (comma-separated, empty = none)",
                                       default="", show_default=False))
     return [t.filename for t in show.tracks if t.index in picks]
@@ -560,7 +623,7 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
 
 
-def _print_show_entry(entry) -> None:
+def _print_show_entry(entry, show_tracks: bool = False) -> None:
     sws = entry.ws
     if not sws.show.exists():
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
@@ -598,6 +661,9 @@ def _print_show_entry(entry) -> None:
         for f in s.review_flags:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+    if show_tracks:
+        for line in _format_tracks(read_model(sws.show, Show)):
+            typer.echo(line)
 
 
 @app.command(rich_help_panel="Inspect & triage")
@@ -620,6 +686,14 @@ def show(
     state: str = typer.Option(None, "--state", help="Set form: filter by exact catalog state"),
     artist: str = typer.Option(None, "--artist", help="Set form: filter by artist substring"),
     run: str = typer.Option(None, "--run", help="Set form: filter by originating run"),
+    tracks: bool = typer.Option(False, "--tracks", help="List the show's tracks (numbered)"),
+    set_venue: str = typer.Option(None, "--set-venue", help="Force overrides.venue"),
+    set_city: str = typer.Option(None, "--set-city", help="Force overrides.city"),
+    set_date: str = typer.Option(None, "--set-date", help="Force overrides.date (YYYY-MM-DD)"),
+    title: list[str] = typer.Option(None, "--title", help='Force a track title: --title N="Song"'),
+    clear_title: list[str] = typer.Option(None, "--clear-title", help="Drop a title override by track number"),
+    set_breaks: str = typer.Option(None, "--set-breaks", help='Set breaks by track number: "9,17"'),
+    clear_set_breaks: bool = typer.Option(False, "--clear-set-breaks"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Inspect one show, or walk a set of shows (default: held) for resolution."""
@@ -649,15 +723,28 @@ def show(
     entry = _resolve_show(config, ledger, name)
     sws = entry.ws
 
+    parsed_titles = {}
+    for spec in (title or []):
+        if "=" not in spec:
+            typer.echo(f"--title expects N=TITLE, got {spec!r}", err=True)
+            raise typer.Exit(1)
+        n, t = spec.split("=", 1)
+        parsed_titles[int(n)] = t
+    breaks_val = None
+    if set_breaks:
+        breaks_val = [int(x) for x in set_breaks.split(",") if x.strip()]
+
     did_exclude = bool(exclude or include)
     did_narration = vague or full
-    if not (did_exclude or did_narration or clear):
+    did_meta = bool(set_venue or set_city or set_date or parsed_titles
+                    or clear_title or set_breaks or clear_set_breaks)
+    if not (did_exclude or did_narration or clear or did_meta):
         # Pure inspection. On a TTY a held show drops into interactive resolve
         # (which prints the entry itself); otherwise just print the block.
         if entry.state == "held" and _interactive_enabled():
             _interactive_resolve(config, ia, ledger, entry)
             return
-        _print_show_entry(entry)
+        _print_show_entry(entry, show_tracks=tracks)
         return
 
     # A resolution flag was given: apply it and confirm concisely. We do NOT
@@ -668,7 +755,13 @@ def show(
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
         raise typer.Exit(1)
     if did_exclude:
-        ov = _edit_overrides(sws, add_exclude=exclude or [], rm_exclude=include or [])
+        try:
+            add = _resolve_exclude_tokens(sws, exclude or [])
+            rm = _resolve_exclude_tokens(sws, include or [])
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        ov = _edit_overrides(sws, add_exclude=add, rm_exclude=rm)
         typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
                    "(the hold clears itself if a clean re-gather results)")
     if vague:
@@ -681,7 +774,17 @@ def show(
     if clear:
         _clear_hold(sws)
         typer.echo(f"{entry.slug}: hold cleared")
-    stage = "gather" if did_exclude else ("synthesize" if did_narration else "package")
+    if did_meta:
+        _edit_overrides(sws,
+            venue=set_venue if set_venue is not None else _UNSET,
+            city=set_city if set_city is not None else _UNSET,
+            date=set_date if set_date is not None else _UNSET,
+            set_titles=parsed_titles or None,
+            clear_titles=[int(n) for n in (clear_title or [])],
+            set_breaks=breaks_val if set_breaks else _UNSET,
+            clear_set_breaks=clear_set_breaks)
+        typer.echo(f"{entry.slug}: metadata override updated")
+    stage = "gather" if (did_exclude or did_meta) else ("synthesize" if did_narration else "package")
     if apply:
         entry2 = _resolve_show(config, ledger, entry.slug)
         pkg = _redo_show(config, ia, ledger, entry2, stage)
@@ -1119,12 +1222,98 @@ def profile_run(
              full_rationale=full_rationale)
 
 
+@profile_app.command("artists")
+def profile_artists(
+    name: str = typer.Argument(...),
+    set_: str = typer.Option(None, "--set", help='Re-pin the roster (comma names); "" clears it'),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Show or re-pin a profile's pinned artist roster."""
+    config, ia, _ = _setup(config_path)
+    profile = load_profile(config.root, name)
+    if set_ is None:
+        roster = profile.criteria.artists
+        typer.echo(", ".join(roster) if roster else "no pinned roster (uses the LLM matcher)")
+        return
+    names = [n.strip() for n in set_.split(",") if n.strip()]
+    if not names:
+        criteria = profile.criteria.model_copy(update={"artists": []})
+        save_profile(config.root, profile.model_copy(update={"criteria": criteria}))
+        typer.echo("cleared pinned roster (reverts to the LLM matcher)")
+        return
+    index = load_or_build(ia, config.root / "cache")
+    resolved = resolve_artists(index, names)
+    criteria = profile.criteria.model_copy(update={"artists": [a["identifier"] for a in resolved]})
+    save_profile(config.root, profile.model_copy(update={"criteria": criteria}))
+    typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
+
+
 @profile_app.command("list")
 def profile_list(config_path: Path = typer.Option(None, "--config")):
     config, _, _ = _setup(config_path)
     profiles_dir = config.root / "profiles"
     for p in sorted(profiles_dir.glob("*.toml")) if profiles_dir.exists() else []:
         typer.echo(p.stem)
+
+
+@presenter_app.command("add")
+def presenter_add(
+    id: str = typer.Argument(...),
+    name: str = typer.Option(..., "--name"),
+    sex: str = typer.Option(..., "--sex"),
+    voice: str = typer.Option(None, "--voice"),
+    voice_clone: str = typer.Option(None, "--voice-clone"),
+    character: str = typer.Option(None, "--character"),
+    character_file: Path = typer.Option(None, "--character-file"),
+    bed: str = typer.Option(None, "--bed"),
+    force: bool = typer.Option(False, "--force"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Create a presenter (on-air host)."""
+    config, _, _ = _setup(config_path)
+    if bool(character) == bool(character_file):
+        typer.echo("give exactly one of --character / --character-file", err=True)
+        raise typer.Exit(1)
+    text = character if character else character_file.read_text().strip()
+    dest = config.root / "presenters" / f"{id}.toml"
+    if dest.exists() and not force:
+        typer.echo(f"presenter {id!r} exists: {dest} (use --force to overwrite)", err=True)
+        raise typer.Exit(1)
+    try:
+        p = Presenter(id=id, name=name, sex=sex, voice=voice,
+                      voice_clone=voice_clone, character=text, bed=bed)
+    except Exception as exc:
+        typer.echo(f"invalid presenter: {exc}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"saved: {save_presenter(config.root, p)}")
+
+
+@presenter_app.command("list")
+def presenter_list(config_path: Path = typer.Option(None, "--config")):
+    """List presenters."""
+    config, _, _ = _setup(config_path)
+    rows = list_presenters(config.root)
+    if not rows:
+        typer.echo("no presenters")
+        return
+    for pid, p in rows:
+        if isinstance(p, str):
+            typer.echo(f"{pid:16.16s} (invalid: {p})")
+        else:
+            v = p.voice or f"clone:{p.voice_clone}"
+            typer.echo(f"{pid:16.16s} {p.name:20.20s} {p.sex:8.8s} {v}")
+
+
+@presenter_app.command("show")
+def presenter_show(id: str = typer.Argument(...),
+                   config_path: Path = typer.Option(None, "--config")):
+    """Show one presenter's fields."""
+    config, _, _ = _setup(config_path)
+    p = load_presenter(config.root, id)     # PresenterError -> main_cli boundary
+    v = p.voice or f"clone:{p.voice_clone}"
+    typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else ""))
+    typer.echo("character:")
+    typer.echo(p.character)
 
 
 @ledger_app.command("list")

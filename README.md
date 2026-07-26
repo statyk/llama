@@ -105,8 +105,11 @@ it empty (e.g. `lineage_eras = []` under `[selection]`).
 ### Presenters (optional on-air hosts)
 
 A **presenter** is a reusable radio-show host — TTS voice + authored
-character + on-air identity — defined by hand in
-`~/.llama/presenters/<id>.toml`:
+character + on-air identity — created with `llama presenter add <id>
+--name NAME --sex SEX (--voice ID | --voice-clone WAV) (--character "..." |
+--character-file PATH)`, or defined by hand in
+`~/.llama/presenters/<id>.toml` (both write/read the same file; `llama
+presenter list` / `llama presenter show <id>` inspect what's there):
 
     name = "Casey"
     sex = "male"
@@ -139,6 +142,11 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
 
 ## Use
 
+    llama presenter add casey --name Casey --sex male --voice american-dj \
+        --character "Warm late-night FM veteran, dry humor, deep tape-collector knowledge."
+                                     # writes presenters/casey.toml; hand-editing it still works
+    llama presenter list              # every presenter, one line each
+    llama presenter show casey        # one presenter's full fields
     llama find "GD shows 73-74 with a china>rider"
     llama find "top 10 Grateful Dead shows of the 1980s" --auto
     llama find "well-known folk/acoustic performer, 1960s-70s, highly rated"
@@ -157,6 +165,9 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
                                      # pin the roster: runs skip the LLM artist matcher and
                                      # search exactly these (test-drive with `llama artists`,
                                      # freeze what you like; typos fail at add time)
+    llama profile artists funky       # view a profile's pinned roster
+    llama profile artists funky --set "Galactic, Lettuce, Soulive"
+                                     # re-pin it (validated against the index); --set "" clears
     llama profile run sunday-dead-hour
     llama status                     # every show + its state, held-for-review first
     llama status --held              # just the shows waiting on your judgment
@@ -165,6 +176,11 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
     llama review countryish          # approve a run's shortlist, optionally process it
     llama run countryish             # resume/replay a run; finished stages are skipped
     llama show 1973-06-10            # inspect one show (its state, artifacts, flags)
+    llama show 1973-06-10 --tracks   # numbered track list (index, title, filename, duration)
+    llama show 1973-06-10 --exclude 9,10 --apply    # exclude by track number (filenames work too)
+    llama show 1973-06-10 --set-venue "Winterland" --set-city "San Francisco, CA" \
+        --set-date 1973-06-10 --title 4="Dark Star" --set-breaks "9,17" --apply
+                                     # metadata corrections; all redo from gather, hold self-clears
     llama show --held                # walk every held show and resolve each in turn
     llama redo 1973-06-10 --from vet # re-run one show's pipeline from a stage
     llama redo --unvoiced --from package --voice   # voice every packaged-but-silent show
@@ -186,9 +202,12 @@ show can be held as **needs-review** when a stage flags something suspicious
 all driven from `llama show` (each edits the durable per-show `overrides.json`
 and prints the next `redo`, or runs it with `--apply`):
 
-- **Correct the data** — `llama show <s> --exclude <file>` drops junk tracks
-  (e.g. between-set stage announcements), then `llama redo <s> --from gather`
-  re-derives a clean setlist and the hold clears itself.
+- **Correct the data** — `llama show <s> --exclude <file-or-number>` drops
+  junk tracks (e.g. between-set stage announcements; `llama show <s>
+  --tracks` lists the numbers), and `--set-venue`/`--set-city`/`--set-date`/
+  `--title N="..."`/`--set-breaks "9,17"` fix wrong venue, date, a track
+  title, or where a set break falls. Either way, `llama redo <s> --from
+  gather` re-derives the show and the hold clears itself if that fixes it.
 - **Accept an unknowable setlist** — `llama show <s> --vague` tells the script
   writer to stay general (no song names, no set-structure claims), clears the
   hold, then `llama redo <s> --from synthesize`.

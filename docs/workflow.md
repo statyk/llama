@@ -71,9 +71,10 @@ Everything lives under `~/.llama/` (configurable as `root` in
     │                            # (gratefuldead-1973-06-10), shared across runs
     ├── provenance.json          # which run processed it, winnow dossier,
     │                            # script setting — what `redo` replays from
-    ├── overrides.json           # hand-authored, durable: excluded tracks +
-    │                            # narration mode; read by gather/synthesize,
-    │                            # survives every redo
+    ├── overrides.json           # hand-authored or `llama show`-edited, durable:
+    │                            # excluded tracks, narration mode, and metadata
+    │                            # corrections (venue/city/date/titles/set_breaks);
+    │                            # read by gather/synthesize, survives every redo
     ├── selection.json           # which recording won and why
     ├── show.json                # tracks, sets, flags — THE show state file
     ├── reviews.json             # raw listener reviews
@@ -107,8 +108,11 @@ Three files deserve a callout:
   originating run directory doesn't even need to exist anymore.
 - `overrides.json` is the opposite of both: it is never written by a stage,
   only by you (via `llama show`), and it is never derived away. It holds
-  excluded source filenames and the narration mode (`full`/`vague`); gather
-  and synthesize are the only stages that read it, and it survives every
+  excluded source filenames, the narration mode (`full`/`vague`), and
+  metadata corrections — `venue`, `city`, `date`, `titles` (track number →
+  forced title), and `set_breaks` (track numbers a break falls after,
+  numbered sets only). `gather` reads the exclude/titles/venue/city/date/
+  set_breaks fields, `synthesize` reads `narration`, and it survives every
   `redo`, including ones that drop everything else downstream of a stage.
 
 ## Names and states: the catalog
@@ -224,14 +228,23 @@ there you're choosing one of three resolutions:
 | **Accept as vague** | The setlist genuinely can't be resolved, but the show is otherwise fine to air without naming songs | `llama show <show> --vague`, then `llama redo <show> --from synthesize` | Yes, immediately (narration mode also survives future redos) |
 | **Overrule** | The flag is a false alarm | `llama show <show> --clear`, then `llama redo <show> --from package` | Yes, immediately |
 
+Wrong non-track metadata — venue, city, date, a track's title, or where the
+set breaks fall — is a variant of **Correct**, not a fourth resolution:
+`llama show <show> --set-venue "..." --set-city "..." --set-date
+YYYY-MM-DD --title N="..." --set-breaks "9,17"` force the corresponding
+`overrides.json` field(s) the same way `--exclude` forces `overrides.exclude`,
+and redo from `gather` the same way — see the `llama show` reference below
+for the full flag set (`--clear-title`, `--clear-set-breaks`) and the
+track-number lookup (`--tracks`).
+
 Each resolution edits `overrides.json` (except overrule, which only clears
 `show.json`'s flags) and by default just **prints** the follow-up `redo`
 command rather than running it — add `--apply` to `llama show` to run that
 redo inline instead of copy-pasting it (e.g. `llama show <show> --exclude
 <file> --apply`). Stage precedence when multiple flags are set on
-`--apply`/the printed command: an exclude edit redoes from `gather`, a
-narration edit (with no exclude) redoes from `synthesize`, and `--clear`
-alone redoes from `package`.
+`--apply`/the printed command: an exclude or metadata edit redoes from
+`gather`, a narration edit (with neither) redoes from `synthesize`, and
+`--clear` alone redoes from `package`.
 
 Deliver-time-only flags (`duration mismatch`) are a fourth, narrower case:
 a package already exists, so `llama deliver <show> --force` overrides the
@@ -447,7 +460,7 @@ connection to needs-review (gate 2). `--script`/`--no-script` and
 `--voice`/`--no-voice` override the run's persisted settings if you process
 immediately.
 
-### `llama show [<show>] [--exclude FILE] [--include FILE] [--vague] [--full] [--clear] [--apply] [--held/--packaged/--voiced/--unvoiced/--state/--artist/--run]`
+### `llama show [<show>] [--tracks] [--exclude FILE|N] [--include FILE|N] [--vague] [--full] [--clear] [--apply] [--set-venue V] [--set-city C] [--set-date D] [--title N="..."] [--clear-title N] [--set-breaks "N,N"] [--clear-set-breaks] [--held/--packaged/--voiced/--unvoiced/--state/--artist/--run]`
 Gate 2's home command. Two forms:
 
 - **Single-show form** (`llama show <show>`): prints artist/date/venue,
@@ -458,16 +471,44 @@ Gate 2's home command. Two forms:
   straight into the same interactive walkthrough as the set form (below)
   for just that one show — pass a resolution flag to skip the prompt and
   act directly.
-  - `--exclude FILE` (repeatable) adds a source filename to
-    `overrides.exclude`; `--include FILE` (repeatable) removes one.
+  - `--tracks` appends the numbered track table (index, set, title, title
+    source, filename, duration) to a plain inspection — the number to give
+    `--exclude`/`--include`/`--title`/`--set-breaks`. (On a held show at an
+    interactive terminal, plain `llama show <show>` drops into the
+    walkthrough before `--tracks` gets a chance — pass a resolution flag,
+    or run non-interactively, to see the table on a held show.)
+  - `--exclude FILE-or-N` (repeatable, comma-lists ok) adds a source
+    filename to `overrides.exclude`; `--include FILE-or-N` (repeatable)
+    removes one. Either also accepts **track numbers** (from `--tracks`)
+    instead of filenames — numbers resolve against `show.json`'s track
+    list, so they need `show.json` to already exist.
   - `--vague` sets `overrides.narration = "vague"` **and clears the hold**;
     `--full` resets narration to `"full"` (does not touch the hold).
   - `--clear` overrules the hold: clears `needs_review` and the flags,
     leaving `overrides.json` untouched.
+  - `--set-venue`/`--set-city`/`--set-date` force
+    `overrides.venue`/`overrides.city`/`overrides.date` (`--set-date`
+    expects `YYYY-MM-DD`). `--title N="Song Title"` (repeatable) forces
+    track N's title into `overrides.titles`; `--clear-title N` drops one.
+    `--set-breaks "9,17"` sets `overrides.set_breaks` to those track
+    numbers — the tracks a break falls *after* — replacing the computed
+    structure alignment (the deterministic/LLM alignment ladder is skipped,
+    so the `low-confidence structure alignment` flag can't fire); it's
+    numbered-sets-only (labels come out `"1"`, `"2"`, ... — there's no way to
+    mark an encore through this flag). Note: on a jerrybase-covered
+    (Garcia-universe) show the jerrybase *cross-checks* still run against your
+    breaks — the closer tripwire and the set-count guard — so manual breaks
+    that contradict jerrybase's set closers or set count can still raise a
+    flag rather than self-clearing; for non-jerrybase shows the override
+    stands unchallenged. `--clear-set-breaks` removes the override.
   - By default any of the above just prints the follow-up
     (`next: llama redo <show> --from <stage>`, stage chosen by precedence —
-    see [Clearing gate 2](#the-two-human-gates-dont-confuse-them) above);
-    `--apply` runs that redo immediately instead.
+    see [Clearing gate 2](#the-two-human-gates-dont-confuse-them) above —
+    an exclude or metadata edit prints `--from gather`); `--apply` runs
+    that redo immediately instead. A gather re-run recomputes
+    `needs_review`/`review_flags` from scratch, so a hold **self-clears**
+    whenever the correction removes the flag that caused it — no separate
+    "clear" step needed for `--exclude`/metadata fixes.
 - **Set form** (`llama show` with no name, or with any selector): walks
   every matching show. With no selector it defaults to `--held`. Selectors:
   `--held`, `--packaged`, `--voiced`, `--unvoiced`, `--state NAME`,
@@ -575,6 +616,34 @@ ledger. With `--human-gate` and `--auto`, stops at
 `Shortlist awaits review: llama review <run>`; approve, then
 `llama run <run>`.
 
+### `llama presenter add <id> --name NAME --sex SEX (--voice ID | --voice-clone WAV) (--character "..." | --character-file PATH) [--bed WAV] [--force]`
+Creates `presenters/<id>.toml` — the same file format described in
+[Presenters](#presenters-giving-a-show-a-host) — without hand-editing TOML;
+editing the file directly still works, `presenter add` is just the other
+way in. Exactly one of `--voice`/`--voice-clone` and exactly one of
+`--character`/`--character-file` are required; `--bed` sets this
+presenter's own instrumental bed WAV (overrides `[tts] bed`, same station
+`bed_gain_db`). Refuses to overwrite an existing id unless `--force`.
+
+### `llama presenter list`
+One line per `presenters/*.toml`: id, name, sex, and voice
+(`clone:/path/to/ref.wav` for a voice-clone presenter). A presenter file
+that fails to load is listed as `<id> (invalid: <error>)` instead of
+raising.
+
+### `llama presenter show <id>`
+Prints one presenter's fields (name, sex, resolved voice, bed if set) and
+its full character text.
+
+### `llama profile artists <name> [--set "A, B, C"]`
+View or re-pin a profile's pinned artist roster — the same `artists` list
+under `[criteria]` in the profile TOML that `profile add --artists` writes.
+With no `--set`, prints the current roster, or "no pinned roster (uses the
+LLM matcher)" if unpinned. `--set "Galactic, Lettuce, Soulive"` resolves
+each name against the local artist index (typos or ambiguity fail loudly,
+same as `profile add --artists`) and re-pins it; `--set ""` clears the pin,
+reverting future runs of the profile to the LLM artist matcher.
+
 ### `llama profile list` / `llama ledger list` / `llama ledger add` / `llama ledger remove`
 Housekeeping. The ledger is the dedup memory: `selected` and `delivered`
 entries suppress a performance in future winnows; `rejected` entries do too.
@@ -602,10 +671,22 @@ If it's real (e.g. unresolved titles), fix the cause and
 [Clearing gate 2](#the-two-human-gates-dont-confuse-them) above.
 
 **This show has junk announcement tracks.**
-`llama show <show> --exclude <file> --apply` (repeat `--exclude` for more
-than one file) — adds the filename(s) to `overrides.exclude` and re-gathers
-immediately; gather drops them with reason `operator-excluded` and warns if
-a name doesn't match any source file.
+`llama show <show> --tracks` to see the numbered track list, then `llama
+show <show> --exclude 9,10 --apply` (track numbers or filenames both work,
+comma-lists ok, `--exclude` repeatable too) — adds them to
+`overrides.exclude` and re-gathers immediately; gather drops them with
+reason `operator-excluded` and warns if an entry doesn't match any source
+file. A clean re-gather with the junk gone self-clears the hold.
+
+**Wrong venue, city, date, a track title, or where a set break falls.**
+`llama show <show> --set-venue "Winterland" --set-city "San Francisco, CA"
+--set-date 1973-06-10 --title 4="Dark Star" --set-breaks "9,17" --apply` —
+give only the flags you need; each forces the matching `overrides.json`
+field and re-gathers. `--clear-title N` drops one forced title,
+`--clear-set-breaks` drops the forced break list. `--set-breaks` takes the
+track numbers a break falls *after*, numbered-sets-only (no way to name an
+encore this way). Same self-clearing rule as excludes: a clean re-gather
+drops the hold on its own.
 
 **This show's setlist is unknowable.**
 `llama show <show> --vague --apply` — sets `overrides.narration = "vague"`,
@@ -657,6 +738,22 @@ with the character unchanged doesn't need a re-script either — `redo
 <show> --from package --voice` is enough to re-render audio in the new
 voice, since the clone reference is re-read live. Swapping a preset `voice`
 needs a fresh `profile run` instead, same as above.
+
+**I want a new host without hand-editing a TOML file.**
+`llama presenter add casey --name Casey --sex male --voice american-dj
+--character "Warm late-night FM veteran, dry humor, deep tape-collector
+knowledge."` writes `presenters/casey.toml`; `llama presenter list` /
+`llama presenter show casey` to check it. Then name it on a profile
+(`llama profile add ... --presenter casey`, or edit an existing profile's
+`presenter = "casey"`). Editing the TOML by hand afterward still works —
+`presenter add` just gets you started without it; either way, `llama redo
+<show> --from synthesize` re-scripts with any character change.
+
+**Re-pin a profile's artist roster.**
+`llama profile artists funky --set "Galactic, Lettuce, Soulive"` resolves
+and re-pins the roster (typos/ambiguity fail loudly, same as `profile add
+--artists`); `llama profile artists funky` alone shows the current roster;
+`--set ""` clears it back to the LLM matcher.
 
 **The same show keeps coming back in every profile run.**
 It's not in the ledger. Deliver it, or `llama ledger add <performance-id>
