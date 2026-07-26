@@ -108,7 +108,9 @@ def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
     return entries
 
 
-def select_shows(entries, *, states=None, voiced=None, artist=None, run=None):
+def select_shows(entries: list[CatalogEntry], *, states: set[str] | None = None,
+                 voiced: bool | None = None, artist: str | None = None,
+                 run: str | None = None) -> list[CatalogEntry]:
     out = list(entries)
     if states:
         out = [e for e in out if e.state in states]

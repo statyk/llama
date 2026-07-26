@@ -158,7 +158,7 @@ class Track(BaseModel):
     filename: str  # source filename within the archive.org item
     duration_sec: float | None = None
     segue: bool = False
-    title_source: str  # "tags" | "setlist" | "sibling" | "unresolved"
+    title_source: str  # "tags" | "setlist" | "sibling" | "unresolved" | "override"
 
 
 class Show(BaseModel):
@@ -168,11 +168,11 @@ class Show(BaseModel):
     date: str
     venue: str | None = None
     city: str | None = None
-    venue_source: str = "item"  # "item" | "jerrybase" (venue adopted from jerrybase)
+    venue_source: str = "item"  # "item" | "jerrybase" | "override" (venue from an override)
     # Presentation date is correctable (vet may adopt a research date over an
-    # archive year-only placeholder); performance identity never changes.
+    # archive year-only placeholder, or an operator override); identity never changes.
     item_date: str | None = None  # original archive date, set only when corrected
-    date_source: str = "item"  # "item" | "research"
+    date_source: str = "item"  # "item" | "research" | "override"
     tracks: list[Track] = Field(default_factory=list)
     set_breaks: list[int] = Field(default_factory=list)  # play-order index after which a break falls
     excluded_files: list[dict] = Field(default_factory=list)  # {"filename":..., "reasons":[...]}

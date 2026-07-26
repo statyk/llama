@@ -1402,3 +1402,51 @@ def test_presenter_add_character_file_and_voice_xor(tmp_path):
                                   "male", "--voice", "a", "--voice-clone", "/r.wav",
                                   "--character", "y", "--config", cfg])
     assert bad.exit_code != 0
+
+
+# --- cosmetic-followups: clean errors for bad operator input + comma-form ---
+
+def _cfg_with_gathered_show(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    return cfg
+
+
+def test_show_title_non_numeric_errors_cleanly(tmp_path):
+    cfg = _cfg_with_gathered_show(tmp_path)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--title", "abc=Song", "--config", cfg])
+    assert r.exit_code != 0
+    assert "--title expects" in r.output
+    assert not isinstance(r.exception, ValueError)  # clean exit, not a traceback
+
+
+def test_show_set_breaks_non_numeric_errors_cleanly(tmp_path):
+    cfg = _cfg_with_gathered_show(tmp_path)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--set-breaks", "a,b", "--config", cfg])
+    assert r.exit_code != 0
+    assert "--set-breaks expects" in r.output
+    assert not isinstance(r.exception, ValueError)
+
+
+def test_presenter_add_missing_character_file_errors_cleanly(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["presenter", "add", "x", "--name", "X", "--sex", "male",
+                                "--voice", "a", "--character-file", str(tmp_path / "nope.txt"),
+                                "--config", cfg])
+    assert r.exit_code != 0
+    assert "cannot read --character-file" in r.output
+    assert not isinstance(r.exception, OSError)
+
+
+def test_resolve_exclude_tokens_comma_form(tmp_path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.show, Show(
+        performance_id="X/1970-01-01", identifier="x", artist="X", date="1970-01-01",
+        tracks=[Track(index=1, set="1", title="A", filename="a.mp3", title_source="tags"),
+                Track(index=2, set="1", title="B", filename="b.mp3", title_source="tags")]))
+    assert cli._resolve_exclude_tokens(sws, ["1,2"]) == ["a.mp3", "b.mp3"]
+    # filename passthrough needs no show.json read
+    assert cli._resolve_exclude_tokens(ShowWorkspace(tmp_path / "none"), ["z.mp3"]) == ["z.mp3"]

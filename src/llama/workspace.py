@@ -35,7 +35,7 @@ def read_json(path: Path):
     return json.loads(path.read_text())
 
 
-def read_overrides(show_ws: "ShowWorkspace"):
+def read_overrides(show_ws: "ShowWorkspace") -> "Overrides":
     from llama.models import Overrides
     if show_ws.overrides.exists():
         return read_model(show_ws.overrides, Overrides)

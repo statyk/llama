@@ -17,9 +17,8 @@ Three hard rules for spoken delivery:
 - Show ID in every break: every lead-in AND the outro must re-state the show's
   identity — artist, date, venue and/or city — at least once, so a listener
   tuning in mid-broadcast learns what they are hearing.
-{{narration_note}}
 
-Show data (JSON):
+{{narration_note}}Show data (JSON):
 {{show_json}}
 
 Research findings:
