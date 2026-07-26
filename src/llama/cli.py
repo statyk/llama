@@ -508,6 +508,28 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None):
     return ov
 
 
+def _resolve_exclude_tokens(show_ws, tokens) -> list[str]:
+    """Expand comma groups and map all-digit tokens to that track's filename
+    (via show.json). Non-numeric tokens pass through as filenames."""
+    parts = [p.strip() for tok in tokens for p in str(tok).split(",") if p.strip()]
+    if not any(p.isdigit() for p in parts):
+        return parts
+    if not show_ws.show.exists():
+        raise LlamaError("--exclude by number needs show.json; reference the file by name")
+    tracks = read_model(show_ws.show, Show).tracks
+    by_index = {t.index: t.filename for t in tracks}
+    out = []
+    for p in parts:
+        if p.isdigit():
+            n = int(p)
+            if n not in by_index:
+                raise LlamaError(f"--exclude: no track {n} (show has {len(tracks)} tracks)")
+            out.append(by_index[n])
+        else:
+            out.append(p)
+    return out
+
+
 def _clear_hold(show_ws):
     s = read_model(show_ws.show, Show)
     s.needs_review = False
@@ -686,7 +708,13 @@ def show(
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
         raise typer.Exit(1)
     if did_exclude:
-        ov = _edit_overrides(sws, add_exclude=exclude or [], rm_exclude=include or [])
+        try:
+            add = _resolve_exclude_tokens(sws, exclude or [])
+            rm = _resolve_exclude_tokens(sws, include or [])
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        ov = _edit_overrides(sws, add_exclude=add, rm_exclude=rm)
         typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
                    "(the hold clears itself if a clean re-gather results)")
     if vague:

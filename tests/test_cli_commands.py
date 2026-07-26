@@ -285,6 +285,28 @@ def test_show_exclude_writes_overrides_keeps_hold_prints_gather(tmp_path):
     assert "--from gather" in r.output
 
 
+def test_show_exclude_by_number_resolves_to_filename(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"},
+               needs_review=True)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--exclude", "1",
+                                "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).exclude == ["a.mp3"]   # track 1's filename
+
+
+def test_show_exclude_out_of_range_errors(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"}, needs_review=True)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--exclude", "99", "--config", cfg])
+    assert r.exit_code != 0
+    assert "track 99" in r.output or "out of range" in r.output
+
+
 def _approved_run(tmp_path: Path) -> tuple[str, RunWorkspace]:
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
