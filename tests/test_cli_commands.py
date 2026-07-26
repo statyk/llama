@@ -402,6 +402,47 @@ def test_deliver_refuses_needs_review_without_force(tmp_path: Path):
     assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
 
 
+def test_redo_batch_unvoiced_plans_and_confirms(tmp_path, monkeypatch):
+    from test_pipeline import FakeIA, fake_providers
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    runner.invoke(cli.app, ["find", "GD 1973", "--auto", "--script",
+                            "--run-name", "r", "--config", cfg])
+
+    calls = []
+    monkeypatch.setattr(cli, "_redo_show",
+                        lambda *a, **k: calls.append(a[3].slug) or a[3].ws.package_dir)
+    r = runner.invoke(cli.app, ["redo", "--unvoiced", "--from", "package",
+                                "--voice", "--config", cfg], input="y\n")
+    assert r.exit_code == 0, r.output
+    assert calls == ["gratefuldead-1973-06-10"]
+
+
+def test_redo_batch_requires_target(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["redo", "--from", "package", "--config", cfg])
+    assert r.exit_code != 0
+    assert "a show or a selector" in r.output.lower()
+
+
+def test_deliver_batch_excludes_held(tmp_path, monkeypatch):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\ndelivery_path = "{tmp_path}/out"\n')
+    # one packaged, one held+packaged
+    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+          needs_review=True)
+    delivered = []
+    monkeypatch.setattr(cli, "_deliver_one", lambda cfg_, led_, e, dest, force: delivered.append(e.slug))
+    r = runner.invoke(cli.app, ["deliver", "--packaged", "--yes", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert delivered == ["ready"]  # held excluded
+
+
 def test_run_unknown_stage_exits_with_message(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')

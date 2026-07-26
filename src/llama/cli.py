@@ -663,33 +663,51 @@ def show(
         typer.echo(f"next: llama redo {entry.slug} --from {stage}")
 
 
-@app.command()
-def deliver(
-    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
-    dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
-    force: bool = typer.Option(False, "--force", help="Deliver even if the show is marked needs-review"),
-    config_path: Path = typer.Option(None, "--config"),
-):
-    """Copy a show package to the station's watched folder and record delivery."""
+def _batch_select(config, ledger, *, held=False, packaged=False, voiced=False,
+                  unvoiced=False, state=None, artist=None, run=None):
+    from llama.catalog import iter_shows, select_shows
+    states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
+    if state:
+        states.add(state)
+    vf = True if voiced else (False if unvoiced else None)
+    entries = select_shows(iter_shows(config.root, ledger),
+                           states=states or None, voiced=vf, artist=artist, run=run)
+    if not held:                         # never act on held shows implicitly
+        entries = [e for e in entries if e.state != "held"]
+    return entries
+
+
+def _has_selector(held, packaged, voiced, unvoiced, state, artist, run) -> bool:
+    return any([held, packaged, voiced, unvoiced, state, artist, run])
+
+
+def _confirm_plan(entries, action: str, yes: bool) -> bool:
+    typer.echo(f"{len(entries)} show(s) to {action}:")
+    for e in entries:
+        typer.echo(f"  {e.slug}")
+    if yes:
+        return True
+    return typer.confirm("Proceed?", default=False)
+
+
+def _deliver_one(config, ledger, entry, dest, force) -> Path:
+    """Copy one resolved show's package to `dest` (or config.delivery_path)
+    and record the delivery in the ledger; returns the destination path.
+    Raises LlamaError on refusal (no destination, or needs-review without
+    --force)."""
     import json as _json
 
-    config, _, ledger = _setup(config_path)
-    entry = _resolve_show(config, ledger, name)
     show_dir = entry.ws.dir
     target_dir = dest or config.delivery_path
     if target_dir is None:
-        typer.echo("no --dest given and no delivery_path in config", err=True)
-        raise typer.Exit(1)
+        raise LlamaError("no --dest given and no delivery_path in config")
     show_json = show_dir / "show.json"
     if show_json.exists() and not force:
         show_data = _json.loads(show_json.read_text())
         if show_data.get("needs_review"):
             flags = ", ".join(show_data.get("review_flags", []))
-            typer.echo(
-                f"refusing to deliver: show is marked needs-review ({flags}); use --force to override",
-                err=True,
-            )
-            raise typer.Exit(1)
+            raise LlamaError(
+                f"refusing to deliver: show is marked needs-review ({flags}); use --force to override")
     pkg = show_dir / "package"
     manifest = _json.loads((pkg / "manifest.json").read_text())
     out = target_dir / show_dir.name
@@ -702,6 +720,52 @@ def deliver(
         status="delivered", run=run_name,
         recorded_at=datetime.now(timezone.utc).isoformat(),
     ))
+    return out
+
+
+@app.command()
+def deliver(
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+    dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
+    force: bool = typer.Option(False, "--force", help="Deliver even if the show is marked needs-review"),
+    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
+    state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Copy a show package to the station's watched folder and record delivery."""
+    if name is None:
+        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+            typer.echo("give a show or a selector (e.g. --packaged)", err=True)
+            raise typer.Exit(1)
+        config, _, ledger = _setup(config_path)
+        entries = _batch_select(config, ledger, held=held, packaged=packaged,
+                                voiced=voiced, unvoiced=unvoiced, state=state,
+                                artist=artist, run=run)
+        if not entries:
+            typer.echo("no matching shows")
+            return
+        if not _confirm_plan(entries, "deliver", yes):
+            return
+        for e in entries:
+            try:
+                out = _deliver_one(config, ledger, e, dest, force)
+                typer.echo(f"delivered: {out}")
+            except LlamaError as exc:
+                typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+        return
+    config, _, ledger = _setup(config_path)
+    entry = _resolve_show(config, ledger, name)
+    try:
+        out = _deliver_one(config, ledger, entry, dest, force)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
     typer.echo(f"delivered: {out}")
 
 
@@ -752,7 +816,7 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
 
 @app.command()
 def redo(
-    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     from_stage: str = typer.Option(..., "--from",
                                    help="Stage to re-run from: select|gather|research|vet|synthesize|package"),
     with_research: bool = typer.Option(False, "--with-research",
@@ -762,6 +826,14 @@ def redo(
     voice: bool = typer.Option(None, "--voice/--no-voice",
                                help="Override the voice recorded at process time "
                                     "(--voice re-voices, --no-voice strips voice)"),
+    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
+    state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
@@ -769,6 +841,27 @@ def redo(
     if from_stage not in show_stages:
         typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
         raise typer.Exit(1)
+    if name is None:
+        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+            typer.echo("give a show or a selector (e.g. --unvoiced)", err=True)
+            raise typer.Exit(1)
+        config, ia, ledger = _setup(config_path)
+        entries = _batch_select(config, ledger, held=held, packaged=packaged,
+                                voiced=voiced, unvoiced=unvoiced, state=state,
+                                artist=artist, run=run)
+        if not entries:
+            typer.echo("no matching shows")
+            return
+        if not _confirm_plan(entries, f"redo --from {from_stage}", yes):
+            return
+        for e in entries:
+            try:
+                pkg = _redo_show(config, ia, ledger, e, from_stage,
+                                 with_research=with_research, script=script, voice=voice)
+                typer.echo(f"packaged: {pkg}" if pkg else f"needs-review, skipped: {e.slug}")
+            except (LlamaError, TaskFailed, LLMError, IAError, SpeechError) as exc:
+                typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+        return
     config, ia, ledger = _setup(config_path)
     entry = _resolve_show(config, ledger, name)
     if entry.provenance is None:
