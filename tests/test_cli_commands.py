@@ -428,6 +428,23 @@ def test_redo_batch_requires_target(tmp_path):
     assert "a show or a selector" in r.output.lower()
 
 
+def test_redo_rejects_name_and_selector_together(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["redo", "someshow", "--unvoiced", "--from", "package",
+                                "--config", cfg])
+    assert r.exit_code != 0
+    assert "not both" in r.output.lower()
+
+
+def test_deliver_rejects_name_and_selector_together(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["deliver", "someshow", "--packaged", "--config", cfg])
+    assert r.exit_code != 0
+    assert "not both" in r.output.lower()
+
+
 def test_deliver_batch_excludes_held(tmp_path, monkeypatch):
     from test_catalog import build
     cfg = str(tmp_path / "config.toml")
@@ -441,6 +458,23 @@ def test_deliver_batch_excludes_held(tmp_path, monkeypatch):
     r = runner.invoke(cli.app, ["deliver", "--packaged", "--yes", "--config", cfg])
     assert r.exit_code == 0, r.output
     assert delivered == ["ready"]  # held excluded
+
+
+def test_deliver_batch_excludes_held_via_nonstate_selector(tmp_path, monkeypatch):
+    """Both shows share an artist (no --state/--packaged filter involved), so
+    the held one can only be dropped by the `if not held` post-filter in
+    _batch_select -- not by select_shows(states=...)."""
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\ndelivery_path = "{tmp_path}/out"\n')
+    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+          needs_review=True)
+    delivered = []
+    monkeypatch.setattr(cli, "_deliver_one", lambda cfg_, led_, e, dest, force: delivered.append(e.slug))
+    r = runner.invoke(cli.app, ["deliver", "--artist", "Grateful Dead", "--yes", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert delivered == ["ready"]  # held excluded even though --artist matched both
 
 
 def test_run_unknown_stage_exits_with_message(tmp_path: Path):

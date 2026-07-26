@@ -739,6 +739,9 @@ def deliver(
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Copy a show package to the station's watched folder and record delivery."""
+    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+        typer.echo("give a show OR selectors, not both", err=True)
+        raise typer.Exit(1)
     if name is None:
         if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
             typer.echo("give a show or a selector (e.g. --packaged)", err=True)
@@ -840,6 +843,9 @@ def redo(
     show_stages = VALID_STAGES - RUN_LEVEL_STAGES
     if from_stage not in show_stages:
         typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
+        raise typer.Exit(1)
+    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+        typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
     if name is None:
         if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
