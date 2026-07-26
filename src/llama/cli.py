@@ -480,15 +480,44 @@ def _resolve_show(config, ledger, name: str):
     return resolve_show(config.root, ledger, name)
 
 
+def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None):
+    from llama.models import Overrides
+    from llama.workspace import read_overrides
+
+    ov = read_overrides(show_ws)
+    exclude = [f for f in ov.exclude if f not in set(rm_exclude)]
+    for f in add_exclude:
+        if f not in exclude:
+            exclude.append(f)
+    ov = Overrides(exclude=exclude, narration=narration or ov.narration)
+    write_artifact(show_ws.overrides, ov)
+    return ov
+
+
+def _clear_hold(show_ws):
+    s = read_model(show_ws.show, Show)
+    s.needs_review = False
+    s.review_flags = []
+    write_artifact(show_ws.show, s)
+
+
 @app.command()
 def show(
     name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
+    exclude: list[str] = typer.Option(None, "--exclude",
+                                      help="Add source filenames to overrides.exclude"),
+    include: list[str] = typer.Option(None, "--include",
+                                      help="Remove filenames from overrides.exclude"),
+    vague: bool = typer.Option(False, "--vague", help="Set narration=vague and clear the hold"),
+    full: bool = typer.Option(False, "--full", help="Reset narration to full"),
     clear: bool = typer.Option(False, "--clear",
                                help="Overrule the hold: clear needs-review and its flags"),
+    apply: bool = typer.Option(False, "--apply",
+                               help="Run the resolving redo now instead of printing it"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Inspect one show: state, stage artifacts, needs-review flags."""
-    config, _, ledger = _setup(config_path)
+    config, ia, ledger = _setup(config_path)
     entry = _resolve_show(config, ledger, name)
     sws = entry.ws
     if not sws.show.exists():
@@ -504,6 +533,10 @@ def show(
     typer.echo(f"{s.artist}  {date_str}  {place}".rstrip())
     typer.echo(f"recording: {s.identifier}  ({len(s.tracks)} tracks)")
     typer.echo(f"state: {entry.state}   path: {sws.dir}")
+    from llama.workspace import read_overrides
+    ov = read_overrides(sws)
+    if ov.exclude or ov.narration != "full":
+        typer.echo(f"overrides: narration={ov.narration} exclude={ov.exclude}")
     typer.echo("stages:")
     artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
                  ("research.md", sws.research), ("vetting.json", sws.vetting),
@@ -518,18 +551,33 @@ def show(
             typer.echo(f"  {label:22s} missing")
     if not s.needs_review:
         typer.echo("needs-review: no")
-        return
-    typer.echo("needs-review: yes")
-    for f in s.review_flags:
-        typer.echo(f"  - {f}")
-    if clear:
-        s.needs_review = False
-        s.review_flags = []
-        write_artifact(sws.show, s)
-        typer.echo("cleared")
-        typer.echo(f"next: llama redo {entry.slug} --from package")
     else:
-        typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+        typer.echo("needs-review: yes")
+        for f in s.review_flags:
+            typer.echo(f"  - {f}")
+        if not (exclude or include or vague or full or clear):
+            typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+
+    did_exclude = bool(exclude or include)
+    did_narration = vague or full
+    if did_exclude:
+        _edit_overrides(sws, add_exclude=exclude or [], rm_exclude=include or [])
+    if vague:
+        _edit_overrides(sws, narration="vague")
+        _clear_hold(sws)
+    if full:
+        _edit_overrides(sws, narration="full")
+    if clear:
+        _clear_hold(sws)
+    if not (did_exclude or did_narration or clear):
+        return
+    stage = "gather" if did_exclude else ("synthesize" if did_narration else "package")
+    if apply:
+        entry2 = _resolve_show(config, ledger, entry.slug)
+        pkg = _redo_show(config, ia, ledger, entry2, stage)
+        typer.echo(f"packaged: {pkg}" if pkg else f"needs-review, skipped: {entry.slug}")
+    else:
+        typer.echo(f"next: llama redo {entry.slug} --from {stage}")
 
 
 @app.command()

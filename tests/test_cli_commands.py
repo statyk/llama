@@ -12,7 +12,9 @@ from llama.models import (
     Candidate, Criteria, LedgerEntry, Overrides, Provenance, QualityAssessment, RecordingSummary,
     Show, ShortlistEntry, Track,
 )
-from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
+from llama.workspace import (
+    RunWorkspace, ShowWorkspace, read_model, read_model_list, read_overrides, write_artifact,
+)
 
 runner = CliRunner()
 
@@ -233,6 +235,40 @@ def test_show_errors_without_show_json(tmp_path: Path):
     result = runner.invoke(cli.app, ["show", "bare", "--config", cfg])
     assert result.exit_code == 1
     assert "no show.json" in result.output
+
+
+def _held_show_dir(tmp_path):
+    # minimal held, provenance-bearing show (reuse existing builders if present)
+    from test_catalog import build
+    ws = build(tmp_path, "gratefuldead-1973-06-10",
+               stages={"select", "gather"}, needs_review=True)
+    return ws
+
+
+def test_show_vague_writes_overrides_clears_hold_prints_next(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = _held_show_dir(tmp_path)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--vague", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.narration == "vague"
+    from llama.models import Show
+    assert read_model(ws.show, Show).needs_review is False
+    assert "redo gratefuldead-1973-06-10 --from synthesize" in r.output
+
+
+def test_show_exclude_writes_overrides_keeps_hold_prints_gather(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = _held_show_dir(tmp_path)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--exclude", "junk.mp3",
+                                "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).exclude == ["junk.mp3"]
+    from llama.models import Show
+    assert read_model(ws.show, Show).needs_review is True   # NOT pre-cleared
+    assert "--from gather" in r.output
 
 
 def _approved_run(tmp_path: Path) -> tuple[str, RunWorkspace]:
