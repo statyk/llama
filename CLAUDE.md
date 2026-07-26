@@ -56,6 +56,18 @@ failed validation's final retry escalates one tier (pins never escalate).
   canonical `shows/<slug>/` library (one dir per performance, reused across
   runs); stages write outputs only on success and are individually
   re-runnable (`llama redo <show> --from <stage>`).
+- **`overrides.json`:** the one durable, hand-authored per-show input —
+  excluded source-track filenames plus `narration` (`full`/`vague`) — that
+  survives every `redo`. `gather` drops excluded files (reason
+  `operator-excluded`) and `synthesize` reads `narration=vague` to write a
+  script that names no songs and asserts no set structure; `show.json`
+  stays purely derived and is never itself hand-edited. `llama show`
+  (single-show or set form via `--held`/etc.) is the only way to edit it,
+  offering three resolutions to a gate-2 hold: **correct**
+  (`--exclude`/`--include` → redo from `gather`, self-clears on clean
+  structure), **accept-vague** (`--vague` → redo from `synthesize`, clears
+  the hold immediately), and **overrule** (`--clear` → redo from `package`,
+  clears the hold without touching overrides).
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments with a `ledger.jsonl` dedup history keyed by performance identity
   (artist + date + venue), not archive.org item id. A date carrying two
