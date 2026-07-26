@@ -1222,6 +1222,32 @@ def profile_run(
              full_rationale=full_rationale)
 
 
+@profile_app.command("artists")
+def profile_artists(
+    name: str = typer.Argument(...),
+    set_: str = typer.Option(None, "--set", help='Re-pin the roster (comma names); "" clears it'),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Show or re-pin a profile's pinned artist roster."""
+    config, ia, _ = _setup(config_path)
+    profile = load_profile(config.root, name)
+    if set_ is None:
+        roster = profile.criteria.artists
+        typer.echo(", ".join(roster) if roster else "no pinned roster (uses the LLM matcher)")
+        return
+    names = [n.strip() for n in set_.split(",") if n.strip()]
+    if not names:
+        criteria = profile.criteria.model_copy(update={"artists": []})
+        save_profile(config.root, profile.model_copy(update={"criteria": criteria}))
+        typer.echo("cleared pinned roster (reverts to the LLM matcher)")
+        return
+    index = load_or_build(ia, config.root / "cache")
+    resolved = resolve_artists(index, names)
+    criteria = profile.criteria.model_copy(update={"artists": [a["identifier"] for a in resolved]})
+    save_profile(config.root, profile.model_copy(update={"criteria": criteria}))
+    typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
+
+
 @profile_app.command("list")
 def profile_list(config_path: Path = typer.Option(None, "--config")):
     config, _, _ = _setup(config_path)

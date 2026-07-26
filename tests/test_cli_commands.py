@@ -735,6 +735,37 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     assert "sunday-dead" in listing.output
 
 
+def test_profile_artists_set_show_and_clear(tmp_path, monkeypatch):
+    from llama.llm.fake import FakeProvider
+    from llama.profiles import load_profile
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    criteria_json = json.dumps({
+        "query": "q", "collection": "GratefulDead", "artist": "Grateful Dead",
+        "date_from": None, "date_to": None, "setlist_constraints": [],
+        "soft_preferences": None, "min_avg_rating": 4.0, "min_reviews": 3, "count": 1,
+    })
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
+    assert runner.invoke(cli.app, ["profile", "add", "myprof", "q", "--config", cfg]).exit_code == 0
+
+    # offline artist resolution: echo names as identifiers
+    monkeypatch.setattr(cli, "load_or_build", lambda ia, cache: [])
+    monkeypatch.setattr(cli, "resolve_artists",
+                        lambda index, names: [{"identifier": n, "title": n} for n in names])
+
+    r = runner.invoke(cli.app, ["profile", "artists", "myprof",
+                                "--set", "Galactic, Lettuce", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert load_profile(tmp_path, "myprof").criteria.artists == ["Galactic", "Lettuce"]
+
+    shown = runner.invoke(cli.app, ["profile", "artists", "myprof", "--config", cfg])
+    assert "Galactic" in shown.output
+
+    runner.invoke(cli.app, ["profile", "artists", "myprof", "--set", "", "--config", cfg])
+    assert load_profile(tmp_path, "myprof").criteria.artists == []
+
+
 def test_find_stamps_year_cap_into_run_criteria(tmp_path: Path, monkeypatch):
     from llama.llm.fake import FakeProvider
     from llama.models import Criteria as C
