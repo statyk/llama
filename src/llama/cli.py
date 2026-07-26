@@ -678,6 +678,14 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
         for f in s.review_flags:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+    from llama.catalog import broadcast_readiness
+    ready, reasons = broadcast_readiness(sws)
+    if ready:
+        typer.echo("broadcast-ready: yes")
+    else:
+        typer.echo("broadcast-ready: no")
+        for r in reasons:
+            typer.echo(f"  - {r}")
     if show_tracks:
         for line in _format_tracks(s):
             typer.echo(line)
@@ -703,6 +711,8 @@ def show(
     state: str = typer.Option(None, "--state", help="Set form: filter by exact catalog state"),
     artist: str = typer.Option(None, "--artist", help="Set form: filter by artist substring"),
     run: str = typer.Option(None, "--run", help="Set form: filter by originating run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Set form: only broadcast-ready shows"),
     tracks: bool = typer.Option(False, "--tracks", help="List the show's tracks (numbered)"),
     set_venue: str = typer.Option(None, "--set-venue", help="Force overrides.venue"),
     set_city: str = typer.Option(None, "--set-city", help="Force overrides.city"),
@@ -722,11 +732,12 @@ def show(
         states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
         if state:
             states.add(state)
-        if not states and not (voiced or unvoiced or artist or run):
+        if not states and not (voiced or unvoiced or artist or run or broadcast_ready):
             states = {"held"}   # set form defaults to held
         vf = True if voiced else (False if unvoiced else None)
         entries = select_shows(iter_shows(config.root, ledger),
-                               states=states or None, voiced=vf, artist=artist, run=run)
+                               states=states or None, voiced=vf, artist=artist,
+                               run=run, broadcast_ready=broadcast_ready)
         if not entries:
             typer.echo("no matching shows")
             return
@@ -823,21 +834,25 @@ def show(
 
 
 def _batch_select(config, ledger, *, held=False, packaged=False, voiced=False,
-                  unvoiced=False, state=None, artist=None, run=None):
+                  unvoiced=False, state=None, artist=None, run=None,
+                  broadcast_ready=False):
     from llama.catalog import iter_shows, select_shows
     states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
     if state:
         states.add(state)
     vf = True if voiced else (False if unvoiced else None)
     entries = select_shows(iter_shows(config.root, ledger),
-                           states=states or None, voiced=vf, artist=artist, run=run)
+                           states=states or None, voiced=vf, artist=artist,
+                           run=run, broadcast_ready=broadcast_ready)
     if not held:                         # never act on held shows implicitly
         entries = [e for e in entries if e.state != "held"]
     return entries
 
 
-def _has_selector(held, packaged, voiced, unvoiced, state, artist, run) -> bool:
-    return any([held, packaged, voiced, unvoiced, state, artist, run])
+def _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                  broadcast_ready) -> bool:
+    return any([held, packaged, voiced, unvoiced, state, artist, run,
+                broadcast_ready])
 
 
 def _confirm_plan(entries, action: str, yes: bool) -> bool:
@@ -894,21 +909,25 @@ def deliver(
     state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Copy a show package to the station's watched folder and record delivery."""
-    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                                          broadcast_ready):
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
     if name is None:
-        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                             broadcast_ready):
             typer.echo("give a show or a selector (e.g. --packaged)", err=True)
             raise typer.Exit(1)
         config, _, ledger = _setup(config_path)
         entries = _batch_select(config, ledger, held=held, packaged=packaged,
                                 voiced=voiced, unvoiced=unvoiced, state=state,
-                                artist=artist, run=run)
+                                artist=artist, run=run, broadcast_ready=broadcast_ready)
         if not entries:
             typer.echo("no matching shows")
             return
@@ -995,6 +1014,8 @@ def redo(
     state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     config_path: Path = typer.Option(None, "--config"),
 ):
@@ -1003,17 +1024,19 @@ def redo(
     if from_stage not in show_stages:
         typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
         raise typer.Exit(1)
-    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                                          broadcast_ready):
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
     if name is None:
-        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                             broadcast_ready):
             typer.echo("give a show or a selector (e.g. --unvoiced)", err=True)
             raise typer.Exit(1)
         config, ia, ledger = _setup(config_path)
         entries = _batch_select(config, ledger, held=held, packaged=packaged,
                                 voiced=voiced, unvoiced=unvoiced, state=state,
-                                artist=artist, run=run)
+                                artist=artist, run=run, broadcast_ready=broadcast_ready)
         if not entries:
             typer.echo("no matching shows")
             return
@@ -1048,6 +1071,8 @@ def status(
     voiced: bool = typer.Option(False, "--voiced", help="Only voiced shows"),
     unvoiced: bool = typer.Option(False, "--unvoiced", help="Only packaged shows with no DJ audio"),
     state: str = typer.Option(None, "--state", help="Only shows in this derived state"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Only broadcast-ready shows"),
     run: str = typer.Option(None, "--run", help="Only shows processed by this run"),
     artist: str = typer.Option(None, "--artist", help="Substring filter on artist"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
@@ -1070,8 +1095,9 @@ def status(
         states.add(state)
     voiced_filter = True if voiced else (False if unvoiced else None)
     entries = select_shows(entries, states=states or None, voiced=voiced_filter,
-                           artist=artist, run=run)
-    filtering = bool(states or voiced_filter is not None or run or artist)
+                           artist=artist, run=run, broadcast_ready=broadcast_ready)
+    filtering = bool(states or voiced_filter is not None or run or artist
+                     or broadcast_ready)
     entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
     if not all_shows and not filtering:
         recorded: dict[str, str] = {}
@@ -1089,6 +1115,7 @@ def status(
             "run": e.provenance.run if e.provenance else None,
             "flags": e.flags, "path": str(e.ws.dir),
             "voiced": e.voiced,
+            "broadcast_ready": e.broadcast_ready,
             "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
         } for e in entries], indent=2))
         return
@@ -1098,6 +1125,8 @@ def status(
     for e in entries:
         run_name = e.provenance.run if e.provenance else "?"
         marks = []
+        if e.broadcast_ready:
+            marks.append("broadcast-ready")
         if e.voiced:
             marks.append("voiced")
         if e.overrides.narration == "vague":
