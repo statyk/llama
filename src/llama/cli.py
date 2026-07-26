@@ -542,7 +542,7 @@ def _resolve_exclude_tokens(show_ws, tokens) -> list[str]:
     if not any(p.isdigit() for p in parts):
         return parts
     if not show_ws.show.exists():
-        raise LlamaError("--exclude by number needs show.json; reference the file by name")
+        raise LlamaError("resolving a track number needs show.json; reference the file by name instead")
     tracks = read_model(show_ws.show, Show).tracks
     by_index = {t.index: t.filename for t in tracks}
     out = []
@@ -550,7 +550,7 @@ def _resolve_exclude_tokens(show_ws, tokens) -> list[str]:
         if p.isdigit():
             n = int(p)
             if n not in by_index:
-                raise LlamaError(f"--exclude: no track {n} (show has {len(tracks)} tracks)")
+                raise LlamaError(f"no track {n} (show has {len(tracks)} tracks)")
             out.append(by_index[n])
         else:
             out.append(p)
@@ -640,8 +640,23 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
     typer.echo(f"state: {entry.state}   path: {sws.dir}")
     from llama.workspace import read_overrides
     ov = read_overrides(sws)
-    if ov.exclude or ov.narration != "full":
-        typer.echo(f"overrides: narration={ov.narration} exclude={ov.exclude}")
+    parts = []
+    if ov.narration != "full":
+        parts.append(f"narration={ov.narration}")
+    if ov.exclude:
+        parts.append(f"exclude={ov.exclude}")
+    if ov.venue is not None:
+        parts.append(f"venue={ov.venue!r}")
+    if ov.city is not None:
+        parts.append(f"city={ov.city!r}")
+    if ov.date is not None:
+        parts.append(f"date={ov.date}")
+    if ov.titles:
+        parts.append(f"titles={ov.titles}")
+    if ov.set_breaks is not None:
+        parts.append(f"set_breaks={ov.set_breaks}")
+    if parts:
+        typer.echo("overrides: " + "  ".join(parts))
     typer.echo("stages:")
     artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
                  ("research.md", sws.research), ("vetting.json", sws.vetting),
@@ -662,7 +677,7 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
     if show_tracks:
-        for line in _format_tracks(read_model(sws.show, Show)):
+        for line in _format_tracks(s):
             typer.echo(line)
 
 
@@ -725,14 +740,24 @@ def show(
 
     parsed_titles = {}
     for spec in (title or []):
-        if "=" not in spec:
-            typer.echo(f"--title expects N=TITLE, got {spec!r}", err=True)
+        n, sep, t = spec.partition("=")
+        if not sep or not n.strip().isdigit():
+            typer.echo(f'--title expects N="Title" with a track number, got {spec!r}', err=True)
             raise typer.Exit(1)
-        n, t = spec.split("=", 1)
-        parsed_titles[int(n)] = t
+        parsed_titles[int(n.strip())] = t
+    clear_title_nums = []
+    for spec in (clear_title or []):
+        if not str(spec).strip().isdigit():
+            typer.echo(f"--clear-title expects a track number, got {spec!r}", err=True)
+            raise typer.Exit(1)
+        clear_title_nums.append(int(str(spec).strip()))
     breaks_val = None
     if set_breaks:
-        breaks_val = [int(x) for x in set_breaks.split(",") if x.strip()]
+        parts = [x.strip() for x in set_breaks.split(",") if x.strip()]
+        if not all(p.isdigit() for p in parts):
+            typer.echo(f"--set-breaks expects comma-separated track numbers, got {set_breaks!r}", err=True)
+            raise typer.Exit(1)
+        breaks_val = [int(p) for p in parts]
 
     did_exclude = bool(exclude or include)
     did_narration = vague or full
@@ -780,7 +805,7 @@ def show(
             city=set_city if set_city is not None else _UNSET,
             date=set_date if set_date is not None else _UNSET,
             set_titles=parsed_titles or None,
-            clear_titles=[int(n) for n in (clear_title or [])],
+            clear_titles=clear_title_nums,
             set_breaks=breaks_val if set_breaks else _UNSET,
             clear_set_breaks=clear_set_breaks)
         typer.echo(f"{entry.slug}: metadata override updated")
@@ -1274,7 +1299,14 @@ def presenter_add(
     if bool(character) == bool(character_file):
         typer.echo("give exactly one of --character / --character-file", err=True)
         raise typer.Exit(1)
-    text = character if character else character_file.read_text().strip()
+    if character:
+        text = character
+    else:
+        try:
+            text = character_file.read_text().strip()
+        except OSError as exc:
+            typer.echo(f"cannot read --character-file {character_file}: {exc}", err=True)
+            raise typer.Exit(1)
     dest = config.root / "presenters" / f"{id}.toml"
     if dest.exists() and not force:
         typer.echo(f"presenter {id!r} exists: {dest} (use --force to overwrite)", err=True)

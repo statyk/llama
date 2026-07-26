@@ -147,3 +147,20 @@ def test_resolve_run(tmp_path: Path):
         resolve_run(tmp_path, "2026-07-16")
     with pytest.raises(CatalogError):
         resolve_run(tmp_path, "nope")
+
+
+def test_select_shows_run_dimension():
+    from llama.catalog import CatalogEntry, select_shows
+    from llama.models import Candidate, Provenance, RecordingSummary
+    from llama.workspace import ShowWorkspace
+
+    def entry(slug, run):
+        prov = Provenance(performance_id=f"P/{slug}", run=run, dossier="",
+                          candidate=Candidate(performance_id=f"P/{slug}", collection="P",
+                                              date="1970-01-01",
+                                              recordings=[RecordingSummary(identifier="i")]),
+                          processed_at="2026-07-17T00:00:00+00:00")
+        return CatalogEntry(slug=slug, ws=ShowWorkspace(Path("/x")), state="packaged",
+                            provenance=prov)
+    es = [entry("a", "r1"), entry("b", "r2")]
+    assert {e.slug for e in select_shows(es, run="r1")} == {"a"}

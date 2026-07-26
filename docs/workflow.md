@@ -224,7 +224,7 @@ there you're choosing one of three resolutions:
 
 | Resolution | When | Do | Clears the hold? |
 |---|---|---|---|
-| **Correct** | The flag is real and fixable — e.g. junk tracks slipped past the filter, or a setlist source is missing | `llama show <show> --exclude <file>` (repeat for more; `--include <file>` to undo one), then `llama redo <show> --from gather` | No — a clean re-gather self-clears by producing structure with no flags |
+| **Correct** | The flag is real and fixable — e.g. junk tracks slipped past the filter, or a setlist source is missing | `llama show <show> --tracks` to see the numbered track list, then `llama show <show> --exclude 9,10` (by track number or filename; `--include` to undo one) and `llama redo <show> --from gather` | No — a clean re-gather self-clears by producing structure with no flags |
 | **Accept as vague** | The setlist genuinely can't be resolved, but the show is otherwise fine to air without naming songs | `llama show <show> --vague`, then `llama redo <show> --from synthesize` | Yes, immediately (narration mode also survives future redos) |
 | **Overrule** | The flag is a false alarm | `llama show <show> --clear`, then `llama redo <show> --from package` | Yes, immediately |
 

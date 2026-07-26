@@ -283,3 +283,30 @@ def test_synthesize_passes_narration_note_from_overrides(tmp_path, monkeypatch):
     show = make_show_one_set()  # helper already in this test module
     run_synthesize(ws, FakeProvider(), show, "research", [], force=True)
     assert captured["narration_note"]  # non-empty vague note reached the prompt
+
+
+def test_synthesize_full_path_has_no_extra_blank_line():
+    # The full/absent narration path must leave the rendered prompt with exactly
+    # one blank line before "Show data" (byte-identical to the pre-narration
+    # template), not an extra blank injected by the empty {{narration_note}} slot.
+    from llama.llm.tasks import load_prompt
+    rendered = load_prompt("synthesize").replace("{{narration_note}}", narration_note("full"))
+    assert "hearing.\n\nShow data (JSON):" in rendered
+    assert "\n\n\nShow data" not in rendered
+
+
+def test_synthesize_full_passes_empty_narration_note(tmp_path, monkeypatch):
+    # Mirror of the vague capture test: with no overrides file, the full path
+    # must still pass narration_note="" through run_synthesize's inputs.
+    import llama.stages.synthesize as syn
+    captured = {}
+
+    def fake_run_json_task(provider, task, schema, *, feedback="", **inputs):
+        captured.update(inputs)
+        return schema(context="c", set_intros={"1": "a lead-in"}, outro="bye",
+                      mentioned_songs=[])
+
+    monkeypatch.setattr(syn, "run_json_task", fake_run_json_task)
+    ws = ShowWorkspace(tmp_path / "s")   # no overrides.json -> narration "full"
+    run_synthesize(ws, FakeProvider(), make_show_one_set(), "research", [], force=True)
+    assert captured["narration_note"] == ""

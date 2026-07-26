@@ -17,7 +17,11 @@ _VAGUE_NOTE = (
 
 
 def narration_note(narration: str) -> str:
-    return _VAGUE_NOTE if narration == "vague" else ""
+    # Trailing blank line so the prompt's `{{narration_note}}Show data` slot
+    # reads cleanly when set; empty string leaves the full-path prompt
+    # byte-identical to the pre-narration template (one blank line before
+    # "Show data"), rather than injecting an extra blank line.
+    return _VAGUE_NOTE + "\n\n" if narration == "vague" else ""
 
 
 # Set-count claims in script prose. "sets of ..." ("two sets of fiddle tunes")

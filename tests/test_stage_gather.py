@@ -477,15 +477,15 @@ def test_gather_exclude_no_match_warns_and_is_noop(tmp_path: Path, caplog):
     assert any("matched no file" in r.message for r in caplog.records)
 
 
-def test_gather_title_override_fills_and_clears_flag(tmp_path: Path):
-    base = ShowWorkspace(tmp_path / "b")
-    show0 = run_gather(base, StubIA(), FakeProvider(), make_candidate(), IDENT)
-    # find an index and force a bogus title; assert it wins with source=override
+def test_gather_title_override_forces_title(tmp_path: Path):
     ws = ShowWorkspace(tmp_path / "s")
     write_artifact(ws.overrides, Overrides(titles={1: "Custom Opener"}))
     show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
     assert show.tracks[0].title == "Custom Opener"
     assert show.tracks[0].title_source == "override"
+    # the gd73 fixture resolves all titles, so no unresolved-titles hold exists;
+    # an override can only ever remove such a flag, never add one.
+    assert "unresolved track titles" not in show.review_flags
 
 
 def test_gather_title_override_out_of_range_errors(tmp_path: Path):
