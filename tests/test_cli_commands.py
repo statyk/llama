@@ -9,10 +9,12 @@ import llama.cli as cli
 from llama.config import DEFAULT_CONFIG_TOML
 from llama.ledger import Ledger
 from llama.models import (
-    Candidate, Criteria, LedgerEntry, Provenance, QualityAssessment, RecordingSummary, Show,
-    ShortlistEntry, Track,
+    Candidate, Criteria, LedgerEntry, Overrides, Provenance, QualityAssessment, RecordingSummary,
+    Show, ShortlistEntry, Track,
 )
-from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
+from llama.workspace import (
+    RunWorkspace, ShowWorkspace, read_model, read_model_list, read_overrides, write_artifact,
+)
 
 runner = CliRunner()
 
@@ -235,6 +237,40 @@ def test_show_errors_without_show_json(tmp_path: Path):
     assert "no show.json" in result.output
 
 
+def _held_show_dir(tmp_path):
+    # minimal held, provenance-bearing show (reuse existing builders if present)
+    from test_catalog import build
+    ws = build(tmp_path, "gratefuldead-1973-06-10",
+               stages={"select", "gather"}, needs_review=True)
+    return ws
+
+
+def test_show_vague_writes_overrides_clears_hold_prints_next(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = _held_show_dir(tmp_path)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--vague", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.narration == "vague"
+    from llama.models import Show
+    assert read_model(ws.show, Show).needs_review is False
+    assert "redo gratefuldead-1973-06-10 --from synthesize" in r.output
+
+
+def test_show_exclude_writes_overrides_keeps_hold_prints_gather(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = _held_show_dir(tmp_path)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--exclude", "junk.mp3",
+                                "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).exclude == ["junk.mp3"]
+    from llama.models import Show
+    assert read_model(ws.show, Show).needs_review is True   # NOT pre-cleared
+    assert "--from gather" in r.output
+
+
 def _approved_run(tmp_path: Path) -> tuple[str, RunWorkspace]:
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -364,6 +400,105 @@ def test_deliver_refuses_needs_review_without_force(tmp_path: Path):
                                      "--force", "--config", cfg])
     assert forced.exit_code == 0, forced.output
     assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
+
+
+def test_redo_batch_unvoiced_plans_and_confirms(tmp_path, monkeypatch):
+    from test_pipeline import FakeIA, fake_providers
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    runner.invoke(cli.app, ["find", "GD 1973", "--auto", "--script",
+                            "--run-name", "r", "--config", cfg])
+
+    calls = []
+    monkeypatch.setattr(cli, "_redo_show",
+                        lambda *a, **k: calls.append(a[3].slug) or a[3].ws.package_dir)
+    r = runner.invoke(cli.app, ["redo", "--unvoiced", "--from", "package",
+                                "--voice", "--config", cfg], input="y\n")
+    assert r.exit_code == 0, r.output
+    assert calls == ["gratefuldead-1973-06-10"]
+
+
+def test_redo_batch_requires_target(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["redo", "--from", "package", "--config", cfg])
+    assert r.exit_code != 0
+    assert "a show or a selector" in r.output.lower()
+
+
+def test_redo_rejects_name_and_selector_together(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["redo", "someshow", "--unvoiced", "--from", "package",
+                                "--config", cfg])
+    assert r.exit_code != 0
+    assert "not both" in r.output.lower()
+
+
+def test_deliver_batch_continues_past_oserror(tmp_path, monkeypatch):
+    """A per-show OSError (e.g. shutil.copytree hitting disk-full/permissions)
+    must be reported as FAILED and not abort the rest of the batch -- matching
+    the batch redo loop's (LlamaError, TaskFailed, LLMError, IAError,
+    SpeechError) broad catch."""
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\ndelivery_path = "{tmp_path}/out"\n')
+    build(tmp_path, "aready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "bready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    delivered = []
+
+    def fake_deliver_one(cfg_, led_, e, dest, force):
+        if e.slug == "aready":
+            raise OSError("disk full")
+        delivered.append(e.slug)
+
+    monkeypatch.setattr(cli, "_deliver_one", fake_deliver_one)
+    r = runner.invoke(cli.app, ["deliver", "--packaged", "--yes", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert "FAILED aready" in r.output
+    assert delivered == ["bready"]
+
+
+def test_deliver_rejects_name_and_selector_together(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["deliver", "someshow", "--packaged", "--config", cfg])
+    assert r.exit_code != 0
+    assert "not both" in r.output.lower()
+
+
+def test_deliver_batch_excludes_held(tmp_path, monkeypatch):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\ndelivery_path = "{tmp_path}/out"\n')
+    # one packaged, one held+packaged
+    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+          needs_review=True)
+    delivered = []
+    monkeypatch.setattr(cli, "_deliver_one", lambda cfg_, led_, e, dest, force: delivered.append(e.slug))
+    r = runner.invoke(cli.app, ["deliver", "--packaged", "--yes", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert delivered == ["ready"]  # held excluded
+
+
+def test_deliver_batch_excludes_held_via_nonstate_selector(tmp_path, monkeypatch):
+    """Both shows share an artist (no --state/--packaged filter involved), so
+    the held one can only be dropped by the `if not held` post-filter in
+    _batch_select -- not by select_shows(states=...)."""
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\ndelivery_path = "{tmp_path}/out"\n')
+    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+          needs_review=True)
+    delivered = []
+    monkeypatch.setattr(cli, "_deliver_one", lambda cfg_, led_, e, dest, force: delivered.append(e.slug))
+    r = runner.invoke(cli.app, ["deliver", "--artist", "Grateful Dead", "--yes", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert delivered == ["ready"]  # held excluded even though --artist matched both
 
 
 def test_run_unknown_stage_exits_with_message(tmp_path: Path):
@@ -805,6 +940,63 @@ def test_status_json(tmp_path: Path):
     assert rows[0]["run"] == "r1"
 
 
+def test_status_voiced_and_unvoiced_filters(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _seed_show(tmp_path, "silent-1970-01-01", "silent/1970-01-01", "r1", packaged=True)
+    voiced_ws = _seed_show(tmp_path, "voiced-1971-01-01", "voiced/1971-01-01", "r1", packaged=True)
+    write_artifact(voiced_ws.package_dir / "manifest.json",
+                   {"schema_version": 2, "dj_audio": {"set_intros": {}, "outro": "o"}})
+
+    unvoiced = runner.invoke(cli.app, ["status", "--unvoiced", "--config", cfg])
+    assert unvoiced.exit_code == 0, unvoiced.output
+    assert "silent-1970-01-01" in unvoiced.output
+    assert "voiced-1971-01-01" not in unvoiced.output
+
+    voiced = runner.invoke(cli.app, ["status", "--voiced", "--config", cfg])
+    assert voiced.exit_code == 0, voiced.output
+    assert "voiced-1971-01-01" in voiced.output
+    assert "silent-1970-01-01" not in voiced.output
+    assert "[voiced]" in voiced.output
+
+
+def test_status_state_filter(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=False)
+    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "r1", packaged=True)
+
+    result = runner.invoke(cli.app, ["status", "--state", "gathered", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "aaa-1970-01-01" in result.output
+    assert "bbb-1971-01-01" not in result.output
+
+
+def test_status_json_has_voiced_and_overrides(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=False)
+    write_artifact(sws.overrides, Overrides(exclude=["a.mp3"], narration="vague"))
+
+    result = runner.invoke(cli.app, ["status", "--json", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    rows = json.loads(result.output)
+    row = next(r for r in rows if r["slug"] == "aaa-1970-01-01")
+    assert row["voiced"] is None
+    assert row["overrides"] == {"exclude": ["a.mp3"], "narration": "vague"}
+
+
+def test_status_text_row_annotation(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=True)
+    write_artifact(sws.overrides, Overrides(exclude=["a.mp3", "b.mp3"], narration="vague"))
+
+    result = runner.invoke(cli.app, ["status", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "[vague, 2x-excl]" in result.output
+
+
 def test_runs_lists_runs_with_counts(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -1024,3 +1216,47 @@ def test_show_displays_jerrybase_venue_provenance(tmp_path: Path):
     result = runner.invoke(cli.app, ["show", str(sws.dir), "--config", cfg])
     assert result.exit_code == 0, result.output
     assert "(venue from jerrybase)" in result.output
+
+
+def test_show_interactive_vague_runs_resolution(tmp_path, monkeypatch):
+    from test_pipeline import FakeIA, fake_providers
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    monkeypatch.setattr(cli, "_interactive_enabled", lambda: True)
+
+    # real held show via find
+    runner.invoke(cli.app, ["find", "GD 1973", "--auto", "--script",
+                            "--run-name", "r", "--config", cfg])
+    ws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
+    s = read_model(ws.show, Show); s.needs_review = True; s.review_flags = ["x"]
+    write_artifact(ws.show, s)
+
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--config", cfg], input="v\n")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).narration == "vague"
+    assert read_model(ws.show, Show).needs_review is False
+
+
+def test_show_single_interactive_prints_entry_once(tmp_path, monkeypatch):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "_interactive_enabled", lambda: True)
+    build(tmp_path, "held-one", stages={"select", "gather"}, needs_review=True)
+
+    r = runner.invoke(cli.app, ["show", "held-one", "--config", cfg], input="s\n")
+    assert r.exit_code == 0, r.output
+    assert r.output.count("state: held") == 1
+
+
+def test_show_set_form_defaults_to_held(tmp_path, monkeypatch):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "_interactive_enabled", lambda: False)  # inspect-only
+    build(tmp_path, "held-one", stages={"select", "gather"}, needs_review=True)
+    build(tmp_path, "clean-one", stages={"select", "gather"}, needs_review=False)
+    r = runner.invoke(cli.app, ["show", "--config", cfg])
+    assert "held-one" in r.output and "clean-one" not in r.output

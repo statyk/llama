@@ -35,6 +35,13 @@ def read_json(path: Path):
     return json.loads(path.read_text())
 
 
+def read_overrides(show_ws: "ShowWorkspace"):
+    from llama.models import Overrides
+    if show_ws.overrides.exists():
+        return read_model(show_ws.overrides, Overrides)
+    return Overrides()
+
+
 def should_run(path: Path, force: bool) -> bool:
     return force or not path.exists()
 
@@ -50,6 +57,7 @@ class ShowWorkspace:
         self.vetting = dir / "vetting.json"
         self.dj_notes_md = dir / "dj-notes.md"
         self.dj_notes_json = dir / "dj-notes.json"
+        self.overrides = dir / "overrides.json"
         self.package_dir = dir / "package"
 
 

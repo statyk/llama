@@ -14,7 +14,7 @@ from llama.structure import (align, apply_llm_alignment, blend_segues,
                              from_setlistfm, norm_title, rank_parses,
                              structure_guard, venues_equivalent)
 from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_breaks
-from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
+from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
 log = logging.getLogger("llama")
 
@@ -117,6 +117,16 @@ def run_gather(
     artist = str(_creator(meta) or candidate.collection)
     want = FORMAT_BY_AUDIO[audio_format]
     kept, excluded, ordering = filter_files(md.get("files", []), want_format=want)
+
+    overrides = read_overrides(show_ws)
+    if overrides.exclude:
+        drop = set(overrides.exclude)
+        matched = {f["name"] for f in kept if f["name"] in drop}
+        for missing in sorted(drop - matched):
+            log.warning("overrides.exclude entry %r matched no file", missing)
+        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"]}
+                     for f in kept if f["name"] in drop]
+        kept = [f for f in kept if f["name"] not in drop]
 
     # Canonical performance setlist: every recording's description, plus
     # setlist.fm when configured, ranked pick-best.

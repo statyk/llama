@@ -2,10 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from llama.catalog import (CatalogError, derive_state, iter_shows,
-                           resolve_run, resolve_show)
+from llama.catalog import (CatalogError, derive_state, derive_voiced,
+                           iter_shows, resolve_run, resolve_show,
+                           select_shows)
 from llama.ledger import Ledger
-from llama.models import Candidate, Provenance, RecordingSummary, Show, Track
+from llama.models import Candidate, Overrides, Provenance, RecordingSummary, Show, Track
 from llama.workspace import ShowWorkspace, write_artifact
 
 
@@ -100,6 +101,41 @@ def test_resolve_show_accepts_existing_path(tmp_path: Path):
     ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
     ledger = Ledger(tmp_path / "ledger.jsonl")
     assert resolve_show(tmp_path, ledger, str(ws.dir)).slug == "gratefuldead-1973-06-10"
+
+
+def test_derive_voiced_states(tmp_path):
+    pre = build(tmp_path / "a", "a", stages={"select"})
+    assert derive_voiced(pre) is None
+    silent = build(tmp_path / "b", "b",
+                   stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    assert derive_voiced(silent) is False
+    voiced = ShowWorkspace(tmp_path / "c" / "shows" / "c")
+    write_artifact(voiced.package_dir / "manifest.json",
+                   {"schema_version": 2, "dj_audio": {"set_intros": {"1": "x"}, "outro": "o"}})
+    assert derive_voiced(voiced) is True
+
+
+def test_iter_shows_populates_voiced_and_overrides(tmp_path):
+    ws = build(tmp_path, "s", stages={"select", "gather"})
+    write_artifact(ws.overrides, Overrides(exclude=["a.mp3"], narration="vague"))
+    (entry,) = iter_shows(tmp_path, Ledger(tmp_path / "ledger.jsonl"))
+    assert entry.voiced is None
+    assert entry.overrides.exclude == ["a.mp3"] and entry.overrides.narration == "vague"
+
+
+def test_select_shows_filters():
+    from llama.catalog import CatalogEntry
+    from llama.workspace import ShowWorkspace
+    def e(slug, state, voiced=None, artist="Grateful Dead"):
+        return CatalogEntry(slug=slug, ws=ShowWorkspace(Path("/x")), state=state,
+                            voiced=voiced, artist=artist)
+    es = [e("a", "held"), e("b", "packaged", voiced=False),
+          e("c", "packaged", voiced=True), e("d", "delivered", artist="Phish")]
+    assert {x.slug for x in select_shows(es, states={"held"})} == {"a"}
+    assert {x.slug for x in select_shows(es, states={"held", "packaged"})} == {"a", "b", "c"}
+    assert {x.slug for x in select_shows(es, voiced=False)} == {"b"}
+    assert {x.slug for x in select_shows(es, artist="phish")} == {"d"}
+    assert {x.slug for x in select_shows(es, states={"packaged"}, voiced=True)} == {"c"}
 
 
 def test_resolve_run(tmp_path: Path):

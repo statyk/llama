@@ -3,11 +3,12 @@ from pathlib import Path
 
 from llama.llm.fake import FakeProvider
 from llama.llm.tasks import load_prompt
-from llama.models import DJNotes, Show, Track
+from llama.models import DJNotes, Overrides, Show, Track
 from llama.presenters import Presenter
 from llama.stages.synthesize import (
     NEUTRAL_STYLE,
     factual_guard,
+    narration_note,
     persona_style,
     render_notes_md,
     run_synthesize,
@@ -249,3 +250,36 @@ def test_persona_guard_still_catches_unknown_song(tmp_path: Path):
     saved = json.loads(sws.show.read_text())
     assert saved["needs_review"] is True
     assert any("Shakedown Street" in f for f in saved["review_flags"])
+
+
+def make_show_one_set():
+    return Show(performance_id="X/2003-04-19", identifier="x", artist="X",
+                date="2003-04-19",
+                tracks=[Track(index=1, set="1", title="Unknown 1",
+                              filename="a.mp3", title_source="unresolved")])
+
+
+def test_narration_note_full_is_empty():
+    assert narration_note("full") == ""
+
+
+def test_narration_note_vague_forbids_naming_songs():
+    note = narration_note("vague")
+    assert note and "do not name" in note.lower()
+
+
+def test_synthesize_passes_narration_note_from_overrides(tmp_path, monkeypatch):
+    import llama.stages.synthesize as syn
+    captured = {}
+
+    def fake_run_json_task(provider, task, schema, *, feedback="", **inputs):
+        captured.update(inputs)
+        return schema(context="c", set_intros={"1": "a lead-in"}, outro="bye",
+                      mentioned_songs=[])
+
+    monkeypatch.setattr(syn, "run_json_task", fake_run_json_task)
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(narration="vague"))
+    show = make_show_one_set()  # helper already in this test module
+    run_synthesize(ws, FakeProvider(), show, "research", [], force=True)
+    assert captured["narration_note"]  # non-empty vague note reached the prompt

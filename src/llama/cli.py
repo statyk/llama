@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 import typer
+from typer.core import TyperGroup
 
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
@@ -36,16 +37,29 @@ from llama.workspace import RunWorkspace, read_model, read_model_list, write_art
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
-app = typer.Typer(help="Live Music Archive -> radio station pipeline", pretty_exceptions_enable=False)
+_COMMAND_ORDER = ["find", "artists", "run", "review", "profile",
+                  "status", "runs", "show", "redo", "deliver",
+                  "ledger", "config", "version"]
+
+
+class OrderedPanelGroup(TyperGroup):
+    def list_commands(self, ctx):
+        cmds = super().list_commands(ctx)
+        return sorted(cmds, key=lambda n: (_COMMAND_ORDER.index(n)
+                                           if n in _COMMAND_ORDER else len(_COMMAND_ORDER)))
+
+
+app = typer.Typer(help="Live Music Archive -> radio station pipeline",
+                  pretty_exceptions_enable=False, cls=OrderedPanelGroup)
 configure_logging()
 
 profile_app = typer.Typer(help="Standing criteria profiles for recurring segments", pretty_exceptions_enable=False)
 ledger_app = typer.Typer(help="Broadcast-history ledger", pretty_exceptions_enable=False)
-app.add_typer(profile_app, name="profile")
-app.add_typer(ledger_app, name="ledger")
+app.add_typer(profile_app, name="profile", rich_help_panel="Discover & process")
+app.add_typer(ledger_app, name="ledger", rich_help_panel="Housekeeping")
 
 config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
-app.add_typer(config_app, name="config")
+app.add_typer(config_app, name="config", rich_help_panel="Housekeeping")
 
 
 def _version_callback(value: bool) -> None:
@@ -69,7 +83,7 @@ def main(
     """Find, vet, research, and package LMA concerts for broadcast."""
 
 
-@app.command()
+@app.command(rich_help_panel="Housekeeping")
 def version() -> None:
     """Print the llama version."""
     import llama
@@ -266,7 +280,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             speech.close()
 
 
-@app.command()
+@app.command(rich_help_panel="Discover & process")
 def find(
     query: str,
     limit: int = typer.Option(0, "--limit", help="How many shows (0 = let the query decide)"),
@@ -328,7 +342,7 @@ def find(
              full_rationale=full_rationale)
 
 
-@app.command()
+@app.command(rich_help_panel="Discover & process")
 def artists(
     query: str = typer.Argument(None, help="Natural-language artist query (omit to list by catalog size)"),
     limit: int = typer.Option(20, "--limit", help="Max artists to show"),
@@ -362,7 +376,7 @@ def artists(
     _print_artists(matches)
 
 
-@app.command()
+@app.command(rich_help_panel="Discover & process")
 def run(
     run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
     stage: str = typer.Option(None, "--stage", help="Force re-run of one stage"),
@@ -422,7 +436,7 @@ def run(
              full_rationale=full_rationale)
 
 
-@app.command()
+@app.command(rich_help_panel="Discover & process")
 def review(
     run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
     script: bool = typer.Option(None, "--script/--no-script",
@@ -480,16 +494,73 @@ def _resolve_show(config, ledger, name: str):
     return resolve_show(config.root, ledger, name)
 
 
-@app.command()
-def show(
-    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
-    clear: bool = typer.Option(False, "--clear",
-                               help="Overrule the hold: clear needs-review and its flags"),
-    config_path: Path = typer.Option(None, "--config"),
-):
-    """Inspect one show: state, stage artifacts, needs-review flags."""
-    config, _, ledger = _setup(config_path)
-    entry = _resolve_show(config, ledger, name)
+def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None):
+    from llama.models import Overrides
+    from llama.workspace import read_overrides
+
+    ov = read_overrides(show_ws)
+    exclude = [f for f in ov.exclude if f not in set(rm_exclude)]
+    for f in add_exclude:
+        if f not in exclude:
+            exclude.append(f)
+    ov = Overrides(exclude=exclude, narration=narration or ov.narration)
+    write_artifact(show_ws.overrides, ov)
+    return ov
+
+
+def _clear_hold(show_ws):
+    s = read_model(show_ws.show, Show)
+    s.needs_review = False
+    s.review_flags = []
+    write_artifact(show_ws.show, s)
+
+
+def _interactive_enabled() -> bool:
+    return sys.stdin.isatty()
+
+
+def _pick_excludes(show) -> list[str]:
+    typer.echo("tracks:")
+    for t in show.tracks:
+        typer.echo(f"  {t.index:2d}. {t.set:6s} {t.title:28.28s} {t.filename}")
+    picks = _parse_ranks(typer.prompt("exclude which track numbers? (comma-separated, empty = none)",
+                                      default="", show_default=False))
+    return [t.filename for t in show.tracks if t.index in picks]
+
+
+def _interactive_resolve(config, ia, ledger, entry) -> None:
+    _print_show_entry(entry)
+    if entry.state != "held":
+        return
+    choice = typer.prompt("[e]xclude tracks / [v]ague / [c]lear / [s]kip / [q]uit",
+                          default="s", show_default=False).strip().lower()
+    if choice in ("", "s"):
+        return
+    if choice == "q":
+        raise typer.Exit()
+    if choice == "e":
+        files = _pick_excludes(read_model(entry.ws.show, Show))
+        if not files:
+            typer.echo("nothing selected; skipping")
+            return
+        _edit_overrides(entry.ws, add_exclude=files)
+        stage = "gather"
+    elif choice == "v":
+        _edit_overrides(entry.ws, narration="vague")
+        _clear_hold(entry.ws)
+        stage = "synthesize"
+    elif choice == "c":
+        _clear_hold(entry.ws)
+        stage = "package"
+    else:
+        typer.echo("unrecognized; skipping")
+        return
+    fresh = _resolve_show(config, ledger, entry.slug)
+    pkg = _redo_show(config, ia, ledger, fresh, stage)
+    typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+
+
+def _print_show_entry(entry) -> None:
     sws = entry.ws
     if not sws.show.exists():
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
@@ -504,6 +575,10 @@ def show(
     typer.echo(f"{s.artist}  {date_str}  {place}".rstrip())
     typer.echo(f"recording: {s.identifier}  ({len(s.tracks)} tracks)")
     typer.echo(f"state: {entry.state}   path: {sws.dir}")
+    from llama.workspace import read_overrides
+    ov = read_overrides(sws)
+    if ov.exclude or ov.narration != "full":
+        typer.echo(f"overrides: narration={ov.narration} exclude={ov.exclude}")
     typer.echo("stages:")
     artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
                  ("research.md", sws.research), ("vetting.json", sws.vetting),
@@ -518,47 +593,135 @@ def show(
             typer.echo(f"  {label:22s} missing")
     if not s.needs_review:
         typer.echo("needs-review: no")
-        return
-    typer.echo("needs-review: yes")
-    for f in s.review_flags:
-        typer.echo(f"  - {f}")
-    if clear:
-        s.needs_review = False
-        s.review_flags = []
-        write_artifact(sws.show, s)
-        typer.echo("cleared")
-        typer.echo(f"next: llama redo {entry.slug} --from package")
     else:
+        typer.echo("needs-review: yes")
+        for f in s.review_flags:
+            typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
 
 
-@app.command()
-def deliver(
-    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
-    dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
-    force: bool = typer.Option(False, "--force", help="Deliver even if the show is marked needs-review"),
+@app.command(rich_help_panel="Inspect & triage")
+def show(
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+    exclude: list[str] = typer.Option(None, "--exclude",
+                                      help="Add source filenames to overrides.exclude"),
+    include: list[str] = typer.Option(None, "--include",
+                                      help="Remove filenames from overrides.exclude"),
+    vague: bool = typer.Option(False, "--vague", help="Set narration=vague and clear the hold"),
+    full: bool = typer.Option(False, "--full", help="Reset narration to full"),
+    clear: bool = typer.Option(False, "--clear",
+                               help="Overrule the hold: clear needs-review and its flags"),
+    apply: bool = typer.Option(False, "--apply",
+                               help="Run the resolving redo now instead of printing it"),
+    held: bool = typer.Option(False, "--held", help="Set form: only held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Set form: only packaged shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Set form: only voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Set form: only unvoiced shows"),
+    state: str = typer.Option(None, "--state", help="Set form: filter by exact catalog state"),
+    artist: str = typer.Option(None, "--artist", help="Set form: filter by artist substring"),
+    run: str = typer.Option(None, "--run", help="Set form: filter by originating run"),
     config_path: Path = typer.Option(None, "--config"),
 ):
-    """Copy a show package to the station's watched folder and record delivery."""
+    """Inspect one show, or walk a set of shows (default: held) for resolution."""
+    config, ia, ledger = _setup(config_path)
+
+    if name is None:
+        from llama.catalog import iter_shows, select_shows
+
+        states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
+        if state:
+            states.add(state)
+        if not states and not (voiced or unvoiced or artist or run):
+            states = {"held"}   # set form defaults to held
+        vf = True if voiced else (False if unvoiced else None)
+        entries = select_shows(iter_shows(config.root, ledger),
+                               states=states or None, voiced=vf, artist=artist, run=run)
+        if not entries:
+            typer.echo("no matching shows")
+            return
+        for e in entries:
+            if _interactive_enabled():
+                _interactive_resolve(config, ia, ledger, e)
+            else:
+                _print_show_entry(e)
+        return
+
+    entry = _resolve_show(config, ledger, name)
+    sws = entry.ws
+
+    did_exclude = bool(exclude or include)
+    did_narration = vague or full
+    if not (did_exclude or did_narration or clear) \
+            and entry.state == "held" and _interactive_enabled():
+        _interactive_resolve(config, ia, ledger, entry)   # prints once inside
+        return
+    _print_show_entry(entry)
+
+    if did_exclude:
+        _edit_overrides(sws, add_exclude=exclude or [], rm_exclude=include or [])
+    if vague:
+        _edit_overrides(sws, narration="vague")
+        _clear_hold(sws)
+    if full:
+        _edit_overrides(sws, narration="full")
+    if clear:
+        _clear_hold(sws)
+    if not (did_exclude or did_narration or clear):
+        return
+    stage = "gather" if did_exclude else ("synthesize" if did_narration else "package")
+    if apply:
+        entry2 = _resolve_show(config, ledger, entry.slug)
+        pkg = _redo_show(config, ia, ledger, entry2, stage)
+        typer.echo(f"packaged: {pkg}" if pkg else f"needs-review, skipped: {entry.slug}")
+    else:
+        typer.echo(f"next: llama redo {entry.slug} --from {stage}")
+
+
+def _batch_select(config, ledger, *, held=False, packaged=False, voiced=False,
+                  unvoiced=False, state=None, artist=None, run=None):
+    from llama.catalog import iter_shows, select_shows
+    states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
+    if state:
+        states.add(state)
+    vf = True if voiced else (False if unvoiced else None)
+    entries = select_shows(iter_shows(config.root, ledger),
+                           states=states or None, voiced=vf, artist=artist, run=run)
+    if not held:                         # never act on held shows implicitly
+        entries = [e for e in entries if e.state != "held"]
+    return entries
+
+
+def _has_selector(held, packaged, voiced, unvoiced, state, artist, run) -> bool:
+    return any([held, packaged, voiced, unvoiced, state, artist, run])
+
+
+def _confirm_plan(entries, action: str, yes: bool) -> bool:
+    typer.echo(f"{len(entries)} show(s) to {action}:")
+    for e in entries:
+        typer.echo(f"  {e.slug}")
+    if yes:
+        return True
+    return typer.confirm("Proceed?", default=False)
+
+
+def _deliver_one(config, ledger, entry, dest, force) -> Path:
+    """Copy one resolved show's package to `dest` (or config.delivery_path)
+    and record the delivery in the ledger; returns the destination path.
+    Raises LlamaError on refusal (no destination, or needs-review without
+    --force)."""
     import json as _json
 
-    config, _, ledger = _setup(config_path)
-    entry = _resolve_show(config, ledger, name)
     show_dir = entry.ws.dir
     target_dir = dest or config.delivery_path
     if target_dir is None:
-        typer.echo("no --dest given and no delivery_path in config", err=True)
-        raise typer.Exit(1)
+        raise LlamaError("no --dest given and no delivery_path in config")
     show_json = show_dir / "show.json"
     if show_json.exists() and not force:
         show_data = _json.loads(show_json.read_text())
         if show_data.get("needs_review"):
             flags = ", ".join(show_data.get("review_flags", []))
-            typer.echo(
-                f"refusing to deliver: show is marked needs-review ({flags}); use --force to override",
-                err=True,
-            )
-            raise typer.Exit(1)
+            raise LlamaError(
+                f"refusing to deliver: show is marked needs-review ({flags}); use --force to override")
     pkg = show_dir / "package"
     manifest = _json.loads((pkg / "manifest.json").read_text())
     out = target_dir / show_dir.name
@@ -571,37 +734,70 @@ def deliver(
         status="delivered", run=run_name,
         recorded_at=datetime.now(timezone.utc).isoformat(),
     ))
+    return out
+
+
+@app.command(rich_help_panel="Act on shows")
+def deliver(
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+    dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
+    force: bool = typer.Option(False, "--force", help="Deliver even if the show is marked needs-review"),
+    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
+    state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Copy a show package to the station's watched folder and record delivery."""
+    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+        typer.echo("give a show OR selectors, not both", err=True)
+        raise typer.Exit(1)
+    if name is None:
+        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+            typer.echo("give a show or a selector (e.g. --packaged)", err=True)
+            raise typer.Exit(1)
+        config, _, ledger = _setup(config_path)
+        entries = _batch_select(config, ledger, held=held, packaged=packaged,
+                                voiced=voiced, unvoiced=unvoiced, state=state,
+                                artist=artist, run=run)
+        if not entries:
+            typer.echo("no matching shows")
+            return
+        if not _confirm_plan(entries, "deliver", yes):
+            return
+        for e in entries:
+            try:
+                out = _deliver_one(config, ledger, e, dest, force)
+                typer.echo(f"delivered: {out}")
+            except (LlamaError, OSError) as exc:
+                typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+        return
+    config, _, ledger = _setup(config_path)
+    entry = _resolve_show(config, ledger, name)
+    try:
+        out = _deliver_one(config, ledger, entry, dest, force)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
     typer.echo(f"delivered: {out}")
 
 
-@app.command()
-def redo(
-    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
-    from_stage: str = typer.Option(..., "--from",
-                                   help="Stage to re-run from: select|gather|research|vet|synthesize|package"),
-    with_research: bool = typer.Option(False, "--with-research",
-                                       help="Also drop research.md (kept by default)"),
-    script: bool = typer.Option(None, "--script/--no-script",
-                                help="Override the script setting recorded at process time"),
-    voice: bool = typer.Option(None, "--voice/--no-voice",
-                               help="Override the voice recorded at process time "
-                                    "(--voice re-voices, --no-voice strips voice)"),
-    config_path: Path = typer.Option(None, "--config"),
-):
-    """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
+def _redo_show(config, ia, ledger, entry, from_stage: str, *,
+               with_research: bool = False, script: bool | None = None,
+               voice: bool | None = None) -> Path | None:
+    """Re-run one resolved show from `from_stage` onward; returns the package
+    path, or None if the show was held/skipped. Raises LlamaError on a
+    hand-built show with no provenance."""
     from llama.models import QualityAssessment
     from llama.workspace import drop_stage_artifacts
 
-    show_stages = VALID_STAGES - RUN_LEVEL_STAGES
-    if from_stage not in show_stages:
-        typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
-        raise typer.Exit(1)
-    config, ia, ledger = _setup(config_path)
-    entry = _resolve_show(config, ledger, name)
     if entry.provenance is None:
-        typer.echo(f"no provenance.json in {entry.ws.dir} - "
-                   "reprocess it via its run first", err=True)
-        raise typer.Exit(1)
+        raise LlamaError(f"no provenance.json in {entry.ws.dir} - "
+                         "reprocess it via its run first")
     prov = entry.provenance
     presenter = (load_presenter(config.root, prov.presenter)
                  if prov.presenter else None)
@@ -616,34 +812,97 @@ def redo(
                   if prov.assessment is not None
                   else QualityAssessment(performance_id=prov.performance_id,
                                          quality_score=0.0, rationale=prov.dossier))
-    shortlist_entry = ShortlistEntry(
-        rank=1, candidate=prov.candidate, assessment=assessment)
+    shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
     ws = RunWorkspace(config.root, prov.run)
     effective_voice = _replay_voice(config, prov.voice, voice)
     effective_script = (prov.script if script is None else script) or effective_voice is not None
     speech = _speech_for(config, effective_voice, presenter)
     try:
-        pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                           prov.run, config.audio_format, script=effective_script,
-                           voice=effective_voice, speech=speech, chunk=config.tts.chunk,
-                           bed=resolve_bed(config, presenter),
-                           presenter=presenter, title=prov.title,
-                           setlistfm=make_client(config), structure_cfg=config.structure,
-                           jerrybase_enabled=config.jerrybase.enabled,
-                           selection_cfg=config.selection)
+        return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                            prov.run, config.audio_format, script=effective_script,
+                            voice=effective_voice, speech=speech, chunk=config.tts.chunk,
+                            bed=resolve_bed(config, presenter),
+                            presenter=presenter, title=prov.title,
+                            setlistfm=make_client(config), structure_cfg=config.structure,
+                            jerrybase_enabled=config.jerrybase.enabled,
+                            selection_cfg=config.selection)
     finally:
         if speech is not None:
             speech.close()
+
+
+@app.command(rich_help_panel="Act on shows")
+def redo(
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+    from_stage: str = typer.Option(..., "--from",
+                                   help="Stage to re-run from: select|gather|research|vet|synthesize|package"),
+    with_research: bool = typer.Option(False, "--with-research",
+                                       help="Also drop research.md (kept by default)"),
+    script: bool = typer.Option(None, "--script/--no-script",
+                                help="Override the script setting recorded at process time"),
+    voice: bool = typer.Option(None, "--voice/--no-voice",
+                               help="Override the voice recorded at process time "
+                                    "(--voice re-voices, --no-voice strips voice)"),
+    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
+    state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
+    show_stages = VALID_STAGES - RUN_LEVEL_STAGES
+    if from_stage not in show_stages:
+        typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
+        raise typer.Exit(1)
+    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+        typer.echo("give a show OR selectors, not both", err=True)
+        raise typer.Exit(1)
+    if name is None:
+        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+            typer.echo("give a show or a selector (e.g. --unvoiced)", err=True)
+            raise typer.Exit(1)
+        config, ia, ledger = _setup(config_path)
+        entries = _batch_select(config, ledger, held=held, packaged=packaged,
+                                voiced=voiced, unvoiced=unvoiced, state=state,
+                                artist=artist, run=run)
+        if not entries:
+            typer.echo("no matching shows")
+            return
+        if not _confirm_plan(entries, f"redo --from {from_stage}", yes):
+            return
+        for e in entries:
+            try:
+                pkg = _redo_show(config, ia, ledger, e, from_stage,
+                                 with_research=with_research, script=script, voice=voice)
+                typer.echo(f"packaged: {pkg}" if pkg else f"needs-review, skipped: {e.slug}")
+            except (LlamaError, TaskFailed, LLMError, IAError, SpeechError) as exc:
+                typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+        return
+    config, ia, ledger = _setup(config_path)
+    entry = _resolve_show(config, ledger, name)
+    if entry.provenance is None:
+        typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                   "reprocess it via its run first", err=True)
+        raise typer.Exit(1)
+    pkg = _redo_show(config, ia, ledger, entry, from_stage,
+                     with_research=with_research, script=script, voice=voice)
     if pkg:
         typer.echo(f"packaged: {pkg}")
     else:
-        typer.echo(f"needs-review, skipped: {prov.performance_id}")
+        typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
 
 
-@app.command()
+@app.command(rich_help_panel="Inspect & triage")
 def status(
     held: bool = typer.Option(False, "--held", help="Only shows held for review"),
     packaged: bool = typer.Option(False, "--packaged", help="Only packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Only voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Only packaged shows with no DJ audio"),
+    state: str = typer.Option(None, "--state", help="Only shows in this derived state"),
     run: str = typer.Option(None, "--run", help="Only shows processed by this run"),
     artist: str = typer.Option(None, "--artist", help="Substring filter on artist"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
@@ -653,20 +912,23 @@ def status(
     """Triage view: every show and its state, held-for-review first."""
     import json as _json
 
-    from llama.catalog import iter_shows
+    from llama.catalog import iter_shows, select_shows
 
     config, _, ledger = _setup(config_path)
     entries = iter_shows(config.root, ledger)
+    states = set()
     if held:
-        entries = [e for e in entries if e.state == "held"]
+        states.add("held")
     if packaged:
-        entries = [e for e in entries if e.state == "packaged"]
-    if run:
-        entries = [e for e in entries if e.provenance and e.provenance.run == run]
-    if artist:
-        entries = [e for e in entries if artist.lower() in e.artist.lower()]
+        states.add("packaged")
+    if state:
+        states.add(state)
+    voiced_filter = True if voiced else (False if unvoiced else None)
+    entries = select_shows(entries, states=states or None, voiced=voiced_filter,
+                           artist=artist, run=run)
+    filtering = bool(states or voiced_filter is not None or run or artist)
     entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
-    if not all_shows and not (held or packaged):
+    if not all_shows and not filtering:
         recorded: dict[str, str] = {}
         for le in ledger.entries():
             if le.status == "delivered":
@@ -681,6 +943,8 @@ def status(
             "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
             "run": e.provenance.run if e.provenance else None,
             "flags": e.flags, "path": str(e.ws.dir),
+            "voiced": e.voiced,
+            "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
         } for e in entries], indent=2))
         return
     if not entries:
@@ -688,12 +952,20 @@ def status(
         return
     for e in entries:
         run_name = e.provenance.run if e.provenance else "?"
-        typer.echo(f"{e.slug:42.42s} {e.state:10s} {e.artist:20.20s} {e.date:10s} {run_name}")
+        marks = []
+        if e.voiced:
+            marks.append("voiced")
+        if e.overrides.narration == "vague":
+            marks.append("vague")
+        if e.overrides.exclude:
+            marks.append(f"{len(e.overrides.exclude)}x-excl")
+        suffix = f"  [{', '.join(marks)}]" if marks else ""
+        typer.echo(f"{e.slug:42.42s} {e.state:10s} {e.artist:20.20s} {e.date:10s} {run_name}{suffix}")
         for f in e.flags:
             typer.echo(f"      - {f}")
 
 
-@app.command()
+@app.command(rich_help_panel="Inspect & triage")
 def runs(config_path: Path = typer.Option(None, "--config")):
     """List runs with their criteria and show-state counts."""
     from collections import Counter

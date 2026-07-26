@@ -3,10 +3,10 @@ from pathlib import Path
 
 from llama.config import StructureConfig
 from llama.llm.fake import FakeProvider
-from llama.models import Candidate, RecordingSummary
+from llama.models import Candidate, Overrides, RecordingSummary
 from llama.setlistfm import SetlistFMClient
 from llama.stages.gather import run_gather
-from llama.workspace import ShowWorkspace
+from llama.workspace import ShowWorkspace, read_overrides, write_artifact
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "gd73_metadata.json"
@@ -446,3 +446,30 @@ def test_gather_unassigned_candidate_flag(tmp_path, monkeypatch):
                       _event_candidate("unassigned"), IDENT, jerrybase_enabled=True)
     assert show.needs_review is True
     assert "unassigned multi-event recordings" in show.review_flags
+
+
+def test_gather_drops_operator_excluded_file(tmp_path: Path):
+    # First derive normally to learn a real filename.
+    base = ShowWorkspace(tmp_path / "base")
+    show0 = run_gather(base, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    drop = show0.tracks[-1].filename
+    n = len(show0.tracks)
+
+    ws = ShowWorkspace(tmp_path / "show")
+    write_artifact(ws.overrides, Overrides(exclude=[drop]))
+    show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+
+    assert drop not in [t.filename for t in show.tracks]
+    assert len(show.tracks) == n - 1
+    assert [t.index for t in show.tracks] == list(range(1, n))  # contiguous
+    assert any(x["filename"] == drop and "operator-excluded" in x["reasons"]
+               for x in show.excluded_files)
+
+
+def test_gather_exclude_no_match_warns_and_is_noop(tmp_path: Path, caplog):
+    ws = ShowWorkspace(tmp_path / "show")
+    write_artifact(ws.overrides, Overrides(exclude=["does-not-exist.mp3"]))
+    with caplog.at_level("WARNING", logger="llama"):
+        show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert len(show.tracks) == 6
+    assert any("matched no file" in r.message for r in caplog.records)
