@@ -1048,6 +1048,8 @@ def status(
     voiced: bool = typer.Option(False, "--voiced", help="Only voiced shows"),
     unvoiced: bool = typer.Option(False, "--unvoiced", help="Only packaged shows with no DJ audio"),
     state: str = typer.Option(None, "--state", help="Only shows in this derived state"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Only broadcast-ready shows"),
     run: str = typer.Option(None, "--run", help="Only shows processed by this run"),
     artist: str = typer.Option(None, "--artist", help="Substring filter on artist"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
@@ -1070,8 +1072,9 @@ def status(
         states.add(state)
     voiced_filter = True if voiced else (False if unvoiced else None)
     entries = select_shows(entries, states=states or None, voiced=voiced_filter,
-                           artist=artist, run=run)
-    filtering = bool(states or voiced_filter is not None or run or artist)
+                           artist=artist, run=run, broadcast_ready=broadcast_ready)
+    filtering = bool(states or voiced_filter is not None or run or artist
+                     or broadcast_ready)
     entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
     if not all_shows and not filtering:
         recorded: dict[str, str] = {}
@@ -1089,6 +1092,7 @@ def status(
             "run": e.provenance.run if e.provenance else None,
             "flags": e.flags, "path": str(e.ws.dir),
             "voiced": e.voiced,
+            "broadcast_ready": e.broadcast_ready,
             "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
         } for e in entries], indent=2))
         return
@@ -1098,6 +1102,8 @@ def status(
     for e in entries:
         run_name = e.provenance.run if e.provenance else "?"
         marks = []
+        if e.broadcast_ready:
+            marks.append("broadcast-ready")
         if e.voiced:
             marks.append("voiced")
         if e.overrides.narration == "vague":

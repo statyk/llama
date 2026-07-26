@@ -83,3 +83,32 @@ def test_select_shows_broadcast_ready_filter():
     es = [e("a", True), e("b", False)]
     assert {x.slug for x in select_shows(es, broadcast_ready=True)} == {"a"}
     assert {x.slug for x in select_shows(es)} == {"a", "b"}   # default: no filter
+
+
+def _cfg(tmp_path: Path) -> str:
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    return str(tmp_path / "config.toml")
+
+
+def test_status_marks_broadcast_ready(tmp_path: Path):
+    build_ready(tmp_path, "gratefuldead-1973-06-10")
+    r = runner.invoke(cli.app, ["status", "--config", _cfg(tmp_path)])
+    assert r.exit_code == 0, r.output
+    assert "broadcast-ready" in r.output
+
+
+def test_status_broadcast_ready_filter_excludes_unready(tmp_path: Path):
+    build_ready(tmp_path, "ready-1973-06-10")
+    build_ready(tmp_path, "silent-1973-06-11", voiced=False)   # unvoiced -> not ready
+    r = runner.invoke(cli.app, ["status", "--broadcast-ready", "--config", _cfg(tmp_path)])
+    assert r.exit_code == 0, r.output
+    assert "ready-1973-06-10" in r.output
+    assert "silent-1973-06-11" not in r.output
+
+
+def test_status_json_includes_broadcast_ready(tmp_path: Path):
+    build_ready(tmp_path, "gratefuldead-1973-06-10")
+    r = runner.invoke(cli.app, ["status", "--json", "--config", _cfg(tmp_path)])
+    assert r.exit_code == 0, r.output
+    obj = next(o for o in json.loads(r.output) if o["slug"] == "gratefuldead-1973-06-10")
+    assert obj["broadcast_ready"] is True
