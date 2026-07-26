@@ -56,18 +56,32 @@ failed validation's final retry escalates one tier (pins never escalate).
   canonical `shows/<slug>/` library (one dir per performance, reused across
   runs); stages write outputs only on success and are individually
   re-runnable (`llama redo <show> --from <stage>`).
-- **`overrides.json`:** the one durable, hand-authored per-show input —
-  excluded source-track filenames plus `narration` (`full`/`vague`) — that
-  survives every `redo`. `gather` drops excluded files (reason
-  `operator-excluded`) and `synthesize` reads `narration=vague` to write a
+- **`overrides.json`:** the one durable, app-edited per-show input —
+  excluded source-track filenames, `narration` (`full`/`vague`), and
+  metadata corrections (`venue`, `city`, `date`, `titles`: track#→forced
+  title, `set_breaks`: track numbers a break falls after, numbered-sets-only)
+  — that survive every `redo`. `gather` drops excluded files (reason
+  `operator-excluded`), forces `venue`/`city`/`date`/track titles/set
+  breaks when their fields are set (bypassing structure alignment entirely
+  for `set_breaks`), and `synthesize` reads `narration=vague` to write a
   script that names no songs and asserts no set structure; `show.json`
   stays purely derived and is never itself hand-edited. `llama show`
-  (single-show or set form via `--held`/etc.) is the only way to edit it,
-  offering three resolutions to a gate-2 hold: **correct**
-  (`--exclude`/`--include` → redo from `gather`, self-clears on clean
-  structure), **accept-vague** (`--vague` → redo from `synthesize`, clears
-  the hold immediately), and **overrule** (`--clear` → redo from `package`,
-  clears the hold without touching overrides).
+  (single-show or set form via `--held`/etc.) is the only way to edit it —
+  `--exclude`/`--include` (filename or track number, `--tracks` lists them)
+  and `--set-venue`/`--set-city`/`--set-date`/`--title N=…`/`--set-breaks`
+  (plus their `--clear-*` counterparts) all redo from `gather`, and a hold
+  **self-clears** whenever the re-gather no longer reproduces the flag that
+  caused it (gather recomputes `needs_review`/`review_flags` from scratch
+  every run). The other two gate-2 resolutions: **accept-vague** (`--vague`
+  → redo from `synthesize`, clears the hold immediately), and **overrule**
+  (`--clear` → redo from `package`, clears the hold without touching
+  overrides).
+- **App-managed instead of hand-edited:** `llama presenter add/list/show`
+  creates and inspects `presenters/<id>.toml` (hand-editing the TOML still
+  works — `add` is just the other way in), and `llama profile artists
+  <name> [--set "A, B, C"]` views or re-pins a profile's pinned artist
+  roster. Between these, `llama show`, and `overrides.json`, `config.toml`
+  remains the only file this design expects a human to hand-edit.
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments with a `ledger.jsonl` dedup history keyed by performance identity
   (artist + date + venue), not archive.org item id. A date carrying two
