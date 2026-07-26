@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 import typer
+from typer.core import TyperGroup
 
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
@@ -36,16 +37,29 @@ from llama.workspace import RunWorkspace, read_model, read_model_list, write_art
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
-app = typer.Typer(help="Live Music Archive -> radio station pipeline", pretty_exceptions_enable=False)
+_COMMAND_ORDER = ["find", "artists", "run", "review", "profile",
+                  "status", "runs", "show", "redo", "deliver",
+                  "ledger", "config", "version"]
+
+
+class OrderedPanelGroup(TyperGroup):
+    def list_commands(self, ctx):
+        cmds = super().list_commands(ctx)
+        return sorted(cmds, key=lambda n: (_COMMAND_ORDER.index(n)
+                                           if n in _COMMAND_ORDER else len(_COMMAND_ORDER)))
+
+
+app = typer.Typer(help="Live Music Archive -> radio station pipeline",
+                  pretty_exceptions_enable=False, cls=OrderedPanelGroup)
 configure_logging()
 
 profile_app = typer.Typer(help="Standing criteria profiles for recurring segments", pretty_exceptions_enable=False)
 ledger_app = typer.Typer(help="Broadcast-history ledger", pretty_exceptions_enable=False)
-app.add_typer(profile_app, name="profile")
-app.add_typer(ledger_app, name="ledger")
+app.add_typer(profile_app, name="profile", rich_help_panel="Discover & process")
+app.add_typer(ledger_app, name="ledger", rich_help_panel="Housekeeping")
 
 config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
-app.add_typer(config_app, name="config")
+app.add_typer(config_app, name="config", rich_help_panel="Housekeeping")
 
 
 def _version_callback(value: bool) -> None:
@@ -69,7 +83,7 @@ def main(
     """Find, vet, research, and package LMA concerts for broadcast."""
 
 
-@app.command()
+@app.command(rich_help_panel="Housekeeping")
 def version() -> None:
     """Print the llama version."""
     import llama
@@ -266,7 +280,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             speech.close()
 
 
-@app.command()
+@app.command(rich_help_panel="Discover & process")
 def find(
     query: str,
     limit: int = typer.Option(0, "--limit", help="How many shows (0 = let the query decide)"),
@@ -328,7 +342,7 @@ def find(
              full_rationale=full_rationale)
 
 
-@app.command()
+@app.command(rich_help_panel="Discover & process")
 def artists(
     query: str = typer.Argument(None, help="Natural-language artist query (omit to list by catalog size)"),
     limit: int = typer.Option(20, "--limit", help="Max artists to show"),
@@ -362,7 +376,7 @@ def artists(
     _print_artists(matches)
 
 
-@app.command()
+@app.command(rich_help_panel="Discover & process")
 def run(
     run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
     stage: str = typer.Option(None, "--stage", help="Force re-run of one stage"),
@@ -422,7 +436,7 @@ def run(
              full_rationale=full_rationale)
 
 
-@app.command()
+@app.command(rich_help_panel="Discover & process")
 def review(
     run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
     script: bool = typer.Option(None, "--script/--no-script",
@@ -586,7 +600,7 @@ def _print_show_entry(entry) -> None:
         typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
 
 
-@app.command()
+@app.command(rich_help_panel="Inspect & triage")
 def show(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     exclude: list[str] = typer.Option(None, "--exclude",
@@ -723,7 +737,7 @@ def _deliver_one(config, ledger, entry, dest, force) -> Path:
     return out
 
 
-@app.command()
+@app.command(rich_help_panel="Act on shows")
 def deliver(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
@@ -817,7 +831,7 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
             speech.close()
 
 
-@app.command()
+@app.command(rich_help_panel="Act on shows")
 def redo(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     from_stage: str = typer.Option(..., "--from",
@@ -882,7 +896,7 @@ def redo(
         typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
 
 
-@app.command()
+@app.command(rich_help_panel="Inspect & triage")
 def status(
     held: bool = typer.Option(False, "--held", help="Only shows held for review"),
     packaged: bool = typer.Option(False, "--packaged", help="Only packaged, undelivered shows"),
@@ -951,7 +965,7 @@ def status(
             typer.echo(f"      - {f}")
 
 
-@app.command()
+@app.command(rich_help_panel="Inspect & triage")
 def runs(config_path: Path = typer.Option(None, "--config")):
     """List runs with their criteria and show-state counts."""
     from collections import Counter
