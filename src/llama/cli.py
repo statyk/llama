@@ -773,7 +773,7 @@ def deliver(
             try:
                 out = _deliver_one(config, ledger, e, dest, force)
                 typer.echo(f"delivered: {out}")
-            except LlamaError as exc:
+            except (LlamaError, OSError) as exc:
                 typer.echo(f"FAILED {e.slug}: {exc}", err=True)
         return
     config, _, ledger = _setup(config_path)

@@ -437,6 +437,30 @@ def test_redo_rejects_name_and_selector_together(tmp_path):
     assert "not both" in r.output.lower()
 
 
+def test_deliver_batch_continues_past_oserror(tmp_path, monkeypatch):
+    """A per-show OSError (e.g. shutil.copytree hitting disk-full/permissions)
+    must be reported as FAILED and not abort the rest of the batch -- matching
+    the batch redo loop's (LlamaError, TaskFailed, LLMError, IAError,
+    SpeechError) broad catch."""
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\ndelivery_path = "{tmp_path}/out"\n')
+    build(tmp_path, "aready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "bready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    delivered = []
+
+    def fake_deliver_one(cfg_, led_, e, dest, force):
+        if e.slug == "aready":
+            raise OSError("disk full")
+        delivered.append(e.slug)
+
+    monkeypatch.setattr(cli, "_deliver_one", fake_deliver_one)
+    r = runner.invoke(cli.app, ["deliver", "--packaged", "--yes", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert "FAILED aready" in r.output
+    assert delivered == ["bready"]
+
+
 def test_deliver_rejects_name_and_selector_together(tmp_path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
