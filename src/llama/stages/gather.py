@@ -274,7 +274,11 @@ def run_gather(
         flags += hard
         notes += soft
 
-    expected_sets = len({s.name for s in event.sets}) if event is not None else None
+    # Count numbered sets only — an encore is a coda, not a set, and jerrybase
+    # often records only the numbered sets, so counting it would spuriously
+    # disagree with a tape that labels a trailing encore (or vice-versa).
+    expected_sets = (len({s.name for s in event.sets if s.name != "encore"})
+                     if event is not None else None)
     guard = structure_guard(tracks, breaks,
                             evidence_sets={i.set for i in canonical.items},
                             min_minutes=structure_cfg.guard_min_minutes,

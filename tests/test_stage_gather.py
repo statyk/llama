@@ -330,13 +330,26 @@ def test_gather_confident_but_contradicted_break_flags(tmp_path, monkeypatch):
 
 
 def test_gather_flags_set_count_mismatch(tmp_path, monkeypatch):
-    # jerrybase says 2 sets (closers at boundaries); alignment has 3 -> mismatch.
+    # jerrybase says 3 numbered sets; the tape aligns to 2 numbered sets (plus an
+    # encore) -> genuine set-count mismatch. Fake closers (absent from the tape)
+    # keep anchoring from running so this exercises the count comparison only.
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("Zzz One", "1"), ("Zzz Two", "2"), ("Zzz Three", "3")])])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert any("jerrybase shows 3" in f for f in show.review_flags)
+
+
+def test_gather_set_count_ignores_encore(tmp_path, monkeypatch):
+    # jerrybase says 2 sets; the tape has 2 numbered sets + an encore. That is NOT
+    # a mismatch — an encore is a coda, not a set — so no set-count flag fires.
     monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
         [("I Know You Rider", "1"), ("Johnny B. Goode", "2")])])
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
                       jerrybase_enabled=True)
-    assert any("jerrybase shows 2" in f for f in show.review_flags)
+    assert not any("jerrybase shows" in f for f in show.review_flags)
 
 
 def test_gather_anchoring_rescues_low_confidence_without_llm(tmp_path, monkeypatch):

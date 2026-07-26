@@ -217,8 +217,10 @@ def structure_guard(tracks: list[Track], set_breaks: list[int],
                     min_minutes: int = 150,
                     expected_set_count: int | None = None) -> str | None:
     """Flag suspicious structure. When expected_set_count is given (jerrybase
-    evidence), an aligned distinct-set-label count (including "encore") that
-    differs is flagged even when breaks exist. Otherwise: flag single-set
+    evidence), the aligned distinct-set count — counting numbered sets only, an
+    "encore" is a coda not a set — that differs is flagged even when breaks
+    exist (the caller's expected_set_count likewise excludes any encore).
+    Otherwise: flag single-set
     structure only on real evidence of a problem - the setlist sources showed
     multiple sets that alignment lost, or the show runs implausibly long for one
     uninterrupted set (single sets past 2.5 hours are rare; two-set shows
@@ -227,7 +229,7 @@ def structure_guard(tracks: list[Track], set_breaks: list[int],
     if not tracks:
         return None
     if expected_set_count is not None:
-        actual = len({t.set for t in tracks})
+        actual = len({t.set for t in tracks if t.set != "encore"})
         if actual != expected_set_count:
             return f"structure has {actual} sets but jerrybase shows {expected_set_count}"
     if set_breaks:
