@@ -1450,3 +1450,17 @@ def test_resolve_exclude_tokens_comma_form(tmp_path):
     assert cli._resolve_exclude_tokens(sws, ["1,2"]) == ["a.mp3", "b.mp3"]
     # filename passthrough needs no show.json read
     assert cli._resolve_exclude_tokens(ShowWorkspace(tmp_path / "none"), ["z.mp3"]) == ["z.mp3"]
+
+
+def test_show_tracks_wins_over_interactive_on_held_show(tmp_path, monkeypatch):
+    # --tracks is an explicit view request: even for a held show on a TTY it
+    # must print the track table and exit, NOT drop into the interactive prompt.
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"}, needs_review=True)
+    monkeypatch.setattr(cli, "_interactive_enabled", lambda: True)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--tracks", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert "tracks:" in r.output and "Morning Dew" in r.output
+    assert "[e]xclude tracks" not in r.output   # did not enter interactive resolve
