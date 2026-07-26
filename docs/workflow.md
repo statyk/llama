@@ -491,10 +491,16 @@ Gate 2's home command. Two forms:
     expects `YYYY-MM-DD`). `--title N="Song Title"` (repeatable) forces
     track N's title into `overrides.titles`; `--clear-title N` drops one.
     `--set-breaks "9,17"` sets `overrides.set_breaks` to those track
-    numbers — the tracks a break falls *after* — bypassing structure
-    alignment/jerrybase entirely for this show; it's numbered-sets-only
-    (labels come out `"1"`, `"2"`, ... — there's no way to mark an encore
-    through this flag). `--clear-set-breaks` removes the override.
+    numbers — the tracks a break falls *after* — replacing the computed
+    structure alignment (the deterministic/LLM alignment ladder is skipped,
+    so the `low-confidence structure alignment` flag can't fire); it's
+    numbered-sets-only (labels come out `"1"`, `"2"`, ... — there's no way to
+    mark an encore through this flag). Note: on a jerrybase-covered
+    (Garcia-universe) show the jerrybase *cross-checks* still run against your
+    breaks — the closer tripwire and the set-count guard — so manual breaks
+    that contradict jerrybase's set closers or set count can still raise a
+    flag rather than self-clearing; for non-jerrybase shows the override
+    stands unchallenged. `--clear-set-breaks` removes the override.
   - By default any of the above just prints the follow-up
     (`next: llama redo <show> --from <stage>`, stage chosen by precedence —
     see [Clearing gate 2](#the-two-human-gates-dont-confuse-them) above —
