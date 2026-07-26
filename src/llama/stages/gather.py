@@ -3,6 +3,7 @@ import re
 
 from llama import jerrybase
 from llama.config import StructureConfig
+from llama.errors import LlamaError
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.ia_client import IAError
 from llama.llm.provider import LLMError, TaskFailed
@@ -157,6 +158,12 @@ def run_gather(
     ):
         siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))
     tracks = resolve_titles(kept, canonical, sibling_titles=siblings)
+    for n, forced in overrides.titles.items():
+        if not (1 <= n <= len(tracks)):
+            raise LlamaError(f"overrides.titles: no track {n} "
+                             f"(show has {len(tracks)} tracks)")
+        tracks[n - 1] = tracks[n - 1].model_copy(
+            update={"title": forced, "title_source": "override"})
 
     # Jerrybase structure evidence (no-op for artists absent from the dataset).
     # A per-event candidate (/eN) selects events[N-1] for every evidence check.
@@ -230,6 +237,12 @@ def run_gather(
         elif not venues_equivalent(venue, event.venue):
             flags.append(f"venue mismatch: archive '{venue}' vs jerrybase '{event.venue}'")
 
+    if overrides.venue is not None:
+        venue, venue_source = overrides.venue, "override"
+        flags = [f for f in flags if not f.startswith("venue mismatch")]
+    if overrides.city is not None:
+        city = overrides.city
+
     # Closer tripwire (single-event, non-anchored alignments; anchoring places
     # breaks at closers by construction, so it cannot contradict itself).
     if event is not None and alignment != "jerrybase":
@@ -259,11 +272,17 @@ def run_gather(
                                        coverage=result.coverage,
                                        conflicts=result.conflicts + notes)
 
+    date, date_source, item_date = candidate.date, "item", None
+    if overrides.date is not None:
+        date, date_source, item_date = overrides.date, "override", candidate.date
+
     show = Show(
         performance_id=candidate.performance_id,
         identifier=identifier,
         artist=artist,
-        date=candidate.date,
+        date=date,
+        date_source=date_source,
+        item_date=item_date,
         venue=venue,
         city=city,
         venue_source=venue_source,

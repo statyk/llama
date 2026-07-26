@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from llama.config import StructureConfig
 from llama.llm.fake import FakeProvider
 from llama.models import Candidate, Overrides, RecordingSummary
@@ -473,3 +475,33 @@ def test_gather_exclude_no_match_warns_and_is_noop(tmp_path: Path, caplog):
         show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
     assert len(show.tracks) == 6
     assert any("matched no file" in r.message for r in caplog.records)
+
+
+def test_gather_title_override_fills_and_clears_flag(tmp_path: Path):
+    base = ShowWorkspace(tmp_path / "b")
+    show0 = run_gather(base, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    # find an index and force a bogus title; assert it wins with source=override
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(titles={1: "Custom Opener"}))
+    show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert show.tracks[0].title == "Custom Opener"
+    assert show.tracks[0].title_source == "override"
+
+
+def test_gather_title_override_out_of_range_errors(tmp_path: Path):
+    from llama.errors import LlamaError
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(titles={999: "Nope"}))
+    with pytest.raises(LlamaError):
+        run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+
+
+def test_gather_venue_city_date_overrides(tmp_path: Path):
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(venue="My Hall", city="Nowhere, ZZ",
+                                           date="1973-06-11"))
+    show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert show.venue == "My Hall" and show.venue_source == "override"
+    assert show.city == "Nowhere, ZZ"
+    assert show.date == "1973-06-11" and show.date_source == "override"
+    assert show.item_date == "1973-06-10"   # original preserved
