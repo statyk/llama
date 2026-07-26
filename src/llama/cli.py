@@ -494,8 +494,12 @@ def _resolve_show(config, ledger, name: str):
     return resolve_show(config.root, ledger, name)
 
 
-def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None):
-    from llama.models import Overrides
+_UNSET = object()
+
+
+def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None,
+                    venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
+                    clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False):
     from llama.workspace import read_overrides
 
     ov = read_overrides(show_ws)
@@ -503,9 +507,28 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None):
     for f in add_exclude:
         if f not in exclude:
             exclude.append(f)
-    ov = Overrides(exclude=exclude, narration=narration or ov.narration)
-    write_artifact(show_ws.overrides, ov)
-    return ov
+    titles = dict(ov.titles)
+    for n in clear_titles:
+        titles.pop(int(n), None)
+    for n, t in (set_titles or {}).items():
+        titles[int(n)] = t
+    data = ov.model_copy(update={
+        "exclude": exclude,
+        "narration": narration or ov.narration,
+        "titles": titles,
+    })
+    if venue is not _UNSET:
+        data = data.model_copy(update={"venue": venue})
+    if city is not _UNSET:
+        data = data.model_copy(update={"city": city})
+    if date is not _UNSET:
+        data = data.model_copy(update={"date": date})
+    if clear_set_breaks:
+        data = data.model_copy(update={"set_breaks": None})
+    elif set_breaks is not _UNSET:
+        data = data.model_copy(update={"set_breaks": set_breaks})
+    write_artifact(show_ws.overrides, data)
+    return data
 
 
 def _resolve_exclude_tokens(show_ws, tokens) -> list[str]:
@@ -660,6 +683,13 @@ def show(
     artist: str = typer.Option(None, "--artist", help="Set form: filter by artist substring"),
     run: str = typer.Option(None, "--run", help="Set form: filter by originating run"),
     tracks: bool = typer.Option(False, "--tracks", help="List the show's tracks (numbered)"),
+    set_venue: str = typer.Option(None, "--set-venue", help="Force overrides.venue"),
+    set_city: str = typer.Option(None, "--set-city", help="Force overrides.city"),
+    set_date: str = typer.Option(None, "--set-date", help="Force overrides.date (YYYY-MM-DD)"),
+    title: list[str] = typer.Option(None, "--title", help='Force a track title: --title N="Song"'),
+    clear_title: list[str] = typer.Option(None, "--clear-title", help="Drop a title override by track number"),
+    set_breaks: str = typer.Option(None, "--set-breaks", help='Set breaks by track number: "9,17"'),
+    clear_set_breaks: bool = typer.Option(False, "--clear-set-breaks"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Inspect one show, or walk a set of shows (default: held) for resolution."""
@@ -689,9 +719,22 @@ def show(
     entry = _resolve_show(config, ledger, name)
     sws = entry.ws
 
+    parsed_titles = {}
+    for spec in (title or []):
+        if "=" not in spec:
+            typer.echo(f"--title expects N=TITLE, got {spec!r}", err=True)
+            raise typer.Exit(1)
+        n, t = spec.split("=", 1)
+        parsed_titles[int(n)] = t
+    breaks_val = None
+    if set_breaks:
+        breaks_val = [int(x) for x in set_breaks.split(",") if x.strip()]
+
     did_exclude = bool(exclude or include)
     did_narration = vague or full
-    if not (did_exclude or did_narration or clear):
+    did_meta = bool(set_venue or set_city or set_date or parsed_titles
+                    or clear_title or set_breaks or clear_set_breaks)
+    if not (did_exclude or did_narration or clear or did_meta):
         # Pure inspection. On a TTY a held show drops into interactive resolve
         # (which prints the entry itself); otherwise just print the block.
         if entry.state == "held" and _interactive_enabled():
@@ -727,7 +770,17 @@ def show(
     if clear:
         _clear_hold(sws)
         typer.echo(f"{entry.slug}: hold cleared")
-    stage = "gather" if did_exclude else ("synthesize" if did_narration else "package")
+    if did_meta:
+        _edit_overrides(sws,
+            venue=set_venue if set_venue is not None else _UNSET,
+            city=set_city if set_city is not None else _UNSET,
+            date=set_date if set_date is not None else _UNSET,
+            set_titles=parsed_titles or None,
+            clear_titles=[int(n) for n in (clear_title or [])],
+            set_breaks=breaks_val if set_breaks else _UNSET,
+            clear_set_breaks=clear_set_breaks)
+        typer.echo(f"{entry.slug}: metadata override updated")
+    stage = "gather" if (did_exclude or did_meta) else ("synthesize" if did_narration else "package")
     if apply:
         entry2 = _resolve_show(config, ledger, entry.slug)
         pkg = _redo_show(config, ia, ledger, entry2, stage)

@@ -307,6 +307,31 @@ def test_show_exclude_out_of_range_errors(tmp_path):
     assert "track 99" in r.output or "out of range" in r.output
 
 
+def test_show_set_venue_and_title_write_overrides_route_gather(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"},
+               needs_review=True)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--set-venue", "My Hall",
+                                "--title", "1=Bertha", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.venue == "My Hall" and ov.titles == {1: "Bertha"}
+    assert "--from gather" in r.output
+
+
+def test_show_set_breaks_and_clear(tmp_path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    runner.invoke(cli.app, ["show", "gratefuldead", "--set-breaks", "2,4", "--config", cfg])
+    assert read_overrides(ws).set_breaks == [2, 4]
+    runner.invoke(cli.app, ["show", "gratefuldead", "--clear-set-breaks", "--config", cfg])
+    assert read_overrides(ws).set_breaks is None
+
+
 def _approved_run(tmp_path: Path) -> tuple[str, RunWorkspace]:
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
