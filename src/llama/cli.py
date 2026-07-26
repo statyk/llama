@@ -644,6 +644,9 @@ def redo(
 def status(
     held: bool = typer.Option(False, "--held", help="Only shows held for review"),
     packaged: bool = typer.Option(False, "--packaged", help="Only packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Only voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Only packaged shows with no DJ audio"),
+    state: str = typer.Option(None, "--state", help="Only shows in this derived state"),
     run: str = typer.Option(None, "--run", help="Only shows processed by this run"),
     artist: str = typer.Option(None, "--artist", help="Substring filter on artist"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
@@ -653,20 +656,23 @@ def status(
     """Triage view: every show and its state, held-for-review first."""
     import json as _json
 
-    from llama.catalog import iter_shows
+    from llama.catalog import iter_shows, select_shows
 
     config, _, ledger = _setup(config_path)
     entries = iter_shows(config.root, ledger)
+    states = set()
     if held:
-        entries = [e for e in entries if e.state == "held"]
+        states.add("held")
     if packaged:
-        entries = [e for e in entries if e.state == "packaged"]
-    if run:
-        entries = [e for e in entries if e.provenance and e.provenance.run == run]
-    if artist:
-        entries = [e for e in entries if artist.lower() in e.artist.lower()]
+        states.add("packaged")
+    if state:
+        states.add(state)
+    voiced_filter = True if voiced else (False if unvoiced else None)
+    entries = select_shows(entries, states=states or None, voiced=voiced_filter,
+                           artist=artist, run=run)
+    filtering = bool(states or voiced_filter is not None or run or artist)
     entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
-    if not all_shows and not (held or packaged):
+    if not all_shows and not filtering:
         recorded: dict[str, str] = {}
         for le in ledger.entries():
             if le.status == "delivered":
@@ -681,6 +687,8 @@ def status(
             "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
             "run": e.provenance.run if e.provenance else None,
             "flags": e.flags, "path": str(e.ws.dir),
+            "voiced": e.voiced,
+            "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
         } for e in entries], indent=2))
         return
     if not entries:
@@ -688,7 +696,15 @@ def status(
         return
     for e in entries:
         run_name = e.provenance.run if e.provenance else "?"
-        typer.echo(f"{e.slug:42.42s} {e.state:10s} {e.artist:20.20s} {e.date:10s} {run_name}")
+        marks = []
+        if e.voiced:
+            marks.append("voiced")
+        if e.overrides.narration == "vague":
+            marks.append("vague")
+        if e.overrides.exclude:
+            marks.append(f"{len(e.overrides.exclude)}x-excl")
+        suffix = f"  [{', '.join(marks)}]" if marks else ""
+        typer.echo(f"{e.slug:42.42s} {e.state:10s} {e.artist:20.20s} {e.date:10s} {run_name}{suffix}")
         for f in e.flags:
             typer.echo(f"      - {f}")
 

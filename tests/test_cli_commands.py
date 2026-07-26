@@ -9,8 +9,8 @@ import llama.cli as cli
 from llama.config import DEFAULT_CONFIG_TOML
 from llama.ledger import Ledger
 from llama.models import (
-    Candidate, Criteria, LedgerEntry, Provenance, QualityAssessment, RecordingSummary, Show,
-    ShortlistEntry, Track,
+    Candidate, Criteria, LedgerEntry, Overrides, Provenance, QualityAssessment, RecordingSummary,
+    Show, ShortlistEntry, Track,
 )
 from llama.workspace import RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact
 
@@ -803,6 +803,63 @@ def test_status_json(tmp_path: Path):
     assert rows[0]["slug"] == "aaa-1970-01-01"
     assert rows[0]["state"] == "packaged"
     assert rows[0]["run"] == "r1"
+
+
+def test_status_voiced_and_unvoiced_filters(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _seed_show(tmp_path, "silent-1970-01-01", "silent/1970-01-01", "r1", packaged=True)
+    voiced_ws = _seed_show(tmp_path, "voiced-1971-01-01", "voiced/1971-01-01", "r1", packaged=True)
+    write_artifact(voiced_ws.package_dir / "manifest.json",
+                   {"schema_version": 2, "dj_audio": {"set_intros": {}, "outro": "o"}})
+
+    unvoiced = runner.invoke(cli.app, ["status", "--unvoiced", "--config", cfg])
+    assert unvoiced.exit_code == 0, unvoiced.output
+    assert "silent-1970-01-01" in unvoiced.output
+    assert "voiced-1971-01-01" not in unvoiced.output
+
+    voiced = runner.invoke(cli.app, ["status", "--voiced", "--config", cfg])
+    assert voiced.exit_code == 0, voiced.output
+    assert "voiced-1971-01-01" in voiced.output
+    assert "silent-1970-01-01" not in voiced.output
+    assert "[voiced]" in voiced.output
+
+
+def test_status_state_filter(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=False)
+    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "r1", packaged=True)
+
+    result = runner.invoke(cli.app, ["status", "--state", "gathered", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "aaa-1970-01-01" in result.output
+    assert "bbb-1971-01-01" not in result.output
+
+
+def test_status_json_has_voiced_and_overrides(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=False)
+    write_artifact(sws.overrides, Overrides(exclude=["a.mp3"], narration="vague"))
+
+    result = runner.invoke(cli.app, ["status", "--json", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    rows = json.loads(result.output)
+    row = next(r for r in rows if r["slug"] == "aaa-1970-01-01")
+    assert row["voiced"] is None
+    assert row["overrides"] == {"exclude": ["a.mp3"], "narration": "vague"}
+
+
+def test_status_text_row_annotation(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=True)
+    write_artifact(sws.overrides, Overrides(exclude=["a.mp3", "b.mp3"], narration="vague"))
+
+    result = runner.invoke(cli.app, ["status", "--config", cfg])
+    assert result.exit_code == 0, result.output
+    assert "[vague, 2x-excl]" in result.output
 
 
 def test_runs_lists_runs_with_counts(tmp_path: Path):
