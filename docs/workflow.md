@@ -97,7 +97,7 @@ Run names default to `YYYY-MM-DD-<slugified-query>` for `find` and
 performance identity (artist + date), so they are stable across runs by
 construction.
 
-Two files deserve a callout:
+Three files deserve a callout:
 
 - `show.json` carries `needs_review` and `review_flags`, and it is what
   gate 2 reads. When a show is held, this file says why.
