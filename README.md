@@ -159,26 +159,46 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
                                      # freeze what you like; typos fail at add time)
     llama profile run sunday-dead-hour
     llama status                     # every show + its state, held-for-review first
+    llama status --held              # just the shows waiting on your judgment
+    llama status --unvoiced          # packaged shows with no DJ audio yet
     llama runs                       # runs with per-state show counts
     llama review countryish          # approve a run's shortlist, optionally process it
     llama run countryish             # resume/replay a run; finished stages are skipped
-    llama show 1973-06-10 [--clear]  # inspect (or overrule) a needs-review hold
+    llama show 1973-06-10            # inspect one show (its state, artifacts, flags)
+    llama show --held                # walk every held show and resolve each in turn
     llama redo 1973-06-10 --from vet # re-run one show's pipeline from a stage
+    llama redo --unvoiced --from package --voice   # voice every packaged-but-silent show
     llama deliver 1973-06-10         # copy package to the station inbox
+    llama deliver --packaged         # deliver everything that's ready
     llama ledger list                # broadcast history / dedup
 
 Shows and runs are addressed by **name or any unique substring** (paths
 still work): `llama show 1973-06-10` finds `gratefuldead-1973-06-10`; an
 ambiguous substring fails loudly and lists the candidates.
+`status`, `show`, and the batch forms of `redo`/`deliver` share one filter
+vocabulary (`--held`/`--packaged`/`--voiced`/`--unvoiced`/`--state`/`--artist`/`--run`);
+a batch action prints a plan and asks before running (`--yes` skips the prompt).
 
 Two different human gates, easy to conflate: `llama review` answers "which
 shortlisted shows are worth processing" (gate 1). Separately, a processed
 show can be held as **needs-review** when a stage flags something suspicious
-(`needs-review, skipped: ...`, gate 2) — `llama status --held` lists those,
-`llama show` inspects and clears one, and `llama redo` re-runs it from the
-flagged stage. See [docs/workflow.md](docs/workflow.md) for the full
-pipeline map, every flag, and a troubleshooting table — start there if a
-run didn't do what you expected.
+(`needs-review, skipped: ...`, gate 2). A held show has **three resolutions**,
+all driven from `llama show` (each edits the durable per-show `overrides.json`
+and prints the next `redo`, or runs it with `--apply`):
+
+- **Correct the data** — `llama show <s> --exclude <file>` drops junk tracks
+  (e.g. between-set stage announcements), then `llama redo <s> --from gather`
+  re-derives a clean setlist and the hold clears itself.
+- **Accept an unknowable setlist** — `llama show <s> --vague` tells the script
+  writer to stay general (no song names, no set-structure claims), clears the
+  hold, then `llama redo <s> --from synthesize`.
+- **Overrule a false alarm** — `llama show <s> --clear`, then
+  `llama redo <s> --from package`.
+
+On a terminal, `llama show --held` (or `llama show <s>` on a held show) offers
+these as an interactive prompt and runs your choice. See
+[docs/workflow.md](docs/workflow.md) for the full pipeline map, every flag,
+and a troubleshooting table — start there if a run didn't do what you expected.
 
 ### Explore artists
 
