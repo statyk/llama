@@ -34,6 +34,7 @@ class CatalogEntry:
     artist: str = ""
     date: str = ""
     voiced: bool | None = None
+    broadcast_ready: bool = False
     overrides: Overrides = field(default_factory=Overrides)
 
 
@@ -85,6 +86,33 @@ def derive_voiced(ws: ShowWorkspace) -> bool | None:
     return bool(audio.is_dir() and any(audio.glob("*.mp3")))
 
 
+def broadcast_readiness(ws: ShowWorkspace) -> tuple[bool, list[str]]:
+    """(ready, reasons). A show is broadcast-ready iff it is packaged with
+    every manifest track's audio file on disk, has a DJ script, has DJ audio,
+    has a broadcast.m3u, and is not held for review. `reasons` names each
+    failed condition (empty when ready); it is recomputed on demand for the
+    single-show detail view. Never raises."""
+    manifest_path = ws.package_dir / "manifest.json"
+    if not manifest_path.exists():
+        return False, ["not packaged"]
+    manifest = read_json(manifest_path)
+    reasons: list[str] = []
+    if ws.show.exists() and read_model(ws.show, Show).needs_review:
+        reasons.append("held for review")
+    if not ws.dj_notes_json.exists():
+        reasons.append("no DJ script")
+    if manifest.get("dj_audio") is None:
+        reasons.append("no DJ audio (unvoiced)")
+    if not (ws.package_dir / "broadcast.m3u").exists():
+        reasons.append("no broadcast.m3u")
+    tracks = manifest.get("tracks", [])
+    missing = [t for t in tracks
+               if not (ws.package_dir / "audio" / t["filename"]).exists()]
+    if missing:
+        reasons.append(f"{len(missing)} of {len(tracks)} audio files missing")
+    return (not reasons), reasons
+
+
 def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
     delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
     entries = []
@@ -104,13 +132,15 @@ def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
         entries.append(CatalogEntry(slug=d.name, ws=ws, state=state, flags=flags,
                                     provenance=prov, artist=artist, date=date,
                                     voiced=derive_voiced(ws),
+                                    broadcast_ready=broadcast_readiness(ws)[0],
                                     overrides=read_overrides(ws)))
     return entries
 
 
 def select_shows(entries: list[CatalogEntry], *, states: set[str] | None = None,
                  voiced: bool | None = None, artist: str | None = None,
-                 run: str | None = None) -> list[CatalogEntry]:
+                 run: str | None = None,
+                 broadcast_ready: bool = False) -> list[CatalogEntry]:
     out = list(entries)
     if states:
         out = [e for e in out if e.state in states]
@@ -120,6 +150,8 @@ def select_shows(entries: list[CatalogEntry], *, states: set[str] | None = None,
         out = [e for e in out if artist.lower() in e.artist.lower()]
     if run:
         out = [e for e in out if e.provenance and e.provenance.run == run]
+    if broadcast_ready:
+        out = [e for e in out if e.broadcast_ready]
     return out
 
 
