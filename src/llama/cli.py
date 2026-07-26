@@ -501,24 +501,52 @@ def _clear_hold(show_ws):
     write_artifact(show_ws.show, s)
 
 
-@app.command()
-def show(
-    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
-    exclude: list[str] = typer.Option(None, "--exclude",
-                                      help="Add source filenames to overrides.exclude"),
-    include: list[str] = typer.Option(None, "--include",
-                                      help="Remove filenames from overrides.exclude"),
-    vague: bool = typer.Option(False, "--vague", help="Set narration=vague and clear the hold"),
-    full: bool = typer.Option(False, "--full", help="Reset narration to full"),
-    clear: bool = typer.Option(False, "--clear",
-                               help="Overrule the hold: clear needs-review and its flags"),
-    apply: bool = typer.Option(False, "--apply",
-                               help="Run the resolving redo now instead of printing it"),
-    config_path: Path = typer.Option(None, "--config"),
-):
-    """Inspect one show: state, stage artifacts, needs-review flags."""
-    config, ia, ledger = _setup(config_path)
-    entry = _resolve_show(config, ledger, name)
+def _interactive_enabled() -> bool:
+    return sys.stdin.isatty()
+
+
+def _pick_excludes(show) -> list[str]:
+    typer.echo("tracks:")
+    for t in show.tracks:
+        typer.echo(f"  {t.index:2d}. {t.set:6s} {t.title:28.28s} {t.filename}")
+    picks = _parse_ranks(typer.prompt("exclude which track numbers? (comma-separated, empty = none)",
+                                      default="", show_default=False))
+    return [t.filename for t in show.tracks if t.index in picks]
+
+
+def _interactive_resolve(config, ia, ledger, entry) -> None:
+    _print_show_entry(entry)
+    if entry.state != "held":
+        return
+    choice = typer.prompt("[e]xclude tracks / [v]ague / [c]lear / [s]kip / [q]uit",
+                          default="s", show_default=False).strip().lower()
+    if choice in ("", "s"):
+        return
+    if choice == "q":
+        raise typer.Exit()
+    if choice == "e":
+        files = _pick_excludes(read_model(entry.ws.show, Show))
+        if not files:
+            typer.echo("nothing selected; skipping")
+            return
+        _edit_overrides(entry.ws, add_exclude=files)
+        stage = "gather"
+    elif choice == "v":
+        _edit_overrides(entry.ws, narration="vague")
+        _clear_hold(entry.ws)
+        stage = "synthesize"
+    elif choice == "c":
+        _clear_hold(entry.ws)
+        stage = "package"
+    else:
+        typer.echo("unrecognized; skipping")
+        return
+    fresh = _resolve_show(config, ledger, entry.slug)
+    pkg = _redo_show(config, ia, ledger, fresh, stage)
+    typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+
+
+def _print_show_entry(entry) -> None:
     sws = entry.ws
     if not sws.show.exists():
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
@@ -555,8 +583,58 @@ def show(
         typer.echo("needs-review: yes")
         for f in s.review_flags:
             typer.echo(f"  - {f}")
-        if not (exclude or include or vague or full or clear):
-            typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+        typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+
+
+@app.command()
+def show(
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+    exclude: list[str] = typer.Option(None, "--exclude",
+                                      help="Add source filenames to overrides.exclude"),
+    include: list[str] = typer.Option(None, "--include",
+                                      help="Remove filenames from overrides.exclude"),
+    vague: bool = typer.Option(False, "--vague", help="Set narration=vague and clear the hold"),
+    full: bool = typer.Option(False, "--full", help="Reset narration to full"),
+    clear: bool = typer.Option(False, "--clear",
+                               help="Overrule the hold: clear needs-review and its flags"),
+    apply: bool = typer.Option(False, "--apply",
+                               help="Run the resolving redo now instead of printing it"),
+    held: bool = typer.Option(False, "--held", help="Set form: only held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Set form: only packaged shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Set form: only voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Set form: only unvoiced shows"),
+    state: str = typer.Option(None, "--state", help="Set form: filter by exact catalog state"),
+    artist: str = typer.Option(None, "--artist", help="Set form: filter by artist substring"),
+    run: str = typer.Option(None, "--run", help="Set form: filter by originating run"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Inspect one show, or walk a set of shows (default: held) for resolution."""
+    config, ia, ledger = _setup(config_path)
+
+    if name is None:
+        from llama.catalog import iter_shows, select_shows
+
+        states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
+        if state:
+            states.add(state)
+        if not states and not (voiced or unvoiced or artist or run):
+            states = {"held"}   # set form defaults to held
+        vf = True if voiced else (False if unvoiced else None)
+        entries = select_shows(iter_shows(config.root, ledger),
+                               states=states or None, voiced=vf, artist=artist, run=run)
+        if not entries:
+            typer.echo("no matching shows")
+            return
+        for e in entries:
+            if _interactive_enabled():
+                _interactive_resolve(config, ia, ledger, e)
+            else:
+                _print_show_entry(e)
+        return
+
+    entry = _resolve_show(config, ledger, name)
+    sws = entry.ws
+    _print_show_entry(entry)
 
     did_exclude = bool(exclude or include)
     did_narration = vague or full
@@ -570,6 +648,8 @@ def show(
     if clear:
         _clear_hold(sws)
     if not (did_exclude or did_narration or clear):
+        if entry.state == "held" and _interactive_enabled():
+            _interactive_resolve(config, ia, ledger, entry)
         return
     stage = "gather" if did_exclude else ("synthesize" if did_narration else "package")
     if apply:

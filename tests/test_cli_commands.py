@@ -1117,3 +1117,35 @@ def test_show_displays_jerrybase_venue_provenance(tmp_path: Path):
     result = runner.invoke(cli.app, ["show", str(sws.dir), "--config", cfg])
     assert result.exit_code == 0, result.output
     assert "(venue from jerrybase)" in result.output
+
+
+def test_show_interactive_vague_runs_resolution(tmp_path, monkeypatch):
+    from test_pipeline import FakeIA, fake_providers
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    monkeypatch.setattr(cli, "_interactive_enabled", lambda: True)
+
+    # real held show via find
+    runner.invoke(cli.app, ["find", "GD 1973", "--auto", "--script",
+                            "--run-name", "r", "--config", cfg])
+    ws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
+    s = read_model(ws.show, Show); s.needs_review = True; s.review_flags = ["x"]
+    write_artifact(ws.show, s)
+
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--config", cfg], input="v\n")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).narration == "vague"
+    assert read_model(ws.show, Show).needs_review is False
+
+
+def test_show_set_form_defaults_to_held(tmp_path, monkeypatch):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "_interactive_enabled", lambda: False)  # inspect-only
+    build(tmp_path, "held-one", stages={"select", "gather"}, needs_review=True)
+    build(tmp_path, "clean-one", stages={"select", "gather"}, needs_review=False)
+    r = runner.invoke(cli.app, ["show", "--config", cfg])
+    assert "held-one" in r.output and "clean-one" not in r.output
