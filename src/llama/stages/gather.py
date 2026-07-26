@@ -20,6 +20,18 @@ from llama.workspace import ShowWorkspace, read_model, read_overrides, should_ru
 log = logging.getLogger("llama")
 
 
+def _sets_from_breaks(n_tracks: int, breaks: list[int]) -> list[str]:
+    """Numbered set labels ("1","2",...) for each 1-based track, given the
+    track numbers a break falls *after*. Break after track b closes a set."""
+    bset = set(breaks)
+    labels, cur = [], 1
+    for i in range(1, n_tracks + 1):
+        labels.append(str(cur))
+        if i in bset:
+            cur += 1
+    return labels
+
+
 _EVENT_SUFFIX = re.compile(r"/e(\d+)$")
 
 
@@ -178,37 +190,49 @@ def run_gather(
     else:
         event = None
 
-    result = align(tracks, canonical)
-    alignment = "deterministic"
     flags = []
-    if canonical.items and result.coverage < structure_cfg.align_coverage_threshold:
-        anchored = jerrybase.anchor_breaks(tracks, event) if event is not None else None
-        if anchored is not None:
-            # Deterministic break anchoring from jerrybase closers: skip the LLM.
-            result = result.model_copy(update={"sets": anchored})
-            alignment = "jerrybase"
-            notes.append("set breaks anchored from jerrybase")
-        else:
-            llm_result = None
-            if align_provider is not None:
-                try:
-                    resp = run_json_task(align_provider, "align_structure", AlignedStructure,
-                                         tracks=_format_tracks(tracks),
-                                         setlist=_format_setlist(canonical))
-                    llm_result = apply_llm_alignment(tracks, resp)
-                except (TaskFailed, LLMError) as err:
-                    log.warning("align_structure failed: %s", err)
-            if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
-                # Deliberate trade-off: apply_llm_alignment never populates
-                # conflicts, so any deterministic-alignment conflicts are
-                # dropped when the LLM realignment wins.
-                result, alignment = llm_result, "llm"
+    if overrides.set_breaks is not None:
+        bad = [n for n in overrides.set_breaks if not (1 <= n < len(tracks))]
+        if bad:
+            raise LlamaError(f"overrides.set_breaks: track number(s) out of range "
+                             f"{bad} (show has {len(tracks)} tracks)")
+        labels = _sets_from_breaks(len(tracks), overrides.set_breaks)
+        tracks = [t.model_copy(update={"set": s}) for t, s in zip(tracks, labels)]
+        breaks = sorted(overrides.set_breaks)
+        alignment = "override"
+        coverage, conflicts = 1.0, []
+    else:
+        result = align(tracks, canonical)
+        alignment = "deterministic"
+        if canonical.items and result.coverage < structure_cfg.align_coverage_threshold:
+            anchored = jerrybase.anchor_breaks(tracks, event) if event is not None else None
+            if anchored is not None:
+                # Deterministic break anchoring from jerrybase closers: skip the LLM.
+                result = result.model_copy(update={"sets": anchored})
+                alignment = "jerrybase"
+                notes.append("set breaks anchored from jerrybase")
             else:
-                flags.append("low-confidence structure alignment")
+                llm_result = None
+                if align_provider is not None:
+                    try:
+                        resp = run_json_task(align_provider, "align_structure", AlignedStructure,
+                                             tracks=_format_tracks(tracks),
+                                             setlist=_format_setlist(canonical))
+                        llm_result = apply_llm_alignment(tracks, resp)
+                    except (TaskFailed, LLMError) as err:
+                        log.warning("align_structure failed: %s", err)
+                if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
+                    # Deliberate trade-off: apply_llm_alignment never populates
+                    # conflicts, so any deterministic-alignment conflicts are
+                    # dropped when the LLM realignment wins.
+                    result, alignment = llm_result, "llm"
+                else:
+                    flags.append("low-confidence structure alignment")
 
-    tracks = [t.model_copy(update={"set": s, "segue": g})
-              for t, s, g in zip(tracks, result.sets, result.segues)]
-    breaks = set_breaks(tracks)
+        tracks = [t.model_copy(update={"set": s, "segue": g})
+                  for t, s, g in zip(tracks, result.sets, result.segues)]
+        breaks = set_breaks(tracks)
+        coverage, conflicts = result.coverage, result.conflicts
 
     # Multi-event handling. Held grouping catch-alls flag directly; an
     # unpartitioned multi-event date keeps the blanket flag (defensive); a
@@ -266,11 +290,14 @@ def run_gather(
         flags.append("no playable tracks")
 
     structure_info = None
-    if best is not None or notes:
+    if overrides.set_breaks is not None:
+        structure_info = StructureInfo(source="override", alignment="override",
+                                       coverage=1.0, conflicts=[])
+    elif best is not None or notes:
         source = best.source if best is not None else "none"
         structure_info = StructureInfo(source=source, alignment=alignment,
-                                       coverage=result.coverage,
-                                       conflicts=result.conflicts + notes)
+                                       coverage=coverage,
+                                       conflicts=conflicts + notes)
 
     date, date_source, item_date = candidate.date, "item", None
     if overrides.date is not None:

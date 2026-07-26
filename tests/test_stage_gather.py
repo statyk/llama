@@ -505,3 +505,22 @@ def test_gather_venue_city_date_overrides(tmp_path: Path):
     assert show.city == "Nowhere, ZZ"
     assert show.date == "1973-06-11" and show.date_source == "override"
     assert show.item_date == "1973-06-10"   # original preserved
+
+
+def test_gather_set_breaks_override_numbers_sets(tmp_path: Path):
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(set_breaks=[2, 4]))
+    show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    # 6-track fixture -> sets: 1,1 | 2,2 | 3,3
+    assert [t.set for t in show.tracks] == ["1", "1", "2", "2", "3", "3"]
+    assert show.set_breaks == [2, 4]
+    assert show.structure is not None and show.structure.alignment == "override"
+    assert "low-confidence structure alignment" not in show.review_flags
+
+
+def test_gather_set_breaks_out_of_range_errors(tmp_path: Path):
+    from llama.errors import LlamaError
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(set_breaks=[99]))
+    with pytest.raises(LlamaError):
+        run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
