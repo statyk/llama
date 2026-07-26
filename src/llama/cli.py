@@ -574,6 +574,51 @@ def deliver(
     typer.echo(f"delivered: {out}")
 
 
+def _redo_show(config, ia, ledger, entry, from_stage: str, *,
+               with_research: bool = False, script: bool | None = None,
+               voice: bool | None = None) -> Path | None:
+    """Re-run one resolved show from `from_stage` onward; returns the package
+    path, or None if the show was held/skipped. Raises LlamaError on a
+    hand-built show with no provenance."""
+    from llama.models import QualityAssessment
+    from llama.workspace import drop_stage_artifacts
+
+    if entry.provenance is None:
+        raise LlamaError(f"no provenance.json in {entry.ws.dir} - "
+                         "reprocess it via its run first")
+    prov = entry.provenance
+    presenter = (load_presenter(config.root, prov.presenter)
+                 if prov.presenter else None)
+    keep_research = not with_research and from_stage in ("select", "gather")
+    drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+    # Keep the winnow assessment (quality_score + recording_complaints) so
+    # select-recording still avoids complained-about recordings; override only
+    # the rationale so the dossier round-trip stays stable (it already carries
+    # the external-reputation suffix). Fall back to a zero stub for pre-fix
+    # provenance.json files that predate the assessment field.
+    assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+                  if prov.assessment is not None
+                  else QualityAssessment(performance_id=prov.performance_id,
+                                         quality_score=0.0, rationale=prov.dossier))
+    shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
+    ws = RunWorkspace(config.root, prov.run)
+    effective_voice = _replay_voice(config, prov.voice, voice)
+    effective_script = (prov.script if script is None else script) or effective_voice is not None
+    speech = _speech_for(config, effective_voice, presenter)
+    try:
+        return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                            prov.run, config.audio_format, script=effective_script,
+                            voice=effective_voice, speech=speech, chunk=config.tts.chunk,
+                            bed=resolve_bed(config, presenter),
+                            presenter=presenter, title=prov.title,
+                            setlistfm=make_client(config), structure_cfg=config.structure,
+                            jerrybase_enabled=config.jerrybase.enabled,
+                            selection_cfg=config.selection)
+    finally:
+        if speech is not None:
+            speech.close()
+
+
 @app.command()
 def redo(
     name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
@@ -589,9 +634,6 @@ def redo(
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
-    from llama.models import QualityAssessment
-    from llama.workspace import drop_stage_artifacts
-
     show_stages = VALID_STAGES - RUN_LEVEL_STAGES
     if from_stage not in show_stages:
         typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
@@ -602,42 +644,12 @@ def redo(
         typer.echo(f"no provenance.json in {entry.ws.dir} - "
                    "reprocess it via its run first", err=True)
         raise typer.Exit(1)
-    prov = entry.provenance
-    presenter = (load_presenter(config.root, prov.presenter)
-                 if prov.presenter else None)
-    keep_research = not with_research and from_stage in ("select", "gather")
-    drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
-    # Keep the winnow assessment (quality_score + recording_complaints) so
-    # select-recording still avoids complained-about recordings; override only
-    # the rationale so the dossier round-trip stays stable (it already carries
-    # the external-reputation suffix). Fall back to a zero stub for pre-fix
-    # provenance.json files that predate the assessment field.
-    assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
-                  if prov.assessment is not None
-                  else QualityAssessment(performance_id=prov.performance_id,
-                                         quality_score=0.0, rationale=prov.dossier))
-    shortlist_entry = ShortlistEntry(
-        rank=1, candidate=prov.candidate, assessment=assessment)
-    ws = RunWorkspace(config.root, prov.run)
-    effective_voice = _replay_voice(config, prov.voice, voice)
-    effective_script = (prov.script if script is None else script) or effective_voice is not None
-    speech = _speech_for(config, effective_voice, presenter)
-    try:
-        pkg = process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                           prov.run, config.audio_format, script=effective_script,
-                           voice=effective_voice, speech=speech, chunk=config.tts.chunk,
-                           bed=resolve_bed(config, presenter),
-                           presenter=presenter, title=prov.title,
-                           setlistfm=make_client(config), structure_cfg=config.structure,
-                           jerrybase_enabled=config.jerrybase.enabled,
-                           selection_cfg=config.selection)
-    finally:
-        if speech is not None:
-            speech.close()
+    pkg = _redo_show(config, ia, ledger, entry, from_stage,
+                     with_research=with_research, script=script, voice=voice)
     if pkg:
         typer.echo(f"packaged: {pkg}")
     else:
-        typer.echo(f"needs-review, skipped: {prov.performance_id}")
+        typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
 
 
 @app.command()
