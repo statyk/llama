@@ -1140,6 +1140,18 @@ def test_show_interactive_vague_runs_resolution(tmp_path, monkeypatch):
     assert read_model(ws.show, Show).needs_review is False
 
 
+def test_show_single_interactive_prints_entry_once(tmp_path, monkeypatch):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "_interactive_enabled", lambda: True)
+    build(tmp_path, "held-one", stages={"select", "gather"}, needs_review=True)
+
+    r = runner.invoke(cli.app, ["show", "held-one", "--config", cfg], input="s\n")
+    assert r.exit_code == 0, r.output
+    assert r.output.count("state: held") == 1
+
+
 def test_show_set_form_defaults_to_held(tmp_path, monkeypatch):
     from test_catalog import build
     cfg = str(tmp_path / "config.toml")

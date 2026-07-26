@@ -634,10 +634,15 @@ def show(
 
     entry = _resolve_show(config, ledger, name)
     sws = entry.ws
-    _print_show_entry(entry)
 
     did_exclude = bool(exclude or include)
     did_narration = vague or full
+    if not (did_exclude or did_narration or clear) \
+            and entry.state == "held" and _interactive_enabled():
+        _interactive_resolve(config, ia, ledger, entry)   # prints once inside
+        return
+    _print_show_entry(entry)
+
     if did_exclude:
         _edit_overrides(sws, add_exclude=exclude or [], rm_exclude=include or [])
     if vague:
@@ -648,8 +653,6 @@ def show(
     if clear:
         _clear_hold(sws)
     if not (did_exclude or did_narration or clear):
-        if entry.state == "held" and _interactive_enabled():
-            _interactive_resolve(config, ia, ledger, entry)
         return
     stage = "gather" if did_exclude else ("synthesize" if did_narration else "package")
     if apply:
