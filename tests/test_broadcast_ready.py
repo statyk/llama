@@ -137,3 +137,36 @@ def test_show_list_broadcast_ready_selector(tmp_path: Path):
     assert r.exit_code == 0, r.output
     assert "ready-1973-06-10" in r.output
     assert "silent-1973-06-11" not in r.output
+
+
+def test_batch_select_broadcast_ready_filters(tmp_path: Path):
+    build_ready(tmp_path, "ready-1973-06-10")
+    build_ready(tmp_path, "silent-1973-06-11", voiced=False)
+    _cfg(tmp_path)   # writes config.toml; _setup needs a Path, not the str
+    config, _, ledger = cli._setup(tmp_path / "config.toml")
+    entries = cli._batch_select(config, ledger, broadcast_ready=True)
+    assert {e.slug for e in entries} == {"ready-1973-06-10"}
+
+
+def test_deliver_broadcast_ready_selector(tmp_path: Path, monkeypatch):
+    build_ready(tmp_path, "ready-1973-06-10")
+    build_ready(tmp_path, "silent-1973-06-11", voiced=False)
+    picked = []
+    monkeypatch.setattr(cli, "_deliver_one",
+                        lambda config, ledger, e, dest, force: picked.append(e.slug))
+    r = runner.invoke(cli.app, ["deliver", "--broadcast-ready", "--yes",
+                                "--config", _cfg(tmp_path)])
+    assert r.exit_code == 0, r.output
+    assert picked == ["ready-1973-06-10"]
+
+
+def test_redo_broadcast_ready_selector(tmp_path: Path, monkeypatch):
+    build_ready(tmp_path, "ready-1973-06-10")
+    build_ready(tmp_path, "silent-1973-06-11", voiced=False)
+    picked = []
+    monkeypatch.setattr(cli, "_redo_show",
+                        lambda config, ia, ledger, e, stage, **kw: picked.append(e.slug))
+    r = runner.invoke(cli.app, ["redo", "--from", "package", "--broadcast-ready",
+                                "--yes", "--config", _cfg(tmp_path)])
+    assert r.exit_code == 0, r.output
+    assert picked == ["ready-1973-06-10"]

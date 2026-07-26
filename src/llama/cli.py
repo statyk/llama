@@ -834,21 +834,25 @@ def show(
 
 
 def _batch_select(config, ledger, *, held=False, packaged=False, voiced=False,
-                  unvoiced=False, state=None, artist=None, run=None):
+                  unvoiced=False, state=None, artist=None, run=None,
+                  broadcast_ready=False):
     from llama.catalog import iter_shows, select_shows
     states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
     if state:
         states.add(state)
     vf = True if voiced else (False if unvoiced else None)
     entries = select_shows(iter_shows(config.root, ledger),
-                           states=states or None, voiced=vf, artist=artist, run=run)
+                           states=states or None, voiced=vf, artist=artist,
+                           run=run, broadcast_ready=broadcast_ready)
     if not held:                         # never act on held shows implicitly
         entries = [e for e in entries if e.state != "held"]
     return entries
 
 
-def _has_selector(held, packaged, voiced, unvoiced, state, artist, run) -> bool:
-    return any([held, packaged, voiced, unvoiced, state, artist, run])
+def _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                  broadcast_ready) -> bool:
+    return any([held, packaged, voiced, unvoiced, state, artist, run,
+                broadcast_ready])
 
 
 def _confirm_plan(entries, action: str, yes: bool) -> bool:
@@ -905,21 +909,25 @@ def deliver(
     state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Copy a show package to the station's watched folder and record delivery."""
-    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                                          broadcast_ready):
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
     if name is None:
-        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                             broadcast_ready):
             typer.echo("give a show or a selector (e.g. --packaged)", err=True)
             raise typer.Exit(1)
         config, _, ledger = _setup(config_path)
         entries = _batch_select(config, ledger, held=held, packaged=packaged,
                                 voiced=voiced, unvoiced=unvoiced, state=state,
-                                artist=artist, run=run)
+                                artist=artist, run=run, broadcast_ready=broadcast_ready)
         if not entries:
             typer.echo("no matching shows")
             return
@@ -1006,6 +1014,8 @@ def redo(
     state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     config_path: Path = typer.Option(None, "--config"),
 ):
@@ -1014,17 +1024,19 @@ def redo(
     if from_stage not in show_stages:
         typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
         raise typer.Exit(1)
-    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                                          broadcast_ready):
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
     if name is None:
-        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run):
+        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
+                             broadcast_ready):
             typer.echo("give a show or a selector (e.g. --unvoiced)", err=True)
             raise typer.Exit(1)
         config, ia, ledger = _setup(config_path)
         entries = _batch_select(config, ledger, held=held, packaged=packaged,
                                 voiced=voiced, unvoiced=unvoiced, state=state,
-                                artist=artist, run=run)
+                                artist=artist, run=run, broadcast_ready=broadcast_ready)
         if not entries:
             typer.echo("no matching shows")
             return
