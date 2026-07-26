@@ -1332,3 +1332,42 @@ def test_show_set_form_defaults_to_held(tmp_path, monkeypatch):
     build(tmp_path, "clean-one", stages={"select", "gather"}, needs_review=False)
     r = runner.invoke(cli.app, ["show", "--config", cfg])
     assert "held-one" in r.output and "clean-one" not in r.output
+
+
+def test_presenter_add_and_show(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["presenter", "add", "casey", "--name", "Casey",
+                                "--sex", "male", "--voice", "american-dj",
+                                "--character", "Warm FM veteran.", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert (tmp_path / "presenters" / "casey.toml").exists()
+    shown = runner.invoke(cli.app, ["presenter", "show", "casey", "--config", cfg])
+    assert "Casey" in shown.output and "Warm FM veteran." in shown.output
+    listed = runner.invoke(cli.app, ["presenter", "list", "--config", cfg])
+    assert "casey" in listed.output
+
+
+def test_presenter_add_refuses_overwrite_without_force(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    args = ["presenter", "add", "casey", "--name", "Casey", "--sex", "male",
+            "--voice", "american-dj", "--character", "x", "--config", cfg]
+    assert runner.invoke(cli.app, args).exit_code == 0
+    again = runner.invoke(cli.app, args)
+    assert again.exit_code != 0 and "exists" in again.output
+
+
+def test_presenter_add_character_file_and_voice_xor(tmp_path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    cf = tmp_path / "c.txt"; cf.write_text("Deep tape collector.\nDry humor.")
+    r = runner.invoke(cli.app, ["presenter", "add", "deej", "--name", "DJ",
+                                "--sex", "female", "--voice-clone", "/ref.wav",
+                                "--character-file", str(cf), "--config", cfg])
+    assert r.exit_code == 0, r.output
+    # voice + voice-clone together must fail (model validator)
+    bad = runner.invoke(cli.app, ["presenter", "add", "x", "--name", "X", "--sex",
+                                  "male", "--voice", "a", "--voice-clone", "/r.wav",
+                                  "--character", "y", "--config", cfg])
+    assert bad.exit_code != 0

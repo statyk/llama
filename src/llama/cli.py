@@ -20,7 +20,7 @@ from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
-from llama.presenters import Presenter, load_presenter
+from llama.presenters import Presenter, list_presenters, load_presenter, save_presenter
 from llama.profiles import Profile, load_profile, save_profile
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
@@ -60,6 +60,10 @@ app.add_typer(ledger_app, name="ledger", rich_help_panel="Housekeeping")
 
 config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
 app.add_typer(config_app, name="config", rich_help_panel="Housekeeping")
+
+presenter_app = typer.Typer(help="On-air hosts (presenters/<id>.toml)",
+                            pretty_exceptions_enable=False)
+app.add_typer(presenter_app, name="presenter", rich_help_panel="Discover & process")
 
 
 def _version_callback(value: bool) -> None:
@@ -1224,6 +1228,66 @@ def profile_list(config_path: Path = typer.Option(None, "--config")):
     profiles_dir = config.root / "profiles"
     for p in sorted(profiles_dir.glob("*.toml")) if profiles_dir.exists() else []:
         typer.echo(p.stem)
+
+
+@presenter_app.command("add")
+def presenter_add(
+    id: str = typer.Argument(...),
+    name: str = typer.Option(..., "--name"),
+    sex: str = typer.Option(..., "--sex"),
+    voice: str = typer.Option(None, "--voice"),
+    voice_clone: str = typer.Option(None, "--voice-clone"),
+    character: str = typer.Option(None, "--character"),
+    character_file: Path = typer.Option(None, "--character-file"),
+    bed: str = typer.Option(None, "--bed"),
+    force: bool = typer.Option(False, "--force"),
+    config_path: Path = typer.Option(None, "--config"),
+):
+    """Create a presenter (on-air host)."""
+    config, _, _ = _setup(config_path)
+    if bool(character) == bool(character_file):
+        typer.echo("give exactly one of --character / --character-file", err=True)
+        raise typer.Exit(1)
+    text = character if character else character_file.read_text().strip()
+    dest = config.root / "presenters" / f"{id}.toml"
+    if dest.exists() and not force:
+        typer.echo(f"presenter {id!r} exists: {dest} (use --force to overwrite)", err=True)
+        raise typer.Exit(1)
+    try:
+        p = Presenter(id=id, name=name, sex=sex, voice=voice,
+                      voice_clone=voice_clone, character=text, bed=bed)
+    except Exception as exc:
+        typer.echo(f"invalid presenter: {exc}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"saved: {save_presenter(config.root, p)}")
+
+
+@presenter_app.command("list")
+def presenter_list(config_path: Path = typer.Option(None, "--config")):
+    """List presenters."""
+    config, _, _ = _setup(config_path)
+    rows = list_presenters(config.root)
+    if not rows:
+        typer.echo("no presenters")
+        return
+    for pid, p in rows:
+        if isinstance(p, str):
+            typer.echo(f"{pid:16.16s} (invalid: {p})")
+        else:
+            v = p.voice or f"clone:{p.voice_clone}"
+            typer.echo(f"{pid:16.16s} {p.name:20.20s} {p.sex:8.8s} {v}")
+
+
+@presenter_app.command("show")
+def presenter_show(id: str = typer.Argument(...),
+                   config_path: Path = typer.Option(None, "--config")):
+    """Show one presenter's fields."""
+    config, _, _ = _setup(config_path)
+    p = load_presenter(config.root, id)     # PresenterError -> main_cli boundary
+    v = p.voice or f"clone:{p.voice_clone}"
+    typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else ""))
+    typer.echo("character:")
+    typer.echo(p.character)
 
 
 @ledger_app.command("list")

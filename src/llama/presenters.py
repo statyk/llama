@@ -55,3 +55,15 @@ def load_presenter(root: Path, presenter_id: str) -> Presenter:
         return Presenter.model_validate({**data, "id": presenter_id})
     except ValidationError as exc:
         raise PresenterError(f"invalid presenter at {path}: {exc}") from exc
+
+
+def list_presenters(root: Path) -> list[tuple[str, Presenter | str]]:
+    """(id, Presenter | error-string) for each presenters/*.toml, sorted by id."""
+    d = root / "presenters"
+    out = []
+    for p in sorted(d.glob("*.toml")) if d.is_dir() else []:
+        try:
+            out.append((p.stem, load_presenter(root, p.stem)))
+        except PresenterError as exc:
+            out.append((p.stem, str(exc)))
+    return out
