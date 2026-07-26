@@ -651,23 +651,36 @@ def show(
 
     did_exclude = bool(exclude or include)
     did_narration = vague or full
-    if not (did_exclude or did_narration or clear) \
-            and entry.state == "held" and _interactive_enabled():
-        _interactive_resolve(config, ia, ledger, entry)   # prints once inside
+    if not (did_exclude or did_narration or clear):
+        # Pure inspection. On a TTY a held show drops into interactive resolve
+        # (which prints the entry itself); otherwise just print the block.
+        if entry.state == "held" and _interactive_enabled():
+            _interactive_resolve(config, ia, ledger, entry)
+            return
+        _print_show_entry(entry)
         return
-    _print_show_entry(entry)
 
+    # A resolution flag was given: apply it and confirm concisely. We do NOT
+    # reprint the full inspection here — it would show the pre-action state
+    # (e.g. "needs-review: yes" plus a "--clear" hint) that this very command
+    # just resolved, which reads as a contradiction.
+    if not sws.show.exists():
+        typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+        raise typer.Exit(1)
     if did_exclude:
-        _edit_overrides(sws, add_exclude=exclude or [], rm_exclude=include or [])
+        ov = _edit_overrides(sws, add_exclude=exclude or [], rm_exclude=include or [])
+        typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
+                   "(the hold clears itself if a clean re-gather results)")
     if vague:
         _edit_overrides(sws, narration="vague")
         _clear_hold(sws)
+        typer.echo(f"{entry.slug}: narration = vague; hold cleared")
     if full:
         _edit_overrides(sws, narration="full")
+        typer.echo(f"{entry.slug}: narration = full")
     if clear:
         _clear_hold(sws)
-    if not (did_exclude or did_narration or clear):
-        return
+        typer.echo(f"{entry.slug}: hold cleared")
     stage = "gather" if did_exclude else ("synthesize" if did_narration else "package")
     if apply:
         entry2 = _resolve_show(config, ledger, entry.slug)

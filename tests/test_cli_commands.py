@@ -258,6 +258,20 @@ def test_show_vague_writes_overrides_clears_hold_prints_next(tmp_path):
     assert "redo gratefuldead-1973-06-10 --from synthesize" in r.output
 
 
+def test_show_vague_output_is_not_self_contradictory(tmp_path):
+    # A resolution flag must not reprint the pre-action inspection: no stale
+    # "needs-review: yes" and no "--clear" overrule hint after --vague already
+    # cleared the hold. It confirms the change instead.
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _held_show_dir(tmp_path)
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--vague", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert "needs-review: yes" not in r.output
+    assert "--clear" not in r.output
+    assert "narration = vague; hold cleared" in r.output
+
+
 def test_show_exclude_writes_overrides_keeps_hold_prints_gather(tmp_path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
