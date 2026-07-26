@@ -398,7 +398,7 @@ above). `--full-rationale` prints each shortlisted show's complete
 selection rationale instead of the first few lines (also available on
 `run`, `review`, and `profile run`).
 
-### `llama status [--held] [--packaged] [--voiced] [--unvoiced] [--state NAME] [--run NAME] [--artist SUBSTR] [--all] [--json]`
+### `llama status [--held] [--packaged] [--voiced] [--unvoiced] [--broadcast-ready] [--state NAME] [--run NAME] [--artist SUBSTR] [--all] [--json]`
 The triage table: every show in the library with its derived state, artist,
 date, and originating run; held shows sort first with their flags indented
 beneath. By default only the 5 most recently delivered shows are kept in
@@ -406,13 +406,16 @@ the listing — `--all` shows every delivered show. `--held` / `--packaged`
 filter to one state ("what needs my judgment" / "what's ready to ship"),
 `--voiced` / `--unvoiced` filter to packaged shows with or without DJ audio
 (a show that isn't packaged yet is neither — it has no voiced status at
-all), `--state NAME` filters to one exact derived state (e.g. `vetted`),
-`--run` filters to shows processed by that exact run name, `--artist`
-substring-matches the artist, and `--json` emits the records for scripting
-(each record now includes `voiced` — `true`/`false`/`null` — and
-`overrides`, the show's exclude list and narration mode). Text rows carry
-inline annotations for anything non-default:
-`[voiced, vague, 3x-excl]`.
+all), `--broadcast-ready` filters to shows that are actually airable right
+now — packaged with every manifest track's audio file verified on disk, a
+DJ script, DJ audio, a `broadcast.m3u`, and not held (positive-only; there's
+no `--not-broadcast-ready`), `--state NAME` filters to one exact derived
+state (e.g. `vetted`), `--run` filters to shows processed by that exact run
+name, `--artist` substring-matches the artist, and `--json` emits the
+records for scripting (each record now includes `voiced` — `true`/`false`/
+`null` —, `broadcast_ready` — `true`/`false` —, and `overrides`, the show's
+exclude list and narration mode). Text rows carry inline annotations for
+anything non-default: `[broadcast-ready, voiced, vague, 3x-excl]`.
 
 ### `llama runs`
 One line per run: name, show-state counts (via each show's provenance), and
@@ -460,17 +463,20 @@ connection to needs-review (gate 2). `--script`/`--no-script` and
 `--voice`/`--no-voice` override the run's persisted settings if you process
 immediately.
 
-### `llama show [<show>] [--tracks] [--exclude FILE|N] [--include FILE|N] [--vague] [--full] [--clear] [--apply] [--set-venue V] [--set-city C] [--set-date D] [--title N="..."] [--clear-title N] [--set-breaks "N,N"] [--clear-set-breaks] [--held/--packaged/--voiced/--unvoiced/--state/--artist/--run]`
+### `llama show [<show>] [--tracks] [--exclude FILE|N] [--include FILE|N] [--vague] [--full] [--clear] [--apply] [--set-venue V] [--set-city C] [--set-date D] [--title N="..."] [--clear-title N] [--set-breaks "N,N"] [--clear-set-breaks] [--held/--packaged/--voiced/--unvoiced/--broadcast-ready/--state/--artist/--run]`
 Gate 2's home command. Two forms:
 
 - **Single-show form** (`llama show <show>`): prints artist/date/venue,
   chosen recording, derived state, a table of stage artifacts (present +
   age, or missing), the current `overrides:` line (only shown when
-  non-default — narration and exclude list), and the needs-review flags. On
-  a held show with no resolution flags given, and on a TTY, it drops
-  straight into the same interactive walkthrough as the set form (below)
-  for just that one show — pass a resolution flag to skip the prompt and
-  act directly.
+  non-default — narration and exclude list), the needs-review flags, and a
+  `broadcast-ready: yes`/`no` line — when `no`, the reasons follow indented
+  (e.g. `held for review`, `no DJ script`, `no DJ audio (unvoiced)`, `no
+  broadcast.m3u`, `N of M audio files missing`, or just `not packaged` if
+  there's no package at all). On a held show with no resolution flags
+  given, and on a TTY, it drops straight into the same interactive
+  walkthrough as the set form (below) for just that one show — pass a
+  resolution flag to skip the prompt and act directly.
   - `--tracks` appends the numbered track table (index, set, title, title
     source, duration, filename) — the number to give
     `--exclude`/`--include`/`--title`/`--set-breaks`. `--tracks` is an explicit
@@ -512,15 +518,15 @@ Gate 2's home command. Two forms:
     "clear" step needed for `--exclude`/metadata fixes.
 - **Set form** (`llama show` with no name, or with any selector): walks
   every matching show. With no selector it defaults to `--held`. Selectors:
-  `--held`, `--packaged`, `--voiced`, `--unvoiced`, `--state NAME`,
-  `--artist SUBSTR`, `--run NAME`. On a TTY, each held show in the walk gets
-  an interactive prompt — `[e]xclude tracks / [v]ague / [c]lear / [s]kip /
-  [q]uit` — `e` lists tracks and asks which numbers to exclude, then applies
-  and redoes from `gather` right there; `v` and `c` clear the hold and redo
-  from `synthesize`/`package` respectively; `s` leaves it and moves to the
-  next show; `q` stops the walk. Non-held shows in the walk (e.g. from
-  `--voiced`) are just printed, never prompted. Off a TTY (scripts, CI), the
-  walk only prints each entry — no prompts, no edits.
+  `--held`, `--packaged`, `--voiced`, `--unvoiced`, `--broadcast-ready`,
+  `--state NAME`, `--artist SUBSTR`, `--run NAME`. On a TTY, each held show
+  in the walk gets an interactive prompt — `[e]xclude tracks / [v]ague /
+  [c]lear / [s]kip / [q]uit` — `e` lists tracks and asks which numbers to
+  exclude, then applies and redoes from `gather` right there; `v` and `c`
+  clear the hold and redo from `synthesize`/`package` respectively; `s`
+  leaves it and moves to the next show; `q` stops the walk. Non-held shows
+  in the walk (e.g. from `--voiced`) are just printed, never prompted. Off a
+  TTY (scripts, CI), the walk only prints each entry — no prompts, no edits.
 
 ### `llama redo <show>|<selectors> --from STAGE [--with-research] [--script/--no-script] [--voice/--no-voice] [--yes]`
 Re-run show(s)' pipeline from a stage onward. `--from` is required; stages:
@@ -532,9 +538,9 @@ script/voice settings) — the originating run directory is not needed.
 - **Single-show form:** `llama redo <show> --from STAGE ...` — standalone,
   no run replay, no other show touched.
 - **Batch form:** give selectors instead of a name —
-  `--held`/`--packaged`/`--voiced`/`--unvoiced`/`--state NAME`/
-  `--artist SUBSTR`/`--run NAME` (same selectors as `llama show`'s set
-  form). It prints the plan (every matching show) and asks
+  `--held`/`--packaged`/`--voiced`/`--unvoiced`/`--broadcast-ready`/
+  `--state NAME`/`--artist SUBSTR`/`--run NAME` (same selectors as `llama
+  show`'s set form). It prints the plan (every matching show) and asks
   `Proceed? [y/N]`; `--yes` skips the prompt for scripting. **Held shows are
   excluded from the batch unless `--held` is explicitly given** — a batch
   redo never processes a hold by accident. Each show's failure is isolated:
@@ -566,9 +572,11 @@ marked needs-review; `--force` overrides.
 
 - **Single-show form:** `llama deliver <show> ...`.
 - **Batch form:** selectors instead of a name —
-  `--held`/`--packaged`/`--voiced`/`--unvoiced`/`--state NAME`/
-  `--artist SUBSTR`/`--run NAME`. `llama deliver --packaged` is the
-  standard ship-everything-ready command. Same plan/`Proceed? [y/N]`/
+  `--held`/`--packaged`/`--voiced`/`--unvoiced`/`--broadcast-ready`/
+  `--state NAME`/`--artist SUBSTR`/`--run NAME`. `llama deliver --packaged`
+  is the standard ship-everything-ready command; `--broadcast-ready`
+  narrows that to shows that are also scripted, voiced, and have a
+  `broadcast.m3u` — the actually-airable subset. Same plan/`Proceed? [y/N]`/
   `--yes`, same held-excluded-unless-`--held` rule, same per-show
   `FAILED <slug>: ...` isolation, and the same "show OR selectors, not
   both" error as `redo`.
@@ -657,6 +665,14 @@ entries suppress a performance in future winnows; `rejected` entries do too.
 (ready to deliver), then in-flight. `llama status --packaged` is the
 ship-it worklist; `llama deliver <show>` each one (or `llama deliver
 --packaged` to ship the whole worklist at once).
+
+**What's actually ready to go on air right now?**
+`--packaged` only means `package/manifest.json` exists — it doesn't check
+that the audio files are still there, or that the show is scripted/voiced/
+has a `broadcast.m3u`. `llama status --broadcast-ready` (or `llama show
+<show>` for the reasons on one show) answers the stricter question;
+`llama deliver --broadcast-ready` ships only that airable subset. No
+inverse flag exists — a `no` shows its reasons on `llama show <show>`.
 
 **Clear my overnight holds.**
 `llama show --held` — walks every held show one at a time with the

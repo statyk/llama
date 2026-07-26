@@ -148,6 +148,15 @@ failed validation's final retry escalates one tier (pins never escalate).
   low instrumental bed under each DJ clip — pre-roll, bed-under-voice, then tail,
   at `[tts] bed_gain_db` (default -20 dB); beds must be 24kHz mono 16-bit WAV
   (hard-fail on mismatch), mixed via numpy (no ffmpeg).
+- **Broadcast-ready:** a derived (never stored) signal, computed the same way
+  as `voiced` — true iff the show is packaged with every manifest track's
+  audio file verified on disk, has a DJ script, has DJ audio, has
+  `package/broadcast.m3u`, and is not held for review; an unvoiced show can
+  never qualify (no DJ audio or `broadcast.m3u` without voice). Surfaced as a
+  `broadcast-ready` tag and `--broadcast-ready` filter/JSON field on `llama
+  status`, a `--broadcast-ready` selector on `llama show`/`deliver`/`redo`,
+  and a `broadcast-ready: yes|no` (+ reasons when `no`) line on `llama show
+  <name>`. Positive-only — no `--not-broadcast-ready` inverse.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,

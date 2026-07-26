@@ -172,6 +172,7 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
     llama status                     # every show + its state, held-for-review first
     llama status --held              # just the shows waiting on your judgment
     llama status --unvoiced          # packaged shows with no DJ audio yet
+    llama status --broadcast-ready   # shows that are actually airable right now
     llama runs                       # runs with per-state show counts
     llama review countryish          # approve a run's shortlist, optionally process it
     llama run countryish             # resume/replay a run; finished stages are skipped
@@ -192,8 +193,11 @@ Shows and runs are addressed by **name or any unique substring** (paths
 still work): `llama show 1973-06-10` finds `gratefuldead-1973-06-10`; an
 ambiguous substring fails loudly and lists the candidates.
 `status`, `show`, and the batch forms of `redo`/`deliver` share one filter
-vocabulary (`--held`/`--packaged`/`--voiced`/`--unvoiced`/`--state`/`--artist`/`--run`);
-a batch action prints a plan and asks before running (`--yes` skips the prompt).
+vocabulary (`--held`/`--packaged`/`--voiced`/`--unvoiced`/`--broadcast-ready`/
+`--state`/`--artist`/`--run`); `--broadcast-ready` is positive-only (no
+inverse flag) and selects shows that are packaged with every track's audio
+verified on disk, scripted, voiced, have a `broadcast.m3u`, and aren't held.
+A batch action prints a plan and asks before running (`--yes` skips the prompt).
 
 Two different human gates, easy to conflate: `llama review` answers "which
 shortlisted shows are worth processing" (gate 1). Separately, a processed
