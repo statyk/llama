@@ -212,6 +212,23 @@ def test_guard_silent_on_short_single_set_and_any_multiset():
 
 def test_guard_respects_thresholds():
     assert structure_guard(_tracks(28, dur=460.0), [], min_minutes=300) is None
+
+
+def _sets(labels, dur=300.0):
+    return [Track(index=i + 1, set=s, title=f"S{i}", filename=f"t{i}.mp3",
+                  duration_sec=dur, segue=False, title_source="tags")
+            for i, s in enumerate(labels)]
+
+
+def test_guard_set_count_ignores_encore():
+    # 3 numbered sets + an encore vs jerrybase's 3 sets is NOT a mismatch: an
+    # encore is a coda, not a set. (gd 1972-08-27 shape.)
+    tracks = _sets(["1", "1", "2", "2", "3", "3", "encore"])
+    assert structure_guard(tracks, [2, 4, 6], expected_set_count=3) is None
+    # a genuine numbered-set mismatch still fires (encore aside).
+    got = structure_guard(_sets(["1", "1", "2", "2", "encore"]), [2, 4],
+                          expected_set_count=3)
+    assert got == "structure has 2 sets but jerrybase shows 3"
     assert structure_guard(_tracks(12, dur=530.0), [], min_minutes=90) is not None
 
 
@@ -225,7 +242,7 @@ def test_structure_guard_flags_set_count_mismatch():
     from llama.titles import set_breaks
     from llama.structure import structure_guard
 
-    tracks = _guard_tracks(["1", "1", "2", "2", "encore"])
+    tracks = _guard_tracks(["1", "1", "2", "2", "3"])   # 3 genuine numbered sets
     breaks = set_breaks(tracks)
     flag = structure_guard(tracks, breaks, expected_set_count=2)
     assert flag is not None
@@ -236,9 +253,11 @@ def test_structure_guard_no_flag_when_set_count_matches():
     from llama.titles import set_breaks
     from llama.structure import structure_guard
 
+    # 2 numbered sets + an encore vs jerrybase's 2 sets is a match: an encore is
+    # a coda, not counted as a set.
     tracks = _guard_tracks(["1", "1", "2", "2", "encore"])
     breaks = set_breaks(tracks)
-    assert structure_guard(tracks, breaks, expected_set_count=3) is None
+    assert structure_guard(tracks, breaks, expected_set_count=2) is None
 
 
 def test_structure_guard_preserves_old_behavior_without_expected_count():
