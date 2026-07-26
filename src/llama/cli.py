@@ -678,6 +678,14 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
         for f in s.review_flags:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+    from llama.catalog import broadcast_readiness
+    ready, reasons = broadcast_readiness(sws)
+    if ready:
+        typer.echo("broadcast-ready: yes")
+    else:
+        typer.echo("broadcast-ready: no")
+        for r in reasons:
+            typer.echo(f"  - {r}")
     if show_tracks:
         for line in _format_tracks(s):
             typer.echo(line)
@@ -703,6 +711,8 @@ def show(
     state: str = typer.Option(None, "--state", help="Set form: filter by exact catalog state"),
     artist: str = typer.Option(None, "--artist", help="Set form: filter by artist substring"),
     run: str = typer.Option(None, "--run", help="Set form: filter by originating run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Set form: only broadcast-ready shows"),
     tracks: bool = typer.Option(False, "--tracks", help="List the show's tracks (numbered)"),
     set_venue: str = typer.Option(None, "--set-venue", help="Force overrides.venue"),
     set_city: str = typer.Option(None, "--set-city", help="Force overrides.city"),
@@ -722,11 +732,12 @@ def show(
         states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
         if state:
             states.add(state)
-        if not states and not (voiced or unvoiced or artist or run):
+        if not states and not (voiced or unvoiced or artist or run or broadcast_ready):
             states = {"held"}   # set form defaults to held
         vf = True if voiced else (False if unvoiced else None)
         entries = select_shows(iter_shows(config.root, ledger),
-                               states=states or None, voiced=vf, artist=artist, run=run)
+                               states=states or None, voiced=vf, artist=artist,
+                               run=run, broadcast_ready=broadcast_ready)
         if not entries:
             typer.echo("no matching shows")
             return

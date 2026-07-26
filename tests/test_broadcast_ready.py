@@ -112,3 +112,28 @@ def test_status_json_includes_broadcast_ready(tmp_path: Path):
     assert r.exit_code == 0, r.output
     obj = next(o for o in json.loads(r.output) if o["slug"] == "gratefuldead-1973-06-10")
     assert obj["broadcast_ready"] is True
+
+
+def test_show_detail_ready_line(tmp_path: Path):
+    build_ready(tmp_path, "gratefuldead-1973-06-10")
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--config", _cfg(tmp_path)])
+    assert r.exit_code == 0, r.output
+    assert "broadcast-ready: yes" in r.output
+
+
+def test_show_detail_not_ready_lists_reasons(tmp_path: Path):
+    build_ready(tmp_path, "silent-1973-06-11", voiced=False, broadcast_m3u=False)
+    r = runner.invoke(cli.app, ["show", "silent", "--config", _cfg(tmp_path)])
+    assert r.exit_code == 0, r.output
+    assert "broadcast-ready: no" in r.output
+    assert "no DJ audio (unvoiced)" in r.output
+    assert "no broadcast.m3u" in r.output
+
+
+def test_show_list_broadcast_ready_selector(tmp_path: Path):
+    build_ready(tmp_path, "ready-1973-06-10")
+    build_ready(tmp_path, "silent-1973-06-11", voiced=False)
+    r = runner.invoke(cli.app, ["show", "--broadcast-ready", "--config", _cfg(tmp_path)])
+    assert r.exit_code == 0, r.output
+    assert "ready-1973-06-10" in r.output
+    assert "silent-1973-06-11" not in r.output
