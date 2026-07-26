@@ -519,10 +519,24 @@ def _interactive_enabled() -> bool:
     return sys.stdin.isatty()
 
 
-def _pick_excludes(show) -> list[str]:
-    typer.echo("tracks:")
+def _fmt_dur(sec) -> str:
+    if not sec:
+        return "?"
+    return f"{int(sec) // 60}:{int(sec) % 60:02d}"
+
+
+def _format_tracks(show) -> list[str]:
+    lines = ["tracks:"]
     for t in show.tracks:
-        typer.echo(f"  {t.index:2d}. {t.set:6s} {t.title:28.28s} {t.filename}")
+        title = t.title if t.title_source != "unresolved" else "(unknown)"
+        lines.append(f"  {t.index:2d}. set {t.set:4.4s} {title:28.28s} "
+                     f"{t.title_source:10.10s} {t.filename:24.24s} {_fmt_dur(t.duration_sec):>5s}")
+    return lines
+
+
+def _pick_excludes(show) -> list[str]:
+    for line in _format_tracks(show):
+        typer.echo(line)
     picks = _parse_ranks(typer.prompt("exclude which track numbers? (comma-separated, empty = none)",
                                       default="", show_default=False))
     return [t.filename for t in show.tracks if t.index in picks]
@@ -560,7 +574,7 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
 
 
-def _print_show_entry(entry) -> None:
+def _print_show_entry(entry, show_tracks: bool = False) -> None:
     sws = entry.ws
     if not sws.show.exists():
         typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
@@ -598,6 +612,9 @@ def _print_show_entry(entry) -> None:
         for f in s.review_flags:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+    if show_tracks:
+        for line in _format_tracks(read_model(sws.show, Show)):
+            typer.echo(line)
 
 
 @app.command(rich_help_panel="Inspect & triage")
@@ -620,6 +637,7 @@ def show(
     state: str = typer.Option(None, "--state", help="Set form: filter by exact catalog state"),
     artist: str = typer.Option(None, "--artist", help="Set form: filter by artist substring"),
     run: str = typer.Option(None, "--run", help="Set form: filter by originating run"),
+    tracks: bool = typer.Option(False, "--tracks", help="List the show's tracks (numbered)"),
     config_path: Path = typer.Option(None, "--config"),
 ):
     """Inspect one show, or walk a set of shows (default: held) for resolution."""
@@ -657,7 +675,7 @@ def show(
         if entry.state == "held" and _interactive_enabled():
             _interactive_resolve(config, ia, ledger, entry)
             return
-        _print_show_entry(entry)
+        _print_show_entry(entry, show_tracks=tracks)
         return
 
     # A resolution flag was given: apply it and confirm concisely. We do NOT

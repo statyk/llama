@@ -1038,6 +1038,17 @@ def test_show_resolves_by_name_and_lists_stages(tmp_path: Path):
     assert "missing" in result.output            # research.md was never written
 
 
+def test_show_tracks_lists_numbered_tracks(tmp_path: Path):
+    from test_catalog import build
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    r = runner.invoke(cli.app, ["show", "gratefuldead", "--tracks", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert "tracks:" in r.output
+    assert "1." in r.output and "Morning Dew" in r.output and "a.mp3" in r.output
+
+
 def test_show_ambiguous_name_fails_loud(tmp_path: Path):
     from llama.catalog import CatalogError
 
