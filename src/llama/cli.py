@@ -578,8 +578,10 @@ def _format_tracks(show) -> list[str]:
     lines = ["tracks:"]
     for t in show.tracks:
         title = t.title if t.title_source != "unresolved" else "(unknown)"
-        lines.append(f"  {t.index:2d}. set {t.set:4.4s} {title:28.28s} "
-                     f"{t.title_source:10.10s} {t.filename:24.24s} {_fmt_dur(t.duration_sec):>5s}")
+        # duration before filename so a long filename can print in full without
+        # misaligning the numeric column.
+        lines.append(f"  {t.index:2d}. set {t.set:6.6s} {title:28.28s} "
+                     f"{t.title_source:10.10s} {_fmt_dur(t.duration_sec):>6s}  {t.filename}")
     return lines
 
 
@@ -765,8 +767,10 @@ def show(
                     or clear_title or set_breaks or clear_set_breaks)
     if not (did_exclude or did_narration or clear or did_meta):
         # Pure inspection. On a TTY a held show drops into interactive resolve
-        # (which prints the entry itself); otherwise just print the block.
-        if entry.state == "held" and _interactive_enabled():
+        # (which prints the entry itself) — UNLESS the operator explicitly asked
+        # to view (--tracks), which is an inspection request, not a resolve one,
+        # so honor it and just print. Otherwise print the block.
+        if not tracks and entry.state == "held" and _interactive_enabled():
             _interactive_resolve(config, ia, ledger, entry)
             return
         _print_show_entry(entry, show_tracks=tracks)

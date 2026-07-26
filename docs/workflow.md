@@ -472,11 +472,12 @@ Gate 2's home command. Two forms:
   for just that one show — pass a resolution flag to skip the prompt and
   act directly.
   - `--tracks` appends the numbered track table (index, set, title, title
-    source, filename, duration) to a plain inspection — the number to give
-    `--exclude`/`--include`/`--title`/`--set-breaks`. (On a held show at an
-    interactive terminal, plain `llama show <show>` drops into the
-    walkthrough before `--tracks` gets a chance — pass a resolution flag,
-    or run non-interactively, to see the table on a held show.)
+    source, duration, filename) — the number to give
+    `--exclude`/`--include`/`--title`/`--set-breaks`. `--tracks` is an explicit
+    view request, so it prints and exits even for a held show on a terminal
+    (it is *not* pre-empted by the interactive walkthrough; plain
+    `llama show <show>` with no flag is what drops a held show into the
+    walkthrough).
   - `--exclude FILE-or-N` (repeatable, comma-lists ok) adds a source
     filename to `overrides.exclude`; `--include FILE-or-N` (repeatable)
     removes one. Either also accepts **track numbers** (from `--tracks`)
