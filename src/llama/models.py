@@ -187,10 +187,16 @@ class Show(BaseModel):
 
 class Overrides(BaseModel):
     """Hand-authored per-show operator input, durable across re-derivation.
-    Read by gather (exclude) and synthesize (narration); never auto-written by
-    a stage. Absent file == this default."""
+    Read by gather (exclude, venue, city, date, titles, set_breaks) and
+    synthesize (narration); never auto-written by a stage. Absent file == this
+    default."""
     exclude: list[str] = Field(default_factory=list)   # source filenames to drop
     narration: str = "full"                            # "full" | "vague"
+    venue: str | None = None
+    city: str | None = None
+    date: str | None = None                            # YYYY-MM-DD
+    titles: dict[int, str] = Field(default_factory=dict)   # track number -> forced title
+    set_breaks: list[int] | None = None                # track numbers a break falls after
 
 
 class DJNotes(BaseModel):
