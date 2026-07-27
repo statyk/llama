@@ -380,7 +380,12 @@ replays the voice *stamped* on the show at process time; only a fresh
 `llama get --profile <name>` picks up a new preset voice. Unchanged
 segments aren't re-synthesized — the per-segment cache (keyed on
 text+voice+model+chunk[+bed]) means a redo only re-renders what actually
-changed. A plain `llama run resume <session>` on a session whose shows are
+changed. Voxtral is non-deterministic, though — the same script gives a
+different take each call — so when one clip comes out janky, `llama voice
+<show> --fresh <clip>` deletes just that clip (a DJ-audio filename stem,
+e.g. `set1-intro` or `99-outro`; repeatable) and the package re-render
+re-rolls only it, leaving the cached good takes untouched. It's single-show,
+voice-on; an unknown stem lists the show's actual clips. A plain `llama run resume <session>` on a session whose shows are
 already packaged does **not** re-voice them — the package stage is skipped
 because its output already exists — it prints `note: already-packaged shows
 won't be re-voiced by a plain replay; use 'llama redo <show> --from package
