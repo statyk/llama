@@ -613,36 +613,124 @@ def _pick_excludes(show) -> list[str]:
     return [t.filename for t in show.tracks if t.index in picks]
 
 
+def _print_recording_info(ws) -> None:
+    """Archive URL + considered-recordings block (spec §10) — extracted once
+    so the interactive resolve header (`show`/`triage`) and, later, `show`'s
+    own inspection block (Task 4's `_print_recording_info` consumer) share the
+    identical formatter."""
+    from llama.catalog import recording_info
+
+    info = recording_info(ws)
+    if info is None:
+        return
+    typer.echo(f"  {info.url}")
+    if info.considered:
+        typer.echo("considered:")
+        for c in info.considered:
+            typer.echo(f"  {c.identifier:<44} {c.score:.1f}")
+
+
+RESOLVE_PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit"
+
+
+def _metadata_editor(entry) -> bool:
+    """The `[m]etadata` mini-editor: sequential prompts for the gather-consumed
+    override fields, each defaulting to (and so, on bare Enter, keeping) the
+    current effective value. Validation mirrors `fix`'s flags. Returns True
+    iff any field actually changed (and the overrides were written); False
+    means nothing changed, so the caller should return to the prompt rather
+    than redo anything."""
+    from llama.workspace import read_overrides
+
+    sws = entry.ws
+    s = read_model(sws.show, Show)
+    ov = read_overrides(sws)
+
+    cur_venue = ov.venue if ov.venue is not None else (s.venue or "")
+    cur_city = ov.city if ov.city is not None else (s.city or "")
+    cur_date = ov.date if ov.date is not None else (s.date or "")
+    cur_titles = ", ".join(f"{n}={t}" for n, t in sorted(ov.titles.items()))
+    cur_breaks = ",".join(str(n) for n in (ov.set_breaks or []))
+
+    venue = typer.prompt("venue", default=cur_venue, show_default=True)
+    city = typer.prompt("city", default=cur_city, show_default=True)
+    show_date = typer.prompt("date (YYYY-MM-DD)", default=cur_date, show_default=True)
+    titles_in = typer.prompt("title overrides (N=Title, comma-separated)",
+                             default=cur_titles, show_default=True)
+    breaks_in = typer.prompt("set breaks (e.g. 9,17)", default=cur_breaks, show_default=True)
+
+    titles_changed = titles_in != cur_titles
+    breaks_changed = breaks_in != cur_breaks
+    if (venue == cur_venue and city == cur_city and show_date == cur_date
+            and not titles_changed and not breaks_changed):
+        return False
+
+    parsed_titles = {}
+    if titles_changed:
+        for spec in (p.strip() for p in titles_in.split(",")):
+            if not spec:
+                continue
+            n, sep, t = spec.partition("=")
+            if not sep or not n.strip().isdigit():
+                typer.echo(f"title overrides expects N=Title, got {spec!r}")
+                return False
+            parsed_titles[int(n.strip())] = t
+
+    breaks_val = None
+    if breaks_changed:
+        parts = [x.strip() for x in breaks_in.split(",") if x.strip()]
+        if not all(p.isdigit() for p in parts):
+            typer.echo(f"set breaks expects comma-separated track numbers, got {breaks_in!r}")
+            return False
+        breaks_val = [int(p) for p in parts]
+
+    _edit_overrides(sws,
+                    venue=venue if venue != cur_venue else _UNSET,
+                    city=city if city != cur_city else _UNSET,
+                    date=show_date if show_date != cur_date else _UNSET,
+                    set_titles=parsed_titles if titles_changed else None,
+                    clear_titles=list(ov.titles.keys()) if titles_changed else [],
+                    set_breaks=breaks_val if breaks_changed else _UNSET)
+    typer.echo(f"{entry.slug}: metadata override updated")
+    return True
+
+
 def _interactive_resolve(config, ia, ledger, entry) -> None:
     _print_show_entry(entry)
     if entry.state != "held":
         return
-    choice = typer.prompt("[e]xclude tracks / [v]ague / [c]lear / [s]kip / [q]uit",
-                          default="s", show_default=False).strip().lower()
-    if choice in ("", "s"):
-        return
-    if choice == "q":
-        raise typer.Exit()
-    if choice == "e":
-        files = _pick_excludes(read_model(entry.ws.show, Show))
-        if not files:
-            typer.echo("nothing selected; skipping")
+    _print_recording_info(entry.ws)
+    while True:
+        choice = typer.prompt(RESOLVE_PROMPT, default="s", show_default=False).strip().lower()
+        if choice in ("", "s"):
             return
-        _edit_overrides(entry.ws, add_exclude=files)
-        stage = "gather"
-    elif choice == "v":
-        _edit_overrides(entry.ws, narration="vague")
-        _clear_hold(entry.ws)
-        stage = "synthesize"
-    elif choice == "c":
-        _clear_hold(entry.ws)
-        stage = "package"
-    else:
-        typer.echo("unrecognized; skipping")
+        if choice == "q":
+            raise typer.Exit()
+        if choice == "e":
+            files = _pick_excludes(read_model(entry.ws.show, Show))
+            if not files:
+                typer.echo("nothing selected; skipping")
+                return
+            _edit_overrides(entry.ws, add_exclude=files)
+            stage = "gather"
+        elif choice == "m":
+            if not _metadata_editor(entry):
+                continue   # nothing changed - back to the prompt, same show
+            stage = "gather"
+        elif choice == "v":
+            _edit_overrides(entry.ws, narration="vague")
+            _clear_hold(entry.ws)
+            stage = "synthesize"
+        elif choice == "o":
+            _clear_hold(entry.ws)
+            stage = "package"
+        else:
+            typer.echo("unrecognized; skipping")
+            return
+        fresh = _resolve_show(config, ledger, entry.slug)
+        pkg = _redo_show(config, ia, ledger, fresh, stage)
+        typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
         return
-    fresh = _resolve_show(config, ledger, entry.slug)
-    pkg = _redo_show(config, ia, ledger, fresh, stage)
-    typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
 
 
 def _print_show_entry(entry, show_tracks: bool = False) -> None:
@@ -1135,6 +1223,54 @@ def fix(
     entry2 = _resolve_show(config, ledger, entry.slug)
     pkg = _redo_show(config, ia, ledger, entry2, stage)
     typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+
+
+@app.command(rich_help_panel="Fix & ship")
+def triage(
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
+    state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Selector: broadcast-ready shows"),
+):
+    """Interactively walk shows for resolution (default: held shows) —
+    exclude tracks, edit metadata, accept vague narration, or overrule the
+    hold. Always interactive: requires a TTY."""
+    if not sys.stdin.isatty():
+        typer.echo("triage is interactive; use 'llama status' or 'llama show' "
+                   "for scripted reads", err=True)
+        raise typer.Exit(1)
+    from llama.catalog import iter_shows
+    from llama.cli_select import apply_selector, build_selector, selector_active
+
+    try:
+        sel = build_selector(held=held, packaged=packaged,
+                             states=(state,) if state else (),
+                             voiced=voiced, unvoiced=unvoiced, artist=artist,
+                             run=run, broadcast_ready=broadcast_ready)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    if name is not None and selector_active(sel):
+        typer.echo("give a show OR selectors, not both", err=True)
+        raise typer.Exit(1)
+    config, ia, ledger = _setup()
+    if name is not None:
+        entries = [_resolve_show(config, ledger, name)]
+    else:
+        if not selector_active(sel):
+            sel = build_selector(held=True)   # triage's default: held (spec §2 exception)
+        entries = apply_selector(iter_shows(config.root, ledger), sel)
+    if not entries:
+        typer.echo("no matching shows")
+        return
+    for e in entries:
+        _interactive_resolve(config, ia, ledger, e)
 
 
 @app.command(rich_help_panel="Fix & ship")
