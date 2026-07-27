@@ -584,10 +584,6 @@ def _clear_hold(show_ws):
     write_artifact(show_ws.show, s)
 
 
-def _interactive_enabled() -> bool:
-    return sys.stdin.isatty()
-
-
 def _fmt_dur(sec) -> str:
     if not sec:
         return "?"
@@ -699,7 +695,6 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     _print_show_entry(entry)
     if entry.state != "held":
         return
-    _print_recording_info(entry.ws)
     while True:
         choice = typer.prompt(RESOLVE_PROMPT, default="s", show_default=False).strip().lower()
         if choice in ("", "s"):
@@ -733,11 +728,40 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         return
 
 
+def _stage_ages(sws) -> list[tuple[str, float | None]]:
+    """(label, age_days|None) per show-level artifact, shallowest to deepest.
+    Shared by the text stage table and `--json`'s `stages` block."""
+    artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
+                 ("research.md", sws.research), ("vetting.json", sws.vetting),
+                 ("dj-notes.json", sws.dj_notes_json),
+                 ("package/manifest.json", sws.package_dir / "manifest.json")]
+    now = datetime.now(timezone.utc).timestamp()
+    return [(label, (now - path.stat().st_mtime) / 86400 if path.exists() else None)
+            for label, path in artifacts]
+
+
+def _print_stages(sws) -> None:
+    typer.echo("stages:")
+    for label, age in _stage_ages(sws):
+        if age is None:
+            typer.echo(f"  {label:22s} missing")
+        else:
+            typer.echo(f"  {label:22s} {age:5.1f}d old")
+
+
 def _print_show_entry(entry, show_tracks: bool = False) -> None:
+    """Read-only inspection block (spec §5.2, §10) — never prompts, never
+    writes. A show with no show.json yet (pre-gather) prints only slug/state/
+    path, the stage table, and the archive-URL block (when selection.json
+    exists); it skips the identity/overrides/needs-review sections since
+    there is no Show to source them from."""
     sws = entry.ws
     if not sws.show.exists():
-        typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
-        raise typer.Exit(1)
+        typer.echo(f"slug: {entry.slug}")
+        typer.echo(f"state: {entry.state}   path: {sws.dir}")
+        _print_stages(sws)
+        _print_recording_info(sws)
+        return
     s = read_model(sws.show, Show)
     place = ", ".join(p for p in [s.venue, s.city] if p)
     if s.venue_source == "jerrybase" and place:
@@ -747,6 +771,7 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
         date_str = f"{s.date} (item date {s.item_date}, corrected via research)"
     typer.echo(f"{s.artist}  {date_str}  {place}".rstrip())
     typer.echo(f"recording: {s.identifier}  ({len(s.tracks)} tracks)")
+    _print_recording_info(sws)
     typer.echo(f"state: {entry.state}   path: {sws.dir}")
     from llama.workspace import read_overrides
     ov = read_overrides(sws)
@@ -767,25 +792,14 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
         parts.append(f"set_breaks={ov.set_breaks}")
     if parts:
         typer.echo("overrides: " + "  ".join(parts))
-    typer.echo("stages:")
-    artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
-                 ("research.md", sws.research), ("vetting.json", sws.vetting),
-                 ("dj-notes.json", sws.dj_notes_json),
-                 ("package/manifest.json", sws.package_dir / "manifest.json")]
-    now = datetime.now(timezone.utc).timestamp()
-    for label, path in artifacts:
-        if path.exists():
-            age_days = (now - path.stat().st_mtime) / 86400
-            typer.echo(f"  {label:22s} {age_days:5.1f}d old")
-        else:
-            typer.echo(f"  {label:22s} missing")
+    _print_stages(sws)
     if not s.needs_review:
         typer.echo("needs-review: no")
     else:
         typer.echo("needs-review: yes")
         for f in s.review_flags:
             typer.echo(f"  - {f}")
-        typer.echo(f"to overrule after inspecting: llama show --clear {entry.slug}")
+        typer.echo(f"to overrule after inspecting: llama fix {entry.slug} --overrule")
     from llama.catalog import broadcast_readiness
     ready, reasons = broadcast_readiness(sws)
     if ready:
@@ -799,145 +813,69 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
             typer.echo(line)
 
 
+def _print_show_json(entry, show_tracks: bool = False) -> None:
+    import json as _json
+
+    from llama.catalog import broadcast_readiness, recording_info
+    from llama.workspace import read_overrides
+
+    sws = entry.ws
+    s = read_model(sws.show, Show) if sws.show.exists() else None
+    info = recording_info(sws)
+    _, reasons = broadcast_readiness(sws)
+
+    data = {
+        "slug": entry.slug,
+        "state": entry.state,
+        "flags": entry.flags,
+        "artist": s.artist if s else None,
+        "date": s.date if s else None,
+        "venue": s.venue if s else None,
+        "city": s.city if s else None,
+        "identifier": info.identifier if info else None,
+        "archive_url": info.url if info else None,
+        "considered": [
+            {"identifier": c.identifier, "score": c.score, "lineage": c.lineage,
+             "kept_tracks": c.kept_tracks}
+            for c in (info.considered if info else [])
+        ],
+        "path": str(sws.dir),
+        "run": entry.provenance.run if entry.provenance else None,
+        "voiced": entry.voiced,
+        "broadcast_ready": entry.broadcast_ready,
+        "broadcast_reasons": reasons,
+        "needs_review": s.needs_review if s else None,
+        "overrides": None,
+        "stages": dict(_stage_ages(sws)),
+    }
+    if s is not None:
+        ov = read_overrides(sws)
+        data["overrides"] = {
+            "exclude": ov.exclude, "narration": ov.narration, "venue": ov.venue,
+            "city": ov.city, "date": ov.date, "titles": ov.titles,
+            "set_breaks": ov.set_breaks,
+        }
+    if show_tracks:
+        data["tracks"] = [t.model_dump() for t in s.tracks] if s is not None else None
+    typer.echo(_json.dumps(data, indent=2))
+
+
 @app.command(rich_help_panel="Watch")
 def show(
-    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
-    exclude: list[str] = typer.Option(None, "--exclude",
-                                      help="Add source filenames to overrides.exclude"),
-    include: list[str] = typer.Option(None, "--include",
-                                      help="Remove filenames from overrides.exclude"),
-    vague: bool = typer.Option(False, "--vague", help="Set narration=vague and clear the hold"),
-    full: bool = typer.Option(False, "--full", help="Reset narration to full"),
-    clear: bool = typer.Option(False, "--clear",
-                               help="Overrule the hold: clear needs-review and its flags"),
-    apply: bool = typer.Option(False, "--apply",
-                               help="Run the resolving redo now instead of printing it"),
-    held: bool = typer.Option(False, "--held", help="Set form: only held shows"),
-    packaged: bool = typer.Option(False, "--packaged", help="Set form: only packaged shows"),
-    voiced: bool = typer.Option(False, "--voiced", help="Set form: only voiced shows"),
-    unvoiced: bool = typer.Option(False, "--unvoiced", help="Set form: only unvoiced shows"),
-    state: str = typer.Option(None, "--state", help="Set form: filter by exact catalog state"),
-    artist: str = typer.Option(None, "--artist", help="Set form: filter by artist substring"),
-    run: str = typer.Option(None, "--run", help="Set form: filter by originating run"),
-    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
-                                         help="Set form: only broadcast-ready shows"),
+    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
     tracks: bool = typer.Option(False, "--tracks", help="List the show's tracks (numbered)"),
-    set_venue: str = typer.Option(None, "--set-venue", help="Force overrides.venue"),
-    set_city: str = typer.Option(None, "--set-city", help="Force overrides.city"),
-    set_date: str = typer.Option(None, "--set-date", help="Force overrides.date (YYYY-MM-DD)"),
-    title: list[str] = typer.Option(None, "--title", help='Force a track title: --title N="Song"'),
-    clear_title: list[str] = typer.Option(None, "--clear-title", help="Drop a title override by track number"),
-    set_breaks: str = typer.Option(None, "--set-breaks", help='Set breaks by track number: "9,17"'),
-    clear_set_breaks: bool = typer.Option(False, "--clear-set-breaks"),
+    as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
-    """Inspect one show, or walk a set of shows (default: held) for resolution."""
-    config, ia, ledger = _setup()
-
-    if name is None:
-        from llama.catalog import iter_shows, select_shows
-
-        states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
-        if state:
-            states.add(state)
-        if not states and not (voiced or unvoiced or artist or run or broadcast_ready):
-            states = {"held"}   # set form defaults to held
-        vf = True if voiced else (False if unvoiced else None)
-        entries = select_shows(iter_shows(config.root, ledger),
-                               states=states or None, voiced=vf, artist=artist,
-                               run=run, broadcast_ready=broadcast_ready)
-        if not entries:
-            typer.echo("no matching shows")
-            return
-        for e in entries:
-            if _interactive_enabled():
-                _interactive_resolve(config, ia, ledger, e)
-            else:
-                _print_show_entry(e)
-        return
-
+    """Inspect one show: identity, overrides, stage ages, archive URL, and
+    broadcast-readiness. Strictly read-only — never prompts, never edits.
+    Use `llama fix` to edit overrides or resolve a hold, and `llama triage`
+    for the interactive walkthrough."""
+    config, _, ledger = _setup()
     entry = _resolve_show(config, ledger, name)
-    sws = entry.ws
-
-    parsed_titles = {}
-    for spec in (title or []):
-        n, sep, t = spec.partition("=")
-        if not sep or not n.strip().isdigit():
-            typer.echo(f'--title expects N="Title" with a track number, got {spec!r}', err=True)
-            raise typer.Exit(1)
-        parsed_titles[int(n.strip())] = t
-    clear_title_nums = []
-    for spec in (clear_title or []):
-        if not str(spec).strip().isdigit():
-            typer.echo(f"--clear-title expects a track number, got {spec!r}", err=True)
-            raise typer.Exit(1)
-        clear_title_nums.append(int(str(spec).strip()))
-    breaks_val = None
-    if set_breaks:
-        parts = [x.strip() for x in set_breaks.split(",") if x.strip()]
-        if not all(p.isdigit() for p in parts):
-            typer.echo(f"--set-breaks expects comma-separated track numbers, got {set_breaks!r}", err=True)
-            raise typer.Exit(1)
-        breaks_val = [int(p) for p in parts]
-
-    did_exclude = bool(exclude or include)
-    did_narration = vague or full
-    did_meta = bool(set_venue or set_city or set_date or parsed_titles
-                    or clear_title or set_breaks or clear_set_breaks)
-    if not (did_exclude or did_narration or clear or did_meta):
-        # Pure inspection. On a TTY a held show drops into interactive resolve
-        # (which prints the entry itself) — UNLESS the operator explicitly asked
-        # to view (--tracks), which is an inspection request, not a resolve one,
-        # so honor it and just print. Otherwise print the block.
-        if not tracks and entry.state == "held" and _interactive_enabled():
-            _interactive_resolve(config, ia, ledger, entry)
-            return
-        _print_show_entry(entry, show_tracks=tracks)
+    if as_json:
+        _print_show_json(entry, show_tracks=tracks)
         return
-
-    # A resolution flag was given: apply it and confirm concisely. We do NOT
-    # reprint the full inspection here — it would show the pre-action state
-    # (e.g. "needs-review: yes" plus a "--clear" hint) that this very command
-    # just resolved, which reads as a contradiction.
-    if not sws.show.exists():
-        typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
-        raise typer.Exit(1)
-    if did_exclude:
-        try:
-            add = _resolve_exclude_tokens(sws, exclude or [])
-            rm = _resolve_exclude_tokens(sws, include or [])
-        except LlamaError as exc:
-            typer.echo(str(exc), err=True)
-            raise typer.Exit(1)
-        ov = _edit_overrides(sws, add_exclude=add, rm_exclude=rm)
-        typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
-                   "(the hold clears itself if a clean re-gather results)")
-    if vague:
-        _edit_overrides(sws, narration="vague")
-        _clear_hold(sws)
-        typer.echo(f"{entry.slug}: narration = vague; hold cleared")
-    if full:
-        _edit_overrides(sws, narration="full")
-        typer.echo(f"{entry.slug}: narration = full")
-    if clear:
-        _clear_hold(sws)
-        typer.echo(f"{entry.slug}: hold cleared")
-    if did_meta:
-        _edit_overrides(sws,
-            venue=set_venue if set_venue is not None else _UNSET,
-            city=set_city if set_city is not None else _UNSET,
-            date=set_date if set_date is not None else _UNSET,
-            set_titles=parsed_titles or None,
-            clear_titles=clear_title_nums,
-            set_breaks=breaks_val if set_breaks else _UNSET,
-            clear_set_breaks=clear_set_breaks)
-        typer.echo(f"{entry.slug}: metadata override updated")
-    stage = "gather" if (did_exclude or did_meta) else ("synthesize" if did_narration else "package")
-    if apply:
-        entry2 = _resolve_show(config, ledger, entry.slug)
-        pkg = _redo_show(config, ia, ledger, entry2, stage)
-        typer.echo(f"packaged: {pkg}" if pkg else f"needs-review, skipped: {entry.slug}")
-    else:
-        typer.echo(f"next: llama redo {entry.slug} --from {stage}")
+    _print_show_entry(entry, show_tracks=tracks)
 
 
 def _batch_select(config, ledger, *, held=False, packaged=False, voiced=False,

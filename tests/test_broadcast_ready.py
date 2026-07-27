@@ -102,15 +102,6 @@ def test_show_detail_not_ready_lists_reasons(tmp_path: Path):
     assert "no broadcast.m3u" in r.output
 
 
-def test_show_list_broadcast_ready_selector(tmp_path: Path):
-    build_ready(tmp_path, "ready-1973-06-10")
-    build_ready(tmp_path, "silent-1973-06-11", voiced=False)
-    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "show", "--broadcast-ready"])
-    assert r.exit_code == 0, r.output
-    assert "ready-1973-06-10" in r.output
-    assert "silent-1973-06-11" not in r.output
-
-
 def test_batch_select_broadcast_ready_filters(tmp_path: Path, monkeypatch):
     build_ready(tmp_path, "ready-1973-06-10")
     build_ready(tmp_path, "silent-1973-06-11", voiced=False)

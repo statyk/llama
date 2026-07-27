@@ -208,121 +208,6 @@ def test_show_prints_flags(tmp_path: Path):
     assert "single-set structure for a long show" in result.output
 
 
-def test_show_clear_overrules_the_hold(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    sws = _flagged_show(tmp_path)
-    result = runner.invoke(cli.app, ["--config", cfg, "show", str(sws.dir), "--clear"])
-    assert result.exit_code == 0, result.output
-    saved = json.loads(sws.show.read_text())
-    assert saved["needs_review"] is False
-    assert saved["review_flags"] == []
-    assert "llama redo" in result.output     # points at the resume command
-
-
-def test_show_errors_without_show_json(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    sws = ShowWorkspace(tmp_path / "shows" / "bare-1970-01-01")
-    write_artifact(sws.selection, "{}")      # a show dir that has no show.json yet
-    result = runner.invoke(cli.app, ["--config", cfg, "show", "bare"])
-    assert result.exit_code == 1
-    assert "no show.json" in result.output
-
-
-def _held_show_dir(tmp_path):
-    # minimal held, provenance-bearing show (reuse existing builders if present)
-    from test_catalog import build
-    ws = build(tmp_path, "gratefuldead-1973-06-10",
-               stages={"select", "gather"}, needs_review=True)
-    return ws
-
-
-def test_show_vague_writes_overrides_clears_hold_prints_next(tmp_path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = _held_show_dir(tmp_path)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--vague"])
-    assert r.exit_code == 0, r.output
-    ov = read_overrides(ws)
-    assert ov.narration == "vague"
-    from llama.models import Show
-    assert read_model(ws.show, Show).needs_review is False
-    assert "redo gratefuldead-1973-06-10 --from synthesize" in r.output
-
-
-def test_show_vague_output_is_not_self_contradictory(tmp_path):
-    # A resolution flag must not reprint the pre-action inspection: no stale
-    # "needs-review: yes" and no "--clear" overrule hint after --vague already
-    # cleared the hold. It confirms the change instead.
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    _held_show_dir(tmp_path)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--vague"])
-    assert r.exit_code == 0, r.output
-    assert "needs-review: yes" not in r.output
-    assert "--clear" not in r.output
-    assert "narration = vague; hold cleared" in r.output
-
-
-def test_show_exclude_writes_overrides_keeps_hold_prints_gather(tmp_path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = _held_show_dir(tmp_path)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--exclude", "junk.mp3"])
-    assert r.exit_code == 0, r.output
-    assert read_overrides(ws).exclude == ["junk.mp3"]
-    from llama.models import Show
-    assert read_model(ws.show, Show).needs_review is True   # NOT pre-cleared
-    assert "--from gather" in r.output
-
-
-def test_show_exclude_by_number_resolves_to_filename(tmp_path):
-    from test_catalog import build
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"},
-               needs_review=True)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--exclude", "1"])
-    assert r.exit_code == 0, r.output
-    assert read_overrides(ws).exclude == ["a.mp3"]   # track 1's filename
-
-
-def test_show_exclude_out_of_range_errors(tmp_path):
-    from test_catalog import build
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"}, needs_review=True)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--exclude", "99"])
-    assert r.exit_code != 0
-    assert "track 99" in r.output or "out of range" in r.output
-
-
-def test_show_set_venue_and_title_write_overrides_route_gather(tmp_path):
-    from test_catalog import build
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"},
-               needs_review=True)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--set-venue", "My Hall",
-                                "--title", "1=Bertha"])
-    assert r.exit_code == 0, r.output
-    ov = read_overrides(ws)
-    assert ov.venue == "My Hall" and ov.titles == {1: "Bertha"}
-    assert "--from gather" in r.output
-
-
-def test_show_set_breaks_and_clear(tmp_path):
-    from test_catalog import build
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
-    runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--set-breaks", "2,4"])
-    assert read_overrides(ws).set_breaks == [2, 4]
-    runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--clear-set-breaks"])
-    assert read_overrides(ws).set_breaks is None
-
-
 def _approved_run(tmp_path: Path) -> tuple[str, RunWorkspace]:
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -1126,15 +1011,6 @@ def test_show_ambiguous_name_fails_loud(tmp_path: Path):
     assert "aab-1970-01-01" in result.exception.matches
 
 
-def test_show_clear_still_works_by_name(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    sws = _seed_show(tmp_path, "mekons-1989-12-02", "mekons/1989-12-02", "r1", held=True)
-    result = runner.invoke(cli.app, ["--config", cfg, "show", "mekons", "--clear"])
-    assert result.exit_code == 0, result.output
-    assert read_model(sws.show, Show).needs_review is False
-
-
 def test_deliver_by_name_records_provenance_run(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -1295,50 +1171,6 @@ def test_show_displays_jerrybase_venue_provenance(tmp_path: Path):
     assert "(venue from jerrybase)" in result.output
 
 
-def test_show_interactive_vague_runs_resolution(tmp_path, monkeypatch):
-    from test_pipeline import FakeIA, fake_providers
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
-    monkeypatch.setattr(cli, "make_providers", fake_providers)
-    monkeypatch.setattr(cli, "IAClient", FakeIA)
-    monkeypatch.setattr(cli, "_interactive_enabled", lambda: True)
-
-    # real held show via find
-    runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973", "--auto", "--script",
-                            "--run-name", "r"])
-    ws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
-    s = read_model(ws.show, Show); s.needs_review = True; s.review_flags = ["x"]
-    write_artifact(ws.show, s)
-
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead"], input="v\n")
-    assert r.exit_code == 0, r.output
-    assert read_overrides(ws).narration == "vague"
-    assert read_model(ws.show, Show).needs_review is False
-
-
-def test_show_single_interactive_prints_entry_once(tmp_path, monkeypatch):
-    from test_catalog import build
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    monkeypatch.setattr(cli, "_interactive_enabled", lambda: True)
-    build(tmp_path, "held-one", stages={"select", "gather"}, needs_review=True)
-
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "held-one"], input="s\n")
-    assert r.exit_code == 0, r.output
-    assert r.output.count("state: held") == 1
-
-
-def test_show_set_form_defaults_to_held(tmp_path, monkeypatch):
-    from test_catalog import build
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    monkeypatch.setattr(cli, "_interactive_enabled", lambda: False)  # inspect-only
-    build(tmp_path, "held-one", stages={"select", "gather"}, needs_review=True)
-    build(tmp_path, "clean-one", stages={"select", "gather"}, needs_review=False)
-    r = runner.invoke(cli.app, ["--config", cfg, "show"])
-    assert "held-one" in r.output and "clean-one" not in r.output
-
-
 def test_presenter_add_and_show(tmp_path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -1380,30 +1212,6 @@ def test_presenter_add_character_file_and_voice_xor(tmp_path):
 
 # --- cosmetic-followups: clean errors for bad operator input + comma-form ---
 
-def _cfg_with_gathered_show(tmp_path):
-    from test_catalog import build
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
-    return cfg
-
-
-def test_show_title_non_numeric_errors_cleanly(tmp_path):
-    cfg = _cfg_with_gathered_show(tmp_path)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--title", "abc=Song"])
-    assert r.exit_code != 0
-    assert "--title expects" in r.output
-    assert not isinstance(r.exception, ValueError)  # clean exit, not a traceback
-
-
-def test_show_set_breaks_non_numeric_errors_cleanly(tmp_path):
-    cfg = _cfg_with_gathered_show(tmp_path)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--set-breaks", "a,b"])
-    assert r.exit_code != 0
-    assert "--set-breaks expects" in r.output
-    assert not isinstance(r.exception, ValueError)
-
-
 def test_presenter_add_missing_character_file_errors_cleanly(tmp_path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -1423,17 +1231,3 @@ def test_resolve_exclude_tokens_comma_form(tmp_path):
     assert cli._resolve_exclude_tokens(sws, ["1,2"]) == ["a.mp3", "b.mp3"]
     # filename passthrough needs no show.json read
     assert cli._resolve_exclude_tokens(ShowWorkspace(tmp_path / "none"), ["z.mp3"]) == ["z.mp3"]
-
-
-def test_show_tracks_wins_over_interactive_on_held_show(tmp_path, monkeypatch):
-    # --tracks is an explicit view request: even for a held show on a TTY it
-    # must print the track table and exit, NOT drop into the interactive prompt.
-    from test_catalog import build
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"}, needs_review=True)
-    monkeypatch.setattr(cli, "_interactive_enabled", lambda: True)
-    r = runner.invoke(cli.app, ["--config", cfg, "show", "gratefuldead", "--tracks"])
-    assert r.exit_code == 0, r.output
-    assert "tracks:" in r.output and "Morning Dew" in r.output
-    assert "[e]xclude tracks" not in r.output   # did not enter interactive resolve
