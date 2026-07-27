@@ -408,59 +408,39 @@ def artists(
 @app.command(rich_help_panel="Discover & process")
 def run(
     run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
-    stage: str = typer.Option(None, "--stage", help="Force re-run of one stage"),
     auto: bool = typer.Option(True, "--auto/--interactive"),
-    force: bool = typer.Option(False, "--force"),
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the run's persisted script setting"),
     voice: bool = typer.Option(None, "--voice/--no-voice",
                                help="Override the voice recorded at process time "
                                     "(--voice re-voices, --no-voice strips voice). "
                                     "Re-voicing an already-packaged show needs "
-                                    "'redo --from package --voice' (or "
-                                    "'run --stage package --force --voice')"),
+                                    "'llama redo <show> --from package --voice'"),
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
 ):
-    """Replay an existing run from its artifacts (stages skip work already done)."""
+    """Replay an existing run from its artifacts (stages skip work already done).
+    To force a stage re-run (run-wide or per-show), use `llama redo --run`."""
     config, ia, ledger = _setup()
     ws = _resolve_run(config, run_name)
     if not ws.criteria.exists():
         typer.echo(f"no criteria.json in {ws.dir}", err=True)
         raise typer.Exit(1)
-    if stage is not None and stage not in VALID_STAGES:
-        typer.echo(f"unknown stage {stage!r}; valid: {sorted(VALID_STAGES)}", err=True)
-        raise typer.Exit(1)
     criteria = read_model(ws.criteria, Criteria)
     presenter = (load_presenter(config.root, criteria.presenter)
                  if criteria.presenter else None)
-    if force and stage in (None, "search") and ws.shortlist.exists():
-        entries = read_model_list(ws.shortlist, ShortlistEntry)
-        if any(e.approved is not None for e in entries):
-            typer.echo("this rebuilds the shortlist and discards the approvals recorded on it")
-            if not typer.confirm("Continue?", default=False):
-                raise typer.Exit(1)
-    if stage and force and stage in RUN_LEVEL_STAGES:
-        # a stale shortlist would block re-winnowing after a fresh search
-        doomed = [ws.candidates, ws.shortlist] if stage == "search" else [ws.shortlist]
-        for path in doomed:
-            if path.exists():
-                path.unlink()
-    # Show-level stage forcing is applied per chosen show at process time
-    # (force_stage), never as a bulk sweep: shows that are not reprocessed
-    # this run must keep their artifacts and packages intact.
     effective_voice = _replay_voice(config, criteria.voice, voice)
     effective_script = criteria.script if script is None else script
-    if effective_voice is not None and not force:
-        typer.echo("note: already-packaged shows won't be re-voiced without --force; "
+    if effective_voice is not None:
+        typer.echo("note: already-packaged shows won't be re-voiced by a plain replay; "
                    "use 'llama redo <show> --from package --voice' to re-voice one show")
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False, force=force and stage is None,
-             script=effective_script or stage == "synthesize" or effective_voice is not None,
+             human_gate=False, force=False,
+             script=effective_script or effective_voice is not None,
              voice=effective_voice,
              presenter=presenter, title=criteria.title,
-             force_stage=stage if (force and stage not in (None, *RUN_LEVEL_STAGES)) else None,
+             force_stage=None,
              full_rationale=full_rationale)
 
 
@@ -1026,7 +1006,8 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
     shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
     ws = RunWorkspace(config.root, prov.run)
     effective_voice = _replay_voice(config, prov.voice, voice)
-    effective_script = (prov.script if script is None else script) or effective_voice is not None
+    effective_script = ((prov.script if script is None else script)
+                        or effective_voice is not None or from_stage == "synthesize")
     speech = _speech_for(config, effective_voice, presenter)
     try:
         return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
@@ -1214,12 +1195,81 @@ def triage(
         _interactive_resolve(config, ia, ledger, e)
 
 
+def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool,
+                script: bool | None, voice: bool | None, yes: bool) -> None:
+    """The selector-batch form shared by a plain selector redo and a
+    `--run`-scoped show-level redo: apply the selector, drop held shows
+    (opt in via `--held` or an explicit `held` state), plan/confirm, then
+    `_redo_show` each survivor with per-show failure isolation."""
+    from llama.catalog import iter_shows
+    from llama.cli_select import HELD_NOTE, apply_selector, split_held
+
+    entries = apply_selector(iter_shows(config.root, ledger), sel)
+    kept, dropped = split_held(entries, sel)
+    if dropped:
+        typer.echo(HELD_NOTE.format(n=len(dropped)))
+    if not kept:
+        typer.echo("no matching shows")
+        return
+    if not _confirm_plan(kept, f"redo --from {from_stage}", yes):
+        return
+    for e in kept:
+        try:
+            pkg = _redo_show(config, ia, ledger, e, from_stage,
+                             with_research=redo_research, script=script, voice=voice)
+            typer.echo(f"packaged: {pkg}" if pkg else f"needs-review, skipped: {e.slug}")
+        except (LlamaError, TaskFailed, LLMError, IAError, SpeechError) as exc:
+            typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+
+
+def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str, *,
+                    script: bool | None, voice: bool | None) -> None:
+    """`redo --run SESSION --from search|winnow`: the old `run --stage X
+    --force` run-wide re-execution, relocated verbatim (approvals-loss
+    confirm on a doomed shortlist, downstream-artifact deletion, then a
+    plain `_execute` replay with the run's own persisted criteria)."""
+    ws = _resolve_run(config, run_name)
+    if not ws.criteria.exists():
+        typer.echo(f"no criteria.json in {ws.dir}", err=True)
+        raise typer.Exit(1)
+    criteria = read_model(ws.criteria, Criteria)
+    presenter = (load_presenter(config.root, criteria.presenter)
+                if criteria.presenter else None)
+    if from_stage == "search" and ws.shortlist.exists():
+        entries = read_model_list(ws.shortlist, ShortlistEntry)
+        if any(e.approved is not None for e in entries):
+            typer.echo("this rebuilds the shortlist and discards the approvals recorded on it")
+            if not typer.confirm("Continue?", default=False):
+                raise typer.Exit(1)
+    # a stale shortlist would block re-winnowing after a fresh search
+    doomed = [ws.candidates, ws.shortlist] if from_stage == "search" else [ws.shortlist]
+    for path in doomed:
+        if path.exists():
+            path.unlink()
+    effective_voice = _replay_voice(config, criteria.voice, voice)
+    effective_script = criteria.script if script is None else script
+    if effective_voice is not None:
+        typer.echo("note: already-packaged shows won't be re-voiced by a --run redo; "
+                   "use 'llama redo <show> --from package --voice' to re-voice one show")
+    _execute(config, ia, ledger, ws, criteria, criteria.count, True,
+             human_gate=False, force=False,
+             script=effective_script or effective_voice is not None,
+             voice=effective_voice,
+             presenter=presenter, title=criteria.title,
+             force_stage=None, full_rationale=False)
+
+
 @app.command(rich_help_panel="Fix & ship")
 def redo(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     from_stage: str = typer.Option(..., "--from",
-                                   help="Stage to re-run from: select|gather|research|vet|synthesize|package"),
-    with_research: bool = typer.Option(False, "--with-research",
+                                   help="Stage to re-run from: select|gather|research|vet|"
+                                        "synthesize|package (search|winnow valid only with --run)"),
+    run: str = typer.Option(None, "--run",
+                            help="Session scope: redo a whole run's shows (with a show-level "
+                                 "--from), or rebuild that run's candidates/shortlist (--from "
+                                 "search|winnow). Exclusive with a show name or other selectors."),
+    redo_research: bool = typer.Option(False, "--redo-research",
                                        help="Also drop research.md (kept by default)"),
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the script setting recorded at process time"),
@@ -1232,54 +1282,68 @@ def redo(
     unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
     state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
-    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
     broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
                                          help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
 ):
-    """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
-    show_stages = VALID_STAGES - RUN_LEVEL_STAGES
-    if from_stage not in show_stages:
-        typer.echo(f"unknown stage {from_stage!r}; valid: {sorted(show_stages)}", err=True)
-        raise typer.Exit(1)
-    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
-                                          broadcast_ready):
+    """Re-run one show (--from STAGE), a selector batch, or a whole
+    --run session -- the single re-execution verb (spec §7.1)."""
+    from llama.cli_select import build_selector
+
+    other_selector = any([held, packaged, voiced, unvoiced, state, artist, broadcast_ready])
+    # Three-form grammar: positional show | --run SESSION | selectors -- exactly one.
+    if name is not None and (run is not None or other_selector):
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
-    if name is None:
-        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
-                             broadcast_ready):
-            typer.echo("give a show or a selector (e.g. --unvoiced)", err=True)
-            raise typer.Exit(1)
-        config, ia, ledger = _setup()
-        entries = _batch_select(config, ledger, held=held, packaged=packaged,
-                                voiced=voiced, unvoiced=unvoiced, state=state,
-                                artist=artist, run=run, broadcast_ready=broadcast_ready)
-        if not entries:
-            typer.echo("no matching shows")
-            return
-        if not _confirm_plan(entries, f"redo --from {from_stage}", yes):
-            return
-        for e in entries:
-            try:
-                pkg = _redo_show(config, ia, ledger, e, from_stage,
-                                 with_research=with_research, script=script, voice=voice)
-                typer.echo(f"packaged: {pkg}" if pkg else f"needs-review, skipped: {e.slug}")
-            except (LlamaError, TaskFailed, LLMError, IAError, SpeechError) as exc:
-                typer.echo(f"FAILED {e.slug}: {exc}", err=True)
-        return
-    config, ia, ledger = _setup()
-    entry = _resolve_show(config, ledger, name)
-    if entry.provenance is None:
-        typer.echo(f"no provenance.json in {entry.ws.dir} - "
-                   "reprocess it via its run first", err=True)
+    if run is not None and other_selector:
+        typer.echo("give --run OR other selectors, not both", err=True)
         raise typer.Exit(1)
-    pkg = _redo_show(config, ia, ledger, entry, from_stage,
-                     with_research=with_research, script=script, voice=voice)
-    if pkg:
-        typer.echo(f"packaged: {pkg}")
-    else:
-        typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
+
+    valid_stages = VALID_STAGES if run is not None else (VALID_STAGES - RUN_LEVEL_STAGES)
+    if from_stage not in valid_stages:
+        rule = "" if run is not None else " (search/winnow need --run)"
+        typer.echo(f"unknown stage {from_stage!r}; valid here: {sorted(valid_stages)}{rule}",
+                   err=True)
+        raise typer.Exit(1)
+
+    if run is not None:
+        config, ia, ledger = _setup()
+        if from_stage in RUN_LEVEL_STAGES:
+            _redo_run_level(config, ia, ledger, run, from_stage, script=script, voice=voice)
+            return
+        sel = build_selector(run=run)
+        _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
+                   script=script, voice=voice, yes=yes)
+        return
+
+    if name is not None:
+        config, ia, ledger = _setup()
+        entry = _resolve_show(config, ledger, name)
+        if entry.provenance is None:
+            typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                       "reprocess it via its run first", err=True)
+            raise typer.Exit(1)
+        pkg = _redo_show(config, ia, ledger, entry, from_stage,
+                         with_research=redo_research, script=script, voice=voice)
+        if pkg:
+            typer.echo(f"packaged: {pkg}")
+        else:
+            typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
+        return
+
+    if not other_selector:
+        typer.echo("give a show, --run, or a selector (e.g. --unvoiced)", err=True)
+        raise typer.Exit(1)
+    config, ia, ledger = _setup()
+    try:
+        sel = build_selector(held=held, packaged=packaged, states=(state,) if state else (),
+                             voiced=voiced, unvoiced=unvoiced, artist=artist,
+                             broadcast_ready=broadcast_ready)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
+               script=script, voice=voice, yes=yes)
 
 
 _ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete"}

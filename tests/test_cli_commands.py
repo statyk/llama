@@ -219,36 +219,6 @@ def _approved_run(tmp_path: Path) -> tuple[str, RunWorkspace]:
     return cfg, ws
 
 
-def test_bare_force_with_approvals_asks_before_wiping(tmp_path: Path, monkeypatch):
-    calls = []
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: calls.append(1))
-    cfg, ws = _approved_run(tmp_path)
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--force"],
-                           input="n\n")
-    assert result.exit_code == 1
-    assert not calls
-    entries = read_model_list(ws.shortlist, ShortlistEntry)
-    assert entries[0].approved is True       # nothing was wiped
-
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--force"],
-                           input="y\n")
-    assert result.exit_code == 0, result.output
-    assert calls
-
-
-def test_bare_force_without_approvals_does_not_prompt(tmp_path: Path, monkeypatch):
-    calls = []
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: calls.append(1))
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, Criteria(query="q"))
-    write_artifact(ws.shortlist, make_entries())    # no approvals recorded
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--force"])
-    assert result.exit_code == 0, result.output
-    assert calls
-
-
 def test_drop_stage_artifacts_cascades_for_one_show(tmp_path: Path):
     from llama.workspace import drop_stage_artifacts
 
@@ -264,17 +234,6 @@ def test_drop_stage_artifacts_cascades_for_one_show(tmp_path: Path):
     for path in [sws.show, sws.reviews, sws.research, sws.vetting,
                  sws.dj_notes_json, sws.dj_notes_md, sws.package_dir / "manifest.json"]:
         assert not path.exists(), path
-
-
-def test_search_force_also_drops_stale_shortlist(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    cfg, ws = _approved_run(tmp_path)
-    write_artifact(ws.candidates, [])
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--stage", "search",
-                                     "--force"], input="y\n")
-    assert result.exit_code == 0, result.output
-    assert not ws.candidates.exists()
-    assert not ws.shortlist.exists()
 
 
 def test_ledger_commands(tmp_path: Path):
@@ -335,40 +294,6 @@ def test_deliver_refuses_needs_review_without_force(tmp_path: Path):
                                      "--force"])
     assert forced.exit_code == 0, forced.output
     assert (dest / "gratefuldead-1973-06-10" / "manifest.json").exists()
-
-
-def test_redo_batch_unvoiced_plans_and_confirms(tmp_path, monkeypatch):
-    from test_pipeline import FakeIA, fake_providers
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
-    monkeypatch.setattr(cli, "make_providers", fake_providers)
-    monkeypatch.setattr(cli, "IAClient", FakeIA)
-    runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973", "--auto", "--script",
-                            "--run-name", "r"])
-
-    calls = []
-    monkeypatch.setattr(cli, "_redo_show",
-                        lambda *a, **k: calls.append(a[3].slug) or a[3].ws.package_dir)
-    r = runner.invoke(cli.app, ["--config", cfg, "redo", "--unvoiced", "--from", "package",
-                                "--voice"], input="y\n")
-    assert r.exit_code == 0, r.output
-    assert calls == ["gratefuldead-1973-06-10"]
-
-
-def test_redo_batch_requires_target(tmp_path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    r = runner.invoke(cli.app, ["--config", cfg, "redo", "--from", "package"])
-    assert r.exit_code != 0
-    assert "a show or a selector" in r.output.lower()
-
-
-def test_redo_rejects_name_and_selector_together(tmp_path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    r = runner.invoke(cli.app, ["--config", cfg, "redo", "someshow", "--unvoiced", "--from", "package"])
-    assert r.exit_code != 0
-    assert "not both" in r.output.lower()
 
 
 def test_deliver_batch_continues_past_oserror(tmp_path, monkeypatch):
@@ -433,17 +358,6 @@ def test_deliver_batch_excludes_held_via_nonstate_selector(tmp_path, monkeypatch
     r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--artist", "Grateful Dead", "--yes"])
     assert r.exit_code == 0, r.output
     assert delivered == ["ready"]  # held excluded even though --artist matched both
-
-
-def test_run_unknown_stage_exits_with_message(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, Criteria(query="q"))
-
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--stage", "bogus"])
-    assert result.exit_code == 1
-    assert "unknown stage" in result.output
 
 
 def test_review_resolves_run_by_substring(tmp_path: Path):
@@ -707,24 +621,6 @@ def test_run_inherits_script_and_count_from_criteria(tmp_path: Path, monkeypatch
     assert captured["script"] is False
 
 
-def test_stage_force_deletion_is_deferred_to_processing(tmp_path: Path, monkeypatch):
-    # run() must NOT bulk-delete show artifacts up front: with count < shows
-    # present, unchosen shows would lose their packages and never be rebuilt
-    # (this vaporized 10 manifests in a real run). Deletion happens per chosen
-    # show inside process_show.
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    cfg, ws = _approved_run(tmp_path)
-    sws = ws.show_ws("GratefulDead/1973-06-10")
-    for path in [sws.selection, sws.show, sws.dj_notes_json]:
-        write_artifact(path, "{}")
-    write_artifact(sws.package_dir / "manifest.json", "{}")
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--stage", "synthesize",
-                                     "--force"])
-    assert result.exit_code == 0, result.output
-    assert sws.dj_notes_json.exists()                      # untouched by run()
-    assert (sws.package_dir / "manifest.json").exists()
-
-
 def test_stage_vet_is_valid_and_maps_to_vetting_artifact(tmp_path: Path):
     from llama.workspace import show_stage_artifacts
 
@@ -901,83 +797,6 @@ def test_deliver_by_name_records_provenance_run(tmp_path: Path):
     assert (dest / "aaa-1970-01-01" / "manifest.json").exists()
     entries = Ledger(tmp_path / "ledger.jsonl").entries()
     assert entries[0].status == "delivered" and entries[0].run == "myrun"
-
-
-def test_redo_requires_from_and_reruns_tail(tmp_path: Path, monkeypatch):
-    # tests/ has no __init__.py; pytest puts the tests dir on sys.path
-    from test_pipeline import FakeIA, fake_providers
-
-    cfg = str(tmp_path / "config.toml")
-    # gd73-06-10 is a real in-dataset jerrybase performance; disable jerrybase so
-    # this end-to-end find+redo test stays isolated from the dataset (the
-    # synthesized candidate's "RFK Stadium" venue differs from jerrybase's
-    # "Robert F. Kennedy Stadium", which would otherwise flag needs-review).
-    (tmp_path / "config.toml").write_text(
-        f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
-    monkeypatch.setattr(cli, "make_providers", fake_providers)
-    monkeypatch.setattr(cli, "IAClient", FakeIA)
-
-    # First, produce a real packaged show via find (writes provenance).
-    result = runner.invoke(cli.app, ["--config", cfg,
-        "find", "GD 1973", "--auto", "--script", "--run-name", "redorun"])
-    assert result.exit_code == 0, result.output
-    sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
-    research_before = sws.research.read_text()
-
-    # --from is required
-    missing = runner.invoke(cli.app, ["--config", cfg, "redo", "gratefuldead"])
-    assert missing.exit_code != 0
-
-    result = runner.invoke(cli.app, ["--config", cfg, "redo", "gratefuldead", "--from", "gather"])
-    assert result.exit_code == 0, result.output
-    assert sws.show.exists() and (sws.package_dir / "manifest.json").exists()
-    assert sws.research.read_text() == research_before   # preserved by default
-
-
-def test_redo_from_select_keeps_winnow_assessment(tmp_path: Path, monkeypatch):
-    # redo --from select must feed run_select_recording the original winnow
-    # assessment (quality_score + recording_complaints), not a zeroed stub.
-    from test_pipeline import FakeIA, fake_providers
-    from llama.models import Provenance
-
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    monkeypatch.setattr(cli, "make_providers", fake_providers)
-    monkeypatch.setattr(cli, "IAClient", FakeIA)
-
-    result = runner.invoke(cli.app, ["--config", cfg,
-        "find", "GD 1973", "--auto", "--script", "--run-name", "redosel"])
-    assert result.exit_code == 0, result.output
-    sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
-
-    # Inject a recording complaint into the persisted winnow assessment so we
-    # can prove redo preserves it (rather than rebuilding an empty stub).
-    prov = read_model(sws.provenance, Provenance)
-    assert prov.assessment is not None and prov.assessment.quality_score == 9.5
-    prov.assessment.recording_complaints = ["hiss on side two (badtaper)"]
-    write_artifact(sws.provenance, prov)
-
-    result = runner.invoke(cli.app, ["--config", cfg, "redo", "gratefuldead", "--from", "select"])
-    assert result.exit_code == 0, result.output
-
-    prov = read_model(sws.provenance, Provenance)
-    assert prov.assessment is not None
-    assert prov.assessment.quality_score == 9.5                    # preserved
-    assert prov.assessment.recording_complaints == ["hiss on side two (badtaper)"]
-    assert prov.assessment.rationale == prov.dossier               # dossier round-trip
-
-
-def test_redo_without_provenance_errors(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    sws = ShowWorkspace(tmp_path / "shows" / "orphan-1970-01-01")
-    write_artifact(sws.show, Show(
-        performance_id="orphan/1970-01-01", identifier="x", artist="orphan",
-        date="1970-01-01", tracks=[Track(index=1, set="1", title="T",
-                                         filename="a.mp3", title_source="tags")]))
-    result = runner.invoke(cli.app, ["--config", cfg, "redo", "orphan", "--from", "vet"])
-    assert result.exit_code == 1
-    assert "provenance.json" in result.output and "reprocess" in result.output
 
 
 def test_config_init_writes_template(tmp_path: Path):

@@ -159,21 +159,6 @@ def test_run_voice_without_force_warns_already_packaged_wont_revoice(
     assert "redo" in result.output and "--from package --voice" in result.output
 
 
-def test_run_voice_with_force_does_not_warn(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(
-        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\nvoice = "v-abc"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, CriteriaModel(query="q"))
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "run", str(ws.dir), "--voice", "--force"], input="y\n")
-    assert result.exit_code == 0, result.output
-    # negation of the without-force assertion: the note (and its
-    # "--from package --voice" fragment) must be absent when --force is set
-    assert "--from package --voice" not in result.output
-    assert "won't be re-voiced" not in result.output
-
-
 def test_profile_run_presenter_opts_in_when_globally_disabled(
         tmp_path: Path, monkeypatch):
     from llama.models import Criteria
