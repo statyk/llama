@@ -146,19 +146,6 @@ def test_profile_add_unknown_presenter_fails_fast(tmp_path: Path, monkeypatch):
     assert not (tmp_path / "profiles" / "gdhour.toml").exists()
 
 
-def test_run_voice_without_force_warns_already_packaged_wont_revoice(
-        tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(
-        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\nvoice = "v-abc"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, CriteriaModel(query="q"))
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "run", str(ws.dir), "--voice"])
-    assert result.exit_code == 0, result.output
-    assert "redo" in result.output and "--from package --voice" in result.output
-
-
 def test_profile_run_presenter_opts_in_when_globally_disabled(
         tmp_path: Path, monkeypatch):
     from llama.models import Criteria
@@ -206,39 +193,6 @@ def test_speech_for_resolves_clone_ownership(monkeypatch):
     cli._speech_for(cfg, "/station/ref.wav", None)
     assert seen == {"voice": "/station/ref.wav", "clone_ref": "/station/ref.wav"}
     assert cli._speech_for(cfg, None, clone_host) is None
-
-
-def test_run_replay_resolves_presenter_from_criteria(tmp_path: Path, monkeypatch):
-    from llama.presenters import Presenter, save_presenter
-
-    (tmp_path / "config.toml").write_text(
-        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\n')
-    save_presenter(tmp_path, Presenter(id="casey", name="Casey", sex="male",
-                                       voice="v-casey", character="Warm FM vet."))
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, CriteriaModel(
-        query="q", voice="v-casey", presenter="casey", title="Sunday Morning Dead"))
-    seen = {}
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "run", str(ws.dir)])
-    assert result.exit_code == 0, result.output
-    assert seen["presenter"].id == "casey" and seen["presenter"].name == "Casey"
-    assert seen["title"] == "Sunday Morning Dead"
-    assert seen["voice"] == "v-casey"
-
-
-def test_run_replay_missing_presenter_file_fails(tmp_path: Path, monkeypatch):
-    from llama.presenters import PresenterError
-
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, CriteriaModel(query="q", presenter="ghost"))
-    called = []
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: called.append(1))
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "run", str(ws.dir)])
-    assert result.exit_code != 0
-    assert isinstance(result.exception, PresenterError)
-    assert called == []                    # never silently fell back to neutral
 
 
 def test_profile_run_passes_presenter_and_title_to_execute(

@@ -497,10 +497,10 @@ def test_run_no_longer_accepts_stage_or_force(tmp_path: Path, monkeypatch):
     ws = RunWorkspace(tmp_path, "r1")
     write_artifact(ws.criteria, Criteria(query="q"))
 
-    r1 = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--stage", "search"])
+    r1 = runner.invoke(cli.app, ["--config", cfg, "run", "resume", str(ws.dir), "--stage", "search"])
     assert r1.exit_code != 0
     assert "no such option" in r1.output.lower()
 
-    r2 = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--force"])
+    r2 = runner.invoke(cli.app, ["--config", cfg, "run", "resume", str(ws.dir), "--force"])
     assert r2.exit_code != 0
     assert "no such option" in r2.output.lower()

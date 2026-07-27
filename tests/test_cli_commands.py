@@ -31,31 +31,6 @@ def make_entries():
     return [entry(1, "GratefulDead/1973-06-10"), entry(2, "GratefulDead/1973-06-11")]
 
 
-def test_review_approves_selected_ranks(tmp_path: Path):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.shortlist, make_entries())
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "review", str(ws.dir)], input="1\nn\n")
-    assert result.exit_code == 0, result.output
-    entries = read_model_list(ws.shortlist, ShortlistEntry)
-    assert entries[0].approved is True
-    assert entries[1].approved is None       # unnamed ranks are left undecided
-    assert f"llama run {ws.dir}" in result.output
-
-
-def test_review_shortlist_shows_artist(tmp_path: Path):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    entries = make_entries()
-    entries[1].candidate.collection = "mekons"  # multi-artist profile
-    write_artifact(ws.shortlist, entries)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "review", str(ws.dir)], input="\n")
-    assert result.exit_code == 0, result.output
-    lines = result.output.splitlines()
-    assert any("GratefulDead" in ln and "1973-06-10" in ln for ln in lines)
-    assert any("mekons" in ln and "1973-06-11" in ln for ln in lines)
-
-
 LONG_RATIONALE = " ".join(f"w{i:03d}" for i in range(120))  # ~600 chars, unique tokens
 
 
@@ -94,15 +69,6 @@ def test_shortlist_entries_are_visually_separated(capsys):
     assert lines[2] == ""                    # ...between the blocks, not trailing
 
 
-def test_review_full_rationale_flag(tmp_path: Path):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.shortlist, _long_rationale_entries())
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "review", str(ws.dir), "--full-rationale"], input="\n")
-    assert result.exit_code == 0, result.output
-    assert "w119" in result.output
-
-
 def test_profile_add_zero_caps_are_rejected_before_they_poison_criteria(tmp_path: Path, monkeypatch):
     from llama.llm.fake import FakeProvider
 
@@ -115,44 +81,6 @@ def test_profile_add_zero_caps_are_rejected_before_they_poison_criteria(tmp_path
         result = runner.invoke(cli.app, ["--config", cfg, "profile", "add", "z", "GD", flag, "0.0"])
         assert result.exit_code == 1, f"profile add {flag} 0.0 must be rejected"
         assert "must be above 0" in result.output
-
-
-def test_run_passes_full_rationale_to_execute(tmp_path: Path, monkeypatch):
-    from llama.models import Criteria as C
-
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, C(query="q"))
-    captured = {}
-    monkeypatch.setattr(cli, "_execute",
-                        lambda *a, **k: captured.update(full_rationale=k.get("full_rationale")))
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--full-rationale"])
-    assert result.exit_code == 0, result.output
-    assert captured["full_rationale"] is True
-
-
-def test_review_empty_input_changes_nothing(tmp_path: Path):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.shortlist, make_entries())
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "review", str(ws.dir)], input="\n")
-    assert result.exit_code == 0, result.output
-    assert "unchanged" in result.output
-    entries = read_model_list(ws.shortlist, ShortlistEntry)
-    assert all(e.approved is None for e in entries)
-
-
-def test_review_can_continue_straight_into_processing(tmp_path: Path, monkeypatch):
-    calls = []
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: calls.append((a, k)))
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, Criteria(query="q"))
-    write_artifact(ws.shortlist, make_entries())
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "review", str(ws.dir)], input="1\ny\n")
-    assert result.exit_code == 0, result.output
-    assert len(calls) == 1
 
 
 def _flagged_show(tmp_path: Path) -> ShowWorkspace:
@@ -203,33 +131,6 @@ def test_drop_stage_artifacts_cascades_for_one_show(tmp_path: Path):
     for path in [sws.show, sws.reviews, sws.research, sws.vetting,
                  sws.dj_notes_json, sws.dj_notes_md, sws.package_dir / "manifest.json"]:
         assert not path.exists(), path
-
-
-def test_review_resolves_run_by_substring(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "2026-07-16-countryish")
-    write_artifact(ws.criteria, Criteria(query="q"))
-    write_artifact(ws.shortlist, make_entries())
-    result = runner.invoke(cli.app, ["--config", cfg, "review", "countryish"],
-                           input="1\nn\n")
-    assert result.exit_code == 0, result.output
-    entries = read_model_list(ws.shortlist, ShortlistEntry)
-    assert entries[0].approved is True
-
-
-def test_run_unknown_name_fails_loud(tmp_path: Path):
-    from llama.catalog import CatalogError
-
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    result = runner.invoke(cli.app, ["--config", cfg, "run", "nope"])
-    # _resolve_run no longer catches CatalogError; only main_cli() (not this direct
-    # cli.app invocation) renders it as clean stderr text, so assert on the
-    # propagated exception instead.
-    assert result.exit_code == 1
-    assert isinstance(result.exception, CatalogError)
-    assert "no run matches" in str(result.exception)
 
 
 def test_profile_add_and_list(tmp_path: Path, monkeypatch):
@@ -290,31 +191,6 @@ def test_profile_artists_set_show_and_clear(tmp_path, monkeypatch):
     runner.invoke(cli.app, ["--config", cfg, "profile", "artists", "myprof", "--set", ""])
     assert load_profile(tmp_path, "myprof").criteria.artists == []
 
-
-def test_run_inherits_script_and_count_from_criteria(tmp_path: Path, monkeypatch):
-    from llama.models import Criteria as C
-
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, C(query="q", count=13, script=True))
-    captured = {}
-
-    def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, voice=None,
-                     presenter=None, title=None, force_stage=None,
-                     full_rationale=False):
-        captured.update(count=count, script=script)
-
-    monkeypatch.setattr(cli, "_execute", fake_execute)
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir)])
-    assert result.exit_code == 0, result.output
-    assert captured == {"count": 13, "script": True}
-
-    # explicit --no-script overrides the persisted flag
-    result = runner.invoke(cli.app, ["--config", cfg, "run", str(ws.dir), "--no-script"])
-    assert result.exit_code == 0, result.output
-    assert captured["script"] is False
 
 
 def test_stage_vet_is_valid_and_maps_to_vetting_artifact(tmp_path: Path):

@@ -27,7 +27,8 @@ from llama.pipeline import choose_entries, make_providers, process_show
 from llama.presenters import Presenter, list_presenters, load_presenter, save_presenter
 from llama.profiles import Profile, load_profile, save_profile
 from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
-                            attention_sessions, mark_awaiting, mark_complete)
+                            attention_sessions, mark_awaiting, mark_complete,
+                            session_state)
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
@@ -74,6 +75,11 @@ app.add_typer(config_app, name="config", rich_help_panel="Sessions & config")
 presenter_app = typer.Typer(help="On-air hosts (presenters/<id>.toml)",
                             pretty_exceptions_enable=False)
 app.add_typer(presenter_app, name="presenter", rich_help_panel="Sessions & config")
+
+run_app = typer.Typer(
+    help="Acquisition sessions — they surface only while awaiting approval or incomplete",
+    pretty_exceptions_enable=False)
+app.add_typer(run_app, name="run", rich_help_panel="Sessions & config")
 
 
 def _version_callback(value: bool) -> None:
@@ -488,61 +494,71 @@ def artists(
     _print_artists(matches)
 
 
-@app.command(rich_help_panel="Discover & process")
-def run(
-    run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
-    auto: bool = typer.Option(True, "--auto/--interactive"),
-    script: bool = typer.Option(None, "--script/--no-script",
-                                help="Override the run's persisted script setting"),
-    voice: bool = typer.Option(None, "--voice/--no-voice",
-                               help="Override the voice recorded at process time "
-                                    "(--voice re-voices, --no-voice strips voice). "
-                                    "Re-voicing an already-packaged show needs "
-                                    "'llama redo <show> --from package --voice'"),
+_RUN_LIST_HEADER = "SESSION                              STATE               AGE   CRITERIA"
+
+
+def _humanize_age(updated_at: str) -> str:
+    """`3h`/`2d`-style age from an ISO timestamp (spec §4)."""
+    then = datetime.fromisoformat(updated_at)
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    seconds = max((datetime.now(timezone.utc) - then).total_seconds(), 0)
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m"
+    if seconds < 86400:
+        return f"{int(seconds // 3600)}h"
+    return f"{int(seconds // 86400)}d"
+
+
+def _session_criteria_str(s) -> str:
+    """`profile: <name>` when the session came from a profile, else the
+    query quoted and truncated to 40 chars."""
+    if s.profile:
+        return f"profile: {s.profile}"
+    return f'"{s.query:.40s}"'
+
+
+def _print_sessions(sessions) -> None:
+    if not sessions:
+        typer.echo("no sessions need attention")
+        return
+    typer.echo(_RUN_LIST_HEADER)
+    for s in sessions:
+        label = _ATTENTION_LABELS.get(s.state, s.state)
+        age = _humanize_age(s.updated_at)
+        typer.echo(f"{s.id:<36} {label:<18} {age:>4}  {_session_criteria_str(s)}")
+
+
+@run_app.command("list")
+def run_list(
+    as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
+):
+    """List sessions awaiting approval or incomplete (the attention-list);
+    complete sessions never show here."""
+    import json as _json
+
+    config, _, _ = _setup()
+    sessions = attention_sessions(config.root)
+    if as_json:
+        typer.echo(_json.dumps([_session_json(s) for s in sessions], indent=2))
+        return
+    _print_sessions(sessions)
+
+
+@run_app.command("approve")
+def run_approve(
+    session: str = typer.Argument(..., help="Session id, unique substring, or path"),
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
 ):
-    """Replay an existing run from its artifacts (stages skip work already done).
-    To force a stage re-run (run-wide or per-show), use `llama redo --run`."""
+    """Gate 1: show a session's persisted shortlist, approve ranks, then
+    optionally process it now (the persisted criteria fully determine
+    script/voice/presenter)."""
     config, ia, ledger = _setup()
-    ws = _resolve_run(config, run_name)
-    if not ws.criteria.exists():
-        typer.echo(f"no criteria.json in {ws.dir}", err=True)
-        raise typer.Exit(1)
-    criteria = read_model(ws.criteria, Criteria)
-    presenter = (load_presenter(config.root, criteria.presenter)
-                 if criteria.presenter else None)
-    effective_voice = _replay_voice(config, criteria.voice, voice)
-    effective_script = criteria.script if script is None else script
-    if effective_voice is not None:
-        typer.echo("note: already-packaged shows won't be re-voiced by a plain replay; "
-                   "use 'llama redo <show> --from package --voice' to re-voice one show")
-    _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False, force=False,
-             script=effective_script or effective_voice is not None,
-             voice=effective_voice,
-             presenter=presenter, title=criteria.title,
-             force_stage=None,
-             full_rationale=full_rationale)
-
-
-@app.command(rich_help_panel="Discover & process")
-def review(
-    run_name: str = typer.Argument(..., help="Run name, unique substring, or path"),
-    script: bool = typer.Option(None, "--script/--no-script",
-                                help="Override the run's persisted script setting "
-                                     "if you process immediately"),
-    voice: bool = typer.Option(None, "--voice/--no-voice",
-                               help="Override the voice recorded at process time "
-                                    "(--voice re-voices, --no-voice strips voice)"),
-    full_rationale: bool = typer.Option(False, "--full-rationale",
-                                        help="Show each shortlisted show's full selection "
-                                             "rationale (default: first few lines)"),
-):
-    """Human gate: approve a run's shortlist, then optionally process it."""
-    config, ia, ledger = _setup()
-    ws = _resolve_run(config, run_name)
+    ws = _resolve_run(config, session)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
     _print_shortlist(entries, full=full_rationale)
     picks = typer.prompt("Approve which ranks? (comma-separated)",
@@ -560,16 +576,65 @@ def review(
         criteria = read_model(ws.criteria, Criteria)
         presenter = (load_presenter(config.root, criteria.presenter)
                      if criteria.presenter else None)
-        effective_voice = _replay_voice(config, criteria.voice, voice)
-        effective_script = criteria.script if script is None else script
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
                  human_gate=False,
-                 script=effective_script or effective_voice is not None,
-                 voice=effective_voice,
+                 script=criteria.script,
+                 voice=criteria.voice,
                  presenter=presenter, title=criteria.title,
                  full_rationale=full_rationale)
     else:
-        typer.echo(f"next: llama run {ws.dir}")
+        typer.echo(f"next: llama run resume {ws.name}")
+
+
+@run_app.command("resume")
+def run_resume(
+    session: str = typer.Argument(..., help="Session id, unique substring, or path"),
+    auto: bool = typer.Option(True, "--auto/--interactive"),
+    full_rationale: bool = typer.Option(False, "--full-rationale",
+                                        help="Show each shortlisted show's full selection "
+                                             "rationale (default: first few lines)"),
+):
+    """Resume a crashed or incomplete session from its artifacts (stages
+    skip work already done). To force a stage re-run (run-wide or per-show),
+    use `llama redo --run`. The persisted criteria fully determine
+    script/voice/presenter -- post-hoc voice changes are `llama voice`'s job."""
+    config, ia, ledger = _setup()
+    ws = _resolve_run(config, session)
+    if not ws.criteria.exists():
+        typer.echo(f"no criteria.json in {ws.dir}", err=True)
+        raise typer.Exit(1)
+    criteria = read_model(ws.criteria, Criteria)
+    presenter = (load_presenter(config.root, criteria.presenter)
+                 if criteria.presenter else None)
+    if criteria.voice is not None:
+        typer.echo("note: already-packaged shows won't be re-voiced by a plain replay; "
+                   "use 'llama redo <show> --from package --voice' to re-voice one show")
+    _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
+             human_gate=False, force=False,
+             script=criteria.script,
+             voice=criteria.voice,
+             presenter=presenter, title=criteria.title,
+             force_stage=None,
+             full_rationale=full_rationale)
+
+
+@run_app.command("rm")
+def run_rm(
+    session: str = typer.Argument(..., help="Session id, unique substring, or path"),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt"),
+):
+    """Discard a session directory. Shows it already processed are untouched
+    (they live in shows/ and carry provenance) -- sessions have no ledger
+    history of their own."""
+    config, _, _ = _setup()
+    ws = _resolve_run(config, session)
+    state = session_state(ws.dir)
+    if not yes:
+        typer.echo(f"session {ws.name}: {state}")
+        if not typer.confirm("Proceed?", default=False):
+            return
+    shutil.rmtree(ws.dir)
+    typer.echo(f"removed session {ws.name}")
 
 
 def _resolve_run(config, name: str) -> RunWorkspace:
