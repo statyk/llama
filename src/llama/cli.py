@@ -67,7 +67,7 @@ configure_logging()
 
 profile_app = typer.Typer(help="Standing criteria profiles for recurring segments", pretty_exceptions_enable=False)
 history_app = typer.Typer(
-    help="Dispositions for shows no longer on disk; the library covers what's on disk",
+    help="Broadcast history — dispositions for shows no longer on disk.",
     pretty_exceptions_enable=False)
 app.add_typer(profile_app, name="profile", rich_help_panel="Sessions & config")
 app.add_typer(history_app, name="history", rich_help_panel="Sessions & config")
@@ -80,7 +80,7 @@ presenter_app = typer.Typer(help="On-air hosts (presenters/<id>.toml)",
 app.add_typer(presenter_app, name="presenter", rich_help_panel="Sessions & config")
 
 run_app = typer.Typer(
-    help="Acquisition sessions — they surface only while awaiting approval or incomplete",
+    help="Acquisition sessions — approve, resume, list, or discard.",
     pretty_exceptions_enable=False)
 app.add_typer(run_app, name="run", rich_help_panel="Sessions & config")
 
@@ -394,7 +394,8 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
              full_rationale=full_rationale, plan=plan)
 
 
-@app.command(rich_help_panel="Acquire")
+@app.command(rich_help_panel="Acquire",
+             short_help="Find, vet, research & package shows: a query or a standing --profile.")
 def get(
     query: str = typer.Argument(
         None, help="Natural-language query (one-off); give this OR --profile, not both"),
@@ -464,7 +465,8 @@ def get(
               artist_cap, min_score, year_cap, full_rationale)
 
 
-@app.command(rich_help_panel="Acquire")
+@app.command(rich_help_panel="Acquire",
+             short_help="Search LMA artists, or list the deepest catalogs.")
 def artists(
     query: str = typer.Argument(None, help="Natural-language artist query (omit to list by catalog size)"),
     limit: int = typer.Option(20, "--limit", help="Max artists to show"),
@@ -994,7 +996,8 @@ def _print_show_json(entry, show_tracks: bool = False) -> None:
     typer.echo(_json.dumps(data, indent=2))
 
 
-@app.command(rich_help_panel="Watch")
+@app.command(rich_help_panel="Watch",
+             short_help="Inspect one show, read-only (identity, overrides, URLs, readiness).")
 def show(
     name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
     tracks: bool = typer.Option(False, "--tracks", help="List the show's tracks (numbered)"),
@@ -1058,7 +1061,8 @@ _PIPELINE_REDO_CHEATSHEET = [
 ]
 
 
-@app.command(rich_help_panel="Watch")
+@app.command(rich_help_panel="Watch",
+             short_help="Print the stages, states, and redo cheat-sheet (static, read-only).")
 def pipeline():
     """Teaching command: print the stage flow, the derived states, and the
     redo cheat-sheet. Static text, read-only -- no config, no I/O, never
@@ -1172,7 +1176,8 @@ def _deliver_batch(config, ledger, sel, dest, allow_unvoiced, yes) -> None:
             typer.echo(f"delivered: {out}")
 
 
-@app.command(rich_help_panel="Fix & ship")
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Copy a show package to the station's watched folder; record delivery.")
 def deliver(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
@@ -1282,7 +1287,8 @@ class NarrationMode(str, Enum):
     full = "full"
 
 
-@app.command(rich_help_panel="Fix & ship")
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Edit a show's overrides / resolve its hold, then auto-run the redo.")
 def fix(
     name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
     exclude: list[str] = typer.Option(
@@ -1401,7 +1407,8 @@ def fix(
     typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
 
 
-@app.command(rich_help_panel="Fix & ship")
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Interactively resolve shows (default: held) -- the walkthrough.")
 def triage(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
@@ -1514,7 +1521,8 @@ def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str, *,
              force_stage=None, full_rationale=False)
 
 
-@app.command(rich_help_panel="Fix & ship")
+@app.command(rich_help_panel="Fix & ship",
+             short_help="The re-execution verb: re-run a show, batch, or --run from a stage.")
 def redo(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     from_stage: str = typer.Option(..., "--from",
@@ -1602,7 +1610,8 @@ def redo(
                script=script, voice=voice, yes=yes)
 
 
-@app.command(rich_help_panel="Fix & ship")
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Add/refresh DJ audio (TTS); --off strips it, --fresh re-rolls a clip.")
 def voice(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     off: bool = typer.Option(False, "--off",
@@ -1747,7 +1756,8 @@ def _rm_batch(config, ledger, sel, *, forget: bool, suppress: bool, yes: bool) -
             typer.echo(line)
 
 
-@app.command(rich_help_panel="Fix & ship")
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Delete a show (confirms); --forget/--suppress choose its history fate.")
 def rm(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     forget: bool = typer.Option(False, "--forget",
@@ -1849,7 +1859,8 @@ def _resolve_pid(config, ledger, name: str) -> str:
     return _resolve_pid_and_metadata(config, ledger, name)[0]
 
 
-@app.command(rich_help_panel="Fix & ship")
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Skip a performance in future gets (reversible `rejected` row).")
 def suppress(name: str = typer.Argument(
     ..., help="Show slug, unique substring, path, or a raw collection/date[/eN] performance id")):
     """Write a reversible `rejected` history row -- without touching anything
@@ -1868,7 +1879,8 @@ def suppress(name: str = typer.Argument(
     typer.echo(f"suppressed: {pid}")
 
 
-@app.command(rich_help_panel="Fix & ship")
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Undo a suppress: remove the `rejected` row (eligible again).")
 def unsuppress(name: str = typer.Argument(
     ..., help="Show slug, unique substring, path, or a raw collection/date[/eN] performance id")):
     """Remove a `rejected` history row written by `suppress` (or `rm
@@ -1923,7 +1935,8 @@ def _by_run_rollup(config, ledger) -> list[dict]:
     return rows
 
 
-@app.command(rich_help_panel="Watch")
+@app.command(rich_help_panel="Watch",
+             short_help="Global triage: session attention-list + every show's state.")
 def status(
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
