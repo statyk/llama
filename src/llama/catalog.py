@@ -4,12 +4,14 @@ State is never stored; it is derived from which artifacts exist plus the
 ledger, so it cannot go stale. Scan-on-demand — at this scale (~10^2 shows)
 a walk is milliseconds.
 """
+import shutil
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from llama.errors import LlamaError
 from llama.ledger import Ledger
-from llama.models import Overrides, Provenance, Show
+from llama.models import LedgerEntry, Overrides, Provenance, Show
 from llama.workspace import ShowWorkspace, read_json, read_model, read_overrides
 
 
@@ -209,3 +211,48 @@ def resolve_run(root: Path, name: str) -> str:
     runs_dir = root / "runs"
     runs = sorted(d.name for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
     return _resolve(name, runs, "run")
+
+
+def remove_show(entry: CatalogEntry, ledger: Ledger, *,
+                forget: bool = False, suppress: bool = False) -> list[str]:
+    """Delete a show dir and apply one of three history dispositions,
+    returning the echo lines the CLI prints verbatim (spec §8.1).
+
+    default: ledger untouched. forget: purges every ledger row for this
+    performance id (re-eligible). suppress: appends a reversible `rejected`
+    row (excluded from future gets until `llama unsuppress`). The ledger
+    change (if any) happens before the rmtree so a failed disposition never
+    leaves the show deleted with history in the wrong state."""
+    if forget and suppress:
+        raise LlamaError("cannot pass both --forget and --suppress")
+    pid = _performance_id(entry.ws)
+    if pid is None and (forget or suppress):
+        raise LlamaError(
+            f"cannot resolve a performance id for {entry.slug}; history flags need one")
+
+    if forget:
+        n = ledger.remove(pid)
+        history_line = f"forgot {n} history row(s): re-eligible"
+    elif suppress:
+        if entry.ws.show.exists():
+            show = read_model(entry.ws.show, Show)
+            artist, date, venue = show.artist, show.date, show.venue
+        else:
+            candidate = read_model(entry.ws.provenance, Provenance).candidate
+            artist, date, venue = candidate.collection, candidate.date, candidate.venue
+        ledger.record(LedgerEntry(
+            performance_id=pid, artist=artist, date=date, venue=venue,
+            status="rejected", run="manual",
+            recorded_at=datetime.now(timezone.utc).isoformat(),
+        ))
+        history_line = f"suppressed: will not be offered again (undo: llama unsuppress {pid})"
+    else:
+        rows = [e for e in ledger.entries() if pid is not None and e.performance_id == pid]
+        if rows:
+            statuses = ", ".join(sorted({r.status for r in rows}))
+            history_line = f"history kept ({statuses}): stays excluded from future gets"
+        else:
+            history_line = "no history rows; this show can be re-offered"
+
+    shutil.rmtree(entry.ws.dir)
+    return [f"removed shows/{entry.slug}", history_line]
