@@ -104,6 +104,15 @@ def test_criteria_presenter_and_title_default_none():
     assert again == c
 
 
+def test_criteria_profile_default_none_and_roundtrip():
+    c = Criteria(query="x")
+    assert c.profile is None
+    again = Criteria.model_validate_json(c.model_dump_json())
+    assert again == c
+    stamped = Criteria(query="x", profile="sunday-dead-hour")
+    assert Criteria.model_validate_json(stamped.model_dump_json()).profile == "sunday-dead-hour"
+
+
 def test_provenance_presenter_fields_default_none():
     from llama.models import Candidate, Provenance
 

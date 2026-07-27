@@ -6,8 +6,9 @@ from typer.testing import CliRunner
 import llama.cli as cli
 from llama.models import Criteria
 from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
+                            SessionInfo, attention_sessions, iter_sessions,
                             mark_awaiting, mark_complete, session_state)
-from llama.workspace import RunWorkspace, unique_run_name
+from llama.workspace import RunWorkspace, unique_run_name, write_artifact
 
 from test_pipeline import FakeIA, fake_providers
 
@@ -120,3 +121,53 @@ def test_empty_winnow_still_marks_complete(tmp_path: Path, monkeypatch):
     ws = RunWorkspace(tmp_path, "emptywinnow")
     marker = json.loads(ws.session.read_text())
     assert marker["state"] == STATE_COMPLETE
+
+
+def _session(tmp_path, name, *, state=None, query="q", profile=None):
+    ws = RunWorkspace(tmp_path, name)
+    write_artifact(ws.criteria, Criteria(query=query, profile=profile))
+    if state == STATE_AWAITING:
+        mark_awaiting(ws)
+    elif state == STATE_COMPLETE:
+        mark_complete(ws, "done")
+    return ws
+
+
+def test_iter_and_attention_sessions(tmp_path: Path):
+    _session(tmp_path, "a-complete", state=STATE_COMPLETE)
+    _session(tmp_path, "b-awaiting", state=STATE_AWAITING, profile="sunday-dead-hour")
+    _session(tmp_path, "c-crashed")                    # no marker -> incomplete
+    infos = {s.id: s for s in iter_sessions(tmp_path)}
+    assert infos["a-complete"].state == STATE_COMPLETE
+    assert infos["b-awaiting"].state == STATE_AWAITING
+    assert infos["b-awaiting"].profile == "sunday-dead-hour"
+    assert infos["c-crashed"].state == STATE_INCOMPLETE
+    assert {s.id for s in attention_sessions(tmp_path)} == {"b-awaiting", "c-crashed"}
+
+
+def test_session_without_criteria(tmp_path: Path):
+    RunWorkspace(tmp_path, "bare").dir.mkdir(parents=True)
+    info = {s.id: s for s in iter_sessions(tmp_path)}["bare"]
+    assert info.query == "" and info.profile is None
+
+
+def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypatch):
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
+    save_profile(tmp_path, Profile(
+        name="sunday-dead-hour",
+        criteria=Criteria(query="x", collection="GratefulDead", artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1,
+    ))
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["profile", "run", "sunday-dead-hour", "--auto",
+                                     "--config", cfg])
+    assert result.exit_code == 0, result.output
+    run_dir = next((tmp_path / "runs").glob("*-sunday-dead-hour"))
+    criteria = json.loads((run_dir / "criteria.json").read_text())
+    assert criteria["profile"] == "sunday-dead-hour"

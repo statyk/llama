@@ -1292,7 +1292,8 @@ def profile_run(
                                                    "script": script,
                                                    "voice": voice_id,
                                                    "presenter": profile.presenter,
-                                                   "title": profile.title})
+                                                   "title": profile.title,
+                                                   "profile": name})
     write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, profile.count, auto,
              human_gate=profile.human_gate, script=script, voice=voice_id,
