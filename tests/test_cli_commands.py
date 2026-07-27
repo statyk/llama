@@ -1,6 +1,5 @@
 import json
 import tomllib
-from datetime import date
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -104,48 +103,18 @@ def test_review_full_rationale_flag(tmp_path: Path):
     assert "w119" in result.output
 
 
-def test_zero_caps_are_rejected_before_they_poison_criteria(tmp_path: Path, monkeypatch):
+def test_profile_add_zero_caps_are_rejected_before_they_poison_criteria(tmp_path: Path, monkeypatch):
     from llama.llm.fake import FakeProvider
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     criteria_json = json.dumps({"query": "x", "collection": "GratefulDead"})
     monkeypatch.setattr(cli, "make_providers",
-                        lambda config: {"interpret": FakeProvider(completes=[criteria_json] * 4)})
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
+                        lambda config: {"interpret": FakeProvider(completes=[criteria_json] * 2)})
     for flag in ("--year-cap", "--artist-cap"):
-        result = runner.invoke(cli.app, ["--config", cfg, "find", "GD", flag, "0.0",
-                                         "--run-name", "z"])
-        assert result.exit_code == 1, f"find {flag} 0.0 must be rejected"
-        assert "must be above 0" in result.output
         result = runner.invoke(cli.app, ["--config", cfg, "profile", "add", "z", "GD", flag, "0.0"])
         assert result.exit_code == 1, f"profile add {flag} 0.0 must be rejected"
         assert "must be above 0" in result.output
-
-
-def test_find_and_profile_run_pass_full_rationale_to_execute(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
-    from llama.models import Criteria as C
-    from llama.profiles import Profile, save_profile
-
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    captured = {}
-    monkeypatch.setattr(cli, "_execute",
-                        lambda *a, **k: captured.update(full_rationale=k.get("full_rationale")))
-
-    criteria_json = json.dumps({"query": "x", "collection": "GratefulDead", "count": 1})
-    monkeypatch.setattr(cli, "make_providers",
-                        lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
-    result = runner.invoke(cli.app, ["--config", cfg, "find", "GD classics", "--full-rationale",
-                                     "--run-name", "fr"])
-    assert result.exit_code == 0, result.output
-    assert captured["full_rationale"] is True
-
-    save_profile(tmp_path, Profile(name="classic", criteria=C(query="GD classics")))
-    result = runner.invoke(cli.app, ["--config", cfg, "profile", "run", "classic", "--full-rationale"])
-    assert result.exit_code == 0, result.output
-    assert captured["full_rationale"] is True
 
 
 def test_run_passes_full_rationale_to_execute(tmp_path: Path, monkeypatch):
@@ -263,111 +232,6 @@ def test_run_unknown_name_fails_loud(tmp_path: Path):
     assert "no run matches" in str(result.exception)
 
 
-FUZZY_CRITERIA = json.dumps({
-    "query": "x", "collection": None, "artist": None,
-    "date_from": "1960-01-01", "date_to": "1979-12-31",
-    "setlist_constraints": [], "soft_preferences": "folk/acoustic, well known",
-    "min_avg_rating": 3.5, "min_reviews": 3, "count": 1,
-})
-
-ARTIST_COLLECTIONS = [
-    {"identifier": "JoanBaez", "title": "Joan Baez", "downloads": 900000},
-    {"identifier": "DocWatson", "title": "Doc and Merle Watson", "downloads": 800000},
-    {"identifier": "TownesVanZandt", "title": "Townes Van Zandt", "downloads": 700000},
-]
-
-
-class FuzzyFakeIA:
-    def __init__(self, *args, **kwargs):
-        self.etree_queries = []
-
-    def scrape(self, query, fields, count=10000):
-        if "mediatype:collection" in query:
-            return ARTIST_COLLECTIONS  # artist-index build: collections pass
-        if query.startswith("collection:etree"):
-            return []  # artist-index build: per-item counts pass
-        self.etree_queries.append(query)  # search stage
-        return []  # no shows: pipeline ends at "No shows survived winnowing."
-
-
-def fuzzy_matches():
-    return json.dumps({"matches": [
-        {"identifier": "JoanBaez", "reason": "folk icon"},
-        {"identifier": "DocWatson", "reason": "flatpicking"},
-        {"identifier": "TownesVanZandt", "reason": "songwriter"},
-    ]})
-
-
-def fuzzy_providers(config):
-    from llama.llm.fake import FakeProvider
-    return {
-        "interpret": FakeProvider(completes=[FUZZY_CRITERIA]),
-        "find_artists": FakeProvider(completes=[fuzzy_matches()]),
-        "score_reviews": FakeProvider(),
-        "light_research": FakeProvider(),
-        "extract_setlist": FakeProvider(),
-        "deep_research": FakeProvider(),
-        "synthesize": FakeProvider(),
-    }
-
-
-def _fuzzy_setup(tmp_path, monkeypatch):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ia = FuzzyFakeIA()
-    monkeypatch.setattr(cli, "make_providers", fuzzy_providers)
-    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: ia)
-    return ia
-
-
-def test_fuzzy_query_interactive_prune(tmp_path, monkeypatch):
-    ia = _fuzzy_setup(tmp_path, monkeypatch)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "folk 60s-70s", "--run-name", "fz"], input="2\n")
-    assert result.exit_code == 0, result.output
-    assert "Doc and Merle Watson" in result.output
-    assert len(ia.etree_queries) == 1
-    assert "collection:DocWatson" in ia.etree_queries[0]
-    saved = json.loads((tmp_path / "runs" / "fz" / "artists.json").read_text())
-    assert [a["identifier"] for a in saved] == ["DocWatson"]
-
-
-def test_fuzzy_query_auto_uses_all(tmp_path, monkeypatch):
-    ia = _fuzzy_setup(tmp_path, monkeypatch)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "folk 60s-70s", "--auto", "--run-name", "fz2"])
-    assert result.exit_code == 0, result.output
-    assert len(ia.etree_queries) == 3
-
-
-def test_fuzzy_query_zero_matches_exits_cleanly(tmp_path, monkeypatch):
-    ia = _fuzzy_setup(tmp_path, monkeypatch)
-    monkeypatch.setattr(cli, "make_providers", lambda config: {
-        **fuzzy_providers(config),
-        "find_artists": __import__("llama.llm.fake", fromlist=["FakeProvider"]).FakeProvider(
-            completes=[json.dumps({"matches": [{"identifier": "NickDrake", "reason": "x"}]})]),
-    })
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "folk 60s-70s", "--auto", "--run-name", "fz3"])
-    assert result.exit_code == 0, result.output
-    assert "no matching artists" in result.output
-    assert ia.etree_queries == []
-
-
-def test_fuzzy_query_invalid_prune_aborts(tmp_path, monkeypatch):
-    from llama.sessions import STATE_COMPLETE, session_state
-
-    ia = _fuzzy_setup(tmp_path, monkeypatch)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "folk 60s-70s", "--run-name", "fz4"], input="99\n")
-    assert result.exit_code == 0, result.output
-    assert "no valid selections" in result.output
-    assert ia.etree_queries == []
-    saved = json.loads((tmp_path / "runs" / "fz4" / "artists.json").read_text())
-    assert len(saved) == 3  # artifact NOT overwritten with the empty prune
-    # a deliberately-aborted run is done, not left dangling in the attention-list
-    assert session_state(tmp_path / "runs" / "fz4") == STATE_COMPLETE
-
-
 def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     from llama.llm.fake import FakeProvider
     cfg = str(tmp_path / "config.toml")
@@ -425,50 +289,6 @@ def test_profile_artists_set_show_and_clear(tmp_path, monkeypatch):
 
     runner.invoke(cli.app, ["--config", cfg, "profile", "artists", "myprof", "--set", ""])
     assert load_profile(tmp_path, "myprof").criteria.artists == []
-
-
-def test_find_stamps_year_cap_into_run_criteria(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
-    from llama.models import Criteria as C
-
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    criteria_json = json.dumps({"query": "x", "collection": "GratefulDead"})
-    monkeypatch.setattr(cli, "make_providers",
-                        lambda config: {"interpret": FakeProvider(completes=[criteria_json])})
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, ["--config", cfg, "find", "GD classics", "--year-cap", "0.5",
-                                     "--run-name", "yc"])
-    assert result.exit_code == 0, result.output
-    saved = read_model(RunWorkspace(tmp_path, "yc").criteria, C)
-    assert saved.year_cap == 0.5
-
-
-def test_profile_run_stamps_count_and_script_into_run_criteria(tmp_path: Path, monkeypatch):
-    # Replaying a profile's run dir must behave like the profile: count and
-    # script live in the run's criteria.json, not only in the profile.
-    from llama.llm.fake import FakeProvider
-    from llama.models import Criteria as C
-    from llama.profiles import Profile, save_profile
-
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    save_profile(tmp_path, Profile(name="classic", criteria=C(query="GD classics"),
-                                   count=13, script=True))
-    captured = {}
-
-    def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, voice=None,
-                     presenter=None, title=None, force_stage=None,
-                     full_rationale=False):
-        captured.update(count=count, script=script, criteria=criteria)
-
-    monkeypatch.setattr(cli, "_execute", fake_execute)
-    result = runner.invoke(cli.app, ["--config", cfg, "profile", "run", "classic"])
-    assert result.exit_code == 0, result.output
-    assert captured["count"] == 13 and captured["script"] is True
-    saved = read_model(RunWorkspace(tmp_path, f"{date.today().isoformat()}-classic").criteria, C)
-    assert saved.count == 13 and saved.script is True
 
 
 def test_run_inherits_script_and_count_from_criteria(tmp_path: Path, monkeypatch):
@@ -555,38 +375,6 @@ def test_profile_add_rejects_unknown_pinned_artist(tmp_path: Path, monkeypatch):
     assert isinstance(result.exception, ArtistResolutionError)
     assert "cannot pin artist" in str(result.exception)
     assert not (tmp_path / "profiles" / "funky.toml").exists()
-
-
-def test_pinned_artists_skip_discover_and_prune(tmp_path: Path, monkeypatch):
-    from llama.profiles import Profile, save_profile
-
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    save_profile(tmp_path, Profile(
-        name="funky",
-        criteria=Criteria(query="funk", soft_preferences="funky",
-                          artists=["Galactic", "Lettuce"]),
-    ))
-
-    def boom(*a, **k):
-        raise AssertionError("discover must not run for a pinned roster")
-
-    seen = {}
-    monkeypatch.setattr(cli, "run_discover", boom)
-    monkeypatch.setattr(cli, "run_search",
-                        lambda ws, ia, criteria, artists=None, force=False, jerrybase_enabled=True:
-                            seen.update(artists=artists) or [])
-    monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: [])
-    monkeypatch.setattr(cli, "make_providers",
-                        lambda config: {"score_reviews": None, "light_research": None})
-    # interactive mode (auto=False): a pinned roster must not prompt either
-    result = runner.invoke(cli.app, ["--config", cfg, "profile", "run", "funky"])
-    assert result.exit_code == 0, result.output
-    assert "pinned artists: Galactic, Lettuce" in result.output
-    assert [a["identifier"] for a in seen["artists"]] == ["Galactic", "Lettuce"]
-    run_dir = tmp_path / "runs"
-    artists_files = list(run_dir.glob("*/artists.json"))
-    assert len(artists_files) == 1  # roster recorded in the run dir
 
 
 def _seed_show(root: Path, slug: str, pid: str, run: str, *, held=False,

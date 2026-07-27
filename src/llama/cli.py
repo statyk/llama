@@ -210,7 +210,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              script: bool = False, voice: str | None = None,
              presenter: Presenter | None = None, title: str | None = None,
              force_stage: str | None = None,
-             full_rationale: bool = False) -> None:
+             full_rationale: bool = False, plan: bool = False) -> None:
     providers = make_providers(config)
     speech = _speech_for(config, voice, presenter)
     artists = None
@@ -256,6 +256,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         mark_complete(ws, "no shows survived winnowing")
         return
     _print_shortlist(shortlist, full=full_rationale)
+    if plan:
+        mark_awaiting(ws)
+        typer.echo("shortlist ready — nothing processed.")
+        typer.echo(f"to approve & process:  llama run approve {ws.name}")
+        typer.echo(f"to discard:            llama run rm {ws.name}")
+        return
     if not auto and all(e.approved is None for e in shortlist):
         picks = typer.prompt("Process which ranks? (comma-separated, empty = top picks)",
                              default="", show_default=False)
@@ -269,7 +275,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                             year_cap=criteria.year_cap)
     if chosen is None:
         mark_awaiting(ws)
-        typer.echo(f"Shortlist awaits review: llama review {ws.dir}")
+        typer.echo(f"Shortlist awaits review: llama run approve {ws.name}")
         return
     setlistfm = make_client(config)
     packaged = held = failed = 0
@@ -312,45 +318,23 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     mark_complete(ws, ", ".join(parts) if parts else None)
 
 
-@app.command(rich_help_panel="Discover & process")
-def find(
-    query: str,
-    limit: int = typer.Option(0, "--limit", help="How many shows (0 = let the query decide)"),
-    auto: bool = typer.Option(False, "--auto", help="No prompts; take top-ranked"),
-    run_name: str = typer.Option(None, "--run-name"),
-    script: bool = typer.Option(True, "--script/--no-script",
-                                help="Verbatim DJ script (high-tier LLM call), on by default; "
-                                     "--no-script skips it"),
-    voice: bool = typer.Option(None, "--voice/--no-voice",
-                               help="Per-segment spoken DJ audio; default "
-                                    "follows [tts] enabled; --voice uses the house "
-                                    "[tts] voice; voice implies --script"),
-    artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
-                                     help="Max share of the shortlist one artist may hold "
-                                          "(1.0 = pure best-first; default 1/3)"),
-    min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
-                                    help="Quality floor (0-10) on the LLM review score; "
-                                         "lower-scored shows never shortlist (default 6.0)"),
-    year_cap: float = typer.Option(None, "--year-cap", min=0.0, max=1.0,
-                                   help="Max share of the shortlist one year may hold "
-                                        "(default 1.0 = scores decide the year mix; "
-                                        "set low for an era tour)"),
-    full_rationale: bool = typer.Option(False, "--full-rationale",
-                                        help="Show each shortlisted show's full selection "
-                                             "rationale (default: first few lines)"),
-):
-    """One-off: find, vet, research, and package shows matching QUERY."""
+def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
+              name: str | None, script: bool | None, voice: bool | None,
+              artist_cap: float | None, min_score: float | None, year_cap: float | None,
+              full_rationale: bool) -> None:
+    """Query mode: today's `find` verbatim (interpret -> stamp explicit flags
+    into criteria for replay -> `_execute`)."""
     if artist_cap == 0.0 or year_cap == 0.0:
         typer.echo("--artist-cap/--year-cap must be above 0 "
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
-    config, ia, ledger = _setup()
+    script = True if script is None else script
     voice_id = _resolve_voice(config, voice)
     if voice_id is not None:
         script = True  # voice cannot work without the script
-    name = run_name or unique_run_name(config.root,
+    run_name = name or unique_run_name(config.root,
                                        f"{date.today().isoformat()}-{slugify(query)[:40]}")
-    ws = RunWorkspace(config.root, name)
+    ws = RunWorkspace(config.root, run_name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
     # Stamp explicit flags into the run's criteria so replays behave the same.
     updates = {}
@@ -371,7 +355,104 @@ def find(
         write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, script=script, voice=voice_id,
-             full_rationale=full_rationale)
+             full_rationale=full_rationale, plan=plan)
+
+
+def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
+                 full_rationale: bool) -> None:
+    """Profile mode: today's `profile run` verbatim (load profile -> stamp
+    count/script/voice/presenter/title -> `_execute`)."""
+    profile = load_profile(config.root, name)
+    ws = RunWorkspace(config.root, unique_run_name(config.root,
+                                                   f"{date.today().isoformat()}-{name}"))
+    presenter = (load_presenter(config.root, profile.presenter)
+                 if profile.presenter else None)
+    voice_id = _resolve_voice(config, None,
+                              presenter.voice_id if presenter else None)
+    script = profile.script or voice_id is not None  # voice implies script
+    # Stamp count/script/voice/presenter/title into the run's criteria: a later
+    # `llama run` on this dir must behave like the profile, not the defaults.
+    criteria = profile.criteria.model_copy(update={"count": profile.count,
+                                                   "script": script,
+                                                   "voice": voice_id,
+                                                   "presenter": profile.presenter,
+                                                   "title": profile.title,
+                                                   "profile": name})
+    write_artifact(ws.criteria, criteria)
+    _execute(config, ia, ledger, ws, criteria, profile.count, auto,
+             human_gate=profile.human_gate, script=script, voice=voice_id,
+             presenter=presenter, title=profile.title,
+             full_rationale=full_rationale, plan=plan)
+
+
+@app.command(rich_help_panel="Acquire")
+def get(
+    query: str = typer.Argument(
+        None, help="Natural-language query (one-off); give this OR --profile, not both"),
+    profile: str = typer.Option(
+        None, "--profile", help="Standing profile name (recurring segment) instead of a query"),
+    limit: int = typer.Option(0, "--limit",
+                              help="How many shows (0 = let the query decide); query mode only"),
+    auto: bool = typer.Option(False, "--auto", help="No prompts; take top-ranked"),
+    plan: bool = typer.Option(
+        False, "--plan",
+        help="Stop after the shortlist prints and park the session awaiting "
+             "approval; nothing is processed (beats --auto)"),
+    name: str = typer.Option(None, "--name",
+                             help="Session id override (auto-unique otherwise); query mode only"),
+    script: bool = typer.Option(None, "--script/--no-script",
+                                help="Verbatim DJ script (high-tier LLM call), on by default; "
+                                     "--no-script skips it; query mode only"),
+    voice: bool = typer.Option(None, "--voice/--no-voice",
+                               help="Per-segment spoken DJ audio; default "
+                                    "follows [tts] enabled; --voice uses the house "
+                                    "[tts] voice; voice implies --script; query mode only"),
+    artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
+                                     help="Max share of the shortlist one artist may hold "
+                                          "(1.0 = pure best-first; default 1/3); query mode only"),
+    min_score: float = typer.Option(None, "--min-score", min=0.0, max=10.0,
+                                    help="Quality floor (0-10) on the LLM review score; "
+                                         "lower-scored shows never shortlist (default 6.0); "
+                                         "query mode only"),
+    year_cap: float = typer.Option(None, "--year-cap", min=0.0, max=1.0,
+                                   help="Max share of the shortlist one year may hold "
+                                        "(default 1.0 = scores decide the year mix; "
+                                        "set low for an era tour); query mode only"),
+    full_rationale: bool = typer.Option(False, "--full-rationale",
+                                        help="Show each shortlisted show's full selection "
+                                             "rationale (default: first few lines)"),
+):
+    """Acquire: find, vet, research, and package shows -- one-off (QUERY) or
+    a standing profile (--profile NAME). --plan stops after the shortlist
+    prints and parks the session for `llama run approve`/`llama run rm`
+    instead of processing it."""
+    if bool(query) == bool(profile):
+        typer.echo("give exactly one of QUERY or --profile", err=True)
+        raise typer.Exit(1)
+    config, ia, ledger = _setup()
+    if profile is not None:
+        given = []
+        if limit:
+            given.append("--limit")
+        if name is not None:
+            given.append("--name")
+        if script is not None:
+            given.append("--script/--no-script")
+        if voice is not None:
+            given.append("--voice/--no-voice")
+        if artist_cap is not None:
+            given.append("--artist-cap")
+        if min_score is not None:
+            given.append("--min-score")
+        if year_cap is not None:
+            given.append("--year-cap")
+        if given:
+            typer.echo(f"set these on the profile: {', '.join(given)}", err=True)
+            raise typer.Exit(1)
+        _get_profile(config, ia, ledger, profile, auto, plan, full_rationale)
+        return
+    _get_query(config, ia, ledger, query, limit, auto, plan, name, script, voice,
+              artist_cap, min_score, year_cap, full_rationale)
 
 
 @app.command(rich_help_panel="Acquire")
@@ -1834,39 +1915,6 @@ def profile_add(
                       script=script, presenter=presenter, title=title)
     path = save_profile(config.root, profile)
     typer.echo(f"saved: {path}")
-
-
-@profile_app.command("run")
-def profile_run(
-    name: str,
-    auto: bool = typer.Option(False, "--auto"),
-    full_rationale: bool = typer.Option(False, "--full-rationale",
-                                        help="Show each shortlisted show's full selection "
-                                             "rationale (default: first few lines)"),
-):
-    """Find and process the profile's next N shows, avoiding ledger duplicates."""
-    config, ia, ledger = _setup()
-    profile = load_profile(config.root, name)
-    ws = RunWorkspace(config.root, unique_run_name(config.root,
-                                                   f"{date.today().isoformat()}-{name}"))
-    presenter = (load_presenter(config.root, profile.presenter)
-                 if profile.presenter else None)
-    voice_id = _resolve_voice(config, None,
-                              presenter.voice_id if presenter else None)
-    script = profile.script or voice_id is not None  # voice implies script
-    # Stamp count/script/voice/presenter/title into the run's criteria: a later
-    # `llama run` on this dir must behave like the profile, not the defaults.
-    criteria = profile.criteria.model_copy(update={"count": profile.count,
-                                                   "script": script,
-                                                   "voice": voice_id,
-                                                   "presenter": profile.presenter,
-                                                   "title": profile.title,
-                                                   "profile": name})
-    write_artifact(ws.criteria, criteria)
-    _execute(config, ia, ledger, ws, criteria, profile.count, auto,
-             human_gate=profile.human_gate, script=script, voice=voice_id,
-             presenter=presenter, title=profile.title,
-             full_rationale=full_rationale)
 
 
 @profile_app.command("artists")

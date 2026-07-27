@@ -48,9 +48,9 @@ def test_repeat_find_creates_a_second_run_not_a_silent_resume(tmp_path: Path, mo
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
     cfg = str(tmp_path / "config.toml")
 
-    first = runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973 best soundboard", "--auto"])
+    first = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973 best soundboard", "--auto"])
     assert first.exit_code == 0, first.output
-    second = runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973 best soundboard", "--auto"])
+    second = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973 best soundboard", "--auto"])
     assert second.exit_code == 0, second.output
 
     run_dirs = sorted(d.name for d in (tmp_path / "runs").iterdir())
@@ -68,8 +68,8 @@ def test_execute_marks_complete_with_outcome(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
     cfg = str(tmp_path / "config.toml")
 
-    result = runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973 best soundboard", "--auto", "--script",
-                                     "--run-name", "sessiontest"])
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973 best soundboard", "--auto", "--script",
+                                     "--name", "sessiontest"])
     assert result.exit_code == 0, result.output
     ws = RunWorkspace(tmp_path, "sessiontest")
     marker = json.loads(ws.session.read_text())
@@ -91,7 +91,7 @@ def test_execute_marks_awaiting_at_human_gate(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
-    result = runner.invoke(cli.app, ["--config", cfg, "profile", "run", "gated", "--auto"])
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "gated", "--auto"])
     assert result.exit_code == 0, result.output
     run_dir = next((tmp_path / "runs").glob("*-gated"))
     assert session_state(run_dir) == STATE_AWAITING
@@ -112,8 +112,8 @@ def test_empty_winnow_still_marks_complete(tmp_path: Path, monkeypatch):
                         lambda ws, ia, criteria, artists=None, force=False, jerrybase_enabled=True: [])
     monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: [])
 
-    result = runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973", "--auto",
-                                     "--run-name", "emptywinnow"])
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto",
+                                     "--name", "emptywinnow"])
     assert result.exit_code == 0, result.output
     assert "No shows survived winnowing." in result.output
     ws = RunWorkspace(tmp_path, "emptywinnow")
@@ -163,7 +163,7 @@ def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypat
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
-    result = runner.invoke(cli.app, ["--config", cfg, "profile", "run", "sunday-dead-hour", "--auto"])
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "sunday-dead-hour", "--auto"])
     assert result.exit_code == 0, result.output
     run_dir = next((tmp_path / "runs").glob("*-sunday-dead-hour"))
     criteria = json.loads((run_dir / "criteria.json").read_text())

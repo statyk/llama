@@ -98,8 +98,8 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973 best soundboard", "--auto", "--script",
-        "--run-name", "testrun"])
+        "get", "GD 1973 best soundboard", "--auto", "--script",
+        "--name", "testrun"])
     assert result.exit_code == 0, result.output
 
     show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
@@ -129,7 +129,7 @@ def test_show_failure_is_isolated_and_raw_output_saved(tmp_path: Path, monkeypat
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973", "--auto", "--script", "--run-name", "testrun3"])
+        "get", "GD 1973", "--auto", "--script", "--name", "testrun3"])
     assert result.exit_code == 0, result.output
     assert "FAILED" in result.output
 
@@ -150,7 +150,7 @@ def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypat
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973", "--auto", "--script", "--run-name", "testrun2"])
+        "get", "GD 1973", "--auto", "--script", "--name", "testrun2"])
     assert result.exit_code == 0
     assert "needs-review" in result.output
     show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
@@ -164,7 +164,7 @@ def test_find_default_includes_script(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973", "--auto", "--run-name", "defscript"])
+        "get", "GD 1973", "--auto", "--name", "defscript"])
     assert result.exit_code == 0, result.output
     pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
@@ -180,7 +180,7 @@ def test_find_no_script_skips_script(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973", "--auto", "--no-script", "--run-name", "noscript"])
+        "get", "GD 1973", "--auto", "--no-script", "--name", "noscript"])
     assert result.exit_code == 0, result.output
     pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
@@ -196,8 +196,8 @@ def test_find_stamps_limit_and_script_into_criteria(tmp_path: Path, monkeypatch)
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "find", "GD 1973", "--limit", "5", "--no-script",
-                                     "--run-name", "stamped"])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "get", "GD 1973", "--limit", "5", "--no-script",
+                                     "--name", "stamped"])
     assert result.exit_code == 0, result.output
     saved = json.loads((tmp_path / "runs" / "stamped" / "criteria.json").read_text())
     assert saved["count"] == 5 and saved["script"] is False
@@ -214,7 +214,7 @@ def test_vet_failure_skips_show_before_packaging(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973", "--auto", "--run-name", "badresearch"])
+        "get", "GD 1973", "--auto", "--name", "badresearch"])
     assert result.exit_code == 0, result.output
     assert "needs-review" in result.output
     show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
@@ -285,8 +285,8 @@ def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973 best soundboard", "--auto", "--script",
-        "--run-name", "provrun"])
+        "get", "GD 1973 best soundboard", "--auto", "--script",
+        "--name", "provrun"])
     assert result.exit_code == 0, result.output
 
     from llama.models import Provenance

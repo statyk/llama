@@ -90,8 +90,8 @@ def voiced_setup(tmp_path, monkeypatch, cfg_template=VOICED_CFG):
 
 
 def find(cfg, *extra):
-    return runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973", "--auto",
-                                   "--run-name", "voicerun", *extra])
+    return runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto",
+                                   "--name", "voicerun", *extra])
 
 
 def test_voiced_find_end_to_end(tmp_path: Path, monkeypatch):
@@ -221,7 +221,7 @@ def presenter_setup(tmp_path, monkeypatch):
 
 def test_presenter_profile_run_end_to_end(tmp_path: Path, monkeypatch):
     cfg, made = presenter_setup(tmp_path, monkeypatch)
-    result = runner.invoke(cli.app, ["--config", cfg, "profile", "run", "sunday", "--auto"])
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "sunday", "--auto"])
     assert result.exit_code == 0, result.output
     # presenter implies voice even though [tts] enabled is false
     pkg = tmp_path / "shows" / SHOW_DIR / "package"
@@ -246,7 +246,7 @@ def test_redo_from_synthesize_picks_up_edited_character(tmp_path: Path, monkeypa
     from llama.presenters import Presenter, save_presenter
 
     cfg, made = presenter_setup(tmp_path, monkeypatch)
-    assert runner.invoke(cli.app, ["--config", cfg, "profile", "run", "sunday", "--auto"]).exit_code == 0
+    assert runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "sunday", "--auto"]).exit_code == 0
     # hand-tune the character; redo must re-script from the live file
     save_presenter(tmp_path, Presenter(
         id="casey", name="Casey", sex="male", voice="v-casey",

@@ -210,8 +210,8 @@ def test_redo_batch_unvoiced_plans_and_confirms(tmp_path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
-    runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973", "--auto", "--script",
-                            "--run-name", "r"])
+    runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto", "--script",
+                            "--name", "r"])
 
     calls = []
     monkeypatch.setattr(cli, "_redo_show",
@@ -365,7 +365,7 @@ def test_redo_requires_from_and_reruns_tail(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", cfg,
-        "find", "GD 1973", "--auto", "--script", "--run-name", "redorun"])
+        "get", "GD 1973", "--auto", "--script", "--name", "redorun"])
     assert result.exit_code == 0, result.output
     sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
     research_before = sws.research.read_text()
@@ -388,7 +388,7 @@ def test_redo_from_select_keeps_winnow_assessment(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", cfg,
-        "find", "GD 1973", "--auto", "--script", "--run-name", "redosel"])
+        "get", "GD 1973", "--auto", "--script", "--name", "redosel"])
     assert result.exit_code == 0, result.output
     sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
 
@@ -418,7 +418,7 @@ def test_redo_run_package_keeps_cached_dj_notes(tmp_path: Path, monkeypatch):
     cfg = str(tmp_path / "config.toml")
 
     first = runner.invoke(cli.app, ["--config", cfg,
-        "find", "GD 1973", "--auto", "--script", "--run-name", "replay"])
+        "get", "GD 1973", "--auto", "--script", "--name", "replay"])
     assert first.exit_code == 0, first.output
 
     # Re-package via --run WITHOUT --script: cached dj-notes.json must still
@@ -445,7 +445,7 @@ def test_redo_run_synthesize_implies_script(tmp_path: Path, monkeypatch):
     cfg = str(tmp_path / "config.toml")
 
     first = runner.invoke(cli.app, ["--config", cfg,
-        "find", "GD 1973", "--auto", "--no-script", "--run-name", "synthreplay"])
+        "get", "GD 1973", "--auto", "--no-script", "--name", "synthreplay"])
     assert first.exit_code == 0, first.output
     show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     assert not (show_dir / "dj-notes.json").exists()
@@ -465,8 +465,8 @@ def test_redo_run_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path, mo
     monkeypatch.setattr(cli, "IAClient", FakeIA)
     cfg = str(tmp_path / "config.toml")
 
-    first = runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973", "--auto",
-                                    "--run-name", "stageforce"])
+    first = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto",
+                                    "--name", "stageforce"])
     assert first.exit_code == 0, first.output
     show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     (show_dir / "research.md").write_text("OLD SENTINEL")

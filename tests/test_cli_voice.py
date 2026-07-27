@@ -93,7 +93,7 @@ def test_find_voice_stamps_criteria_and_forces_script(tmp_path: Path, monkeypatc
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973", "--voice", "--no-script", "--run-name", "vstamp"])
+        "get", "GD 1973", "--voice", "--no-script", "--name", "vstamp"])
     assert result.exit_code == 0, result.output
     saved = json.loads((tmp_path / "runs" / "vstamp" / "criteria.json").read_text())
     assert saved["voice"] == "v-abc"
@@ -109,7 +109,7 @@ def test_find_no_voice_overrides_global_enable(tmp_path: Path, monkeypatch):
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "find", "GD 1973", "--no-voice", "--run-name", "novoice"])
+        "get", "GD 1973", "--no-voice", "--name", "novoice"])
     assert result.exit_code == 0, result.output
     saved = json.loads((tmp_path / "runs" / "novoice" / "criteria.json").read_text())
     assert saved["voice"] is None
@@ -176,7 +176,7 @@ def test_profile_run_presenter_opts_in_when_globally_disabled(
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "profile", "run", "voiced"])
+        "get", "--profile", "voiced"])
     assert result.exit_code == 0, result.output
     run_dir = next((tmp_path / "runs").glob("*-voiced"))  # named <today>-voiced
     saved = json.loads((run_dir / "criteria.json").read_text())
@@ -256,7 +256,7 @@ def test_profile_run_passes_presenter_and_title_to_execute(
                                    presenter="casey", title="Sunday Morning Dead"))
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "profile", "run", "hosted"])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "get", "--profile", "hosted"])
     assert result.exit_code == 0, result.output
     assert seen["presenter"].id == "casey"
     assert seen["title"] == "Sunday Morning Dead"

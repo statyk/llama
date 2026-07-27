@@ -50,8 +50,8 @@ class Criteria(BaseModel):
     # deterministic runs for standing profiles.
     artists: list[str] = Field(default_factory=list)
     # Profile that produced this session's criteria; display only, spec §4.
-    # None for one-off runs (`llama find`). Stamped by `profile_run`, never
-    # read back to change behavior.
+    # None for one-off runs (`llama get "query"`). Stamped by `llama get
+    # --profile`, never read back to change behavior.
     profile: str | None = None
 
 
