@@ -1346,6 +1346,73 @@ def redo(
                script=script, voice=voice, yes=yes)
 
 
+@app.command(rich_help_panel="Fix & ship")
+def voice(
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+    off: bool = typer.Option(False, "--off",
+                             help="Strip voice (DJ audio + broadcast.m3u) instead of adding it"),
+    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
+    state: list[ShowState] = typer.Option(
+        [], "--state", help="Selector: shows in this derived state (repeatable)"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Selector: broadcast-ready shows"),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
+):
+    """TTS as a verb -- pure sugar over `redo --from package --voice`/`--no-voice`.
+
+    `voice <show>` re-processes just the package stage with voice turned on;
+    `voice --off <show>` strips it (DJ audio + broadcast.m3u drop out of the
+    rebuilt package). A selector batches the same over every match (shared
+    selector layer, held opt-in required -- see `--held`).
+
+    Re-voicing replays the voice **stamped** at process time when one
+    exists: a presenter's clone edits are live (the stamp IS the clone
+    path), but a preset change needs a fresh stamp -- clear it (or change
+    what the presenter/config points at) and reprocess. With no stamp, the
+    house `[tts]` voice applies. `--off` always wins over any stamp.
+    """
+    from llama.cli_select import build_selector
+
+    other_selector = any([held, packaged, voiced, unvoiced, state, artist, run, broadcast_ready])
+    if name is not None and other_selector:
+        typer.echo("give a show OR selectors, not both", err=True)
+        raise typer.Exit(1)
+    if name is None and not other_selector:
+        typer.echo("give a show or a selector (e.g. --unvoiced)", err=True)
+        raise typer.Exit(1)
+
+    want_voice = not off
+    config, ia, ledger = _setup()
+
+    if name is not None:
+        entry = _resolve_show(config, ledger, name)
+        if entry.provenance is None:
+            typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                       "reprocess it via its run first", err=True)
+            raise typer.Exit(1)
+        pkg = _redo_show(config, ia, ledger, entry, "package", voice=want_voice)
+        if pkg:
+            typer.echo(f"packaged: {pkg}")
+        else:
+            typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
+        return
+
+    try:
+        sel = build_selector(held=held, packaged=packaged, states=state,
+                             voiced=voiced, unvoiced=unvoiced, artist=artist,
+                             run=run, broadcast_ready=broadcast_ready)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    _redo_batch(config, ia, ledger, sel, "package", redo_research=False,
+               script=None, voice=want_voice, yes=yes)
+
+
 _ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete"}
 _ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: "llama run resume {id}"}
 
