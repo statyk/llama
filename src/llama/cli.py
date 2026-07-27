@@ -1607,6 +1607,11 @@ def voice(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     off: bool = typer.Option(False, "--off",
                              help="Strip voice (DJ audio + broadcast.m3u) instead of adding it"),
+    fresh: list[str] = typer.Option(
+        [], "--fresh",
+        help="Re-roll (re-synthesize) just these DJ-clip stems, e.g. set1-intro; "
+             "repeatable. Single show, voice on -- other clips stay cached. TTS is "
+             "non-deterministic, so a re-roll can rescue a janky take."),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
     voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
@@ -1635,6 +1640,43 @@ def voice(
     from llama.cli_select import build_selector
 
     other_selector = any([held, packaged, voiced, unvoiced, state, artist, run, broadcast_ready])
+
+    if fresh:
+        # Per-segment re-roll: delete the named clip(s) so the package redo
+        # re-synthesizes only them (the `not file.exists()` cache rule in
+        # _synthesize_dj_audio); every other clip stays cached and byte-identical.
+        if off:
+            typer.echo("--fresh re-rolls clips; it can't combine with --off", err=True)
+            raise typer.Exit(1)
+        if name is None or other_selector:
+            typer.echo("--fresh re-rolls one show's clips; name a single show (no selectors)",
+                       err=True)
+            raise typer.Exit(1)
+        config, ia, ledger = _setup()
+        entry = _resolve_show(config, ledger, name)
+        if entry.provenance is None:
+            typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                       "reprocess it via its run first", err=True)
+            raise typer.Exit(1)
+        audio_dir = entry.ws.package_dir / "dj-audio"
+        available = sorted(p.stem for p in audio_dir.glob("*.mp3")) if audio_dir.is_dir() else []
+        if not available:
+            typer.echo(f"{entry.slug} has no DJ audio to re-roll (not voiced/packaged)", err=True)
+            raise typer.Exit(1)
+        unknown = [s for s in fresh if s not in available]
+        if unknown:
+            typer.echo(f"no clip {unknown[0]!r} in {entry.slug}; clips: {', '.join(available)}",
+                       err=True)
+            raise typer.Exit(1)
+        stems = list(dict.fromkeys(fresh))   # dedupe: a repeated stem must not double-unlink
+        for stem in stems:
+            (audio_dir / f"{stem}.mp3").unlink()
+        typer.echo(f"re-rolling {', '.join(stems)} "
+                   "(previous take(s) discarded - TTS is non-deterministic)")
+        pkg = _redo_show(config, ia, ledger, entry, "package", voice=True)
+        typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+        return
+
     if name is not None and other_selector:
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
