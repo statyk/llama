@@ -43,8 +43,8 @@ from llama.tts import speech_provider_for
 from llama.tts.bed import Bed
 from llama.tts.provider import SpeechError
 from llama.util import parse_performance_id, slugify
-from llama.workspace import (RunWorkspace, read_model, read_model_list,
-                             unique_run_name, write_artifact)
+from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, read_model,
+                             read_model_list, unique_run_name, write_artifact)
 
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
@@ -1011,6 +1011,90 @@ def show(
         _print_show_json(entry, show_tracks=tracks)
         return
     _print_show_entry(entry, show_tracks=tracks)
+
+
+# Teaching content for `pipeline` (spec §5.3): static text only, maintained
+# here so it can't silently drift from `docs/workflow.md`. Stage/state names
+# are sourced from the real constants (`workspace.SHOW_STAGE_ORDER`,
+# `cli_select.ShowState`) so the teaching output can't drift from reality.
+_PIPELINE_RUN_STAGES = ["interpret", "search", "winnow"]
+
+_PIPELINE_STAGE_DESC: dict[str, str] = {
+    "interpret": "query -> structured criteria (artist, era, count, constraints) -> criteria.json",
+    "search": "wide-net archive.org scrape, grouped by performance -> candidates.json",
+    "winnow": "ledger dedup + quality floors + LLM review scoring -> shortlist.json",
+    "select": "picks the best recording of the performance -> selection.json",
+    "gather": "junk-filters files, resolves track titles, builds set structure -> show.json, reviews.json",
+    "research": "deep web research on the specific performance -> research.md",
+    "vet": "grounding check of research's claims against the setlist/date -> vetting.json",
+    "synthesize": "verbatim DJ script, factually guarded (default-on; --no-script skips) -> dj-notes.*",
+    "package": "downloads/tags/verifies audio, writes manifest v2 + m3u "
+               "(+ dj-audio/broadcast.m3u if voiced) -> package/",
+    "deliver": "copies package/ into the station's watched folder, records a delivered ledger entry",
+}
+
+_PIPELINE_FLOW = (
+    "interpret → search → winnow →(gate 1: run approve)→ select → "
+    "gather → research → vet → synthesize → package "
+    "→(gate 2: held → triage / fix)→ deliver"
+)
+
+_PIPELINE_STATE_DESC: dict[str, str] = {
+    "held": "show.json has needs_review: true -- gate 2 hold, sorts first in `llama status`",
+    "selected": "selection.json exists; no deeper stage artifact yet",
+    "gathered": "show.json / reviews.json exist",
+    "researched": "research.md exists",
+    "vetted": "vetting.json exists",
+    "scripted": "dj-notes.* exist (verbatim DJ script)",
+    "packaged": "package/manifest.json exists",
+    "delivered": "the ledger has a delivered entry for the performance",
+}
+
+_PIPELINE_REDO_CHEATSHEET = [
+    ("excludes / metadata edit", "gather"),
+    ("narration mode (vague)", "synthesize"),
+    ("overrule (false-alarm hold)", "package"),
+    ("new recording pick", "select"),
+    ("re-research", "research"),
+]
+
+
+@app.command(rich_help_panel="Watch")
+def pipeline():
+    """Teaching command: print the stage flow, the derived states, and the
+    redo cheat-sheet. Static text, read-only -- no config, no I/O, never
+    prompts, never writes."""
+    typer.echo(_PIPELINE_FLOW)
+    typer.echo()
+    typer.echo("Stages:")
+    for name in _PIPELINE_RUN_STAGES:
+        typer.echo(f"  {name.ljust(12)}{_PIPELINE_STAGE_DESC[name]}")
+    typer.echo("  >> gate 1: run approve -- \"llama run approve <run>\" decides which "
+               "shortlisted shows get processed <<")
+    for name in SHOW_STAGE_ORDER:
+        typer.echo(f"  {name.ljust(12)}{_PIPELINE_STAGE_DESC[name]}")
+    typer.echo("  >> gate 2: held -- a flagged show stops here for \"llama triage\" / "
+               "\"llama fix\" before it can ship <<")
+    typer.echo(f"  {'deliver'.ljust(12)}{_PIPELINE_STAGE_DESC['deliver']}")
+    typer.echo()
+    typer.echo("States (derived, never stored):")
+    for state in ShowState:
+        typer.echo(f"  {state.value.ljust(12)}{_PIPELINE_STATE_DESC[state.value]}")
+    typer.echo()
+    typer.echo("  " + "voiced".ljust(16)
+               + "true/false/null -- true once the package has DJ audio (manifest "
+                 "dj_audio block, or a non-empty dj-audio/); null before packaging")
+    typer.echo("  " + "broadcast-ready".ljust(16)
+               + "true iff packaged and all five hold: (1) every manifest track's "
+                 "audio file verified on disk, (2) has a DJ script, (3) has DJ audio, "
+                 "(4) has package/broadcast.m3u, (5) is not held for review -- "
+                 "positive-only, no --not-broadcast-ready inverse")
+    typer.echo()
+    typer.echo("Redo cheat-sheet (\"llama fix\" applies these automatically -- earliest"
+               "-affected stage wins on combos -- \"llama redo --from STAGE\" is the "
+               "manual escape hatch for any stage, including select/research):")
+    for cause, stage in _PIPELINE_REDO_CHEATSHEET:
+        typer.echo(f"  {cause.ljust(30)} -> redo --from {stage}")
 
 
 def _confirm_plan(entries, action: str, yes: bool) -> bool:
