@@ -53,6 +53,16 @@ def test_redo_rejects_run_and_other_selector_together(tmp_path: Path):
     assert "not both" in r.output.lower()
 
 
+def test_redo_state_enum_rejects_typo_listing_legal_values(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["--config", cfg, "redo", "--state", "helx", "--from", "package"])
+    assert r.exit_code != 0
+    assert "not one of" in r.output
+    for legal in ["held", "packaged", "delivered"]:
+        assert legal in r.output
+
+
 # ---------------------------------------------------------------------------
 # Stage validation per form.
 # ---------------------------------------------------------------------------

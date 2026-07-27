@@ -88,6 +88,15 @@ def test_broader_selector_prints_and_skips_non_held(tmp_path, tty, monkeypatch):
     assert r.output.count(PROMPT) == 1
 
 
+def test_state_enum_rejects_typo_listing_legal_values(tmp_path):
+    cfg = _cfg(tmp_path)
+    r = cli_invoke(cfg, "triage", "--state", "helx")
+    assert r.exit_code != 0
+    assert "not one of" in r.output
+    for legal in ["held", "packaged", "delivered"]:
+        assert legal in r.output
+
+
 # --- URL block appears in the header ---
 
 def test_url_line_appears_in_header(tmp_path, tty, monkeypatch):

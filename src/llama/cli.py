@@ -1173,7 +1173,8 @@ def triage(
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
     voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
     unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
-    state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
+    state: list[ShowState] = typer.Option(
+        [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
     broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
@@ -1191,7 +1192,7 @@ def triage(
 
     try:
         sel = build_selector(held=held, packaged=packaged,
-                             states=(state,) if state else (),
+                             states=state,
                              voiced=voiced, unvoiced=unvoiced, artist=artist,
                              run=run, broadcast_ready=broadcast_ready)
     except LlamaError as exc:
@@ -1299,7 +1300,8 @@ def redo(
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
     voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
     unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
-    state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
+    state: list[ShowState] = typer.Option(
+        [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
                                          help="Selector: broadcast-ready shows"),
@@ -1355,7 +1357,7 @@ def redo(
         raise typer.Exit(1)
     config, ia, ledger = _setup()
     try:
-        sel = build_selector(held=held, packaged=packaged, states=(state,) if state else (),
+        sel = build_selector(held=held, packaged=packaged, states=state,
                              voiced=voiced, unvoiced=unvoiced, artist=artist,
                              broadcast_ready=broadcast_ready)
     except LlamaError as exc:
