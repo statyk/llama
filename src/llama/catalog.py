@@ -128,6 +128,19 @@ def broadcast_readiness(ws: ShowWorkspace) -> tuple[bool, list[str]]:
     return (not reasons), reasons
 
 
+VOICE_BUNDLE_REASONS = ("no DJ script", "no DJ audio (unvoiced)", "no broadcast.m3u")
+
+
+def deliver_refusals(ws: ShowWorkspace, allow_unvoiced: bool = False) -> list[str]:
+    """Why deliver must refuse this show (empty = deliverable). Deliver requires
+    broadcast-ready; --allow-unvoiced subtracts exactly the voice bundle — held,
+    missing files, and not-packaged are never overridable (spec §7.3)."""
+    reasons = broadcast_readiness(ws)[1]
+    if allow_unvoiced:
+        reasons = [r for r in reasons if r not in VOICE_BUNDLE_REASONS]
+    return reasons
+
+
 def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
     delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
     entries = []
