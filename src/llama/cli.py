@@ -1,6 +1,7 @@
 import logging
 import shutil
 import sys
+import tempfile
 import textwrap
 import traceback
 from datetime import date, datetime, timezone
@@ -1244,8 +1245,9 @@ def profile_add(
     config, ia, _ = _setup(config_path)
     if presenter:
         load_presenter(config.root, presenter)  # fail fast on a typo'd id
-    scratch = RunWorkspace(config.root, f"profile-setup-{name}")
-    criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        scratch = RunWorkspace(Path(tmpdir), "interpret")
+        criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
     updates = {}
     if artist_cap is not None:
         updates["artist_cap"] = artist_cap

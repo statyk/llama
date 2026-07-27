@@ -733,6 +733,8 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
     assert saved.criteria.year_cap == 0.25
     listing = runner.invoke(cli.app, ["profile", "list", "--config", cfg])
     assert "sunday-dead" in listing.output
+    runs = tmp_path / "runs"
+    assert not runs.exists() or not any(runs.iterdir())
 
 
 def test_profile_artists_set_show_and_clear(tmp_path, monkeypatch):

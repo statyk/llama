@@ -83,13 +83,16 @@ failed validation's final retry escalates one tier (pins never escalate).
   roster. Between these, `llama show`, and `overrides.json`, `config.toml`
   remains the only file this design expects a human to hand-edit.
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
-  segments with a `ledger.jsonl` dedup history keyed by performance identity
-  (artist + date + venue), not archive.org item id. A date carrying two
-  performances (early/late show) splits at grouping time into one show per
-  jerrybase event, keyed `collection/date/eN` (e1 = first show);
-  single-event dates and dates with no jerrybase data are unchanged. There is
-  deliberately NO ledger migration and NO legacy-id compatibility for
-  pre-split `collection/date` rows — purge and re-run.
+  segments, deduped against the on-disk show library ∪ a `ledger.jsonl`
+  history keyed by performance identity (artist + date + venue), not
+  archive.org item id — winnow skips anything already in the library or
+  logged played/rejected. A date carrying two performances (early/late show)
+  splits at grouping time into one show per jerrybase event, keyed
+  `collection/date/eN` (e1 = first show); single-event dates and dates with
+  no jerrybase data are unchanged. There is deliberately NO ledger migration
+  and NO legacy-id compatibility for pre-split `collection/date` rows — purge
+  and re-run. Run names auto-unique: a same-day collision gets a `-2`/`-3`
+  suffix instead of silently resuming the earlier run.
 - **LLM layer:** provider abstraction with two capabilities — `complete`
   (schema-validated, no tools) and `research` (needs web search). Dev backend
   shells out to headless `claude -p`; `openrouter` is the HTTP alternative
