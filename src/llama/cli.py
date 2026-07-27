@@ -1434,6 +1434,105 @@ def voice(
                script=None, voice=want_voice, yes=yes)
 
 
+def _rm_action(forget: bool, suppress: bool) -> str:
+    """The confirm-plan action label, folding in the history disposition
+    (spec §8.1) so the confirmation prompt names it before `Proceed?`."""
+    if forget:
+        return "remove -- forget: purges ledger history (re-eligible)"
+    if suppress:
+        return "remove -- suppress: reversible rejected row (undo: llama unsuppress <pid>)"
+    return "remove -- history untouched"
+
+
+def _rm_batch(config, ledger, sel, *, forget: bool, suppress: bool, yes: bool) -> None:
+    """The selector-batch form: apply the selector, drop held shows (opt in
+    via `--held` or an explicit `held` state), plan/confirm, then
+    `catalog.remove_show` each survivor with per-show failure isolation."""
+    from llama.catalog import iter_shows, remove_show
+    from llama.cli_select import HELD_NOTE, apply_selector, split_held
+
+    entries = apply_selector(iter_shows(config.root, ledger), sel)
+    kept, dropped = split_held(entries, sel)
+    if dropped:
+        typer.echo(HELD_NOTE.format(n=len(dropped)))
+    if not kept:
+        typer.echo("no matching shows")
+        return
+    if not _confirm_plan(kept, _rm_action(forget, suppress), yes):
+        return
+    for e in kept:
+        try:
+            lines = remove_show(e, ledger, forget=forget, suppress=suppress)
+        except LlamaError as exc:
+            typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+            continue
+        for line in lines:
+            typer.echo(line)
+
+
+@app.command(rich_help_panel="Fix & ship")
+def rm(
+    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+    forget: bool = typer.Option(False, "--forget",
+                                help="Purge this show's ledger history (re-eligible)"),
+    suppress: bool = typer.Option(False, "--suppress",
+                                  help="Write a reversible rejected ledger row instead"),
+    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
+    state: list[ShowState] = typer.Option(
+        [], "--state", help="Selector: shows in this derived state (repeatable)"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
+                                         help="Selector: broadcast-ready shows"),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt"),
+):
+    """Delete a show's directory -- the one irreversible local operation, so
+    it confirms by default (`--yes` skips). History is left untouched
+    unless you say otherwise: `--forget` purges every ledger row for this
+    performance (re-eligible again); `--suppress` instead appends a
+    reversible `rejected` row (undo with `llama unsuppress <performance-id>`);
+    the two are mutually exclusive. A selector batches the same over every
+    match (shared selector layer, held opt-in required -- see `--held`; a
+    positional show is deleted regardless of held state, same as `redo`).
+    """
+    from llama.cli_select import build_selector
+
+    other_selector = any([held, packaged, voiced, unvoiced, state, artist, run, broadcast_ready])
+    if name is not None and other_selector:
+        typer.echo("give a show OR selectors, not both", err=True)
+        raise typer.Exit(1)
+    if name is None and not other_selector:
+        typer.echo("give a show or a selector (e.g. --packaged)", err=True)
+        raise typer.Exit(1)
+
+    config, _, ledger = _setup()
+
+    if name is not None:
+        from llama.catalog import remove_show
+
+        entry = _resolve_show(config, ledger, name)
+        if not _confirm_plan([entry], _rm_action(forget, suppress), yes):
+            return
+        # forget/suppress mutual exclusion and no-resolvable-pid errors are
+        # raised by remove_show itself and left to propagate -- the
+        # LlamaError boundary prints them cleanly (main_cli's `error: ...`).
+        for line in remove_show(entry, ledger, forget=forget, suppress=suppress):
+            typer.echo(line)
+        return
+
+    try:
+        sel = build_selector(held=held, packaged=packaged, states=state,
+                             voiced=voiced, unvoiced=unvoiced, artist=artist,
+                             run=run, broadcast_ready=broadcast_ready)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    _rm_batch(config, ledger, sel, forget=forget, suppress=suppress, yes=yes)
+
+
 _ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete"}
 _ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: "llama run resume {id}"}
 
