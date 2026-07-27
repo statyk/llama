@@ -56,6 +56,21 @@ def _performance_id(ws: ShowWorkspace) -> str | None:
     return None
 
 
+def library_performance_ids(root: Path) -> set[str]:
+    """Performance ids of every show currently on disk, any state. The library
+    half of dedup memory: what you have is never re-offered (spec §9)."""
+    shows_dir = root / "shows"
+    if not shows_dir.is_dir():
+        return set()
+    out = set()
+    for d in sorted(shows_dir.iterdir()):
+        if d.is_dir():
+            pid = _performance_id(ShowWorkspace(d))
+            if pid:
+                out.add(pid)
+    return out
+
+
 def derive_state(ws: ShowWorkspace, delivered: set[str]) -> tuple[str, list[str]]:
     """(state, flags). held > delivered > packaged > ... > selected."""
     if ws.show.exists():

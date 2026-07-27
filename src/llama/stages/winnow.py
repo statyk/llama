@@ -46,6 +46,7 @@ def run_winnow(
     criteria: Criteria,
     ledger: Ledger,
     *,
+    library_ids: set[str] | None = None,
     shortlist_size: int = 12,
     batch_size: int = 5,
     max_metadata_fetch: int = 40,
@@ -55,10 +56,10 @@ def run_winnow(
         return read_model_list(ws.shortlist, ShortlistEntry)
 
     candidates = read_model_list(ws.candidates, Candidate)
-    seen = ledger.played_ids() | ledger.rejected_ids()
+    seen = (library_ids or set()) | ledger.played_ids() | ledger.rejected_ids()
     pool = [c for c in candidates if c.performance_id not in seen]
     survivors = [c for c in pool if _passes_mechanical(c, criteria)]
-    log.info("winnow: %d candidates -> %d after ledger -> %d after mechanical",
+    log.info("winnow: %d candidates -> %d after library+ledger -> %d after mechanical",
              len(candidates), len(pool), len(survivors))
     if len(survivors) > max_metadata_fetch:
         log.warning("winnow: sampling %d of %d survivors for review fetch - "

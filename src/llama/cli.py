@@ -12,6 +12,7 @@ from typer.core import TyperGroup
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
+from llama.catalog import library_performance_ids
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
 from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
@@ -235,6 +236,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     run_search(ws, ia, criteria, artists=artists, force=force,
                jerrybase_enabled=config.jerrybase.enabled)
     shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
+                           library_ids=library_performance_ids(config.root),
                            shortlist_size=max(12, count),
                            max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
     if not shortlist:
