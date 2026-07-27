@@ -331,7 +331,12 @@ previously-packaged show — it replays the show's recorded voice; to
 actually switch voices, first set a new `[tts] voice` for a house show, or
 edit the presenter's `voice`/`voice_clone` for a hosted show. Unchanged
 segments are never re-rendered — only text/voice/model/chunk changes
-invalidate the cache. A plain `llama run resume <session>` on an
+invalidate the cache. Because Voxtral is non-deterministic (the same script
+yields a different take each call), `llama voice <show> --fresh <clip-stem>`
+(e.g. `set1-intro` or `99-outro`; repeatable) deletes just that clip so the
+package re-render re-rolls only it — leaving the other cached takes
+untouched — which is how you rescue a single janky read. A plain `llama run
+resume <session>` on an
 already-packaged session does **not** re-voice it — the package stage is
 skipped — it prints a note pointing at `llama voice <show>`. A TTS failure
 (bad key, rate limit, missing key while voice is active) fails only that
