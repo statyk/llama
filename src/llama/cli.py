@@ -861,28 +861,6 @@ def show(
     _print_show_entry(entry, show_tracks=tracks)
 
 
-def _batch_select(config, ledger, *, held=False, packaged=False, voiced=False,
-                  unvoiced=False, state=None, artist=None, run=None,
-                  broadcast_ready=False):
-    from llama.catalog import iter_shows, select_shows
-    states = {s for s, on in [("held", held), ("packaged", packaged)] if on}
-    if state:
-        states.add(state)
-    vf = True if voiced else (False if unvoiced else None)
-    entries = select_shows(iter_shows(config.root, ledger),
-                           states=states or None, voiced=vf, artist=artist,
-                           run=run, broadcast_ready=broadcast_ready)
-    if not held:                         # never act on held shows implicitly
-        entries = [e for e in entries if e.state != "held"]
-    return entries
-
-
-def _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
-                  broadcast_ready) -> bool:
-    return any([held, packaged, voiced, unvoiced, state, artist, run,
-                broadcast_ready])
-
-
 def _confirm_plan(entries, action: str, yes: bool) -> bool:
     typer.echo(f"{len(entries)} show(s) to {action}:")
     for e in entries:
@@ -892,24 +870,34 @@ def _confirm_plan(entries, action: str, yes: bool) -> bool:
     return typer.confirm("Proceed?", default=False)
 
 
-def _deliver_one(config, ledger, entry, dest, force) -> Path:
+def _deliver_pointer(slug: str, reasons: list[str]) -> str:
+    """The one-line hint following a refusal, by category (first match wins)."""
+    if "held for review" in reasons:
+        return f"  resolve it: llama triage {slug}"
+    if any(r == "not packaged" or "audio files missing" in r for r in reasons):
+        return f"  re-package: llama redo {slug} --from package"
+    return f"  voice it: llama voice {slug}  (or --allow-unvoiced to ship music-only)"
+
+
+def _deliver_one(config, ledger, entry, dest, allow_unvoiced) -> Path:
     """Copy one resolved show's package to `dest` (or config.delivery_path)
     and record the delivery in the ledger; returns the destination path.
-    Raises LlamaError on refusal (no destination, or needs-review without
-    --force)."""
+    Raises LlamaError on refusal -- no destination, or a deliver-gate
+    refusal from `catalog.deliver_refusals` (held shows and missing audio
+    are never overridable; `allow_unvoiced` lifts only the voice-bundle
+    reasons)."""
     import json as _json
+
+    from llama.catalog import deliver_refusals
 
     show_dir = entry.ws.dir
     target_dir = dest or config.delivery_path
     if target_dir is None:
         raise LlamaError("no --dest given and no delivery_path in config")
-    show_json = show_dir / "show.json"
-    if show_json.exists() and not force:
-        show_data = _json.loads(show_json.read_text())
-        if show_data.get("needs_review"):
-            flags = ", ".join(show_data.get("review_flags", []))
-            raise LlamaError(
-                f"refusing to deliver: show is marked needs-review ({flags}); use --force to override")
+    reasons = deliver_refusals(entry.ws, allow_unvoiced)
+    if reasons:
+        message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
+        raise LlamaError(f"{message}\n{_deliver_pointer(entry.slug, reasons)}")
     pkg = show_dir / "package"
     manifest = _json.loads((pkg / "manifest.json").read_text())
     out = target_dir / show_dir.name
@@ -925,56 +913,87 @@ def _deliver_one(config, ledger, entry, dest, force) -> Path:
     return out
 
 
+def _deliver_batch(config, ledger, sel, dest, allow_unvoiced, yes) -> None:
+    from llama.catalog import iter_shows
+    from llama.cli_select import HELD_NOTE, apply_selector, split_held
+
+    entries = apply_selector(iter_shows(config.root, ledger), sel)
+    kept, dropped = split_held(entries, sel)
+    if dropped:
+        typer.echo(HELD_NOTE.format(n=len(dropped)))
+    if not kept:
+        typer.echo("no matching shows")
+        return
+    if not _confirm_plan(kept, "deliver", yes):
+        return
+    for e in kept:
+        try:
+            out = _deliver_one(config, ledger, e, dest, allow_unvoiced)
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+        except OSError as exc:
+            typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+        else:
+            typer.echo(f"delivered: {out}")
+
+
 @app.command(rich_help_panel="Fix & ship")
 def deliver(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
-    force: bool = typer.Option(False, "--force", help="Deliver even if the show is marked needs-review"),
+    allow_unvoiced: bool = typer.Option(
+        False, "--allow-unvoiced",
+        help="Ship a music-only show (no DJ script/audio/broadcast.m3u) -- the sole "
+             "override; held shows and missing audio files are never overridable"),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
     voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
     unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
-    state: str = typer.Option(None, "--state", help="Selector: shows in this derived state"),
+    state: list[ShowState] = typer.Option(
+        [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
     broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
                                          help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
 ):
-    """Copy a show package to the station's watched folder and record delivery."""
-    if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
-                                          broadcast_ready):
+    """Copy a show package to the station's watched folder and record delivery.
+
+    Requires broadcast-ready by default: packaged, file-complete, not held,
+    with a DJ script, DJ audio, and broadcast.m3u. `--allow-unvoiced` is the
+    sole override -- it ships an otherwise-ready music-only show anyway;
+    held shows and shows with missing audio files are refused regardless.
+    """
+    from llama.cli_select import build_selector
+
+    other_selector = any([held, packaged, voiced, unvoiced, state, artist, run, broadcast_ready])
+    if name is not None and other_selector:
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
-    if name is None:
-        if not _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
-                             broadcast_ready):
-            typer.echo("give a show or a selector (e.g. --packaged)", err=True)
-            raise typer.Exit(1)
-        config, _, ledger = _setup()
-        entries = _batch_select(config, ledger, held=held, packaged=packaged,
-                                voiced=voiced, unvoiced=unvoiced, state=state,
-                                artist=artist, run=run, broadcast_ready=broadcast_ready)
-        if not entries:
-            typer.echo("no matching shows")
-            return
-        if not _confirm_plan(entries, "deliver", yes):
-            return
-        for e in entries:
-            try:
-                out = _deliver_one(config, ledger, e, dest, force)
-                typer.echo(f"delivered: {out}")
-            except (LlamaError, OSError) as exc:
-                typer.echo(f"FAILED {e.slug}: {exc}", err=True)
-        return
+    if name is None and not other_selector:
+        typer.echo("give a show or a selector (e.g. --packaged)", err=True)
+        raise typer.Exit(1)
+
     config, _, ledger = _setup()
-    entry = _resolve_show(config, ledger, name)
+
+    if name is not None:
+        entry = _resolve_show(config, ledger, name)
+        try:
+            out = _deliver_one(config, ledger, entry, dest, allow_unvoiced)
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        typer.echo(f"delivered: {out}")
+        return
+
     try:
-        out = _deliver_one(config, ledger, entry, dest, force)
+        sel = build_selector(held=held, packaged=packaged, states=state,
+                             voiced=voiced, unvoiced=unvoiced, artist=artist,
+                             run=run, broadcast_ready=broadcast_ready)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
-    typer.echo(f"delivered: {out}")
+    _deliver_batch(config, ledger, sel, dest, allow_unvoiced, yes)
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,

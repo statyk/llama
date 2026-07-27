@@ -103,27 +103,6 @@ def test_show_detail_not_ready_lists_reasons(tmp_path: Path):
     assert "no broadcast.m3u" in r.output
 
 
-def test_batch_select_broadcast_ready_filters(tmp_path: Path, monkeypatch):
-    build_ready(tmp_path, "ready-1973-06-10")
-    build_ready(tmp_path, "silent-1973-06-11", voiced=False)
-    _cfg(tmp_path)   # writes config.toml
-    monkeypatch.setattr(cli, "_config_path", tmp_path / "config.toml")
-    config, _, ledger = cli._setup()
-    entries = cli._batch_select(config, ledger, broadcast_ready=True)
-    assert {e.slug for e in entries} == {"ready-1973-06-10"}
-
-
-def test_deliver_broadcast_ready_selector(tmp_path: Path, monkeypatch):
-    build_ready(tmp_path, "ready-1973-06-10")
-    build_ready(tmp_path, "silent-1973-06-11", voiced=False)
-    picked = []
-    monkeypatch.setattr(cli, "_deliver_one",
-                        lambda config, ledger, e, dest, force: picked.append(e.slug))
-    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--broadcast-ready", "--yes"])
-    assert r.exit_code == 0, r.output
-    assert picked == ["ready-1973-06-10"]
-
-
 def test_redo_broadcast_ready_selector(tmp_path: Path, monkeypatch):
     build_ready(tmp_path, "ready-1973-06-10")
     build_ready(tmp_path, "silent-1973-06-11", voiced=False)

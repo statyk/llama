@@ -27,8 +27,12 @@ def build_ready(root: Path, slug: str = "gratefuldead-1973-06-10", *,
     if script:
         write_artifact(ws.dj_notes_json, {"set_intros": {"1": "a"}, "outro": "o"})
     manifest = {"schema_version": 2,
+                "show": {"artist": "Grateful Dead", "date": "1973-06-10",
+                        "venue": "Some Venue", "city": None, "context": ""},
+                "source": {"performance_id": "GratefulDead/1973-06-10"},
                 "tracks": [{"index": 1, "set": "1", "title": "Morning Dew",
-                            "filename": "01 - Morning Dew.mp3"}]}
+                            "filename": "01 - Morning Dew.mp3"}],
+                "set_breaks": [], "total_duration_sec": 0, "set_durations_sec": {}}
     if voiced:
         manifest["dj_audio"] = {"set_intros": {"1": "dj-audio/set1-intro.mp3"},
                                 "outro": "dj-audio/99-outro.mp3"}
