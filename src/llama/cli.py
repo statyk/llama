@@ -5,6 +5,7 @@ import tempfile
 import textwrap
 import traceback
 from datetime import date, datetime, timezone
+from enum import Enum
 from pathlib import Path
 
 import typer
@@ -1010,6 +1011,130 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
     finally:
         if speech is not None:
             speech.close()
+
+
+class NarrationMode(str, Enum):
+    vague = "vague"
+    full = "full"
+
+
+@app.command(rich_help_panel="Fix & ship")
+def fix(
+    name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
+    exclude: list[str] = typer.Option(
+        None, "--exclude", help="Add source filenames (or track numbers) to overrides.exclude"),
+    unexclude: list[str] = typer.Option(
+        None, "--unexclude", help="Remove filenames (or track numbers) from overrides.exclude"),
+    set_venue: str = typer.Option(None, "--set-venue", help="Force overrides.venue"),
+    set_city: str = typer.Option(None, "--set-city", help="Force overrides.city"),
+    set_date: str = typer.Option(None, "--set-date", help="Force overrides.date (YYYY-MM-DD)"),
+    set_title: list[str] = typer.Option(
+        None, "--set-title", help='Force a track title: --set-title N="Song"'),
+    clear_title: list[str] = typer.Option(
+        None, "--clear-title", help="Drop a title override by track number"),
+    set_breaks: str = typer.Option(
+        None, "--set-breaks", help='Force set breaks by track number: "9,17"'),
+    clear_set_breaks: bool = typer.Option(
+        False, "--clear-set-breaks", help="Clear the set-breaks override"),
+    narration: NarrationMode = typer.Option(
+        None, "--narration", help="vague clears the hold; full resets narration and leaves it"),
+    overrule: bool = typer.Option(
+        False, "--overrule", help="Overrule a held show: clear needs-review and its flags"),
+    no_run: bool = typer.Option(
+        False, "--no-run", help="Stage the resolving redo instead of running it now"),
+):
+    """Edit one show's overrides.json / resolve its hold, then auto-run the
+    correct redo (earliest-affected stage wins on combos). --no-run stages
+    the redo instead of running it."""
+    config, ia, ledger = _setup()
+    entry = _resolve_show(config, ledger, name)
+    sws = entry.ws
+
+    parsed_titles = {}
+    for spec in (set_title or []):
+        n, sep, t = spec.partition("=")
+        if not sep or not n.strip().isdigit():
+            typer.echo(f'--set-title expects N="Title" with a track number, got {spec!r}', err=True)
+            raise typer.Exit(1)
+        parsed_titles[int(n.strip())] = t
+    clear_title_nums = []
+    for spec in (clear_title or []):
+        if not str(spec).strip().isdigit():
+            typer.echo(f"--clear-title expects a track number, got {spec!r}", err=True)
+            raise typer.Exit(1)
+        clear_title_nums.append(int(str(spec).strip()))
+    breaks_val = None
+    if set_breaks:
+        parts = [x.strip() for x in set_breaks.split(",") if x.strip()]
+        if not all(p.isdigit() for p in parts):
+            typer.echo(f"--set-breaks expects comma-separated track numbers, got {set_breaks!r}", err=True)
+            raise typer.Exit(1)
+        breaks_val = [int(p) for p in parts]
+
+    did_exclude = bool(exclude or unexclude)
+    did_meta = bool(set_venue or set_city or set_date or parsed_titles
+                    or clear_title_nums or set_breaks or clear_set_breaks)
+    did_narration = narration is not None
+
+    if not (did_exclude or did_meta or did_narration or overrule):
+        typer.echo("nothing to fix: give an edit flag (see --help), or inspect with: "
+                   f"llama show {entry.slug}", err=True)
+        raise typer.Exit(1)
+
+    if not sws.show.exists():
+        typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+        raise typer.Exit(1)
+
+    real_edit = False
+    if did_exclude:
+        try:
+            add = _resolve_exclude_tokens(sws, exclude or [])
+            rm = _resolve_exclude_tokens(sws, unexclude or [])
+        except LlamaError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1)
+        ov = _edit_overrides(sws, add_exclude=add, rm_exclude=rm)
+        typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
+                   "(the hold clears itself if a clean re-gather results)")
+        real_edit = True
+    if narration == NarrationMode.vague:
+        _edit_overrides(sws, narration="vague")
+        _clear_hold(sws)
+        typer.echo(f"{entry.slug}: narration = vague; hold cleared")
+        real_edit = True
+    if narration == NarrationMode.full:
+        _edit_overrides(sws, narration="full")
+        typer.echo(f"{entry.slug}: narration = full")
+        real_edit = True
+    if overrule:
+        if entry.state == "held":
+            _clear_hold(sws)
+            typer.echo(f"{entry.slug}: hold cleared")
+            real_edit = True
+        else:
+            typer.echo(f"{entry.slug}: not held; nothing to overrule")
+    if did_meta:
+        _edit_overrides(sws,
+            venue=set_venue if set_venue is not None else _UNSET,
+            city=set_city if set_city is not None else _UNSET,
+            date=set_date if set_date is not None else _UNSET,
+            set_titles=parsed_titles or None,
+            clear_titles=clear_title_nums,
+            set_breaks=breaks_val if set_breaks else _UNSET,
+            clear_set_breaks=clear_set_breaks)
+        typer.echo(f"{entry.slug}: metadata override updated")
+        real_edit = True
+
+    if not real_edit:
+        return   # e.g. a lone --overrule on a show that was never held
+
+    stage = "gather" if (did_exclude or did_meta) else ("synthesize" if did_narration else "package")
+    if no_run:
+        typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}")
+        return
+    entry2 = _resolve_show(config, ledger, entry.slug)
+    pkg = _redo_show(config, ia, ledger, entry2, stage)
+    typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
 
 
 @app.command(rich_help_panel="Fix & ship")
