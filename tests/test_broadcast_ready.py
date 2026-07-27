@@ -82,7 +82,8 @@ def test_status_json_includes_broadcast_ready(tmp_path: Path):
     build_ready(tmp_path, "gratefuldead-1973-06-10")
     r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "status", "--json"])
     assert r.exit_code == 0, r.output
-    obj = next(o for o in json.loads(r.output) if o["slug"] == "gratefuldead-1973-06-10")
+    payload = json.loads(r.output)
+    obj = next(o for o in payload["shows"] if o["slug"] == "gratefuldead-1973-06-10")
     assert obj["broadcast_ready"] is True
 
 

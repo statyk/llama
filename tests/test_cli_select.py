@@ -30,6 +30,40 @@ def test_show_state_has_exactly_eight_values():
     ]
 
 
+def test_show_state_covers_derive_state_full_vocabulary(tmp_path: Path):
+    """`ShowState` must cover every state string `catalog.derive_state` can
+    actually return — not just a hand-copied duplicate list — so a future 9th
+    derived state can't silently slip past `--state`'s validated enum."""
+    from test_catalog import build
+
+    from llama.catalog import derive_state
+
+    stage_combos = [
+        {"select"},
+        {"select", "gather"},
+        {"select", "gather", "research"},
+        {"select", "gather", "research", "vet"},
+        {"select", "gather", "research", "vet", "synthesize"},
+        {"select", "gather", "research", "vet", "synthesize", "package"},
+    ]
+    observed = set()
+    for i, stages in enumerate(stage_combos):
+        ws = build(tmp_path / f"plain{i}", f"plain{i}", stages=stages)
+        state, _ = derive_state(ws, delivered=set())
+        observed.add(state)
+
+    held_ws = build(tmp_path / "held", "held", stages={"select", "gather"}, needs_review=True)
+    state, _ = derive_state(held_ws, delivered=set())
+    observed.add(state)
+
+    delivered_ws = build(tmp_path / "delivered", "delivered",
+                         stages={"select", "gather"}, pid="X/1970-01-01")
+    state, _ = derive_state(delivered_ws, delivered={"X/1970-01-01"})
+    observed.add(state)
+
+    assert observed == {s.value for s in ShowState}
+
+
 def test_held_sugar_identity():
     assert build_selector(held=True) == build_selector(states=["held"])
 

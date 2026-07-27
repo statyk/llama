@@ -15,6 +15,7 @@ from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
 from llama.catalog import library_performance_ids
+from llama.cli_select import ShowState
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
 from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
@@ -25,7 +26,8 @@ from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.presenters import Presenter, list_presenters, load_presenter, save_presenter
 from llama.profiles import Profile, load_profile, save_profile
-from llama.sessions import mark_awaiting, mark_complete
+from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
+                            attention_sessions, mark_awaiting, mark_complete)
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
@@ -237,6 +239,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 pruned = [a for i, a in enumerate(artists, 1) if i in wanted]
                 if not pruned:
                     typer.echo("no valid selections - keeping none; aborting run", err=True)
+                    mark_complete(ws, "no valid selections - keeping none; aborting run")
                     return
                 artists = pruned
                 write_artifact(ws.artists, artists)
@@ -1279,39 +1282,109 @@ def redo(
         typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
 
 
+_ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete"}
+_ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: "llama run resume {id}"}
+
+
+def _session_json(s) -> dict:
+    return {"id": s.id, "state": s.state, "updated_at": s.updated_at,
+            "query": s.query, "profile": s.profile}
+
+
+def _print_attention(sessions) -> None:
+    if not sessions:
+        return
+    typer.echo("sessions needing attention:")
+    for s in sessions:
+        label = _ATTENTION_LABELS.get(s.state, s.state)
+        hint = _ATTENTION_HINTS.get(s.state, "llama run resume {id}").format(id=s.id)
+        typer.echo(f"  {s.id:<36} {label:<18} {hint}")
+
+
+def _by_run_rollup(config, ledger) -> list[dict]:
+    """One row per session dir: id, per-state show counts (via provenance
+    grouping), query. Absorbs the deleted `runs` command."""
+    from collections import Counter
+
+    from llama.catalog import iter_shows
+
+    by_run: dict[str, Counter] = {}
+    for e in iter_shows(config.root, ledger):
+        if e.provenance:
+            by_run.setdefault(e.provenance.run, Counter())[e.state] += 1
+    runs_dir = config.root / "runs"
+    run_dirs = sorted(d for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
+    rows = []
+    for d in run_dirs:
+        query = ""
+        if (d / "criteria.json").exists():
+            query = read_model(RunWorkspace(config.root, d.name).criteria, Criteria).query
+        counts = by_run.get(d.name, Counter())
+        rows.append({"id": d.name, "query": query, "states": dict(sorted(counts.items()))})
+    return rows
+
+
 @app.command(rich_help_panel="Watch")
 def status(
-    held: bool = typer.Option(False, "--held", help="Only shows held for review"),
-    packaged: bool = typer.Option(False, "--packaged", help="Only packaged, undelivered shows"),
-    voiced: bool = typer.Option(False, "--voiced", help="Only voiced shows"),
-    unvoiced: bool = typer.Option(False, "--unvoiced", help="Only packaged shows with no DJ audio"),
-    state: str = typer.Option(None, "--state", help="Only shows in this derived state"),
+    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
+    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
+    state: list[ShowState] = typer.Option(
+        [], "--state", help="Selector: shows in this derived state (repeatable)"),
     broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
-                                         help="Only broadcast-ready shows"),
-    run: str = typer.Option(None, "--run", help="Only shows processed by this run"),
-    artist: str = typer.Option(None, "--artist", help="Substring filter on artist"),
+                                         help="Selector: broadcast-ready shows"),
+    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
+    by_run: bool = typer.Option(False, "--by-run",
+                               help="Per-session show-count rollup instead of the show table "
+                                    "(exclusive of selectors/--all)"),
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
-    """Triage view: every show and its state, held-for-review first."""
+    """Global triage view: session attention-list, then every show and its
+    state, held-for-review first. Read-only — never prompts, never writes."""
     import json as _json
 
-    from llama.catalog import iter_shows, select_shows
+    from llama.catalog import iter_shows
+    from llama.cli_select import apply_selector, build_selector, selector_active
+
+    try:
+        sel = build_selector(held=held, packaged=packaged, states=state,
+                             voiced=voiced, unvoiced=unvoiced, artist=artist,
+                             run=run, broadcast_ready=broadcast_ready)
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+
+    if by_run and (selector_active(sel) or all_shows):
+        typer.echo("--by-run is exclusive of selectors and --all", err=True)
+        raise typer.Exit(1)
 
     config, _, ledger = _setup()
-    entries = iter_shows(config.root, ledger)
-    states = set()
-    if held:
-        states.add("held")
-    if packaged:
-        states.add("packaged")
-    if state:
-        states.add(state)
-    voiced_filter = True if voiced else (False if unvoiced else None)
-    entries = select_shows(entries, states=states or None, voiced=voiced_filter,
-                           artist=artist, run=run, broadcast_ready=broadcast_ready)
-    filtering = bool(states or voiced_filter is not None or run or artist
-                     or broadcast_ready)
+    sessions = attention_sessions(config.root)
+
+    if not as_json:
+        _print_attention(sessions)
+
+    if by_run:
+        rollup = _by_run_rollup(config, ledger)
+        if as_json:
+            typer.echo(_json.dumps({
+                "sessions": [_session_json(s) for s in sessions],
+                "runs": rollup,
+            }, indent=2))
+            return
+        if not rollup:
+            typer.echo("no runs")
+            return
+        for row in rollup:
+            summary = "  ".join(f"{s} {n}" for s, n in row["states"].items()) or "no shows"
+            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {row['query']:40.40s}")
+        return
+
+    entries = apply_selector(iter_shows(config.root, ledger), sel)
+    filtering = selector_active(sel)
     entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
     if not all_shows and not filtering:
         recorded: dict[str, str] = {}
@@ -1324,14 +1397,17 @@ def status(
         keep = {e.slug for e in delivered[-RECENT_DELIVERED:]}
         entries = [e for e in entries if e.state != "delivered" or e.slug in keep]
     if as_json:
-        typer.echo(_json.dumps([{
-            "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
-            "run": e.provenance.run if e.provenance else None,
-            "flags": e.flags, "path": str(e.ws.dir),
-            "voiced": e.voiced,
-            "broadcast_ready": e.broadcast_ready,
-            "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
-        } for e in entries], indent=2))
+        typer.echo(_json.dumps({
+            "sessions": [_session_json(s) for s in sessions],
+            "shows": [{
+                "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
+                "run": e.provenance.run if e.provenance else None,
+                "flags": e.flags, "path": str(e.ws.dir),
+                "voiced": e.voiced,
+                "broadcast_ready": e.broadcast_ready,
+                "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
+            } for e in entries],
+        }, indent=2))
         return
     if not entries:
         typer.echo("no shows")
@@ -1351,32 +1427,6 @@ def status(
         typer.echo(f"{e.slug:42.42s} {e.state:10s} {e.artist:20.20s} {e.date:10s} {run_name}{suffix}")
         for f in e.flags:
             typer.echo(f"      - {f}")
-
-
-@app.command(rich_help_panel="Inspect & triage")
-def runs():
-    """List runs with their criteria and show-state counts."""
-    from collections import Counter
-
-    from llama.catalog import iter_shows
-
-    config, _, ledger = _setup()
-    by_run: dict[str, Counter] = {}
-    for e in iter_shows(config.root, ledger):
-        if e.provenance:
-            by_run.setdefault(e.provenance.run, Counter())[e.state] += 1
-    runs_dir = config.root / "runs"
-    run_dirs = sorted(d for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
-    if not run_dirs:
-        typer.echo("no runs")
-        return
-    for d in run_dirs:
-        query = ""
-        if (d / "criteria.json").exists():
-            query = read_model(RunWorkspace(config.root, d.name).criteria, Criteria).query
-        counts = by_run.get(d.name, Counter())
-        summary = "  ".join(f"{s} {n}" for s, n in sorted(counts.items())) or "no shows"
-        typer.echo(f"{d.name:34.34s} {summary:40.40s} {query:40.40s}")
 
 
 @config_app.command("init")

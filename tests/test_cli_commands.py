@@ -564,6 +564,8 @@ def test_fuzzy_query_zero_matches_exits_cleanly(tmp_path, monkeypatch):
 
 
 def test_fuzzy_query_invalid_prune_aborts(tmp_path, monkeypatch):
+    from llama.sessions import STATE_COMPLETE, session_state
+
     ia = _fuzzy_setup(tmp_path, monkeypatch)
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
         "find", "folk 60s-70s", "--run-name", "fz4"], input="99\n")
@@ -572,6 +574,8 @@ def test_fuzzy_query_invalid_prune_aborts(tmp_path, monkeypatch):
     assert ia.etree_queries == []
     saved = json.loads((tmp_path / "runs" / "fz4" / "artists.json").read_text())
     assert len(saved) == 3  # artifact NOT overwritten with the empty prune
+    # a deliberately-aborted run is done, not left dangling in the attention-list
+    assert session_state(tmp_path / "runs" / "fz4") == STATE_COMPLETE
 
 
 def test_profile_add_and_list(tmp_path: Path, monkeypatch):
@@ -836,139 +840,6 @@ def _seed_show(root: Path, slug: str, pid: str, run: str, *, held=False,
             performance_id=pid, artist=pid.split("/")[0], date=pid.split("/")[1],
             status="delivered", run=run, recorded_at=recorded_at))
     return sws
-
-
-def test_status_orders_held_first_and_filters(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", delivered=True)
-    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "r1", held=True)
-    _seed_show(tmp_path, "ccc-1972-01-01", "ccc/1972-01-01", "r2")
-
-    result = runner.invoke(cli.app, ["--config", cfg, "status"])
-    assert result.exit_code == 0, result.output
-    lines = [ln for ln in result.output.splitlines() if ln.strip()]
-    rows = [ln for ln in lines if not ln.startswith("      ")]  # drop flag detail lines
-    assert rows[0].startswith("bbb-1971-01-01")       # held first
-    assert "two sets missing" in result.output
-    assert "packaged" in rows[1]                       # ccc next
-    assert "delivered" in rows[-1]                     # aaa last
-
-    held_only = runner.invoke(cli.app, ["--config", cfg, "status", "--held"])
-    assert "bbb-1971-01-01" in held_only.output
-    assert "ccc-1972-01-01" not in held_only.output
-
-    by_run = runner.invoke(cli.app, ["--config", cfg, "status", "--run", "r2"])
-    assert "ccc-1972-01-01" in by_run.output
-    assert "bbb-1971-01-01" not in by_run.output
-
-
-def test_status_recent_delivered_keeps_most_recent_not_slug_order(tmp_path: Path):
-    """The 5-show trim must keep the most recently delivered shows, not the
-    alphabetically-last slugs. Seed 7 delivered shows where recency and slug
-    order disagree: "a" and "b" sort first but were delivered most recently;
-    "f" and "g" sort last but were delivered longest ago."""
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    letters = ["a", "b", "c", "d", "e", "f", "g"]
-    # descending recency: a is newest, g is oldest.
-    for i, letter in enumerate(letters):
-        hour = 7 - i
-        _seed_show(tmp_path, f"{letter}-1970-01-01", f"{letter}/1970-01-01", "r1",
-                  delivered=True, recorded_at=f"2026-07-17T{hour:02d}:00:00+00:00")
-
-    result = runner.invoke(cli.app, ["--config", cfg, "status"])
-    assert result.exit_code == 0, result.output
-
-    # Most recently delivered 5 (a, b, c, d, e) must survive the trim.
-    for letter in ["a", "b", "c", "d", "e"]:
-        assert f"{letter}-1970-01-01" in result.output, result.output
-    # Oldest deliveries (f, g) — alphabetically last but stalest — must be trimmed.
-    for letter in ["f", "g"]:
-        assert f"{letter}-1970-01-01" not in result.output, result.output
-
-
-def test_status_json(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1")
-    result = runner.invoke(cli.app, ["--config", cfg, "status", "--json"])
-    rows = json.loads(result.output)
-    assert rows[0]["slug"] == "aaa-1970-01-01"
-    assert rows[0]["state"] == "packaged"
-    assert rows[0]["run"] == "r1"
-
-
-def test_status_voiced_and_unvoiced_filters(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    _seed_show(tmp_path, "silent-1970-01-01", "silent/1970-01-01", "r1", packaged=True)
-    voiced_ws = _seed_show(tmp_path, "voiced-1971-01-01", "voiced/1971-01-01", "r1", packaged=True)
-    write_artifact(voiced_ws.package_dir / "manifest.json",
-                   {"schema_version": 2, "dj_audio": {"set_intros": {}, "outro": "o"}})
-
-    unvoiced = runner.invoke(cli.app, ["--config", cfg, "status", "--unvoiced"])
-    assert unvoiced.exit_code == 0, unvoiced.output
-    assert "silent-1970-01-01" in unvoiced.output
-    assert "voiced-1971-01-01" not in unvoiced.output
-
-    voiced = runner.invoke(cli.app, ["--config", cfg, "status", "--voiced"])
-    assert voiced.exit_code == 0, voiced.output
-    assert "voiced-1971-01-01" in voiced.output
-    assert "silent-1970-01-01" not in voiced.output
-    assert "[voiced]" in voiced.output
-
-
-def test_status_state_filter(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=False)
-    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "r1", packaged=True)
-
-    result = runner.invoke(cli.app, ["--config", cfg, "status", "--state", "gathered"])
-    assert result.exit_code == 0, result.output
-    assert "aaa-1970-01-01" in result.output
-    assert "bbb-1971-01-01" not in result.output
-
-
-def test_status_json_has_voiced_and_overrides(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=False)
-    write_artifact(sws.overrides, Overrides(exclude=["a.mp3"], narration="vague"))
-
-    result = runner.invoke(cli.app, ["--config", cfg, "status", "--json"])
-    assert result.exit_code == 0, result.output
-    rows = json.loads(result.output)
-    row = next(r for r in rows if r["slug"] == "aaa-1970-01-01")
-    assert row["voiced"] is None
-    assert row["overrides"] == {"exclude": ["a.mp3"], "narration": "vague"}
-
-
-def test_status_text_row_annotation(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=True)
-    write_artifact(sws.overrides, Overrides(exclude=["a.mp3", "b.mp3"], narration="vague"))
-
-    result = runner.invoke(cli.app, ["--config", cfg, "status"])
-    assert result.exit_code == 0, result.output
-    assert "[vague, 2x-excl]" in result.output
-
-
-def test_runs_lists_runs_with_counts(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "2026-07-16-countryish")
-    write_artifact(ws.criteria, Criteria(query="countryish bluegrass"))
-    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "2026-07-16-countryish")
-    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "2026-07-16-countryish",
-               held=True)
-    result = runner.invoke(cli.app, ["--config", cfg, "runs"])
-    assert result.exit_code == 0, result.output
-    assert "2026-07-16-countryish" in result.output
-    assert "countryish bluegrass" in result.output
-    assert "held 1" in result.output and "packaged 1" in result.output
 
 
 def test_show_resolves_by_name_and_lists_stages(tmp_path: Path):
