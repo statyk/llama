@@ -259,7 +259,7 @@ def test_metadata_shows_current_effective_value_as_default(tmp_path, tty, monkey
     assert r.exit_code == 0, r.output
     assert "venue" in r.output.lower()
     assert "title overrides (N=Title, comma-separated)" in r.output
-    assert "set breaks (e.g. 9,17)" in r.output
+    assert "set breaks after tracks (e.g. 9,17)" in r.output
     assert "date (YYYY-MM-DD)" in r.output
 
 

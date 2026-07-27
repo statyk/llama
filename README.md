@@ -147,11 +147,13 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
                                      # writes presenters/casey.toml; hand-editing it still works
     llama presenter list              # every presenter, one line each
     llama presenter show casey        # one presenter's full fields
-    llama find "GD shows 73-74 with a china>rider"
-    llama find "top 10 Grateful Dead shows of the 1980s" --auto
-    llama find "well-known folk/acoustic performer, 1960s-70s, highly rated"
+    llama get "GD shows 73-74 with a china>rider"
+    llama get "top 10 Grateful Dead shows of the 1980s" --auto
+    llama get "well-known folk/acoustic performer, 1960s-70s, highly rated"
                                      # artist-less queries match artists against the index first
                                      # (interactive runs let you prune the list)
+    llama get "GD 1972" --plan       # cheap preview: winnow + shortlist, nothing processed
+                                     # (llama run approve <session-id> to actually process it)
     llama profile add sunday-dead-hour "classic Grateful Dead" --count 1 --human-gate
     llama profile add jazz "well-regarded jazz-adjacent live sets" --count 13 --artist-cap 0.25
                                      # multi-artist profiles: one artist may hold at most
@@ -168,74 +170,81 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
     llama profile artists funky       # view a profile's pinned roster
     llama profile artists funky --set "Galactic, Lettuce, Soulive"
                                      # re-pin it (validated against the index); --set "" clears
-    llama profile run sunday-dead-hour
-    llama status                     # every show + its state, held-for-review first
+    llama profile list                # every profile: name, count, presenter, query
+    llama profile show sunday-dead-hour   # inspect one profile (read-only, no LLM call)
+    llama get --profile sunday-dead-hour
+    llama status                     # attention-list, then every show + its state
     llama status --held              # just the shows waiting on your judgment
     llama status --unvoiced          # packaged shows with no DJ audio yet
     llama status --broadcast-ready   # shows that are actually airable right now
-    llama runs                       # runs with per-state show counts
-    llama review countryish          # approve a run's shortlist, optionally process it
-    llama run countryish             # resume/replay a run; finished stages are skipped
-    llama show 1973-06-10            # inspect one show (its state, artifacts, flags)
+    llama status --by-run            # sessions with per-state show counts
+    llama run list                   # sessions awaiting approval or incomplete
+    llama run approve countryish     # gate 1: approve a session's shortlist, optionally process it
+    llama run resume countryish      # resume/replay a session; finished stages are skipped
+    llama show 1973-06-10            # inspect one show (its state, artifacts, archive URL, flags)
     llama show 1973-06-10 --tracks   # numbered track list (index, title, filename, duration)
-    llama show 1973-06-10 --exclude 9,10 --apply    # exclude by track number (filenames work too)
-    llama show 1973-06-10 --set-venue "Winterland" --set-city "San Francisco, CA" \
-        --set-date 1973-06-10 --title 4="Dark Star" --set-breaks "9,17" --apply
-                                     # metadata corrections; all redo from gather, hold self-clears
-    llama show --held                # walk every held show and resolve each in turn
+    llama fix 1973-06-10 --exclude 9,10       # exclude by track number (filenames work too);
+                                     # auto-runs the redo from gather
+    llama fix 1973-06-10 --set-venue "Winterland" --set-city "San Francisco, CA" \
+        --set-date 1973-06-10 --set-title 4="Dark Star" --set-breaks "9,17"
+                                     # metadata corrections; redoes from gather, hold self-clears
+    llama triage                     # walk every held show and resolve each in turn
     llama redo 1973-06-10 --from vet # re-run one show's pipeline from a stage
-    llama redo --unvoiced --from package --voice   # voice every packaged-but-silent show
+    llama voice --unvoiced --yes     # voice every packaged-but-silent show
     llama deliver 1973-06-10         # copy package to the station inbox
-    llama deliver --packaged         # deliver everything that's ready
-    llama ledger list                # broadcast history / dedup
+    llama deliver --broadcast-ready  # deliver everything that's actually airable
+    llama rm old-show --suppress     # delete a show and never offer it again
+    llama history list                # broadcast history / dedup
 
-Shows and runs are addressed by **name or any unique substring** (paths
+Shows and sessions are addressed by **name or any unique substring** (paths
 still work): `llama show 1973-06-10` finds `gratefuldead-1973-06-10`; an
 ambiguous substring fails loudly and lists the candidates.
-`status`, `show`, and the batch forms of `redo`/`deliver` share one filter
+`status`, `triage`, `redo`, `voice`, `deliver`, and `rm` share one filter
 vocabulary (`--held`/`--packaged`/`--voiced`/`--unvoiced`/`--broadcast-ready`/
 `--state`/`--artist`/`--run`); `--broadcast-ready` is positive-only (no
 inverse flag) and selects shows that are packaged with every track's audio
 verified on disk, scripted, voiced, have a `broadcast.m3u`, and aren't held.
-A batch action prints a plan and asks before running (`--yes` skips the prompt).
+A batch action prints a plan and asks before running (`--yes` skips the
+prompt); acting on held shows via a selector needs explicit `--held` opt-in.
 
-Two different human gates, easy to conflate: `llama review` answers "which
-shortlisted shows are worth processing" (gate 1). Separately, a processed
-show can be held as **needs-review** when a stage flags something suspicious
-(`needs-review, skipped: ...`, gate 2). A held show has **three resolutions**,
-all driven from `llama show` (each edits the durable per-show `overrides.json`
-and prints the next `redo`, or runs it with `--apply`):
+Two different human gates, easy to conflate: `llama run approve` answers
+"which shortlisted shows are worth processing" (gate 1) — sessions awaiting
+it show up in `llama status`/`llama run list`'s attention-list. Separately,
+a processed show can be held as **needs-review** when a stage flags
+something suspicious (`needs-review, skipped: ...`, gate 2). A held show
+has **three resolutions**, driven from `llama fix` (flag-by-flag, auto-runs
+the redo) or `llama triage` (interactive walkthrough):
 
-- **Correct the data** — `llama show <s> --exclude <file-or-number>` drops
+- **Correct the data** — `llama fix <s> --exclude <file-or-number>` drops
   junk tracks (e.g. between-set stage announcements; `llama show <s>
   --tracks` lists the numbers), and `--set-venue`/`--set-city`/`--set-date`/
-  `--title N="..."`/`--set-breaks "9,17"` fix wrong venue, date, a track
-  title, or where a set break falls. Either way, `llama redo <s> --from
-  gather` re-derives the show and the hold clears itself if that fixes it.
-- **Accept an unknowable setlist** — `llama show <s> --vague` tells the script
-  writer to stay general (no song names, no set-structure claims), clears the
-  hold, then `llama redo <s> --from synthesize`.
-- **Overrule a false alarm** — `llama show <s> --clear`, then
-  `llama redo <s> --from package`.
+  `--set-title N="..."`/`--set-breaks "9,17"` fix wrong venue, date, a track
+  title, or where a set break falls. Either way it redoes from `gather` and
+  the hold clears itself if that fixes it.
+- **Accept an unknowable setlist** — `llama fix <s> --narration vague` tells
+  the script writer to stay general (no song names, no set-structure
+  claims), clears the hold, and redoes from `synthesize`.
+- **Overrule a false alarm** — `llama fix <s> --overrule`, which redoes from
+  `package`.
 
-On a terminal, `llama show --held` (or `llama show <s>` on a held show) offers
-these as an interactive prompt and runs your choice. See
-[docs/workflow.md](docs/workflow.md) for the full pipeline map, every flag,
-and a troubleshooting table — start there if a run didn't do what you expected.
+`llama triage` offers these as an interactive prompt over every held show
+and runs your choice on the spot. See [docs/workflow.md](docs/workflow.md)
+for the full pipeline map, every flag, and a troubleshooting table — start
+there if a run didn't do what you expected.
 
 ### Explore artists
 
     llama artists "jangly 80s college rock"     # NL search, ranked with stats
     llama artists                               # deepest catalogs, no LLM call
-    llama artists --all "obscure tape scene"    # include the long tail
+    llama artists --include-junk "obscure tape scene"    # include the long tail
     llama artists --refresh                     # force an index rebuild
 
 The first call builds a local artist index (one collections request plus
 ~30 scrape pages over all LMA items, about a minute); it auto-refreshes
 after 30 days. Small collections are hidden unless they clear the
 `[artists]` thresholds in config (defaults: 25 recordings or 50k
-downloads); `--min-recordings` / `--min-downloads` / `--all` override
-per invocation.
+downloads); `--min-recordings` / `--min-downloads` / `--include-junk`
+override per invocation.
 
 ## Tests
 
@@ -299,8 +308,8 @@ orthogonal to whether other shows in the same run are voiced. The default
 backend is hosted Mistral Voxtral (`voxtral-mini-tts-2603`); set
 `[tts] backend = "elevenlabs"` to use ElevenLabs instead.
 Enable it globally (`[tts] enabled = true` + `[tts] voice`), per invocation
-(`--voice` on `find`/`run`/`review`/`redo`), or per profile by naming a
-**presenter** (`profile add --presenter <id>`, see
+(`--voice` on `get`/`redo`, or the dedicated `llama voice` verb), or per
+profile by naming a **presenter** (`profile add --presenter <id>`, see
 [Presenters](#presenters-optional-on-air-hosts) above), which opts that
 profile in even when `[tts] enabled` is false — different profiles can
 have different hosts and voices. Voice always implies script: enabling
@@ -317,16 +326,17 @@ follows the final set), and the outro recaps it. See
 
 Segments are cached per show by a hash of (text, voice, model), so
 repackaging an unchanged script doesn't re-spend on the paid API; `llama
-redo <show> --from package --voice` re-voices a previously-packaged show
-(it replays the show's recorded voice — to actually switch voices, first
-set a new `[tts] voice` for a house show, or edit the presenter's
-`voice`/`voice_clone` for a hosted show), and `--force` re-renders
-everything instead of reusing the cache. A plain `llama run <run> --voice`
-on an already-packaged run does **not** re-voice it — the package stage is
-skipped — it prints a note pointing at `redo --from package --voice`. A
-TTS failure (bad key, rate limit, missing key while voice is active) fails
-only that show — no package, no delivery — while the rest of the batch
-continues; retry with `redo --from package` once resolved.
+voice <show>` (sugar for `redo <show> --from package --voice`) re-voices a
+previously-packaged show — it replays the show's recorded voice; to
+actually switch voices, first set a new `[tts] voice` for a house show, or
+edit the presenter's `voice`/`voice_clone` for a hosted show. Unchanged
+segments are never re-rendered — only text/voice/model/chunk changes
+invalidate the cache. A plain `llama run resume <session>` on an
+already-packaged session does **not** re-voice it — the package stage is
+skipped — it prints a note pointing at `llama voice <show>`. A TTS failure
+(bad key, rate limit, missing key while voice is active) fails only that
+show — no package, no delivery — while the rest of the batch continues;
+retry with `llama voice <show>` once resolved.
 
 Voxtral is the default backend, ElevenLabs an opt-in alternative
 (`fake` exists for offline tests). Voxtral's open weights carry a CC BY-NC

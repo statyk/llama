@@ -1,4 +1,3 @@
-import logging
 import shutil
 import sys
 import tempfile
@@ -30,7 +29,7 @@ from llama.presenters import (
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
 )
-from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
+from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE,
                             attention_sessions, mark_awaiting, mark_complete,
                             session_state)
 from llama.setlistfm import make_client
@@ -788,7 +787,7 @@ def _metadata_editor(entry) -> bool:
     show_date = typer.prompt("date (YYYY-MM-DD)", default=cur_date, show_default=True)
     titles_in = typer.prompt("title overrides (N=Title, comma-separated)",
                              default=cur_titles, show_default=True)
-    breaks_in = typer.prompt("set breaks (e.g. 9,17)", default=cur_breaks, show_default=True)
+    breaks_in = typer.prompt("set breaks after tracks (e.g. 9,17)", default=cur_breaks, show_default=True)
 
     titles_changed = titles_in != cur_titles
     breaks_changed = breaks_in != cur_breaks
@@ -1473,7 +1472,7 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
         try:
             pkg = _redo_show(config, ia, ledger, e, from_stage,
                              with_research=redo_research, script=script, voice=voice)
-            typer.echo(f"packaged: {pkg}" if pkg else f"needs-review, skipped: {e.slug}")
+            typer.echo(f"packaged: {pkg}" if pkg else f"still held: {e.slug}")
         except (LlamaError, TaskFailed, LLMError, IAError, SpeechError) as exc:
             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
 
@@ -1585,7 +1584,7 @@ def redo(
         if pkg:
             typer.echo(f"packaged: {pkg}")
         else:
-            typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
+            typer.echo(f"still held: {entry.slug}")
         return
 
     if not other_selector:
@@ -1656,7 +1655,7 @@ def voice(
         if pkg:
             typer.echo(f"packaged: {pkg}")
         else:
-            typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
+            typer.echo(f"still held: {entry.slug}")
         return
 
     try:

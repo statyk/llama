@@ -16,12 +16,18 @@ implementation plan this was built from. The approved design spec is
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
-- Run: `llama find "..."`, `llama artists "..."`, `llama profile run <name>`,
-  `llama status` (global triage view), `llama runs`, `llama show <name>`,
-  `llama redo <name> --from <stage>`, `llama review <run>`, `llama deliver <name>`.
-  Shows/runs are addressed by name or unique substring; paths still work.
-  `llama config init` seeds a commented config of the baked-in defaults
-  (config values replace defaults; nothing merges).
+- Run: `llama get "..."`, `llama get --profile <name>`, `llama artists "..."`,
+  `llama status` (global triage view, `--by-run` for session rollups),
+  `llama show <name>` (read-only), `llama pipeline` (static stage/state
+  teaching command), `llama triage` (interactive held-show walkthrough),
+  `llama fix <name> <edit-flags>` (overrides/hold editor, auto-redoes),
+  `llama redo <name> --from <stage>`, `llama voice <name>` (TTS sugar over
+  `redo --from package`), `llama deliver <name>`, `llama rm <name>`,
+  `llama suppress`/`llama unsuppress <performance-id>`, `llama run
+  list/approve/resume/rm` (session namespace). Shows/sessions are addressed
+  by name or unique substring; paths still work. `llama config init` seeds
+  a commented config of the baked-in defaults (config values replace
+  defaults; nothing merges).
 
 ## What this is
 
@@ -65,23 +71,27 @@ failed validation's final retry escalates one tier (pins never escalate).
   breaks when their fields are set (bypassing structure alignment entirely
   for `set_breaks`), and `synthesize` reads `narration=vague` to write a
   script that names no songs and asserts no set structure; `show.json`
-  stays purely derived and is never itself hand-edited. `llama show`
-  (single-show or set form via `--held`/etc.) is the only way to edit it —
-  `--exclude`/`--include` (filename or track number, `--tracks` lists them)
-  and `--set-venue`/`--set-city`/`--set-date`/`--title N=…`/`--set-breaks`
-  (plus their `--clear-*` counterparts) all redo from `gather`, and a hold
-  **self-clears** whenever the re-gather no longer reproduces the flag that
-  caused it (gather recomputes `needs_review`/`review_flags` from scratch
-  every run). The other two gate-2 resolutions: **accept-vague** (`--vague`
-  → redo from `synthesize`, clears the hold immediately), and **overrule**
-  (`--clear` → redo from `package`, clears the hold without touching
+  stays purely derived and is never itself hand-edited. `llama show` is
+  strictly read-only; `llama fix <show> <edit-flags>` (flag-driven, single
+  show, auto-runs the correct redo) and `llama triage` (interactive
+  walkthrough over held shows, default `--held`) are the only ways to edit
+  it — `--exclude`/`--unexclude` (filename or track number, `--tracks` on
+  `show` lists them) and `--set-venue`/`--set-city`/`--set-date`/
+  `--set-title N=…`/`--set-breaks` (plus their `--clear-*` counterparts) all
+  redo from `gather`, and a hold **self-clears** whenever the re-gather no
+  longer reproduces the flag that caused it (gather recomputes
+  `needs_review`/`review_flags` from scratch every run). The other two
+  gate-2 resolutions: **accept-vague** (`fix --narration vague` → redo from
+  `synthesize`, clears the hold immediately), and **overrule** (`fix
+  --overrule` → redo from `package`, clears the hold without touching
   overrides).
-- **App-managed instead of hand-edited:** `llama presenter add/list/show`
-  creates and inspects `presenters/<id>.toml` (hand-editing the TOML still
-  works — `add` is just the other way in), and `llama profile artists
-  <name> [--set "A, B, C"]` views or re-pins a profile's pinned artist
-  roster. Between these, `llama show`, and `overrides.json`, `config.toml`
-  remains the only file this design expects a human to hand-edit.
+- **App-managed instead of hand-edited:** `llama presenter add/list/show/
+  remove` creates and inspects `presenters/<id>.toml` (hand-editing the
+  TOML still works — `add` is just the other way in), and `llama profile
+  artists <name> [--set "A, B, C"]` views or re-pins a profile's pinned
+  artist roster. Between these, `llama fix`/`llama triage`, and
+  `overrides.json`, `config.toml` remains the only file this design expects
+  a human to hand-edit.
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments, deduped against the on-disk show library ∪ a `ledger.jsonl`
   history keyed by performance identity (artist + date + venue), not
@@ -157,9 +167,12 @@ failed validation's final retry escalates one tier (pins never escalate).
   `package/broadcast.m3u`, and is not held for review; an unvoiced show can
   never qualify (no DJ audio or `broadcast.m3u` without voice). Surfaced as a
   `broadcast-ready` tag and `--broadcast-ready` filter/JSON field on `llama
-  status`, a `--broadcast-ready` selector on `llama show`/`deliver`/`redo`,
-  and a `broadcast-ready: yes|no` (+ reasons when `no`) line on `llama show
-  <name>`. Positive-only — no `--not-broadcast-ready` inverse.
+  status`, a `--broadcast-ready` selector on `llama
+  triage`/`redo`/`voice`/`deliver`/`rm`, and a `broadcast-ready: yes|no`
+  (+ reasons when `no`) line on `llama show <name>`. `deliver` requires
+  broadcast-ready by default (`--allow-unvoiced` is the sole,
+  music-only-ship override; there is no held-show override at all).
+  Positive-only — no `--not-broadcast-ready` inverse.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,
