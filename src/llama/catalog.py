@@ -15,6 +15,9 @@ from llama.models import LedgerEntry, Overrides, Provenance, Show
 from llama.workspace import ShowWorkspace, read_json, read_model, read_overrides
 
 
+ARCHIVE_URL = "https://archive.org/details/{identifier}"
+
+
 class CatalogError(LlamaError):
     """Resolution failure; matches lists the candidates (empty = no match).
 
@@ -48,6 +51,45 @@ _STAGES = [
     ("vetting", 4, "vetted"),
     ("dj_notes_json", 5, "scripted"),
 ]
+
+
+@dataclass
+class ConsideredRecording:
+    identifier: str
+    score: float
+    lineage: str
+    kept_tracks: int
+
+
+@dataclass
+class RecordingInfo:
+    identifier: str                       # the chosen recording
+    url: str                              # ARCHIVE_URL filled in
+    considered: list[ConsideredRecording]  # scores keys minus chosen, score desc
+
+
+def recording_info(ws: ShowWorkspace) -> RecordingInfo | None:
+    """Archive URL + considered-recordings extraction from selection.json
+    (spec §10). None when selection.json is absent; never writes."""
+    if not ws.selection.exists():
+        return None
+    data = read_json(ws.selection)
+    chosen = data["identifier"]
+    scores = data.get("scores", {})
+    considered = [
+        ConsideredRecording(
+            identifier=ident,
+            score=info.get("score", 0.0),
+            lineage=info.get("lineage", ""),
+            kept_tracks=info.get("kept_tracks", 0),
+        )
+        for ident, info in scores.items()
+        if ident != chosen
+    ]
+    considered.sort(key=lambda c: c.score, reverse=True)
+    return RecordingInfo(identifier=chosen,
+                         url=ARCHIVE_URL.format(identifier=chosen),
+                         considered=considered)
 
 
 def _performance_id(ws: ShowWorkspace) -> str | None:
