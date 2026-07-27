@@ -23,6 +23,7 @@ from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.presenters import Presenter, list_presenters, load_presenter, save_presenter
 from llama.profiles import Profile, load_profile, save_profile
+from llama.sessions import mark_awaiting, mark_complete
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
@@ -33,7 +34,8 @@ from llama.tts import speech_provider_for
 from llama.tts.bed import Bed
 from llama.tts.provider import SpeechError
 from llama.util import slugify
-from llama.workspace import RunWorkspace, read_model, read_model_list, write_artifact
+from llama.workspace import (RunWorkspace, read_model, read_model_list,
+                             unique_run_name, write_artifact)
 
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
@@ -241,6 +243,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                            max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
     if not shortlist:
         typer.echo("No shows survived winnowing.")
+        mark_complete(ws, "no shows survived winnowing")
         return
     _print_shortlist(shortlist, full=full_rationale)
     if not auto and all(e.approved is None for e in shortlist):
@@ -255,9 +258,11 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                             artist_cap=criteria.artist_cap,
                             year_cap=criteria.year_cap)
     if chosen is None:
+        mark_awaiting(ws)
         typer.echo(f"Shortlist awaits review: llama review {ws.dir}")
         return
     setlistfm = make_client(config)
+    packaged = held = failed = 0
     try:
         for entry in chosen:
             try:
@@ -276,14 +281,25 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                     failure_path.parent.mkdir(parents=True, exist_ok=True)
                     failure_path.write_text(exc.raw_output)
                 typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+                failed += 1
                 continue
             if pkg:
                 typer.echo(f"packaged: {pkg}")
+                packaged += 1
             else:
                 typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
+                held += 1
     finally:
         if speech is not None:
             speech.close()
+    parts = []
+    if packaged:
+        parts.append(f"{packaged} packaged")
+    if held:
+        parts.append(f"{held} held")
+    if failed:
+        parts.append(f"{failed} failed")
+    mark_complete(ws, ", ".join(parts) if parts else None)
 
 
 @app.command(rich_help_panel="Discover & process")
@@ -323,7 +339,8 @@ def find(
     voice_id = _resolve_voice(config, voice)
     if voice_id is not None:
         script = True  # voice cannot work without the script
-    name = run_name or f"{date.today().isoformat()}-{slugify(query)[:40]}"
+    name = run_name or unique_run_name(config.root,
+                                       f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
     # Stamp explicit flags into the run's criteria so replays behave the same.
@@ -1262,7 +1279,8 @@ def profile_run(
     """Find and process the profile's next N shows, avoiding ledger duplicates."""
     config, ia, ledger = _setup(config_path)
     profile = load_profile(config.root, name)
-    ws = RunWorkspace(config.root, f"{date.today().isoformat()}-{name}")
+    ws = RunWorkspace(config.root, unique_run_name(config.root,
+                                                   f"{date.today().isoformat()}-{name}"))
     presenter = (load_presenter(config.root, profile.presenter)
                  if profile.presenter else None)
     voice_id = _resolve_voice(config, None,

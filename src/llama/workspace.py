@@ -98,6 +98,19 @@ class RunWorkspace:
         self.candidates = self.dir / "candidates.json"
         self.shortlist = self.dir / "shortlist.json"
         self.artists = self.dir / "artists.json"
+        self.session = self.dir / "session.json"
 
     def show_ws(self, performance_id: str) -> ShowWorkspace:
         return ShowWorkspace(self.root / "shows" / slugify(performance_id))
+
+
+def unique_run_name(root: Path, base: str) -> str:
+    """Auto-unique session id: `base`, else `base-2`, `base-3`, ... (spec §4).
+    Fixes the same-day silent-resume collision."""
+    runs = root / "runs"
+    if not (runs / base).exists():
+        return base
+    n = 2
+    while (runs / f"{base}-{n}").exists():
+        n += 1
+    return f"{base}-{n}"
