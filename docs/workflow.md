@@ -9,10 +9,10 @@ to "what to do next." The design rationale lives in
 ## The big picture
 
 ```
-llama find "query"          llama profile run <name>
+llama get "query"          llama get --profile <name>
         │                           │
         ▼                           ▼
-   interpret ──► search ──► winnow ──► [gate 1: shortlist approval]
+   interpret ──► search ──► winnow ──► [gate 1: llama run approve]
                                               │
                               per approved show│
                                               ▼
@@ -25,6 +25,10 @@ llama find "query"          llama profile run <name>
                                               ▼
                                           package ──► llama deliver
 ```
+
+`llama pipeline` prints this same flow (plus the derived states and a redo
+cheat-sheet) as a static teaching command — reach for it any time you want a
+refresher without leaving the terminal.
 
 Every stage reads and writes plain files. Run-level artifacts (criteria,
 candidates, shortlist) live in a per-run directory under `~/.llama/runs/`;
@@ -42,13 +46,14 @@ view (what's held, what's packaged and ready to deliver), and
 `llama redo <show> --from <stage>` re-runs one show's pipeline tail without
 touching its run or any other show.
 
-There are two modes:
+There are two modes, both under the one `get` verb:
 
-- **One-off:** `llama find "GD shows 73-74 with a china>rider"` — interprets
+- **One-off:** `llama get "GD shows 73-74 with a china>rider"` — interprets
   the query, runs the whole pipeline.
-- **Standing profiles:** `llama profile add` / `llama profile run` — a saved
-  query re-run for recurring segments, deduplicated against the broadcast
-  ledger so the same performance is never shipped twice.
+- **Standing profiles:** `llama profile add` then `llama get --profile
+  <name>` — a saved query re-run for recurring segments, deduplicated
+  against the library and the history ledger so the same performance is
+  never offered (or shipped) twice.
 
 ## The on-disk workspace
 
@@ -61,10 +66,13 @@ Everything lives under `~/.llama/` (configurable as `root` in
 ├── ledger.jsonl                 # broadcast history (dedup + audit)
 ├── cache/                       # archive.org responses + artist index
 ├── profiles/<name>.toml         # standing profiles
-├── runs/<run-name>/             # run-level artifacts only
+├── runs/<session-id>/            # session-level artifacts only
 │   ├── criteria.json            # interpreted query (interpret stage)
 │   ├── candidates.json          # every performance found (search stage)
 │   ├── shortlist.json           # ranked + scored top shows (winnow stage)
+│   ├── session.json             # lifecycle marker: awaiting-approval | complete
+│   │                            # (missing/other = incomplete) — read by
+│   │                            # `llama run list`/`status`'s attention-list
 │   └── artists.json             # artist-less queries only: matched artists
 └── shows/<slug>/                # canonical shows library: one dir per
     │                            # performance, slug = slugified performance id
@@ -93,10 +101,11 @@ Everything lives under `~/.llama/` (configurable as `root` in
         └── dj-audio/            # opt-in TTS clips; present only when voiced
 ```
 
-Run names default to `YYYY-MM-DD-<slugified-query>` for `find` and
-`YYYY-MM-DD-<profile-name>` for profiles. Show slugs come from the
-performance identity (artist + date), so they are stable across runs by
-construction.
+Session ids default to `YYYY-MM-DD-<slugified-query>` for a one-off `get`
+and `YYYY-MM-DD-<profile-name>` for `get --profile`, with `-2`, `-3`, …
+appended on same-day collisions (`--name` overrides it explicitly). Show
+slugs come from the performance identity (artist + date), so they are
+stable across runs by construction.
 
 Three files deserve a callout:
 
@@ -117,11 +126,11 @@ Three files deserve a callout:
 
 ## Names and states: the catalog
 
-Every command that takes a show or run accepts a **name, a unique
+Every command that takes a show or session accepts a **name, a unique
 substring, or a path**: exact match wins, otherwise a substring that
 matches exactly one candidate resolves to it, otherwise the command fails
 loudly and lists the matches. `llama show 1973-06-10` is the typical form;
-`llama run countryish` resolves `2026-07-16-countryish`.
+`llama run resume countryish` resolves `2026-07-16-countryish`.
 
 A show's **state** is never stored — it is derived from which artifacts
 exist plus the ledger, so it cannot go stale:
@@ -133,8 +142,9 @@ exist plus the ledger, so it cannot go stale:
 | `packaged` | `package/manifest.json` exists | Ready to deliver |
 | `scripted` / `vetted` / `researched` / `gathered` / `selected` | deepest stage artifact present | In-flight (or abandoned mid-pipeline) |
 
-`llama status` is the triage table over these states; `llama runs`
-summarizes per-run show counts. Both are in the command reference below.
+`llama status` is the triage table over these states; `llama status
+--by-run` summarizes per-session show counts. Both are in the command
+reference below.
 
 ## The stages
 
@@ -173,9 +183,10 @@ equal scores tie-break on review evidence rather than date (score bands
 cluster, and a date tie-break would quietly favor the earliest years).
 
 Variety guarantees exist within a single batch only — nothing rotates
-across runs, and the ledger's job is dedup, not rotation. Want no artist
-repeated across your next N shows? Generate the N in one run. Explicit
-`llama review` approvals are never capped; your picks are your picks.
+across runs, and the history ledger's job is dedup, not rotation. Want no
+artist repeated across your next N shows? Generate the N in one run.
+Explicit `llama run approve` picks are never capped; your picks are your
+picks.
 
 ## The two human gates (don't confuse them)
 
@@ -184,23 +195,27 @@ This is the single most confusing part of the system, so here it is plainly:
 |  | Gate 1: shortlist approval | Gate 2: needs-review |
 |---|---|---|
 | **Question it asks** | "Which of these shows should we spend money processing?" | "Is this processed show clean enough to air?" |
-| **Granularity** | The run's shortlist | One show |
-| **Lives in** | `runs/<run>/shortlist.json` (`approved: true/false/null`) | `shows/<slug>/show.json` (`needs_review` + `review_flags`) |
-| **Set by** | You (interactive prompt, or `llama review`) | The pipeline (gather/vet/synthesize/package flags) |
-| **Cleared by** | `llama review <run>` | `llama show <show> --clear` (after you inspect) |
-| **Surfaced by** | `Shortlist awaits review:` message | `llama status --held` |
+| **Granularity** | The session's shortlist | One show |
+| **Lives in** | `runs/<session>/shortlist.json` (`approved: true/false/null`) | `shows/<slug>/show.json` (`needs_review` + `review_flags`) |
+| **Set by** | You (interactive prompt, or `llama run approve`) | The pipeline (gather/vet/synthesize/package flags) |
+| **Cleared by** | `llama run approve <session>` | `llama fix`/`llama triage` (after you inspect) |
+| **Surfaced by** | `llama run list` (the attention-list), also fronting `llama status` | `llama status --held` |
 | **What it blocks** | Processing starting at all | Packaging (or delivery, if flagged during packaging) |
 
-**Gate 1** appears interactively during `llama find` ("Process which
-ranks?"), or — for a `--human-gate` profile run with `--auto` — as the printed
-message `Shortlist awaits review: llama review <run>`. `llama review`
-records your picks and then offers to process them on the spot; decline and
-it prints the resume command (`llama run <run>`) instead.
+**Gate 1** appears interactively during `llama get` ("Process which
+ranks?"), or — with `--plan`, or a `--human-gate` profile run with `--auto`
+— as a parked session showing up in `llama run list`/`llama status`'s
+attention-list with a `llama run approve <session-id>` hint. `llama run
+approve` records your picks and then offers to process them on the spot;
+decline and it prints the resume command (`llama run resume <session-id>`)
+instead.
 
 **Gate 2** fires per show, any time a stage records a review flag in
 `show.json`. The pipeline checks it at three points (after vet, after
-synthesize, after package) and prints `needs-review, skipped: <show>`. The
-flags that can be set, and by which stage:
+synthesize, after package) and prints `needs-review, skipped: <show>`
+during first-time processing (`llama get`), or `still held: <show>` when a
+`redo`/`voice`/`fix`/`triage` re-run comes back held. The flags that can be
+set, and by which stage:
 
 | Flag | Stage | Meaning |
 |---|---|---|
@@ -216,39 +231,34 @@ flags that can be set, and by which stage:
 | `dj notes mention unknown song / nonexistent set / missing set intros / break count mismatch` | synthesize | The DJ script contradicts the manifest |
 | `duration mismatch on <file>` | package | Downloaded audio's real length disagrees with metadata |
 
-**Clearing gate 2.** There is deliberately no `--force`-through-processing
-flag: a flagged show stays held until a human looks. Looking means
-`llama show <show>` — it prints the flags, state, a table of which stage
-artifacts exist, and (if non-default) the current `overrides.json`. From
-there you're choosing one of three resolutions:
+**Clearing gate 2.** There is deliberately no bypass anywhere else: a
+flagged show stays held until `llama fix` or `llama triage` resolves it —
+`llama deliver` has no hold override at all (§ below). Looking means
+`llama show <show>` — strictly read-only: it prints the flags, state, a
+table of which stage artifacts exist, the archive URL, and (if non-default)
+the current `overrides.json`, plus a hint pointing at `llama fix <show>
+--overrule` if it looks like a false alarm. From there you're choosing one
+of three resolutions, either flag-by-flag with `llama fix <show> <flags>`
+(auto-runs the correct redo) or interactively with `llama triage` (walks
+every held show with an `[e]xclude / [m]etadata / [v]ague / [o]verrule /
+[s]kip / [q]uit` prompt):
 
-| Resolution | When | Do | Clears the hold? |
-|---|---|---|---|
-| **Correct** | The flag is real and fixable — e.g. junk tracks slipped past the filter, or a setlist source is missing | `llama show <show> --tracks` to see the numbered track list, then `llama show <show> --exclude 9,10` (by track number or filename; `--include` to undo one) and `llama redo <show> --from gather` | No — a clean re-gather self-clears by producing structure with no flags |
-| **Accept as vague** | The setlist genuinely can't be resolved, but the show is otherwise fine to air without naming songs | `llama show <show> --vague`, then `llama redo <show> --from synthesize` | Yes, immediately (narration mode also survives future redos) |
-| **Overrule** | The flag is a false alarm | `llama show <show> --clear`, then `llama redo <show> --from package` | Yes, immediately |
+| Resolution | When | Do (`fix`) | Do (`triage`) | Clears the hold? |
+|---|---|---|---|---|
+| **Correct** | The flag is real and fixable — e.g. junk tracks slipped past the filter, a setlist source is missing, or the venue/date/a title/a set break is wrong | `llama fix <show> --exclude 9,10` (track numbers or filenames; `--unexclude` to undo one) or `--set-venue`/`--set-city`/`--set-date`/`--set-title N="..."`/`--set-breaks "9,17"` | `[e]xclude` or `[m]etadata` | No — a clean re-gather self-clears by producing structure with no flags |
+| **Accept as vague** | The setlist genuinely can't be resolved, but the show is otherwise fine to air without naming songs | `llama fix <show> --narration vague` | `[v]ague` | Yes, immediately (narration mode also survives future redos) |
+| **Overrule** | The flag is a false alarm | `llama fix <show> --overrule` | `[o]verrule` | Yes, immediately |
 
-Wrong non-track metadata — venue, city, date, a track's title, or where the
-set breaks fall — is a variant of **Correct**, not a fourth resolution:
-`llama show <show> --set-venue "..." --set-city "..." --set-date
-YYYY-MM-DD --title N="..." --set-breaks "9,17"` force the corresponding
-`overrides.json` field(s) the same way `--exclude` forces `overrides.exclude`,
-and redo from `gather` the same way — see the `llama show` reference below
-for the full flag set (`--clear-title`, `--clear-set-breaks`) and the
-track-number lookup (`--tracks`).
+`llama show <show> --tracks` lists the numbered track table first if you
+need the numbers for `--exclude`/`--set-breaks`/`--set-title`.
 
 Each resolution edits `overrides.json` (except overrule, which only clears
-`show.json`'s flags) and by default just **prints** the follow-up `redo`
-command rather than running it — add `--apply` to `llama show` to run that
-redo inline instead of copy-pasting it (e.g. `llama show <show> --exclude
-<file> --apply`). Stage precedence when multiple flags are set on
-`--apply`/the printed command: an exclude or metadata edit redoes from
-`gather`, a narration edit (with neither) redoes from `synthesize`, and
-`--clear` alone redoes from `package`.
-
-Deliver-time-only flags (`duration mismatch`) are a fourth, narrower case:
-a package already exists, so `llama deliver <show> --force` overrides the
-delivery refusal directly, with no `redo` needed.
+`show.json`'s flags) and, on `fix`, runs the correct redo automatically —
+`--no-run` stages the edit and prints `next: llama redo <show> --from
+<stage>` instead, for batching several edits before one redo. Stage
+precedence when multiple flags are combined on one `fix` call: an exclude
+or metadata edit redoes from `gather`, a narration edit (with neither)
+redoes from `synthesize`, and `--overrule` alone redoes from `package`.
 
 ## Voice (opt-in text-to-speech)
 
@@ -256,8 +266,8 @@ The DJ script can additionally be **spoken** during `package` — off by
 default. The default backend is hosted Mistral Voxtral
 (`voxtral-mini-tts-2603`); set `[tts] backend = "elevenlabs"` to speak via
 ElevenLabs instead. Turn voice on globally (`[tts] enabled = true` +
-`[tts] voice` in config), per invocation (`--voice` on `find`/`run`/
-`review`/`redo`), or per profile by naming a **presenter** (below), which
+`[tts] voice` in config), per invocation (`--voice` on `get`/`redo`/`voice`),
+or per profile by naming a **presenter** (below), which
 opts that profile in even when `[tts] enabled` is false, so different
 profiles can have different hosts and voices. `--no-voice` always turns it
 off for that invocation. **Voice implies script**: turning voice on forces
@@ -355,22 +365,27 @@ bed.wav` (or `sox in.mp3 -r 24000 -c 1 -b 16 bed.wav`); these are one-time prep
 tools, not runtime dependencies. Check with `ffprobe`/`soxi` that the result is
 `pcm_s16le`, 1 channel, 24000 Hz before pointing config at it.
 
-**Re-voicing an already-packaged show:** `llama redo <show> --from package
---voice` re-voices with the show's recorded voice (or, if it had none yet,
-the current house `[tts] voice`, or the profile's presenter's voice).
-`--voice`/`--no-voice` on `find`/`run`/`review`/`redo` only toggle voice on
-or off — there's no per-invocation voice-id override; to actually switch to
-a different voice, change `[tts] voice` (house shows) first. For a hosted
-show it depends on what the presenter uses: editing `voice_clone` (or the
-clip it points to) takes effect on the next `redo --from package --voice`,
-since the clone reference is re-read live — but editing a preset `voice`
-does **not**, because `redo` replays the voice *stamped* on the show at
-process time; only a fresh `llama profile run` picks up a new preset voice.
-`--force` re-renders
-every clip instead of reusing the cache. A plain `llama run <run> --voice`
-on a run whose shows are already packaged does **not** re-voice them — the
-package stage is skipped because its output already exists — it prints a
-note pointing at `redo --from package --voice`.
+**Re-voicing an already-packaged show:** `llama voice <show>` (sugar for
+`llama redo <show> --from package --voice`) re-voices with the show's
+recorded voice (or, if it had none yet, the current house `[tts] voice`, or
+the profile's presenter's voice); `llama voice --off <show>` strips voice
+back out. `--voice`/`--no-voice` on `get`/`redo` (and `voice`'s own `--off`)
+only toggle voice on or off — there's no per-invocation voice-id override;
+to actually switch to a different voice, change `[tts] voice` (house shows)
+first. For a hosted show it depends on what the presenter uses: editing
+`voice_clone` (or the clip it points to) takes effect on the next `voice
+<show>`/`redo <show> --from package --voice`, since the clone reference is
+re-read live — but editing a preset `voice` does **not**, because a redo
+replays the voice *stamped* on the show at process time; only a fresh
+`llama get --profile <name>` picks up a new preset voice. Unchanged
+segments aren't re-synthesized — the per-segment cache (keyed on
+text+voice+model+chunk[+bed]) means a redo only re-renders what actually
+changed. A plain `llama run resume <session>` on a session whose shows are
+already packaged does **not** re-voice them — the package stage is skipped
+because its output already exists — it prints `note: already-packaged shows
+won't be re-voiced by a plain replay; use 'llama redo <show> --from package
+--voice' to re-voice one show` (or `llama voice <show>` as the equivalent
+sugar).
 
 **Failure holds the show, not the batch.** If the TTS backend fails (bad
 key, rate limit, missing key while voice is active), that show produces no
@@ -381,207 +396,312 @@ cache means a retry only re-renders what didn't finish.
 
 ## Command reference
 
-In every command below, `<show>` and `<run>` mean "name, unique substring,
-or path" — see [Names and states](#names-and-states-the-catalog).
+In every command below, `<show>` and `<session>` mean "name, unique
+substring, or path" — see [Names and states](#names-and-states-the-catalog).
 
-### `llama find "query" [--limit N] [--auto] [--no-script] [--voice/--no-voice] [--run-name NAME]`
-One-off end-to-end run. Interactive by default: artist-less queries let you
-prune the matched-artist list, and the shortlist prompt asks which ranks to
-process (empty answer = top picks). `--auto` skips all prompts and takes the
-top-ranked shows. The verbatim DJ script is generated by default (one extra
-high-tier LLM call per show); `--no-script` skips it. `--voice` synthesizes
-spoken DJ audio (Voxtral by default, or ElevenLabs; default follows
-`[tts] enabled`; implies `--script`) — see
-[Voice](#voice-opt-in-text-to-speech) above. Winnow knobs:
-`--artist-cap`, `--year-cap`, `--min-score` (see the winnow discussion
-above). `--full-rationale` prints each shortlisted show's complete
-selection rationale instead of the first few lines (also available on
-`run`, `review`, and `profile run`).
+### The shared selector vocabulary
 
-### `llama status [--held] [--packaged] [--voiced] [--unvoiced] [--broadcast-ready] [--state NAME] [--run NAME] [--artist SUBSTR] [--all] [--json]`
-The triage table: every show in the library with its derived state, artist,
-date, and originating run; held shows sort first with their flags indented
-beneath. By default only the 5 most recently delivered shows are kept in
-the listing — `--all` shows every delivered show. `--held` / `--packaged`
-filter to one state ("what needs my judgment" / "what's ready to ship"),
-`--voiced` / `--unvoiced` filter to packaged shows with or without DJ audio
-(a show that isn't packaged yet is neither — it has no voiced status at
-all), `--broadcast-ready` filters to shows that are actually airable right
-now — packaged with every manifest track's audio file verified on disk, a
-DJ script, DJ audio, a `broadcast.m3u`, and not held (positive-only; there's
-no `--not-broadcast-ready`), `--state NAME` filters to one exact derived
-state (e.g. `vetted`), `--run` filters to shows processed by that exact run
-name, `--artist` substring-matches the artist, and `--json` emits the
-records for scripting (each record now includes `voiced` — `true`/`false`/
-`null` —, `broadcast_ready` — `true`/`false` —, and `overrides`, the show's
-exclude list and narration mode). Text rows carry inline annotations for
-anything non-default: `[broadcast-ready, voiced, vague, 3x-excl]`.
+`status`, `triage`, `redo`, `voice`, `deliver`, and `rm` all accept the same
+filter flags, reconciled by one implementation (`llama.cli_select`):
 
-### `llama runs`
-One line per run: name, show-state counts (via each show's provenance), and
-the run's query. The run-side companion to `llama status`.
+```
+--held                 selector: shows in state held
+--packaged             selector: packaged, undelivered shows
+--voiced / --unvoiced  selector: packaged shows with / without DJ audio
+                       (pre-package shows match neither)
+--broadcast-ready      selector: broadcast-ready shows (positive-only, no
+                       inverse)
+--state NAME           selector: one derived state (repeatable; validated
+                       enum: held|selected|gathered|researched|vetted|
+                       scripted|packaged|delivered)
+--artist SUBSTR        selector: case-insensitive substring on artist
+--run NAME             selector: shows processed by this session
+```
 
-### `llama run <run> [--stage S --force] [--interactive] [--no-script] [--voice/--no-voice]`
-**The resume/replay command.** Re-executes a run from its artifacts; every
-stage skips work whose output already exists, so this is how you continue
-after a crash, after `llama review`, or after fixing something by hand.
-To re-run a stage for a *single show*, reach for `llama redo` instead —
-`--stage --force` here applies to every show the run processes.
+All filters AND together; repeated `--state` values OR together. A
+positional show name and any selector flag are mutually exclusive ("give a
+show OR selectors, not both"). Neither given is an error naming an example
+selector, except `status` (defaults to every show) and `triage` (defaults
+to `--held`). A batch action (`triage`/`redo`/`voice`/`deliver`/`rm`) prints
+a plan and asks `Proceed? [y/N]` (`--yes` skips); per-show failures print
+`FAILED <slug>: …` and the sweep continues.
 
-- `--stage <name> --force` deletes that stage's outputs **and everything
-  downstream of it**, then re-runs — later stages can never reuse artifacts
-  derived from the pre-force state. Deletion happens **per show, at process
-  time, only for the shows chosen this run** — shows not selected for
-  reprocessing keep their artifacts and packages intact. Valid stages:
-  `search`, `winnow`, `select`, `gather`, `research`, `vet`, `synthesize`,
-  `package`. Forcing `search` also drops the shortlist.
-- Bare `--force` re-runs **everything**, including winnow — this rebuilds
-  `shortlist.json`. If approvals were recorded on it, llama asks for
-  confirmation before wiping them. Reach for `--stage X --force` first.
-- Replays are faithful: the run's `criteria.json` carries the `count`,
-  `script`, and `voice` settings it was created with (`find
-  --limit/--no-script/--voice` and `profile run` stamp them), so `llama
-  run` processes the same number of shows with the same script/voice
-  settings. `--script`/`--no-script` and `--voice`/`--no-voice` explicitly
-  override the persisted values.
-- `--voice` only re-voices shows this invocation actually reprocesses. On an
-  already-packaged show the package stage is skipped (its output already
-  exists), so plain `llama run <run> --voice` is a no-op for it — llama
-  prints a note pointing at `llama run <run> --stage package --force
-  --voice` (forces just the package stage, for every show this run
-  processes) or `llama redo <show> --from package --voice` (one show,
-  standalone).
-- Defaults to `--auto` (no prompts), unlike `find`.
+**The held opt-in rule:** for an *acting* command (`triage`, `redo`,
+`voice`, `deliver`, `rm` — not the read-only `status`/`show`), a selector's
+matches in state `held` are dropped unless the selector explicitly included
+held (`--held` or `--state held`); when any are dropped the plan prints
+`note: N held show(s) excluded (add --held to include them)`. `triage`'s
+default selector *is* held, so no opt-in applies there. Naming a single
+show positionally is itself explicit opt-in — `redo gd73 --from gather` on
+a held show runs (that's how holds self-clear); `deliver gd73` on a held
+show reaches the per-show gate and is refused there with the reason.
 
-### `llama review <run> [--script/--no-script] [--voice/--no-voice]`
-Gate 1 only: prints the shortlist, asks which ranks to approve, and writes
-the answer into `shortlist.json`. Ranks you don't name are left undecided
-(once anything is approved, only approved entries are processed). It then
-offers to process the approved shows immediately; decline and it prints the
-`llama run` command to do it later. Empty input changes nothing. It has no
-connection to needs-review (gate 2). `--script`/`--no-script` and
-`--voice`/`--no-voice` override the run's persisted settings if you process
-immediately.
+### `llama get "query" [--limit N] [--auto] [--plan] [--name NAME] [--script/--no-script] [--voice/--no-voice] [--artist-cap F] [--min-score F] [--year-cap F] [--full-rationale]`
+### `llama get --profile NAME [--auto] [--plan] [--full-rationale]`
+One verb replaces `find` + `profile run`; honest that it spends. Exactly
+one of `"query"` / `--profile` is required.
 
-### `llama show [<show>] [--tracks] [--exclude FILE|N] [--include FILE|N] [--vague] [--full] [--clear] [--apply] [--set-venue V] [--set-city C] [--set-date D] [--title N="..."] [--clear-title N] [--set-breaks "N,N"] [--clear-set-breaks] [--held/--packaged/--voiced/--unvoiced/--broadcast-ready/--state/--artist/--run]`
-Gate 2's home command. Two forms:
+- **Query mode** interprets the query, prunes artist-less matches
+  interactively (discovery path), searches, winnows, prints the shortlist,
+  and prompts which ranks to process (empty answer = top picks); `--auto`
+  skips all prompts and takes the top-ranked shows. The verbatim DJ script
+  is generated by default (one extra high-tier LLM call per show);
+  `--no-script` skips it. `--voice` synthesizes spoken DJ audio (Voxtral by
+  default, or ElevenLabs; default follows `[tts] enabled`; implies
+  `--script`) — see [Voice](#voice-opt-in-text-to-speech) above. Winnow
+  knobs: `--artist-cap`, `--year-cap`, `--min-score` (see the winnow
+  discussion above). `--full-rationale` prints each shortlisted show's
+  complete selection rationale instead of the first few lines (also
+  available on `run approve`/`run resume`). Query-mode-only flags error on
+  profile mode ("set these on the profile").
+- **Profile mode** (`--profile NAME`) loads the profile and runs it as a new
+  session, stamping its count/script/voice/presenter/title; only `--auto`,
+  `--plan`, `--full-rationale` apply.
+- **`--plan`** stops after the shortlist prints — winnow's LLM scoring and
+  light research still spend (that's what produces the shortlist), but
+  nothing is downloaded, researched further, or packaged. The session parks
+  `awaiting-approval` and llama prints:
 
-- **Single-show form** (`llama show <show>`): prints artist/date/venue,
-  chosen recording, derived state, a table of stage artifacts (present +
-  age, or missing), the current `overrides:` line (only shown when
-  non-default — narration and exclude list), the needs-review flags, and a
-  `broadcast-ready: yes`/`no` line — when `no`, the reasons follow indented
-  (e.g. `held for review`, `no DJ script`, `no DJ audio (unvoiced)`, `no
-  broadcast.m3u`, `N of M audio files missing`, or just `not packaged` if
-  there's no package at all). On a held show with no resolution flags
-  given, and on a TTY, it drops straight into the same interactive
-  walkthrough as the set form (below) for just that one show — pass a
-  resolution flag to skip the prompt and act directly.
-  - `--tracks` appends the numbered track table (index, set, title, title
-    source, duration, filename) — the number to give
-    `--exclude`/`--include`/`--title`/`--set-breaks`. `--tracks` is an explicit
-    view request, so it prints and exits even for a held show on a terminal
-    (it is *not* pre-empted by the interactive walkthrough; plain
-    `llama show <show>` with no flag is what drops a held show into the
-    walkthrough).
-  - `--exclude FILE-or-N` (repeatable, comma-lists ok) adds a source
-    filename to `overrides.exclude`; `--include FILE-or-N` (repeatable)
-    removes one. Either also accepts **track numbers** (from `--tracks`)
-    instead of filenames — numbers resolve against `show.json`'s track
-    list, so they need `show.json` to already exist.
-  - `--vague` sets `overrides.narration = "vague"` **and clears the hold**;
-    `--full` resets narration to `"full"` (does not touch the hold).
-  - `--clear` overrules the hold: clears `needs_review` and the flags,
-    leaving `overrides.json` untouched.
-  - `--set-venue`/`--set-city`/`--set-date` force
-    `overrides.venue`/`overrides.city`/`overrides.date` (`--set-date`
-    expects `YYYY-MM-DD`). `--title N="Song Title"` (repeatable) forces
-    track N's title into `overrides.titles`; `--clear-title N` drops one.
-    `--set-breaks "9,17"` sets `overrides.set_breaks` to those track
-    numbers — the tracks a break falls *after* — replacing the computed
-    structure alignment (the deterministic/LLM alignment ladder is skipped,
-    so the `low-confidence structure alignment` flag can't fire); it's
-    numbered-sets-only (labels come out `"1"`, `"2"`, ... — there's no way to
-    mark an encore through this flag). Note: on a jerrybase-covered
-    (Garcia-universe) show the jerrybase *cross-checks* still run against your
-    breaks — the closer tripwire and the set-count guard — so manual breaks
-    that contradict jerrybase's set closers or set count can still raise a
-    flag rather than self-clearing; for non-jerrybase shows the override
-    stands unchallenged. `--clear-set-breaks` removes the override.
-  - By default any of the above just prints the follow-up
-    (`next: llama redo <show> --from <stage>`, stage chosen by precedence —
-    see [Clearing gate 2](#the-two-human-gates-dont-confuse-them) above —
-    an exclude or metadata edit prints `--from gather`); `--apply` runs
-    that redo immediately instead. A gather re-run recomputes
-    `needs_review`/`review_flags` from scratch, so a hold **self-clears**
-    whenever the correction removes the flag that caused it — no separate
-    "clear" step needed for `--exclude`/metadata fixes.
-- **Set form** (`llama show` with no name, or with any selector): walks
-  every matching show. With no selector it defaults to `--held`. Selectors:
-  `--held`, `--packaged`, `--voiced`, `--unvoiced`, `--broadcast-ready`,
-  `--state NAME`, `--artist SUBSTR`, `--run NAME`. On a TTY, each held show
-  in the walk gets an interactive prompt — `[e]xclude tracks / [v]ague /
-  [c]lear / [s]kip / [q]uit` — `e` lists tracks and asks which numbers to
-  exclude, then applies and redoes from `gather` right there; `v` and `c`
-  clear the hold and redo from `synthesize`/`package` respectively; `s`
-  leaves it and moves to the next show; `q` stops the walk. Non-held shows
-  in the walk (e.g. from `--voiced`) are just printed, never prompted. Off a
-  TTY (scripts, CI), the walk only prints each entry — no prompts, no edits.
+  ```
+  shortlist ready — nothing processed.
+  to approve & process:  llama run approve <session-id>
+  to discard:            llama run rm <session-id>
+  ```
 
-### `llama redo <show>|<selectors> --from STAGE [--with-research] [--script/--no-script] [--voice/--no-voice] [--yes]`
-Re-run show(s)' pipeline from a stage onward. `--from` is required; stages:
-`select | gather | research | vet | synthesize | package`. For each show it
-deletes that stage's artifacts **and everything downstream**, then re-runs
-the tail using the show's `provenance.json` (candidate, winnow dossier,
-script/voice settings) — the originating run directory is not needed.
+  `--plan` composes with `--auto` (`--auto --plan` = "spend on winnow,
+  never prompt, park it").
+- `--name` gives the session an explicit id instead of the auto-unique
+  `YYYY-MM-DD-<slug>` (mainly for tests/scripting).
+- The winnow pool now also excludes every show already in the library, not
+  just the ledger (§ [Dedup](#dedup-library--history) below).
 
-- **Single-show form:** `llama redo <show> --from STAGE ...` — standalone,
-  no run replay, no other show touched.
-- **Batch form:** give selectors instead of a name —
-  `--held`/`--packaged`/`--voiced`/`--unvoiced`/`--broadcast-ready`/
-  `--state NAME`/`--artist SUBSTR`/`--run NAME` (same selectors as `llama
-  show`'s set form). It prints the plan (every matching show) and asks
-  `Proceed? [y/N]`; `--yes` skips the prompt for scripting. **Held shows are
-  excluded from the batch unless `--held` is explicitly given** — a batch
-  redo never processes a hold by accident. Each show's failure is isolated:
-  a failing show prints `FAILED <slug>: <error>` and the rest of the batch
-  continues. Giving a show name together with any selector is an error
-  ("give a show OR selectors, not both").
-- **`research.md` is kept by default** on `--from select`/`--from gather`:
-  it's the expensive high-tier call and depends on performance identity,
-  not recording choice; vet's grounding checks are the safety net if a
-  structural fix leaves it slightly stale. `--with-research` drops it too;
-  `--from research` redoes it by definition.
-- The script setting recorded at process time is replayed;
-  `--script`/`--no-script` overrides it (applied to every show in a batch).
-- **`--from package --voice` is the standard way to (re-)voice show(s)**:
-  `--voice` re-voices using the recorded (or given) voice, `--no-voice`
-  strips voice from the package. Unchanged segments aren't re-synthesized
-  (cached by text+voice+model) unless the recorded voice actually changed;
-  there is no separate `--force` needed here since `redo` always rebuilds
-  the stage it starts from. `llama redo --unvoiced --from package --voice`
-  is the standard "voice everything that's silent" batch.
-- A show without `provenance.json` (hand-built dir) errors — reprocess it
-  via its run once; in a batch this fails just that show.
+### `llama artists ["query"] [--limit N] [--include-junk] [--min-recordings N] [--min-downloads N] [--refresh]`
+Search the LMA artist index with a natural-language query, or with no query
+list the deepest catalogs. `--include-junk` skips the junk-filter floors
+entirely (`--min-recordings`/`--min-downloads` override them instead).
 
-### `llama deliver <show>|<selectors> [--dest DIR] [--force] [--yes]`
+This is the **test-drive** for a `get`/profile query: it calls the same LLM
+matcher on the same request text with the same budget (20; `[artists]
+max_matched` in config governs the pipeline side), so its list previews what
+a run would search. The matcher is still an LLM — two calls can rank
+differently — so when you've settled on a roster, pin it (`profile
+artists --set`) and runs stop consulting the matcher at all.
+
+### `llama status [SELECTOR] [--all] [--by-run] [--json]`
+Global triage view: the session **attention-list** first, then the show
+table. Read-only — never prompts, never writes.
+
+- **Attention-list:** whenever any session is awaiting approval or
+  incomplete, prints before the show table:
+
+  ```
+  sessions needing attention:
+    2026-07-27-sunday-dead-hour-2       awaiting approval   llama run approve sunday-dead-hour-2
+    2026-07-27-china-rider              incomplete          llama run resume china-rider
+  ```
+
+  Complete sessions never appear. In `--json` this becomes the `sessions`
+  key alongside `shows` (or `runs` with `--by-run`).
+- **Selectors:** the shared vocabulary above (read-only class — no held
+  opt-in needed; every show is shown). `--all` includes every delivered
+  show instead of the recent-5 tail.
+- **`--by-run`** replaces the deleted `runs` command: one row per session —
+  id, per-state show counts, query. Exclusive with selectors/`--all`.
+- Show rows: state, artist, date, session, held-for-review first, flags
+  indented beneath; inline annotations for anything non-default
+  (`[broadcast-ready, voiced, vague, 3x-excl]`).
+
+### `llama show <show> [--tracks] [--json]`
+Inspect one show. **Strictly read-only — never prompts, never edits.** Use
+`llama fix` to edit overrides or resolve a hold, and `llama triage` for the
+interactive walkthrough.
+
+Prints artist/date/venue, the chosen recording **with its archive.org URL**,
+a `considered:` block of every other recording weighed (identifier + score,
+descending — omitted when there was only one candidate), derived state, a
+table of stage artifacts (present + age, or missing), the current
+`overrides:` line (only shown when non-default), the needs-review flags,
+and a `broadcast-ready: yes`/`no` line — when `no`, the reasons follow
+indented (e.g. `held for review`, `no DJ script`, `no DJ audio (unvoiced)`,
+`no broadcast.m3u`, `N of M audio files missing`, or `not packaged`). On a
+held show it also prints `to overrule after inspecting: llama fix <slug>
+--overrule`. `--tracks` appends the numbered track table (index, set,
+title, title source, duration, filename) — the numbers `fix`'s
+`--exclude`/`--set-title`/`--set-breaks` take. `--json` emits the full
+machine-readable record (`archive_url`, `considered`, `stages`, `overrides`,
+`broadcast_reasons`, etc.). A show that hasn't reached `gather` yet
+(state `selected`) still prints what exists instead of erroring.
+
+### `llama pipeline`
+Teaching command: prints the stage flow with both gates marked, the eight
+derived `--state` values (plus the `voiced`/`broadcast-ready` annotations),
+and a redo cheat-sheet (which `fix` flag redoes from which stage). Static
+text, read-only — no config, no I/O, never prompts, never writes. Reach for
+it as a refresher any time.
+
+### `llama triage [<show>|SELECTOR]`
+The interactive resolution walkthrough — always interactive, requires a
+TTY (`triage is interactive; use status/show for scripted reads` off a
+TTY). Default selector `--held`; a broader selector walks held shows for
+resolution and just prints-and-skips non-held matches. Per held show,
+prints the full inspection block (as `show <name>`, including the archive
+URL) then prompts:
+
+```
+[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit
+```
+
+- **`[e]xclude`** — numbered track list, pick indices to add to
+  `overrides.exclude`, redo from `gather`.
+- **`[m]etadata`** — a mini-editor over `venue`, `city`, `date
+  (YYYY-MM-DD)`, `title overrides (N=Title, comma-separated)`, `set breaks
+  after tracks (e.g. 9,17)` — each shows the current effective value, empty
+  input keeps it; any change writes the overrides and redoes from `gather`.
+- **`[v]ague`** — sets `overrides.narration = "vague"`, clears the hold,
+  redoes from `synthesize`.
+- **`[o]verrule`** — clears the hold, redoes from `package`.
+- **`[s]kip`** / **`[q]uit`** — next show / stop the walk.
+
+After each action it reports `packaged: <path>` or `still held: <slug>`
+before advancing to the next show.
+
+### `llama fix <show> <edit-flags...> [--no-run]`
+The flag-driven editor for `overrides.json` and hold resolution — **runs
+the correct redo automatically** by default (earliest-affected stage wins
+when flags are combined: `gather` < `synthesize` < `package`); `--no-run`
+stages the edit and prints `staged; next: llama redo <show> --from <stage>`
+instead, for batching several edits before one redo. At least one flag is
+required (bare `fix <show>` errors, pointing at `show`/`triage`). Works on
+non-held shows too — overrides are general inputs, not hold-only.
+
+| Flag | Effect | Redo stage |
+|---|---|---|
+| `--exclude FILE\|N` (repeatable, comma groups) | add to `overrides.exclude` (filename or track number) | gather |
+| `--unexclude FILE\|N` | remove from `overrides.exclude` | gather |
+| `--set-venue V` / `--set-city C` / `--set-date YYYY-MM-DD` | force the field | gather |
+| `--set-title N="Song"` / `--clear-title N` | force/drop a track title | gather |
+| `--set-breaks "9,17"` / `--clear-set-breaks` | force/drop set breaks (the track numbers a break falls *after*; numbered-sets-only) | gather |
+| `--narration vague\|full` | set `overrides.narration`; `vague` also clears the hold | synthesize |
+| `--overrule` | clear `needs_review`/`review_flags`: "I've reviewed it, ship it" | package |
+
+Excludes/metadata do **not** pre-clear a hold (the re-gather decides,
+self-clearing only if the derivation comes out clean); `--narration vague`
+and `--overrule` clear immediately. On a jerrybase-covered (Garcia-universe)
+show, `--set-breaks` still runs the jerrybase cross-checks against your
+breaks (closer tripwire, set-count guard), so a manual break that
+contradicts jerrybase can still raise a flag rather than self-clearing.
+`--overrule` on a non-held show is a no-op + note. Single-show only — bulk
+blind edits to per-show overrides are a foot-gun, so batch resolution is
+`triage`, not `fix`.
+
+### `llama redo <show> | --run SESSION | SELECTOR --from STAGE [--redo-research] [--script/--no-script] [--voice/--no-voice] [--yes]`
+The single re-execution verb. `--from` is required. Three addressing forms
+(exactly one):
+
+1. **Single show:** `llama redo <show> --from STAGE` — drops that stage's
+   artifacts and everything downstream, then re-runs the tail using
+   `provenance.json` (candidate, winnow dossier, script/voice settings) —
+   the originating session doesn't need to exist anymore. Stage ∈
+   `select | gather | research | vet | synthesize | package`. A show
+   without `provenance.json` errors — reprocess it via its session once.
+2. **Selector batch:** `llama redo SELECTOR --from STAGE` — shared
+   vocabulary above, acting class (held opt-in), plan + confirm + per-show
+   `FAILED <slug>: …` isolation. `llama redo --unvoiced --from package
+   --voice` is the standard "voice everything that's silent" batch.
+3. **Session scope (`--run`, the new home for the old whole-run force):**
+   `llama redo --run <session> --from STAGE`.
+   - `STAGE ∈ {search, winnow}` (valid **only** with `--run`): rebuilds the
+     session's shortlist from that stage — deletes the stale downstream
+     artifacts (`candidates.json`+`shortlist.json` for `search`,
+     `shortlist.json` for `winnow`), then replays `get`'s processing tail
+     with the session's own criteria. If the doomed shortlist carries
+     approvals, confirms first ("this rebuilds the shortlist and discards
+     the approvals recorded on it"). This is the old `run --stage X --force`
+     for the whole run.
+   - Any show-level stage: batch-redo the session's shows — identical to
+     the selector form with `--run` as the only filter.
+
+`--redo-research` (renamed from `--with-research`, which *sounded* additive
+but deletes `research.md`) also drops research when redoing from
+`select`/`gather` — kept by default otherwise (it's the expensive
+performance-level call; vet's grounding check is the safety net if a
+structural fix leaves it slightly stale). `--script`/`--no-script` and
+`--voice`/`--no-voice` override the replayed setting (unset defers to the
+provenance stamp). Result per show: `packaged: <path>` or `still held:
+<slug>`.
+
+### `llama voice <show> | SELECTOR [--off] [--yes]`
+TTS as a first-class verb — pure sugar over `redo --from package
+--voice`/`--no-voice`:
+
+- `llama voice <show>` ≡ `redo <show> --from package --voice`
+- `llama voice --off <show>` ≡ `redo <show> --from package --no-voice`
+  (strips DJ audio + `broadcast.m3u` from the rebuilt package)
+- `llama voice --unvoiced --yes` replaces the old four-flag incantation
+  `redo --unvoiced --from package --voice --yes`.
+- Selector form uses the shared vocabulary (acting class, held opt-in). No
+  default selector — bare `voice` errors with `give a show or a selector
+  (e.g. --unvoiced)`.
+- Re-voicing replays the voice **stamped** at process time when one exists
+  (a presenter's clone edits are live — the stamp *is* the clone path — but
+  a preset change needs a fresh stamp: reprocess via `get --profile` to
+  pick it up); with no stamp, the house `[tts]` voice applies. `--off`
+  always wins over any stamp.
+
+### `llama deliver <show> | SELECTOR [--dest DIR] [--allow-unvoiced] [--yes]`
 Copies a show's `package/` into the station's watched folder
-(`delivery_path` from config, or `--dest`) and records a `delivered` ledger
-entry (run attribution from `provenance.json`). Refuses if the show is
-marked needs-review; `--force` overrides.
+(`delivery_path` from config, or `--dest`) and records a `delivered`
+history row.
+
+**Requires broadcast-ready by default** (packaged, file-complete, not
+held, scripted, voiced, has `broadcast.m3u`). `--allow-unvoiced` is the
+**sole** override — it ships an otherwise-ready music-only show anyway (no
+extra confirmation beyond the normal batch plan; the flag itself is the
+consent). Held shows and shows with missing audio files are **never**
+overridable — resolve via `fix`/`triage`, or re-package
+(`redo --from package`), first. **There is no `--force`** — the old
+`needs-review + --force` delivery bypass is gone entirely. Refusals print
+the failing reasons and a pointer, e.g. `refusing to deliver <slug>: held
+for review — resolve with llama triage`.
 
 - **Single-show form:** `llama deliver <show> ...`.
-- **Batch form:** selectors instead of a name —
-  `--held`/`--packaged`/`--voiced`/`--unvoiced`/`--broadcast-ready`/
-  `--state NAME`/`--artist SUBSTR`/`--run NAME`. `llama deliver --packaged`
-  is the standard ship-everything-ready command; `--broadcast-ready`
-  narrows that to shows that are also scripted, voiced, and have a
-  `broadcast.m3u` — the actually-airable subset. Same plan/`Proceed? [y/N]`/
-  `--yes`, same held-excluded-unless-`--held` rule, same per-show
-  `FAILED <slug>: ...` isolation, and the same "show OR selectors, not
-  both" error as `redo`.
+- **Batch form:** the shared selector vocabulary. `llama deliver --packaged`
+  is the ship-everything-ready sweep; `llama deliver --broadcast-ready`
+  narrows that to the actually-airable subset. Same plan/`Proceed? [y/N]`/
+  `--yes`, same held-opt-in rule, same per-show `FAILED <slug>: …`
+  isolation.
 - `llama status --packaged` (or `llama deliver --packaged` itself, before
   confirming) lists what's ready to deliver.
+
+### `llama rm <show> | SELECTOR [--forget | --suppress] [--yes]`
+Deletes `shows/<slug>/` — the one irreversible local operation, so it
+confirms by default (`--yes` skips). Leaves history in an intentional,
+*stated* state rather than a stale row:
+
+| Mode | Ledger effect | Net effect |
+|---|---|---|
+| default (no flag) | untouched | held/pre-package show (no ledger row): **re-eligible**. Packaged/delivered show: **stays excluded** (history dedup) |
+| `--forget` | purge all history rows for this performance | fully re-eligible, a clean slate |
+| `--suppress` | additionally append a `rejected` row (`run="manual"`) | guaranteed out, reversibly (`llama unsuppress`) — the only way to keep a *held* show (which has no keep-out row) from returning |
+
+Echoes what it did to history, e.g. `removed shows/gd1972-08-27 — no
+history rows; this show can be re-offered` / `… — history kept (selected,
+delivered): stays excluded from future gets` / `… — forgot 2 history rows:
+re-eligible` / `… — suppressed: will not be offered again (undo: llama
+unsuppress …)`. Selector form: shared vocabulary, acting class (`rm --held`
+is the legitimate "purge my junk holds" sweep, and must be spelled
+explicitly). Delivered copies already at the station are out of scope —
+`rm` only touches the workspace.
+
+### `llama suppress <show-or-performance-id>` / `llama unsuppress <show-or-performance-id>`
+The standalone deliberate reject / undo. `suppress` appends a `rejected`
+history row (repeats are harmless); the show, if on disk, is left
+untouched. `unsuppress` removes this performance's `rejected` rows only
+(0 removed is a clean no-op message). Both resolve an on-disk show like
+other acting commands, or accept a raw performance id
+(`collection/date[/eN]`) for a performance that isn't (or is no longer) on
+disk — the only way to keep "never offer me this again" usable for shows
+long gone. No confirmation prompts (reversible by construction).
 
 ### `llama config init [--stdout] [--config PATH]`
 Seed `~/.llama/config.toml` (or `--config PATH`) with the baked-in
@@ -590,22 +710,41 @@ file; `--stdout` prints the template instead. Exists because config
 values **replace** defaults rather than merging: any
 `[selection.tapers.*]` or `[[selection.lineage_eras]]` you add replaces
 the built-in GD tuning unless the defaults are restated — which the
-seeded file does for you.
+seeded file does for you. (This is the one `--config` that means *target
+file to write*, not *config to load* — the app-wide `llama --config PATH
+<command>` spelling is unaffected.)
 
-### `llama artists ["query"] [--limit N] [--all] [--refresh]`
-Search the LMA artist index with a natural-language query, or with no query
-list the deepest catalogs. `--all` bypasses the junk-filter floors.
+### `llama run list [--json]`
+The session **attention-list**: sessions awaiting approval or incomplete,
+newest first (complete sessions never show here — their dirs remain on
+disk harmlessly). Columns: session id, state, age (from the
+`session.json` marker, else dir mtime), criteria (`profile: <name>` or the
+truncated query).
 
-This is the **test-drive** for a profile/find query: it calls the same LLM
-matcher on the same request text with the same budget (20; `[artists]
-max_matched` in config governs the pipeline side), so its list previews what
-a run would search. The matcher is still an LLM — two calls can rank
-differently — so when you've settled on a roster, pin it (below) and runs
-stop consulting the matcher at all.
+### `llama run approve <session> [--full-rationale]`
+Gate 1: prints the session's persisted shortlist, prompts `Approve which
+ranks?` (unnamed ranks stay undecided), then confirms `Process approved
+shows now? [Y/n]`. Declining keeps `awaiting-approval` and prints `next:
+llama run resume <session-id>`. The shortlist approval **persists**
+(winnow is non-deterministic — a deferred approval must approve the exact
+list shown).
+
+### `llama run resume <session> [--auto/--interactive] [--full-rationale]`
+Resume a crashed or incomplete session from its artifacts — stages skip
+work already done. To force a stage re-run (run-wide or per-show), use
+`llama redo --run` instead; there's no `--stage`/`--force` here anymore.
+The persisted criteria fully determine script/voice/presenter — post-hoc
+voice changes are `llama voice`'s job. Defaults to `--auto` (no prompts).
+
+### `llama run rm <session> [--yes]`
+Discard a session directory (`runs/<id>/`, after a y/N confirmation showing
+the id and state). Shows it already processed are untouched — they live in
+`shows/` and carry `provenance.json`; sessions have no ledger history of
+their own.
 
 ### `llama profile add <name> "query" [--count N] [--human-gate] [--no-script] [--presenter ID] [--title "..."] [--artists "..."]`
 Interprets the query once and saves it as a standing profile.
-`--human-gate` makes `profile run --auto` stop at gate 1 instead of
+`--human-gate` makes `get --profile --auto` stop at gate 1 instead of
 self-approving. `--presenter ID` gives this show a host
 (`presenters/<id>.toml`; a typo'd id fails loudly right away), saved on the
 profile; it voices every run of this profile even when `[tts] enabled` is
@@ -619,11 +758,26 @@ run of the profile searches exactly those artists — deterministic, no LLM
 matching, no prune prompt. Edit the `artists` list under `[criteria]` in
 the profile TOML to change it later.
 
-### `llama profile run <name> [--auto]`
-Runs the profile as a new dated run, skipping performances already in the
-ledger. With `--human-gate` and `--auto`, stops at
-`Shortlist awaits review: llama review <run>`; approve, then
-`llama run <run>`.
+### `llama profile list`
+One line per profile: name, count, presenter (or `-`), query (truncated).
+
+### `llama profile show <name>`
+Inspect one profile's fields — query, count, human_gate, script, presenter,
+title, pinned roster, and the interpreted criteria highlights. Strictly
+read-only — never prompts, never edits, no LLM call.
+
+### `llama profile remove <name> [--yes]`
+Delete `profiles/<name>.toml` with a y/N confirmation. Sessions and shows
+already created are untouched.
+
+### `llama profile artists <name> [--set "A, B, C"]`
+View or re-pin a profile's pinned artist roster — the same `artists` list
+under `[criteria]` in the profile TOML that `profile add --artists` writes.
+With no `--set`, prints the current roster, or "no pinned roster (uses the
+LLM matcher)" if unpinned. `--set "Galactic, Lettuce, Soulive"` resolves
+each name against the local artist index (typos or ambiguity fail loudly,
+same as `profile add --artists`) and re-pins it; `--set ""` clears the pin,
+reverting future runs of the profile to the LLM artist matcher.
 
 ### `llama presenter add <id> --name NAME --sex SEX (--voice ID | --voice-clone WAV) (--character "..." | --character-file PATH) [--bed WAV] [--force]`
 Creates `presenters/<id>.toml` — the same file format described in
@@ -644,27 +798,46 @@ raising.
 Prints one presenter's fields (name, sex, resolved voice, bed if set) and
 its full character text.
 
-### `llama profile artists <name> [--set "A, B, C"]`
-View or re-pin a profile's pinned artist roster — the same `artists` list
-under `[criteria]` in the profile TOML that `profile add --artists` writes.
-With no `--set`, prints the current roster, or "no pinned roster (uses the
-LLM matcher)" if unpinned. `--set "Galactic, Lettuce, Soulive"` resolves
-each name against the local artist index (typos or ambiguity fail loudly,
-same as `profile add --artists`) and re-pins it; `--set ""` clears the pin,
-reverting future runs of the profile to the LLM artist matcher.
+### `llama presenter remove <id> [--yes] [--force]`
+Delete `presenters/<id>.toml` with a y/N confirmation. Refuses if any
+profile still names this presenter (lists which); `--force` removes it
+anyway (the next run of that profile then fails fast at load time, same as
+today for a missing id).
 
-### `llama profile list` / `llama ledger list` / `llama ledger add` / `llama ledger remove`
-Housekeeping. The ledger is the dedup memory: `selected` and `delivered`
-entries suppress a performance in future winnows; `rejected` entries do too.
-`ledger remove <performance-id>` un-suppresses one.
+### `llama history list [--log] [--json]`
+Dispositions for shows no longer on disk — the library covers what's on
+disk. Renamed from `ledger`; `add`/`remove` are gone (`suppress` covers
+reject, `unsuppress`/`rm --forget` cover removal). Default: one row per
+performance, its latest disposition:
+
+```
+2026-07-25  delivered  GratefulDead/1977-06-09      (2026-07-20-china-rider)
+2026-07-26  rejected   DelMcCouryBand/2003-04-19    (manual)
+```
+
+`--log` prints the full append-only trail instead. `--json` emits the
+corresponding rows.
+
+## Dedup: library ∪ history
+
+A performance is excluded from future `get`s if it's **in the library**
+(any show currently on disk, in any state — held, mid-pipeline, packaged,
+delivered) **or** it has a `played`/`delivered`/`rejected` row in the
+history ledger. This closes a gap the old ledger-only check had: a held
+show (no ledger row until it clears both gates) used to re-surface in every
+future run. `redo`/`fix`/`triage`/`voice`/`deliver`/`rm` don't run winnow,
+so none of them are affected — only `get` and a `redo --run --from
+search|winnow` re-winnow. Gone from *both* the library and the ledger (the
+`rm` default for a held show) is genuinely re-eligible — that's deliberate.
 
 ## Recipes
 
 **What's the state of everything? / What came in overnight?**
-`llama status` — held shows first with their flags, then packaged
-(ready to deliver), then in-flight. `llama status --packaged` is the
-ship-it worklist; `llama deliver <show>` each one (or `llama deliver
---packaged` to ship the whole worklist at once).
+`llama status` — the attention-list first (sessions awaiting approval or
+incomplete), then held shows with their flags, then packaged (ready to
+deliver), then in-flight. `llama status --packaged` is the ship-it
+worklist; `llama deliver <show>` each one (or `llama deliver --packaged` to
+ship the whole worklist at once).
 
 **What's actually ready to go on air right now?**
 `--packaged` only means `package/manifest.json` exists — it doesn't check
@@ -675,52 +848,56 @@ has a `broadcast.m3u`. `llama status --broadcast-ready` (or `llama show
 inverse flag exists — a `no` shows its reasons on `llama show <show>`.
 
 **Clear my overnight holds.**
-`llama show --held` — walks every held show one at a time with the
-interactive prompt (`[e]xclude tracks / [v]ague / [c]lear / [s]kip /
+`llama triage` — walks every held show one at a time with the interactive
+prompt (`[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip /
 [q]uit`), resolving and re-processing each one on the spot as you answer.
 `s` to leave one for later, `q` to stop the walk early.
 
 **A run printed `needs-review, skipped` for a show I want.**
-`llama show <show>` to read the flags. If a flag is a false alarm,
-`llama show <show> --clear` and then `llama redo <show> --from package`.
-If it's real (e.g. unresolved titles), fix the cause and
-`llama redo <show> --from <stage>` — see the three resolutions in
-[Clearing gate 2](#the-two-human-gates-dont-confuse-them) above.
+`llama show <show>` to read the flags (strictly read-only). If a flag is a
+false alarm, `llama fix <show> --overrule`. If it's real (e.g. unresolved
+titles), fix the cause with the matching `llama fix` flag (it auto-runs the
+redo) — see the three resolutions in
+[Clearing gate 2](#the-two-human-gates-dont-confuse-them) above, or drive
+it interactively with `llama triage`.
 
 **This show has junk announcement tracks.**
 `llama show <show> --tracks` to see the numbered track list, then `llama
-show <show> --exclude 9,10 --apply` (track numbers or filenames both work,
-comma-lists ok, `--exclude` repeatable too) — adds them to
-`overrides.exclude` and re-gathers immediately; gather drops them with
-reason `operator-excluded` and warns if an entry doesn't match any source
-file. A clean re-gather with the junk gone self-clears the hold.
+fix <show> --exclude 9,10` (track numbers or filenames both work,
+comma-lists ok, repeatable too) — adds them to `overrides.exclude` and
+re-gathers immediately; gather drops them with reason `operator-excluded`
+and warns if an entry doesn't match any source file. A clean re-gather with
+the junk gone self-clears the hold.
 
 **Wrong venue, city, date, a track title, or where a set break falls.**
-`llama show <show> --set-venue "Winterland" --set-city "San Francisco, CA"
---set-date 1973-06-10 --title 4="Dark Star" --set-breaks "9,17" --apply` —
-give only the flags you need; each forces the matching `overrides.json`
-field and re-gathers. `--clear-title N` drops one forced title,
-`--clear-set-breaks` drops the forced break list. `--set-breaks` takes the
-track numbers a break falls *after*, numbered-sets-only (no way to name an
-encore this way). Same self-clearing rule as excludes: a clean re-gather
-drops the hold on its own.
+`llama fix <show> --set-venue "Winterland" --set-city "San Francisco, CA"
+--set-date 1973-06-10 --set-title 4="Dark Star" --set-breaks "9,17"` — give
+only the flags you need; each forces the matching `overrides.json` field
+and (once, for the combined edit) re-gathers. `--clear-title N` drops one
+forced title, `--clear-set-breaks` drops the forced break list.
+`--set-breaks` takes the track numbers a break falls *after*,
+numbered-sets-only (no way to name an encore this way). Same self-clearing
+rule as excludes: a clean re-gather drops the hold on its own.
 
 **This show's setlist is unknowable.**
-`llama show <show> --vague --apply` — sets `overrides.narration = "vague"`,
-clears the hold, and re-synthesizes immediately; the script names no songs
-and asserts no set structure, but is otherwise normal.
+`llama fix <show> --narration vague` — sets `overrides.narration =
+"vague"`, clears the hold, and re-synthesizes immediately; the script
+names no songs and asserts no set structure, but is otherwise normal.
 
-**I approved via `llama review` — now what?**
-Say yes when it offers to process, or `llama run <run>` later.
+**I ran `get --plan` (or a human-gate profile) — now what?**
+`llama run list` (or `llama status`) shows it in the attention-list with a
+`llama run approve <session-id>` hint. Approve, say yes when it offers to
+process, or `llama run resume <session-id>` later if you decline.
 
 **A stage failed with an LLM error.**
-The raw output is in `shows/<slug>/llm-failure.txt`. Just re-run
-`llama run <run>` — completed stages are skipped, the failed one retries.
+The raw output is in `shows/<slug>/llm-failure.txt`. Just
+`llama run resume <session>` — completed stages are skipped, the failed one
+retries.
 
 **I want a different recording of the same show.**
 `llama redo <show> --from select` — the drop cascades, so gather through
 package rebuild from the newly picked recording. `research.md` is kept
-(it's about the performance, not the recording); add `--with-research` if
+(it's about the performance, not the recording); add `--redo-research` if
 you want it redone too.
 
 **Re-research a show.**
@@ -728,33 +905,31 @@ you want it redone too.
 so the new research gets re-vetted.
 
 **Voice every packaged-but-silent show.**
-`llama redo --unvoiced --from package --voice` — batch-selects every
-packaged show with no `dj-audio/` yet, prints the plan, and (after
-confirming, or with `--yes`) re-packages each with speech. Each show uses
-its recorded voice (house or presenter); a failure on one show doesn't
-stop the rest.
+`llama voice --unvoiced --yes` (or `llama redo --unvoiced --from package
+--voice`) — batch-selects every packaged show with no `dj-audio/` yet,
+prints the plan, and re-packages each with speech. Each show uses its
+recorded voice (house or presenter); a failure on one show doesn't stop the
+rest.
 
 **I want to add (or change) the spoken DJ voice on an already-packaged show.**
-`llama redo <show> --from package --voice`. To switch to a *different*
-voice, set `[tts] voice` (house shows) first. For a hosted show it depends
-on what the presenter uses: edit `voice_clone` (or the clip it points to)
-and the new clip takes effect, since the clone reference is re-read live;
-editing a preset `voice` does **not** take effect this way, since `redo`
-replays the voice stamped on the show at process time — re-run the show
-fresh (`llama profile run`) to pick up a new preset voice. `--voice` itself
-just turns voicing on, it replays the show's already-recorded voice
-otherwise. Unchanged script segments aren't re-synthesized, so this is
-cheap even against the paid API. `llama redo <show> --from package
---no-voice` strips voice audio back out.
+`llama voice <show>`. To switch to a *different* voice, set `[tts] voice`
+(house shows) first. For a hosted show it depends on what the presenter
+uses: edit `voice_clone` (or the clip it points to) and the new clip takes
+effect, since the clone reference is re-read live; editing a preset
+`voice` does **not** take effect this way, since a redo replays the voice
+stamped on the show at process time — re-run the show fresh (`llama get
+--profile <name>`) to pick up a new preset voice. Unchanged script segments
+aren't re-synthesized, so this is cheap even against the paid API. `llama
+voice --off <show>` strips voice audio back out.
 
 **I edited a presenter's character — how do I hear the new persona?**
 `llama redo <show> --from synthesize` re-scripts with the new persona
 (deletes and rebuilds `dj-notes.*` and everything downstream, including
 `dj-audio/` if the show is voiced). Swapping a presenter's `voice_clone`
-with the character unchanged doesn't need a re-script either — `redo
-<show> --from package --voice` is enough to re-render audio in the new
-voice, since the clone reference is re-read live. Swapping a preset `voice`
-needs a fresh `profile run` instead, same as above.
+with the character unchanged doesn't need a re-script either — `llama voice
+<show>` is enough to re-render audio in the new voice, since the clone
+reference is re-read live. Swapping a preset `voice` needs a fresh `get
+--profile` instead, same as above.
 
 **I want a new host without hand-editing a TOML file.**
 `llama presenter add casey --name Casey --sex male --voice american-dj
@@ -772,33 +947,41 @@ and re-pins the roster (typos/ambiguity fail loudly, same as `profile add
 --artists`); `llama profile artists funky` alone shows the current roster;
 `--set ""` clears it back to the LLM matcher.
 
-**The same show keeps coming back in every profile run.**
-It's not in the ledger. Deliver it, or `llama ledger add <performance-id>
---artist A --date D --status rejected` to suppress it.
+**The same show keeps coming back in every `get`.**
+It's neither in the library nor the history ledger. Deliver it, or `llama
+suppress <performance-id>` to reject it without touching disk (works even
+for a show that's no longer on disk, given a raw `collection/date[/eN]`
+id).
 
-**A search or winnow decision looks wrong (run-level, not one show).**
-Stage forcing at the run level still exists:
-`llama run <run> --stage winnow --force` rebuilds the shortlist
-(confirming first if approvals would be lost); `--stage search --force`
-re-searches and drops the shortlist with it.
+**A search or winnow decision looks wrong (session-level, not one show).**
+`llama redo --run <session> --from winnow` rebuilds the shortlist
+(confirming first if approvals would be lost); `--from search` re-searches
+and drops the shortlist with it.
+
+**I want to clean up a stale or abandoned session.**
+`llama run list` to see what's awaiting attention; `llama run rm <session>`
+discards the session directory (shows it already processed live on in
+`shows/`, untouched).
 
 ## Troubleshooting: message → meaning → action
 
 | You see | It means | Do |
 |---|---|---|
-| `Shortlist awaits review: llama review <run>` | Gate 1 is waiting (human-gate profile) | `llama review <run>` (it offers to process after) |
-| `approved: [1]` (from review) | Picks recorded | Say yes at the process prompt, or `llama run <run>` later |
-| `needs-review, skipped: <show>` | Gate 2: a flag was set during processing | `llama show <show>`; fix (`llama redo --from <stage>`) or `--clear`, then `llama redo <show> --from package` |
+| `shortlist ready — nothing processed.` (`get --plan`) | Session parked awaiting approval | `llama run approve <session-id>`, or `llama run rm <session-id>` to discard |
+| `sessions needing attention:` (on `status`/`run list`) | A session is awaiting approval or incomplete | Follow the printed `llama run approve`/`llama run resume` hint |
+| `needs-review, skipped: <show>` | Gate 2: a flag was set during first-time processing | `llama show <show>` to read the flags; `llama fix <show> --overrule` if a false alarm, or the matching `fix` flag if real, or `llama triage` interactively |
+| `still held: <slug>` (from `redo`/`voice`/`fix`/`triage`) | Gate 2: the show came back held after a re-run | Same as above |
 | `skipping <show>: needs review (…)` (log line) | Same as above, with the flags inline | Same |
-| `holding <show>: flagged during packaging (…)` | Package built but audio verification flagged it | Inspect; `llama deliver --force` if acceptable |
-| `refusing to deliver: … use --force` | Delivering a needs-review show | Inspect, then `--force` if intended |
-| `FAILED <show>: …` | LLM/network failure mid-show | `llama run <run>` retries just the missing pieces; see `llm-failure.txt` |
-| `FAILED <show>: …` (voice active) | TTS backend failed (bad key, rate limit, missing key — Voxtral needs `MISTRAL_API_KEY`, ElevenLabs needs `ELEVENLABS_API_KEY`) — show gets no package, batch continues | `llama redo <show> --from package` once the API issue clears; the segment cache means only the unfinished clips re-render |
-| `note: already-packaged shows won't be re-voiced without --force …` | `llama run <run> --voice` on a run whose shows are already packaged is a no-op for them | `llama run <run> --stage package --force --voice`, or `llama redo <show> --from package --voice` for one show |
-| `'x' is ambiguous` + a list | Substring matched several shows/runs | Use a longer substring or a full name from the list |
-| `no show matches 'x'` / `no run matches 'x'` | Resolver found nothing | `llama status` / `llama runs` to see what exists |
-| `no provenance.json in … - reprocess it via its run` | `redo` on a hand-built show with no provenance | Reprocess once via its run to write `provenance.json` |
-| `No shows survived winnowing.` | Nothing passed dedup + mechanical floors + scoring | Broaden the query, lower floors, or check the ledger |
+| `holding <show>: flagged during packaging (…)` | Package built but audio verification flagged it | `llama show <show>`; `llama fix <show> --overrule` if acceptable |
+| `refusing to deliver <slug>: held for review — resolve with llama triage` | Delivering a held show | `llama triage`/`llama fix <slug> --overrule`, then `llama deliver` again — there is no delivery-time override |
+| `FAILED <show>: …` | LLM/network failure mid-show | `llama run resume <session>` retries just the missing pieces; see `llm-failure.txt` |
+| `FAILED <show>: …` (voice active) | TTS backend failed (bad key, rate limit, missing key — Voxtral needs `MISTRAL_API_KEY`, ElevenLabs needs `ELEVENLABS_API_KEY`) — show gets no package, batch continues | `llama voice <show>` (or `llama redo <show> --from package`) once the API issue clears; the segment cache means only the unfinished clips re-render |
+| `note: already-packaged shows won't be re-voiced by a plain replay; …` | `llama run resume <session>` on a session whose shows are already packaged is a no-op for them | `llama voice <show>` (one show), or `llama redo --run <session> --from package --voice` (the whole session) |
+| `'x' is ambiguous` + a list | Substring matched several shows/sessions | Use a longer substring or a full name from the list |
+| `no show matches 'x'` / `no session matches 'x'` | Resolver found nothing | `llama status` / `llama run list` (or `llama status --by-run`) to see what exists |
+| `no provenance.json in … - reprocess it via its run` | `redo`/`voice` on a hand-built show with no provenance | Reprocess once via its session to write `provenance.json` |
+| `No shows survived winnowing.` | Nothing passed dedup + mechanical floors + scoring | Broaden the query, lower floors, or check the library/history |
+| `winnow: N candidates -> M after library+ledger -> K after mechanical` | Dedup + mechanical-floor progression | Informational; a big drop at the first arrow means most candidates are already on disk or in history |
 | `winnow: N of M scored shows fell below the quality floor` | LLM scores under `min_quality_score` (default 6.0) were dropped | Expected while a pool is healthy; if it recurs and runs come back short, the well is drying — broaden criteria, or lower `--min-score` if you'd rather ship marginal shows |
 | `no matching artists found on the LMA` | Artist-less query matched nothing in the index | Name an artist or broaden the style terms |
 | `winnow: sampling N of M survivors for review fetch` | More candidates than the review-fetch budget; the best-evidenced are scored, bounded by `artist_cap`/`year_cap` | Fine for most runs; raise `[winnow] max_metadata_fetch` in config to score more |

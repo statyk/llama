@@ -49,6 +49,10 @@ class Criteria(BaseModel):
     # LLM artist matcher entirely and fan the search out over exactly these -
     # deterministic runs for standing profiles.
     artists: list[str] = Field(default_factory=list)
+    # Profile that produced this session's criteria; display only, spec §4.
+    # None for one-off runs (`llama get "query"`). Stamped by `llama get
+    # --profile`, never read back to change behavior.
+    profile: str | None = None
 
 
 class RecordingSummary(BaseModel):

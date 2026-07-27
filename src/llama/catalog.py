@@ -4,13 +4,18 @@ State is never stored; it is derived from which artifacts exist plus the
 ledger, so it cannot go stale. Scan-on-demand — at this scale (~10^2 shows)
 a walk is milliseconds.
 """
+import shutil
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from llama.errors import LlamaError
 from llama.ledger import Ledger
-from llama.models import Overrides, Provenance, Show
+from llama.models import LedgerEntry, Overrides, Provenance, Show
 from llama.workspace import ShowWorkspace, read_json, read_model, read_overrides
+
+
+ARCHIVE_URL = "https://archive.org/details/{identifier}"
 
 
 class CatalogError(LlamaError):
@@ -48,12 +53,66 @@ _STAGES = [
 ]
 
 
+@dataclass
+class ConsideredRecording:
+    identifier: str
+    score: float
+    lineage: str
+    kept_tracks: int
+
+
+@dataclass
+class RecordingInfo:
+    identifier: str                       # the chosen recording
+    url: str                              # ARCHIVE_URL filled in
+    considered: list[ConsideredRecording]  # scores keys minus chosen, score desc
+
+
+def recording_info(ws: ShowWorkspace) -> RecordingInfo | None:
+    """Archive URL + considered-recordings extraction from selection.json
+    (spec §10). None when selection.json is absent; never writes."""
+    if not ws.selection.exists():
+        return None
+    data = read_json(ws.selection)
+    chosen = data["identifier"]
+    scores = data.get("scores", {})
+    considered = [
+        ConsideredRecording(
+            identifier=ident,
+            score=info.get("score", 0.0),
+            lineage=info.get("lineage", ""),
+            kept_tracks=info.get("kept_tracks", 0),
+        )
+        for ident, info in scores.items()
+        if ident != chosen
+    ]
+    considered.sort(key=lambda c: c.score, reverse=True)
+    return RecordingInfo(identifier=chosen,
+                         url=ARCHIVE_URL.format(identifier=chosen),
+                         considered=considered)
+
+
 def _performance_id(ws: ShowWorkspace) -> str | None:
     if ws.provenance.exists():
         return read_model(ws.provenance, Provenance).performance_id
     if ws.show.exists():
         return read_model(ws.show, Show).performance_id
     return None
+
+
+def library_performance_ids(root: Path) -> set[str]:
+    """Performance ids of every show currently on disk, any state. The library
+    half of dedup memory: what you have is never re-offered (spec §9)."""
+    shows_dir = root / "shows"
+    if not shows_dir.is_dir():
+        return set()
+    out = set()
+    for d in sorted(shows_dir.iterdir()):
+        if d.is_dir():
+            pid = _performance_id(ShowWorkspace(d))
+            if pid:
+                out.add(pid)
+    return out
 
 
 def derive_state(ws: ShowWorkspace, delivered: set[str]) -> tuple[str, list[str]]:
@@ -111,6 +170,19 @@ def broadcast_readiness(ws: ShowWorkspace) -> tuple[bool, list[str]]:
     if missing:
         reasons.append(f"{len(missing)} of {len(tracks)} audio files missing")
     return (not reasons), reasons
+
+
+VOICE_BUNDLE_REASONS = ("no DJ script", "no DJ audio (unvoiced)", "no broadcast.m3u")
+
+
+def deliver_refusals(ws: ShowWorkspace, allow_unvoiced: bool = False) -> list[str]:
+    """Why deliver must refuse this show (empty = deliverable). Deliver requires
+    broadcast-ready; --allow-unvoiced subtracts exactly the voice bundle — held,
+    missing files, and not-packaged are never overridable (spec §7.3)."""
+    reasons = broadcast_readiness(ws)[1]
+    if allow_unvoiced:
+        reasons = [r for r in reasons if r not in VOICE_BUNDLE_REASONS]
+    return reasons
 
 
 def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
@@ -181,3 +253,48 @@ def resolve_run(root: Path, name: str) -> str:
     runs_dir = root / "runs"
     runs = sorted(d.name for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
     return _resolve(name, runs, "run")
+
+
+def remove_show(entry: CatalogEntry, ledger: Ledger, *,
+                forget: bool = False, suppress: bool = False) -> list[str]:
+    """Delete a show dir and apply one of three history dispositions,
+    returning the echo lines the CLI prints verbatim (spec §8.1).
+
+    default: ledger untouched. forget: purges every ledger row for this
+    performance id (re-eligible). suppress: appends a reversible `rejected`
+    row (excluded from future gets until `llama unsuppress`). The ledger
+    change (if any) happens before the rmtree so a failed disposition never
+    leaves the show deleted with history in the wrong state."""
+    if forget and suppress:
+        raise LlamaError("cannot pass both --forget and --suppress")
+    pid = _performance_id(entry.ws)
+    if pid is None and (forget or suppress):
+        raise LlamaError(
+            f"cannot resolve a performance id for {entry.slug}; history flags need one")
+
+    if forget:
+        n = ledger.remove(pid)
+        history_line = f"forgot {n} history row(s): re-eligible"
+    elif suppress:
+        if entry.ws.show.exists():
+            show = read_model(entry.ws.show, Show)
+            artist, date, venue = show.artist, show.date, show.venue
+        else:
+            candidate = read_model(entry.ws.provenance, Provenance).candidate
+            artist, date, venue = candidate.collection, candidate.date, candidate.venue
+        ledger.record(LedgerEntry(
+            performance_id=pid, artist=artist, date=date, venue=venue,
+            status="rejected", run="manual",
+            recorded_at=datetime.now(timezone.utc).isoformat(),
+        ))
+        history_line = f"suppressed: will not be offered again (undo: llama unsuppress {pid})"
+    else:
+        rows = [e for e in ledger.entries() if pid is not None and e.performance_id == pid]
+        if rows:
+            statuses = ", ".join(sorted({r.status for r in rows}))
+            history_line = f"history kept ({statuses}): stays excluded from future gets"
+        else:
+            history_line = "no history rows; this show can be re-offered"
+
+    shutil.rmtree(entry.ws.dir)
+    return [f"removed shows/{entry.slug}", history_line]

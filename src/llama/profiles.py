@@ -2,9 +2,14 @@ import tomllib
 from pathlib import Path
 
 import tomli_w
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
+from llama.errors import LlamaError
 from llama.models import Criteria
+
+
+class ProfileError(LlamaError):
+    """A profile file is missing, unparseable, or fails validation."""
 
 
 class Profile(BaseModel):
@@ -31,4 +36,33 @@ def save_profile(root: Path, profile: Profile) -> Path:
 
 def load_profile(root: Path, name: str) -> Profile:
     path = root / "profiles" / f"{name}.toml"
-    return Profile.model_validate(tomllib.loads(path.read_text()))
+    if not path.exists():
+        raise ProfileError(f"no profile {name!r}: {path} does not exist")
+    try:
+        data = tomllib.loads(path.read_text())
+    except tomllib.TOMLDecodeError as exc:
+        raise ProfileError(f"invalid profile at {path}: {exc}") from exc
+    try:
+        return Profile.model_validate(data)
+    except ValidationError as exc:
+        raise ProfileError(f"invalid profile at {path}: {exc}") from exc
+
+
+def delete_profile(root: Path, name: str) -> Path:
+    path = root / "profiles" / f"{name}.toml"
+    if not path.exists():
+        raise ProfileError(f"no profile {name!r}: {path} does not exist")
+    path.unlink()
+    return path
+
+
+def list_profiles(root: Path) -> list[tuple[str, Profile | str]]:
+    """(name, Profile | error-string) for each profiles/*.toml, sorted by name."""
+    d = root / "profiles"
+    out = []
+    for p in sorted(d.glob("*.toml")) if d.is_dir() else []:
+        try:
+            out.append((p.stem, load_profile(root, p.stem)))
+        except ProfileError as exc:
+            out.append((p.stem, str(exc)))
+    return out

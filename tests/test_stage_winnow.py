@@ -246,6 +246,34 @@ def test_winnow_quality_floor_is_per_criteria(tmp_path: Path):
     assert len(entries) == 3  # floor disabled: nothing dropped
 
 
+def test_winnow_library_ids_exclude_like_ledger(tmp_path: Path):
+    cands = [
+        candidate("GratefulDead/1973-06-10", "1973-06-10"),  # excluded via library_ids
+        candidate("GratefulDead/1977-05-08", "1977-05-08"),  # survives
+    ]
+    ws, led = setup(tmp_path, cands)
+    crit = Criteria(query="q", collection="GratefulDead")
+    fake = FakeProvider(completes=[assessments_json(["GratefulDead/1977-05-08"])],
+                        researches=["r"])
+    entries = run_winnow(ws, fake, fake, StubIA(), crit, led,
+                         library_ids={"GratefulDead/1973-06-10"})
+    assert [e.candidate.performance_id for e in entries] == ["GratefulDead/1977-05-08"]
+
+
+def test_winnow_omitting_library_ids_is_unchanged(tmp_path: Path):
+    cands = [
+        candidate("GratefulDead/1973-06-10", "1973-06-10"),
+        candidate("GratefulDead/1977-05-08", "1977-05-08"),
+    ]
+    ws, led = setup(tmp_path, cands)
+    crit = Criteria(query="q", collection="GratefulDead")
+    fake = FakeProvider(completes=[assessments_json(
+        ["GratefulDead/1973-06-10", "GratefulDead/1977-05-08"])], researches=["r"] * 2)
+    entries = run_winnow(ws, fake, fake, StubIA(), crit, led)
+    assert sorted(e.candidate.performance_id for e in entries) == [
+        "GratefulDead/1973-06-10", "GratefulDead/1977-05-08"]
+
+
 def test_winnow_logs_progress(tmp_path: Path, caplog):
     cands = [candidate(f"GratefulDead/1974-0{i}-01", f"1974-0{i}-01") for i in range(1, 6)]
     ws, led = setup(tmp_path, cands)

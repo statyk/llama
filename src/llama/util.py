@@ -1,6 +1,14 @@
 import math
 import re
 
+_PID = re.compile(r"^([^/]+)/(\d{4}-\d{2}-\d{2})(?:/e\d+)?$")
+
+
+def parse_performance_id(text: str) -> tuple[str, str] | None:
+    """(collection, date) from a canonical performance id, else None."""
+    m = _PID.match(text)
+    return (m.group(1), m.group(2)) if m else None
+
 
 def slugify(text: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")

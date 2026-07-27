@@ -1,4 +1,4 @@
-from llama.util import length_seconds, slugify
+from llama.util import length_seconds, parse_performance_id, slugify
 
 
 def test_slugify():
@@ -13,6 +13,14 @@ def test_length_seconds():
     assert length_seconds("452.5") == 452.5
     assert length_seconds(None) is None
     assert length_seconds("n/a") is None
+
+
+def test_parse_performance_id():
+    assert parse_performance_id("GratefulDead/1980-05-16") == ("GratefulDead", "1980-05-16")
+    assert parse_performance_id("GratefulDead/1966-07-16/e2") == ("GratefulDead", "1966-07-16")
+    assert parse_performance_id("not-a-pid") is None
+    assert parse_performance_id("a/b/c") is None
+    assert parse_performance_id("GratefulDead/16-05-1980") is None
 
 
 def test_reviews_digest_formats_caps_and_handles_empty():
