@@ -1,7 +1,10 @@
 from pathlib import Path
 
+import pytest
+
+from llama.errors import LlamaError
 from llama.models import Criteria, SetlistConstraint
-from llama.profiles import Profile, load_profile, save_profile
+from llama.profiles import Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile
 
 
 def test_profile_toml_roundtrip_with_none_fields(tmp_path: Path):
@@ -40,3 +43,49 @@ def test_profile_legacy_voice_key_is_ignored(tmp_path: Path):
     path.write_text('name = "old"\nvoice = "v-legacy"\n[criteria]\nquery = "q"\n')
     loaded = load_profile(tmp_path, "old")
     assert not hasattr(loaded, "voice")
+
+
+def test_missing_profile_raises_profile_error(tmp_path: Path):
+    with pytest.raises(ProfileError) as exc:
+        load_profile(tmp_path, "ghost")
+    assert "ghost" in str(exc.value)
+    assert isinstance(exc.value, LlamaError)     # CLI boundary prints it cleanly
+
+
+def test_invalid_toml_raises_profile_error(tmp_path: Path):
+    path = tmp_path / "profiles" / "bad.toml"
+    path.parent.mkdir(parents=True)
+    path.write_text("name = [unclosed")
+    with pytest.raises(ProfileError):
+        load_profile(tmp_path, "bad")
+
+
+def test_failed_validation_raises_profile_error(tmp_path: Path):
+    path = tmp_path / "profiles" / "half.toml"
+    path.parent.mkdir(parents=True)
+    path.write_text('name = "half"\n')          # no [criteria] table at all
+    with pytest.raises(ProfileError):
+        load_profile(tmp_path, "half")
+
+
+def test_delete_profile_removes_file_and_errors_on_unknown(tmp_path: Path):
+    crit = Criteria(query="q")
+    path = save_profile(tmp_path, Profile(name="gone", criteria=crit))
+    assert path.exists()
+    removed = delete_profile(tmp_path, "gone")
+    assert removed == path
+    assert not path.exists()
+    with pytest.raises(ProfileError):
+        delete_profile(tmp_path, "gone")
+
+
+def test_list_profiles_returns_name_and_profile_or_error_string(tmp_path: Path):
+    save_profile(tmp_path, Profile(name="a", criteria=Criteria(query="q1")))
+    save_profile(tmp_path, Profile(name="b", criteria=Criteria(query="q2")))
+    bad = tmp_path / "profiles" / "bad.toml"
+    bad.write_text("not valid toml [[[")
+    rows = list_profiles(tmp_path)
+    assert [n for n, _ in rows] == ["a", "b", "bad"]
+    by_name = dict(rows)
+    assert isinstance(by_name["a"], Profile) and by_name["a"].criteria.query == "q1"
+    assert isinstance(by_name["bad"], str)

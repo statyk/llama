@@ -24,8 +24,12 @@ from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
-from llama.presenters import Presenter, list_presenters, load_presenter, save_presenter
-from llama.profiles import Profile, load_profile, save_profile
+from llama.presenters import (
+    Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
+)
+from llama.profiles import (
+    Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
+)
 from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
                             attention_sessions, mark_awaiting, mark_complete,
                             session_state)
@@ -2007,12 +2011,80 @@ def profile_artists(
     typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
 
 
+_PROFILE_LIST_HEADER = f"{'NAME':<20} {'CNT':>3} {'PRESENTER':<14} QUERY"
+
+
 @profile_app.command("list")
 def profile_list():
+    """List profiles: name, count, presenter, query."""
     config, _, _ = _setup()
-    profiles_dir = config.root / "profiles"
-    for p in sorted(profiles_dir.glob("*.toml")) if profiles_dir.exists() else []:
-        typer.echo(p.stem)
+    rows = list_profiles(config.root)
+    if not rows:
+        typer.echo("no profiles")
+        return
+    typer.echo(_PROFILE_LIST_HEADER)
+    for name, p in rows:
+        if isinstance(p, str):
+            typer.echo(f"{name:<20} (invalid: {p})")
+            continue
+        presenter = p.presenter or "-"
+        typer.echo(f"{p.name:<20} {p.count:>3} {presenter:<14} {p.criteria.query:40.40s}")
+
+
+@profile_app.command("show")
+def profile_show(name: str = typer.Argument(...)):
+    """Inspect one profile: criteria, count, presenter, and pinned roster.
+    Strictly read-only -- never prompts, never edits. No LLM call."""
+    config, _, _ = _setup()
+    profile = load_profile(config.root, name)   # ProfileError -> main_cli boundary
+    c = profile.criteria
+    typer.echo(f"{profile.name}  count={profile.count}  human_gate={profile.human_gate}  "
+               f"script={profile.script}")
+    typer.echo(f"query: {c.query}")
+    typer.echo(f"presenter: {profile.presenter or '-'}")
+    typer.echo(f"title: {profile.title or '-'}")
+    if c.artists:
+        typer.echo("pinned roster: " + ", ".join(c.artists))
+    else:
+        typer.echo("no pinned roster")
+    typer.echo("criteria:")
+    typer.echo(f"  collection/artist: {c.collection or '-'} / {c.artist or '-'}")
+    typer.echo(f"  date range: {c.date_from or '-'} .. {c.date_to or '-'}")
+    typer.echo(f"  artist_cap/year_cap/min_quality_score: "
+               f"{c.artist_cap} / {c.year_cap} / {c.min_quality_score}")
+
+
+@profile_app.command("remove")
+def profile_remove(
+    name: str = typer.Argument(...),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt"),
+):
+    """Delete a profile's TOML file. Sessions and shows are untouched."""
+    config, _, _ = _setup()
+    path = config.root / "profiles" / f"{name}.toml"
+    if not path.exists():
+        raise ProfileError(f"no profile {name!r}: {path} does not exist")
+    if not yes and not typer.confirm(f"remove profile {name!r}?", default=False):
+        return
+    delete_profile(config.root, name)
+    typer.echo(f"removed: {path}")
+
+
+def _profiles_using_presenter(root: Path, presenter_id: str) -> list[str]:
+    """Names (filename stems) of profiles that still name this presenter,
+    sorted -- used by `presenter remove`'s in-use refusal."""
+    d = root / "profiles"
+    if not d.is_dir():
+        return []
+    users = []
+    for p in sorted(d.glob("*.toml")):
+        try:
+            prof = load_profile(root, p.stem)
+        except ProfileError:
+            continue
+        if prof.presenter == presenter_id:
+            users.append(p.stem)
+    return users
 
 
 @presenter_app.command("add")
@@ -2078,6 +2150,31 @@ def presenter_show(id: str = typer.Argument(...)):
     typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else ""))
     typer.echo("character:")
     typer.echo(p.character)
+
+
+@presenter_app.command("remove")
+def presenter_remove(
+    id: str = typer.Argument(...),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt"),
+    force: bool = typer.Option(False, "--force",
+                               help="Remove even if a profile still names this presenter"),
+):
+    """Delete a presenter's TOML file. Refuses if a profile still names it
+    as its presenter -- pass --force to remove it anyway."""
+    config, _, _ = _setup()
+    path = config.root / "presenters" / f"{id}.toml"
+    if not path.exists():
+        raise PresenterError(f"no presenter {id!r}: {path} does not exist")
+    if not force:
+        users = _profiles_using_presenter(config.root, id)
+        if users:
+            typer.echo(f"presenter {id} is used by: {', '.join(users)} "
+                       "— --force to remove anyway", err=True)
+            raise typer.Exit(1)
+    if not yes and not typer.confirm(f"remove presenter {id!r}?", default=False):
+        return
+    delete_presenter(config.root, id)
+    typer.echo(f"removed: {path}")
 
 
 @history_app.command("list")

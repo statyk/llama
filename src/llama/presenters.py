@@ -57,6 +57,14 @@ def load_presenter(root: Path, presenter_id: str) -> Presenter:
         raise PresenterError(f"invalid presenter at {path}: {exc}") from exc
 
 
+def delete_presenter(root: Path, presenter_id: str) -> Path:
+    path = root / "presenters" / f"{presenter_id}.toml"
+    if not path.exists():
+        raise PresenterError(f"no presenter {presenter_id!r}: {path} does not exist")
+    path.unlink()
+    return path
+
+
 def list_presenters(root: Path) -> list[tuple[str, Presenter | str]]:
     """(id, Presenter | error-string) for each presenters/*.toml, sorted by id."""
     d = root / "presenters"

@@ -419,6 +419,127 @@ def test_presenter_add_character_file_and_voice_xor(tmp_path):
     assert bad.exit_code != 0
 
 
+# --- Plan B Task 13: profile show/remove + enriched list; presenter remove ---
+
+def test_profile_show_prints_all_fields_including_roster(tmp_path: Path):
+    from llama.profiles import Profile, save_profile
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    crit = Criteria(query="sunday dead hour", collection="GratefulDead", artist="Grateful Dead",
+                    date_from="1972-01-01", date_to="1974-12-31",
+                    artist_cap=0.5, year_cap=0.25, min_quality_score=7.0,
+                    artists=["Galactic", "Lettuce"])
+    save_profile(tmp_path, Profile(name="sunday-dead", criteria=crit, count=3,
+                                   human_gate=True, script=False,
+                                   presenter="casey", title="Sunday Morning Dead"))
+    result = runner.invoke(cli.app, ["--config", cfg, "profile", "show", "sunday-dead"])
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "sunday-dead  count=3  human_gate=True  script=False" in out
+    assert "query: sunday dead hour" in out
+    assert "presenter: casey" in out
+    assert "title: Sunday Morning Dead" in out
+    assert "pinned roster: Galactic, Lettuce" in out
+    assert "collection/artist: GratefulDead / Grateful Dead" in out
+    assert "date range: 1972-01-01 .. 1974-12-31" in out
+    assert "artist_cap/year_cap/min_quality_score: 0.5 / 0.25 / 7.0" in out
+
+
+def test_profile_show_no_pinned_roster_and_unknown_name_errors(tmp_path: Path):
+    from llama.profiles import Profile, ProfileError, save_profile
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    save_profile(tmp_path, Profile(name="plain", criteria=Criteria(query="q")))
+    result = runner.invoke(cli.app, ["--config", cfg, "profile", "show", "plain"])
+    assert result.exit_code == 0, result.output
+    assert "no pinned roster" in result.output
+    assert "presenter: -" in result.output
+    assert "title: -" in result.output
+
+    missing = runner.invoke(cli.app, ["--config", cfg, "profile", "show", "ghost"])
+    assert missing.exit_code == 1
+    assert isinstance(missing.exception, ProfileError)
+    assert "ghost" in str(missing.exception)
+
+
+def test_profile_remove_confirms_deletes_and_errors_on_unknown(tmp_path: Path):
+    from llama.profiles import Profile, ProfileError, save_profile
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    path = save_profile(tmp_path, Profile(name="temp", criteria=Criteria(query="q")))
+
+    declined = runner.invoke(cli.app, ["--config", cfg, "profile", "remove", "temp"], input="n\n")
+    assert declined.exit_code == 0, declined.output
+    assert path.exists()
+
+    confirmed = runner.invoke(cli.app, ["--config", cfg, "profile", "remove", "temp"], input="y\n")
+    assert confirmed.exit_code == 0, confirmed.output
+    assert not path.exists()
+    assert f"removed: {path}" in confirmed.output
+
+    missing = runner.invoke(cli.app, ["--config", cfg, "profile", "remove", "ghost"])
+    assert missing.exit_code == 1
+    assert isinstance(missing.exception, ProfileError)
+
+
+def test_profile_remove_yes_skips_confirm(tmp_path: Path):
+    from llama.profiles import Profile, save_profile
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    path = save_profile(tmp_path, Profile(name="temp2", criteria=Criteria(query="q")))
+    result = runner.invoke(cli.app, ["--config", cfg, "profile", "remove", "temp2", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert not path.exists()
+
+
+def test_profile_list_shows_query_count_and_presenter_columns(tmp_path: Path):
+    from llama.profiles import Profile, save_profile
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    save_profile(tmp_path, Profile(name="sunday-dead", criteria=Criteria(query="sunday dead hour"),
+                                   count=3, presenter="casey"))
+    save_profile(tmp_path, Profile(name="plain", criteria=Criteria(query="q")))
+    result = runner.invoke(cli.app, ["--config", cfg, "profile", "list"])
+    assert result.exit_code == 0, result.output
+    name, count, presenter, query = "sunday-dead", 3, "casey", "sunday dead hour"
+    assert f"{name:<20} {count:>3} {presenter:<14} {query:40.40s}" in result.output
+    name2, count2, presenter2, query2 = "plain", 1, "-", "q"
+    assert f"{name2:<20} {count2:>3} {presenter2:<14} {query2:40.40s}" in result.output
+
+
+def test_presenter_remove_refusal_force_and_clean_removal(tmp_path: Path):
+    from llama.presenters import PresenterError
+    from llama.profiles import Profile, save_profile
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["--config", cfg, "presenter", "add", "casey", "--name", "Casey",
+                                "--sex", "male", "--voice", "american-dj", "--character", "x"])
+    assert r.exit_code == 0, r.output
+    save_profile(tmp_path, Profile(name="a", criteria=Criteria(query="q1"), presenter="casey"))
+    save_profile(tmp_path, Profile(name="b", criteria=Criteria(query="q2"), presenter="casey"))
+
+    refused = runner.invoke(cli.app, ["--config", cfg, "presenter", "remove", "casey"], input="y\n")
+    assert refused.exit_code == 1
+    assert "presenter casey is used by: a, b — --force to remove anyway" in refused.output
+    assert (tmp_path / "presenters" / "casey.toml").exists()
+
+    forced = runner.invoke(cli.app, ["--config", cfg, "presenter", "remove", "casey", "--force"],
+                           input="y\n")
+    assert forced.exit_code == 0, forced.output
+    assert not (tmp_path / "presenters" / "casey.toml").exists()
+
+    r2 = runner.invoke(cli.app, ["--config", cfg, "presenter", "add", "dj2", "--name", "DJ2",
+                                 "--sex", "female", "--voice", "v2", "--character", "y"])
+    assert r2.exit_code == 0, r2.output
+    clean = runner.invoke(cli.app, ["--config", cfg, "presenter", "remove", "dj2", "--yes"])
+    assert clean.exit_code == 0, clean.output
+    assert not (tmp_path / "presenters" / "dj2.toml").exists()
+
+    missing = runner.invoke(cli.app, ["--config", cfg, "presenter", "remove", "ghost"])
+    assert missing.exit_code == 1
+    assert isinstance(missing.exception, PresenterError)
+
+
 # --- cosmetic-followups: clean errors for bad operator input + comma-form ---
 
 def test_presenter_add_missing_character_file_errors_cleanly(tmp_path):

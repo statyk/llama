@@ -5,7 +5,9 @@ import pytest
 from pydantic import ValidationError
 
 from llama.errors import LlamaError
-from llama.presenters import Presenter, PresenterError, load_presenter, save_presenter
+from llama.presenters import (
+    Presenter, PresenterError, delete_presenter, load_presenter, save_presenter,
+)
 
 
 def make(**overrides):
@@ -75,3 +77,13 @@ def test_failed_validation_raises_presenter_error(tmp_path: Path):
     path.write_text('name = "Casey"\n')          # no sex / voice / character
     with pytest.raises(PresenterError):
         load_presenter(tmp_path, "half")
+
+
+def test_delete_presenter_removes_file_and_errors_on_unknown(tmp_path: Path):
+    path = save_presenter(tmp_path, make())
+    assert path.exists()
+    removed = delete_presenter(tmp_path, "casey")
+    assert removed == path
+    assert not path.exists()
+    with pytest.raises(PresenterError):
+        delete_presenter(tmp_path, "casey")
