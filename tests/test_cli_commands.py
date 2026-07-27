@@ -236,19 +236,6 @@ def test_drop_stage_artifacts_cascades_for_one_show(tmp_path: Path):
         assert not path.exists(), path
 
 
-def test_ledger_commands(tmp_path: Path):
-    cfg = str(tmp_path / "config.toml")
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    add = runner.invoke(cli.app, ["--config", cfg, "ledger", "add", "GratefulDead/1977-05-08",
-                                  "--artist", "Grateful Dead", "--date", "1977-05-08"])
-    assert add.exit_code == 0
-    listing = runner.invoke(cli.app, ["--config", cfg, "ledger", "list"])
-    assert "1977-05-08" in listing.output
-    rm = runner.invoke(cli.app, ["--config", cfg, "ledger", "remove", "GratefulDead/1977-05-08"])
-    assert rm.exit_code == 0
-    assert Ledger(tmp_path / "ledger.jsonl").entries() == []
-
-
 def test_review_resolves_run_by_substring(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')

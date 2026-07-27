@@ -37,7 +37,7 @@ from llama.status import configure_logging
 from llama.tts import speech_provider_for
 from llama.tts.bed import Bed
 from llama.tts.provider import SpeechError
-from llama.util import slugify
+from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, read_model, read_model_list,
                              unique_run_name, write_artifact)
 
@@ -62,9 +62,11 @@ app = typer.Typer(help="Live Music Archive -> radio station pipeline",
 configure_logging()
 
 profile_app = typer.Typer(help="Standing criteria profiles for recurring segments", pretty_exceptions_enable=False)
-ledger_app = typer.Typer(help="Broadcast-history ledger", pretty_exceptions_enable=False)
+history_app = typer.Typer(
+    help="Dispositions for shows no longer on disk; the library covers what's on disk",
+    pretty_exceptions_enable=False)
 app.add_typer(profile_app, name="profile", rich_help_panel="Sessions & config")
-app.add_typer(ledger_app, name="ledger", rich_help_panel="Sessions & config")
+app.add_typer(history_app, name="history", rich_help_panel="Sessions & config")
 
 config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
 app.add_typer(config_app, name="config", rich_help_panel="Sessions & config")
@@ -1533,6 +1535,77 @@ def rm(
     _rm_batch(config, ledger, sel, forget=forget, suppress=suppress, yes=yes)
 
 
+def _resolve_pid_and_metadata(config, ledger, name: str) -> tuple[str, str, str, str | None]:
+    """(performance_id, artist, date, venue) for `suppress`, resolving an
+    on-disk show like other acting commands (metadata from
+    show.json/provenance) and falling back to a raw `collection/date[/eN]`
+    performance id for anything not (or no longer) on disk. A `CatalogError`
+    from an unresolvable, unparseable name propagates to the LlamaError
+    boundary."""
+    from llama.catalog import CatalogError
+
+    try:
+        entry = _resolve_show(config, ledger, name)
+    except CatalogError:
+        parsed = parse_performance_id(name)
+        if parsed is None:
+            raise
+        artist, show_date = parsed
+        return name, artist, show_date, None
+
+    show = read_model(entry.ws.show, Show) if entry.ws.show.exists() else None
+    if entry.provenance is not None:
+        pid = entry.provenance.performance_id
+    elif show is not None:
+        pid = show.performance_id
+    else:
+        raise LlamaError(f"cannot resolve a performance id for {entry.slug}")
+    if show is not None:
+        artist, show_date, venue = show.artist, show.date, show.venue
+    else:
+        candidate = entry.provenance.candidate
+        artist, show_date, venue = candidate.collection, candidate.date, candidate.venue
+    return pid, artist, show_date, venue
+
+
+def _resolve_pid(config, ledger, name: str) -> str:
+    """Just the performance id half of `_resolve_pid_and_metadata`, for
+    `unsuppress` (which has nothing to write, so no other metadata needed)."""
+    return _resolve_pid_and_metadata(config, ledger, name)[0]
+
+
+@app.command(rich_help_panel="Fix & ship")
+def suppress(name: str = typer.Argument(
+    ..., help="Show slug, unique substring, path, or a raw collection/date[/eN] performance id")):
+    """Write a reversible `rejected` history row -- without touching anything
+    on disk -- so the performance is skipped by future gets. Resolves an
+    on-disk show like other acting commands; a raw performance id also works
+    for a performance that isn't (or is no longer) on disk. No confirmation
+    prompt -- undo any time with `llama unsuppress <performance-id>`.
+    """
+    config, _, ledger = _setup()
+    pid, artist, show_date, venue = _resolve_pid_and_metadata(config, ledger, name)
+    ledger.record(LedgerEntry(
+        performance_id=pid, artist=artist, date=show_date, venue=venue,
+        status="rejected", run="manual",
+        recorded_at=datetime.now(timezone.utc).isoformat(),
+    ))
+    typer.echo(f"suppressed: {pid}")
+
+
+@app.command(rich_help_panel="Fix & ship")
+def unsuppress(name: str = typer.Argument(
+    ..., help="Show slug, unique substring, path, or a raw collection/date[/eN] performance id")):
+    """Remove a `rejected` history row written by `suppress` (or `rm
+    --suppress`), making the performance eligible again. A clean no-op
+    (still exit 0) when there is nothing to remove.
+    """
+    config, _, ledger = _setup()
+    pid = _resolve_pid(config, ledger, name)
+    n = ledger.remove_status(pid, "rejected")
+    typer.echo(f"removed {n} rejected row(s) for {pid}")
+
+
 _ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete"}
 _ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: "llama run resume {id}"}
 
@@ -1894,32 +1967,28 @@ def presenter_show(id: str = typer.Argument(...)):
     typer.echo(p.character)
 
 
-@ledger_app.command("list")
-def ledger_list():
-    _, _, ledger = _setup()
-    for e in ledger.entries():
-        typer.echo(f"{e.recorded_at[:10]}  {e.status:9s}  {e.performance_id}  ({e.run})")
-
-
-@ledger_app.command("add")
-def ledger_add(
-    performance_id: str,
-    artist: str = typer.Option(..., "--artist"),
-    show_date: str = typer.Option(..., "--date"),
-    status: str = typer.Option("selected", "--status"),
+@history_app.command("list")
+def history_list(
+    log: bool = typer.Option(False, "--log",
+                             help="Every ledger row, not just each performance's latest disposition"),
+    as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
-    _, _, ledger = _setup()
-    ledger.record(LedgerEntry(performance_id=performance_id, artist=artist, date=show_date,
-                              status=status, run="manual",
-                              recorded_at=datetime.now(timezone.utc).isoformat()))
-    typer.echo(f"recorded: {performance_id} ({status})")
+    """Dispositions for shows no longer on disk; the library covers what's on
+    disk. Collapses to one row per performance (its latest disposition) by
+    default -- `--log` shows the full append-only trail instead."""
+    import json as _json
 
-
-@ledger_app.command("remove")
-def ledger_remove(performance_id: str):
     _, _, ledger = _setup()
-    n = ledger.remove(performance_id)
-    typer.echo(f"removed {n} entries")
+    rows = ledger.entries() if log else ledger.latest_dispositions()
+    if as_json:
+        typer.echo(_json.dumps([
+            {"performance_id": e.performance_id, "status": e.status,
+             "run": e.run, "recorded_at": e.recorded_at}
+            for e in rows
+        ], indent=2))
+        return
+    for e in rows:
+        typer.echo(f"{e.recorded_at[:10]}  {e.status:9s}  {e.performance_id}  ({e.run})")
 
 
 def main_cli() -> None:
