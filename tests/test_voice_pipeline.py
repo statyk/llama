@@ -90,8 +90,8 @@ def voiced_setup(tmp_path, monkeypatch, cfg_template=VOICED_CFG):
 
 
 def find(cfg, *extra):
-    return runner.invoke(cli.app, ["find", "GD 1973", "--auto",
-                                   "--run-name", "voicerun", "--config", cfg, *extra])
+    return runner.invoke(cli.app, ["--config", cfg, "find", "GD 1973", "--auto",
+                                   "--run-name", "voicerun", *extra])
 
 
 def test_voiced_find_end_to_end(tmp_path: Path, monkeypatch):
@@ -184,8 +184,7 @@ def test_redo_from_package_reuses_cached_segments(tmp_path: Path, monkeypatch):
     assert find(cfg).exit_code == 0
     second = FakeSpeechProvider()  # same fixed fake voice/model -> same cache keys
     monkeypatch.setattr(cli, "speech_provider_for", lambda config, voice, clone_ref=None: second)
-    redo = runner.invoke(cli.app, ["redo", "gratefuldead", "--from", "package",
-                                   "--config", cfg])
+    redo = runner.invoke(cli.app, ["--config", cfg, "redo", "gratefuldead", "--from", "package"])
     assert redo.exit_code == 0, redo.output
     assert "packaged" in redo.output              # re-voiced with the original voice
     assert second.calls == []                     # unchanged segments skipped, no re-spend
@@ -222,8 +221,7 @@ def presenter_setup(tmp_path, monkeypatch):
 
 def test_presenter_profile_run_end_to_end(tmp_path: Path, monkeypatch):
     cfg, made = presenter_setup(tmp_path, monkeypatch)
-    result = runner.invoke(cli.app, ["profile", "run", "sunday", "--auto",
-                                     "--config", cfg])
+    result = runner.invoke(cli.app, ["--config", cfg, "profile", "run", "sunday", "--auto"])
     assert result.exit_code == 0, result.output
     # presenter implies voice even though [tts] enabled is false
     pkg = tmp_path / "shows" / SHOW_DIR / "package"
@@ -248,14 +246,12 @@ def test_redo_from_synthesize_picks_up_edited_character(tmp_path: Path, monkeypa
     from llama.presenters import Presenter, save_presenter
 
     cfg, made = presenter_setup(tmp_path, monkeypatch)
-    assert runner.invoke(cli.app, ["profile", "run", "sunday", "--auto",
-                                   "--config", cfg]).exit_code == 0
+    assert runner.invoke(cli.app, ["--config", cfg, "profile", "run", "sunday", "--auto"]).exit_code == 0
     # hand-tune the character; redo must re-script from the live file
     save_presenter(tmp_path, Presenter(
         id="casey", name="Casey", sex="male", voice="v-casey",
         character="Now grumpy and terse."))
-    redo = runner.invoke(cli.app, ["redo", "gratefuldead", "--from", "synthesize",
-                                   "--config", cfg])
+    redo = runner.invoke(cli.app, ["--config", cfg, "redo", "gratefuldead", "--from", "synthesize"])
     assert redo.exit_code == 0, redo.output
     prompt = made["synthesize"][1].calls[0][1]   # providers rebuilt once per invoke
     assert "Now grumpy and terse." in prompt

@@ -19,9 +19,3 @@ def test_version_flag_prints_version_and_exits():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert result.output.strip() == llama.__version__
-
-
-def test_version_subcommand_matches_flag():
-    result = runner.invoke(app, ["version"])
-    assert result.exit_code == 0
-    assert result.output.strip() == llama.__version__

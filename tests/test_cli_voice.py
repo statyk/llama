@@ -92,10 +92,8 @@ def test_find_voice_stamps_criteria_and_forces_script(tmp_path: Path, monkeypatc
                         lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
-    result = runner.invoke(cli.app, [
-        "find", "GD 1973", "--voice", "--no-script", "--run-name", "vstamp",
-        "--config", str(tmp_path / "config.toml"),
-    ])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "find", "GD 1973", "--voice", "--no-script", "--run-name", "vstamp"])
     assert result.exit_code == 0, result.output
     saved = json.loads((tmp_path / "runs" / "vstamp" / "criteria.json").read_text())
     assert saved["voice"] == "v-abc"
@@ -110,10 +108,8 @@ def test_find_no_voice_overrides_global_enable(tmp_path: Path, monkeypatch):
                         lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
-    result = runner.invoke(cli.app, [
-        "find", "GD 1973", "--no-voice", "--run-name", "novoice",
-        "--config", str(tmp_path / "config.toml"),
-    ])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "find", "GD 1973", "--no-voice", "--run-name", "novoice"])
     assert result.exit_code == 0, result.output
     saved = json.loads((tmp_path / "runs" / "novoice" / "criteria.json").read_text())
     assert saved["voice"] is None
@@ -129,10 +125,9 @@ def test_profile_add_presenter_and_title(tmp_path: Path, monkeypatch):
                                        voice="v-casey", character="Warm FM vet."))
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
-    result = runner.invoke(cli.app, [
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
         "profile", "add", "gdhour", "GD 1973", "--presenter", "casey",
-        "--title", "Sunday Morning Dead", "--config", str(tmp_path / "config.toml"),
-    ])
+        "--title", "Sunday Morning Dead"])
     assert result.exit_code == 0, result.output
     saved = load_profile(tmp_path, "gdhour")
     assert saved.presenter == "casey" and saved.title == "Sunday Morning Dead"
@@ -144,10 +139,8 @@ def test_profile_add_unknown_presenter_fails_fast(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
-    result = runner.invoke(cli.app, [
-        "profile", "add", "gdhour", "GD 1973", "--presenter", "ghost",
-        "--config", str(tmp_path / "config.toml"),
-    ])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "profile", "add", "gdhour", "GD 1973", "--presenter", "ghost"])
     assert result.exit_code != 0
     assert isinstance(result.exception, PresenterError)
     assert not (tmp_path / "profiles" / "gdhour.toml").exists()
@@ -160,9 +153,8 @@ def test_run_voice_without_force_warns_already_packaged_wont_revoice(
     ws = RunWorkspace(tmp_path, "r1")
     write_artifact(ws.criteria, CriteriaModel(query="q"))
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, [
-        "run", str(ws.dir), "--voice", "--config", str(tmp_path / "config.toml"),
-    ])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "run", str(ws.dir), "--voice"])
     assert result.exit_code == 0, result.output
     assert "redo" in result.output and "--from package --voice" in result.output
 
@@ -173,10 +165,8 @@ def test_run_voice_with_force_does_not_warn(tmp_path: Path, monkeypatch):
     ws = RunWorkspace(tmp_path, "r1")
     write_artifact(ws.criteria, CriteriaModel(query="q"))
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, [
-        "run", str(ws.dir), "--voice", "--force",
-        "--config", str(tmp_path / "config.toml"),
-    ], input="y\n")
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "run", str(ws.dir), "--voice", "--force"], input="y\n")
     assert result.exit_code == 0, result.output
     # negation of the without-force assertion: the note (and its
     # "--from package --voice" fragment) must be absent when --force is set
@@ -200,9 +190,8 @@ def test_profile_run_presenter_opts_in_when_globally_disabled(
                                    title="Sunday Morning Dead"))
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
-    result = runner.invoke(cli.app, [
-        "profile", "run", "voiced", "--config", str(tmp_path / "config.toml"),
-    ])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "profile", "run", "voiced"])
     assert result.exit_code == 0, result.output
     run_dir = next((tmp_path / "runs").glob("*-voiced"))  # named <today>-voiced
     saved = json.loads((run_dir / "criteria.json").read_text())
@@ -246,8 +235,7 @@ def test_run_replay_resolves_presenter_from_criteria(tmp_path: Path, monkeypatch
         query="q", voice="v-casey", presenter="casey", title="Sunday Morning Dead"))
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
-    result = runner.invoke(cli.app, ["run", str(ws.dir),
-                                     "--config", str(tmp_path / "config.toml")])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "run", str(ws.dir)])
     assert result.exit_code == 0, result.output
     assert seen["presenter"].id == "casey" and seen["presenter"].name == "Casey"
     assert seen["title"] == "Sunday Morning Dead"
@@ -262,8 +250,7 @@ def test_run_replay_missing_presenter_file_fails(tmp_path: Path, monkeypatch):
     write_artifact(ws.criteria, CriteriaModel(query="q", presenter="ghost"))
     called = []
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: called.append(1))
-    result = runner.invoke(cli.app, ["run", str(ws.dir),
-                                     "--config", str(tmp_path / "config.toml")])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "run", str(ws.dir)])
     assert result.exit_code != 0
     assert isinstance(result.exception, PresenterError)
     assert called == []                    # never silently fell back to neutral
@@ -284,8 +271,7 @@ def test_profile_run_passes_presenter_and_title_to_execute(
                                    presenter="casey", title="Sunday Morning Dead"))
     seen = {}
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
-    result = runner.invoke(cli.app, ["profile", "run", "hosted",
-                                     "--config", str(tmp_path / "config.toml")])
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "profile", "run", "hosted"])
     assert result.exit_code == 0, result.output
     assert seen["presenter"].id == "casey"
     assert seen["title"] == "Sunday Morning Dead"

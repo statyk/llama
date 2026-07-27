@@ -64,7 +64,7 @@ def _cfg(tmp_path: Path) -> str:
 
 def test_status_marks_broadcast_ready(tmp_path: Path):
     build_ready(tmp_path, "gratefuldead-1973-06-10")
-    r = runner.invoke(cli.app, ["status", "--config", _cfg(tmp_path)])
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "status"])
     assert r.exit_code == 0, r.output
     assert "broadcast-ready" in r.output
 
@@ -72,7 +72,7 @@ def test_status_marks_broadcast_ready(tmp_path: Path):
 def test_status_broadcast_ready_filter_excludes_unready(tmp_path: Path):
     build_ready(tmp_path, "ready-1973-06-10")
     build_ready(tmp_path, "silent-1973-06-11", voiced=False)   # unvoiced -> not ready
-    r = runner.invoke(cli.app, ["status", "--broadcast-ready", "--config", _cfg(tmp_path)])
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "status", "--broadcast-ready"])
     assert r.exit_code == 0, r.output
     assert "ready-1973-06-10" in r.output
     assert "silent-1973-06-11" not in r.output
@@ -80,7 +80,7 @@ def test_status_broadcast_ready_filter_excludes_unready(tmp_path: Path):
 
 def test_status_json_includes_broadcast_ready(tmp_path: Path):
     build_ready(tmp_path, "gratefuldead-1973-06-10")
-    r = runner.invoke(cli.app, ["status", "--json", "--config", _cfg(tmp_path)])
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "status", "--json"])
     assert r.exit_code == 0, r.output
     obj = next(o for o in json.loads(r.output) if o["slug"] == "gratefuldead-1973-06-10")
     assert obj["broadcast_ready"] is True
@@ -88,14 +88,14 @@ def test_status_json_includes_broadcast_ready(tmp_path: Path):
 
 def test_show_detail_ready_line(tmp_path: Path):
     build_ready(tmp_path, "gratefuldead-1973-06-10")
-    r = runner.invoke(cli.app, ["show", "gratefuldead", "--config", _cfg(tmp_path)])
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "show", "gratefuldead"])
     assert r.exit_code == 0, r.output
     assert "broadcast-ready: yes" in r.output
 
 
 def test_show_detail_not_ready_lists_reasons(tmp_path: Path):
     build_ready(tmp_path, "silent-1973-06-11", voiced=False, broadcast_m3u=False)
-    r = runner.invoke(cli.app, ["show", "silent", "--config", _cfg(tmp_path)])
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "show", "silent"])
     assert r.exit_code == 0, r.output
     assert "broadcast-ready: no" in r.output
     assert "no DJ audio (unvoiced)" in r.output
@@ -105,17 +105,18 @@ def test_show_detail_not_ready_lists_reasons(tmp_path: Path):
 def test_show_list_broadcast_ready_selector(tmp_path: Path):
     build_ready(tmp_path, "ready-1973-06-10")
     build_ready(tmp_path, "silent-1973-06-11", voiced=False)
-    r = runner.invoke(cli.app, ["show", "--broadcast-ready", "--config", _cfg(tmp_path)])
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "show", "--broadcast-ready"])
     assert r.exit_code == 0, r.output
     assert "ready-1973-06-10" in r.output
     assert "silent-1973-06-11" not in r.output
 
 
-def test_batch_select_broadcast_ready_filters(tmp_path: Path):
+def test_batch_select_broadcast_ready_filters(tmp_path: Path, monkeypatch):
     build_ready(tmp_path, "ready-1973-06-10")
     build_ready(tmp_path, "silent-1973-06-11", voiced=False)
-    _cfg(tmp_path)   # writes config.toml; _setup needs a Path, not the str
-    config, _, ledger = cli._setup(tmp_path / "config.toml")
+    _cfg(tmp_path)   # writes config.toml
+    monkeypatch.setattr(cli, "_config_path", tmp_path / "config.toml")
+    config, _, ledger = cli._setup()
     entries = cli._batch_select(config, ledger, broadcast_ready=True)
     assert {e.slug for e in entries} == {"ready-1973-06-10"}
 
@@ -126,8 +127,7 @@ def test_deliver_broadcast_ready_selector(tmp_path: Path, monkeypatch):
     picked = []
     monkeypatch.setattr(cli, "_deliver_one",
                         lambda config, ledger, e, dest, force: picked.append(e.slug))
-    r = runner.invoke(cli.app, ["deliver", "--broadcast-ready", "--yes",
-                                "--config", _cfg(tmp_path)])
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--broadcast-ready", "--yes"])
     assert r.exit_code == 0, r.output
     assert picked == ["ready-1973-06-10"]
 
@@ -138,7 +138,7 @@ def test_redo_broadcast_ready_selector(tmp_path: Path, monkeypatch):
     picked = []
     monkeypatch.setattr(cli, "_redo_show",
                         lambda config, ia, ledger, e, stage, **kw: picked.append(e.slug))
-    r = runner.invoke(cli.app, ["redo", "--from", "package", "--broadcast-ready",
-                                "--yes", "--config", _cfg(tmp_path)])
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "redo", "--from", "package", "--broadcast-ready",
+                                "--yes"])
     assert r.exit_code == 0, r.output
     assert picked == ["ready-1973-06-10"]

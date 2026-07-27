@@ -44,7 +44,7 @@ def setup(tmp_path, monkeypatch, provider):
 def test_artists_query_prints_ranked_table(tmp_path, monkeypatch):
     provider = FakeProvider(completes=[matches_json(("RobynHitchcock", "jangly icon"))])
     cfg = setup(tmp_path, monkeypatch, provider)
-    result = runner.invoke(cli.app, ["artists", "jangly college rock", *cfg])
+    result = runner.invoke(cli.app, [*cfg, "artists", "jangly college rock"])
     assert result.exit_code == 0, result.output
     assert "Robyn Hitchcock" in result.output
     assert "30" in result.output           # recordings
@@ -57,7 +57,7 @@ def test_artists_query_prints_ranked_table(tmp_path, monkeypatch):
 def test_artists_filter_excludes_backyard_from_llm_table(tmp_path, monkeypatch):
     provider = FakeProvider(completes=[matches_json(("GratefulDead", "x"))])
     cfg = setup(tmp_path, monkeypatch, provider)
-    result = runner.invoke(cli.app, ["artists", "anything", *cfg])
+    result = runner.invoke(cli.app, [*cfg, "artists", "anything"])
     assert result.exit_code == 0, result.output
     prompt = provider.calls[0][1]
     assert "GratefulDead" in prompt and "RobynHitchcock" in prompt
@@ -67,17 +67,17 @@ def test_artists_filter_excludes_backyard_from_llm_table(tmp_path, monkeypatch):
 def test_artists_no_query_lists_by_recordings_without_llm(tmp_path, monkeypatch):
     provider = FakeProvider()  # any complete() call would raise
     cfg = setup(tmp_path, monkeypatch, provider)
-    result = runner.invoke(cli.app, ["artists", *cfg])
+    result = runner.invoke(cli.app, [*cfg, "artists"])
     assert result.exit_code == 0, result.output
     assert "Grateful Dead" in result.output and "Robyn Hitchcock" in result.output
     assert "Backyard Band" not in result.output
     assert provider.calls == []
 
 
-def test_artists_all_includes_backyard(tmp_path, monkeypatch):
+def test_artists_include_junk_includes_backyard(tmp_path, monkeypatch):
     provider = FakeProvider()
     cfg = setup(tmp_path, monkeypatch, provider)
-    result = runner.invoke(cli.app, ["artists", "--all", *cfg])
+    result = runner.invoke(cli.app, [*cfg, "artists", "--include-junk"])
     assert result.exit_code == 0, result.output
     assert "Backyard Band" in result.output
 
@@ -85,7 +85,7 @@ def test_artists_all_includes_backyard(tmp_path, monkeypatch):
 def test_artists_zero_matches_message(tmp_path, monkeypatch):
     provider = FakeProvider(completes=[matches_json(("NickDrake", "not on LMA"))])
     cfg = setup(tmp_path, monkeypatch, provider)
-    result = runner.invoke(cli.app, ["artists", "obscure query", *cfg])
+    result = runner.invoke(cli.app, [*cfg, "artists", "obscure query"])
     assert result.exit_code == 0, result.output
     assert "no matching artists" in result.output
 
@@ -93,9 +93,9 @@ def test_artists_zero_matches_message(tmp_path, monkeypatch):
 def test_artists_impossible_thresholds_message(tmp_path, monkeypatch):
     provider = FakeProvider()
     cfg = setup(tmp_path, monkeypatch, provider)
-    result = runner.invoke(cli.app, ["artists", "anything",
+    result = runner.invoke(cli.app, [*cfg, "artists", "anything",
                                      "--min-recordings", "999999",
-                                     "--min-downloads", "999999999999", *cfg])
+                                     "--min-downloads", "999999999999"])
     assert result.exit_code == 0, result.output
     assert "no artists pass" in result.output
     assert provider.calls == []

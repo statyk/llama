@@ -41,9 +41,10 @@ from llama.workspace import (RunWorkspace, read_model, read_model_list,
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
-_COMMAND_ORDER = ["find", "artists", "run", "review", "profile",
-                  "status", "runs", "show", "redo", "deliver",
-                  "ledger", "config", "version"]
+_COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline",
+                  "triage", "fix", "redo", "voice", "deliver", "rm",
+                  "suppress", "unsuppress", "run", "profile", "presenter",
+                  "history", "config"]
 
 
 class OrderedPanelGroup(TyperGroup):
@@ -59,15 +60,15 @@ configure_logging()
 
 profile_app = typer.Typer(help="Standing criteria profiles for recurring segments", pretty_exceptions_enable=False)
 ledger_app = typer.Typer(help="Broadcast-history ledger", pretty_exceptions_enable=False)
-app.add_typer(profile_app, name="profile", rich_help_panel="Discover & process")
-app.add_typer(ledger_app, name="ledger", rich_help_panel="Housekeeping")
+app.add_typer(profile_app, name="profile", rich_help_panel="Sessions & config")
+app.add_typer(ledger_app, name="ledger", rich_help_panel="Sessions & config")
 
 config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
-app.add_typer(config_app, name="config", rich_help_panel="Housekeeping")
+app.add_typer(config_app, name="config", rich_help_panel="Sessions & config")
 
 presenter_app = typer.Typer(help="On-air hosts (presenters/<id>.toml)",
                             pretty_exceptions_enable=False)
-app.add_typer(presenter_app, name="presenter", rich_help_panel="Discover & process")
+app.add_typer(presenter_app, name="presenter", rich_help_panel="Sessions & config")
 
 
 def _version_callback(value: bool) -> None:
@@ -78,8 +79,16 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+_config_path: Path | None = None
+
+
 @app.callback()
 def main(
+    config: Path = typer.Option(
+        None,
+        "--config",
+        help="Config file (default ~/.llama/config.toml)",
+    ),
     version: bool = typer.Option(
         None,
         "--version",
@@ -89,18 +98,12 @@ def main(
     ),
 ) -> None:
     """Find, vet, research, and package LMA concerts for broadcast."""
+    global _config_path
+    _config_path = config
 
 
-@app.command(rich_help_panel="Housekeeping")
-def version() -> None:
-    """Print the llama version."""
-    import llama
-
-    typer.echo(llama.__version__)
-
-
-def _setup(config_path: Path | None) -> tuple[Config, IAClient, Ledger]:
-    config = load_config(config_path)
+def _setup() -> tuple[Config, IAClient, Ledger]:
+    config = load_config(_config_path)
     ia = IAClient(config.root / "cache")
     ledger = Ledger(config.root / "ledger.jsonl")
     return config, ia, ledger
@@ -329,14 +332,13 @@ def find(
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """One-off: find, vet, research, and package shows matching QUERY."""
     if artist_cap == 0.0 or year_cap == 0.0:
         typer.echo("--artist-cap/--year-cap must be above 0 "
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
-    config, ia, ledger = _setup(config_path)
+    config, ia, ledger = _setup()
     voice_id = _resolve_voice(config, voice)
     if voice_id is not None:
         script = True  # voice cannot work without the script
@@ -366,7 +368,7 @@ def find(
              full_rationale=full_rationale)
 
 
-@app.command(rich_help_panel="Discover & process")
+@app.command(rich_help_panel="Acquire")
 def artists(
     query: str = typer.Argument(None, help="Natural-language artist query (omit to list by catalog size)"),
     limit: int = typer.Option(20, "--limit", help="Max artists to show"),
@@ -374,19 +376,18 @@ def artists(
                                        help="Junk filter floor (default from [artists] config)"),
     min_downloads: int = typer.Option(None, "--min-downloads",
                                       help="Junk filter floor (default from [artists] config)"),
-    all_artists: bool = typer.Option(False, "--all", help="Skip the junk filter entirely"),
+    include_junk: bool = typer.Option(False, "--include-junk", help="Skip the junk filter entirely"),
     refresh: bool = typer.Option(False, "--refresh", help="Force an artist index rebuild"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Search LMA artists with a natural-language query, or list the deepest catalogs."""
-    config, ia, _ = _setup(config_path)
+    config, ia, _ = _setup()
     index = load_or_build(ia, config.root / "cache", refresh=refresh)
     mr = min_recordings if min_recordings is not None else config.artists.min_recordings
     md = min_downloads if min_downloads is not None else config.artists.min_downloads
-    pool = index if all_artists else filter_artists(index, mr, md)
+    pool = index if include_junk else filter_artists(index, mr, md)
     if not pool:
         typer.echo("no artists pass the current thresholds - "
-                   "lower --min-recordings/--min-downloads or use --all")
+                   "lower --min-recordings/--min-downloads or use --include-junk")
         return
     if query is None:
         _print_artists(sorted(pool, key=lambda a: -a["recordings"])[:limit])
@@ -395,7 +396,7 @@ def artists(
                                     pool, query, max_results=limit)
     if not matches:
         typer.echo("no matching artists - try a broader query, "
-                   "lower thresholds, or --all")
+                   "lower thresholds, or --include-junk")
         return
     _print_artists(matches)
 
@@ -417,10 +418,9 @@ def run(
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Replay an existing run from its artifacts (stages skip work already done)."""
-    config, ia, ledger = _setup(config_path)
+    config, ia, ledger = _setup()
     ws = _resolve_run(config, run_name)
     if not ws.criteria.exists():
         typer.echo(f"no criteria.json in {ws.dir}", err=True)
@@ -472,10 +472,9 @@ def review(
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Human gate: approve a run's shortlist, then optionally process it."""
-    config, ia, ledger = _setup(config_path)
+    config, ia, ledger = _setup()
     ws = _resolve_run(config, run_name)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
     _print_shortlist(entries, full=full_rationale)
@@ -711,7 +710,7 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
             typer.echo(line)
 
 
-@app.command(rich_help_panel="Inspect & triage")
+@app.command(rich_help_panel="Watch")
 def show(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     exclude: list[str] = typer.Option(None, "--exclude",
@@ -741,10 +740,9 @@ def show(
     clear_title: list[str] = typer.Option(None, "--clear-title", help="Drop a title override by track number"),
     set_breaks: str = typer.Option(None, "--set-breaks", help='Set breaks by track number: "9,17"'),
     clear_set_breaks: bool = typer.Option(False, "--clear-set-breaks"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Inspect one show, or walk a set of shows (default: held) for resolution."""
-    config, ia, ledger = _setup(config_path)
+    config, ia, ledger = _setup()
 
     if name is None:
         from llama.catalog import iter_shows, select_shows
@@ -917,7 +915,7 @@ def _deliver_one(config, ledger, entry, dest, force) -> Path:
     return out
 
 
-@app.command(rich_help_panel="Act on shows")
+@app.command(rich_help_panel="Fix & ship")
 def deliver(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
@@ -932,7 +930,6 @@ def deliver(
     broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
                                          help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Copy a show package to the station's watched folder and record delivery."""
     if name is not None and _has_selector(held, packaged, voiced, unvoiced, state, artist, run,
@@ -944,7 +941,7 @@ def deliver(
                              broadcast_ready):
             typer.echo("give a show or a selector (e.g. --packaged)", err=True)
             raise typer.Exit(1)
-        config, _, ledger = _setup(config_path)
+        config, _, ledger = _setup()
         entries = _batch_select(config, ledger, held=held, packaged=packaged,
                                 voiced=voiced, unvoiced=unvoiced, state=state,
                                 artist=artist, run=run, broadcast_ready=broadcast_ready)
@@ -960,7 +957,7 @@ def deliver(
             except (LlamaError, OSError) as exc:
                 typer.echo(f"FAILED {e.slug}: {exc}", err=True)
         return
-    config, _, ledger = _setup(config_path)
+    config, _, ledger = _setup()
     entry = _resolve_show(config, ledger, name)
     try:
         out = _deliver_one(config, ledger, entry, dest, force)
@@ -1015,7 +1012,7 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
             speech.close()
 
 
-@app.command(rich_help_panel="Act on shows")
+@app.command(rich_help_panel="Fix & ship")
 def redo(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     from_stage: str = typer.Option(..., "--from",
@@ -1037,7 +1034,6 @@ def redo(
     broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
                                          help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Re-run one show's pipeline from a stage; earlier artifacts are reused."""
     show_stages = VALID_STAGES - RUN_LEVEL_STAGES
@@ -1053,7 +1049,7 @@ def redo(
                              broadcast_ready):
             typer.echo("give a show or a selector (e.g. --unvoiced)", err=True)
             raise typer.Exit(1)
-        config, ia, ledger = _setup(config_path)
+        config, ia, ledger = _setup()
         entries = _batch_select(config, ledger, held=held, packaged=packaged,
                                 voiced=voiced, unvoiced=unvoiced, state=state,
                                 artist=artist, run=run, broadcast_ready=broadcast_ready)
@@ -1070,7 +1066,7 @@ def redo(
             except (LlamaError, TaskFailed, LLMError, IAError, SpeechError) as exc:
                 typer.echo(f"FAILED {e.slug}: {exc}", err=True)
         return
-    config, ia, ledger = _setup(config_path)
+    config, ia, ledger = _setup()
     entry = _resolve_show(config, ledger, name)
     if entry.provenance is None:
         typer.echo(f"no provenance.json in {entry.ws.dir} - "
@@ -1084,7 +1080,7 @@ def redo(
         typer.echo(f"needs-review, skipped: {entry.provenance.performance_id}")
 
 
-@app.command(rich_help_panel="Inspect & triage")
+@app.command(rich_help_panel="Watch")
 def status(
     held: bool = typer.Option(False, "--held", help="Only shows held for review"),
     packaged: bool = typer.Option(False, "--packaged", help="Only packaged, undelivered shows"),
@@ -1097,14 +1093,13 @@ def status(
     artist: str = typer.Option(None, "--artist", help="Substring filter on artist"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Triage view: every show and its state, held-for-review first."""
     import json as _json
 
     from llama.catalog import iter_shows, select_shows
 
-    config, _, ledger = _setup(config_path)
+    config, _, ledger = _setup()
     entries = iter_shows(config.root, ledger)
     states = set()
     if held:
@@ -1160,13 +1155,13 @@ def status(
 
 
 @app.command(rich_help_panel="Inspect & triage")
-def runs(config_path: Path = typer.Option(None, "--config")):
+def runs():
     """List runs with their criteria and show-state counts."""
     from collections import Counter
 
     from llama.catalog import iter_shows
 
-    config, _, ledger = _setup(config_path)
+    config, _, ledger = _setup()
     by_run: dict[str, Counter] = {}
     for e in iter_shows(config.root, ledger):
         if e.provenance:
@@ -1235,14 +1230,13 @@ def profile_add(
     artists: str = typer.Option(None, "--artists",
                                 help="Pin the artist roster (comma-separated names); runs skip "
                                      "the LLM matcher and search exactly these"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Interpret QUERY once and save it as a named standing profile."""
     if artist_cap == 0.0 or year_cap == 0.0:
         typer.echo("--artist-cap/--year-cap must be above 0 "
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
-    config, ia, _ = _setup(config_path)
+    config, ia, _ = _setup()
     if presenter:
         load_presenter(config.root, presenter)  # fail fast on a typo'd id
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1276,10 +1270,9 @@ def profile_run(
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Find and process the profile's next N shows, avoiding ledger duplicates."""
-    config, ia, ledger = _setup(config_path)
+    config, ia, ledger = _setup()
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, unique_run_name(config.root,
                                                    f"{date.today().isoformat()}-{name}"))
@@ -1307,10 +1300,9 @@ def profile_run(
 def profile_artists(
     name: str = typer.Argument(...),
     set_: str = typer.Option(None, "--set", help='Re-pin the roster (comma names); "" clears it'),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Show or re-pin a profile's pinned artist roster."""
-    config, ia, _ = _setup(config_path)
+    config, ia, _ = _setup()
     profile = load_profile(config.root, name)
     if set_ is None:
         roster = profile.criteria.artists
@@ -1330,8 +1322,8 @@ def profile_artists(
 
 
 @profile_app.command("list")
-def profile_list(config_path: Path = typer.Option(None, "--config")):
-    config, _, _ = _setup(config_path)
+def profile_list():
+    config, _, _ = _setup()
     profiles_dir = config.root / "profiles"
     for p in sorted(profiles_dir.glob("*.toml")) if profiles_dir.exists() else []:
         typer.echo(p.stem)
@@ -1348,10 +1340,9 @@ def presenter_add(
     character_file: Path = typer.Option(None, "--character-file"),
     bed: str = typer.Option(None, "--bed"),
     force: bool = typer.Option(False, "--force"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
     """Create a presenter (on-air host)."""
-    config, _, _ = _setup(config_path)
+    config, _, _ = _setup()
     if bool(character) == bool(character_file):
         typer.echo("give exactly one of --character / --character-file", err=True)
         raise typer.Exit(1)
@@ -1377,9 +1368,9 @@ def presenter_add(
 
 
 @presenter_app.command("list")
-def presenter_list(config_path: Path = typer.Option(None, "--config")):
+def presenter_list():
     """List presenters."""
-    config, _, _ = _setup(config_path)
+    config, _, _ = _setup()
     rows = list_presenters(config.root)
     if not rows:
         typer.echo("no presenters")
@@ -1393,10 +1384,9 @@ def presenter_list(config_path: Path = typer.Option(None, "--config")):
 
 
 @presenter_app.command("show")
-def presenter_show(id: str = typer.Argument(...),
-                   config_path: Path = typer.Option(None, "--config")):
+def presenter_show(id: str = typer.Argument(...)):
     """Show one presenter's fields."""
-    config, _, _ = _setup(config_path)
+    config, _, _ = _setup()
     p = load_presenter(config.root, id)     # PresenterError -> main_cli boundary
     v = p.voice or f"clone:{p.voice_clone}"
     typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else ""))
@@ -1405,8 +1395,8 @@ def presenter_show(id: str = typer.Argument(...),
 
 
 @ledger_app.command("list")
-def ledger_list(config_path: Path = typer.Option(None, "--config")):
-    _, _, ledger = _setup(config_path)
+def ledger_list():
+    _, _, ledger = _setup()
     for e in ledger.entries():
         typer.echo(f"{e.recorded_at[:10]}  {e.status:9s}  {e.performance_id}  ({e.run})")
 
@@ -1417,9 +1407,8 @@ def ledger_add(
     artist: str = typer.Option(..., "--artist"),
     show_date: str = typer.Option(..., "--date"),
     status: str = typer.Option("selected", "--status"),
-    config_path: Path = typer.Option(None, "--config"),
 ):
-    _, _, ledger = _setup(config_path)
+    _, _, ledger = _setup()
     ledger.record(LedgerEntry(performance_id=performance_id, artist=artist, date=show_date,
                               status=status, run="manual",
                               recorded_at=datetime.now(timezone.utc).isoformat()))
@@ -1427,8 +1416,8 @@ def ledger_add(
 
 
 @ledger_app.command("remove")
-def ledger_remove(performance_id: str, config_path: Path = typer.Option(None, "--config")):
-    _, _, ledger = _setup(config_path)
+def ledger_remove(performance_id: str):
+    _, _, ledger = _setup()
     n = ledger.remove(performance_id)
     typer.echo(f"removed {n} entries")
 
