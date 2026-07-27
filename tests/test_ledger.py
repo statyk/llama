@@ -4,10 +4,10 @@ from llama.ledger import Ledger
 from llama.models import LedgerEntry
 
 
-def entry(pid: str, status: str = "selected") -> LedgerEntry:
+def entry(pid: str, status: str = "selected", recorded_at: str = "2026-07-14T00:00:00+00:00") -> LedgerEntry:
     return LedgerEntry(
         performance_id=pid, artist="Grateful Dead", date="1973-06-10",
-        status=status, run="r1", recorded_at="2026-07-14T00:00:00+00:00",
+        status=status, run="r1", recorded_at=recorded_at,
     )
 
 
@@ -42,3 +42,24 @@ def test_record_is_idempotent_per_performance_status_run(tmp_path):
     # different status for the same performance still records
     ledger.record(e.model_copy(update={"status": "delivered"}))
     assert len(ledger.entries()) == 2
+
+
+def test_remove_status_only_touches_that_status(tmp_path: Path):
+    led = Ledger(tmp_path / "l.jsonl")
+    led.record(entry("a", status="selected"))
+    led.record(entry("a", status="rejected"))
+    led.record(entry("b", status="rejected"))
+    assert led.remove_status("a", "rejected") == 1
+    assert [(e.performance_id, e.status) for e in led.entries()] == [
+        ("a", "selected"), ("b", "rejected")]
+    assert led.remove_status("a", "rejected") == 0   # idempotent
+
+
+def test_latest_dispositions_one_row_per_pid(tmp_path: Path):
+    led = Ledger(tmp_path / "l.jsonl")
+    led.record(entry("a", status="selected", recorded_at="2026-07-01T00:00:00+00:00"))
+    led.record(entry("a", status="delivered", recorded_at="2026-07-03T00:00:00+00:00"))
+    led.record(entry("b", status="rejected", recorded_at="2026-07-02T00:00:00+00:00"))
+    latest = led.latest_dispositions()
+    assert [(e.performance_id, e.status) for e in latest] == [
+        ("b", "rejected"), ("a", "delivered")]   # ascending recorded_at
