@@ -452,5 +452,5 @@ def test_run_name_flag_is_gone(tmp_path: Path):
 def test_run_help_text_is_verbatim(tmp_path: Path):
     result = runner.invoke(cli.app, ["run", "--help"])
     assert result.exit_code == 0, result.output
-    assert ("Acquisition sessions — they surface only while awaiting approval "
-            "or incomplete") in result.output.replace("\n", " ")
+    assert ("Acquisition sessions — approve, resume, list, or discard."
+            in result.output.replace("\n", " "))
