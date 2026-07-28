@@ -1255,25 +1255,26 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
     presenter = (load_presenter(config.root, prov.presenter)
                  if prov.presenter else None)
     keep_research = not with_research and from_stage in ("select", "gather")
-    drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
-    # Keep the winnow assessment (quality_score + recording_complaints) so
-    # select-recording still avoids complained-about recordings; override only
-    # the rationale so the dossier round-trip stays stable (it already carries
-    # the external-reputation suffix). Fall back to a zero stub for pre-fix
-    # provenance.json files that predate the assessment field.
-    assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
-                  if prov.assessment is not None
-                  else QualityAssessment(performance_id=prov.performance_id,
-                                         quality_score=0.0, rationale=prov.dossier))
-    shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
-    ws = RunWorkspace(config.root, prov.run)
-    effective_voice = _replay_voice(config, prov.voice, voice)
-    effective_script = ((prov.script if script is None else script)
-                        or effective_voice is not None or from_stage == "synthesize")
-    speech = _speech_for(config, effective_voice, presenter)
     show_ws = entry.ws
+    speech = None
     try:
         with file_lock(show_ws.lock):
+            drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+            # Keep the winnow assessment (quality_score + recording_complaints) so
+            # select-recording still avoids complained-about recordings; override only
+            # the rationale so the dossier round-trip stays stable (it already carries
+            # the external-reputation suffix). Fall back to a zero stub for pre-fix
+            # provenance.json files that predate the assessment field.
+            assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+                          if prov.assessment is not None
+                          else QualityAssessment(performance_id=prov.performance_id,
+                                                 quality_score=0.0, rationale=prov.dossier))
+            shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
+            ws = RunWorkspace(config.root, prov.run)
+            effective_voice = _replay_voice(config, prov.voice, voice)
+            effective_script = ((prov.script if script is None else script)
+                                or effective_voice is not None or from_stage == "synthesize")
+            speech = _speech_for(config, effective_voice, presenter)
             return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
                                 prov.run, config.audio_format, script=effective_script,
                                 voice=effective_voice, speech=speech, chunk=config.tts.chunk,
