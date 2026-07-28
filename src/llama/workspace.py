@@ -80,6 +80,7 @@ class ShowWorkspace:
         self.dj_notes_json = dir / "dj-notes.json"
         self.overrides = dir / "overrides.json"
         self.package_dir = dir / "package"
+        self.lock = dir / ".lock"
 
 
 # Show-level stage order: forcing a stage drops its artifacts and everything

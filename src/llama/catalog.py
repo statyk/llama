@@ -11,6 +11,7 @@ from pathlib import Path
 
 from llama.errors import LlamaError
 from llama.ledger import Ledger
+from llama.locks import file_lock
 from llama.models import LedgerEntry, Overrides, Provenance, Show
 from llama.workspace import ShowWorkspace, read_json, read_model, read_overrides
 
@@ -267,34 +268,37 @@ def remove_show(entry: CatalogEntry, ledger: Ledger, *,
     leaves the show deleted with history in the wrong state."""
     if forget and suppress:
         raise LlamaError("cannot pass both --forget and --suppress")
-    pid = _performance_id(entry.ws)
-    if pid is None and (forget or suppress):
-        raise LlamaError(
-            f"cannot resolve a performance id for {entry.slug}; history flags need one")
 
-    if forget:
-        n = ledger.remove(pid)
-        history_line = f"forgot {n} history row(s): re-eligible"
-    elif suppress:
-        if entry.ws.show.exists():
-            show = read_model(entry.ws.show, Show)
-            artist, date, venue = show.artist, show.date, show.venue
-        else:
-            candidate = read_model(entry.ws.provenance, Provenance).candidate
-            artist, date, venue = candidate.collection, candidate.date, candidate.venue
-        ledger.record(LedgerEntry(
-            performance_id=pid, artist=artist, date=date, venue=venue,
-            status="rejected", run="manual",
-            recorded_at=datetime.now(timezone.utc).isoformat(),
-        ))
-        history_line = f"suppressed: will not be offered again (undo: llama unsuppress {pid})"
-    else:
-        rows = [e for e in ledger.entries() if pid is not None and e.performance_id == pid]
-        if rows:
-            statuses = ", ".join(sorted({r.status for r in rows}))
-            history_line = f"history kept ({statuses}): stays excluded from future gets"
-        else:
-            history_line = "no history rows; this show can be re-offered"
+    show_ws = entry.ws
+    with file_lock(show_ws.lock):
+        pid = _performance_id(show_ws)
+        if pid is None and (forget or suppress):
+            raise LlamaError(
+                f"cannot resolve a performance id for {entry.slug}; history flags need one")
 
-    shutil.rmtree(entry.ws.dir)
+        if forget:
+            n = ledger.remove(pid)
+            history_line = f"forgot {n} history row(s): re-eligible"
+        elif suppress:
+            if show_ws.show.exists():
+                show = read_model(show_ws.show, Show)
+                artist, date, venue = show.artist, show.date, show.venue
+            else:
+                candidate = read_model(show_ws.provenance, Provenance).candidate
+                artist, date, venue = candidate.collection, candidate.date, candidate.venue
+            ledger.record(LedgerEntry(
+                performance_id=pid, artist=artist, date=date, venue=venue,
+                status="rejected", run="manual",
+                recorded_at=datetime.now(timezone.utc).isoformat(),
+            ))
+            history_line = f"suppressed: will not be offered again (undo: llama unsuppress {pid})"
+        else:
+            rows = [e for e in ledger.entries() if pid is not None and e.performance_id == pid]
+            if rows:
+                statuses = ", ".join(sorted({r.status for r in rows}))
+                history_line = f"history kept ({statuses}): stays excluded from future gets"
+            else:
+                history_line = "no history rows; this show can be re-offered"
+
+        shutil.rmtree(show_ws.dir)
     return [f"removed shows/{entry.slug}", history_line]

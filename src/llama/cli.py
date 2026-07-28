@@ -21,6 +21,7 @@ from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
+from llama.locks import file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.presenters import (
@@ -1129,26 +1130,28 @@ def _deliver_one(config, ledger, entry, dest, allow_unvoiced) -> Path:
 
     from llama.catalog import deliver_refusals
 
-    show_dir = entry.ws.dir
+    show_ws = entry.ws
+    show_dir = show_ws.dir
     target_dir = dest or config.delivery_path
     if target_dir is None:
         raise LlamaError("no --dest given and no delivery_path in config")
-    reasons = deliver_refusals(entry.ws, allow_unvoiced)
-    if reasons:
-        message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
-        raise LlamaError(f"{message}\n{_deliver_pointer(entry.slug, reasons)}")
-    pkg = show_dir / "package"
-    manifest = _json.loads((pkg / "manifest.json").read_text())
-    out = target_dir / show_dir.name
-    shutil.copytree(pkg, out, dirs_exist_ok=True)
-    show = manifest["show"]
-    run_name = entry.provenance.run if entry.provenance else "unknown"
-    ledger.record(LedgerEntry(
-        performance_id=manifest["source"].get("performance_id", show_dir.name),
-        artist=show["artist"], date=show["date"], venue=show.get("venue"),
-        status="delivered", run=run_name,
-        recorded_at=datetime.now(timezone.utc).isoformat(),
-    ))
+    with file_lock(show_ws.lock):
+        reasons = deliver_refusals(show_ws, allow_unvoiced)
+        if reasons:
+            message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
+            raise LlamaError(f"{message}\n{_deliver_pointer(entry.slug, reasons)}")
+        pkg = show_dir / "package"
+        manifest = _json.loads((pkg / "manifest.json").read_text())
+        out = target_dir / show_dir.name
+        shutil.copytree(pkg, out, dirs_exist_ok=True)
+        show = manifest["show"]
+        run_name = entry.provenance.run if entry.provenance else "unknown"
+        ledger.record(LedgerEntry(
+            performance_id=manifest["source"].get("performance_id", show_dir.name),
+            artist=show["artist"], date=show["date"], venue=show.get("venue"),
+            status="delivered", run=run_name,
+            recorded_at=datetime.now(timezone.utc).isoformat(),
+        ))
     return out
 
 
@@ -1268,15 +1271,17 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
     effective_script = ((prov.script if script is None else script)
                         or effective_voice is not None or from_stage == "synthesize")
     speech = _speech_for(config, effective_voice, presenter)
+    show_ws = entry.ws
     try:
-        return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                            prov.run, config.audio_format, script=effective_script,
-                            voice=effective_voice, speech=speech, chunk=config.tts.chunk,
-                            bed=resolve_bed(config, presenter),
-                            presenter=presenter, title=prov.title,
-                            setlistfm=make_client(config), structure_cfg=config.structure,
-                            jerrybase_enabled=config.jerrybase.enabled,
-                            selection_cfg=config.selection)
+        with file_lock(show_ws.lock):
+            return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                                prov.run, config.audio_format, script=effective_script,
+                                voice=effective_voice, speech=speech, chunk=config.tts.chunk,
+                                bed=resolve_bed(config, presenter),
+                                presenter=presenter, title=prov.title,
+                                setlistfm=make_client(config), structure_cfg=config.structure,
+                                jerrybase_enabled=config.jerrybase.enabled,
+                                selection_cfg=config.selection)
     finally:
         if speech is not None:
             speech.close()
