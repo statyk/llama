@@ -232,6 +232,14 @@ and runs your choice on the spot. See [docs/workflow.md](docs/workflow.md)
 for the full pipeline map, every flag, and a troubleshooting table — start
 there if a run didn't do what you expected.
 
+**Running several jobs at once.** `llama` is safe to run as multiple
+concurrent processes against the same `~/.llama/` on one machine — kick off
+several `llama get`/profile runs (or a cron fan-out) in parallel. If two runs
+pick the same performance, one builds it and the others wait and reuse the
+result rather than duplicating the work; runs never idle behind each other
+on shows they don't share. (Local filesystem only — a network/NFS-shared
+workspace is not supported.)
+
 ### Explore artists
 
     llama artists "jangly 80s college rock"     # NL search, ranked with stats
