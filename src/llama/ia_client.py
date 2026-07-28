@@ -8,6 +8,7 @@ import httpx
 
 from llama.errors import LlamaError
 from llama.status import detail
+from llama.workspace import atomic_write_text
 
 SEARCH_URL = "https://archive.org/advancedsearch.php"
 METADATA_URL = "https://archive.org/metadata/{identifier}"
@@ -74,9 +75,7 @@ class IAClient:
         if path.exists():
             return json.loads(path.read_text())
         data = fetch()
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data))
-        tmp.replace(path)
+        atomic_write_text(path, json.dumps(data))
         return data
 
     def search(self, query: str, fields: list[str], rows: int = 500) -> list[dict]:

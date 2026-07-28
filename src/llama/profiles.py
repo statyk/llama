@@ -6,6 +6,7 @@ from pydantic import BaseModel, ValidationError
 
 from llama.errors import LlamaError
 from llama.models import Criteria
+from llama.workspace import atomic_write_text
 
 
 class ProfileError(LlamaError):
@@ -28,9 +29,8 @@ class Profile(BaseModel):
 
 def save_profile(root: Path, profile: Profile) -> Path:
     path = root / "profiles" / f"{profile.name}.toml"
-    path.parent.mkdir(parents=True, exist_ok=True)
     # TOML has no null: drop None fields; Criteria defaults restore them on load
-    path.write_text(tomli_w.dumps(profile.model_dump(mode="json", exclude_none=True)))
+    atomic_write_text(path, tomli_w.dumps(profile.model_dump(mode="json", exclude_none=True)))
     return path
 
 

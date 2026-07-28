@@ -5,6 +5,7 @@ import tomli_w
 from pydantic import BaseModel, ValidationError, model_validator
 
 from llama.errors import LlamaError
+from llama.workspace import atomic_write_text
 
 
 class PresenterError(LlamaError):
@@ -36,9 +37,8 @@ class Presenter(BaseModel):
 
 def save_presenter(root: Path, presenter: Presenter) -> Path:
     path = root / "presenters" / f"{presenter.id}.toml"
-    path.parent.mkdir(parents=True, exist_ok=True)
     # TOML has no null: drop None fields; id is the filename, not file content.
-    path.write_text(tomli_w.dumps(
+    atomic_write_text(path, tomli_w.dumps(
         presenter.model_dump(mode="json", exclude_none=True, exclude={"id"})))
     return path
 
