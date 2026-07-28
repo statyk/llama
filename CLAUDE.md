@@ -62,6 +62,17 @@ failed validation's final retry escalates one tier (pins never escalate).
   canonical `shows/<slug>/` library (one dir per performance, reused across
   runs); stages write outputs only on success and are individually
   re-runnable (`llama redo <show> --from <stage>`).
+- **Parallel-safe workspace:** multiple `llama` processes may run concurrently
+  against one local `~/.llama/`. Coordination is advisory `fcntl.flock`
+  (`src/llama/locks.py`) at two scopes — a short **ledger lock**
+  (`ledger.jsonl.lock`) around every ledger mutation, and a long **per-show
+  lock** (`shows/<slug>/.lock`) around `process_show` and every single-show
+  mutator (`redo`/`fix`/`voice`/`deliver`/`rm`). Locks auto-release on
+  process death (no stale-lock reaping). Same-performance runs serialize
+  (first builds, others wait and reuse); independent shows run fully in
+  parallel. Readers (`show`/`status`/winnow dedup) never lock. All atomic
+  writes use unique temp names. POSIX-only; non-POSIX degrades to no-op
+  locking.
 - **`overrides.json`:** the one durable, app-edited per-show input —
   excluded source-track filenames, `narration` (`full`/`vague`), and
   metadata corrections (`venue`, `city`, `date`, `titles`: track#→forced

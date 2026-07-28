@@ -1,4 +1,7 @@
+import itertools
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -14,13 +17,31 @@ def _to_jsonable(data):
     return data
 
 
-def write_artifact(path: Path, data) -> None:
-    """Atomic write (temp + rename): a failed stage never leaves a partial artifact."""
+def atomic_write_text(path: Path, text: str) -> None:
+    """Atomic write via a unique temp file + rename. Concurrent writers to the
+    same target never interleave (each gets its own temp); last rename wins."""
+    atomic_write_bytes(path, text.encode())
+
+
+def atomic_write_bytes(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def write_artifact(path: Path, data) -> None:
+    """Atomic write (unique temp + rename): a failed stage never leaves a partial artifact."""
     text = data if isinstance(data, str) else json.dumps(_to_jsonable(data), indent=2)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text)
-    tmp.replace(path)
+    atomic_write_text(path, text)
 
 
 def read_model(path: Path, schema: type[BaseModel]) -> BaseModel:
@@ -59,6 +80,7 @@ class ShowWorkspace:
         self.dj_notes_json = dir / "dj-notes.json"
         self.overrides = dir / "overrides.json"
         self.package_dir = dir / "package"
+        self.lock = dir / ".lock"
 
 
 # Show-level stage order: forcing a stage drops its artifacts and everything
@@ -104,13 +126,13 @@ class RunWorkspace:
         return ShowWorkspace(self.root / "shows" / slugify(performance_id))
 
 
-def unique_run_name(root: Path, base: str) -> str:
-    """Auto-unique session id: `base`, else `base-2`, `base-3`, ... (spec §4).
-    Fixes the same-day silent-resume collision."""
+def claim_run_dir(root: Path, base: str) -> str:
+    """Atomically claim a run name by creating its dir. `base`, else `base-2`,
+    `base-3`, ... — two concurrent callers can never win the same name."""
     runs = root / "runs"
-    if not (runs / base).exists():
-        return base
-    n = 2
-    while (runs / f"{base}-{n}").exists():
-        n += 1
-    return f"{base}-{n}"
+    for name in itertools.chain([base], (f"{base}-{n}" for n in itertools.count(2))):
+        try:
+            (runs / name).mkdir(parents=True, exist_ok=False)
+            return name
+        except FileExistsError:
+            continue

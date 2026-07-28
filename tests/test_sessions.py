@@ -1,4 +1,5 @@
 import json
+import multiprocessing as mp
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -8,19 +9,37 @@ from llama.models import Criteria
 from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
                             SessionInfo, attention_sessions, iter_sessions,
                             mark_awaiting, mark_complete, session_state)
-from llama.workspace import RunWorkspace, unique_run_name, write_artifact
+from llama.workspace import RunWorkspace, claim_run_dir, write_artifact
 
 from test_pipeline import FakeIA, fake_providers
 
 runner = CliRunner()
 
+CTX = mp.get_context("fork")
 
-def test_unique_run_name(tmp_path: Path):
-    assert unique_run_name(tmp_path, "2026-07-27-x") == "2026-07-27-x"
-    (tmp_path / "runs" / "2026-07-27-x").mkdir(parents=True)
-    assert unique_run_name(tmp_path, "2026-07-27-x") == "2026-07-27-x-2"
-    (tmp_path / "runs" / "2026-07-27-x-2").mkdir()
-    assert unique_run_name(tmp_path, "2026-07-27-x") == "2026-07-27-x-3"
+
+def test_claim_run_dir_suffixes(tmp_path: Path):
+    # Each call creates the dir itself, so successive calls auto-suffix.
+    assert claim_run_dir(tmp_path, "2026-07-27-x") == "2026-07-27-x"
+    assert claim_run_dir(tmp_path, "2026-07-27-x") == "2026-07-27-x-2"
+    assert claim_run_dir(tmp_path, "2026-07-27-x") == "2026-07-27-x-3"
+
+
+def _claim(root, base, out):
+    out.put(claim_run_dir(Path(root), base))
+
+
+def test_claim_run_dir_race_distinct_names(tmp_path: Path):
+    out = CTX.Queue()
+    procs = [CTX.Process(target=_claim, args=(str(tmp_path), "2026-07-28-q", out))
+             for _ in range(6)]
+    for p in procs:
+        p.start()
+    for p in procs:
+        p.join(5)
+    names = sorted(out.get() for _ in procs)
+    assert len(set(names)) == 6                                   # all distinct
+    assert len(list((tmp_path / "runs").iterdir())) == 6          # 6 dirs claimed
 
 
 def test_marker_roundtrip(tmp_path: Path):

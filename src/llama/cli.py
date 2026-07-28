@@ -21,6 +21,7 @@ from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
+from llama.locks import Locked, file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.presenters import (
@@ -42,8 +43,8 @@ from llama.tts import speech_provider_for
 from llama.tts.bed import Bed
 from llama.tts.provider import SpeechError
 from llama.util import parse_performance_id, slugify
-from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, read_model,
-                             read_model_list, unique_run_name, write_artifact)
+from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
+                             read_model, read_model_list, write_artifact)
 
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
@@ -288,32 +289,46 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         return
     setlistfm = make_client(config)
     packaged = held = failed = 0
+
+    def _process(entry):
+        nonlocal packaged, held, failed
+        try:
+            pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
+                               force=force, script=script, voice=voice, speech=speech,
+                               chunk=config.tts.chunk,
+                               bed=resolve_bed(config, presenter),
+                               presenter=presenter, title=title,
+                               setlistfm=setlistfm,
+                               structure_cfg=config.structure, selection_cfg=config.selection,
+                               jerrybase_enabled=config.jerrybase.enabled,
+                               force_stage=force_stage)
+        except (TaskFailed, LLMError, IAError, SpeechError) as exc:
+            if isinstance(exc, TaskFailed) and exc.raw_output:
+                failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
+                failure_path.parent.mkdir(parents=True, exist_ok=True)
+                failure_path.write_text(exc.raw_output)
+            typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+            failed += 1
+            return
+        if pkg:
+            typer.echo(f"packaged: {pkg}")
+            packaged += 1
+        else:
+            typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
+            held += 1
+
     try:
+        deferred = []
         for entry in chosen:
+            lock_path = ws.show_ws(entry.candidate.performance_id).lock
             try:
-                pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
-                                   force=force, script=script, voice=voice, speech=speech,
-                                   chunk=config.tts.chunk,
-                                   bed=resolve_bed(config, presenter),
-                                   presenter=presenter, title=title,
-                                   setlistfm=setlistfm,
-                                   structure_cfg=config.structure, selection_cfg=config.selection,
-                                   jerrybase_enabled=config.jerrybase.enabled,
-                                   force_stage=force_stage)
-            except (TaskFailed, LLMError, IAError, SpeechError) as exc:
-                if isinstance(exc, TaskFailed) and exc.raw_output:
-                    failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
-                    failure_path.parent.mkdir(parents=True, exist_ok=True)
-                    failure_path.write_text(exc.raw_output)
-                typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
-                failed += 1
-                continue
-            if pkg:
-                typer.echo(f"packaged: {pkg}")
-                packaged += 1
-            else:
-                typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
-                held += 1
+                with file_lock(lock_path, blocking=False):
+                    _process(entry)
+            except Locked:
+                deferred.append(entry)                 # another run is building it
+        for entry in deferred:                          # come back and wait
+            with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
+                _process(entry)
     finally:
         if speech is not None:
             speech.close()
@@ -341,8 +356,8 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     voice_id = _resolve_voice(config, voice)
     if voice_id is not None:
         script = True  # voice cannot work without the script
-    run_name = name or unique_run_name(config.root,
-                                       f"{date.today().isoformat()}-{slugify(query)[:40]}")
+    run_name = name or claim_run_dir(config.root,
+                                     f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, run_name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
     # Stamp explicit flags into the run's criteria so replays behave the same.
@@ -372,8 +387,8 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
     """Profile mode: today's `profile run` verbatim (load profile -> stamp
     count/script/voice/presenter/title -> `_execute`)."""
     profile = load_profile(config.root, name)
-    ws = RunWorkspace(config.root, unique_run_name(config.root,
-                                                   f"{date.today().isoformat()}-{name}"))
+    ws = RunWorkspace(config.root, claim_run_dir(config.root,
+                                                 f"{date.today().isoformat()}-{name}"))
     presenter = (load_presenter(config.root, profile.presenter)
                  if profile.presenter else None)
     voice_id = _resolve_voice(config, None,
@@ -1129,26 +1144,28 @@ def _deliver_one(config, ledger, entry, dest, allow_unvoiced) -> Path:
 
     from llama.catalog import deliver_refusals
 
-    show_dir = entry.ws.dir
+    show_ws = entry.ws
+    show_dir = show_ws.dir
     target_dir = dest or config.delivery_path
     if target_dir is None:
         raise LlamaError("no --dest given and no delivery_path in config")
-    reasons = deliver_refusals(entry.ws, allow_unvoiced)
-    if reasons:
-        message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
-        raise LlamaError(f"{message}\n{_deliver_pointer(entry.slug, reasons)}")
-    pkg = show_dir / "package"
-    manifest = _json.loads((pkg / "manifest.json").read_text())
-    out = target_dir / show_dir.name
-    shutil.copytree(pkg, out, dirs_exist_ok=True)
-    show = manifest["show"]
-    run_name = entry.provenance.run if entry.provenance else "unknown"
-    ledger.record(LedgerEntry(
-        performance_id=manifest["source"].get("performance_id", show_dir.name),
-        artist=show["artist"], date=show["date"], venue=show.get("venue"),
-        status="delivered", run=run_name,
-        recorded_at=datetime.now(timezone.utc).isoformat(),
-    ))
+    with file_lock(show_ws.lock):
+        reasons = deliver_refusals(show_ws, allow_unvoiced)
+        if reasons:
+            message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
+            raise LlamaError(f"{message}\n{_deliver_pointer(entry.slug, reasons)}")
+        pkg = show_dir / "package"
+        manifest = _json.loads((pkg / "manifest.json").read_text())
+        out = target_dir / show_dir.name
+        shutil.copytree(pkg, out, dirs_exist_ok=True)
+        show = manifest["show"]
+        run_name = entry.provenance.run if entry.provenance else "unknown"
+        ledger.record(LedgerEntry(
+            performance_id=manifest["source"].get("performance_id", show_dir.name),
+            artist=show["artist"], date=show["date"], venue=show.get("venue"),
+            status="delivered", run=run_name,
+            recorded_at=datetime.now(timezone.utc).isoformat(),
+        ))
     return out
 
 
@@ -1252,31 +1269,34 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
     presenter = (load_presenter(config.root, prov.presenter)
                  if prov.presenter else None)
     keep_research = not with_research and from_stage in ("select", "gather")
-    drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
-    # Keep the winnow assessment (quality_score + recording_complaints) so
-    # select-recording still avoids complained-about recordings; override only
-    # the rationale so the dossier round-trip stays stable (it already carries
-    # the external-reputation suffix). Fall back to a zero stub for pre-fix
-    # provenance.json files that predate the assessment field.
-    assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
-                  if prov.assessment is not None
-                  else QualityAssessment(performance_id=prov.performance_id,
-                                         quality_score=0.0, rationale=prov.dossier))
-    shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
-    ws = RunWorkspace(config.root, prov.run)
-    effective_voice = _replay_voice(config, prov.voice, voice)
-    effective_script = ((prov.script if script is None else script)
-                        or effective_voice is not None or from_stage == "synthesize")
-    speech = _speech_for(config, effective_voice, presenter)
+    show_ws = entry.ws
+    speech = None
     try:
-        return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                            prov.run, config.audio_format, script=effective_script,
-                            voice=effective_voice, speech=speech, chunk=config.tts.chunk,
-                            bed=resolve_bed(config, presenter),
-                            presenter=presenter, title=prov.title,
-                            setlistfm=make_client(config), structure_cfg=config.structure,
-                            jerrybase_enabled=config.jerrybase.enabled,
-                            selection_cfg=config.selection)
+        with file_lock(show_ws.lock):
+            drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+            # Keep the winnow assessment (quality_score + recording_complaints) so
+            # select-recording still avoids complained-about recordings; override only
+            # the rationale so the dossier round-trip stays stable (it already carries
+            # the external-reputation suffix). Fall back to a zero stub for pre-fix
+            # provenance.json files that predate the assessment field.
+            assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+                          if prov.assessment is not None
+                          else QualityAssessment(performance_id=prov.performance_id,
+                                                 quality_score=0.0, rationale=prov.dossier))
+            shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
+            ws = RunWorkspace(config.root, prov.run)
+            effective_voice = _replay_voice(config, prov.voice, voice)
+            effective_script = ((prov.script if script is None else script)
+                                or effective_voice is not None or from_stage == "synthesize")
+            speech = _speech_for(config, effective_voice, presenter)
+            return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                                prov.run, config.audio_format, script=effective_script,
+                                voice=effective_voice, speech=speech, chunk=config.tts.chunk,
+                                bed=resolve_bed(config, presenter),
+                                presenter=presenter, title=prov.title,
+                                setlistfm=make_client(config), structure_cfg=config.structure,
+                                jerrybase_enabled=config.jerrybase.enabled,
+                                selection_cfg=config.selection)
     finally:
         if speech is not None:
             speech.close()

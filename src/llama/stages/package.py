@@ -13,7 +13,13 @@ from llama.status import detail
 from llama.tts.bed import Bed, load_bed_pcm, mix_bed
 from llama.tts.provider import SpeechError
 from llama.util import reviews_digest
-from llama.workspace import ShowWorkspace, read_json, read_model, write_artifact
+from llama.workspace import (
+    ShowWorkspace,
+    atomic_write_bytes,
+    read_json,
+    read_model,
+    write_artifact,
+)
 
 DURATION_TOLERANCE_S = 5.0
 
@@ -229,9 +235,7 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
                 data = _synthesize_chunked(spoken, speech)
             else:
                 data = speech.synthesize(spoken)
-            tmp = dest.with_name(dest.name + ".part")
-            tmp.write_bytes(data)
-            tmp.replace(dest)
+            atomic_write_bytes(dest, data)
     for existing in audio_dir.glob("*.mp3"):
         if existing.name not in keys:
             detail(f"pruning orphan {existing.name}")

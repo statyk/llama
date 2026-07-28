@@ -10,6 +10,7 @@ import httpx
 
 from llama.config import Config
 from llama.songs import normalize_song
+from llama.workspace import atomic_write_text
 
 SEARCH_URL = "https://api.setlist.fm/rest/1.0/search/setlists"
 
@@ -90,9 +91,7 @@ class SetlistFMClient:
                         retried = self._search(cleaned, date)
                         if retried is not None:
                             data = retried
-                tmp = path.with_suffix(".tmp")
-                tmp.write_text(json.dumps(data))
-                tmp.replace(path)
+                atomic_write_text(path, json.dumps(data))
             return _pick(data.get("setlist", []), venue, city)
         except Exception as err:
             log.warning("setlist.fm lookup failed: %s", err)
