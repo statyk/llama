@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 import tempfile
@@ -124,13 +125,13 @@ class RunWorkspace:
         return ShowWorkspace(self.root / "shows" / slugify(performance_id))
 
 
-def unique_run_name(root: Path, base: str) -> str:
-    """Auto-unique session id: `base`, else `base-2`, `base-3`, ... (spec §4).
-    Fixes the same-day silent-resume collision."""
+def claim_run_dir(root: Path, base: str) -> str:
+    """Atomically claim a run name by creating its dir. `base`, else `base-2`,
+    `base-3`, ... — two concurrent callers can never win the same name."""
     runs = root / "runs"
-    if not (runs / base).exists():
-        return base
-    n = 2
-    while (runs / f"{base}-{n}").exists():
-        n += 1
-    return f"{base}-{n}"
+    for name in itertools.chain([base], (f"{base}-{n}" for n in itertools.count(2))):
+        try:
+            (runs / name).mkdir(parents=True, exist_ok=False)
+            return name
+        except FileExistsError:
+            continue

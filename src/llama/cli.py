@@ -42,8 +42,8 @@ from llama.tts import speech_provider_for
 from llama.tts.bed import Bed
 from llama.tts.provider import SpeechError
 from llama.util import parse_performance_id, slugify
-from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, read_model,
-                             read_model_list, unique_run_name, write_artifact)
+from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
+                             read_model, read_model_list, write_artifact)
 
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
@@ -341,8 +341,8 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     voice_id = _resolve_voice(config, voice)
     if voice_id is not None:
         script = True  # voice cannot work without the script
-    run_name = name or unique_run_name(config.root,
-                                       f"{date.today().isoformat()}-{slugify(query)[:40]}")
+    run_name = name or claim_run_dir(config.root,
+                                     f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, run_name)
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
     # Stamp explicit flags into the run's criteria so replays behave the same.
@@ -372,8 +372,8 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
     """Profile mode: today's `profile run` verbatim (load profile -> stamp
     count/script/voice/presenter/title -> `_execute`)."""
     profile = load_profile(config.root, name)
-    ws = RunWorkspace(config.root, unique_run_name(config.root,
-                                                   f"{date.today().isoformat()}-{name}"))
+    ws = RunWorkspace(config.root, claim_run_dir(config.root,
+                                                 f"{date.today().isoformat()}-{name}"))
     presenter = (load_presenter(config.root, profile.presenter)
                  if profile.presenter else None)
     voice_id = _resolve_voice(config, None,
