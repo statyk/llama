@@ -21,7 +21,7 @@ from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.llm import provider_ladder
 from llama.llm.provider import LLMError, TaskFailed
-from llama.locks import file_lock
+from llama.locks import Locked, file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.presenters import (
@@ -289,32 +289,46 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         return
     setlistfm = make_client(config)
     packaged = held = failed = 0
+
+    def _process(entry):
+        nonlocal packaged, held, failed
+        try:
+            pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
+                               force=force, script=script, voice=voice, speech=speech,
+                               chunk=config.tts.chunk,
+                               bed=resolve_bed(config, presenter),
+                               presenter=presenter, title=title,
+                               setlistfm=setlistfm,
+                               structure_cfg=config.structure, selection_cfg=config.selection,
+                               jerrybase_enabled=config.jerrybase.enabled,
+                               force_stage=force_stage)
+        except (TaskFailed, LLMError, IAError, SpeechError) as exc:
+            if isinstance(exc, TaskFailed) and exc.raw_output:
+                failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
+                failure_path.parent.mkdir(parents=True, exist_ok=True)
+                failure_path.write_text(exc.raw_output)
+            typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+            failed += 1
+            return
+        if pkg:
+            typer.echo(f"packaged: {pkg}")
+            packaged += 1
+        else:
+            typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
+            held += 1
+
     try:
+        deferred = []
         for entry in chosen:
+            lock_path = ws.show_ws(entry.candidate.performance_id).lock
             try:
-                pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
-                                   force=force, script=script, voice=voice, speech=speech,
-                                   chunk=config.tts.chunk,
-                                   bed=resolve_bed(config, presenter),
-                                   presenter=presenter, title=title,
-                                   setlistfm=setlistfm,
-                                   structure_cfg=config.structure, selection_cfg=config.selection,
-                                   jerrybase_enabled=config.jerrybase.enabled,
-                                   force_stage=force_stage)
-            except (TaskFailed, LLMError, IAError, SpeechError) as exc:
-                if isinstance(exc, TaskFailed) and exc.raw_output:
-                    failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
-                    failure_path.parent.mkdir(parents=True, exist_ok=True)
-                    failure_path.write_text(exc.raw_output)
-                typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
-                failed += 1
-                continue
-            if pkg:
-                typer.echo(f"packaged: {pkg}")
-                packaged += 1
-            else:
-                typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
-                held += 1
+                with file_lock(lock_path, blocking=False):
+                    _process(entry)
+            except Locked:
+                deferred.append(entry)                 # another run is building it
+        for entry in deferred:                          # come back and wait
+            with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
+                _process(entry)
     finally:
         if speech is not None:
             speech.close()
