@@ -1,6 +1,5 @@
 import multiprocessing as mp
 import os
-import time
 from pathlib import Path
 
 import pytest
