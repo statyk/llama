@@ -5,15 +5,30 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from llama.errors import ConfigError
+from llama.llm import LLMSettings, TaskConfig
 
 DEFAULT_ROOT = Path.home() / ".llama"
 
 Tier = Literal["low", "medium", "high"]
 
+# Task -> tier defaults. Sonnet is the workhorse; deep_research and synthesize
+# are the two tasks whose quality is audible on air. (llama's task vocabulary —
+# moved here from the LLM layer, which is app-agnostic.)
+DEFAULT_TIERS = {
+    "interpret": "medium",
+    "score_reviews": "medium",
+    "light_research": "medium",
+    "extract_setlist": "medium",
+    "deep_research": "high",
+    "synthesize": "high",
+    "find_artists": "medium",
+    "align_structure": "medium",
+    "vet_research": "low",
+}
 
-class LLMTaskConfig(BaseModel):
-    backend: str = "claude_cli"
-    model: str | None = None
+
+class LLMTaskConfig(TaskConfig):
+    # Narrows the shared type so a config-file tier typo fails at parse time.
     tier: Tier | None = None
 
 
@@ -113,6 +128,9 @@ class Config(BaseModel):
 
     def llm_for(self, task: str) -> LLMTaskConfig:
         return self.llm.get(task) or self.llm.get("default") or LLMTaskConfig()
+
+    def llm_settings(self) -> LLMSettings:
+        return LLMSettings(tasks=self.llm, tiers=self.tiers, default_tiers=DEFAULT_TIERS)
 
 
 def load_config(path: Path | None = None) -> Config:

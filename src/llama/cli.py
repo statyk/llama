@@ -505,7 +505,7 @@ def artists(
     if query is None:
         _print_artists(sorted(pool, key=lambda a: -a["recordings"])[:limit])
         return
-    matches = find_matching_artists(provider_ladder(config, "find_artists"),
+    matches = find_matching_artists(provider_ladder(config.llm_settings(), "find_artists"),
                                     pool, query, max_results=limit)
     if not matches:
         typer.echo("no matching artists - try a broader query, "

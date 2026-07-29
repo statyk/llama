@@ -27,7 +27,8 @@ TASK_KEYS = ["interpret", "score_reviews", "light_research",
 
 
 def make_providers(config: Config) -> dict:
-    return {key: provider_ladder(config, key) for key in TASK_KEYS}
+    settings = config.llm_settings()
+    return {key: provider_ladder(settings, key) for key in TASK_KEYS}
 
 
 def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool,

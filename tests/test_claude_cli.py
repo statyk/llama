@@ -106,7 +106,8 @@ def test_bad_json_and_error_payload_raise(monkeypatch):
 def test_provider_for_uses_task_config(monkeypatch):
     cfg = Config(llm={"default": LLMTaskConfig(model="m-default"),
                       "synthesize": LLMTaskConfig(model="m-big")})
-    assert provider_for(cfg, "synthesize").model == "m-big"
-    assert provider_for(cfg, "interpret").model == "m-default"
+    assert provider_for(cfg.llm_settings(), "synthesize").model == "m-big"
+    assert provider_for(cfg.llm_settings(), "interpret").model == "m-default"
     with pytest.raises(LLMError):
-        provider_for(Config(llm={"default": LLMTaskConfig(backend="nope")}), "interpret")
+        bad = Config(llm={"default": LLMTaskConfig(backend="nope")})
+        provider_for(bad.llm_settings(), "interpret")

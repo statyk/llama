@@ -1,63 +1,76 @@
 import pytest
 
-from llama.config import Config, LLMTaskConfig
-from llama.llm import DEFAULT_TIERS, TIER_MODELS, provider_for, provider_ladder, resolve_model
+from llama.llm import (
+    TIER_MODELS,
+    LLMSettings,
+    TaskConfig,
+    provider_for,
+    provider_ladder,
+    resolve_model,
+)
 from llama.llm.openrouter import OpenRouterProvider
 from llama.llm.provider import LLMError
 
 
-def test_out_of_box_defaults_are_concrete():
-    cfg = Config()
-    assert provider_for(cfg, "interpret").model == "sonnet"
-    assert provider_for(cfg, "score_reviews").model == "sonnet"
-    assert provider_for(cfg, "deep_research").model == "opus"
-    assert provider_for(cfg, "synthesize").model == "opus"
-    assert provider_for(cfg, "some_future_task").model == "sonnet"  # medium fallback
+def settings(**kw):
+    return LLMSettings(default_tiers={"deep_research": "high", "vet_research": "low"}, **kw)
+
+
+def test_task_default_tier_resolves():
+    assert resolve_model(settings(), "deep_research") == ("claude_cli", "opus")
+
+
+def test_unknown_task_defaults_to_medium():
+    assert resolve_model(settings(), "interpret") == ("claude_cli", "sonnet")
+
+
+def test_explicit_model_pin_wins():
+    s = settings(tasks={"interpret": TaskConfig(model="claude-opus-4-8")})
+    assert resolve_model(s, "interpret") == ("claude_cli", "claude-opus-4-8")
+
+
+def test_tier_table_overlay():
+    s = settings(tiers={"openrouter": {"medium": "deepseek/deepseek-chat-v3"}},
+                 tasks={"default": TaskConfig(backend="openrouter")})
+    assert resolve_model(s, "interpret") == ("openrouter", "deepseek/deepseek-chat-v3")
 
 
 def test_explicit_tier_beats_task_default():
-    cfg = Config(llm={"synthesize": LLMTaskConfig(tier="medium")})
-    assert provider_for(cfg, "synthesize").model == "sonnet"
-    cfg = Config(llm={"interpret": LLMTaskConfig(tier="low")})
-    assert provider_for(cfg, "interpret").model == "haiku"
+    s = settings(tasks={"synthesize": TaskConfig(tier="medium")})
+    assert resolve_model(s, "synthesize") == ("claude_cli", "sonnet")
+    s = settings(tasks={"interpret": TaskConfig(tier="low")})
+    assert resolve_model(s, "interpret") == ("claude_cli", "haiku")
 
 
-def test_explicit_model_beats_tier():
-    cfg = Config(llm={"synthesize": LLMTaskConfig(tier="low", model="claude-opus-4-8")})
-    assert provider_for(cfg, "synthesize").model == "claude-opus-4-8"
+def test_explicit_model_beats_tier_even_when_both_set():
+    s = settings(tasks={"synthesize": TaskConfig(tier="low", model="claude-opus-4-8")})
+    assert resolve_model(s, "synthesize") == ("claude_cli", "claude-opus-4-8")
 
 
 def test_default_entry_tier_floors_unpinned_tasks():
-    cfg = Config(llm={"default": LLMTaskConfig(tier="low")})
-    assert provider_for(cfg, "interpret").model == "haiku"
+    s = settings(tasks={"default": TaskConfig(tier="low")})
+    assert resolve_model(s, "interpret") == ("claude_cli", "haiku")
     # synthesize has no entry of its own, so the default entry's tier wins
-    assert provider_for(cfg, "synthesize").model == "haiku"
+    assert resolve_model(s, "synthesize") == ("claude_cli", "haiku")
     # ...but a task with its own entry ignores the default entry entirely
-    cfg = Config(llm={"default": LLMTaskConfig(tier="low"),
-                      "synthesize": LLMTaskConfig(tier="high")})
-    assert provider_for(cfg, "synthesize").model == "opus"
+    s = settings(tasks={"default": TaskConfig(tier="low"),
+                         "synthesize": TaskConfig(tier="high")})
+    assert resolve_model(s, "synthesize") == ("claude_cli", "opus")
 
 
 def test_unknown_backend_still_raises():
-    cfg = Config(llm={"default": LLMTaskConfig(backend="nope")})
+    s = settings(tasks={"default": TaskConfig(backend="nope")})
     with pytest.raises(LLMError):
-        provider_for(cfg, "interpret")
+        provider_for(s, "interpret")
 
 
 def test_resolve_model_returns_backend_and_model():
-    assert resolve_model(Config(), "synthesize") == ("claude_cli", "opus")
+    s = LLMSettings(default_tiers={"synthesize": "high"})
+    assert resolve_model(s, "synthesize") == ("claude_cli", "opus")
 
 
 def test_tables_match_spec():
     assert TIER_MODELS["claude_cli"] == {"low": "haiku", "medium": "sonnet", "high": "opus"}
-    assert DEFAULT_TIERS == {
-        "interpret": "medium", "score_reviews": "medium",
-        "light_research": "medium", "extract_setlist": "medium",
-        "deep_research": "high", "synthesize": "high",
-        "find_artists": "medium",
-        "align_structure": "medium",
-        "vet_research": "low",
-    }
 
 
 def test_openrouter_tier_table_matches_spec():
@@ -70,53 +83,53 @@ def test_openrouter_tier_table_matches_spec():
 
 def test_openrouter_backend_resolves_and_constructs(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    cfg = Config(llm={"default": LLMTaskConfig(backend="openrouter")})
-    assert resolve_model(cfg, "interpret") == ("openrouter", "anthropic/claude-sonnet-4.5")
-    assert resolve_model(cfg, "synthesize") == ("openrouter", "anthropic/claude-opus-4.1")
-    p = provider_for(cfg, "interpret")
+    s = settings(tasks={"default": TaskConfig(backend="openrouter")})
+    assert resolve_model(s, "interpret") == ("openrouter", "anthropic/claude-sonnet-4.5")
+    assert resolve_model(s, "deep_research") == ("openrouter", "anthropic/claude-opus-4.1")
+    p = provider_for(s, "interpret")
     assert isinstance(p, OpenRouterProvider)
     assert p.model == "anthropic/claude-sonnet-4.5"
 
 
 def test_openrouter_without_key_fails_fast(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    cfg = Config(llm={"default": LLMTaskConfig(backend="openrouter")})
+    s = settings(tasks={"default": TaskConfig(backend="openrouter")})
     with pytest.raises(LLMError, match="OPENROUTER_API_KEY"):
-        provider_for(cfg, "interpret")
+        provider_for(s, "interpret")
 
 
 def test_config_tiers_overlay_beats_shipped_table():
-    cfg = Config(llm={"default": LLMTaskConfig(backend="openrouter")},
-                 tiers={"openrouter": {"medium": "deepseek/deepseek-chat-v3"}})
-    assert resolve_model(cfg, "interpret") == ("openrouter", "deepseek/deepseek-chat-v3")
+    s = settings(tiers={"openrouter": {"medium": "deepseek/deepseek-chat-v3"}},
+                 tasks={"default": TaskConfig(backend="openrouter")})
+    assert resolve_model(s, "interpret") == ("openrouter", "deepseek/deepseek-chat-v3")
     # tiers the overlay doesn't touch still come from the shipped table
-    assert resolve_model(cfg, "synthesize") == ("openrouter", "anthropic/claude-opus-4.1")
+    assert resolve_model(s, "deep_research") == ("openrouter", "anthropic/claude-opus-4.1")
 
 
 def test_overlay_applies_to_claude_cli_too():
-    cfg = Config(tiers={"claude_cli": {"high": "sonnet"}})
-    assert resolve_model(cfg, "synthesize") == ("claude_cli", "sonnet")
+    s = settings(tiers={"claude_cli": {"high": "sonnet"}})
+    assert resolve_model(s, "deep_research") == ("claude_cli", "sonnet")
 
 
 def test_missing_tier_raises_llmerror_not_keyerror():
-    cfg = Config(llm={"default": LLMTaskConfig(backend="custom")},
+    s = settings(tasks={"default": TaskConfig(backend="custom")},
                  tiers={"custom": {"low": "x/y"}})
     with pytest.raises(LLMError, match="tier"):
-        resolve_model(cfg, "interpret")  # interpret needs medium; table only has low
+        resolve_model(s, "interpret")  # interpret needs medium; table only has low
 
 
 def test_tiers_only_backend_fails_at_provider_construction():
-    cfg = Config(llm={"default": LLMTaskConfig(backend="custom", tier="low")},
+    s = settings(tasks={"default": TaskConfig(backend="custom", tier="low")},
                  tiers={"custom": {"low": "x/y"}})
-    assert resolve_model(cfg, "interpret") == ("custom", "x/y")
+    assert resolve_model(s, "interpret") == ("custom", "x/y")
     with pytest.raises(LLMError, match="unknown LLM backend"):
-        provider_for(cfg, "interpret")
+        provider_for(s, "interpret")
 
 
 def test_ladder_escalates_final_attempt(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    cfg = Config(llm={"default": LLMTaskConfig(backend="openrouter")})
-    ladder = provider_ladder(cfg, "interpret")  # medium task: final rung one tier up
+    s = settings(tasks={"default": TaskConfig(backend="openrouter")})
+    ladder = provider_ladder(s, "interpret")  # medium task: final rung one tier up
     assert [p.model for p in ladder] == [
         "anthropic/claude-sonnet-4.5",
         "anthropic/claude-sonnet-4.5",
@@ -125,25 +138,19 @@ def test_ladder_escalates_final_attempt(monkeypatch):
 
 
 def test_ladder_high_tier_has_no_headroom():
-    ladder = provider_ladder(Config(), "synthesize")
+    ladder = provider_ladder(settings(), "deep_research")
     assert [p.model for p in ladder] == ["opus", "opus", "opus"]
 
 
 def test_ladder_model_pin_never_escalates():
-    cfg = Config(llm={"interpret": LLMTaskConfig(model="claude-opus-4-8")})
-    ladder = provider_ladder(cfg, "interpret")
+    s = settings(tasks={"interpret": TaskConfig(model="claude-opus-4-8")})
+    ladder = provider_ladder(s, "interpret")
     assert [p.model for p in ladder] == ["claude-opus-4-8"] * 3
 
 
 def test_ladder_low_tier_escalates_to_medium():
-    cfg = Config(llm={"default": LLMTaskConfig(backend="claude_cli", tier="low")},
+    s = settings(tasks={"default": TaskConfig(backend="claude_cli", tier="low")},
                  tiers={"claude_cli": {"medium": "sonnet-cheap"}})
     # low escalates to medium, and the escalated rung honors the config overlay
-    assert [p.model for p in provider_ladder(cfg, "interpret")] == [
+    assert [p.model for p in provider_ladder(s, "interpret")] == [
         "haiku", "haiku", "sonnet-cheap"]
-
-
-def test_vet_research_defaults_to_low_tier():
-    from llama.llm import DEFAULT_TIERS
-
-    assert DEFAULT_TIERS["vet_research"] == "low"

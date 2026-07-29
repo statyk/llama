@@ -4,8 +4,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from llama.config import Config, DEFAULT_CONFIG_TOML, load_config
+from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_TIERS, Config, load_config
 from llama.errors import ConfigError
+from llama.llm import resolve_model
 
 
 def test_invalid_audio_format_raises(tmp_path: Path):
@@ -32,6 +33,40 @@ def test_load_and_task_fallback(tmp_path: Path):
     assert cfg.audio_format == "flac"
     assert cfg.llm_for("synthesize").model == "claude-opus-4-8"
     assert cfg.llm_for("interpret").model == "claude-sonnet-5"  # falls back to default
+
+
+def test_llm_settings_adapter_carries_config_tables():
+    config = Config.model_validate(
+        {"llm": {"synthesize": {"tier": "medium"},
+                 "tiers": {"openrouter": {"low": "x/y"}}}})
+    s = config.llm_settings()
+    assert s.tasks["synthesize"].tier == "medium"
+    assert s.tiers == {"openrouter": {"low": "x/y"}}
+    # pydantic copies dicts on validation — compare by value, not identity
+    assert s.default_tiers == DEFAULT_TIERS
+
+
+def test_default_tiers_vocabulary():
+    assert DEFAULT_TIERS == {
+        "interpret": "medium", "score_reviews": "medium",
+        "light_research": "medium", "extract_setlist": "medium",
+        "deep_research": "high", "synthesize": "high",
+        "find_artists": "medium",
+        "align_structure": "medium",
+        "vet_research": "low",
+    }
+
+
+def test_out_of_box_defaults_are_concrete():
+    # Integration: real Config -> llm_settings() -> resolve_model, exercising
+    # llama's actual task-tier vocabulary end to end (was test_model_tiers.py's
+    # test_out_of_box_defaults_are_concrete before DEFAULT_TIERS moved here).
+    settings = Config().llm_settings()
+    assert resolve_model(settings, "interpret") == ("claude_cli", "sonnet")
+    assert resolve_model(settings, "score_reviews") == ("claude_cli", "sonnet")
+    assert resolve_model(settings, "deep_research") == ("claude_cli", "opus")
+    assert resolve_model(settings, "synthesize") == ("claude_cli", "opus")
+    assert resolve_model(settings, "some_future_task") == ("claude_cli", "sonnet")  # medium fallback
 
 
 import pytest
