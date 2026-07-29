@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from llama.llm.tasks import load_prompt
+from llama.prompts import load_prompt
 
 EXPECTED = {
     "interpret": {"query"},

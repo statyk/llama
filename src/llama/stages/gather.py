@@ -10,6 +10,7 @@ from llama.llm.provider import LLMError, TaskFailed
 from llama.llm.tasks import run_json_task
 from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
                           SourcedParse, StructureInfo)
+from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.structure import (align, apply_llm_alignment, blend_segues,
                              from_setlistfm, norm_title, rank_parses,
@@ -156,6 +157,7 @@ def run_gather(
         longest = max(descriptions, key=len, default="")
         if longest.strip():
             parsed = run_json_task(provider, "extract_setlist", ParsedSetlist,
+                                   template=load_prompt("extract_setlist"),
                                    description=longest)
             best = SourcedParse(source="llm", parsed=parsed)
     canonical = best.parsed if best else ParsedSetlist()
@@ -216,6 +218,7 @@ def run_gather(
                 if align_provider is not None:
                     try:
                         resp = run_json_task(align_provider, "align_structure", AlignedStructure,
+                                             template=load_prompt("align_structure"),
                                              tracks=_format_tracks(tracks),
                                              setlist=_format_setlist(canonical))
                         llm_result = apply_llm_alignment(tracks, resp)

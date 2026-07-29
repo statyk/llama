@@ -16,6 +16,7 @@ from llama.errors import ArtistResolutionError
 from llama.ia_client import IAError
 from llama.llm.tasks import run_json_task
 from llama.models import ArtistMatches
+from llama.prompts import load_prompt
 from llama.status import step
 from llama.workspace import write_artifact
 
@@ -176,6 +177,7 @@ def find_matching_artists(provider, artists: list[dict], query: str, max_results
     with step("matching artists against the LMA inventory (LLM)"):
         result = run_json_task(
             provider, "find_artists", ArtistMatches,
+            template=load_prompt("find_artists"),
             query=query, max_results=max_results,
             artist_table=render_artist_table(artists),
         )

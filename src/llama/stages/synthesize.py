@@ -3,6 +3,7 @@ import re
 from llama.llm.tasks import run_json_task
 from llama.models import DJNotes, Show
 from llama.presenters import Presenter
+from llama.prompts import load_prompt
 from llama.songs import normalize_song
 from llama.util import reviews_digest
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
@@ -156,7 +157,8 @@ def run_synthesize(
     )
     feedback = ""
     for _attempt in range(2):
-        notes = run_json_task(provider, "synthesize", DJNotes, feedback=feedback, **inputs)
+        notes = run_json_task(provider, "synthesize", DJNotes,
+                              template=load_prompt("synthesize"), feedback=feedback, **inputs)
         problems = factual_guard(notes, show)
         if not problems:
             break

@@ -4,6 +4,7 @@ import logging
 from llama.ledger import Ledger
 from llama.llm.tasks import run_json_task, run_research_task
 from llama.models import Candidate, Criteria, QualityBatch, ShortlistEntry
+from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.songs import matches_sequence
 from llama.status import detail, step
@@ -101,6 +102,7 @@ def run_winnow(
             batch = payload[i : i + batch_size]
             detail(f"batch {bi}/{n_batches}")
             result = run_json_task(score_provider, "score_reviews", QualityBatch,
+                                   template=load_prompt("score_reviews"),
                                    candidates_json=json.dumps(batch, indent=2),
                                    soft_preferences=criteria.soft_preferences or "(none)")
             for a in result.assessments:
@@ -131,7 +133,7 @@ def run_winnow(
         for rank, (c, a) in enumerate(top, 1):
             detail(f"{c.performance_id} ({rank}/{len(top)})")
             rep = run_research_task(
-                research_provider, "light_research",
+                research_provider, "light_research", template=load_prompt("light_research"),
                 artist=criteria.artist or criteria.collection or c.collection,
                 date=c.date, venue=c.venue or "unknown venue",
             )

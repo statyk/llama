@@ -1,6 +1,5 @@
 import re
 from collections.abc import Sequence
-from importlib import resources
 
 from pydantic import BaseModel, ValidationError
 
@@ -15,10 +14,6 @@ def _as_ladder(provider: ProviderOrLadder) -> list[LLMProvider]:
             raise ValueError("empty provider ladder")
         return list(provider)
     return [provider]
-
-
-def load_prompt(name: str) -> str:
-    return resources.files("llama.prompts").joinpath(f"{name}.md").read_text()
 
 
 def render(template: str, **values) -> str:
@@ -48,11 +43,12 @@ def run_json_task(
     task: str,
     schema: type[BaseModel],
     *,
+    template: str,
     retries: int = 2,
     **inputs,
 ) -> BaseModel:
     ladder = _as_ladder(provider)
-    prompt = render(load_prompt(task), **inputs)
+    prompt = render(template, **inputs)
     attempt_prompt = prompt
     raw = ""
     for attempt in range(retries + 1):
@@ -72,6 +68,7 @@ def run_research_task(
     provider: ProviderOrLadder,
     task: str,
     *,
+    template: str,
     required_sections: Sequence[str] = (),
     retries: int = 2,
     **inputs,
@@ -80,7 +77,7 @@ def run_research_task(
     that lack them (status narration, refusals, partial reports) and retry
     with feedback, escalating the ladder like run_json_task."""
     ladder = _as_ladder(provider)
-    prompt = render(load_prompt(task), **inputs)
+    prompt = render(template, **inputs)
     attempt_prompt = prompt
     raw = ""
     for attempt in range(retries + 1):

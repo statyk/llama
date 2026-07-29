@@ -2,6 +2,7 @@ import re
 
 from llama.llm.tasks import run_json_task
 from llama.models import ResearchVetting, Show, VettingResult
+from llama.prompts import load_prompt
 from llama.songs import normalize_song
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
@@ -160,7 +161,8 @@ def run_vet_research(
 ) -> VettingResult:
     if not should_run(show_ws.vetting, force):
         return read_model(show_ws.vetting, VettingResult)
-    vetting = run_json_task(provider, "vet_research", ResearchVetting, research=research_md)
+    vetting = run_json_task(provider, "vet_research", ResearchVetting,
+                            template=load_prompt("vet_research"), research=research_md)
     flags, adopted = grounding_flags(vetting, show)
     # Rewrite show.json every run: drop our own prior flags (so a corrected re-vet clears
     # needs_review and repeats don't duplicate), keep flags from other stages, and recompute.

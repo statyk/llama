@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 
 from llama.llm.fake import FakeProvider
-from llama.llm.tasks import load_prompt
 from llama.models import DJNotes, Overrides, Show, Track
 from llama.presenters import Presenter
+from llama.prompts import load_prompt
 from llama.stages.synthesize import (
     NEUTRAL_STYLE,
     factual_guard,
@@ -289,7 +289,6 @@ def test_synthesize_full_path_has_no_extra_blank_line():
     # The full/absent narration path must leave the rendered prompt with exactly
     # one blank line before "Show data" (byte-identical to the pre-narration
     # template), not an extra blank injected by the empty {{narration_note}} slot.
-    from llama.llm.tasks import load_prompt
     rendered = load_prompt("synthesize").replace("{{narration_note}}", narration_note("full"))
     assert "hearing.\n\nShow data (JSON):" in rendered
     assert "\n\n\nShow data" not in rendered
