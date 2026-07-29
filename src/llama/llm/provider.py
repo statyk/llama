@@ -1,10 +1,13 @@
 from typing import Protocol, runtime_checkable
 
-from llama.errors import LlamaError
 
+class LLMError(Exception):
+    """Base for LLM-layer failures.
 
-class LLMError(LlamaError):
-    pass
+    Deliberately independent of llama.errors: this module is bound for
+    extraction into the shared `herder` package and must not import llama.
+    The CLI boundary catches this alongside LlamaError.
+    """
 
 
 class ResearchNotSupported(LLMError):

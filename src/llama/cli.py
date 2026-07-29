@@ -2371,9 +2371,9 @@ def main_cli() -> None:
     """
     try:
         app()
-    except LlamaError as exc:
+    except (LlamaError, LLMError) as exc:
         print(f"error: {exc}", file=sys.stderr)
-        for detail in exc.details:
+        for detail in getattr(exc, "details", []):
             print(f"  {detail}", file=sys.stderr)
         raise SystemExit(1)
     except KeyboardInterrupt:
