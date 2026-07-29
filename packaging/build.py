@@ -24,7 +24,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SPEC = PROJECT_ROOT / "packaging" / "llama.spec"
 DIST = PROJECT_ROOT / "dist"
 DIST_RELEASE = PROJECT_ROOT / "dist-release"
-VERSION_FILE = PROJECT_ROOT / "src" / "llama" / "_version.py"
+VERSION_FILE = PROJECT_ROOT / "packages" / "llama" / "src" / "llama" / "_version.py"
 ENTITLEMENTS = PROJECT_ROOT / "packaging" / "llama.entitlements"
 METADATA = PROJECT_ROOT / "packaging" / "metadata.json"
 

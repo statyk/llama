@@ -14,7 +14,7 @@ from pathlib import Path
 
 import httpx
 
-VENDORED = Path(__file__).resolve().parent.parent / "src" / "llama" / "data" / "set_breaks.csv"
+VENDORED = Path(__file__).resolve().parent.parent / "packages" / "llama" / "src" / "llama" / "data" / "set_breaks.csv"
 RAW_URL = ("https://raw.githubusercontent.com/eichblatt/deadstream/"
            "{ref}/timemachine/metadata/set_breaks.csv")
 

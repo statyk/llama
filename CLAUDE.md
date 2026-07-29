@@ -12,8 +12,8 @@ implementation plan this was built from. The approved design spec is
 
 ## Commands
 
-- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`
-- Test: `pytest -q` (offline, deterministic). Single test: `pytest tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
+- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e "packages/llama[dev]"`
+- Test: `pytest -q` (offline, deterministic). Single test: `pytest packages/llama/tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
 - Run: `llama get "..."`, `llama get --profile <name>`, `llama artists "..."`,
@@ -64,7 +64,7 @@ failed validation's final retry escalates one tier (pins never escalate).
   re-runnable (`llama redo <show> --from <stage>`).
 - **Parallel-safe workspace:** multiple `llama` processes may run concurrently
   against one local `~/.llama/`. Coordination is advisory `fcntl.flock`
-  (`src/llama/locks.py`) at two scopes — a short **ledger lock**
+  (`packages/llama/src/llama/locks.py`) at two scopes — a short **ledger lock**
   (`ledger.jsonl.lock`) around every ledger mutation, and a long **per-show
   lock** (`shows/<slug>/.lock`) around `process_show` and every single-show
   mutator (`redo`/`fix`/`voice`/`deliver`/`rm`). Locks auto-release on
@@ -125,7 +125,7 @@ failed validation's final retry escalates one tier (pins never escalate).
   (`structure.py`), falling back to the `align_structure` LLM touchpoint for
   messy alignments. Structure evidence for the Garcia universe also comes from
   a vendored, offline jerrybase-derived dataset
-  (`src/llama/data/set_breaks.csv`, GPL-3.0 from deadstream; refresh via
+  (`packages/llama/src/llama/data/set_breaks.csv`, GPL-3.0 from deadstream; refresh via
   `scripts/refresh_jerrybase.py`): gather uses it after alignment as a
   tripwire (multi-event dates, venue mismatch, contradicted set breaks, wrong
   set count) and a deterministic break-anchoring corrector, never as a setlist
@@ -148,7 +148,7 @@ failed validation's final retry escalates one tier (pins never escalate).
   `llama redo <show> --from synthesize` re-scripts.
 - **Voice (opt-in TTS):** when a show's voice is active, `package`
   synthesizes per-segment spoken DJ audio through a `SpeechProvider` layer
-  (`src/llama/tts/`: `voxtral` — hosted Mistral, default — plus `elevenlabs`
+  (`packages/llama/src/llama/tts/`: `voxtral` — hosted Mistral, default — plus `elevenlabs`
   and a `fake` test backend; self-hosting Voxtral is deferred, no local
   backend yet), emitting `package/dj-audio/` (one MP3 per DJ-notes segment)
   plus a manifest `dj_audio` block. `[tts] voice` is a preset name (Voxtral)

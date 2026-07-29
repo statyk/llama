@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 # scripts/ is not an importable package; load the module directly by path.
-_PATH = Path(__file__).resolve().parent.parent / "scripts" / "refresh_jerrybase.py"
+_PATH = Path(__file__).resolve().parents[3] / "scripts" / "refresh_jerrybase.py"
 _spec = importlib.util.spec_from_file_location("refresh_jerrybase", _PATH)
 refresh = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(refresh)

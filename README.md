@@ -15,7 +15,7 @@ presenter on the profile).
 ## Setup
 
     python3 -m venv .venv && source .venv/bin/activate
-    pip install -e ".[dev]"
+    pip install -e "packages/llama[dev]"
 
 Optional config at `~/.llama/config.toml` — seed a fully-commented copy of
 these defaults with `llama config init` (`--stdout` to print instead):
@@ -413,7 +413,7 @@ Copy that names songs or sets not in the manifest must not air.
 ## Licensing
 
 llama is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE) for the
-full text. `src/llama/data/set_breaks.csv` is vendored from the
+full text. `packages/llama/src/llama/data/set_breaks.csv` is vendored from the
 [eichblatt/deadstream](https://github.com/eichblatt/deadstream) project
-(also GPL-3.0) — see `src/llama/data/README.md` for vendoring details and
+(also GPL-3.0) — see `packages/llama/src/llama/data/README.md` for vendoring details and
 attribution.

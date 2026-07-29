@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location("llama_build", ROOT / "packaging" / "build.py")
 build = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(build)

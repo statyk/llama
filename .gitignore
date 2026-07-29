@@ -7,5 +7,5 @@ __pycache__/
 build/
 dist/
 dist-release/
-src/llama/_version.py
+packages/llama/src/llama/_version.py
 .coverage

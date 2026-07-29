@@ -27,8 +27,3 @@ llama = "llama.cli:main_cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llama"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-markers = ["live: hits real network or LLM; deselected by default"]
-addopts = "-m 'not live'"

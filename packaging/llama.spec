@@ -72,8 +72,8 @@ if sys.platform == "win32":
 datas = collect_data_files("llama.prompts") + collect_data_files("llama.data")
 
 a = Analysis(  # type: ignore[name-defined]
-    [str(PROJECT_ROOT / "src" / "llama" / "__main__.py")],
-    pathex=[str(PROJECT_ROOT / "src")],
+    [str(PROJECT_ROOT / "packages" / "llama" / "src" / "llama" / "__main__.py")],
+    pathex=[str(PROJECT_ROOT / "packages" / "llama" / "src")],
     binaries=[],
     datas=datas,
     hiddenimports=[],

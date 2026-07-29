@@ -109,7 +109,7 @@ jobs:
           "$PY" -m venv .venv
           . .venv/bin/activate 2>/dev/null || . .venv/Scripts/activate
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e "packages/llama[dev]"
       - name: Prepare macOS signing
         if: matrix.os == 'macos' && needs.prep.outputs.dry_run != 'true'
         shell: bash

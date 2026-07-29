@@ -13,9 +13,11 @@ from pathlib import Path
 
 import httpx
 
+FIXTURES_DIR = Path(__file__).resolve().parent.parent / "packages" / "llama" / "tests" / "fixtures"
+
 
 def capture_ia(identifier: str, out: Path | None) -> None:
-    out = out or Path(f"tests/fixtures/{identifier}.json")
+    out = out or FIXTURES_DIR / f"{identifier}.json"
     data = httpx.get(f"https://archive.org/metadata/{identifier}", timeout=60).json()
     slim = {
         "metadata": data.get("metadata", {}),
@@ -32,7 +34,7 @@ def capture_ia(identifier: str, out: Path | None) -> None:
 def capture_setlistfm(artist: str, date: str, out: Path | None) -> None:
     key = os.environ["SETLISTFM_API_KEY"]
     y, m, d = date.split("-")
-    out = out or Path(f"tests/fixtures/slfm_{artist.lower().replace(' ', '_')}_{date.replace('-', '_')}.json")
+    out = out or FIXTURES_DIR / f"slfm_{artist.lower().replace(' ', '_')}_{date.replace('-', '_')}.json"
     resp = httpx.get(
         "https://api.setlist.fm/rest/1.0/search/setlists",
         params={"artistName": artist, "date": f"{d}-{m}-{y}"},
