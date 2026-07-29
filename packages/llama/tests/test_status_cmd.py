@@ -123,6 +123,20 @@ def test_status_state_filter(tmp_path: Path):
     assert "bbb-1971-01-01" not in result.output
 
 
+def test_status_state_filter_accepts_briefed(tmp_path: Path):
+    from test_catalog import build
+
+    cfg = _cfg(tmp_path)
+    build(tmp_path, "briefed-1972-01-01", stages={"select", "gather", "research", "vet", "brief"},
+          pid="briefed/1972-01-01")
+    _seed_show(tmp_path, "bbb-1971-01-01", "bbb/1971-01-01", "r1", packaged=True)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "status", "--state", "briefed"])
+    assert result.exit_code == 0, result.output
+    assert "briefed-1972-01-01" in result.output
+    assert "bbb-1971-01-01" not in result.output
+
+
 def test_status_json_has_voiced_and_overrides(tmp_path: Path):
     cfg = _cfg(tmp_path)
     sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=False)

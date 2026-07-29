@@ -40,6 +40,8 @@ def build(root: Path, slug: str, *, stages: set[str], needs_review=False,
         write_artifact(ws.vetting, {"vetting": {"asserted_songs": [],
                                                 "asserted_dates": [],
                                                 "context": ""}, "flags": []})
+    if "brief" in stages:
+        write_artifact(ws.briefing_json, {"context": "c", "significance": "s"})
     if "synthesize" in stages:
         write_artifact(ws.dj_notes_json, {"set_intros": {"1": "a"}, "outro": "o"})
     if "package" in stages:
@@ -53,13 +55,23 @@ def test_derive_state_matrix(tmp_path: Path):
         ({"select", "gather"}, "gathered"),
         ({"select", "gather", "research"}, "researched"),
         ({"select", "gather", "research", "vet"}, "vetted"),
-        ({"select", "gather", "research", "vet", "synthesize"}, "scripted"),
-        ({"select", "gather", "research", "vet", "synthesize", "package"}, "packaged"),
+        ({"select", "gather", "research", "vet", "brief"}, "briefed"),
+        ({"select", "gather", "research", "vet", "brief", "synthesize"}, "scripted"),
+        ({"select", "gather", "research", "vet", "brief", "synthesize", "package"}, "packaged"),
     ]
     for i, (stages, expected) in enumerate(cases):
         ws = build(tmp_path / str(i), f"s{i}", stages=stages)
         state, flags = derive_state(ws, delivered=set())
         assert state == expected and flags == []
+
+
+def test_briefed_state_between_vetted_and_scripted(tmp_path: Path):
+    ws = build(tmp_path, "s", stages={"select", "gather", "research", "vet"})
+    assert derive_state(ws, delivered=set())[0] == "vetted"
+    write_artifact(ws.briefing_json, {"context": "c", "significance": "s"})
+    assert derive_state(ws, delivered=set())[0] == "briefed"
+    write_artifact(ws.dj_notes_json, {"set_intros": {}, "outro": "o"})
+    assert derive_state(ws, delivered=set())[0] == "scripted"
 
 
 def test_held_beats_everything(tmp_path: Path):

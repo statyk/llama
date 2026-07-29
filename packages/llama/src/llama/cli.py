@@ -123,8 +123,8 @@ def _setup() -> tuple[Config, IAClient, Ledger]:
     return config, ia, ledger
 
 
-_STATE_RANK = {"held": 0, "packaged": 1, "scripted": 2, "vetted": 3,
-               "researched": 4, "gathered": 5, "selected": 6, "delivered": 7}
+_STATE_RANK = {"held": 0, "packaged": 1, "scripted": 2, "briefed": 3, "vetted": 4,
+               "researched": 5, "gathered": 6, "selected": 7, "delivered": 8}
 RECENT_DELIVERED = 5
 
 
@@ -883,6 +883,7 @@ def _stage_ages(sws) -> list[tuple[str, float | None]]:
     Shared by the text stage table and `--json`'s `stages` block."""
     artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
                  ("research.md", sws.research), ("vetting.json", sws.vetting),
+                 ("briefing.json", sws.briefing_json),
                  ("dj-notes.json", sws.dj_notes_json),
                  ("package/manifest.json", sws.package_dir / "manifest.json")]
     now = datetime.now(timezone.utc).timestamp()
@@ -1062,6 +1063,7 @@ _PIPELINE_STATE_DESC: dict[str, str] = {
     "gathered": "show.json / reviews.json exist",
     "researched": "research.md exists",
     "vetted": "vetting.json exists",
+    "briefed": "briefing.* exist (neutral vetted briefing)",
     "scripted": "dj-notes.* exist (verbatim DJ script)",
     "packaged": "package/manifest.json exists",
     "delivered": "the ledger has a delivered entry for the performance",

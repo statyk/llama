@@ -93,6 +93,19 @@ def test_tracks_flag_lists_numbered_tracks(tmp_path: Path):
     assert "1." in r.output and "Morning Dew" in r.output and "a.mp3" in r.output
 
 
+# --- stage table ---
+
+def test_stage_table_lists_briefing_json_once_present(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    build(tmp_path, "gratefuldead-1973-06-10",
+          stages={"select", "gather", "research", "vet", "brief"})
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert r.exit_code == 0, r.output
+    line = next(ln for ln in r.output.splitlines() if "briefing.json" in ln)
+    assert "missing" not in line
+    assert "d old" in line
+
+
 # --- --json ---
 
 def test_json_schema_spot_checks(tmp_path: Path):

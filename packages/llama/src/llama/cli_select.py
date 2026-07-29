@@ -21,6 +21,7 @@ class ShowState(str, Enum):
     gathered = "gathered"
     researched = "researched"
     vetted = "vetted"
+    briefed = "briefed"
     scripted = "scripted"
     packaged = "packaged"
     delivered = "delivered"

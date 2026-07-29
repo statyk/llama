@@ -50,7 +50,8 @@ _STAGES = [
     ("show", 2, "gathered"),
     ("research", 3, "researched"),
     ("vetting", 4, "vetted"),
-    ("dj_notes_json", 5, "scripted"),
+    ("briefing_json", 5, "briefed"),
+    ("dj_notes_json", 6, "scripted"),
 ]
 
 

@@ -23,9 +23,9 @@ def e(slug, state, *, voiced=None, artist="Grateful Dead",
                         broadcast_ready=broadcast_ready)
 
 
-def test_show_state_has_exactly_eight_values():
+def test_show_state_has_exactly_nine_values():
     assert [s.value for s in ShowState] == [
-        "held", "selected", "gathered", "researched", "vetted",
+        "held", "selected", "gathered", "researched", "vetted", "briefed",
         "scripted", "packaged", "delivered",
     ]
 
@@ -43,8 +43,9 @@ def test_show_state_covers_derive_state_full_vocabulary(tmp_path: Path):
         {"select", "gather"},
         {"select", "gather", "research"},
         {"select", "gather", "research", "vet"},
-        {"select", "gather", "research", "vet", "synthesize"},
-        {"select", "gather", "research", "vet", "synthesize", "package"},
+        {"select", "gather", "research", "vet", "brief"},
+        {"select", "gather", "research", "vet", "brief", "synthesize"},
+        {"select", "gather", "research", "vet", "brief", "synthesize", "package"},
     ]
     observed = set()
     for i, stages in enumerate(stage_combos):
