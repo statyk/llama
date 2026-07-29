@@ -229,7 +229,7 @@ the redo) or `llama triage` (interactive walkthrough):
 - **Accept an unknowable setlist** — `llama fix <s> --narration vague` tells
   the briefing and script writer to stay general (no song names, no
   set-structure claims), clears the hold, and redoes from `brief` (which
-  regenerates the briefing, script, and package too).
+  regenerates the briefing, any script, and the package too).
 - **Overrule a false alarm** — `llama fix <s> --overrule`, which redoes from
   `package`.
 

@@ -45,7 +45,7 @@ def test_render_briefing_md_sections_and_determinism():
                     "## Cautions for the scriptwriter"]:
         assert heading in md
     assert "- Opens hot" in md and "- research is thin" in md
-    # Set sections follow show order; encore label renders as "Encore"
+    # Set sections are sorted with encore last; encore label renders as "Encore"
     b2 = _briefing(per_set={"1": ["a"], "encore": ["short sweet closer"]})
     md2 = render_briefing_md(b2, _show())
     assert "## Encore" in md2
@@ -165,6 +165,19 @@ def test_run_brief_skips_when_artifact_exists(tmp_path):
     assert again.context == "Peak-era Dead on the summer '73 run."
 
 
+def test_run_brief_self_heals_missing_briefing_md(tmp_path):
+    show = _show()
+    ws = _ws(tmp_path, show)
+    run_brief(ws, FakeProvider(completes=[GOOD_BRIEFING]), show, "", [], force=False)
+    ws.briefing_md.unlink()
+    assert not ws.briefing_md.exists()
+    # no queued responses: re-rendering briefing.md must not hit the provider
+    b = run_brief(ws, FakeProvider(completes=[]), show, "", [], force=False)
+    assert ws.briefing_md.exists()
+    assert "## Context" in ws.briefing_md.read_text()
+    assert b.context == "Peak-era Dead on the summer '73 run."
+
+
 def test_run_brief_narration_stamp_overrides_llm_value(tmp_path):
     show = _show()
     ws = _ws(tmp_path, show)
@@ -199,6 +212,29 @@ def test_run_brief_recovers_on_retry(tmp_path):
     provider = FakeProvider(completes=[BAD_BRIEFING, GOOD_BRIEFING])
     run_brief(ws, provider, show, "", [], force=False)
     assert Show.model_validate_json(ws.show.read_text()).needs_review is False
+
+
+def test_run_brief_vague_narration_retries_when_llm_fills_per_set(tmp_path):
+    # The prompt tells the model to leave per_set empty under vague narration;
+    # this covers what happens when it doesn't comply on the first attempt.
+    show = _show()
+    ws = _ws(tmp_path, show)
+    write_artifact(ws.overrides, Overrides(narration="vague"))
+    non_compliant = json.dumps({
+        "context": "A revered night.", "significance": "Legendary.",
+        "per_set": {"1": ["Opens hot"]}, "notable_moments": [],
+        "review_sentiment": "Praised.", "non_attendee_sentiment": True,
+        "cautions": [], "narration": "full", "mentioned_songs": []})
+    compliant = json.dumps({
+        "context": "A revered night.", "significance": "Legendary.",
+        "per_set": {}, "notable_moments": [],
+        "review_sentiment": "Praised.", "non_attendee_sentiment": True,
+        "cautions": [], "narration": "full", "mentioned_songs": []})
+    provider = FakeProvider(completes=[non_compliant, compliant])
+    b = run_brief(ws, provider, show, "", [], force=False)
+    assert len(provider.calls) == 2
+    assert "per-set talking points under vague narration" in provider.calls[1][1]
+    assert b.per_set == {}
 
 
 def test_vetting_summary(tmp_path):

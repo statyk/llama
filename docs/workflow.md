@@ -264,8 +264,8 @@ Each resolution edits `overrides.json` (except overrule, which only clears
 <stage>` instead, for batching several edits before one redo. Stage
 precedence when multiple flags are combined on one `fix` call: an exclude
 or metadata edit redoes from `gather`, a narration edit (with neither)
-redoes from `brief` (regenerating the briefing, script, and package too),
-and `--overrule` alone redoes from `package`.
+redoes from `brief` (regenerating the briefing, any script, and the package
+too), and `--overrule` alone redoes from `package`.
 
 ## Voice (opt-in text-to-speech)
 
@@ -570,7 +570,8 @@ URL) then prompts:
   after tracks (e.g. 9,17)` — each shows the current effective value, empty
   input keeps it; any change writes the overrides and redoes from `gather`.
 - **`[v]ague`** — sets `overrides.narration = "vague"`, clears the hold,
-  redoes from `brief` (regenerating the briefing, script, and package too).
+  redoes from `brief` (regenerating the briefing, any script, and the
+  package too).
 - **`[o]verrule`** — clears the hold, redoes from `package`.
 - **`[s]kip`** / **`[q]uit`** — next show / stop the walk.
 
@@ -895,8 +896,8 @@ rule as excludes: a clean re-gather drops the hold on its own.
 **This show's setlist is unknowable.**
 `llama fix <show> --narration vague` — sets `overrides.narration =
 "vague"`, clears the hold, and redoes from `brief` immediately (regenerating
-the briefing, script, and package); neither the briefing nor the script
-names songs or asserts set structure, but both are otherwise normal.
+the briefing, any script, and the package); neither the briefing nor the
+script names songs or asserts set structure, but both are otherwise normal.
 
 **I ran `get --plan` (or a human-gate profile) — now what?**
 `llama run list` (or `llama status`) shows it in the attention-list with a

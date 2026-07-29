@@ -32,7 +32,8 @@ Respond with ONLY JSON in this shape:
 {"context": "<a short paragraph placing the show in its era/tour/venue>",
  "significance": "<a short paragraph on why this show is worth airtime>",
  "per_set": {<one key per set label found in the show data (e.g. "1", "2",
-   "encore")>: ["<talking point grounded in the inputs>", ...]},
+   "encore")>: ["<talking point grounded in the inputs>", ...]; leave this
+   object EMPTY when the narration note above says the setlist is uncertain},
  "notable_moments": ["<specific highlight grounded in research/reviews>", ...],
  "review_sentiment": "<summary of reception: who praises it and for what>",
  "non_attendee_sentiment": <true iff the sentiment includes voices who were

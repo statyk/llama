@@ -32,7 +32,7 @@ def test_show_state_has_exactly_nine_values():
 
 def test_show_state_covers_derive_state_full_vocabulary(tmp_path: Path):
     """`ShowState` must cover every state string `catalog.derive_state` can
-    actually return — not just a hand-copied duplicate list — so a future 9th
+    actually return — not just a hand-copied duplicate list — so a future 10th
     derived state can't silently slip past `--state`'s validated enum."""
     from test_catalog import build
 
@@ -63,6 +63,15 @@ def test_show_state_covers_derive_state_full_vocabulary(tmp_path: Path):
     observed.add(state)
 
     assert observed == {s.value for s in ShowState}
+
+
+def test_state_rank_covers_show_state_vocabulary():
+    """`cli._STATE_RANK` is a second, hand-maintained copy of the `ShowState`
+    vocabulary (used to sort `llama status`); it must stay in sync or a
+    missing key KeyErrors on the plain `llama status` path."""
+    from llama.cli import _STATE_RANK
+
+    assert set(_STATE_RANK) == {s.value for s in ShowState}
 
 
 def test_held_sugar_identity():

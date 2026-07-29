@@ -38,6 +38,10 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     for s in briefing.per_set:
         if s not in sets:
             problems.append(f"briefing references nonexistent set: {s}")
+    # briefing.cautions is deliberately excluded from prose: cautions exist to
+    # flag exactly the kind of uncertain/conflicting-source phrasing (e.g.
+    # "sources disagree on whether there were three sets") that the set-count
+    # checks below would misread as an assertion and false-positive on.
     prose = " ".join([briefing.context, briefing.significance,
                       briefing.review_sentiment, *briefing.notable_moments,
                       *(p for pts in briefing.per_set.values() for p in pts)])
@@ -91,7 +95,14 @@ def run_brief(
     force: bool = False,
 ) -> Briefing:
     if not should_run(show_ws.briefing_json, force):
-        return read_model(show_ws.briefing_json, Briefing)
+        briefing = read_model(show_ws.briefing_json, Briefing)
+        if not show_ws.briefing_md.exists():
+            # briefing.md is a pure function of briefing.json (see
+            # render_briefing_md); if only the .md is missing, self-heal by
+            # re-rendering it instead of leaving package's hard requirement
+            # for both artifacts unresolvable short of a full re-brief.
+            write_artifact(show_ws.briefing_md, render_briefing_md(briefing, show))
+        return briefing
 
     narration = read_overrides(show_ws).narration
     inputs = dict(

@@ -398,6 +398,17 @@ def test_package_copies_briefing_and_emits_v3(tmp_path: Path):
     assert (pkg / "briefing.md").exists() and (pkg / "briefing.json").exists()
 
 
+def test_package_manifest_briefing_reflects_the_real_briefing(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    write_briefing(sws, narration="vague", per_set={}, mentioned_songs=[])
+    write_vetting(sws)                      # flags=[] -> vetted True
+    pkg = run_package(sws, StubIA(), show, make_notes(), force=True)
+    m = json.loads((pkg / "manifest.json").read_text())
+    assert m["briefing"]["narration"] == "vague"
+    assert m["briefing"]["vetted"] is True
+    assert (pkg / "briefing.json").read_text() == sws.briefing_json.read_text()
+
+
 def test_package_hard_fails_without_briefing(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
     show = make_show()
