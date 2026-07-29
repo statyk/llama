@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from herder import resolve_model
-from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_TIERS, Config, load_config
+from herder import HerderError, provider_for, resolve_model
+from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_TIERS, Config, LLMTaskConfig, load_config
 from llama.errors import ConfigError
 
 
@@ -44,6 +44,16 @@ def test_llm_settings_adapter_carries_config_tables():
     assert s.tiers == {"openrouter": {"low": "x/y"}}
     # pydantic copies dicts on validation — compare by value, not identity
     assert s.default_tiers == DEFAULT_TIERS
+
+
+def test_provider_for_uses_task_config():
+    cfg = Config(llm={"default": LLMTaskConfig(model="m-default"),
+                      "synthesize": LLMTaskConfig(model="m-big")})
+    assert provider_for(cfg.llm_settings(), "synthesize").model == "m-big"
+    assert provider_for(cfg.llm_settings(), "interpret").model == "m-default"
+    with pytest.raises(HerderError):
+        bad = Config(llm={"default": LLMTaskConfig(backend="nope")})
+        provider_for(bad.llm_settings(), "interpret")
 
 
 def test_default_tiers_vocabulary():

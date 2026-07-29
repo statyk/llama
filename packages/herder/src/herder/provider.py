@@ -2,11 +2,11 @@ from typing import Protocol, runtime_checkable
 
 
 class HerderError(Exception):
-    """Base for LLM-layer failures.
+    """Base for every failure herder raises.
 
-    Deliberately independent of llama.errors: this module is bound for
-    extraction into the shared `herder` package and must not import llama.
-    The CLI boundary catches this alongside LlamaError.
+    herder has no error taxonomy of its own beyond this; a consuming app
+    is expected to catch it at its own error boundary, alongside whatever
+    exceptions that app defines.
     """
 
 

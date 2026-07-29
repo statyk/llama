@@ -105,13 +105,3 @@ def test_run_research_task_escalates_on_final_attempt():
                                   required_sections=SECTIONS, topic="x")
     assert out == REPORT
     assert len(base.calls) == 2 and len(escalated.calls) == 1
-
-
-def test_make_providers_builds_ladders():
-    from llama.config import Config
-    from llama.pipeline import make_providers
-    providers = make_providers(Config())
-    # interpret is a medium task: base, base, escalated-to-high
-    assert [p.model for p in providers["interpret"]] == ["sonnet", "sonnet", "opus"]
-    # synthesize is already high: no headroom
-    assert [p.model for p in providers["synthesize"]] == ["opus", "opus", "opus"]

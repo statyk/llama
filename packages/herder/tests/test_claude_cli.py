@@ -3,9 +3,7 @@ import subprocess
 
 import pytest
 
-from llama.config import Config, LLMTaskConfig
-
-from herder import HerderError, provider_for
+from herder import HerderError
 from herder.claude_cli import ClaudeCLIProvider
 
 
@@ -101,13 +99,3 @@ def test_bad_json_and_error_payload_raise(monkeypatch):
     patch_run(monkeypatch, FakeProc(stdout=json.dumps({"is_error": True, "result": "quota"})), {})
     with pytest.raises(HerderError):
         ClaudeCLIProvider().complete("x")
-
-
-def test_provider_for_uses_task_config(monkeypatch):
-    cfg = Config(llm={"default": LLMTaskConfig(model="m-default"),
-                      "synthesize": LLMTaskConfig(model="m-big")})
-    assert provider_for(cfg.llm_settings(), "synthesize").model == "m-big"
-    assert provider_for(cfg.llm_settings(), "interpret").model == "m-default"
-    with pytest.raises(HerderError):
-        bad = Config(llm={"default": LLMTaskConfig(backend="nope")})
-        provider_for(bad.llm_settings(), "interpret")

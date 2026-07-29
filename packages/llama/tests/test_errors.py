@@ -12,8 +12,8 @@ def test_custom_exceptions_subclass_llama_error():
 
 
 def test_llm_errors_independent_of_llama_taxonomy():
-    # The LLM layer is bound for extraction into the shared herder package:
-    # its exceptions must not depend on llama's taxonomy.
+    # The LLM layer lives in the shared herder package: its exceptions
+    # must not depend on llama's taxonomy.
     assert not issubclass(HerderError, LlamaError)
     assert issubclass(TaskFailed, HerderError)
     assert issubclass(ResearchNotSupported, HerderError)

@@ -91,6 +91,17 @@ def test_make_providers_includes_align_structure():
     assert "align_structure" in make_providers(Config())
 
 
+def test_make_providers_builds_ladders():
+    from llama.config import Config
+    from llama.pipeline import make_providers
+
+    providers = make_providers(Config())
+    # interpret is a medium task: base, base, escalated-to-high
+    assert [p.model for p in providers["interpret"]] == ["sonnet", "sonnet", "opus"]
+    # synthesize is already high: no headroom
+    assert [p.model for p in providers["synthesize"]] == ["opus", "opus", "opus"]
+
+
 def test_find_end_to_end(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     monkeypatch.setattr(pipeline, "make_providers", fake_providers)
