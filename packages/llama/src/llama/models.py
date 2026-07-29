@@ -210,6 +210,22 @@ class DJNotes(BaseModel):
     mentioned_songs: list[str] = Field(default_factory=list)
 
 
+class Briefing(BaseModel):
+    """Neutral, vetted show briefing — the scriptwriter-facing text deliverable
+    (spec: 2026-07-29-briefing-manifest-v3-design.md). Always house-neutral;
+    persona styling is a downstream concern. `narration` is stamped from
+    overrides.json after generation, never trusted from the LLM."""
+    context: str                     # era/tour/venue context prose
+    significance: str                # why this show is worth airing
+    per_set: dict[str, list[str]] = Field(default_factory=dict)  # set label -> talking points
+    notable_moments: list[str] = Field(default_factory=list)
+    review_sentiment: str = ""
+    non_attendee_sentiment: bool = False  # True iff sentiment includes non-attendee voices
+    cautions: list[str] = Field(default_factory=list)
+    narration: str = "full"          # "full" | "vague" (stamped, see above)
+    mentioned_songs: list[str] = Field(default_factory=list)
+
+
 class ResearchVetting(BaseModel):
     """What research.md asserts about this show, extracted for grounding checks."""
     asserted_songs: list[str] = Field(default_factory=list)
