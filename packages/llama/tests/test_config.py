@@ -60,7 +60,7 @@ def test_default_tiers_vocabulary():
     assert DEFAULT_TIERS == {
         "interpret": "medium", "score_reviews": "medium",
         "light_research": "medium", "extract_setlist": "medium",
-        "deep_research": "high", "synthesize": "high",
+        "deep_research": "high", "brief": "high", "synthesize": "high",
         "find_artists": "medium",
         "align_structure": "medium",
         "vet_research": "low",

@@ -134,14 +134,14 @@ def test_exclude_with_no_picks_skips_without_redo(tmp_path, tty, monkeypatch):
 
 # --- [v]ague ---
 
-def test_vague_action_clears_hold_and_redoes_synthesize(tmp_path, tty, monkeypatch):
+def test_vague_action_clears_hold_and_redoes_brief(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path)
     ws = _held_show(tmp_path)
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "triage", input="v\n")
     assert r.exit_code == 0, r.output
     assert read_overrides(ws).narration == "vague"
-    assert calls == ["synthesize"]
+    assert calls == ["brief"]
     from llama.models import Show
     from llama.workspace import read_model
     assert read_model(ws.show, Show).needs_review is False

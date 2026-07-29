@@ -69,6 +69,28 @@ def test_read_overrides_defaults_when_absent(tmp_path):
     assert ov.exclude == [] and ov.narration == "full"
 
 
+def test_stage_order_and_artifacts_include_brief(tmp_path):
+    from llama.workspace import SHOW_STAGE_ORDER, ShowWorkspace, show_stage_artifacts
+    assert SHOW_STAGE_ORDER == ["select", "gather", "research", "vet",
+                                "brief", "synthesize", "package"]
+    ws = ShowWorkspace(tmp_path)
+    assert show_stage_artifacts(ws, "brief") == [ws.briefing_json, ws.briefing_md]
+
+
+def test_drop_from_brief_drops_downstream(tmp_path):
+    from llama.workspace import ShowWorkspace, drop_stage_artifacts
+    ws = ShowWorkspace(tmp_path)
+    for p in [ws.vetting, ws.briefing_json, ws.briefing_md, ws.dj_notes_json, ws.dj_notes_md]:
+        p.write_text("{}")
+    (ws.package_dir).mkdir()
+    (ws.package_dir / "manifest.json").write_text("{}")
+    drop_stage_artifacts(ws, "brief")
+    assert ws.vetting.exists()
+    for p in [ws.briefing_json, ws.briefing_md, ws.dj_notes_json,
+              ws.dj_notes_md, ws.package_dir / "manifest.json"]:
+        assert not p.exists()
+
+
 def test_read_overrides_round_trip(tmp_path):
     ws = ShowWorkspace(tmp_path / "s")
     write_artifact(ws.overrides, Overrides(exclude=["a.mp3"], narration="vague"))

@@ -434,6 +434,37 @@ def test_redo_run_package_keeps_cached_dj_notes(tmp_path: Path, monkeypatch):
     assert (pkg / "dj-notes.md").exists()
 
 
+def test_redo_from_package_regenerates_missing_briefing(tmp_path: Path, monkeypatch):
+    """A pre-existing workspace with dj-notes but no briefing.json (e.g. built
+    before this stage existed) self-heals on the next redo: process_show finds
+    the briefing artifact missing and regenerates it, even though --from
+    package doesn't drop the brief stage's artifacts."""
+    import llama.pipeline as pipeline
+    from test_pipeline import JB_OFF, FakeIA, fake_providers
+
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(pipeline, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    cfg = str(tmp_path / "config.toml")
+
+    first = runner.invoke(cli.app, ["--config", cfg,
+        "get", "GD 1973", "--auto", "--script", "--name", "selfheal"])
+    assert first.exit_code == 0, first.output
+
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
+    assert (show_dir / "dj-notes.json").exists()
+    assert (show_dir / "briefing.json").exists()
+    (show_dir / "briefing.json").unlink()
+    (show_dir / "briefing.md").unlink()
+
+    replay = runner.invoke(cli.app, ["--config", cfg,
+        "redo", "--run", "selfheal", "--from", "package", "--no-script", "--yes"])
+    assert replay.exit_code == 0, replay.output
+    assert (show_dir / "briefing.json").exists()
+    assert (show_dir / "briefing.md").exists()
+
+
 def test_redo_run_synthesize_implies_script(tmp_path: Path, monkeypatch):
     import llama.pipeline as pipeline
     from test_pipeline import JB_OFF, FakeIA, fake_providers

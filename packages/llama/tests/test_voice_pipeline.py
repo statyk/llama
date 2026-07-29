@@ -46,6 +46,12 @@ VET = json.dumps({
     "context": "Peak 1973, RFK Stadium",
 })
 
+GOOD_BRIEFING_JSON = json.dumps({
+    "context": "Peak-era Dead.", "significance": "Worth airing.",
+    "per_set": {"1": ["Opens hot"]}, "notable_moments": [],
+    "review_sentiment": "Praised.", "non_attendee_sentiment": True,
+    "cautions": [], "narration": "full", "mentioned_songs": []})
+
 
 class FakeIA:
     def __init__(self, *args, **kwargs):
@@ -75,6 +81,7 @@ def fake_providers(config):
         "deep_research": FakeProvider(researches=[
             "## Reputation\nLegendary RFK show.\n## Performance highlights\nDark Star.\n"
             "## Context\nPeak 73 tour.\n## Recording notes\nHollister SBD."]),
+        "brief": FakeProvider(completes=[GOOD_BRIEFING_JSON]),
         "synthesize": FakeProvider(completes=[NOTES]),
         "align_structure": FakeProvider(),
         "vet_research": FakeProvider(completes=[VET]),

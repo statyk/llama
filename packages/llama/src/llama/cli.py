@@ -45,7 +45,7 @@ from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
                              read_model, read_model_list, write_artifact)
 
-VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "synthesize", "package"}
+VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brief", "synthesize", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
 _COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline",
@@ -865,7 +865,7 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         elif choice == "v":
             _edit_overrides(entry.ws, narration="vague")
             _clear_hold(entry.ws)
-            stage = "synthesize"
+            stage = "brief"
         elif choice == "o":
             _clear_hold(entry.ws)
             stage = "package"
@@ -1043,6 +1043,7 @@ _PIPELINE_STAGE_DESC: dict[str, str] = {
     "gather": "junk-filters files, resolves track titles, builds set structure -> show.json, reviews.json",
     "research": "deep web research on the specific performance -> research.md",
     "vet": "grounding check of research's claims against the setlist/date -> vetting.json",
+    "brief": "neutral vetted briefing for scriptwriters, factually guarded (always on) -> briefing.*",
     "synthesize": "verbatim DJ script, factually guarded (default-on; --no-script skips) -> dj-notes.*",
     "package": "downloads/tags/verifies audio, writes manifest v2 + m3u "
                "(+ dj-audio/broadcast.m3u if voiced) -> package/",
@@ -1051,7 +1052,7 @@ _PIPELINE_STAGE_DESC: dict[str, str] = {
 
 _PIPELINE_FLOW = (
     "interpret → search → winnow →(gate 1: run approve)→ select → "
-    "gather → research → vet → synthesize → package "
+    "gather → research → vet → brief → synthesize → package "
     "→(gate 2: held → triage / fix)→ deliver"
 )
 
@@ -1068,7 +1069,7 @@ _PIPELINE_STATE_DESC: dict[str, str] = {
 
 _PIPELINE_REDO_CHEATSHEET = [
     ("excludes / metadata edit", "gather"),
-    ("narration mode (vague)", "synthesize"),
+    ("narration mode (vague)", "brief"),
     ("overrule (false-alarm hold)", "package"),
     ("new recording pick", "select"),
     ("re-research", "research"),
@@ -1417,7 +1418,7 @@ def fix(
     if not real_edit:
         return   # e.g. a lone --overrule on a show that was never held
 
-    stage = "gather" if (did_exclude or did_meta) else ("synthesize" if did_narration else "package")
+    stage = "gather" if (did_exclude or did_meta) else ("brief" if did_narration else "package")
     if no_run:
         typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}")
         return
@@ -1546,7 +1547,7 @@ def redo(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     from_stage: str = typer.Option(..., "--from",
                                    help="Stage to re-run from: select|gather|research|vet|"
-                                        "synthesize|package (search|winnow valid only with --run)"),
+                                        "brief|synthesize|package (search|winnow valid only with --run)"),
     run: str = typer.Option(None, "--run",
                             help="Session scope: redo a whole run's shows (with a show-level "
                                  "--from), or rebuild that run's candidates/shortlist (--from "

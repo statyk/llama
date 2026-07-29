@@ -222,13 +222,13 @@ def test_metadata_fires_gather(tmp_path, monkeypatch):
     assert calls == ["gather"]
 
 
-def test_narration_fires_synthesize(tmp_path, monkeypatch):
+def test_narration_fires_brief(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     _held_show(tmp_path)
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
     assert r.exit_code == 0, r.output
-    assert calls == ["synthesize"]
+    assert calls == ["brief"]
 
 
 def test_overrule_fires_package(tmp_path, monkeypatch):
@@ -287,7 +287,7 @@ def test_no_run_with_narration(tmp_path, monkeypatch):
     r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague", "--no-run")
     assert r.exit_code == 0, r.output
     assert calls == []
-    assert "staged; next: llama redo gratefuldead-1973-06-10 --from synthesize" in r.output
+    assert "staged; next: llama redo gratefuldead-1973-06-10 --from brief" in r.output
 
 
 # --- bad input errors cleanly (ported verbatim from `show`) ---

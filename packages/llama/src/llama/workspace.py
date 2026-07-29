@@ -87,7 +87,7 @@ class ShowWorkspace:
 
 # Show-level stage order: forcing a stage drops its artifacts and everything
 # downstream, so a replay can never package outputs derived from pre-force state.
-SHOW_STAGE_ORDER = ["select", "gather", "research", "vet", "synthesize", "package"]
+SHOW_STAGE_ORDER = ["select", "gather", "research", "vet", "brief", "synthesize", "package"]
 
 
 def show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
@@ -96,6 +96,7 @@ def show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
         "gather": [show_ws.show, show_ws.reviews],
         "research": [show_ws.research, show_ws.vetting],
         "vet": [show_ws.vetting],
+        "brief": [show_ws.briefing_json, show_ws.briefing_md],
         "synthesize": [show_ws.dj_notes_json, show_ws.dj_notes_md],
         "package": [show_ws.package_dir / "manifest.json"],
     }[stage]

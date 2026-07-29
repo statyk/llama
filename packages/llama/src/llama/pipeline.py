@@ -8,6 +8,7 @@ from llama.ledger import Ledger
 from llama.models import DJNotes, LedgerEntry, Provenance, Show, ShortlistEntry
 from llama.presenters import Presenter
 from llama.speech_text import load_lexicon
+from llama.stages.brief import run_brief
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
 from llama.stages.research import run_research
@@ -22,7 +23,7 @@ from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_
 log = logging.getLogger("llama")
 
 TASK_KEYS = ["interpret", "score_reviews", "light_research",
-             "extract_setlist", "deep_research", "synthesize",
+             "extract_setlist", "deep_research", "brief", "synthesize",
              "find_artists", "align_structure", "vet_research"]
 
 
@@ -101,13 +102,19 @@ def process_show(
     if show.needs_review:
         log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
         return None
+    reviews = read_json(show_ws.reviews) if show_ws.reviews.exists() else []
+    with step(f"[{pid}] briefing"):
+        run_brief(show_ws, providers["brief"], show, research_md, reviews, force=force)
+    show = read_model(show_ws.show, Show)  # brief's guard may have flagged it
+    if show.needs_review:
+        log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
+        return None
     notes = None
     if not script and show_ws.dj_notes_json.exists():
         # replaying a later stage (e.g. package) from a prior --script run: reuse the
         # cached script so the rebuilt manifest agrees with the dj-notes.md in the package.
         notes = read_model(show_ws.dj_notes_json, DJNotes)
     if script:
-        reviews = read_json(show_ws.reviews) if show_ws.reviews.exists() else []
         with step(f"[{pid}] synthesizing"):
             notes = run_synthesize(show_ws, providers["synthesize"], show,
                                    research_md, reviews, force=force,

@@ -49,6 +49,12 @@ VET = json.dumps({
     "context": "Peak 1973, RFK Stadium",
 })
 
+GOOD_BRIEFING_JSON = json.dumps({
+    "context": "Peak-era Dead.", "significance": "Worth airing.",
+    "per_set": {"1": ["Opens hot"]}, "notable_moments": [],
+    "review_sentiment": "Praised.", "non_attendee_sentiment": True,
+    "cautions": [], "narration": "full", "mentioned_songs": []})
+
 
 class FakeIA:
     def __init__(self, *args, **kwargs):
@@ -78,6 +84,7 @@ def fake_providers(config):
         "deep_research": FakeProvider(researches=[
             "## Reputation\nLegendary RFK show.\n## Performance highlights\nDark Star.\n"
             "## Context\nPeak 73 tour.\n## Recording notes\nHollister SBD."]),
+        "brief": FakeProvider(completes=[GOOD_BRIEFING_JSON]),
         "synthesize": FakeProvider(completes=[NOTES]),
         "align_structure": FakeProvider(),
         "vet_research": FakeProvider(completes=[VET]),
@@ -315,6 +322,54 @@ def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
     assert prov.assessment.quality_score == 9.5
 
 
+def test_task_keys_include_brief():
+    from llama.pipeline import TASK_KEYS
+    assert "brief" in TASK_KEYS
+    from llama.config import DEFAULT_TIERS
+    assert DEFAULT_TIERS["brief"] == "high"
+
+
+def test_process_show_runs_brief_and_writes_artifacts(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(pipeline, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "get", "GD 1973 best soundboard", "--auto", "--script",
+        "--name", "briefrun"])
+    assert result.exit_code == 0, result.output
+
+    from llama.workspace import RunWorkspace
+    show_ws = RunWorkspace(tmp_path, "briefrun").show_ws("GratefulDead/1973-06-10")
+    assert show_ws.briefing_json.exists()
+    assert show_ws.briefing_md.exists()
+
+
+def test_process_show_holds_on_briefing_guard_failure(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = fake_providers(None)
+    # claims 3 sets where the fixture only has one -- briefing_guard rejects it
+    bad_briefing = json.dumps({
+        "context": "Peak-era Dead.", "significance": "Worth airing.",
+        "per_set": {"1": ["There were three sets tonight."]}, "notable_moments": [],
+        "review_sentiment": "Praised.", "non_attendee_sentiment": True,
+        "cautions": [], "narration": "full", "mentioned_songs": []})
+    providers["brief"] = FakeProvider(completes=[bad_briefing, bad_briefing])
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "get", "GD 1973", "--auto", "--script", "--name", "briefhold"])
+    assert result.exit_code == 0, result.output
+    assert "needs-review" in result.output
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
+    assert not (show_dir / "package" / "manifest.json").exists()
+    # synthesize/package providers untouched: still full queues
+    assert len(providers["synthesize"].completes) == 1
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
 def test_process_show_stamps_voice_and_forwards_speech(tmp_path: Path):
     from llama.ledger import Ledger
     from llama.models import (Candidate, Provenance, QualityAssessment,
@@ -341,6 +396,7 @@ def test_process_show_stamps_voice_and_forwards_speech(tmp_path: Path):
             "## Reputation\nLegendary.\n## Performance highlights\nDark Star.\n"
             "## Context\nPeak 73 tour.\n## Recording notes\nHollister SBD."]),
         "vet_research": FakeProvider(completes=[VET]),
+        "brief": FakeProvider(completes=[GOOD_BRIEFING_JSON]),
         "synthesize": FakeProvider(completes=[NOTES]),
     }
     speech = FakeSpeechProvider()

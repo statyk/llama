@@ -20,6 +20,7 @@ DEFAULT_TIERS = {
     "light_research": "medium",
     "extract_setlist": "medium",
     "deep_research": "high",
+    "brief": "high",
     "synthesize": "high",
     "find_artists": "medium",
     "align_structure": "medium",
