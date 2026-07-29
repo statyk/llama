@@ -1,4 +1,4 @@
-from llama.models import Criteria, DJNotes, LedgerEntry, Manifest, Show, Track
+from llama.models import Criteria, DJNotes, LedgerEntry, Manifest, ManifestBriefing, Show, Track
 
 
 def test_criteria_defaults_and_roundtrip():
@@ -26,10 +26,11 @@ def test_show_defaults():
 def test_manifest_schema_version():
     m = Manifest(
         show={}, source={}, tracks=[], set_breaks=[],
+        briefing=ManifestBriefing(),
         dj_notes=DJNotes(set_intros={"1": "hi"}, outro="bye"),
         total_duration_sec=0.0, set_durations_sec={},
     )
-    assert m.schema_version == 2
+    assert m.schema_version == 3
 
 
 def test_ledger_entry():

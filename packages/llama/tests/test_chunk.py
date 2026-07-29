@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from llama.models import DJNotes, Show, Track
+from llama.models import Briefing, DJNotes, Show, Track
 from llama.stages.package import (
     _bitrate_for_rate,
     _split_sentences,
@@ -236,10 +236,22 @@ class StubIA:
         return dest
 
 
+def _briefing() -> Briefing:
+    return Briefing(context="Peak-era Dead on the summer '73 run.",
+                    significance="A standout show from a strong year.",
+                    per_set={"1": ["Opens hot"]},
+                    notable_moments=["A monster Dark Star"],
+                    review_sentiment="Widely praised, including by non-attendees.",
+                    non_attendee_sentiment=True,
+                    cautions=[], mentioned_songs=[])
+
+
 def setup(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
     show = make_show()
     write_artifact(sws.show, show)
+    write_artifact(sws.briefing_json, _briefing())
+    write_artifact(sws.briefing_md, "# Briefing: Grateful Dead — 1973-06-10\n")
     return sws, show
 
 

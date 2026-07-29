@@ -1,3 +1,5 @@
+import json
+
 from llama.manifest import (
     broadcast_m3u_text,
     build_manifest,
@@ -33,9 +35,15 @@ def make_packaged():
     ]
 
 
+def make_briefing():
+    from llama.models import ManifestBriefing
+    return ManifestBriefing(narration="full", vetted=False)
+
+
 def test_build_manifest():
-    m = build_manifest(make_show(), make_notes(), make_packaged(), context=make_notes().context)
-    assert m.schema_version == 2
+    m = build_manifest(make_show(), make_notes(), make_packaged(),
+                       briefing=make_briefing(), context=make_notes().context)
+    assert m.schema_version == 3
     assert m.show == {"artist": "Grateful Dead", "date": "1973-06-10",
                       "venue": "RFK Stadium", "city": "Washington, DC", "context": "Peak 73"}
     assert m.source["identifier"] == "gd73" and m.source["lineage"] == "SBD > DAT"
@@ -43,6 +51,25 @@ def test_build_manifest():
     assert m.total_duration_sec == 2700.0
     assert m.set_durations_sec == {"1": 600.0, "2": 1800.0, "encore": 300.0}
     assert [b.after_track for b in m.set_breaks] == [1, 2]
+
+
+def test_manifest_v3_briefing_block():
+    from llama.models import Manifest, ManifestBriefing
+    m = Manifest(show={}, source={}, tracks=[], set_breaks=[],
+                 briefing=ManifestBriefing(narration="vague", vetted=True),
+                 total_duration_sec=0.0, set_durations_sec={})
+    assert m.schema_version == 3
+    dumped = json.loads(m.model_dump_json(by_alias=True))
+    assert dumped["briefing"] == {"file": "briefing.md", "json": "briefing.json",
+                                  "narration": "vague", "vetted": True}
+
+
+def test_build_manifest_carries_briefing():
+    from llama.manifest import build_manifest
+    from llama.models import ManifestBriefing
+    m = build_manifest(make_show(), None, [], briefing=ManifestBriefing(
+        narration="full", vetted=False))
+    assert m.briefing.narration == "full"
 
 
 def test_m3u_text():
@@ -91,9 +118,9 @@ def test_build_manifest_without_notes():
                 tracks=[Track(index=1, set="1", title="t", filename="f.mp3", title_source="tags")],
                 set_breaks=[1])
     packaged = [ManifestTrack(index=1, set="1", title="t", filename="01 - t.mp3", duration_sec=60.0)]
-    m = build_manifest(show, None, packaged, context="ctx", research="research.md",
-                       reviews="reviews.md", research_vetted=True)
-    assert m.schema_version == 2
+    m = build_manifest(show, None, packaged, briefing=make_briefing(), context="ctx",
+                       research="research.md", reviews="reviews.md", research_vetted=True)
+    assert m.schema_version == 3
     assert m.dj_notes is None
     assert m.set_breaks[0].after_track == 1
     assert m.show["context"] == "ctx"
@@ -107,12 +134,13 @@ def test_build_manifest_with_dj_audio():
         set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         outro="dj-audio/99-outro.mp3",
     )
-    m = build_manifest(make_show(), make_notes(), make_packaged(), dj_audio=dj_audio)
+    m = build_manifest(make_show(), make_notes(), make_packaged(),
+                       briefing=make_briefing(), dj_audio=dj_audio)
     assert m.dj_audio == dj_audio
     assert [b.after_track for b in m.set_breaks] == [1, 2]
 
 
 def test_build_manifest_without_dj_audio():
-    m = build_manifest(make_show(), make_notes(), make_packaged())
+    m = build_manifest(make_show(), make_notes(), make_packaged(), briefing=make_briefing())
     assert m.dj_audio is None
     assert [b.after_track for b in m.set_breaks] == [1, 2]

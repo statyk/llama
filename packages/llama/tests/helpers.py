@@ -26,7 +26,9 @@ def build_ready(root: Path, slug: str = "gratefuldead-1973-06-10", *,
         review_flags=["held for a reason"] if needs_review else []))
     if script:
         write_artifact(ws.dj_notes_json, {"set_intros": {"1": "a"}, "outro": "o"})
-    manifest = {"schema_version": 2,
+    manifest = {"schema_version": 3,
+                "briefing": {"file": "briefing.md", "json": "briefing.json",
+                            "narration": "full", "vetted": False},
                 "show": {"artist": "Grateful Dead", "date": "1973-06-10",
                         "venue": "Some Venue", "city": None, "context": ""},
                 "source": {"performance_id": "GratefulDead/1973-06-10"},

@@ -6,8 +6,17 @@ import wave
 from pathlib import Path
 
 from llama.audio import packaged_filename, read_duration, tag_audio
+from llama.errors import LlamaError
 from llama.manifest import broadcast_m3u_text, build_manifest, m3u_text
-from llama.models import DJAudio, DJNotes, ManifestTrack, Show, VettingResult
+from llama.models import (
+    Briefing,
+    DJAudio,
+    DJNotes,
+    ManifestBriefing,
+    ManifestTrack,
+    Show,
+    VettingResult,
+)
 from llama.speech_text import Lexicon, normalize_for_speech
 from llama.status import detail
 from llama.tts.bed import Bed, load_bed_pcm, mix_bed
@@ -291,6 +300,14 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = 
             context = vr.vetting.context
         vetted = not vr.flags
 
+    if not (show_ws.briefing_json.exists() and show_ws.briefing_md.exists()):
+        raise LlamaError(
+            f"{show.performance_id}: package requires a briefing but this show "
+            "has no briefing artifacts; run `llama redo` from the brief stage")
+    briefing = read_model(show_ws.briefing_json, Briefing)
+    write_artifact(pkg / "briefing.md", show_ws.briefing_md.read_text())
+    write_artifact(pkg / "briefing.json", show_ws.briefing_json.read_text())
+
     research_name = None
     if show_ws.research.exists():
         write_artifact(pkg / "research.md", show_ws.research.read_text())
@@ -315,7 +332,9 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = 
         write_artifact(pkg / "dj-notes.md", show_ws.dj_notes_md.read_text())
     # Manifest last: it is the package's "outputs written only on success" marker.
     write_artifact(manifest_path, build_manifest(
-        show, notes, packaged, context=context,
+        show, notes, packaged,
+        briefing=ManifestBriefing(narration=briefing.narration, vetted=vetted),
+        context=context,
         research=research_name, reviews="reviews.md", research_vetted=vetted,
         dj_audio=dj_audio))
     if flags:

@@ -1,12 +1,22 @@
 from collections import defaultdict
 
-from llama.models import DJAudio, DJNotes, Manifest, ManifestTrack, SetBreak, Show
+from llama.models import (
+    DJAudio,
+    DJNotes,
+    Manifest,
+    ManifestBriefing,
+    ManifestTrack,
+    SetBreak,
+    Show,
+)
 
 
 def build_manifest(
     show: Show,
     notes: DJNotes | None,
     packaged: list[ManifestTrack],
+    *,
+    briefing: ManifestBriefing,
     context: str = "",
     research: str | None = None,
     reviews: str | None = None,
@@ -24,6 +34,7 @@ def build_manifest(
                 "url": show.source_url, "lineage": show.lineage},
         tracks=packaged,
         set_breaks=breaks,
+        briefing=briefing,
         dj_notes=notes,
         dj_audio=dj_audio,
         research=research,

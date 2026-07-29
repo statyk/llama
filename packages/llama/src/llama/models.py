@@ -259,12 +259,24 @@ class SetBreak(BaseModel):
     after_track: int  # physical set boundary; DJ talk rides the next set's lead-in
 
 
+class ManifestBriefing(BaseModel):
+    """Pointer block for the packaged briefing (manifest v3). `json_file`
+    serializes as "json" — the attribute name avoids shadowing BaseModel.json."""
+    file: str = "briefing.md"
+    json_file: str = Field("briefing.json", alias="json")
+    narration: str = "full"          # "full" | "vague" — travels with the package
+    vetted: bool = False             # research_vetted at package time
+
+    model_config = {"populate_by_name": True}
+
+
 class Manifest(BaseModel):
-    schema_version: int = 2
+    schema_version: int = 3
     show: dict
     source: dict
     tracks: list[ManifestTrack]
     set_breaks: list[SetBreak]
+    briefing: ManifestBriefing       # required in v3; always llama-written
     dj_notes: DJNotes | None = None
     dj_audio: DJAudio | None = None  # present only when voice audio was generated
     research: str | None = None  # relative path within the package

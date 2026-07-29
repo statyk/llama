@@ -6,7 +6,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from llama.models import DJNotes, ResearchVetting, Show, Track, VettingResult
+from llama.errors import LlamaError
+from llama.models import Briefing, DJNotes, ResearchVetting, Show, Track, VettingResult
 from llama.speech_text import Lexicon
 from llama.stages import package as package_stage
 from llama.stages.package import run_package
@@ -52,11 +53,32 @@ def make_notes():
                    set_intros={"1": "a", "2": "b"})
 
 
+def _briefing(**kw) -> Briefing:
+    base = dict(context="Peak-era Dead on the summer '73 run.",
+                significance="A standout show from a strong year.",
+                per_set={"1": ["Opens hot"], "2": ["The big jam"]},
+                notable_moments=["A monster Dark Star"],
+                review_sentiment="Widely praised, including by non-attendees.",
+                non_attendee_sentiment=True,
+                cautions=[],
+                mentioned_songs=[])
+    base.update(kw)
+    return Briefing(**base)
+
+
+def write_briefing(sws: ShowWorkspace, **kw) -> Briefing:
+    b = _briefing(**kw)
+    write_artifact(sws.briefing_json, b)
+    write_artifact(sws.briefing_md, "# Briefing: Grateful Dead — 1973-06-10\n")
+    return b
+
+
 def setup(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
     show = make_show()
     write_artifact(sws.show, show)
     write_artifact(sws.dj_notes_md, "# notes")
+    write_briefing(sws)
     return sws, show
 
 
@@ -117,7 +139,7 @@ def test_package_ships_research_reviews_and_vetting_context(tmp_path: Path):
     assert (pkg / "research.md").read_text() == "## Reputation\nLegendary."
     assert (pkg / "reviews.md").read_text() == "- Wow: great tape"
     m = json.loads((pkg / "manifest.json").read_text())
-    assert m["schema_version"] == 2
+    assert m["schema_version"] == 3
     assert m["research"] == "research.md" and m["reviews"] == "reviews.md"
     assert m["research_vetted"] is True
     assert m["show"]["context"] == "Peak 1973, RFK"  # vetting wins over notes.context
@@ -129,6 +151,7 @@ def test_package_without_script(tmp_path: Path):
     write_artifact(sws.show, show)  # no dj-notes.md written
     write_artifact(sws.research, "r")
     write_vetting(sws)
+    write_briefing(sws)
     pkg = run_package(sws, StubIA(), show, notes=None)
     assert not (pkg / "dj-notes.md").exists()
     m = json.loads((pkg / "manifest.json").read_text())
@@ -242,6 +265,7 @@ def _notes_with(text: str) -> DJNotes:
 
 def test_package_expands_segue_symbol_before_synthesis(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     show = make_show()
     speech = FakeSpeechProvider()
     run_package(sws, StubIA(), show, _notes_with("We go Help on the Way > Slipknot now."),
@@ -253,6 +277,7 @@ def test_package_expands_segue_symbol_before_synthesis(tmp_path: Path):
 
 def test_package_applies_pronunciation_lexicon(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     show = make_show()
     speech = FakeSpeechProvider()
     run_package(sws, StubIA(), show, _notes_with("They opened with Sugaree."),
@@ -263,6 +288,7 @@ def test_package_applies_pronunciation_lexicon(tmp_path: Path):
 
 def test_package_leaves_human_notes_unnormalized(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     # A human-readable dj-notes.md already on disk (as synthesize would write).
     write_artifact(sws.dj_notes_md, "## Set 1 lead-in\nHelp on the Way > Slipknot\n")
     show = make_show()
@@ -275,6 +301,7 @@ def test_package_leaves_human_notes_unnormalized(tmp_path: Path):
 def test_package_normalization_changes_only_affected_cache_key(tmp_path: Path):
     # A clean segment keeps its cache across runs (normalize is identity on it).
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     show = make_show()
     run_package(sws, StubIA(), show, _notes_with("A perfectly clean lead-in here."),
                 speech=FakeSpeechProvider())
@@ -294,6 +321,7 @@ def _bed_file(tmp_path: Path, seconds: float = 1.0) -> Path:
 
 def test_package_bed_active_produces_valid_mp3(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     bed = Bed(_bed_file(tmp_path), -20.0)
     pkg = run_package(sws, StubIA(), make_show(), make_notes(),
                       speech=FakeSpeechProvider(), bed=bed)
@@ -303,6 +331,7 @@ def test_package_bed_active_produces_valid_mp3(tmp_path: Path):
 
 def test_package_bed_works_with_chunk(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     bed = Bed(_bed_file(tmp_path), -20.0)
     pkg = run_package(sws, StubIA(), make_show(), make_notes(),
                       speech=FakeSpeechProvider(), bed=bed, chunk=True)
@@ -314,6 +343,7 @@ def test_package_bed_gain_change_resynthesizes(tmp_path: Path):
     # segment cache-key check this test exists to verify). Same gain -> cache
     # hit -> skipped; changed gain -> different key -> re-rendered.
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     bedp = _bed_file(tmp_path)
     run_package(sws, StubIA(), make_show(), make_notes(),
                 speech=FakeSpeechProvider(), bed=Bed(bedp, -20.0))
@@ -338,6 +368,7 @@ def test_package_no_bed_cache_key_unchanged(tmp_path: Path):
     # exercises the segment cache (without unlink it would short-circuit on the
     # manifest-exists guard, making this trivially pass).
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     run_package(sws, StubIA(), make_show(), make_notes(), speech=FakeSpeechProvider())
     (sws.package_dir / "manifest.json").unlink()
     second = FakeSpeechProvider()
@@ -347,6 +378,7 @@ def test_package_no_bed_cache_key_unchanged(tmp_path: Path):
 
 def test_package_bad_bed_hard_fails(tmp_path: Path):
     sws = ShowWorkspace(tmp_path / "s")
+    write_briefing(sws)
     bad = tmp_path / "bad.wav"
     with wave.open(str(bad), "wb") as w:
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(44100)
@@ -354,3 +386,22 @@ def test_package_bad_bed_hard_fails(tmp_path: Path):
     with pytest.raises(SpeechError, match="24kHz mono 16-bit"):
         run_package(sws, StubIA(), make_show(), make_notes(),
                     speech=FakeSpeechProvider(), bed=Bed(bad, -20.0))
+
+
+def test_package_copies_briefing_and_emits_v3(tmp_path: Path):
+    sws, show = setup(tmp_path)
+    pkg = run_package(sws, StubIA(), show, make_notes(), force=True)
+    manifest = json.loads((pkg / "manifest.json").read_text())
+    assert manifest["schema_version"] == 3
+    assert manifest["briefing"]["json"] == "briefing.json"
+    assert manifest["briefing"]["narration"] == "full"
+    assert (pkg / "briefing.md").exists() and (pkg / "briefing.json").exists()
+
+
+def test_package_hard_fails_without_briefing(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "s")
+    show = make_show()
+    write_artifact(sws.show, show)
+    write_artifact(sws.dj_notes_md, "# notes")
+    with pytest.raises(LlamaError, match="no briefing"):
+        run_package(sws, StubIA(), show, make_notes(), force=True)

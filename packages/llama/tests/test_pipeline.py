@@ -131,7 +131,7 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     assert (pkg / "dj-notes.md").exists()
     assert (pkg / "research.md").exists()
     assert (pkg / "reviews.md").exists()
-    assert manifest["schema_version"] == 2
+    assert manifest["schema_version"] == 3
     assert manifest["show"]["context"] == "Peak 1973, RFK Stadium"
     # ledger records the clean show
     ledger_lines = (tmp_path / "ledger.jsonl").read_text().splitlines()

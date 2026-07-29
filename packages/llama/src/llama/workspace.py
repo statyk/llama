@@ -11,7 +11,7 @@ from llama.util import slugify
 
 def _to_jsonable(data):
     if isinstance(data, BaseModel):
-        return data.model_dump(mode="json")
+        return data.model_dump(mode="json", by_alias=True)
     if isinstance(data, list):
         return [_to_jsonable(x) for x in data]
     return data
