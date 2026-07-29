@@ -76,6 +76,8 @@ class ShowWorkspace:
         self.reviews = dir / "reviews.json"
         self.research = dir / "research.md"
         self.vetting = dir / "vetting.json"
+        self.briefing_json = dir / "briefing.json"
+        self.briefing_md = dir / "briefing.md"
         self.dj_notes_md = dir / "dj-notes.md"
         self.dj_notes_json = dir / "dj-notes.json"
         self.overrides = dir / "overrides.json"
