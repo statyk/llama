@@ -78,8 +78,8 @@ these defaults with `llama config init` (`--stdout` to print instead):
     # backend = "openrouter"         # HTTP alternative; set OPENROUTER_API_KEY
     # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
     # gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
-    # Defaults: medium for most tasks; high for deep_research and synthesize;
-    # low for vet_research.
+    # Defaults: medium for most tasks; high for deep_research, brief, and
+    # synthesize; low for vet_research.
     # If a task's output fails validation twice, the final retry runs one
     # tier up (exact `model` pins never escalate).
 
@@ -306,12 +306,14 @@ bytes either way.
 The two modes differ only in scrutiny and availability, and both
 differences err safe:
 
-- **Script-on packages cleared one extra gate.** The generated script is
-  cross-checked against the setlist (`factual_guard`), which occasionally
-  catches prose-level research contamination that assertion-level vetting
-  can't see — a wrong-show anecdote surfacing as a bad song name in the
-  patter. A script-on run may therefore hold a subtly-bad show for review
-  that a script-off run would ship.
+- **Script-on packages cleared one extra gate.** Both modes now get a
+  prose-level cross-check via the always-on `brief` stage's
+  `briefing_guard`, which occasionally catches research contamination that
+  assertion-level vetting can't see — a wrong-show anecdote surfacing as a
+  bad song name. Script-on packages clear a *second* one on top of that:
+  the generated script is separately cross-checked against the setlist
+  (`factual_guard`). A script-on run may therefore hold a subtly-bad show
+  for review that a script-off run would ship.
 - **Script-on runs have one extra failure point.** A synthesize call that
   exhausts its retries skips the show entirely — it affects whether a
   package is produced, never what's inside one.

@@ -82,13 +82,13 @@ Everything lives under `~/.llama/` (configurable as `root` in
     ├── overrides.json           # hand-authored or `llama show`-edited, durable:
     │                            # excluded tracks, narration mode, and metadata
     │                            # corrections (venue/city/date/titles/set_breaks);
-    │                            # read by gather/synthesize, survives every redo
+    │                            # read by gather/brief/synthesize, survives every redo
     ├── selection.json           # which recording won and why
     ├── show.json                # tracks, sets, flags — THE show state file
     ├── reviews.json             # raw listener reviews
     ├── research.md              # deep-research output
     ├── vetting.json             # grounding-check results
-    ├── briefing.md/.json        # neutral vetted briefing (always on) -- brief stage
+    ├── briefing.md/.json        # neutral vetted briefing (always on) — brief stage
     ├── dj-notes.md/.json        # verbatim DJ script (default; absent with --no-script)
     ├── llm-failure.txt          # raw LLM output if a task failed validation
     └── package/                 # the deliverable
