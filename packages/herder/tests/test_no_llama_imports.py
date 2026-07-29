@@ -3,7 +3,11 @@
 import re
 from pathlib import Path
 
-FORBIDDEN = re.compile(r"^\s*(?:from|import)\s+llama\b", re.M)
+FORBIDDEN = re.compile(
+    r"^\s*(?:from|import)\s+llama\b"
+    r"|(?:__import__|import_module)\s*\(\s*['\"]llama\b",
+    re.M,
+)
 
 
 def _offenders(root: Path) -> list[str]:

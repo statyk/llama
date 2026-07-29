@@ -14,6 +14,11 @@ presenter on the profile).
 
 ## Setup
 
+This is a monorepo: `packages/llama` is the CLI described above, and
+`packages/herder` is the shared LLM task layer underneath it (tiered
+provider resolution, schema-validated task runners, retry escalation).
+Install both editable together:
+
     python3 -m venv .venv && source .venv/bin/activate
     pip install -e packages/herder -e "packages/llama[dev]"
 

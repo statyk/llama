@@ -7,6 +7,7 @@ name = "llama-herder"
 version = "0.1.0"
 description = "Shared LLM task layer: tiered providers, schema-validated tasks, retry escalation"
 license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.7",

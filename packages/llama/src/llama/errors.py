@@ -1,9 +1,10 @@
 """Central exception taxonomy.
 
 `LlamaError` is the base for expected, user-actionable failures. The CLI error
-boundary (`llama.cli.main_cli`) catches it and prints `error: <message>` plus any
-indented `details`, instead of a traceback. Anything that is NOT a `LlamaError`
-is treated as a bug and surfaces as a plain traceback.
+boundary (`llama.cli.main_cli`) catches it (alongside `herder.HerderError`,
+the shared LLM layer's equivalent) and prints `error: <message>` plus any
+indented `details`, instead of a traceback. Anything that is NOT one of those
+two is treated as a bug and surfaces as a plain traceback.
 
 This module imports nothing from the rest of the package to stay
 import-cycle-free.

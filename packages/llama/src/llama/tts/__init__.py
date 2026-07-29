@@ -9,7 +9,7 @@ def speech_provider_for(config: Config, voice: str | None,
                         clone_ref: str | None = None) -> SpeechProvider:
     """Construct the speech backend for a run's resolved voice.
 
-    Mirrors llm.provider_for: maps config.tts.backend to a class. No tiers,
+    Mirrors herder.provider_for: maps config.tts.backend to a class. No tiers,
     no ladder — one provider, one voice, one model per run. clone_ref is the
     reference-clip path for clone mode; callers resolve it (a presenter's
     voice_clone, or [tts] voice_clone for the house voice) — the factory

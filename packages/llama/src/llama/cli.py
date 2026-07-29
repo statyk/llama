@@ -2361,12 +2361,13 @@ def history_list(
 def main_cli() -> None:
     """CLI entry point with a single error boundary.
 
-    Expected, user-actionable failures (`llama.errors.LlamaError`) print a clean
-    `error: <message>` plus any indented details and exit 1. `KeyboardInterrupt`
-    exits 130 quietly. Any other exception is a bug: we print a plain traceback
-    ourselves and exit 1 — printing it here (rather than letting it propagate)
-    suppresses the frozen bootloader's `Failed to execute script` line.
-    `SystemExit`/`typer.Exit` from commands pass through untouched.
+    Expected, user-actionable failures (`llama.errors.LlamaError` or
+    `herder.HerderError`) print a clean `error: <message>` plus any indented
+    details and exit 1. `KeyboardInterrupt` exits 130 quietly. Any other
+    exception is a bug: we print a plain traceback ourselves and exit 1 —
+    printing it here (rather than letting it propagate) suppresses the frozen
+    bootloader's `Failed to execute script` line. `SystemExit`/`typer.Exit`
+    from commands pass through untouched.
     """
     try:
         app()
