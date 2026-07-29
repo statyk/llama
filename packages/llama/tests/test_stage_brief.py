@@ -58,3 +58,57 @@ def test_render_briefing_md_omits_empty_optional_sections():
     assert "## Notable moments" not in md
     assert "## Cautions" not in md
     assert "## Set" not in md
+
+
+from llama.stages.brief import briefing_guard
+
+
+def test_guard_passes_clean_full_briefing():
+    assert briefing_guard(_briefing(), _show()) == []
+
+
+def test_guard_flags_unknown_song():
+    b = _briefing(mentioned_songs=["Song 1", "Not A Real Song"])
+    problems = briefing_guard(b, _show())
+    assert problems == ["briefing mentions unknown song: Not A Real Song"]
+
+
+def test_guard_flags_bogus_set_key_but_allows_encore():
+    b = _briefing(per_set={"1": ["a"], "2": ["b"], "3": ["nope"], "encore": ["ok"]})
+    assert briefing_guard(b, _show()) == ["briefing references nonexistent set: 3"]
+
+
+def test_guard_flags_wrong_set_count_claim_in_prose():
+    b = _briefing(significance="They played three sets that night.")
+    assert briefing_guard(b, _show()) == [
+        "briefing claims 3 sets but structure has 2"]
+    b2 = _briefing(notable_moments=["The fourth set closed with fireworks."])
+    assert briefing_guard(b2, _show()) == [
+        "briefing mentions the fourth set but structure has 2 sets"]
+
+
+def test_guard_accepts_correct_set_count_claim():
+    assert briefing_guard(_briefing(context="Both sets stretch out."), _show()) == []
+
+
+def test_guard_vague_mode_violations():
+    b = _briefing(narration="vague", per_set={"1": ["a"]}, mentioned_songs=["Song 1"])
+    problems = briefing_guard(b, _show())
+    assert "briefing has per-set talking points under vague narration" in problems
+    assert "briefing names songs under vague narration" in problems
+    # a set-count claim is a violation under vague even when numerically right
+    b2 = _briefing(narration="vague", per_set={}, mentioned_songs=[],
+                   context="They played two sets.")
+    assert briefing_guard(b2, _show()) == [
+        "briefing asserts set structure under vague narration"]
+
+
+def test_guard_vague_mode_clean():
+    b = _briefing(narration="vague", per_set={}, mentioned_songs=[],
+                  context="A revered night from the '73 run.")
+    assert briefing_guard(b, _show()) == []
+
+
+def test_guard_flags_empty_per_set_under_full():
+    b = _briefing(per_set={})
+    assert briefing_guard(b, _show()) == ["briefing has no per-set talking points"]
