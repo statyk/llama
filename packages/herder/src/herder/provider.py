@@ -1,7 +1,7 @@
 from typing import Protocol, runtime_checkable
 
 
-class LLMError(Exception):
+class HerderError(Exception):
     """Base for LLM-layer failures.
 
     Deliberately independent of llama.errors: this module is bound for
@@ -10,11 +10,11 @@ class LLMError(Exception):
     """
 
 
-class ResearchNotSupported(LLMError):
+class ResearchNotSupported(HerderError):
     pass
 
 
-class TaskFailed(LLMError):
+class TaskFailed(HerderError):
     def __init__(self, message: str, raw_output: str = ""):
         super().__init__(message)
         self.raw_output = raw_output

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from llama.grouping import group_candidates
 from llama.ledger import Ledger
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 from llama.models import LedgerEntry
 from llama.stages.gather import run_gather
 from llama.util import slugify

@@ -4,8 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
+from herder import LLMSettings, TaskConfig
 from llama.errors import ConfigError
-from llama.llm import LLMSettings, TaskConfig
 
 DEFAULT_ROOT = Path.home() / ".llama"
 

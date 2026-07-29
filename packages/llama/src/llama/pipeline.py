@@ -2,9 +2,9 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+from herder import provider_ladder
 from llama.config import Config
 from llama.ledger import Ledger
-from llama.llm import provider_ladder
 from llama.models import DJNotes, LedgerEntry, Provenance, Show, ShortlistEntry
 from llama.presenters import Presenter
 from llama.speech_text import load_lexicon

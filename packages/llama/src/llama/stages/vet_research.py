@@ -1,6 +1,6 @@
 import re
 
-from llama.llm.tasks import run_json_task
+from herder import run_json_task
 from llama.models import ResearchVetting, Show, VettingResult
 from llama.prompts import load_prompt
 from llama.songs import normalize_song

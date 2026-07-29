@@ -1,4 +1,4 @@
-from llama.llm.tasks import run_json_task
+from herder import run_json_task
 from llama.models import Criteria
 from llama.prompts import load_prompt
 from llama.workspace import RunWorkspace, read_model, should_run, write_artifact

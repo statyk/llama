@@ -4,9 +4,9 @@ import subprocess
 import pytest
 
 from llama.config import Config, LLMTaskConfig
-from llama.llm import provider_for
-from llama.llm.claude_cli import ClaudeCLIProvider
-from llama.llm.provider import LLMError
+
+from herder import HerderError, provider_for
+from herder.claude_cli import ClaudeCLIProvider
 
 
 class FakeProc:
@@ -55,7 +55,7 @@ def test_research_allows_web_tools_but_no_delegation(monkeypatch):
 
 def test_nonzero_exit_raises(monkeypatch):
     patch_run(monkeypatch, FakeProc(returncode=1, stderr="boom"), {})
-    with pytest.raises(LLMError, match="boom"):
+    with pytest.raises(HerderError, match="boom"):
         ClaudeCLIProvider().complete("x")
 
 
@@ -63,13 +63,13 @@ def test_nonzero_exit_falls_back_to_stdout_detail(monkeypatch):
     # claude reports auth/usage failures on stdout with an empty stderr;
     # the error must carry that detail instead of a bare exit code
     patch_run(monkeypatch, FakeProc(returncode=1, stdout="Invalid API key - run /login\n"), {})
-    with pytest.raises(LLMError, match="Invalid API key"):
+    with pytest.raises(HerderError, match="Invalid API key"):
         ClaudeCLIProvider().complete("x")
 
 
 def test_frozen_binary_restores_loader_path_for_subprocess(monkeypatch):
     import sys
-    from llama.llm import claude_cli
+    from herder import claude_cli
 
     seen = {}
 
@@ -96,10 +96,10 @@ def test_frozen_binary_restores_loader_path_for_subprocess(monkeypatch):
 
 def test_bad_json_and_error_payload_raise(monkeypatch):
     patch_run(monkeypatch, FakeProc(stdout="not json"), {})
-    with pytest.raises(LLMError):
+    with pytest.raises(HerderError):
         ClaudeCLIProvider().complete("x")
     patch_run(monkeypatch, FakeProc(stdout=json.dumps({"is_error": True, "result": "quota"})), {})
-    with pytest.raises(LLMError):
+    with pytest.raises(HerderError):
         ClaudeCLIProvider().complete("x")
 
 
@@ -108,6 +108,6 @@ def test_provider_for_uses_task_config(monkeypatch):
                       "synthesize": LLMTaskConfig(model="m-big")})
     assert provider_for(cfg.llm_settings(), "synthesize").model == "m-big"
     assert provider_for(cfg.llm_settings(), "interpret").model == "m-default"
-    with pytest.raises(LLMError):
+    with pytest.raises(HerderError):
         bad = Config(llm={"default": LLMTaskConfig(backend="nope")})
         provider_for(bad.llm_settings(), "interpret")

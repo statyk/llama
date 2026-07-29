@@ -119,7 +119,7 @@ def test_execute_marks_awaiting_at_human_gate(tmp_path: Path, monkeypatch):
 
 
 def test_empty_winnow_still_marks_complete(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')

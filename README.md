@@ -15,7 +15,7 @@ presenter on the profile).
 ## Setup
 
     python3 -m venv .venv && source .venv/bin/activate
-    pip install -e "packages/llama[dev]"
+    pip install -e packages/herder -e "packages/llama[dev]"
 
 Optional config at `~/.llama/config.toml` — seed a fully-commented copy of
 these defaults with `llama config init` (`--stdout` to print instead):

@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 import llama.cli as cli
 import llama.pipeline as pipeline
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 
 runner = CliRunner()
 FIXTURE = Path(__file__).parent / "fixtures" / "gd73_metadata.json"

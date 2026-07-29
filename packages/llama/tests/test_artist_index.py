@@ -14,7 +14,7 @@ from llama.artist_index import (
     render_artist_table,
 )
 from llama.ia_client import IAError
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 
 COLLECTIONS = [
     {"identifier": "GratefulDead", "title": "Grateful Dead", "downloads": 226766373},

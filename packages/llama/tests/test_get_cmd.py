@@ -135,7 +135,7 @@ def test_get_profile_mode_accepts_auto_plan_full_rationale(tmp_path: Path, monke
 # ---------------------------------------------------------------------------
 
 def test_get_query_and_profile_pass_full_rationale_to_execute(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
     from llama.profiles import Profile, save_profile
 
     cfg = str(tmp_path / "config.toml")
@@ -163,7 +163,7 @@ def test_get_query_and_profile_pass_full_rationale_to_execute(tmp_path: Path, mo
 # ---------------------------------------------------------------------------
 
 def test_get_name_override_and_stamps_year_cap_into_run_criteria(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -179,7 +179,7 @@ def test_get_name_override_and_stamps_year_cap_into_run_criteria(tmp_path: Path,
 
 
 def test_get_zero_caps_are_rejected_before_they_poison_criteria(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -290,7 +290,7 @@ def fuzzy_matches():
 
 
 def fuzzy_providers(config):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
     return {
         "interpret": FakeProvider(completes=[FUZZY_CRITERIA]),
         "find_artists": FakeProvider(completes=[fuzzy_matches()]),
@@ -334,7 +334,7 @@ def test_get_fuzzy_query_zero_matches_exits_cleanly(tmp_path, monkeypatch):
     ia = _fuzzy_setup(tmp_path, monkeypatch)
     monkeypatch.setattr(cli, "make_providers", lambda config: {
         **fuzzy_providers(config),
-        "find_artists": __import__("llama.llm.fake", fromlist=["FakeProvider"]).FakeProvider(
+        "find_artists": __import__("herder.fake", fromlist=["FakeProvider"]).FakeProvider(
             completes=[json.dumps({"matches": [{"identifier": "NickDrake", "reason": "x"}]})]),
     })
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),

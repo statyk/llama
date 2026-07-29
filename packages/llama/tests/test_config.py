@@ -4,9 +4,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from herder import resolve_model
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_TIERS, Config, load_config
 from llama.errors import ConfigError
-from llama.llm import resolve_model
 
 
 def test_invalid_audio_format_raises(tmp_path: Path):

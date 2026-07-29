@@ -10,6 +10,7 @@ from pathlib import Path
 import typer
 from typer.core import TyperGroup
 
+from herder import HerderError, TaskFailed, provider_ladder
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
@@ -19,8 +20,6 @@ from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
 from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
-from llama.llm import provider_ladder
-from llama.llm.provider import LLMError, TaskFailed
 from llama.locks import Locked, file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
@@ -302,7 +301,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
                                force_stage=force_stage)
-        except (TaskFailed, LLMError, IAError, SpeechError) as exc:
+        except (TaskFailed, HerderError, IAError, SpeechError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
                 failure_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1500,7 +1499,7 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
             pkg = _redo_show(config, ia, ledger, e, from_stage,
                              with_research=redo_research, script=script, voice=voice)
             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {e.slug}")
-        except (LlamaError, TaskFailed, LLMError, IAError, SpeechError) as exc:
+        except (LlamaError, TaskFailed, HerderError, IAError, SpeechError) as exc:
             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
 
 
@@ -2371,7 +2370,7 @@ def main_cli() -> None:
     """
     try:
         app()
-    except (LlamaError, LLMError) as exc:
+    except (LlamaError, HerderError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         for detail in getattr(exc, "details", []):
             print(f"  {detail}", file=sys.stderr)

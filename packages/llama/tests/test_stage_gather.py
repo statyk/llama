@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from llama.config import StructureConfig
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 from llama.models import Candidate, Overrides, RecordingSummary
 from llama.setlistfm import SetlistFMClient
 from llama.stages.gather import run_gather

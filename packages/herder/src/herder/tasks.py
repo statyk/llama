@@ -3,7 +3,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ValidationError
 
-from llama.llm.provider import LLMProvider, TaskFailed
+from herder.provider import LLMProvider, TaskFailed
 
 ProviderOrLadder = LLMProvider | Sequence[LLMProvider]
 

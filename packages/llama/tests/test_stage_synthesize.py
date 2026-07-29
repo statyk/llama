@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 from llama.models import DJNotes, Overrides, Show, Track
 from llama.presenters import Presenter
 from llama.prompts import load_prompt

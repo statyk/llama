@@ -1,6 +1,6 @@
 import re
 
-from llama.llm.tasks import run_json_task
+from herder import run_json_task
 from llama.models import DJNotes, Show
 from llama.presenters import Presenter
 from llama.prompts import load_prompt

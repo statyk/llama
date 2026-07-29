@@ -1,8 +1,8 @@
 import json
 import logging
 
+from herder import run_json_task, run_research_task
 from llama.ledger import Ledger
-from llama.llm.tasks import run_json_task, run_research_task
 from llama.models import Candidate, Criteria, QualityBatch, ShortlistEntry
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist

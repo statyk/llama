@@ -3,7 +3,7 @@ import json
 from typer.testing import CliRunner
 
 import llama.cli as cli
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 
 runner = CliRunner()
 

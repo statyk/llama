@@ -12,7 +12,7 @@ implementation plan this was built from. The approved design spec is
 
 ## Commands
 
-- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e "packages/llama[dev]"`
+- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e packages/herder -e "packages/llama[dev]"`
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest packages/llama/tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
@@ -114,7 +114,9 @@ failed validation's final retry escalates one tier (pins never escalate).
   and NO legacy-id compatibility for pre-split `collection/date` rows — purge
   and re-run. Run names auto-unique: a same-day collision gets a `-2`/`-3`
   suffix instead of silently resuming the earlier run.
-- **LLM layer:** provider abstraction with two capabilities — `complete`
+- **LLM layer:** lives in the shared `herder` package (`packages/herder/`),
+  used by llama and (later) the persona tool — task registries and prompts
+  stay per-app. Provider abstraction with two capabilities — `complete`
   (schema-validated, no tools) and `research` (needs web search). Dev backend
   shells out to headless `claude -p`; `openrouter` is the HTTP alternative
   (opt-in, needs `OPENROUTER_API_KEY`, research via the web plugin); a `fake`

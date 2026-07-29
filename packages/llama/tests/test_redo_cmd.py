@@ -458,7 +458,7 @@ def test_redo_run_synthesize_implies_script(tmp_path: Path, monkeypatch):
 
 def test_redo_run_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path, monkeypatch):
     from test_pipeline import FakeIA, fake_providers
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
 
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
     monkeypatch.setattr(cli, "make_providers", fake_providers)

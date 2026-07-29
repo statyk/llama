@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 import llama.cli as cli
 from llama.config import Config
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 from llama.models import Criteria as CriteriaModel
 from llama.tts.provider import SpeechError
 from llama.workspace import RunWorkspace, write_artifact

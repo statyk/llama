@@ -1,9 +1,7 @@
 import pytest
 from pydantic import BaseModel
 
-from llama.llm import tasks
-from llama.llm.fake import FakeProvider
-from llama.llm.provider import TaskFailed
+from herder import FakeProvider, TaskFailed, tasks
 
 
 class Answer(BaseModel):

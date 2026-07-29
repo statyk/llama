@@ -2,8 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from llama.llm.fake import FakeProvider
-from llama.llm.provider import TaskFailed
+from herder import FakeProvider, TaskFailed
 from llama.models import Show, Track
 from llama.stages.research import run_research
 from llama.workspace import ShowWorkspace

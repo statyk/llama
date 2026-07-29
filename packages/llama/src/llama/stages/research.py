@@ -1,4 +1,4 @@
-from llama.llm.tasks import run_research_task
+from herder import run_research_task
 from llama.models import Show
 from llama.prompts import load_prompt
 from llama.workspace import ShowWorkspace, should_run, write_artifact

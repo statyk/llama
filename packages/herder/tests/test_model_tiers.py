@@ -1,15 +1,15 @@
 import pytest
 
-from llama.llm import (
+from herder import (
     TIER_MODELS,
+    HerderError,
     LLMSettings,
     TaskConfig,
     provider_for,
     provider_ladder,
     resolve_model,
 )
-from llama.llm.openrouter import OpenRouterProvider
-from llama.llm.provider import LLMError
+from herder.openrouter import OpenRouterProvider
 
 
 def settings(**kw):
@@ -60,7 +60,7 @@ def test_default_entry_tier_floors_unpinned_tasks():
 
 def test_unknown_backend_still_raises():
     s = settings(tasks={"default": TaskConfig(backend="nope")})
-    with pytest.raises(LLMError):
+    with pytest.raises(HerderError):
         provider_for(s, "interpret")
 
 
@@ -94,7 +94,7 @@ def test_openrouter_backend_resolves_and_constructs(monkeypatch):
 def test_openrouter_without_key_fails_fast(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     s = settings(tasks={"default": TaskConfig(backend="openrouter")})
-    with pytest.raises(LLMError, match="OPENROUTER_API_KEY"):
+    with pytest.raises(HerderError, match="OPENROUTER_API_KEY"):
         provider_for(s, "interpret")
 
 
@@ -114,7 +114,7 @@ def test_overlay_applies_to_claude_cli_too():
 def test_missing_tier_raises_llmerror_not_keyerror():
     s = settings(tasks={"default": TaskConfig(backend="custom")},
                  tiers={"custom": {"low": "x/y"}})
-    with pytest.raises(LLMError, match="tier"):
+    with pytest.raises(HerderError, match="tier"):
         resolve_model(s, "interpret")  # interpret needs medium; table only has low
 
 
@@ -122,7 +122,7 @@ def test_tiers_only_backend_fails_at_provider_construction():
     s = settings(tasks={"default": TaskConfig(backend="custom", tier="low")},
                  tiers={"custom": {"low": "x/y"}})
     assert resolve_model(s, "interpret") == ("custom", "x/y")
-    with pytest.raises(LLMError, match="unknown LLM backend"):
+    with pytest.raises(HerderError, match="unknown LLM backend"):
         provider_for(s, "interpret")
 
 

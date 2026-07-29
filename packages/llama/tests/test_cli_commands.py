@@ -70,7 +70,7 @@ def test_shortlist_entries_are_visually_separated(capsys):
 
 
 def test_profile_add_zero_caps_are_rejected_before_they_poison_criteria(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -134,7 +134,7 @@ def test_drop_stage_artifacts_cascades_for_one_show(tmp_path: Path):
 
 
 def test_profile_add_and_list(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     criteria_json = json.dumps({
@@ -162,7 +162,7 @@ def test_profile_add_and_list(tmp_path: Path, monkeypatch):
 
 
 def test_profile_artists_set_show_and_clear(tmp_path, monkeypatch):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
     from llama.profiles import load_profile
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -218,7 +218,7 @@ PIN_INDEX = [
 
 
 def test_profile_add_pins_resolved_artists(tmp_path: Path, monkeypatch):
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
     from llama.profiles import load_profile
 
     cfg = str(tmp_path / "config.toml")
@@ -236,7 +236,7 @@ def test_profile_add_pins_resolved_artists(tmp_path: Path, monkeypatch):
 
 def test_profile_add_rejects_unknown_pinned_artist(tmp_path: Path, monkeypatch):
     from llama.errors import ArtistResolutionError
-    from llama.llm.fake import FakeProvider
+    from herder import FakeProvider
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')

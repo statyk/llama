@@ -4,7 +4,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 import llama.cli as cli
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 from llama.tts.fake import SILENT_MP3, FakeSpeechProvider
 
 runner = CliRunner()

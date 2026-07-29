@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from llama.llm.provider import LLMError
+from herder.provider import HerderError
 
 # complete() must be pure text->text; research() may search the web and nothing else.
 # --allowedTools only auto-approves; it does not shrink the toolset, so delegation
@@ -51,20 +51,20 @@ class ClaudeCLIProvider:
                 env=_subprocess_env(),
             )
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            raise LLMError(f"claude invocation failed: {e}") from e
+            raise HerderError(f"claude invocation failed: {e}") from e
         if proc.returncode != 0:
             # claude often reports failures (auth, bad flags) on stdout
             detail = (proc.stderr.strip() or proc.stdout.strip())[:500]
-            raise LLMError(f"claude exited {proc.returncode}: {detail}")
+            raise HerderError(f"claude exited {proc.returncode}: {detail}")
         try:
             data = json.loads(proc.stdout)
         except json.JSONDecodeError as e:
-            raise LLMError(f"claude output was not JSON: {proc.stdout[:200]}") from e
+            raise HerderError(f"claude output was not JSON: {proc.stdout[:200]}") from e
         if data.get("is_error"):
-            raise LLMError(f"claude reported an error: {str(data)[:500]}")
+            raise HerderError(f"claude reported an error: {str(data)[:500]}")
         result = data.get("result")
         if not isinstance(result, str):
-            raise LLMError("claude output has no string 'result' field")
+            raise HerderError("claude output has no string 'result' field")
         return result
 
     def complete(self, prompt: str) -> str:

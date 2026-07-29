@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 from llama.models import Criteria
 from llama.stages.discover import run_discover
 from llama.workspace import RunWorkspace

@@ -1,13 +1,12 @@
 import logging
 import re
 
+from herder import HerderError, TaskFailed, run_json_task
 from llama import jerrybase
 from llama.config import StructureConfig
 from llama.errors import LlamaError
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.ia_client import IAError
-from llama.llm.provider import LLMError, TaskFailed
-from llama.llm.tasks import run_json_task
 from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
                           SourcedParse, StructureInfo)
 from llama.prompts import load_prompt
@@ -222,7 +221,7 @@ def run_gather(
                                              tracks=_format_tracks(tracks),
                                              setlist=_format_setlist(canonical))
                         llm_result = apply_llm_alignment(tracks, resp)
-                    except (TaskFailed, LLMError) as err:
+                    except (TaskFailed, HerderError) as err:
                         log.warning("align_structure failed: %s", err)
                 if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
                     # Deliberate trade-off: apply_llm_alignment never populates

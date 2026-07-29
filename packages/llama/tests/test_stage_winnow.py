@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from llama.ledger import Ledger
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 from llama.models import Candidate, Criteria, LedgerEntry, RecordingSummary, SetlistConstraint
 from llama.stages.winnow import run_winnow
 from llama.workspace import RunWorkspace, write_artifact

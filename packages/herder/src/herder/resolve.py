@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field
 
-from llama.llm.claude_cli import ClaudeCLIProvider
-from llama.llm.openrouter import OpenRouterProvider
-from llama.llm.provider import LLMError, LLMProvider
+from herder.claude_cli import ClaudeCLIProvider
+from herder.openrouter import OpenRouterProvider
+from herder.provider import HerderError, LLMProvider
 
 
 class TaskConfig(BaseModel):
@@ -51,11 +51,11 @@ def resolve_model(settings: LLMSettings, task: str) -> tuple[str, str]:
         return cfg.backend, cfg.model
     table = _tier_table(settings, cfg.backend)
     if not table:
-        raise LLMError(f"unknown LLM backend {cfg.backend!r} for task {task!r}")
+        raise HerderError(f"unknown LLM backend {cfg.backend!r} for task {task!r}")
     tier = cfg.tier or settings.default_tiers.get(task, "medium")
     model = table.get(tier)
     if model is None:
-        raise LLMError(f"backend {cfg.backend!r} has no model for tier {tier!r} (task {task!r})")
+        raise HerderError(f"backend {cfg.backend!r} has no model for tier {tier!r} (task {task!r})")
     return cfg.backend, model
 
 
@@ -64,7 +64,7 @@ def _construct(backend: str, model: str, task: str) -> LLMProvider:
         return ClaudeCLIProvider(model=model)
     if backend == "openrouter":
         return OpenRouterProvider(model=model)
-    raise LLMError(f"unknown LLM backend {backend!r} for task {task!r}")
+    raise HerderError(f"unknown LLM backend {backend!r} for task {task!r}")
 
 
 def provider_for(settings: LLMSettings, task: str) -> LLMProvider:

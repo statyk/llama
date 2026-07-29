@@ -3,8 +3,8 @@ import json
 import httpx
 import pytest
 
-from llama.llm.openrouter import OpenRouterProvider
-from llama.llm.provider import LLMError, LLMProvider
+from herder import HerderError, LLMProvider
+from herder.openrouter import OpenRouterProvider
 
 
 def ok_payload(text="hi"):
@@ -48,7 +48,7 @@ def test_research_adds_web_plugin():
 
 def test_missing_api_key_raises_at_construction(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    with pytest.raises(LLMError, match="OPENROUTER_API_KEY"):
+    with pytest.raises(HerderError, match="OPENROUTER_API_KEY"):
         OpenRouterProvider(model="test/model")
 
 
@@ -60,7 +60,7 @@ def test_env_var_supplies_key(monkeypatch):
 
 def test_non_200_raises():
     p = make_provider(lambda r: httpx.Response(429, text="rate limited"))
-    with pytest.raises(LLMError, match="429"):
+    with pytest.raises(HerderError, match="429"):
         p.complete("x")
 
 
@@ -68,19 +68,19 @@ def test_transport_error_raises():
     def handler(request):
         raise httpx.ConnectError("no route to host")
 
-    with pytest.raises(LLMError, match="request failed"):
+    with pytest.raises(HerderError, match="request failed"):
         make_provider(handler).complete("x")
 
 
 def test_bad_json_raises():
     p = make_provider(lambda r: httpx.Response(200, text="not json"))
-    with pytest.raises(LLMError, match="not JSON"):
+    with pytest.raises(HerderError, match="not JSON"):
         p.complete("x")
 
 
 def test_missing_content_raises():
     p = make_provider(lambda r: httpx.Response(200, json={"choices": []}))
-    with pytest.raises(LLMError, match="missing content"):
+    with pytest.raises(HerderError, match="missing content"):
         p.complete("x")
 
 
@@ -88,7 +88,7 @@ def test_non_string_content_raises():
     p = make_provider(
         lambda r: httpx.Response(200, json={"choices": [{"message": {"content": None}}]})
     )
-    with pytest.raises(LLMError):
+    with pytest.raises(HerderError):
         p.complete("x")
 
 

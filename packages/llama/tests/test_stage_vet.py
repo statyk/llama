@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from llama.llm.fake import FakeProvider
+from herder import FakeProvider
 from llama.models import Show, Track
 from llama.stages.vet_research import normalize_date, run_vet_research
 from llama.workspace import ShowWorkspace, read_model, write_artifact

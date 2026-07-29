@@ -12,9 +12,9 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from herder import run_json_task
 from llama.errors import ArtistResolutionError
 from llama.ia_client import IAError
-from llama.llm.tasks import run_json_task
 from llama.models import ArtistMatches
 from llama.prompts import load_prompt
 from llama.status import step

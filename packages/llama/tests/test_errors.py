@@ -1,9 +1,9 @@
 import pytest
 
+from herder import HerderError, ResearchNotSupported, TaskFailed
 from llama.errors import ArtistResolutionError, LlamaError
 from llama.ia_client import IAError
 from llama.catalog import CatalogError
-from llama.llm.provider import LLMError, ResearchNotSupported, TaskFailed
 
 
 def test_custom_exceptions_subclass_llama_error():
@@ -14,9 +14,9 @@ def test_custom_exceptions_subclass_llama_error():
 def test_llm_errors_independent_of_llama_taxonomy():
     # The LLM layer is bound for extraction into the shared herder package:
     # its exceptions must not depend on llama's taxonomy.
-    assert not issubclass(LLMError, LlamaError)
-    assert issubclass(TaskFailed, LLMError)
-    assert issubclass(ResearchNotSupported, LLMError)
+    assert not issubclass(HerderError, LlamaError)
+    assert issubclass(TaskFailed, HerderError)
+    assert issubclass(ResearchNotSupported, HerderError)
 
 
 def test_main_cli_renders_llm_error(monkeypatch, capsys):
