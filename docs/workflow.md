@@ -20,7 +20,7 @@ llama get "query"          llama get --profile <name>
                                               │
                             [gate 2: needs-review can halt here]
                                               │
-                                  synthesize (default; --no-script skips)
+                                     brief (always on) ──► synthesize (default; --no-script skips)
                                               │
                                               ▼
                                           package ──► llama deliver
@@ -88,15 +88,17 @@ Everything lives under `~/.llama/` (configurable as `root` in
     ├── reviews.json             # raw listener reviews
     ├── research.md              # deep-research output
     ├── vetting.json             # grounding-check results
+    ├── briefing.md/.json        # neutral vetted briefing (always on) -- brief stage
     ├── dj-notes.md/.json        # verbatim DJ script (default; absent with --no-script)
     ├── llm-failure.txt          # raw LLM output if a task failed validation
     └── package/                 # the deliverable
-        ├── manifest.json        # schema v2: tracks, sets, durations, context
+        ├── manifest.json        # schema v3: tracks, sets, durations, context, briefing
         ├── playlist.m3u         # music-only play order
         ├── broadcast.m3u        # voiced shows only: DJ audio interleaved
         ├── audio/               # verified, tagged tracks
         ├── research.md
         ├── reviews.md
+        ├── briefing.md/.json    # always present (manifest v3)
         ├── dj-notes.md          # absent only with --no-script
         └── dj-audio/            # opt-in TTS clips; present only when voiced
 ```
@@ -121,8 +123,10 @@ Three files deserve a callout:
   metadata corrections — `venue`, `city`, `date`, `titles` (track number →
   forced title), and `set_breaks` (track numbers a break falls after,
   numbered sets only). `gather` reads the exclude/titles/venue/city/date/
-  set_breaks fields, `synthesize` reads `narration`, and it survives every
-  `redo`, including ones that drop everything else downstream of a stage.
+  set_breaks fields; `brief` and `synthesize` both read `narration` and
+  stamp it onto their own output (the LLM's own opinion of it is never
+  trusted); it survives every `redo`, including ones that drop everything
+  else downstream of a stage.
 
 ## Names and states: the catalog
 
@@ -140,7 +144,7 @@ exist plus the ledger, so it cannot go stale:
 | `held` | `show.json` has `needs_review: true` | Gate 2 hold; sorts first in `llama status`, flags shown inline |
 | `delivered` | ledger has a `delivered` entry for the performance | Shipped to the station |
 | `packaged` | `package/manifest.json` exists | Ready to deliver |
-| `scripted` / `vetted` / `researched` / `gathered` / `selected` | deepest stage artifact present | In-flight (or abandoned mid-pipeline) |
+| `scripted` / `briefed` / `vetted` / `researched` / `gathered` / `selected` | deepest stage artifact present | In-flight (or abandoned mid-pipeline) |
 
 `llama status` is the triage table over these states; `llama status
 --by-run` summarizes per-session show counts. Both are in the command
@@ -158,8 +162,9 @@ reference below.
 | gather | maybe | `show.json`, `reviews.json` | Junk-filters files, resolves track titles (tags → setlist → siblings), builds canonical set structure from all recordings + setlist.fm, aligns it onto tracks; LLM only as alignment/extraction fallback |
 | research | yes | `research.md` | Deep web research on the specific performance |
 | vet | yes | `vetting.json` | Extracts the research's factual claims; deterministic grounding check against the setlist and date |
-| synthesize | yes | `dj-notes.*` | On by default (`--no-script` skips): verbatim DJ script, factually guarded against the manifest — spoken in the profile's presenter's persona when one is set, else the neutral house narrator |
-| package | no | `package/` | Downloads audio (md5-verified), tags it, checks durations, writes manifest v2 + m3u + digests; if voice is active, also synthesizes `dj-audio/` clips (Voxtral by default, or ElevenLabs), adds the manifest's `dj_audio` block, and writes a `broadcast.m3u` with the DJ audio interleaved into play order |
+| brief | yes | `briefing.*` | Neutral vetted briefing for scriptwriters, factually guarded (always on, no flag/config gate) |
+| synthesize | yes | `dj-notes.*` | On by default (`--no-script` skips): verbatim DJ script, factually guarded against the manifest — spoken in the profile's presenter's persona when one is set, else the neutral house narrator. Transitional: this is llama's in-house script/voice path; a downstream persona tool is planned to take over scriptwriting from the briefing |
+| package | no | `package/` | Downloads audio (md5-verified), tags it, checks durations, writes manifest v3 + m3u + digests (hard-fails if `briefing.*` is missing); if voice is active, also synthesizes `dj-audio/` clips (Voxtral by default, or ElevenLabs), adds the manifest's `dj_audio` block, and writes a `broadcast.m3u` with the DJ audio interleaved into play order |
 
 Winnow's philosophy: the LMA archives everything, so mere presence means
 nothing, and LMA reviews skew toward people who attended the show. The
@@ -211,8 +216,8 @@ decline and it prints the resume command (`llama run resume <session-id>`)
 instead.
 
 **Gate 2** fires per show, any time a stage records a review flag in
-`show.json`. The pipeline checks it at three points (after vet, after
-synthesize, after package) and prints `needs-review, skipped: <show>`
+`show.json`. The pipeline checks it at four points (after vet, after brief,
+after synthesize, after package) and prints `needs-review, skipped: <show>`
 during first-time processing (`llama get`), or `still held: <show>` when a
 `redo`/`voice`/`fix`/`triage` re-run comes back held. The flags that can be
 set, and by which stage:
@@ -228,6 +233,7 @@ set, and by which stage:
 | `research asserts unknown song: X` | vet | Most of the research's song assertions don't match this show's tracks (≥2 unknown and more than a third of all assertions — the wrong-show signal). Titles match loosely: segue chains ("A > B") check per-song, and prose variants ("Caution", "One More Saturday Night") match tracks by containment. One or two strays never block |
 | `research asserts wrong date: X` | vet | Research names a date that isn't this show's date (year-less forms like "December 2" or "3/2" compare against the show's month and day) |
 | ~~unparseable date~~ | vet | No longer blocks: a date the checker can't parse is recorded in `vetting.json` but can't-verify is not a contradiction |
+| `briefing mentions unknown song` / `references nonexistent set` / claims the wrong set count / vague-narration violation (names songs or asserts set structure under `narration: vague`) / has no per-set talking points under `full` | brief | The briefing contradicts the setlist, the real set structure, or the vague-narration contract; retried once with feedback before holding |
 | `dj notes mention unknown song / nonexistent set / missing set intros / break count mismatch` | synthesize | The DJ script contradicts the manifest |
 | `duration mismatch on <file>` | package | Downloaded audio's real length disagrees with metadata |
 
@@ -258,7 +264,8 @@ Each resolution edits `overrides.json` (except overrule, which only clears
 <stage>` instead, for batching several edits before one redo. Stage
 precedence when multiple flags are combined on one `fix` call: an exclude
 or metadata edit redoes from `gather`, a narration edit (with neither)
-redoes from `synthesize`, and `--overrule` alone redoes from `package`.
+redoes from `brief` (regenerating the briefing, script, and package too),
+and `--overrule` alone redoes from `package`.
 
 ## Voice (opt-in text-to-speech)
 
@@ -418,7 +425,7 @@ filter flags, reconciled by one implementation (`llama.cli_select`):
                        inverse)
 --state NAME           selector: one derived state (repeatable; validated
                        enum: held|selected|gathered|researched|vetted|
-                       scripted|packaged|delivered)
+                       briefed|scripted|packaged|delivered)
 --artist SUBSTR        selector: case-insensitive substring on artist
 --run NAME             selector: shows processed by this session
 ```
@@ -538,7 +545,7 @@ machine-readable record (`archive_url`, `considered`, `stages`, `overrides`,
 (state `selected`) still prints what exists instead of erroring.
 
 ### `llama pipeline`
-Teaching command: prints the stage flow with both gates marked, the eight
+Teaching command: prints the stage flow with both gates marked, the nine
 derived `--state` values (plus the `voiced`/`broadcast-ready` annotations),
 and a redo cheat-sheet (which `fix` flag redoes from which stage). Static
 text, read-only — no config, no I/O, never prompts, never writes. Reach for
@@ -563,7 +570,7 @@ URL) then prompts:
   after tracks (e.g. 9,17)` — each shows the current effective value, empty
   input keeps it; any change writes the overrides and redoes from `gather`.
 - **`[v]ague`** — sets `overrides.narration = "vague"`, clears the hold,
-  redoes from `synthesize`.
+  redoes from `brief` (regenerating the briefing, script, and package too).
 - **`[o]verrule`** — clears the hold, redoes from `package`.
 - **`[s]kip`** / **`[q]uit`** — next show / stop the walk.
 
@@ -573,7 +580,7 @@ before advancing to the next show.
 ### `llama fix <show> <edit-flags...> [--no-run]`
 The flag-driven editor for `overrides.json` and hold resolution — **runs
 the correct redo automatically** by default (earliest-affected stage wins
-when flags are combined: `gather` < `synthesize` < `package`); `--no-run`
+when flags are combined: `gather` < `brief` < `package`); `--no-run`
 stages the edit and prints `staged; next: llama redo <show> --from <stage>`
 instead, for batching several edits before one redo. At least one flag is
 required (bare `fix <show>` errors, pointing at `show`/`triage`). Works on
@@ -586,7 +593,7 @@ non-held shows too — overrides are general inputs, not hold-only.
 | `--set-venue V` / `--set-city C` / `--set-date YYYY-MM-DD` | force the field | gather |
 | `--set-title N="Song"` / `--clear-title N` | force/drop a track title | gather |
 | `--set-breaks "9,17"` / `--clear-set-breaks` | force/drop set breaks (the track numbers a break falls *after*; numbered-sets-only) | gather |
-| `--narration vague\|full` | set `overrides.narration`; `vague` also clears the hold | synthesize |
+| `--narration vague\|full` | set `overrides.narration`; `vague` also clears the hold | brief |
 | `--overrule` | clear `needs_review`/`review_flags`: "I've reviewed it, ship it" | package |
 
 Excludes/metadata do **not** pre-clear a hold (the re-gather decides,
@@ -607,8 +614,9 @@ The single re-execution verb. `--from` is required. Three addressing forms
    artifacts and everything downstream, then re-runs the tail using
    `provenance.json` (candidate, winnow dossier, script/voice settings) —
    the originating session doesn't need to exist anymore. Stage ∈
-   `select | gather | research | vet | synthesize | package`. A show
-   without `provenance.json` errors — reprocess it via its session once.
+   `select | gather | research | vet | brief | synthesize | package`. A
+   show without `provenance.json` errors — reprocess it via its session
+   once.
 2. **Selector batch:** `llama redo SELECTOR --from STAGE` — shared
    vocabulary above, acting class (held opt-in), plan + confirm + per-show
    `FAILED <slug>: …` isolation. `llama redo --unvoiced --from package
@@ -886,8 +894,9 @@ rule as excludes: a clean re-gather drops the hold on its own.
 
 **This show's setlist is unknowable.**
 `llama fix <show> --narration vague` — sets `overrides.narration =
-"vague"`, clears the hold, and re-synthesizes immediately; the script
-names no songs and asserts no set structure, but is otherwise normal.
+"vague"`, clears the hold, and redoes from `brief` immediately (regenerating
+the briefing, script, and package); neither the briefing nor the script
+names songs or asserts set structure, but both are otherwise normal.
 
 **I ran `get --plan` (or a human-gate profile) — now what?**
 `llama run list` (or `llama status`) shows it in the attention-list with a

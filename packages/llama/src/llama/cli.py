@@ -1046,7 +1046,7 @@ _PIPELINE_STAGE_DESC: dict[str, str] = {
     "vet": "grounding check of research's claims against the setlist/date -> vetting.json",
     "brief": "neutral vetted briefing for scriptwriters, factually guarded (always on) -> briefing.*",
     "synthesize": "verbatim DJ script, factually guarded (default-on; --no-script skips) -> dj-notes.*",
-    "package": "downloads/tags/verifies audio, writes manifest v2 + m3u "
+    "package": "downloads/tags/verifies audio, writes manifest v3 + m3u "
                "(+ dj-audio/broadcast.m3u if voiced) -> package/",
     "deliver": "copies package/ into the station's watched folder, records a delivered ledger entry",
 }

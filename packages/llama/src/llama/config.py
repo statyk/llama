@@ -11,9 +11,9 @@ DEFAULT_ROOT = Path.home() / ".llama"
 
 Tier = Literal["low", "medium", "high"]
 
-# Task -> tier defaults. Sonnet is the workhorse; deep_research and synthesize
-# are the two tasks whose quality is audible on air. (llama's task vocabulary —
-# moved here from the LLM layer, which is app-agnostic.)
+# Task -> tier defaults. Sonnet is the workhorse; deep_research, brief, and
+# synthesize are the three tasks whose quality is audible on air. (llama's
+# task vocabulary — moved here from the LLM layer, which is app-agnostic.)
 DEFAULT_TIERS = {
     "interpret": "medium",
     "score_reviews": "medium",
@@ -178,8 +178,8 @@ backend = "claude_cli"
 
 # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
 # gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
-# Defaults: medium for most tasks; high for deep_research and synthesize;
-# low for vet_research.
+# Defaults: medium for most tasks; high for deep_research, brief, and
+# synthesize; low for vet_research.
 # A failed validation's final retry escalates one tier (pins never escalate).
 
 

@@ -62,6 +62,8 @@ hand off:
 │   └── ...
 ├── research.md
 ├── reviews.md
+├── briefing.md            # neutral vetted briefing (always present, manifest v3)
+├── briefing.json          # same content, structured
 ├── dj-notes.md           (default; absent only if the run opted out)
 └── dj-audio/             (opt-in TTS; present only when the show was voiced)
     ├── set1-intro.mp3    (also opens the show)
@@ -74,14 +76,14 @@ The copy is a plain recursive copy — **not atomic**, and there is no
 completion sentinel today. If the station ingests on a filesystem watcher,
 tell us; see question 1.
 
-## Package format — `manifest.json`, schema_version 2
+## Package format — `manifest.json`, schema_version 3
 
 The manifest is the machine-readable contract; everything else is
 supporting material. Field-by-field:
 
 ```jsonc
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "show": {
     "artist": "Grateful Dead",
     "date": "1973-06-10",                  // ISO, always YYYY-MM-DD
@@ -112,6 +114,12 @@ supporting material. Field-by-field:
   ],                                       // ends after track 8. The DJ talk for
                                            // that gap rides the NEXT set's lead-in
                                            // (set_intros["2"]), not the break.
+  "briefing": {              // llama's scriptwriter-facing text deliverable
+    "file": "briefing.md",   // neutral vetted briefing (prose)
+    "json": "briefing.json", // same content, structured (per-set talking points, cautions)
+    "narration": "full",     // "vague": assert no songs/set structure downstream
+    "vetted": true           // research passed the grounding check
+  },
   "dj_notes": {                            // present by default; null only when
                                            // the run opted out (--no-script)
     "context": "one-line era context",
@@ -157,8 +165,25 @@ supporting material. Field-by-field:
   in the manifest tells you whether it passed with zero flags.
 - **`reviews.md`** — trimmed listener-review digest (top 5 reviews,
   ≤800 chars each) from the source archive.org item.
-- **`dj-notes.md`** — human-readable rendering of `dj_notes`; present by
-  default, absent only when the run opted out with `--no-script`.
+- **`briefing.md`** / **`briefing.json`** — the always-neutral, vetted
+  briefing: era/tour/venue context, why the show is worth airing, per-set
+  talking points, notable moments, review sentiment, and cautions for
+  whoever writes on-air copy. Always present (manifest v3, no opt-out) and
+  factually guarded against the setlist the same way `dj_notes` is; under
+  `narration: "vague"` it names no songs and asserts no set structure, same
+  as the script path. `briefing.md` is a deterministic render of
+  `briefing.json` — the two can never disagree. This is now **the**
+  recommended text source for a station-side scriptwriter: it is neutral
+  (no in-house persona baked in) and structured for programmatic
+  consumption.
+- **`dj-notes.md`** — human-readable rendering of `dj_notes`: llama's own
+  verbatim, ready-to-air DJ script (neutral house narrator, or a profile's
+  presenter persona). Present by default, absent only when the run opted
+  out with `--no-script`. This is llama's in-house scripting path,
+  transitional — a downstream persona tool is planned to take over
+  scriptwriting from the briefing after llama's split into separate
+  projects completes; `dj-notes.md`/`dj_notes` keep working unchanged in
+  the meantime.
 - **`dj-audio/`** — spoken-word MP3 clips of the DJ script (opt-in TTS,
   hosted Mistral Voxtral by default or ElevenLabs as an alternative
   backend), present only when the show was voiced. When the show's profile
@@ -181,14 +206,24 @@ supporting material. Field-by-field:
 
 ### Contract details worth knowing
 
+- **The `narration` directive is binding on any downstream scriptwriter.**
+  `briefing.narration` (and `manifest.briefing.narration`) is `"full"` or
+  `"vague"` — under `"vague"` the setlist genuinely couldn't be resolved,
+  and the briefing itself names no songs and asserts no set structure
+  (`briefing.per_set` is empty). Any script generated from the briefing
+  must honor the same constraint: no song names, no set-structure claims,
+  under `"vague"`. `manifest.briefing.vetted` mirrors `research_vetted` at
+  package time.
 - **Scripts ship by default; opting out changes nothing else.** Runs can
   skip the script with `--no-script`, so consumers should still handle a
   null `dj_notes`. Research,
   vetting, reviews, and all structural data are identical whether or not
   `dj_notes` exists. If the station generates its own on-air speech from
-  `research.md`/`reviews.md`, it inherits the obligation to stay grounded
-  in them — llama vets its research against the setlist, and a downstream
-  generator should not reintroduce hallucinated claims.
+  `briefing.md`/`briefing.json` (recommended) or `research.md`/`reviews.md`
+  directly, it inherits the obligation to stay grounded in them — llama
+  vets its research against the setlist and factually guards the briefing
+  the same way, and a downstream generator should not reintroduce
+  hallucinated claims.
 - **Segues matter on air.** `segue: true` means the audio flows directly
   into the next track (Dead notation "China Cat > Rider"); insertions
   between segued tracks will sound broken.
@@ -236,8 +271,10 @@ supporting material. Field-by-field:
    callback, or manual? (llama's ledger marks the show `delivered`; a
    reject status could reopen it.)
 7. **Schema evolution** — `schema_version` is bumped on breaking changes.
-   Do you want additive changes flagged too (minor version), and should we
-   pin a version negotiation somewhere?
+   v3 (the required `briefing` block) is the worked example: no migration,
+   no back-compat window, old packages regenerate via `llama redo`. Do you
+   want additive changes flagged too (minor version), and should we pin a
+   version negotiation somewhere?
 
 Format changes are cheap on our side — the packaging stage is one module
 and everything is covered by offline tests. Happy to adapt to whatever

@@ -33,10 +33,11 @@ implementation plan this was built from. The approved design spec is
 
 `llama` — a Python CLI that finds concerts on archive.org's Live Music Archive
 (LMA), winnows them for quality, researches the specific performance online,
-and emits a self-contained "show package" (verified audio, m3u, manifest v2
-with track titles/set breaks, vetted research + reviews digest; verbatim DJ
-script on by default; --no-script or profile script=false opts out) for an automated in-house radio
-station. A profile can name a **presenter** (`presenters/<id>.toml`:
+and emits a self-contained "show package" (verified audio, m3u, manifest v3
+with track titles/set breaks, vetted research + reviews digest, and a
+required neutral vetted `briefing` for scriptwriters; verbatim DJ script on
+by default; --no-script or profile script=false opts out) for an automated
+in-house radio station. A profile can name a **presenter** (`presenters/<id>.toml`:
 name/sex/character + `voice` XOR `voice_clone`) as its on-air host, which
 persona-styles the DJ script (opinions and paraphrased review sentiment
 allowed; concert facts stay grounded) and voices that profile's runs even
@@ -48,7 +49,7 @@ Voxtral-only). Usage tilts heavily toward Grateful Dead shows (two sets +
 encore).
 LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
 gemini-flash/sonnet-4.5/opus-4.1 on openrouter): medium by default, high for
-deep_research/synthesize, low for vet_research, overridable per task via
+deep_research/brief/synthesize, low for vet_research, overridable per task via
 `[llm.<task>]` `tier`/`model` or per backend via `[llm.tiers.<backend>]`; a
 failed validation's final retry escalates one tier (pins never escalate).
 
@@ -57,11 +58,24 @@ failed validation's final retry escalates one tier (pins never escalate).
 - **Staged pipeline over an on-disk workspace** (default `~/.llama/`):
   interpret → search (wide net) → winnow (quality gate + optional human gate)
   → select-recording → gather → research → vet (grounding check) →
-  synthesize (default-on) → package. Every stage reads/writes plain files;
-  run-level artifacts live in a per-run directory, show-level artifacts in a
-  canonical `shows/<slug>/` library (one dir per performance, reused across
-  runs); stages write outputs only on success and are individually
-  re-runnable (`llama redo <show> --from <stage>`).
+  brief (default-on) → synthesize (default-on) → package. Every stage
+  reads/writes plain files; run-level artifacts live in a per-run directory,
+  show-level artifacts in a canonical `shows/<slug>/` library (one dir per
+  performance, reused across runs); stages write outputs only on success and
+  are individually re-runnable (`llama redo <show> --from <stage>`).
+  `brief` emits a neutral vetted briefing (`briefing.md`/`briefing.json`,
+  never persona-styled — persona is a `synthesize`/downstream concern) for
+  scriptwriters — no flag, no config gate, factually guarded the same way
+  `synthesize`'s script is (retry-once-then-hold), and stamped with the
+  `narration` directive from `overrides.json`. The show-package contract is
+  **manifest v3**: a required `briefing` block (`file`, `json`, `narration`,
+  `vetted`) alongside the existing fields; `package` copies both briefing
+  files into `package/` and hard-fails if a show has no briefing artifacts.
+  `stages/synthesize.py` (the in-house DJ script/voice path) is untouched
+  and transitional — a downstream persona tool is planned to take over
+  scriptwriting once the split (umbrella spec:
+  `docs/superpowers/specs/2026-07-28-split-architecture-design.md`)
+  completes.
 - **Parallel-safe workspace:** multiple `llama` processes may run concurrently
   against one local `~/.llama/`. Coordination is advisory `fcntl.flock`
   (`packages/llama/src/llama/locks.py`) at two scopes — a short **ledger lock**
@@ -80,8 +94,10 @@ failed validation's final retry escalates one tier (pins never escalate).
   — that survive every `redo`. `gather` drops excluded files (reason
   `operator-excluded`), forces `venue`/`city`/`date`/track titles/set
   breaks when their fields are set (bypassing structure alignment entirely
-  for `set_breaks`), and `synthesize` reads `narration=vague` to write a
-  script that names no songs and asserts no set structure; `show.json`
+  for `set_breaks`), and `brief`/`synthesize` both read `narration=vague`
+  to write a briefing/script that names no songs and asserts no set
+  structure (the LLM's own opinion of `narration` is never trusted —
+  stamped from `overrides.json` after generation); `show.json`
   stays purely derived and is never itself hand-edited. `llama show` is
   strictly read-only; `llama fix <show> <edit-flags>` (flag-driven, single
   show, auto-runs the correct redo) and `llama triage` (interactive
@@ -93,9 +109,9 @@ failed validation's final retry escalates one tier (pins never escalate).
   longer reproduces the flag that caused it (gather recomputes
   `needs_review`/`review_flags` from scratch every run). The other two
   gate-2 resolutions: **accept-vague** (`fix --narration vague` → redo from
-  `synthesize`, clears the hold immediately), and **overrule** (`fix
-  --overrule` → redo from `package`, clears the hold without touching
-  overrides).
+  `brief`, regenerating the briefing, script, and package too, clears the
+  hold immediately), and **overrule** (`fix --overrule` → redo from
+  `package`, clears the hold without touching overrides).
 - **App-managed instead of hand-edited:** `llama presenter add/list/show/
   remove` creates and inspects `presenters/<id>.toml` (hand-editing the
   TOML still works — `add` is just the other way in), and `llama profile
@@ -131,7 +147,7 @@ failed validation's final retry escalates one tier (pins never escalate).
   `scripts/refresh_jerrybase.py`): gather uses it after alignment as a
   tripwire (multi-event dates, venue mismatch, contradicted set breaks, wrong
   set count) and a deterministic break-anchoring corrector, never as a setlist
-  source (`[jerrybase] enabled`, default on). Nine named touchpoints, each
+  source (`[jerrybase] enabled`, default on). Ten named touchpoints, each
   with a prompt template file under `prompts/` and a Pydantic output schema.
   LLM calls live only at stage boundaries — everything else is deterministic.
 - **Presenters:** a profile can name an on-air host defined in

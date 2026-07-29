@@ -227,8 +227,9 @@ the redo) or `llama triage` (interactive walkthrough):
   title, or where a set break falls. Either way it redoes from `gather` and
   the hold clears itself if that fixes it.
 - **Accept an unknowable setlist** — `llama fix <s> --narration vague` tells
-  the script writer to stay general (no song names, no set-structure
-  claims), clears the hold, and redoes from `synthesize`.
+  the briefing and script writer to stay general (no song names, no
+  set-structure claims), clears the hold, and redoes from `brief` (which
+  regenerates the briefing, script, and package too).
 - **Overrule a false alarm** — `llama fix <s> --overrule`, which redoes from
   `package`.
 
@@ -266,7 +267,7 @@ override per invocation.
 
 See `docs/superpowers/specs/2026-07-14-llama-design.md` for the design.
 
-## Package format (v2)
+## Package format (v3)
 
 A delivered show package contains:
 
@@ -274,16 +275,21 @@ A delivered show package contains:
 - `playlist.m3u` — music-only play order
 - `broadcast.m3u` — voiced shows only: playlist with the `dj-audio/` clips
   interleaved (each set's lead-in before its first track, outro last)
-- `manifest.json` — `schema_version: 2`; tracks, set breaks, durations,
-  source lineage, `show.context`, pointers `research` / `reviews`, and
-  `research_vetted`
+- `manifest.json` — `schema_version: 3`; tracks, set breaks, durations,
+  source lineage, `show.context`, pointers `research` / `reviews`, a
+  required `briefing` block, and `research_vetted`
 - `research.md` — web-researched show notes, grounding-checked against the
   setlist (`vet` stage) before packaging
 - `reviews.md` — trimmed listener-review digest (top 5, 800 chars each)
-- `dj-notes.md` + `manifest.dj_notes` — verbatim DJ script (neutral house
-  narrator, or a profile's presenter's persona when one is set), present by
-  default; absent when the run opted out (`--no-script`, or `script = false`
-  on a profile)
+- `briefing.md` + `briefing.json` + `manifest.briefing` — the neutral,
+  vetted, scriptwriter-facing briefing (context, significance, per-set
+  talking points, notable moments, review sentiment, cautions); always
+  present, factually guarded, and stamped with the `narration` mode
+  (`full`/`vague`) from `overrides.json`
+- `dj-notes.md` + `manifest.dj_notes` — llama's own in-house verbatim DJ
+  script (neutral house narrator, or a profile's presenter's persona when
+  one is set), present by default; absent when the run opted out
+  (`--no-script`, or `script = false` on a profile)
 - `dj-audio/` + `manifest.dj_audio` — spoken DJ script (opt-in TTS), present
   only when voice was active for the show
 
@@ -406,12 +412,25 @@ channel`, `24000 Hz`.
 
 ### Downstream synthesis contract
 
-If your DJ (human or LLM) writes its own spoken copy from this package, it
-inherits the factual guard this pipeline applies to its own scripts:
+Every package ships `briefing.md` / `briefing.json` (`manifest.briefing`) —
+a neutral, vetted, factually-guarded text deliverable meant to be *read*,
+not spoken verbatim. This is the recommended source for a station-side or
+persona-tool scriptwriter: era/tour context, why the show is worth airing,
+per-set talking points, notable moments, review sentiment, and cautions.
+`dj-notes.md` (`manifest.dj_notes`) remains llama's own in-house,
+ready-to-air verbatim script for the built-in voice path (neutral narrator,
+or a profile's presenter persona) — it keeps working unchanged, but is
+transitional: a downstream persona tool is planned to take over
+scriptwriting from the briefing.
+
+If your DJ (human or LLM) writes its own spoken copy from either artifact,
+it inherits the factual guard this pipeline applies to its own scripts:
 
 - every song mentioned must match a track title in `manifest.tracks`
-- set lead-ins must cover exactly the non-encore sets present in
-  `manifest.tracks[].set` (the encore gets no lead-in)
+- set lead-ins/talking points must cover exactly the non-encore sets
+  present in `manifest.tracks[].set` (the encore gets no dedicated lead-in)
+- under `manifest.briefing.narration == "vague"`, no songs and no set
+  structure may be asserted — the briefing itself already honors this
 
 Copy that names songs or sets not in the manifest must not air.
 
