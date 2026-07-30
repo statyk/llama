@@ -9,7 +9,6 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from herder import HerderError, provider_for, resolve_model
 
@@ -17,6 +16,7 @@ from emcee.config import (
     DEFAULT_CONFIG_TOML,
     DEFAULT_ROOT,
     DEFAULT_TIERS,
+    TASK_KEYS,
     Assignment,
     EmceeConfig,
     LLMTaskConfig,
@@ -174,6 +174,10 @@ def test_default_tiers_vocabulary():
     assert DEFAULT_TIERS == {"scriptwrite": "high"}
 
 
+def test_task_keys_vocabulary():
+    assert TASK_KEYS == ["scriptwrite"]
+
+
 def test_provider_for_uses_task_config():
     cfg = EmceeConfig(llm={"default": LLMTaskConfig(model="m-default"),
                           "scriptwrite": LLMTaskConfig(model="m-big")})
@@ -194,19 +198,14 @@ def test_out_of_box_defaults_are_concrete():
 
 
 def test_default_config_template_matches_defaults():
-    # The seeded file, untouched, must behave exactly like no config file --
-    # except [assign], which the template fills with a real worked example
-    # (not the (empty) built-in default) per the design spec.
+    # The seeded file, untouched, must behave exactly like no config file.
     parsed = EmceeConfig.model_validate(tomllib.loads(DEFAULT_CONFIG_TOML))
     default = EmceeConfig()
-    assert parsed.model_dump(exclude={"llm", "assign"}) == default.model_dump(exclude={"llm", "assign"})
+    assert parsed.model_dump(exclude={"llm"}) == default.model_dump(exclude={"llm"})
     # [llm.scriptwrite] is written out for editability; it must be exactly
     # the built-in fallback, and the only llm entry present.
     assert set(parsed.llm) == {"scriptwrite"}
     assert parsed.llm_for("scriptwrite") == default.llm_for("scriptwrite")
-    # the worked [assign] example from the design spec
-    assert parsed.assign.default == "waldo"
-    assert parsed.assign.profiles["prime-dead"] == Assignment(presenter="waldo", title="The Primal Dead Hour")
 
 
 def test_default_config_template_mentions_every_section():

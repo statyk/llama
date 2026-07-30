@@ -197,10 +197,10 @@ backend = "claude_cli"
 # table is keyed by the llama profile name stamped into the manifest as
 # source.profile, and names a presenter (presenters/<id>.toml) plus an
 # optional on-air show title.
-[assign]
-default = "waldo"
+# [assign]
+# default = "waldo"
 
-[assign.profiles.prime-dead]
-presenter = "waldo"
-title = "The Primal Dead Hour"
+# [assign.profiles.prime-dead]
+# presenter = "waldo"
+# title = "The Primal Dead Hour"
 """

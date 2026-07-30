@@ -10,7 +10,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from emcee.cli import app
+from emcee.cli import _assignments_using_presenter, app
+from emcee.config import AssignConfig, Assignment, EmceeConfig
 from emcee.presenters import PresenterError
 
 runner = CliRunner()
@@ -150,7 +151,7 @@ def test_presenter_remove_refused_when_assignments_use_it(tmp_path: Path, monkey
                         "--voice", "american-dj", "--character", "x"])
 
     import emcee.cli as cli_mod
-    monkeypatch.setattr(cli_mod, "_assignments_using_presenter", lambda root, pid: ["a", "b"])
+    monkeypatch.setattr(cli_mod, "_assignments_using_presenter", lambda config, pid: ["a", "b"])
 
     refused = runner.invoke(app, ["presenter", "remove", "casey"], input="y\n")
     assert refused.exit_code == 1
@@ -177,3 +178,53 @@ def test_presenter_remove_unknown_id_errors(tmp_path: Path, monkeypatch):
     missing = runner.invoke(app, ["presenter", "remove", "ghost"])
     assert missing.exit_code == 1
     assert isinstance(missing.exception, PresenterError)
+
+
+# --- _assignments_using_presenter (the real function, unmocked) --------
+
+
+def test_assignments_using_presenter_profile_only_match():
+    config = EmceeConfig(assign=AssignConfig(
+        default=None,
+        profiles={"prime-dead": Assignment(presenter="waldo")}))
+    assert _assignments_using_presenter(config, "waldo") == ["prime-dead"]
+
+
+def test_assignments_using_presenter_default_only_match():
+    config = EmceeConfig(assign=AssignConfig(default="waldo", profiles={}))
+    assert _assignments_using_presenter(config, "waldo") == ["[assign] default"]
+
+
+def test_assignments_using_presenter_both_profile_and_default():
+    config = EmceeConfig(assign=AssignConfig(
+        default="waldo",
+        profiles={"prime-dead": Assignment(presenter="waldo")}))
+    assert _assignments_using_presenter(config, "waldo") == ["prime-dead", "[assign] default"]
+
+
+def test_assignments_using_presenter_no_match_returns_empty():
+    config = EmceeConfig(assign=AssignConfig(
+        default="casey",
+        profiles={"prime-dead": Assignment(presenter="casey")}))
+    assert _assignments_using_presenter(config, "waldo") == []
+
+
+def test_presenter_remove_refused_end_to_end_against_real_config_on_disk(tmp_path: Path, monkeypatch):
+    # No monkeypatching of _assignments_using_presenter here: a real
+    # config.toml on disk drives the refusal end to end.
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
+    runner.invoke(app, ["presenter", "add", "waldo", "--name", "Waldo", "--sex", "male",
+                        "--voice", "american-dj", "--character", "x"])
+    (tmp_path / "config.toml").write_text(
+        '[assign]\ndefault = "waldo"\n\n'
+        '[assign.profiles.prime-dead]\npresenter = "waldo"\n'
+    )
+
+    refused = runner.invoke(app, ["presenter", "remove", "waldo"], input="y\n")
+    assert refused.exit_code == 1
+    assert "presenter waldo is used by: prime-dead, [assign] default — --force to remove anyway" in refused.output
+    assert (tmp_path / "presenters" / "waldo.toml").exists()
+
+    forced = runner.invoke(app, ["presenter", "remove", "waldo", "--force"], input="y\n")
+    assert forced.exit_code == 0, forced.output
+    assert not (tmp_path / "presenters" / "waldo.toml").exists()

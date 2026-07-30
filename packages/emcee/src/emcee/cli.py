@@ -167,7 +167,8 @@ def config_init(
     stdout: bool = typer.Option(False, "--stdout",
                                 help="Print the default config instead of writing a file"),
     config_path: Path = typer.Option(None, "--config",
-                                     help="Target file (default ~/.emcee/config.toml)"),
+                                     help="Target file (default: EMCEE_ROOT or ~/.emcee, "
+                                          "then /config.toml)"),
 ):
     """Seed a config file with the baked-in defaults, fully commented."""
     if stdout:
