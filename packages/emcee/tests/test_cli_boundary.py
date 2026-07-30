@@ -1,3 +1,5 @@
+import pytest
+from herder import HerderError
 from typer.testing import CliRunner
 
 from emcee.cli import app, main_cli
@@ -13,7 +15,6 @@ def test_help_runs():
 
 
 def test_main_cli_renders_emcee_error(monkeypatch, capsys):
-    import pytest
     from emcee import cli
 
     def boom():
@@ -25,3 +26,16 @@ def test_main_cli_renders_emcee_error(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "error: station root missing" in err
     assert "  set [station] root" in err
+
+
+def test_main_cli_renders_herder_error(monkeypatch, capsys):
+    from emcee import cli
+
+    def boom():
+        raise HerderError("no provider configured for tier high")
+    monkeypatch.setattr(cli, "app", boom)
+    with pytest.raises(SystemExit) as e:
+        main_cli()
+    assert e.value.code == 1
+    err = capsys.readouterr().err
+    assert "error: no provider configured for tier high" in err
