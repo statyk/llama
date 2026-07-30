@@ -288,3 +288,13 @@ def test_no_matching_shows(tmp_path, tty, monkeypatch):
     r = cli_invoke(cfg, "triage")
     assert r.exit_code == 0, r.output
     assert "no matching shows" in r.output
+
+
+# --- voice/broadcast-ready selectors are gone (moved to emcee) ---
+
+def test_voiced_and_broadcast_ready_selectors_are_gone(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    for flag in ("--voiced", "--unvoiced", "--broadcast-ready"):
+        r = cli_invoke(cfg, "triage", flag)
+        assert r.exit_code != 0, flag
+        assert "no such option" in r.output.lower(), (flag, r.output)

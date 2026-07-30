@@ -856,14 +856,6 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
         for f in s.review_flags:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama fix {entry.slug} --overrule")
-    from llama.catalog import broadcast_readiness
-    ready, reasons = broadcast_readiness(sws)
-    if ready:
-        typer.echo("broadcast-ready: yes")
-    else:
-        typer.echo("broadcast-ready: no")
-        for r in reasons:
-            typer.echo(f"  - {r}")
     if show_tracks:
         for line in _format_tracks(s):
             typer.echo(line)
@@ -872,13 +864,12 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
 def _print_show_json(entry, show_tracks: bool = False) -> None:
     import json as _json
 
-    from llama.catalog import broadcast_readiness, recording_info
+    from llama.catalog import recording_info
     from llama.workspace import read_overrides
 
     sws = entry.ws
     s = read_model(sws.show, Show) if sws.show.exists() else None
     info = recording_info(sws)
-    _, reasons = broadcast_readiness(sws)
 
     data = {
         "slug": entry.slug,
@@ -897,9 +888,6 @@ def _print_show_json(entry, show_tracks: bool = False) -> None:
         ],
         "path": str(sws.dir),
         "run": entry.provenance.run if entry.provenance else None,
-        "voiced": entry.voiced,
-        "broadcast_ready": entry.broadcast_ready,
-        "broadcast_reasons": reasons,
         "needs_review": s.needs_review if s else None,
         "overrides": None,
         "stages": dict(_stage_ages(sws)),
@@ -917,16 +905,16 @@ def _print_show_json(entry, show_tracks: bool = False) -> None:
 
 
 @app.command(rich_help_panel="Watch",
-             short_help="Inspect one show, read-only (identity, overrides, URLs, readiness).")
+             short_help="Inspect one show, read-only (identity, overrides, URLs, stages).")
 def show(
     name: str = typer.Argument(..., help="Show slug, unique substring, or path"),
     tracks: bool = typer.Option(False, "--tracks", help="List the show's tracks (numbered)"),
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
-    """Inspect one show: identity, overrides, stage ages, archive URL, and
-    broadcast-readiness. Strictly read-only — never prompts, never edits.
-    Use `llama fix` to edit overrides or resolve a hold, and `llama triage`
-    for the interactive walkthrough."""
+    """Inspect one show: identity, overrides, stage ages, and archive URL.
+    Strictly read-only — never prompts, never edits. Use `llama fix` to edit
+    overrides or resolve a hold, and `llama triage` for the interactive
+    walkthrough."""
     config, _, ledger = _setup()
     entry = _resolve_show(config, ledger, name)
     if as_json:
@@ -1032,21 +1020,20 @@ def _confirm_plan(entries, action: str, yes: bool) -> bool:
 
 
 def _deliver_pointer(slug: str, reasons: list[str]) -> str:
-    """The one-line hint following a refusal, by category (first match wins)."""
+    """The one-line hint following a refusal, by category (first match wins).
+    The only two categories left post-cut: held (resolve via triage) and
+    everything else -- not packaged or missing audio -- (re-package)."""
     if "held for review" in reasons:
         return f"  resolve it: llama triage {slug}"
-    if any(r == "not packaged" or "audio files missing" in r for r in reasons):
-        return f"  re-package: llama redo {slug} --from package"
-    return f"  voice it: llama voice {slug}  (or --allow-unvoiced to ship music-only)"
+    return f"  re-package: llama redo {slug} --from package"
 
 
-def _deliver_one(config, ledger, entry, dest, allow_unvoiced) -> Path:
+def _deliver_one(config, ledger, entry, dest) -> Path:
     """Copy one resolved show's package to `dest` (or config.delivery_path)
     and record the delivery in the ledger; returns the destination path.
     Raises LlamaError on refusal -- no destination, or a deliver-gate
-    refusal from `catalog.deliver_refusals` (held shows and missing audio
-    are never overridable; `allow_unvoiced` lifts only the voice-bundle
-    reasons)."""
+    refusal from `catalog.deliver_refusals` (none of its three legs is
+    overridable)."""
     import json as _json
 
     from llama.catalog import deliver_refusals
@@ -1057,7 +1044,7 @@ def _deliver_one(config, ledger, entry, dest, allow_unvoiced) -> Path:
     if target_dir is None:
         raise LlamaError("no --dest given and no delivery_path in config")
     with file_lock(show_ws.lock):
-        reasons = deliver_refusals(show_ws, allow_unvoiced)
+        reasons = deliver_refusals(show_ws)
         if reasons:
             message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
             raise LlamaError(f"{message}\n{_deliver_pointer(entry.slug, reasons)}")
@@ -1076,7 +1063,7 @@ def _deliver_one(config, ledger, entry, dest, allow_unvoiced) -> Path:
     return out
 
 
-def _deliver_batch(config, ledger, sel, dest, allow_unvoiced, yes) -> None:
+def _deliver_batch(config, ledger, sel, dest, yes) -> None:
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
@@ -1091,7 +1078,7 @@ def _deliver_batch(config, ledger, sel, dest, allow_unvoiced, yes) -> None:
         return
     for e in kept:
         try:
-            out = _deliver_one(config, ledger, e, dest, allow_unvoiced)
+            out = _deliver_one(config, ledger, e, dest)
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
         except OSError as exc:
@@ -1105,32 +1092,22 @@ def _deliver_batch(config, ledger, sel, dest, allow_unvoiced, yes) -> None:
 def deliver(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     dest: Path = typer.Option(None, "--dest", help="Defaults to config delivery_path"),
-    allow_unvoiced: bool = typer.Option(
-        False, "--allow-unvoiced",
-        help="Ship a music-only show (no DJ script/audio/broadcast.m3u) -- the sole "
-             "override; held shows and missing audio files are never overridable"),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
-    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
-    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
     state: list[ShowState] = typer.Option(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
-    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
-                                         help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
 ):
     """Copy a show package to the station's watched folder and record delivery.
 
-    Requires broadcast-ready by default: packaged, file-complete, not held,
-    with a DJ script, DJ audio, and broadcast.m3u. `--allow-unvoiced` is the
-    sole override -- it ships an otherwise-ready music-only show anyway;
-    held shows and shows with missing audio files are refused regardless.
+    Requires a clean package: packaged, file-complete, and not held for
+    review. None of these three legs is overridable.
     """
     from llama.cli_select import build_selector
 
-    other_selector = any([held, packaged, voiced, unvoiced, state, artist, run, broadcast_ready])
+    other_selector = any([held, packaged, state, artist, run])
     if name is not None and other_selector:
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
@@ -1143,7 +1120,7 @@ def deliver(
     if name is not None:
         entry = _resolve_show(config, ledger, name)
         try:
-            out = _deliver_one(config, ledger, entry, dest, allow_unvoiced)
+            out = _deliver_one(config, ledger, entry, dest)
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(1)
@@ -1152,12 +1129,11 @@ def deliver(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             voiced=voiced, unvoiced=unvoiced, artist=artist,
-                             run=run, broadcast_ready=broadcast_ready)
+                             artist=artist, run=run)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
-    _deliver_batch(config, ledger, sel, dest, allow_unvoiced, yes)
+    _deliver_batch(config, ledger, sel, dest, yes)
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
@@ -1327,14 +1303,10 @@ def triage(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
-    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
-    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
     state: list[ShowState] = typer.Option(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
-    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
-                                         help="Selector: broadcast-ready shows"),
 ):
     """Interactively walk shows for resolution (default: held shows) —
     exclude tracks, edit metadata, accept vague narration, or overrule the
@@ -1348,9 +1320,7 @@ def triage(
 
     try:
         sel = build_selector(held=held, packaged=packaged,
-                             states=state,
-                             voiced=voiced, unvoiced=unvoiced, artist=artist,
-                             run=run, broadcast_ready=broadcast_ready)
+                             states=state, artist=artist, run=run)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -1444,20 +1414,16 @@ def redo(
                                 help="Override the script setting recorded at process time"),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
-    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
-    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
     state: list[ShowState] = typer.Option(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
-    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
-                                         help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
 ):
     """Re-run one show (--from STAGE), a selector batch, or a whole
     --run session -- the single re-execution verb (spec §7.1)."""
     from llama.cli_select import build_selector
 
-    other_selector = any([held, packaged, voiced, unvoiced, state, artist, broadcast_ready])
+    other_selector = any([held, packaged, state, artist])
     # Three-form grammar: positional show | --run SESSION | selectors -- exactly one.
     if name is not None and (run is not None or other_selector):
         typer.echo("give a show OR selectors, not both", err=True)
@@ -1499,13 +1465,11 @@ def redo(
         return
 
     if not other_selector:
-        typer.echo("give a show, --run, or a selector (e.g. --unvoiced)", err=True)
+        typer.echo("give a show, --run, or a selector (e.g. --packaged)", err=True)
         raise typer.Exit(1)
     config, ia, ledger = _setup()
     try:
-        sel = build_selector(held=held, packaged=packaged, states=state,
-                             voiced=voiced, unvoiced=unvoiced, artist=artist,
-                             broadcast_ready=broadcast_ready)
+        sel = build_selector(held=held, packaged=packaged, states=state, artist=artist)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -1559,14 +1523,10 @@ def rm(
                                   help="Write a reversible rejected ledger row instead"),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
-    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
-    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
     state: list[ShowState] = typer.Option(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
-    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
-                                         help="Selector: broadcast-ready shows"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt"),
 ):
     """Delete a show's directory -- the one irreversible local operation, so
@@ -1580,7 +1540,7 @@ def rm(
     """
     from llama.cli_select import build_selector
 
-    other_selector = any([held, packaged, voiced, unvoiced, state, artist, run, broadcast_ready])
+    other_selector = any([held, packaged, state, artist, run])
     if name is not None and other_selector:
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
@@ -1605,8 +1565,7 @@ def rm(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             voiced=voiced, unvoiced=unvoiced, artist=artist,
-                             run=run, broadcast_ready=broadcast_ready)
+                             artist=artist, run=run)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -1733,12 +1692,8 @@ def _by_run_rollup(config, ledger) -> list[dict]:
 def status(
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
-    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
-    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
     state: list[ShowState] = typer.Option(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
-    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
-                                         help="Selector: broadcast-ready shows"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
@@ -1756,8 +1711,7 @@ def status(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             voiced=voiced, unvoiced=unvoiced, artist=artist,
-                             run=run, broadcast_ready=broadcast_ready)
+                             artist=artist, run=run)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -1808,8 +1762,6 @@ def status(
                 "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
                 "run": e.provenance.run if e.provenance else None,
                 "flags": e.flags, "path": str(e.ws.dir),
-                "voiced": e.voiced,
-                "broadcast_ready": e.broadcast_ready,
                 "overrides": {"exclude": e.overrides.exclude, "narration": e.overrides.narration},
             } for e in entries],
         }, indent=2))
@@ -1820,10 +1772,6 @@ def status(
     for e in entries:
         run_name = e.provenance.run if e.provenance else "?"
         marks = []
-        if e.broadcast_ready:
-            marks.append("broadcast-ready")
-        if e.voiced:
-            marks.append("voiced")
         if e.overrides.narration == "vague":
             marks.append("vague")
         if e.overrides.exclude:

@@ -129,8 +129,9 @@ def test_json_schema_spot_checks(tmp_path: Path):
     assert data["considered"] == []
     assert data["run"] == "r1"
     assert data["needs_review"] is True
-    assert data["broadcast_ready"] is False
-    assert isinstance(data["broadcast_reasons"], list) and data["broadcast_reasons"]
+    assert "voiced" not in data
+    assert "broadcast_ready" not in data
+    assert "broadcast_reasons" not in data
     assert data["overrides"] == {
         "exclude": ["junk.mp3"], "narration": "vague", "venue": "My Hall",
         "city": "Springfield", "date": "1973-06-10", "titles": {"1": "Bertha"},

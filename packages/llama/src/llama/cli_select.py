@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from enum import Enum
 
 from llama.catalog import CatalogEntry, select_shows
-from llama.errors import LlamaError
 
 
 class ShowState(str, Enum):
@@ -32,47 +31,36 @@ class Selector:
     """Pure data: the reconciled result of a command's selector options."""
 
     states: frozenset[str]        # empty = no state filter
-    voiced: bool | None           # True/False/None (reconciled once here)
     artist: str | None
     run: str | None
-    broadcast_ready: bool
 
 
 def build_selector(*, held: bool = False, packaged: bool = False,
-                   states=(), voiced: bool = False, unvoiced: bool = False,
-                   artist: str | None = None, run: str | None = None,
-                   broadcast_ready: bool = False) -> Selector:
+                   states=(), artist: str | None = None,
+                   run: str | None = None) -> Selector:
     """Reconcile a command's raw selector options into a `Selector`.
 
     `--held`/`--packaged` are sugar: they add "held"/"packaged" to the
     states set. `states` is the repeatable `--state` values (`ShowState`
-    members or plain strings). `voiced`/`unvoiced` reconcile to the single
-    tri-state field; passing both raises `LlamaError` instead of silently
-    picking one.
+    members or plain strings).
     """
-    if voiced and unvoiced:
-        raise LlamaError("give --voiced or --unvoiced, not both")
     state_set = {s.value if isinstance(s, ShowState) else str(s) for s in states}
     if held:
         state_set.add(ShowState.held.value)
     if packaged:
         state_set.add(ShowState.packaged.value)
-    vf = True if voiced else (False if unvoiced else None)
-    return Selector(states=frozenset(state_set), voiced=vf, artist=artist,
-                    run=run, broadcast_ready=broadcast_ready)
+    return Selector(states=frozenset(state_set), artist=artist, run=run)
 
 
 def selector_active(sel: Selector) -> bool:
     """True iff any filter is set at all."""
-    return bool(sel.states) or sel.voiced is not None or bool(sel.artist) \
-        or bool(sel.run) or sel.broadcast_ready
+    return bool(sel.states) or bool(sel.artist) or bool(sel.run)
 
 
 def apply_selector(entries: list[CatalogEntry], sel: Selector) -> list[CatalogEntry]:
     """Thin wrapper over `catalog.select_shows` — no filtering logic here."""
-    return select_shows(entries, states=sel.states or None, voiced=sel.voiced,
-                        artist=sel.artist, run=sel.run,
-                        broadcast_ready=sel.broadcast_ready)
+    return select_shows(entries, states=sel.states or None,
+                        artist=sel.artist, run=sel.run)
 
 
 HELD_NOTE = "note: {n} held show(s) excluded (add --held to include them)"

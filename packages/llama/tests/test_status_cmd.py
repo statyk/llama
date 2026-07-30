@@ -83,23 +83,12 @@ def test_status_recent_delivered_keeps_most_recent_not_slug_order(tmp_path: Path
         assert f"{letter}-1970-01-01" not in result.output, result.output
 
 
-def test_status_voiced_and_unvoiced_filters(tmp_path: Path):
+def test_status_voiced_and_unvoiced_selectors_are_gone(tmp_path: Path):
     cfg = _cfg(tmp_path)
-    _seed_show(tmp_path, "silent-1970-01-01", "silent/1970-01-01", "r1", packaged=True)
-    voiced_ws = _seed_show(tmp_path, "voiced-1971-01-01", "voiced/1971-01-01", "r1", packaged=True)
-    write_artifact(voiced_ws.package_dir / "manifest.json",
-                   {"schema_version": 2, "dj_audio": {"set_intros": {}, "outro": "o"}})
-
-    unvoiced = runner.invoke(cli.app, ["--config", cfg, "status", "--unvoiced"])
-    assert unvoiced.exit_code == 0, unvoiced.output
-    assert "silent-1970-01-01" in unvoiced.output
-    assert "voiced-1971-01-01" not in unvoiced.output
-
-    voiced = runner.invoke(cli.app, ["--config", cfg, "status", "--voiced"])
-    assert voiced.exit_code == 0, voiced.output
-    assert "voiced-1971-01-01" in voiced.output
-    assert "silent-1970-01-01" not in voiced.output
-    assert "[voiced]" in voiced.output
+    for flag in ("--voiced", "--unvoiced", "--broadcast-ready"):
+        result = runner.invoke(cli.app, ["--config", cfg, "status", flag])
+        assert result.exit_code != 0, flag
+        assert "no such option" in result.output.lower(), (flag, result.output)
 
 
 def test_status_text_row_annotation(tmp_path: Path):
@@ -137,7 +126,7 @@ def test_status_state_filter_accepts_briefed(tmp_path: Path):
     assert "bbb-1971-01-01" not in result.output
 
 
-def test_status_json_has_voiced_and_overrides(tmp_path: Path):
+def test_status_json_has_overrides(tmp_path: Path):
     cfg = _cfg(tmp_path)
     sws = _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1", packaged=False)
     write_artifact(sws.overrides, Overrides(exclude=["a.mp3"], narration="vague"))
@@ -146,7 +135,8 @@ def test_status_json_has_voiced_and_overrides(tmp_path: Path):
     assert result.exit_code == 0, result.output
     obj = json.loads(result.output)
     row = next(r for r in obj["shows"] if r["slug"] == "aaa-1970-01-01")
-    assert row["voiced"] is None
+    assert "voiced" not in row
+    assert "broadcast_ready" not in row
     assert row["overrides"] == {"exclude": ["a.mp3"], "narration": "vague"}
 
 

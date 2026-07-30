@@ -177,3 +177,11 @@ def test_rm_batch_continues_past_failure(tmp_path: Path, monkeypatch):
     assert "FAILED aready" in r.output
     assert aready.dir.exists()
     assert not bready.dir.exists()
+
+
+def test_voiced_and_broadcast_ready_selectors_are_gone(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    for flag in ("--voiced", "--unvoiced", "--broadcast-ready"):
+        r = runner.invoke(cli.app, ["--config", cfg, "rm", flag])
+        assert r.exit_code != 0, flag
+        assert "no such option" in r.output.lower(), (flag, r.output)

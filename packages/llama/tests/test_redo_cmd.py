@@ -46,10 +46,19 @@ def test_voice_command_is_gone(tmp_path: Path):
     assert "no such command" in r.output.lower()
 
 
+def test_voiced_and_broadcast_ready_selectors_are_gone(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    for flag in ("--voiced", "--unvoiced", "--broadcast-ready"):
+        r = runner.invoke(cli.app, ["--config", cfg, "redo", flag, "--from", "package"])
+        assert r.exit_code != 0, flag
+        assert "no such option" in r.output.lower(), (flag, r.output)
+
+
 def test_redo_rejects_name_and_selector_together(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    r = runner.invoke(cli.app, ["--config", cfg, "redo", "someshow", "--unvoiced", "--from", "package"])
+    r = runner.invoke(cli.app, ["--config", cfg, "redo", "someshow", "--packaged", "--from", "package"])
     assert r.exit_code != 0
     assert "not both" in r.output.lower()
 
@@ -221,7 +230,7 @@ def test_redo_run_show_level_batch_drops_held_with_note(tmp_path: Path, monkeypa
 # Selector batch (no --run): shared cli_select layer, held opt-in, plan/--yes.
 # ---------------------------------------------------------------------------
 
-def test_redo_batch_unvoiced_plans_and_confirms(tmp_path, monkeypatch):
+def test_redo_batch_packaged_plans_and_confirms(tmp_path, monkeypatch):
     from test_pipeline import FakeIA, fake_providers
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
@@ -233,7 +242,7 @@ def test_redo_batch_unvoiced_plans_and_confirms(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(cli, "_redo_show",
                         lambda *a, **k: calls.append(a[3].slug) or a[3].ws.package_dir)
-    r = runner.invoke(cli.app, ["--config", cfg, "redo", "--unvoiced", "--from", "package"],
+    r = runner.invoke(cli.app, ["--config", cfg, "redo", "--packaged", "--from", "package"],
                       input="y\n")
     assert r.exit_code == 0, r.output
     assert calls == ["gratefuldead-1973-06-10"]

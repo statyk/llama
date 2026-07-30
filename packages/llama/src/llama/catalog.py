@@ -39,8 +39,6 @@ class CatalogEntry:
     provenance: Provenance | None = None
     artist: str = ""
     date: str = ""
-    voiced: bool | None = None
-    broadcast_ready: bool = False
     overrides: Overrides = field(default_factory=Overrides)
 
 
@@ -135,55 +133,24 @@ def derive_state(ws: ShowWorkspace, delivered: set[str]) -> tuple[str, list[str]
     return state, []
 
 
-def derive_voiced(ws: ShowWorkspace) -> bool | None:
-    """True/False once a package exists (from the manifest's dj_audio block,
-    falling back to a non-empty dj-audio/ dir); None for a pre-package show."""
-    manifest = ws.package_dir / "manifest.json"
-    if not manifest.exists():
-        return None
-    if read_json(manifest).get("dj_audio") is not None:
-        return True
-    audio = ws.package_dir / "dj-audio"
-    return bool(audio.is_dir() and any(audio.glob("*.mp3")))
-
-
-def broadcast_readiness(ws: ShowWorkspace) -> tuple[bool, list[str]]:
-    """(ready, reasons). A show is broadcast-ready iff it is packaged with
-    every manifest track's audio file on disk, has a DJ script, has DJ audio,
-    has a broadcast.m3u, and is not held for review. `reasons` names each
-    failed condition (empty when ready); it is recomputed on demand for the
-    single-show detail view. Never raises."""
+def deliver_refusals(ws: ShowWorkspace) -> list[str]:
+    """Why deliver must refuse this show (empty = deliverable). Llama's whole
+    deliver gate post-cut: packaged, not held for review, and every manifest
+    track's audio file present on disk -- voice readiness (DJ script/audio/
+    broadcast.m3u) moved to emcee and is no longer llama's concern. None of
+    these three legs is overridable. Never raises."""
     manifest_path = ws.package_dir / "manifest.json"
     if not manifest_path.exists():
-        return False, ["not packaged"]
-    manifest = read_json(manifest_path)
+        return ["not packaged"]
     reasons: list[str] = []
     if ws.show.exists() and read_model(ws.show, Show).needs_review:
         reasons.append("held for review")
-    if not ws.dj_notes_json.exists():
-        reasons.append("no DJ script")
-    if manifest.get("dj_audio") is None:
-        reasons.append("no DJ audio (unvoiced)")
-    if not (ws.package_dir / "broadcast.m3u").exists():
-        reasons.append("no broadcast.m3u")
+    manifest = read_json(manifest_path)
     tracks = manifest.get("tracks", [])
     missing = [t for t in tracks
                if not (ws.package_dir / "audio" / t["filename"]).exists()]
     if missing:
         reasons.append(f"{len(missing)} of {len(tracks)} audio files missing")
-    return (not reasons), reasons
-
-
-VOICE_BUNDLE_REASONS = ("no DJ script", "no DJ audio (unvoiced)", "no broadcast.m3u")
-
-
-def deliver_refusals(ws: ShowWorkspace, allow_unvoiced: bool = False) -> list[str]:
-    """Why deliver must refuse this show (empty = deliverable). Deliver requires
-    broadcast-ready; --allow-unvoiced subtracts exactly the voice bundle — held,
-    missing files, and not-packaged are never overridable (spec §7.3)."""
-    reasons = broadcast_readiness(ws)[1]
-    if allow_unvoiced:
-        reasons = [r for r in reasons if r not in VOICE_BUNDLE_REASONS]
     return reasons
 
 
@@ -205,27 +172,20 @@ def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
             artist, date = prov.candidate.collection, prov.candidate.date
         entries.append(CatalogEntry(slug=d.name, ws=ws, state=state, flags=flags,
                                     provenance=prov, artist=artist, date=date,
-                                    voiced=derive_voiced(ws),
-                                    broadcast_ready=broadcast_readiness(ws)[0],
                                     overrides=read_overrides(ws)))
     return entries
 
 
 def select_shows(entries: list[CatalogEntry], *, states: set[str] | None = None,
-                 voiced: bool | None = None, artist: str | None = None,
-                 run: str | None = None,
-                 broadcast_ready: bool = False) -> list[CatalogEntry]:
+                 artist: str | None = None,
+                 run: str | None = None) -> list[CatalogEntry]:
     out = list(entries)
     if states:
         out = [e for e in out if e.state in states]
-    if voiced is not None:
-        out = [e for e in out if e.voiced is voiced]
     if artist:
         out = [e for e in out if artist.lower() in e.artist.lower()]
     if run:
         out = [e for e in out if e.provenance and e.provenance.run == run]
-    if broadcast_ready:
-        out = [e for e in out if e.broadcast_ready]
     return out
 
 

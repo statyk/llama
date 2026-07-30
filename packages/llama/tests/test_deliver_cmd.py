@@ -1,5 +1,6 @@
-"""`llama deliver` -- the broadcast-ready gate, `--allow-unvoiced` as the sole
-override, and the removal of `--force`/any deliver-time hold bypass.
+"""`llama deliver` -- the deliver gate (packaged + not held + audio verified,
+none of it overridable) and the removal of `--force`/`--allow-unvoiced`/any
+deliver-time bypass.
 
 Absorbs the deliver-command rows formerly in test_broadcast_ready.py and
 test_cli_commands.py; `catalog.deliver_refusals` itself is unit-tested in
@@ -52,77 +53,65 @@ def test_deliver_by_name_records_provenance_run(tmp_path: Path):
     assert entries[0].status == "delivered" and entries[0].run == "myrun"
 
 
-def test_unvoiced_show_blocked_by_default(tmp_path: Path):
-    build_ready(tmp_path, "silent-1973-06-11", voiced=False, broadcast_m3u=False, script=False)
-    dest = tmp_path / "station-inbox"
-    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
-                                "silent-1973-06-11", "--dest", str(dest)])
-    assert r.exit_code == 1
-    assert "refusing to deliver silent-1973-06-11: no DJ script; " \
-           "no DJ audio (unvoiced); no broadcast.m3u" in r.output
-    assert "voice it: llama voice silent-1973-06-11  (or --allow-unvoiced to ship music-only)" in r.output
-    assert not dest.exists()
-
-
-def test_unvoiced_show_shipped_with_allow_unvoiced(tmp_path: Path):
-    build_ready(tmp_path, "silent-1973-06-11", voiced=False, broadcast_m3u=False, script=False)
-    dest = tmp_path / "station-inbox"
-    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
-                                "silent-1973-06-11", "--dest", str(dest), "--allow-unvoiced"])
-    assert r.exit_code == 0, r.output
-    assert (dest / "silent-1973-06-11" / "manifest.json").exists()
-
-
-def test_held_show_refused_even_with_allow_unvoiced(tmp_path: Path):
+def test_held_show_refused(tmp_path: Path):
     build_ready(tmp_path, "held-1973-06-12", needs_review=True)
     dest = tmp_path / "station-inbox"
     r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
-                                "held-1973-06-12", "--dest", str(dest), "--allow-unvoiced"])
+                                "held-1973-06-12", "--dest", str(dest)])
     assert r.exit_code == 1
     assert "refusing to deliver held-1973-06-12: held for review" in r.output
     assert "resolve it: llama triage held-1973-06-12" in r.output
     assert not dest.exists()
 
 
-def test_missing_audio_refused_even_with_allow_unvoiced(tmp_path: Path):
+def test_missing_audio_refused(tmp_path: Path):
     build_ready(tmp_path, "broken-1973-06-13", drop_audio=True)
     dest = tmp_path / "station-inbox"
     r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
-                                "broken-1973-06-13", "--dest", str(dest), "--allow-unvoiced"])
+                                "broken-1973-06-13", "--dest", str(dest)])
     assert r.exit_code == 1
     assert "refusing to deliver broken-1973-06-13: 1 of 1 audio files missing" in r.output
     assert "re-package: llama redo broken-1973-06-13 --from package" in r.output
     assert not dest.exists()
 
 
-def test_unpackaged_show_refused_even_with_allow_unvoiced(tmp_path: Path):
+def test_unpackaged_show_refused(tmp_path: Path):
     ws = build_ready(tmp_path, "bare-1973-06-14")
     (ws.package_dir / "manifest.json").unlink()
     dest = tmp_path / "station-inbox"
     r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
-                                "bare-1973-06-14", "--dest", str(dest), "--allow-unvoiced"])
+                                "bare-1973-06-14", "--dest", str(dest)])
     assert r.exit_code == 1
     assert "refusing to deliver bare-1973-06-14: not packaged" in r.output
     assert "re-package: llama redo bare-1973-06-14 --from package" in r.output
     assert not dest.exists()
 
 
-def test_force_option_no_longer_exists(tmp_path: Path):
+def test_force_and_allow_unvoiced_options_no_longer_exist(tmp_path: Path):
     build_ready(tmp_path, "held-1973-06-12", needs_review=True)
     dest = tmp_path / "station-inbox"
-    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
-                                "held-1973-06-12", "--dest", str(dest), "--force"])
-    assert r.exit_code != 0
-    assert "no such option" in r.output.lower()
+    for flag in ("--force", "--allow-unvoiced"):
+        r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                    "held-1973-06-12", "--dest", str(dest), flag])
+        assert r.exit_code != 0, flag
+        assert "no such option" in r.output.lower(), (flag, r.output)
 
 
-def test_deliver_broadcast_ready_selector_ships_only_ready_shows(tmp_path: Path, monkeypatch):
+def test_voiced_and_broadcast_ready_selectors_are_gone(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    for flag in ("--voiced", "--unvoiced", "--broadcast-ready"):
+        r = runner.invoke(cli.app, ["--config", cfg, "deliver", flag])
+        assert r.exit_code != 0, flag
+        assert "no such option" in r.output.lower(), (flag, r.output)
+
+
+def test_deliver_packaged_selector_ships_only_ready_shows(tmp_path: Path, monkeypatch):
     build_ready(tmp_path, "ready-1973-06-10")
-    build_ready(tmp_path, "silent-1973-06-11", voiced=False)
+    build_ready(tmp_path, "held-1973-06-11", needs_review=True)
     picked = []
     monkeypatch.setattr(cli, "_deliver_one",
-                        lambda config, ledger, e, dest, allow_unvoiced: picked.append(e.slug))
-    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--broadcast-ready", "--yes"])
+                        lambda config, ledger, e, dest: picked.append(e.slug))
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged", "--yes"])
     assert r.exit_code == 0, r.output
     assert picked == ["ready-1973-06-10"]
 
@@ -133,7 +122,7 @@ def test_deliver_batch_continues_past_oserror(tmp_path, monkeypatch):
     build_ready(tmp_path, "aready")
     build_ready(tmp_path, "bready")
 
-    def fake_deliver_one(config, ledger, e, dest, allow_unvoiced):
+    def fake_deliver_one(config, ledger, e, dest):
         if e.slug == "aready":
             raise OSError("disk full")
         return Path("/dest") / e.slug
