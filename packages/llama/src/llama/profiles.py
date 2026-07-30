@@ -18,12 +18,6 @@ class Profile(BaseModel):
     criteria: Criteria
     count: int = 1
     human_gate: bool = False
-    # This radio show's host: presenters/<id>.toml. Naming a presenter voices
-    # this profile's runs even when the global [tts] enabled flag is false.
-    presenter: str | None = None
-    # The radio show's on-air name ("Bluegrass Valley"); the host knows it and
-    # drops it occasionally. Named `title` (rename-safe), not `show_name`.
-    title: str | None = None
 
 
 def save_profile(root: Path, profile: Profile) -> Path:

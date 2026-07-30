@@ -1,24 +1,44 @@
 """Durable guard: asserts the emcee cut stays cut.
 
-Task 4 (this task) deletes llama's synthesize stage; Task 5 deletes the
-remaining moved-to-emcee modules (llama.tts, llama.speech_text,
-llama.presenters) and the TTS/presenter config & model fields. Extend this
-file in Task 5 rather than relaxing anything already asserted here.
+Task 4 deleted llama's synthesize stage; Task 5 deletes the remaining
+moved-to-emcee modules (llama.tts, llama.speech_text, llama.presenters) and
+the TTS/presenter config & model fields. Extend this file in future tasks
+rather than relaxing anything already asserted here.
 """
 import importlib.util
+from pathlib import Path
 
 
 def test_synthesize_stage_module_is_gone():
     assert importlib.util.find_spec("llama.stages.synthesize") is None
 
 
-# TASK 5 TODO: once llama/tts/, speech_text.py, and presenters.py are
-# deleted, add:
-#   assert importlib.util.find_spec("llama.tts") is None
-#   assert importlib.util.find_spec("llama.speech_text") is None
-#   assert importlib.util.find_spec("llama.presenters") is None
-# They are NOT asserted here because those three modules still exist at the
-# end of Task 4 (Task 5's job to delete them).
+def test_tts_speech_text_presenters_modules_are_gone():
+    assert importlib.util.find_spec("llama.tts") is None
+    assert importlib.util.find_spec("llama.speech_text") is None
+    assert importlib.util.find_spec("llama.presenters") is None
+
+
+def test_config_has_no_tts_attr():
+    from llama.config import Config
+
+    assert not hasattr(Config(), "tts")
+
+
+def test_profile_has_no_presenter_or_title_attrs():
+    from llama.models import Criteria
+    from llama.profiles import Profile
+
+    p = Profile(name="p", criteria=Criteria(query="q"))
+    assert not hasattr(p, "presenter")
+    assert not hasattr(p, "title")
+
+
+def test_llama_pyproject_declares_neither_numpy_nor_lameenc():
+    pyproject = Path(__file__).parent.parent / "pyproject.toml"
+    text = pyproject.read_text()
+    assert "numpy" not in text
+    assert "lameenc" not in text
 
 
 def test_show_stage_order_has_no_synthesize():

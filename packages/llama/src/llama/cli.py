@@ -23,9 +23,6 @@ from llama.ledger import Ledger
 from llama.locks import Locked, file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama.pipeline import choose_entries, make_providers, process_show
-from llama.presenters import (
-    Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
-)
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
 )
@@ -38,7 +35,6 @@ from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
-from llama.tts.provider import SpeechError
 from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
                              read_model, read_model_list, write_artifact)
@@ -48,7 +44,7 @@ RUN_LEVEL_STAGES = {"search", "winnow"}
 
 _COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline",
                   "triage", "fix", "redo", "deliver", "rm",
-                  "suppress", "unsuppress", "run", "profile", "presenter",
+                  "suppress", "unsuppress", "run", "profile",
                   "history", "config"]
 
 
@@ -72,10 +68,6 @@ app.add_typer(history_app, name="history", rich_help_panel="Sessions & config")
 
 config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
 app.add_typer(config_app, name="config", rich_help_panel="Sessions & config")
-
-presenter_app = typer.Typer(help="On-air hosts (presenters/<id>.toml)",
-                            pretty_exceptions_enable=False)
-app.add_typer(presenter_app, name="presenter", rich_help_panel="Sessions & config")
 
 run_app = typer.Typer(
     help="Acquisition sessions — approve, resume, list, or discard.",
@@ -241,7 +233,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
                                force_stage=force_stage, profile=criteria.profile)
-        except (TaskFailed, HerderError, IAError, SpeechError) as exc:
+        except (TaskFailed, HerderError, IAError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
                 failure_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1336,7 +1328,7 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
             pkg = _redo_show(config, ia, ledger, e, from_stage,
                              with_research=redo_research)
             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {e.slug}")
-        except (LlamaError, TaskFailed, HerderError, IAError, SpeechError) as exc:
+        except (LlamaError, TaskFailed, HerderError, IAError) as exc:
             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
 
 
@@ -1778,13 +1770,6 @@ def profile_add(
     query: str,
     count: int = typer.Option(1, "--count"),
     human_gate: bool = typer.Option(False, "--human-gate"),
-    presenter: str = typer.Option(None, "--presenter",
-                                  help="Host for this show: presenters/<id>.toml; its "
-                                       "voice voices this profile's runs even when "
-                                       "[tts] enabled is false"),
-    title: str = typer.Option(None, "--title",
-                              help="The radio show's on-air name (the host knows it "
-                                   "and says it occasionally)"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of this profile's shortlist one artist "
                                           "may hold (1.0 = pure best-first; default 1/3)"),
@@ -1805,8 +1790,6 @@ def profile_add(
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
     config, ia, _ = _setup()
-    if presenter:
-        load_presenter(config.root, presenter)  # fail fast on a typo'd id
     with tempfile.TemporaryDirectory() as tmpdir:
         scratch = RunWorkspace(Path(tmpdir), "interpret")
         criteria = run_interpret(scratch, make_providers(config)["interpret"], query)
@@ -1825,8 +1808,7 @@ def profile_add(
         typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
     if updates:
         criteria = criteria.model_copy(update=updates)
-    profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate,
-                      presenter=presenter, title=title)
+    profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate)
     path = save_profile(config.root, profile)
     typer.echo(f"saved: {path}")
 
@@ -1856,12 +1838,12 @@ def profile_artists(
     typer.echo("pinned: " + ", ".join(f"{a['title']} ({a['identifier']})" for a in resolved))
 
 
-_PROFILE_LIST_HEADER = f"{'NAME':<20} {'CNT':>3} {'PRESENTER':<14} QUERY"
+_PROFILE_LIST_HEADER = f"{'NAME':<20} {'CNT':>3} QUERY"
 
 
 @profile_app.command("list")
 def profile_list():
-    """List profiles: name, count, presenter, query."""
+    """List profiles: name, count, query."""
     config, _, _ = _setup()
     rows = list_profiles(config.root)
     if not rows:
@@ -1872,21 +1854,18 @@ def profile_list():
         if isinstance(p, str):
             typer.echo(f"{name:<20} (invalid: {p})")
             continue
-        presenter = p.presenter or "-"
-        typer.echo(f"{p.name:<20} {p.count:>3} {presenter:<14} {p.criteria.query:40.40s}")
+        typer.echo(f"{p.name:<20} {p.count:>3} {p.criteria.query:40.40s}")
 
 
 @profile_app.command("show")
 def profile_show(name: str = typer.Argument(...)):
-    """Inspect one profile: criteria, count, presenter, and pinned roster.
+    """Inspect one profile: criteria, count, and pinned roster.
     Strictly read-only -- never prompts, never edits. No LLM call."""
     config, _, _ = _setup()
     profile = load_profile(config.root, name)   # ProfileError -> main_cli boundary
     c = profile.criteria
     typer.echo(f"{profile.name}  count={profile.count}  human_gate={profile.human_gate}")
     typer.echo(f"query: {c.query}")
-    typer.echo(f"presenter: {profile.presenter or '-'}")
-    typer.echo(f"title: {profile.title or '-'}")
     if c.artists:
         typer.echo("pinned roster: " + ", ".join(c.artists))
     else:
@@ -1911,113 +1890,6 @@ def profile_remove(
     if not yes and not typer.confirm(f"remove profile {name!r}?", default=False):
         return
     delete_profile(config.root, name)
-    typer.echo(f"removed: {path}")
-
-
-def _profiles_using_presenter(root: Path, presenter_id: str) -> list[str]:
-    """Names (filename stems) of profiles that still name this presenter,
-    sorted -- used by `presenter remove`'s in-use refusal."""
-    d = root / "profiles"
-    if not d.is_dir():
-        return []
-    users = []
-    for p in sorted(d.glob("*.toml")):
-        try:
-            prof = load_profile(root, p.stem)
-        except ProfileError:
-            continue
-        if prof.presenter == presenter_id:
-            users.append(p.stem)
-    return users
-
-
-@presenter_app.command("add")
-def presenter_add(
-    id: str = typer.Argument(...),
-    name: str = typer.Option(..., "--name"),
-    sex: str = typer.Option(..., "--sex"),
-    voice: str = typer.Option(None, "--voice"),
-    voice_clone: str = typer.Option(None, "--voice-clone"),
-    character: str = typer.Option(None, "--character"),
-    character_file: Path = typer.Option(None, "--character-file"),
-    bed: str = typer.Option(None, "--bed"),
-    force: bool = typer.Option(False, "--force"),
-):
-    """Create a presenter (on-air host)."""
-    config, _, _ = _setup()
-    if bool(character) == bool(character_file):
-        typer.echo("give exactly one of --character / --character-file", err=True)
-        raise typer.Exit(1)
-    if character:
-        text = character
-    else:
-        try:
-            text = character_file.read_text().strip()
-        except OSError as exc:
-            typer.echo(f"cannot read --character-file {character_file}: {exc}", err=True)
-            raise typer.Exit(1)
-    dest = config.root / "presenters" / f"{id}.toml"
-    if dest.exists() and not force:
-        typer.echo(f"presenter {id!r} exists: {dest} (use --force to overwrite)", err=True)
-        raise typer.Exit(1)
-    try:
-        p = Presenter(id=id, name=name, sex=sex, voice=voice,
-                      voice_clone=voice_clone, character=text, bed=bed)
-    except Exception as exc:
-        typer.echo(f"invalid presenter: {exc}", err=True)
-        raise typer.Exit(1)
-    typer.echo(f"saved: {save_presenter(config.root, p)}")
-
-
-@presenter_app.command("list")
-def presenter_list():
-    """List presenters."""
-    config, _, _ = _setup()
-    rows = list_presenters(config.root)
-    if not rows:
-        typer.echo("no presenters")
-        return
-    for pid, p in rows:
-        if isinstance(p, str):
-            typer.echo(f"{pid:16.16s} (invalid: {p})")
-        else:
-            v = p.voice or f"clone:{p.voice_clone}"
-            typer.echo(f"{pid:16.16s} {p.name:20.20s} {p.sex:8.8s} {v}")
-
-
-@presenter_app.command("show")
-def presenter_show(id: str = typer.Argument(...)):
-    """Show one presenter's fields."""
-    config, _, _ = _setup()
-    p = load_presenter(config.root, id)     # PresenterError -> main_cli boundary
-    v = p.voice or f"clone:{p.voice_clone}"
-    typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else ""))
-    typer.echo("character:")
-    typer.echo(p.character)
-
-
-@presenter_app.command("remove")
-def presenter_remove(
-    id: str = typer.Argument(...),
-    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt"),
-    force: bool = typer.Option(False, "--force",
-                               help="Remove even if a profile still names this presenter"),
-):
-    """Delete a presenter's TOML file. Refuses if a profile still names it
-    as its presenter -- pass --force to remove it anyway."""
-    config, _, _ = _setup()
-    path = config.root / "presenters" / f"{id}.toml"
-    if not path.exists():
-        raise PresenterError(f"no presenter {id!r}: {path} does not exist")
-    if not force:
-        users = _profiles_using_presenter(config.root, id)
-        if users:
-            typer.echo(f"presenter {id} is used by: {', '.join(users)} "
-                       "— --force to remove anyway", err=True)
-            raise typer.Exit(1)
-    if not yes and not typer.confirm(f"remove presenter {id!r}?", default=False):
-        return
-    delete_presenter(config.root, id)
     typer.echo(f"removed: {path}")
 
 

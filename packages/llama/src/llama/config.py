@@ -36,22 +36,6 @@ class SetlistFMConfig(BaseModel):
     api_key: str | None = None
 
 
-class TTSConfig(BaseModel):
-    """Spoken DJ patter (text-to-speech of the DJ script). Opt-in."""
-    enabled: bool = False               # nothing calls a TTS API unless voice is active
-    backend: str = "voxtral"            # or "elevenlabs" / "fake"
-    voice: str | None = None            # voxtral preset name / elevenlabs voice_id
-    voice_clone: str | None = None      # path to a reference WAV; when set, voxtral clones it
-    model: str | None = None            # per-backend default when unset
-    api_key: str | None = None          # MISTRAL_API_KEY / ELEVENLABS_API_KEY env wins
-    chunk: bool = False                 # synthesize each DJ-notes segment sentence-by-
-                                         # sentence and concatenate, instead of one call
-                                         # per segment (better prosody; needs lameenc)
-    bed: str | None = None              # path to a 24kHz mono 16-bit WAV played
-                                         # under the DJ voice; None = no bed
-    bed_gain_db: float = -20.0          # bed loudness under the voice (station-level)
-
-
 class JerrybaseConfig(BaseModel):
     # Vendored, offline, no key - so on by default (unlike setlist.fm). No
     # thresholds: break anchoring is all-or-nothing by design.
@@ -108,7 +92,6 @@ class Config(BaseModel):
     audio_format: Literal["mp3", "flac"] = "mp3"
     llm: dict[str, LLMTaskConfig] = Field(default_factory=dict)
     setlistfm: SetlistFMConfig = Field(default_factory=SetlistFMConfig)
-    tts: TTSConfig = Field(default_factory=TTSConfig)
     jerrybase: JerrybaseConfig = Field(default_factory=JerrybaseConfig)
     structure: StructureConfig = Field(default_factory=StructureConfig)
     artists: ArtistsConfig = Field(default_factory=ArtistsConfig)
@@ -204,56 +187,6 @@ backend = "claude_cli"
 # or SETLISTFM_API_KEY env var; without a key, set-structure recovery is
 # LMA-descriptions only
 # api_key = "..."
-
-
-# spoken DJ patter: per-segment MP3 clips of the DJ script land in
-# package/dj-audio/ (one set<key>-intro per non-encore set, then 99-outro),
-# tied together by the manifest's dj_audio block. Enabling voice forces the
-# DJ script on even against --no-script (nothing to voice otherwise).
-# [tts]
-# default false; a profile with a presenter is voiced even when this is off
-# enabled = true
-
-# hosted Mistral Voxtral TTS (default); or "elevenlabs"; or "fake" for tests
-# backend = "voxtral"
-
-# the HOUSE voice: voxtral preset name (or elevenlabs voice_id), used when
-# no presenter
-# voice = "..."
-
-# path to a 3-25s reference WAV; when set, voxtral clones that voice
-# (ignores `voice`)
-# voice_clone = "..."
-
-# per-backend default when unset
-# (voxtral-mini-tts-2603 / eleven_multilingual_v2)
-# model = "..."
-
-# MISTRAL_API_KEY / ELEVENLABS_API_KEY env (env wins)
-# api_key = "..."
-
-# Hosts live in presenters/<id>.toml (name / sex / voice XOR voice_clone /
-# character / bed); a profile picks one via `presenter = "<id>"` and names its
-# radio show via `title = "..."`.
-
-# synthesize each segment sentence-by-sentence and concatenate (single MP3
-# encode at the end) instead of one TTS call per whole segment; noticeably
-# better prosody/pacing on longer DJ patter at the cost of more provider
-# round-trips per segment. Requires the `lameenc` dependency (installed by
-# default). Default false.
-# chunk = true
-
-# bed music (instrumental) played UNDER the DJ voice on voiced shows; must be
-# a 24kHz mono 16-bit WAV. Per-presenter override via the presenter's `bed`.
-# llama never converts audio; prepare the file once with an external tool, e.g.
-# `ffmpeg -i in.mp3 -ac 1 -ar 24000 -c:a pcm_s16le bed.wav` (or sox). A wrong
-# format or missing file hard-fails that show's package.
-# bed = "/path/to/bed.wav"
-# bed loudness under the voice, in dB (negative = quieter); default -20
-# bed_gain_db = -20.0
-# because mixing needs PCM, bed-active clips are re-encoded to MP3 (24kHz
-# mono, ~64 kbps via lameenc) rather than shipping the provider's native
-# MP3 like unbedded clips do - a small, expected bitrate difference.
 
 
 [jerrybase]
