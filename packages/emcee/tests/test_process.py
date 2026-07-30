@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from herder import FakeProvider
 
-from emcee.audio import broadcast_m3u_text, interleave_broadcast
+from emcee.audio import broadcast_m3u_text, interleave_broadcast, m3u_text
 from emcee.config import Assignment, EmceeConfig, TTSConfig
 from emcee.errors import EmceeError
 from emcee.models import DJAudioBlock
@@ -128,7 +128,7 @@ def test_speech_for_presenter_voice_wins_and_house_clone_never_bleeds_in(monkeyp
     assert bed is None
 
 
-def test_speech_for_presenter_voice_clone_used_as_voice_and_clone_ref(monkeypatch):
+def test_speech_for_presenter_voice_clone_used_as_voice_and_clone_ref(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setattr(
         "emcee.process.speech_provider_for",
@@ -136,7 +136,7 @@ def test_speech_for_presenter_voice_clone_used_as_voice_and_clone_ref(monkeypatc
     )
     presenter = _presenter(voice=None, voice_clone="/refs/casey.wav")
 
-    speech_for(EmceeConfig(), presenter)
+    speech_for(EmceeConfig(root=tmp_path), presenter)
 
     assert calls == [("/refs/casey.wav", "/refs/casey.wav")]
 
@@ -154,9 +154,17 @@ def test_speech_for_no_presenter_falls_back_to_house_voice(monkeypatch):
     assert calls == [("house-voice", "house-clone.wav")]
 
 
-def test_speech_for_raises_when_no_voice_resolvable_at_all():
-    with pytest.raises(EmceeError, match=r"\[tts\] voice"):
-        speech_for(EmceeConfig(), None)
+def test_speech_for_raises_when_no_voice_resolvable_at_all(tmp_path):
+    # Match on wording unique to speech_for's own message, not just
+    # "[tts] voice" -- speech_provider_for's voxtral branch also raises a
+    # SpeechError (an EmceeError subclass) containing "[tts] voice" when no
+    # voice is configured, so a looser match/guard-removal mutation would
+    # slip past undetected if speech_for's own `if not voice:` guard were
+    # ever deleted (control would reach speech_provider_for instead and
+    # still raise *an* EmceeError matching the loose pattern).
+    with pytest.raises(EmceeError, match="give the profile a presenter") as exc_info:
+        speech_for(EmceeConfig(root=tmp_path), None)
+    assert type(exc_info.value) is EmceeError
 
 
 def test_speech_for_folds_in_presenter_bed(monkeypatch):
@@ -169,14 +177,14 @@ def test_speech_for_folds_in_presenter_bed(monkeypatch):
     assert bed == Bed(Path("/beds/casey.wav"), -15.0)  # gain is always the station's
 
 
-def test_resolve_bed_falls_back_to_house_bed_when_presenter_has_none():
+def test_resolve_bed_falls_back_to_house_bed_when_presenter_has_none(tmp_path):
     presenter = _presenter()  # no bed override
-    config = EmceeConfig(tts=TTSConfig(bed="/beds/house.wav", bed_gain_db=-20.0))
+    config = EmceeConfig(root=tmp_path, tts=TTSConfig(bed="/beds/house.wav", bed_gain_db=-20.0))
     assert _resolve_bed(config, presenter) == Bed(Path("/beds/house.wav"), -20.0)
 
 
-def test_resolve_bed_none_when_neither_set():
-    assert _resolve_bed(EmceeConfig(), _presenter()) is None
+def test_resolve_bed_none_when_neither_set(tmp_path):
+    assert _resolve_bed(EmceeConfig(root=tmp_path), _presenter()) is None
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +290,18 @@ def make_dj_audio() -> DJAudioBlock:
         set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         outro="dj-audio/99-outro.mp3",
     )
+
+
+def test_m3u_text():
+    # m3u_text is byte-identical to llama's port and has no src/ caller of
+    # its own (only broadcast_m3u_text is used by process_package) but it's
+    # part of the faithful manifest.py port range and deserves its own
+    # coverage rather than riding along on broadcast_m3u_text's tests.
+    text = m3u_text(["01 - Morning Dew.mp3", "02 - Dark Star.mp3"])
+    lines = text.splitlines()
+    assert lines[0] == "#EXTM3U"
+    assert lines[1] == "audio/01 - Morning Dew.mp3"
+    assert text.endswith("\n")
 
 
 def test_interleave_broadcast_slots_leadins_and_outro():

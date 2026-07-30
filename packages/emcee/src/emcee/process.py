@@ -75,7 +75,7 @@ def speech_for(config: EmceeConfig, presenter: Presenter | None):
     presenter's own fields.
     """
     if presenter is not None:
-        voice = presenter.voice or presenter.voice_clone
+        voice = presenter.voice_id  # presenter.voice or presenter.voice_clone
         clone = presenter.voice_clone
     else:
         voice = config.tts.voice or config.tts.voice_clone
@@ -106,6 +106,17 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
     double); `process_package` re-derives the presenter (and its bed) itself
     from the manifest so it can build the scriptwriting persona and the
     correct bed without the caller having to thread them through separately.
+
+    CALLER CONTRACT: `speech` MUST be the provider `speech_for` returned for
+    THIS package's own `resolve_assignment` result -- not one resolved for a
+    different package and reused. Nothing here checks that `speech` and the
+    bed this function derives came from the same presenter: a batch loop
+    that resolves a presenter and builds `speech` once, then calls
+    `process_package` for multiple packages, would silently pair presenter
+    X's voice with presenter Y's bed (and gain) for any package assigned to
+    Y -- no exception, wrong audio, and a cache key that faithfully records
+    the wrong render. Callers (e.g. `emcee run` iterating a station) must
+    resolve `speech_for` fresh per package, not hoist it above the loop.
     """
     manifest = pkg.manifest()
     presenter, title = resolve_assignment(config, manifest)
