@@ -300,7 +300,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                setlistfm=setlistfm,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
-                               force_stage=force_stage)
+                               force_stage=force_stage, profile=criteria.profile)
         except (TaskFailed, HerderError, IAError, SpeechError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
@@ -1298,7 +1298,7 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
                                 presenter=presenter, title=prov.title,
                                 setlistfm=make_client(config), structure_cfg=config.structure,
                                 jerrybase_enabled=config.jerrybase.enabled,
-                                selection_cfg=config.selection)
+                                selection_cfg=config.selection, profile=prov.profile)
     finally:
         if speech is not None:
             speech.close()

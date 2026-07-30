@@ -22,6 +22,7 @@ def build_manifest(
     reviews: str | None = None,
     research_vetted: bool = False,
     dj_audio: DJAudio | None = None,
+    profile: str | None = None,
 ) -> Manifest:
     per_set: dict[str, float] = defaultdict(float)
     for t in packaged:
@@ -31,7 +32,7 @@ def build_manifest(
         show={"artist": show.artist, "date": show.date, "venue": show.venue,
               "city": show.city, "context": context},
         source={"performance_id": show.performance_id, "identifier": show.identifier,
-                "url": show.source_url, "lineage": show.lineage},
+                "url": show.source_url, "lineage": show.lineage, "profile": profile},
         tracks=packaged,
         set_breaks=breaks,
         briefing=briefing,

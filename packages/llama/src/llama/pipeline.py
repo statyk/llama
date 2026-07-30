@@ -67,6 +67,7 @@ def process_show(
     selection_cfg=None,
     jerrybase_enabled: bool = True,
     force_stage: str | None = None,
+    profile: str | None = None,
 ) -> Path | None:
     cand = entry.candidate
     show_ws = run_ws.show_ws(cand.performance_id)
@@ -78,7 +79,7 @@ def process_show(
     if entry.external_reputation:
         dossier += "\n\nExternal reputation: " + entry.external_reputation
     write_artifact(show_ws.provenance, Provenance(
-        performance_id=pid, run=run_name, dossier=dossier, candidate=cand,
+        performance_id=pid, run=run_name, profile=profile, dossier=dossier, candidate=cand,
         assessment=entry.assessment,
         script=script, voice=voice,
         presenter=presenter.id if presenter else None, title=title,
@@ -126,7 +127,7 @@ def process_show(
     with step(f"[{pid}] packaging"):
         lexicon = load_lexicon(run_ws.root)
         pkg = run_package(show_ws, ia, show, notes, force=force, speech=speech,
-                          chunk=chunk, lexicon=lexicon, bed=bed)
+                          chunk=chunk, lexicon=lexicon, bed=bed, profile=profile)
     show = read_model(show_ws.show, Show)  # package may have flagged it
     if show.needs_review:
         log.warning("holding %s: flagged during packaging (%s)",

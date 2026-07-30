@@ -320,6 +320,7 @@ def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
     assert prov.processed_at  # ISO timestamp present
     assert prov.assessment is not None                     # winnow assessment carried
     assert prov.assessment.quality_score == 9.5
+    assert prov.profile is None                            # one-off run, no --profile
 
 
 def test_task_keys_include_brief():
@@ -403,11 +404,14 @@ def test_process_show_stamps_voice_and_forwards_speech(tmp_path: Path):
     ws = RunWorkspace(tmp_path, "voicerun")
     pkg = process_show(ws, FakeIA(), Ledger(tmp_path / "ledger.jsonl"), entry,
                        providers, "voicerun", script=True, voice="v-abc",
-                       speech=speech, jerrybase_enabled=False)
+                       speech=speech, jerrybase_enabled=False, profile="prime-dead")
     assert pkg is not None
     prov = read_model(tmp_path / "shows" / "gratefuldead-1973-06-10" / "provenance.json",
                       Provenance)
     assert prov.voice == "v-abc"
     assert prov.script is True
+    assert prov.profile == "prime-dead"                # profile-driven run stamps it
     assert len(speech.calls) > 0                      # speech reached run_package
     assert (pkg / "dj-audio" / "set1-intro.mp3").exists()
+    manifest = json.loads((pkg / "manifest.json").read_text())
+    assert manifest["source"]["profile"] == "prime-dead"  # ...and it reaches the manifest

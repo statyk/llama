@@ -258,7 +258,8 @@ def _synthesize_dj_audio(pkg: Path, notes: DJNotes, speech, force: bool,
 
 def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = None,
                 force: bool = False, speech=None, chunk: bool = False,
-                lexicon: Lexicon | None = None, bed: Bed | None = None) -> Path:
+                lexicon: Lexicon | None = None, bed: Bed | None = None,
+                profile: str | None = None) -> Path:
     pkg = show_ws.package_dir
     manifest_path = pkg / "manifest.json"
     if manifest_path.exists() and not force:
@@ -336,7 +337,7 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show, notes: DJNotes | None = 
         briefing=ManifestBriefing(narration=briefing.narration, vetted=vetted),
         context=context,
         research=research_name, reviews="reviews.md", research_vetted=vetted,
-        dj_audio=dj_audio))
+        dj_audio=dj_audio, profile=profile))
     if flags:
         current = read_model(show_ws.show, Show)
         current.review_flags = current.review_flags + flags

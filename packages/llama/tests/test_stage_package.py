@@ -85,7 +85,7 @@ def setup(tmp_path: Path):
 def test_package_layout_and_manifest(tmp_path: Path):
     sws, show = setup(tmp_path)
     ia = StubIA()
-    pkg = run_package(sws, ia, show, make_notes())
+    pkg = run_package(sws, ia, show, make_notes(), profile="prime-dead")
     assert (pkg / "manifest.json").exists()
     assert (pkg / "playlist.m3u").exists()
     assert (pkg / "dj-notes.md").read_text() == "# notes"
@@ -96,6 +96,7 @@ def test_package_layout_and_manifest(tmp_path: Path):
     assert m["set_breaks"] == [{"after_track": 1}]
     # dummy bytes are unreadable audio -> falls back to metadata duration, no mismatch flag
     assert m["tracks"][0]["duration_sec"] == 600.0
+    assert m["source"]["profile"] == "prime-dead"  # emcee reads this to assign presenter/title
     assert json.loads(sws.show.read_text())["needs_review"] is False
 
 

@@ -301,6 +301,10 @@ class Provenance(BaseModel):
     Lets redo/deliver work standalone after the originating run is gone."""
     performance_id: str
     run: str
+    # Profile that produced this show (None = one-off `llama get` run). Stamped
+    # here so it survives run cleanup/redo and reaches the manifest's `source`
+    # block, where emcee's assignment maps it to a presenter/title.
+    profile: str | None = None
     dossier: str = ""  # shortlist rationale + external reputation, as fed to research
     candidate: Candidate
     # Winnow assessment (quality_score, recording_complaints, reviewed_identifier)
