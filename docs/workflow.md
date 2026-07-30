@@ -356,14 +356,17 @@ exists, and emcee never needs to know how the show was acquired.
 
 **Single-writer station, no lock.** emcee assumes exactly one `emcee run`
 (or `emcee voice`) at a time against a given station root — it takes **no
-lock**, unlike llama's flock-based workspace (above). Two llama processes
-can safely share `~/.llama/` concurrently; two `emcee run`s against the
-same station root cannot safely run at once. Nothing gets *corrupted*
-either way — every write in both tools is unique-temp-file-plus-atomic-
-rename — but an overlapping `emcee run` will find the same pending package
-twice and voice it twice, **doubling LLM/TTS spend** for no benefit. Run
-`emcee run` from one place (a single cron entry, one operator), not fanned
-out.
+lock**, unlike llama's flock-based workspace (see "Running several jobs at
+once" in the [README](../README.md#use)). Two llama processes can safely
+share `~/.llama/` concurrently; two `emcee run`s against the
+same station root cannot safely run at once. No single file is left
+half-written either way — every write in both tools is unique-temp-file-
+plus-atomic-rename — but an overlapping `emcee run` will find the same
+pending package twice and voice it twice: run A's `dj-notes.md` can end up
+next to run B's manifest `dj_notes` block and B's clips, leaving the
+package internally inconsistent, and it still **doubles LLM/TTS spend** for
+no benefit. Run `emcee run` from one place (a single cron entry, one
+operator), not fanned out.
 
 Full emcee usage (all flags, config, and presenter management) is in the
 project [README](../README.md#emcee-voicing-delivered-packages); this

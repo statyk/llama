@@ -35,9 +35,11 @@ class Criteria(BaseModel):
     # LLM artist matcher entirely and fan the search out over exactly these -
     # deterministic runs for standing profiles.
     artists: list[str] = Field(default_factory=list)
-    # Profile that produced this session's criteria; display only, spec §4.
-    # None for one-off runs (`llama get "query"`). Stamped by `llama get
-    # --profile`, never read back to change behavior.
+    # Profile that produced this session's criteria. None for one-off runs
+    # (`llama get "query"`). Stamped by `llama get --profile` and read back
+    # by `_execute` into `Provenance.profile` and `manifest.source.profile` -
+    # the field the whole llama->emcee handoff rides on: emcee's `[assign]`
+    # maps it to a presenter/title.
     profile: str | None = None
 
 
@@ -178,7 +180,7 @@ class Show(BaseModel):
 class Overrides(BaseModel):
     """Hand-authored per-show operator input, durable across re-derivation.
     Read by gather (exclude, venue, city, date, titles, set_breaks) and
-    synthesize (narration); never auto-written by a stage. Absent file == this
+    brief (narration); never auto-written by a stage. Absent file == this
     default."""
     exclude: list[str] = Field(default_factory=list)   # source filenames to drop
     narration: str = "full"                            # "full" | "vague"

@@ -343,11 +343,38 @@ re-deliver it from llama rather than trying to upgrade it in place.
 concurrent processes against one `~/.llama/`, see "Running several jobs at
 once" above), `emcee run`
 assumes **exactly one instance at a time** against a given station root —
-it takes no lock. Nothing gets corrupted if you run two at once (every
-write in both tools is unique-temp-file-plus-atomic-rename), but an
-overlapping run will find and voice the same pending package twice,
-**doubling LLM/TTS spend** for no benefit. Run it from one place — a
-single cron entry, one operator — not fanned out.
+it takes no lock. No single file is left half-written if you run two at
+once (every write in both tools is unique-temp-file-plus-atomic-rename),
+but an overlapping run will find and voice the same pending package twice:
+run A's `dj-notes.md` can end up beside run B's manifest `dj_notes` block
+and B's clips, leaving the package internally inconsistent — and it still
+**doubles LLM/TTS spend** for no benefit. Run it from one place — a single
+cron entry, one operator — not fanned out.
+
+**Upgrading from a pre-split llama.** If you ran llama before scripting/
+presenters/TTS moved to emcee ("the cut"), three settings in your existing
+`~/.llama/` are now **silently ignored** — pydantic drops unknown fields
+without a warning, so nothing errors, shows just stop being voiced:
+
+- `~/.llama/config.toml`'s `[tts]` block. Move it into emcee's own config
+  (`emcee config init`), under emcee's own `[tts]` — same keys (`backend`,
+  `voice`, `voice_clone`, `chunk`, `bed`, `bed_gain_db`, etc.), different
+  file.
+- Each `~/.llama/profiles/<name>.toml`'s `presenter =` / `title =` fields.
+  Translate each one into an `[assign.profiles.<profile-name>]` block in
+  emcee's config (`presenter = "..."`, optional `title = "..."`) — see
+  "Assigning a presenter to a llama profile" above.
+- `~/.llama/presenters/*.toml`. Copy them to `~/.emcee/presenters/` (or
+  `EMCEE_ROOT`/`root`'s `presenters/` if you've relocated emcee's
+  workspace) — the TOML shape is unchanged, so a straight file copy works;
+  `emcee presenter list` will pick them up from there.
+
+The reassuring corollary: this is purely additive risk, not a data-loss
+one. Packages you already delivered under the old llama, whose manifests
+carry llama-written `dj_notes`/`dj_audio` blocks, are seen as `ready` by
+`station.readiness` and `emcee run` leaves them untouched — there is no
+re-spend on your existing library. Only shows delivered *after* the cut,
+still `pending`, are affected by the silent-ignore above.
 
 ## Licensing
 

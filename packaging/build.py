@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -199,7 +200,7 @@ def _setup_signing_keychain(env: dict):
     if not p12_pw or not kc_pw:
         raise SystemExit("set LLAMA_SIGNING_P12_PASSWORD and LLAMA_SIGNING_KEYCHAIN_PASSWORD "
                          "alongside LLAMA_SIGNING_P12")
-    tmp = str(Path(tempfile.gettempdir()) / f"llama-signing-{os.getpid()}.keychain-db")
+    tmp = str(Path(tempfile.gettempdir()) / f"llama-signing-{os.getpid()}-{uuid.uuid4().hex[:8]}.keychain-db")
     orig = _user_keychains()
     subprocess.run(["security", "create-keychain", "-p", kc_pw, tmp], check=True)
     subprocess.run(["security", "set-keychain-settings", tmp], check=True)

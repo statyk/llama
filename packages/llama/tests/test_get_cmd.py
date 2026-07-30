@@ -230,8 +230,38 @@ def test_get_profile_stamps_count_into_run_criteria(tmp_path: Path, monkeypatch)
     result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic"])
     assert result.exit_code == 0, result.output
     assert captured["count"] == 13
+    assert captured["criteria"].profile == "classic"
     saved = read_model(RunWorkspace(tmp_path, f"{date.today().isoformat()}-classic").criteria, Criteria)
     assert saved.count == 13
+    assert saved.profile == "classic"
+
+
+def test_get_profile_end_to_end_stamps_profile_into_manifest(tmp_path: Path, monkeypatch):
+    # The llama->emcee handoff rides entirely on this CLI seam: `_get_profile`
+    # stamps `profile=name` into criteria (cli.py) and `_execute` forwards
+    # `profile=criteria.profile` into process_show (cli.py). Drive the real
+    # `get --profile` command end-to-end (no cli.process_show/_execute stubs)
+    # and confirm the profile name survives all the way to manifest.source.profile.
+    from llama.profiles import Profile, save_profile
+    from test_pipeline import JB_OFF, FakeIA, fake_providers
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="classic",
+        criteria=Criteria(query="x", collection="GratefulDead", artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1,
+    ))
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic", "--auto"])
+    assert result.exit_code == 0, result.output
+
+    manifest = json.loads((tmp_path / "shows" / "gratefuldead-1973-06-10"
+                           / "package" / "manifest.json").read_text())
+    assert manifest["source"]["profile"] == "classic"
 
 
 def test_get_profile_pinned_artists_skip_discover_and_prune(tmp_path: Path, monkeypatch):

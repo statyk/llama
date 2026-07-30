@@ -84,9 +84,10 @@ def build_package(
     if set_breaks:
         set_breaks.pop()
 
-    source = {"performance_id": f"GratefulDead/{slug}"}
-    if profile is not None:
-        source["profile"] = profile
+    # llama's real Manifest model always serializes "profile" (default None)
+    # whether or not a run came from a profile -- match that shape
+    # explicitly rather than omitting the key when profile is None.
+    source = {"performance_id": f"GratefulDead/{slug}", "profile": profile}
 
     manifest: dict = {
         "schema_version": 3,

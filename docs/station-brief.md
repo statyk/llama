@@ -233,9 +233,9 @@ supporting material. Field-by-field:
   briefing: era/tour/venue context, why the show is worth airing, per-set
   talking points, notable moments, review sentiment, and cautions for
   whoever writes on-air copy. Always present (manifest v3, no opt-out) and
-  factually guarded against the setlist the same way `dj_notes` is; under
-  `narration: "vague"` it names no songs and asserts no set structure, same
-  as the script path. `briefing.md` is a deterministic render of
+  factually guarded against the setlist the same way emcee's `dj_notes`
+  guard is; under `narration: "vague"` it names no songs and asserts no
+  set structure. `briefing.md` is a deterministic render of
   `briefing.json` — the two can never disagree. This is now **the**
   recommended text source for a station-side scriptwriter: it is neutral
   (no in-house persona baked in) and structured for programmatic
@@ -321,16 +321,20 @@ supporting material. Field-by-field:
 - Filenames are filesystem-safe (unsafe characters replaced), zero-padded,
   and unique within a package.
 - **Spoken DJ audio is additive and emcee-only.** `dj_audio` (and
-  `dj-audio/`) exist only once emcee has voiced a show; a package can have
-  `dj_notes` (text) without `dj_audio` (speech) — e.g. emcee wrote the
-  script but TTS hasn't run yet — but never the reverse. There is exactly one
-  spoken clip per gap between music blocks, so nothing plays back-to-back:
-  slot each `dj_audio.set_intros["<key>"]` before that set's first track
-  (the first set's lead-in also opens the show), and `dj_audio.outro` after
-  the last track. An **encore has no lead-in** — it plays straight after the
-  final set, and the outro (which recaps it) is the only talk after it. A
-  `set_breaks` entry is a physical marker (`after_track`) only; it carries no
-  audio, because the between-set talk lives in the next set's lead-in.
+  `dj-audio/`) exist only once emcee has voiced a show. `dj_notes` and
+  `dj_audio` appear together or not at all: emcee writes both manifest
+  blocks in a single call, as its success marker. A **failed** emcee run can
+  leave stray `dj-notes.md` / `dj-audio/*.mp3` / `broadcast.m3u` files on
+  disk while both manifest blocks stay `null` — treat the manifest, not the
+  filesystem, as the source of truth for whether a show is voiced. There is
+  exactly one spoken clip per gap between music blocks, so nothing plays
+  back-to-back: slot each `dj_audio.set_intros["<key>"]` before that set's
+  first track (the first set's lead-in also opens the show), and
+  `dj_audio.outro` after the last track. An **encore has no lead-in** — it
+  plays straight after the final set, and the outro (which recaps it) is
+  the only talk after it. A `set_breaks` entry is a physical marker
+  (`after_track`) only; it carries no audio, because the between-set talk
+  lives in the next set's lead-in.
 
 ## Questions for the station team
 

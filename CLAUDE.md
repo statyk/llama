@@ -35,8 +35,8 @@ implementation plan this was built from. The approved design spec is
   re-scripts on every call, a real LLM's regenerated text usually
   invalidates every clip's cache too — in practice `--fresh` normally
   re-renders every clip, not just the named one; `--force` re-synthesizes
-  all of them unconditionally), `emcee status` (table of every package's state:
-  ready/pending/unsupported), `emcee presenter add/list/show/remove`
+  all of them unconditionally), `emcee status` (table of every package's
+  state: ready/pending/unsupported), `emcee presenter add/list/show/remove`
   (`presenters/<id>.toml`), `emcee config init`.
 
 ## What this is
