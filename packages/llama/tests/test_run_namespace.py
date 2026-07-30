@@ -10,7 +10,6 @@ import llama.cli as cli
 from llama.models import (
     Candidate, Criteria, QualityAssessment, RecordingSummary, ShortlistEntry,
 )
-from llama.presenters import Presenter, save_presenter
 from llama.sessions import STATE_AWAITING, STATE_COMPLETE, mark_awaiting, mark_complete
 from llama.workspace import RunWorkspace, read_model_list, write_artifact
 
@@ -248,8 +247,7 @@ def test_run_resume_inherits_script_and_count_from_criteria(tmp_path: Path, monk
     captured = {}
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, voice=None,
-                     presenter=None, title=None, force_stage=None,
+                     force=False, script=False, force_stage=None,
                      full_rationale=False):
         captured.update(count=count, script=script)
 
@@ -301,53 +299,11 @@ def test_run_resume_unknown_name_fails_loud(tmp_path: Path):
     assert "no run matches" in str(result.exception)
 
 
-def test_run_resume_voice_without_force_warns_already_packaged_wont_revoice(
-        tmp_path: Path, monkeypatch):
-    # The note fires whenever the session's persisted voice is active at
-    # all -- no CLI override survives on `run resume` to trigger it, so the
-    # criteria file must carry the stamped voice directly.
-    (tmp_path / "config.toml").write_text(
-        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\nvoice = "v-abc"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, Criteria(query="q", voice="v-abc"))
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "run", "resume", str(ws.dir)])
-    assert result.exit_code == 0, result.output
-    assert "redo" in result.output and "--from package --voice" in result.output
-
-
-def test_run_resume_resolves_presenter_from_criteria(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(
-        f'root = "{tmp_path}"\n[tts]\nbackend = "fake"\n')
-    save_presenter(tmp_path, Presenter(id="casey", name="Casey", sex="male",
-                                       voice="v-casey", character="Warm FM vet."))
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, Criteria(
-        query="q", voice="v-casey", presenter="casey", title="Sunday Morning Dead"))
-    seen = {}
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: seen.update(k))
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-                                     "run", "resume", str(ws.dir)])
-    assert result.exit_code == 0, result.output
-    assert seen["presenter"].id == "casey" and seen["presenter"].name == "Casey"
-    assert seen["title"] == "Sunday Morning Dead"
-    assert seen["voice"] == "v-casey"
-
-
-def test_run_resume_missing_presenter_file_fails(tmp_path: Path, monkeypatch):
-    from llama.presenters import PresenterError
-
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, Criteria(query="q", presenter="ghost"))
-    called = []
-    monkeypatch.setattr(cli, "_execute", lambda *a, **k: called.append(1))
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-                                     "run", "resume", str(ws.dir)])
-    assert result.exit_code != 0
-    assert isinstance(result.exception, PresenterError)
-    assert called == []                    # never silently fell back to neutral
+# `run resume` no longer resolves voice/presenter from the persisted criteria
+# -- that's emcee's job now (station-side [assign] profile -> presenter/title).
+# The old presenter-resolution/voice-note tests (moved-to-emcee behavior) are
+# gone; test_run_resume_inherits_script_and_count_from_criteria above still
+# covers the one llama-owned field (script) that survives.
 
 
 # ---------------------------------------------------------------------------

@@ -40,6 +40,18 @@ def test_get_appears_under_acquire_panel():
     assert "get" in out
 
 
+def test_get_voice_flag_is_gone(tmp_path: Path):
+    # Voice moved to emcee entirely -- `get` no longer resolves or stamps it.
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--voice"])
+    assert result.exit_code != 0
+    assert "no such option" in result.output.lower()
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--no-voice"])
+    assert result.exit_code != 0
+    assert "no such option" in result.output.lower()
+
+
 # ---------------------------------------------------------------------------
 # Exactly one of QUERY / --profile.
 # ---------------------------------------------------------------------------
@@ -87,10 +99,6 @@ def test_get_profile_mode_rejects_tuning_flags(tmp_path: Path):
     result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic", "--no-script"])
     assert result.exit_code == 1
     assert "--script/--no-script" in result.output
-
-    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic", "--no-voice"])
-    assert result.exit_code == 1
-    assert "--voice/--no-voice" in result.output
 
     result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic", "--artist-cap", "0.5"])
     assert result.exit_code == 1
@@ -205,8 +213,7 @@ def test_get_profile_stamps_count_and_script_into_run_criteria(tmp_path: Path, m
     captured = {}
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, voice=None,
-                     presenter=None, title=None, force_stage=None,
+                     force=False, script=False, force_stage=None,
                      full_rationale=False, plan=False):
         captured.update(count=count, script=script, criteria=criteria)
 

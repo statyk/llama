@@ -38,8 +38,6 @@ from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
 from llama.stages.winnow import run_winnow
 from llama.status import configure_logging
-from llama.tts import speech_provider_for
-from llama.tts.bed import Bed
 from llama.tts.provider import SpeechError
 from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
@@ -49,7 +47,7 @@ VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brie
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
 _COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline",
-                  "triage", "fix", "redo", "voice", "deliver", "rm",
+                  "triage", "fix", "redo", "deliver", "rm",
                   "suppress", "unsuppress", "run", "profile", "presenter",
                   "history", "config"]
 
@@ -133,58 +131,6 @@ def _parse_ranks(text: str) -> set[int]:
     return {int(p) for p in text.split(",") if p.strip().isdigit()}
 
 
-def _resolve_voice(config: Config, want: bool | None,
-                   explicit_voice: str | None = None) -> str | None:
-    """Resolve the run's voice id (None = voice off for this run).
-
-    --no-voice (want=False) always wins. An explicit voice — a presenter's,
-    or the stamp on replay — opts in even when [tts] enabled is false.
-    Otherwise --voice (want=True) or the global flag activates the house
-    default. Voice active with no voice id is an error, never a silent skip.
-    """
-    if want is False:
-        return None
-    if explicit_voice:
-        return explicit_voice
-    if want is True or config.tts.enabled:
-        resolved = config.tts.voice or config.tts.voice_clone
-        if not resolved:
-            raise SpeechError("voice is active but none is configured: set "
-                              "[tts] voice, [tts] voice_clone, or give the "
-                              "profile a presenter")
-        return resolved
-    return None
-
-
-def _replay_voice(config: Config, stamped: str | None,
-                  override: bool | None) -> str | None:
-    """Replay idiom: defer to the voice stamped at process time when unset."""
-    if override is None:
-        return stamped
-    return _resolve_voice(config, override, stamped)
-
-
-def _speech_for(config: Config, voice: str | None, presenter: Presenter | None):
-    """Speech provider for a resolved voice (None = no voice). A presenter
-    fully owns its voice: its voice_clone (or none) is used — the station
-    [tts] voice_clone never bleeds into a presenter's run."""
-    if voice is None:
-        return None
-    clone = presenter.voice_clone if presenter is not None else config.tts.voice_clone
-    return speech_provider_for(config, voice, clone_ref=clone)
-
-
-def resolve_bed(config: Config, presenter: Presenter | None) -> Bed | None:
-    """The bed to play under this run's DJ voice: a presenter's own bed if set,
-    else the station default. Gain is always the station [tts] bed_gain_db. A
-    bed is only used when the run's voice is active (the caller passes it only
-    then). None = no bed."""
-    path = (presenter.bed if presenter is not None and presenter.bed else config.tts.bed)
-    if not path:
-        return None
-    return Bed(Path(path), config.tts.bed_gain_db)
-
-
 RATIONALE_WIDTH = 90   # wrap column for the indented rationale block
 RATIONALE_LINES = 3    # default cap; --full-rationale lifts it
 
@@ -216,12 +162,10 @@ def _print_artists(rows: list[dict]) -> None:
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
-             script: bool = False, voice: str | None = None,
-             presenter: Presenter | None = None, title: str | None = None,
+             script: bool = False,
              force_stage: str | None = None,
              full_rationale: bool = False, plan: bool = False) -> None:
     providers = make_providers(config)
-    speech = _speech_for(config, voice, presenter)
     artists = None
     if criteria.artists:
         # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
@@ -293,10 +237,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         nonlocal packaged, held, failed
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
-                               force=force, script=script, voice=voice, speech=speech,
-                               chunk=config.tts.chunk,
-                               bed=resolve_bed(config, presenter),
-                               presenter=presenter, title=title,
+                               force=force, script=script,
                                setlistfm=setlistfm,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
@@ -316,21 +257,17 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
             held += 1
 
-    try:
-        deferred = []
-        for entry in chosen:
-            lock_path = ws.show_ws(entry.candidate.performance_id).lock
-            try:
-                with file_lock(lock_path, blocking=False):
-                    _process(entry)
-            except Locked:
-                deferred.append(entry)                 # another run is building it
-        for entry in deferred:                          # come back and wait
-            with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
+    deferred = []
+    for entry in chosen:
+        lock_path = ws.show_ws(entry.candidate.performance_id).lock
+        try:
+            with file_lock(lock_path, blocking=False):
                 _process(entry)
-    finally:
-        if speech is not None:
-            speech.close()
+        except Locked:
+            deferred.append(entry)                 # another run is building it
+    for entry in deferred:                          # come back and wait
+        with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
+            _process(entry)
     parts = []
     if packaged:
         parts.append(f"{packaged} packaged")
@@ -342,7 +279,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
 
 
 def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
-              name: str | None, script: bool | None, voice: bool | None,
+              name: str | None, script: bool | None,
               artist_cap: float | None, min_score: float | None, year_cap: float | None,
               full_rationale: bool) -> None:
     """Query mode: today's `find` verbatim (interpret -> stamp explicit flags
@@ -352,9 +289,6 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
     script = True if script is None else script
-    voice_id = _resolve_voice(config, voice)
-    if voice_id is not None:
-        script = True  # voice cannot work without the script
     run_name = name or claim_run_dir(config.root,
                                      f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, run_name)
@@ -365,8 +299,6 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
         updates["count"] = limit
     if not script:
         updates["script"] = False
-    if voice_id is not None:
-        updates["voice"] = voice_id
     if artist_cap is not None:
         updates["artist_cap"] = artist_cap
     if min_score is not None:
@@ -377,34 +309,25 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
         criteria = criteria.model_copy(update=updates)
         write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False, script=script, voice=voice_id,
+             human_gate=False, script=script,
              full_rationale=full_rationale, plan=plan)
 
 
 def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
                  full_rationale: bool) -> None:
     """Profile mode: today's `profile run` verbatim (load profile -> stamp
-    count/script/voice/presenter/title -> `_execute`)."""
+    count/script into the run's criteria -> `_execute`)."""
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, claim_run_dir(config.root,
                                                  f"{date.today().isoformat()}-{name}"))
-    presenter = (load_presenter(config.root, profile.presenter)
-                 if profile.presenter else None)
-    voice_id = _resolve_voice(config, None,
-                              presenter.voice_id if presenter else None)
-    script = profile.script or voice_id is not None  # voice implies script
-    # Stamp count/script/voice/presenter/title into the run's criteria: a later
-    # `llama run` on this dir must behave like the profile, not the defaults.
+    # Stamp count/script into the run's criteria: a later `llama run` on this
+    # dir must behave like the profile, not the defaults.
     criteria = profile.criteria.model_copy(update={"count": profile.count,
-                                                   "script": script,
-                                                   "voice": voice_id,
-                                                   "presenter": profile.presenter,
-                                                   "title": profile.title,
+                                                   "script": profile.script,
                                                    "profile": name})
     write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, profile.count, auto,
-             human_gate=profile.human_gate, script=script, voice=voice_id,
-             presenter=presenter, title=profile.title,
+             human_gate=profile.human_gate, script=profile.script,
              full_rationale=full_rationale, plan=plan)
 
 
@@ -427,10 +350,6 @@ def get(
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Verbatim DJ script (high-tier LLM call), on by default; "
                                      "--no-script skips it; query mode only"),
-    voice: bool = typer.Option(None, "--voice/--no-voice",
-                               help="Per-segment spoken DJ audio; default "
-                                    "follows [tts] enabled; --voice uses the house "
-                                    "[tts] voice; voice implies --script; query mode only"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of the shortlist one artist may hold "
                                           "(1.0 = pure best-first; default 1/3); query mode only"),
@@ -462,8 +381,6 @@ def get(
             given.append("--name")
         if script is not None:
             given.append("--script/--no-script")
-        if voice is not None:
-            given.append("--voice/--no-voice")
         if artist_cap is not None:
             given.append("--artist-cap")
         if min_score is not None:
@@ -475,7 +392,7 @@ def get(
             raise typer.Exit(1)
         _get_profile(config, ia, ledger, profile, auto, plan, full_rationale)
         return
-    _get_query(config, ia, ledger, query, limit, auto, plan, name, script, voice,
+    _get_query(config, ia, ledger, query, limit, auto, plan, name, script,
               artist_cap, min_score, year_cap, full_rationale)
 
 
@@ -575,7 +492,7 @@ def run_approve(
 ):
     """Gate 1: show a session's persisted shortlist, approve ranks, then
     optionally process it now (the persisted criteria fully determine
-    script/voice/presenter)."""
+    script)."""
     config, ia, ledger = _setup()
     ws = _resolve_run(config, session)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
@@ -593,13 +510,9 @@ def run_approve(
     typer.echo(f"approved: {sorted(wanted)}")
     if typer.confirm("Process approved shows now?", default=True):
         criteria = read_model(ws.criteria, Criteria)
-        presenter = (load_presenter(config.root, criteria.presenter)
-                     if criteria.presenter else None)
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
                  human_gate=False,
                  script=criteria.script,
-                 voice=criteria.voice,
-                 presenter=presenter, title=criteria.title,
                  full_rationale=full_rationale)
     else:
         typer.echo(f"next: llama run resume {ws.name}")
@@ -615,24 +528,16 @@ def run_resume(
 ):
     """Resume a crashed or incomplete session from its artifacts (stages
     skip work already done). To force a stage re-run (run-wide or per-show),
-    use `llama redo --run`. The persisted criteria fully determine
-    script/voice/presenter -- post-hoc voice changes are `llama voice`'s job."""
+    use `llama redo --run`. The persisted criteria fully determine script."""
     config, ia, ledger = _setup()
     ws = _resolve_run(config, session)
     if not ws.criteria.exists():
         typer.echo(f"no criteria.json in {ws.dir}", err=True)
         raise typer.Exit(1)
     criteria = read_model(ws.criteria, Criteria)
-    presenter = (load_presenter(config.root, criteria.presenter)
-                 if criteria.presenter else None)
-    if criteria.voice is not None:
-        typer.echo("note: already-packaged shows won't be re-voiced by a plain replay; "
-                   "use 'llama redo <show> --from package --voice' to re-voice one show")
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=False,
              script=criteria.script,
-             voice=criteria.voice,
-             presenter=presenter, title=criteria.title,
              force_stage=None,
              full_rationale=full_rationale)
 
@@ -1256,8 +1161,7 @@ def deliver(
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
-               with_research: bool = False, script: bool | None = None,
-               voice: bool | None = None) -> Path | None:
+               with_research: bool = False, script: bool | None = None) -> Path | None:
     """Re-run one resolved show from `from_stage` onward; returns the package
     path, or None if the show was held/skipped. Raises LlamaError on a
     hand-built show with no provenance."""
@@ -1268,40 +1172,28 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
         raise LlamaError(f"no provenance.json in {entry.ws.dir} - "
                          "reprocess it via its run first")
     prov = entry.provenance
-    presenter = (load_presenter(config.root, prov.presenter)
-                 if prov.presenter else None)
     keep_research = not with_research and from_stage in ("select", "gather")
     show_ws = entry.ws
-    speech = None
-    try:
-        with file_lock(show_ws.lock):
-            drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
-            # Keep the winnow assessment (quality_score + recording_complaints) so
-            # select-recording still avoids complained-about recordings; override only
-            # the rationale so the dossier round-trip stays stable (it already carries
-            # the external-reputation suffix). Fall back to a zero stub for pre-fix
-            # provenance.json files that predate the assessment field.
-            assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
-                          if prov.assessment is not None
-                          else QualityAssessment(performance_id=prov.performance_id,
-                                                 quality_score=0.0, rationale=prov.dossier))
-            shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
-            ws = RunWorkspace(config.root, prov.run)
-            effective_voice = _replay_voice(config, prov.voice, voice)
-            effective_script = ((prov.script if script is None else script)
-                                or effective_voice is not None or from_stage == "synthesize")
-            speech = _speech_for(config, effective_voice, presenter)
-            return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                                prov.run, config.audio_format, script=effective_script,
-                                voice=effective_voice, speech=speech, chunk=config.tts.chunk,
-                                bed=resolve_bed(config, presenter),
-                                presenter=presenter, title=prov.title,
-                                setlistfm=make_client(config), structure_cfg=config.structure,
-                                jerrybase_enabled=config.jerrybase.enabled,
-                                selection_cfg=config.selection, profile=prov.profile)
-    finally:
-        if speech is not None:
-            speech.close()
+    with file_lock(show_ws.lock):
+        drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+        # Keep the winnow assessment (quality_score + recording_complaints) so
+        # select-recording still avoids complained-about recordings; override only
+        # the rationale so the dossier round-trip stays stable (it already carries
+        # the external-reputation suffix). Fall back to a zero stub for pre-fix
+        # provenance.json files that predate the assessment field.
+        assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+                      if prov.assessment is not None
+                      else QualityAssessment(performance_id=prov.performance_id,
+                                             quality_score=0.0, rationale=prov.dossier))
+        shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
+        ws = RunWorkspace(config.root, prov.run)
+        effective_script = ((prov.script if script is None else script)
+                            or from_stage == "synthesize")
+        return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                            prov.run, config.audio_format, script=effective_script,
+                            setlistfm=make_client(config), structure_cfg=config.structure,
+                            jerrybase_enabled=config.jerrybase.enabled,
+                            selection_cfg=config.selection, profile=prov.profile)
 
 
 class NarrationMode(str, Enum):
@@ -1480,7 +1372,7 @@ def triage(
 
 
 def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool,
-                script: bool | None, voice: bool | None, yes: bool) -> None:
+                script: bool | None, yes: bool) -> None:
     """The selector-batch form shared by a plain selector redo and a
     `--run`-scoped show-level redo: apply the selector, drop held shows
     (opt in via `--held` or an explicit `held` state), plan/confirm, then
@@ -1500,14 +1392,14 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
     for e in kept:
         try:
             pkg = _redo_show(config, ia, ledger, e, from_stage,
-                             with_research=redo_research, script=script, voice=voice)
+                             with_research=redo_research, script=script)
             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {e.slug}")
         except (LlamaError, TaskFailed, HerderError, IAError, SpeechError) as exc:
             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
 
 
 def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str, *,
-                    script: bool | None, voice: bool | None) -> None:
+                    script: bool | None) -> None:
     """`redo --run SESSION --from search|winnow`: the old `run --stage X
     --force` run-wide re-execution, relocated verbatim (approvals-loss
     confirm on a doomed shortlist, downstream-artifact deletion, then a
@@ -1517,8 +1409,6 @@ def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str, *,
         typer.echo(f"no criteria.json in {ws.dir}", err=True)
         raise typer.Exit(1)
     criteria = read_model(ws.criteria, Criteria)
-    presenter = (load_presenter(config.root, criteria.presenter)
-                if criteria.presenter else None)
     if from_stage == "search" and ws.shortlist.exists():
         entries = read_model_list(ws.shortlist, ShortlistEntry)
         if any(e.approved is not None for e in entries):
@@ -1530,16 +1420,10 @@ def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str, *,
     for path in doomed:
         if path.exists():
             path.unlink()
-    effective_voice = _replay_voice(config, criteria.voice, voice)
     effective_script = criteria.script if script is None else script
-    if effective_voice is not None:
-        typer.echo("note: already-packaged shows won't be re-voiced by a --run redo; "
-                   "use 'llama redo <show> --from package --voice' to re-voice one show")
     _execute(config, ia, ledger, ws, criteria, criteria.count, True,
              human_gate=False, force=False,
-             script=effective_script or effective_voice is not None,
-             voice=effective_voice,
-             presenter=presenter, title=criteria.title,
+             script=effective_script,
              force_stage=None, full_rationale=False)
 
 
@@ -1558,9 +1442,6 @@ def redo(
                                        help="Also drop research.md (kept by default)"),
     script: bool = typer.Option(None, "--script/--no-script",
                                 help="Override the script setting recorded at process time"),
-    voice: bool = typer.Option(None, "--voice/--no-voice",
-                               help="Override the voice recorded at process time "
-                                    "(--voice re-voices, --no-voice strips voice)"),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
     voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
@@ -1595,11 +1476,11 @@ def redo(
     if run is not None:
         config, ia, ledger = _setup()
         if from_stage in RUN_LEVEL_STAGES:
-            _redo_run_level(config, ia, ledger, run, from_stage, script=script, voice=voice)
+            _redo_run_level(config, ia, ledger, run, from_stage, script=script)
             return
         sel = build_selector(run=run)
         _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
-                   script=script, voice=voice, yes=yes)
+                   script=script, yes=yes)
         return
 
     if name is not None:
@@ -1610,7 +1491,7 @@ def redo(
                        "reprocess it via its run first", err=True)
             raise typer.Exit(1)
         pkg = _redo_show(config, ia, ledger, entry, from_stage,
-                         with_research=redo_research, script=script, voice=voice)
+                         with_research=redo_research, script=script)
         if pkg:
             typer.echo(f"packaged: {pkg}")
         else:
@@ -1629,117 +1510,7 @@ def redo(
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
     _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
-               script=script, voice=voice, yes=yes)
-
-
-@app.command(rich_help_panel="Fix & ship",
-             short_help="Add/refresh DJ audio (TTS); --off strips it, --fresh re-rolls a clip.")
-def voice(
-    name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
-    off: bool = typer.Option(False, "--off",
-                             help="Strip voice (DJ audio + broadcast.m3u) instead of adding it"),
-    fresh: list[str] = typer.Option(
-        [], "--fresh",
-        help="Re-roll (re-synthesize) just these DJ-clip stems, e.g. set1-intro; "
-             "repeatable. Single show, voice on -- other clips stay cached. TTS is "
-             "non-deterministic, so a re-roll can rescue a janky take."),
-    held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
-    packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
-    voiced: bool = typer.Option(False, "--voiced", help="Selector: voiced shows"),
-    unvoiced: bool = typer.Option(False, "--unvoiced", help="Selector: shows with no DJ audio"),
-    state: list[ShowState] = typer.Option(
-        [], "--state", help="Selector: shows in this derived state (repeatable)"),
-    artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
-    run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
-    broadcast_ready: bool = typer.Option(False, "--broadcast-ready",
-                                         help="Selector: broadcast-ready shows"),
-    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
-):
-    """TTS as a verb -- pure sugar over `redo --from package --voice`/`--no-voice`.
-
-    `voice <show>` re-processes just the package stage with voice turned on;
-    `voice --off <show>` strips it (DJ audio + broadcast.m3u drop out of the
-    rebuilt package). A selector batches the same over every match (shared
-    selector layer, held opt-in required -- see `--held`).
-
-    Re-voicing replays the voice **stamped** at process time when one
-    exists: a presenter's clone edits are live (the stamp IS the clone
-    path), but a preset change needs a fresh stamp -- clear it (or change
-    what the presenter/config points at) and reprocess. With no stamp, the
-    house `[tts]` voice applies. `--off` always wins over any stamp.
-    """
-    from llama.cli_select import build_selector
-
-    other_selector = any([held, packaged, voiced, unvoiced, state, artist, run, broadcast_ready])
-
-    if fresh:
-        # Per-segment re-roll: delete the named clip(s) so the package redo
-        # re-synthesizes only them (the `not file.exists()` cache rule in
-        # _synthesize_dj_audio); every other clip stays cached and byte-identical.
-        if off:
-            typer.echo("--fresh re-rolls clips; it can't combine with --off", err=True)
-            raise typer.Exit(1)
-        if name is None or other_selector:
-            typer.echo("--fresh re-rolls one show's clips; name a single show (no selectors)",
-                       err=True)
-            raise typer.Exit(1)
-        config, ia, ledger = _setup()
-        entry = _resolve_show(config, ledger, name)
-        if entry.provenance is None:
-            typer.echo(f"no provenance.json in {entry.ws.dir} - "
-                       "reprocess it via its run first", err=True)
-            raise typer.Exit(1)
-        audio_dir = entry.ws.package_dir / "dj-audio"
-        available = sorted(p.stem for p in audio_dir.glob("*.mp3")) if audio_dir.is_dir() else []
-        if not available:
-            typer.echo(f"{entry.slug} has no DJ audio to re-roll (not voiced/packaged)", err=True)
-            raise typer.Exit(1)
-        unknown = [s for s in fresh if s not in available]
-        if unknown:
-            typer.echo(f"no clip {unknown[0]!r} in {entry.slug}; clips: {', '.join(available)}",
-                       err=True)
-            raise typer.Exit(1)
-        stems = list(dict.fromkeys(fresh))   # dedupe: a repeated stem must not double-unlink
-        for stem in stems:
-            (audio_dir / f"{stem}.mp3").unlink()
-        typer.echo(f"re-rolling {', '.join(stems)} "
-                   "(previous take(s) discarded - TTS is non-deterministic)")
-        pkg = _redo_show(config, ia, ledger, entry, "package", voice=True)
-        typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
-        return
-
-    if name is not None and other_selector:
-        typer.echo("give a show OR selectors, not both", err=True)
-        raise typer.Exit(1)
-    if name is None and not other_selector:
-        typer.echo("give a show or a selector (e.g. --unvoiced)", err=True)
-        raise typer.Exit(1)
-
-    want_voice = not off
-    config, ia, ledger = _setup()
-
-    if name is not None:
-        entry = _resolve_show(config, ledger, name)
-        if entry.provenance is None:
-            typer.echo(f"no provenance.json in {entry.ws.dir} - "
-                       "reprocess it via its run first", err=True)
-            raise typer.Exit(1)
-        pkg = _redo_show(config, ia, ledger, entry, "package", voice=want_voice)
-        if pkg:
-            typer.echo(f"packaged: {pkg}")
-        else:
-            typer.echo(f"still held: {entry.slug}")
-        return
-
-    try:
-        sel = build_selector(held=held, packaged=packaged, states=state,
-                             voiced=voiced, unvoiced=unvoiced, artist=artist,
-                             run=run, broadcast_ready=broadcast_ready)
-    except LlamaError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
-    _redo_batch(config, ia, ledger, sel, "package", redo_research=False,
-               script=None, voice=want_voice, yes=yes)
+               script=script, yes=yes)
 
 
 def _rm_action(forget: bool, suppress: bool) -> str:

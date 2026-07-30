@@ -29,6 +29,23 @@ def test_redo_batch_requires_target(tmp_path: Path):
     assert "a show" in r.output.lower() and "--run" in r.output
 
 
+def test_redo_voice_flag_is_gone(tmp_path: Path):
+    # Per-show voice override moved to emcee entirely (voice command too).
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["--config", cfg, "redo", "someshow", "--from", "package", "--voice"])
+    assert r.exit_code != 0
+    assert "no such option" in r.output.lower()
+
+
+def test_voice_command_is_gone(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["--config", cfg, "voice", "someshow"])
+    assert r.exit_code != 0
+    assert "no such command" in r.output.lower()
+
+
 def test_redo_rejects_name_and_selector_together(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
@@ -216,8 +233,8 @@ def test_redo_batch_unvoiced_plans_and_confirms(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(cli, "_redo_show",
                         lambda *a, **k: calls.append(a[3].slug) or a[3].ws.package_dir)
-    r = runner.invoke(cli.app, ["--config", cfg, "redo", "--unvoiced", "--from", "package",
-                                "--voice"], input="y\n")
+    r = runner.invoke(cli.app, ["--config", cfg, "redo", "--unvoiced", "--from", "package"],
+                      input="y\n")
     assert r.exit_code == 0, r.output
     assert calls == ["gratefuldead-1973-06-10"]
 
