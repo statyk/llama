@@ -1,10 +1,10 @@
 """CLI boundary: typer app + `main_cli` error boundary.
 
-Later tasks register real commands on `app`. `_COMMAND_ORDER` fixes the
-`--help` panel ordering via `OrderedPanelGroup`, mirroring llama's
-`cli.py:57-65` pattern.
+`_COMMAND_ORDER` fixes the `--help` panel ordering via `OrderedPanelGroup`,
+mirroring llama's `cli.py:57-65` pattern.
 """
 
+import json
 import sys
 import traceback
 from pathlib import Path
@@ -16,9 +16,12 @@ from herder import HerderError
 
 from emcee.config import DEFAULT_CONFIG_TOML, EmceeConfig, default_root, load_config
 from emcee.errors import EmceeError
+from emcee.package_io import Package, UnsupportedPackage, rewrite_manifest
 from emcee.presenters import (
     Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
 )
+from emcee.process import process_package, resolve_assignment, speech_for
+from emcee.station import PackageStatus, readiness, scan
 
 _COMMAND_ORDER = ["run", "voice", "status", "presenter", "config"]
 
@@ -57,6 +60,257 @@ def _main() -> None:
     with no sub-typer and no callback. Typer allows only one `@app.callback()`;
     a second one wouldn't error, it would just silently supersede this one.
     """
+
+
+def _resolve_station_root(config: EmceeConfig, override: Path | None) -> Path:
+    """Resolve `[station] root`, hard-failing if it is unset, missing, or
+    not a directory.
+
+    `station.scan()` deliberately returns `[]` for that case -- it can't
+    tell "not configured yet" from "legitimately empty" -- so that judgment
+    call is left to callers (see `scan`'s docstring). `run`/`status` are
+    exactly those callers: they need "not configured"/"missing" to be a
+    hard, actionable error rather than a silently empty report.
+    """
+    root = override if override is not None else config.station.root
+    if root is None:
+        raise EmceeError(
+            "[station] root is not set: pass --station-root or set "
+            "[station] root in config.toml"
+        )
+    root = Path(root)
+    if not root.is_dir():
+        raise EmceeError(f"[station] root does not exist or is not a directory: {root}")
+    return root
+
+
+def _scan_broad(root: Path) -> list[PackageStatus]:
+    """Re-walk `root` package-by-package, never letting one malformed
+    package's `readiness()` check abort the walk.
+
+    `package_io`/`station` deliberately validate no manifest model (see
+    `package_io`'s module docstring), so a valid-JSON-but-structurally-wrong
+    v3 manifest -- a track dict missing `filename`, `dj_audio` not a dict,
+    `tracks` not a list -- raises a bare `KeyError`/`AttributeError`/
+    `TypeError` straight out of `readiness()`, escaping both the
+    `EmceeError` taxonomy and `station.scan`'s own try/except (which only
+    guards `UnsupportedPackage`). This is the fallback `_station_statuses`
+    reaches for when the fast path (`station.scan`) blows up on exactly
+    that: it mirrors `scan`'s walk but wraps every entry's `manifest()`/
+    `readiness()` call individually, reporting a failure as a `PackageStatus`
+    with `state="error"` -- a state `station.scan` itself never produces --
+    instead of propagating and taking the rest of the batch down with it.
+    """
+    statuses: list[PackageStatus] = []
+    for entry in sorted(Path(root).iterdir()):
+        if not entry.is_dir() or not (entry / "manifest.json").exists():
+            continue
+        pkg = Package(entry)
+        try:
+            pkg.manifest()
+        except UnsupportedPackage:
+            version = json.loads(pkg.manifest_path.read_text()).get("schema_version", "?")
+            statuses.append(PackageStatus(
+                path=entry, state="unsupported",
+                reasons=[f"unsupported (v{version} — re-deliver from llama)"],
+            ))
+            continue
+        except Exception as exc:
+            statuses.append(PackageStatus(path=entry, state="error", reasons=[str(exc)]))
+            continue
+        try:
+            ok, reasons = readiness(pkg)
+        except Exception as exc:
+            statuses.append(PackageStatus(path=entry, state="error", reasons=[str(exc)]))
+            continue
+        statuses.append(PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons))
+    return statuses
+
+
+def _station_statuses(root: Path) -> list[PackageStatus]:
+    """Every package's status under `root`. Tries `station.scan` first (the
+    normal, documented path); if a structurally-mangled manifest makes it
+    raise mid-walk (see `_scan_broad`'s docstring), falls back to a
+    per-entry-isolated re-walk so one bad package can't take the whole
+    report down. `scan`/`readiness` are read-only, so re-walking on the
+    fallback path is safe and idempotent.
+    """
+    try:
+        return scan(root)
+    except Exception:
+        return _scan_broad(root)
+
+
+def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
+    """Script + voice + broadcast-assemble one package. Shared by `run`'s
+    per-pending-package loop and `voice`.
+
+    JUDGMENT CALL (task-9 report has the full reasoning): clears the
+    manifest's `dj_notes`/`dj_audio` blocks before reprocessing.
+    `process_package` overwrites `dj-notes.md` well before the manifest
+    write that marks its success, so a mid-pipeline failure on an
+    already-*ready* package would otherwise leave `dj-notes.md` holding the
+    new (unrecorded) script while the manifest -- and therefore
+    `station.readiness` -- still reports the *old* blocks as present,
+    reading "ready" despite the drift. Clearing first means a failure here
+    instead degrades the package to "pending" (self-consistent with
+    llama's `redo --from package`, which unlinks the manifest first).
+    Harmless on the happy path: `process_package` overwrites both blocks
+    again moments later as its own success marker. It also never touches
+    `dj-audio/segments.json` -- the per-clip hash cache that actually
+    drives what `voice --fresh` re-renders -- so it has no effect on
+    `--fresh`'s re-roll behavior.
+
+    Per the blessed call convention: `resolve_assignment`/`speech_for` are
+    resolved fresh here, every call -- never hoisted above a per-package
+    loop -- so each package's presenter-derived voice is never accidentally
+    reused for a different package.
+    """
+    manifest = pkg.manifest()
+    rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
+    presenter, title = resolve_assignment(config, manifest)
+    speech, bed = speech_for(config, presenter)
+    try:
+        process_package(config, pkg, speech, force)
+    finally:
+        speech.close()
+
+
+@app.command()
+def run(
+    force: bool = typer.Option(False, "--force",
+                               help="Re-synthesize every DJ clip even if cached"),
+    station_root: Path = typer.Option(
+        None, "--station-root",
+        help="Override \\[station] root for this invocation"),
+):
+    """Voice every pending package in the station.
+
+    Scans `\\[station] root` (or `--station-root`) and processes every
+    package whose derived state is "pending": writes the DJ script,
+    synthesizes DJ audio, assembles `broadcast.m3u`, and rewrites the
+    manifest's `dj_notes`/`dj_audio` blocks. Packages already "ready" are
+    left alone. "unsupported" (pre-v3) packages are reported and never
+    modified -- re-deliver them from llama first.
+
+    Per-package failures -- including a structurally invalid manifest
+    (e.g. a track missing its filename), since emcee validates no manifest
+    model -- are caught broadly, printed as `error: <slug>: <message>`,
+    and do not stop the rest of the batch. Exits 1 if any package failed.
+    """
+    config = load_config()
+    root = _resolve_station_root(config, station_root)
+    statuses = _station_statuses(root)
+
+    failed = False
+    processed = 0
+    for status in statuses:
+        slug = status.path.name
+        if status.state == "unsupported":
+            typer.echo(f"skip {slug}: {status.reasons[0]}")
+            continue
+        if status.state == "ready":
+            continue
+        if status.state == "error":
+            typer.echo(f"error: {slug}: {status.reasons[0]}", err=True)
+            failed = True
+            continue
+        try:
+            _process_one(config, Package(status.path), force)
+        except Exception as exc:
+            typer.echo(f"error: {slug}: {exc}", err=True)
+            failed = True
+            continue
+        processed += 1
+        typer.echo(f"voiced: {slug}")
+
+    typer.echo(f"{processed} package(s) voiced" + (" (with errors)" if failed else ""))
+    if failed:
+        raise typer.Exit(1)
+
+
+@app.command("voice")
+def voice_cmd(
+    package_path: Path = typer.Argument(..., help="Path to one delivered package directory"),
+    fresh: list[str] = typer.Option(
+        [], "--fresh",
+        help="Re-roll (re-synthesize) just these DJ-clip stems, e.g. set1-intro "
+             "or 99-outro; repeatable. Deletes the cached clip first so "
+             "reprocessing re-renders only it -- other clips keep their "
+             "cached audio. NOTE: unlike llama, emcee stamps no "
+             "voice/provenance -- a re-voice always resolves the voice fresh "
+             "from config + presenter assignment, so if the configured voice "
+             "changed since the last render, --fresh re-renders EVERY clip "
+             "(every cache key changes with the voice), not just the one "
+             "named."),
+    force: bool = typer.Option(False, "--force",
+                               help="Re-synthesize every DJ clip even if cached"),
+):
+    """Script + voice + broadcast-assemble ONE delivered package.
+
+    `package_path` names one package directory directly -- use `emcee run`
+    to process a whole station. Re-processing an already-"ready" package
+    first clears its `dj_notes`/`dj_audio` manifest blocks so a
+    mid-pipeline failure degrades it to "pending" instead of leaving it
+    stale-"ready" (see the task-9 report for the reasoning); a clean run
+    overwrites both blocks again as its own success marker.
+    """
+    config = load_config()
+    pkg = Package(package_path)
+    pkg.manifest()  # validates schema_version >= 3; UnsupportedPackage/EmceeError -> boundary
+
+    if fresh:
+        audio_dir = pkg.dir / "dj-audio"
+        available = sorted(p.stem for p in audio_dir.glob("*.mp3")) if audio_dir.is_dir() else []
+        if not available:
+            raise EmceeError(f"{pkg.dir.name} has no DJ audio to re-roll (not voiced yet)")
+        unknown = [s for s in fresh if s not in available]
+        if unknown:
+            raise EmceeError(
+                f"no clip {unknown[0]!r} in {pkg.dir.name}; clips: {', '.join(available)}"
+            )
+        stems = list(dict.fromkeys(fresh))  # dedupe: a repeated stem must not double-unlink
+        for stem in stems:
+            (audio_dir / f"{stem}.mp3").unlink()
+        typer.echo(f"re-rolling {', '.join(stems)} "
+                   "(previous take(s) discarded — TTS is non-deterministic)")
+
+    _process_one(config, pkg, force)
+    typer.echo(f"voiced: {pkg.dir}")
+
+
+@app.command("status")
+def status_cmd(
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+):
+    """Table of every package in the station: slug, state, reasons.
+
+    States: "ready" (fully voiced and broadcast-assembled), "pending" (not
+    yet, or not fully, processed), "unsupported" (pre-v3 manifest --
+    re-deliver from llama). Same `\\[station] root` resolution and the same
+    broad per-package error handling as `run`: a structurally malformed
+    manifest renders as an "error" row with its exception message instead
+    of crashing the whole table.
+    """
+    config = load_config()
+    root = _resolve_station_root(config, None)
+    statuses = _station_statuses(root)
+
+    if json_output:
+        payload = [
+            {"slug": s.path.name, "state": s.state, "reasons": s.reasons}
+            for s in statuses
+        ]
+        typer.echo(json.dumps(payload, indent=2))
+        return
+
+    if not statuses:
+        typer.echo("no packages found")
+        return
+    width = max(len(s.path.name) for s in statuses)
+    for s in statuses:
+        reasons = "; ".join(s.reasons)
+        typer.echo(f"{s.path.name:<{width}}  {s.state:<12}  {reasons}")
 
 
 def _assignments_using_presenter(config: EmceeConfig, presenter_id: str) -> list[str]:
