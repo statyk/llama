@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **No modifications under `packages/emcee/`** except where a task names them (release smoke test) — emcee shipped in Plan A.
+- **No modifications under `packages/emcee/`** except where a task names them (release smoke test; Task 7's two one-line polish fixes) — emcee shipped in Plan A.
 - Full suite green after every task (`pytest -q` from root); commit per task.
 - Deletions use `git rm` (history). Moves of test content are copies-then-delete within one task's commit.
 - llama's deliver gate after this plan: manifest exists + every manifest track's audio file on disk + not held. **No voice legs anywhere in llama.**
@@ -125,7 +125,8 @@
 - Modify: `docs/station-brief.md` (llama delivers unvoiced+briefed; dj_notes/dj_audio/broadcast.m3u documented as emcee-written; `source.profile` documented), `README.md` (emcee section: install, config init, assign, run/voice/status; llama sections lose voice/presenter/TTS), `docs/workflow.md` (voice sections rewritten around `emcee run`; stage table minus synthesize; states minus scripted), `CLAUDE.md` (architecture rewrite: three packages, llama's shrunk pipeline, emcee's role; commands list updated)
 - Modify: `packages/llama/src/llama/config.py` docs remnants if any grep hits for tts/presenter remain
 
-- [ ] **Step 1:** Write the docs; grep the four files for `voice|presenter|tts|broadcast-ready|synthesize|scripted|allow-unvoiced` and resolve every hit (rewrite, move to the emcee section, or delete).
+- [ ] **Step 1:** Write the docs; grep the four files for `voice|presenter|tts|broadcast-ready|synthesize|scripted|allow-unvoiced` and resolve every hit (rewrite, move to the emcee section, or delete). Include the **single-writer station statement** (Plan A review follow-up): emcee assumes one `emcee run` at a time against a station root — no lock is taken; overlapping runs cannot corrupt packages (unique-temp + atomic rename everywhere) but will double LLM/TTS spend.
+- [ ] **Step 1b: Two one-line emcee polish fixes** (parked by Plan A's whole-branch review; both cosmetic): `packages/emcee/src/emcee/cli.py:103` — `_typed_error` special-cases expected errors so `HerderError`/`EmceeError` render without the redundant class label (`isinstance(exc, (EmceeError, HerderError))` → `str(exc)` alone); `cli.py:245` — remove the stray `main_cli` wording that leaks into `emcee run --help`. Cover the first with one assertion in the existing typed-error test.
 - [ ] **Step 2:** `llama pipeline` output vs workflow.md stage table consistency check (the teaching text was updated in Task 4 — verify docs agree).
 - [ ] **Step 3: Suite green** (docs only). — **Step 4: Commit** — `docs: two-tool story — llama delivers briefed packages, emcee voices them`
 
