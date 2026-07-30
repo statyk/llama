@@ -407,6 +407,36 @@ def test_redo_from_select_keeps_winnow_assessment(tmp_path: Path, monkeypatch):
     assert prov.assessment.rationale == prov.dossier
 
 
+def test_redo_preserves_profile_stamp(tmp_path: Path, monkeypatch):
+    """A profile-driven show's provenance.profile must survive `redo` --
+    _redo_show replays process_show with profile=prov.profile; a refactor
+    that drops that kwarg would silently reset it to None."""
+    from test_pipeline import FakeIA, fake_providers
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg,
+        "get", "GD 1973", "--auto", "--script", "--name", "redoprofile"])
+    assert result.exit_code == 0, result.output
+    sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
+
+    # Seed a profile stamp as if this show had originated from a profile run
+    # (the CLI `get` call above was one-off, so profile starts None).
+    prov = read_model(sws.provenance, Provenance)
+    assert prov.profile is None
+    prov.profile = "prime-dead"
+    write_artifact(sws.provenance, prov)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "redo", "gratefuldead", "--from", "select"])
+    assert result.exit_code == 0, result.output
+
+    prov = read_model(sws.provenance, Provenance)
+    assert prov.profile == "prime-dead"  # survived the redo, not reset to None
+
+
 def test_redo_run_package_keeps_cached_dj_notes(tmp_path: Path, monkeypatch):
     import llama.pipeline as pipeline
     from test_pipeline import JB_OFF, FakeIA, fake_providers
