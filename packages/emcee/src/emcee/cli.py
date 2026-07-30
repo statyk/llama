@@ -5,7 +5,6 @@ Later tasks register real commands on `app`. `_COMMAND_ORDER` fixes the
 `cli.py:57-65` pattern.
 """
 
-import os
 import sys
 import traceback
 from pathlib import Path
@@ -15,6 +14,7 @@ from typer.core import TyperGroup
 
 from herder import HerderError
 
+from emcee.config import DEFAULT_CONFIG_TOML, EmceeConfig, default_root, load_config
 from emcee.errors import EmceeError
 from emcee.presenters import (
     Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
@@ -37,6 +37,9 @@ presenter_app = typer.Typer(help="On-air hosts (presenters/<id>.toml)",
                             pretty_exceptions_enable=False)
 app.add_typer(presenter_app, name="presenter")
 
+config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=False)
+app.add_typer(config_app, name="config")
+
 
 @app.callback()
 def _main() -> None:
@@ -56,21 +59,16 @@ def _main() -> None:
     """
 
 
-def default_root() -> Path:
-    """Resolve the emcee workspace root: `EMCEE_ROOT` env override, else
-    `~/.emcee`. Task 5 replaces this with config-based resolution; kept as a
-    single obvious seam (one function, called from each command) to swap."""
-    root = os.environ.get("EMCEE_ROOT")
-    return Path(root) if root else Path.home() / ".emcee"
-
-
-def _assignments_using_presenter(root: Path, presenter_id: str) -> list[str]:
+def _assignments_using_presenter(config: EmceeConfig, presenter_id: str) -> list[str]:
     """Names of emcee `[assign]` config entries that still name this
-    presenter -- used by `presenter remove`'s in-use refusal. Config lands in
-    Task 5; until then there is nothing to check, so this always returns
-    `[]`. Task 5 re-signatures this to take the loaded config and implements
-    the real lookup over `config.assign.profiles` (plus `[assign] default`)."""
-    return []
+    presenter -- used by `presenter remove`'s in-use refusal. Profile entries
+    are named by their `[assign.profiles.<name>]` key; the station-wide
+    `[assign] default` has no profile name of its own, so it is reported as
+    the literal string `"[assign] default"`."""
+    users = [name for name, a in config.assign.profiles.items() if a.presenter == presenter_id]
+    if config.assign.default == presenter_id:
+        users.append("[assign] default")
+    return users
 
 
 @presenter_app.command("add")
@@ -86,7 +84,7 @@ def presenter_add(
     force: bool = typer.Option(False, "--force"),
 ):
     """Create a presenter (on-air host)."""
-    root = default_root()
+    root = load_config().root
     if bool(character) == bool(character_file):
         typer.echo("give exactly one of --character / --character-file", err=True)
         raise typer.Exit(1)
@@ -114,7 +112,7 @@ def presenter_add(
 @presenter_app.command("list")
 def presenter_list():
     """List presenters."""
-    root = default_root()
+    root = load_config().root
     rows = list_presenters(root)
     if not rows:
         typer.echo("no presenters")
@@ -130,7 +128,7 @@ def presenter_list():
 @presenter_app.command("show")
 def presenter_show(id: str = typer.Argument(...)):
     """Show one presenter's fields."""
-    root = default_root()
+    root = load_config().root
     p = load_presenter(root, id)     # PresenterError -> main_cli boundary
     v = p.voice or f"clone:{p.voice_clone}"
     typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else ""))
@@ -147,12 +145,13 @@ def presenter_remove(
 ):
     """Delete a presenter's TOML file. Refuses if an assignment still names
     it as its presenter -- pass --force to remove it anyway."""
-    root = default_root()
+    config = load_config()
+    root = config.root
     path = root / "presenters" / f"{id}.toml"
     if not path.exists():
         raise PresenterError(f"no presenter {id!r}: {path} does not exist")
     if not force:
-        users = _assignments_using_presenter(root, id)
+        users = _assignments_using_presenter(config, id)
         if users:
             typer.echo(f"presenter {id} is used by: {', '.join(users)} "
                        "— --force to remove anyway", err=True)
@@ -161,6 +160,29 @@ def presenter_remove(
         return
     delete_presenter(root, id)
     typer.echo(f"removed: {path}")
+
+
+@config_app.command("init")
+def config_init(
+    stdout: bool = typer.Option(False, "--stdout",
+                                help="Print the default config instead of writing a file"),
+    config_path: Path = typer.Option(None, "--config",
+                                     help="Target file (default ~/.emcee/config.toml)"),
+):
+    """Seed a config file with the baked-in defaults, fully commented."""
+    if stdout:
+        typer.echo(DEFAULT_CONFIG_TOML, nl=False)
+        return
+    target = config_path or default_root() / "config.toml"
+    if target.exists():
+        typer.echo(f"{target} already exists - not overwriting "
+                   "(delete it first if you mean to reseed)", err=True)
+        raise typer.Exit(1)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(DEFAULT_CONFIG_TOML)
+    typer.echo(f"wrote {target}")
+    typer.echo("note: config values replace built-in defaults (no merging); "
+               "the defaults are written out so additive edits keep them")
 
 
 def main_cli() -> None:

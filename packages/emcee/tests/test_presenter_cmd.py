@@ -2,8 +2,8 @@
 
 Modeled on llama's presenter CLI tests (packages/llama/tests/test_cli_commands.py,
 around lines 383, 397, 407, 510, 545) but addressed at emcee's `app`, with the
-workspace root resolved via the `EMCEE_ROOT` env var (`emcee.cli.default_root`)
-instead of a `--config` file (config lands in Task 5).
+workspace root resolved via the `EMCEE_ROOT` env var (`emcee.config.default_root`,
+which also backs `EmceeConfig.root`'s default) instead of a `--config` file.
 """
 
 from pathlib import Path

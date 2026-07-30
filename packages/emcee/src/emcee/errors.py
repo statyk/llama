@@ -22,3 +22,7 @@ class EmceeError(Exception):
     def __init__(self, message: str, details: list[str] | None = None):
         super().__init__(message)
         self.details = details or []
+
+
+class ConfigError(EmceeError):
+    """The config file could not be parsed or failed schema validation."""

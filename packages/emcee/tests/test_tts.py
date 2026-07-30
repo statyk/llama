@@ -5,6 +5,8 @@ import wave
 import httpx
 import pytest
 
+from emcee.config import EmceeConfig
+from emcee.tts import speech_provider_for
 from emcee.tts.elevenlabs import ElevenLabsProvider
 from emcee.tts.fake import SILENT_MP3, SILENT_WAV, FakeSpeechProvider
 from emcee.tts.provider import SpeechError, SpeechProvider
@@ -140,3 +142,73 @@ def test_elevenlabs_model_defaults_when_none():
     from emcee.tts.elevenlabs import DEFAULT_MODEL
     p = ElevenLabsProvider(voice="v", model=None, api_key="k")
     assert p.model == DEFAULT_MODEL == "eleven_multilingual_v2"
+
+
+# --- speech_provider_for factory (stashed from Task 3, retargeted to
+# EmceeConfig now that Task 5 provides it) ------------------------------
+
+
+def test_factory_fake_backend():
+    cfg = EmceeConfig.model_validate({"tts": {"backend": "fake"}})
+    assert isinstance(speech_provider_for(cfg, "ignored"), FakeSpeechProvider)
+
+
+def test_factory_elevenlabs_uses_voice_and_model(monkeypatch):
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+    cfg = EmceeConfig.model_validate({"tts": {"backend": "elevenlabs", "model": "eleven_turbo_v2_5"}})
+    p = speech_provider_for(cfg, "v-abc")
+    assert isinstance(p, ElevenLabsProvider)
+    assert (p.voice, p.model) == ("v-abc", "eleven_turbo_v2_5")
+
+
+def test_factory_voxtral_is_default_preset(monkeypatch):
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    from emcee.tts.voxtral import VoxtralProvider
+    p = speech_provider_for(EmceeConfig.model_validate({"tts": {"voice": "british-dj"}}), "british-dj")
+    assert isinstance(p, VoxtralProvider)
+    assert p.voice == "british-dj"
+
+
+def test_factory_voxtral_clone_mode(monkeypatch, tmp_path):
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    from emcee.tts.voxtral import VoxtralProvider
+    ref = tmp_path / "dj.wav"; ref.write_bytes(b"REF")
+    p = speech_provider_for(EmceeConfig(), None, clone_ref=str(ref))
+    assert isinstance(p, VoxtralProvider)
+    assert p.voice.startswith("clone:")
+
+
+def test_factory_ignores_config_clone_without_clone_ref(monkeypatch, tmp_path):
+    # Callers own clone resolution (a presenter must fully own its voice):
+    # the factory itself no longer falls back to [tts] voice_clone.
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    ref = tmp_path / "dj.wav"; ref.write_bytes(b"REF")
+    cfg = EmceeConfig.model_validate({"tts": {"voice_clone": str(ref)}})
+    with pytest.raises(SpeechError, match="no Voxtral voice configured"):
+        speech_provider_for(cfg, None)
+
+
+def test_factory_elevenlabs_rejects_clone_ref(monkeypatch):
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+    cfg = EmceeConfig.model_validate({"tts": {"backend": "elevenlabs"}})
+    with pytest.raises(SpeechError, match="voice cloning is Voxtral-only"):
+        speech_provider_for(cfg, "v-abc", clone_ref="/refs/x.wav")
+
+
+def test_factory_voxtral_no_voice_no_clone_raises(monkeypatch):
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    with pytest.raises(SpeechError):
+        speech_provider_for(EmceeConfig(), None)
+
+
+def test_factory_no_voice_raises(monkeypatch):
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+    with pytest.raises(SpeechError):
+        speech_provider_for(
+            EmceeConfig.model_validate({"tts": {"backend": "elevenlabs"}}), None)
+
+
+def test_factory_unknown_backend_raises():
+    cfg = EmceeConfig.model_validate({"tts": {"backend": "kokoro"}})
+    with pytest.raises(SpeechError):
+        speech_provider_for(cfg, "v")
