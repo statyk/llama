@@ -66,6 +66,8 @@ def test_main_cli_renders_herder_error(monkeypatch, capsys):
 def test_typed_error_does_not_prefix_emcee_error():
     exc = EmceeError("scriptwrite failed fact-checking after retry")
     assert _typed_error(exc) == "scriptwrite failed fact-checking after retry"
+    assert _typed_error(HerderError("no provider configured for tier high")) == \
+        "no provider configured for tier high"
 
 
 def test_typed_error_does_not_prefix_emcee_error_subclass():

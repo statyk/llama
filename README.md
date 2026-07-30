@@ -1,26 +1,34 @@
-# llama
+# llama + emcee
 
-Finds concerts on archive.org's Live Music Archive, vets them for quality,
-researches the specific performance (fact-checking the research against the
-setlist before it ships), and packages audio + notes for an automated radio
-station. A verbatim DJ script is included by default (`--no-script`, or
-`script = false` on a profile, opts out). A profile can name a **presenter**
-(`presenters/<id>.toml`) as its on-air host — a persona-authored voice that
-speaks in the first person and can hold opinions. The script can optionally
-be **spoken** — per-segment MP3 clips synthesized via hosted Mistral Voxtral
-by default (ElevenLabs is an opt-in alternative backend; presenter voice
-clones are Voxtral-only) — opt-in and off by default (`--voice`, or naming a
-presenter on the profile).
+Two tools that together take an archive.org Live Music Archive recording to
+air. **`llama`** finds concerts, vets them for quality, researches the
+specific performance (fact-checking the research against the setlist before
+it ships), and packages audio + a neutral vetted **briefing** for an
+automated radio station — ending at `llama deliver`. It never writes a DJ
+script and has no TTS. **`emcee`** (dist `llama-emcee`) is a separate,
+station-side CLI that runs *after* delivery: it scans the station's
+delivered-packages folder, writes a DJ script from the briefing (optionally
+in a named **presenter**'s persona — a reusable on-air host defined in
+`presenters/<id>.toml`), speaks it via TTS (hosted Mistral Voxtral by
+default, ElevenLabs an opt-in alternative), and assembles `broadcast.m3u` —
+writing all of that straight into the package llama delivered. See
+[emcee: voicing delivered packages](#emcee-voicing-delivered-packages)
+below for emcee's own setup and commands.
 
 ## Setup
 
-This is a monorepo: `packages/llama` is the CLI described above, and
-`packages/herder` is the shared LLM task layer underneath it (tiered
-provider resolution, schema-validated task runners, retry escalation).
-Install both editable together:
+This is a monorepo of three packages: `packages/llama` (the acquisition CLI
+described above), `packages/emcee` (the station-side voicing CLI), and
+`packages/herder`, the shared LLM task layer underneath both of them
+(tiered provider resolution, schema-validated task runners, retry
+escalation). Install all three editable together:
 
     python3 -m venv .venv && source .venv/bin/activate
-    pip install -e packages/herder -e "packages/llama[dev]"
+    pip install -e packages/herder -e "packages/llama[dev]" -e packages/emcee
+
+(Installing `packages/emcee` is optional if you only need llama's
+acquisition side — e.g. a dev box that never voices shows — but the
+default setup above installs both.)
 
 Optional config at `~/.llama/config.toml` — seed a fully-commented copy of
 these defaults with `llama config init` (`--stdout` to print instead):
@@ -33,26 +41,6 @@ these defaults with `llama config init` (`--stdout` to print instead):
     api_key = "..."                  # or SETLISTFM_API_KEY env var; optional —
                                      # without it set-structure recovery is
                                      # best-effort from LMA descriptions only
-
-    [tts]
-    enabled = true                   # spoken DJ patter; default false. A profile
-                                     # with a presenter is voiced even when
-                                     # this is off. Voice implies --script.
-    backend = "voxtral"              # hosted Mistral Voxtral (default); or
-                                     # "elevenlabs"
-    voice = "..."                    # HOUSE voxtral preset name (or elevenlabs
-                                     # voice_id when backend="elevenlabs"), used
-                                     # only when a profile names no presenter
-                                     # (presenters/<id>.toml own their voice —
-                                     # see Presenters below)
-    # voice_clone = "/path/to/ref.wav" # 3-25s reference WAV; when set, voxtral
-                                     # clones it instead and ignores `voice`
-    # model = "..."                 # per-backend default when unset
-                                     # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
-    api_key = "..."                  # or MISTRAL_API_KEY / ELEVENLABS_API_KEY env
-                                     # var (env wins); no local/offline TTS option yet
-    # chunk = true                   # sentence-by-sentence synthesis + concat
-                                     # for better prosody; default false; needs lameenc
 
     [winnow]
     max_metadata_fetch = 40          # review-fetch budget; when survivors exceed it
@@ -78,8 +66,8 @@ these defaults with `llama config init` (`--stdout` to print instead):
     # backend = "openrouter"         # HTTP alternative; set OPENROUTER_API_KEY
     # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
     # gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
-    # Defaults: medium for most tasks; high for deep_research, brief, and
-    # synthesize; low for vet_research.
+    # Defaults: medium for most tasks; high for deep_research and brief;
+    # low for vet_research.
     # If a task's output fails validation twice, the final retry runs one
     # tier up (exact `model` pins never escalate).
 
@@ -89,8 +77,8 @@ these defaults with `llama config init` (`--stdout` to print instead):
     # weaker than the claude CLI's agentic multi-step research, and research
     # quality is audible on air. Mixing backends per task is supported.
 
-    [llm.synthesize]
-    # tier = "medium"                # example: cheaper synthesis
+    [llm.brief]
+    # tier = "medium"                # example: cheaper briefing
     # model = "claude-opus-4-8"      # example: exact pin, bypasses tiers
 
     [llm.tiers.openrouter]
@@ -107,51 +95,22 @@ edits keep them. The trap runs both ways: deleting a seeded table or block
 restores its built-in default (absence = default) — to truly clear one, set
 it empty (e.g. `lineage_eras = []` under `[selection]`).
 
-### Presenters (optional on-air hosts)
+Presenters, TTS, and everything about *voicing* a show now belong to
+`emcee` — see
+[emcee: voicing delivered packages](#emcee-voicing-delivered-packages)
+below. llama has no `[tts]` config, no presenter concept, and no
+`--voice`/`--script` flags anywhere.
 
-A **presenter** is a reusable radio-show host — TTS voice + authored
-character + on-air identity — created with `llama presenter add <id>
---name NAME --sex SEX (--voice ID | --voice-clone WAV) (--character "..." |
---character-file PATH)`, or defined by hand in
-`~/.llama/presenters/<id>.toml` (both write/read the same file; `llama
-presenter list` / `llama presenter show <id>` inspect what's there):
-
-    name = "Casey"
-    sex = "male"
-    voice = "american-dj"          # or: voice_clone = "/path/to/casey-ref.wav"
-    character = """
-    Warm late-night FM veteran. Dry humor, deep tape-collector knowledge, gets
-    audibly excited about big jams. Keeps it loose but never sloppy.
-    """
-
-A profile references one with `presenter = "<id>"` and names its show with
-`title = "..."` (`llama profile add sunday-dead-hour "..." --presenter casey
---title "Sunday Morning Dead"`). Naming a presenter voices that profile's
-runs even when `[tts] enabled` is false (`--no-voice` still strips audio for
-one run); with no presenter, `[tts] voice`/`voice_clone` above is the house
-default and the script stays in the neutral narrator voice. The host knows
-the show's title and drops it on air occasionally, and speaks with
-loosened-but-bounded grounding: opinions and paraphrased review/research
-sentiment are the host's own, but concert facts (dates, venue, songs, set
-structure) still come only from the show data, and the host never claims to
-have been there — the same `vet`/`factual_guard` checks hold a show for
-review either way. `voice_clone` on a presenter is Voxtral-only (errors
-loudly on the ElevenLabs backend). Character edits are live: edit the TOML,
-then `llama redo <show> --from synthesize` re-scripts with the new persona.
-
-Release binaries (attached to each GitHub Release) are signed: the macOS build
-is Developer ID-signed and notarized (Gatekeeper-clean; because it is a bare
-executable it can't be stapled, so first run does an online notarization check),
-and the Windows build is Authenticode-signed via Azure Trusted Signing. The
-Linux builds are unsigned — verify them against `SHA256SUMS`.
+Release binaries (attached to each GitHub Release, for both `llama` and
+`emcee`) are signed: the macOS build is Developer ID-signed and notarized
+(Gatekeeper-clean; because it is a bare executable it can't be stapled, so
+first run does an online notarization check), and the Windows build is
+Authenticode-signed via Azure Trusted Signing. The Linux builds are
+unsigned — verify them against `SHA256SUMS`. See
+[docs/releasing.md](docs/releasing.md) for the release process.
 
 ## Use
 
-    llama presenter add casey --name Casey --sex male --voice american-dj \
-        --character "Warm late-night FM veteran, dry humor, deep tape-collector knowledge."
-                                     # writes presenters/casey.toml; hand-editing it still works
-    llama presenter list              # every presenter, one line each
-    llama presenter show casey        # one presenter's full fields
     llama get "GD shows 73-74 with a china>rider"
     llama get "top 10 Grateful Dead shows of the 1980s" --auto
     llama get "well-known folk/acoustic performer, 1960s-70s, highly rated"
@@ -175,13 +134,11 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
     llama profile artists funky       # view a profile's pinned roster
     llama profile artists funky --set "Galactic, Lettuce, Soulive"
                                      # re-pin it (validated against the index); --set "" clears
-    llama profile list                # every profile: name, count, presenter, query
+    llama profile list                # every profile: name, count, query
     llama profile show sunday-dead-hour   # inspect one profile (read-only, no LLM call)
     llama get --profile sunday-dead-hour
     llama status                     # attention-list, then every show + its state
     llama status --held              # just the shows waiting on your judgment
-    llama status --unvoiced          # packaged shows with no DJ audio yet
-    llama status --broadcast-ready   # shows that are actually airable right now
     llama status --by-run            # sessions with per-state show counts
     llama run list                   # sessions awaiting approval or incomplete
     llama run approve countryish     # gate 1: approve a session's shortlist, optionally process it
@@ -195,20 +152,21 @@ Linux builds are unsigned — verify them against `SHA256SUMS`.
                                      # metadata corrections; redoes from gather, hold self-clears
     llama triage                     # walk every held show and resolve each in turn
     llama redo 1973-06-10 --from vet # re-run one show's pipeline from a stage
-    llama voice --unvoiced --yes     # voice every packaged-but-silent show
     llama deliver 1973-06-10         # copy package to the station inbox
-    llama deliver --broadcast-ready  # deliver everything that's actually airable
+    llama deliver --packaged         # deliver everything that's ready
     llama rm old-show --suppress     # delete a show and never offer it again
     llama history list                # broadcast history / dedup
+
+There is no `llama voice` or `llama presenter` command, and no
+`--script`/`--voice` on any of the above — llama stops at a packaged,
+briefed, unvoiced show. Voicing it is a separate step, done later by
+`emcee` (see below), against the delivered copy.
 
 Shows and sessions are addressed by **name or any unique substring** (paths
 still work): `llama show 1973-06-10` finds `gratefuldead-1973-06-10`; an
 ambiguous substring fails loudly and lists the candidates.
-`status`, `triage`, `redo`, `voice`, `deliver`, and `rm` share one filter
-vocabulary (`--held`/`--packaged`/`--voiced`/`--unvoiced`/`--broadcast-ready`/
-`--state`/`--artist`/`--run`); `--broadcast-ready` is positive-only (no
-inverse flag) and selects shows that are packaged with every track's audio
-verified on disk, scripted, voiced, have a `broadcast.m3u`, and aren't held.
+`status`, `triage`, `redo`, `deliver`, and `rm` share one filter
+vocabulary (`--held`/`--packaged`/`--state`/`--artist`/`--run`).
 A batch action prints a plan and asks before running (`--yes` skips the
 prompt); acting on held shows via a selector needs explicit `--held` opt-in.
 
@@ -227,9 +185,9 @@ the redo) or `llama triage` (interactive walkthrough):
   title, or where a set break falls. Either way it redoes from `gather` and
   the hold clears itself if that fixes it.
 - **Accept an unknowable setlist** — `llama fix <s> --narration vague` tells
-  the briefing and script writer to stay general (no song names, no
-  set-structure claims), clears the hold, and redoes from `brief` (which
-  regenerates the briefing, any script, and the package too).
+  the briefing to stay general (no song names, no set-structure claims),
+  clears the hold, and redoes from `brief` (which regenerates the briefing
+  and the package too).
 - **Overrule a false alarm** — `llama fix <s> --overrule`, which redoes from
   `package`.
 
@@ -269,177 +227,128 @@ See `docs/superpowers/specs/2026-07-14-llama-design.md` for the design.
 
 ## Package format (v3)
 
-A delivered show package contains:
+A package that `llama deliver` hands to the station contains:
 
 - `audio/` — verified, tagged tracks (`01 - Morning Dew.mp3`, ...)
 - `playlist.m3u` — music-only play order
-- `broadcast.m3u` — voiced shows only: playlist with the `dj-audio/` clips
-  interleaved (each set's lead-in before its first track, outro last)
 - `manifest.json` — `schema_version: 3`; tracks, set breaks, durations,
-  source lineage, `show.context`, pointers `research` / `reviews`, a
-  required `briefing` block, and `research_vetted`
+  source lineage (including `source.profile`, the llama profile name this
+  show came from, or `null` for a one-off `get` — this is what emcee's
+  `[assign]` config keys on), `show.context`, pointers `research` /
+  `reviews`, a required `briefing` block, `research_vetted`, and two
+  **always-null-out-of-llama** blocks, `dj_notes`/`dj_audio` (see below)
 - `research.md` — web-researched show notes, grounding-checked against the
   setlist (`vet` stage) before packaging
 - `reviews.md` — trimmed listener-review digest (top 5, 800 chars each)
 - `briefing.md` + `briefing.json` + `manifest.briefing` — the neutral,
-  vetted, scriptwriter-facing briefing (context, significance, per-set
-  talking points, notable moments, review sentiment, cautions); always
-  present, factually guarded, and stamped with the `narration` mode
-  (`full`/`vague`) from `overrides.json`
-- `dj-notes.md` + `manifest.dj_notes` — llama's own in-house verbatim DJ
-  script (neutral house narrator, or a profile's presenter's persona when
-  one is set), present by default; absent when the run opted out
-  (`--no-script`, or `script = false` on a profile)
-- `dj-audio/` + `manifest.dj_audio` — spoken DJ script (opt-in TTS), present
-  only when voice was active for the show
+  vetted briefing (context, significance, per-set talking points, notable
+  moments, review sentiment, cautions); always present, factually guarded,
+  and stamped with the `narration` mode (`full`/`vague`) from
+  `overrides.json` — llama's **only** text deliverable; llama never writes
+  a DJ script
 
-### Script mode does not change the data
+That's the whole package llama produces. There is no `broadcast.m3u`,
+`dj-notes.md`, or `dj-audio/` at delivery time, and the manifest's
+`dj_notes`/`dj_audio` fields are always `null` — those are written
+**station-side, after delivery, by a separate tool** (`emcee`, below),
+straight into the same package directory. See
+[docs/station-brief.md](docs/station-brief.md) for the full manifest
+contract, including the shape those blocks take once emcee has filled
+them in.
 
-Whether a run generated a script has no effect on the content or quality of
-anything else in the package. Research runs before the script decision is
-consulted (same prompt, same inputs, same model tier), the vet grounding
-check runs unconditionally right after it, and `reviews.md` and the
-manifest's show data (including `show.context`, which comes from the vet
-extraction) are built identically in both modes. `research.md` is the same
-bytes either way.
+## emcee: voicing delivered packages
 
-The two modes differ only in scrutiny and availability, and both
-differences err safe:
+`emcee` (dist `llama-emcee`) is a second CLI, installed alongside llama
+(`pip install -e packages/emcee`, part of the default setup above), that
+you run **separately, station-side**, after `llama deliver`. It never
+imports llama and never touches llama's workspace — its only input is the
+delivered package directory's files, and its only config is its own.
 
-- **Script-on packages cleared one extra gate.** Both modes now get a
-  prose-level cross-check via the always-on `brief` stage's
-  `briefing_guard`, which occasionally catches research contamination that
-  assertion-level vetting can't see — a wrong-show anecdote surfacing as a
-  bad song name. Script-on packages clear a *second* one on top of that:
-  the generated script is separately cross-checked against the setlist
-  (`factual_guard`). A script-on run may therefore hold a subtly-bad show
-  for review that a script-off run would ship.
-- **Script-on runs have one extra failure point.** A synthesize call that
-  exhausts its retries skips the show entirely — it affects whether a
-  package is produced, never what's inside one.
+**Setup.** Seed emcee's own config with `emcee config init` (`--stdout` to
+print instead) and point `[station] root` at the same folder llama's
+`delivery_path` writes into:
 
-Consumers can rely on `research.md`, `reviews.md`, and the manifest meaning
-exactly the same thing regardless of mode; the script setting only
-determines whether the script artifacts exist.
+    [station]
+    root = "/station/inbox"    # same folder as llama's delivery_path
 
-### Voice mode (opt-in TTS)
+    [llm.scriptwrite]
+    backend = "claude_cli"     # same backend choices/tiers as llama's [llm.*]
 
-The DJ script can additionally be **spoken** — off by default, and
-orthogonal to whether other shows in the same run are voiced. The default
-backend is hosted Mistral Voxtral (`voxtral-mini-tts-2603`); set
-`[tts] backend = "elevenlabs"` to use ElevenLabs instead.
-Enable it globally (`[tts] enabled = true` + `[tts] voice`), per invocation
-(`--voice` on `get`/`redo`, or the dedicated `llama voice` verb), or per
-profile by naming a **presenter** (`profile add --presenter <id>`, see
-[Presenters](#presenters-optional-on-air-hosts) above), which opts that
-profile in even when `[tts] enabled` is false — different profiles can
-have different hosts and voices. Voice always implies script: enabling
-voice forces the DJ script on even against `--no-script`, since there is no
-text to voice otherwise.
+    [tts]
+    backend = "voxtral"        # hosted Mistral Voxtral (default); or "elevenlabs"
+    voice = "..."              # HOUSE voxtral preset name (or elevenlabs voice_id),
+                               # used when a show has no presenter assignment
+    # voice_clone = "..."      # 3-25s reference WAV; clones a house voice instead
+    api_key = "..."            # or MISTRAL_API_KEY / ELEVENLABS_API_KEY env var
+    # chunk = true             # sentence-by-sentence synthesis for better prosody
+    # bed = "/path/to/bed.wav" # instrumental bed under every DJ clip (24kHz mono
+                               # 16-bit WAV; per-presenter override via its own `bed`)
 
-When a show is voiced, `package/dj-audio/` gains one MP3 per script
-segment — one `set<key>-intro.mp3` per non-encore set (the first also opens
-the show) and a closing `99-outro.mp3` — and the manifest gains a `dj_audio`
-block of package-relative paths to them. There is one clip per gap between
-music blocks, so nothing plays back-to-back: the encore has no lead-in (it
-follows the final set), and the outro recaps it. See
-[docs/station-brief.md](docs/station-brief.md) for the full contract.
+**Assigning a presenter to a llama profile.** `[assign]` maps the llama
+profile name stamped at `manifest["source"]["profile"]` to a presenter and
+an on-air title — this is the entire handoff between the two tools:
 
-Segments are cached per show by a hash of (text, voice, model), so
-repackaging an unchanged script doesn't re-spend on the paid API; `llama
-voice <show>` (sugar for `redo <show> --from package --voice`) re-voices a
-previously-packaged show — it replays the show's recorded voice; to
-actually switch voices, first set a new `[tts] voice` for a house show, or
-edit the presenter's `voice`/`voice_clone` for a hosted show. Unchanged
-segments are never re-rendered — only text/voice/model/chunk changes
-invalidate the cache. Because Voxtral is non-deterministic (the same script
-yields a different take each call), `llama voice <show> --fresh <clip-stem>`
-(e.g. `set1-intro` or `99-outro`; repeatable) deletes just that clip so the
-package re-render re-rolls only it — leaving the other cached takes
-untouched — which is how you rescue a single janky read. A plain `llama run
-resume <session>` on an
-already-packaged session does **not** re-voice it — the package stage is
-skipped — it prints a note pointing at `llama voice <show>`. A TTS failure
-(bad key, rate limit, missing key while voice is active) fails only that
-show — no package, no delivery — while the rest of the batch continues;
-retry with `llama voice <show>` once resolved.
+    [assign]
+    default = "waldo"                    # presenter used when a show's profile
+                                         # has no entry below (or no profile at all)
 
-Voxtral is the default backend, ElevenLabs an opt-in alternative
-(`fake` exists for offline tests). Voxtral's open weights carry a CC BY-NC
-license, but that's irrelevant here: llama is strictly non-commercial, and
-this integration only calls Mistral's hosted API (a paid commercial
-service), not the weights directly. Self-hosting Voxtral, and any other
-local/offline TTS backend, is deliberately deferred.
+    [assign.profiles.prime-dead]
+    presenter = "waldo"
+    title = "The Primal Dead Hour"
 
-**Chunked synthesis (`[tts] chunk`, default off).** Instead of one TTS call
-per script segment, `chunk = true` synthesizes each *sentence* separately
-(via the provider's `fmt="wav"` path), concatenates the raw PCM with a short
-inter-sentence silence, and encodes a single MP3 at the end — noticeably
-better prosody and pacing on longer DJ patter than one long call, at the
-cost of more provider round-trips per segment. It requires the `lameenc`
-dependency (installed by default) and is part of the per-segment cache key,
-so flipping it re-renders affected clips on the next `redo --from package`.
-The chunked encoder picks its bitrate from the actual sample rate returned
-by the provider (64kbps for a ~24kHz stream, matching Voxtral's real output)
-rather than a fixed 128kbps, to avoid an unusual bitrate/sample-rate
-combination; if `ffmpeg -v error` still reports anything on chunked clips,
-the next step is resampling to 44.1/48kHz before encoding.
+**Presenters.** A **presenter** is a reusable on-air host — TTS voice +
+authored character — managed entirely by emcee:
 
-**Bed music (`[tts] bed`, default off).** A low instrumental bed can play
-under each `dj-audio/` clip: pre-roll (music alone), then the bed continues
-quietly under the voice, then a short tail (music alone) — attenuated by
-`[tts] bed_gain_db` (default **-20 dB**) and faded in/out. Set a station
-default with `[tts] bed = "/path/to/bed.wav"`, or override per host with
-`bed = "..."` in a presenter's `presenters/<id>.toml` (a presenter's own bed
-wins over the station default; the gain is always the station
-`bed_gain_db`). The bed file **must be 24kHz mono 16-bit WAV** — anything
-else (wrong sample rate, stereo, wrong bit depth) or a missing file
-hard-fails the package for that show. Mixing is pure PCM math via `numpy`
-(a new dependency); no `ffmpeg` is involved.
+    emcee presenter add casey --name Casey --sex male --voice american-dj \
+        --character "Warm late-night FM veteran, dry humor, deep tape-collector knowledge."
+                                     # writes presenters/casey.toml; hand-editing it still works
+    emcee presenter list               # every presenter, one line each
+    emcee presenter show casey         # one presenter's full fields
+    emcee presenter remove casey       # refuses if any [assign] entry still names it
 
-*Preparing a bed file.* `llama` never converts audio — produce the required
-24kHz mono 16-bit WAV once with any external tool and point `[tts] bed` (or a
-presenter's `bed`) at the result. For example, with ffmpeg:
+Presenters live under emcee's **own** workspace root (`~/.emcee/presenters/`
+by default, or `EMCEE_ROOT`/`root` in config — distinct from `[station]
+root`, the delivered-packages folder). The TOML shape is the same one
+llama's presenters used to have: `name`/`sex`/`character` + exactly one of
+`voice`/`voice_clone`, plus an optional `bed` override. The character
+loosens grounding (opinions and paraphrased review sentiment are the
+host's own; concert facts stay grounded in the manifest) — enforced by
+emcee's own factual guard, not llama's.
 
-```
-ffmpeg -i your-track.mp3 -ac 1 -ar 24000 -c:a pcm_s16le bed.wav
-```
+**Voicing.**
 
-or with sox: `sox your-track.mp3 -r 24000 -c 1 -b 16 bed.wav`
-(`-ac 1`/`-c 1` = mono, `-ar 24000`/`-r 24000` = 24kHz, `pcm_s16le`/`-b 16` =
-16-bit). These tools are only for this one-time prep — they are **not** runtime
-dependencies of `llama`. Verify a file with
-`ffprobe bed.wav` (or `soxi bed.wav`): it should report `pcm_s16le`, `1
-channel`, `24000 Hz`.
+    emcee run                          # scan [station] root, voice every not-yet-ready package
+    emcee run --force                  # re-synthesize every DJ clip even if cached
+    emcee voice /station/inbox/gratefuldead-1973-06-10
+                                       # script + voice + assemble ONE package directly
+    emcee voice /station/inbox/gratefuldead-1973-06-10 --fresh set1-intro
+                                       # re-roll just one DJ clip (repeatable)
+    emcee status                       # table of every package: ready / pending / unsupported
+    emcee status --json
 
-### Downstream synthesis contract
+`emcee run` is the everyday command — "not broadcast-ready" *is* the work
+predicate, so there's nothing to track separately: every pending package
+gets a script, speech, and a `broadcast.m3u`, written straight into the
+package directory llama delivered, and the manifest's `dj_notes`/`dj_audio`
+blocks are rewritten in place. A pre-v3 package (from before this split, or
+otherwise malformed) is reported `unsupported` and left untouched —
+re-deliver it from llama rather than trying to upgrade it in place.
 
-Every package ships `briefing.md` / `briefing.json` (`manifest.briefing`) —
-a neutral, vetted, factually-guarded text deliverable meant to be *read*,
-not spoken verbatim. This is the recommended source for a station-side or
-persona-tool scriptwriter: era/tour context, why the show is worth airing,
-per-set talking points, notable moments, review sentiment, and cautions.
-`dj-notes.md` (`manifest.dj_notes`) remains llama's own in-house,
-ready-to-air verbatim script for the built-in voice path (neutral narrator,
-or a profile's presenter persona) — it keeps working unchanged, but is
-transitional: a downstream persona tool is planned to take over
-scriptwriting from the briefing.
-
-If your DJ (human or LLM) writes its own spoken copy from either artifact,
-it inherits the factual guard this pipeline applies to its own scripts:
-
-- every song mentioned must match a track title in `manifest.tracks`
-- set lead-ins/talking points must cover exactly the non-encore sets
-  present in `manifest.tracks[].set` (the encore gets no dedicated lead-in)
-- under `manifest.briefing.narration == "vague"`, no songs and no set
-  structure may be asserted — the briefing itself already honors this
-
-Copy that names songs or sets not in the manifest must not air.
+**Single-writer station, no lock.** Unlike llama (safe to run as multiple
+concurrent processes against one `~/.llama/`, see "Running several jobs at
+once" above), `emcee run`
+assumes **exactly one instance at a time** against a given station root —
+it takes no lock. Nothing gets corrupted if you run two at once (every
+write in both tools is unique-temp-file-plus-atomic-rename), but an
+overlapping run will find and voice the same pending package twice,
+**doubling LLM/TTS spend** for no benefit. Run it from one place — a
+single cron entry, one operator — not fanned out.
 
 ## Licensing
 
-llama is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE) for the
-full text. `packages/llama/src/llama/data/set_breaks.csv` is vendored from the
-[eichblatt/deadstream](https://github.com/eichblatt/deadstream) project
-(also GPL-3.0) — see `packages/llama/src/llama/data/README.md` for vendoring details and
-attribution.
+Both llama and emcee are licensed under **GPL-3.0-or-later**; see
+[LICENSE](LICENSE) (and `packages/emcee/LICENSE`, an identical copy) for
+the full text. `packages/llama/src/llama/data/set_breaks.csv` is vendored
+from the [eichblatt/deadstream](https://github.com/eichblatt/deadstream)
+project (also GPL-3.0) — see `packages/llama/src/llama/data/README.md` for
+vendoring details and attribution.

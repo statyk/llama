@@ -1,15 +1,23 @@
-# llama → radio station: show-package handoff brief
+# llama + emcee → radio station: show-package handoff brief
 
-*Prepared 2026-07-16 to open a coordination conversation between `llama`
-(the show-sourcing pipeline) and the downstream radio-station app
-(custom Claude-written scheduler layered on RadioDJ). Questions for the
+*Originally prepared 2026-07-16 to open a coordination conversation between
+`llama` (then a single show-sourcing-and-voicing pipeline) and the
+downstream radio-station app (custom Claude-written scheduler layered on
+RadioDJ). Since then the project split into two independent tools:
+`llama` sources, vets, and packages a show (ending at `llama deliver`),
+and a second CLI, `emcee`, runs station-side afterward to write the DJ
+script, synthesize speech, and assemble `broadcast.m3u` directly into the
+delivered package. From the station's point of view the handoff is now
+llama → emcee → station: the package this document describes only reaches
+its final, voiced shape after emcee has processed it. Questions for the
 station team are at the end.*
 
-## What llama is
+## What llama does
 
 `llama` is a Python CLI that turns archive.org's Live Music Archive (LMA)
-into broadcast-ready concert packages. For each request ("well-regarded
-Grateful Dead shows 1969–1977", a standing "jazz" profile, etc.) it:
+into vetted, briefed concert packages — audio and text only, no speech. For
+each request ("well-regarded Grateful Dead shows 1969–1977", a standing
+"jazz" profile, etc.) it:
 
 1. **Searches wide** — every matching recording via the uncapped scrape API.
 2. **Winnows hard** — the LMA is a completist archive, so mere presence
@@ -26,16 +34,20 @@ Grateful Dead shows 1969–1977", a standing "jazz" profile, etc.) it:
    guessed.
 5. **Researches the specific performance** on the open web, then runs a
    deterministic **grounding check** (does the research assert songs or
-   dates that don't belong to this show?).
+   dates that don't belong to this show?), and writes a neutral, vetted
+   **briefing** for whoever writes on-air copy — llama's only text
+   deliverable; it never writes a DJ script itself.
 6. **Packages**: downloads audio with md5 verification, filters junk files
    (the LMA contains spam MP3s that would otherwise go to air), tags every
    file, cross-checks real durations against metadata, and emits the
    package described below.
 
 Anything suspicious at any stage (unresolved titles, duration mismatches,
-setlist/DJ-notes contradictions, ungrounded research) marks the show
+a briefing contradicting the setlist, ungrounded research) marks the show
 **needs-review** and holds it before delivery until a human clears it.
-What reaches the station has passed every gate.
+What reaches the station has passed every gate llama can apply; emcee
+applies its own separate factual guard to whatever DJ script it writes
+afterward (see below) — llama has no visibility into that step.
 
 **Dedup:** llama keeps a ledger keyed by performance identity
 (artist + date + venue, not archive.org item id) and will not process or
@@ -43,38 +55,89 @@ deliver the same performance twice. Replay/rotation policy is entirely the
 station's concern — llama assumes a delivered package may be aired many
 times.
 
-## Delivery mechanics (current)
+## What emcee does
 
-`llama deliver <name>` (name or unique substring; a path still works) copies
-the package directory into a **watched folder** (`delivery_path` in llama's
-config, or `--dest`), named by the slugified performance id, then records
-the delivery in its ledger. `llama status --packaged` shows what's ready to
-hand off:
+`emcee` (dist name `llama-emcee`) is a second, independent CLI that runs
+**after** `llama deliver`, against the same watched folder llama delivers
+into (configured as `[station] root` in emcee's own config — a separate
+file from llama's). It never reads llama's own workspace or ledger, only
+the delivered package directories.
 
-```
-<delivery_path>/gratefuldead-1973-06-10/
-├── manifest.json
-├── playlist.m3u
-├── broadcast.m3u        # voiced shows only: playlist with DJ audio interleaved
-├── audio/
-│   ├── 01 - Morning Dew.mp3
-│   ├── 02 - Beat It On Down the Line.mp3
-│   └── ...
-├── research.md
-├── reviews.md
-├── briefing.md            # neutral vetted briefing (always present, manifest v3)
-├── briefing.json          # same content, structured
-├── dj-notes.md           (default; absent only if the run opted out)
-└── dj-audio/             (opt-in TTS; present only when the show was voiced)
-    ├── set1-intro.mp3    (also opens the show)
-    ├── set2-intro.mp3
-    ├── ...               (one per non-encore set; the encore has none)
-    └── 99-outro.mp3      (recaps the encore when there is one)
-```
+`emcee run` scans that folder for every package that isn't yet
+broadcast-ready and, for each one: writes a DJ script from the briefing
+(its own LLM task, with its own factual guard against that package's
+manifest — persona-styled if the show has an assigned **presenter**, a
+reusable on-air host with its own TTS voice, or neutral otherwise),
+synthesizes it to speech (hosted Mistral Voxtral by default, ElevenLabs an
+opt-in alternative — optionally with a low instrumental bed mixed under
+the voice), and assembles `broadcast.m3u`. It writes `dj-notes.md`,
+`dj-audio/`, and `broadcast.m3u` **directly into the package directory
+llama delivered**, and rewrites the manifest's `dj_notes`/`dj_audio` blocks
+in place — everything else in the package is llama-owned and untouched.
+Which presenter (if any) voices which show is decided by matching the
+llama **profile name** stamped in the manifest (`source.profile`, see
+below) against emcee's own `[assign]` config — llama and emcee never talk
+to each other directly; the manifest is the entire contract.
 
-The copy is a plain recursive copy — **not atomic**, and there is no
-completion sentinel today. If the station ingests on a filesystem watcher,
-tell us; see question 1.
+`emcee run` assumes a **single writer**: run it from one place at a time
+against a given station root (it takes no lock). Running two overlapping
+`emcee run`s won't corrupt anything — every file write in both tools is
+unique-temp-plus-atomic-rename — but it will find and voice the same
+pending package twice, doubling LLM/TTS spend for no benefit.
+
+## Delivery + voicing mechanics (current)
+
+Two separate tools write into the watched folder, in sequence:
+
+1. `llama deliver <name>` (name or unique substring; a path still works)
+   copies the package directory into the watched folder (`delivery_path`
+   in llama's config, or `--dest`), named by the slugified performance id,
+   then records the delivery in llama's ledger. `llama status --packaged`
+   shows what's ready to hand off. Immediately after this step the package
+   has audio and text only:
+
+   ```
+   <delivery_path>/gratefuldead-1973-06-10/
+   ├── manifest.json
+   ├── playlist.m3u
+   ├── audio/
+   │   ├── 01 - Morning Dew.mp3
+   │   ├── 02 - Beat It On Down the Line.mp3
+   │   └── ...
+   ├── research.md
+   ├── reviews.md
+   ├── briefing.md            # neutral vetted briefing (always present, manifest v3)
+   └── briefing.json          # same content, structured
+   ```
+
+   The copy is a plain recursive copy — **not atomic**, and there is no
+   completion sentinel today. If the station ingests on a filesystem
+   watcher, tell us; see question 1.
+
+2. Separately (typically on its own schedule, e.g. a cron entry a few
+   minutes behind llama's), `emcee run` scans the **same folder** — its
+   `[station] root` should point at llama's `delivery_path` — for packages
+   that aren't yet broadcast-ready and voices each one in place, adding:
+
+   ```
+   <delivery_path>/gratefuldead-1973-06-10/
+   ├── manifest.json          # dj_notes/dj_audio blocks rewritten in place
+   ├── ...                    # (everything llama wrote, unchanged)
+   ├── broadcast.m3u          # NEW: playlist with DJ audio interleaved
+   ├── dj-notes.md            # NEW
+   └── dj-audio/              # NEW
+       ├── set1-intro.mp3     (also opens the show)
+       ├── set2-intro.mp3
+       ├── ...                (one per non-encore set; the encore has none)
+       └── 99-outro.mp3       (recaps the encore when there is one)
+   ```
+
+   emcee's own writes are atomic (unique-temp-file-plus-rename), but there
+   is still no cross-tool completion sentinel marking a package as *fully*
+   (llama- and emcee-) done — `manifest.json`'s `dj_notes`/`dj_audio` both
+   being non-null is the closest thing today. emcee assumes a single writer
+   against a given station root at a time (no lock is taken); if this
+   matters for your ingestion timing, see question 1.
 
 ## Package format — `manifest.json`, schema_version 3
 
@@ -95,8 +158,11 @@ supporting material. Field-by-field:
     "performance_id": "GratefulDead/1973-06-10",
     "identifier": "gd73-06-10.sbd.hollister.174.sbeok.shnf",  // archive.org item
     "url": "https://archive.org/details/gd73-06-10.sbd.hollister.174.sbeok.shnf",
-    "lineage": "SBD > Master Reel > ..."   // recording lineage when known, may be null
-  },
+    "lineage": "SBD > Master Reel > ...",  // recording lineage when known, may be null
+    "profile": "prime-dead"                // the llama profile that produced this
+  },                                       // show, or null for a one-off `llama get`;
+                                           // emcee's [assign] config maps this to a
+                                           // presenter + on-air title, see below
   "tracks": [
     {
       "index": 1,                          // play order, 1-based
@@ -120,20 +186,15 @@ supporting material. Field-by-field:
     "narration": "full",     // "vague": assert no songs/set structure downstream
     "vetted": true           // research passed the grounding check
   },
-  "dj_notes": {                            // present by default; null only when
-                                           // the run opted out (--no-script)
-    "context": "one-line era context",
-    "set_intros": { "1": "…", "2": "…" },  // one combined lead-in per non-encore
-                                           // set; the encore has none
-    "outro": "verbatim sign-off …",        // recaps the encore when there is one
-    "mentioned_songs": ["Morning Dew", "..."]  // every song the script names
-  },
-  "dj_audio": {                             // opt-in TTS; present ONLY when the
-                                           // show was voiced, otherwise null
-    "set_intros": { "1": "dj-audio/set1-intro.mp3",
-                    "2": "dj-audio/set2-intro.mp3" },
-    "outro": "dj-audio/99-outro.mp3"
-  },
+  "dj_notes": null,                        // llama ALWAYS writes this null --
+                                           // it is an emcee-written passthrough
+                                           // block. `emcee run`/`emcee voice`
+                                           // rewrites it in place once the show
+                                           // has a script; shape below under
+                                           // "The other files".
+  "dj_audio": null,                        // same story: always null out of
+                                           // llama, rewritten by emcee once the
+                                           // show is voiced; shape below.
   "research": "research.md",               // relative pointer, null if absent
   "reviews": "reviews.md",
   "research_vetted": true,                 // grounding check passed with zero flags
@@ -154,11 +215,14 @@ supporting material. Field-by-field:
 - **`playlist.m3u`** — minimal `#EXTM3U` with relative `audio/…` paths in
   play order. Music only. Convenience only; the manifest is authoritative
   (the m3u has no set-break or segue information).
-- **`broadcast.m3u`** — present only for voiced shows: the same `#EXTM3U`
-  format, but with the `dj-audio/…` clips interleaved into play order (each
-  set's lead-in before that set's first track, the outro last), so it can be
-  played top-to-bottom without reconstructing the sequence from the manifest.
-  This is exactly the interleaving described under "Spoken DJ audio" below.
+- **`broadcast.m3u`** — **written by emcee, not llama** (absent immediately
+  after `llama deliver`; present once `emcee run`/`emcee voice` has
+  processed the package): the same `#EXTM3U` format as `playlist.m3u`, but
+  with the `dj-audio/…` clips interleaved into play order (each set's
+  lead-in before that set's first track, the outro last), so it can be
+  played top-to-bottom without reconstructing the sequence from the
+  manifest. This is exactly the interleaving described under "Spoken DJ
+  audio" below.
 - **`research.md`** — web-researched show notes in four fixed sections:
   `## Reputation`, `## Performance highlights`, `## Context`,
   `## Recording notes`. Grounding-checked before packaging; `research_vetted`
@@ -176,33 +240,51 @@ supporting material. Field-by-field:
   recommended text source for a station-side scriptwriter: it is neutral
   (no in-house persona baked in) and structured for programmatic
   consumption.
-- **`dj-notes.md`** — human-readable rendering of `dj_notes`: llama's own
-  verbatim, ready-to-air DJ script (neutral house narrator, or a profile's
-  presenter persona). Present by default, absent only when the run opted
-  out with `--no-script`. This is llama's in-house scripting path,
-  transitional — a downstream persona tool is planned to take over
-  scriptwriting from the briefing after llama's split into separate
-  projects completes; `dj-notes.md`/`dj_notes` keep working unchanged in
-  the meantime.
-- **`dj-audio/`** — spoken-word MP3 clips of the DJ script (opt-in TTS,
-  hosted Mistral Voxtral by default or ElevenLabs as an alternative
-  backend), present only when the show was voiced. When the show's profile
-  names a **presenter** (a reusable host: voice + authored character,
-  `presenters/<id>.toml`), `dj-notes`/`dj-audio` speak in that host's persona
-  rather than a neutral narrator — concert facts stay grounded either way.
-  One file per `dj_audio` path in the manifest; a `segments.json` sidecar in
-  the same directory is llama's internal render cache and can be ignored.
-  When a station default `[tts] bed` (or the host's own `bed` in
-  `presenters/<id>.toml`) is configured, each clip already has a low
-  instrumental bed mixed in underneath — pre-roll, then the bed continues
-  quietly under the voice at `[tts] bed_gain_db` (default -20 dB), then a
-  short tail — so there's nothing further for the station to layer on. Bed
-  WAVs must be 24kHz mono 16-bit; a mismatched or missing bed file
-  hard-fails that show's package. Mixing is pure PCM math via `numpy`; no
+- **`dj-notes.md`** — **written by emcee, not llama.** Human-readable
+  rendering of the manifest's `dj_notes` block once emcee has filled it in:
+  a verbatim, ready-to-air DJ script (neutral narrator, or a presenter's
+  persona if the show's profile has one assigned in emcee's `[assign]`
+  config). Absent immediately after `llama deliver`; the manifest's
+  `dj_notes` block takes this shape once written:
+
+  ```jsonc
+  "dj_notes": {
+    "context": "one-line era context",
+    "set_intros": { "1": "…", "2": "…" },  // one combined lead-in per
+                                           // non-encore set; the encore has none
+    "outro": "verbatim sign-off …",        // recaps the encore when there is one
+    "mentioned_songs": ["Morning Dew", "..."]  // every song the script names
+  }
+  ```
+
+- **`dj-audio/`** — **written by emcee, not llama.** Spoken-word MP3 clips
+  of the DJ script (Voxtral by default, ElevenLabs an opt-in alternative
+  backend), present once the show has been voiced by `emcee run`/`emcee
+  voice`. When the show's profile is assigned a **presenter** (a reusable
+  host: voice + authored character, `presenters/<id>.toml`, managed by
+  `emcee presenter add/list/show/remove`), `dj-notes`/`dj-audio` speak in
+  that host's persona rather than a neutral narrator — concert facts stay
+  grounded either way. One file per path in the manifest's `dj_audio`
+  block, which takes this shape once emcee has voiced the show:
+
+  ```jsonc
+  "dj_audio": {
+    "set_intros": { "1": "dj-audio/set1-intro.mp3",
+                    "2": "dj-audio/set2-intro.mp3" },
+    "outro": "dj-audio/99-outro.mp3"
+  }
+  ```
+
+  When a station default bed (or the host's own bed override) is
+  configured, each clip already has a low instrumental bed mixed in
+  underneath — pre-roll, then the bed continues quietly under the voice,
+  then a short tail — so there's nothing further for the station to layer
+  on. Bed WAVs must be 24kHz mono 16-bit; a mismatched or missing bed file
+  hard-fails that show for emcee. Mixing is pure PCM math via `numpy`; no
   `ffmpeg` involved. Because mixing needs PCM, bed-active clips are
-  re-encoded to MP3 (24kHz mono, ~64 kbps via `lameenc`) rather than
-  shipping the provider's native MP3 like unbedded clips do — a small,
-  expected bitrate difference.
+  re-encoded to MP3 (24kHz mono, ~64 kbps) rather than shipping the
+  provider's native MP3 like unbedded clips do — a small, expected bitrate
+  difference.
 
 ### Contract details worth knowing
 
@@ -214,15 +296,18 @@ supporting material. Field-by-field:
   must honor the same constraint: no song names, no set-structure claims,
   under `"vague"`. `manifest.briefing.vetted` mirrors `research_vetted` at
   package time.
-- **Scripts ship by default; opting out changes nothing else.** Runs can
-  skip the script with `--no-script`, so consumers should still handle a
-  null `dj_notes`. Research,
-  vetting, reviews, and all structural data are identical whether or not
-  `dj_notes` exists. If the station generates its own on-air speech from
-  `briefing.md`/`briefing.json` (recommended) or `research.md`/`reviews.md`
-  directly, it inherits the obligation to stay grounded in them — llama
-  vets its research against the setlist and factually guards the briefing
-  the same way, and a downstream generator should not reintroduce
+- **`llama deliver` never ships a script — consumers must handle a null
+  `dj_notes`/`dj_audio` as the normal, expected state**, not an error: every
+  package is `dj_notes: null` / `dj_audio: null` the moment llama delivers
+  it, and stays that way until (if ever) `emcee run`/`emcee voice`
+  processes it station-side. Research, vetting, reviews, and all structural
+  data are complete and final at delivery regardless — voicing changes
+  nothing upstream of it. If the station reads on-air speech straight from
+  `briefing.md`/`briefing.json` (recommended if you don't want to run
+  emcee) or generates its own from `research.md`/`reviews.md`, it inherits
+  the obligation to stay grounded in them — llama vets its research against
+  the setlist and factually guards the briefing, and a downstream generator
+  (whether that's emcee or something station-built) should not reintroduce
   hallucinated claims.
 - **Segues matter on air.** `segue: true` means the audio flows directly
   into the next track (Dead notation "China Cat > Rider"); insertions
@@ -235,9 +320,10 @@ supporting material. Field-by-field:
   framing when there's no script.
 - Filenames are filesystem-safe (unsafe characters replaced), zero-padded,
   and unique within a package.
-- **Spoken DJ audio is opt-in and additive.** `dj_audio` (and `dj-audio/`)
-  exist only for shows llama voiced; a show can have `dj_notes` (text)
-  without `dj_audio` (speech), but never the reverse. There is exactly one
+- **Spoken DJ audio is additive and emcee-only.** `dj_audio` (and
+  `dj-audio/`) exist only once emcee has voiced a show; a package can have
+  `dj_notes` (text) without `dj_audio` (speech) — e.g. emcee wrote the
+  script but TTS hasn't run yet — but never the reverse. There is exactly one
   spoken clip per gap between music blocks, so nothing plays back-to-back:
   slot each `dj_audio.set_intros["<key>"]` before that set's first track
   (the first set's lead-in also opens the show), and `dj_audio.outro` after
@@ -250,7 +336,10 @@ supporting material. Field-by-field:
 
 1. **Ingestion handshake** — is a watched folder right, and do you need
    atomicity (temp-dir + rename) or a completion sentinel
-   (e.g. `manifest.json` written last, or a `.done` file)?
+   (e.g. `manifest.json` written last, or a `.done` file)? This now matters
+   twice: once for llama's delivery (unvoiced+briefed) and again for
+   emcee's in-place voicing pass — if the station ingests eagerly, it may
+   see a package before it's voiced.
 2. **RadioDJ import** — what does your scheduler actually consume? Is m3u
    useful, or should we emit a RadioDJ-native playlist/cart format, cue
    sheets, or a direct DB import file? Should set breaks/segues be encoded

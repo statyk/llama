@@ -103,15 +103,16 @@ def _typed_error(exc: Exception) -> str:
     `KeyError`'s `str()` is just the missing key, e.g. `'filename'`, which
     reads as a stray, un-quoted-looking fragment in an `error: <slug>: ...`
     line or a status table row. `KeyError: 'filename'` is legible; `'filename'`
-    alone is not. `EmceeError` (and its subclasses) are the opposite case:
-    `str(self)` is documented (`errors.py`) to already read as a complete,
-    actionable sentence, so type-prefixing it would just glue an
-    `EmceeError: ` fragment onto an already-finished sentence -- so those
-    render their message alone. Applied at every point an *arbitrary*
-    (broadly-caught) exception's message reaches the user -- `_scan_broad`'s
-    per-entry failures and `run`/`voice`'s per-package processing failures.
+    alone is not. `EmceeError`/`HerderError` (and their subclasses) are the
+    opposite case: `str(self)` is documented (`errors.py`) to already read as
+    a complete, actionable sentence, so type-prefixing it would just glue a
+    redundant `EmceeError: `/`HerderError: ` fragment onto an already-finished
+    sentence -- so those render their message alone, same as `main_cli`'s own
+    top-level boundary. Applied at every point an *arbitrary* (broadly-caught)
+    exception's message reaches the user -- `_scan_broad`'s per-entry failures
+    and `run`/`voice`'s per-package processing failures.
     """
-    if isinstance(exc, EmceeError):
+    if isinstance(exc, (EmceeError, HerderError)):
         return str(exc)
     return f"{type(exc).__name__}: {exc}"
 
@@ -251,10 +252,10 @@ def run(
 
     Per-package failures -- including a structurally invalid manifest
     (e.g. a track missing its filename), since emcee validates no manifest
-    model -- are caught broadly, printed as `error: <slug>: <message>` plus
-    any indented detail lines (e.g. a scriptwrite guard failure's specific
-    fact-check problems), matching `main_cli`'s error rendering. Does not
-    stop the rest of the batch. Exits 1 if any package failed.
+    model -- are caught broadly and printed as `error: <slug>: <message>`
+    plus any indented detail lines (e.g. a scriptwrite guard failure's
+    specific fact-check problems). Does not stop the rest of the batch.
+    Exits 1 if any package failed.
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)

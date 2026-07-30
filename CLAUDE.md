@@ -16,77 +16,113 @@ implementation plan this was built from. The approved design spec is
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest packages/llama/tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
-- Run: `llama get "..."`, `llama get --profile <name>`, `llama artists "..."`,
-  `llama status` (global triage view, `--by-run` for session rollups),
-  `llama show <name>` (read-only), `llama pipeline` (static stage/state
-  teaching command), `llama triage` (interactive held-show walkthrough),
-  `llama fix <name> <edit-flags>` (overrides/hold editor, auto-redoes),
-  `llama redo <name> --from <stage>`, `llama voice <name>` (TTS sugar over
-  `redo --from package`), `llama deliver <name>`, `llama rm <name>`,
-  `llama suppress`/`llama unsuppress <performance-id>`, `llama run
-  list/approve/resume/rm` (session namespace). Shows/sessions are addressed
-  by name or unique substring; paths still work. `llama config init` seeds
-  a commented config of the baked-in defaults (config values replace
-  defaults; nothing merges).
+- Run (llama, acquisition): `llama get "..."`, `llama get --profile <name>`,
+  `llama artists "..."`, `llama status` (global triage view, `--by-run` for
+  session rollups), `llama show <name>` (read-only), `llama pipeline`
+  (static stage/state teaching command), `llama triage` (interactive
+  held-show walkthrough), `llama fix <name> <edit-flags>` (overrides/hold
+  editor, auto-redoes), `llama redo <name> --from <stage>`,
+  `llama deliver <name>`, `llama rm <name>`, `llama suppress`/
+  `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
+  (session namespace). Shows/sessions are addressed by name or unique
+  substring; paths still work. `llama config init` seeds a commented config
+  of the baked-in defaults (config values replace defaults; nothing
+  merges). No `voice`/`presenter` commands — that's emcee's job now.
+- Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
+  `[station] root` and voice every not-yet-broadcast-ready package),
+  `emcee voice <package-path>` (script + voice + assemble one package;
+  `--fresh <clip-stem>` re-rolls one DJ clip, `--force` re-synthesizes all
+  of them), `emcee status` (table of every package's state:
+  ready/pending/unsupported), `emcee presenter add/list/show/remove`
+  (`presenters/<id>.toml`), `emcee config init`.
 
 ## What this is
 
-`llama` — a Python CLI that finds concerts on archive.org's Live Music Archive
-(LMA), winnows them for quality, researches the specific performance online,
-and emits a self-contained "show package" (verified audio, m3u, manifest v3
-with track titles/set breaks, vetted research + reviews digest, and a
-required neutral vetted `briefing` for scriptwriters; verbatim DJ script on
-by default; --no-script or profile script=false opts out) for an automated
-in-house radio station. A profile can name a **presenter** (`presenters/<id>.toml`:
-name/sex/character + `voice` XOR `voice_clone`) as its on-air host, which
-persona-styles the DJ script (opinions and paraphrased review sentiment
-allowed; concert facts stay grounded) and voices that profile's runs even
-with TTS off station-wide; with no presenter the script stays in the
-neutral house narrator. The script can optionally be spoken via TTS
-(`--voice`, opt-in, off by default; hosted Mistral Voxtral by default,
+Two Python CLIs — `llama` and `emcee` — that together carry an archive.org
+Live Music Archive (LMA) recording all the way to air. They ship as separate
+signed binaries and know nothing of each other's internals; the only
+contract between them is the delivered package on disk. Usage tilts heavily
+toward Grateful Dead shows (two sets + encore).
+
+`llama` finds concerts on the LMA, winnows them for quality, researches the
+specific performance online, and emits a self-contained "show package"
+(verified audio, m3u, manifest v3 with track titles/set breaks, vetted
+research + reviews digest, and a required neutral vetted `briefing` for
+scriptwriters) for an automated in-house radio station. `brief` is llama's
+sole text stage — llama does not write DJ scripts, has no presenters, no
+TTS, and no `[tts]`/presenter config. Its `deliver` gate is just: packaged,
+not held for review, and every manifest track's audio file present on disk.
+
+`emcee` (dist name `llama-emcee`, bare CLI `emcee`) is station-side and runs
+**after** `llama deliver` — it operates on the delivered-packages folder
+(`[station] root`), never on llama's own library. "Not broadcast-ready" IS
+the work predicate: `emcee run` scans the station root and voices every
+package that isn't yet broadcast-ready, no separate state file needed.
+emcee owns presenters (`presenters/<id>.toml`: name/sex/character +
+`voice` XOR `voice_clone`), the script LLM task and its own factual guard,
+`speech_text` normalization, TTS (hosted Mistral Voxtral by default,
 ElevenLabs as an opt-in alternative — presenter voice clones are
-Voxtral-only). Usage tilts heavily toward Grateful Dead shows (two sets +
-encore).
+Voxtral-only), instrumental beds, the per-segment render cache, and
+assembling `dj-audio/`/`broadcast.m3u`. Its `[assign]` config maps a llama
+profile name to a presenter + on-air title, keyed off
+`manifest["source"]["profile"]`, which llama stamps on every package it
+delivers. emcee writes `dj-notes.md`, `dj-audio/`, and `broadcast.m3u`
+straight into the package directory llama delivered, and rewrites the
+manifest's `dj_notes`/`dj_audio` blocks in place (llama writes both as
+`null` — they are emcee-written passthrough blocks in the shared manifest
+model). emcee never imports llama.
+
+**Single-writer station, no lock.** Unlike llama (parallel-safe via flock,
+below), emcee assumes exactly one `emcee run` at a time against a given
+station root — it takes no lock. Overlapping runs can't corrupt a package
+(unique-temp + atomic rename everywhere, in both tools), but they *will*
+double LLM/TTS spend by voicing the same pending package twice
+concurrently. Don't fan out `emcee run` the way llama's workspace tolerates
+concurrent `llama get`s.
+
 LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
 gemini-flash/sonnet-4.5/opus-4.1 on openrouter): medium by default, high for
-deep_research/brief/synthesize, low for vet_research, overridable per task via
-`[llm.<task>]` `tier`/`model` or per backend via `[llm.tiers.<backend>]`; a
-failed validation's final retry escalates one tier (pins never escalate).
+llama's deep_research/brief and emcee's scriptwrite, low for vet_research,
+overridable per task via `[llm.<task>]` `tier`/`model` or per backend via
+`[llm.tiers.<backend>]`; a failed validation's final retry escalates one
+tier (pins never escalate).
 
 ## Architecture (from the spec — the short version)
 
 - **Staged pipeline over an on-disk workspace** (default `~/.llama/`):
   interpret → search (wide net) → winnow (quality gate + optional human gate)
   → select-recording → gather → research → vet (grounding check) →
-  brief (default-on) → synthesize (default-on) → package. Every stage
-  reads/writes plain files; run-level artifacts live in a per-run directory,
-  show-level artifacts in a canonical `shows/<slug>/` library (one dir per
-  performance, reused across runs); stages write outputs only on success and
-  are individually re-runnable (`llama redo <show> --from <stage>`).
-  `brief` emits a neutral vetted briefing (`briefing.md`/`briefing.json`,
-  never persona-styled — persona is a `synthesize`/downstream concern) for
-  scriptwriters — no flag, no config gate, factually guarded the same way
-  `synthesize`'s script is (retry-once-then-hold), and stamped with the
-  `narration` directive from `overrides.json`. The show-package contract is
-  **manifest v3**: a required `briefing` block (`file`, `json`, `narration`,
-  `vetted`) alongside the existing fields; `package` copies both briefing
-  files into `package/` and hard-fails if a show has no briefing artifacts.
-  `stages/synthesize.py` (the in-house DJ script/voice path) is untouched
-  and transitional — a downstream persona tool is planned to take over
-  scriptwriting once the split (umbrella spec:
-  `docs/superpowers/specs/2026-07-28-split-architecture-design.md`)
-  completes.
+  brief (always on) → package. Every stage reads/writes plain files;
+  run-level artifacts live in a per-run directory, show-level artifacts in a
+  canonical `shows/<slug>/` library (one dir per performance, reused across
+  runs); stages write outputs only on success and are individually
+  re-runnable (`llama redo <show> --from <stage>`). `brief` is llama's sole
+  text stage — it emits a neutral vetted briefing (`briefing.md`/
+  `briefing.json`) for scriptwriters — no flag, no config gate, factually
+  guarded (retry-once-then-hold), and stamped with the `narration`
+  directive from `overrides.json`. The show-package contract is **manifest
+  v3**: a required `briefing` block (`file`, `json`, `narration`, `vetted`)
+  alongside the existing fields; `package` copies both briefing files into
+  `package/` and hard-fails if a show has no briefing artifacts. The
+  manifest model also carries `dj_notes`/`dj_audio` fields, which llama
+  always writes as `null` — they are **emcee-written passthrough blocks**,
+  filled in station-side after delivery; llama itself never populates them.
+  `stages/synthesize.py` (the in-house DJ script/voice path) was cut
+  entirely in this split — scriptwriting and voicing moved wholesale to
+  `emcee` (umbrella spec:
+  `docs/superpowers/specs/2026-07-28-split-architecture-design.md`).
 - **Parallel-safe workspace:** multiple `llama` processes may run concurrently
   against one local `~/.llama/`. Coordination is advisory `fcntl.flock`
   (`packages/llama/src/llama/locks.py`) at two scopes — a short **ledger lock**
   (`ledger.jsonl.lock`) around every ledger mutation, and a long **per-show
   lock** (`shows/<slug>/.lock`) around `process_show` and every single-show
-  mutator (`redo`/`fix`/`voice`/`deliver`/`rm`). Locks auto-release on
+  mutator (`redo`/`fix`/`deliver`/`rm`). Locks auto-release on
   process death (no stale-lock reaping). Same-performance runs serialize
   (first builds, others wait and reuse); independent shows run fully in
   parallel. Readers (`show`/`status`/winnow dedup) never lock. All atomic
   writes use unique temp names. POSIX-only; non-POSIX degrades to no-op
-  locking.
+  locking. **`emcee` does not share this locking scheme** — see emcee's
+  bullet below.
 - **`overrides.json`:** the one durable, app-edited per-show input —
   excluded source-track filenames, `narration` (`full`/`vague`), and
   metadata corrections (`venue`, `city`, `date`, `titles`: track#→forced
@@ -94,31 +130,31 @@ failed validation's final retry escalates one tier (pins never escalate).
   — that survive every `redo`. `gather` drops excluded files (reason
   `operator-excluded`), forces `venue`/`city`/`date`/track titles/set
   breaks when their fields are set (bypassing structure alignment entirely
-  for `set_breaks`), and `brief`/`synthesize` both read `narration=vague`
-  to write a briefing/script that names no songs and asserts no set
-  structure (the LLM's own opinion of `narration` is never trusted —
-  stamped from `overrides.json` after generation); `show.json`
-  stays purely derived and is never itself hand-edited. `llama show` is
-  strictly read-only; `llama fix <show> <edit-flags>` (flag-driven, single
-  show, auto-runs the correct redo) and `llama triage` (interactive
-  walkthrough over held shows, default `--held`) are the only ways to edit
-  it — `--exclude`/`--unexclude` (filename or track number, `--tracks` on
-  `show` lists them) and `--set-venue`/`--set-city`/`--set-date`/
-  `--set-title N=…`/`--set-breaks` (plus their `--clear-*` counterparts) all
-  redo from `gather`, and a hold **self-clears** whenever the re-gather no
-  longer reproduces the flag that caused it (gather recomputes
-  `needs_review`/`review_flags` from scratch every run). The other two
-  gate-2 resolutions: **accept-vague** (`fix --narration vague` → redo from
-  `brief`, regenerating the briefing, script, and package too, clears the
-  hold immediately), and **overrule** (`fix --overrule` → redo from
-  `package`, clears the hold without touching overrides).
-- **App-managed instead of hand-edited:** `llama presenter add/list/show/
-  remove` creates and inspects `presenters/<id>.toml` (hand-editing the
-  TOML still works — `add` is just the other way in), and `llama profile
-  artists <name> [--set "A, B, C"]` views or re-pins a profile's pinned
-  artist roster. Between these, `llama fix`/`llama triage`, and
-  `overrides.json`, `config.toml` remains the only file this design expects
-  a human to hand-edit.
+  for `set_breaks`), and `brief` reads `narration=vague` to write a
+  briefing that names no songs and asserts no set structure (the LLM's own
+  opinion of `narration` is never trusted — stamped from `overrides.json`
+  after generation); `show.json` stays purely derived and is never itself
+  hand-edited. `llama show` is strictly read-only; `llama fix <show>
+  <edit-flags>` (flag-driven, single show, auto-runs the correct redo) and
+  `llama triage` (interactive walkthrough over held shows, default
+  `--held`) are the only ways to edit it — `--exclude`/`--unexclude`
+  (filename or track number, `--tracks` on `show` lists them) and
+  `--set-venue`/`--set-city`/`--set-date`/`--set-title N=…`/`--set-breaks`
+  (plus their `--clear-*` counterparts) all redo from `gather`, and a hold
+  **self-clears** whenever the re-gather no longer reproduces the flag that
+  caused it (gather recomputes `needs_review`/`review_flags` from scratch
+  every run). The other two gate-2 resolutions: **accept-vague** (`fix
+  --narration vague` → redo from `brief`, regenerating the briefing and
+  package too, clears the hold immediately), and **overrule** (`fix
+  --overrule` → redo from `package`, clears the hold without touching
+  overrides).
+- **App-managed instead of hand-edited:** `llama profile artists <name>
+  [--set "A, B, C"]` views or re-pins a profile's pinned artist roster.
+  Between this, `llama fix`/`llama triage`, and `overrides.json`,
+  `config.toml` remains the only file this design expects a human to
+  hand-edit — for llama. (emcee has its own equivalent: `emcee presenter
+  add/list/show/remove` manages `presenters/<id>.toml`, and its
+  `[assign]` config table is the one thing a human hand-edits there.)
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments, deduped against the on-disk show library ∪ a `ledger.jsonl`
   history keyed by performance identity (artist + date + venue), not
@@ -131,8 +167,8 @@ failed validation's final retry escalates one tier (pins never escalate).
   and re-run. Run names auto-unique: a same-day collision gets a `-2`/`-3`
   suffix instead of silently resuming the earlier run.
 - **LLM layer:** lives in the shared `herder` package (`packages/herder/`),
-  used by llama and (later) the persona tool — task registries and prompts
-  stay per-app. Provider abstraction with two capabilities — `complete`
+  used by both llama and emcee — task registries and prompts stay per-app.
+  Provider abstraction with two capabilities — `complete`
   (schema-validated, no tools) and `research` (needs web search). Dev backend
   shells out to headless `claude -p`; `openrouter` is the HTTP alternative
   (opt-in, needs `OPENROUTER_API_KEY`, research via the web plugin); a `fake`
@@ -147,65 +183,41 @@ failed validation's final retry escalates one tier (pins never escalate).
   `scripts/refresh_jerrybase.py`): gather uses it after alignment as a
   tripwire (multi-event dates, venue mismatch, contradicted set breaks, wrong
   set count) and a deterministic break-anchoring corrector, never as a setlist
-  source (`[jerrybase] enabled`, default on). Ten named touchpoints, each
-  with a prompt template file under `prompts/` and a Pydantic output schema.
-  LLM calls live only at stage boundaries — everything else is deterministic.
-- **Presenters:** a profile can name an on-air host defined in
-  `presenters/<id>.toml` (`name`/`sex`/`character` + exactly one of
-  `voice`/`voice_clone`) via the profile's `presenter`/`title` fields
-  (`Profile.voice` doesn't exist — a named presenter fully owns the run's
-  voice, including its clone_ref, and opts that profile into voice even
-  with `[tts] enabled = false`; no presenter falls back to the house
-  `[tts] voice`/`voice_clone` and the neutral narrator). `synthesize` builds
-  its `{{style}}` block from `persona_style()` when a presenter is present
-  (identity, character, and loosened-but-bounded grounding: opinions and
-  paraphrased review/research sentiment are the host's own, concert facts
-  stay grounded in the show data, no first-hand attendance claims) or the
-  byte-for-byte `NEUTRAL_STYLE` otherwise; `vet`/`factual_guard` are
-  untouched by presenters. Character edits are live: edit the TOML, then
-  `llama redo <show> --from synthesize` re-scripts.
-- **Voice (opt-in TTS):** when a show's voice is active, `package`
-  synthesizes per-segment spoken DJ audio through a `SpeechProvider` layer
-  (`packages/llama/src/llama/tts/`: `voxtral` — hosted Mistral, default — plus `elevenlabs`
-  and a `fake` test backend; self-hosting Voxtral is deferred, no local
-  backend yet), emitting `package/dj-audio/` (one MP3 per DJ-notes segment)
-  plus a manifest `dj_audio` block. `[tts] voice` is a preset name (Voxtral)
-  or voice_id (ElevenLabs); `[tts] voice_clone` points at a 3-25s reference
-  WAV to clone a custom voice on Voxtral instead, ignoring `voice` (a
-  presenter's `voice_clone` is Voxtral-only — the elevenlabs backend
-  rejects it). Per-segment caching (keyed on text+voice+model+chunk) avoids
-  re-spending on unchanged text; a TTS failure hard-fails just that show's
-  package, same as any other stage failure. `[tts] chunk` (default off)
-  synthesizes each segment sentence-by-sentence (via `fmt="wav"` on the
-  provider) and concatenates the PCM before one MP3 encode via `lameenc`,
-  instead of one call for the whole segment — noticeably better prosody on
-  longer patter, at the cost of more provider round-trips per segment;
-  toggling it invalidates the cache for affected clips. The chunker folds a
-  too-short trailing fragment back into the previous sentence (a tiny
-  context-free clip like "Here's set two." makes the backend hallucinate),
-  and passes each chunk's neighbor text to the provider as context — ElevenLabs
-  conditions on `previous_text`/`next_text` for prosody continuity across
-  boundaries; Voxtral has no such field and ignores it. A `[tts] bed`
-  (per-presenter override `bed` in `presenters/<id>.toml`) mixes a
-  low instrumental bed under each DJ clip — pre-roll, bed-under-voice, then tail,
-  at `[tts] bed_gain_db` (default -20 dB); beds must be 24kHz mono 16-bit WAV
-  (hard-fail on mismatch), mixed via numpy (no ffmpeg).
-- **Broadcast-ready:** a derived (never stored) signal, computed the same way
-  as `voiced` — true iff the show is packaged with every manifest track's
-  audio file verified on disk, has a DJ script, has DJ audio, has
-  `package/broadcast.m3u`, and is not held for review; an unvoiced show can
-  never qualify (no DJ audio or `broadcast.m3u` without voice). Surfaced as a
-  `broadcast-ready` tag and `--broadcast-ready` filter/JSON field on `llama
-  status`, a `--broadcast-ready` selector on `llama
-  triage`/`redo`/`voice`/`deliver`/`rm`, and a `broadcast-ready: yes|no`
-  (+ reasons when `no`) line on `llama show <name>`. `deliver` requires
-  broadcast-ready by default (`--allow-unvoiced` is the sole,
-  music-only-ship override; there is no held-show override at all).
-  Positive-only — no `--not-broadcast-ready` inverse.
+  source (`[jerrybase] enabled`, default on). Nine named touchpoints (one
+  per file under `packages/llama/src/llama/prompts/` — `synthesize` is gone,
+  emcee has its own separate `scriptwrite` prompt), each with a Pydantic
+  output schema. LLM calls live only at stage boundaries — everything else
+  is deterministic.
+- **emcee (station-side voicing), architecture:** `emcee run`/`emcee status`
+  scan `[station] root` for delivered packages (`packages/emcee/src/emcee/
+  station.py`); `readiness()` computes the same "broadcast-ready" signal
+  llama used to (script present, DJ audio present, `broadcast.m3u` present,
+  every manifest track's audio on disk) — but as emcee's own derived,
+  never-stored state (`ready`/`pending`, plus `unsupported` for a pre-v3
+  manifest), not llama's. There is no separate work-queue file: "not
+  broadcast-ready" *is* the predicate `emcee run` sweeps on.
+  `process.py:process_package` orchestrates one package: resolve presenter
+  assignment (`resolve_assignment`, keyed off `manifest["source"]["profile"]`
+  against `[assign]`) → `scriptwrite.py` (script LLM task + `script_guard`,
+  emcee's own port of llama's old `factual_guard`, persona-styled when a
+  presenter is assigned, byte-for-byte neutral otherwise) → render
+  `dj-notes.md` → TTS via a `SpeechProvider` (`packages/emcee/src/emcee/tts/`:
+  `voxtral` default, `elevenlabs` alternative, `fake` for tests; same
+  per-segment cache, `[tts] chunk`, and `[tts] bed` instrumental-bed mixing
+  llama used to have) → assemble `broadcast.m3u` → atomically rewrite the
+  manifest's `dj_notes`/`dj_audio` blocks last, in place, in the package
+  directory llama delivered (`package_io.py:rewrite_manifest`). Everything
+  else in a package is llama-owned and read-only from emcee's side.
+  `presenters.py` manages `presenters/<id>.toml` (`emcee presenter
+  add/list/show/remove`) — the same TOML shape llama's presenters used to
+  have (`name`/`sex`/`character` + exactly one of `voice`/`voice_clone`,
+  optional `bed` override). emcee never imports llama (enforced by
+  `packages/emcee/tests/test_no_llama_imports.py`) — its only input is the
+  delivered package directory's files.
 - **Quality philosophy:** the LMA is a completist archive. Winnowing demands
   evidence a show is well received by people who were *not* there (LMA reviews
   are heavily attendance-biased). Suspicious output (unresolved track titles,
-  duration mismatches, low-confidence setlist parse, DJ notes contradicting
+  duration mismatches, low-confidence setlist parse, a briefing contradicting
   the setlist, a long show with zero set breaks, research asserting songs or
   dates that don't belong to the show) marks a show `needs-review` rather
   than shipping; `--auto` runs skip such shows.

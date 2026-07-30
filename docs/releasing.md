@@ -1,11 +1,22 @@
 # Releasing signed binaries
 
-`llama` ships four PyInstaller onefile binaries per `v*` tag, built on
+This repo ships **two tools** — `llama` (concert acquisition) and `emcee`
+(station-side voicing) — as PyInstaller onefile binaries. Each `v*` tag
+builds **eight binaries total**: both tools across four platform legs
+(linux/x64, linux/arm64, macos/arm64, windows/x64), built on
 **GitHub-hosted runners** by `.github/workflows/release.yml` →
-`packaging/build.py`. The **macOS** and **Windows** binaries are code-signed;
-Linux is not (verify it via `SHA256SUMS`). Signing credentials live in
-**GitHub Actions secrets** (repo → Settings → Secrets and variables → Actions),
-decoded into the job at runtime and never written to the repo.
+`packaging/build.py` (`build.py` builds both targets per leg by default;
+pass `--target {llama,emcee}` to build just one locally). The **macOS** and
+**Windows** binaries — for both tools — are code-signed; Linux is not
+(verify it via `SHA256SUMS`). Signing credentials live in **GitHub Actions
+secrets** (repo → Settings → Secrets and variables → Actions), decoded into
+the job at runtime and never written to the repo.
+
+One tag versions both tools together — there is no independent llama/emcee
+version. `packaging/llama.entitlements` (macOS hardened-runtime entitlements)
+and `packaging/metadata.json` (Windows Trusted Signing account/profile) are
+each a **single shared file** covering both binaries — there is no
+per-tool entitlements or signing-metadata file.
 
 ## Cutting a release
 
@@ -13,14 +24,16 @@ decoded into the job at runtime and never written to the repo.
 2. Tag and push:
 
    ```bash
-   git tag -a v0.7.0 -m "llama 0.7.0" && git push origin v0.7.0
+   git tag -a v0.7.0 -m "llama+emcee 0.7.0" && git push origin v0.7.0
    ```
 
-   The tag's version drives the build (`v0.7.0` → `0.7.0`); `pyproject.toml`'s
-   static `version` is not the source of truth. The `prep` job validates the
+   The tag's version drives both builds (`v0.7.0` → `0.7.0` for llama's
+   `_version.py` and emcee's); each package's static `pyproject.toml`
+   `version` is not the source of truth. The `prep` job validates the
    version against a strict allowlist regex before anything runs.
-3. The workflow builds all four targets, signs macOS + Windows, and the
-   `release` job attaches the archives + `SHA256SUMS` to a GitHub Release.
+3. The workflow builds all eight targets (both tools × four platform legs),
+   signs the macOS + Windows binaries of both tools, and the `release` job
+   attaches the archives + `SHA256SUMS` to a GitHub Release.
 
 **Dry runs / rehearsals** (`workflow_dispatch`):
 
@@ -45,22 +58,26 @@ runners**; the earlier self-hosted fleet was decommissioned once
 
 ## What `build.py` does per platform
 
-- **macOS** (`macos-latest`): codesign the onefile with the hardened runtime +
+`build.py` runs this once per target (`llama`, then `emcee`) on each leg —
+both binaries go through the identical steps below, sharing the one
+entitlements/metadata file:
+
+- **macOS** (`macos-latest`): codesign each onefile with the hardened runtime +
   `packaging/llama.entitlements`, then notarize a zip of it with
-  `xcrun notarytool submit --wait`. The binary is **not stapled** — a bare
+  `xcrun notarytool submit --wait`. Neither binary is **stapled** — a bare
   Mach-O can't carry a stapled ticket, so Gatekeeper does an **online**
   notarization check the first time a downloaded copy runs (the machine must be
   online for that first launch). This is the accepted state of the art for a
-  bare notarized CLI. The signed binary ships unchanged after submission.
-- **Windows** (`windows-latest`): Authenticode-sign the onefile `.exe` with the
+  bare notarized CLI. Each signed binary ships unchanged after submission.
+- **Windows** (`windows-latest`): Authenticode-sign each onefile `.exe` with the
   x64 `signtool.exe` + `Azure.CodeSigning.Dlib.dll`, driven by
   `packaging/metadata.json`, timestamped via Azure Trusted Signing.
-- **Linux**: no signing.
+- **Linux**: no signing, for either binary.
 
-`build.py --skip-sign` produces an unsigned build for local/dev use or a
+`build.py --skip-sign` produces unsigned builds for local/dev use or a
 machine without the toolchain. The release workflow never passes it. Any
 signing/notarization failure — including a non-zero `signtool verify` — fails
-the leg; we never silently ship unsigned.
+the leg (for whichever target it hit); we never silently ship unsigned.
 
 ## GitHub Actions secrets
 
@@ -111,19 +128,22 @@ download because `nuget install` intermittently fails to resolve the package on
 
 `packaging/metadata.json` is committed with the Azure Trusted Signing account
 values (account `LitCat`, profile `bogsoft`, `eus` endpoint), so signing works
-with no per-run edit; llama binaries carry that publisher identity, an accepted
-tradeoff. `build.py` refuses to sign if the file is ever reverted to
-placeholder values, guarding a future profile change.
+with no per-run edit; both llama's and emcee's binaries carry that publisher
+identity — one shared file, an accepted tradeoff. `build.py` refuses to sign
+if the file is ever reverted to placeholder values, guarding a future profile
+change.
 
 ## Verifying a signed build
 
 Verify **from the workflow run logs**, not from an interactive shell — a green
-job is not proof the artifact was signed. In the `Build` step logs, expect:
+job is not proof the artifact was signed. Each leg signs llama then emcee, so
+expect the pattern below **twice** per macOS/Windows `Build` step log:
 
 - macOS: `Current status: Accepted` and `signed + notarized`.
 - Windows: `Number of files successfully Signed: 1` and `signed + verified`.
 
-To spot-check a downloaded artifact locally:
+To spot-check a downloaded artifact locally (either binary — swap `llama` for
+`emcee`/`llama.exe` for `emcee.exe`):
 
 ```bash
 # macOS

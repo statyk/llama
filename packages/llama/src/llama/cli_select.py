@@ -1,10 +1,9 @@
 """Shared, Typer-free selector layer over the catalog.
 
-Plan A (foundations): the one selector implementation Plan B will wire into
-every selector-capable command (`status`, `show`, `deliver`, `redo`, ...).
-Pure functions over `CatalogEntry` objects — no Typer imports here; Plan B
-owns translating CLI options into a `Selector` via `build_selector`. Nothing
-in the existing CLI uses this module yet.
+The one selector implementation wired into every selector-capable command
+(`status`, `show`, `triage`, `fix`, `redo`, `deliver`, `rm`, ...). Pure
+functions over `CatalogEntry` objects — no Typer imports here; each command's
+CLI layer translates its options into a `Selector` via `build_selector`.
 """
 from dataclasses import dataclass
 from enum import Enum
