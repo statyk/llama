@@ -84,6 +84,20 @@ def _resolve_station_root(config: EmceeConfig, override: Path | None) -> Path:
     return root
 
 
+def _typed_error(exc: Exception) -> str:
+    """Prefix an exception's type name onto its message.
+
+    A bare stdlib exception's `str()` is often useless on its own -- a
+    `KeyError`'s `str()` is just the missing key, e.g. `'filename'`, which
+    reads as a stray, un-quoted-looking fragment in an `error: <slug>: ...`
+    line or a status table row. `KeyError: 'filename'` is legible; `'filename'`
+    alone is not. Applied at every point an *arbitrary* (broadly-caught)
+    exception's message reaches the user -- `_scan_broad`'s per-entry
+    failures and `run`'s per-package processing failures.
+    """
+    return f"{type(exc).__name__}: {exc}"
+
+
 def _scan_broad(root: Path) -> list[PackageStatus]:
     """Re-walk `root` package-by-package, never letting one malformed
     package's `readiness()` check abort the walk.
@@ -116,12 +130,12 @@ def _scan_broad(root: Path) -> list[PackageStatus]:
             ))
             continue
         except Exception as exc:
-            statuses.append(PackageStatus(path=entry, state="error", reasons=[str(exc)]))
+            statuses.append(PackageStatus(path=entry, state="error", reasons=[_typed_error(exc)]))
             continue
         try:
             ok, reasons = readiness(pkg)
         except Exception as exc:
-            statuses.append(PackageStatus(path=entry, state="error", reasons=[str(exc)]))
+            statuses.append(PackageStatus(path=entry, state="error", reasons=[_typed_error(exc)]))
             continue
         statuses.append(PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons))
     return statuses
@@ -173,7 +187,15 @@ def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
     try:
         process_package(config, pkg, speech, force)
     finally:
-        speech.close()
+        # A raising close() must never mask a successful process_package --
+        # or, worse, turn a genuinely-completed package into a reported
+        # failure (`run` would otherwise print `error: <slug>: ...` and
+        # count a `ready` package as failed even though the manifest was
+        # already written). Best-effort cleanup only.
+        try:
+            speech.close()
+        except Exception:
+            pass
 
 
 @app.command()
@@ -218,7 +240,7 @@ def run(
         try:
             _process_one(config, Package(status.path), force)
         except Exception as exc:
-            typer.echo(f"error: {slug}: {exc}", err=True)
+            typer.echo(f"error: {slug}: {_typed_error(exc)}", err=True)
             failed = True
             continue
         processed += 1
@@ -237,12 +259,18 @@ def voice_cmd(
         help="Re-roll (re-synthesize) just these DJ-clip stems, e.g. set1-intro "
              "or 99-outro; repeatable. Deletes the cached clip first so "
              "reprocessing re-renders only it -- other clips keep their "
-             "cached audio. NOTE: unlike llama, emcee stamps no "
-             "voice/provenance -- a re-voice always resolves the voice fresh "
-             "from config + presenter assignment, so if the configured voice "
-             "changed since the last render, --fresh re-renders EVERY clip "
-             "(every cache key changes with the voice), not just the one "
-             "named."),
+             "cached audio, PROVIDED the DJ script comes back unchanged. "
+             "CAVEATS (both unlike llama, which stamps and replays a "
+             "provenance voice/script): (1) emcee re-scripts on every call -- "
+             "with a real, non-deterministic LLM, a re-voice's regenerated "
+             "script text usually differs at least slightly, which changes "
+             "EVERY clip's cache key and defeats single-clip granularity "
+             "(every clip re-renders, not just the named one) -- there is no "
+             "way around this short of a script-reuse mode this CLI does not "
+             "have yet; (2) a re-voice always resolves the voice fresh from "
+             "config + presenter assignment (no stamp), so if the configured "
+             "voice changed since the last render, that alone also "
+             "invalidates every clip's cache key."),
     force: bool = typer.Option(False, "--force",
                                help="Re-synthesize every DJ clip even if cached"),
 ):
@@ -253,7 +281,11 @@ def voice_cmd(
     first clears its `dj_notes`/`dj_audio` manifest blocks so a
     mid-pipeline failure degrades it to "pending" instead of leaving it
     stale-"ready" (see the task-9 report for the reasoning); a clean run
-    overwrites both blocks again as its own success marker.
+    overwrites both blocks again as its own success marker. One
+    consequence: a package that was previously broadcast-ready and fails a
+    re-voice partway through goes back to NOT broadcast-ready until a
+    later `voice`/`run` call on it succeeds -- there is no automatic
+    rollback to the prior (working) script/audio.
     """
     config = load_config()
     pkg = Package(package_path)
@@ -282,18 +314,21 @@ def voice_cmd(
 @app.command("status")
 def status_cmd(
     json_output: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    station_root: Path = typer.Option(
+        None, "--station-root",
+        help="Override \\[station] root for this invocation"),
 ):
     """Table of every package in the station: slug, state, reasons.
 
     States: "ready" (fully voiced and broadcast-assembled), "pending" (not
     yet, or not fully, processed), "unsupported" (pre-v3 manifest --
-    re-deliver from llama). Same `\\[station] root` resolution and the same
-    broad per-package error handling as `run`: a structurally malformed
-    manifest renders as an "error" row with its exception message instead
-    of crashing the whole table.
+    re-deliver from llama). Same `\\[station] root` resolution (including
+    `--station-root`) and the same broad per-package error handling as
+    `run`: a structurally malformed manifest renders as an "error" row with
+    its exception message instead of crashing the whole table.
     """
     config = load_config()
-    root = _resolve_station_root(config, None)
+    root = _resolve_station_root(config, station_root)
     statuses = _station_statuses(root)
 
     if json_output:

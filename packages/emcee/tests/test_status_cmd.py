@@ -55,6 +55,33 @@ def test_status_nonexistent_station_root_raises_emcee_error(tmp_path, monkeypatc
     assert "[station] root" in str(result.exception)
 
 
+def test_status_station_root_pointing_at_a_file_raises_emcee_error(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    a_file = tmp_path / "not-a-directory.txt"
+    a_file.write_text("hi")
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=a_file)
+
+    result = runner.invoke(app, ["status"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, EmceeError)
+    assert "[station] root" in str(result.exception)
+
+
+def test_status_station_root_flag_overrides_config(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    station.mkdir()
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=None)  # no [station] root in config at all
+
+    result = runner.invoke(app, ["status", "--station-root", str(station)])
+
+    assert result.exit_code == 0, result.output
+    assert "no packages" in result.output.lower()
+
+
 # ---------------------------------------------------------------------------
 # All three states, table + --json
 # ---------------------------------------------------------------------------

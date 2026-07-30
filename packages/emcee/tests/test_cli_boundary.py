@@ -1,8 +1,9 @@
 import pytest
 from herder import HerderError
+from typer.main import get_command
 from typer.testing import CliRunner
 
-from emcee.cli import app, main_cli
+from emcee.cli import _COMMAND_ORDER, app, main_cli
 from emcee.errors import EmceeError
 
 runner = CliRunner()
@@ -12,6 +13,19 @@ def test_help_runs():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "Voice llama show packages" in result.output
+
+
+def test_ordered_panel_group_lists_commands_in_declared_order():
+    """Direct coverage of `OrderedPanelGroup`/`_COMMAND_ORDER` -- deferred
+    from Task 1, when ordering was unassertable because no real commands
+    existed yet. Goes through `list_commands` itself (not a parsed-help-text
+    scrape, which is fragile against Rich's wrapping/formatting) so it pins
+    the sort behavior precisely enough to catch a mutation to the sort key.
+    """
+    click_group = get_command(app)
+    ctx = click_group.make_context("emcee", [], resilient_parsing=True)
+    assert click_group.list_commands(ctx) == _COMMAND_ORDER == \
+        ["run", "voice", "status", "presenter", "config"]
 
 
 def test_main_cli_renders_emcee_error(monkeypatch, capsys):

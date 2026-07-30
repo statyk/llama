@@ -85,6 +85,20 @@ def test_run_nonexistent_station_root_raises_emcee_error(tmp_path, monkeypatch):
     assert "[station] root" in str(result.exception)
 
 
+def test_run_station_root_pointing_at_a_file_raises_emcee_error(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    a_file = tmp_path / "not-a-directory.txt"
+    a_file.write_text("hi")
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=a_file)
+
+    result = runner.invoke(app, ["run"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, EmceeError)
+    assert "[station] root" in str(result.exception)
+
+
 def test_run_station_root_flag_overrides_config(tmp_path, monkeypatch):
     home = tmp_path / "home"
     station = tmp_path / "station"
@@ -183,7 +197,11 @@ def test_run_batch_continues_after_one_package_fails(tmp_path, monkeypatch):
     result = runner.invoke(app, ["run"])
 
     assert result.exit_code == 1
-    assert "error: failshow: synthetic TTS blowup" in result.output
+    # asserted on stderr (not the mixed `.output`) specifically so a mutant
+    # that drops `err=True` on the per-package error echo is caught -- both
+    # streams get combined into `.output` regardless of routing, so only
+    # `.stderr` actually pins where the line went.
+    assert "error: failshow: RuntimeError: synthetic TTS blowup" in result.stderr
     # the other (good) package was still processed
     assert (ok_dir / "broadcast.m3u").exists()
     assert f"voiced: {ok_dir.name}" in result.output
@@ -223,7 +241,161 @@ def test_run_malformed_but_valid_json_manifest_reported_and_batch_continues(tmp_
 
     assert result.exit_code == 1
     assert result.exception is None or not isinstance(result.exception, KeyError)
-    assert "error: badshow" in result.output
+    # asserted on stderr, not the mixed `.output` -- see the batch-continues
+    # test above for why. Also asserts the exception TYPE is surfaced
+    # (KeyError), not just its bare, unlabeled message ('filename').
+    assert "error: badshow: KeyError: 'filename'" in result.stderr
     # the good package still got processed -- proof the batch continued
     assert (ok_dir / "broadcast.m3u").exists()
     assert f"voiced: {ok_dir.name}" in result.output
+
+
+# ---------------------------------------------------------------------------
+# The blessed call convention, pinned: resolve_assignment/speech_for MUST be
+# resolved fresh INSIDE the per-package loop. Hoisting them above the loop
+# is the one silent-wrong-audio failure mode in the whole package (see
+# process.py's module docstring and process_package's docstring) -- a
+# hoisted mutant would give every package in the batch the FIRST package's
+# voice paired with THAT package's own (correctly re-derived-by-
+# process_package) bed, an inconsistent pairing that raises no exception
+# and exits 0.
+#
+# `FakeSpeechProvider.__init__` hardcodes `self.voice = "fake-voice"`
+# (tts/fake.py), so the requested voice is only observable at the
+# `speech_provider_for` call boundary -- not on the returned object under
+# the real backend factory. We tag a fake provider with the voice it was
+# asked for, and intercept `_synthesize_dj_audio` (the point where
+# `process_package` brings `speech` and the package's own re-derived `bed`
+# together) to record (package, voice, bed-file) triples.
+# ---------------------------------------------------------------------------
+
+
+def _hoist_probe_setup(tmp_path, monkeypatch):
+    from emcee.config import Assignment
+    from emcee.presenters import Presenter, save_presenter
+
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    home.mkdir(parents=True)
+    (home / "config.toml").write_text(
+        f'[station]\nroot = "{station}"\n\n'
+        '[assign.profiles.pa]\npresenter = "alice"\n\n'
+        '[assign.profiles.pb]\npresenter = "bob"\n'
+    )
+    save_presenter(home, Presenter(id="alice", name="Alice", sex="female",
+                                   voice="alice-voice", character="warm",
+                                   bed="/beds/alice.wav"))
+    save_presenter(home, Presenter(id="bob", name="Bob", sex="male",
+                                   voice="bob-voice", character="dry",
+                                   bed="/beds/bob.wav"))
+    build_package(station, slug="a-show", voiced=False, profile="pa")
+    build_package(station, slug="b-show", voiced=False, profile="pb")
+    _arm_fake_llm(monkeypatch)
+
+    calls: list[tuple[str, str, str | None]] = []
+
+    class TaggedProvider:
+        def __init__(self, voice):
+            self.voice = voice
+            self.model = "tagged-model"
+
+        def synthesize(self, *a, **k):
+            raise AssertionError("synthesize should not run; _synthesize_dj_audio is faked")
+
+        def close(self):
+            pass
+
+    def fake_synth(pkg_dir, notes, speech, force, chunk=False, lexicon=None, bed=None):
+        from emcee.models import DJAudioBlock
+        calls.append((pkg_dir.name, speech.voice, bed.path.name if bed is not None else None))
+        return DJAudioBlock(
+            set_intros={k: f"dj-audio/set{k}-intro.mp3" for k in notes.set_intros},
+            outro="dj-audio/99-outro.mp3",
+        )
+
+    monkeypatch.setattr(process_mod, "_synthesize_dj_audio", fake_synth)
+    monkeypatch.setattr(process_mod, "speech_provider_for",
+                        lambda config, voice, clone_ref=None: TaggedProvider(voice))
+    return calls
+
+
+def test_run_never_pairs_one_packages_voice_with_anothers_bed(tmp_path, monkeypatch):
+    calls = _hoist_probe_setup(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["run"])
+
+    assert result.exit_code == 0, result.output
+    by_pkg = {name: (voice, bed) for name, voice, bed in calls}
+    assert by_pkg == {
+        "a-show": ("alice-voice", "alice.wav"),
+        "b-show": ("bob-voice", "bob.wav"),
+    }
+
+
+def test_hoisting_resolve_assignment_and_speech_for_breaks_the_pairing(tmp_path, monkeypatch):
+    """Sanity-checks the probe above: this pins the *mutant* shape the
+    previous test guards against, proving the probe would actually catch a
+    hoisted `resolve_assignment`/`speech_for` -- not just exercise a code
+    path that happens not to fail. Does not touch cli.py; it directly
+    replays the hoisted (wrong) call shape a mutation would produce, using
+    the exact same production `resolve_assignment`/`speech_for`."""
+    from emcee.config import load_config
+    from emcee.package_io import Package
+    from emcee.process import resolve_assignment, speech_for
+
+    calls = _hoist_probe_setup(tmp_path, monkeypatch)
+    config = load_config()
+    root = config.station.root
+    packages = [Package(root / "a-show"), Package(root / "b-show")]
+
+    # The hoisted mutant: resolve ONCE from the first package, reuse for all.
+    manifest = packages[0].manifest()
+    presenter, _title = resolve_assignment(config, manifest)
+    speech, _bed = speech_for(config, presenter)
+    for pkg in packages:
+        process_mod.process_package(config, pkg, speech, False)
+
+    by_pkg = {name: (voice, bed) for name, voice, bed in calls}
+    # b-show got alice's voice (from a-show's resolution) paired with its
+    # OWN, correctly-re-derived bob.wav bed -- the exact silent mismatch
+    # I1 warns about. No exception, but wrong audio.
+    assert by_pkg["b-show"] == ("alice-voice", "bob.wav")
+    assert by_pkg["b-show"] != ("bob-voice", "bob.wav")
+
+
+# ---------------------------------------------------------------------------
+# A raising speech.close() on an otherwise-successful package must not turn
+# a completed package into a reported failure.
+# ---------------------------------------------------------------------------
+
+
+def test_run_success_survives_a_raising_speech_close(tmp_path, monkeypatch):
+    from emcee.tts.fake import FakeSpeechProvider
+
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    _arm_fake_llm(monkeypatch)
+
+    class CloseBlowsUpProvider(FakeSpeechProvider):
+        def close(self):
+            raise RuntimeError("close blew up")
+
+    monkeypatch.setattr(process_mod, "speech_provider_for",
+                        lambda config, voice, clone_ref=None: CloseBlowsUpProvider())
+
+    pkg_dir = build_package(station, slug="closer", voiced=False)
+
+    result = runner.invoke(app, ["run"])
+
+    assert result.exit_code == 0, result.output
+    assert result.stderr == ""  # no error line for a package that actually succeeded
+    manifest = json.loads((pkg_dir / "manifest.json").read_text())
+    assert manifest["dj_notes"] is not None
+    assert manifest["dj_audio"] is not None
+    assert (pkg_dir / "broadcast.m3u").exists()
+    assert f"voiced: {pkg_dir.name}" in result.output
+    assert "1 package(s) voiced" in result.output
+    assert "with errors" not in result.output
