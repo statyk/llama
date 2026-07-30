@@ -106,6 +106,13 @@ def build_package(
         "source": source,
         "tracks": tracks,
         "set_breaks": set_breaks,
+        # llama's real Manifest model always serializes these two keys
+        # (default None) whether or not a show is voiced -- match that
+        # shape explicitly rather than omitting the keys, so a package
+        # fabricated with voiced=False is byte-shape-identical to what
+        # `deliver` actually writes.
+        "dj_notes": None,
+        "dj_audio": None,
         "total_duration_sec": 0,
         "set_durations_sec": {},
     }
