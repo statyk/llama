@@ -176,6 +176,25 @@ def test_guard_vague_clean_script_with_segment_structure_passes(tmp_path):
         mentioned_songs=[],
     )
     assert script_guard(notes, manifest, "vague") == []
+    # ...and the structural checks are NOT relaxed by vague mode: a missing
+    # lead-in and an encore-keyed lead-in are still faults under narration
+    # "vague" -- vague only constrains what the prose may *assert*, never
+    # the per-gap structure itself (spec §3).
+    missing_one = ScriptNotes(**{**notes.model_dump(), "set_intros": {"1": "only one"}})
+    assert script_guard(missing_one, manifest, "vague") == ["dj notes missing set intros: ['2']"]
+    encore_keyed = ScriptNotes(**{**notes.model_dump(),
+                                   "set_intros": {"1": "a", "2": "b", "encore": "c"}})
+    assert any("encore" in p for p in script_guard(encore_keyed, manifest, "vague"))
+
+
+def test_guard_vague_flags_ordinal_set_claim(tmp_path):
+    manifest = manifest_of(tmp_path)
+    notes = ScriptNotes(**notes_dict(
+        set_intros={"1": "Something happened tonight.", "2": "The second set was great."},
+        mentioned_songs=[],
+    ))
+    problems = script_guard(notes, manifest, "vague")
+    assert problems == ["dj notes mention the second set but narration is vague"]
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +208,50 @@ def test_notes_md_one_lead_in_per_set_then_outro(tmp_path):
     headers = [ln for ln in md.splitlines() if ln.startswith("## ")]
     assert headers == ["## Set 1 lead-in", "## Set 2 lead-in", "## Outro"]
     assert md.startswith("# Grateful Dead — 1973-06-10, Some Venue")
+
+
+def test_render_notes_md_full_content(tmp_path):
+    # Full-string lock: catches dropping the `if notes.context:` italic
+    # block (a mutation the reviewer found unasserted).
+    manifest = manifest_of(tmp_path)
+    md = render_notes_md(ScriptNotes(**notes_dict()), manifest)
+    expected = "\n".join([
+        "# Grateful Dead — 1973-06-10, Some Venue",
+        "",
+        "*Peak 1973 tour*",
+        "",
+        "## Set 1 lead-in",
+        "Tonight: the Dead at RFK. Opens with Morning Dew.",
+        "",
+        "## Set 2 lead-in",
+        "China Cat leads set two.",
+        "",
+        "## Outro",
+        "I Know You Rider sends us off. Thanks for listening.",
+        "",
+    ])
+    assert md == expected
+
+
+def test_render_notes_md_no_venue_and_no_context():
+    # Direct manifest dict (no need for a full package): catches dropping
+    # the `or 'venue unknown'` fallback -- build_package's fixture always
+    # has a venue, so this must be exercised separately.
+    manifest = {"show": {"artist": "X", "date": "2003-04-19", "venue": None}}
+    notes = ScriptNotes(context="", set_intros={"1": "Openers."}, outro="Bye.",
+                        mentioned_songs=[])
+    md = render_notes_md(notes, manifest)
+    expected = "\n".join([
+        "# X — 2003-04-19, venue unknown",
+        "",
+        "## Set 1 lead-in",
+        "Openers.",
+        "",
+        "## Outro",
+        "Bye.",
+        "",
+    ])
+    assert md == expected
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +388,26 @@ def test_write_script_success_returns_notes_and_touches_nothing(tmp_path):
     assert before == after
     assert "dj_notes" not in pkg.manifest() or pkg.manifest()["dj_notes"] is None
     assert not (pkg_dir / "dj-notes.md").exists()
+    assert "A well-loved show." in fake.calls[0][1]   # briefing.md reached the prompt
+
+
+def test_write_script_prompt_carries_set_breaks_and_excludes_encore_lead_in(tmp_path):
+    # One assertion set covering three payload-slot regressions: set_breaks
+    # dropped from the manifest_show_json slot, the encore set leaking into
+    # the "write one lead-in per set" list (which would instruct the LLM to
+    # write a lead-in script_guard then rejects -- a guaranteed retry-then-
+    # fail loop), and encore_note forced empty.
+    pkg_dir = build_package(tmp_path)  # default: sets ("1", "2") + encore
+    pkg = Package(pkg_dir)
+    fake = FakeProvider(completes=[json.dumps(notes_dict())])
+    write_script(pkg, fake, presenter=None, title=None)
+    prompt = fake.calls[0][1]
+    assert '"set_breaks"' in prompt
+    assert 'Write one lead-in per set: "1", "2".' in prompt
+    lead_in_line = next(ln for ln in prompt.splitlines()
+                        if ln.startswith("Write one lead-in per set:"))
+    assert "encore" not in lead_in_line
+    assert "This show ends with an encore" in prompt
 
 
 def test_write_script_retries_with_feedback_then_raises(tmp_path):
