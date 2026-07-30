@@ -42,16 +42,17 @@ app.add_typer(presenter_app, name="presenter")
 def _main() -> None:
     """No global options yet — placeholder callback.
 
-    Keep it, even though `app` currently has a sub-typer (`presenter`) and so
-    already renders `Usage: emcee [OPTIONS] COMMAND [ARGS]...` with or
-    without this callback. The risk is future, not current: Typer allows
-    exactly one callback, and an app whose *only* top-level registration is a
-    single plain command (no sub-typer, no callback) collapses `--help` to
-    `Usage: emcee [OPTIONS]` instead of the `... COMMAND [ARGS]...` form.
-    Task 9 adds `run`/`voice`/`status` as plain top-level commands
-    alongside `presenter`, and this callback is what keeps that combination
-    from collapsing. Later tasks may replace this body with real global
-    options, mirroring llama's `cli.py:99` callback.
+    Currently inert: `app` already has a sub-typer (`presenter`), and a
+    sub-typer alone is enough to render `Usage: emcee [OPTIONS] COMMAND
+    [ARGS]...` with or without this callback. Keep it anyway, for two
+    reasons. First, it's the intended slot for real global options later
+    (a `--config`-style option is likely once Task 5 lands config),
+    mirroring llama's `cli.py:99` callback. Second, it's a shape-independent
+    hedge: it guarantees the `COMMAND [ARGS]...` group form no matter how
+    top-level registrations change later, including the one shape that does
+    collapse `--help` to `Usage: emcee [OPTIONS]` — a single plain command
+    with no sub-typer and no callback. Typer allows only one `@app.callback()`;
+    a second one wouldn't error, it would just silently supersede this one.
     """
 
 
