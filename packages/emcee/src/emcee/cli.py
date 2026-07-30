@@ -52,8 +52,8 @@ def _main() -> None:
     sub-typer alone is enough to render `Usage: emcee [OPTIONS] COMMAND
     [ARGS]...` with or without this callback. Keep it anyway, for two
     reasons. First, it's the intended slot for real global options later
-    (a `--config`-style option is likely once Task 5 lands config),
-    mirroring llama's `cli.py:99` callback. Second, it's a shape-independent
+    (a `--config`-style option is a plausible future addition), mirroring
+    llama's `cli.py:99` callback. Second, it's a shape-independent
     hedge: it guarantees the `COMMAND [ARGS]...` group form no matter how
     top-level registrations change later, including the one shape that does
     collapse `--help` to `Usage: emcee [OPTIONS]` — a single plain command
@@ -85,17 +85,33 @@ def _resolve_station_root(config: EmceeConfig, override: Path | None) -> Path:
 
 
 def _typed_error(exc: Exception) -> str:
-    """Prefix an exception's type name onto its message.
+    """An exception's message, type-prefixed unless it's already a complete
+    sentence.
 
     A bare stdlib exception's `str()` is often useless on its own -- a
     `KeyError`'s `str()` is just the missing key, e.g. `'filename'`, which
     reads as a stray, un-quoted-looking fragment in an `error: <slug>: ...`
     line or a status table row. `KeyError: 'filename'` is legible; `'filename'`
-    alone is not. Applied at every point an *arbitrary* (broadly-caught)
-    exception's message reaches the user -- `_scan_broad`'s per-entry
-    failures and `run`'s per-package processing failures.
+    alone is not. `EmceeError` (and its subclasses) are the opposite case:
+    `str(self)` is documented (`errors.py`) to already read as a complete,
+    actionable sentence, so type-prefixing it would just glue an
+    `EmceeError: ` fragment onto an already-finished sentence -- so those
+    render their message alone. Applied at every point an *arbitrary*
+    (broadly-caught) exception's message reaches the user -- `_scan_broad`'s
+    per-entry failures and `run`/`voice`'s per-package processing failures.
     """
+    if isinstance(exc, EmceeError):
+        return str(exc)
     return f"{type(exc).__name__}: {exc}"
+
+
+def _error_reasons(exc: Exception) -> list[str]:
+    """`_typed_error(exc)` followed by any `exc.details` lines -- the full
+    set of lines a broadly-caught exception should surface, whether that's a
+    `PackageStatus.reasons` list or the indented lines `run`/`voice` echo to
+    stderr under their `error: <slug>: ...` line. Plain exceptions (no
+    `details` attribute) yield just the one line."""
+    return [_typed_error(exc), *getattr(exc, "details", [])]
 
 
 def _scan_broad(root: Path) -> list[PackageStatus]:
@@ -130,12 +146,12 @@ def _scan_broad(root: Path) -> list[PackageStatus]:
             ))
             continue
         except Exception as exc:
-            statuses.append(PackageStatus(path=entry, state="error", reasons=[_typed_error(exc)]))
+            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc)))
             continue
         try:
             ok, reasons = readiness(pkg)
         except Exception as exc:
-            statuses.append(PackageStatus(path=entry, state="error", reasons=[_typed_error(exc)]))
+            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc)))
             continue
         statuses.append(PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons))
     return statuses
@@ -159,31 +175,38 @@ def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
     """Script + voice + broadcast-assemble one package. Shared by `run`'s
     per-pending-package loop and `voice`.
 
-    JUDGMENT CALL (task-9 report has the full reasoning): clears the
-    manifest's `dj_notes`/`dj_audio` blocks before reprocessing.
-    `process_package` overwrites `dj-notes.md` well before the manifest
-    write that marks its success, so a mid-pipeline failure on an
-    already-*ready* package would otherwise leave `dj-notes.md` holding the
-    new (unrecorded) script while the manifest -- and therefore
-    `station.readiness` -- still reports the *old* blocks as present,
-    reading "ready" despite the drift. Clearing first means a failure here
-    instead degrades the package to "pending" (self-consistent with
-    llama's `redo --from package`, which unlinks the manifest first).
-    Harmless on the happy path: `process_package` overwrites both blocks
-    again moments later as its own success marker. It also never touches
-    `dj-audio/segments.json` -- the per-clip hash cache that actually
-    drives what `voice --fresh` re-renders -- so it has no effect on
-    `--fresh`'s re-roll behavior.
-
     Per the blessed call convention: `resolve_assignment`/`speech_for` are
     resolved fresh here, every call -- never hoisted above a per-package
     loop -- so each package's presenter-derived voice is never accidentally
     reused for a different package.
     """
     manifest = pkg.manifest()
-    rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
     presenter, title = resolve_assignment(config, manifest)
     speech, bed = speech_for(config, presenter)
+
+    # JUDGMENT CALL: clears the manifest's dj_notes/dj_audio blocks before
+    # reprocessing -- but only now, after resolve_assignment/speech_for have
+    # already succeeded. `process_package` overwrites `dj-notes.md` well
+    # before the manifest write that marks its success, so a mid-pipeline
+    # failure on an already-*ready* package would otherwise leave
+    # `dj-notes.md` holding the new (unrecorded) script while the manifest
+    # -- and therefore `station.readiness` -- still reports the *old*
+    # blocks as present, reading "ready" despite the drift. Clearing first
+    # means a failure here instead degrades the package to "pending"
+    # (self-consistent with llama's `redo --from package`, which unlinks
+    # the manifest first). Deliberately placed after resolve_assignment/
+    # speech_for, not before: both can fail on configuration alone (a
+    # `[assign] default` naming a presenter with no TOML file, no `[tts]
+    # voice` configured) with no manifest write ever attempted -- clearing
+    # before that point would take a genuinely broadcast-ready package off
+    # air over nothing but a config typo, and force every clip to
+    # re-synthesize (real TTS spend) on the retry even though nothing was
+    # ever going to be overwritten. Harmless on the happy path:
+    # `process_package` overwrites both blocks again moments later as its
+    # own success marker. It also never touches `dj-audio/segments.json` --
+    # the per-clip hash cache that actually drives what `voice --fresh`
+    # re-renders -- so it has no effect on `--fresh`'s re-roll behavior.
+    rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
     try:
         process_package(config, pkg, speech, force)
     finally:
@@ -217,8 +240,10 @@ def run(
 
     Per-package failures -- including a structurally invalid manifest
     (e.g. a track missing its filename), since emcee validates no manifest
-    model -- are caught broadly, printed as `error: <slug>: <message>`,
-    and do not stop the rest of the batch. Exits 1 if any package failed.
+    model -- are caught broadly, printed as `error: <slug>: <message>` plus
+    any indented detail lines (e.g. a scriptwrite guard failure's specific
+    fact-check problems), matching `main_cli`'s error rendering. Does not
+    stop the rest of the batch. Exits 1 if any package failed.
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
@@ -235,12 +260,16 @@ def run(
             continue
         if status.state == "error":
             typer.echo(f"error: {slug}: {status.reasons[0]}", err=True)
+            for line in status.reasons[1:]:
+                typer.echo(f"  {line}", err=True)
             failed = True
             continue
         try:
             _process_one(config, Package(status.path), force)
         except Exception as exc:
             typer.echo(f"error: {slug}: {_typed_error(exc)}", err=True)
+            for line in getattr(exc, "details", []):
+                typer.echo(f"  {line}", err=True)
             failed = True
             continue
         processed += 1
@@ -278,14 +307,22 @@ def voice_cmd(
 
     `package_path` names one package directory directly -- use `emcee run`
     to process a whole station. Re-processing an already-"ready" package
-    first clears its `dj_notes`/`dj_audio` manifest blocks so a
-    mid-pipeline failure degrades it to "pending" instead of leaving it
-    stale-"ready" (see the task-9 report for the reasoning); a clean run
+    clears its `dj_notes`/`dj_audio` manifest blocks (once presenter/voice
+    resolution has already succeeded) before reprocessing, so a
+    mid-pipeline failure degrades it to "pending" -- self-consistent with
+    `station.readiness` -- instead of leaving it stale-"ready" while
+    `dj-notes.md` already holds an unrecorded new script; a clean run
     overwrites both blocks again as its own success marker. One
     consequence: a package that was previously broadcast-ready and fails a
     re-voice partway through goes back to NOT broadcast-ready until a
     later `voice`/`run` call on it succeeds -- there is no automatic
     rollback to the prior (working) script/audio.
+
+    Per-package failures -- including a structurally invalid manifest (e.g.
+    a track missing its filename, or a briefing block missing entirely),
+    since emcee validates no manifest model -- are caught broadly and
+    printed as `error: <slug>: <message>` plus any indented detail lines,
+    matching `emcee run`, instead of a raw traceback. Exits 1 on failure.
     """
     config = load_config()
     pkg = Package(package_path)
@@ -307,7 +344,13 @@ def voice_cmd(
         typer.echo(f"re-rolling {', '.join(stems)} "
                    "(previous take(s) discarded — TTS is non-deterministic)")
 
-    _process_one(config, pkg, force)
+    try:
+        _process_one(config, pkg, force)
+    except Exception as exc:
+        typer.echo(f"error: {pkg.dir.name}: {_typed_error(exc)}", err=True)
+        for line in getattr(exc, "details", []):
+            typer.echo(f"  {line}", err=True)
+        raise typer.Exit(1)
     typer.echo(f"voiced: {pkg.dir}")
 
 

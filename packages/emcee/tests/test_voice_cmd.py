@@ -255,3 +255,110 @@ def test_voice_failure_on_already_ready_package_degrades_manifest_to_pending(tmp
     ok_after, reasons_after = readiness(pkg)
     assert ok_after is False  # now honestly "pending", not stale "ready"
     assert reasons_after
+
+
+# ---------------------------------------------------------------------------
+# Fix 1 (whole-branch review, Important): resolve_assignment/speech_for can
+# both fail on configuration alone -- no [tts] voice configured, or an
+# [assign] default naming a presenter with no TOML file -- with no manifest
+# write ever attempted. The pre-clear must run only AFTER both have already
+# succeeded, so a config typo alone never takes a genuinely ready package
+# off air.
+# ---------------------------------------------------------------------------
+
+
+def _write_config_no_voice(root: Path) -> None:
+    """Like _write_config, but deliberately omits [tts] voice -- speech_for
+    has nothing to resolve and raises EmceeError."""
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "config.toml").write_text('[tts]\nbackend = "fake"\n')
+
+
+def test_voice_failing_speech_for_leaves_a_ready_package_untouched(tmp_path, monkeypatch):
+    from emcee.package_io import Package
+    from emcee.station import readiness
+
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)  # working config, so the fixture below can actually voice
+    pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
+    pkg = Package(pkg_dir)
+    before_manifest = (pkg_dir / "manifest.json").read_text()
+    ok_before, _ = readiness(pkg)
+    assert ok_before is True  # sanity: genuinely ready before the failing re-voice
+
+    # Now reconfigure with a busted [tts] voice, as if a config typo landed.
+    _write_config_no_voice(home)
+
+    result = runner.invoke(app, ["voice", str(pkg_dir)])
+
+    assert result.exit_code == 1
+    assert "error: " in result.stderr
+    # nothing was ever going to be overwritten -- the manifest must come out
+    # byte-for-byte untouched, not pre-cleared to dj_notes/dj_audio = None
+    assert (pkg_dir / "manifest.json").read_text() == before_manifest
+    ok_after, reasons_after = readiness(pkg)
+    assert ok_after is True  # still genuinely ready, not knocked off air
+    assert reasons_after == []
+
+
+def test_voice_failing_resolve_assignment_leaves_a_ready_package_untouched(tmp_path, monkeypatch):
+    """The presenter-missing variant: [assign] default names a presenter
+    with no TOML file on disk, so resolve_assignment itself raises before
+    speech_for is ever reached."""
+    from emcee.package_io import Package
+    from emcee.station import readiness
+
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
+    pkg = Package(pkg_dir)
+    before_manifest = (pkg_dir / "manifest.json").read_text()
+    ok_before, _ = readiness(pkg)
+    assert ok_before is True
+
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "config.toml").write_text(
+        '[tts]\nbackend = "fake"\nvoice = "test-voice"\n\n'
+        '[assign]\ndefault = "waldo"\n'
+    )
+
+    result = runner.invoke(app, ["voice", str(pkg_dir)])
+
+    assert result.exit_code == 1
+    assert "error: " in result.stderr
+    assert "waldo" in result.stderr
+    assert (pkg_dir / "manifest.json").read_text() == before_manifest
+    ok_after, reasons_after = readiness(pkg)
+    assert ok_after is True
+    assert reasons_after == []
+
+
+# ---------------------------------------------------------------------------
+# Fix 3 (whole-branch review, Important): voice must not traceback on a
+# malformed-but-valid-JSON v3 manifest -- it gets the same broad handling
+# `run` has, rendering a clean `error: <slug>: <message>` line and exiting 1.
+# ---------------------------------------------------------------------------
+
+
+def test_voice_malformed_manifest_missing_briefing_key_reports_cleanly(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    _arm_fake_llm(monkeypatch)
+
+    pkg_dir = build_package(station, slug="badbriefing", voiced=False)
+    manifest = json.loads((pkg_dir / "manifest.json").read_text())
+    del manifest["briefing"]
+    (pkg_dir / "manifest.json").write_text(json.dumps(manifest))
+
+    result = runner.invoke(app, ["voice", str(pkg_dir)])
+
+    assert result.exit_code == 1
+    # no raw traceback: the KeyError was caught and rendered, not propagated
+    assert result.exception is None or not isinstance(result.exception, KeyError)
+    assert "error: badbriefing: KeyError: 'briefing'" in result.stderr

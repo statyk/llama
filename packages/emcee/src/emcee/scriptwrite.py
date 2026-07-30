@@ -201,8 +201,9 @@ def write_script(
     slice, run it, guard the result, retry once with feedback on failure,
     and raise EmceeError on persistent failure.
 
-    PURE: reads the package but never writes to it -- Task 8's orchestrator
-    owns writing the manifest's `dj_notes` block and `dj-notes.md`.
+    PURE: reads the package but never writes to it -- `process_package`
+    (the orchestrator) owns writing the manifest's `dj_notes` block and
+    `dj-notes.md`.
     """
     manifest = pkg.manifest()
     briefing_md = pkg.briefing_md()

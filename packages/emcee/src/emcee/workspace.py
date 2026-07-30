@@ -2,9 +2,9 @@
 
 Only `atomic_write_text`/`atomic_write_bytes` are ported here — the rest of
 llama's `workspace.py` (`ShowWorkspace`, `RunWorkspace`, etc.) is
-llama-library-side and out of scope for emcee. `emcee.presenters` uses
-`atomic_write_text` today; Task 6's atomic manifest rewrite is meant to
-import it from here too, rather than writing a second atomic writer.
+llama-library-side and out of scope for emcee. `emcee.presenters` and
+`emcee.package_io`'s manifest rewrite both use `atomic_write_text` from
+here, rather than each writing a second atomic writer.
 """
 
 import os

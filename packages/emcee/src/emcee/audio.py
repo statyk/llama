@@ -32,11 +32,11 @@ def detail(text: str) -> None:
     to its multi-stage step machinery, which emcee has no equivalent of --
     emcee is a single-purpose orchestrator, not a staged pipeline with a
     step/status subsystem to hook into. This is a deliberately minimal
-    stand-in (CONTROLLER RULING, Task 8): just echo the line via typer so
-    the ported call sites (`_synthesize_dj_audio`'s "synthesizing ..." /
-    "pruning orphan ..." lines) stay verbatim and the port stays
-    line-for-line comparable to llama's source. Building a status/step
-    subsystem for this is out of scope.
+    stand-in: just echo the line via typer so the ported call sites
+    (`_synthesize_dj_audio`'s "synthesizing ..." / "pruning orphan ..."
+    lines) stay verbatim and the port stays line-for-line comparable to
+    llama's source. Building a status/step subsystem for this is out of
+    scope.
     """
     typer.echo(text)
 

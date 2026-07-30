@@ -69,9 +69,9 @@ def scan(station_root: Path) -> list[PackageStatus]:
     A missing or non-directory `station_root` yields an empty list rather
     than raising -- `scan` alone can't distinguish "not configured yet" from
     "legitimately empty", so that judgment call is left to callers. `emcee
-    run`/`emcee status` (Task 9) are expected to raise an `EmceeError` naming
-    `[station] root` when they need "not configured"/"missing" to be a hard
-    error; `scan`'s empty-list result is what they check for that.
+    run`/`emcee status` raise an `EmceeError` naming `[station] root` when
+    they need "not configured"/"missing" to be a hard error; `scan`'s
+    empty-list result is what they check for that.
     """
     root = Path(station_root)
     if not root.is_dir():

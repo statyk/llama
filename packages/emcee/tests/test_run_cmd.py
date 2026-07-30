@@ -370,6 +370,50 @@ def test_hoisting_resolve_assignment_and_speech_for_breaks_the_pairing(tmp_path,
 # ---------------------------------------------------------------------------
 
 
+def _bad_notes_json_unknown_song() -> str:
+    # set_intros satisfy the structural checks (covers both non-encore
+    # sets); mentioned_songs names a song that isn't in the package's
+    # tracks at all -- the one guard problem script_guard will report.
+    return json.dumps({
+        "context": "Spring '73 tour",
+        "set_intros": {
+            "1": "Tonight: the Dead at RFK.",
+            "2": "Set two kicks off strong.",
+        },
+        "outro": "Thanks for listening.",
+        "mentioned_songs": ["Fire on the Mountain"],
+    })
+
+
+def test_run_guard_failure_surfaces_detail_lines_on_stderr(tmp_path, monkeypatch):
+    """Fix 2 (whole-branch review, Important): a scriptwrite guard failure's
+    EmceeError.details -- the specific fact-check problems -- must reach the
+    operator through `run`, not just the bare "failed after retry" message
+    (spec sec 2: failures must be "logged with reasons"). Same rendering
+    `main_cli` already gives HerderError/EmceeError: message, then each
+    detail line indented underneath."""
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    bad = _bad_notes_json_unknown_song()
+    monkeypatch.setattr(
+        process_mod, "provider_for",
+        lambda settings, task: FakeProvider(completes=[bad, bad]),  # both retry attempts fail
+    )
+
+    build_package(station, slug="badscript", voiced=False)
+
+    result = runner.invoke(app, ["run"])
+
+    assert result.exit_code == 1
+    # the message itself: an EmceeError, so NOT type-prefixed
+    assert "error: badscript: scriptwrite failed fact-checking after retry" in result.stderr
+    assert "EmceeError:" not in result.stderr
+    # the actual diagnosis -- previously silently lost -- now reaches stderr
+    assert "dj notes mention unknown song: Fire on the Mountain" in result.stderr
+
+
 def test_run_success_survives_a_raising_speech_close(tmp_path, monkeypatch):
     from emcee.tts.fake import FakeSpeechProvider
 
