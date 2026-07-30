@@ -322,7 +322,12 @@ emcee's own factual guard, not llama's.
     emcee voice /station/inbox/gratefuldead-1973-06-10
                                        # script + voice + assemble ONE package directly
     emcee voice /station/inbox/gratefuldead-1973-06-10 --fresh set1-intro
-                                       # re-roll just one DJ clip (repeatable)
+                                       # re-roll just this DJ clip (repeatable) --
+                                       # in practice, with a real LLM, emcee
+                                       # re-scripts on every call and the
+                                       # regenerated text usually changes EVERY
+                                       # clip's cache key, so normally every clip
+                                       # re-renders anyway, not just the named one
     emcee status                       # table of every package: ready / pending / unsupported
     emcee status --json
 

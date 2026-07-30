@@ -31,8 +31,11 @@ implementation plan this was built from. The approved design spec is
 - Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
   `[station] root` and voice every not-yet-broadcast-ready package),
   `emcee voice <package-path>` (script + voice + assemble one package;
-  `--fresh <clip-stem>` re-rolls one DJ clip, `--force` re-synthesizes all
-  of them), `emcee status` (table of every package's state:
+  `--fresh <clip-stem>` deletes just that cached clip, but since emcee
+  re-scripts on every call, a real LLM's regenerated text usually
+  invalidates every clip's cache too — in practice `--fresh` normally
+  re-renders every clip, not just the named one; `--force` re-synthesizes
+  all of them unconditionally), `emcee status` (table of every package's state:
   ready/pending/unsupported), `emcee presenter add/list/show/remove`
   (`presenters/<id>.toml`), `emcee config init`.
 

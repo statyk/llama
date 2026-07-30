@@ -308,8 +308,12 @@ no separate queue file to fall out of sync:
 
 - `emcee run` — voice every pending package in the station in one sweep.
 - `emcee voice <package-path>` — script + voice + assemble one package
-  directly (`--fresh <clip-stem>` re-rolls just one DJ clip, e.g.
-  `set1-intro` or `99-outro`; `--force` re-synthesizes every clip).
+  directly (`--fresh <clip-stem>` deletes just one cached clip, e.g.
+  `set1-intro` or `99-outro`, so *that* clip re-renders — but emcee
+  re-scripts on every call, and with a real LLM the regenerated text
+  usually changes every clip's cache key too, so in practice `--fresh`
+  normally re-renders the whole show anyway, not just the named clip;
+  `--force` re-synthesizes every clip unconditionally).
 - `emcee status` — a table of every package's state (`ready` / `pending` /
   `unsupported` for a pre-v3 manifest, which needs re-delivering from
   llama, not upgrading in place).
@@ -837,7 +841,10 @@ so the new research gets re-vetted.
 None of this is llama's job anymore — once `llama deliver` hands a package
 off, voicing it is `emcee`'s: `emcee run` sweeps every not-yet-voiced
 package in the station; `emcee voice <package-path>` does one directly
-(`--fresh <clip-stem>` re-rolls just one clip). Presenters
+(`--fresh <clip-stem>` re-rolls just one clip *in principle* — in
+practice emcee re-scripts every call, and a real LLM's regenerated text
+usually invalidates every clip's cache, so expect the whole show to
+re-render, not just the named clip). Presenters
 (`emcee presenter add/list/show/remove`) and the profile→presenter mapping
 (`[assign]` in emcee's own config) live entirely station-side — see
 [Voicing packages: emcee, a separate tool](#voicing-packages-emcee-a-separate-tool)
