@@ -97,7 +97,7 @@ def cap_across_artists(items: list, artist_of, date_of, n: int, cap: float,
 
 
 def reviews_digest(reviews: list[dict], limit: int = 5) -> str:
-    """Trimmed listener-review digest: what synthesize consumes and packages ship."""
+    """Trimmed listener-review digest: what brief consumes and packages ship."""
     parts = []
     for r in reviews[:limit]:
         title = str(r.get("reviewtitle") or "").strip()

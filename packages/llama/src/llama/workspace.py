@@ -78,8 +78,6 @@ class ShowWorkspace:
         self.vetting = dir / "vetting.json"
         self.briefing_json = dir / "briefing.json"
         self.briefing_md = dir / "briefing.md"
-        self.dj_notes_md = dir / "dj-notes.md"
-        self.dj_notes_json = dir / "dj-notes.json"
         self.overrides = dir / "overrides.json"
         self.package_dir = dir / "package"
         self.lock = dir / ".lock"
@@ -87,7 +85,7 @@ class ShowWorkspace:
 
 # Show-level stage order: forcing a stage drops its artifacts and everything
 # downstream, so a replay can never package outputs derived from pre-force state.
-SHOW_STAGE_ORDER = ["select", "gather", "research", "vet", "brief", "synthesize", "package"]
+SHOW_STAGE_ORDER = ["select", "gather", "research", "vet", "brief", "package"]
 
 
 def show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
@@ -97,7 +95,6 @@ def show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
         "research": [show_ws.research, show_ws.vetting],
         "vet": [show_ws.vetting],
         "brief": [show_ws.briefing_json, show_ws.briefing_md],
-        "synthesize": [show_ws.dj_notes_json, show_ws.dj_notes_md],
         "package": [show_ws.package_dir / "manifest.json"],
     }[stage]
 

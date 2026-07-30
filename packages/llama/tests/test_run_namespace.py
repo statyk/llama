@@ -239,22 +239,22 @@ def test_run_resume_passes_full_rationale_to_execute(tmp_path: Path, monkeypatch
     assert captured["full_rationale"] is True
 
 
-def test_run_resume_inherits_script_and_count_from_criteria(tmp_path: Path, monkeypatch):
+def test_run_resume_inherits_count_from_criteria(tmp_path: Path, monkeypatch):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     ws = RunWorkspace(tmp_path, "r1")
-    write_artifact(ws.criteria, Criteria(query="q", count=13, script=True))
+    write_artifact(ws.criteria, Criteria(query="q", count=13))
     captured = {}
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, force_stage=None,
+                     force=False, force_stage=None,
                      full_rationale=False):
-        captured.update(count=count, script=script)
+        captured.update(count=count)
 
     monkeypatch.setattr(cli, "_execute", fake_execute)
     result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", str(ws.dir)])
     assert result.exit_code == 0, result.output
-    assert captured == {"count": 13, "script": True}
+    assert captured == {"count": 13}
 
 
 def test_run_resume_rejects_stage_and_force(tmp_path: Path, monkeypatch):
@@ -299,11 +299,12 @@ def test_run_resume_unknown_name_fails_loud(tmp_path: Path):
     assert "no run matches" in str(result.exception)
 
 
-# `run resume` no longer resolves voice/presenter from the persisted criteria
-# -- that's emcee's job now (station-side [assign] profile -> presenter/title).
-# The old presenter-resolution/voice-note tests (moved-to-emcee behavior) are
-# gone; test_run_resume_inherits_script_and_count_from_criteria above still
-# covers the one llama-owned field (script) that survives.
+# `run resume` no longer resolves voice/presenter/script from the persisted
+# criteria -- scripting and voice/presenter assignment are both entirely
+# emcee's job now (station-side [assign] profile -> presenter/title). The old
+# presenter-resolution/voice-note/script-inheritance tests (moved-to-emcee
+# behavior) are gone; test_run_resume_inherits_count_from_criteria above
+# still covers the one field (count) that survives.
 
 
 # ---------------------------------------------------------------------------

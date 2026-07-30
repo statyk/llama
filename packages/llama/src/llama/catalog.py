@@ -49,7 +49,6 @@ _STAGES = [
     ("research", 3, "researched"),
     ("vetting", 4, "vetted"),
     ("briefing_json", 5, "briefed"),
-    ("dj_notes_json", 6, "scripted"),
 ]
 
 

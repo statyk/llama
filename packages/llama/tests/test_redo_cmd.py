@@ -195,9 +195,9 @@ def test_redo_run_batches_exactly_that_runs_shows(tmp_path: Path, monkeypatch):
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "inrun", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+    build(tmp_path, "inrun", stages={"select", "gather", "research", "vet", "package"},
           run="r1")
-    build(tmp_path, "otherrun", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+    build(tmp_path, "otherrun", stages={"select", "gather", "research", "vet", "package"},
           run="r2")
     calls = []
     monkeypatch.setattr(cli, "_redo_show",
@@ -212,9 +212,9 @@ def test_redo_run_show_level_batch_drops_held_with_note(tmp_path: Path, monkeypa
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "package"},
           run="r1")
-    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "package"},
           run="r1", needs_review=True)
     calls = []
     monkeypatch.setattr(cli, "_redo_show",
@@ -236,7 +236,7 @@ def test_redo_batch_packaged_plans_and_confirms(tmp_path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
-    runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto", "--script",
+    runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto",
                             "--name", "r"])
 
     calls = []
@@ -253,8 +253,8 @@ def test_redo_selector_batch_drops_held_unless_flag(tmp_path, monkeypatch):
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
-    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "package"})
+    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "package"},
           needs_review=True)
     calls = []
     monkeypatch.setattr(cli, "_redo_show",
@@ -282,7 +282,7 @@ def test_redo_batch_plans_and_yes_skips_confirmation(tmp_path, monkeypatch):
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "package"})
     calls = []
     monkeypatch.setattr(cli, "_redo_show",
                         lambda *a, **k: calls.append(a[3].slug) or a[3].ws.package_dir)
@@ -307,8 +307,8 @@ def test_redo_batch_continues_past_failure(tmp_path, monkeypatch):
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "aready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
-    build(tmp_path, "bready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "aready", stages={"select", "gather", "research", "vet", "package"})
+    build(tmp_path, "bready", stages={"select", "gather", "research", "vet", "package"})
     processed = []
 
     def fake_redo_show(config, ia, ledger, entry, from_stage, **kw):
@@ -333,7 +333,7 @@ def test_redo_positional_held_show_runs(tmp_path, monkeypatch):
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "synthesize", "package"},
+    build(tmp_path, "heldpkg", stages={"select", "gather", "research", "vet", "package"},
           needs_review=True)
     calls = []
     monkeypatch.setattr(cli, "_redo_show",
@@ -348,7 +348,7 @@ def test_redo_research_flag_renamed(tmp_path, monkeypatch):
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
-    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "synthesize", "package"})
+    build(tmp_path, "ready", stages={"select", "gather", "research", "vet", "package"})
     captured = {}
     monkeypatch.setattr(cli, "_redo_show",
                         lambda *a, **k: captured.update(k) or a[3].ws.package_dir)
@@ -391,7 +391,7 @@ def test_redo_requires_from_and_reruns_tail(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", cfg,
-        "get", "GD 1973", "--auto", "--script", "--name", "redorun"])
+        "get", "GD 1973", "--auto", "--name", "redorun"])
     assert result.exit_code == 0, result.output
     sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
     research_before = sws.research.read_text()
@@ -414,7 +414,7 @@ def test_redo_from_select_keeps_winnow_assessment(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", cfg,
-        "get", "GD 1973", "--auto", "--script", "--name", "redosel"])
+        "get", "GD 1973", "--auto", "--name", "redosel"])
     assert result.exit_code == 0, result.output
     sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
 
@@ -445,7 +445,7 @@ def test_redo_preserves_profile_stamp(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", cfg,
-        "get", "GD 1973", "--auto", "--script", "--name", "redoprofile"])
+        "get", "GD 1973", "--auto", "--name", "redoprofile"])
     assert result.exit_code == 0, result.output
     sws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
 
@@ -463,7 +463,9 @@ def test_redo_preserves_profile_stamp(tmp_path: Path, monkeypatch):
     assert prov.profile == "prime-dead"  # survived the redo, not reset to None
 
 
-def test_redo_run_package_keeps_cached_dj_notes(tmp_path: Path, monkeypatch):
+def test_redo_run_package_never_writes_a_dj_script(tmp_path: Path, monkeypatch):
+    # llama never writes a script -- that's emcee's job now, so a repackage
+    # via --run must leave dj_notes null regardless.
     import llama.pipeline as pipeline
     from test_pipeline import JB_OFF, FakeIA, fake_providers
 
@@ -474,27 +476,25 @@ def test_redo_run_package_keeps_cached_dj_notes(tmp_path: Path, monkeypatch):
     cfg = str(tmp_path / "config.toml")
 
     first = runner.invoke(cli.app, ["--config", cfg,
-        "get", "GD 1973", "--auto", "--script", "--name", "replay"])
+        "get", "GD 1973", "--auto", "--name", "replay"])
     assert first.exit_code == 0, first.output
 
-    # Re-package via --run WITHOUT --script: cached dj-notes.json must still
-    # drive the manifest.
     replay = runner.invoke(cli.app, ["--config", cfg,
-        "redo", "--run", "replay", "--from", "package", "--no-script", "--yes"])
+        "redo", "--run", "replay", "--from", "package", "--yes"])
     assert replay.exit_code == 0, replay.output
 
     pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
-    assert manifest["dj_notes"] is not None
+    assert manifest["dj_notes"] is None
     assert manifest["set_breaks"] == [{"after_track": 3}, {"after_track": 5}]
-    assert (pkg / "dj-notes.md").exists()
+    assert not (pkg / "dj-notes.md").exists()
 
 
 def test_redo_from_package_regenerates_missing_briefing(tmp_path: Path, monkeypatch):
-    """A pre-existing workspace with dj-notes but no briefing.json (e.g. built
-    before this stage existed) self-heals on the next redo: process_show finds
-    the briefing artifact missing and regenerates it, even though --from
-    package doesn't drop the brief stage's artifacts."""
+    """A pre-existing workspace with no briefing.json (e.g. deleted by hand)
+    self-heals on the next redo: process_show finds the briefing artifact
+    missing and regenerates it, even though --from package doesn't drop the
+    brief stage's artifacts."""
     import llama.pipeline as pipeline
     from test_pipeline import JB_OFF, FakeIA, fake_providers
 
@@ -505,42 +505,28 @@ def test_redo_from_package_regenerates_missing_briefing(tmp_path: Path, monkeypa
     cfg = str(tmp_path / "config.toml")
 
     first = runner.invoke(cli.app, ["--config", cfg,
-        "get", "GD 1973", "--auto", "--script", "--name", "selfheal"])
+        "get", "GD 1973", "--auto", "--name", "selfheal"])
     assert first.exit_code == 0, first.output
 
     show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
-    assert (show_dir / "dj-notes.json").exists()
     assert (show_dir / "briefing.json").exists()
     (show_dir / "briefing.json").unlink()
     (show_dir / "briefing.md").unlink()
 
     replay = runner.invoke(cli.app, ["--config", cfg,
-        "redo", "--run", "selfheal", "--from", "package", "--no-script", "--yes"])
+        "redo", "--run", "selfheal", "--from", "package", "--yes"])
     assert replay.exit_code == 0, replay.output
     assert (show_dir / "briefing.json").exists()
     assert (show_dir / "briefing.md").exists()
 
 
-def test_redo_run_synthesize_implies_script(tmp_path: Path, monkeypatch):
-    import llama.pipeline as pipeline
-    from test_pipeline import JB_OFF, FakeIA, fake_providers
-
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
-    monkeypatch.setattr(pipeline, "make_providers", fake_providers)
-    monkeypatch.setattr(cli, "make_providers", fake_providers)
-    monkeypatch.setattr(cli, "IAClient", FakeIA)
+def test_redo_synthesize_stage_is_gone(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
-
-    first = runner.invoke(cli.app, ["--config", cfg,
-        "get", "GD 1973", "--auto", "--no-script", "--name", "synthreplay"])
-    assert first.exit_code == 0, first.output
-    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
-    assert not (show_dir / "dj-notes.json").exists()
-
-    replay = runner.invoke(cli.app, ["--config", cfg,
-        "redo", "--run", "synthreplay", "--from", "synthesize", "--yes"])
-    assert replay.exit_code == 0, replay.output
-    assert (show_dir / "dj-notes.json").exists()
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    r = runner.invoke(cli.app, ["--config", cfg, "redo", "--run", "anyrun",
+                                "--from", "synthesize", "--yes"])
+    assert r.exit_code != 0
+    assert "unknown stage" in r.output.lower()
 
 
 def test_redo_run_rebuilds_only_chosen_show_from_stage_onward(tmp_path: Path, monkeypatch):

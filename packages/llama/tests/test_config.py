@@ -17,7 +17,7 @@ def test_invalid_audio_format_raises(tmp_path: Path):
 def test_missing_file_gives_defaults(tmp_path: Path):
     cfg = load_config(tmp_path / "nope.toml")
     assert cfg.audio_format == "mp3"
-    assert cfg.llm_for("synthesize").backend == "claude_cli"
+    assert cfg.llm_for("brief").backend == "claude_cli"
 
 
 def test_load_and_task_fallback(tmp_path: Path):
@@ -26,21 +26,21 @@ def test_load_and_task_fallback(tmp_path: Path):
         'root = "/tmp/llama-root"\n'
         'audio_format = "flac"\n'
         "[llm.default]\nbackend = \"claude_cli\"\nmodel = \"claude-sonnet-5\"\n"
-        "[llm.synthesize]\nmodel = \"claude-opus-4-8\"\n"
+        "[llm.brief]\nmodel = \"claude-opus-4-8\"\n"
     )
     cfg = load_config(p)
     assert cfg.root == Path("/tmp/llama-root")
     assert cfg.audio_format == "flac"
-    assert cfg.llm_for("synthesize").model == "claude-opus-4-8"
+    assert cfg.llm_for("brief").model == "claude-opus-4-8"
     assert cfg.llm_for("interpret").model == "claude-sonnet-5"  # falls back to default
 
 
 def test_llm_settings_adapter_carries_config_tables():
     config = Config.model_validate(
-        {"llm": {"synthesize": {"tier": "medium"},
+        {"llm": {"brief": {"tier": "medium"},
                  "tiers": {"openrouter": {"low": "x/y"}}}})
     s = config.llm_settings()
-    assert s.tasks["synthesize"].tier == "medium"
+    assert s.tasks["brief"].tier == "medium"
     assert s.tiers == {"openrouter": {"low": "x/y"}}
     # pydantic copies dicts on validation — compare by value, not identity
     assert s.default_tiers == DEFAULT_TIERS
@@ -48,8 +48,8 @@ def test_llm_settings_adapter_carries_config_tables():
 
 def test_provider_for_uses_task_config():
     cfg = Config(llm={"default": LLMTaskConfig(model="m-default"),
-                      "synthesize": LLMTaskConfig(model="m-big")})
-    assert provider_for(cfg.llm_settings(), "synthesize").model == "m-big"
+                      "brief": LLMTaskConfig(model="m-big")})
+    assert provider_for(cfg.llm_settings(), "brief").model == "m-big"
     assert provider_for(cfg.llm_settings(), "interpret").model == "m-default"
     with pytest.raises(HerderError):
         bad = Config(llm={"default": LLMTaskConfig(backend="nope")})
@@ -60,7 +60,7 @@ def test_default_tiers_vocabulary():
     assert DEFAULT_TIERS == {
         "interpret": "medium", "score_reviews": "medium",
         "light_research": "medium", "extract_setlist": "medium",
-        "deep_research": "high", "brief": "high", "synthesize": "high",
+        "deep_research": "high", "brief": "high",
         "find_artists": "medium",
         "align_structure": "medium",
         "vet_research": "low",
@@ -75,7 +75,7 @@ def test_out_of_box_defaults_are_concrete():
     assert resolve_model(settings, "interpret") == ("claude_cli", "sonnet")
     assert resolve_model(settings, "score_reviews") == ("claude_cli", "sonnet")
     assert resolve_model(settings, "deep_research") == ("claude_cli", "opus")
-    assert resolve_model(settings, "synthesize") == ("claude_cli", "opus")
+    assert resolve_model(settings, "brief") == ("claude_cli", "opus")
     assert resolve_model(settings, "some_future_task") == ("claude_cli", "sonnet")  # medium fallback
 
 
@@ -87,15 +87,15 @@ from llama.config import LLMTaskConfig
 
 def test_tier_accepts_valid_values(tmp_path: Path):
     p = tmp_path / "config.toml"
-    p.write_text('[llm.synthesize]\ntier = "medium"\n')
+    p.write_text('[llm.brief]\ntier = "medium"\n')
     cfg = load_config(p)
-    assert cfg.llm_for("synthesize").tier == "medium"
+    assert cfg.llm_for("brief").tier == "medium"
     assert LLMTaskConfig().tier is None
 
 
 def test_tier_rejects_invalid_value(tmp_path: Path):
     p = tmp_path / "config.toml"
-    p.write_text('[llm.synthesize]\ntier = "turbo"\n')
+    p.write_text('[llm.brief]\ntier = "turbo"\n')
     with pytest.raises(ConfigError):
         load_config(p)
 
@@ -139,7 +139,7 @@ def test_llm_tiers_lifted_from_llm_table(tmp_path: Path):
     p.write_text(
         '[llm.tiers.openrouter]\nmedium = "deepseek/deepseek-chat-v3"\n'
         '[llm.tiers.claude_cli]\nhigh = "sonnet"\n'
-        '[llm.synthesize]\ntier = "high"\n'
+        '[llm.brief]\ntier = "high"\n'
     )
     cfg = load_config(p)
     assert cfg.tiers == {
@@ -148,7 +148,7 @@ def test_llm_tiers_lifted_from_llm_table(tmp_path: Path):
     }
     # "tiers" is reserved: it must not appear as a task entry
     assert "tiers" not in cfg.llm
-    assert cfg.llm_for("synthesize").tier == "high"
+    assert cfg.llm_for("brief").tier == "high"
 
 
 def test_llm_tiers_rejects_unknown_tier_key(tmp_path: Path):

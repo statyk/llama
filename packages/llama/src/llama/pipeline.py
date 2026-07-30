@@ -5,25 +5,21 @@ from pathlib import Path
 from herder import provider_ladder
 from llama.config import Config
 from llama.ledger import Ledger
-from llama.models import DJNotes, LedgerEntry, Provenance, Show, ShortlistEntry
-from llama.presenters import Presenter
-from llama.speech_text import load_lexicon
+from llama.models import LedgerEntry, Provenance, Show, ShortlistEntry
 from llama.stages.brief import run_brief
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
 from llama.stages.research import run_research
 from llama.stages.select_recording import run_select_recording
-from llama.stages.synthesize import run_synthesize
 from llama.util import cap_across_artists
 from llama.stages.vet_research import run_vet_research
 from llama.status import step
-from llama.tts.bed import Bed
 from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_model, write_artifact
 
 log = logging.getLogger("llama")
 
 TASK_KEYS = ["interpret", "score_reviews", "light_research",
-             "extract_setlist", "deep_research", "brief", "synthesize",
+             "extract_setlist", "deep_research", "brief",
              "find_artists", "align_structure", "vet_research"]
 
 
@@ -55,13 +51,6 @@ def process_show(
     run_name: str,
     audio_format: str = "mp3",
     force: bool = False,
-    script: bool = False,
-    voice: str | None = None,
-    speech=None,
-    chunk: bool = False,
-    bed: Bed | None = None,
-    presenter: Presenter | None = None,
-    title: str | None = None,
     setlistfm=None,
     structure_cfg=None,
     selection_cfg=None,
@@ -81,8 +70,6 @@ def process_show(
     write_artifact(show_ws.provenance, Provenance(
         performance_id=pid, run=run_name, profile=profile, dossier=dossier, candidate=cand,
         assessment=entry.assessment,
-        script=script, voice=voice,
-        presenter=presenter.id if presenter else None, title=title,
         processed_at=datetime.now(timezone.utc).isoformat(),
     ))
     with step(f"[{pid}] selecting recording"):
@@ -110,24 +97,8 @@ def process_show(
     if show.needs_review:
         log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
         return None
-    notes = None
-    if not script and show_ws.dj_notes_json.exists():
-        # replaying a later stage (e.g. package) from a prior --script run: reuse the
-        # cached script so the rebuilt manifest agrees with the dj-notes.md in the package.
-        notes = read_model(show_ws.dj_notes_json, DJNotes)
-    if script:
-        with step(f"[{pid}] synthesizing"):
-            notes = run_synthesize(show_ws, providers["synthesize"], show,
-                                   research_md, reviews, force=force,
-                                   presenter=presenter, title=title)
-        show = read_model(show_ws.show, Show)  # synthesize may have flagged it
-        if show.needs_review:
-            log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
-            return None
     with step(f"[{pid}] packaging"):
-        lexicon = load_lexicon(run_ws.root)
-        pkg = run_package(show_ws, ia, show, notes, force=force, speech=speech,
-                          chunk=chunk, lexicon=lexicon, bed=bed, profile=profile)
+        pkg = run_package(show_ws, ia, show, force=force, profile=profile)
     show = read_model(show_ws.show, Show)  # package may have flagged it
     if show.needs_review:
         log.warning("holding %s: flagged during packaging (%s)",

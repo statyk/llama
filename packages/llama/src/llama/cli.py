@@ -43,7 +43,7 @@ from llama.util import parse_performance_id, slugify
 from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
                              read_model, read_model_list, write_artifact)
 
-VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brief", "synthesize", "package"}
+VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brief", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
 _COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline",
@@ -121,8 +121,8 @@ def _setup() -> tuple[Config, IAClient, Ledger]:
     return config, ia, ledger
 
 
-_STATE_RANK = {"held": 0, "packaged": 1, "scripted": 2, "briefed": 3, "vetted": 4,
-               "researched": 5, "gathered": 6, "selected": 7, "delivered": 8}
+_STATE_RANK = {"held": 0, "packaged": 1, "briefed": 2, "vetted": 3,
+               "researched": 4, "gathered": 5, "selected": 6, "delivered": 7}
 RECENT_DELIVERED = 5
 
 
@@ -162,7 +162,6 @@ def _print_artists(rows: list[dict]) -> None:
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
-             script: bool = False,
              force_stage: str | None = None,
              full_rationale: bool = False, plan: bool = False) -> None:
     providers = make_providers(config)
@@ -237,7 +236,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         nonlocal packaged, held, failed
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
-                               force=force, script=script,
+                               force=force,
                                setlistfm=setlistfm,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
@@ -279,7 +278,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
 
 
 def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
-              name: str | None, script: bool | None,
+              name: str | None,
               artist_cap: float | None, min_score: float | None, year_cap: float | None,
               full_rationale: bool) -> None:
     """Query mode: today's `find` verbatim (interpret -> stamp explicit flags
@@ -288,7 +287,6 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
         typer.echo("--artist-cap/--year-cap must be above 0 "
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
-    script = True if script is None else script
     run_name = name or claim_run_dir(config.root,
                                      f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, run_name)
@@ -297,8 +295,6 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     updates = {}
     if limit:
         updates["count"] = limit
-    if not script:
-        updates["script"] = False
     if artist_cap is not None:
         updates["artist_cap"] = artist_cap
     if min_score is not None:
@@ -309,25 +305,24 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
         criteria = criteria.model_copy(update=updates)
         write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False, script=script,
+             human_gate=False,
              full_rationale=full_rationale, plan=plan)
 
 
 def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
                  full_rationale: bool) -> None:
     """Profile mode: today's `profile run` verbatim (load profile -> stamp
-    count/script into the run's criteria -> `_execute`)."""
+    count into the run's criteria -> `_execute`)."""
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, claim_run_dir(config.root,
                                                  f"{date.today().isoformat()}-{name}"))
-    # Stamp count/script into the run's criteria: a later `llama run` on this
-    # dir must behave like the profile, not the defaults.
+    # Stamp count into the run's criteria: a later `llama run` on this dir
+    # must behave like the profile, not the defaults.
     criteria = profile.criteria.model_copy(update={"count": profile.count,
-                                                   "script": profile.script,
                                                    "profile": name})
     write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, profile.count, auto,
-             human_gate=profile.human_gate, script=profile.script,
+             human_gate=profile.human_gate,
              full_rationale=full_rationale, plan=plan)
 
 
@@ -347,9 +342,6 @@ def get(
              "approval; nothing is processed (beats --auto)"),
     name: str = typer.Option(None, "--name",
                              help="Session id override (auto-unique otherwise); query mode only"),
-    script: bool = typer.Option(None, "--script/--no-script",
-                                help="Verbatim DJ script (high-tier LLM call), on by default; "
-                                     "--no-script skips it; query mode only"),
     artist_cap: float = typer.Option(None, "--artist-cap", min=0.0, max=1.0,
                                      help="Max share of the shortlist one artist may hold "
                                           "(1.0 = pure best-first; default 1/3); query mode only"),
@@ -379,8 +371,6 @@ def get(
             given.append("--limit")
         if name is not None:
             given.append("--name")
-        if script is not None:
-            given.append("--script/--no-script")
         if artist_cap is not None:
             given.append("--artist-cap")
         if min_score is not None:
@@ -392,7 +382,7 @@ def get(
             raise typer.Exit(1)
         _get_profile(config, ia, ledger, profile, auto, plan, full_rationale)
         return
-    _get_query(config, ia, ledger, query, limit, auto, plan, name, script,
+    _get_query(config, ia, ledger, query, limit, auto, plan, name,
               artist_cap, min_score, year_cap, full_rationale)
 
 
@@ -491,8 +481,7 @@ def run_approve(
                                              "rationale (default: first few lines)"),
 ):
     """Gate 1: show a session's persisted shortlist, approve ranks, then
-    optionally process it now (the persisted criteria fully determine
-    script)."""
+    optionally process it now."""
     config, ia, ledger = _setup()
     ws = _resolve_run(config, session)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
@@ -512,7 +501,6 @@ def run_approve(
         criteria = read_model(ws.criteria, Criteria)
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
                  human_gate=False,
-                 script=criteria.script,
                  full_rationale=full_rationale)
     else:
         typer.echo(f"next: llama run resume {ws.name}")
@@ -528,7 +516,7 @@ def run_resume(
 ):
     """Resume a crashed or incomplete session from its artifacts (stages
     skip work already done). To force a stage re-run (run-wide or per-show),
-    use `llama redo --run`. The persisted criteria fully determine script."""
+    use `llama redo --run`."""
     config, ia, ledger = _setup()
     ws = _resolve_run(config, session)
     if not ws.criteria.exists():
@@ -537,7 +525,6 @@ def run_resume(
     criteria = read_model(ws.criteria, Criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=False,
-             script=criteria.script,
              force_stage=None,
              full_rationale=full_rationale)
 
@@ -789,7 +776,6 @@ def _stage_ages(sws) -> list[tuple[str, float | None]]:
     artifacts = [("selection.json", sws.selection), ("show.json", sws.show),
                  ("research.md", sws.research), ("vetting.json", sws.vetting),
                  ("briefing.json", sws.briefing_json),
-                 ("dj-notes.json", sws.dj_notes_json),
                  ("package/manifest.json", sws.package_dir / "manifest.json")]
     now = datetime.now(timezone.utc).timestamp()
     return [(label, (now - path.stat().st_mtime) / 86400 if path.exists() else None)
@@ -938,15 +924,13 @@ _PIPELINE_STAGE_DESC: dict[str, str] = {
     "research": "deep web research on the specific performance -> research.md",
     "vet": "grounding check of research's claims against the setlist/date -> vetting.json",
     "brief": "neutral vetted briefing for scriptwriters, factually guarded (always on) -> briefing.*",
-    "synthesize": "verbatim DJ script, factually guarded (default-on; --no-script skips) -> dj-notes.*",
-    "package": "downloads/tags/verifies audio, writes manifest v3 + m3u "
-               "(+ dj-audio/broadcast.m3u if voiced) -> package/",
+    "package": "downloads/tags/verifies audio, writes manifest v3 + m3u -> package/",
     "deliver": "copies package/ into the station's watched folder, records a delivered ledger entry",
 }
 
 _PIPELINE_FLOW = (
     "interpret → search → winnow →(gate 1: run approve)→ select → "
-    "gather → research → vet → brief → synthesize → package "
+    "gather → research → vet → brief → package "
     "→(gate 2: held → triage / fix)→ deliver"
 )
 
@@ -957,7 +941,6 @@ _PIPELINE_STATE_DESC: dict[str, str] = {
     "researched": "research.md exists",
     "vetted": "vetting.json exists",
     "briefed": "briefing.* exist (neutral vetted briefing)",
-    "scripted": "dj-notes.* exist (verbatim DJ script)",
     "packaged": "package/manifest.json exists",
     "delivered": "the ledger has a delivered entry for the performance",
 }
@@ -993,15 +976,6 @@ def pipeline():
     typer.echo("States (derived, never stored):")
     for state in ShowState:
         typer.echo(f"  {state.value.ljust(12)}{_PIPELINE_STATE_DESC[state.value]}")
-    typer.echo()
-    typer.echo("  " + "voiced".ljust(16)
-               + "true/false/null -- true once the package has DJ audio (manifest "
-                 "dj_audio block, or a non-empty dj-audio/); null before packaging")
-    typer.echo("  " + "broadcast-ready".ljust(16)
-               + "true iff packaged and all five hold: (1) every manifest track's "
-                 "audio file verified on disk, (2) has a DJ script, (3) has DJ audio, "
-                 "(4) has package/broadcast.m3u, (5) is not held for review -- "
-                 "positive-only, no --not-broadcast-ready inverse")
     typer.echo()
     typer.echo("Redo cheat-sheet (\"llama fix\" applies these automatically -- earliest"
                "-affected stage wins on combos -- \"llama redo --from STAGE\" is the "
@@ -1137,7 +1111,7 @@ def deliver(
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
-               with_research: bool = False, script: bool | None = None) -> Path | None:
+               with_research: bool = False) -> Path | None:
     """Re-run one resolved show from `from_stage` onward; returns the package
     path, or None if the show was held/skipped. Raises LlamaError on a
     hand-built show with no provenance."""
@@ -1163,10 +1137,8 @@ def _redo_show(config, ia, ledger, entry, from_stage: str, *,
                                              quality_score=0.0, rationale=prov.dossier))
         shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
         ws = RunWorkspace(config.root, prov.run)
-        effective_script = ((prov.script if script is None else script)
-                            or from_stage == "synthesize")
         return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                            prov.run, config.audio_format, script=effective_script,
+                            prov.run, config.audio_format,
                             setlistfm=make_client(config), structure_cfg=config.structure,
                             jerrybase_enabled=config.jerrybase.enabled,
                             selection_cfg=config.selection, profile=prov.profile)
@@ -1342,7 +1314,7 @@ def triage(
 
 
 def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool,
-                script: bool | None, yes: bool) -> None:
+                yes: bool) -> None:
     """The selector-batch form shared by a plain selector redo and a
     `--run`-scoped show-level redo: apply the selector, drop held shows
     (opt in via `--held` or an explicit `held` state), plan/confirm, then
@@ -1362,14 +1334,13 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
     for e in kept:
         try:
             pkg = _redo_show(config, ia, ledger, e, from_stage,
-                             with_research=redo_research, script=script)
+                             with_research=redo_research)
             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {e.slug}")
         except (LlamaError, TaskFailed, HerderError, IAError, SpeechError) as exc:
             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
 
 
-def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str, *,
-                    script: bool | None) -> None:
+def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str) -> None:
     """`redo --run SESSION --from search|winnow`: the old `run --stage X
     --force` run-wide re-execution, relocated verbatim (approvals-loss
     confirm on a doomed shortlist, downstream-artifact deletion, then a
@@ -1390,10 +1361,8 @@ def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str, *,
     for path in doomed:
         if path.exists():
             path.unlink()
-    effective_script = criteria.script if script is None else script
     _execute(config, ia, ledger, ws, criteria, criteria.count, True,
              human_gate=False, force=False,
-             script=effective_script,
              force_stage=None, full_rationale=False)
 
 
@@ -1403,15 +1372,13 @@ def redo(
     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
     from_stage: str = typer.Option(..., "--from",
                                    help="Stage to re-run from: select|gather|research|vet|"
-                                        "brief|synthesize|package (search|winnow valid only with --run)"),
+                                        "brief|package (search|winnow valid only with --run)"),
     run: str = typer.Option(None, "--run",
                             help="Session scope: redo a whole run's shows (with a show-level "
                                  "--from), or rebuild that run's candidates/shortlist (--from "
                                  "search|winnow). Exclusive with a show name or other selectors."),
     redo_research: bool = typer.Option(False, "--redo-research",
                                        help="Also drop research.md (kept by default)"),
-    script: bool = typer.Option(None, "--script/--no-script",
-                                help="Override the script setting recorded at process time"),
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
     state: list[ShowState] = typer.Option(
@@ -1442,11 +1409,11 @@ def redo(
     if run is not None:
         config, ia, ledger = _setup()
         if from_stage in RUN_LEVEL_STAGES:
-            _redo_run_level(config, ia, ledger, run, from_stage, script=script)
+            _redo_run_level(config, ia, ledger, run, from_stage)
             return
         sel = build_selector(run=run)
         _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
-                   script=script, yes=yes)
+                   yes=yes)
         return
 
     if name is not None:
@@ -1457,7 +1424,7 @@ def redo(
                        "reprocess it via its run first", err=True)
             raise typer.Exit(1)
         pkg = _redo_show(config, ia, ledger, entry, from_stage,
-                         with_research=redo_research, script=script)
+                         with_research=redo_research)
         if pkg:
             typer.echo(f"packaged: {pkg}")
         else:
@@ -1474,7 +1441,7 @@ def redo(
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
     _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
-               script=script, yes=yes)
+               yes=yes)
 
 
 def _rm_action(forget: bool, suppress: bool) -> str:
@@ -1811,7 +1778,6 @@ def profile_add(
     query: str,
     count: int = typer.Option(1, "--count"),
     human_gate: bool = typer.Option(False, "--human-gate"),
-    script: bool = typer.Option(True, "--script/--no-script"),
     presenter: str = typer.Option(None, "--presenter",
                                   help="Host for this show: presenters/<id>.toml; its "
                                        "voice voices this profile's runs even when "
@@ -1860,7 +1826,7 @@ def profile_add(
     if updates:
         criteria = criteria.model_copy(update=updates)
     profile = Profile(name=name, criteria=criteria, count=count, human_gate=human_gate,
-                      script=script, presenter=presenter, title=title)
+                      presenter=presenter, title=title)
     path = save_profile(config.root, profile)
     typer.echo(f"saved: {path}")
 
@@ -1917,8 +1883,7 @@ def profile_show(name: str = typer.Argument(...)):
     config, _, _ = _setup()
     profile = load_profile(config.root, name)   # ProfileError -> main_cli boundary
     c = profile.criteria
-    typer.echo(f"{profile.name}  count={profile.count}  human_gate={profile.human_gate}  "
-               f"script={profile.script}")
+    typer.echo(f"{profile.name}  count={profile.count}  human_gate={profile.human_gate}")
     typer.echo(f"query: {c.query}")
     typer.echo(f"presenter: {profile.presenter or '-'}")
     typer.echo(f"title: {profile.title or '-'}")

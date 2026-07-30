@@ -18,10 +18,10 @@ def e(slug, state, *, artist="Grateful Dead") -> CatalogEntry:
                         artist=artist)
 
 
-def test_show_state_has_exactly_nine_values():
+def test_show_state_has_exactly_eight_values():
     assert [s.value for s in ShowState] == [
         "held", "selected", "gathered", "researched", "vetted", "briefed",
-        "scripted", "packaged", "delivered",
+        "packaged", "delivered",
     ]
 
 
@@ -39,8 +39,7 @@ def test_show_state_covers_derive_state_full_vocabulary(tmp_path: Path):
         {"select", "gather", "research"},
         {"select", "gather", "research", "vet"},
         {"select", "gather", "research", "vet", "brief"},
-        {"select", "gather", "research", "vet", "brief", "synthesize"},
-        {"select", "gather", "research", "vet", "brief", "synthesize", "package"},
+        {"select", "gather", "research", "vet", "brief", "package"},
     ]
     observed = set()
     for i, stages in enumerate(stage_combos):

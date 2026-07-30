@@ -18,7 +18,6 @@ class Profile(BaseModel):
     criteria: Criteria
     count: int = 1
     human_gate: bool = False
-    script: bool = True  # verbatim DJ script (high-tier call); --no-script opts out
     # This radio show's host: presenters/<id>.toml. Naming a presenter voices
     # this profile's runs even when the global [tts] enabled flag is false.
     presenter: str | None = None

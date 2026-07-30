@@ -120,16 +120,15 @@ def test_drop_stage_artifacts_cascades_for_one_show(tmp_path: Path):
     from llama.workspace import drop_stage_artifacts
 
     sws = ShowWorkspace(tmp_path / "s")
-    for path in [sws.selection, sws.show, sws.reviews, sws.vetting, sws.dj_notes_json]:
+    for path in [sws.selection, sws.show, sws.reviews, sws.vetting]:
         write_artifact(path, "{}")
     write_artifact(sws.research, "research")
-    write_artifact(sws.dj_notes_md, "notes")
     write_artifact(sws.package_dir / "manifest.json", "{}")
 
     drop_stage_artifacts(sws, "gather")
     assert sws.selection.exists()            # upstream stage untouched
     for path in [sws.show, sws.reviews, sws.research, sws.vetting,
-                 sws.dj_notes_json, sws.dj_notes_md, sws.package_dir / "manifest.json"]:
+                 sws.package_dir / "manifest.json"]:
         assert not path.exists(), path
 
 
@@ -430,12 +429,12 @@ def test_profile_show_prints_all_fields_including_roster(tmp_path: Path):
                     artist_cap=0.5, year_cap=0.25, min_quality_score=7.0,
                     artists=["Galactic", "Lettuce"])
     save_profile(tmp_path, Profile(name="sunday-dead", criteria=crit, count=3,
-                                   human_gate=True, script=False,
+                                   human_gate=True,
                                    presenter="casey", title="Sunday Morning Dead"))
     result = runner.invoke(cli.app, ["--config", cfg, "profile", "show", "sunday-dead"])
     assert result.exit_code == 0, result.output
     out = result.output
-    assert "sunday-dead  count=3  human_gate=True  script=False" in out
+    assert "sunday-dead  count=3  human_gate=True" in out
     assert "query: sunday dead hour" in out
     assert "presenter: casey" in out
     assert "title: Sunday Morning Dead" in out

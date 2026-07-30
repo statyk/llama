@@ -41,8 +41,6 @@ def build(root: Path, slug: str, *, stages: set[str], needs_review=False,
                                                 "context": ""}, "flags": []})
     if "brief" in stages:
         write_artifact(ws.briefing_json, {"context": "c", "significance": "s"})
-    if "synthesize" in stages:
-        write_artifact(ws.dj_notes_json, {"set_intros": {"1": "a"}, "outro": "o"})
     if "package" in stages:
         write_artifact(ws.package_dir / "manifest.json", {"schema_version": 2})
     return ws
@@ -55,8 +53,7 @@ def test_derive_state_matrix(tmp_path: Path):
         ({"select", "gather", "research"}, "researched"),
         ({"select", "gather", "research", "vet"}, "vetted"),
         ({"select", "gather", "research", "vet", "brief"}, "briefed"),
-        ({"select", "gather", "research", "vet", "brief", "synthesize"}, "scripted"),
-        ({"select", "gather", "research", "vet", "brief", "synthesize", "package"}, "packaged"),
+        ({"select", "gather", "research", "vet", "brief", "package"}, "packaged"),
     ]
     for i, (stages, expected) in enumerate(cases):
         ws = build(tmp_path / str(i), f"s{i}", stages=stages)
@@ -64,18 +61,18 @@ def test_derive_state_matrix(tmp_path: Path):
         assert state == expected and flags == []
 
 
-def test_briefed_state_between_vetted_and_scripted(tmp_path: Path):
+def test_briefed_state_between_vetted_and_packaged(tmp_path: Path):
     ws = build(tmp_path, "s", stages={"select", "gather", "research", "vet"})
     assert derive_state(ws, delivered=set())[0] == "vetted"
     write_artifact(ws.briefing_json, {"context": "c", "significance": "s"})
     assert derive_state(ws, delivered=set())[0] == "briefed"
-    write_artifact(ws.dj_notes_json, {"set_intros": {}, "outro": "o"})
-    assert derive_state(ws, delivered=set())[0] == "scripted"
+    write_artifact(ws.package_dir / "manifest.json", {"schema_version": 3})
+    assert derive_state(ws, delivered=set())[0] == "packaged"
 
 
 def test_held_beats_everything(tmp_path: Path):
     ws = build(tmp_path, "s", stages={"select", "gather", "research", "vet",
-                                      "synthesize", "package"}, needs_review=True)
+                                      "brief", "package"}, needs_review=True)
     state, flags = derive_state(ws, delivered={"GratefulDead/1973-06-10"})
     assert state == "held"
     assert flags == ["research asserts wrong date: x"]
@@ -83,7 +80,7 @@ def test_held_beats_everything(tmp_path: Path):
 
 def test_delivered_beats_packaged(tmp_path: Path):
     ws = build(tmp_path, "s", stages={"select", "gather", "research", "vet",
-                                      "synthesize", "package"})
+                                      "brief", "package"})
     state, _ = derive_state(ws, delivered={"GratefulDead/1973-06-10"})
     assert state == "delivered"
 

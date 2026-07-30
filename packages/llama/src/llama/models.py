@@ -18,18 +18,14 @@ class Criteria(BaseModel):
     min_avg_rating: float = 3.5
     min_reviews: int = 3
     count: int = 1
-    # Persisted run intent (stamped by find/profile-run, honored on replay):
-    # whether this run also generates the verbatim DJ script (on by default;
-    # --no-script opts out).
-    script: bool = True
-    # Resolved TTS voice id for this run (None = no voice); stamped like
-    # `script` so replays behave the same regardless of later config edits.
+    # Resolved TTS voice id for this run (None = no voice); stamped so
+    # replays behave the same regardless of later config edits.
     voice: str | None = None
     # Presenter id + radio-show title stamped by profile runs (None = house
     # default / one-off run). The persona TEXT is deliberately NOT stamped:
     # it resolves live from presenters/<id>.toml at synthesize time, so an
-    # edited character + `redo --from synthesize` takes effect. The voice
-    # string above stays stamped-resolved, as before.
+    # edited character takes effect. The voice string above stays
+    # stamped-resolved, as before.
     presenter: str | None = None
     title: str | None = None
     # Max share of a multi-artist shortlist/auto-pick one artist may hold

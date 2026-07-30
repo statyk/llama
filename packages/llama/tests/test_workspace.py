@@ -43,7 +43,6 @@ def test_workspace_layout(tmp_path: Path):
     assert sws.dir == tmp_path / "shows" / "gratefuldead-1973-06-10"
     assert sws.show.name == "show.json"
     assert sws.package_dir.name == "package"
-    assert sws.dj_notes_md.name == "dj-notes.md"
 
 
 def test_run_workspace_artists_path(tmp_path: Path):
@@ -53,7 +52,7 @@ def test_run_workspace_artists_path(tmp_path: Path):
 
 def test_drop_stage_artifacts_can_keep_research(tmp_path):
     sws = ShowWorkspace(tmp_path / "s")
-    for p in [sws.selection, sws.show, sws.research, sws.vetting, sws.dj_notes_json]:
+    for p in [sws.selection, sws.show, sws.research, sws.vetting]:
         write_artifact(p, "x")
     drop_stage_artifacts(sws, "gather", keep_research=True)
     assert sws.selection.exists()
@@ -72,7 +71,7 @@ def test_read_overrides_defaults_when_absent(tmp_path):
 def test_stage_order_and_artifacts_include_brief(tmp_path):
     from llama.workspace import SHOW_STAGE_ORDER, ShowWorkspace, show_stage_artifacts
     assert SHOW_STAGE_ORDER == ["select", "gather", "research", "vet",
-                                "brief", "synthesize", "package"]
+                                "brief", "package"]
     ws = ShowWorkspace(tmp_path)
     assert show_stage_artifacts(ws, "brief") == [ws.briefing_json, ws.briefing_md]
 
@@ -80,14 +79,13 @@ def test_stage_order_and_artifacts_include_brief(tmp_path):
 def test_drop_from_brief_drops_downstream(tmp_path):
     from llama.workspace import ShowWorkspace, drop_stage_artifacts
     ws = ShowWorkspace(tmp_path)
-    for p in [ws.vetting, ws.briefing_json, ws.briefing_md, ws.dj_notes_json, ws.dj_notes_md]:
+    for p in [ws.vetting, ws.briefing_json, ws.briefing_md]:
         p.write_text("{}")
     (ws.package_dir).mkdir()
     (ws.package_dir / "manifest.json").write_text("{}")
     drop_stage_artifacts(ws, "brief")
     assert ws.vetting.exists()
-    for p in [ws.briefing_json, ws.briefing_md, ws.dj_notes_json,
-              ws.dj_notes_md, ws.package_dir / "manifest.json"]:
+    for p in [ws.briefing_json, ws.briefing_md, ws.package_dir / "manifest.json"]:
         assert not p.exists()
 
 

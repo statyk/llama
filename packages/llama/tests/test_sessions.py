@@ -87,7 +87,7 @@ def test_execute_marks_complete_with_outcome(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
     cfg = str(tmp_path / "config.toml")
 
-    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973 best soundboard", "--auto", "--script",
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973 best soundboard", "--auto",
                                      "--name", "sessiontest"])
     assert result.exit_code == 0, result.output
     ws = RunWorkspace(tmp_path, "sessiontest")

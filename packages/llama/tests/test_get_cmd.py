@@ -52,6 +52,19 @@ def test_get_voice_flag_is_gone(tmp_path: Path):
     assert "no such option" in result.output.lower()
 
 
+def test_get_script_flag_is_gone(tmp_path: Path):
+    # Scripting moved to emcee entirely -- `get` no longer generates or
+    # stamps a script setting.
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--script"])
+    assert result.exit_code != 0
+    assert "no such option" in result.output.lower()
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--no-script"])
+    assert result.exit_code != 0
+    assert "no such option" in result.output.lower()
+
+
 # ---------------------------------------------------------------------------
 # Exactly one of QUERY / --profile.
 # ---------------------------------------------------------------------------
@@ -95,10 +108,6 @@ def test_get_profile_mode_rejects_tuning_flags(tmp_path: Path):
     result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic", "--name", "x"])
     assert result.exit_code == 1
     assert "--name" in result.output
-
-    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic", "--no-script"])
-    assert result.exit_code == 1
-    assert "--script/--no-script" in result.output
 
     result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic", "--artist-cap", "0.5"])
     assert result.exit_code == 1
@@ -201,28 +210,28 @@ def test_get_zero_caps_are_rejected_before_they_poison_criteria(tmp_path: Path, 
         assert "must be above 0" in result.output
 
 
-def test_get_profile_stamps_count_and_script_into_run_criteria(tmp_path: Path, monkeypatch):
-    # Replaying a profile's run dir must behave like the profile: count and
-    # script live in the run's criteria.json, not only in the profile.
+def test_get_profile_stamps_count_into_run_criteria(tmp_path: Path, monkeypatch):
+    # Replaying a profile's run dir must behave like the profile: count
+    # lives in the run's criteria.json, not only in the profile.
     from llama.profiles import Profile, save_profile
 
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     save_profile(tmp_path, Profile(name="classic", criteria=Criteria(query="GD classics"),
-                                   count=13, script=True))
+                                   count=13))
     captured = {}
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
-                     force=False, script=False, force_stage=None,
+                     force=False, force_stage=None,
                      full_rationale=False, plan=False):
-        captured.update(count=count, script=script, criteria=criteria)
+        captured.update(count=count, criteria=criteria)
 
     monkeypatch.setattr(cli, "_execute", fake_execute)
     result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic"])
     assert result.exit_code == 0, result.output
-    assert captured["count"] == 13 and captured["script"] is True
+    assert captured["count"] == 13
     saved = read_model(RunWorkspace(tmp_path, f"{date.today().isoformat()}-classic").criteria, Criteria)
-    assert saved.count == 13 and saved.script is True
+    assert saved.count == 13
 
 
 def test_get_profile_pinned_artists_skip_discover_and_prune(tmp_path: Path, monkeypatch):
@@ -305,7 +314,6 @@ def fuzzy_providers(config):
         "light_research": FakeProvider(),
         "extract_setlist": FakeProvider(),
         "deep_research": FakeProvider(),
-        "synthesize": FakeProvider(),
     }
 
 

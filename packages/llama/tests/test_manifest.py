@@ -1,12 +1,7 @@
 import json
 
-from llama.manifest import (
-    broadcast_m3u_text,
-    build_manifest,
-    interleave_broadcast,
-    m3u_text,
-)
-from llama.models import DJAudio, DJNotes, ManifestTrack, Show, Track
+from llama.manifest import build_manifest, m3u_text
+from llama.models import ManifestTrack, Show, Track
 
 
 def make_show():
@@ -18,10 +13,6 @@ def make_show():
                     [("1", "Morning Dew"), ("2", "Dark Star"), ("encore", "Johnny B. Goode")], 1)],
         set_breaks=[1, 2], lineage="SBD > DAT", source_url="https://archive.org/details/gd73",
     )
-
-
-def make_notes():
-    return DJNotes(context="Peak 73", outro="o", set_intros={"1": "a", "2": "b"})
 
 
 def make_packaged():
@@ -41,8 +32,8 @@ def make_briefing():
 
 
 def test_build_manifest():
-    m = build_manifest(make_show(), make_notes(), make_packaged(),
-                       briefing=make_briefing(), context=make_notes().context)
+    m = build_manifest(make_show(), make_packaged(),
+                       briefing=make_briefing(), context="Peak 73")
     assert m.schema_version == 3
     assert m.show == {"artist": "Grateful Dead", "date": "1973-06-10",
                       "venue": "RFK Stadium", "city": "Washington, DC", "context": "Peak 73"}
@@ -65,9 +56,8 @@ def test_manifest_v3_briefing_block():
 
 
 def test_build_manifest_carries_briefing():
-    from llama.manifest import build_manifest
     from llama.models import ManifestBriefing
-    m = build_manifest(make_show(), None, [], briefing=ManifestBriefing(
+    m = build_manifest(make_show(), [], briefing=ManifestBriefing(
         narration="full", vetted=False))
     assert m.briefing.narration == "full"
 
@@ -80,67 +70,18 @@ def test_m3u_text():
     assert text.endswith("\n")
 
 
-def make_dj_audio():
-    return DJAudio(
-        set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
-        outro="dj-audio/99-outro.mp3",
-    )
-
-
-def test_interleave_broadcast_slots_leadins_and_outro():
-    # Each set's lead-in precedes that set's first track; the encore (no
-    # set_intros key) gets none; the outro closes.
-    assert interleave_broadcast(make_packaged(), make_dj_audio()) == [
-        "dj-audio/set1-intro.mp3",
-        "audio/01 - Morning Dew.mp3",
-        "dj-audio/set2-intro.mp3",
-        "audio/02 - Dark Star.mp3",
-        "audio/03 - Johnny B. Goode.mp3",  # encore: plays straight into the outro
-        "dj-audio/99-outro.mp3",
-    ]
-
-
-def test_broadcast_m3u_text_wraps_interleaved_paths():
-    text = broadcast_m3u_text(make_packaged(), make_dj_audio())
-    lines = text.splitlines()
-    assert lines[0] == "#EXTM3U"
-    assert lines[1] == "dj-audio/set1-intro.mp3"
-    assert lines[2] == "audio/01 - Morning Dew.mp3"
-    assert lines[-1] == "dj-audio/99-outro.mp3"
-    assert text.endswith("\n")
-
-
-def test_build_manifest_without_notes():
-    from llama.manifest import build_manifest
-    from llama.models import ManifestTrack, Show, Track
-
+def test_build_manifest_dj_notes_and_dj_audio_default_none():
+    # llama never writes dj_notes/dj_audio anymore (emcee-written passthrough);
+    # build_manifest's output must default them to None.
     show = Show(performance_id="p", identifier="i", artist="a", date="1973-06-10",
                 tracks=[Track(index=1, set="1", title="t", filename="f.mp3", title_source="tags")],
                 set_breaks=[1])
     packaged = [ManifestTrack(index=1, set="1", title="t", filename="01 - t.mp3", duration_sec=60.0)]
-    m = build_manifest(show, None, packaged, briefing=make_briefing(), context="ctx",
+    m = build_manifest(show, packaged, briefing=make_briefing(), context="ctx",
                        research="research.md", reviews="reviews.md", research_vetted=True)
     assert m.schema_version == 3
     assert m.dj_notes is None
+    assert m.dj_audio is None
     assert m.set_breaks[0].after_track == 1
     assert m.show["context"] == "ctx"
     assert m.research == "research.md" and m.research_vetted is True
-
-
-def test_build_manifest_with_dj_audio():
-    from llama.models import DJAudio
-
-    dj_audio = DJAudio(
-        set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
-        outro="dj-audio/99-outro.mp3",
-    )
-    m = build_manifest(make_show(), make_notes(), make_packaged(),
-                       briefing=make_briefing(), dj_audio=dj_audio)
-    assert m.dj_audio == dj_audio
-    assert [b.after_track for b in m.set_breaks] == [1, 2]
-
-
-def test_build_manifest_without_dj_audio():
-    m = build_manifest(make_show(), make_notes(), make_packaged(), briefing=make_briefing())
-    assert m.dj_audio is None
-    assert [b.after_track for b in m.set_breaks] == [1, 2]

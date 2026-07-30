@@ -70,7 +70,7 @@ def test_pipeline_is_in_the_watch_panel():
 def test_pipeline_prints_stage_names_and_gates():
     out = runner.invoke(app, ["pipeline"]).output
     for stage in ["interpret", "search", "winnow", "select", "gather",
-                  "research", "vet", "brief", "synthesize", "package", "deliver"]:
+                  "research", "vet", "brief", "package", "deliver"]:
         assert stage in out, stage
     assert "gate 1" in out
     assert "gate 2" in out
@@ -79,14 +79,12 @@ def test_pipeline_prints_stage_names_and_gates():
 def test_pipeline_prints_state_names():
     out = runner.invoke(app, ["pipeline"]).output
     for state in ["held", "selected", "gathered", "researched", "vetted",
-                  "briefed", "scripted", "packaged", "delivered"]:
+                  "briefed", "packaged", "delivered"]:
         assert state in out, state
 
 
-def test_pipeline_prints_readiness_annotations_and_redo_hatch():
+def test_pipeline_prints_redo_hatch():
     out = runner.invoke(app, ["pipeline"]).output
-    assert "voiced" in out
-    assert "broadcast-ready" in out
     assert "fix" in out
     assert "redo --from" in out
 

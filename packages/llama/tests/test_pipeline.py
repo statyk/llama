@@ -35,14 +35,6 @@ def assessments(pid: str) -> str:
     }]})
 
 
-NOTES = json.dumps({
-    "context": "Peak 1973",
-    "set_intros": {"1": "Tonight, the Grateful Dead at RFK Stadium. Morning Dew opens.",
-                   "2": "A monumental Dark Star."},
-    "outro": "Johnny B. Goode sends us off. From the hollister soundboard.",
-    "mentioned_songs": ["Morning Dew", "Dark Star", "Johnny B. Goode"],
-})
-
 VET = json.dumps({
     "asserted_songs": ["Morning Dew", "Dark Star"],
     "asserted_dates": ["1973-06-10"],
@@ -85,7 +77,6 @@ def fake_providers(config):
             "## Reputation\nLegendary RFK show.\n## Performance highlights\nDark Star.\n"
             "## Context\nPeak 73 tour.\n## Recording notes\nHollister SBD."]),
         "brief": FakeProvider(completes=[GOOD_BRIEFING_JSON]),
-        "synthesize": FakeProvider(completes=[NOTES]),
         "align_structure": FakeProvider(),
         "vet_research": FakeProvider(completes=[VET]),
     }
@@ -105,8 +96,8 @@ def test_make_providers_builds_ladders():
     providers = make_providers(Config())
     # interpret is a medium task: base, base, escalated-to-high
     assert [p.model for p in providers["interpret"]] == ["sonnet", "sonnet", "opus"]
-    # synthesize is already high: no headroom
-    assert [p.model for p in providers["synthesize"]] == ["opus", "opus", "opus"]
+    # brief is already high: no headroom
+    assert [p.model for p in providers["brief"]] == ["opus", "opus", "opus"]
 
 
 def test_find_end_to_end(tmp_path: Path, monkeypatch):
@@ -116,7 +107,7 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "get", "GD 1973 best soundboard", "--auto", "--script",
+        "get", "GD 1973 best soundboard", "--auto",
         "--name", "testrun"])
     assert result.exit_code == 0, result.output
 
@@ -128,7 +119,9 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
     assert manifest["set_breaks"] == [{"after_track": 3}, {"after_track": 5}]
     assert (pkg / "audio" / "01 - Morning Dew.mp3").exists()
     assert (pkg / "playlist.m3u").read_text().splitlines()[1] == "audio/01 - Morning Dew.mp3"
-    assert (pkg / "dj-notes.md").exists()
+    # llama never writes a DJ script anymore -- that's emcee's job now.
+    assert manifest["dj_notes"] is None
+    assert not (pkg / "dj-notes.md").exists()
     assert (pkg / "research.md").exists()
     assert (pkg / "reviews.md").exists()
     assert manifest["schema_version"] == 3
@@ -142,12 +135,12 @@ def test_find_end_to_end(tmp_path: Path, monkeypatch):
 def test_show_failure_is_isolated_and_raw_output_saved(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     providers = fake_providers(None)
-    providers["synthesize"] = FakeProvider(completes=["not json"] * 3)
+    providers["brief"] = FakeProvider(completes=["not json"] * 3)
     monkeypatch.setattr(cli, "make_providers", lambda config: providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "get", "GD 1973", "--auto", "--script", "--name", "testrun3"])
+        "get", "GD 1973", "--auto", "--name", "testrun3"])
     assert result.exit_code == 0, result.output
     assert "FAILED" in result.output
 
@@ -162,13 +155,14 @@ def test_show_failure_is_isolated_and_raw_output_saved(tmp_path: Path, monkeypat
 def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     providers = fake_providers(None)
-    bad_notes = json.dumps({**json.loads(NOTES), "mentioned_songs": ["Fake Invented Song"]})
-    providers["synthesize"] = FakeProvider(completes=[bad_notes, bad_notes])  # retry also fails
+    bad_briefing = json.dumps({**json.loads(GOOD_BRIEFING_JSON),
+                               "mentioned_songs": ["Fake Invented Song"]})
+    providers["brief"] = FakeProvider(completes=[bad_briefing, bad_briefing])  # retry also fails
     monkeypatch.setattr(cli, "make_providers", lambda config: providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "get", "GD 1973", "--auto", "--script", "--name", "testrun2"])
+        "get", "GD 1973", "--auto", "--name", "testrun2"])
     assert result.exit_code == 0
     assert "needs-review" in result.output
     show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
@@ -176,29 +170,15 @@ def test_needs_review_show_is_skipped_and_not_recorded(tmp_path: Path, monkeypat
     assert not (tmp_path / "ledger.jsonl").exists()
 
 
-def test_find_default_includes_script(tmp_path: Path, monkeypatch):
+def test_find_never_writes_a_dj_script(tmp_path: Path, monkeypatch):
+    # llama's pipeline never generates a DJ script anymore -- that's emcee's
+    # job, downstream of the manifest this stage writes.
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
     monkeypatch.setattr(cli, "make_providers", fake_providers)
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "get", "GD 1973", "--auto", "--name", "defscript"])
-    assert result.exit_code == 0, result.output
-    pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
-    manifest = json.loads((pkg / "manifest.json").read_text())
-    assert manifest["dj_notes"] is not None
-    assert (pkg / "dj-notes.md").exists()
-
-
-def test_find_no_script_skips_script(tmp_path: Path, monkeypatch):
-    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
-    providers = fake_providers(None)
-    providers["synthesize"] = FakeProvider()  # any call would raise: queue is empty
-    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
-    monkeypatch.setattr(cli, "IAClient", FakeIA)
-
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "get", "GD 1973", "--auto", "--no-script", "--name", "noscript"])
+        "get", "GD 1973", "--auto", "--name", "noscript"])
     assert result.exit_code == 0, result.output
     pkg = tmp_path / "shows" / "gratefuldead-1973-06-10" / "package"
     manifest = json.loads((pkg / "manifest.json").read_text())
@@ -209,16 +189,16 @@ def test_find_no_script_skips_script(tmp_path: Path, monkeypatch):
     assert not (pkg / "dj-notes.md").exists()
 
 
-def test_find_stamps_limit_and_script_into_criteria(tmp_path: Path, monkeypatch):
+def test_find_stamps_limit_into_criteria(tmp_path: Path, monkeypatch):
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: {"interpret": FakeProvider(completes=[CRITERIA])})
     monkeypatch.setattr(cli, "_execute", lambda *a, **k: None)
-    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "get", "GD 1973", "--limit", "5", "--no-script",
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"), "get", "GD 1973", "--limit", "5",
                                      "--name", "stamped"])
     assert result.exit_code == 0, result.output
     saved = json.loads((tmp_path / "runs" / "stamped" / "criteria.json").read_text())
-    assert saved["count"] == 5 and saved["script"] is False
+    assert saved["count"] == 5
 
 
 def test_vet_failure_skips_show_before_packaging(tmp_path: Path, monkeypatch):
@@ -303,7 +283,7 @@ def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "get", "GD 1973 best soundboard", "--auto", "--script",
+        "get", "GD 1973 best soundboard", "--auto",
         "--name", "provrun"])
     assert result.exit_code == 0, result.output
 
@@ -313,7 +293,6 @@ def test_process_show_writes_provenance(tmp_path: Path, monkeypatch):
     prov = read_model(prov_path, Provenance)
     assert prov.performance_id == "GratefulDead/1973-06-10"
     assert prov.run == "provrun"
-    assert prov.script is True
     assert "monumental Dark Star" in prov.dossier          # rationale
     assert "Widely ranked top-5" in prov.dossier           # external reputation
     assert prov.candidate.collection == "GratefulDead"
@@ -337,7 +316,7 @@ def test_process_show_runs_brief_and_writes_artifacts(tmp_path: Path, monkeypatc
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "get", "GD 1973 best soundboard", "--auto", "--script",
+        "get", "GD 1973 best soundboard", "--auto",
         "--name", "briefrun"])
     assert result.exit_code == 0, result.output
 
@@ -361,22 +340,22 @@ def test_process_show_holds_on_briefing_guard_failure(tmp_path: Path, monkeypatc
     monkeypatch.setattr(cli, "IAClient", FakeIA)
 
     result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
-        "get", "GD 1973", "--auto", "--script", "--name", "briefhold"])
+        "get", "GD 1973", "--auto", "--name", "briefhold"])
     assert result.exit_code == 0, result.output
     assert "needs-review" in result.output
     show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
     assert not (show_dir / "package" / "manifest.json").exists()
-    # synthesize/package providers untouched: still full queues
-    assert len(providers["synthesize"].completes) == 1
     assert not (tmp_path / "ledger.jsonl").exists()
 
 
-def test_process_show_stamps_voice_and_forwards_speech(tmp_path: Path):
+def test_process_show_stamps_profile_into_provenance_and_manifest(tmp_path: Path):
+    # Presenter/voice/script assignment is entirely emcee's job post-cut;
+    # process_show's only downstream-facing stamp left is the profile name,
+    # carried via provenance into the manifest's source block.
     from llama.ledger import Ledger
     from llama.models import (Candidate, Provenance, QualityAssessment,
                               RecordingSummary, ShortlistEntry)
     from llama.pipeline import process_show
-    from llama.tts.fake import FakeSpeechProvider
     from llama.workspace import RunWorkspace, read_model
 
     fixture = json.loads(FIXTURE.read_text())
@@ -398,20 +377,14 @@ def test_process_show_stamps_voice_and_forwards_speech(tmp_path: Path):
             "## Context\nPeak 73 tour.\n## Recording notes\nHollister SBD."]),
         "vet_research": FakeProvider(completes=[VET]),
         "brief": FakeProvider(completes=[GOOD_BRIEFING_JSON]),
-        "synthesize": FakeProvider(completes=[NOTES]),
     }
-    speech = FakeSpeechProvider()
     ws = RunWorkspace(tmp_path, "voicerun")
     pkg = process_show(ws, FakeIA(), Ledger(tmp_path / "ledger.jsonl"), entry,
-                       providers, "voicerun", script=True, voice="v-abc",
-                       speech=speech, jerrybase_enabled=False, profile="prime-dead")
+                       providers, "voicerun", jerrybase_enabled=False, profile="prime-dead")
     assert pkg is not None
     prov = read_model(tmp_path / "shows" / "gratefuldead-1973-06-10" / "provenance.json",
                       Provenance)
-    assert prov.voice == "v-abc"
-    assert prov.script is True
     assert prov.profile == "prime-dead"                # profile-driven run stamps it
-    assert len(speech.calls) > 0                      # speech reached run_package
-    assert (pkg / "dj-audio" / "set1-intro.mp3").exists()
     manifest = json.loads((pkg / "manifest.json").read_text())
     assert manifest["source"]["profile"] == "prime-dead"  # ...and it reaches the manifest
+    assert manifest["dj_notes"] is None                # llama never writes a script

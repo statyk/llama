@@ -1,12 +1,42 @@
+import re
+
 from herder import run_json_task
 from llama.models import Briefing, Show, VettingResult
 from llama.prompts import load_prompt
 from llama.songs import normalize_song
-from llama.stages.synthesize import (_COUNT_WORDS, _ORDINALS, _ORDINAL_SET,
-                                     _SET_COUNT_CLAIM, _set_label, narration_note)
 from llama.util import reviews_digest
 from llama.workspace import (ShowWorkspace, read_model, read_overrides,
                              should_run, write_artifact)
+
+_VAGUE_NOTE = (
+    "IMPORTANT — uncertain setlist: this show's song list is incomplete and the "
+    "available sources conflict. Do NOT name specific songs, do NOT assert a set "
+    "count or set structure, and state nothing as fact that the show data does "
+    "not confirm. Speak to the band, the era, the venue, the performance, and its "
+    "reputation instead. Leave mentioned_songs empty."
+)
+
+
+def narration_note(narration: str) -> str:
+    # Trailing blank line so the prompt's `{{narration_note}}Show data` slot
+    # reads cleanly when set; empty string leaves the full-path prompt
+    # byte-identical to the pre-narration template (one blank line before
+    # "Show data"), rather than injecting an extra blank line.
+    return _VAGUE_NOTE + "\n\n" if narration == "vague" else ""
+
+
+# Set-count claims in briefing prose. "sets of ..." ("two sets of fiddle tunes")
+# is a quantity of songs, not a set count, so it never counts as a claim.
+_SET_COUNT_CLAIM = re.compile(
+    r"\b(both|two|three|four|[234])\s+(?:\w+\s+)?sets\b(?!\s+of\b)", re.I
+)
+_ORDINAL_SET = re.compile(r"\b(second|third|fourth)\s+set\b", re.I)
+_COUNT_WORDS = {"both": 2, "two": 2, "three": 3, "four": 4, "2": 2, "3": 3, "4": 4}
+_ORDINALS = {"second": 2, "third": 3, "fourth": 4}
+
+
+def _set_label(s: str) -> str:
+    return "Encore" if s == "encore" else f"Set {s}"
 
 
 def render_briefing_md(briefing: Briefing, show: Show) -> str:
@@ -27,8 +57,7 @@ def render_briefing_md(briefing: Briefing, show: Show) -> str:
 
 def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     """A briefing that misnames songs or sets — or breaks the vague-narration
-    contract — must never ship; cross-check against show.json. Same hold
-    semantics as synthesize's factual_guard, stricter vague enforcement."""
+    contract — must never ship; cross-check against show.json."""
     problems: list[str] = []
     known = {normalize_song(t.title) for t in show.tracks}
     for song in briefing.mentioned_songs:

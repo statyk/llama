@@ -37,7 +37,7 @@ def _held_show(tmp_path: Path, slug="gratefuldead-1973-06-10"):
 
 def _packaged_show(tmp_path: Path, slug="other-1974-01-01"):
     return build(tmp_path, slug,
-                stages={"select", "gather", "research", "vet", "synthesize", "package"},
+                stages={"select", "gather", "research", "vet", "package"},
                 pid="OtherBand/1974-01-01")
 
 
