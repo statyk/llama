@@ -110,6 +110,40 @@ def test_presenter_list_empty_and_populated(tmp_path: Path, monkeypatch):
     assert "american-dj" in listed.output
 
 
+def test_presenter_list_renders_invalid_presenter_without_crashing(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
+    bad = tmp_path / "presenters" / "bad.toml"
+    bad.parent.mkdir(parents=True)
+    bad.write_text("name = [unclosed")
+    listed = runner.invoke(app, ["presenter", "list"])
+    assert listed.exit_code == 0, listed.output
+    assert f"{'bad':16.16s} (invalid:" in listed.output
+
+
+def test_presenter_show_bed_suffix_present_and_absent(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
+    runner.invoke(app, ["presenter", "add", "casey", "--name", "Casey", "--sex", "male",
+                        "--voice", "american-dj", "--character", "x", "--bed", "/beds/soul.wav"])
+    with_bed = runner.invoke(app, ["presenter", "show", "casey"])
+    assert "bed=/beds/soul.wav" in with_bed.output
+
+    runner.invoke(app, ["presenter", "add", "nobed", "--name", "NoBed", "--sex", "female",
+                        "--voice", "v2", "--character", "y"])
+    without_bed = runner.invoke(app, ["presenter", "show", "nobed"])
+    assert "bed=" not in without_bed.output
+
+
+def test_presenter_list_exact_column_widths(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
+    runner.invoke(app, ["presenter", "add", "longpresenterid12345", "--name",
+                        "A Very Long On-Air Name Indeed", "--sex", "nonbinary",
+                        "--voice", "american-dj", "--character", "x"])
+    listed = runner.invoke(app, ["presenter", "list"])
+    assert listed.exit_code == 0, listed.output
+    expected = f"{'longpresenterid12345':16.16s} {'A Very Long On-Air Name Indeed':20.20s} {'nonbinary':8.8s} american-dj"
+    assert expected in listed.output
+
+
 def test_presenter_remove_refused_when_assignments_use_it(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
     runner.invoke(app, ["presenter", "add", "casey", "--name", "Casey", "--sex", "male",

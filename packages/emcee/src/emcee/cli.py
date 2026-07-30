@@ -42,11 +42,16 @@ app.add_typer(presenter_app, name="presenter")
 def _main() -> None:
     """No global options yet — placeholder callback.
 
-    A Typer group with zero registered commands cannot build a Click command
-    at all (`RuntimeError: Could not get a command for this Typer instance`),
-    so an empty callback is required here even before any subcommands exist.
-    Later tasks may replace this body with real global options, mirroring
-    llama's `cli.py:99` callback.
+    Keep it, even though `app` currently has a sub-typer (`presenter`) and so
+    already renders `Usage: emcee [OPTIONS] COMMAND [ARGS]...` with or
+    without this callback. The risk is future, not current: Typer allows
+    exactly one callback, and an app whose *only* top-level registration is a
+    single plain command (no sub-typer, no callback) collapses `--help` to
+    `Usage: emcee [OPTIONS]` instead of the `... COMMAND [ARGS]...` form.
+    Task 9 adds `run`/`voice`/`status` as plain top-level commands
+    alongside `presenter`, and this callback is what keeps that combination
+    from collapsing. Later tasks may replace this body with real global
+    options, mirroring llama's `cli.py:99` callback.
     """
 
 
