@@ -12,7 +12,7 @@ implementation plan this was built from. The approved design spec is
 
 ## Commands
 
-- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e packages/herder -e "packages/llama[dev]"`
+- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e packages/herder -e "packages/llama[dev]" -e packages/emcee`
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest packages/llama/tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`

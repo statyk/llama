@@ -44,21 +44,32 @@ config_app = typer.Typer(help="Config file utilities", pretty_exceptions_enable=
 app.add_typer(config_app, name="config")
 
 
-@app.callback()
-def _main() -> None:
-    """No global options yet — placeholder callback.
+def _version_callback(value: bool) -> None:
+    if value:
+        import emcee
 
-    Currently inert: `app` already has a sub-typer (`presenter`), and a
-    sub-typer alone is enough to render `Usage: emcee [OPTIONS] COMMAND
-    [ARGS]...` with or without this callback. Keep it anyway, for two
-    reasons. First, it's the intended slot for real global options later
-    (a `--config`-style option is a plausible future addition), mirroring
-    llama's `cli.py:99` callback. Second, it's a shape-independent
-    hedge: it guarantees the `COMMAND [ARGS]...` group form no matter how
-    top-level registrations change later, including the one shape that does
-    collapse `--help` to `Usage: emcee [OPTIONS]` — a single plain command
-    with no sub-typer and no callback. Typer allows only one `@app.callback()`;
-    a second one wouldn't error, it would just silently supersede this one.
+        typer.echo(emcee.__version__)
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Print the emcee version and exit.",
+    ),
+) -> None:
+    """`--version`, mirroring llama's `cli.py:78-102` pattern.
+
+    Also a shape-independent hedge: a callback guarantees the
+    `COMMAND [ARGS]...` `--help` group form no matter how top-level
+    registrations change later, including the one shape that does collapse
+    `--help` to `Usage: emcee [OPTIONS]` — a single plain command with no
+    sub-typer and no callback. Typer allows only one `@app.callback()`; a
+    second one wouldn't error, it would just silently supersede this one.
     """
 
 

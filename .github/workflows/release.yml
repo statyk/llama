@@ -1,7 +1,9 @@
 name: release
 
-# Build llama's four self-contained binaries on GitHub-hosted runners and
-# attach them to a GitHub Release. The macOS and Windows binaries are signed by
+# Build llama's AND emcee's self-contained binaries (four platform legs each,
+# eight binaries total) on GitHub-hosted runners and attach them to a GitHub
+# Release. packaging/build.py builds both targets per leg by default. The
+# macOS and Windows binaries (both llama and emcee) are signed by
 # packaging/build.py using credentials stored as GitHub Actions secrets: a
 # Developer ID `.p12` + notary Apple-ID credentials for macOS, and Azure
 # Trusted Signing service-principal credentials for Windows. Linux is
@@ -80,10 +82,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: linux,   arch: x64,   runner: ubuntu-latest,      timeout: 30 }
-          - { os: linux,   arch: arm64, runner: ubuntu-24.04-arm,   timeout: 30 }
-          - { os: macos,   arch: arm64, runner: macos-latest,       timeout: 45 }
-          - { os: windows, arch: x64,   runner: windows-latest,     timeout: 30 }
+          # Timeouts padded for building+signing TWO binaries per leg
+          # (llama + emcee) instead of one.
+          - { os: linux,   arch: x64,   runner: ubuntu-latest,      timeout: 40 }
+          - { os: linux,   arch: arm64, runner: ubuntu-24.04-arm,   timeout: 40 }
+          - { os: macos,   arch: arm64, runner: macos-latest,       timeout: 70 }
+          - { os: windows, arch: x64,   runner: windows-latest,     timeout: 45 }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeout }}
     steps:
@@ -109,7 +113,7 @@ jobs:
           "$PY" -m venv .venv
           . .venv/bin/activate 2>/dev/null || . .venv/Scripts/activate
           python -m pip install --upgrade pip
-          pip install -e packages/herder -e "packages/llama[dev]"
+          pip install -e packages/herder -e "packages/llama[dev]" -e packages/emcee
       - name: Prepare macOS signing
         if: matrix.os == 'macos' && needs.prep.outputs.dry_run != 'true'
         shell: bash
@@ -189,7 +193,7 @@ jobs:
         run: |
           set -euo pipefail
           cd dist-release
-          sha256sum llama-* > SHA256SUMS
+          sha256sum llama-* emcee-* > SHA256SUMS
           echo "=== SHA256SUMS ==="; cat SHA256SUMS
       - name: Create GitHub Release
         shell: bash
@@ -197,5 +201,5 @@ jobs:
           set -euo pipefail
           gh release create "v$VER" \
             --title "v$VER" \
-            --notes "llama $VER — self-contained binaries. Verify with SHA256SUMS." \
-            dist-release/llama-* dist-release/SHA256SUMS
+            --notes "llama + emcee $VER — self-contained binaries. Verify with SHA256SUMS." \
+            dist-release/llama-* dist-release/emcee-* dist-release/SHA256SUMS

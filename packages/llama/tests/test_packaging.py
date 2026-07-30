@@ -28,6 +28,22 @@ def test_entitlements_has_exactly_the_required_keys():
     }
 
 
+# --- spec files ---------------------------------------------------------
+# Both binaries are built off packaging/<target>.spec, mirrored 1:1 in
+# structure (see packaging/llama.spec's header comment). These checks would
+# fail if a spec file were deleted or its entry point / EXE name were
+# silently renamed.
+
+@pytest.mark.parametrize("target", sorted(build.TARGETS))
+def test_spec_exists_and_targets_the_right_entry_point(target):
+    text = build.TARGETS[target]["spec"].read_text()
+    assert f'"packages" / "{target}" / "src" / "{target}" / "__main__.py"' in text
+    assert f'"packages" / "{target}" / "src"' in text
+    assert '"packages" / "herder" / "src"' in text
+    assert f'name="{target}"' in text
+    assert f'collect_data_files("{target}.prompts") + collect_data_files("{target}.data")' in text
+
+
 # --- codesign identity resolution ------------------------------------------
 
 def test_identity_explicit_wins():
@@ -116,6 +132,23 @@ def test_main_dry_run_prints_plan(monkeypatch, capsys):
     assert "dry-run: would build and package" in capsys.readouterr().out
 
 
+def test_main_dry_run_default_plans_both_targets(monkeypatch, capsys):
+    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.2.3", "--dry-run"])
+    build.main()
+    out = capsys.readouterr().out
+    assert "dist-release/llama-1.2.3-" in out
+    assert "dist-release/emcee-1.2.3-" in out
+
+
+def test_main_dry_run_target_plans_one(monkeypatch, capsys):
+    monkeypatch.setattr(build.sys, "argv",
+                        ["build.py", "--version", "1.2.3", "--target", "emcee", "--dry-run"])
+    build.main()
+    out = capsys.readouterr().out
+    assert "dist-release/emcee-1.2.3-" in out
+    assert "dist-release/llama-1.2.3-" not in out
+
+
 def test_main_dry_run_skip_sign_notes_skip(monkeypatch, capsys):
     monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.2.3", "--dry-run", "--skip-sign"])
     build.main()
@@ -124,27 +157,49 @@ def test_main_dry_run_skip_sign_notes_skip(monkeypatch, capsys):
 
 def test_main_skip_sign_does_not_call_sign(monkeypatch):
     calls = []
-    monkeypatch.setattr(build, "write_version_file", lambda v: None)
-    monkeypatch.setattr(build, "run_pyinstaller", lambda v: None)
-    monkeypatch.setattr(build, "smoke_test", lambda v: None)
-    monkeypatch.setattr(build, "package", lambda v: calls.append("package"))
+    monkeypatch.setattr(build, "write_version_file", lambda t, v: None)
+    monkeypatch.setattr(build, "run_pyinstaller", lambda t, v: None)
+    monkeypatch.setattr(build, "smoke_test", lambda t, v: None)
+    monkeypatch.setattr(build, "package", lambda t, v: calls.append("package"))
     monkeypatch.setattr(build, "macos_sign", lambda *a, **k: calls.append("macos_sign"))
-    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0", "--skip-sign"])
+    monkeypatch.setattr(build.sys, "argv",
+                        ["build.py", "--version", "1.0.0", "--target", "llama", "--skip-sign"])
     build.main()
     assert calls == ["package"]
 
 
 def test_main_darwin_signs_then_packages(monkeypatch):
     calls = []
-    monkeypatch.setattr(build, "write_version_file", lambda v: None)
-    monkeypatch.setattr(build, "run_pyinstaller", lambda v: None)
-    monkeypatch.setattr(build, "smoke_test", lambda v: None)
-    monkeypatch.setattr(build, "package", lambda v: calls.append("package"))
+    monkeypatch.setattr(build, "write_version_file", lambda t, v: None)
+    monkeypatch.setattr(build, "run_pyinstaller", lambda t, v: None)
+    monkeypatch.setattr(build, "smoke_test", lambda t, v: None)
+    monkeypatch.setattr(build, "package", lambda t, v: calls.append("package"))
     monkeypatch.setattr(build, "macos_sign", lambda *a, **k: calls.append("macos_sign"))
+    monkeypatch.setattr(build.sys, "platform", "darwin")
+    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0", "--target", "llama"])
+    build.main()
+    assert calls == ["macos_sign", "package"]
+
+
+def test_main_default_target_builds_both_in_order(monkeypatch):
+    calls = []
+    monkeypatch.setattr(build, "write_version_file", lambda t, v: calls.append(("write", t)))
+    monkeypatch.setattr(build, "run_pyinstaller", lambda t, v: calls.append(("pyinstaller", t)))
+    monkeypatch.setattr(build, "smoke_test", lambda t, v: calls.append(("smoke", t)))
+    monkeypatch.setattr(build, "package", lambda t, v: calls.append(("package", t)))
+    monkeypatch.setattr(build, "macos_sign", lambda *a, **k: calls.append(("macos_sign", None)))
     monkeypatch.setattr(build.sys, "platform", "darwin")
     monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0"])
     build.main()
-    assert calls == ["macos_sign", "package"]
+    targets_built = [t for step, t in calls if step == "package"]
+    assert targets_built == ["emcee", "llama"]  # sorted(TARGETS)
+    # Each target runs its full pipeline before the next target starts.
+    assert calls == [
+        ("write", "emcee"), ("pyinstaller", "emcee"), ("smoke", "emcee"),
+        ("macos_sign", None), ("package", "emcee"),
+        ("write", "llama"), ("pyinstaller", "llama"), ("smoke", "llama"),
+        ("macos_sign", None), ("package", "llama"),
+    ]
 
 
 # --- metadata config --------------------------------------------------------
@@ -227,13 +282,13 @@ def test_ensure_az_noop_when_absent(tmp_path):
 
 def test_main_win32_signs_then_packages(monkeypatch):
     calls = []
-    monkeypatch.setattr(build, "write_version_file", lambda v: None)
-    monkeypatch.setattr(build, "run_pyinstaller", lambda v: None)
-    monkeypatch.setattr(build, "smoke_test", lambda v: None)
-    monkeypatch.setattr(build, "package", lambda v: calls.append("package"))
+    monkeypatch.setattr(build, "write_version_file", lambda t, v: None)
+    monkeypatch.setattr(build, "run_pyinstaller", lambda t, v: None)
+    monkeypatch.setattr(build, "smoke_test", lambda t, v: None)
+    monkeypatch.setattr(build, "package", lambda t, v: calls.append("package"))
     monkeypatch.setattr(build, "windows_sign", lambda *a, **k: calls.append("windows_sign"))
     monkeypatch.setattr(build.sys, "platform", "win32")
-    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0"])
+    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0", "--target", "llama"])
     build.main()
     assert calls == ["windows_sign", "package"]
 
@@ -283,17 +338,17 @@ def test_windows_sign_prints_verified_on_success(monkeypatch, tmp_path, capsys):
 
 def test_main_signing_failure_aborts_before_package(monkeypatch):
     calls = []
-    monkeypatch.setattr(build, "write_version_file", lambda v: None)
-    monkeypatch.setattr(build, "run_pyinstaller", lambda v: None)
-    monkeypatch.setattr(build, "smoke_test", lambda v: None)
-    monkeypatch.setattr(build, "package", lambda v: calls.append("package"))
+    monkeypatch.setattr(build, "write_version_file", lambda t, v: None)
+    monkeypatch.setattr(build, "run_pyinstaller", lambda t, v: None)
+    monkeypatch.setattr(build, "smoke_test", lambda t, v: None)
+    monkeypatch.setattr(build, "package", lambda t, v: calls.append("package"))
 
     def boom(*a, **k):
         raise build.subprocess.CalledProcessError(1, "codesign")
 
     monkeypatch.setattr(build, "macos_sign", boom)
     monkeypatch.setattr(build.sys, "platform", "darwin")
-    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0"])
+    monkeypatch.setattr(build.sys, "argv", ["build.py", "--version", "1.0.0", "--target", "llama"])
     with pytest.raises(build.subprocess.CalledProcessError):
         build.main()
     assert "package" not in calls
