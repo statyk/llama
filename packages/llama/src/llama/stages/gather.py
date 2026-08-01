@@ -205,31 +205,39 @@ def run_gather(
     else:
         result = align(tracks, canonical)
         alignment = "deterministic"
-        if canonical.items and result.coverage < structure_cfg.align_coverage_threshold:
-            anchored = jerrybase.anchor_breaks(tracks, event) if event is not None else None
-            if anchored is not None:
-                # Deterministic break anchoring from jerrybase closers: skip the LLM.
-                result = result.model_copy(update={"sets": anchored})
-                alignment = "jerrybase"
-                notes.append("set breaks anchored from jerrybase")
+        # Jerrybase closers are ground truth for where breaks fall, so anchoring
+        # is tried on its own evidence and wins whenever it succeeds — it is not
+        # gated on the alignment looking bad. The old `coverage < threshold`
+        # gate was a trap: gd1973-08-01 aligned to 0.8182 against a 0.8 gate, so
+        # a show whose breaks were plainly wrong was "too good" for every repair
+        # path. Measured over the 756 corpus shows carrying evidence: +148 newly
+        # anchor and not one show that already anchored changes.
+        anchored = (jerrybase.anchor_breaks(tracks, event, aligned_sets=result.sets)
+                    if event is not None else None)
+        if anchored is not None:
+            result = result.model_copy(update={"sets": anchored})
+            alignment = "jerrybase"
+            notes.append("set breaks anchored from jerrybase")
+        elif canonical.items and result.coverage < structure_cfg.align_coverage_threshold:
+            # No usable jerrybase evidence and the alignment is weak: fall back
+            # to LLM realignment, then to a review flag.
+            llm_result = None
+            if align_provider is not None:
+                try:
+                    resp = run_json_task(align_provider, "align_structure", AlignedStructure,
+                                         template=load_prompt("align_structure"),
+                                         tracks=_format_tracks(tracks),
+                                         setlist=_format_setlist(canonical))
+                    llm_result = apply_llm_alignment(tracks, resp)
+                except (TaskFailed, HerderError) as err:
+                    log.warning("align_structure failed: %s", err)
+            if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
+                # Deliberate trade-off: apply_llm_alignment never populates
+                # conflicts, so any deterministic-alignment conflicts are
+                # dropped when the LLM realignment wins.
+                result, alignment = llm_result, "llm"
             else:
-                llm_result = None
-                if align_provider is not None:
-                    try:
-                        resp = run_json_task(align_provider, "align_structure", AlignedStructure,
-                                             template=load_prompt("align_structure"),
-                                             tracks=_format_tracks(tracks),
-                                             setlist=_format_setlist(canonical))
-                        llm_result = apply_llm_alignment(tracks, resp)
-                    except (TaskFailed, HerderError) as err:
-                        log.warning("align_structure failed: %s", err)
-                if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
-                    # Deliberate trade-off: apply_llm_alignment never populates
-                    # conflicts, so any deterministic-alignment conflicts are
-                    # dropped when the LLM realignment wins.
-                    result, alignment = llm_result, "llm"
-                else:
-                    flags.append("low-confidence structure alignment")
+                flags.append("low-confidence structure alignment")
 
         tracks = [t.model_copy(update={"set": s, "segue": g})
                   for t, s, g in zip(tracks, result.sets, result.segues)]

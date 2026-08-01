@@ -316,17 +316,49 @@ def test_gather_venue_equivalent_passes_no_mismatch(tmp_path, monkeypatch):
     assert show.needs_review is False
 
 
-def test_gather_confident_but_contradicted_break_flags(tmp_path, monkeypatch):
-    # gd73 aligns confidently to sets 1,1,1,2,2,encore (breaks [3,5]); jerrybase
-    # says set 1 ends on China Cat Sunflower (track 2, mid-set 1) -> tripwire.
+def test_gather_anchors_over_a_confident_but_contradicted_alignment(tmp_path, monkeypatch):
+    # gd73 aligns confidently to sets 1,1,1,2,2,encore (breaks [3,5]) — coverage
+    # far above align_coverage_threshold. Jerrybase says set 1 ends on China Cat
+    # Sunflower (track 2). Anchoring is no longer gated on low coverage, so it
+    # runs and CORRECTS the breaks instead of merely flagging them. This is the
+    # gd1973-08-01 failure shape: an alignment too good to trip the old gate.
     monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
         [("China Cat Sunflower", "1"), ("Eyes of the World", "2"),
          ("Johnny B. Goode", "encore")])])
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
                       jerrybase_enabled=True)
+    assert show.structure is not None and show.structure.alignment == "jerrybase"
+    assert show.set_breaks == [2, 5]
+    # The tripwire is silent: anchoring places breaks at closers by construction.
+    assert not any("set break" in f for f in show.review_flags)
+
+
+def test_gather_tripwire_still_flags_when_anchoring_fails(tmp_path, monkeypatch):
+    # Same contradiction, but one closer is absent from the tape, so anchoring
+    # cannot run. The closer tripwire is what remains — and it still speaks.
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("China Cat Sunflower", "1"), ("Zzz Never Played", "2")])])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert show.structure is not None and show.structure.alignment != "jerrybase"
     assert show.needs_review is True
     assert any("China Cat Sunflower" in f and "set break" in f for f in show.review_flags)
+
+
+def test_gather_anchors_a_tape_with_no_setlist_parse(tmp_path, monkeypatch):
+    # No description -> no canonical setlist at all. Anchoring used to be
+    # unreachable in that state; jerrybase evidence alone can now structure it.
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = ""
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
+        [("China Cat Sunflower", "1"), ("Eyes of the World", "2")])])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    assert show.structure is not None and show.structure.alignment == "jerrybase"
+    assert show.set_breaks == [2]
 
 
 def test_gather_flags_set_count_mismatch(tmp_path, monkeypatch):
