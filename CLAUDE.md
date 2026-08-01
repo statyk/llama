@@ -191,7 +191,15 @@ tier (pins never escalate).
   `scripts/refresh_jerrybase.py`): gather uses it after alignment as a
   tripwire (multi-event dates, venue mismatch, contradicted set breaks, wrong
   set count) and a deterministic break-anchoring corrector, never as a setlist
-  source (`[jerrybase] enabled`, default on). Nine named touchpoints (one
+  source (`[jerrybase] enabled`, default on). **Anchoring runs on its own
+  evidence and wins whenever it resolves** — it is not gated on
+  `align_coverage_threshold`, which now only triggers the LLM realignment
+  fallback and the low-confidence flag. Closers match merged tracks on their
+  last component and tolerate `&`/`and` and dropped subtitles; a repeated
+  closer resolves to its latest occurrence before the next set's closer; a
+  trailing encore jerrybase has no row for is preserved, not absorbed. The
+  closer tripwire only speaks when anchoring declines. Design:
+  `docs/superpowers/specs/2026-08-01-jerrybase-anchoring-design.md`. Nine named touchpoints (one
   per file under `packages/llama/src/llama/prompts/` — `synthesize` is gone,
   emcee has its own separate `scriptwrite` prompt), each with a Pydantic
   output schema. LLM calls live only at stage boundaries — everything else

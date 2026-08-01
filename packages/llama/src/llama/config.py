@@ -38,7 +38,8 @@ class SetlistFMConfig(BaseModel):
 
 class JerrybaseConfig(BaseModel):
     # Vendored, offline, no key - so on by default (unlike setlist.fm). No
-    # thresholds: break anchoring is all-or-nothing by design.
+    # thresholds: anchoring either resolves every set closer or declines
+    # entirely, and when it resolves it wins over the aligned breaks.
     enabled: bool = True
 
 
@@ -215,6 +216,9 @@ max_matched = 20
 # hold single-set shows longer than this for review
 guard_min_minutes = 150
 
+# below this share of song-like tracks matched, fall back to LLM realignment
+# and then to a review flag. Does NOT gate jerrybase break anchoring, which
+# runs on its own evidence whenever the dataset covers the show.
 align_coverage_threshold = 0.8
 
 
