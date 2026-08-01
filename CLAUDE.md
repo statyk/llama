@@ -14,6 +14,10 @@ implementation plan this was built from. The approved design spec is
 
 - Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e packages/herder -e "packages/llama[dev]" -e packages/emcee`
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest packages/llama/tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
+  **In a git worktree, give the worktree its own `.venv` and run `./.venv/bin/pytest`.**
+  The repo-root `.venv` installs llama editable against the *main* checkout, so a
+  bare `pytest` from a worktree collects the worktree's tests but imports the main
+  checkout's source — it silently tests the wrong code and still passes.
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
 - Stitch a playlist into one mp3: `python3 scripts/stitch_m3u.py <playlist.m3u>`
