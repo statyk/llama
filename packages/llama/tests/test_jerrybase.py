@@ -152,10 +152,81 @@ def test_anchor_breaks_none_when_closer_missing():
     assert jerrybase.anchor_breaks(tracks, event) is None
 
 
-def test_anchor_breaks_none_when_closer_ambiguous():
-    tracks = _tracks(["A", "C", "B", "C"])  # "C" appears twice
+def test_anchor_breaks_repeated_closer_takes_the_latest_occurrence():
+    # A song played twice used to make anchoring give up. A set closes on the
+    # LAST time its closer is played, so the later occurrence wins.
+    tracks = _tracks(["A", "C", "B", "C"])
     event = _event([("C", "1")])
+    assert jerrybase.anchor_breaks(tracks, event) == ["1", "1", "1", "1"]
+
+
+def test_anchor_breaks_repeated_closer_resolves_against_the_next_closer():
+    # "C" twice, then "E" closes set 2: set 1 must take the latest "C" that
+    # still precedes "E" (a Playing-in-the-Band sandwich, in miniature).
+    tracks = _tracks(["A", "C", "B", "C", "D", "E"])
+    event = _event([("C", "1"), ("E", "2")])
+    assert jerrybase.anchor_breaks(tracks, event) == ["1", "1", "1", "1", "2", "2"]
+
+
+def test_anchor_breaks_none_when_no_candidate_precedes_the_next_closer():
+    # Both sets claim to close on "C" but the tape plays it once — unresolvable.
+    tracks = _tracks(["A", "B", "C"])
+    event = _event([("C", "1"), ("C", "2")])
     assert jerrybase.anchor_breaks(tracks, event) is None
+
+
+def test_anchor_breaks_matches_closer_across_ampersand_spelling():
+    tracks = _tracks(["A", "Me & My Uncle", "B"])
+    event = _event([("Me and My Uncle", "1")])
+    assert jerrybase.anchor_breaks(tracks, event) == ["1", "1", "1"]
+
+
+def test_anchor_breaks_matches_closer_across_dropped_subtitle():
+    tracks = _tracks(["A", "Mississippi Half Step", "B", "C"])
+    event = _event([("Mississippi Half Step Uptown Toodeloo", "1"), ("C", "2")])
+    assert jerrybase.anchor_breaks(tracks, event) == ["1", "1", "2", "2"]
+
+
+def test_anchor_breaks_matches_merged_track_on_its_last_component():
+    # The tape merges the pair onto one file; the set still closes on Rider.
+    tracks = _tracks(["A", "China Cat Sunflower > I Know You Rider", "B", "C"])
+    event = _event([("I Know You Rider", "1"), ("C", "2")])
+    assert jerrybase.anchor_breaks(tracks, event) == ["1", "1", "2", "2"]
+
+
+def test_anchor_breaks_prefers_an_exact_closer_match_over_a_fuzzy_one():
+    # "Not Fade Away" and "Not Fade Away Chant" are both plausible fuzzy hits.
+    # The exact one wins even though it is the earlier candidate.
+    tracks = _tracks(["Not Fade Away", "X", "Not Fade Away Chant", "Y"])
+    event = _event([("Not Fade Away", "1"), ("Y", "2")])
+    assert jerrybase.anchor_breaks(tracks, event) == ["1", "2", "2", "2"]
+
+
+def test_anchor_breaks_preserves_a_trailing_encore_jerrybase_does_not_know():
+    # Jerrybase often records only the numbered sets. Anchoring must not
+    # swallow an encore the alignment already found.
+    tracks = _tracks(["A", "B", "C", "D", "E"])
+    event = _event([("C", "1"), ("E", "2")])       # no encore row
+    aligned = ["1", "1", "2", "encore", "encore"]
+    assert jerrybase.anchor_breaks(tracks, event, aligned_sets=aligned) == [
+        "1", "1", "1", "encore", "encore"]
+
+
+def test_anchor_breaks_encore_guard_inert_when_jerrybase_has_an_encore():
+    tracks = _tracks(["A", "B", "C", "D", "E"])
+    event = _event([("C", "1"), ("D", "2"), ("E", "encore")])
+    aligned = ["1", "1", "1", "1", "encore"]
+    assert jerrybase.anchor_breaks(tracks, event, aligned_sets=aligned) == [
+        "1", "1", "1", "2", "encore"]
+
+
+def test_anchor_breaks_encore_guard_only_restores_a_trailing_run():
+    # A stray mid-tape "encore" label is not an encore; don't resurrect it.
+    tracks = _tracks(["A", "B", "C", "D", "E"])
+    event = _event([("C", "1"), ("E", "2")])
+    aligned = ["1", "encore", "2", "2", "2"]
+    assert jerrybase.anchor_breaks(tracks, event, aligned_sets=aligned) == [
+        "1", "1", "1", "2", "2"]
 
 
 def test_anchor_breaks_none_when_out_of_order():

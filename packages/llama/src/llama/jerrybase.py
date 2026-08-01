@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from importlib import resources
 
 from llama.models import JerrybaseEvent, JerrybaseSet, Track
-from llama.structure import norm_title
+from llama.structure import fuzzy_norm_title, fuzzy_title_eq, norm_title, title_components
 
 log = logging.getLogger("llama")
 
@@ -131,23 +131,62 @@ def lookup(artist: str, date: str) -> list[JerrybaseEvent]:
     return _load().get((artist_key(artist), date), [])
 
 
-def anchor_breaks(tracks: list[Track], event: JerrybaseEvent) -> list[str] | None:
-    """Assign each track a set name by anchoring jerrybase set closers onto
-    tracks (matched via norm_title). Succeeds only if every closer matches
-    exactly one track and the matched positions are strictly increasing; then
-    tracks up to and including closer i take set i's name, tracks after the last
-    closer take the last set's name. Returns per-track set names (parallel to
-    tracks) or None on any missing/ambiguous/out-of-order closer."""
-    positions: list[int] = []
-    for st in event.sets:
-        target = norm_title(st.closer)
-        hits = [i for i, t in enumerate(tracks) if norm_title(t.title) == target]
-        if len(hits) != 1:
-            return None
-        positions.append(hits[0])
-    if any(positions[k] >= positions[k + 1] for k in range(len(positions) - 1)):
+def _closer_candidates(tracks: list[Track], closer: str) -> list[int]:
+    """Track indices whose closing song matches `closer`, in recording order.
+
+    A merged track ("China Cat Sunflower > I Know You Rider") closes on its last
+    component. Matching tolerates "&"/"and" spellings and dropped subtitles,
+    because taper tags and canonical names disagree constantly. Exact matches
+    win outright: when any candidate matches exactly, the fuzzy ones are
+    discarded, so "Not Fade Away" prefers the track actually called that over
+    one called "Not Fade Away Chant"."""
+    target = fuzzy_norm_title(closer)
+    exact = [i for i, t in enumerate(tracks) if title_components(t.title)[-1] == target]
+    if exact:
+        return exact
+    return [i for i, t in enumerate(tracks)
+            if fuzzy_title_eq(title_components(t.title)[-1], target)]
+
+
+def _resolve_positions(candidates: list[list[int]]) -> list[int] | None:
+    """Pick one track index per set from each set's candidate list.
+
+    Resolved right-to-left: the last set closes on its last candidate, and each
+    earlier set takes its latest candidate still strictly before the following
+    set's chosen position. That is what a repeated closer means in practice — a
+    set ends on the LAST time its closer is played before the next set's does.
+    None if any set has no candidate below its successor."""
+    if not candidates or any(not c for c in candidates):
         return None
-    if not positions:
+    positions: list[int] = [-1] * len(candidates)
+    positions[-1] = candidates[-1][-1]
+    for k in range(len(candidates) - 2, -1, -1):
+        below = [p for p in candidates[k] if p < positions[k + 1]]
+        if not below:
+            return None
+        positions[k] = below[-1]
+    return positions
+
+
+def anchor_breaks(tracks: list[Track], event: JerrybaseEvent,
+                  aligned_sets: list[str] | None = None) -> list[str] | None:
+    """Assign each track a set name by anchoring jerrybase set closers onto
+    tracks. Succeeds only if every closer matches at least one track and the
+    resolved positions are strictly increasing; then tracks up to and including
+    closer i take set i's name, tracks after the last closer take the last set's
+    name. Returns per-track set names (parallel to tracks) or None on any
+    missing or unresolvable closer.
+
+    `aligned_sets` (the deterministic alignment's own per-track set names, if
+    any) enables the encore guard: jerrybase frequently records only the
+    numbered sets, and without the guard a tape's trailing encore would be
+    absorbed into the final numbered set. The guard only ever restores a label
+    the alignment already produced — it never invents one."""
+    positions = _resolve_positions([_closer_candidates(tracks, st.closer)
+                                    for st in event.sets])
+    if positions is None:
+        return None
+    if any(positions[k] >= positions[k + 1] for k in range(len(positions) - 1)):
         return None
     names = [s.name for s in event.sets]
     out: list[str] = []
@@ -156,6 +195,11 @@ def anchor_breaks(tracks: list[Track], event: JerrybaseEvent) -> list[str] | Non
         while si < len(positions) and i > positions[si]:
             si += 1
         out.append(names[min(si, len(names) - 1)])
+    if aligned_sets is not None and not any(n == "encore" for n in names):
+        for i in reversed(range(min(len(out), len(aligned_sets)))):
+            if aligned_sets[i] != "encore":
+                break
+            out[i] = "encore"
     return out
 
 
