@@ -32,6 +32,54 @@ def norm_title(title: str) -> str:
     return normalize_song(_STRUCTURE_PREFIX.sub("", title))
 
 
+# Interior segue separators. A merged track ("China Cat Sunflower > I Know You
+# Rider") is several songs on one file; the song it *closes* on is the last
+# component, which is what a jerrybase set closer has to be compared against.
+_SEGUE_SEP = re.compile(r"\s*(?:->|>|→)\s*")
+
+
+def fuzzy_norm_title(title: str) -> str:
+    """`norm_title` with "&" folded to "and" first.
+
+    `normalize_song`'s punctuation strip turns "&" into whitespace, so
+    "Me & My Uncle" and "Me and My Uncle" normalize differently today. Folding
+    beforehand collapses them. Deliberately kept out of `normalize_song`
+    itself: folding there would shift `align()`'s coverage on every show at
+    once, which is a later phase's decision, not this one's.
+    """
+    return norm_title(title.replace("&", " and "))
+
+
+def title_components(title: str) -> list[str]:
+    """Normalized components of a possibly-merged track title, in order.
+
+    A trailing separator yields no empty component, so a dangling ">" stays a
+    segue marker rather than becoming a phantom song.
+    """
+    parts = [p.strip() for p in _SEGUE_SEP.split(title) if p.strip()]
+    return [fuzzy_norm_title(p) for p in parts] or [fuzzy_norm_title(title)]
+
+
+def _is_subphrase(short: str, long: str) -> bool:
+    ws, wl = short.split(), long.split()
+    if len(ws) < 2 or len(ws) >= len(wl):
+        return False
+    return any(wl[i:i + len(ws)] == ws for i in range(len(wl) - len(ws) + 1))
+
+
+def fuzzy_title_eq(a: str, b: str) -> bool:
+    """Equality for already-normalized titles, tolerating the subtitles and
+    parentheticals tapers drop ("Mississippi Half Step" vs the canonical
+    "... Uptown Toodeloo").
+
+    The two-word floor on the shorter side is deliberate: single-word shorthand
+    ("Scarlet", "Help", "Estimated") is a hardcoded alias table's job, not a
+    general rule's — a one-word floor would match "Dew" to "Morning Dew" and to
+    everything else containing the word.
+    """
+    return a == b or _is_subphrase(a, b) or _is_subphrase(b, a)
+
+
 # --- Venue equivalence (jerrybase venue-mismatch tripwire) -------------------
 # Conservative, deterministic, offline. Only high-confidence equivalences
 # auto-pass; when uncertain, callers still flag. No fuzzy scoring, no aliases.

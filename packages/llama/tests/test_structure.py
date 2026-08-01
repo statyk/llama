@@ -326,3 +326,50 @@ def test_venues_equivalent_true(a, b):
 def test_venues_not_equivalent(a, b):
     assert not venues_equivalent(a, b)
     assert not venues_equivalent(b, a)
+
+
+# --- fuzzy title matching (jerrybase closer matching; see the 2026-08-01 spec) --
+
+from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
+
+
+def test_fuzzy_norm_title_folds_ampersand_to_and():
+    # normalize_song's punctuation strip deletes "&" outright, so these two
+    # spellings of one song normalize differently under plain norm_title.
+    assert norm_title("Me & My Uncle") != norm_title("Me and My Uncle")
+    assert fuzzy_norm_title("Me & My Uncle") == fuzzy_norm_title("Me and My Uncle")
+    assert fuzzy_norm_title("Around & Around") == fuzzy_norm_title("Around and Around")
+
+
+def test_title_components_splits_merged_tracks_in_order():
+    assert title_components("China Cat Sunflower > I Know You Rider") == [
+        "china cat sunflower", "i know you rider"]
+    assert title_components("Help on the Way -> Slipknot! -> Franklin's Tower") == [
+        "help on the way", "slipknot", "franklins tower"]
+
+
+def test_title_components_of_plain_title_is_single_component():
+    assert title_components("Morning Dew") == ["morning dew"]
+
+
+def test_title_components_ignores_trailing_segue_marker():
+    # A dangling ">" is a segue flag, not a second song.
+    assert title_components("Truckin >") == ["truckin"]
+
+
+def test_fuzzy_title_eq_accepts_subtitle_both_directions():
+    short, long = "mississippi half step", "mississippi half step uptown toodeloo"
+    assert fuzzy_title_eq(short, long)
+    assert fuzzy_title_eq(long, short)
+
+
+def test_fuzzy_title_eq_rejects_single_word_shorthand():
+    # Single-word shorthand is the hardcoded table's job, not a general rule's:
+    # a 1-word floor would match "Dew" to anything containing the word.
+    assert not fuzzy_title_eq("scarlet", "scarlet begonias")
+    assert not fuzzy_title_eq("dew", "morning dew")
+
+
+def test_fuzzy_title_eq_rejects_unrelated_titles():
+    assert not fuzzy_title_eq("morning dew", "casey jones")
+    assert not fuzzy_title_eq("half step mississippi", "mississippi half step")
