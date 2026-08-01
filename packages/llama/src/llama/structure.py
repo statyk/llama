@@ -256,6 +256,22 @@ def blend_segues(winner: ParsedSetlist, lma: ParsedSetlist | None) -> ParsedSetl
     return ParsedSetlist(items=items, confidence=winner.confidence)
 
 
+def _merge_run(norms: list[str], lo: int, hi: int, comps: list[str]) -> int | None:
+    """Start index of a consecutive run in `norms` matching every component of
+    a merged track, searching only from `lo` up to (but not including) `hi`.
+
+    Requiring *all* components to match is the guard against taper notes that
+    look like a second song ("Space > patch", "New Orleans > (w/ Rick Danko)").
+    Task 3's parenthetical drop handles the credit case; this handles the rest,
+    by declining the run and letting the track fall back to a single match."""
+    n = len(comps)
+    for k in range(lo, hi):
+        if k + n <= len(norms) and all(
+                fuzzy_title_eq(c, norms[k + m]) for m, c in enumerate(comps)):
+            return k
+    return None
+
+
 def _window_match(norms: list[str], lo: int, hi: int, nt: str) -> int | None:
     """Index of the first item in `norms[lo:hi]` matching `nt`, exact matches
     considered across the whole window before any fuzzy one.
@@ -292,10 +308,26 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     segues: list[bool] = []
     matched: list[bool] = []
     matched_idx: set[int] = set()
+    merge_conflicts: list[int] = []
     j = 0
     for t in tracks:
+        hi = min(j + 1 + lookahead, len(items))
+        comps = title_components(t.title, aliases)
+        run = _merge_run(norms, j, hi, comps) if len(comps) > 1 else None
+        if run is not None:
+            n = len(comps)
+            sets.append(items[run].set)
+            # The segue that matters is the one after the LAST component: it
+            # describes what follows this file, not what happens inside it.
+            segues.append(items[run + n - 1].segue)
+            matched.append(True)
+            matched_idx.update(range(run, run + n))
+            if len({items[run + m].set for m in range(n)}) > 1:
+                merge_conflicts.append(t.index)
+            j = run + n
+            continue
         nt = fuzzy_norm_title(t.title, aliases)
-        hit = _window_match(norms, j, min(j + 1 + lookahead, len(items)), nt)
+        hit = _window_match(norms, j, hi, nt)
         if hit is None:
             sets.append(sets[-1] if sets else "1")
             segues.append(False)
@@ -309,7 +341,8 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     coverage = _songish_coverage(tracks, matched)
     conflicts = [it.title for k, it in enumerate(items) if k not in matched_idx]
     return AlignResult(sets=sets, segues=segues, matched=matched,
-                       coverage=coverage, conflicts=conflicts)
+                       coverage=coverage, conflicts=conflicts,
+                       merge_conflicts=merge_conflicts)
 
 
 def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:

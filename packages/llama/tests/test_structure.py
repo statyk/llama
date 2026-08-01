@@ -464,3 +464,41 @@ def test_align_does_not_pair_the_blocklisted_pair():
     r = align([tr(1, "It's All Over Now")], c)
     assert r.matched == [False]
     assert r.conflicts == ["It's All Over Now, Baby Blue"]
+
+
+def test_align_matches_a_merged_track_as_a_run():
+    c = canon(("2", "China Cat Sunflower", True), ("2", "I Know You Rider", False),
+              ("2", "Big River", False))
+    r = align([tr(1, "China Cat Sunflower > I Know You Rider"), tr(2, "Big River")], c)
+    assert r.sets == ["2", "2"]
+    assert r.matched == [True, True]
+    # Both consumed items count as matched, so neither is a conflict.
+    assert r.conflicts == []
+    assert r.coverage == 1.0
+    assert r.merge_conflicts == []
+
+
+def test_merged_run_takes_the_segue_that_follows_the_last_component():
+    c = canon(("2", "Scarlet Begonias", True), ("2", "Fire on the Mountain", True),
+              ("2", "Estimated Prophet", False))
+    r = align([tr(1, "Scarlet Begonias > Fire on the Mountain"),
+               tr(2, "Estimated Prophet")], c)
+    assert r.segues == [True, False]
+
+
+def test_merged_run_spanning_a_set_break_is_flagged():
+    # Physically impossible: one continuous performance cannot straddle a
+    # break, so this is evidence the parse is wrong.
+    c = canon(("1", "Playing in the Band", True), ("2", "Uncle John's Band", False))
+    r = align([tr(1, "Playing in the Band > Uncle John's Band")], c)
+    assert r.sets == ["1"]          # first component's set
+    assert r.merge_conflicts == [1]  # 1-based track number
+
+
+def test_merged_run_needs_every_component_to_match():
+    # "patch" is a transfer note, not a song: the run must not form, and the
+    # track falls back to a single-title match on the whole string.
+    c = canon(("2", "Space", False), ("2", "The Other One", False))
+    r = align([tr(1, "Space > patch"), tr(2, "The Other One")], c)
+    assert r.matched == [False, True]
+    assert r.merge_conflicts == []

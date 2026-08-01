@@ -123,6 +123,10 @@ class AlignResult(BaseModel):
     matched: list[bool]
     coverage: float
     conflicts: list[str] = Field(default_factory=list)
+    # 1-based numbers of merged tracks whose components matched items in
+    # different sets. Physically impossible, so it is evidence the parse is
+    # wrong: gather turns it into a review flag.
+    merge_conflicts: list[int] = Field(default_factory=list)
 
 
 class AlignedTrack(BaseModel):
