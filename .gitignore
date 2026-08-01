@@ -10,3 +10,4 @@ dist-release/
 packages/llama/src/llama/_version.py
 packages/emcee/src/emcee/_version.py
 .coverage
+.claude/
