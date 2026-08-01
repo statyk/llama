@@ -376,11 +376,16 @@ def test_gather_flags_set_count_mismatch(tmp_path, monkeypatch):
 def test_gather_set_count_ignores_encore(tmp_path, monkeypatch):
     # jerrybase says 2 sets; the tape has 2 numbered sets + an encore. That is NOT
     # a mismatch — an encore is a coda, not a set — so no set-count flag fires.
+    # These closers are real gd73 titles, so anchoring now runs; the count still
+    # matches only because the encore guard keeps the tape's trailing encore
+    # instead of absorbing it into set 2 (jerrybase has no encore row here).
     monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
         [("I Know You Rider", "1"), ("Johnny B. Goode", "2")])])
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
                       jerrybase_enabled=True)
+    assert show.structure is not None and show.structure.alignment == "jerrybase"
+    assert [t.set for t in show.tracks][-1] == "encore"   # encore guard held
     assert not any("jerrybase shows" in f for f in show.review_flags)
 
 

@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from importlib import resources
 
 from llama.models import JerrybaseEvent, JerrybaseSet, Track
-from llama.structure import fuzzy_norm_title, fuzzy_title_eq, norm_title, title_components
+from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
 
 log = logging.getLogger("llama")
 
@@ -217,8 +217,7 @@ def closer_contradictions(tracks: list[Track],
     hard: list[str] = []
     soft: list[str] = []
     for st in event.sets:
-        target = norm_title(st.closer)
-        hits = [t for t in tracks if norm_title(t.title) == target]
+        hits = [tracks[i] for i in _closer_candidates(tracks, st.closer)]
         if not hits:
             soft.append(f"jerrybase set closer '{st.closer}' not found in tracks")
             continue

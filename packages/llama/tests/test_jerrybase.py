@@ -262,3 +262,18 @@ def test_closer_contradictions_soft_note_when_closer_absent():
     hard, soft = jerrybase.closer_contradictions(tracks, event)
     assert hard == []
     assert any("Z" in n for n in soft)
+
+
+def test_closer_contradictions_matches_ampersand_and_subtitle_spellings():
+    # The tripwire compared raw normalized titles, so taper spellings made real
+    # contradictions look like absent closers.
+    tracks = _tracks_with_sets([("A", "1"), ("Me & My Uncle", "1"), ("C", "1")])
+    hard, soft = jerrybase.closer_contradictions(tracks, _event([("Me and My Uncle", "1")]))
+    assert soft == []                                    # no longer "not found"
+    assert any("Me and My Uncle" in f and "set break" in f for f in hard)
+
+
+def test_closer_contradictions_matches_merged_track_on_last_component():
+    tracks = _tracks_with_sets([("A", "1"), ("China Cat Sunflower > I Know You Rider", "1")])
+    hard, soft = jerrybase.closer_contradictions(tracks, _event([("I Know You Rider", "1")]))
+    assert hard == [] and soft == []     # closer is the last track: no contradiction
