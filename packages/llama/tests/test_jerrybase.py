@@ -319,3 +319,22 @@ def test_anchor_breaks_declines_an_encore_only_event():
     tracks = _tracks(["A", "B", "C"])
     event = _event([("C", "encore")])
     assert jerrybase.anchor_breaks(tracks, event) is None
+
+
+def test_artist_key_folds_ampersand_to_and():
+    # The CSV spells these "DeadAndCompany" / "PhilLeshAndFriends"; stripping
+    # "&" instead of folding it silently denied both acts all evidence.
+    assert jerrybase.artist_key("Dead & Company") == "deadandcompany"
+    assert jerrybase.artist_key("Phil Lesh & Friends") == "philleshandfriends"
+    assert jerrybase.artist_key("Grateful Dead") == "gratefuldead"
+
+
+def test_is_family_artist_covers_dataset_and_extras():
+    assert jerrybase.is_family_artist("Grateful Dead")
+    assert jerrybase.is_family_artist("Dark Star Orchestra")
+    assert jerrybase.is_family_artist("Dead & Company")
+    # Absent from the dataset, but family by vocabulary.
+    assert jerrybase.is_family_artist("Joe Russo's Almost Dead")
+    # Not family: must get no Dead vocabulary.
+    assert not jerrybase.is_family_artist("Fugazi")
+    assert not jerrybase.is_family_artist("")

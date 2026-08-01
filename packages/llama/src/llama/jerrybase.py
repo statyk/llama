@@ -29,8 +29,13 @@ _SET_WORDS = {
 
 def artist_key(artist: str) -> str:
     """Lowercased alphanumerics only, so "Grateful Dead" and the CSV's
-    "GratefulDead" collapse to the same key without an alias table."""
-    return "".join(c for c in artist.lower() if c.isalnum())
+    "GratefulDead" collapse to the same key without an alias table.
+
+    "&" folds to "and" first: the CSV spells them out ("DeadAndCompany",
+    "PhilLeshAndFriends"), so stripping the character instead of folding it
+    denied those two acts every piece of jerrybase evidence."""
+    folded = artist.replace("&", " and ")
+    return "".join(c for c in folded.lower() if c.isalnum())
 
 
 def normalize_set_label(label: str) -> str | None:
@@ -129,6 +134,32 @@ def lookup(artist: str, date: str) -> list[JerrybaseEvent]:
     """Jerrybase events for (artist, date). Empty = no evidence; length > 1 =
     multi-event date. Never raises."""
     return _load().get((artist_key(artist), date), [])
+
+
+# Family acts the vendored dataset has no rows for. Dead vocabulary still
+# applies to them: vocabulary transfers across the family, event evidence
+# does not.
+_EXTRA_FAMILY = frozenset({"joerussosalmostdead", "jrad"})
+
+_FAMILY: frozenset[str] | None = None
+
+
+def is_family_artist(artist: str) -> bool:
+    """True when `artist` belongs to the Garcia universe, and so may use the
+    Dead shorthand vocabulary (`songs.GD_SHORTHAND`).
+
+    Membership is derived from the vendored CSV's own artist keys — all ten of
+    them are Garcia-universe (Grateful Dead, Dark Star Orchestra, Ratdog, Phil
+    Lesh & Friends, Jerry Garcia Band, Furthur, Bob Weir, Dead & Company, The
+    Dead, The Other Ones) — plus `_EXTRA_FAMILY`. Deriving rather than
+    hardcoding means the nine side/tribute acts need no maintained list.
+
+    Deliberately independent of `[jerrybase] enabled`: turning off *event
+    evidence* must never silently turn off *vocabulary*."""
+    global _FAMILY
+    if _FAMILY is None:
+        _FAMILY = frozenset({k for k, _ in _load()}) | _EXTRA_FAMILY
+    return bool(artist) and artist_key(artist) in _FAMILY
 
 
 def _closer_candidates(tracks: list[Track], closer: str) -> list[int]:
