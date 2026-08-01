@@ -402,3 +402,23 @@ def test_blocklist_stops_the_known_cross_song_subphrase():
     assert not fuzzy_title_eq("its all over now baby blue", "its all over now")
     # ... but the correct shortening must keep working.
     assert fuzzy_title_eq("baby blue", "its all over now baby blue")
+
+
+def test_components_drop_credit_only_parentheticals():
+    # Seen live: "(Cripe)", "(SBD)", "(Tape Flip)", "(White Strat)".
+    assert title_components("Lazy Lightning* -> (Cripe)") == ["lazy lightning"]
+    assert title_components("New Orleans > (w/ Rick Danko)") == ["new orleans"]
+
+
+def test_components_strip_trailing_subtitle_parenthetical():
+    assert title_components("You Ain't Woman Enough (to Take My Man)") == [
+        "you aint woman enough"]
+
+
+def test_components_keep_a_real_second_song():
+    assert title_components("China Cat Sunflower > I Know You Rider") == [
+        "china cat sunflower", "i know you rider"]
+
+
+def test_components_of_an_all_parenthetical_title_fall_back_to_the_whole_title():
+    assert title_components("(Tape Flip)") == ["tape flip"]

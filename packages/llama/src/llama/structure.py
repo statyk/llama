@@ -37,6 +37,12 @@ def norm_title(title: str) -> str:
 # component, which is what a jerrybase set closer has to be compared against.
 _SEGUE_SEP = re.compile(r"\s*(?:->|>|→)\s*")
 
+# A trailing parenthetical on a component is a taper's credit or lineage note
+# ("(Cripe)", "(SBD)", "(Tape Flip)", "(w/ Rick Danko)"), or a canonical
+# subtitle the taper kept ("(to Take My Man)"). Neither is a song, and a
+# credit-only component would otherwise form a spurious merge run.
+_TRAILING_PAREN = re.compile(r"\s*\([^)]*\)\s*$")
+
 
 def fuzzy_norm_title(title: str, aliases: dict[str, str] | None = None) -> str:
     """`norm_title` with "&" folded to "and" first, then an optional
@@ -58,9 +64,17 @@ def title_components(title: str, aliases: dict[str, str] | None = None) -> list[
     """Normalized components of a possibly-merged track title, in order.
 
     A trailing separator yields no empty component, so a dangling ">" stays a
-    segue marker rather than becoming a phantom song."""
-    parts = [p.strip() for p in _SEGUE_SEP.split(title) if p.strip()]
-    return [fuzzy_norm_title(p, aliases) for p in parts] or [fuzzy_norm_title(title, aliases)]
+    segue marker rather than becoming a phantom song. A component that is
+    nothing but a parenthetical credit is dropped entirely, which is what stops
+    "Lazy Lightning -> (Cripe)" forming a two-song run. When every component
+    drops out, the whole title is used, so a track genuinely titled
+    "(Tape Flip)" still normalizes to something."""
+    parts: list[str] = []
+    for raw in _SEGUE_SEP.split(title):
+        stripped = _TRAILING_PAREN.sub("", raw.strip()).strip()
+        if stripped:
+            parts.append(fuzzy_norm_title(stripped, aliases))
+    return [p for p in parts if p] or [fuzzy_norm_title(title, aliases)]
 
 
 def _is_subphrase(short: str, long: str) -> bool:
