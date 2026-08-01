@@ -33,7 +33,9 @@ python3 scripts/stitch_m3u.py PLAYLIST.m3u
 ```
 
 - `-o/--output` defaults to `<playlist-stem>.mp3` beside the playlist.
-- The script refuses to overwrite an existing output without `--force`.
+- The script refuses to overwrite an existing output without `--force`, and
+  reports a nonexistent output directory itself rather than letting ffmpeg
+  fail obscurely.
 - `--title/--artist/--album` override any derived metadata.
 - `--bitrate` (default `192k`) applies only on the re-encode path.
 - `--reencode` forces the re-encode path even when stream-copy is eligible.
@@ -121,7 +123,11 @@ routes, and written with `-id3v2_version 3` for player compatibility.
 ### 6. Write atomically
 
 ffmpeg writes `<output>.partial-<pid>` in the output directory; the script
-renames it over the destination only after ffmpeg exits 0. On failure the
+renames it over the destination only after ffmpeg exits 0. Because that
+partial name has no `.mp3` suffix for ffmpeg to infer a muxer from, both
+routes pass an explicit `-f mp3`. Both are also invoked with `-nostdin
+-hide_banner -loglevel error`, so the stderr tail surfaced on failure is the
+actual error rather than the banner and per-input dumps. On failure the
 partial file is removed and ffmpeg's stderr tail is surfaced. Temporary
 concat-list and metadata files live in a `TemporaryDirectory` and never in
 the output directory.
