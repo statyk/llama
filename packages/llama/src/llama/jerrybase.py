@@ -182,6 +182,13 @@ def anchor_breaks(tracks: list[Track], event: JerrybaseEvent,
     numbered sets, and without the guard a tape's trailing encore would be
     absorbed into the final numbered set. The guard only ever restores a label
     the alignment already produced — it never invents one."""
+    if not any(s.name != "encore" for s in event.sets):
+        # An event with no numbered set carries no set-break information, so
+        # anchoring on it would label the whole show "encore" with no breaks.
+        # This is not hypothetical: normalize_set_label cannot map jerrybase
+        # labels like "First part"/"Second part"/"1st Set", so build_index
+        # truncates ~1% of events down to their Encore row alone.
+        return None
     positions = _resolve_positions([_closer_candidates(tracks, st.closer)
                                     for st in event.sets])
     if positions is None:

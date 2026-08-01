@@ -277,3 +277,13 @@ def test_closer_contradictions_matches_merged_track_on_last_component():
     tracks = _tracks_with_sets([("A", "1"), ("China Cat Sunflower > I Know You Rider", "1")])
     hard, soft = jerrybase.closer_contradictions(tracks, _event([("I Know You Rider", "1")]))
     assert hard == [] and soft == []     # closer is the last track: no contradiction
+
+
+def test_anchor_breaks_declines_an_encore_only_event():
+    # normalize_set_label cannot map jerrybase labels like "First part" /
+    # "Second part", so build_index truncates those events down to their Encore
+    # row alone. Such an event carries no set-break information at all, and
+    # anchoring on it would label the WHOLE show "encore" with no breaks.
+    tracks = _tracks(["A", "B", "C"])
+    event = _event([("C", "encore")])
+    assert jerrybase.anchor_breaks(tracks, event) is None

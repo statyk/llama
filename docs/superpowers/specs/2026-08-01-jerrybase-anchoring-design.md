@@ -120,6 +120,10 @@ AGREED (no push, exact-first)   anchors 533/756   both-anchor agree 385  DISAGRE
 exploratory (filler-push)       anchors 537/756   both-anchor agree 226  DISAGREE 159
 ```
 
+As shipped, with the encore-only guard below, this becomes **530/756, both
+agree 383, DISAGREE 0** — the three fewer anchors are the three errors that
+guard removes.
+
 **+148 shows newly anchor, and not one show that anchors correctly today changes
 at all.** That zero is the whole argument for this phase: it is the safest
 possible change profile. Exact-first costs 4 anchors to buy the last 2
@@ -144,9 +148,31 @@ full change set:
   15  filler-only shift              -> cosmetic; not applicable, push dropped
   52  no jerrybase at all            -> phase 2; aligned breaks ship
   34  has jerrybase, anchoring fails -> phase 2; aligned breaks ship
-   1  dso2014-05-16                  -> jerrybase records no break for that date;
-                                        almost certainly incomplete jerrybase data
+   1  dso2014-05-16                  -> NOT a jerrybase gap; see below
 ```
+
+### Encore-only events, and the `dso2014-05-16` correction
+
+The exploratory triage attributed `dso2014-05-16` to incomplete jerrybase data.
+**That diagnosis was wrong.** Jerrybase records the breaks; llama discards them:
+`normalize_set_label` cannot map labels like `First part`, `Second part`,
+`1st Set` or `Acoustic`, so `build_index` silently truncates such an event down
+to its `Encore` row alone — 66 of 7158 events (~0.9%) repo-wide.
+
+An event with no numbered set carries no set-break information at all, so
+anchoring on one labels the entire show `encore` with zero breaks. That is a
+structurally invalid show, and `structure_guard` does not catch it: an
+encore-only event yields `expected_set_count == 0` against `actual == 0`.
+
+`anchor_breaks` therefore **declines any event with no numbered set**. Measured
+cost over the corpus: 533 → 530 anchors, and all three removed anchors were
+errors (`dso2014-05-16`, `dso2014-05-17`, `dso2004-11-13`). Two of the three
+anchor under *today's* rule as well, producing an all-`encore` label set, so
+this fixes a pre-existing bug rather than merely avoiding a new one — and it is
+the reason the "identical where both anchor" count is 383 rather than 385.
+
+Widening `normalize_set_label` to accept those labels is deferred to a later
+phase; declining is correct regardless of whether it is widened.
 
 Every shape among the reviewed shows was sampled and adjudicated against the
 setlist's own `[set]` labels; the new rules were correct in all of them.
