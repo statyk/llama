@@ -502,3 +502,29 @@ def test_merged_run_needs_every_component_to_match():
     r = align([tr(1, "Space > patch"), tr(2, "The Other One")], c)
     assert r.matched == [False, True]
     assert r.merge_conflicts == []
+
+
+def test_align_matches_a_leading_encore_marker_item_characterization():
+    # CHARACTERIZES A KNOWN PARSER DEFECT - this is NOT a specification of
+    # desired behavior. `setlist.py`'s `_SET_SPLIT` recognizes "encore" and
+    # "e\d" but not a bare mid-line "E:", so a description like "...Sugar
+    # Magnolia; E: Goin' Down the Road..." leaves the encore song's canonical
+    # item stamped with the PRECEDING numbered set, title still carrying the
+    # "E: " prefix ("E: Baby Blue" 18/11/7/7-show incidence in the corpus for
+    # Brokedown Palace/Johnny B. Goode/Casey Jones/Black Muddy River).
+    #
+    # Task 4 made align()'s item side compare through `fuzzy_norm_title` (which
+    # strips "E:"/"Encore:" via `_STRUCTURE_PREFIX`) instead of the bare
+    # `normalize_song`-based `SetlistItem.normalized`. The track side was
+    # already prefix-stripped, so a canonical item literally titled
+    # "E: Baby Blue" can now match a track titled "Baby Blue" - previously it
+    # could not match at all. The set label the track receives is whatever the
+    # (possibly wrong) item carries, here "1", not "encore".
+    #
+    # This is accepted for phase 2 and is not fixed here. Fixing `_SET_SPLIT`
+    # in `setlist.py` (phase 3) to split the encore out into its own set is
+    # expected to CHANGE the set-label assertion below.
+    c = canon(("1", "Sugar Magnolia", False), ("1", "E: Baby Blue", False))
+    r = align([tr(1, "Sugar Magnolia"), tr(2, "Baby Blue")], c)
+    assert r.matched == [True, True]
+    assert r.sets == ["1", "1"]  # NOT "encore" - see comment above
