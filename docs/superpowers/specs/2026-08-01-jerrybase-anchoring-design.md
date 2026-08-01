@@ -195,3 +195,30 @@ setlist's own `[set]` labels; the new rules were correct in all of them.
 `align_coverage_threshold` keeps its meaning and its 0.8 default for the LLM
 realignment fallback and the "low-confidence structure alignment" flag. Only
 anchoring stops consulting it.
+
+## Deferred to a later phase (raised in whole-branch review, deliberately not done)
+
+Each of these is a real improvement that would change the measured profile, and
+this phase's whole value is shipping exactly what was scored. They are recorded
+here so phase 2 inherits them instead of re-deriving them.
+
+- **Exact-first is global, applied before positional resolution.** Because a
+  closer's exact candidates are chosen before `_resolve_positions` runs, an
+  exact hit that is positionally *invalid* can turn a resolvable anchor into a
+  decline — e.g. tracks `[A, Uncle Johns Band Jam, B, C, Uncle Johns Band]`
+  against closers `Uncle John's Band` / `C` declines, where fuzzy alone would
+  resolve to `[1, 3]`. The `X` / `X Jam` / `X Reprise` shape is real in the
+  closer vocabulary. A strictly better design returns `(index, is_exact)` and
+  lets resolution prefer the latest *positionally valid* exact candidate,
+  falling back to fuzzy. Needs a re-score.
+- **`normalize_set_label` coverage.** It cannot map `1st Set`, `2nd set`,
+  `First part`, `Second part`, `Acoustic`, `Electric`, truncating 66 of 7158
+  events (~0.9%). The encore-only guard makes this safe, not correct.
+- **`/` is not treated as a segue separator**, so `Sugar Magnolia/Sunshine
+  Daydream` fails to split. Adding it is risky across non-Dead collections
+  (`AC/DC Bag`), so it needs its own measurement. Failure mode is a decline,
+  not a mis-anchor.
+- **`gather.py`'s multi-event span re-check still uses raw `norm_title`** while
+  everything else in the jerrybase path is now fuzzy. Pre-existing, but newly
+  inconsistent: a `/eN` tape that anchors on a fuzzy closer can fail to trip the
+  span check.

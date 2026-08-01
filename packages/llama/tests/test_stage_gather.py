@@ -332,6 +332,10 @@ def test_gather_anchors_over_a_confident_but_contradicted_alignment(tmp_path, mo
     assert show.set_breaks == [2, 5]
     # The tripwire is silent: anchoring places breaks at closers by construction.
     assert not any("set break" in f for f in show.review_flags)
+    # ...so the overridden breaks are recorded instead, or a mis-anchor on a
+    # high-coverage show would ship with no trace at all.
+    assert any("anchored from jerrybase (was [3, 5])" in c
+               for c in show.structure.conflicts)
 
 
 def test_gather_tripwire_still_flags_when_anchoring_fails(tmp_path, monkeypatch):
@@ -407,7 +411,8 @@ def test_gather_anchoring_rescues_low_confidence_without_llm(tmp_path, monkeypat
     assert fake_align.calls == []  # anchoring short-circuited the LLM fallback
     assert show.set_breaks == [2]
     assert show.structure is not None and show.structure.alignment == "jerrybase"
-    assert "set breaks anchored from jerrybase" in show.structure.conflicts
+    assert any(c.startswith("set breaks anchored from jerrybase")
+               for c in show.structure.conflicts)
     assert "low-confidence structure alignment" not in show.review_flags
 
 

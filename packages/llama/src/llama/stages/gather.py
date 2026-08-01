@@ -32,6 +32,12 @@ def _sets_from_breaks(n_tracks: int, breaks: list[int]) -> list[str]:
     return labels
 
 
+def _breaks_of(sets: list[str]) -> list[int]:
+    """Inverse of _sets_from_breaks: the 1-based track numbers a break falls
+    after, given per-track set labels."""
+    return [i + 1 for i in range(len(sets) - 1) if sets[i + 1] != sets[i]]
+
+
 _EVENT_SUFFIX = re.compile(r"/e(\d+)$")
 
 
@@ -215,9 +221,16 @@ def run_gather(
         anchored = (jerrybase.anchor_breaks(tracks, event, aligned_sets=result.sets)
                     if event is not None else None)
         if anchored is not None:
+            # Record what anchoring overrode. Anchoring now wins on
+            # high-coverage shows AND suppresses the closer tripwire when it
+            # does, so without this a mis-anchor would leave no trace anywhere.
+            was = _breaks_of(result.sets)
             result = result.model_copy(update={"sets": anchored})
             alignment = "jerrybase"
-            notes.append("set breaks anchored from jerrybase")
+            note = "set breaks anchored from jerrybase"
+            if was != _breaks_of(anchored):
+                note += f" (was {was})"
+            notes.append(note)
         elif canonical.items and result.coverage < structure_cfg.align_coverage_threshold:
             # No usable jerrybase evidence and the alignment is weak: fall back
             # to LLM realignment, then to a review flag.

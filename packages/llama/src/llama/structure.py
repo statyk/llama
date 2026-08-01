@@ -76,6 +76,13 @@ def fuzzy_title_eq(a: str, b: str) -> bool:
     ("Scarlet", "Help", "Estimated") is a hardcoded alias table's job, not a
     general rule's — a one-word floor would match "Dew" to "Morning Dew" and to
     everything else containing the word.
+
+    The floor was validated exhaustively against the vendored jerrybase closer
+    vocabulary (516 distinct normalized closers): only 19 fuzzy-equal pairs
+    exist and 18 are one song under two spellings ("day job"/"keep your day
+    job"). The single cross-song pair is "It's All Over Now" vs "... Baby
+    Blue", and no jerrybase event carries both. A later phase's alias table
+    will widen this surface, so re-validate then.
     """
     return a == b or _is_subphrase(a, b) or _is_subphrase(b, a)
 

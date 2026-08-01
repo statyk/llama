@@ -204,12 +204,44 @@ def test_anchor_breaks_prefers_an_exact_closer_match_over_a_fuzzy_one():
 
 def test_anchor_breaks_preserves_a_trailing_encore_jerrybase_does_not_know():
     # Jerrybase often records only the numbered sets. Anchoring must not
-    # swallow an encore the alignment already found.
+    # swallow an encore the alignment already found AFTER the last closer.
+    tracks = _tracks(["A", "B", "C", "D", "E", "F"])
+    event = _event([("C", "1"), ("D", "2")])       # no encore row; set 2 ends at D
+    aligned = ["1", "1", "1", "2", "encore", "encore"]
+    assert jerrybase.anchor_breaks(tracks, event, aligned_sets=aligned) == [
+        "1", "1", "1", "2", "encore", "encore"]
+
+
+def test_anchor_breaks_encore_guard_restores_an_encore_folded_into_the_last_set():
+    # Jerrybase often folds an omitted encore into the final set, so its
+    # recorded closer IS the encore song (E here). The restore must be able to
+    # reach back over that closer, or the guard would never fire in the very
+    # case it exists for.
     tracks = _tracks(["A", "B", "C", "D", "E"])
-    event = _event([("C", "1"), ("E", "2")])       # no encore row
+    event = _event([("C", "1"), ("E", "2")])
+    aligned = ["1", "1", "1", "2", "encore"]
+    assert jerrybase.anchor_breaks(tracks, event, aligned_sets=aligned) == [
+        "1", "1", "1", "2", "encore"]
+
+
+def test_anchor_breaks_encore_guard_never_erases_the_final_numbered_set():
+    # Alignment claims the encore starts at D, but set 2 would then have zero
+    # tracks — a structurally invalid show. The restore stops one track into
+    # the final set, so set 2 keeps D.
+    tracks = _tracks(["A", "B", "C", "D", "E"])
+    event = _event([("C", "1"), ("E", "2")])
     aligned = ["1", "1", "2", "encore", "encore"]
     assert jerrybase.anchor_breaks(tracks, event, aligned_sets=aligned) == [
-        "1", "1", "1", "encore", "encore"]
+        "1", "1", "1", "2", "encore"]
+
+
+def test_anchor_breaks_ignores_aligned_sets_of_the_wrong_length():
+    # Public function with a defaulted kwarg: a mismatched list must be ignored
+    # outright rather than producing a non-contiguous labelling.
+    tracks = _tracks(["A", "B", "C", "D", "E"])
+    event = _event([("C", "1"), ("E", "2")])
+    assert jerrybase.anchor_breaks(tracks, event, aligned_sets=["1", "1", "encore"]) == [
+        "1", "1", "1", "2", "2"]
 
 
 def test_anchor_breaks_encore_guard_inert_when_jerrybase_has_an_encore():

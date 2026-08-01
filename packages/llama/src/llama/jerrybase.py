@@ -193,6 +193,8 @@ def anchor_breaks(tracks: list[Track], event: JerrybaseEvent,
                                     for st in event.sets])
     if positions is None:
         return None
+    # Defence in depth: _resolve_positions already guarantees this by
+    # construction (each set takes a candidate strictly below its successor).
     if any(positions[k] >= positions[k + 1] for k in range(len(positions) - 1)):
         return None
     names = [s.name for s in event.sets]
@@ -202,8 +204,15 @@ def anchor_breaks(tracks: list[Track], event: JerrybaseEvent,
         while si < len(positions) and i > positions[si]:
             si += 1
         out.append(names[min(si, len(names) - 1)])
-    if aligned_sets is not None and not any(n == "encore" for n in names):
-        for i in reversed(range(min(len(out), len(aligned_sets)))):
+    if (aligned_sets is not None and len(aligned_sets) == len(tracks)
+            and not any(n == "encore" for n in names)):
+        # The restore may reach back over the last closer — jerrybase often
+        # FOLDS an omitted encore into the final set, making that set's recorded
+        # closer the encore song itself. What it may never do is consume the
+        # final numbered set entirely: that set starts at positions[-2] + 1, so
+        # the restore stops one track later and always leaves it inhabited.
+        floor = positions[-2] + 2 if len(positions) > 1 else 1
+        for i in reversed(range(floor, len(out))):
             if aligned_sets[i] != "encore":
                 break
             out[i] = "encore"
