@@ -372,4 +372,33 @@ def test_fuzzy_title_eq_rejects_single_word_shorthand():
 
 def test_fuzzy_title_eq_rejects_unrelated_titles():
     assert not fuzzy_title_eq("morning dew", "casey jones")
+
+
+from llama.songs import GD_SHORTHAND
+
+
+def test_shorthand_expands_only_when_aliases_passed():
+    assert fuzzy_norm_title("Scarlet") == "scarlet"
+    assert fuzzy_norm_title("Scarlet", GD_SHORTHAND) == "scarlet begonias"
+    assert fuzzy_norm_title("Chinacat", GD_SHORTHAND) == "china cat sunflower"
+
+
+def test_shorthand_applies_to_each_merged_component():
+    assert title_components("Scarlet > Fire", GD_SHORTHAND) == [
+        "scarlet begonias", "fire on the mountain"]
+
+
+def test_shorthand_targets_are_all_canonical_and_two_way_safe():
+    # Every value must itself be a full title, never another key: a table that
+    # chains would depend on lookup order.
+    assert not (set(GD_SHORTHAND.values()) & set(GD_SHORTHAND))
+
+
+def test_blocklist_stops_the_known_cross_song_subphrase():
+    # Two different songs, both in the repertoire; the subphrase rule pairs
+    # them on 15 corpus shows.
+    assert not fuzzy_title_eq("its all over now", "its all over now baby blue")
+    assert not fuzzy_title_eq("its all over now baby blue", "its all over now")
+    # ... but the correct shortening must keep working.
+    assert fuzzy_title_eq("baby blue", "its all over now baby blue")
     assert not fuzzy_title_eq("half step mississippi", "mississippi half step")

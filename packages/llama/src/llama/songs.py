@@ -20,6 +20,38 @@ DEFAULT_ALIASES: dict[str, str] = {
     "wharf rat": "wharf rat",
 }
 
+# Dead-canon shorthand: single-word stand-ins and closed-up spellings that
+# tapers use constantly. Keys and values are in normalized form, so this table
+# is applied AFTER `normalize_song` (which has already applied DEFAULT_ALIASES).
+#
+# Kept separate from DEFAULT_ALIASES and NOT applied globally: "scarlet",
+# "help", "dew", "eyes", "wheel", "saint" and "stephen" are ordinary English
+# words, and a Beatles cover titled "Help" on a punk tape must not become "help
+# on the way". Callers gate it on `jerrybase.is_family_artist`; the jerrybase
+# closer path applies it unconditionally because an event only exists for
+# artists in the dataset.
+#
+# Every value below was checked present in the vendored set_breaks.csv song
+# vocabulary. Note the deliberate split of the two "saint" cases: bare "Saint"
+# in Dead usage is the "Sailor > Saint" pairing, while St. Stephen is written
+# out (DEFAULT_ALIASES already maps "st stephen").
+GD_SHORTHAND: dict[str, str] = {
+    "scarlet": "scarlet begonias",
+    "fire": "fire on the mountain",
+    "help": "help on the way",
+    "slip": "slipknot",
+    "frank": "franklins tower",
+    "estimated": "estimated prophet",
+    "eyes": "eyes of the world",
+    "sailor": "lost sailor",
+    "saint": "saint of circumstance",
+    "dew": "morning dew",
+    "wheel": "the wheel",
+    "stephen": "saint stephen",
+    "china": "china cat sunflower",
+    "chinacat": "china cat sunflower",
+}
+
 _PUNCT = re.compile(r"[^a-z0-9 ]+")
 _WS = re.compile(r"\s+")
 

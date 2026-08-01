@@ -38,26 +38,29 @@ def norm_title(title: str) -> str:
 _SEGUE_SEP = re.compile(r"\s*(?:->|>|→)\s*")
 
 
-def fuzzy_norm_title(title: str) -> str:
-    """`norm_title` with "&" folded to "and" first.
+def fuzzy_norm_title(title: str, aliases: dict[str, str] | None = None) -> str:
+    """`norm_title` with "&" folded to "and" first, then an optional
+    caller-supplied shorthand table applied to the result.
 
     `normalize_song`'s punctuation strip turns "&" into whitespace, so
-    "Me & My Uncle" and "Me and My Uncle" normalize differently today. Folding
+    "Me & My Uncle" and "Me and My Uncle" normalize differently. Folding
     beforehand collapses them. Deliberately kept out of `normalize_song`
-    itself: folding there would shift `align()`'s coverage on every show at
-    once, which is a later phase's decision, not this one's.
-    """
-    return norm_title(title.replace("&", " and "))
+    itself: folding there would also change grouping, vet_research, brief and
+    setlist.fm artist matching, none of which was measured.
+
+    `aliases` is `songs.GD_SHORTHAND` for Garcia-universe artists and empty for
+    everyone else — see that table's comment for why it cannot be global."""
+    norm = norm_title(title.replace("&", " and "))
+    return (aliases or {}).get(norm, norm)
 
 
-def title_components(title: str) -> list[str]:
+def title_components(title: str, aliases: dict[str, str] | None = None) -> list[str]:
     """Normalized components of a possibly-merged track title, in order.
 
     A trailing separator yields no empty component, so a dangling ">" stays a
-    segue marker rather than becoming a phantom song.
-    """
+    segue marker rather than becoming a phantom song."""
     parts = [p.strip() for p in _SEGUE_SEP.split(title) if p.strip()]
-    return [fuzzy_norm_title(p) for p in parts] or [fuzzy_norm_title(title)]
+    return [fuzzy_norm_title(p, aliases) for p in parts] or [fuzzy_norm_title(title, aliases)]
 
 
 def _is_subphrase(short: str, long: str) -> bool:
@@ -65,6 +68,15 @@ def _is_subphrase(short: str, long: str) -> bool:
     if len(ws) < 2 or len(ws) >= len(wl):
         return False
     return any(wl[i:i + len(ws)] == ws for i in range(len(wl) - len(ws) + 1))
+
+
+# Normalized title pairs the subphrase rule must never equate. Both members of
+# this pair are real songs in the repertoire, and the rule pairs them on 15
+# corpus shows; the correct shortening ("... Baby Blue" -> "Baby Blue") is
+# unaffected because it is not listed here.
+_NEVER_EQUAL = frozenset({
+    frozenset({"its all over now", "its all over now baby blue"}),
+})
 
 
 def fuzzy_title_eq(a: str, b: str) -> bool:
@@ -81,10 +93,16 @@ def fuzzy_title_eq(a: str, b: str) -> bool:
     vocabulary (516 distinct normalized closers): only 19 fuzzy-equal pairs
     exist and 18 are one song under two spellings ("day job"/"keep your day
     job"). The single cross-song pair is "It's All Over Now" vs "... Baby
-    Blue", and no jerrybase event carries both. A later phase's alias table
-    will widen this surface, so re-validate then.
+    Blue", and no jerrybase event carries both. `GD_SHORTHAND` widens that
+    surface; the re-validation is Task 7 of the phase-2 plan, and
+    `_NEVER_EQUAL` above is where any cross-song pair it turns up must be
+    recorded.
     """
-    return a == b or _is_subphrase(a, b) or _is_subphrase(b, a)
+    if a == b:
+        return True
+    if frozenset({a, b}) in _NEVER_EQUAL:
+        return False
+    return _is_subphrase(a, b) or _is_subphrase(b, a)
 
 
 # --- Venue equivalence (jerrybase venue-mismatch tripwire) -------------------
