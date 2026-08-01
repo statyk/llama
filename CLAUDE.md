@@ -16,6 +16,11 @@ implementation plan this was built from. The approved design spec is
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest packages/llama/tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
+- Stitch a playlist into one mp3: `python3 scripts/stitch_m3u.py <playlist.m3u>`
+  (standalone, stdlib-only, needs ffmpeg/ffprobe; stream-copies uniform mp3
+  input and re-encodes otherwise, writing ID3 chapters per entry and pulling
+  tags from a sibling `manifest.json` when there is one). `scripts` is in
+  pytest `testpaths`, so its tests run under plain `pytest -q`.
 - Run (llama, acquisition): `llama get "..."`, `llama get --profile <name>`,
   `llama artists "..."`, `llama status` (global triage view, `--by-run` for
   session rollups), `llama show <name>` (read-only), `llama pipeline`
