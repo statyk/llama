@@ -256,26 +256,46 @@ def blend_segues(winner: ParsedSetlist, lma: ParsedSetlist | None) -> ParsedSetl
     return ParsedSetlist(items=items, confidence=winner.confidence)
 
 
-def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3) -> "AlignResult":
+def _window_match(norms: list[str], lo: int, hi: int, nt: str) -> int | None:
+    """Index of the first item in `norms[lo:hi]` matching `nt`, exact matches
+    considered across the whole window before any fuzzy one.
+
+    Exact-first is load-bearing, not a micro-optimisation: with a plain
+    left-to-right scan a track called "Not Fade Away" would take an earlier
+    "Not Fade Away Chant" item by subphrase and leave the real item stranded."""
+    for k in range(lo, hi):
+        if norms[k] == nt:
+            return k
+    for k in range(lo, hi):
+        if fuzzy_title_eq(nt, norms[k]):
+            return k
+    return None
+
+
+def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
+          aliases: dict[str, str] | None = None) -> "AlignResult":
     """Map canonical set/segue structure onto tracks, in recording order.
 
-    Two-pointer with lookahead: a track matches the next canonical item with
-    the same normalized title within `lookahead` positions, so repeated songs
-    pair with the right occurrence and merged/split tracks skip over the gap.
-    """
+    Two-pointer with lookahead: a track matches the next canonical item within
+    `lookahead` positions, so repeated songs pair with the right occurrence and
+    merged/split tracks skip over the gap.
+
+    Titles are normalized on BOTH sides at compare time (`fuzzy_norm_title`)
+    rather than read from the precomputed `SetlistItem.normalized`, because
+    taper tags and canonical names disagree on "&", on dropped subtitles, and —
+    for Garcia-universe artists, via `aliases` — on single-word shorthand. An
+    unmatched track inherits the previous track's set, so every miss drags the
+    songs after it into the wrong set; that is why matching is worth this."""
     items = canonical.items
+    norms = [fuzzy_norm_title(it.title, aliases) for it in items]
     sets: list[str] = []
     segues: list[bool] = []
     matched: list[bool] = []
     matched_idx: set[int] = set()
     j = 0
     for t in tracks:
-        norm = norm_title(t.title)
-        hit = next(
-            (k for k in range(j, min(j + 1 + lookahead, len(items)))
-             if items[k].normalized == norm),
-            None,
-        )
+        nt = fuzzy_norm_title(t.title, aliases)
+        hit = _window_match(norms, j, min(j + 1 + lookahead, len(items)), nt)
         if hit is None:
             sets.append(sets[-1] if sets else "1")
             segues.append(False)

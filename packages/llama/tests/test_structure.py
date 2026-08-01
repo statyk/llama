@@ -422,3 +422,45 @@ def test_components_keep_a_real_second_song():
 
 def test_components_of_an_all_parenthetical_title_fall_back_to_the_whole_title():
     assert title_components("(Tape Flip)") == ["tape flip"]
+
+
+def test_align_folds_ampersand_on_both_sides():
+    c = canon(("1", "Me and My Uncle", False), ("1", "Big River", False))
+    r = align([tr(1, "Me & My Uncle"), tr(2, "Big River")], c)
+    assert r.sets == ["1", "1"]
+    assert r.matched == [True, True]
+
+
+def test_align_matches_a_dropped_subtitle():
+    c = canon(("1", "Mississippi Half Step Uptown Toodeloo", False),
+              ("2", "Big River", False))
+    r = align([tr(1, "Mississippi Half Step"), tr(2, "Big River")], c)
+    assert r.sets == ["1", "2"]
+    assert r.matched == [True, True]
+
+
+def test_align_prefers_an_exact_match_over_a_subphrase_in_the_window():
+    # "Not Fade Away" IS a subphrase of "Not Fade Away Chant", which sits first
+    # in the window. Exact-first must reach past it to the real item; the sets
+    # differ so the assertion says which item was actually consumed.
+    c = canon(("1", "Not Fade Away Chant", False), ("2", "Not Fade Away", False))
+    r = align([tr(1, "Not Fade Away")], c)
+    assert r.sets == ["2"]
+    assert r.conflicts == ["Not Fade Away Chant"]
+
+
+def test_align_shorthand_only_with_aliases():
+    from llama.songs import GD_SHORTHAND
+    c = canon(("2", "Scarlet Begonias", True), ("2", "Fire on the Mountain", False))
+    plain = align([tr(1, "Scarlet"), tr(2, "Fire")], c)
+    assert plain.matched == [False, False]
+    gated = align([tr(1, "Scarlet"), tr(2, "Fire")], c, aliases=GD_SHORTHAND)
+    assert gated.matched == [True, True]
+    assert gated.sets == ["2", "2"]
+
+
+def test_align_does_not_pair_the_blocklisted_pair():
+    c = canon(("1", "It's All Over Now, Baby Blue", False))
+    r = align([tr(1, "It's All Over Now")], c)
+    assert r.matched == [False]
+    assert r.conflicts == ["It's All Over Now, Baby Blue"]
