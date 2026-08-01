@@ -372,6 +372,7 @@ def test_fuzzy_title_eq_rejects_single_word_shorthand():
 
 def test_fuzzy_title_eq_rejects_unrelated_titles():
     assert not fuzzy_title_eq("morning dew", "casey jones")
+    assert not fuzzy_title_eq("half step mississippi", "mississippi half step")
 
 
 from llama.songs import GD_SHORTHAND
@@ -401,4 +402,3 @@ def test_blocklist_stops_the_known_cross_song_subphrase():
     assert not fuzzy_title_eq("its all over now baby blue", "its all over now")
     # ... but the correct shortening must keep working.
     assert fuzzy_title_eq("baby blue", "its all over now baby blue")
-    assert not fuzzy_title_eq("half step mississippi", "mississippi half step")
