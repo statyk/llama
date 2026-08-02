@@ -269,8 +269,8 @@ def test_three_digit_and_repeated_dot_prefixes_are_stripped():
 
 
 def test_song_titles_starting_with_numbers_survive():
-    # NOT enumerated: only one line begins with a number, and it does not
-    # participate in an ascending run.
+    # NOT enumerated: only two lines match _NUM_LINE ("8 Miles High", "72 (This
+    # Highway's Mean)") - below the >=3 threshold, so the bare-number strip stays gated off.
     desc = ("Set 1:\nBertha\n1952 Vincent Black Lightning\n8 Miles High\n"
             "72 (This Highway's Mean)\nSugaree\n")
     titles = [i.title for i in parse_setlist(desc).items]
