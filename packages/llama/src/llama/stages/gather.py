@@ -170,7 +170,18 @@ _HEAD_CHATTER = re.compile(
     r"|dsp|wav|cd.?audio"
     r"|nakamichi|schoeps|neumann|sennheiser|akg|sonosax|oade|lunatec"
     r"|audio.?technica|sound.?forge|rms|channels?|compression|normalized)\b"
-    r"|\b[a-z]{1,4}-?\d{2,4}[a-z]?s?\b",
+    # Gear model numbers, in two branches, because a taper track prefix
+    # ("t01)", "d101", "A01.", "B07.") and a gear model ("SKM140", "M62")
+    # are the SAME lexical shape - letters then digits. What separates them
+    # is POSITION: the prefix opens the item, the model is named inside one.
+    # So a >=2-letter form matches anywhere, and a single-letter form only
+    # when something precedes it, which keeps "Telefunken M62",
+    # "Sony PCM-M10" and "mz-m200" while rejecting a leading "t01)".
+    # Discriminating on letter count instead was measured and is a net loss
+    # (-59 matched, 4 shows to zero): single-letter models are real and
+    # common gear (M62, M10, R44, m200).
+    r"|\b[a-z]{2,4}-?\d{2,4}[a-z]?s?\b"
+    r"|(?<=.)\b[a-z]-?\d{2,4}[a-z]?s?\b",
     re.I,
 )
 
@@ -278,6 +289,47 @@ def _strip_head_banner(parsed: ParsedSetlist, norms: set[str]) -> ParsedSetlist:
     Stage 2 (chatter run): from the new head, trim rig/lineage chatter and bare
     state codes, tolerating a gap of up to `_HEAD_GAP` unrecognized items when
     chatter resumes immediately after.
+
+    KNOWN DEFECT, measured, still open: the run is UNCAPPED. Neither `_HEAD_K`
+    nor the majority rule applies to stage 2, so with `c` chatter-matching items
+    it can consume up to `2 * c` real ones - verified by execution, linear in
+    `c` with no ceiling. The only thing limiting it is the lexicon failing to
+    match real song titles, which is necessary and measurably nowhere near
+    sufficient: on an enumerated tracklist where every line matched, 7 corpus
+    shows were stripped to zero items. The position-aware gear-model branches
+    above cut that to 4 by removing the driver (taper track prefixes), but they
+    fix the CAUSE, not the shape - a different open vocabulary would do it
+    again.
+
+    SECOND DEFECT, accepted knowingly, NOT a side effect: the gap hop consumes
+    the item it steps over. Neither "Liar" (bts2008-10-21) nor "buckingham
+    green" (ween2001-07-28) matches any chatter alternative; each sits at index
+    0 and is eaten to reach an in-line stage note at index 1 whose word
+    "monitor(s)" does match. Both stay lost. This is SILENT - neither show
+    reaches zero, so a per-show zero gate cannot see it - and nothing measured
+    reaches it without re-breaking the wipes above.
+
+    Four shapes were measured and rejected; do not re-propose one without
+    re-measuring both corpora (baseline `da4393f`, common population, aligned
+    song-like tracks, wipes counted as to-zero events):
+      require a stage-1 metadata hit before stage 2 runs
+          -56, THREE shows to zero. Rig-only banners ("SKM140"/"V2"/"Mini-Me")
+          legitimately need stage 2 with no metadata evidence at all.
+      let stage 2 only BEGIN on a chatter item
+          -886, TEN shows to zero, and it is the prototype's v4. The premise
+          "a banner always starts with a banner line" is true of the raw
+          description and false here: stage 1 has already eaten the
+          recognizable banner lines, so what sits at the new head is the
+          unrecognizable fragment the gap rule exists to bridge ("din", "110",
+          "Friday"). A precondition holding at the guard's entry need not hold
+          at the entry of its second phase.
+      cap the run at `_HEAD_K`
+          only -5 on top of the branches above, and it takes a real show
+          (delmccouryband2011-05-27) to do it. Measured as NOT load-bearing
+          once the cause is fixed; deliberately not shipped. Note it would be a
+          CAP and not a bound - inside those 10 items `2 * c` still runs free.
+      discriminate the gear shape on letter count
+          -59, four shows to zero (see the branch comment above).
     """
     items = parsed.items
 
@@ -395,9 +447,13 @@ def run_gather(
     # guard reads the event venues as part of this show's own metadata; nothing
     # in this block depends on tracks or on the canonical setlist.
     events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
-    kind, n = _event_kind(candidate.performance_id)
-    if kind == "event" and events and 1 <= n <= len(events):
-        event = events[n - 1]
+    # `ev_n`, not `n`: hoisting this block above the overrides loop below put
+    # it in scope of that loop's `for n, forced in ...`, which rebinds `n`.
+    # Harmless today because `ev_n` is consumed immediately, but the hoist
+    # silently removed a guarantee and the distinct name puts it back.
+    kind, ev_n = _event_kind(candidate.performance_id)
+    if kind == "event" and events and 1 <= ev_n <= len(events):
+        event = events[ev_n - 1]
     elif kind == "event":
         event = None
     elif len(events) == 1:

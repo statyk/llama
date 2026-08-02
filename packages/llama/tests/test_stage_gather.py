@@ -9,8 +9,8 @@ from llama.models import (Candidate, Overrides, ParsedSetlist, RecordingSummary,
                           SetlistItem)
 from llama.setlistfm import SetlistFMClient
 from llama.songs import normalize_song
-from llama.stages.gather import (_drop_artist_items, _strip_head_banner,
-                                 run_gather)
+from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
+                                 _strip_head_banner, run_gather)
 from llama.structure import fuzzy_norm_title
 from llama.workspace import ShowWorkspace, read_overrides, write_artifact
 
@@ -856,3 +856,32 @@ def test_gather_strips_a_taper_banner_using_this_shows_own_metadata(tmp_path: Pa
     assert show.structure is not None
     assert show.structure.coverage == 1.0
     assert show.structure.conflicts == []
+
+
+def test_gear_model_chatter_discriminates_on_position_not_letter_count():
+    """A taper track prefix and a gear model are the SAME lexical shape —
+    letters then digits. What separates them is POSITION: the prefix opens the
+    item, the model is named inside one.
+
+    Both directions matter and both are load-bearing. Discriminating on letter
+    count instead (requiring ≥2 letters everywhere) was measured at −59 matched
+    tracks and four shows to zero, because single-letter model numbers are real
+    and common gear."""
+    prefixes = ["t01) Shimmy She Wobble", "d101", "A01.", "B07.", "t02"]
+    for title in prefixes:
+        assert not _HEAD_CHATTER.search(title), f"{title!r} is a track prefix, not gear"
+    gear = ["Telefunken M62 Hypercards Zoom F3", "Sony PCM-M10(24/96))",
+            "mz-m200", "SKM140", "DR-70D", "SD722"]
+    for title in gear:
+        assert _HEAD_CHATTER.search(title), f"{title!r} is gear and must stay chatter"
+
+
+def test_a_leading_track_prefix_does_not_start_a_chatter_run():
+    """The whole point of the discrimination, at the level that costs songs: an
+    enumerated tracklist whose every line opens with a taper prefix used to be
+    chatter from end to end, so stage 2 — which has no cap — ate the entire
+    setlist. Seven corpus shows were stripped to zero items that way."""
+    parsed = _parsed("t01) Shimmy She Wobble", "t02) Goin' Down South",
+                     "t03) Snake Drive", "t04) Drop Down Mama",
+                     "t05) Lord Have Mercy")
+    assert len(_strip_head_banner(parsed, set()).items) == 5
