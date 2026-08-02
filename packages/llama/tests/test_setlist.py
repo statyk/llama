@@ -272,3 +272,24 @@ def test_song_titles_starting_with_numbers_survive():
     assert "1952 Vincent Black Lightning" in titles
     assert "8 Miles High" in titles
     assert "72 (This Highway's Mean)" in titles
+
+
+def test_num_prefix_does_not_corrupt_a_hazard_title_when_gate_is_open():
+    # The gate opens here (4 of 5 lines are bare-numbered), and a hazard
+    # title sharing the description with real track numbers is NOT immune —
+    # that's inherent to a document-level gate. What must not happen is
+    # corruption: the old zero-width-satisfiable `_NUM_PREFIX` truncated
+    # "1952 Vincent Black Lightning" to "2 Vincent Black Lightning" instead
+    # of leaving it alone. Assert the clean (untouched) outcome.
+    desc = ("Set 1:\n01 Bertha\n02 Jack Straw\n03 Sugaree\n"
+            "1952 Vincent Black Lightning\n05 Deal\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert "1952 Vincent Black Lightning" in titles
+    assert "2 Vincent Black Lightning" not in titles
+
+
+def test_two_bare_numbered_lines_do_not_open_the_gate():
+    # Below the >=3 threshold: bare leading numbers are retained verbatim.
+    desc = "Set 1:\n01 Bertha\n02 Sugaree\n"
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["01 Bertha", "02 Sugaree"]

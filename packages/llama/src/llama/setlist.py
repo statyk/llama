@@ -36,20 +36,42 @@ _TRACK_PREFIX = re.compile(
 # are song titles. Only strip it when the description is ENUMERATED — several
 # lines carry one — which is what distinguishes a numbered tracklist from a
 # song that happens to start with a digit.
-_NUM_PREFIX = re.compile(r"^\s*\d{1,3}\s*[.)]*\s*")
-# Brief's original `\s*[.)]*\s+\S` requires whitespace before the title even
-# when punctuation is present, so it misses "1.Sugaree" (no space after the
-# dot). Split into two branches: punctuation may directly abut the title
-# ("1.Sugaree", "205....Scarlet"), but a *bare* number (no punctuation) still
-# requires a following space ("01 Bertha") — otherwise a multi-digit title
-# like "1952 Vincent Black Lightning" would false-match after `\d{1,3}`
-# truncates it to "195" leaving the stray "2" as if it were the title start.
+#
+# The gate only protects hazard titles while it is SHUT. Once open, every
+# digit-leading line in the description is presumed numbered, so a hazard
+# title sharing a description with a real numbered tracklist still loses its
+# leading digits — that is inherent to a document-level discriminator, not a
+# defect. What this regex fixes is *how* it loses them: `[.)]*` and both
+# `\s*` here are all zero-width-satisfiable, so with the naive
+# `\d{1,3}\s*[.)]*\s*` a description containing "1952 Vincent Black
+# Lightning" alongside real track numbers used to corrupt it to "2 Vincent
+# Black Lightning" (the `\d{1,3}` cap truncates to "195", then the
+# zero-width tail still matches, consuming just "195"). Mirroring
+# `_NUM_LINE`'s two branches instead — punctuation may abut the title, but a
+# bare number requires a following space — makes the whole leading run
+# either fully matched or not matched at all, so "1952..." is left
+# completely intact (clean over-strip beats corruption, but 3 of the 4
+# hazard titles are still stripped whenever the gate is open — measured at
+# ~2% of corpus setlist items: ~10 distinct songs across ~40 of 2055 rows,
+# e.g. "40 Miles From Denver", "100 Years", "200 More Miles").
+_NUM_PREFIX = re.compile(r"^\s*\d{1,3}(?:\s*[.)]+\s*|\s+)")
+# Two branches: punctuation may directly abut the title ("1.Sugaree",
+# "205....Scarlet"), but a *bare* number (no punctuation) still requires a
+# following space ("01 Bertha") — requiring whitespace unconditionally would
+# miss "1.Sugaree"; dropping it unconditionally would false-match a
+# multi-digit title like "1952 Vincent Black Lightning", since `\d{1,3}`
+# truncates it to "195" and the stray "2" would look like the title start.
 _NUM_LINE = re.compile(r"^\s*\d{1,3}\s*(?:[.)]+\s*|\s+)\S")
 
 
 def _enumerated_prefix(lines: list[str]) -> bool:
-    """True when at least 3 lines begin with a number, i.e. the description is
-    a numbered tracklist rather than prose containing a numeric title."""
+    """True when at least 3 lines begin with a number followed by
+    punctuation or whitespace and then a non-space character, i.e. the
+    description is a numbered tracklist rather than prose containing a
+    numeric title. The punctuation-or-space requirement is load-bearing:
+    without it, a multi-digit title truncated by `\\d{1,3}`'s 3-digit cap
+    (e.g. "1952 Vincent Black Lightning" -> "195") would count as a
+    numbered line."""
     return sum(1 for ln in lines if _NUM_LINE.match(ln)) >= 3
 
 
