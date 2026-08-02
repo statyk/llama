@@ -164,7 +164,14 @@ Semantics, with every constant carrying its rationale:
 1. **Stage 1 — metadata span.** Within the first **K=10** items (bounds the
    blast radius of any false positive), find the LAST item exactly matching
    (normalized) the show's metadata: artist; venue/city/state from candidate
-   metadata, item `coverage`, and the resolved jerrybase event — each split
+   metadata, item `coverage`, and **every jerrybase event on the date**
+   (**RATIFIED DEVIATION 2026-08-02** — this originally read "the resolved
+   jerrybase event". A multi-event date leaves `event is None` while the
+   banner still names the building, so the resolved event is unavailable in
+   exactly the case the guard is needed. Accepted cost, stated: using every
+   event on the date widens the place vocabulary, so a song titled like
+   *another* event's venue could match. Bounded by the K=10 head span and the
+   majority gate; no gazetteer is introduced) — each split
    on `,`/`@`, plus leading-article-stripped and leading-digit-stripped
    variants (the parser's own enumerated gate strips `40` off
    `40 Watt Club` before gather sees it); and an enumerated set of date
@@ -366,9 +373,15 @@ because they built track lists differently).
 0. **STANDING GATE for every remaining phase-4 task — per-show alignment
    regression on the common population.** After every task, both corpora:
    per-show aligned-matched delta over shows usable under BOTH the task's
-   before and after. **Any show dropping to zero matched is
-   stop-and-escalate** — zero tolerance, each case enumerated with its
-   mechanism, never netted against wins. Shows merely worse are enumerated
+   before and after. **No show may drop to zero matched UNENUMERATED.** Any
+   show that does must be named, its mechanism diagnosed, and its acceptance
+   ruled by the owner — never netted against wins, never averaged away.
+   (**Reworded 2026-08-02.** This gate first read "zero tolerance", which was
+   unachievable: §1b's own accepted-residual list admits three shows, so the
+   gate contradicted the spec it sits in. An unachievable gate is worse than
+   a loose one because it trains evasion — and the gate had already done its
+   real job, which is to force an escalation instead of a netting. What is
+   forbidden is a *silent* collapse, not a collapse.) Shows merely worse are enumerated
    with magnitudes. Population changes (newly-qualifying shows,
    dropped-from-population shows) are reported **separately** from
    common-population deltas and never averaged into a headline. This gate
@@ -392,8 +405,19 @@ because they built track lists differently).
    item by item.
 2b. **§1c verified structurally:** the probe path contains no truncation
    step and no re-preprocessing (assert by construction/inspection, plus the
-   reviewer's escaped-markup case as a test — it must parse identically with
-   and without the escape).
+   reviewer's escaped-markup case as a test).
+   **CORRECTED 2026-08-02 — the original wording asked for something false.**
+   It required the escaped case to "parse identically with and without the
+   escape". `&lt;br&gt;` and `<br>` are **different documents**: a literal
+   `<br>` genuinely *is* a line break, converted by top-level preprocessing
+   *before* unescaping, so the two inputs differ in line structure before the
+   probe is ever reached. On the reviewer's own fixture the literal form also
+   falls below the recovery floor and therefore truncates correctly by §1.
+   The two assertions that are well defined, and which replace it:
+   1. the escaped case no longer loses the four head songs (mutation-verified);
+   2. on a fixture where **both** sides clear the floor, both parses are pinned
+      exactly and **neither truncates** — every song above the marker survives
+      on both, the only difference being debris local to the escape.
 3. §1+§2 recovery: re-baseline the description sweep over the FULL iacache
    first (state the new description count next to the old 923), then report
    recovered / unchanged / regressed per marker class against the sizing
