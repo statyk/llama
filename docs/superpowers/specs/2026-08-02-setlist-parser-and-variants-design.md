@@ -334,3 +334,44 @@ forms (verified **latent, not live** — the one blocklisted pair differs by an
 appended phrase, not spacing); and `rank_parses` ordering confidence above
 multi-set and item count, which is the amplifier that turns a parse defect into a
 shipped-structure defect.
+
+### CORRECTION 2026-08-02 (post-backfill) — the Dead figures above are superseded
+
+The section above measured Dead end-to-end on the 39 `iacache` rows that existed
+at the time (3% of the corpus) and flagged the result as indicative. Phase 4c
+backfilled the cache (1142 fetched, 0 failures, 2095 entries; **Dead coverage 3%
+-> 100%**, 15 rows genuinely carry no description). Re-measured on the full
+corpus, independently by two instruments that agree to the digit:
+
+```
+Dead end-to-end, 673c357 -> a997e49, 1081-1082 shows
+  mean per-show coverage   0.7592 -> 0.7982
+  matched song-like        16538/21334 -> 17116/20921      (+578 matched)
+
+  miss buckets      baseline            phase 3
+  C absent          3439 (71.7%)        2086 (54.8%)       -39%
+  A ahead           1305 (27.2%)        1666 (43.8%)       +28%   <-- ROSE
+  B behind            46                  46
+  D in-window          6                   7
+```
+
+Two corrections, in opposite directions:
+
+- **The 39-row sample OVERSTATED Dead coverage by ~8.5 points** (0.8834 vs the
+  true 0.7982). Sample bias, exactly the risk the 3% caveat was there to flag.
+  **0.7982 is the authoritative Dead baseline for phase 4.**
+- **The full-corpus instrument UNDERSTATED the Dead gain.** It reported +111
+  matched because it read the corpus's pre-parsed setlists and so could not see
+  the parser work at all. The true gain is **+578 matched tracks** on Dead,
+  making phase 3's total **+809** across both corpora rather than the +231
+  non-Dead figure quoted above.
+
+**The C->A migration is now confirmed on BOTH corpora**, not just non-Dead: Dead
+C falls 39% while A rises 28%. The phase-3 record could not show this because no
+instrument then covered the Dead corpus end-to-end. It strengthens the falsified
+cascade theory rather than qualifying it.
+
+Method note: both instruments re-parse from `iacache` using the parser's own text
+preparation. The `measure2.py` bucket classifier approximates `align()`'s pointer
+and is disqualified for bucket claims in phase 4 (see the phase-4a spec); the
+bucket rows above are directional, the coverage and matched rows are exact.
