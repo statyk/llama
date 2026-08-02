@@ -239,40 +239,29 @@ def _may_start_a_show(line: str) -> bool:
     return False
 
 
-def parse_setlist(description: str) -> ParsedSetlist:
-    text = re.sub(r"<br\s*/?>", "\n", description, flags=re.I)
-    text = re.sub(r"<[^>]+>", "\n", text)
-    text = html.unescape(text)  # "&gt;" segues, "&amp;" in titles
-    # ORDER IS LOAD-BEARING: truncate the header first, split inline markers
-    # second. If any set/encore marker exists, the setlist starts there: header
-    # lines above (band name, venue, lineage) must not be parsed as songs - but
-    # only a marker that ALREADY starts a line in the source may make that call.
-    # Splitting first manufactures new lines, and a manufactured marker line
-    # deciding where the setlist begins is catastrophic: a correct encore marker
-    # embedded in a numbered tracklist ("21. E: Laziest Encore Ever") becomes the
-    # first _ENCORE_LINE match, so header truncation discards the entire setlist
-    # above it and everything surviving is labelled `encore`. Measured over 923
-    # cached LMA descriptions, that cost 31 descriptions their setlists (28 of
-    # them losing >10 items and collapsing to an encore-only parse). Doing the
-    # split after truncation makes split-created markers structurally incapable
-    # of truncating anything - no provenance tracking needed.
-    raw_lines = [ln.strip() for ln in text.splitlines()]
-    first_marker = next(
-        (i for i, ln in enumerate(raw_lines)
-         if _SET_LINE.match(ln) or _LABELED_SET_LINE.match(ln) or _ENCORE_LINE.match(ln)),
-        None,
-    )
-    if first_marker is not None and not _may_start_a_show(raw_lines[first_marker]):
-        # The marker cannot open a show, so the block above is the main body,
-        # not a header. Probe it: the recursive parse cannot itself truncate,
-        # because by construction the block contains no markers.
-        above = [ln for ln in raw_lines[:first_marker] if ln]
-        if len(parse_setlist("\n".join(above)).items) >= _RECOVER_FLOOR:
-            first_marker = None
-    if first_marker is not None:
-        raw_lines = raw_lines[first_marker:]
-    # Everything downstream - the enumerated gate and the parse loop alike -
-    # operates on the post-truncation, post-split lines, exactly as before.
+def _emit_items(raw_lines: list[str]) -> tuple[list[SetlistItem], bool]:
+    """Turn already-preprocessed lines into items. Returns (items, saw_marker).
+
+    This is the whole body of the parse, MINUS preprocessing and MINUS
+    truncation - which is the point. `parse_setlist` calls it once on the
+    post-truncation lines, and the recovery probe calls it once on the block
+    above a non-show-starting marker; neither call can re-run `html.unescape`
+    or tag stripping, and neither can truncate.
+
+    That structure is load-bearing, not tidiness. The probe used to recurse
+    into `parse_setlist`, on the argument that "the block contains no markers
+    by construction" - which is FALSE. Preprocessing runs `<br>` substitution
+    BEFORE `html.unescape`, so an escaped `&lt;br&gt;` survives the first pass
+    as the literal text `<br>` and a second pass converts it to a line break,
+    manufacturing a marker inside the probe's own input. The probe then
+    truncated, fell under the floor, and the outer parse discarded the real
+    songs. The general statement of the hazard, which is why the fix is
+    structural rather than a "no markers after unescaping" check: THE PROBE IS
+    A PROXY AND NOT A FAITHFUL ONE - it asks what the parser would make of the
+    block in isolation, and the block is never parsed in isolation.
+    """
+    # Everything here - the inline split, the enumerated gate and the parse
+    # loop alike - operates on post-truncation, post-split lines.
     lines = [ln.strip() for ln in _INLINE_MARKER.sub("\n", "\n".join(raw_lines)).splitlines()]
     enumerated = _enumerated_prefix(lines)
     current_set: str | None = None
@@ -322,6 +311,43 @@ def parse_setlist(description: str) -> ParsedSetlist:
                     segue=segue,
                 )
             )
+    return items, saw_marker
+
+
+def parse_setlist(description: str) -> ParsedSetlist:
+    text = re.sub(r"<br\s*/?>", "\n", description, flags=re.I)
+    text = re.sub(r"<[^>]+>", "\n", text)
+    text = html.unescape(text)  # "&gt;" segues, "&amp;" in titles
+    # ORDER IS LOAD-BEARING: truncate the header first, split inline markers
+    # second. If any set/encore marker exists, the setlist starts there: header
+    # lines above (band name, venue, lineage) must not be parsed as songs - but
+    # only a marker that ALREADY starts a line in the source may make that call.
+    # Splitting first manufactures new lines, and a manufactured marker line
+    # deciding where the setlist begins is catastrophic: a correct encore marker
+    # embedded in a numbered tracklist ("21. E: Laziest Encore Ever") becomes the
+    # first _ENCORE_LINE match, so header truncation discards the entire setlist
+    # above it and everything surviving is labelled `encore`. Measured over 923
+    # cached LMA descriptions, that cost 31 descriptions their setlists (28 of
+    # them losing >10 items and collapsing to an encore-only parse). Doing the
+    # split after truncation makes split-created markers structurally incapable
+    # of truncating anything - no provenance tracking needed.
+    raw_lines = [ln.strip() for ln in text.splitlines()]
+    first_marker = next(
+        (i for i, ln in enumerate(raw_lines)
+         if _SET_LINE.match(ln) or _LABELED_SET_LINE.match(ln) or _ENCORE_LINE.match(ln)),
+        None,
+    )
+    if first_marker is not None and not _may_start_a_show(raw_lines[first_marker]):
+        # The marker cannot open a show, so the block above is the main body,
+        # not a header. Probe it with `_emit_items`, which has no truncation
+        # step and does no preprocessing - see that function's docstring for
+        # why "the block contains no markers by construction" was false.
+        above = [ln for ln in raw_lines[:first_marker] if ln]
+        if len(_emit_items(above)[0]) >= _RECOVER_FLOOR:
+            first_marker = None
+    if first_marker is not None:
+        raw_lines = raw_lines[first_marker:]
+    items, saw_marker = _emit_items(raw_lines)
     if saw_marker and len(items) >= 5:
         confidence = "high"
     elif len(items) >= 5:

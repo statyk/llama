@@ -594,3 +594,43 @@ def test_decorated_encore_marker_is_recognized():
     assert not any("encore" in i.title.lower() for i in items)
     assert [i.set for i in items][-1] == "encore"
     assert len(items) == 6
+
+
+def test_escaped_markup_cannot_truncate_the_recovery_probe():
+    """The probe must be STRUCTURALLY unable to truncate (spec 1c).
+
+    Preprocessing substitutes `<br>` BEFORE it unescapes entities, so an
+    escaped `&lt;br&gt;` survives the first pass as the literal text `<br>`.
+    The old probe recursed into `parse_setlist`, which re-ran preprocessing and
+    turned that literal into a line break — manufacturing an "Encore:" marker
+    inside the probe's own input. The probe then truncated, its item count fell
+    under the recovery floor, and the outer parse discarded four real songs.
+
+    `_emit_items` has no preprocessing and no truncation step, so the escape is
+    inert."""
+    escaped = ("Bertha\nJack Straw\nSugaree\n"
+               "Row Jimmy &lt;br&gt;Encore: Bogus\nEncore:\nJohnny B Goode\n")
+    titles = [i.title for i in parse_setlist(escaped).items]
+    assert titles[:3] == ["Bertha", "Jack Straw", "Sugaree"]
+    assert any(t.startswith("Row Jimmy") for t in titles)
+    assert parse_setlist(escaped).items[-1].set == "encore"
+
+
+def test_escaped_and_literal_markup_lose_the_same_songs_namely_none():
+    """Gate 2b's "identical with and without the escape", pinned exactly.
+
+    A literal `<br>` IS a line break and an escaped one is literal text, so the
+    two inputs are genuinely different documents and their parses are not
+    byte-identical: the escaped side keeps the escape as debris glued to the
+    adjacent title (`Casey Jones <br`) and never splits `Encore: Bogus`. Both
+    lists are pinned below so that difference stays visible and small. What is
+    identical — and is the whole point of 1c — is that NEITHER side truncates:
+    every song above the marker survives on both."""
+    escaped = ("Bertha\nJack Straw\nSugaree\nRow Jimmy\nDeal\n"
+               "Casey Jones &lt;br&gt;Encore: Bogus\nEncore:\nJohnny B Goode\n")
+    literal = escaped.replace("&lt;br&gt;", "<br>")
+    head = ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Deal"]
+    assert [i.title for i in parse_setlist(escaped).items] == head + [
+        "Casey Jones <br", "Encore: Bogus", "Johnny B Goode"]
+    assert [i.title for i in parse_setlist(literal).items] == head + [
+        "Casey Jones", "Bogus", "Johnny B Goode"]
