@@ -309,6 +309,12 @@ def _window_match(norms: list[str], lo: int, hi: int, nt: str) -> int | None:
     return None
 
 
+# A track whose own title is Space, directly after a Drums/Drumz track, is the
+# only evidence that licenses the Jam fallback in `align` below.
+_SPACE_TITLE = re.compile(r"^\s*space\b", re.I)
+_DRUMS_TITLE = re.compile(r"^\s*drum[sz]\b", re.I)
+
+
 def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
           aliases: dict[str, str] | None = None) -> "AlignResult":
     """Map canonical set/segue structure onto tracks, in recording order.
@@ -331,6 +337,10 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     matched_idx: set[int] = set()
     merge_conflicts: list[int] = []
     j = 0
+    # Raw title of the previous track, None before the first. Assigned on EVERY
+    # path out of the loop body (the merge-run `continue` included), so a
+    # skipped iteration can never leave a stale predecessor behind.
+    prev_title: str | None = None
     for t in tracks:
         hi = min(j + 1 + lookahead, len(items))
         comps = title_components(t.title, aliases)
@@ -346,9 +356,17 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             if len({items[run + m].set for m in range(n)}) > 1:
                 merge_conflicts.append(t.index)
             j = run + n
+            prev_title = t.title
             continue
         nt = fuzzy_norm_title(t.title, aliases)
         hit = _window_match(norms, j, hi, nt)
+        if hit is None and _SPACE_TITLE.match(t.title) and prev_title is not None \
+                and _DRUMS_TITLE.match(prev_title):
+            # Setlists often write "Jam" for what the tape calls Space. Space
+            # is always a jam, but a jam is not always space — so this fires
+            # only for a track titled Space that directly follows Drums, and
+            # never in reverse. Measured on 45 corpus shows.
+            hit = next((k for k in range(j, hi) if norms[k] == "jam"), None)
         if hit is None:
             sets.append(sets[-1] if sets else "1")
             segues.append(False)
@@ -359,6 +377,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             matched.append(True)
             matched_idx.add(hit)
             j = hit + 1
+        prev_title = t.title
     coverage = _songish_coverage(tracks, matched)
     conflicts = [it.title for k, it in enumerate(items) if k not in matched_idx]
     return AlignResult(sets=sets, segues=segues, matched=matched,

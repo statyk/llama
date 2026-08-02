@@ -611,3 +611,27 @@ def test_spelling_variants_collapse_under_the_family_table():
 def test_variants_do_nothing_without_the_family_table():
     assert fuzzy_norm_title("Touch of Gray") != fuzzy_norm_title("Touch of Grey")
     assert fuzzy_norm_title("Women Are Smarter") != fuzzy_norm_title("Man Smart, Woman Smarter")
+
+
+def test_space_after_drums_matches_a_jam_item():
+    c = canon(("2", "Eyes Of The World", True), ("2", "Drums", True),
+              ("2", "Jam", True), ("2", "Stella Blue", False))
+    r = align([tr(1, "Eyes Of The World >"), tr(2, "Drums >"),
+               tr(3, "Space >"), tr(4, "Stella Blue")], c)
+    assert r.matched == [True, True, True, True]
+    assert r.sets == ["2", "2", "2", "2"]
+
+
+def test_space_without_a_preceding_drums_does_not_match_jam():
+    c = canon(("2", "Eyes Of The World", True), ("2", "Jam", True),
+              ("2", "Stella Blue", False))
+    r = align([tr(1, "Eyes Of The World >"), tr(2, "Space >"),
+               tr(3, "Stella Blue")], c)
+    assert r.matched == [True, False, True]
+
+
+def test_a_jam_track_does_not_match_a_space_item():
+    # The rule is directional: the TRACK being called Space is the evidence.
+    c = canon(("2", "Drums", True), ("2", "Space", True), ("2", "Stella Blue", False))
+    r = align([tr(1, "Drums >"), tr(2, "Jam >"), tr(3, "Stella Blue")], c)
+    assert r.matched == [True, False, True]
