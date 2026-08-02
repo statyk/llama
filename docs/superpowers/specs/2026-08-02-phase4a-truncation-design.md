@@ -164,7 +164,14 @@ Semantics, with every constant carrying its rationale:
 1. **Stage 1 — metadata span.** Within the first **K=10** items (bounds the
    blast radius of any false positive), find the LAST item exactly matching
    (normalized) the show's metadata: artist; venue/city/state from candidate
-   metadata, item `coverage`, and the resolved jerrybase event — each split
+   metadata, item `coverage`, and **every jerrybase event on the date**
+   (**RATIFIED DEVIATION 2026-08-02** — this originally read "the resolved
+   jerrybase event". A multi-event date leaves `event is None` while the
+   banner still names the building, so the resolved event is unavailable in
+   exactly the case the guard is needed. Accepted cost, stated: using every
+   event on the date widens the place vocabulary, so a song titled like
+   *another* event's venue could match. Bounded by the K=10 head span and the
+   majority gate; no gazetteer is introduced) — each split
    on `,`/`@`, plus leading-article-stripped and leading-digit-stripped
    variants (the parser's own enumerated gate strips `40` off
    `40 Watt Club` before gather sees it); and an enumerated set of date
@@ -211,14 +218,40 @@ non-Dead   636 shows  0.5056 -> 0.8508   +3933  245 better  5 worse  2 to-zero
 guard cost (AFTER -> AFTER+guard): Dead 0 worse; non-Dead 3 worse (−7 tracks)
 ```
 
-Enumerated residuals, accepted: del2026-05-24 (−1, single-track tape);
-rad2008-06-22 (−7, recovered set-1 block over a set-2-only tape — the
-partial-tape class, resolved by 4b's resync, not by this guard);
-Ween2008-07-09 (−5, free-prose banner tail beyond any closed lexicon);
-RuthieFoster2016-09-03 (−3, three-track support-set tape); bts2008-10-21
-(−2); ween2001-07-28 (−2). Six shows, −20 tracks, against +5401 across both
-corpora. Any implementation whose residual list differs must enumerate and
-explain the difference, not net it off.
+Enumerated residuals, accepted. **CORRECTED 2026-08-02 — two class labels
+here were false, and the error was systematic: the −N figures are MATCHED
+counts, and two of them had been read as TRACK counts, which made two shows
+look like tiny tapes that could be waved through. Executed track counts are
+given below.** They fall into three distinct classes and the spec must not
+blur them:
+
+- **Residual Task-1 damage the guard does not reach** (already zero on the
+  unguarded tree — the baseline pair, not the magnitude, is what identifies
+  this class): `del2026-05-24` (−1; **23 clean tracks, 21 songish — NOT a
+  single-track tape**); `Ween2008-07-09` (−5, free-prose banner tail beyond
+  any closed lexicon). File against 4b. Do **not** describe these as "the
+  guard's residual".
+- **The guard behaving correctly on a tape with no songs:** `RuthieFoster2016-09-03`
+  (−3; **13 clean tracks — NOT a three-track support-set tape**). Every one
+  of its track titles is the literal banner
+  `NN - Ruthie Foster, Strawberry Music Festival, Tuolumne CA, 03-SEPT-2016`,
+  so its 3 baseline matches were banner-track ↔ banner-item. **Zero is the
+  right answer**; restoring those matches would ship a wrong title into the
+  manifest and briefing instead of flagging for review. Any future variant
+  that "retires" this show must classify each restored match as real-song vs
+  phantom before it counts as a win.
+- **Partial-tape class, out of reach of any head-strip:** `rad2008-06-22`
+  (−7, recovered set-1 block over a set-2-only tape; resolved by 4b's resync).
+- **Genuine losses to the stage-2 lexicon, now FIXED** (see the stage-1
+  evidence requirement below): `bts2008-10-21` (−2, `Liar`);
+  `ween2001-07-28` (−2, `buckingham green` — a real Ween song). These were
+  the visible tip of an ungated open-vocabulary path: measured over both
+  corpora, 480 shows had items stripped, **15 stripped with zero metadata
+  hits**, and 3 of those stripped an item matching a real track.
+
+Six shows, −20 tracks, against +5401 across both corpora. Any implementation
+whose residual list differs must enumerate and explain the difference, not
+net it off.
 
 #### 1c. AMENDED 2026-08-02: the probe must be structurally non-truncating
 
@@ -366,9 +399,29 @@ because they built track lists differently).
 0. **STANDING GATE for every remaining phase-4 task — per-show alignment
    regression on the common population.** After every task, both corpora:
    per-show aligned-matched delta over shows usable under BOTH the task's
-   before and after. **Any show dropping to zero matched is
-   stop-and-escalate** — zero tolerance, each case enumerated with its
-   mechanism, never netted against wins. Shows merely worse are enumerated
+   before and after. **No show may drop to zero matched UNENUMERATED.** Any
+   show that does must be named, its mechanism diagnosed, and its acceptance
+   ruled by the owner — never netted against wins, never averaged away.
+   **A show that LEAVES THE POPULATION by falling below the item floor counts
+   as a to-zero event and must be enumerated as one** (added 2026-08-02).
+   Dropping out of the population is a *result*, not an exemption from
+   reporting. This clause exists because seven shows had their entire setlist
+   wiped by the head-banner guard and every one was filed as "dropped from
+   population" rather than "worse" or "to-zero" — `nmas2013-02-13.16.44` went
+   **24/28 matched → 0**, a single loss larger than every counted loss in the
+   gate-2a headline combined, and no gate in this suite would have surfaced it.
+   The separate-reporting rule for population changes was invented to be
+   honest about them; it became the perfect hiding place for the worst
+   outcome. **The general lesson, now four for four: every metric acquires a
+   blind spot exactly where its own definition draws a boundary** — items vs
+   songs, parse-level vs alignment-level, count vs identity, and in-population
+   vs out-of-population. When adding a gate, ask what its boundary excuses.
+   (**Reworded 2026-08-02.** This gate first read "zero tolerance", which was
+   unachievable: §1b's own accepted-residual list admits three shows, so the
+   gate contradicted the spec it sits in. An unachievable gate is worse than
+   a loose one because it trains evasion — and the gate had already done its
+   real job, which is to force an escalation instead of a netting. What is
+   forbidden is a *silent* collapse, not a collapse.) Shows merely worse are enumerated
    with magnitudes. Population changes (newly-qualifying shows,
    dropped-from-population shows) are reported **separately** from
    common-population deltas and never averaged into a headline. This gate
@@ -387,13 +440,26 @@ because they built track lists differently).
    Dead ≤1 worse / ≤1 to-zero, non-Dead ≤5 worse / ≤2 to-zero on the common
    population vs `db02575`, with net matched ≥ +1400 Dead / +3900 non-Dead;
    guard cost vs the unguarded tree: 0 worse Dead, ≤3 worse non-Dead. Every
-   residual show named, with its class (partial-tape / free-prose tail /
-   sub-5-track tape). A residual list that differs from §1b's is explained
+   residual show named, with its class (residual-Task-1-damage /
+   correct-on-a-songless-tape / partial-tape / free-prose tail — the four
+   classes enumerated in §1b, **not** "tiny tape", which was a misreading of
+   matched counts as track counts). A residual list that differs from §1b's is explained
    item by item.
 2b. **§1c verified structurally:** the probe path contains no truncation
    step and no re-preprocessing (assert by construction/inspection, plus the
-   reviewer's escaped-markup case as a test — it must parse identically with
-   and without the escape).
+   reviewer's escaped-markup case as a test).
+   **CORRECTED 2026-08-02 — the original wording asked for something false.**
+   It required the escaped case to "parse identically with and without the
+   escape". `&lt;br&gt;` and `<br>` are **different documents**: a literal
+   `<br>` genuinely *is* a line break, converted by top-level preprocessing
+   *before* unescaping, so the two inputs differ in line structure before the
+   probe is ever reached. On the reviewer's own fixture the literal form also
+   falls below the recovery floor and therefore truncates correctly by §1.
+   The two assertions that are well defined, and which replace it:
+   1. the escaped case no longer loses the four head songs (mutation-verified);
+   2. on a fixture where **both** sides clear the floor, both parses are pinned
+      exactly and **neither truncates** — every song above the marker survives
+      on both, the only difference being debris local to the escape.
 3. §1+§2 recovery: re-baseline the description sweep over the FULL iacache
    first (state the new description count next to the old 923), then report
    recovered / unchanged / regressed per marker class against the sizing
