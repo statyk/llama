@@ -432,8 +432,20 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     # Duration-stripped item norms, computed once alongside `norms` above -
     # a miss-path-only fallback (see the cascade below), never the primary
     # compare and never assigned back onto `it.title`.
-    stripped_norms = [fuzzy_norm_title(_strip_trailing_duration(it.title), aliases)
-                       for it in items]
+    #
+    # `or norms[i]`: an item whose title is nothing BUT a duration (optionally
+    # behind a footnote marker like "#", which `setlist._is_junk_title` does
+    # not always catch upstream) strips to "", and an empty string is not
+    # evidence of anything - `_window_match`'s exact-equality pass would
+    # otherwise match it against ANY track whose own norm is also "" (e.g. a
+    # junk track titled "..." or "?"), stealing the window position and
+    # dragging every following track into the wrong set. Falling back to the
+    # unstripped norm is safe: the plain compare against `norms` has already
+    # run and missed on exactly that value by the time this list is
+    # consulted, so the fallback is a guaranteed no-op for these entries, not
+    # a second chance. See test_an_emptied_strip_never_becomes_a_wildcard.
+    stripped_norms = [fuzzy_norm_title(_strip_trailing_duration(it.title), aliases) or norms[i]
+                      for i, it in enumerate(items)]
     enumerated = _is_enumerated_tape(tracks)
     sets: list[str] = []
     segues: list[bool] = []
@@ -497,16 +509,21 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             # Who) - see
             # test_glued_duration_strip_is_a_miss_path_fallback_not_an_eager_rewrite.
             #
-            # Independent of the track-prefix fallback above: that one only
-            # ever changes what `nt` is compared against `norms`, this one
-            # only ever changes what `norms` is compared against the original
-            # `nt`. Neither can change what the other already decided - each
-            # only runs at all once the other, and the plain compare, have
-            # both already missed - so their relative order does not matter
-            # for any single-axis case; a track that needs BOTH strips at
-            # once (a numeric prefix on the track AND a glued duration on the
-            # item, together) is not handled by either and is out of scope
-            # here - no fixture in the measured corpora needed it.
+            # Runs strictly after the track-prefix fallback above, not proven
+            # order-independent: MEASURED (not argued) by swapping this block
+            # ahead of that one and re-running both the full test_structure.py
+            # suite and the two Task-2-measurement corpora
+            # (corpus.jsonl + corpus-nondead.jsonl, 1716 rows total,
+            # index-by-index) - zero test failures and zero per-track
+            # differences either way, on the shows this codebase has been
+            # measured against. That is evidence for these specific corpora,
+            # not a guarantee for every possible title, and it is not
+            # rechecked automatically - if this comment and the real behavior
+            # ever diverge, trust a fresh measurement over this claim. A track
+            # that needs BOTH strips at once (a numeric prefix on the track
+            # AND a glued duration on the item, together) is not handled by
+            # either fallback and is out of scope here - no fixture in the
+            # measured corpora needed it.
             hit = _window_match(stripped_norms, j, hi, nt)
         if hit is None:
             sets.append(sets[-1] if sets else "1")

@@ -759,10 +759,13 @@ def test_the_prefix_shape_declines_long_numbers():
 # fallbacks over the same cascade and neither touches the other's side.
 
 def test_duration_glued_to_item_title_matches_square_bracket_style():
+    # No `r.sets` assertion here, deliberately: both items sit in set "1", the
+    # same value an unmatched track's set falls back to, so a `sets` check
+    # would still pass under the mutation this test exists to catch (see
+    # M-1 in the phase-3 fix log) and add no discriminating power.
     c = canon(("1", "Althea  [8:40]", True), ("1", "Bertha", False))
     r = align([tr(1, "Althea"), tr(2, "Bertha")], c)
     assert r.matched == [True, True]
-    assert r.sets == ["1", "1"]
 
 
 def test_duration_glued_to_item_title_matches_paren_style():
@@ -799,10 +802,15 @@ def test_glued_duration_strip_is_a_miss_path_fallback_not_an_eager_rewrite():
     # "5:15" (The Who) is a real song title shaped exactly like a glued
     # duration. It must match its own item unstripped; an eager strip would
     # empty the item's norm before the plain compare ever runs and lose it.
+    #
+    # No `r.sets` assertion, deliberately (see the same note on
+    # test_duration_glued_to_item_title_matches_square_bracket_style above) -
+    # both items sit in set "1", which is also the unmatched-track fallback,
+    # so it wouldn't discriminate the eager-strip mutation this test exists
+    # to catch.
     c = canon(("1", "5:15", True), ("1", "Bertha", False))
     r = align([tr(1, "5:15"), tr(2, "Bertha")], c)
     assert r.matched == [True, True]
-    assert r.sets == ["1", "1"]
 
 
 def test_a_mid_title_duration_is_never_stripped():
@@ -813,3 +821,19 @@ def test_a_mid_title_duration_is_never_stripped():
     c = canon(("1", "Terrapin Station [8:40] Suite", True), ("1", "Bertha", False))
     r = align([tr(1, "Terrapin Station Suite"), tr(2, "Bertha")], c)
     assert r.matched == [False, True]
+
+
+def test_an_emptied_strip_never_becomes_a_wildcard():
+    # "#  [9:41]" is a footnote marker glued to a duration - stripping the
+    # duration leaves nothing but the marker's own junk, which normalizes to
+    # "". An empty string is not evidence of anything, so it must never sit
+    # in `stripped_norms` where `_window_match`'s exact-equality pass would
+    # match it against ANY track whose own norm is also "" (here, the junk
+    # track "..."). Left unguarded, that spurious match consumes the window
+    # position, strands the real "Jack Straw" item, and drags the real Jack
+    # Straw track into the wrong (encore) set.
+    c = canon(("1", "Bertha", True), ("1", "Jack Straw", True),
+              ("encore", "#  [9:41]", False))
+    r = align([tr(1, "Bertha"), tr(2, "..."), tr(3, "Jack Straw")], c)
+    assert r.matched == [True, False, True]
+    assert r.sets == ["1", "1", "1"]
