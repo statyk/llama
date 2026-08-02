@@ -337,3 +337,60 @@ Spec coverage: §1+§2 → Task 1 (one commit, coupling enforced); §3 → Task 
 **Every code block and every canary number in this plan was executed against the real corpus before the plan was written.** That is what surfaced the two stale spec canaries corrected above, and the raw-vs-normalized songs-lost trap in Task 1 Step 5. Phase 3's post-mortem identified *unexecuted assertion* as the root cause of every error in that phase; a plan is where such assertions pool, so they are discharged here rather than by the implementer.
 
 Test-count expectations (1266 → 1268 → 1271) are a guide; absence of failures is the gate.
+
+---
+
+### Task 1b: The gather-side head-banner guard (spec §1b + §1c)
+
+**Added 2026-08-02 after Task 1 measured a regression.** Task 1's truncation rule recovers real setlists but sometimes recovers a taper banner with them, and places it at the head of the setlist where `align()`'s pointer starts. Measured: **54 shows worse, 53 to zero matched.** The rule is vindicated (`dc2022-06-18` aligns 23/23 once the banner is stripped, vs 0.6190 before), so this task removes the banner rather than the rule.
+
+Read spec §1b and §1c in full before starting. The design is fixed; the constants carry rationale you must not silently change.
+
+**Files:**
+- Modify: `packages/llama/src/llama/stages/gather.py` (`_drop_artist_items`, at its existing hoisted call site)
+- Modify: `packages/llama/src/llama/setlist.py` (§1c — the probe)
+- Test: `packages/llama/tests/test_stage_gather.py`, `packages/llama/tests/test_setlist.py`
+
+**Reference implementation — port it, do not re-derive it.** A measured, 7-iteration prototype lives at `.superpowers/sdd/2026-08-02-setlist-parser-and-variants/scratchpad/phase4-review-audit/banner-guard/dump.py` (`apply_guard`, `meta_norms`, `_RIG`), with its measurement record in `RESULTS.md` beside it. It is a post-parse simulation; your job is the production integration, whose metadata sources are `artist` (gather.py:154), `candidate.venue`/`candidate.city` (:173), and the resolved jerrybase event — not the corpus fields the prototype proxied with. **State that difference in your report.**
+
+- [ ] **Step 1: Write the failing tests, and a mutation for each load-bearing constraint**
+
+Follow the file's existing fixture conventions. Four constraints are load-bearing; each needs a test that **fails when that constraint is removed**:
+
+| constraint | mutation that must break its test |
+|---|---|
+| head-span only (K=10) | remove the K bound → a late venue-named song is stripped |
+| majority-metadata gate | remove it → a lone city-titled song eats the songs before it |
+| chatter gap ≤2 | widen to unbounded → a real song between two chatter lines is eaten |
+| artist drop stays global | scope it to the head → a mid-setlist artist-name item survives |
+
+**Run each mutation and confirm the test fails.** A test that passes under its own mutation is not a test — this is the standing rule from Task 3, where all three prescribed tests passed under both an eager strip and a disabled gate.
+
+Two domain hazards are spec constraints, and each needs a test: `fades?` must not match **`Not Fade Away`**, and bare `@`/`~`/`#` must not be treated as chatter (they are Dead taper annotation markers).
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+- [ ] **Step 3: Implement §1b**, then **§1c** (extract the item-emission loop so the probe runs on already-preprocessed lines with no truncation step — the spec rejects "no markers after unescaping" as the same bet at one remove). §1c needs the escaped-markup case as a test (spec gate 2b).
+
+- [ ] **Step 4: Run the full suite**
+
+Expected: prior count + new tests. Absence of failures is the gate. **Any pre-existing gather test whose behavior changes must be reported, not adjusted away** — `resolve_titles`' `len(items) == len(tracks)` gate is downstream of this call site and is exactly what phase 3's hoist ruling was about.
+
+- [ ] **Step 5: Reproduce the v7 profile — this is the acceptance gate**
+
+Spec gate 2a. On the common population, both corpora, `clean_tracks` construction, baseline pair stated:
+
+```
+             coverage             matched   worse   to-zero
+Dead     0.7990 -> 0.8777          +1468       1     14 -> 1
+non-Dead 0.5056 -> 0.8508          +3933       5     39 -> 2
+```
+
+**Reproduce or beat it.** The production integration reads different metadata sources than the prototype, so exact reproduction is not guaranteed — **report the delta and explain it; do not tune the constants to hit the number.** Enumerate every worse show with its magnitude. **Gate 0 is absolute: any show reaching zero matched is stop-and-escalate.**
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/llama/src/llama/stages/gather.py packages/llama/src/llama/setlist.py packages/llama/tests/
+git commit -m "fix(gather): strip head banners using this show's own metadata"
+```
