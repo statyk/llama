@@ -87,6 +87,9 @@ _INLINE_MARKER = re.compile(
 # Highway's Mean)" is stripped here to "72 (This Highway's Mean)" and then
 # _NUM_PREFIX strips the "72 " too - don't read the sentence above as "the
 # punctuated branch makes hazard titles safe" overall.
+# NOT the same regex as `structure._TRACK_PREFIX`, and deliberately so: this one
+# strips prefixes off DESCRIPTION lines, that one matches them on TRACK titles,
+# and the two vocabularies have diverged on purpose. Do not sync them.
 _TRACK_PREFIX = re.compile(
     r"^\s*(?:(?:d\d+t\d+|t\d{1,2})\s*[\s.\-:]+|\d{1,3}[.)]\s+)", re.I
 )

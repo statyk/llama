@@ -284,11 +284,29 @@ def _strip_head_banner(parsed: ParsedSetlist, norms: set[str]) -> ParsedSetlist:
     the first unrecognized fragment, and zero-padded date formats and composite
     venue strings supply those constantly. The majority rule is what keeps a
     lone coincidental match - a song titled like the city - from eating the
-    real songs above it.
+    real songs above it. THE MAJORITY RULE BOUNDS STAGE 1 ONLY, and so does
+    `_HEAD_K`; see the stage-2 note below for why that is not the protection it
+    reads as.
 
-    Stage 2 (chatter run): from the new head, trim rig/lineage chatter and bare
-    state codes, tolerating a gap of up to `_HEAD_GAP` unrecognized items when
-    chatter resumes immediately after.
+    Stage 2 (chatter run): from the new head, trim this show's own metadata,
+    rig/lineage chatter and bare state codes, tolerating a gap of up to
+    `_HEAD_GAP` unrecognized items when chatter resumes immediately after.
+
+    The metadata half of that list is easy to miss and is load-bearing:
+    `is_chatter` is `is_meta OR _HEAD_CHATTER OR _STATE`, so THE METADATA
+    VOCABULARY IS ITSELF A STAGE-2 HOP TARGET - and stage 2 has neither
+    `_HEAD_K` nor the majority rule. A lone coincidental metadata match that
+    stage 1 EXPLICITLY DECLINED still eats the songs above it whenever it lands
+    within `_HEAD_GAP` of the head. Measured with `norms={"nashville"}`:
+
+        ("Bertha", "Nashville", "Sugaree", "Ripple")   -> 2 songs lost
+        ("Bertha", "Jack Straw", "Nashville", ...)     -> 3 songs lost
+        ("Bertha", "Jack Straw", "Deal", "Nashville")  -> unchanged (gap 3 > 2)
+
+    So stage 1 declining a match is not a decision stage 2 honours; it only
+    moves the cost from "everything above it" to "at most `_HEAD_GAP` above
+    it". Dropping `is_meta` from `is_chatter` is the behavioural fix and needs
+    corpus re-measurement - filed for 4b, not attempted here.
 
     KNOWN DEFECT, measured, still open: the run is UNCAPPED. Neither `_HEAD_K`
     nor the majority rule applies to stage 2, so with `c` chatter-matching items
@@ -337,6 +355,10 @@ def _strip_head_banner(parsed: ParsedSetlist, norms: set[str]) -> ParsedSetlist:
         return fuzzy_norm_title(item.title) in norms or bool(_RIG.match(item.title))
 
     def is_chatter(item) -> bool:
+        # NOTE the `is_meta` term: this show's own metadata counts as chatter
+        # too, so stage 2 can hop to a metadata coincidence that stage 1's
+        # majority rule declined. See the docstring - this is not "rig/lineage
+        # chatter and bare state codes" alone.
         return (is_meta(item) or bool(_HEAD_CHATTER.search(item.title))
                 or bool(_STATE.match(item.title.strip())))
 
@@ -364,6 +386,24 @@ def _strip_head_banner(parsed: ParsedSetlist, norms: set[str]) -> ParsedSetlist:
 
     if len(kept) == len(items):
         return parsed
+    if not kept:
+        # A wipe must not ship silently. `run_gather`'s low-coverage branch is
+        # guarded by `elif canonical.items and ...`, so an EMPTY canonical
+        # short-circuits it: the show gets coverage 0.0, no
+        # "low-confidence structure alignment" flag, and needs_review False -
+        # strictly quieter than the same show with a bad-but-non-empty setlist,
+        # which is flagged. The short-circuit predates this guard, but the
+        # guard is what made it reachable, by turning a non-empty canonical
+        # that would have been flagged into an empty one that is not.
+        #
+        # Downgrading confidence routes the wipe into the EXISTING
+        # "low-confidence setlist" flag rather than inventing new vocabulary,
+        # and the semantics are honest rather than convenient: a setlist with
+        # no items in it genuinely is low confidence. The other two downstream
+        # readers are provably inert on an empty parse - `resolve_titles`
+        # already refuses a setlist whose length differs from the track count,
+        # and gather's sibling-lookup gate is already true for the same reason.
+        return parsed.model_copy(update={"items": kept, "confidence": "low"})
     return parsed.model_copy(update={"items": kept})
 
 

@@ -791,13 +791,24 @@ def test_artist_items_are_dropped_anywhere_not_just_at_the_head():
     """The artist drop is global, unlike the banner strip. Tapers repeat the
     band name at a set break as often as they put it at the top, and unlike a
     venue name an artist name is never a plausible song title on that artist's
-    own tape."""
+    own tape.
+
+    The artist item sits at index 12, PAST `_HEAD_K`. That placement is the
+    test: with it at index 4 the prescribed mutation (scoping the drop to the
+    head) left the whole suite green, because the banner strip's own head span
+    still reached it. A mutation table is code and needs the same scrutiny as
+    the tests it validates."""
     norms = _norms("Grateful Dead")
-    parsed = _parsed("Bertha", "Jack Straw", "Deal", "Sugaree",
-                     "Grateful Dead", "Ripple", "Casey Jones")
+    parsed = _parsed("Bertha", "Jack Straw", "Deal", "Sugaree", "Ripple",
+                     "Casey Jones", "Truckin", "Dire Wolf", "Loser",
+                     "Big River", "Brown Eyed Women", "Sugar Magnolia",
+                     "Grateful Dead", "Uncle Johns Band")
     cleaned = _drop_artist_items(_strip_head_banner(parsed, norms), "Grateful Dead")
-    assert _titles(cleaned) == ["Bertha", "Jack Straw", "Deal", "Sugaree",
-                               "Ripple", "Casey Jones"]
+    assert "Grateful Dead" not in _titles(cleaned)
+    assert _titles(cleaned) == [
+        "Bertha", "Jack Straw", "Deal", "Sugaree", "Ripple", "Casey Jones",
+        "Truckin", "Dire Wolf", "Loser", "Big River", "Brown Eyed Women",
+        "Sugar Magnolia", "Uncle Johns Band"]
 
 
 def test_head_chatter_never_matches_fade_titles():
@@ -885,3 +896,63 @@ def test_a_leading_track_prefix_does_not_start_a_chatter_run():
                      "t03) Snake Drive", "t04) Drop Down Mama",
                      "t05) Lord Have Mercy")
     assert len(_strip_head_banner(parsed, set()).items) == 5
+
+
+def test_a_declined_metadata_match_still_eats_songs_within_the_hop():
+    """The majority rule bounds STAGE 1 ONLY.
+
+    `is_chatter` includes `is_meta`, so this show's own metadata is a stage-2
+    hop target — and stage 2 has neither `_HEAD_K` nor the majority rule. Here
+    stage 1 explicitly DECLINES "Nashville" (one metadata item in a span of
+    four is not a majority), and stage 2 hops to it anyway and takes the two
+    songs above it.
+
+    This pins current behaviour, which is a defect filed for 4b, not a
+    property worth keeping. The fixture deliberately puts the coincidence
+    WITHIN `_HEAD_GAP` of the head: `test_head_banner_needs_a_metadata_majority`
+    sits one position past the hop's reach and so cannot see any of this."""
+    norms = _norms("Nashville")
+    assert _titles(_strip_head_banner(
+        _parsed("Bertha", "Nashville", "Sugaree", "Ripple"), norms)) == [
+        "Sugaree", "Ripple"]
+    assert _titles(_strip_head_banner(
+        _parsed("Bertha", "Jack Straw", "Nashville", "Sugaree", "Ripple"), norms)) == [
+        "Sugaree", "Ripple"]
+    # Gap 3 exceeds _HEAD_GAP, so the same coincidence is harmless one step
+    # further down — the whole difference between the two tests.
+    assert _titles(_strip_head_banner(
+        _parsed("Bertha", "Jack Straw", "Deal", "Nashville", "Sugaree"), norms)) == [
+        "Bertha", "Jack Straw", "Deal", "Nashville", "Sugaree"]
+
+
+def test_a_wiped_setlist_is_flagged_for_review_not_shipped_silently(tmp_path: Path):
+    """PRODUCT INVARIANT. `run_gather`'s low-coverage branch is guarded by
+    `elif canonical.items and ...`, so an empty canonical short-circuits it and
+    the show would otherwise ship with coverage 0.0, zero flags and
+    needs_review False — strictly quieter than the same show with a
+    bad-but-non-empty setlist, which IS flagged.
+
+    This description is pure banner: band, venue, city, state, date, rig. The
+    guard correctly removes all of it, and the show must then be held, not
+    shipped.
+
+    The tracks keep their title tags ON PURPOSE. Untagged files raise
+    "unresolved track titles" on their own, which would hold the show whatever
+    the setlist did and make this test pass against a broken guard — the flag
+    asserted below has to be the ONLY thing holding it, or it pins nothing."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["creator"] = "Del McCoury Band"
+    md["metadata"]["coverage"] = "Washington, DC"
+    md["metadata"]["description"] = (
+        "Del McCoury Band\nRFK Stadium\nWashington\nDC\nJune 10, 1973\n"
+        "Nakamichi CM-300\n")
+    names = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+             "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    retitle = dict(zip(names, MCCOURY_SONGS))
+    for f in md["files"]:
+        if f.get("name") in retitle:
+            f["title"] = retitle[f["name"]]
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert show.review_flags == ["low-confidence setlist"]
+    assert show.needs_review is True

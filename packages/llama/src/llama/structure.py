@@ -266,7 +266,9 @@ def rank_parses(parses: list[SourcedParse], target_count: int) -> SourcedParse |
         #
         # The min() is INERT today and is here anyway. Every non-setlist.fm
         # candidate comes from `parse_setlist`, whose confidence is "low" iff
-        # it emitted fewer than 5 items (setlist.py:325-330), so a parse short
+        # it emitted fewer than 5 items (the confidence rule at the end of
+        # `setlist.parse_setlist` - cited by symbol, not line, because this
+        # reference has now gone stale twice as that file moved), so a parse short
         # enough to need the min() also grades "low" and the confidence tier
         # below would have demoted it regardless. That equivalence lives in
         # ANOTHER MODULE, is untested, and is not a documented contract - and
@@ -354,15 +356,20 @@ _DRUMS_TITLE = re.compile(r"^\s*drum[sz]\b", re.I)
 # The 1-2 digit cap is the point of the shape, not an incidental bound: it
 # declines "1952 Vincent Black Lightning", "100 Years" and "1-800 Suicide"
 # outright. Pinned by test_the_prefix_shape_declines_long_numbers, which
-# asserts against this regex DIRECTLY - no behavioural test can pin the cap,
-# because the miss-path ordering already saves any real numeric title whose
-# item is in the window, so widening the cap to \d{1,4} leaves every other
-# test in the suite green (measured).
+# asserts against this regex DIRECTLY - no behavioural test IN THIS SUITE pins
+# the cap, because the miss-path ordering already saves any real numeric title
+# whose item is in the window, so widening the cap to \d{1,4} leaves every
+# other test in the suite green (measured). "In this suite" is the honest
+# claim: a construction that pins it behaviourally does exist, this suite just
+# does not contain one.
 #
 # The cap does still fire on "8 Miles High" and "16 Tons", which this regex
 # therefore does NOT protect: on an enumerated tape they are saved only by the
 # miss-path ordering in `align` (they match unstripped, so the strip is never
 # reached), and elsewhere by the >=3 gate below.
+# NOT the same regex as `setlist._TRACK_PREFIX`, and deliberately so: that one
+# strips prefixes off DESCRIPTION lines, this one matches them on TRACK titles,
+# and the two vocabularies have diverged on purpose. Do not sync them.
 _TRACK_PREFIX = re.compile(
     r"^\s*(?:\[\s*\d{1,2}:\d{2}\s*\]|\d{1,2}:\d{2}|\d{1,2}[.)\-]?)\s+")
 
