@@ -402,6 +402,20 @@ because they built track lists differently).
    before and after. **No show may drop to zero matched UNENUMERATED.** Any
    show that does must be named, its mechanism diagnosed, and its acceptance
    ruled by the owner — never netted against wins, never averaged away.
+   **A show that LEAVES THE POPULATION by falling below the item floor counts
+   as a to-zero event and must be enumerated as one** (added 2026-08-02).
+   Dropping out of the population is a *result*, not an exemption from
+   reporting. This clause exists because seven shows had their entire setlist
+   wiped by the head-banner guard and every one was filed as "dropped from
+   population" rather than "worse" or "to-zero" — `nmas2013-02-13.16.44` went
+   **24/28 matched → 0**, a single loss larger than every counted loss in the
+   gate-2a headline combined, and no gate in this suite would have surfaced it.
+   The separate-reporting rule for population changes was invented to be
+   honest about them; it became the perfect hiding place for the worst
+   outcome. **The general lesson, now four for four: every metric acquires a
+   blind spot exactly where its own definition draws a boundary** — items vs
+   songs, parse-level vs alignment-level, count vs identity, and in-population
+   vs out-of-population. When adding a gate, ask what its boundary excuses.
    (**Reworded 2026-08-02.** This gate first read "zero tolerance", which was
    unachievable: §1b's own accepted-residual list admits three shows, so the
    gate contradicted the spec it sits in. An unachievable gate is worse than
