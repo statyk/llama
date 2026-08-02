@@ -340,10 +340,6 @@ def test_is_family_artist_covers_dataset_and_extras():
     assert not jerrybase.is_family_artist("")
 
 
-from llama.songs import GD_SHORTHAND
-from llama.structure import title_components
-
-
 def test_closer_matching_uses_dead_shorthand():
     # The closer path is inherently family-gated (an event only exists for
     # artists in the dataset), so the table applies with no caller opt-in.
@@ -352,19 +348,24 @@ def test_closer_matching_uses_dead_shorthand():
 
 
 def test_closer_matching_strips_a_trailing_parenthetical_on_both_sides():
-    # "Caution (Do Not Stop on Tracks)" is a real jerrybase closer. The track
-    # side already stripped a trailing parenthetical (Task 3); leaving the
-    # closer side raw made this asymmetric — the taper's own bare "Caution"
-    # never even reached the fuzzy tier (a one-word floor blocks it), and the
-    # taper's full-title track demoted out of the exact tier. Symmetric
-    # stripping via title_components fixes both.
+    # "Caution (Do Not Stop on Tracks)" is a real jerrybase closer. Before the
+    # deviation, the closer side never stripped a trailing parenthetical
+    # (only the track side did, per Task 3), and the resulting target
+    # "caution do not stop on tracks" matched neither track: the bare
+    # "Caution" track reduces to the single word "caution", which the
+    # two-word floor in `_is_subphrase` blocks from ever fuzzy-matching, and
+    # the full-title track's own trailing paren was already stripped on the
+    # track side, so the two sides disagreed. Symmetric stripping via
+    # `title_components` on both sides fixes this: both tracks now resolve.
+    #
+    # NOTE: this closer's target normalizes to a single word ("caution"), so
+    # whether a hit lands in the exact tier vs. the fuzzy tier is genuinely
+    # unobservable here (the two-word floor forbids any one-word fuzzy match
+    # in the first place). This test only pins that both tracks resolve at
+    # all — it is not a tier-precedence test.
     tracks = _tracks(["Caution", "Caution (Do Not Stop on Tracks)", "Other"])
     candidates = jerrybase._closer_candidates(tracks, "Caution (Do Not Stop on Tracks)")
     assert set(candidates) == {0, 1}
-    # The exact tier alone (both sides stripped to "caution") must contain the
-    # full-title track, not demote it to the fuzzy tier.
-    exact_target = title_components("Caution (Do Not Stop on Tracks)", GD_SHORTHAND)[-1]
-    assert title_components(tracks[1].title, GD_SHORTHAND)[-1] == exact_target
 
 
 def test_closer_matching_reprise_strips_paren_and_hits_the_shorthand_alias():

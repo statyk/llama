@@ -596,3 +596,43 @@ def test_gather_flags_a_merged_track_spanning_a_set_break(tmp_path: Path):
     show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
     assert show.needs_review
     assert any("span a set break" in f for f in show.review_flags)
+
+
+def test_gather_does_not_apply_dead_shorthand_for_a_non_family_artist(tmp_path: Path):
+    """`aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}`
+    (gather.py) must be exercised end-to-end: `is_family_artist` and
+    `align(aliases=...)` are each unit-tested separately, but nothing pinned
+    their composition, and every other gather fixture's creator is "Grateful
+    Dead" so the `else {}` branch never ran under any existing test."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["creator"] = "Phish"  # not in jerrybase's Garcia-universe family
+    md["metadata"]["description"] = (
+        "Set 1:\nTruckin'\n\nSet 2:\nScarlet Begonias\n\nEncore:\nJohnny B. Goode"
+    )
+    retitle = {
+        "gd73-06-10d1t01.mp3": "Truckin'",
+        "gd73-06-10d1t02.mp3": "Scarlet",   # taper shorthand for "Scarlet Begonias"
+        "gd73-06-10d1t03.mp3": "Drums",
+        "gd73-06-10d2t01.mp3": "Space",
+        "gd73-06-10d2t02.mp3": "Jam",
+        "gd73-06-10d3t01.mp3": "Johnny B. Goode",
+    }
+    for f in md["files"]:
+        if f.get("name") in retitle:
+            f["title"] = retitle[f["name"]]
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert show.artist == "Phish"
+    # Without GD_SHORTHAND, "Scarlet" cannot resolve to "Scarlet Begonias" —
+    # a bare word can only fuzzy-match a two-plus-word canonical title via the
+    # shorthand alias table, and that table must not apply here. The track
+    # stays unmatched and inherits the previous track's set instead of
+    # advancing into set 2. (If the family gate were bypassed and
+    # GD_SHORTHAND applied unconditionally, "Scarlet" would normalize to
+    # "scarlet begonias", match exactly, and this track would land in set
+    # "2" with "Scarlet Begonias" absent from the conflicts below — this
+    # test fails under that hypothetical.)
+    assert show.tracks[1].title == "Scarlet"
+    assert show.tracks[1].set == "1"
+    assert show.structure is not None
+    assert "Scarlet Begonias" in show.structure.conflicts
