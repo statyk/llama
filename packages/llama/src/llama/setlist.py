@@ -4,8 +4,44 @@ import re
 from llama.models import ParsedSetlist, SetlistItem
 from llama.songs import normalize_song
 
+# Set headers are routinely written with decorative rules around them:
+# "- Set One -", "-----Set 1-----", "* Early Set:". Tolerate a leading run of
+# dashes/asterisks (and any spaces between them) before a LINE-START marker,
+# so such a header is recognized where it sits instead of being missed - a
+# missed header means no truncation point, and the band/venue/lineage block
+# above it gets parsed as songs (measured: ruthiefoster2007-02-25.blues gained
+# 11 junk items that way, and an inflated setlist is exactly what pushes the
+# alignment two-pointer out of its window).
+#
+# Deliberately NARROW: dashes and asterisks only, never arbitrary leading
+# punctuation. Widening it would let ordinary annotations ("(2) Set closer
+# was...") and prose bullets pose as set headers.
+#
+# LINE-START recognition only. `_INLINE_MARKER` is intentionally NOT given this
+# tolerance: mid-line it has only whitespace to anchor on, and a bare dash run
+# mid-sentence is punctuation far more often than it is a header.
+#
+# SET MARKERS ONLY - `_ENCORE_LINE` is deliberately NOT given this prefix, and
+# that omission is COUPLED, not caution. Recognizing "---encore:" as an encore
+# marker is *correct*; it is harmful only because `parse_setlist`'s header
+# truncation would then treat that correct recognition as the start of the
+# setlist and discard everything above it. Measured: enabling it costs
+# nmas2013-02-13 26 real songs (32 items -> 6), and 149 of 923 cached LMA
+# descriptions already sit in that first-marker-is-an-encore shape. The encore
+# half is built and measured and must land WITH the truncation fix, never
+# before it - same coupling as fuzzy matching needing evidence-triggered
+# anchoring alongside it. `test_encore_rule_above_a_tracklist_does_not_truncate`
+# is the guard that fails loudly if someone enables it early.
+#
+# The run is zero-width-satisfiable, so every undecorated header matches
+# exactly as it did before. It is a single character class rather than a nested
+# quantifier (`(?:[-*]+\s*)*`) so matching stays linear on long dash rules.
+_LEAD_DECOR = r"[-–—*\s]*"
+
 _SET_LINE = re.compile(
-    r"^(?:set\s*(one|two|three|i{1,3}|[123])|([123])(?:st|nd|rd)\s+set)\s*[:\-]?\s*(.*)$", re.I
+    rf"^{_LEAD_DECOR}(?:set\s*(one|two|three|i{{1,3}}|[123])"
+    r"|([123])(?:st|nd|rd)\s+set)\s*[:\-]?\s*(.*)$",
+    re.I,
 )
 # Labeled set headers: "Early Set - Grove Stage", "Acoustic Set: Ripple, ...".
 # Header-shaped only — the label word starts the line and "set" is followed by
@@ -14,8 +50,8 @@ _SET_LINE = re.compile(
 # Ordinal labels carry their own number; the rest get sequential numbers in
 # order of appearance.
 _LABELED_SET_LINE = re.compile(
-    r"^(first|second|third|early|late|opening|closing|acoustic|electric"
-    r"|morning|afternoon|evening)\s+set\b\s*(?::\s*(.*)|[-–—].*)?$",
+    rf"^{_LEAD_DECOR}(first|second|third|early|late|opening|closing|acoustic"
+    r"|electric|morning|afternoon|evening)\s+set\b\s*(?::\s*(.*)|[-–—].*)?$",
     re.I,
 )
 _LABELED_ORDINAL = {"first": "1", "second": "2", "third": "3"}

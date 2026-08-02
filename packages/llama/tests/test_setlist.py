@@ -438,3 +438,111 @@ def test_gd74_windsor_keeps_the_whole_setlist_around_its_inline_encore():
     assert parsed.items[26].title.startswith("It's All Over Now Baby Blue")
     # the marker itself must not survive inside a title
     assert all(not i.title.upper().startswith("E:") for i in parsed.items)
+
+
+def test_dash_decorated_set_headers_are_recognized():
+    """"- Set One -" / "-----Set 1-----" are set headers, not songs.
+
+    A header the parser fails to recognize is not a cosmetic miss: it leaves
+    the description with no truncation point, so the band/venue/lineage block
+    above it is parsed as songs. Measured on the real corpus,
+    ruthiefoster2007-02-25.blues gained 11 junk items that way, and an
+    inflated setlist is exactly what pushes the alignment two-pointer out of
+    its window.
+    """
+    desc = (
+        "Ruthie Foster\n"
+        "Capilano College Performing Arts Theatre\n"
+        "North Vancouver, BC\n"
+        "- Set One -\n"
+        "01 Up Above My Head\n"
+        "02 Runaway Soul\n"
+        "-----Set 2-----\n"
+        "03 Woke Up This Mornin\'\n"
+        "- Third Set -\n"
+        "04 Mama Said\n"
+    )
+    items = parse_setlist(desc).items
+    by_title = {i.title: i.set for i in items}
+
+    # the header block above the first marker is gone, not parsed as songs
+    assert "Ruthie Foster" not in by_title
+    assert "Capilano College Performing Arts Theatre" not in by_title
+    assert "North Vancouver" not in by_title
+
+    # every song lands in the set its decorated header opened
+    assert by_title["Up Above My Head"] == "1"
+    assert by_title["Runaway Soul"] == "1"
+    assert by_title["Woke Up This Mornin\'"] == "2"
+    assert by_title["Mama Said"] == "3"
+
+    # KNOWN, ACCEPTED RESIDUE, pinned so a future change to it is deliberate:
+    # the tolerance strips only LEADING decoration, so a trailing run can
+    # survive as a junk title - "- Set One -" leaves a bare "-" (split off by
+    # _INLINE_MARKER) and "-----Set 2-----" leaves "----" as `rest`. Stripping
+    # trailing decoration was considered and declined: it buys one junk item
+    # per description and costs a new rule on a path that has already produced
+    # two measured regressions, against titles genuinely ending in a dash or
+    # asterisk - a shape nobody has measured.
+    assert [i.title for i in items] == [
+        "-", "Up Above My Head", "Runaway Soul",
+        "----", "Woke Up This Mornin\'", "Mama Said",
+    ]
+
+
+def test_undecorated_set_headers_are_unchanged():
+    """The decoration run is zero-width-satisfiable: plain headers parse
+    exactly as they did before the tolerance existed."""
+    parsed = parse_setlist(GD_DESC)
+    assert [(i.title, i.set) for i in parsed.items][:2] == [
+        ("Morning Dew", "1"),
+        ("China Cat Sunflower", "1"),
+    ]
+    assert parsed.items[-1].set == "encore"
+
+
+def test_encore_rule_above_a_tracklist_does_not_truncate():
+    """COUPLING GUARD - read this before "finishing" `_LEAD_DECOR`.
+
+    `_LEAD_DECOR` is applied to `_SET_LINE`/`_LABELED_SET_LINE` but NOT to
+    `_ENCORE_LINE`, and that omission is a COUPLING, not caution. Recognizing
+    "---encore:" as an encore marker is *correct*. It is harmful only because
+    `parse_setlist` treats the first marker as the start of the setlist: a
+    recognized encore rule sitting below a long tracklist would make that
+    whole tracklist "header" and discard it.
+
+    Measured on the real corpus: enabling the encore half costs
+    nmas2013-02-13 26 real songs (32 items -> 6), and 149 of 923 cached LMA
+    descriptions already sit in that first-marker-is-an-encore shape. The
+    encore half is built and measured, and must land WITH the header-
+    truncation fix - never before it.
+
+    If you enable it early, this test is what tells you.
+    """
+    desc = (
+        "t01) Shimmy She Wobble\n"
+        "t02) Back Back Train\n"
+        "t03) Goin\' Down South\n"
+        "t04) Blue Skies\n"
+        "t05) Snake Drive\n"
+        "t06) Skinny Woman\n"
+        "---encore:\n"
+        "t07) Rollin\' N Tumblin\'\n"
+    )
+    titles = [i.title for i in parse_setlist(desc).items]
+
+    # the tracklist SURVIVES - it is not eaten as header above an encore rule.
+    # (The "tNN)" prefixes are left on by _TRACK_PREFIX, which requires
+    # whitespace/./-/: after the track token and so does not strip ")". That
+    # is pre-existing and orthogonal; asserting the real titles keeps this
+    # test about truncation.)
+    assert titles == [
+        "t01) Shimmy She Wobble",
+        "t02) Back Back Train",
+        "t03) Goin\' Down South",
+        "t04) Blue Skies",
+        "t05) Snake Drive",
+        "t06) Skinny Woman",
+        "---encore:",
+        "t07) Rollin\' N Tumblin\'",
+    ]
