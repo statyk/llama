@@ -856,17 +856,36 @@ Expected: PASS.
 Run: `pytest -q`
 Expected: 1220 + 2 new = 1222 passed, 7 deselected.
 
-- [ ] **Step 8: Verify the original bug against the real library**
+- [ ] **Step 8: Verify the original bug — IN PROCESS, not via `llama show`**
 
-Run:
+**This step was defective as originally written and is corrected here.** It said
+to run `llama show gratefuldead-1973-08-01 --tracks` and expect `[11, 20]`.
+`llama show` is read-only: it renders *stored* state and never re-runs `gather`.
+It therefore cannot verify a code change at all, and it "failed" during this
+phase against correct code, because the stored show predates phase 1 by five
+days. Do not reintroduce it. Verify in-process, or drive a redo in a throwaway
+workspace — never assert on library state to test a code path.
 
 ```bash
-llama show gratefuldead-1973-08-01 --tracks
+./.venv/bin/python - <<'PY'
+import json
+from llama import jerrybase
+from llama.models import Track
+show = json.load(open('/Users/shawn/.llama/shows/gratefuldead-1973-08-01/show.json'))
+tracks = [Track(**t) for t in show['tracks']]
+event = jerrybase.lookup(show['artist'], show['date'])[0]
+names = jerrybase.anchor_breaks(tracks, event)
+print([i + 1 for i in range(len(names) - 1) if names[i + 1] != names[i]])
+PY
 ```
 
-Expected: set breaks `[11, 20]`, and **neither** `'Casey Jones' is not at a set break` nor `'Sugar Magnolia' is not at a set break` in the flags. This show is the reason the whole two-phase effort exists; if it regressed, stop and diagnose before continuing.
+Expected: `[11, 20]`. The two closer hold flags cannot be raised once anchoring
+wins, because `gather.py:304` guards the tripwire with
+`alignment != "jerrybase"` — assert that by reading the guard, not by inspecting
+stored flags.
 
-If the local library has no such show, skip this step and say so explicitly in the task report rather than silently omitting it.
+If the local library has no such show, skip this step and say so explicitly in
+the task report rather than silently omitting it.
 
 - [ ] **Step 9: Commit**
 
