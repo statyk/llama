@@ -162,7 +162,9 @@ codes (matched uppercase-only, whole-item).
 Semantics, with every constant carrying its rationale:
 
 1. **Stage 1 — metadata span.** Within the first **K=10** items (bounds the
-   blast radius of any false positive), find the LAST item exactly matching
+   blast radius of any false positive **in STAGE 1 ONLY** — `_HEAD_K` does not
+   constrain stage 2, which is uncapped; see the struck claim in stage 2 below,
+   and do not read §1b as one guard with one bound), find the LAST item exactly matching
    (normalized) the show's metadata: artist; venue/city/state from candidate
    metadata, item `coverage`, and **every jerrybase event on the date**
    (**RATIFIED DEVIATION 2026-08-02** — this originally read "the resolved
@@ -190,8 +192,24 @@ Semantics, with every constant carrying its rationale:
    heights, `row N`, model-number shapes) or the state-code list, allowing a
    **gap of ≤2** unrecognized items when chatter resumes immediately after —
    banner tails carry arbitrary fragments (`din`, `110`) between
-   recognizable lines, and the gap bound caps the worst false-positive cost
-   at 2 items.
+   recognizable lines.
+   **FALSE CLAIM STRUCK 2026-08-02.** This sentence used to end "…and the gap
+   bound caps the worst false-positive cost at 2 items." **It does not.** The
+   gap budget is **per-gap, not cumulative**, so the run chains: measured
+   `eaten = 2 × c` where `c` is the number of chatter items, capped only by
+   setlist length — exact at c = 1,2,3,5,10,40,100 → 2,4,6,10,20,80,**200**,
+   and 400 of 400 songs eaten at n=400. `_HEAD_K` and the majority gate
+   **structurally do not apply to stage 2 at all**. The run is **UNCAPPED**;
+   what limits it in practice is only the lexicon failing to match real
+   titles, which is necessary and nowhere near sufficient — one lexicon hit
+   every three items consumes everything.
+   This sentence survived three separate amendments to this document because
+   each edit addressed the section it was asked about rather than re-reading
+   the whole. **The design doc is phase 4b's intended entry point**, so a
+   reader starting here met the false bound first and its correction only if
+   they reached the code 130 lines away. Bounding stage 2 was measured
+   (`s2k`, `min(_HEAD_K, len(kept))`) and **rejected** — it added nothing
+   over D2 — so the uncapped run is a known, accepted state, not an oversight.
 3. Then the existing global artist drop, unchanged.
 
 **Measured hazards that are now design constraints (do not relearn them):**
