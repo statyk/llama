@@ -205,3 +205,132 @@ hardcodes the main checkout's path, and a worktree needs its own venv.
 Do not verify library-visible behavior with `llama show` — it renders stored
 state and never re-runs `gather`, so it cannot detect a code change. Verify
 in-process or drive a redo in a throwaway workspace.
+
+## Measured results (phase 3)
+
+Measured at `da88db0` against `673c357`. **1261 passed / 7 deselected** (baseline
+1227, +34). 25 commits, no new dependencies. Whole-branch review: ready to
+merge, zero Critical.
+
+### Instrument, and its limits — read this before the numbers
+
+Two instruments, because neither covers everything:
+
+- **Full-corpus (stored setlists).** Uses each corpus row's `setlist` field,
+  which was parsed at corpus-build time. It therefore reflects only the
+  **matching-layer** changes (Tasks 1, 6, 7, 8) — the parser tasks are
+  invisible to it. Covers all 1181 Dead / 874 non-Dead rows.
+- **End-to-end (live re-parse).** Re-parses the cached archive.org description
+  with the checkout under test, then aligns. This is the real delta. But
+  `iacache` covers **874/874 non-Dead rows (100%) and only 39/1181 Dead rows
+  (3%)**, so the end-to-end figure is authoritative for non-Dead and merely
+  indicative for Dead.
+
+The first instrument reproduces the phase-2 baselines to within rounding
+(0.7592 vs 0.7598 recorded Dead; 0.4655 vs 0.4653 non-Dead), which is what
+validates it.
+
+### Anchoring — improved, gate held
+
+```
+Dead:      anchors 385/756 (old rule) -> 560/756      DISAGREE: 0   (383 both-anchor)
+non-Dead:  0/0 — no jerrybase rows, provably a no-op
+```
+Phase 2 left this at 534. Nothing that anchored correctly changed.
+
+### Coverage — improved on both corpora, by different mechanisms
+
+```
+full-corpus (matching layer only)
+  Dead      0.7592 -> 0.7765     matched 16538/21334 -> 16649/20945
+  non-Dead  0.4655 -> 0.4734     matched  5839/12215 ->  5702/11742
+
+end-to-end (live re-parse)
+  non-Dead  0.4655 -> 0.5033     matched  5839/12215 ->  6070/11734
+  Dead(39)  0.8206 -> 0.8834     matched   622/761   ->   670/753
+```
+
+Note the mechanism differs. Under the full-corpus instrument non-Dead `matched`
+**falls** (5839 -> 5702) and coverage rises only because the denominator shrinks
+faster — Task 1 correctly reclassifies ~473 tracks as non-songs, some of which
+were previously matching. Under the end-to-end instrument, which sees the parser
+work, non-Dead `matched` genuinely **rises** by 231. Both are real; quoting only
+the first would understate the work and only the second would overstate it.
+
+### Miss buckets — THE CASCADE THEORY IS FALSIFIED
+
+End-to-end, non-Dead (the only corpus this instrument covers at scale):
+
+```
+              baseline        phase 3
+C absent       4107 (64.4%)   2213 (39.1%)    -46%
+A ahead        2248 (35.3%)   3436 (60.7%)    +53%   <-- ROSE
+B behind         16            12
+D in-window       5             3
+total misses   6376           5664            -11%
+```
+
+The plan predicted A would **fall** as junk items stopped inflating the setlist,
+and said plainly that if it did not, the cascade theory was wrong and should be
+stated rather than worked around. **A rose by 53%.**
+
+This is not a regression — total misses fell 11% and matched rose by 231. What
+happened is a **migration, not an elimination**: the parser now emits setlist
+items it previously dropped, so songs move out of "absent from the setlist" (C)
+and into "present, but further ahead than the lookahead window can reach" (A).
+Fixing the parser converts C into A.
+
+**Consequence for phase 4, and it inverts the standing guidance.** The rule
+"do not widen the 4-item window" was premised on A being cascade-inflated by
+junk items and on D being 0. D is still ~0 (see below), but A is no longer
+inflated — it is now genuinely "the item exists and we cannot reach it," and it
+is the **dominant residual at 61% of all misses**. The next lever is the
+two-pointer desync, not more parser work. The still-unfixed 149-description
+truncation defect will convert yet more C into A when it lands, reinforcing this.
+
+### D stayed ~0, with an honest caveat
+
+D is 5 -> 3 (non-Dead) and 0 -> 1 (Dead, 39-row subset). The recorded baseline
+says D = 0 on both. The discrepancy is instrument, not regression: coverage comes
+from the shipped `align()`, but bucket classification uses this script's own
+two-pointer, which cannot exactly reproduce `align()`'s internal advance. Either
+way D is <=0.2% of misses and did not materially move. **Title matching remains
+done; do not reopen it.**
+
+### Space gap
+
+Dead rows with a Space track, live re-parse (29 rows — 3% instrument coverage,
+so indicative only): Space item present 1 -> 5, gap 28 -> 24. The parser tasks do
+recover some Space items. The sample is far too small to retire the deferred
+synthesis question.
+
+### Closer validation
+
+Task 6: **18 fuzzy-equal pairs** over the jerrybase closers, 2 new vs phase 2's
+16 (`and we bid you good night | goodnight`, `turn on your love light |
+lovelight`) — both one song, two spellings. Task 7 re-run after the table grew:
+**18, unchanged**, run as a diff not a fresh count. **No `_NEVER_EQUAL`
+additions.** Independently verified: **0 of the 18 pairs co-occur in any of 7055
+jerrybase events.**
+
+Closer count reads **516**, not the 517 quoted earlier in this document: the new
+`women are smarter -> man smart woman smarter` synonym collapses one duplicate
+closer into its canonical form. The table working, not a lost row.
+
+### Deferred, with sizing — the largest defect found this phase
+
+**149 of 923 cached descriptions have an encore marker as `first_marker` with
+non-noise lines above it; in 145 the discarded block parses to >=10 items on its
+own.** Roughly 5x the bug phase 3 fixed. It is **pre-existing** — present in both
+the before and after above, so it does not distort this delta. A pre-built,
+pre-measured `dash-tolerance-FULL.patch` is preserved with the ledger and applies
+cleanly; it is the coupled second half of the leading-dash tolerance and must land
+**with** this fix, never before it (alone it costs 26 real songs on
+`nmas2013-02-13.16.44`).
+
+Also deferred: 175 still-emitted credit-shaped titles (a scope limit of the
+plan's mandated regex, not a regression); keying `_NEVER_EQUAL` on space-collapsed
+forms (verified **latent, not live** — the one blocklisted pair differs by an
+appended phrase, not spacing); and `rank_parses` ordering confidence above
+multi-set and item count, which is the amplifier that turns a parse defect into a
+shipped-structure defect.
