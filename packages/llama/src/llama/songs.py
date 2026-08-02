@@ -50,6 +50,17 @@ GD_SHORTHAND: dict[str, str] = {
     "stephen": "saint stephen",
     "china": "china cat sunflower",
     "chinacat": "china cat sunflower",
+    # --- Spelling variants (same song, two spellings). Each recurs across many
+    # corpus shows: 22, 15, 10 and 8 distinct shows respectively.
+    "touch of gray": "touch of grey",
+    "mississippi half step uptown toodleloo": "mississippi half step uptown toodeloo",
+    "drumz": "drums",
+    "throwin stones": "throwing stones",
+    # --- True synonym: the same song under two full names, 21 shows. Neither
+    # is a subphrase of the other, so no general rule can ever connect them —
+    # this is the case a table exists for. "Man Smart, Woman Smarter" is the
+    # calypso title; "Women Are Smarter" is what Dead setlists usually say.
+    "women are smarter": "man smart woman smarter",
 }
 
 _PUNCT = re.compile(r"[^a-z0-9 ]+")

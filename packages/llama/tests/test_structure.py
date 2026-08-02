@@ -596,3 +596,18 @@ def test_space_insensitive_fallback_respects_the_blocklist():
 def test_space_insensitive_fallback_does_not_equate_distinct_songs():
     assert not fuzzy_title_eq("black peter", "black muddy river")
     assert not fuzzy_title_eq("the wheel", "wheel of fortune")
+
+
+def test_spelling_variants_collapse_under_the_family_table():
+    from llama.songs import GD_SHORTHAND
+    pairs = [("Touch of Gray", "Touch of Grey"),
+             ("Drumz", "Drums"),
+             ("Throwin Stones", "Throwing Stones"),
+             ("Man Smart, Woman Smarter", "Women Are Smarter")]
+    for a, b in pairs:
+        assert fuzzy_norm_title(a, GD_SHORTHAND) == fuzzy_norm_title(b, GD_SHORTHAND), (a, b)
+
+
+def test_variants_do_nothing_without_the_family_table():
+    assert fuzzy_norm_title("Touch of Gray") != fuzzy_norm_title("Touch of Grey")
+    assert fuzzy_norm_title("Women Are Smarter") != fuzzy_norm_title("Man Smart, Woman Smarter")
