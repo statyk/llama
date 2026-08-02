@@ -653,3 +653,49 @@ def test_rank_parses_keeps_todays_order_when_all_are_implausible():
     b = SourcedParse(source="lma:b", parsed=ParsedSetlist(
         items=[SetlistItem(title="B", normalized="b", set="1")], confidence="low"))
     assert rank_parses([a, b], target_count=40) is a
+
+
+def test_numeric_prefixed_tracks_match_on_an_enumerated_tape():
+    c = canon(("1", "Lost My Driving Wheel", True), ("1", "History Lesson", True),
+              ("1", "KC Jones", False))
+    r = align([tr(1, "18 Lost My Driving Wheel"), tr(2, "08 History Lesson"),
+               tr(3, "[05:20] KC Jones")], c)
+    assert r.matched == [True, True, True]
+
+
+def test_numeric_titles_survive_on_a_non_enumerated_tape():
+    c = canon(("1", "8 Miles High", True), ("1", "1952 Vincent Black Lightning", False))
+    r = align([tr(1, "8 Miles High"), tr(2, "1952 Vincent Black Lightning")], c)
+    assert r.matched == [True, True]
+
+
+def test_a_real_numeric_title_is_not_stripped_even_when_enumerated():
+    # "8 Miles High" matches unstripped, so the fallback never fires on it.
+    c = canon(("1", "8 Miles High", True), ("1", "Bertha", True),
+              ("1", "Sugaree", True), ("1", "Loser", False))
+    r = align([tr(1, "8 Miles High"), tr(2, "02 Bertha"), tr(3, "03 Sugaree"),
+               tr(4, "04 Loser")], c)
+    assert r.matched == [True, True, True, True]
+
+
+def test_the_strip_is_a_miss_path_fallback_not_an_eager_rewrite():
+    # The three tests above do NOT pin the miss-path ordering: measured, an
+    # eager strip passes all of them, because "8 Miles High" stripped to
+    # "Miles High" still reaches its item by subphrase. "16 Tons" is the case
+    # that separates them - stripped it leaves one word, below
+    # fuzzy_title_eq's two-word floor, so an eager strip loses an item that
+    # matches exactly today.
+    c = canon(("1", "16 Tons", True), ("1", "Bertha", True),
+              ("1", "Sugaree", True), ("1", "Loser", False))
+    r = align([tr(1, "16 Tons"), tr(2, "02 Bertha"), tr(3, "03 Sugaree"),
+               tr(4, "04 Loser")], c)
+    assert r.matched == [True, True, True, True]
+
+
+def test_the_strip_needs_an_enumerated_tape():
+    # One prefix-shaped title is a song, not a numbering scheme, so "02 Bertha"
+    # stays unmatched here even though stripping it would match. Pins the >=3
+    # tape gate, which the three tests above also leave untested.
+    c = canon(("1", "Bertha", True), ("1", "Sugaree", True), ("1", "Loser", False))
+    r = align([tr(1, "02 Bertha"), tr(2, "Sugaree"), tr(3, "Loser")], c)
+    assert r.matched == [False, True, True]

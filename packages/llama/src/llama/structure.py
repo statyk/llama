@@ -325,6 +325,32 @@ _SPACE_TITLE = re.compile(r"^\s*space\b", re.I)
 _DRUMS_TITLE = re.compile(r"^\s*drum[sz]\b", re.I)
 
 
+# Leading track index or duration a taper left in the tag title: "18 Lost My
+# Driving Wheel", "1. Bertha", "02) Sugaree", "[05:20] KC Jones", "05:20 KC
+# Jones". The duration alternatives come first so the "05" of "05:20" can never
+# be read as an index.
+#
+# The 1-2 digit cap is the point of the shape, not an incidental bound: it
+# declines "1952 Vincent Black Lightning", "100 Years" and "1-800 Suicide"
+# outright (verified by execution, and by test_numeric_titles_survive_on_a_non_
+# enumerated_tape). It does still fire on "8 Miles High" and "16 Tons", which
+# this regex therefore does NOT protect: on an enumerated tape they are saved
+# only by the miss-path ordering in `align` (they match unstripped, so the
+# strip is never reached), and elsewhere by the >=3 gate below.
+_TRACK_PREFIX = re.compile(
+    r"^\s*(?:\[\s*\d{1,2}:\d{2}\s*\]|\d{1,2}:\d{2}|\d{1,2}[.)\-]?)\s+")
+
+# How many prefix-carrying titles make a tape "enumerated". A document-level
+# discriminator, deliberately the same shape and the same >=3 threshold as the
+# parser's `setlist._enumerated_prefix`: one numeric-titled song is a song,
+# three are a numbering scheme.
+_ENUMERATED_MIN = 3
+
+
+def _is_enumerated_tape(tracks: list["Track"]) -> bool:
+    return sum(1 for t in tracks if _TRACK_PREFIX.match(t.title)) >= _ENUMERATED_MIN
+
+
 def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
           aliases: dict[str, str] | None = None) -> "AlignResult":
     """Map canonical set/segue structure onto tracks, in recording order.
@@ -341,6 +367,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     songs after it into the wrong set; that is why matching is worth this."""
     items = canonical.items
     norms = [fuzzy_norm_title(it.title, aliases) for it in items]
+    enumerated = _is_enumerated_tape(tracks)
     sets: list[str] = []
     segues: list[bool] = []
     matched: list[bool] = []
@@ -377,6 +404,23 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             # only for a track titled Space that directly follows Drums, and
             # never in reverse. Measured on 45 corpus shows.
             hit = next((k for k in range(j, hi) if norms[k] == "jam"), None)
+        if hit is None and enumerated:
+            # Retry the same window with the track index/duration stripped, at
+            # the matching layer only - `t.title` is never touched, since it
+            # feeds the briefing, the manifest and dj-notes.
+            #
+            # Reached ONLY after the unstripped title has already missed, which
+            # is what protects a song whose real title opens with a small
+            # number: "16 Tons" and "8 Miles High" match their own item on the
+            # line above and never arrive here. That ordering is pinned by
+            # test_the_strip_is_a_miss_path_fallback_not_an_eager_rewrite —
+            # NOT by the "8 Miles High" tests, which were measured to pass
+            # under an eager strip too (its residual "Miles High" still reaches
+            # the item by subphrase; "16 Tons" leaves one word and does not).
+            m = _TRACK_PREFIX.match(t.title)
+            bare = t.title[m.end():] if m else ""
+            if bare:
+                hit = _window_match(norms, j, hi, fuzzy_norm_title(bare, aliases))
         if hit is None:
             sets.append(sets[-1] if sets else "1")
             segues.append(False)
