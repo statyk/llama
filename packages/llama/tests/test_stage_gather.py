@@ -636,3 +636,34 @@ def test_gather_does_not_apply_dead_shorthand_for_a_non_family_artist(tmp_path: 
     assert show.tracks[1].set == "1"
     assert show.structure is not None
     assert "Scarlet Begonias" in show.structure.conflicts
+
+
+def test_gather_drops_setlist_items_that_are_the_artist_name(tmp_path: Path):
+    """A description header line ("Del McCoury Band") parses as a song. It can
+    never match a track and it inflates the setlist, pushing the two-pointer
+    behind until later songs fall outside the lookahead window."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["creator"] = "Del McCoury Band"
+    # The shape ~90 corpus rows actually have: the band name on its own line
+    # above an unmarked, single-set song list. (A preamble ahead of an explicit
+    # "Set 1:" marker is discarded by the parser; with no marker it survives as
+    # an item, which is exactly the case this filter exists for.)
+    songs = ["Rain and Snow", "Nashville Cats", "1952 Vincent Black Lightning",
+             "Blue Side of Town", "Get Down On Your Knees and Pray", "All Aboard"]
+    md["metadata"]["description"] = "Del McCoury Band\n" + "\n".join(songs) + "\n"
+    names = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+             "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    retitle = dict(zip(names, songs))
+    for f in md["files"]:
+        if f.get("name") in retitle:
+            f["title"] = retitle[f["name"]]
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert show.artist == "Del McCoury Band"
+    assert [t.title for t in show.tracks] == songs
+    assert show.structure is not None
+    # Without the filter the artist item survives as a seventh canonical item
+    # that no track can ever match, and lands in conflicts.
+    assert "Del McCoury Band" not in show.structure.conflicts
+    assert all("mccoury" not in c.lower() for c in show.structure.conflicts)
+    assert show.structure.conflicts == []

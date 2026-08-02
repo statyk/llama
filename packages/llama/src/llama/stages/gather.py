@@ -115,6 +115,23 @@ def _format_setlist(canonical: ParsedSetlist) -> str:
     )
 
 
+def _drop_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
+    """Remove setlist items that are just the performing artist's name.
+
+    LMA descriptions routinely put the band name on its own line above the
+    songs; the parser has no artist to compare against, so it emits it as a
+    song. It can never match a track, and every such item pushes the alignment
+    pointer one step further from where the next real song sits.
+    """
+    key = jerrybase.artist_key(artist)
+    if not key:
+        return parsed
+    kept = [i for i in parsed.items if jerrybase.artist_key(i.title) != key]
+    if len(kept) == len(parsed.items):
+        return parsed
+    return parsed.model_copy(update={"items": kept})
+
+
 def run_gather(
     show_ws: ShowWorkspace,
     ia,
@@ -214,6 +231,7 @@ def run_gather(
         # inside the Garcia universe — they are ordinary English words
         # elsewhere. Non-family shows get an empty table, which makes the
         # vocabulary a provable no-op on the non-Dead corpus.
+        canonical = _drop_artist_items(canonical, artist)
         aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
         result = align(tracks, canonical, aliases=aliases)
         alignment = "deterministic"
