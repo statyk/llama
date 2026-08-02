@@ -1,4 +1,5 @@
 from llama.models import ParsedSetlist, SetlistItem, SourcedParse, Track
+from llama.songs import normalize_song
 from llama.structure import align, blend_segues, from_setlistfm, norm_title, rank_parses, structure_guard
 
 
@@ -528,7 +529,21 @@ def test_align_matches_a_leading_encore_marker_item_characterization():
     # This is accepted for phase 2 and is not fixed here. Fixing
     # `_INLINE_MARKER` in `setlist.py` (phase 3) to also split on a bare mid-
     # line "E:" is expected to CHANGE the set-label assertion below.
-    c = canon(("1", "Sugar Magnolia", False), ("1", "E: Baby Blue", False))
+    #
+    # Built by hand instead of via `canon()`: `canon()` sets `normalized=
+    # norm_title(t)`, which already strips the "E:" prefix, so a canonical
+    # item built that way never actually carries the "E: " prefix in
+    # `.normalized` and this test would pass even against the pre-branch
+    # matcher - proving nothing about the defect above. Production builds
+    # `SetlistItem.normalized` as the UNSTRIPPED `normalize_song(title)`
+    # (`setlist.py:114`, `structure.py`'s `from_setlistfm:217`), so this test
+    # reproduces that here to genuinely exercise the defect.
+    c = ParsedSetlist(items=[
+        SetlistItem(title="Sugar Magnolia", normalized=normalize_song("Sugar Magnolia"),
+                    set="1", segue=False),
+        SetlistItem(title="E: Baby Blue", normalized=normalize_song("E: Baby Blue"),
+                    set="1", segue=False),
+    ], confidence="high")
     r = align([tr(1, "Sugar Magnolia"), tr(2, "Baby Blue")], c)
     assert r.matched == [True, True]
     assert r.sets == ["1", "1"]  # NOT "encore" - see comment above

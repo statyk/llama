@@ -262,6 +262,16 @@ def run_gather(
                   for t, s, g in zip(tracks, result.sets, result.segues)]
         breaks = set_breaks(tracks)
         coverage, conflicts = result.coverage, result.conflicts
+        # merge_conflicts has three different lifecycles, same exposure as
+        # the `conflicts` trade-off noted above: it SURVIVES jerrybase
+        # anchoring via the `model_copy` above (anchoring only replaces
+        # `sets`) - but anchoring can then replace the very breaks a flagged
+        # track was said to span, so the flag can end up naming a track whose
+        # final labels are actually consistent; it is SILENTLY DROPPED when
+        # LLM realignment wins, because `apply_llm_alignment` never
+        # populates it; and it is never computed at all on the override
+        # branch. Left as-is - whether an anchoring-overridden flag should
+        # still fire is a later call, not this one's.
         if result.merge_conflicts:
             nums = ", ".join(str(n) for n in result.merge_conflicts)
             flags.append(f"merged track(s) {nums} span a set break")
