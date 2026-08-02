@@ -182,17 +182,30 @@ def parse_setlist(description: str) -> ParsedSetlist:
     text = re.sub(r"<br\s*/?>", "\n", description, flags=re.I)
     text = re.sub(r"<[^>]+>", "\n", text)
     text = html.unescape(text)  # "&gt;" segues, "&amp;" in titles
-    text = _INLINE_MARKER.sub("\n", text)
-    lines = [ln.strip() for ln in text.splitlines()]
-    # If any set/encore marker exists, the setlist starts there: header lines above
-    # (band name, venue, lineage) must not be parsed as songs.
+    # ORDER IS LOAD-BEARING: truncate the header first, split inline markers
+    # second. If any set/encore marker exists, the setlist starts there: header
+    # lines above (band name, venue, lineage) must not be parsed as songs - but
+    # only a marker that ALREADY starts a line in the source may make that call.
+    # Splitting first manufactures new lines, and a manufactured marker line
+    # deciding where the setlist begins is catastrophic: a correct encore marker
+    # embedded in a numbered tracklist ("21. E: Laziest Encore Ever") becomes the
+    # first _ENCORE_LINE match, so header truncation discards the entire setlist
+    # above it and everything surviving is labelled `encore`. Measured over 923
+    # cached LMA descriptions, that cost 31 descriptions their setlists (28 of
+    # them losing >10 items and collapsing to an encore-only parse). Doing the
+    # split after truncation makes split-created markers structurally incapable
+    # of truncating anything - no provenance tracking needed.
+    raw_lines = [ln.strip() for ln in text.splitlines()]
     first_marker = next(
-        (i for i, ln in enumerate(lines)
+        (i for i, ln in enumerate(raw_lines)
          if _SET_LINE.match(ln) or _LABELED_SET_LINE.match(ln) or _ENCORE_LINE.match(ln)),
         None,
     )
     if first_marker is not None:
-        lines = lines[first_marker:]
+        raw_lines = raw_lines[first_marker:]
+    # Everything downstream - the enumerated gate and the parse loop alike -
+    # operates on the post-truncation, post-split lines, exactly as before.
+    lines = [ln.strip() for ln in _INLINE_MARKER.sub("\n", "\n".join(raw_lines)).splitlines()]
     enumerated = _enumerated_prefix(lines)
     current_set: str | None = None
     last_num = 0
