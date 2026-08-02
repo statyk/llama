@@ -1,6 +1,6 @@
 from llama.models import ParsedSetlist, SetlistItem, SourcedParse, Track
 from llama.songs import normalize_song
-from llama.structure import align, blend_segues, from_setlistfm, norm_title, rank_parses, structure_guard
+from llama.structure import align, blend_segues, from_setlistfm, is_filler, norm_title, rank_parses, structure_guard
 
 
 def sp(source, sets_titles, confidence="high"):
@@ -547,3 +547,26 @@ def test_align_matches_a_leading_encore_marker_item_characterization():
     r = align([tr(1, "Sugar Magnolia"), tr(2, "Baby Blue")], c)
     assert r.matched == [True, True]
     assert r.sets == ["1", "1"]  # NOT "encore" - see comment above
+
+
+def test_filler_covers_spoken_and_break_segments():
+    for t in ("Intro", "intro", "Outro", "Chat", "Chatter", "talk",
+              "Band Intros & Chatter", "Encore Break", "encore break",
+              "Intro by Fiona Black"):
+        assert is_filler(t), t
+
+
+def test_filler_never_swallows_drums_space_or_feedback():
+    # Domain ruling: Drums, Space and Feedback are SONGS. They segue into and
+    # out of adjacent songs and sit mid-second-set from ~1979 on. Treating them
+    # as filler would drop them out of set-break reasoning entirely.
+    for t in ("Drums", "Drums >", "Drumz", "Space", "Space ->", "Feedback",
+              "Drums > Space >"):
+        assert not is_filler(t), t
+
+
+def test_filler_does_not_match_songs_containing_those_words():
+    # "talk" must not fire on "Talkin'", "chat" must not fire on "Chattanooga".
+    for t in ("Talkin' World War III Blues", "Chattanooga Choo Choo",
+              "Introduction To The Blues Jam", "Big Railroad Blues"):
+        assert not is_filler(t), t

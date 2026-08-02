@@ -13,11 +13,25 @@ from llama.songs import normalize_song
 # "E: Baby Blue" / "Encore: Casey Jones" - structure markers embedded in a title.
 _STRUCTURE_PREFIX = re.compile(r"^\s*(?:e|encore)\s*:\s*", re.I)
 
-# Non-song tracks (tuning, repairs, announcements, crowd noise) that no
-# canonical setlist contains; they must not count against alignment coverage.
+# Non-song tracks (tuning, repairs, announcements, crowd noise, spoken
+# segments, the gap before an encore) that no canonical setlist contains; they
+# must not count against alignment coverage.
+#
+# DELIBERATELY ABSENT, and must stay absent: drums, drumz, space, feedback.
+# Those are SONGS — they segue into and out of adjacent songs and sit
+# mid-second-set from roughly 1979 on. See test_filler_never_swallows_drums_
+# space_or_feedback.
+#
+# Whether any of these ships on air is a separate, per-show human decision,
+# served by overrides.exclude / `llama fix --exclude`. This regex answers only
+# "is it a song for setlist reconciliation and set-break placement".
+#
+# Word-anchored on the ambiguous members: bare "talk" and "chat" would
+# otherwise fire on "Talkin' World War III Blues" and "Chattanooga".
 _FILLER = re.compile(
     r"tun(?:ing|e\s*-?\s*up)|repairs?|announ?ce|applause|crowd|banter"
-    r"|soundcheck|equipment",
+    r"|soundcheck|equipment|\bintros?\b|\boutros?\b|\bchat(?:ter)?\b"
+    r"|\btalk\b|encore\s+break",
     re.I,
 )
 
