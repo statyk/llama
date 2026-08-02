@@ -27,9 +27,32 @@ _INLINE_MARKER = re.compile(
     r"\s+(?=(?:set\s*(?:one|two|three|i{1,3}|[123])|[123](?:st|nd|rd)\s+set|encore|e\d)\s*[:\-])",
     re.I,
 )
+# Disc/track tokens are unambiguous and always stripped.
 _TRACK_PREFIX = re.compile(
-    r"^\s*(?:(?:d\d+t\d+|t\d{1,2})\s*[\s.\-:]+|\d{1,2}\s*[.)]\s+)", re.I
+    r"^\s*(?:d\d+t\d+|t\d{1,2})\s*[\s.\-:]+", re.I
 )
+# A bare leading number is ambiguous: "01 Bertha" is a track number, but
+# "1952 Vincent Black Lightning", "8 Miles High" and "72 (This Highway's Mean)"
+# are song titles. Only strip it when the description is ENUMERATED — several
+# lines carry one — which is what distinguishes a numbered tracklist from a
+# song that happens to start with a digit.
+_NUM_PREFIX = re.compile(r"^\s*\d{1,3}\s*[.)]*\s*")
+# Brief's original `\s*[.)]*\s+\S` requires whitespace before the title even
+# when punctuation is present, so it misses "1.Sugaree" (no space after the
+# dot). Split into two branches: punctuation may directly abut the title
+# ("1.Sugaree", "205....Scarlet"), but a *bare* number (no punctuation) still
+# requires a following space ("01 Bertha") — otherwise a multi-digit title
+# like "1952 Vincent Black Lightning" would false-match after `\d{1,3}`
+# truncates it to "195" leaving the stray "2" as if it were the title start.
+_NUM_LINE = re.compile(r"^\s*\d{1,3}\s*(?:[.)]+\s*|\s+)\S")
+
+
+def _enumerated_prefix(lines: list[str]) -> bool:
+    """True when at least 3 lines begin with a number, i.e. the description is
+    a numbered tracklist rather than prose containing a numeric title."""
+    return sum(1 for ln in lines if _NUM_LINE.match(ln)) >= 3
+
+
 _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": "3"}
 # Lines that are lineage/provenance chatter, not songs. Checked before song splitting.
 _NOISE = re.compile(
@@ -73,6 +96,7 @@ def parse_setlist(description: str) -> ParsedSetlist:
     )
     if first_marker is not None:
         lines = lines[first_marker:]
+    enumerated = _enumerated_prefix(lines)
     current_set: str | None = None
     last_num = 0
     saw_marker = False
@@ -105,6 +129,8 @@ def parse_setlist(description: str) -> ParsedSetlist:
         if current_set and current_set.isdigit():
             last_num = int(current_set)
         rest = _TRACK_PREFIX.sub("", rest)
+        if enumerated:
+            rest = _NUM_PREFIX.sub("", rest)
         for title, segue in _split_songs(rest):
             if len(title) > MAX_TITLE_LEN:
                 continue  # implausibly long fragment - prose, not a song title

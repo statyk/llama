@@ -239,3 +239,36 @@ def test_unstructured_prose_paragraph_stays_low():
     parsed = parse_setlist(prose)
     assert parsed.items == []
     assert parsed.confidence == "low"
+
+
+def test_enumerated_track_numbers_are_stripped():
+    desc = ("Set 1:\n01 Bertha\n02 Jack Straw\n03 Sugaree\n04 Row Jimmy\n"
+            "05 Big River\nSet 2:\n06 Truckin'\n07 Drums\n08 Space\n")
+    items = parse_setlist(desc).items
+    assert [i.title for i in items] == [
+        "Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River",
+        "Truckin'", "Drums", "Space"]
+
+
+def test_enumerated_prefixes_without_a_space_are_stripped():
+    desc = ("Set 1:\n1.Sugaree\n2.Bertha\n3.Loser\n4.Deal\n5.Althea\n")
+    assert [i.title for i in parse_setlist(desc).items] == [
+        "Sugaree", "Bertha", "Loser", "Deal", "Althea"]
+
+
+def test_three_digit_and_repeated_dot_prefixes_are_stripped():
+    desc = ("Set 2:\n205....Scarlet Begonias\n206....Fire On The Mountain\n"
+            "207. Drums\n208. Space\n209. Truckin'\n")
+    assert [i.title for i in parse_setlist(desc).items] == [
+        "Scarlet Begonias", "Fire On The Mountain", "Drums", "Space", "Truckin'"]
+
+
+def test_song_titles_starting_with_numbers_survive():
+    # NOT enumerated: only one line begins with a number, and it does not
+    # participate in an ascending run.
+    desc = ("Set 1:\nBertha\n1952 Vincent Black Lightning\n8 Miles High\n"
+            "72 (This Highway's Mean)\nSugaree\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert "1952 Vincent Black Lightning" in titles
+    assert "8 Miles High" in titles
+    assert "72 (This Highway's Mean)" in titles
