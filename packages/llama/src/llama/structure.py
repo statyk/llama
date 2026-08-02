@@ -254,10 +254,27 @@ def rank_parses(parses: list[SourcedParse], target_count: int) -> SourcedParse |
 
     def key(p: SourcedParse):
         multi_set = len({i.set for i in p.parsed.items}) > 1
-        # A parse covering less than half the tape cannot be the show's setlist.
+        # Deprioritize a parse too short to be the whole show: under half the
+        # tape, but never fewer than 5 items - and never more than the tape
+        # itself holds, so a 3-item parse of a 3-track tape still grades
+        # plausible instead of losing to a 7-item parse of someone else's show.
+        # A soft tier, not a filter: when every candidate is short the tier is
+        # constant and the tiers below decide, so rank_parses still returns a
+        # 1-item parse rather than None.
         # Sits ABOVE confidence because a truncated parse scores high confidence
         # (it saw a marker) precisely when it is least complete.
-        plausible = len(p.parsed.items) >= max(5, target_count // 2)
+        #
+        # The min() is INERT today and is here anyway. Every non-setlist.fm
+        # candidate comes from `parse_setlist`, whose confidence is "low" iff
+        # it emitted fewer than 5 items (setlist.py:325-330), so a parse short
+        # enough to need the min() also grades "low" and the confidence tier
+        # below would have demoted it regardless. That equivalence lives in
+        # ANOTHER MODULE, is untested, and is not a documented contract - and
+        # phase 3 rewrote that parser repeatedly. Without the min(), a change
+        # to the confidence rule silently inverts this ranking and yields a
+        # wrong winner, the hardest class of defect to notice. Do not
+        # "simplify" it back out.
+        plausible = len(p.parsed.items) >= min(target_count, max(5, target_count // 2))
         return (
             p.source == "setlist.fm",
             plausible,

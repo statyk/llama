@@ -648,11 +648,45 @@ def test_rank_parses_prefers_a_complete_parse_over_a_confident_fragment():
 
 
 def test_rank_parses_keeps_todays_order_when_all_are_implausible():
+    # Guards GRACEFUL DEGRADATION, not tier placement: with both candidates at
+    # 1 item the plausibility tier is constant, so this passes under every tier
+    # position (measured, including with the tier removed). What it would catch
+    # is plausibility reimplemented as a filter rather than a tier - that
+    # returns None here. Placement is pinned by
+    # test_rank_parses_prefers_a_complete_parse_over_a_confident_fragment.
     a = SourcedParse(source="lma:a", parsed=ParsedSetlist(
         items=[SetlistItem(title="A", normalized="a", set="1")], confidence="high"))
     b = SourcedParse(source="lma:b", parsed=ParsedSetlist(
         items=[SetlistItem(title="B", normalized="b", set="1")], confidence="low"))
     assert rank_parses([a, b], target_count=40) is a
+
+
+def test_setlistfm_outranks_a_complete_lma_parse_however_short_it_is():
+    # The plausibility tier must stay BELOW the setlist.fm source check. A
+    # 3-item setlist.fm stub is implausible against a 34-track tape and the
+    # 34-item LMA parse is plausible, so this is exactly the case that inverts
+    # if the tier is hoisted above the source bit.
+    fm = SourcedParse(source="setlist.fm", parsed=ParsedSetlist(
+        items=[SetlistItem(title=f"F{n}", normalized=f"f{n}", set="1")
+               for n in range(3)], confidence="high"))
+    lma = SourcedParse(source="lma:x", parsed=ParsedSetlist(
+        items=[SetlistItem(title=f"T{n}", normalized=f"t{n}", set="1")
+               for n in range(34)], confidence="high"))
+    assert rank_parses([lma, fm], target_count=34) is fm
+
+
+def test_plausibility_floor_never_exceeds_the_tape_itself():
+    # On a tape of <=4 kept tracks a bare max(5, tc // 2) floor demands more
+    # items than the tape has, so the parse that matches the tape exactly grades
+    # implausible while a longer parse of someone ELSE's show grades plausible
+    # and wins. The min(target_count, ...) clamp is what stops that inversion.
+    complete = SourcedParse(source="lma:complete", parsed=ParsedSetlist(
+        items=[SetlistItem(title=f"C{n}", normalized=f"c{n}", set="1")
+               for n in range(3)], confidence="medium"))
+    over = SourcedParse(source="lma:over", parsed=ParsedSetlist(
+        items=[SetlistItem(title=f"O{n}", normalized=f"o{n}", set="1")
+               for n in range(7)], confidence="low"))
+    assert rank_parses([over, complete], target_count=3) is complete
 
 
 def test_numeric_prefixed_tracks_match_on_an_enumerated_tape():
