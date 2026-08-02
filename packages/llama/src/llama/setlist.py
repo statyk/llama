@@ -100,7 +100,18 @@ _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": 
 _NOISE = re.compile(
     r"(recorded|transfer|lineage|source|taper|shnid|seeded|thanks|conversion|remaster"
     r"|\bsbd\b|\bdat\b|\bflac\b|\bshn\b|cassette|master reel|\bvia\b|d\d+t\d+\s*$"
-    r"|disc\s*#?\s*\d"
+    # Disc markers, digit form ("Disc #2") and word-numeral form ("Disc Two",
+    # "Disc II") - archive.org descriptions use both conventions. Measured:
+    # word-numeral form newly catches 37 distinct/44 occurrences (Dead) and
+    # 16 distinct/54 occurrences (non-Dead) of pure junk, 0 false positives
+    # on real songs. Two known casualties, 2 occurrences against that 98:
+    # a noise line with a real song glued onto it in the same physical line
+    # ("Disc Two 1. Eyes of the World", "5. Drums Set Two Disc Three
+    # 1. Space") loses the glued-on song too, since a whole matching line is
+    # dropped outright below. Same compound-heuristic class as the
+    # _TRACK_PREFIX/_NUM_PREFIX composition note above - an accepted trade,
+    # not a clean win.
+    r"|\bdiscs?\s*#?\s*(?:\d|one|two|three|four|five|six|i{1,3}\b)"
     # "Jerry Garcia - guitar", "Bill Kreutzmann - drums": a name, a dash, an
     # instrument. Anchored on the dash so a bare "Drums" song line is untouched.
     r"|[a-z]\s+[-–—]\s*(guitar|bass|drums?|vocals?|keyboards?|piano"
@@ -110,8 +121,18 @@ _NOISE = re.compile(
 )
 
 # Emitted-title junk: a bare duration or a disc marker that survived line-level
-# noise filtering because it sat inside a comma-separated run.
-_JUNK_TITLE = re.compile(r"^\(?\d{1,3}[:.]\d{2}\)?$|^disc\s*#?\s*\d+$", re.I)
+# noise filtering because it sat inside a comma-separated run (e.g. a
+# comma-separated "Set 1: Bertha, Disc Two, Sugaree" line never reaches the
+# line-level _NOISE check at all, since the line matched _SET_LINE first).
+# Word-numeral disc markers get the same treatment as _NOISE's, for the same
+# reason - kept as a SEPARATE regex, not merged with _NOISE's, since the two
+# guard different paths (whole line vs. a title surviving a comma run) and a
+# shared regex would blur that distinction for a future maintainer.
+_JUNK_TITLE = re.compile(
+    r"^\(?\d{1,3}[:.]\d{2}\)?$"
+    r"|^discs?\s*#?\s*(?:\d+|one|two|three|four|five|six|i{1,3})$",
+    re.I,
+)
 
 
 def _is_junk_title(title: str) -> bool:

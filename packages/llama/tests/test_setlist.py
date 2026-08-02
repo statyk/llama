@@ -358,3 +358,34 @@ def test_noise_lines_do_not_open_the_enumerated_gate():
             "Bertha\n")
     titles = [i.title for i in parse_setlist(desc).items]
     assert titles == ["1952 Vincent Black Lightning", "8 Miles High", "Bertha"]
+
+
+def test_word_numeral_disc_markers_are_noise():
+    desc = ("Set 1:\nBertha\nDisc Two\nJack Straw\nDisc II\nSugaree\n"
+            "Disc #2\nRow Jimmy\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy"]
+
+
+def test_word_numeral_disc_marker_glued_to_a_song_drops_the_whole_line():
+    # Accepted trade (owner-priced, 2 occurrences against 98 junk lines
+    # removed): a noise line with a real song glued onto it in the same
+    # physical line loses the glued-on song too, since the whole line is
+    # dropped once _NOISE matches anywhere in it - the same compound-
+    # heuristic class as the _TRACK_PREFIX/_NUM_PREFIX composition note on
+    # _TRACK_PREFIX, not a clean win. This locks in the known, intentional
+    # current behavior rather than leaving it to be rediscovered as a bug.
+    desc = "Set 1:\nBertha\nDisc Two 1. Eyes of the World\nSugaree\n"
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Sugaree"]
+    assert not any("Eyes" in t for t in titles)
+
+
+def test_word_numeral_disc_marker_survives_a_comma_run_without_junk_title_fix():
+    # _NOISE never sees this line's content: it matched _SET_LINE first, so
+    # the per-line noise check is bypassed entirely and "Disc Two" would
+    # survive as a split title unless _JUNK_TITLE also recognizes the
+    # word-numeral form.
+    desc = "Set 1: Bertha, Disc Two, Sugaree\n"
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Sugaree"]
