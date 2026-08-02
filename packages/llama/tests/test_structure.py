@@ -570,3 +570,19 @@ def test_filler_does_not_match_songs_containing_those_words():
     for t in ("Talkin' World War III Blues", "Chattanooga Choo Choo",
               "Introduction To The Blues Jam", "Big Railroad Blues"):
         assert not is_filler(t), t
+
+
+def test_encore_break_does_not_prefix_match_a_song():
+    # "encore break" is filler, but a bare `encore\s+break` had no trailing
+    # word boundary, so it prefix-matched a song whose title continues into
+    # another word ("Encore Breakdown"). The `s?\b` anchor fixes that class.
+    #
+    # NOT fixed here, deliberately: `is_filler` uses `.search()`, so a title
+    # that CONTAINS a filler token as a whole word ("Encore Break On Through")
+    # still matches. That is a known, owner-deferred issue affecting every
+    # `_FILLER` alternative, not just this one; fixing it means making
+    # `is_filler` components-based, which is a semantics change out of scope
+    # for this phase.
+    assert is_filler("Encore Break")
+    assert is_filler("encore breaks")
+    assert not is_filler("Encore Breakdown")

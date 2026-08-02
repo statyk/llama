@@ -31,7 +31,7 @@ _STRUCTURE_PREFIX = re.compile(r"^\s*(?:e|encore)\s*:\s*", re.I)
 _FILLER = re.compile(
     r"tun(?:ing|e\s*-?\s*up)|repairs?|announ?ce|applause|crowd|banter"
     r"|soundcheck|equipment|\bintros?\b|\boutros?\b|\bchat(?:ter)?\b"
-    r"|\btalk\b|encore\s+break",
+    r"|\btalk\b|encore\s+breaks?\b",
     re.I,
 )
 
