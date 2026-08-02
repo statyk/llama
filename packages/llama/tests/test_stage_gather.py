@@ -5,9 +5,13 @@ import pytest
 
 from llama.config import StructureConfig
 from herder import FakeProvider
-from llama.models import Candidate, Overrides, RecordingSummary
+from llama.models import (Candidate, Overrides, ParsedSetlist, RecordingSummary,
+                          SetlistItem)
 from llama.setlistfm import SetlistFMClient
-from llama.stages.gather import run_gather
+from llama.songs import normalize_song
+from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
+                                 _strip_head_banner, run_gather)
+from llama.structure import fuzzy_norm_title
 from llama.workspace import ShowWorkspace, read_overrides, write_artifact
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -713,3 +717,242 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     assert show.structure is not None
     assert show.structure.conflicts == []
     assert show.structure.coverage == 1.0
+
+
+# --- Head-banner guard (spec 1b) -------------------------------------------
+
+def _parsed(*titles: str) -> ParsedSetlist:
+    return ParsedSetlist(
+        items=[SetlistItem(title=t, normalized=normalize_song(t), set="1")
+               for t in titles],
+        confidence="high",
+    )
+
+
+def _norms(*values: str) -> set[str]:
+    return {fuzzy_norm_title(v) for v in values}
+
+
+def _titles(parsed: ParsedSetlist) -> list[str]:
+    return [i.title for i in parsed.items]
+
+
+def test_head_banner_strip_is_bounded_to_the_head_span():
+    """The metadata span is searched in the first `_HEAD_K` items only.
+
+    A song can legitimately be named after the city ("El Paso") — the bound is
+    what keeps such a title from dragging the strip point down over the real
+    songs above it. Without the bound this show loses every song: the banner is
+    big enough that the coincidental match at index 11 still clears the majority
+    rule, so the whole setlist is inside the span and the whole setlist goes."""
+    norms = _norms("Grateful Dead", "The Fillmore West", "Fillmore West",
+                   "San Francisco", "November 8 1970", "11/8/1970", "El Paso")
+    parsed = _parsed(
+        "Grateful Dead", "The Fillmore West", "Fillmore West",
+        "San Francisco", "November 8 1970", "11/8/1970",
+        "Casey Jones", "Me And My Uncle", "Big Railroad Blues",
+        "Dire Wolf", "Truckin", "El Paso",
+    )
+    kept = _titles(_strip_head_banner(parsed, norms))
+    assert kept == ["Casey Jones", "Me And My Uncle", "Big Railroad Blues",
+                    "Dire Wolf", "Truckin", "El Paso"]
+
+
+def test_head_banner_needs_a_metadata_majority():
+    """A lone coincidental match must not eat the real songs above it.
+
+    "Nashville" is both this show's city and a song title. It is the only
+    metadata-looking item in the span it would define, so the span is not a
+    banner and nothing is stripped."""
+    norms = _norms("Nashville")
+    parsed = _parsed("Bertha", "Jack Straw", "Deal", "Nashville",
+                     "Sugaree", "Ripple")
+    kept = _titles(_strip_head_banner(parsed, norms))
+    assert kept == ["Bertha", "Jack Straw", "Deal", "Nashville",
+                    "Sugaree", "Ripple"]
+
+
+def test_head_chatter_run_stops_after_a_gap_of_two():
+    """The stage-2 run tolerates a gap of at most `_HEAD_GAP` unrecognized
+    items. Three real songs between two chatter lines end the run: an unbounded
+    gap would swallow all of them to reach the later chatter line."""
+    parsed = _parsed(
+        "Source: Nakamichi CM-300",
+        "Wharf Rat", "Franklins Tower", "Estimated Prophet",
+        "24 bit / 48 khz",
+        "Eyes Of The World", "Sugar Magnolia",
+    )
+    kept = _titles(_strip_head_banner(parsed, set()))
+    assert kept == ["Wharf Rat", "Franklins Tower", "Estimated Prophet",
+                    "24 bit / 48 khz", "Eyes Of The World", "Sugar Magnolia"]
+
+
+def test_artist_items_are_dropped_anywhere_not_just_at_the_head():
+    """The artist drop is global, unlike the banner strip. Tapers repeat the
+    band name at a set break as often as they put it at the top, and unlike a
+    venue name an artist name is never a plausible song title on that artist's
+    own tape.
+
+    The artist item sits at index 12, PAST `_HEAD_K`. That placement is the
+    test: with it at index 4 the prescribed mutation (scoping the drop to the
+    head) left the whole suite green, because the banner strip's own head span
+    still reached it. A mutation table is code and needs the same scrutiny as
+    the tests it validates."""
+    norms = _norms("Grateful Dead")
+    parsed = _parsed("Bertha", "Jack Straw", "Deal", "Sugaree", "Ripple",
+                     "Casey Jones", "Truckin", "Dire Wolf", "Loser",
+                     "Big River", "Brown Eyed Women", "Sugar Magnolia",
+                     "Grateful Dead", "Uncle Johns Band")
+    cleaned = _drop_artist_items(_strip_head_banner(parsed, norms), "Grateful Dead")
+    assert "Grateful Dead" not in _titles(cleaned)
+    assert _titles(cleaned) == [
+        "Bertha", "Jack Straw", "Deal", "Sugaree", "Ripple", "Casey Jones",
+        "Truckin", "Dire Wolf", "Loser", "Big River", "Brown Eyed Women",
+        "Sugar Magnolia", "Uncle Johns Band"]
+
+
+def test_head_chatter_never_matches_fade_titles():
+    """MEASURED HAZARD: `fades?` in the chatter lexicon matches the word *Fade*
+    and stripped the heads of "Not Fade Away" and "West L.A. Fade Away". The
+    token is excluded, and this test is what says so."""
+    norms = _norms("Grateful Dead", "Winterland")
+    parsed = _parsed("Grateful Dead", "Winterland",
+                     "Not Fade Away", "West L.A. Fade Away",
+                     "Goin Down The Road Feeling Bad", "Sugar Magnolia")
+    kept = _titles(_strip_head_banner(parsed, norms))
+    assert kept == ["Not Fade Away", "West L.A. Fade Away",
+                    "Goin Down The Road Feeling Bad", "Sugar Magnolia"]
+
+
+def test_head_chatter_never_matches_bare_annotation_markers():
+    """MEASURED HAZARD: bare `@` / `~` / `#` are the annotation markers Dead
+    tapers hang off titles, not chatter. The lexicon anchors them positionally
+    ("@ <digits>", leading `~`) so a marked-up song title survives."""
+    norms = _norms("Grateful Dead", "Winterland")
+    parsed = _parsed("Grateful Dead", "Winterland",
+                     "Peggy-O @", "Raise The Roof #",
+                     "China Cat Sunflower", "I Know You Rider")
+    kept = _titles(_strip_head_banner(parsed, norms))
+    assert kept == ["Peggy-O @", "Raise The Roof #",
+                    "China Cat Sunflower", "I Know You Rider"]
+
+
+def test_gather_strips_a_taper_banner_using_this_shows_own_metadata(tmp_path: Path):
+    """End-to-end wiring: the vocabulary comes from `candidate.venue`,
+    `candidate.city`, `candidate.date` and the item's creator — nothing here is
+    a gazetteer, and the parser never sees any of it.
+
+    Without the strip the six banner items sit at the head of the canonical
+    setlist, where `align`'s two-pointer starts, and the show aligns 0/6."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["creator"] = "Del McCoury Band"
+    md["metadata"]["coverage"] = "Washington, DC"
+    md["metadata"]["description"] = (
+        "Del McCoury Band\n"
+        "RFK Stadium\n"
+        "Washington\n"
+        "DC\n"
+        "June 10, 1973\n"
+        "Source: Nakamichi CM-300 > Sony D8\n"
+        + "\n".join(MCCOURY_SONGS) + "\n"
+    )
+    names = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+             "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    for f in md["files"]:
+        if f.get("name") in dict(zip(names, MCCOURY_SONGS)):
+            f["title"] = dict(zip(names, MCCOURY_SONGS))[f["name"]]
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert [t.title for t in show.tracks] == MCCOURY_SONGS
+    assert show.structure is not None
+    assert show.structure.coverage == 1.0
+    assert show.structure.conflicts == []
+
+
+def test_gear_model_chatter_discriminates_on_position_not_letter_count():
+    """A taper track prefix and a gear model are the SAME lexical shape —
+    letters then digits. What separates them is POSITION: the prefix opens the
+    item, the model is named inside one.
+
+    Both directions matter and both are load-bearing. Discriminating on letter
+    count instead (requiring ≥2 letters everywhere) was measured at −59 matched
+    tracks and four shows to zero, because single-letter model numbers are real
+    and common gear."""
+    prefixes = ["t01) Shimmy She Wobble", "d101", "A01.", "B07.", "t02"]
+    for title in prefixes:
+        assert not _HEAD_CHATTER.search(title), f"{title!r} is a track prefix, not gear"
+    gear = ["Telefunken M62 Hypercards Zoom F3", "Sony PCM-M10(24/96))",
+            "mz-m200", "SKM140", "DR-70D", "SD722"]
+    for title in gear:
+        assert _HEAD_CHATTER.search(title), f"{title!r} is gear and must stay chatter"
+
+
+def test_a_leading_track_prefix_does_not_start_a_chatter_run():
+    """The whole point of the discrimination, at the level that costs songs: an
+    enumerated tracklist whose every line opens with a taper prefix used to be
+    chatter from end to end, so stage 2 — which has no cap — ate the entire
+    setlist. Seven corpus shows were stripped to zero items that way."""
+    parsed = _parsed("t01) Shimmy She Wobble", "t02) Goin' Down South",
+                     "t03) Snake Drive", "t04) Drop Down Mama",
+                     "t05) Lord Have Mercy")
+    assert len(_strip_head_banner(parsed, set()).items) == 5
+
+
+def test_a_declined_metadata_match_still_eats_songs_within_the_hop():
+    """The majority rule bounds STAGE 1 ONLY.
+
+    `is_chatter` includes `is_meta`, so this show's own metadata is a stage-2
+    hop target — and stage 2 has neither `_HEAD_K` nor the majority rule. Here
+    stage 1 explicitly DECLINES "Nashville" (one metadata item in a span of
+    four is not a majority), and stage 2 hops to it anyway and takes the two
+    songs above it.
+
+    This pins current behaviour, which is a defect filed for 4b, not a
+    property worth keeping. The fixture deliberately puts the coincidence
+    WITHIN `_HEAD_GAP` of the head: `test_head_banner_needs_a_metadata_majority`
+    sits one position past the hop's reach and so cannot see any of this."""
+    norms = _norms("Nashville")
+    assert _titles(_strip_head_banner(
+        _parsed("Bertha", "Nashville", "Sugaree", "Ripple"), norms)) == [
+        "Sugaree", "Ripple"]
+    assert _titles(_strip_head_banner(
+        _parsed("Bertha", "Jack Straw", "Nashville", "Sugaree", "Ripple"), norms)) == [
+        "Sugaree", "Ripple"]
+    # Gap 3 exceeds _HEAD_GAP, so the same coincidence is harmless one step
+    # further down — the whole difference between the two tests.
+    assert _titles(_strip_head_banner(
+        _parsed("Bertha", "Jack Straw", "Deal", "Nashville", "Sugaree"), norms)) == [
+        "Bertha", "Jack Straw", "Deal", "Nashville", "Sugaree"]
+
+
+def test_a_wiped_setlist_is_flagged_for_review_not_shipped_silently(tmp_path: Path):
+    """PRODUCT INVARIANT. `run_gather`'s low-coverage branch is guarded by
+    `elif canonical.items and ...`, so an empty canonical short-circuits it and
+    the show would otherwise ship with coverage 0.0, zero flags and
+    needs_review False — strictly quieter than the same show with a
+    bad-but-non-empty setlist, which IS flagged.
+
+    This description is pure banner: band, venue, city, state, date, rig. The
+    guard correctly removes all of it, and the show must then be held, not
+    shipped.
+
+    The tracks keep their title tags ON PURPOSE. Untagged files raise
+    "unresolved track titles" on their own, which would hold the show whatever
+    the setlist did and make this test pass against a broken guard — the flag
+    asserted below has to be the ONLY thing holding it, or it pins nothing."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["creator"] = "Del McCoury Band"
+    md["metadata"]["coverage"] = "Washington, DC"
+    md["metadata"]["description"] = (
+        "Del McCoury Band\nRFK Stadium\nWashington\nDC\nJune 10, 1973\n"
+        "Nakamichi CM-300\n")
+    names = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+             "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    retitle = dict(zip(names, MCCOURY_SONGS))
+    for f in md["files"]:
+        if f.get("name") in retitle:
+            f["title"] = retitle[f["name"]]
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert show.review_flags == ["low-confidence setlist"]
+    assert show.needs_review is True

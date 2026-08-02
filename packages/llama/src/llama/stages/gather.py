@@ -1,3 +1,4 @@
+import datetime
 import logging
 import re
 
@@ -13,8 +14,8 @@ from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.songs import GD_SHORTHAND
 from llama.structure import (align, apply_llm_alignment, blend_segues,
-                             from_setlistfm, norm_title, rank_parses,
-                             structure_guard, venues_equivalent)
+                             from_setlistfm, fuzzy_norm_title, norm_title,
+                             rank_parses, structure_guard, venues_equivalent)
 from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_breaks
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
@@ -115,6 +116,297 @@ def _format_setlist(canonical: ParsedSetlist) -> str:
     )
 
 
+# --- Head-banner guard ------------------------------------------------------
+#
+# Task 1 stopped the parser discarding a setlist that sits above a marker which
+# cannot open a show. That recovers real setlists, but the recovered block is
+# sometimes a taper banner - band / venue / city / date / rig lines - and it
+# lands at the HEAD of the canonical setlist, the one position where junk is
+# unrecoverable: `align`'s two-pointer starts there and only advances on a
+# match, so track 1 never reaches the real songs. Measured on the common
+# population (baseline pair db02575 -> 98ba55d, clean_tracks construction):
+# 54 shows worse, 53 of them to ZERO matched tracks.
+#
+# The fix point is gather, not the parser, because gather holds the one thing
+# the parser never sees: THIS show's own metadata. That turns the open question
+# "is this line a song?" into the closed one "is this literally this show's
+# artist, venue, city, state or date?". There is no gazetteer anywhere here -
+# the place vocabulary is this show's own metadata, and the only fixed lists
+# are rig/lineage chatter and the closed postal-code list (50 states + DC).
+#
+# Three measured hazards are design constraints. Do not relearn them:
+#   * `fades?` in the chatter lexicon matches the word *Fade*, and stripped the
+#     heads of "Not Fade Away" and "West L.A. Fade Away". Excluded. Any token
+#     proposed for this lexicon must be checked against real song titles first.
+#   * Bare `@` / `~` / `#` match the trailing ANNOTATION markers Dead tapers
+#     put on titles ("Peggy-O @", "Raise The Roof #"). Anchored positionally
+#     below ("@ <digits>", leading `~`), never bare.
+#   * Greedy strip + broad lexicon is the wrong combination: putting the
+#     chatter lexicon inside stage 1's strip-to-last predicate cost -10/-9/-8
+#     real songs per show (toad1996-09-18, joshritter2015-05-29,
+#     damienrice2015-04-14). Broad vocabulary belongs ONLY in stage 2's
+#     gap-bounded run.
+_MONTHS = ("january", "february", "march", "april", "may", "june", "july",
+           "august", "september", "october", "november", "december")
+
+# Rig/lineage line openers. Consulted in BOTH stages - a "Source: ..." line is
+# as certainly not a song as the venue name is.
+_RIG = re.compile(r"^(?:mic\s+)?location\b|^(?:source|transfer|lineage|recorded"
+                  r"|taper|equipment|tagging)\b", re.I)
+
+# Broad rig/gear/lineage vocabulary. This is deliberately wider than the
+# parser's own `_NOISE` (widening that globally was declined in phase 3) and is
+# safe only because nothing consults it except stage 2's run, which starts at
+# the head and stops at the first stretch of more than `_HEAD_GAP`
+# unrecognized items.
+_HEAD_CHATTER = re.compile(
+    r"^https?://|www\."
+    r"|@\s*\d|^\s*~|~\s*\d"
+    r"|\b\d+\s*['\"]|\brow\s+\d+\b|^right of\b"
+    r"|\b\d+\s*(?:ft|feet|foot|cm|khz|hz|bit)\b"
+    r"|\b(?:resampl\w*|dither\w*|wavelab|izotope|ozone|editing"
+    r"|mastered|remaster\w*|transferr?ed|seeded|conversion|encode\w*"
+    r"|mics?|preamp|xlrs?|soundboard|sbd|matrix|dfc|fob|foh|onstage|monitors?"
+    r"|dsp|wav|cd.?audio"
+    r"|nakamichi|schoeps|neumann|sennheiser|akg|sonosax|oade|lunatec"
+    r"|audio.?technica|sound.?forge|rms|channels?|compression|normalized)\b"
+    # Gear model numbers, in two branches, because a taper track prefix
+    # ("t01)", "d101", "A01.", "B07.") and a gear model ("SKM140", "M62")
+    # are the SAME lexical shape - letters then digits. What separates them
+    # is POSITION: the prefix opens the item, the model is named inside one.
+    # So a >=2-letter form matches anywhere, and a single-letter form only
+    # when something precedes it, which keeps "Telefunken M62",
+    # "Sony PCM-M10" and "mz-m200" while rejecting a leading "t01)".
+    # Discriminating on letter count instead was measured and is a net loss
+    # (-59 matched, 4 shows to zero): single-letter models are real and
+    # common gear (M62, M10, R44, m200).
+    r"|\b[a-z]{2,4}-?\d{2,4}[a-z]?s?\b"
+    r"|(?<=.)\b[a-z]-?\d{2,4}[a-z]?s?\b",
+    re.I,
+)
+
+# The closed US postal-code list: 50 states + DC, plus USA. Matched UPPERCASE
+# and WHOLE-ITEM only - lower-cased or embedded, many of these are ordinary
+# words ("in", "or", "me", "hi", "la", "ok", "de", "pa", "ma").
+_STATE = re.compile(r"^(?:A[LKZR]|C[AOT]|D[EC]|FL|GA|HI|I[DLNA]|K[SY]"
+                    r"|LA|M[EDAINSOT]|N[EVHJMYCD]|O[HKR]|PA|RI|S[CD]"
+                    r"|T[NX]|UT|V[TA]|W[AVIY]|USA|U\.S\.A\.?)$")
+
+# A metadata match beyond the first K items never triggers a strip: K bounds the
+# blast radius of any false positive, and a song legitimately named after the
+# venue or city survives everywhere below it.
+_HEAD_K = 10
+# Banner tails carry arbitrary unrecognizable fragments ("din", "110") between
+# recognizable chatter lines, so the stage-2 run tolerates a gap. The bound is
+# PER GAP, not cumulative: a run that alternates chatter and songs every <=2
+# items chains hops and keeps going. What keeps a real setlist safe is
+# therefore the lexicon staying off real song titles (the hazard notes above),
+# not this number.
+_HEAD_GAP = 2
+
+
+def _place_norms(value: str | None) -> set[str]:
+    """Normalized forms of one venue/city string, plus its natural variants.
+
+    Split on `,`/`@` because item metadata packs several places into one field
+    ("Nashville, TN @ City Hall") while the banner puts each on its own line.
+    The leading-article and leading-digit variants exist because the parser has
+    already mangled the banner line before gather sees it: its enumerated gate
+    strips the "40" off "40 Watt Club".
+    """
+    out: set[str] = set()
+    for part in re.split(r"[,@]", value or ""):
+        part = part.strip()
+        if not part:
+            continue
+        for variant in (part,
+                        re.sub(r"^(?:the|a)\s+", "", part, flags=re.I),
+                        re.sub(r"^\d+\s+", "", part)):
+            norm = fuzzy_norm_title(variant)
+            if norm:
+                out.add(norm)
+    return out
+
+
+def _date_norms(date: str) -> set[str]:
+    """Normalized renderings of the show date as a banner line might write it.
+
+    Enumerated rather than pattern-matched: an "is this a date?" pattern would
+    also match song titles, while this list can only ever match THIS show's own
+    date."""
+    try:
+        day = datetime.date.fromisoformat((date or "")[:10])
+    except ValueError:
+        return set()
+    mon, weekday = _MONTHS[day.month - 1], day.strftime("%A")
+    y, m, d = day.year, day.month, day.day
+    renderings = (
+        f"{mon} {d}", f"{mon[:3]} {d}",
+        f"{mon} {d} {y}", f"{mon[:3]} {d} {y}",
+        f"{d} {mon} {y}", f"{d} {mon}", f"{d} {mon[:3]} {y}",
+        f"{y}", f"{y} {weekday}", f"{y} {weekday[:3]}",
+        f"{m}/{d}/{y}", f"{m:02d}/{d:02d}/{y}",
+        f"{m}/{d}/{str(y)[2:]}", f"{m:02d}/{d:02d}/{str(y)[2:]}",
+        f"{y}/{m:02d}/{d:02d}", f"{y}-{m:02d}-{d:02d}",
+        f"{weekday} {mon} {d} {y}", f"{weekday[:3]} {mon[:3]} {d} {y}",
+        f"{mon} {d}th {y}", f"{mon} {d}st {y}",
+        f"{mon} {d}nd {y}", f"{mon} {d}rd {y}",
+        f"{d}th {mon} {y}", f"{d}st {mon} {y}",
+        f"{d}nd {mon} {y}", f"{d}rd {mon} {y}",
+        f"{d:02d} {mon[:3]} {y}", f"{d:02d} {mon[:4]} {y}",
+        f"{d} {mon[:4]} {y}",
+    )
+    return {n for n in (fuzzy_norm_title(r) for r in renderings) if n}
+
+
+def _show_metadata_norms(artist: str, candidate: Candidate, meta: dict,
+                         events: list) -> set[str]:
+    """The closed vocabulary the head-banner guard matches against: everything
+    this show's own metadata says about who/where/when it is."""
+    norms = _date_norms(candidate.date)
+    for value in (artist, candidate.venue, candidate.city,
+                  meta.get("venue"), meta.get("coverage")):
+        norms |= _place_norms(value if isinstance(value, str) else None)
+    for event in events:
+        norms |= _place_norms(event.venue)
+        norms |= _place_norms(event.city)
+    return norms
+
+
+def _strip_head_banner(parsed: ParsedSetlist, norms: set[str]) -> ParsedSetlist:
+    """Drop a taper banner sitting at the head of the parsed setlist.
+
+    Stage 1 (metadata span): within the first `_HEAD_K` items find the LAST one
+    that IS this show's metadata, and strip everything up to and including it -
+    but only when metadata items are a MAJORITY of that span. Strip-to-last
+    rather than a strict leading run because banners do not interleave songs,
+    and the strict run measured 29 residual zero-alignment shows: it stops at
+    the first unrecognized fragment, and zero-padded date formats and composite
+    venue strings supply those constantly. The majority rule is what keeps a
+    lone coincidental match - a song titled like the city - from eating the
+    real songs above it. THE MAJORITY RULE BOUNDS STAGE 1 ONLY, and so does
+    `_HEAD_K`; see the stage-2 note below for why that is not the protection it
+    reads as.
+
+    Stage 2 (chatter run): from the new head, trim this show's own metadata,
+    rig/lineage chatter and bare state codes, tolerating a gap of up to
+    `_HEAD_GAP` unrecognized items when chatter resumes immediately after.
+
+    The metadata half of that list is easy to miss and is load-bearing:
+    `is_chatter` is `is_meta OR _HEAD_CHATTER OR _STATE`, so THE METADATA
+    VOCABULARY IS ITSELF A STAGE-2 HOP TARGET - and stage 2 has neither
+    `_HEAD_K` nor the majority rule. A lone coincidental metadata match that
+    stage 1 EXPLICITLY DECLINED still eats the songs above it whenever it lands
+    within `_HEAD_GAP` of the head. Measured with `norms={"nashville"}`:
+
+        ("Bertha", "Nashville", "Sugaree", "Ripple")   -> 2 songs lost
+        ("Bertha", "Jack Straw", "Nashville", ...)     -> 3 songs lost
+        ("Bertha", "Jack Straw", "Deal", "Nashville")  -> unchanged (gap 3 > 2)
+
+    So stage 1 declining a match is not a decision stage 2 honours; it only
+    moves the cost from "everything above it" to "at most `_HEAD_GAP` above
+    it". Dropping `is_meta` from `is_chatter` is the behavioural fix and needs
+    corpus re-measurement - filed for 4b, not attempted here.
+
+    KNOWN DEFECT, measured, still open: the run is UNCAPPED. Neither `_HEAD_K`
+    nor the majority rule applies to stage 2, so with `c` chatter-matching items
+    it can consume up to `2 * c` real ones - verified by execution, linear in
+    `c` with no ceiling. The only thing limiting it is the lexicon failing to
+    match real song titles, which is necessary and measurably nowhere near
+    sufficient: on an enumerated tracklist where every line matched, 7 corpus
+    shows were stripped to zero items. The position-aware gear-model branches
+    above cut that to 4 by removing the driver (taper track prefixes), but they
+    fix the CAUSE, not the shape - a different open vocabulary would do it
+    again.
+
+    SECOND DEFECT, accepted knowingly, NOT a side effect: the gap hop consumes
+    the item it steps over. Neither "Liar" (bts2008-10-21) nor "buckingham
+    green" (ween2001-07-28) matches any chatter alternative; each sits at index
+    0 and is eaten to reach an in-line stage note at index 1 whose word
+    "monitor(s)" does match. Both stay lost. This is SILENT - neither show
+    reaches zero, so a per-show zero gate cannot see it - and nothing measured
+    reaches it without re-breaking the wipes above.
+
+    Four shapes were measured and rejected; do not re-propose one without
+    re-measuring both corpora (baseline `da4393f`, common population, aligned
+    song-like tracks, wipes counted as to-zero events):
+      require a stage-1 metadata hit before stage 2 runs
+          -56, THREE shows to zero. Rig-only banners ("SKM140"/"V2"/"Mini-Me")
+          legitimately need stage 2 with no metadata evidence at all.
+      let stage 2 only BEGIN on a chatter item
+          -886, TEN shows to zero, and it is the prototype's v4. The premise
+          "a banner always starts with a banner line" is true of the raw
+          description and false here: stage 1 has already eaten the
+          recognizable banner lines, so what sits at the new head is the
+          unrecognizable fragment the gap rule exists to bridge ("din", "110",
+          "Friday"). A precondition holding at the guard's entry need not hold
+          at the entry of its second phase.
+      cap the run at `_HEAD_K`
+          only -5 on top of the branches above, and it takes a real show
+          (delmccouryband2011-05-27) to do it. Measured as NOT load-bearing
+          once the cause is fixed; deliberately not shipped. Note it would be a
+          CAP and not a bound - inside those 10 items `2 * c` still runs free.
+      discriminate the gear shape on letter count
+          -59, four shows to zero (see the branch comment above).
+    """
+    items = parsed.items
+
+    def is_meta(item) -> bool:
+        return fuzzy_norm_title(item.title) in norms or bool(_RIG.match(item.title))
+
+    def is_chatter(item) -> bool:
+        # NOTE the `is_meta` term: this show's own metadata counts as chatter
+        # too, so stage 2 can hop to a metadata coincidence that stage 1's
+        # majority rule declined. See the docstring - this is not "rig/lineage
+        # chatter and bare state codes" alone.
+        return (is_meta(item) or bool(_HEAD_CHATTER.search(item.title))
+                or bool(_STATE.match(item.title.strip())))
+
+    last = -1
+    for k in range(min(_HEAD_K, len(items))):
+        if is_meta(items[k]):
+            last = k
+    if last >= 0:
+        hits = sum(1 for k in range(last + 1) if is_meta(items[k]))
+        if hits * 2 <= last + 1:
+            last = -1
+    kept = items[last + 1:]
+
+    pos = 0
+    while pos < len(kept):
+        if is_chatter(kept[pos]):
+            pos += 1
+            continue
+        gap = next((g for g in range(1, _HEAD_GAP + 1)
+                    if pos + g < len(kept) and is_chatter(kept[pos + g])), None)
+        if gap is None:
+            break
+        pos += gap + 1
+    kept = kept[pos:]
+
+    if len(kept) == len(items):
+        return parsed
+    if not kept:
+        # A wipe must not ship silently. `run_gather`'s low-coverage branch is
+        # guarded by `elif canonical.items and ...`, so an EMPTY canonical
+        # short-circuits it: the show gets coverage 0.0, no
+        # "low-confidence structure alignment" flag, and needs_review False -
+        # strictly quieter than the same show with a bad-but-non-empty setlist,
+        # which is flagged. The short-circuit predates this guard, but the
+        # guard is what made it reachable, by turning a non-empty canonical
+        # that would have been flagged into an empty one that is not.
+        #
+        # Downgrading confidence routes the wipe into the EXISTING
+        # "low-confidence setlist" flag rather than inventing new vocabulary,
+        # and the semantics are honest rather than convenient: a setlist with
+        # no items in it genuinely is low confidence. The other two downstream
+        # readers are provably inert on an empty parse - `resolve_titles`
+        # already refuses a setlist whose length differs from the track count,
+        # and gather's sibling-lookup gate is already true for the same reason.
+        return parsed.model_copy(update={"items": kept, "confidence": "low"})
+    return parsed.model_copy(update={"items": kept})
+
+
 def _drop_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
     """Remove setlist items that are just the performing artist's name.
 
@@ -189,13 +481,41 @@ def run_gather(
                                target_count=len(kept))
         canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
 
+    # Jerrybase structure evidence (no-op for artists absent from the dataset).
+    # A per-event candidate (/eN) selects events[N-1] for every evidence check.
+    # Resolved HERE, above the setlist cleaning below, because the head-banner
+    # guard reads the event venues as part of this show's own metadata; nothing
+    # in this block depends on tracks or on the canonical setlist.
+    events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
+    # `ev_n`, not `n`: hoisting this block above the overrides loop below put
+    # it in scope of that loop's `for n, forced in ...`, which rebinds `n`.
+    # Harmless today because `ev_n` is consumed immediately, but the hoist
+    # silently removed a guarantee and the distinct name puts it back.
+    kind, ev_n = _event_kind(candidate.performance_id)
+    if kind == "event" and events and 1 <= ev_n <= len(events):
+        event = events[ev_n - 1]
+    elif kind == "event":
+        event = None
+    elif len(events) == 1:
+        event = events[0]
+    else:
+        event = None
+
     # Clean the canonical setlist at the point it enters the stage, before
-    # anything consumes it. An artist header line is not a song, so it has no
-    # business in title resolution either — not just in alignment. Placing this
-    # immediately before `align` would treat a data-cleaning step as an
-    # alignment concern, and `resolve_titles` below is upstream of that: it only
-    # trusts the setlist when `len(items) == len(tracks)`, so on an untagged
-    # tape one header item costs every title on the show.
+    # anything consumes it. Neither a taper banner nor an artist header line is
+    # a song, so neither has any business in title resolution either — not just
+    # in alignment. Placing this immediately before `align` would treat a
+    # data-cleaning step as an alignment concern, and `resolve_titles` below is
+    # upstream of that: it only trusts the setlist when
+    # `len(items) == len(tracks)`, so on an untagged tape one header item costs
+    # every title on the show.
+    #
+    # Order matters: the banner strip runs on the head span first, then the
+    # artist drop globally. Every event on the date contributes its venue, not
+    # just the resolved one — a multi-event date leaves `event` None, and the
+    # banner still names the building.
+    canonical = _strip_head_banner(
+        canonical, _show_metadata_norms(artist, candidate, meta, events))
     canonical = _drop_artist_items(canonical, artist)
 
     siblings = None
@@ -210,19 +530,6 @@ def run_gather(
                              f"(show has {len(tracks)} tracks)")
         tracks[n - 1] = tracks[n - 1].model_copy(
             update={"title": forced, "title_source": "override"})
-
-    # Jerrybase structure evidence (no-op for artists absent from the dataset).
-    # A per-event candidate (/eN) selects events[N-1] for every evidence check.
-    events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
-    kind, n = _event_kind(candidate.performance_id)
-    if kind == "event" and events and 1 <= n <= len(events):
-        event = events[n - 1]
-    elif kind == "event":
-        event = None
-    elif len(events) == 1:
-        event = events[0]
-    else:
-        event = None
 
     flags = []
     if overrides.set_breaks is not None:

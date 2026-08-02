@@ -21,17 +21,17 @@ from llama.songs import normalize_song
 # tolerance: mid-line it has only whitespace to anchor on, and a bare dash run
 # mid-sentence is punctuation far more often than it is a header.
 #
-# SET MARKERS ONLY - `_ENCORE_LINE` is deliberately NOT given this prefix, and
-# that omission is COUPLED, not caution. Recognizing "---encore:" as an encore
-# marker is *correct*; it is harmful only because `parse_setlist`'s header
-# truncation would then treat that correct recognition as the start of the
-# setlist and discard everything above it. Measured: enabling it costs
-# nmas2013-02-13 26 real songs (32 items -> 6), and 149 of 923 cached LMA
-# descriptions already sit in that first-marker-is-an-encore shape. The encore
-# half is built and measured and must land WITH the truncation fix, never
-# before it - same coupling as fuzzy matching needing evidence-triggered
-# anchoring alongside it. `test_encore_rule_above_a_tracklist_does_not_truncate`
-# is the guard that fails loudly if someone enables it early.
+# `_ENCORE_LINE` gets the same leading-decoration tolerance as the set
+# markers above. This used to be withheld: recognizing "---encore:" as an
+# encore marker is *correct*, but `parse_setlist`'s header truncation used to
+# treat ANY first marker as the start of the setlist, so a correctly
+# recognized encore marker sitting below a long tracklist would discard that
+# whole tracklist as "header". That coupling is now discharged - see
+# `_may_start_a_show` and the truncation block in `parse_setlist` below, which
+# only lets a marker that could plausibly OPEN a show truncate anything an
+# encore marker never can, so recognizing "---encore:" here is safe.
+# `test_encore_rule_above_a_tracklist_does_not_truncate` still guards the
+# combination.
 #
 # The run is zero-width-satisfiable, so every undecorated header matches
 # exactly as it did before. It is a single character class rather than a nested
@@ -55,7 +55,8 @@ _LABELED_SET_LINE = re.compile(
     re.I,
 )
 _LABELED_ORDINAL = {"first": "1", "second": "2", "third": "3"}
-_ENCORE_LINE = re.compile(r"^(?:encore|e\d?)\s*(?::|-\s|$)\s*(.*)$", re.I)
+_ENCORE_LINE = re.compile(
+    rf"^{_LEAD_DECOR}" + r"(?:encore|e\d?)\s*(?::|-\s|$)\s*(.*)$", re.I)
 # A set/encore marker mid-line ("... Bertha Set II: Playin' ...") starts a new
 # set: break the line there. Inline markers must carry a colon or a dash
 # followed by space - unlike line-start markers - so prose like "the second
@@ -86,6 +87,9 @@ _INLINE_MARKER = re.compile(
 # Highway's Mean)" is stripped here to "72 (This Highway's Mean)" and then
 # _NUM_PREFIX strips the "72 " too - don't read the sentence above as "the
 # punctuated branch makes hazard titles safe" overall.
+# NOT the same regex as `structure._TRACK_PREFIX`, and deliberately so: this one
+# strips prefixes off DESCRIPTION lines, that one matches them on TRACK titles,
+# and the two vocabularies have diverged on purpose. Do not sync them.
 _TRACK_PREFIX = re.compile(
     r"^\s*(?:(?:d\d+t\d+|t\d{1,2})\s*[\s.\-:]+|\d{1,3}[.)]\s+)", re.I
 )
@@ -214,33 +218,53 @@ def _split_songs(chunk: str) -> list[tuple[str, bool]]:
     return songs
 
 
-def parse_setlist(description: str) -> ParsedSetlist:
-    text = re.sub(r"<br\s*/?>", "\n", description, flags=re.I)
-    text = re.sub(r"<[^>]+>", "\n", text)
-    text = html.unescape(text)  # "&gt;" segues, "&amp;" in titles
-    # ORDER IS LOAD-BEARING: truncate the header first, split inline markers
-    # second. If any set/encore marker exists, the setlist starts there: header
-    # lines above (band name, venue, lineage) must not be parsed as songs - but
-    # only a marker that ALREADY starts a line in the source may make that call.
-    # Splitting first manufactures new lines, and a manufactured marker line
-    # deciding where the setlist begins is catastrophic: a correct encore marker
-    # embedded in a numbered tracklist ("21. E: Laziest Encore Ever") becomes the
-    # first _ENCORE_LINE match, so header truncation discards the entire setlist
-    # above it and everything surviving is labelled `encore`. Measured over 923
-    # cached LMA descriptions, that cost 31 descriptions their setlists (28 of
-    # them losing >10 items and collapsing to an encore-only parse). Doing the
-    # split after truncation makes split-created markers structurally incapable
-    # of truncating anything - no provenance tracking needed.
-    raw_lines = [ln.strip() for ln in text.splitlines()]
-    first_marker = next(
-        (i for i, ln in enumerate(raw_lines)
-         if _SET_LINE.match(ln) or _LABELED_SET_LINE.match(ln) or _ENCORE_LINE.match(ln)),
-        None,
-    )
-    if first_marker is not None:
-        raw_lines = raw_lines[first_marker:]
-    # Everything downstream - the enumerated gate and the parse loop alike -
-    # operates on the post-truncation, post-split lines, exactly as before.
+# A block above a non-show-starting marker is kept when it parses to at least
+# this many items on its own - the parser's own confidence floor. Below it, the
+# block is junk (track-number stubs, a duration header) and truncating is right.
+_RECOVER_FLOOR = 5
+
+
+def _may_start_a_show(line: str) -> bool:
+    """True when this marker could plausibly be the FIRST marker of a show.
+
+    "Set 1" can. An encore marker cannot - no show opens with its encore - and
+    neither can "Set 2". A labeled set line whose ordinal the parser does not
+    recognize resolves to set 1 in the parse loop below, so it gets the same
+    answer here rather than a second, divergent opinion.
+    """
+    m = _SET_LINE.match(line)
+    if m:
+        token = (m.group(1) or m.group(2)).lower()
+        return _SET_TOKEN.get(token, token) == "1"
+    lm = _LABELED_SET_LINE.match(line)
+    if lm:
+        return _LABELED_ORDINAL.get(lm.group(1).lower(), "1") == "1"
+    return False
+
+
+def _emit_items(raw_lines: list[str]) -> tuple[list[SetlistItem], bool]:
+    """Turn already-preprocessed lines into items. Returns (items, saw_marker).
+
+    This is the whole body of the parse, MINUS preprocessing and MINUS
+    truncation - which is the point. `parse_setlist` calls it once on the
+    post-truncation lines, and the recovery probe calls it once on the block
+    above a non-show-starting marker; neither call can re-run `html.unescape`
+    or tag stripping, and neither can truncate.
+
+    That structure is load-bearing, not tidiness. The probe used to recurse
+    into `parse_setlist`, on the argument that "the block contains no markers
+    by construction" - which is FALSE. Preprocessing runs `<br>` substitution
+    BEFORE `html.unescape`, so an escaped `&lt;br&gt;` survives the first pass
+    as the literal text `<br>` and a second pass converts it to a line break,
+    manufacturing a marker inside the probe's own input. The probe then
+    truncated, fell under the floor, and the outer parse discarded the real
+    songs. The general statement of the hazard, which is why the fix is
+    structural rather than a "no markers after unescaping" check: THE PROBE IS
+    A PROXY AND NOT A FAITHFUL ONE - it asks what the parser would make of the
+    block in isolation, and the block is never parsed in isolation.
+    """
+    # Everything here - the inline split, the enumerated gate and the parse
+    # loop alike - operates on post-truncation, post-split lines.
     lines = [ln.strip() for ln in _INLINE_MARKER.sub("\n", "\n".join(raw_lines)).splitlines()]
     enumerated = _enumerated_prefix(lines)
     current_set: str | None = None
@@ -290,6 +314,43 @@ def parse_setlist(description: str) -> ParsedSetlist:
                     segue=segue,
                 )
             )
+    return items, saw_marker
+
+
+def parse_setlist(description: str) -> ParsedSetlist:
+    text = re.sub(r"<br\s*/?>", "\n", description, flags=re.I)
+    text = re.sub(r"<[^>]+>", "\n", text)
+    text = html.unescape(text)  # "&gt;" segues, "&amp;" in titles
+    # ORDER IS LOAD-BEARING: truncate the header first, split inline markers
+    # second. If any set/encore marker exists, the setlist starts there: header
+    # lines above (band name, venue, lineage) must not be parsed as songs - but
+    # only a marker that ALREADY starts a line in the source may make that call.
+    # Splitting first manufactures new lines, and a manufactured marker line
+    # deciding where the setlist begins is catastrophic: a correct encore marker
+    # embedded in a numbered tracklist ("21. E: Laziest Encore Ever") becomes the
+    # first _ENCORE_LINE match, so header truncation discards the entire setlist
+    # above it and everything surviving is labelled `encore`. Measured over 923
+    # cached LMA descriptions, that cost 31 descriptions their setlists (28 of
+    # them losing >10 items and collapsing to an encore-only parse). Doing the
+    # split after truncation makes split-created markers structurally incapable
+    # of truncating anything - no provenance tracking needed.
+    raw_lines = [ln.strip() for ln in text.splitlines()]
+    first_marker = next(
+        (i for i, ln in enumerate(raw_lines)
+         if _SET_LINE.match(ln) or _LABELED_SET_LINE.match(ln) or _ENCORE_LINE.match(ln)),
+        None,
+    )
+    if first_marker is not None and not _may_start_a_show(raw_lines[first_marker]):
+        # The marker cannot open a show, so the block above is the main body,
+        # not a header. Probe it with `_emit_items`, which has no truncation
+        # step and does no preprocessing - see that function's docstring for
+        # why "the block contains no markers by construction" was false.
+        above = [ln for ln in raw_lines[:first_marker] if ln]
+        if len(_emit_items(above)[0]) >= _RECOVER_FLOOR:
+            first_marker = None
+    if first_marker is not None:
+        raw_lines = raw_lines[first_marker:]
+    items, saw_marker = _emit_items(raw_lines)
     if saw_marker and len(items) >= 5:
         confidence = "high"
     elif len(items) >= 5:

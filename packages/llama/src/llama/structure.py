@@ -254,8 +254,32 @@ def rank_parses(parses: list[SourcedParse], target_count: int) -> SourcedParse |
 
     def key(p: SourcedParse):
         multi_set = len({i.set for i in p.parsed.items}) > 1
+        # Deprioritize a parse too short to be the whole show: under half the
+        # tape, but never fewer than 5 items - and never more than the tape
+        # itself holds, so a 3-item parse of a 3-track tape still grades
+        # plausible instead of losing to a 7-item parse of someone else's show.
+        # A soft tier, not a filter: when every candidate is short the tier is
+        # constant and the tiers below decide, so rank_parses still returns a
+        # 1-item parse rather than None.
+        # Sits ABOVE confidence because a truncated parse scores high confidence
+        # (it saw a marker) precisely when it is least complete.
+        #
+        # The min() is INERT today and is here anyway. Every non-setlist.fm
+        # candidate comes from `parse_setlist`, whose confidence is "low" iff
+        # it emitted fewer than 5 items (the confidence rule at the end of
+        # `setlist.parse_setlist` - cited by symbol, not line, because this
+        # reference has now gone stale twice as that file moved), so a parse short
+        # enough to need the min() also grades "low" and the confidence tier
+        # below would have demoted it regardless. That equivalence lives in
+        # ANOTHER MODULE, is untested, and is not a documented contract - and
+        # phase 3 rewrote that parser repeatedly. Without the min(), a change
+        # to the confidence rule silently inverts this ranking and yields a
+        # wrong winner, the hardest class of defect to notice. Do not
+        # "simplify" it back out.
+        plausible = len(p.parsed.items) >= min(target_count, max(5, target_count // 2))
         return (
             p.source == "setlist.fm",
+            plausible,
             _CONF_RANK.get(p.parsed.confidence, 0),
             multi_set,
             -abs(len(p.parsed.items) - target_count),
@@ -320,6 +344,52 @@ _SPACE_TITLE = re.compile(r"^\s*space\b", re.I)
 _DRUMS_TITLE = re.compile(r"^\s*drum[sz]\b", re.I)
 
 
+# Leading track index or duration a taper left in the tag title: "18 Lost My
+# Driving Wheel", "1. Bertha", "02) Sugaree", "[05:20] KC Jones", "05:20 KC
+# Jones". Durations are listed first as belt-and-braces only: measured,
+# reversing the alternation changes nothing on any of 20 probe titles. The
+# TRAILING `\s+` is what does the work - it is why "05:20" is never split as
+# the index "05" (the index branch matches "05", then `\s+` meets ":" and the
+# branch dies), and why the digit cap below bites at all. Dropping it changes
+# 13 of those 20.
+#
+# The 1-2 digit cap is the point of the shape, not an incidental bound: it
+# declines "1952 Vincent Black Lightning", "100 Years" and "1-800 Suicide"
+# outright. Pinned by test_the_prefix_shape_declines_long_numbers, which
+# asserts against this regex DIRECTLY - no behavioural test IN THIS SUITE pins
+# the cap, because the miss-path ordering already saves any real numeric title
+# whose item is in the window, so widening the cap to \d{1,4} leaves every
+# other test in the suite green (measured). "In this suite" is the honest
+# claim: a construction that pins it behaviourally does exist, this suite just
+# does not contain one.
+#
+# The cap does still fire on "8 Miles High" and "16 Tons", which this regex
+# therefore does NOT protect: on an enumerated tape they are saved only by the
+# miss-path ordering in `align` (they match unstripped, so the strip is never
+# reached), and elsewhere by the >=3 gate below.
+# NOT the same regex as `setlist._TRACK_PREFIX`, and deliberately so: that one
+# strips prefixes off DESCRIPTION lines, this one matches them on TRACK titles,
+# and the two vocabularies have diverged on purpose. Do not sync them.
+_TRACK_PREFIX = re.compile(
+    r"^\s*(?:\[\s*\d{1,2}:\d{2}\s*\]|\d{1,2}:\d{2}|\d{1,2}[.)\-]?)\s+")
+
+# How many prefix-carrying titles make a tape "enumerated". A document-level
+# discriminator using the same >=3 threshold as the parser's
+# `setlist._enumerated_prefix`, for the same reason: one numeric-titled song is
+# a song, three are a numbering scheme.
+#
+# The SHAPE deliberately differs from that function's `_NUM_LINE` - do not
+# "sync" them. This one counts exactly what the strip below can strip (2-digit
+# cap not 3, `-` allowed, durations allowed, trailing space required), so the
+# gate can never open on a title the fallback cannot use. Measured, 5 of 9
+# probe titles are classified differently by the two regexes.
+_ENUMERATED_MIN = 3
+
+
+def _is_enumerated_tape(tracks: list["Track"]) -> bool:
+    return sum(1 for t in tracks if _TRACK_PREFIX.match(t.title)) >= _ENUMERATED_MIN
+
+
 def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
           aliases: dict[str, str] | None = None) -> "AlignResult":
     """Map canonical set/segue structure onto tracks, in recording order.
@@ -336,6 +406,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     songs after it into the wrong set; that is why matching is worth this."""
     items = canonical.items
     norms = [fuzzy_norm_title(it.title, aliases) for it in items]
+    enumerated = _is_enumerated_tape(tracks)
     sets: list[str] = []
     segues: list[bool] = []
     matched: list[bool] = []
@@ -372,6 +443,23 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             # only for a track titled Space that directly follows Drums, and
             # never in reverse. Measured on 45 corpus shows.
             hit = next((k for k in range(j, hi) if norms[k] == "jam"), None)
+        if hit is None and enumerated:
+            # Retry the same window with the track index/duration stripped, at
+            # the matching layer only - `t.title` is never touched, since it
+            # feeds the briefing, the manifest and dj-notes.
+            #
+            # Reached ONLY after the unstripped title has already missed, which
+            # is what protects a song whose real title opens with a small
+            # number: "16 Tons" and "8 Miles High" match their own item on the
+            # line above and never arrive here. That ordering is pinned by
+            # test_the_strip_is_a_miss_path_fallback_not_an_eager_rewrite —
+            # NOT by the "8 Miles High" tests, which were measured to pass
+            # under an eager strip too (its residual "Miles High" still reaches
+            # the item by subphrase; "16 Tons" leaves one word and does not).
+            m = _TRACK_PREFIX.match(t.title)
+            bare = t.title[m.end():] if m else ""
+            if bare:
+                hit = _window_match(norms, j, hi, fuzzy_norm_title(bare, aliases))
         if hit is None:
             sets.append(sets[-1] if sets else "1")
             segues.append(False)
