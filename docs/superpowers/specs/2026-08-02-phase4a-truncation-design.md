@@ -218,14 +218,40 @@ non-Dead   636 shows  0.5056 -> 0.8508   +3933  245 better  5 worse  2 to-zero
 guard cost (AFTER -> AFTER+guard): Dead 0 worse; non-Dead 3 worse (−7 tracks)
 ```
 
-Enumerated residuals, accepted: del2026-05-24 (−1, single-track tape);
-rad2008-06-22 (−7, recovered set-1 block over a set-2-only tape — the
-partial-tape class, resolved by 4b's resync, not by this guard);
-Ween2008-07-09 (−5, free-prose banner tail beyond any closed lexicon);
-RuthieFoster2016-09-03 (−3, three-track support-set tape); bts2008-10-21
-(−2); ween2001-07-28 (−2). Six shows, −20 tracks, against +5401 across both
-corpora. Any implementation whose residual list differs must enumerate and
-explain the difference, not net it off.
+Enumerated residuals, accepted. **CORRECTED 2026-08-02 — two class labels
+here were false, and the error was systematic: the −N figures are MATCHED
+counts, and two of them had been read as TRACK counts, which made two shows
+look like tiny tapes that could be waved through. Executed track counts are
+given below.** They fall into three distinct classes and the spec must not
+blur them:
+
+- **Residual Task-1 damage the guard does not reach** (already zero on the
+  unguarded tree — the baseline pair, not the magnitude, is what identifies
+  this class): `del2026-05-24` (−1; **23 clean tracks, 21 songish — NOT a
+  single-track tape**); `Ween2008-07-09` (−5, free-prose banner tail beyond
+  any closed lexicon). File against 4b. Do **not** describe these as "the
+  guard's residual".
+- **The guard behaving correctly on a tape with no songs:** `RuthieFoster2016-09-03`
+  (−3; **13 clean tracks — NOT a three-track support-set tape**). Every one
+  of its track titles is the literal banner
+  `NN - Ruthie Foster, Strawberry Music Festival, Tuolumne CA, 03-SEPT-2016`,
+  so its 3 baseline matches were banner-track ↔ banner-item. **Zero is the
+  right answer**; restoring those matches would ship a wrong title into the
+  manifest and briefing instead of flagging for review. Any future variant
+  that "retires" this show must classify each restored match as real-song vs
+  phantom before it counts as a win.
+- **Partial-tape class, out of reach of any head-strip:** `rad2008-06-22`
+  (−7, recovered set-1 block over a set-2-only tape; resolved by 4b's resync).
+- **Genuine losses to the stage-2 lexicon, now FIXED** (see the stage-1
+  evidence requirement below): `bts2008-10-21` (−2, `Liar`);
+  `ween2001-07-28` (−2, `buckingham green` — a real Ween song). These were
+  the visible tip of an ungated open-vocabulary path: measured over both
+  corpora, 480 shows had items stripped, **15 stripped with zero metadata
+  hits**, and 3 of those stripped an item matching a real track.
+
+Six shows, −20 tracks, against +5401 across both corpora. Any implementation
+whose residual list differs must enumerate and explain the difference, not
+net it off.
 
 #### 1c. AMENDED 2026-08-02: the probe must be structurally non-truncating
 
@@ -400,8 +426,10 @@ because they built track lists differently).
    Dead ≤1 worse / ≤1 to-zero, non-Dead ≤5 worse / ≤2 to-zero on the common
    population vs `db02575`, with net matched ≥ +1400 Dead / +3900 non-Dead;
    guard cost vs the unguarded tree: 0 worse Dead, ≤3 worse non-Dead. Every
-   residual show named, with its class (partial-tape / free-prose tail /
-   sub-5-track tape). A residual list that differs from §1b's is explained
+   residual show named, with its class (residual-Task-1-damage /
+   correct-on-a-songless-tape / partial-tape / free-prose tail — the four
+   classes enumerated in §1b, **not** "tiny tape", which was a misreading of
+   matched counts as track counts). A residual list that differs from §1b's is explained
    item by item.
 2b. **§1c verified structurally:** the probe path contains no truncation
    step and no re-preprocessing (assert by construction/inspection, plus the
