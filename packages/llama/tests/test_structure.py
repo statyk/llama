@@ -733,3 +733,20 @@ def test_the_strip_needs_an_enumerated_tape():
     c = canon(("1", "Bertha", True), ("1", "Sugaree", True), ("1", "Loser", False))
     r = align([tr(1, "02 Bertha"), tr(2, "Sugaree"), tr(3, "Loser")], c)
     assert r.matched == [False, True, True]
+
+
+def test_the_prefix_shape_declines_long_numbers():
+    # Asserted against the regex DIRECTLY, deliberately. No behavioural test can
+    # pin the 1-2 digit cap: the miss-path ordering already saves any real
+    # numeric title whose item is in the window, so widening the cap to \d{1,4}
+    # leaves every other test in this file green (measured). Without this test
+    # the cap - which is what protects "1952 Vincent Black Lightning" - ships
+    # with no coverage at all.
+    from llama.structure import _TRACK_PREFIX
+    assert _TRACK_PREFIX.match("1952 Vincent Black Lightning") is None
+    assert _TRACK_PREFIX.match("100 Years") is None
+    assert _TRACK_PREFIX.match("1-800 Suicide") is None
+    assert _TRACK_PREFIX.match("2112") is None
+    # ... while still firing on a genuine 1-2 digit index or an mm:ss duration.
+    assert _TRACK_PREFIX.match("18 Lost My Driving Wheel")
+    assert _TRACK_PREFIX.match("[05:20] KC Jones")
