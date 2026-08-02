@@ -644,32 +644,72 @@ def test_gather_does_not_apply_dead_shorthand_for_a_non_family_artist(tmp_path: 
     assert "Scarlet Begonias" in show.structure.conflicts
 
 
+MCCOURY_SONGS = ["Rain and Snow", "Nashville Cats", "1952 Vincent Black Lightning",
+                 "Blue Side of Town", "Get Down On Your Knees and Pray", "All Aboard"]
+
+
+def _mccoury_md(tagged: bool):
+    """gd73 fixture restaged as a Del McCoury Band tape whose description opens
+    with the band name on its own line — the shape ~90 corpus rows actually
+    have. The song list is unmarked and single-set on purpose: a preamble ahead
+    of an explicit "Set 1:" marker is discarded by the parser, so the header
+    only survives as an item when there is no marker, which is exactly the case
+    this filter exists for (and the non-Dead corpus is ~91% single-set).
+
+    `tagged=False` strips every file's title tag, which is the common case for
+    these same rows and the one that makes the header item actively harmful:
+    it breaks `titles.resolve_titles`' `len(items) == n` gate."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["creator"] = "Del McCoury Band"
+    md["metadata"]["description"] = (
+        "Del McCoury Band\n" + "\n".join(MCCOURY_SONGS) + "\n")
+    names = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+             "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
+    retitle = dict(zip(names, MCCOURY_SONGS))
+    for f in md["files"]:
+        if f.get("name") in retitle:
+            if tagged:
+                f["title"] = retitle[f["name"]]
+            else:
+                f.pop("title", None)
+    return md
+
+
 def test_gather_drops_setlist_items_that_are_the_artist_name(tmp_path: Path):
     """A description header line ("Del McCoury Band") parses as a song. It can
     never match a track and it inflates the setlist, pushing the two-pointer
     behind until later songs fall outside the lookahead window."""
-    md = json.loads(FIXTURE.read_text())
-    md["metadata"]["creator"] = "Del McCoury Band"
-    # The shape ~90 corpus rows actually have: the band name on its own line
-    # above an unmarked, single-set song list. (A preamble ahead of an explicit
-    # "Set 1:" marker is discarded by the parser; with no marker it survives as
-    # an item, which is exactly the case this filter exists for.)
-    songs = ["Rain and Snow", "Nashville Cats", "1952 Vincent Black Lightning",
-             "Blue Side of Town", "Get Down On Your Knees and Pray", "All Aboard"]
-    md["metadata"]["description"] = "Del McCoury Band\n" + "\n".join(songs) + "\n"
-    names = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
-             "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]
-    retitle = dict(zip(names, songs))
-    for f in md["files"]:
-        if f.get("name") in retitle:
-            f["title"] = retitle[f["name"]]
     sws = ShowWorkspace(tmp_path / "show")
-    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    show = run_gather(sws, StubIA(_mccoury_md(tagged=True)), FakeProvider(),
+                      make_candidate(), IDENT)
     assert show.artist == "Del McCoury Band"
-    assert [t.title for t in show.tracks] == songs
+    assert [t.title for t in show.tracks] == MCCOURY_SONGS
     assert show.structure is not None
     # Without the filter the artist item survives as a seventh canonical item
     # that no track can ever match, and lands in conflicts.
     assert "Del McCoury Band" not in show.structure.conflicts
     assert all("mccoury" not in c.lower() for c in show.structure.conflicts)
     assert show.structure.conflicts == []
+
+
+def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
+    """The artist header must be dropped BEFORE `resolve_titles`, not merely
+    before `align`.
+
+    With no title tags — the common case for exactly the rows this targets —
+    the setlist is the only title source (this candidate has no sibling
+    recording). `titles.resolve_titles` only trusts it when the item count
+    equals the track count, so the surviving header item makes 7 != 6 and every
+    title falls through to "unresolved", holding the show for review and
+    leaving all six real songs stranded in conflicts. Dropping the header at
+    the point the data enters fixes the whole cascade at once."""
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(_mccoury_md(tagged=False)), FakeProvider(),
+                      make_candidate(), IDENT)
+    assert [t.title for t in show.tracks] == MCCOURY_SONGS
+    assert all(t.title_source == "setlist" for t in show.tracks)
+    assert not any("unresolved" in f for f in show.review_flags)
+    assert show.needs_review is False
+    assert show.structure is not None
+    assert show.structure.conflicts == []
+    assert show.structure.coverage == 1.0

@@ -189,6 +189,15 @@ def run_gather(
                                target_count=len(kept))
         canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
 
+    # Clean the canonical setlist at the point it enters the stage, before
+    # anything consumes it. An artist header line is not a song, so it has no
+    # business in title resolution either — not just in alignment. Placing this
+    # immediately before `align` would treat a data-cleaning step as an
+    # alignment concern, and `resolve_titles` below is upstream of that: it only
+    # trusts the setlist when `len(items) == len(tracks)`, so on an untagged
+    # tape one header item costs every title on the show.
+    canonical = _drop_artist_items(canonical, artist)
+
     siblings = None
     if any(not is_real_title(clean_tag_title(f.get("title"))) for f in kept) and (
         canonical.confidence == "low" or len(canonical.items) != len(kept)
@@ -231,7 +240,6 @@ def run_gather(
         # inside the Garcia universe — they are ordinary English words
         # elsewhere. Non-family shows get an empty table, which makes the
         # vocabulary a provable no-op on the non-Dead corpus.
-        canonical = _drop_artist_items(canonical, artist)
         aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
         result = align(tracks, canonical, aliases=aliases)
         alignment = "deterministic"
