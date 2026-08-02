@@ -38,7 +38,12 @@ _INLINE_MARKER = re.compile(
 # before this task widened `_TRACK_PREFIX`'s scope. It cannot touch any of
 # the hazard titles ("1952 Vincent...", "72 (This Highway's Mean)", "8 Miles
 # High", "50 Ways..."): the punctuation must sit immediately against the
-# digits, and none of those titles have punctuation there.
+# digits, and none of those titles have punctuation there. That immunity is
+# local to this regex alone, though: _TRACK_PREFIX and _NUM_PREFIX compose,
+# so once the enumerated gate is open a punctuated prefix like "02. 72 (This
+# Highway's Mean)" is stripped here to "72 (This Highway's Mean)" and then
+# _NUM_PREFIX strips the "72 " too - don't read the sentence above as "the
+# punctuated branch makes hazard titles safe" overall.
 _TRACK_PREFIX = re.compile(
     r"^\s*(?:(?:d\d+t\d+|t\d{1,2})\s*[\s.\-:]+|\d{1,3}[.)]\s+)", re.I
 )
@@ -82,8 +87,12 @@ def _enumerated_prefix(lines: list[str]) -> bool:
     numeric title. The punctuation-or-space requirement is load-bearing:
     without it, a multi-digit title truncated by `\\d{1,3}`'s 3-digit cap
     (e.g. "1952 Vincent Black Lightning" -> "195") would count as a
-    numbered line."""
-    return sum(1 for ln in lines if _NUM_LINE.match(ln)) >= 3
+    numbered line. Lines `_NOISE` will discard are excluded from the count
+    too: digit-leading lineage/provenance chatter ("24 bit 96 khz", "2 discs
+    total") would otherwise open the gate on its own on a description with
+    no numbered tracklist at all, corrupting real digit-leading titles that
+    happen to share the description."""
+    return sum(1 for ln in lines if _NUM_LINE.match(ln) and not _NOISE.search(ln)) >= 3
 
 
 _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": "3"}

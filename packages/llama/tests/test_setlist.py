@@ -336,3 +336,25 @@ def test_a_song_called_drums_survives_a_drums_credit():
     titles = [i.title for i in parse_setlist(desc).items]
     assert "Drums" in titles
     assert not any("Mickey" in t for t in titles)
+
+
+def test_noise_lines_do_not_open_the_enumerated_gate():
+    # Three digit-leading LINEAGE lines (each matches _NOISE, so each is
+    # already dropped outright by the per-line noise filter) used to still
+    # count toward the >=3 enumerated-tracklist gate, since the gate was
+    # counted BEFORE _NOISE filtering. That falsely opened the gate on a
+    # description with no numbered tracklist at all, and "8 Miles High" -
+    # a real song title that happens to start with a digit - paid for it:
+    # measured before this fix, the gate opened and _NUM_PREFIX stripped
+    # its leading "8 " down to "Miles High". With the gate counted over
+    # non-noise lines only, these 3 lineage lines don't count (only the
+    # real "8 Miles High" does, 1 < 3), the gate stays shut, and the title
+    # survives intact.
+    desc = ("2 discs total, mastered via cassette\n"
+            "1 SBD source\n"
+            "3 FLAC files seeded by taper\n"
+            "1952 Vincent Black Lightning\n"
+            "8 Miles High\n"
+            "Bertha\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["1952 Vincent Black Lightning", "8 Miles High", "Bertha"]
