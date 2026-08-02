@@ -1,4 +1,9 @@
+import json
+from pathlib import Path
+
 from llama.setlist import parse_setlist
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 GD_DESC = """Grateful Dead
 RFK Stadium 6/10/73
@@ -405,3 +410,31 @@ def test_bare_e_marker_mid_line_starts_the_encore():
     assert by_title["One More Saturday Night"] == "encore"
     # the marker must not survive inside a title
     assert all(not i.title.upper().startswith("E:") for i in items)
+
+
+def test_gd74_windsor_keeps_the_whole_setlist_around_its_inline_encore():
+    """REGRESSION CANARY. gd74_windsor is one unbroken comma-separated line
+    whose only marker is a bare mid-line "E:". When the inline-marker split
+    ran BEFORE header truncation, the manufactured "E: ..." line became the
+    first `_ENCORE_LINE` match, so `first_marker` truncation threw the entire
+    setlist away and the parse collapsed to 8 encore-only items (34 -> 8).
+    Measured over 923 cached LMA descriptions, that ordering cost 31
+    descriptions their setlists. Truncation is decided over the PRE-SPLIT
+    lines precisely so a split-created marker can never truncate anything.
+
+    This pins BOTH halves: the full 34-item parse, AND Task 5's real win -
+    the bare "E:" still starts the encore instead of leaving those songs
+    labelled with the preceding set.
+    """
+    md = json.loads((FIXTURES / "gd74_windsor_metadata.json").read_text())
+    parsed = parse_setlist(md["metadata"]["description"])
+
+    assert len(parsed.items) == 34
+    assert parsed.items[0].title == "U.S. Blues"
+    # the 26 songs above the encore marker keep the default set...
+    assert [i.set for i in parsed.items[:26]] == ["1"] * 26
+    # ...and everything from the bare "E:" onwards is the encore.
+    assert [i.set for i in parsed.items[26:]] == ["encore"] * 8
+    assert parsed.items[26].title.startswith("It's All Over Now Baby Blue")
+    # the marker itself must not survive inside a title
+    assert all(not i.title.upper().startswith("E:") for i in parsed.items)
