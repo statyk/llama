@@ -293,3 +293,22 @@ def test_two_bare_numbered_lines_do_not_open_the_gate():
     desc = "Set 1:\n01 Bertha\n02 Sugaree\n"
     titles = [i.title for i in parse_setlist(desc).items]
     assert titles == ["01 Bertha", "02 Sugaree"]
+
+
+def test_punctuated_track_numbers_strip_unconditionally_even_below_gate():
+    # Only 2 numbered lines - below the >=3 gate - but "N. Title" is
+    # unambiguous (digits + punctuation + space never shows up in a real
+    # song title) so _TRACK_PREFIX strips it regardless of the gate.
+    desc = "Set 1:\n1. Bertha\n2. Sugaree\n"
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Sugaree"]
+
+
+def test_disc_track_tokens_still_stripped_when_not_enumerated():
+    # The constraint this task was most at risk of breaking: d/t disc-track
+    # tokens must keep stripping unconditionally even when the bare-number
+    # gate never opens (only 2 lines here, both disc/track-token form, no
+    # bare numbers at all).
+    desc = "Set 1:\nd1t01 Bertha\nt02 Sugaree\n"
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Sugaree"]

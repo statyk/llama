@@ -27,11 +27,22 @@ _INLINE_MARKER = re.compile(
     r"\s+(?=(?:set\s*(?:one|two|three|i{1,3}|[123])|[123](?:st|nd|rd)\s+set|encore|e\d)\s*[:\-])",
     re.I,
 )
-# Disc/track tokens are unambiguous and always stripped.
+# Two kinds of leading number: UNAMBIGUOUS forms are stripped unconditionally
+# regardless of the enumerated-gate below — a disc/track token (d1t04, t02),
+# or a bare number immediately followed by punctuation *and* a space
+# ("1. Bertha", "2) Sugaree"). The digits-punctuation-space combination only
+# ever shows up in a real numbered tracklist, even a two-line fragment (an
+# encore-only snippet, a sibling recording's short description) that never
+# reaches the >=3 threshold below — so gating it on `enumerated` would have
+# regressed short descriptions that used to be stripped unconditionally
+# before this task widened `_TRACK_PREFIX`'s scope. It cannot touch any of
+# the hazard titles ("1952 Vincent...", "72 (This Highway's Mean)", "8 Miles
+# High", "50 Ways..."): the punctuation must sit immediately against the
+# digits, and none of those titles have punctuation there.
 _TRACK_PREFIX = re.compile(
-    r"^\s*(?:d\d+t\d+|t\d{1,2})\s*[\s.\-:]+", re.I
+    r"^\s*(?:(?:d\d+t\d+|t\d{1,2})\s*[\s.\-:]+|\d{1,3}[.)]\s+)", re.I
 )
-# A bare leading number is ambiguous: "01 Bertha" is a track number, but
+# A bare leading number is AMBIGUOUS: "01 Bertha" is a track number, but
 # "1952 Vincent Black Lightning", "8 Miles High" and "72 (This Highway's Mean)"
 # are song titles. Only strip it when the description is ENUMERATED — several
 # lines carry one — which is what distinguishes a numbered tracklist from a
