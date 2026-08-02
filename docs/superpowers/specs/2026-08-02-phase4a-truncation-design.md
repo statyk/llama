@@ -122,6 +122,126 @@ set-header cases (`spindoctors2001-09-07` et al.), which are exactly the 149
 shape. The C1 reorder fixed the split-created-marker half; this section fixes
 the line-start half.
 
+#### 1b. AMENDED 2026-08-02: the gather-side head-banner guard
+
+Task 1 as first shipped (`98ba55d`) exposed a regression the original §1 did
+not anticipate: the recovered block is sometimes a **taper banner** (band /
+venue / city / date / rig lines), and §1 places it at the head of the
+setlist — the one position where junk is unrecoverable, because `align()`'s
+pointer starts there and only advances on a match. Measured on the common
+population (shows usable under both checkouts; track construction:
+`clean_tracks` = dominant extension + consecutive-dedup; baseline pair
+`db02575` → `98ba55d`): Dead 14 shows worse, all 14 to zero matched;
+non-Dead 40 worse, 39 to zero. **The truncation rule itself is vindicated** —
+strip the banner items from `dc2022-06-18` and the recovered parse aligns
+23/23 vs the old parse's 0.6190 — and independent review established the
+deeper mechanism: `align()` has a cliff (a run of ≥4 unmatchable items
+annihilates everything downstream, wherever it sits; 3 are free). That cliff
+is pre-existing, is filed as a 4b headline, and is NOT addressed here.
+
+**Why not a song-likeness floor:** the recovered block is usually *mixed* —
+74 of 88 collapsed blocks contain ≥5 real songs below their banners — so any
+refinement of the parse-time floor is one bit deciding a which-lines
+question: keep (align 0.0) or drop (lose the songs). Rejected. `align`
+hardening is rejected for this task (4b scope; and `resolve_titles` sits
+upstream and is poisoned by the same items). The fix point is **gather**,
+which holds the one thing the parser never sees: this show's own metadata.
+That turns "is this line a song?" (open) into "is this literally this show's
+venue, city or date?" (closed).
+
+**Design: widen `_drop_artist_items` into a head-banner strip** at the same
+hoisted call site (before `resolve_titles`, per phase 3's ruling 14/15 — the
+`len(items) == len(tracks)` sibling gate then sees cleaned counts, the same
+coupling that motivated the hoist). Head-span only — a song legitimately
+colliding with the venue or city name survives mid-setlist; only the artist
+drop stays global (as shipped). No gazetteer anywhere: the place vocabulary
+is this show's metadata; the only fixed lists are rig/lineage chatter (the
+parser's own `_NOISE` vocabulary, widened) and the closed 50-state postal
+codes (matched uppercase-only, whole-item).
+
+Semantics, with every constant carrying its rationale:
+
+1. **Stage 1 — metadata span.** Within the first **K=10** items (bounds the
+   blast radius of any false positive), find the LAST item exactly matching
+   (normalized) the show's metadata: artist; venue/city/state from candidate
+   metadata, item `coverage`, and the resolved jerrybase event — each split
+   on `,`/`@`, plus leading-article-stripped and leading-digit-stripped
+   variants (the parser's own enumerated gate strips `40` off
+   `40 Watt Club` before gather sees it); and an enumerated set of date
+   renderings of the show date (month-name/abbrev × day-ordinal × year ×
+   weekday × slash/dash numeric forms — the list in the measurement harness
+   is the reference). Strip items 0..p — but ONLY if metadata items form a
+   **majority** of that span: a lone coincidental match (a song titled like
+   the city) must not eat the real songs before it. Rationale for
+   strip-to-last rather than a strict leading run: banners do not interleave
+   songs, and the strict run measured 29 residual zero-shows because it
+   stops at the first unrecognized fragment.
+2. **Stage 2 — chatter run.** From the new head, trim items matching the
+   rig/lineage lexicon (`location:`/`source`/`transfer`/`tagging` prefixes;
+   `resampl*`, `dither*`, `wavelab`, `izotope`, mic/gear vocabulary, `mics`,
+   `xlr`, `foh/fob/dfc`, urls, `N ft`/`N khz`/`N bit` shapes, digit+quote
+   heights, `row N`, model-number shapes) or the state-code list, allowing a
+   **gap of ≤2** unrecognized items when chatter resumes immediately after —
+   banner tails carry arbitrary fragments (`din`, `110`) between
+   recognizable lines, and the gap bound caps the worst false-positive cost
+   at 2 items.
+3. Then the existing global artist drop, unchanged.
+
+**Measured hazards that are now design constraints (do not relearn them):**
+- `fades?` as a chatter token matches the word *Fade*: it stripped
+  `Not Fade Away` and `West L.A. Fade Away` heads. Excluded. Any token
+  proposed for the lexicon must be checked against real titles first.
+- Bare `@`/`~`/`#` match trailing **annotation markers** Dead tapers put on
+  titles (`Peggy-O @`, `Raise The Roof #`). Anchor positionally
+  (`@ <digits>`, leading `~`) — never bare.
+- **Greedy strip + broad lexicon is the wrong combination**: putting the
+  chatter lexicon inside stage 1's strip-to-last predicate cost −10/−9/−8
+  real songs per show (toad1996-09-18, joshritter2015-05-29,
+  damienrice2015-04-14). Broad vocabulary belongs only in the
+  gap-bounded run.
+
+**Measured result (v7, the profile the implementation must reproduce or
+beat; full tables and iteration history in the measurement record kept with
+the phase-4 scratchpad):**
+
+```
+BEFORE(db02575) -> AFTER(98ba55d)+guard, common population
+Dead      1080 shows  0.7990 -> 0.8777   +1468   98 better  1 worse  1 to-zero
+non-Dead   636 shows  0.5056 -> 0.8508   +3933  245 better  5 worse  2 to-zero
+guard cost (AFTER -> AFTER+guard): Dead 0 worse; non-Dead 3 worse (−7 tracks)
+```
+
+Enumerated residuals, accepted: del2026-05-24 (−1, single-track tape);
+rad2008-06-22 (−7, recovered set-1 block over a set-2-only tape — the
+partial-tape class, resolved by 4b's resync, not by this guard);
+Ween2008-07-09 (−5, free-prose banner tail beyond any closed lexicon);
+RuthieFoster2016-09-03 (−3, three-track support-set tape); bts2008-10-21
+(−2); ween2001-07-28 (−2). Six shows, −20 tracks, against +5401 across both
+corpora. Any implementation whose residual list differs must enumerate and
+explain the difference, not net it off.
+
+#### 1c. AMENDED 2026-08-02: the probe must be structurally non-truncating
+
+The original §1 asserted the recursive probe "cannot itself truncate, since
+the block contains no markers by construction." **False.** The probe re-runs
+the full preprocessing (`html.unescape`, tag stripping), so escaped markup
+inside the block can manufacture a marker that truncates the probe's own
+input — a reviewer built a case losing 4 real songs, and the same shape can
+land five junk items at the head (one past the cliff). Corpus incidence is
+0, so it is latent, not benign. The root cause is general and belongs in the
+code comment: **the probe is a proxy, and not a faithful one — it asks what
+`parse_setlist` would make of the block in isolation, and the block is never
+parsed in isolation.** (`setlist.py:267-268` currently asserts the
+opposite; correct it.)
+
+Fix shape (structural, not conditional): extract the item-emission loop into
+a helper that operates on **already-preprocessed lines** and has **no
+truncation step**, used by both the main parse and the probe; the probe
+calls it on `raw_lines[:fm]` directly. No re-preprocessing, no recursive
+`parse_setlist`, no truncation path to guard against. Replacing "the block
+has no markers" with "no markers after unescaping" would be the same bet at
+one remove — rejected.
+
 **Existing tests that must move, named here so their changes are read as
 signal:** `test_encore_rule_above_a_tracklist_does_not_truncate` is the
 coupling guard — after §1+§2 it must be retargeted to assert the tracklist
@@ -212,9 +332,18 @@ come in slightly under the floor. Report the delta, not the projection.
 
 ## What this phase does NOT do
 
-- **No lookahead/window change of any kind** (4b). The sweep evidence and
-  design candidates are recorded in the phase-4 proposal; 4b's spec is
-  written against post-4a numbers.
+- **No lookahead/window change of any kind, and no `align()` hardening**
+  (4b). The sweep evidence and design candidates are recorded in the
+  phase-4 proposal; 4b's spec is written against post-4a numbers.
+  **Filed for 4b as its likely headline, measured this phase:** `align()`'s
+  pointer advances only on a match, so a run of ≥4 unmatchable items is an
+  absorbing barrier — coverage after a junk run at the head reads 1.0 / 1.0
+  / 1.0 / 0.0 as the run grows 1→4, and a 4-junk run at index 0/5/10 scores
+  0.00/0.25/0.50. Three junk items are free; the fourth annihilates
+  everything downstream, wherever the run sits. This is pre-existing at
+  `ad7a05e`, it is the exact mechanism by which desync destroys a show, and
+  it makes the window question sharper than the lookahead sweep alone did.
+  The §1b guard narrows how often parses feed it; only 4b removes it.
 - No set-1-first truncation change (§1, measured, header-dominated).
 - No credit-title widening (the 175 still-emitted credit-shaped titles), no
   `_NOISE` format-chatter widening, no `_NEVER_EQUAL` space-collapse keying
@@ -223,20 +352,48 @@ come in slightly under the floor. Report the delta, not the projection.
 - No trailing-decoration stripping (ruling 21 stands; the `('-','1')`
   residual remains pinned by test).
 
-## Acceptance criteria
+## Acceptance criteria (REVISED 2026-08-02 — read the note in gate 0 first)
 
 Baseline to beat: **1261 passed / 7 deselected** at `db02575`; anchoring
 **560/756, 0 disagreements**; end-to-end coverage **0.5033 non-Dead / 0.7982
 Dead**; full-corpus (stored-setlist) coverage 0.4734 non-Dead / 0.7765 Dead.
-Every reported number states its baseline pair and instrument; every
-description-level number uses the parser's own preprocessing.
+Every reported number states its baseline pair, instrument, **level (parse
+items vs aligned tracks)**, normalization function, preprocessing, and —
+for anything derived from track lists — the **Track construction** (two
+honest harnesses this phase read 53 vs 88 zero-shows from the same defect
+because they built track lists differently).
 
+0. **STANDING GATE for every remaining phase-4 task — per-show alignment
+   regression on the common population.** After every task, both corpora:
+   per-show aligned-matched delta over shows usable under BOTH the task's
+   before and after. **Any show dropping to zero matched is
+   stop-and-escalate** — zero tolerance, each case enumerated with its
+   mechanism, never netted against wins. Shows merely worse are enumerated
+   with magnitudes. Population changes (newly-qualifying shows,
+   dropped-from-population shows) are reported **separately** from
+   common-population deltas and never averaged into a headline. This gate
+   exists because the original gate 2 **passed** while 53 shows fell to zero
+   coverage: no song left the parse; the alignment collapsed. A parse-level
+   gate cannot see an alignment-level failure. Both levels are required
+   from here on.
 1. Full suite green. Anchoring unchanged or better, **0 disagreements**.
-2. **Songs lost = 0**, per description, over the full iacache sweep (now
-   2040 usable descriptions, not 923 — re-baseline the sweep first and state
-   both counts). The unit is SONGS, not items: an item-count delta cannot
-   distinguish junk from songs (ruling 17). Any lost song anywhere is
-   stop-and-escalate, enumerated, never netted against wins.
+2. **Songs lost = 0 at the parse level**, per description, over the full
+   iacache sweep (now 2052 usable descriptions, not 923 — re-baseline the
+   sweep first and state both counts; 43 iacache entries carry no
+   description field). The unit is SONGS, not items (ruling 17). This gate
+   is **necessary but not sufficient** — it is blind to alignment collapse
+   by construction; gate 0 is the other half.
+2a. **The head-banner guard (§1b) reproduces or beats the v7 profile:**
+   Dead ≤1 worse / ≤1 to-zero, non-Dead ≤5 worse / ≤2 to-zero on the common
+   population vs `db02575`, with net matched ≥ +1400 Dead / +3900 non-Dead;
+   guard cost vs the unguarded tree: 0 worse Dead, ≤3 worse non-Dead. Every
+   residual show named, with its class (partial-tape / free-prose tail /
+   sub-5-track tape). A residual list that differs from §1b's is explained
+   item by item.
+2b. **§1c verified structurally:** the probe path contains no truncation
+   step and no re-preprocessing (assert by construction/inspection, plus the
+   reviewer's escaped-markup case as a test — it must parse identically with
+   and without the escape).
 3. §1+§2 recovery: re-baseline the description sweep over the FULL iacache
    first (state the new description count next to the old 923), then report
    recovered / unchanged / regressed per marker class against the sizing
@@ -245,9 +402,10 @@ description-level number uses the parser's own preprocessing.
    unchanged from HEAD (53 items); the ~70 floor-passing Dead rows and ~146
    non-Dead rows recover, minus the unrecognized-ordinal handful, which stay
    as today and are listed.
-4. End-to-end coverage rises on BOTH corpora; matched-track deltas reported
-   against the naive-fix projections (+1091 / +554) — shortfalls explained,
-   not excused. **Prediction with falsification clause:** the miss buckets
+4. End-to-end coverage rises on BOTH corpora. The original naive-fix
+   projections (+1091 / +554) are superseded by gate 2a's guarded profile
+   (+1468 Dead / +3933 non-Dead on the common population) — measure against
+   that; shortfalls explained, not excused. **Prediction with falsification clause:** the miss buckets
    re-measured with a true-pointer classifier (see protocol) should show a
    further C→A migration on both corpora. If C does NOT fall on the shows §1
    touches, the recovered blocks are not the real setlists and §1 needs
@@ -304,6 +462,16 @@ track-side prefixes         +96 floor                +164 floor
 rank_parses re-rank         insurance (defect class closed by §1; gate 6 sizes it)
 combined                   ≈ +1900 potential matched tracks vs phase 3's +231 e2e
 ```
+
+**AMENDED 2026-08-02:** the naive projections above were made before the
+banner regression was found; the operative figures are §1b's guarded
+profile — **+1468 Dead / +3933 non-Dead matched on the common population**
+(the guard recovers alignment on shows the naive projection scored at the
+parse level only, which is why the guarded numbers exceed the naive ones).
+The measurement record with the full iteration history (v1–v7, including the
+three designs that failed and why) sits with the phase-4 scratchpad
+(`phase4/RESULTS.md`, `dump.py`, `compare.py`), preserved alongside the
+phase-3 ledger's audit directory.
 
 New authoritative end-to-end HEAD baselines for 4b to be designed against
 (post-backfill, full corpora): **non-Dead 0.5033 (6070/11734, 641 shows);
