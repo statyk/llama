@@ -354,7 +354,7 @@ def test_noise_lines_do_not_open_the_enumerated_gate():
     # "Miles High". Counting the gate over non-noise lines only means
     # these 3 lines don't count (only the real "8 Miles High" does,
     # 1 < 3), the gate stays shut, and the title survives intact.
-    desc = ("2 discs total, mastered via cassette\n"
+    desc = ("2 Disc Two, mixdown by the crew\n"  # word-numeral disc-marker alternative
             "1 SBD source\n"
             "3 FLAC files seeded by taper\n"
             "1952 Vincent Black Lightning\n"
