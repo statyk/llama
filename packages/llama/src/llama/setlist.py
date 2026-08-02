@@ -87,11 +87,22 @@ def _enumerated_prefix(lines: list[str]) -> bool:
     numeric title. The punctuation-or-space requirement is load-bearing:
     without it, a multi-digit title truncated by `\\d{1,3}`'s 3-digit cap
     (e.g. "1952 Vincent Black Lightning" -> "195") would count as a
-    numbered line. Lines `_NOISE` will discard are excluded from the count
-    too: digit-leading lineage/provenance chatter ("24 bit 96 khz", "2 discs
-    total") would otherwise open the gate on its own on a description with
-    no numbered tracklist at all, corrupting real digit-leading titles that
-    happen to share the description."""
+    numbered line.
+
+    Lines `_NOISE` will discard are excluded from the count too. This is
+    defensive hardening, not a fix for a measured corpus problem: a line
+    the parser is about to discard anyway (lineage/provenance chatter
+    matching `_NOISE`, e.g. "1 SBD source", "3 FLAC files seeded by taper")
+    should not get a vote on whether the description is an enumerated
+    tracklist, on principle - it would otherwise open the gate on its own
+    on a description with no real numbered tracklist at all, corrupting
+    real digit-leading titles that happen to share the description. Rows
+    with >=3 digit-leading format-chatter lines `_NOISE` does NOT already
+    catch are measured at 0 across both corpora, but that is not evidence
+    the scenario can't occur: the corpus stores post-parse setlists, so any
+    line `_NOISE` already dropped is structurally invisible to it - this
+    change's true effect is unmeasurable by that instrument, not
+    measured-zero."""
     return sum(1 for ln in lines if _NUM_LINE.match(ln) and not _NOISE.search(ln)) >= 3
 
 
