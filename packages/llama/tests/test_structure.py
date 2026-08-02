@@ -524,11 +524,9 @@ def test_align_matches_a_leading_encore_marker_item():
     # produces: title still carrying an unstripped "E: " prefix (as
     # `setlist.py:114`/`structure.py`'s `from_setlistfm` both build
     # `SetlistItem.normalized` from the UNSTRIPPED `normalize_song(title)`),
-    # but `set` now correctly "encore" rather than "1". It remains a
-    # regression guard for Task 4's `align()` change: matching the item's
-    # unstripped "E: Baby Blue" title against a track titled "Baby Blue" via
-    # `fuzzy_norm_title` (which strips "E:"/"Encore:" via `_STRUCTURE_PREFIX`)
-    # rather than the bare `normalize_song`-based `SetlistItem.normalized`.
+    # but `set` now correctly "encore" rather than "1". What it actually pins:
+    # `align` matches an item carrying a leading "E: " marker to a clean track
+    # title.
     #
     # Built by hand instead of via `canon()`: `canon()` sets `normalized=
     # norm_title(t)`, which already strips the "E:" prefix, so a canonical
