@@ -393,3 +393,15 @@ def test_word_numeral_disc_marker_survives_a_comma_run_without_junk_title_fix():
     desc = "Set 1: Bertha, Disc Two, Sugaree\n"
     titles = [i.title for i in parse_setlist(desc).items]
     assert titles == ["Bertha", "Sugaree"]
+
+
+def test_bare_e_marker_mid_line_starts_the_encore():
+    desc = ("Set 2: Truckin', Stella Blue, Sugar Magnolia; "
+            "E: Goin' Down The Road Feelin' Bad, One More Saturday Night")
+    items = parse_setlist(desc).items
+    by_title = {i.title: i.set for i in items}
+    assert by_title["Sugar Magnolia"] == "2"
+    assert by_title["Goin' Down The Road Feelin' Bad"] == "encore"
+    assert by_title["One More Saturday Night"] == "encore"
+    # the marker must not survive inside a title
+    assert all(not i.title.upper().startswith("E:") for i in items)

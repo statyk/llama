@@ -21,10 +21,16 @@ _LABELED_SET_LINE = re.compile(
 _LABELED_ORDINAL = {"first": "1", "second": "2", "third": "3"}
 _ENCORE_LINE = re.compile(r"^(?:encore|e\d?)\s*(?::|-\s|$)\s*(.*)$", re.I)
 # A set/encore marker mid-line ("... Bertha Set II: Playin' ...") starts a new
-# set: break the line there. Inline markers must carry a colon/dash - unlike
-# line-start markers - so prose like "the second set" never splits a title.
+# set: break the line there. Inline markers must carry a colon or a dash
+# followed by space - unlike line-start markers - so prose like "the second
+# set" never splits a title.
+#
+# The encore digit is OPTIONAL, matching _ENCORE_LINE's "e\d?": a bare "E:"
+# mid-line is the single most common encore marker in LMA descriptions, and
+# requiring the digit left the encore songs labelled with the preceding set.
 _INLINE_MARKER = re.compile(
-    r"\s+(?=(?:set\s*(?:one|two|three|i{1,3}|[123])|[123](?:st|nd|rd)\s+set|encore|e\d)\s*[:\-])",
+    r"\s+(?=(?:set\s*(?:one|two|three|i{1,3}|[123])|[123](?:st|nd|rd)\s+set"
+    r"|encore|e\d?)\s*(?::|-\s))",
     re.I,
 )
 # Two kinds of leading number: UNAMBIGUOUS forms are stripped unconditionally

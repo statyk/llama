@@ -505,48 +505,45 @@ def test_merged_run_needs_every_component_to_match():
     assert r.merge_conflicts == []
 
 
-def test_align_matches_a_leading_encore_marker_item_characterization():
-    # CHARACTERIZES A KNOWN PARSER DEFECT - this is NOT a specification of
-    # desired behavior. `setlist.py`'s `_INLINE_MARKER` requires a set/encore
-    # marker to carry a MANDATORY digit ("e\d") to split mid-line, so a bare
-    # mid-line "E:" never triggers a split. Contrast `_ENCORE_LINE`, which
-    # uses "e\d?" (digit optional) and so DOES recognize a bare "E:" at line
-    # start. A description like "...Sugar Magnolia; E: Goin' Down the
-    # Road..." therefore leaves the encore song's canonical item stamped with
-    # the PRECEDING numbered set, title still carrying the "E: " prefix (per
-    # the project owner, bare-"E:" items of this shape occur in the corpus:
-    # 18 shows for "Brokedown Palace", 11 for "Johnny B. Goode", 7 for
-    # "Casey Jones", 7 for "Black Muddy River").
+def test_align_matches_a_leading_encore_marker_item():
+    # Formerly a characterization test pinning a KNOWN PARSER DEFECT:
+    # `setlist.py`'s `_INLINE_MARKER` used to require a set/encore marker to
+    # carry a MANDATORY digit ("e\d") to split mid-line, so a bare mid-line
+    # "E:" never triggered a split, and a description like "...Sugar
+    # Magnolia; E: Goin' Down the Road..." left the encore song's canonical
+    # item stamped with the PRECEDING numbered set (per the project owner,
+    # bare-"E:" items of this shape occur in the corpus: 18 shows for
+    # "Brokedown Palace", 11 for "Johnny B. Goode", 7 for "Casey Jones", 7
+    # for "Black Muddy River"). Phase 3 fixed `_INLINE_MARKER` to match
+    # `_ENCORE_LINE`'s optional digit ("e\d?"), so the parser now correctly
+    # labels such items "encore" instead of the preceding set.
     #
-    # Task 4 made align()'s item side compare through `fuzzy_norm_title` (which
-    # strips "E:"/"Encore:" via `_STRUCTURE_PREFIX`) instead of the bare
-    # `normalize_song`-based `SetlistItem.normalized`. The track side was
-    # already prefix-stripped, so a canonical item literally titled
-    # "E: Baby Blue" can now match a track titled "Baby Blue" - previously it
-    # could not match at all. The set label the track receives is whatever the
-    # (possibly wrong) item carries, here "1", not "encore".
-    #
-    # This is accepted for phase 2 and is not fixed here. Fixing
-    # `_INLINE_MARKER` in `setlist.py` (phase 3) to also split on a bare mid-
-    # line "E:" is expected to CHANGE the set-label assertion below.
+    # This test no longer exercises the parser (it builds the canonical item
+    # by hand), so the fix isn't visible by re-running it unchanged - it is
+    # retargeted to lock in the CORRECTED item shape a fixed parser now
+    # produces: title still carrying an unstripped "E: " prefix (as
+    # `setlist.py:114`/`structure.py`'s `from_setlistfm` both build
+    # `SetlistItem.normalized` from the UNSTRIPPED `normalize_song(title)`),
+    # but `set` now correctly "encore" rather than "1". It remains a
+    # regression guard for Task 4's `align()` change: matching the item's
+    # unstripped "E: Baby Blue" title against a track titled "Baby Blue" via
+    # `fuzzy_norm_title` (which strips "E:"/"Encore:" via `_STRUCTURE_PREFIX`)
+    # rather than the bare `normalize_song`-based `SetlistItem.normalized`.
     #
     # Built by hand instead of via `canon()`: `canon()` sets `normalized=
     # norm_title(t)`, which already strips the "E:" prefix, so a canonical
     # item built that way never actually carries the "E: " prefix in
-    # `.normalized` and this test would pass even against the pre-branch
-    # matcher - proving nothing about the defect above. Production builds
-    # `SetlistItem.normalized` as the UNSTRIPPED `normalize_song(title)`
-    # (`setlist.py:114`, `structure.py`'s `from_setlistfm:217`), so this test
-    # reproduces that here to genuinely exercise the defect.
+    # `.normalized` and this test would pass even without Task 4's `align()`
+    # change - proving nothing about the fuzzy-matching behavior above.
     c = ParsedSetlist(items=[
         SetlistItem(title="Sugar Magnolia", normalized=normalize_song("Sugar Magnolia"),
                     set="1", segue=False),
         SetlistItem(title="E: Baby Blue", normalized=normalize_song("E: Baby Blue"),
-                    set="1", segue=False),
+                    set="encore", segue=False),
     ], confidence="high")
     r = align([tr(1, "Sugar Magnolia"), tr(2, "Baby Blue")], c)
     assert r.matched == [True, True]
-    assert r.sets == ["1", "1"]  # NOT "encore" - see comment above
+    assert r.sets == ["1", "encore"]
 
 
 def test_filler_covers_spoken_and_break_segments():
