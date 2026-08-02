@@ -579,3 +579,20 @@ def test_gather_set_breaks_out_of_range_errors(tmp_path: Path):
     write_artifact(ws.overrides, Overrides(set_breaks=[99]))
     with pytest.raises(LlamaError):
         run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+
+
+def test_gather_flags_a_merged_track_spanning_a_set_break(tmp_path: Path):
+    """A merged track whose components land in different sets must hold the
+    show rather than ship: the parse is provably wrong."""
+    # The gd73 fixture's canonical setlist breaks between "I Know You Rider"
+    # (end of set 1) and "Dark Star" (start of set 2). Retag the d1t03 track
+    # (tagged "I Know You Rider") as though the taper merged it onto the next
+    # set's opener across the actual intermission break.
+    md = json.loads(FIXTURE.read_text())
+    for f in md["files"]:
+        if f.get("name") == "gd73-06-10d1t03.mp3":
+            f["title"] = "I Know You Rider > Dark Star"
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert show.needs_review
+    assert any("span a set break" in f for f in show.review_flags)

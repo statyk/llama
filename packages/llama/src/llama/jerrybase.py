@@ -12,7 +12,8 @@ from collections.abc import Iterable
 from importlib import resources
 
 from llama.models import JerrybaseEvent, JerrybaseSet, Track
-from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
+from llama.songs import GD_SHORTHAND
+from llama.structure import fuzzy_title_eq, title_components
 
 log = logging.getLogger("llama")
 
@@ -170,13 +171,24 @@ def _closer_candidates(tracks: list[Track], closer: str) -> list[int]:
     because taper tags and canonical names disagree constantly. Exact matches
     win outright: when any candidate matches exactly, the fuzzy ones are
     discarded, so "Not Fade Away" prefers the track actually called that over
-    one called "Not Fade Away Chant"."""
-    target = fuzzy_norm_title(closer)
-    exact = [i for i, t in enumerate(tracks) if title_components(t.title)[-1] == target]
+    one called "Not Fade Away Chant".
+
+    The Dead shorthand table is applied unconditionally here, with no
+    caller-side family gate: a jerrybase event only exists for artists in the
+    dataset, so this path is inherently gated already.
+
+    The target itself goes through `title_components`, not `fuzzy_norm_title`
+    directly, so both sides strip a trailing parenthetical the same way — the
+    track side already did (Task 3), and leaving the closer side raw made
+    "Caution (Do Not Stop on Tracks)" and "Playin' In The Band (reprise)"
+    demote out of the exact tier or stop matching altogether."""
+    target = title_components(closer, GD_SHORTHAND)[-1]
+    exact = [i for i, t in enumerate(tracks)
+             if title_components(t.title, GD_SHORTHAND)[-1] == target]
     if exact:
         return exact
     return [i for i, t in enumerate(tracks)
-            if fuzzy_title_eq(title_components(t.title)[-1], target)]
+            if fuzzy_title_eq(title_components(t.title, GD_SHORTHAND)[-1], target)]
 
 
 def _resolve_positions(candidates: list[list[int]]) -> list[int] | None:

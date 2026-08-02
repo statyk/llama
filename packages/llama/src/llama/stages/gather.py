@@ -11,6 +11,7 @@ from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
                           SourcedParse, StructureInfo)
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
+from llama.songs import GD_SHORTHAND
 from llama.structure import (align, apply_llm_alignment, blend_segues,
                              from_setlistfm, norm_title, rank_parses,
                              structure_guard, venues_equivalent)
@@ -209,7 +210,12 @@ def run_gather(
         alignment = "override"
         coverage, conflicts = 1.0, []
     else:
-        result = align(tracks, canonical)
+        # Single-word Dead shorthand ("Scarlet", "Dew", "Help") is only safe
+        # inside the Garcia universe — they are ordinary English words
+        # elsewhere. Non-family shows get an empty table, which makes the
+        # vocabulary a provable no-op on the non-Dead corpus.
+        aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
+        result = align(tracks, canonical, aliases=aliases)
         alignment = "deterministic"
         # Jerrybase closers are ground truth for where breaks fall, so anchoring
         # is tried on its own evidence and wins whenever it succeeds — it is not
@@ -256,6 +262,9 @@ def run_gather(
                   for t, s, g in zip(tracks, result.sets, result.segues)]
         breaks = set_breaks(tracks)
         coverage, conflicts = result.coverage, result.conflicts
+        if result.merge_conflicts:
+            nums = ", ".join(str(n) for n in result.merge_conflicts)
+            flags.append(f"merged track(s) {nums} span a set break")
 
     # Multi-event handling. Held grouping catch-alls flag directly; an
     # unpartitioned multi-event date keeps the blanket flag (defensive); a

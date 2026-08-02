@@ -338,3 +338,47 @@ def test_is_family_artist_covers_dataset_and_extras():
     # Not family: must get no Dead vocabulary.
     assert not jerrybase.is_family_artist("Fugazi")
     assert not jerrybase.is_family_artist("")
+
+
+from llama.songs import GD_SHORTHAND
+from llama.structure import title_components
+
+
+def test_closer_matching_uses_dead_shorthand():
+    # The closer path is inherently family-gated (an event only exists for
+    # artists in the dataset), so the table applies with no caller opt-in.
+    tracks = _tracks(["Truckin'", "Scarlet", "Sugaree"])
+    assert jerrybase._closer_candidates(tracks, "Scarlet Begonias") == [1]
+
+
+def test_closer_matching_strips_a_trailing_parenthetical_on_both_sides():
+    # "Caution (Do Not Stop on Tracks)" is a real jerrybase closer. The track
+    # side already stripped a trailing parenthetical (Task 3); leaving the
+    # closer side raw made this asymmetric — the taper's own bare "Caution"
+    # never even reached the fuzzy tier (a one-word floor blocks it), and the
+    # taper's full-title track demoted out of the exact tier. Symmetric
+    # stripping via title_components fixes both.
+    tracks = _tracks(["Caution", "Caution (Do Not Stop on Tracks)", "Other"])
+    candidates = jerrybase._closer_candidates(tracks, "Caution (Do Not Stop on Tracks)")
+    assert set(candidates) == {0, 1}
+    # The exact tier alone (both sides stripped to "caution") must contain the
+    # full-title track, not demote it to the fuzzy tier.
+    exact_target = title_components("Caution (Do Not Stop on Tracks)", GD_SHORTHAND)[-1]
+    assert title_components(tracks[1].title, GD_SHORTHAND)[-1] == exact_target
+
+
+def test_closer_matching_reprise_strips_paren_and_hits_the_shorthand_alias():
+    # "Playin' In The Band (reprise)" is a real jerrybase closer. Stripping
+    # "(reprise)" yields "playin in the band", which DEFAULT_ALIASES maps to
+    # "playing in the band" — the same normalized form as a plain taper track
+    # titled "Playing in the Band".
+    tracks = _tracks(["Playing in the Band"])
+    assert jerrybase._closer_candidates(tracks, "Playin' In The Band (reprise)") == [0]
+
+
+def test_closer_matching_preserves_a_leading_parenthetical():
+    # "(I'm A) Road Runner" is a real jerrybase closer with a LEADING paren.
+    # _TRAILING_PAREN is end-anchored, so it must not be touched — collapsing
+    # it would wrongly equate "(I'm A) Road Runner" with a bare "Road Runner".
+    tracks = _tracks(["(I'm A) Road Runner", "Road Runner"])
+    assert jerrybase._closer_candidates(tracks, "(I'm A) Road Runner") == [0]
