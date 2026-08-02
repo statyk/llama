@@ -233,3 +233,117 @@ convincing no-change.
 `normalize_song`, `DEFAULT_ALIASES`, `SetlistItem.normalized`, the lookahead
 window width, `blend_segues`, `rank_parses`, the setlist description parser, and
 every stage other than `gather`.
+
+## Measured results (phase 2)
+
+Measured at `12ad238` against both corpora in `~/projects/llama-setlist-analysis/`,
+using the worktree's own venv so `llama` resolves to the branch under test
+(verified: `llama.__file__` points into the worktree, not the main checkout).
+
+**Tests: 1227 passed, 7 deselected** (baseline 1201).
+
+### Jerrybase anchoring — the phase-1 profile holds and improves
+
+```
+Dead corpus (1181 rows, 756 with jerrybase evidence)
+  anchors today          385/756
+  anchors with new rules 534/756   (+149)
+  identical where both anchor: 383      DISAGREE: 0
+```
+
+Phase 1 measured 530; this phase adds 4 more and still disagrees with the old
+rule on nothing. The non-Dead corpus is 0/0 as expected — those artists have no
+jerrybase rows at all.
+
+### `align()` — the headline, and the anti-overfit guard
+
+Mean per-show songish coverage and matched song-like tracks, old (main) vs new:
+
+```
+                     shows   song-like   coverage         matched
+Dead corpus          1079      21324     0.5808 -> 0.7598   12751 -> 16738  (+3987, +31%)
+non-Dead corpus       637      12201     0.3290 -> 0.4653    4246 ->  5996  (+1750, +41%)
+```
+
+**The non-Dead corpus improves slightly more, proportionally, than the Dead
+one.** That is the anti-overfit guard passing decisively rather than merely not
+failing: every rule here was derived from Dead tapes, the family-gated table is
+switched off for all 637 of those shows, and they still gain more. The gain
+there comes purely from the `&` fold, subphrase matching, components and the
+parenthetical drop — all genuinely general.
+
+Note on an earlier figure: the whole-branch reviewer reported coverage
+0.2001 -> 0.2595 (Dead) and 0.0918 -> 0.1306 (non-Dead). Those absolute values
+could not be reproduced here and evidently use a different denominator, but the
+*relative* gains (+30% and +42%) match the +31% and +41% measured above to
+within a point. Both describe the same effect on different bases; the figures in
+this section are the ones to cite, because their denominator is stated.
+
+### The family gate, demonstrated
+
+```
+Dead corpus      840 shows gated ON,   239 OFF
+non-Dead corpus    0 shows gated ON,   637 OFF   (all 874 raw rows off-family)
+```
+
+`GD_SHORTHAND` reaches no non-Dead show. Acceptance criterion 5 is met by
+measurement, not assertion. `test_gather_does_not_apply_dead_shorthand_for_a_non_family_artist`
+pins the same property at the gather level, and was verified to fail when the
+gate is bypassed.
+
+### Two-word floor re-validated with the table
+
+517 distinct set closers after the parenthetical drop. Fuzzy-equal pairs:
+**16 with `GD_SHORTHAND` applied, and the identical 16 without it** — the table
+introduces exactly zero new pairs, so `_NEVER_EQUAL` needs no additions.
+
+Across all 7158 jerrybase events, **no event carries both members of any of the
+16 pairs**, so none can be confused with the other in practice. Fourteen are one
+song under two spellings (`day job`/`keep your day job`,
+`mississippi half step`/`... uptown toodeloo`, `the valley road`/`valley road`);
+two are the deferred `X`/`X Jam` shape (`the other one`/`the other one jam`,
+`uncle johns band`/`uncle johns band jam`). Phase 1's single cross-song pair
+(`its all over now` / `... baby blue`) no longer appears — `_NEVER_EQUAL` is
+suppressing it, which is the blocklist working.
+
+### Merged runs
+
+Merge-run matching fires on 169 Dead and 95 non-Dead usable shows.
+`merge_conflicts` fires on **zero** shows in either corpus: the path is well
+exercised without producing a review-flag storm. The flag remains a defensive
+guard for a condition that is physically impossible, and the corpus agrees it is
+rare.
+
+### Finding I2 priced, and deliberately NOT fixed
+
+The whole-branch review rated as Important that `align()`'s single-match
+fallback recomputes from the raw title (`structure.py:329`), discarding Task 3's
+parenthetical drop — so `Drums > (tape flip)` and `Space > patch` still miss.
+Measured by re-running with the fallback using the surviving component:
+
+```
+Dead corpus      +7 matched tracks across 17 shows;  7 shows change breaks
+non-Dead corpus  -31 matched tracks across  4 shows;  1 show changes breaks
+```
+
+**The fix is net negative on the anti-overfit corpus.** Using a single
+component's normalized form makes an early spurious match consume an item and
+push the window past later real ones, desyncing the two-pointer. The upside on
+Dead tapes is 7 tracks in 21324. Do not fix this on intuition; if it is revisited
+it needs its own measurement, and the non-Dead result is the reason.
+
+### gd 1973-08-01
+
+Verified in-process against the show's real 22 persisted tracks and the vendored
+jerrybase event: `anchor_breaks` yields breaks `[11, 20]`, and `gather.py:304`
+suppresses the closer tripwire once anchoring wins, so neither hold flag can be
+raised. The stored library entry is dated Jul 27 and still shows `[14]`; it
+predates phase 1 by five days and has never been re-gathered. A redo is deferred
+until after merge, deliberately — `redo --from gather` also re-runs
+research/vet/brief.
+
+**Plan defect worth carrying forward:** Step 8 of the implementation plan used
+`llama show`, which renders stored state and never re-runs `gather`. It cannot
+verify a code change and would have "failed" identically against phase 1's own
+merged, correct code. Future phases should verify in-process or drive a redo in
+a throwaway workspace.
