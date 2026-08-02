@@ -502,22 +502,21 @@ def test_undecorated_set_headers_are_unchanged():
 
 
 def test_encore_rule_above_a_tracklist_does_not_truncate():
-    """COUPLING GUARD - read this before "finishing" `_LEAD_DECOR`.
+    """RETARGETED - was the COUPLING GUARD; now pins the coupled fix itself.
 
-    `_LEAD_DECOR` is applied to `_SET_LINE`/`_LABELED_SET_LINE` but NOT to
-    `_ENCORE_LINE`, and that omission is a COUPLING, not caution. Recognizing
-    "---encore:" as an encore marker is *correct*. It is harmful only because
-    `parse_setlist` treats the first marker as the start of the setlist: a
-    recognized encore rule sitting below a long tracklist would make that
-    whole tracklist "header" and discard it.
+    Formerly a characterization test pinning a KNOWN COUPLING: `_ENCORE_LINE`
+    lacked `_LEAD_DECOR` tolerance on purpose, because `parse_setlist` used to
+    treat ANY first marker as the start of the setlist, and a recognized
+    "---encore:" marker sitting below a long tracklist would make the whole
+    tracklist "header" and discard it (measured: nmas2013-02-13 lost 26 real
+    songs, 32 items -> 6). That coupling is now discharged by
+    `_may_start_a_show` - an encore marker can never open a show, so it can no
+    longer truncate anything above it - so `_ENCORE_LINE` now carries the
+    same leading-decoration tolerance the set markers already had.
 
-    Measured on the real corpus: enabling the encore half costs
-    nmas2013-02-13 26 real songs (32 items -> 6), and 149 of 923 cached LMA
-    descriptions already sit in that first-marker-is-an-encore shape. The
-    encore half is built and measured, and must land WITH the header-
-    truncation fix - never before it.
-
-    If you enable it early, this test is what tells you.
+    What this test pins now: "---encore:" IS recognized as a marker (it no
+    longer survives as a literal junk title), the tracklist above it survives
+    intact, and the song below it is correctly labelled "encore".
     """
     desc = (
         "t01) Shimmy She Wobble\n"
@@ -529,7 +528,8 @@ def test_encore_rule_above_a_tracklist_does_not_truncate():
         "---encore:\n"
         "t07) Rollin\' N Tumblin\'\n"
     )
-    titles = [i.title for i in parse_setlist(desc).items]
+    items = parse_setlist(desc).items
+    titles = [i.title for i in items]
 
     # the tracklist SURVIVES - it is not eaten as header above an encore rule.
     # (The "tNN)" prefixes are left on by _TRACK_PREFIX, which requires
@@ -543,6 +543,54 @@ def test_encore_rule_above_a_tracklist_does_not_truncate():
         "t04) Blue Skies",
         "t05) Snake Drive",
         "t06) Skinny Woman",
-        "---encore:",
         "t07) Rollin\' N Tumblin\'",
     ]
+    # "---encore:" is now a recognized marker, not a title, and it correctly
+    # labels the song below it - the coupled encore-tolerance half.
+    assert [i.set for i in items] == ["1"] * 6 + ["encore"]
+
+
+def test_encore_first_marker_does_not_discard_the_setlist():
+    desc = ("Shimmy She Wobble\nBack Back Train\nCypress Grove\nDeep Ellum\n"
+            "Goin' Down South\nRolling Stone\nSkinny Woman\nStanding In My Doorway\n"
+            "Encore:\nRollin' N Tumblin'\n")
+    items = parse_setlist(desc).items
+    assert len(items) == 9
+    assert [i.title for i in items][:2] == ["Shimmy She Wobble", "Back Back Train"]
+    assert {i.set for i in items} == {"1", "encore"}
+    assert [i.set for i in items][-1] == "encore"
+
+
+def test_set_two_first_marker_does_not_discard_the_setlist():
+    # A show does not start at Set 2; the block above IS set 1.
+    desc = ("Bertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Set 2:\nTruckin'\nStella Blue\n")
+    items = parse_setlist(desc).items
+    assert [i.title for i in items][:5] == [
+        "Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+    assert [i.set for i in items] == ["1"] * 5 + ["2"] * 2
+
+
+def test_set_one_first_marker_still_truncates_its_header():
+    # Deliberately unchanged: content above a Set 1 marker is header/support-act
+    # material (measured: 43 non-Dead descriptions, sampled, header-dominated).
+    desc = ("Blues Traveler\nH.O.R.D.E. Festival\nsoundboard master\n"
+            "Runaround\nHook\nSet 1:\nBertha\nJack Straw\n")
+    assert [i.title for i in parse_setlist(desc).items] == ["Bertha", "Jack Straw"]
+
+
+def test_block_below_the_floor_still_truncates():
+    # Fewer than 5 parseable items above is junk, not a lost setlist.
+    desc = ("One Set: (1:39:44)\n1. intro\n2.\n3.\nEncore:\nBertha\n")
+    items = parse_setlist(desc).items
+    assert all(i.set == "encore" for i in items)
+
+
+def test_decorated_encore_marker_is_recognized():
+    # The coupled half: "---encore:" is a marker, not a song title.
+    desc = ("Bertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "---encore:\nOne More Saturday Night\n")
+    items = parse_setlist(desc).items
+    assert not any("encore" in i.title.lower() for i in items)
+    assert [i.set for i in items][-1] == "encore"
+    assert len(items) == 6
