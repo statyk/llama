@@ -203,7 +203,24 @@ tier (pins never escalate).
   closer resolves to its latest occurrence before the next set's closer; a
   trailing encore jerrybase has no row for is preserved, not absorbed. The
   closer tripwire only speaks when anchoring declines. Design:
-  `docs/superpowers/specs/2026-08-01-jerrybase-anchoring-design.md`. Nine named touchpoints (one
+  `docs/superpowers/specs/2026-08-01-jerrybase-anchoring-design.md`.
+  **`align()` matches fuzzily, at the matching layer only**: it normalizes both
+  the track and the setlist item at compare time via `fuzzy_norm_title`
+  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`,
+  tolerating dropped subtitles, matching merged tracks as consecutive runs, and
+  dropping credit-only parentheticals. **`songs.normalize_song` and
+  `DEFAULT_ALIASES` are deliberately NOT part of this** — folding there would
+  also move `grouping`/`vet_research`/`brief`/`setlistfm`, two of which generate
+  holds, so don't "simplify" it down a layer. Dead-canon shorthand
+  (`songs.GD_SHORTHAND`: `scarlet`→`scarlet begonias`, `chinacat`, …) is
+  **gated on artist family** — `jerrybase.is_family_artist`, derived from the
+  vendored CSV's own artist keys plus a small extras set — because `scarlet`,
+  `help`, `dew`, `eyes` and `saint` are ordinary English words off-family; the
+  jerrybase closer path applies it ungated since an event only exists for
+  artists in the dataset. `structure._NEVER_EQUAL` blocklists subphrase pairs
+  that are genuinely different songs (`It's All Over Now` vs `… Baby Blue`).
+  Design: `docs/superpowers/specs/2026-08-01-fuzzy-title-matching-design.md`.
+  Nine named touchpoints (one
   per file under `packages/llama/src/llama/prompts/` — `synthesize` is gone,
   emcee has its own separate `scriptwrite` prompt), each with a Pydantic
   output schema. LLM calls live only at stage boundaries — everything else
