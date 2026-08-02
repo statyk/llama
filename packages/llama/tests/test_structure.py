@@ -635,3 +635,21 @@ def test_a_jam_track_does_not_match_a_space_item():
     c = canon(("2", "Drums", True), ("2", "Space", True), ("2", "Stella Blue", False))
     r = align([tr(1, "Drums >"), tr(2, "Jam >"), tr(3, "Stella Blue")], c)
     assert r.matched == [True, False, True]
+
+
+def test_rank_parses_prefers_a_complete_parse_over_a_confident_fragment():
+    frag = SourcedParse(source="lma:a", parsed=ParsedSetlist(
+        items=[SetlistItem(title=f"S{n}", normalized=f"s{n}", set="encore")
+               for n in range(8)], confidence="high"))
+    full = SourcedParse(source="lma:b", parsed=ParsedSetlist(
+        items=[SetlistItem(title=f"T{n}", normalized=f"t{n}", set="1")
+               for n in range(34)], confidence="medium"))
+    assert rank_parses([frag, full], target_count=34) is full
+
+
+def test_rank_parses_keeps_todays_order_when_all_are_implausible():
+    a = SourcedParse(source="lma:a", parsed=ParsedSetlist(
+        items=[SetlistItem(title="A", normalized="a", set="1")], confidence="high"))
+    b = SourcedParse(source="lma:b", parsed=ParsedSetlist(
+        items=[SetlistItem(title="B", normalized="b", set="1")], confidence="low"))
+    assert rank_parses([a, b], target_count=40) is a

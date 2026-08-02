@@ -254,8 +254,13 @@ def rank_parses(parses: list[SourcedParse], target_count: int) -> SourcedParse |
 
     def key(p: SourcedParse):
         multi_set = len({i.set for i in p.parsed.items}) > 1
+        # A parse covering less than half the tape cannot be the show's setlist.
+        # Sits ABOVE confidence because a truncated parse scores high confidence
+        # (it saw a marker) precisely when it is least complete.
+        plausible = len(p.parsed.items) >= max(5, target_count // 2)
         return (
             p.source == "setlist.fm",
+            plausible,
             _CONF_RANK.get(p.parsed.confidence, 0),
             multi_set,
             -abs(len(p.parsed.items) - target_count),
