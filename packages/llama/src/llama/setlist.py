@@ -187,8 +187,9 @@ _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": 
 # guard different paths (whole line vs. a title surviving a comma run) and a
 # shared regex would blur that distinction for a future maintainer.
 _JUNK_TITLE = re.compile(
-    r"^\(?\d{1,3}[:.]\d{2}\)?$"
-    r"|^discs?\s*#?\s*(?:\d+|one|two|three|four|five|six|i{1,3})$",
+    r"^[(\[]?\d{1,3}[:.]\d{2}[)\]]?$"
+    r"|^discs?\s*#?\s*(?:\d+|one|two|three|four|five|six|i{1,3})$"
+    r"|^total\s+time\s*[:=]\s*\d{1,3}[:.]\d{2}(?:[:.]\d{2})?$",
     re.I,
 )
 

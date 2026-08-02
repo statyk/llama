@@ -640,3 +640,33 @@ def test_only_the_escape_changes_behaviour_not_the_literal_break():
         "Encore: Bogus", "Johnny B Goode"]
     assert [i.title for i in parse_setlist(literal).items] == [
         "Bogus", "Johnny B Goode"]
+
+
+def test_bracketed_durations_are_not_songs():
+    desc = ("Set 1:\nIntro\n[1:51]\nRamblin Boy\n[4:40]\nRiver\n[6:25]\n"
+            "Two Hits\n[3:38]\nSharecropper's Son\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Intro", "Ramblin Boy", "River", "Two Hits",
+                      "Sharecropper's Son"]
+
+
+def test_total_time_lines_are_not_songs():
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Total time = 1:34:29\n")
+    assert "Total time = 1:34:29" not in [i.title for i in parse_setlist(desc).items]
+
+
+def test_real_numeric_titles_survive_the_junk_filter():
+    # MEASURED: '333', '1977', '1662', '16' are real songs matching real tracks.
+    # A bare-number rule was rejected for breaking 8 real matches; this pins it.
+    desc = ("Set 1:\n333\n1977\n1662\n16\nBertha\n")
+    assert [i.title for i in parse_setlist(desc).items] == \
+        ["333", "1977", "1662", "16", "Bertha"]
+
+
+def test_unidentified_track_markers_survive():
+    # MEASURED: '?' items correspond to '?' TRACKS (35x) — the taper's
+    # unidentified-song marker on both sides. Positionally meaningful, not junk.
+    desc = ("Set 1:\nBertha\n?\nSugaree\n??\nBig River\n")
+    assert [i.title for i in parse_setlist(desc).items] == \
+        ["Bertha", "?", "Sugaree", "??", "Big River"]
