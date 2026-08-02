@@ -750,3 +750,66 @@ def test_the_prefix_shape_declines_long_numbers():
     # ... while still firing on a genuine 1-2 digit index or an mm:ss duration.
     assert _TRACK_PREFIX.match("18 Lost My Driving Wheel")
     assert _TRACK_PREFIX.match("[05:20] KC Jones")
+
+
+# --- Rule C: a duration glued onto the ITEM title ("Althea  [8:40]",
+# "Arguement (4:54)") - the mirror image of the _TRACK_PREFIX fallback above.
+# That one strips a leading index/duration off the TRACK title; this one
+# strips a trailing duration off the ITEM title. Both are miss-path-only
+# fallbacks over the same cascade and neither touches the other's side.
+
+def test_duration_glued_to_item_title_matches_square_bracket_style():
+    c = canon(("1", "Althea  [8:40]", True), ("1", "Bertha", False))
+    r = align([tr(1, "Althea"), tr(2, "Bertha")], c)
+    assert r.matched == [True, True]
+    assert r.sets == ["1", "1"]
+
+
+def test_duration_glued_to_item_title_matches_paren_style():
+    c = canon(("1", "Arguement (4:54)", True), ("1", "Bertha", False))
+    r = align([tr(1, "Arguement"), tr(2, "Bertha")], c)
+    assert r.matched == [True, True]
+
+
+def test_duration_glued_to_item_title_matches_bare_style():
+    # Single-word title, deliberately: a multi-word title with a bare
+    # trailing duration ("Eyes Of The World 11:20") is already rescued by the
+    # existing subphrase fallback in `fuzzy_title_eq` (the unstripped item
+    # normalizes to "eyes of the world 11 20", and the track's "eyes of the
+    # world" is a contiguous subphrase of that) - so it would pass even
+    # without this fallback and wouldn't actually pin it. `fuzzy_title_eq`'s
+    # subphrase check requires >= 2 words on the shorter side, so a
+    # single-word title like "Feedback" gets no such rescue and genuinely
+    # needs the new fallback.
+    c = canon(("1", "Feedback 3:15", True), ("1", "Bertha", False))
+    r = align([tr(1, "Feedback"), tr(2, "Bertha")], c)
+    assert r.matched == [True, True]
+
+
+def test_duration_strip_never_touches_the_stored_item_title():
+    # Matching-layer only: `SetlistItem.title` feeds the briefing and the
+    # manifest and must survive `align()` byte-for-byte, glued duration and
+    # all.
+    c = canon(("1", "Althea  [8:40]", True), ("1", "Bertha", False))
+    align([tr(1, "Althea"), tr(2, "Bertha")], c)
+    assert c.items[0].title == "Althea  [8:40]"
+
+
+def test_glued_duration_strip_is_a_miss_path_fallback_not_an_eager_rewrite():
+    # "5:15" (The Who) is a real song title shaped exactly like a glued
+    # duration. It must match its own item unstripped; an eager strip would
+    # empty the item's norm before the plain compare ever runs and lose it.
+    c = canon(("1", "5:15", True), ("1", "Bertha", False))
+    r = align([tr(1, "5:15"), tr(2, "Bertha")], c)
+    assert r.matched == [True, True]
+    assert r.sets == ["1", "1"]
+
+
+def test_a_mid_title_duration_is_never_stripped():
+    # The bracket sits mid-title, not at the end, so it must never be
+    # stripped - an unanchored strip would corrupt this item down to
+    # "terrapin station suite", which collides with an unrelated track that
+    # legitimately has no duration in it at all.
+    c = canon(("1", "Terrapin Station [8:40] Suite", True), ("1", "Bertha", False))
+    r = align([tr(1, "Terrapin Station Suite"), tr(2, "Bertha")], c)
+    assert r.matched == [False, True]
