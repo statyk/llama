@@ -79,6 +79,30 @@ _NUM_PREFIX = re.compile(r"^\s*\d{1,3}(?:\s*[.)]+\s*|\s+)")
 # truncates it to "195" and the stray "2" would look like the title start.
 _NUM_LINE = re.compile(r"^\s*\d{1,3}\s*(?:[.)]+\s*|\s+)\S")
 
+# Lines that are lineage/provenance chatter, not songs. Checked before song splitting.
+_NOISE = re.compile(
+    r"(recorded|transfer|lineage|source|taper|shnid|seeded|thanks|conversion|remaster"
+    r"|\bsbd\b|\bdat\b|\bflac\b|\bshn\b|cassette|master reel|\bvia\b|d\d+t\d+\s*$"
+    # Disc markers, digit form ("Disc #2") and word-numeral form ("Disc Two",
+    # "Disc II") - archive.org descriptions use both conventions. Measured:
+    # word-numeral form newly catches 37 distinct/44 occurrences (Dead) and
+    # 16 distinct/54 occurrences (non-Dead) of pure junk, 0 false positives
+    # on real songs. Two known casualties, 2 occurrences against that 98:
+    # a noise line with a real song glued onto it in the same physical line
+    # ("Disc Two 1. Eyes of the World", "5. Drums Set Two Disc Three
+    # 1. Space") loses the glued-on song too, since a whole matching line is
+    # dropped outright below. Same compound-heuristic class as the
+    # _TRACK_PREFIX/_NUM_PREFIX composition note above - an accepted trade,
+    # not a clean win.
+    r"|\bdiscs?\s*#?\s*(?:\d|one|two|three|four|five|six|i{1,3}\b)"
+    # "Jerry Garcia - guitar", "Bill Kreutzmann - drums": a name, a dash, an
+    # instrument. Anchored on the dash so a bare "Drums" song line is untouched.
+    r"|[a-z]\s+[-–—]\s*(?:guitar|bass|drums?|vocals?|keyboards?|piano"
+    r"|organ|percussion|harmonica|mandolin|fiddle|banjo|sax(?:ophone)?)\s*$"
+    r"|^comments?\b)",
+    re.I,
+)
+
 
 def _enumerated_prefix(lines: list[str]) -> bool:
     """True when at least 3 lines begin with a number followed by
@@ -107,29 +131,6 @@ def _enumerated_prefix(lines: list[str]) -> bool:
 
 
 _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": "3"}
-# Lines that are lineage/provenance chatter, not songs. Checked before song splitting.
-_NOISE = re.compile(
-    r"(recorded|transfer|lineage|source|taper|shnid|seeded|thanks|conversion|remaster"
-    r"|\bsbd\b|\bdat\b|\bflac\b|\bshn\b|cassette|master reel|\bvia\b|d\d+t\d+\s*$"
-    # Disc markers, digit form ("Disc #2") and word-numeral form ("Disc Two",
-    # "Disc II") - archive.org descriptions use both conventions. Measured:
-    # word-numeral form newly catches 37 distinct/44 occurrences (Dead) and
-    # 16 distinct/54 occurrences (non-Dead) of pure junk, 0 false positives
-    # on real songs. Two known casualties, 2 occurrences against that 98:
-    # a noise line with a real song glued onto it in the same physical line
-    # ("Disc Two 1. Eyes of the World", "5. Drums Set Two Disc Three
-    # 1. Space") loses the glued-on song too, since a whole matching line is
-    # dropped outright below. Same compound-heuristic class as the
-    # _TRACK_PREFIX/_NUM_PREFIX composition note above - an accepted trade,
-    # not a clean win.
-    r"|\bdiscs?\s*#?\s*(?:\d|one|two|three|four|five|six|i{1,3}\b)"
-    # "Jerry Garcia - guitar", "Bill Kreutzmann - drums": a name, a dash, an
-    # instrument. Anchored on the dash so a bare "Drums" song line is untouched.
-    r"|[a-z]\s+[-–—]\s*(guitar|bass|drums?|vocals?|keyboards?|piano"
-    r"|organ|percussion|harmonica|mandolin|fiddle|banjo|sax(?:ophone)?)\s*$"
-    r"|^comments?\b)",
-    re.I,
-)
 
 # Emitted-title junk: a bare duration or a disc marker that survived line-level
 # noise filtering because it sat inside a comma-separated run (e.g. a
