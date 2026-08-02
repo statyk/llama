@@ -90,9 +90,25 @@ _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": 
 # Lines that are lineage/provenance chatter, not songs. Checked before song splitting.
 _NOISE = re.compile(
     r"(recorded|transfer|lineage|source|taper|shnid|seeded|thanks|conversion|remaster"
-    r"|\bsbd\b|\bdat\b|\bflac\b|\bshn\b|cassette|master reel|\bvia\b|d\d+t\d+\s*$|disc\s*\d)",
+    r"|\bsbd\b|\bdat\b|\bflac\b|\bshn\b|cassette|master reel|\bvia\b|d\d+t\d+\s*$"
+    r"|disc\s*#?\s*\d"
+    # "Jerry Garcia - guitar", "Bill Kreutzmann - drums": a name, a dash, an
+    # instrument. Anchored on the dash so a bare "Drums" song line is untouched.
+    r"|[a-z]\s+[-–—]\s*(guitar|bass|drums?|vocals?|keyboards?|piano"
+    r"|organ|percussion|harmonica|mandolin|fiddle|banjo|sax(?:ophone)?)\s*$"
+    r"|^comments?\b)",
     re.I,
 )
+
+# Emitted-title junk: a bare duration or a disc marker that survived line-level
+# noise filtering because it sat inside a comma-separated run.
+_JUNK_TITLE = re.compile(r"^\(?\d{1,3}[:.]\d{2}\)?$|^disc\s*#?\s*\d+$", re.I)
+
+
+def _is_junk_title(title: str) -> bool:
+    return bool(_JUNK_TITLE.match(title.strip()))
+
+
 # Older LMA items often give the whole setlist as one unbroken, comma/segue-separated
 # line with no per-set headers or line breaks at all. A per-line length cap would throw
 # the entire thing out, so the length guard against prose noise is applied per split
@@ -167,6 +183,8 @@ def parse_setlist(description: str) -> ParsedSetlist:
         for title, segue in _split_songs(rest):
             if len(title) > MAX_TITLE_LEN:
                 continue  # implausibly long fragment - prose, not a song title
+            if _is_junk_title(title):
+                continue
             items.append(
                 SetlistItem(
                     title=title,

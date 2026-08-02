@@ -312,3 +312,27 @@ def test_disc_track_tokens_still_stripped_when_not_enumerated():
     desc = "Set 1:\nd1t01 Bertha\nt02 Sugaree\n"
     titles = [i.title for i in parse_setlist(desc).items]
     assert titles == ["Bertha", "Sugaree"]
+
+
+def test_personnel_credits_are_not_songs():
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Jerry Garcia - guitar\nBob Weir - guitar\n"
+            "Bill Kreutzmann - drums\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_bare_durations_and_disc_markers_are_not_songs():
+    desc = ("Set 1:\nBertha\n(13:33)\nJack Straw\n01:50\nDisc #2\n"
+            "Sugaree\nRow Jimmy\nBig River\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_a_song_called_drums_survives_a_drums_credit():
+    # "Bill Kreutzmann - drums" is a credit; a bare "Drums" is a song.
+    desc = ("Set 2:\nTruckin'\nDrums\nSpace\nStella Blue\nSugar Magnolia\n"
+            "Mickey Hart - drums\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert "Drums" in titles
+    assert not any("Mickey" in t for t in titles)
