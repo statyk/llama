@@ -156,6 +156,12 @@ def test_gather_setlistfm_wins_with_lma_segues(tmp_path: Path):
 
 def test_gather_flags_long_flat_show(tmp_path: Path):
     md = json.loads((FIXTURES / "gd74_windsor_metadata.json").read_text())
+    # Strip the bare mid-line "E: " encore marker so the description is
+    # genuinely flat (one unbroken comma list, no set/encore markers at
+    # all) - the fixture's real "E:" now correctly splits off an encore
+    # (see setlist._INLINE_MARKER), which would give this show a set break
+    # and defeat the single-set guard this test exists to exercise.
+    md["metadata"]["description"] = md["metadata"]["description"].replace(", E: ", ", ")
     ident = W_IDENT
     cand = Candidate(
         performance_id="GratefulDead/1974-02-24", collection="GratefulDead",
