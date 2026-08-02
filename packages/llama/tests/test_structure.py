@@ -506,12 +506,16 @@ def test_merged_run_needs_every_component_to_match():
 
 def test_align_matches_a_leading_encore_marker_item_characterization():
     # CHARACTERIZES A KNOWN PARSER DEFECT - this is NOT a specification of
-    # desired behavior. `setlist.py`'s `_SET_SPLIT` recognizes "encore" and
-    # "e\d" but not a bare mid-line "E:", so a description like "...Sugar
-    # Magnolia; E: Goin' Down the Road..." leaves the encore song's canonical
-    # item stamped with the PRECEDING numbered set, title still carrying the
-    # "E: " prefix ("E: Baby Blue" 18/11/7/7-show incidence in the corpus for
-    # Brokedown Palace/Johnny B. Goode/Casey Jones/Black Muddy River).
+    # desired behavior. `setlist.py`'s `_INLINE_MARKER` requires a set/encore
+    # marker to carry a MANDATORY digit ("e\d") to split mid-line, so a bare
+    # mid-line "E:" never triggers a split. Contrast `_ENCORE_LINE`, which
+    # uses "e\d?" (digit optional) and so DOES recognize a bare "E:" at line
+    # start. A description like "...Sugar Magnolia; E: Goin' Down the
+    # Road..." therefore leaves the encore song's canonical item stamped with
+    # the PRECEDING numbered set, title still carrying the "E: " prefix (per
+    # the project owner, bare-"E:" items of this shape occur in the corpus:
+    # 18 shows for "Brokedown Palace", 11 for "Johnny B. Goode", 7 for
+    # "Casey Jones", 7 for "Black Muddy River").
     #
     # Task 4 made align()'s item side compare through `fuzzy_norm_title` (which
     # strips "E:"/"Encore:" via `_STRUCTURE_PREFIX`) instead of the bare
@@ -521,9 +525,9 @@ def test_align_matches_a_leading_encore_marker_item_characterization():
     # could not match at all. The set label the track receives is whatever the
     # (possibly wrong) item carries, here "1", not "encore".
     #
-    # This is accepted for phase 2 and is not fixed here. Fixing `_SET_SPLIT`
-    # in `setlist.py` (phase 3) to split the encore out into its own set is
-    # expected to CHANGE the set-label assertion below.
+    # This is accepted for phase 2 and is not fixed here. Fixing
+    # `_INLINE_MARKER` in `setlist.py` (phase 3) to also split on a bare mid-
+    # line "E:" is expected to CHANGE the set-label assertion below.
     c = canon(("1", "Sugar Magnolia", False), ("1", "E: Baby Blue", False))
     r = align([tr(1, "Sugar Magnolia"), tr(2, "Baby Blue")], c)
     assert r.matched == [True, True]
