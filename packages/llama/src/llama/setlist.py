@@ -178,18 +178,24 @@ def _enumerated_prefix(lines: list[str]) -> bool:
 
 _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": "3"}
 
-# Emitted-title junk: a bare duration or a disc marker that survived line-level
-# noise filtering because it sat inside a comma-separated run (e.g. a
-# comma-separated "Set 1: Bertha, Disc Two, Sugaree" line never reaches the
-# line-level _NOISE check at all, since the line matched _SET_LINE first).
-# Word-numeral disc markers get the same treatment as _NOISE's, for the same
-# reason - kept as a SEPARATE regex, not merged with _NOISE's, since the two
-# guard different paths (whole line vs. a title surviving a comma run) and a
-# shared regex would blur that distinction for a future maintainer.
+# Emitted-title junk, three classes:
+#   1. a bare or bracketed duration, or 2. a disc marker, that survived
+#      line-level noise filtering because it sat inside a comma-separated run
+#      (e.g. a comma-separated "Set 1: Bertha, Disc Two, Sugaree" line never
+#      reaches the line-level _NOISE check at all, since the line matched
+#      _SET_LINE first). Word-numeral disc markers get the same treatment as
+#      _NOISE's, for the same reason.
+#   3. a "Total time"/"Total Time" summary line — a different animal from the
+#      first two: it is a whole line _NOISE simply does not cover (it doesn't
+#      match _NOISE's patterns and isn't dropped as a comma-run survivor), not
+#      a title that leaked through a comma-separated run.
+# Kept as a SEPARATE regex, not merged with _NOISE's, since the two guard
+# different paths (whole line vs. a title surviving a comma run) and a shared
+# regex would blur that distinction for a future maintainer.
 _JUNK_TITLE = re.compile(
     r"^[(\[]?\d{1,3}[:.]\d{2}[)\]]?$"
     r"|^discs?\s*#?\s*(?:\d+|one|two|three|four|five|six|i{1,3})$"
-    r"|^total\s+time\s*[:=]\s*\d{1,3}[:.]\d{2}(?:[:.]\d{2})?$",
+    r"|^total\s+time\s*[:=]\s*\[?\d{1,3}[:.]\d{2}(?:[:.]\d{2})?\]?$",
     re.I,
 )
 

@@ -653,7 +653,19 @@ def test_bracketed_durations_are_not_songs():
 def test_total_time_lines_are_not_songs():
     desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
             "Total time = 1:34:29\n")
-    assert "Total time = 1:34:29" not in [i.title for i in parse_setlist(desc).items]
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert "Total time = 1:34:29" not in titles
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_bracketed_total_time_with_three_digit_minutes_is_not_a_song():
+    # MEASURED: corpus form 'Total time:  [105:01]' — bracketed duration after
+    # the label, runs of whitespace, 3-digit minute value. Distinct from the
+    # unbracketed 'Total time = 1:34:29' form already covered above.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Total time:  [105:01]\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
 
 
 def test_real_numeric_titles_survive_the_junk_filter():
