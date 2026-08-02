@@ -227,8 +227,13 @@ def parse_setlist(description: str) -> ParsedSetlist:
     # embedded in a numbered tracklist ("21. E: Laziest Encore Ever") becomes the
     # first _ENCORE_LINE match, so header truncation discards the entire setlist
     # above it and everything surviving is labelled `encore`. Measured over 923
-    # cached LMA descriptions, that cost 31 descriptions their setlists (28 of
-    # them losing >10 items and collapsing to an encore-only parse). Doing the
+    # cached LMA descriptions: this fix alone (059c549) improved 34 descriptions
+    # (dead=5, nondead=29 - the defect is overwhelmingly a non-Dead phenomenon:
+    # Spin Doctors, Los Lobos, Drive-By Truckers, Blues Traveler tapes with an
+    # inline "E:") and regressed 1 (spindoctors1994-06-13, fully recovered by
+    # the later dash-tolerance fix). On the shipped tree (HEAD) the net is 31
+    # improved / 0 regressed, 29 of the 31 recovering from an encore-only
+    # collapse of >10 items; 0 songs lost anywhere, in either state. Doing the
     # split after truncation makes split-created markers structurally incapable
     # of truncating anything - no provenance tracking needed.
     raw_lines = [ln.strip() for ln in text.splitlines()]

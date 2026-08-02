@@ -105,6 +105,11 @@ def _is_subphrase(short: str, long: str) -> bool:
 _NEVER_EQUAL = frozenset({
     frozenset({"its all over now", "its all over now baby blue"}),
 })
+# Keys are exact normalized strings, not space-collapsed - a space-variant of a
+# blocklisted title (e.g. differing only by a dropped space) would bypass this
+# check and fall through to the space-insensitive fallback below. Not reachable
+# today (see fuzzy_title_eq's docstring), but anyone adding a second pair here
+# should check its space-collapsed form too.
 
 
 def fuzzy_title_eq(a: str, b: str) -> bool:
