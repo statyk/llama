@@ -130,7 +130,14 @@ def fuzzy_title_eq(a: str, b: str) -> bool:
         return True
     if frozenset({a, b}) in _NEVER_EQUAL:
         return False
-    return _is_subphrase(a, b) or _is_subphrase(b, a)
+    if _is_subphrase(a, b) or _is_subphrase(b, a):
+        return True
+    # Spacing-only variants: "Turn On Your Lovelight" / "... Love Light",
+    # "CC Rider" / "C C Rider", "West LA Fadeaway" / "West L A Fadeaway".
+    # Last resort, after exact and subphrase, so it can never pre-empt a
+    # better-supported match. Validated against all 517 jerrybase closers:
+    # it introduces no new cross-song pair (see the phase-3 spec).
+    return a.replace(" ", "") == b.replace(" ", "")
 
 
 # --- Venue equivalence (jerrybase venue-mismatch tripwire) -------------------

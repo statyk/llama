@@ -583,3 +583,18 @@ def test_encore_break_does_not_prefix_match_a_song():
     assert is_filler("Encore Break")
     assert is_filler("encore breaks")
     assert not is_filler("Encore Breakdown")
+
+
+def test_space_insensitive_fallback_matches_spacing_variants():
+    assert fuzzy_title_eq("turn on your lovelight", "turn on your love light")
+    assert fuzzy_title_eq("cc rider", "c c rider")
+    assert fuzzy_title_eq("west la fadeaway", "west l a fadeaway")
+
+
+def test_space_insensitive_fallback_respects_the_blocklist():
+    assert not fuzzy_title_eq("its all over now", "its all over now baby blue")
+
+
+def test_space_insensitive_fallback_does_not_equate_distinct_songs():
+    assert not fuzzy_title_eq("black peter", "black muddy river")
+    assert not fuzzy_title_eq("the wheel", "wheel of fortune")
