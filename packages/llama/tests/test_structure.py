@@ -1,6 +1,17 @@
 from llama.models import ParsedSetlist, SetlistItem, SourcedParse, Track
 from llama.songs import normalize_song
-from llama.structure import align, blend_segues, from_setlistfm, is_filler, norm_title, rank_parses, structure_guard
+from llama.structure import (
+    TAIL_GUARD_ITEMS,
+    TAIL_GUARD_TRACKS_REMAINING,
+    _tail_guard_declines,
+    align,
+    blend_segues,
+    from_setlistfm,
+    is_filler,
+    norm_title,
+    rank_parses,
+    structure_guard,
+)
 
 
 def sp(source, sets_titles, confidence="high"):
@@ -837,3 +848,181 @@ def test_an_emptied_strip_never_becomes_a_wildcard():
     r = align([tr(1, "Bertha"), tr(2, "..."), tr(3, "Jack Straw")], c)
     assert r.matched == [True, False, True]
     assert r.sets == ["1", "1", "1"]
+
+
+# --- Tail-exhaustion guard ---------------------------------------------------
+# See TAIL_GUARD_ITEMS/_tail_guard_declines in structure.py for the mechanism:
+# at wide lookahead a mid-tape track can match a canonical item near the very
+# END of the item list, exhausting `j` and silently dragging every later,
+# otherwise-correct track into the wrong set. These tests were written first
+# and run against a variant with the guard's decline checks removed (`hit`/
+# `run` never reset to None after `_tail_guard_declines`) to confirm each one
+# actually depends on the guard - noted per test below.
+
+def test_tail_guard_declines_hit_index_is_zero_based_and_inclusive():
+    # Pins the exact semantics from the predicate's docstring: `hit` is
+    # 0-based, and both counts are INCLUSIVE of the position itself. Landing
+    # on the literal last item (hit == n_items - 1) always counts as "1 item
+    # remaining", so with n_items=10 this hit clears the item axis regardless
+    # of TAIL_GUARD_ITEMS's exact value (any value >= 1). Varying only
+    # track_index isolates the tracks axis: at the literal last track
+    # (track_index == n_tracks - 1) there is "1 track remaining", which is
+    # below TAIL_GUARD_TRACKS_REMAINING's provisional value of 3.
+    assert _tail_guard_declines(9, 10, 0, 100) is True
+    assert _tail_guard_declines(9, 10, 99, 100) is False
+
+
+def test_tail_guard_declines_item_axis_boundary():
+    # Holds the tracks axis safely inside the firing zone (0 of 20 consumed,
+    # 20 remaining) throughout, so only the item axis is under test.
+    n_items, n_tracks, track_index = 10, 20, 0
+    at_threshold = n_items - TAIL_GUARD_ITEMS       # n_items - hit == TAIL_GUARD_ITEMS exactly
+    one_outside = at_threshold - 1                  # one item further from the end
+    assert _tail_guard_declines(at_threshold, n_items, track_index, n_tracks) is True
+    assert _tail_guard_declines(one_outside, n_items, track_index, n_tracks) is False
+
+
+def test_tail_guard_declines_tracks_axis_boundary():
+    # Holds the item axis deep in the tail (the last item) throughout, so
+    # only the tracks-remaining axis is under test.
+    n_items, hit, n_tracks = 10, 9, 20
+    at_threshold = n_tracks - TAIL_GUARD_TRACKS_REMAINING  # remaining == TAIL_GUARD_TRACKS_REMAINING exactly
+    one_outside = at_threshold + 1                          # one track closer to the end
+    assert _tail_guard_declines(hit, n_items, at_threshold, n_tracks) is True
+    assert _tail_guard_declines(hit, n_items, one_outside, n_tracks) is False
+
+
+def test_tail_guard_declines_requires_both_conditions():
+    n_items, n_tracks = 10, 20
+    tail_hit, non_tail_hit = n_items - 1, 0
+    plenty_remaining, almost_done = 0, n_tracks - 1
+    # Item axis alone (tail hit) is not enough when few tracks remain.
+    assert _tail_guard_declines(tail_hit, n_items, almost_done, n_tracks) is False
+    # Tracks axis alone (plenty remaining) is not enough on a non-tail hit.
+    assert _tail_guard_declines(non_tail_hit, n_items, plenty_remaining, n_tracks) is False
+    # Both axes clear the bar together.
+    assert _tail_guard_declines(tail_hit, n_items, plenty_remaining, n_tracks) is True
+
+
+def test_align_la3_no_op_on_a_realistic_fixture():
+    # Cheapest invariant available: at the shipped default lookahead=3 the
+    # guard's decline checks are inert on ordinary shows, because a track's
+    # window never reaches far enough to land a candidate in the tail while
+    # many tracks remain. This is a NO-OP claim - unlike the other tests
+    # below, it is expected to pass identically with or without the guard;
+    # it documents that the guard does not perturb normal la=3 behavior,
+    # rather than pinning new behavior.
+    c = canon(
+        ("1", "Feel Like A Stranger", False), ("1", "Franklin's Tower", False),
+        ("1", "Big River", False), ("1", "Cassidy", False),
+        ("2", "China Cat Sunflower", True), ("2", "I Know You Rider", False),
+        ("2", "Estimated Prophet", True), ("2", "Eyes Of The World", False),
+        ("encore", "Casey Jones", False),
+    )
+    tracks = [
+        tr(1, "Feel Like A Stranger"), tr(2, "Franklin's Tower"),
+        tr(3, "Big River"), tr(4, "Cassidy"),
+        tr(5, "China Cat Sunflower >"), tr(6, "I Know You Rider"),
+        tr(7, "Estimated Prophet >"), tr(8, "Eyes Of The World"),
+        tr(9, "Casey Jones"),
+    ]
+    r = align(tracks, c)  # default lookahead=3
+    assert r.matched == [True] * 9
+    assert r.sets == ["1", "1", "1", "1", "2", "2", "2", "2", "encore"]
+    assert r.coverage == 1.0
+
+
+def test_tail_guard_declines_a_mid_tape_match_on_the_encore_song():
+    # Constructed shape of the measured defect (gd85-04-06, gd91-03-28): the
+    # encore song appears as a FILE mid-tape (a rip/filename-ordering
+    # artifact). At a wide lookahead the far-ahead match lands on the true
+    # encore item at the very end of the canonical list, which - unguarded -
+    # exhausts `j` and wrongly drags every later, otherwise-correct track
+    # into "encore". FAILS WITHOUT THE GUARD: matched[4] comes back True
+    # (not False), sets[4] comes back "encore" (not "1"), and sets[5:] come
+    # back ["encore", "encore", "encore", "encore"] instead of the real sets,
+    # because the window guard-lessly matches idx8 at the artifact track and
+    # then finds nothing left for every track after it.
+    c = canon(
+        ("1", "Feel Like A Stranger", False), ("1", "Franklin's Tower", False),
+        ("1", "Big River", False), ("1", "Cassidy", False),
+        ("2", "China Cat Sunflower", False), ("2", "I Know You Rider", False),
+        ("2", "Estimated Prophet", False), ("2", "Eyes Of The World", False),
+        ("encore", "Casey Jones", False),
+    )
+    tracks = [
+        tr(1, "Feel Like A Stranger"), tr(2, "Franklin's Tower"),
+        tr(3, "Big River"), tr(4, "Cassidy"),
+        tr(5, "Casey Jones"),  # rip artifact: the encore song mid-tape
+        tr(6, "China Cat Sunflower"), tr(7, "I Know You Rider"),
+        tr(8, "Estimated Prophet"), tr(9, "Eyes Of The World"),
+    ]
+    r = align(tracks, c, lookahead=8)
+    assert r.matched[4] is False           # declined: contained, single-track miss
+    assert r.sets[4] == "1"                # inherits Cassidy's set, not "encore"
+    assert r.matched[5:] == [True, True, True, True]
+    assert r.sets[5:] == ["2", "2", "2", "2"]  # tail NOT exhausted
+
+
+def test_legitimate_tail_matching_survives_the_guard():
+    # The counter-case that decides the whole design (see the design brief):
+    # the last tracks of a tape ARE supposed to match the last canonical
+    # items. TAIL_GUARD_TRACKS_REMAINING is the entire protection - at the
+    # true end of a tape few tracks remain, so the guard must not fire even
+    # though the item axis alone would clear its bar. This test passes
+    # identically with or without the guard; it is a regression guard against
+    # an over-eager decline, not a characterization of new behavior.
+    c = canon(("1", "A", False), ("1", "B", False), ("2", "C", False),
+              ("2", "D", False), ("encore", "E", False))
+    tracks = [tr(1, "A"), tr(2, "B"), tr(3, "C"), tr(4, "D"), tr(5, "E")]
+    for la in (3, 8, 12):
+        r = align(tracks, c, lookahead=la)
+        assert r.matched == [True, True, True, True, True]
+        assert r.sets == ["1", "1", "2", "2", "encore"]
+
+
+def test_tail_guard_decline_lets_a_later_fallback_find_an_earlier_hit():
+    # Design decision: a decline is treated like an ordinary miss, not a
+    # terminal failure - the cascade below keeps trying and may still land a
+    # legitimate, non-tail hit in the same window. Here the primary compare
+    # exact-matches the untouched title against the tail item (idx5,
+    # "Alpha"); only the glued-duration miss-path fallback (which searches
+    # `stripped_norms`) reaches the true, non-tail item (idx0, "Alpha
+    # [5:20]" stripped down to "Alpha"). FAILS WITHOUT THE GUARD: the
+    # primary compare's tail hit is taken directly, matched[0] comes back
+    # True against idx5 ("encore"/tail set) instead of idx0, `j` jumps to 6
+    # (exhausted), and the two tracks after it (which should cleanly match
+    # idx1/idx2) come back unmatched, inheriting the wrong set instead.
+    c = canon(
+        ("1", "Alpha [5:20]", False), ("1", "Beta", False), ("1", "Gamma", False),
+        ("1", "Delta", False), ("2", "Epsilon", False), ("encore", "Alpha", False),
+    )
+    tracks = [tr(1, "Alpha"), tr(2, "Beta"), tr(3, "Gamma")]
+    r = align(tracks, c, lookahead=8)
+    assert r.matched == [True, True, True]
+    assert r.sets == ["1", "1", "1"]  # idx0/idx1/idx2, not the tail idx5
+
+
+def test_tail_guard_declines_a_merge_run_landing_in_the_tail():
+    # The merge-run path advances `j` past ALL of a merged track's matched
+    # components, so the item that matters for the tail test is the LAST
+    # consumed item (`run + len(comps) - 1`), not the first. Declining must
+    # leave `j` untouched so the components stay available and the tracks
+    # that follow keep their own shot at the real items. FAILS WITHOUT THE
+    # GUARD: the merge run is taken directly (matched[2] True, sets[2]
+    # "2"), `j` jumps to the end of the item list, and "C"/"D" - which
+    # should cleanly match - come back unmatched instead.
+    c = canon(
+        ("1", "A", False), ("1", "B", False), ("1", "C", False), ("1", "D", False),
+        ("2", "China Cat Sunflower", True), ("2", "I Know You Rider", False),
+    )
+    tracks = [
+        tr(1, "A"), tr(2, "B"),
+        tr(3, "China Cat Sunflower > I Know You Rider"),  # merge run landing on the tail pair
+        tr(4, "C"), tr(5, "D"),
+    ]
+    r = align(tracks, c, lookahead=8)
+    assert r.matched[2] is False  # merge run declined - falls to the single-match miss path
+    assert r.sets[2] == "1"       # inherits B's set, not "2"
+    assert r.matched[3] is True and r.sets[3] == "1"  # "C" still reachable: j did not advance
+    assert r.matched[4] is True and r.sets[4] == "1"  # "D" likewise

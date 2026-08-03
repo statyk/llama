@@ -413,6 +413,67 @@ def _strip_trailing_duration(title: str) -> str:
     return _ITEM_TRAILING_DURATION.sub("", title)
 
 
+# --- Tail-exhaustion guard --------------------------------------------------
+# At wide lookahead, a track deep mid-tape can match a canonical item near the
+# END of the item list (measured cause: the encore song appears as a FILE
+# mid-tape, a rip/filename-ordering artifact - gd85-04-06, gd91-03-28). That
+# sets `j` to at/past the end, so every later track sees an empty or
+# near-empty window, can never match, and silently inherits the previous
+# track's set label - one bad match mislabels the whole tail of a show. The
+# guard below declines a candidate match that would do this while a
+# substantial number of tracks still remain unprocessed.
+#
+# `TAIL_GUARD_TRACKS_REMAINING` is the entire protection for legitimate tail
+# matching: the last tracks of a tape ARE supposed to match the last items,
+# and this axis is what stops the guard from declining them too - see
+# test_legitimate_tail_matching_survives_the_guard.
+#
+# CALLER CONTRACT - not encoded in the predicate itself, because Task 2's
+# measurement instrument calls `_tail_guard_declines` directly with exactly
+# the 4 positional args below and must see every real decline decision, not
+# a 5th "was this a skip" argument: `align` below only CONSULTS the guard for
+# a candidate that actually skipped forward (`hit > j` / `run > j`). A match
+# at the current pointer position (no skip at all) can never exhaust the walk
+# regardless of how few canonical items remain, and on a short setlist
+# (2-3 items) a same-position match otherwise trivially satisfies
+# `TAIL_GUARD_ITEMS` too - measured via two baseline-suite regressions
+# (test_align_unmatched_tracks_inherit_previous_set,
+# test_alignment_coverage_ignores_filler_tracks) when this gate was missing.
+#
+# TODO(task-3): both values below are PROVISIONAL - carried over from the
+# measurement run's own mechanical detector thresholds as a starting point
+# ONLY. Task 3 chooses the real values by measurement against the corpus and
+# replaces this comment with the real provenance.
+TAIL_GUARD_ITEMS = 2
+TAIL_GUARD_TRACKS_REMAINING = 3
+
+
+def _tail_guard_declines(hit: int, n_items: int, track_index: int, n_tracks: int) -> bool:
+    """True when a candidate match at canonical-item index `hit` (0-based)
+    would exhaust the two-pointer walk while too many tracks remain to trust
+    it - see the module comment above `TAIL_GUARD_ITEMS` for why.
+
+    Both `hit` and `track_index` are 0-based, and both counts below are
+    INCLUSIVE of the position itself, not just what comes after it:
+    `n_items - hit` is how many canonical items sit at-or-after `hit` (the
+    literal last item, hit == n_items - 1, counts as "1 item remaining", not
+    0), and `n_tracks - track_index` is how many tracks sit at-or-after the
+    current one (the literal last track counts as "1 remaining"). Pinned by
+    test_tail_guard_declines_hit_index_is_zero_based_and_inclusive.
+
+    Declines only when BOTH axes clear their bar: landing near the end of the
+    item list is exactly what legitimate tail matching looks like, and only
+    firing there too would break every normal show's ending - see
+    test_legitimate_tail_matching_survives_the_guard.
+
+    Read as a plain expression, not cached into a default argument, so a
+    measurement harness can override `TAIL_GUARD_ITEMS`/
+    `TAIL_GUARD_TRACKS_REMAINING` on the module in-process (the same
+    technique `gather._HEAD_GAP`/`_ENUMERATED_MIN` use)."""
+    return ((n_items - hit) <= TAIL_GUARD_ITEMS
+            and (n_tracks - track_index) >= TAIL_GUARD_TRACKS_REMAINING)
+
+
 def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
           aliases: dict[str, str] | None = None) -> "AlignResult":
     """Map canonical set/segue structure onto tracks, in recording order.
@@ -447,6 +508,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     stripped_norms = [fuzzy_norm_title(_strip_trailing_duration(it.title), aliases) or norms[i]
                       for i, it in enumerate(items)]
     enumerated = _is_enumerated_tape(tracks)
+    n_tracks = len(tracks)
     sets: list[str] = []
     segues: list[bool] = []
     matched: list[bool] = []
@@ -457,10 +519,26 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     # path out of the loop body (the merge-run `continue` included), so a
     # skipped iteration can never leave a stale predecessor behind.
     prev_title: str | None = None
-    for t in tracks:
+    # 0-based position in `tracks`, distinct from `t.index` (the 1-based play
+    # order stamped on the track itself) - this is what the tail guard's
+    # "how many tracks remain" axis counts against.
+    for track_pos, t in enumerate(tracks):
         hi = min(j + 1 + lookahead, len(items))
         comps = title_components(t.title, aliases)
         run = _merge_run(norms, j, hi, comps) if len(comps) > 1 else None
+        if run is not None and run > j and _tail_guard_declines(
+                run + len(comps) - 1, len(items), track_pos, n_tracks):
+            # `run > j`: only a run that actually skipped forward from the
+            # current pointer is a tail-exhaustion candidate at all - see the
+            # CALLER CONTRACT note above `TAIL_GUARD_ITEMS`. A merge run
+            # consumes every component, so the item that matters for the tail
+            # test itself is the LAST one, not `run`. Declining drops back to
+            # `run = None` exactly as `_merge_run` finding nothing would - the
+            # track falls through to the single-title cascade below (and, on
+            # the constructed regression case, misses there too and stays a
+            # contained single-track miss) rather than being special-cased.
+            # See test_tail_guard_declines_a_merge_run_landing_in_the_tail.
+            run = None
         if run is not None:
             n = len(comps)
             sets.append(items[run].set)
@@ -476,6 +554,12 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             continue
         nt = fuzzy_norm_title(t.title, aliases)
         hit = _window_match(norms, j, hi, nt)
+        if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks):
+            # Declined candidates are treated exactly like a miss, not a
+            # terminal failure: the cascade below still gets its shot at an
+            # earlier, non-tail hit in the same window. See
+            # test_tail_guard_decline_lets_a_later_fallback_find_an_earlier_hit.
+            hit = None
         if hit is None and _SPACE_TITLE.match(t.title) and prev_title is not None \
                 and _DRUMS_TITLE.match(prev_title):
             # Setlists often write "Jam" for what the tape calls Space. Space
@@ -483,6 +567,8 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             # only for a track titled Space that directly follows Drums, and
             # never in reverse. Measured on 45 corpus shows.
             hit = next((k for k in range(j, hi) if norms[k] == "jam"), None)
+            if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks):
+                hit = None
         if hit is None and enumerated:
             # Retry the same window with the track index/duration stripped, at
             # the matching layer only - `t.title` is never touched, since it
@@ -500,6 +586,8 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             bare = t.title[m.end():] if m else ""
             if bare:
                 hit = _window_match(norms, j, hi, fuzzy_norm_title(bare, aliases))
+                if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks):
+                    hit = None
         if hit is None:
             # Retry the same window with a trailing duration stripped off the
             # ITEM side (not the track side - that's the block above). Reached
@@ -525,6 +613,8 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             # either fallback and is out of scope here - no fixture in the
             # measured corpora needed it.
             hit = _window_match(stripped_norms, j, hi, nt)
+            if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks):
+                hit = None
         if hit is None:
             sets.append(sets[-1] if sets else "1")
             segues.append(False)
