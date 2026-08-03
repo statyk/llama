@@ -897,7 +897,6 @@ class _GuardSpy:
             self.calls.append((args, result))
             return result
 
-        import pytest
         self._mp = pytest.MonkeyPatch()
         self._mp.setattr(structure, "_tail_guard_declines", spy)
         return self
@@ -913,6 +912,7 @@ class _GuardSpy:
     @property
     def allowed(self):
         return [c for c in self.calls if c[1] is False]
+
 
 def test_tail_guard_declines_hit_index_is_zero_based_and_inclusive():
     """hit and track_index are 0-based, and n_items-hit / n_tracks-track_index
@@ -956,9 +956,10 @@ def test_tail_guard_declines_skip_axis_boundary():
     so only the skip axis is under test. Pins the convention from the module
     comment above TAIL_GUARD_MAX_SKIP: skip must be STRICTLY greater than
     TAIL_GUARD_MAX_SKIP to decline - at exactly the threshold the guard
-    still lets the match through (this is also what makes la=3 structurally
-    inert when TAIL_GUARD_MAX_SKIP == 3 - see
-    test_tail_guard_max_skip_makes_la3_structurally_inert)."""
+    still lets the match through. This strictness is also what makes la=3
+    structurally inert for any TAIL_GUARD_MAX_SKIP >= 3 (the shipped value of
+    6 satisfies this with margin) - see
+    test_tail_guard_max_skip_makes_la3_structurally_inert."""
     n_items, hit, n_tracks, track_index = 10, 9, 20, 0
     at_threshold = TAIL_GUARD_MAX_SKIP        # skip == TAIL_GUARD_MAX_SKIP exactly: not enough
     one_more = at_threshold + 1               # one item further skipped: enough
@@ -967,9 +968,17 @@ def test_tail_guard_declines_skip_axis_boundary():
 
 
 def test_tail_guard_declines_requires_all_three_conditions():
+    """Value-agnostic (review finding F7): `almost_done` is derived from
+    TAIL_GUARD_TRACKS_REMAINING, the same technique
+    test_tail_guard_declines_hit_index_is_zero_based_and_inclusive uses,
+    rather than a hardcoded `n_tracks - 1` - which only leaves the tracks
+    axis correctly UNCLEARED (remaining < TRACKS_REMAINING) for
+    TAIL_GUARD_TRACKS_REMAINING > 1, and silently flips the second assertion
+    below to the wrong outcome at TRACKS_REMAINING <= 1."""
     n_items, n_tracks = 10, 20
     tail_hit, non_tail_hit = n_items - 1, 0
-    plenty_remaining, almost_done = 0, n_tracks - 1
+    plenty_remaining = 0
+    almost_done = n_tracks - (TAIL_GUARD_TRACKS_REMAINING - 1)
     big_skip, no_skip = TAIL_GUARD_MAX_SKIP + 1, 0
     # item + tracks clear their bars, but nothing was skipped.
     assert _tail_guard_declines(tail_hit, n_items, plenty_remaining, n_tracks, no_skip) is False
@@ -1116,12 +1125,18 @@ def test_legitimate_tail_matching_survives_the_guard():
     calls the predicate at all, since the caller's `hit > j` gate
     short-circuits first - kept as the cheapest possible baseline, but by
     itself this shape is NOT evidence the guard behaves correctly, only
-    that the gate does) and a true tail match reached via a big skip (5
-    missing items, comfortably over TAIL_GUARD_MAX_SKIP) with only one
-    track left, where TAIL_GUARD_TRACKS_REMAINING - not the skip axis -
-    is what has to save it. The second shape proves the tracks axis is
-    still load-bearing even with the skip axis in place, not made
-    redundant by it, and genuinely reaches the predicate."""
+    that the gate does) and a true tail match reached via a big skip - sized
+    off TAIL_GUARD_MAX_SKIP + 1 (final-review finding F1: a fixed 5-item gap
+    only isolated the tracks axis while MAX_SKIP was 3; once Task 3 raised it
+    to 6, skip=5 fell UNDER the new bar and the skip axis started saving the
+    match too, silently making this shape's assertion vacuous as to which
+    axis actually did it) - with only one track left, where
+    TAIL_GUARD_TRACKS_REMAINING, NOT the skip axis, is what has to save it.
+    The shape asserts its own isolation (`skip_recorded > TAIL_GUARD_MAX_SKIP`)
+    rather than trusting a hand-picked number to stay bigger than a constant
+    that can change again. The second shape proves the tracks axis is still
+    load-bearing even with the skip axis in place, not made redundant by it,
+    and genuinely reaches the predicate."""
     # Sequential ending - trivial, does not reach the predicate. Spied and
     # asserted explicitly (fix-round-1 addendum condition C), rather than
     # left as an implicit assumption: this shape alone is NOT evidence the
@@ -1136,18 +1151,24 @@ def test_legitimate_tail_matching_survives_the_guard():
         assert r.matched == [True, True, True, True, True]
         assert r.sets == ["1", "1", "2", "2", "encore"]
 
-    # Big-skip ending: only the tracks axis protects it. Genuinely reaches
-    # the predicate (hit=7, j=2, skip=5) and must be seen returning False.
-    c2 = canon(
-        ("1", "A", False), ("1", "B", False),
-        ("1", "Missing 1", False), ("1", "Missing 2", False), ("1", "Missing 3", False),
-        ("1", "Missing 4", False), ("1", "Missing 5", False),
-        ("encore", "Closer", False),
-    )
-    tracks2 = [tr(1, "A"), tr(2, "B"), tr(3, "Closer")]  # the 5 "Missing" songs are not on this tape
+    # Big-skip ending: only the tracks axis protects it. The missing-item run
+    # is sized off TAIL_GUARD_MAX_SKIP + 1, so the resulting skip clears the
+    # skip axis's own bar - the tracks axis is the only thing left standing.
+    n_missing = TAIL_GUARD_MAX_SKIP + 1
+    missing_rows = [("1", f"Missing {i}", False) for i in range(n_missing)]
+    c2 = canon(("1", "A", False), ("1", "B", False), *missing_rows,
+               ("encore", "Closer", False))
+    tracks2 = [tr(1, "A"), tr(2, "B"), tr(3, "Closer")]  # the missing songs are not on this tape
     with _GuardSpy() as spy2:
-        r2 = align(tracks2, c2, lookahead=8)
+        r2 = align(tracks2, c2, lookahead=n_missing)
+    assert spy2.calls, "the guard predicate was never consulted - this shape proves nothing"
     assert spy2.allowed and not spy2.declined  # reached the guard; tracks axis correctly saved it
+    skip_recorded = spy2.calls[0][0][4]
+    assert skip_recorded > TAIL_GUARD_MAX_SKIP, (
+        "this shape must clear the skip axis's own bar, so only the tracks "
+        "axis is left standing between the guard and this match - if this "
+        "fails, the shape has stopped isolating what it claims to isolate"
+    )
     assert r2.matched == [True, True, True]
     assert r2.sets == ["1", "1", "encore"]
 
@@ -1173,7 +1194,7 @@ def test_tail_guard_decline_lets_a_later_fallback_find_an_earlier_hit():
     duplicate far enough past `j` to clear the skip axis regardless of the
     constant, and padding tracks (which match nothing) clear the tracks
     axis the same way."""
-    ITEMS, TRACKS_REM, MAX_SKIP = TAIL_GUARD_ITEMS, TAIL_GUARD_TRACKS_REMAINING, TAIL_GUARD_MAX_SKIP
+    TRACKS_REM, MAX_SKIP = TAIL_GUARD_TRACKS_REMAINING, TAIL_GUARD_MAX_SKIP
     n_items = MAX_SKIP + 5   # margin of 4 over the skip bar
     decoy_count = n_items - 5
     rows = [

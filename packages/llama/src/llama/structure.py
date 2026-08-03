@@ -423,22 +423,37 @@ def _strip_trailing_duration(title: str) -> str:
 # guard below declines a candidate match that would do this while a
 # substantial number of tracks still remain unprocessed.
 #
-# `TAIL_GUARD_TRACKS_REMAINING` is the entire protection for legitimate tail
-# matching: the last tracks of a tape ARE supposed to match the last items,
-# and this axis is what stops the guard from declining them too - see
-# test_legitimate_tail_matching_survives_the_guard.
+# `TAIL_GUARD_TRACKS_REMAINING` is the protection for the RESIDUAL legitimate-
+# tail-match case the skip axis does not already cover: the last tracks of a
+# tape ARE supposed to match the last items, however far ahead that match has
+# to reach. A small-skip tail match is already saved by the skip axis
+# (`skip <= TAIL_GUARD_MAX_SKIP`); this axis is what stops the guard from
+# declining a tail match whose skip clears that bar too, while few tracks
+# remain to justify the caution - see test_legitimate_tail_matching_survives_
+# the_guard's big-skip shape (sized off TAIL_GUARD_MAX_SKIP + 1 so the skip
+# axis alone would already decline the match, isolating this axis as what
+# actually saves it).
 #
 # CALLER CONTRACT (unchanged by the skip axis below) - `align` only CONSULTS
 # the guard for a candidate that actually skipped forward (`hit > j` /
-# `run > j`), as a cheap short-circuit, not as a hidden condition: a match at
-# the current pointer position (no skip at all, `skip == 0`) can never
-# exhaust the walk no matter how few canonical items remain, and the skip
-# axis below would decline it anyway (`0 > TAIL_GUARD_MAX_SKIP` is never
-# true), so this is a redundant fast path, not a load-bearing gate - measured
-# via two baseline-suite regressions (test_align_unmatched_tracks_inherit_
-# previous_set, test_alignment_coverage_ignores_filler_tracks) when neither
-# this gate nor the skip axis existed and a same-position match on a short
-# setlist trivially satisfied the (then two-axis) formula.
+# `run > j`), as a cheap short-circuit, not as a hidden condition: at
+# `skip == 0` the skip axis below would ALLOW the match anyway (`0 >
+# TAIL_GUARD_MAX_SKIP` is never true, so the predicate returns False
+# regardless of the other two axes), so this is a redundant fast path, not a
+# load-bearing gate - measured via two baseline-suite regressions
+# (test_align_unmatched_tracks_inherit_previous_set,
+# test_alignment_coverage_ignores_filler_tracks) when neither this gate nor
+# the skip axis existed and a same-position match on a short setlist
+# trivially satisfied the (then two-axis) formula.
+#
+# Caveat on "no skip, no exhaustion": a same-position match (`skip == 0`)
+# usually cannot exhaust the walk, but the merge-run path is an exception - a
+# run with `run == j` advances `j` by `len(comps)`, which CAN land exactly on
+# `len(items)`. This is behaviorally moot, not a hole in the fast path above:
+# that is a legitimate consecutive-run match the guard would allow regardless
+# (`skip == 0` still clears the skip axis as above), so the redundancy claim
+# still holds - only a stronger "never exhausts, full stop" phrasing would be
+# wrong.
 #
 # THIRD AXIS (added in fix round 1, review finding 1) - NOT a deviation from
 # the design brief, a CORRECTION to a defect in it. The brief's own prose
@@ -469,13 +484,17 @@ def _strip_trailing_duration(title: str) -> str:
 # test_tail_guard_declines_skip_axis_boundary and
 # test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3.
 #
-# TAIL_GUARD_MAX_SKIP = 3 is chosen so the guard is PROVABLY, STRUCTURALLY
-# inert at the shipped lookahead=3: the window is `items[j : j+1+lookahead]`,
-# so the largest possible skip at lookahead=L is L itself, and declining
-# requires `skip > TAIL_GUARD_MAX_SKIP` (strict). At la=3 the maximum
-# reachable skip is 3, which can never exceed a threshold of 3 - so this is
-# no longer an empirical no-op claim (design gate 2), it is a structural one.
-# See test_tail_guard_max_skip_makes_la3_structurally_inert. Setting this
+# STRUCTURAL INERTNESS is a RELATIONSHIP, not a literal value - do not read a
+# chosen constant off this paragraph; the value actually shipped is set below.
+# Any TAIL_GUARD_MAX_SKIP >= lookahead makes the guard's skip axis PROVABLY,
+# STRUCTURALLY unreachable at that lookahead: the window is
+# `items[j : j+1+lookahead]`, so the largest possible skip at lookahead=L is L
+# itself, and declining requires `skip > TAIL_GUARD_MAX_SKIP` (strict) - so
+# `skip > L` can never hold once TAIL_GUARD_MAX_SKIP >= L. This is no longer
+# an empirical no-op claim (design gate 2), it is a structural one. See
+# test_tail_guard_max_skip_makes_la3_structurally_inert, and the
+# TAIL_GUARD_MAX_SKIP paragraph below for the value actually shipped and why
+# it satisfies this relationship at the shipped lookahead=3. Setting this
 # constant to 0 disables the axis entirely (every skip > 0 clears the bar),
 # which is deliberate - Task 2 measures a grid including that setting, so
 # measurement can still conclude the axis is unnecessary.
@@ -486,11 +505,17 @@ def _strip_trailing_duration(title: str) -> str:
 #
 # TAIL_GUARD_ITEMS = 3
 #   The SMALLEST value that catches every measured tail-exhaustion casualty.
-#   The eight confirmed-wrong shows land their spurious match 1, 1, 1, 1, 1, 2,
-#   2 and 3 items from the end of the canonical list. ITEMS=2 leaves
-#   gd1985-04-28 broken at la=10. The nearest LEGITIMATE match a larger value
-#   would start declining sits at 4 items from the end (15-31 candidates
-#   across the corpus); ITEMS=5 measurably reverts a correct recovery.
+#   The firing profile has 11 (show, lookahead) rows across 9 distinct shows
+#   (8 Grateful-Dead-family + 1 non-Dead, minutemen1985-08-17); the numbers
+#   below are DEAD-ONLY unless stated otherwise - see TAIL_GUARD_MAX_SKIP
+#   below for why, and for where the non-Dead casualty's own coordinates fall.
+#   The eight confirmed-wrong DEAD shows (deduped one value per show) land
+#   their spurious match 1, 1, 1, 1, 1, 2, 2 and 3 items from the end of the
+#   canonical list. ITEMS=2 leaves gd1985-04-28 broken at la=10; ITEMS=1
+#   leaves three more. The nearest LEGITIMATE match a larger value would
+#   start declining sits at 4 items from the end (15-31 candidates across the
+#   corpus), so 3 is also the largest value with any margin at all; ITEMS=5
+#   measurably reverts a correct recovery.
 #
 # TAIL_GUARD_TRACKS_REMAINING = 3
 #   Inert on both corpora: for (ITEMS=3, MAX_SKIP=6) every value from 0 to 10
@@ -500,19 +525,28 @@ def _strip_trailing_duration(title: str) -> str:
 #   because the corpus needs it, but because it is the only thing standing
 #   between the guard and a legitimate tail match on a short tape - the
 #   counter-case the design brief says decides the design, pinned by
-#   test_legitimate_tail_matching_survives_the_guard, which FAILS if this axis
-#   is disabled.
+#   test_legitimate_tail_matching_survives_the_guard's big-skip shape, which
+#   FAILS if this axis is disabled (see that test's docstring for how the
+#   shape is sized to isolate this axis, and the report accompanying this
+#   branch for the executed before/after evidence).
 #
 # TAIL_GUARD_MAX_SKIP = 6
 #   The LARGEST value (hence the fewest firings) that still catches every
-#   casualty: their skips are 7, 8, 9, 10, 10, 10, 10, 11, 11, 12, and
-#   MAX_SKIP=7 misses gd85-04-06's skip-7 hit outright. The largest skip on a
-#   legitimate match anywhere in 1838 shows is 6 (26 non-Dead candidates),
-#   saved only by the strict `>` comparison above - a margin of ZERO, so do
-#   NOT lower this to 5 without re-measuring. Any value >= 3 also makes the
-#   guard structurally inert at the shipped lookahead=3 (max reachable skip at
-#   lookahead L is L - see test_tail_guard_max_skip_makes_la3_structurally_inert
-#   above).
+#   casualty. Skips, DEAD ONLY, one value per (show, lookahead) row - ten
+#   rows, not eight, because unlike the items-from-end list above this one is
+#   NOT deduped by show: several shows decline at more than one lookahead,
+#   each with its own skip - are 7, 8, 9, 10, 10, 10, 10, 11, 11, 12, and
+#   MAX_SKIP=7 misses gd85-04-06's skip-7 hit outright. The omitted non-Dead
+#   row (minutemen1985-08-17: items_from_end 1, skip 10) changes no
+#   conclusion - both coordinates already fall inside the ranges above. The
+#   largest skip on a legitimate match anywhere in 1838 shows is 6 (26
+#   non-Dead candidates), saved only by the strict `>` comparison above - a
+#   margin of ZERO, so do NOT lower this to 5 without re-measuring. Any value
+#   >= 3 also makes the guard structurally inert at the shipped lookahead=3
+#   (max reachable skip at lookahead L is L - see
+#   test_tail_guard_max_skip_makes_la3_structurally_inert above, and the
+#   STRUCTURAL INERTNESS paragraph above for the general relationship this is
+#   an instance of).
 #
 # Effect at these values: at la=3, zero declines and zero changed rows on both
 # corpora. At la=8, 2 declined tracks out of 23,275 (Dead) and 0 of 14,193
