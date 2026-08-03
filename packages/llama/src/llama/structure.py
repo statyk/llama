@@ -446,14 +446,39 @@ def _strip_trailing_duration(title: str) -> str:
 # the skip axis existed and a same-position match on a short setlist
 # trivially satisfied the (then two-axis) formula.
 #
-# Caveat on "no skip, no exhaustion": a same-position match (`skip == 0`)
-# usually cannot exhaust the walk, but the merge-run path is an exception - a
-# run with `run == j` advances `j` by `len(comps)`, which CAN land exactly on
-# `len(items)`. This is behaviorally moot, not a hole in the fast path above:
-# that is a legitimate consecutive-run match the guard would allow regardless
-# (`skip == 0` still clears the skip axis as above), so the redundancy claim
-# still holds - only a stronger "never exhausts, full stop" phrasing would be
-# wrong.
+# PROOF that a same-position match (`skip == 0`) can exhaust the walk but
+# never does so HARMFULLY (mid-wave addendum to final review finding F5: the
+# prior wording here was a bare assertion with the grammar of a proof but not
+# the substance of one - "can never exhaust the walk" is false as a literal
+# claim, and this paragraph exists to replace it with the narrower claim that
+# IS actually true, and to show why).
+#
+# `skip == 0` is possible on the merge-run path: a run with `run == j`
+# advances `j` to `run + len(comps)`, which CAN land exactly on `len(items)`
+# and exhaust the walk (`_merge_run`'s own bound, `k + n <= len(norms)` at its
+# call site above, guarantees this lands AT `len(items)`, never past it). So
+# the walk being exhausted at `skip == 0` is real, not hypothetical.
+#
+# It is nonetheless harmless, and the reason is structural, not a hope: a
+# same-position match consumes the contiguous span `items[j : j + len(comps))`
+# - starting exactly where the walk pointer already was, with nothing
+# in between. If that span reaches `len(items)`, the walk has consumed every
+# canonical item that was left, not skipped past any of them - there is no
+# legitimate item between the old `j` and the new one that a later track
+# could have matched instead, because there IS no gap. That is categorically
+# different from the failure mode this whole guard exists to catch: a match
+# that skips FORWARD past items it never accounts for, stranding them and
+# every track after. A same-position run strands nothing, because a
+# same-position run skips nothing. Any tracks that follow such an exhausting
+# run see an empty window and inherit the previous set (the ordinary
+# no-more-canonical-items fallback, same as a short setlist running out of
+# tracks) - which is the CORRECT outcome when the canonical list is
+# genuinely finished, not a symptom of the tail-exhaustion defect this guard
+# targets.
+#
+# So the true claim is: a same-position match can drive `j` to `len(items)`,
+# but cannot do so WRONGLY - and that, not the stronger "never exhausts, full
+# stop" phrasing this replaces, is what makes the fast path above safe.
 #
 # THIRD AXIS (added in fix round 1, review finding 1) - NOT a deviation from
 # the design brief, a CORRECTION to a defect in it. The brief's own prose

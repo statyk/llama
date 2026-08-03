@@ -1034,6 +1034,56 @@ def test_tail_guard_max_skip_makes_la3_structurally_inert():
         assert _tail_guard_declines(n_items - 1, n_items, 0, n_tracks, skip) is False
 
 
+def test_align_window_bound_reachability_is_pinned_through_align():
+    """M10 (final review F4, both reviewers; mid-wave design-author addendum:
+    the probe must assert BOTH directions, not just one). The test above
+    calls `_window_hi` directly, so it is coupled to the HELPER, not to
+    `align()` - an inline bound in `align` that silently diverges from
+    `_window_hi`, in EITHER direction, passes the entire suite including
+    that test. Measured: `align`'s call site changed to
+    `min(j + 2 + lookahead, len(items))` (WIDER) passes the full 1334-test
+    suite; changed to `min(j + lookahead, len(items))` (NARROWER) also
+    passes it - and the narrower case is a genuine behavior regression (a
+    legitimate match at the window edge becomes permanently unreachable, at
+    every lookahead), unnoticed by any of the 1334, including the ones that
+    predate this branch - this is a pre-existing hole in test coverage, not
+    one dug by this branch.
+
+    This probe pins `align`'s ACTUAL reachable window from OUTSIDE, through
+    public behavior, with no formula mirrored in the test body: a canonical
+    setlist where the only possible match for the recording's single track
+    sits exactly `L` items past the walk pointer (`skip == L`, this file's
+    own convention). Both directions are asserted, and each is required to
+    catch a different mutant: a NARROWER inline bound fails the "found at
+    lookahead=L" half; a WIDER one fails the "not found at lookahead=L-1"
+    half - a probe carrying only one half would leave the other mutant
+    undetected.
+
+    A single track can never clear the tracks axis (`n_tracks -
+    track_index` is 1, under any realistic TAIL_GUARD_TRACKS_REMAINING), so
+    `_tail_guard_declines` cannot fire here regardless of `L` - this probe
+    measures `_window_hi`'s arithmetic AS USED BY `align`, deliberately
+    decoupled from the guard's own decision, not entangled with it.
+
+    Keep the existing `_window_hi`-calling structural test above alongside
+    this one - one pins the expression, this one pins the consequence, and
+    only this one survives a refactor that routes `align` around
+    `_window_hi` while leaving `_window_hi` itself untouched and correct."""
+    L = 5
+    c = canon(*[("1", f"Skip{i}", False) for i in range(L)], ("1", "Target", False))
+    tracks = [tr(1, "Target")]
+
+    r_at_l = align(tracks, c, lookahead=L)
+    assert r_at_l.matched == [True], "a match exactly L items ahead must be found at lookahead=L"
+    assert r_at_l.sets == ["1"]
+
+    r_at_l_minus_1 = align(tracks, c, lookahead=L - 1)
+    assert r_at_l_minus_1.matched == [False], (
+        "that same match must NOT be reachable at lookahead=L-1 - if it is, "
+        "the window bound is wider than lookahead promises"
+    )
+
+
 def test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3():
     """Review finding 1/2. A real closer reached by a genuine 1-item skip -
     the ordinary reason lookahead exists at all is a song that isn't on THIS
