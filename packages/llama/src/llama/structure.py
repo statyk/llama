@@ -390,6 +390,29 @@ def _is_enumerated_tape(tracks: list["Track"]) -> bool:
     return sum(1 for t in tracks if _TRACK_PREFIX.match(t.title)) >= _ENUMERATED_MIN
 
 
+# A duration a setlist author glued onto the title itself: "Althea  [8:40]",
+# "Arguement (4:54)", "KC Jones 5:20". This is the ITEM side, not the TRACK
+# side that `_TRACK_PREFIX` above targets - `setlist._JUNK_TITLE` already
+# drops a title that is ENTIRELY a duration, but a duration glued onto a real
+# title's tail is not junk; only the glued part needs to go, and only at the
+# matching layer (see `_strip_trailing_duration`'s docstring).
+#
+# Trailing-only ($ anchored): a duration anywhere but the end is left alone,
+# so a real title that happens to contain duration-shaped digits mid-string
+# is never corrupted - see test_a_mid_title_duration_is_never_stripped. Both
+# bracket styles and a bare "m:ss" are covered; the bracket alternatives
+# require a matching pair, so a mismatched "[8:40)" is not stripped.
+_ITEM_TRAILING_DURATION = re.compile(
+    r"\s*(?:\[\d{1,2}:\d{2}\]|\(\d{1,2}:\d{2}\)|\d{1,2}:\d{2})\s*$")
+
+
+def _strip_trailing_duration(title: str) -> str:
+    """Matching-layer-only helper: never assign this back onto a stored
+    `SetlistItem.title` or `Track.title` - see
+    test_duration_strip_never_touches_the_stored_item_title."""
+    return _ITEM_TRAILING_DURATION.sub("", title)
+
+
 def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
           aliases: dict[str, str] | None = None) -> "AlignResult":
     """Map canonical set/segue structure onto tracks, in recording order.
@@ -406,6 +429,23 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     songs after it into the wrong set; that is why matching is worth this."""
     items = canonical.items
     norms = [fuzzy_norm_title(it.title, aliases) for it in items]
+    # Duration-stripped item norms, computed once alongside `norms` above -
+    # a miss-path-only fallback (see the cascade below), never the primary
+    # compare and never assigned back onto `it.title`.
+    #
+    # `or norms[i]`: an item whose title is nothing BUT a duration (optionally
+    # behind a footnote marker like "#", which `setlist._is_junk_title` does
+    # not always catch upstream) strips to "", and an empty string is not
+    # evidence of anything - `_window_match`'s exact-equality pass would
+    # otherwise match it against ANY track whose own norm is also "" (e.g. a
+    # junk track titled "..." or "?"), stealing the window position and
+    # dragging every following track into the wrong set. Falling back to the
+    # unstripped norm is safe: the plain compare against `norms` has already
+    # run and missed on exactly that value by the time this list is
+    # consulted, so the fallback is a guaranteed no-op for these entries, not
+    # a second chance. See test_an_emptied_strip_never_becomes_a_wildcard.
+    stripped_norms = [fuzzy_norm_title(_strip_trailing_duration(it.title), aliases) or norms[i]
+                      for i, it in enumerate(items)]
     enumerated = _is_enumerated_tape(tracks)
     sets: list[str] = []
     segues: list[bool] = []
@@ -460,6 +500,31 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             bare = t.title[m.end():] if m else ""
             if bare:
                 hit = _window_match(norms, j, hi, fuzzy_norm_title(bare, aliases))
+        if hit is None:
+            # Retry the same window with a trailing duration stripped off the
+            # ITEM side (not the track side - that's the block above). Reached
+            # only after the plain compare and both other fallbacks have
+            # already missed, which is what protects an item whose real title
+            # legitimately ends in something duration-shaped ("5:15", The
+            # Who) - see
+            # test_glued_duration_strip_is_a_miss_path_fallback_not_an_eager_rewrite.
+            #
+            # Runs strictly after the track-prefix fallback above, not proven
+            # order-independent: MEASURED (not argued) by swapping this block
+            # ahead of that one and re-running both the full test_structure.py
+            # suite and the two Task-2-measurement corpora
+            # (corpus.jsonl + corpus-nondead.jsonl, 1716 rows total,
+            # index-by-index) - zero test failures and zero per-track
+            # differences either way, on the shows this codebase has been
+            # measured against. That is evidence for these specific corpora,
+            # not a guarantee for every possible title, and it is not
+            # rechecked automatically - if this comment and the real behavior
+            # ever diverge, trust a fresh measurement over this claim. A track
+            # that needs BOTH strips at once (a numeric prefix on the track
+            # AND a glued duration on the item, together) is not handled by
+            # either fallback and is out of scope here - no fixture in the
+            # measured corpora needed it.
+            hit = _window_match(stripped_norms, j, hi, nt)
         if hit is None:
             sets.append(sets[-1] if sets else "1")
             segues.append(False)

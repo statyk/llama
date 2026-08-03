@@ -125,6 +125,84 @@ _NUM_PREFIX = re.compile(r"^\s*\d{1,3}(?:\s*[.)]+\s*|\s+)")
 # truncates it to "195" and the stray "2" would look like the title start.
 _NUM_LINE = re.compile(r"^\s*\d{1,3}\s*(?:[.)]+\s*|\s+)\S")
 
+# Personnel credit LINES: "Jerry Garcia - guitar", "Bruce Hornsby - Piano,
+# Accordion", "Chris Whitley: vocals, guitar; Alan Gevaert: bass; Louie
+# Lepore: guitar; Billy Ward: drums". A grammar, not a widened word list -
+# see the measurement note on `_NOISE` below for why that distinction
+# matters. One or more NAME + separator + INSTR-list ENTRYs, optionally
+# `;`-joined, with a little leading/trailing decoration tolerated.
+_CREDIT_INSTR = (
+    r"guitars?|bass|drums?|vocals?|keyboards?|keys|piano|organ|percussion"
+    r"|harmonica|harp|mandolin|mandola|fiddle|violin|viola|cello|banjo"
+    r"|sax(?:ophone)?|trumpet|trombone|horns?|dobro|accordion|cowbell"
+    r"|shakers?|tambourine|congas?|bongos|agogo|timbales?|flute|clarinet"
+    r"|synth(?:esizer)?|moog|clavinet|rhodes|vibes|marimba|washboard"
+    r"|ukulele|drumitar|b-?3|melodica|didgeridoo|tabla|theremin|guitarron"
+    # "drumz" is a misspelling that appears in real credit lines - of the
+    # 22 distinct description lines containing it across both measured
+    # corpora, exactly one is a credit line: "Oteil Burbridge - bass &
+    # vocals & drumz" (also a real example of the multi-instrument
+    # connector case) - which is why it is listed here as an instrument
+    # token - even though `Drumz` is also a SONG by standing domain ruling
+    # (see the hazard note on `_NOISE` below), so the same word is
+    # simultaneously credit vocabulary in one context and a title
+    # elsewhere.
+    r"|bells|beam|steel|drumz"
+)
+_CREDIT_MOD = (
+    r"lead|rhythm|acoustic|electric|upright|backing|back-up|background"
+    r"|pedal|lap|slide|hand|talking|bass|baritone|tenor|alto|soprano"
+    r"|harmony|additional|second|hammond|grand|steel|12-string|six-string"
+    r"|all|main|nylon|string|b-?3"
+)
+_CREDIT_PHRASE = rf"(?:(?:{_CREDIT_MOD})\s+){{0,3}}(?:{_CREDIT_INSTR})"
+_CREDIT_JOIN = r"(?:\s*(?:,|&|\+|/|\band\b|\bw/\b)\s*)+"
+_CREDIT_LIST = rf"{_CREDIT_PHRASE}(?:{_CREDIT_JOIN}{_CREDIT_PHRASE})*"
+# NAME: any Unicode letter (not just A-Za-z - a real name like "Béla Fleck"
+# is otherwise unreachable), and up to 3 further "words" each either an
+# ordinary name-word or one short quoted nickname aside ('Brad "The EZB"
+# Morgan'). Bounded-length quotes only (no wildcard growth), and this widens
+# NAME alone - the `^...$` whole-line anchor around the whole grammar is
+# untouched. Net corpus effect is folded into the `_NOISE` note below (866
+# vs 853 total, items-gained down from 7 to 4) rather than stated standalone
+# here: measured over all 31,923 distinct description lines, the widening
+# newly drops 10 lines. 7 of those were NOT dropped by the pre-task-3 code -
+# those 7 are precisely what moves the "853" figure to "866". The remaining
+# 3 were ALREADY dropped by the pre-task-3 code via the same quoted-
+# nickname/non-ASCII shape; they are the recovered residual that moved
+# items-gained from 7 to 4.
+# 0 tracks lost/re-pointed, 0 rows losing `align()` coverage, hazard probe
+# clean (see `_NOISE`'s comment for the one pre-existing, already-accepted
+# exception).
+#
+# The widening was ratified on the further measurement that it enlarges the
+# already-accepted "<song title> - <instrument>" exposure class by exactly
+# 10 real corpus titles (+100 synthetic acceptances over 14,817 real track
+# titles x 10 instruments; 60,370 -> 60,470 - a +0.17% move inside a change
+# that shrinks that same surface 32% versus the pre-branch code). The
+# condition of that ratification was that the 10 titles be named here so
+# the instance is on record:
+#     'Béla Solo'      'Béla talks'     'Béla’s Banjo Demo'     'Cliché Guevara'
+#     'Good Morning Aztlán'    'Más y Más'    'Más y más'    'Serenata Norteña'
+#     'Simon Says "The Kingpin"'     'Simon Sayz "The Kingpin"'
+# Every one is admitted for the same reason: a non-ASCII letter or a quoted
+# aside. None of them is dropped standing alone - the exposure is only for
+# the synthetic "<title> - <instrument>" whole-line shape.
+_CREDIT_LETTER = r"[^\W\d_]"  # any Unicode letter: a "word" char, minus digits/underscore
+_CREDIT_NAME_CHAR = rf"(?:{_CREDIT_LETTER}|[.'’\-])"
+_CREDIT_NICK = r'"[^"\n]{1,24}"'  # a short quoted nickname aside
+_CREDIT_NAME = (
+    rf"{_CREDIT_LETTER}{_CREDIT_NAME_CHAR}*"
+    rf"(?:\s+(?:{_CREDIT_NAME_CHAR}+|{_CREDIT_NICK})){{0,3}}"
+)
+_CREDIT_ENTRY = rf"{_CREDIT_NAME}\s*[-–—:]\s*{_CREDIT_LIST}"
+# Leading decor also tolerates a literal `w/`/`#w/` prefix ("w/ Oteil
+# Burbridge - bass" is a common "with guest X" phrasing) - a fixed literal
+# alternative, not a wildcard, so it doesn't loosen the anchor itself.
+_CREDIT_LINE = (
+    rf"^[\s*\-–—]*(?:#?w/\s*)?{_CREDIT_ENTRY}(?:\s*;\s*{_CREDIT_ENTRY})*\s*[*#$%!.†‡]?\s*$"
+)
+
 # Lines that are lineage/provenance chatter, not songs. Checked before song splitting.
 _NOISE = re.compile(
     r"(recorded|transfer|lineage|source|taper|shnid|seeded|thanks|conversion|remaster"
@@ -141,10 +219,63 @@ _NOISE = re.compile(
     # _TRACK_PREFIX/_NUM_PREFIX composition note above - an accepted trade,
     # not a clean win.
     r"|\bdiscs?\s*#?\s*(?:\d|one|two|three|four|five|six|i{1,3}\b)"
-    # "Jerry Garcia - guitar", "Bill Kreutzmann - drums": a name, a dash, an
-    # instrument. Anchored on the dash so a bare "Drums" song line is untouched.
-    r"|[a-z]\s+[-–—]\s*(?:guitar|bass|drums?|vocals?|keyboards?|piano"
-    r"|organ|percussion|harmonica|mandolin|fiddle|banjo|sax(?:ophone)?)\s*$"
+    # Personnel credit lines (`_CREDIT_LINE` above). The WHOLE-LINE anchor
+    # (`^...$`) is the false-positive guard here, not the instrument
+    # vocabulary: a line is dropped only if EVERY token on it is a name, a
+    # separator, a connector, a modifier or an instrument - nothing may be
+    # left over. That is what keeps a bare "Drums" or "Space" song line (or
+    # a set-break line like "Drums > Space") untouched, and it is why this
+    # is a grammar rather than a widened word list: measured, the dominant
+    # failure modes of the old dash-anchored rule were SHAPE, not
+    # vocabulary (trailing decoration, a modifier between the dash and the
+    # instrument, no space before the dash, a colon instead of a dash -
+    # vocabulary alone was the smallest of five dimensions). Measured over a
+    # combined 1841-row corpus (1121 Dead + 720 non-Dead), in-process
+    # against the real parser and real `align()`: 866 junk items dropped
+    # (453 Dead / 413 non-Dead - this figure includes the NAME widening
+    # below), 0 tracks lost a match, 0 tracks re-pointed, 0 rows lost
+    # `align()` coverage. One track GAINED a match (a curiosity on an
+    # already-broken row, not a win worth relying on).
+    #
+    # This REPLACES the old dash-anchored alternative rather than adding
+    # the new grammar alongside it, per the ruling - and that has one
+    # measured, honestly-reported cost the original (additive) measurement
+    # didn't surface: the old alternative used `.search()` with no leading
+    # anchor, so it dropped a credit line through ANY prefix, decoration or
+    # not. `_CREDIT_NAME`'s Unicode-letter/quoted-nickname/`w/`-prefix
+    # tolerance (see its own comment above) recovers most of that - what's
+    # left is 4 ITEMS (3 distinct lines) `_NOISE` still declines: ALL THREE
+    # carry a leading footnote-number marker before "w/" ("1. w/ Donna Jean
+    # Godchaux - vocals", "1. w/ Oteil Burbridge - bass", "2. w/ Anna Moss -
+    # vocals, Joel Ludford - guitar"), and the third of those ALSO joins two
+    # full NAME-instrument entries with a bare comma instead of `;`. Both
+    # root causes sit OUTSIDE "widen NAME only" - the number-marker is a
+    # leading-decor problem that interacts with the enumerated-tracklist
+    # number-stripping logic, the bare-comma join is an entry-separator
+    # problem that risks confusing the instrument-list comma with an
+    # entry-list comma - so neither was attempted; per the "one attempt,
+    # then stop" ruling on this widening, they are recorded here as
+    # accepted residual rather than chased. None of the 4 is a real song
+    # and none touches `align()` (still 0 tracks lost/re-pointed) - a
+    # same-class, smaller-than-before residual, not a new hazard.
+    #
+    # Residual exposure, named rather than left implicit: this grammar
+    # would accept a synthetic whole-line "Space - Drums" or "Jam - Drums"
+    # (a SONG title, a dash, an instrument word) - `Space` and `Drums` are
+    # songs by standing domain ruling. Measured at 0 occurrences of that
+    # WHOLE-LINE shape across 1841 real descriptions (both corpora), which
+    # is why this is an accepted risk rather than a blocker - it is not
+    # evidence the case cannot occur. A related but distinct case is
+    # nonzero and NOT a false positive: a tail COMPONENT of a correctly
+    # dropped multi-instrument credit line can textually equal a real song
+    # title - e.g. "Oteil Burbridge - vocals, bass, drums" is correctly
+    # dropped on tapes whose track list also contains a real "Drums" track.
+    # The drop is still correct (the line as a whole is credit-shaped, not
+    # the standalone song) and `align()` is unaffected; it just means the
+    # "0 occurrences" above is scoped to the whole-line hazard shape, not
+    # to every string that could ever appear as a substring of a dropped
+    # line.
+    rf"|{_CREDIT_LINE}"
     r"|^comments?\b)",
     re.I,
 )
@@ -178,17 +309,43 @@ def _enumerated_prefix(lines: list[str]) -> bool:
 
 _SET_TOKEN = {"one": "1", "two": "2", "three": "3", "i": "1", "ii": "2", "iii": "3"}
 
-# Emitted-title junk: a bare duration or a disc marker that survived line-level
-# noise filtering because it sat inside a comma-separated run (e.g. a
-# comma-separated "Set 1: Bertha, Disc Two, Sugaree" line never reaches the
-# line-level _NOISE check at all, since the line matched _SET_LINE first).
-# Word-numeral disc markers get the same treatment as _NOISE's, for the same
-# reason - kept as a SEPARATE regex, not merged with _NOISE's, since the two
-# guard different paths (whole line vs. a title surviving a comma run) and a
-# shared regex would blur that distinction for a future maintainer.
+# Emitted-title junk, three classes:
+#   1. a bare or bracketed duration, or 2. a disc marker, that survived
+#      line-level noise filtering because it sat inside a comma-separated run
+#      (e.g. a comma-separated "Set 1: Bertha, Disc Two, Sugaree" line never
+#      reaches the line-level _NOISE check at all, since the line matched
+#      _SET_LINE first). Word-numeral disc markers get the same treatment as
+#      _NOISE's, for the same reason.
+#   3. a "Total time"/"Total Time" summary line — a different animal from the
+#      first two: it is a whole line _NOISE simply does not cover (it doesn't
+#      match _NOISE's patterns and isn't dropped as a comma-run survivor), not
+#      a title that leaked through a comma-separated run. Widened to match
+#      any item whose title STARTS with "total time"/"total running time"
+#      (optionally inside an opening bracket), with no constraint on what
+#      follows: measured, the narrower `total time[:=]<duration>` shape left
+#      21 total-time items surviving corpus-wide in forms it didn't cover
+#      (`[Total Time 1:47:37]`, `Total Time ~ 03:17:25.981`, `Total Time-
+#      97:30`, bare `Total Time`, `Total running time [79:48]` with no
+#      `[:=]` separator at all, `Total Running Time TRT 46:29`...). Kept
+#      ITEM-level rather than folded into `_NOISE`'s line-level rule: two of
+#      the 21 are the remainder of a line after a `Set One:`/`Set Two:`
+#      marker (`_NOISE` never sees that text - the marker branch takes the
+#      line before `_NOISE` is consulted), so only an item-level rule
+#      reaches all 21; every one of the 21 is a whole single emitted item,
+#      so item-level loses nothing; and unlike a line-level rule, this one
+#      cannot take a glued-on song down with it. Measured: 21/21 of the
+#      residue dropped, 0 tracks lost a match, 0 items gained. Declines
+#      `Total Eclipse Of The Heart` and `Totally Wired` - "total" must be
+#      followed by whitespace then "time" (optionally "running time"), so
+#      neither the missing space in "Totally" nor the unrelated word
+#      "Eclipse" can satisfy it.
+# Kept as a SEPARATE regex, not merged with _NOISE's, since the two guard
+# different paths (whole line vs. a title surviving a comma run) and a shared
+# regex would blur that distinction for a future maintainer.
 _JUNK_TITLE = re.compile(
-    r"^\(?\d{1,3}[:.]\d{2}\)?$"
-    r"|^discs?\s*#?\s*(?:\d+|one|two|three|four|five|six|i{1,3})$",
+    r"^[(\[]?\d{1,3}[:.]\d{2}[)\]]?$"
+    r"|^discs?\s*#?\s*(?:\d+|one|two|three|four|five|six|i{1,3})$"
+    r"|^\[?\s*total\s+(?:running\s+)?time\b",
     re.I,
 )
 
