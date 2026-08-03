@@ -528,6 +528,18 @@ def _strip_trailing_duration(title: str) -> str:
 # 718 non-Dead; 192-cell grid x lookahead {3,8,10,12}; real align() + real
 # jerrybase.anchor_breaks, tracer validated at 0 divergences).
 #
+# Correction (final-review fix wave, finding F8): the commit that landed
+# these values (ca8e603) claimed in its message that every existing guard
+# fixture already derived its geometry from these constants, "so they pin
+# the new values' semantics automatically" - not true of
+# test_legitimate_tail_matching_survives_the_guard's big-skip shape, which
+# was hardcoded and stopped isolating the axis it claimed to the moment
+# MAX_SKIP moved past its hardcoded gap (see F1, fixed in a later commit on
+# this branch). That commit's message also listed 10 skip values while
+# calling them "eight" (Dead) shows without noting the distinction TAIL_-
+# GUARD_MAX_SKIP's paragraph below now explains. History was not rewritten;
+# this note is the correction.
+#
 # TAIL_GUARD_ITEMS = 3
 #   The SMALLEST value that catches every measured tail-exhaustion casualty.
 #   The firing profile has 11 (show, lookahead) rows across 9 distinct shows
