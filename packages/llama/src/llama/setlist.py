@@ -138,11 +138,15 @@ _CREDIT_INSTR = (
     r"|shakers?|tambourine|congas?|bongos|agogo|timbales?|flute|clarinet"
     r"|synth(?:esizer)?|moog|clavinet|rhodes|vibes|marimba|washboard"
     r"|ukulele|drumitar|b-?3|melodica|didgeridoo|tabla|theremin|guitarron"
-    # "drumz" is a misspelling that appears in real credit lines (e.g. "Jay
-    # Lane - drumz"), which is why it is listed here as an instrument token
-    # - even though `Drumz` is also a SONG by standing domain ruling (see
-    # the hazard note on `_NOISE` below), so the same word is simultaneously
-    # credit vocabulary in one context and a title elsewhere.
+    # "drumz" is a misspelling that appears in real credit lines - of the
+    # 22 distinct description lines containing it across both measured
+    # corpora, exactly one is a credit line: "Oteil Burbridge - bass &
+    # vocals & drumz" (also a real example of the multi-instrument
+    # connector case) - which is why it is listed here as an instrument
+    # token - even though `Drumz` is also a SONG by standing domain ruling
+    # (see the hazard note on `_NOISE` below), so the same word is
+    # simultaneously credit vocabulary in one context and a title
+    # elsewhere.
     r"|bells|beam|steel|drumz"
 )
 _CREDIT_MOD = (
