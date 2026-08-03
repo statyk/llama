@@ -343,6 +343,158 @@ def test_a_song_called_drums_survives_a_drums_credit():
     assert not any("Mickey" in t for t in titles)
 
 
+# --- Class A: the credit-line GRAMMAR (task-3-attribution.md sections 1+3) ---
+# Five measured shape dimensions the old dash-anchored suffix rule missed
+# (`trail`, `mod`, `nospace`, `colon`, `vocab`), plus the connector and
+# instrument-word additions that took the rule from variant A (793 dropped)
+# to the shipped variant A2 (853 dropped). Each test below pins one
+# dimension with the exact example line from the measurement.
+
+
+def test_credit_line_trailing_decoration_survives_the_drop():
+    # `trail`: something after the instrument (*, #) - the single largest
+    # dimension, 132/529.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Martin Fierro - Saxophone *\nMatthew Kelly - Harmonica #\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_modifier_between_dash_and_instrument():
+    # `mod`: a modifier word (lead/rhythm/backing/...) between the dash and
+    # the instrument - 93/529. "Keyboards and Vocals" also exercises the
+    # A2 one-or-more connector (a bare `and` joining two instruments).
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Jeff Mattson – lead guitar\nRob Barraco - Keyboards and Vocals\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_modifier_and_trailing_decoration_combine():
+    # `mod`+`trail` together - "Talking Drum" is the design's own worked
+    # example: NOT a vocabulary miss (`drums?` was always in the list), a
+    # modifier ("Talking") sitting between the dash and the instrument.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Sikiru Adepoju - Talking Drum *\nBob Weir - rhythm guitar & vocals\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_no_space_before_the_dash():
+    # `nospace`: the second-largest single dimension after `trail`, 51/529.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Del McCoury- guitar\nRonnie McCoury-mandolin\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_colon_separator_with_no_space():
+    # `nospace`+`colon`: a colon instead of a dash, glued to the name.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Dino English: Drums\nLisa Mackey: Vocals\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_out_of_original_vocabulary():
+    # `vocab`: the smallest dimension (16/529, 3%) - a pure word-list miss
+    # with no other shape problem. Not the primary fix, but still covered.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Jeff Chimenti - Keys\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_comma_separated_instrument_list():
+    # A single NAME credited with several instruments on one line - the
+    # shape that produces the M2 "split component" residue when the whole
+    # line is declined (see task-3-attribution.md section 1): fixing the
+    # LINE removes every comma-separated tail item too, in one pass.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Bruce Hornsby - Piano, Accordion\n"
+            "Oteil Burbridge - Bass Guitar, Percussion, Vocals\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_semicolon_joined_multi_name_entries():
+    # Several NAME-instrument ENTRYs on one physical line, `;`-joined - the
+    # measured multi-credit line ("Chris Whitley...; Alan Gevaert...; ...").
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Chris Whitley: vocals, guitar; Alan Gevaert: bass; "
+            "Louie Lepore: guitar; Billy Ward: drums\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_a2_extra_instrument_words():
+    # The two literal additions variant A2 carries over variant A: "drumz"
+    # (misspelling) and "Hammond B-3" (a modifier + instrument compound).
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Jay Lane - drumz\nVince Welnick - Hammond B-3\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_role_vocabulary_is_out_of_scope():
+    # DECIDED AND DECLINED: no role vocabulary (sound/lighting/production
+    # are real title words). A role-only credit line is NOT dropped - it is
+    # not credit-shaped under this grammar (no instrument word), so it
+    # still reaches the item list. This pins the deliberate scope boundary,
+    # not a defect.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Phil Ek: sound\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert any("Phil Ek" in t for t in titles)
+
+
+def test_credit_line_hazard_words_survive():
+    # The standing-ruling hazard probe (task-3-attribution.md section 3):
+    # none of these may ever be treated as noise, credit-shaped or not.
+    # `Drums` and `Space` are SONGS by standing domain ruling.
+    # "Drums > Space" is a segue, not a single title - `_split_songs` splits
+    # it into "Drums" then "Space" upstream of any noise/junk filtering, so
+    # it is exercised here as a segue pair rather than as one literal title.
+    desc = ("Set 1:\nBertha\n333\n1977\n1662\n16\n?\n??\nDrums\nSpace\nJam\n"
+            "Drums > Space\nDrums/Space\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    for hazard in ("Bertha", "333", "1977", "1662", "16", "?", "??",
+                   "Drums", "Space", "Jam", "Drums/Space"):
+        assert hazard in titles, f"{hazard!r} was wrongly treated as noise"
+
+
+def test_credit_line_requires_whole_line_consumption():
+    """LOAD-BEARING: the `^...$` whole-line-consumption anchor is the
+    false-positive guard, not the vocabulary (task-3-attribution.md
+    section 3, binding condition 1). A line is dropped only if EVERY token
+    on it is a name, a separator, a connector, a modifier or an instrument
+    - nothing may be left over.
+
+    "Sugaree, Jerry Garcia - guitar" is one physical description line: the
+    credit tail ("Jerry Garcia - guitar") is genuinely credit-shaped, but
+    "Sugaree" ahead of it is not part of any NAME-instrument ENTRY (no
+    dash/colon separator follows it, and it is followed by a bare comma),
+    so the line as a WHOLE does not reduce to the credit grammar. Correct
+    behavior: the line survives `_NOISE` untouched and is handed to the
+    comma splitter, which keeps "Sugaree" as a clean title (and leaks the
+    credit tail as its own junk item - an accepted M2-shaped residual, not
+    what this test is pinning).
+
+    If the anchor is relaxed to an unanchored SEARCH - i.e. `_NOISE` only
+    has to find the credit shape ANYWHERE in the line, not consume all of
+    it - this line is wrongly recognized as pure noise (the credit tail is
+    still found via search) and the WHOLE line, "Sugaree" included, is
+    dropped outright before it ever reaches the comma splitter: the exact
+    `Disc Two 1. Eyes of the World` glued-song casualty class this design
+    exists to avoid. This test is the one that must FAIL under that
+    mutation; it was executed by hand (see task-3-implementer.md) and did.
+    """
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree, Jerry Garcia - guitar\n"
+            "Row Jimmy\nBig River\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert "Sugaree" in titles
+
+
 def test_noise_lines_do_not_open_the_enumerated_gate():
     # Defensive hardening, not a fix for a measured corpus problem - see
     # _enumerated_prefix's docstring for the caveat on why this can't be
@@ -666,6 +818,63 @@ def test_bracketed_total_time_with_three_digit_minutes_is_not_a_song():
             "Total time:  [105:01]\n")
     titles = [i.title for i in parse_setlist(desc).items]
     assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+# --- Class B: the widened item-level total-time rule
+# (task-3-attribution.md section 2). ITEM-level, in `_JUNK_TITLE`, not
+# `_NOISE`: the entire 21-item residue is a single emitted item apiece, so
+# item-level loses nothing, and an item-level rule cannot take a glued-on
+# song with it the way a line-level one can.
+
+
+def test_total_time_widened_forms_are_dropped():
+    # MEASURED residual forms the old `total time[:=]<duration>` shape did
+    # not cover: wrapping brackets, a `~` separator with sub-second
+    # precision, a bare dash separator, no separator at all (just
+    # whitespace before the bracketed duration), a bare label with no
+    # duration, and "total RUNNING time" with a duration shape the old
+    # rule's colon/equals requirement never accounted for.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "[Total Time 1:47:37]\nTotal Time ~ 03:17:25.981\n"
+            "Total Time- 97:30\nTotal Time\nTotal Time:\n"
+            "total time  [78:22]\nTotal running time [79:48]\n"
+            "Total Running Time TRT 46:29\nTotal running time: 1h03'23\"\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_total_time_after_a_set_marker_is_dropped():
+    # The two items `_NOISE` structurally can never reach: the marker
+    # branch in `_emit_items` consumes "Set One:"/"Set Two:" before `_NOISE`
+    # is ever consulted, so only an ITEM-level rule (this one) catches the
+    # remainder. A `_NOISE`-only fix would leave these behind permanently -
+    # this is the measured reason Class B stays out of `_NOISE`.
+    desc = ("Set One:  total time  [78:22]\nBertha\nJack Straw\n"
+            "Set Two:  total time  [93:48]\nSugaree\nRow Jimmy\nBig River\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_total_time_hazard_words_survive():
+    # "total" followed by whitespace then "time" is required - neither the
+    # missing space in "Totally" nor the unrelated word "Eclipse" satisfies
+    # that, so both survive as ordinary titles.
+    desc = ("Set 1:\nBertha\nDrums\nSpace\nJam\n333\n1977\n?\n"
+            "Total Eclipse Of The Heart\nTotally Wired\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    for hazard in ("Bertha", "Drums", "Space", "Jam", "333", "1977", "?",
+                   "Total Eclipse Of The Heart", "Totally Wired"):
+        assert hazard in titles, f"{hazard!r} was wrongly treated as junk"
+
+
+def test_total_time_item_level_does_not_eat_a_glued_song():
+    # Item-level scoping, proven directly: a total-time item glued onto a
+    # real song via a comma survives right alongside it - only the
+    # total-time item itself is dropped, unlike a line-level rule which
+    # could take the whole comma run with it.
+    desc = "Set 1: Bertha, Total Time: 45:00, Sugaree\n"
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Sugaree"]
 
 
 def test_real_numeric_titles_survive_the_junk_filter():
