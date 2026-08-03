@@ -1,3 +1,5 @@
+import inspect
+
 import llama.structure as structure
 from llama.models import ParsedSetlist, SetlistItem, SourcedParse, Track
 from llama.songs import normalize_song
@@ -6,6 +8,7 @@ from llama.structure import (
     TAIL_GUARD_MAX_SKIP,
     TAIL_GUARD_TRACKS_REMAINING,
     _tail_guard_declines,
+    _window_hi,
     align,
     blend_segues,
     from_setlistfm,
@@ -984,13 +987,22 @@ def test_tail_guard_max_skip_makes_la3_structurally_inert():
     condition A: state the RELATIONSHIP, not just "we tried la=3 and
     nothing changed".
 
-    `align`'s search window is `hi = min(j + 1 + lookahead, len(items))`
-    (mirrored below, not just asserted against, so this test breaks loudly
-    if that arithmetic ever changes), which makes the last reachable index
-    `hi - 1 == j + lookahead` - so the largest possible skip at lookahead=L
-    is exactly L. That is also why the measured defect (gd85-04-06,
-    gd91-03-28) only appears at la>=8: la=3 cannot reach far enough to
-    trigger the mechanism in the first place, independent of this guard.
+    `align`'s search window bound is computed by `_window_hi` - CALLED
+    below, not a copied expression, so this test breaks loudly if that
+    arithmetic ever changes (fix-round-2, condition A: the fix-round-1
+    version mirrored the formula in its own body instead, which cannot
+    break when the original changes - measured: widening `_window_hi` to
+    `j + 2 + lookahead` left that version, and the whole guard subset and
+    full suite, green). `_window_hi(j, L, huge) - 1 == j + L`, so the
+    largest possible skip at lookahead=L is exactly L. That is also why the
+    measured defect (gd85-04-06, gd91-03-28) only appears at la>=8: la=3
+    cannot reach far enough to trigger the mechanism in the first place,
+    independent of this guard.
+
+    `lookahead` is read off `align`'s real signature, not hardcoded, so
+    this is tied to whatever the shipped default actually is (measured:
+    hardcoding `3` left this test green even after changing the real
+    default to 8).
 
     Given that, `TAIL_GUARD_MAX_SKIP >= lookahead` makes the skip axis
     UNREACHABLE at that lookahead - not an empirical property of some
@@ -998,9 +1010,9 @@ def test_tail_guard_max_skip_makes_la3_structurally_inert():
     the bound from the window formula and sweeps every skip the shipped
     default can actually produce, with the other two axes held maximally in
     their firing zones so only the skip axis is left to save the match."""
-    lookahead = 3  # the shipped default
+    lookahead = inspect.signature(align).parameters["lookahead"].default
     j = 0  # arbitrary - the relationship holds for any j
-    hi = min(j + 1 + lookahead, 10 ** 9)  # mirrors align()'s window formula exactly
+    hi = _window_hi(j, lookahead, 10 ** 9)  # the SAME function align() calls, not a copy
     max_reachable_skip = (hi - 1) - j
     assert max_reachable_skip == lookahead  # sanity: the derivation matches the stated claim
 

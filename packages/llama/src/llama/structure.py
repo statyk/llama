@@ -531,6 +531,25 @@ def _tail_guard_declines(hit: int, n_items: int, track_index: int, n_tracks: int
             and skip > TAIL_GUARD_MAX_SKIP)
 
 
+def _window_hi(j: int, lookahead: int, n_items: int) -> int:
+    """The two-pointer search window's upper bound: `align` looks for a
+    candidate match in `items[j:hi]`, never past it. Factored out to be the
+    ONE place this arithmetic lives, called by BOTH `align` (to compute its
+    real search window) and
+    test_tail_guard_max_skip_makes_la3_structurally_inert (to derive the
+    largest skip reachable at a given lookahead, which is what makes
+    TAIL_GUARD_MAX_SKIP's la=3 no-op a structural property rather than an
+    empirical one - fix-round-2, condition A).
+
+    Inlining this back into `align` silently degrades that test to a
+    mirror: it would keep asserting a copy of the formula, decoupled from
+    the one `align` actually runs, so a later change to the real window
+    arithmetic (e.g. widening it) could regress la=3's no-op guarantee
+    without any test noticing. Keep `align` calling this function, not a
+    restated inline expression."""
+    return min(j + 1 + lookahead, n_items)
+
+
 def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
           aliases: dict[str, str] | None = None) -> "AlignResult":
     """Map canonical set/segue structure onto tracks, in recording order.
@@ -580,7 +599,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
     # order stamped on the track itself) - this is what the tail guard's
     # "how many tracks remain" axis counts against.
     for track_pos, t in enumerate(tracks):
-        hi = min(j + 1 + lookahead, len(items))
+        hi = _window_hi(j, lookahead, len(items))
         comps = title_components(t.title, aliases)
         run = _merge_run(norms, j, hi, comps) if len(comps) > 1 else None
         if run is not None and run > j and _tail_guard_declines(
