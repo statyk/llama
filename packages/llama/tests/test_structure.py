@@ -1153,27 +1153,44 @@ def test_legitimate_tail_matching_survives_the_guard():
 
 
 def test_tail_guard_decline_lets_a_later_fallback_find_an_earlier_hit():
-    # Design decision: a decline is treated like an ordinary miss, not a
-    # terminal failure - the cascade below keeps trying and may still land a
-    # legitimate, non-tail hit in the same window. Here the primary compare
-    # exact-matches the untouched title against the tail item (idx5,
-    # "Alpha"); only the glued-duration miss-path fallback (which searches
-    # `stripped_norms`) reaches the true, non-tail item (idx0, "Alpha
-    # [5:20]" stripped down to "Alpha"). FAILS WITHOUT THE GUARD: the
-    # primary compare's tail hit is taken directly, matched[0] comes back
-    # True against idx5 ("encore"/tail set) instead of idx0, `j` jumps to 6
-    # (exhausted), and the two tracks after it (which should cleanly match
-    # idx1/idx2) come back unmatched, inheriting the wrong set instead.
-    c = canon(
+    """Design decision: a decline is treated like an ordinary miss, not a
+    terminal failure - the cascade below keeps trying and may still land a
+    legitimate, non-tail hit in the same window. Here the primary compare
+    exact-matches the untouched title against a TAIL duplicate of "Alpha";
+    only the glued-duration miss-path fallback (which searches
+    `stripped_norms`) reaches the true, non-tail item ("Alpha [5:20]"
+    stripped down to "Alpha"). FAILS WITHOUT THE GUARD: the primary
+    compare's tail hit is taken directly, matched[0] comes back True
+    against the tail duplicate ("encore" set) instead of item 0, `j` jumps
+    to the end of the item list, and the two tracks after it (which should
+    cleanly match "Beta"/"Gamma") come back unmatched, inheriting the wrong
+    set instead.
+
+    Sized off TAIL_GUARD_MAX_SKIP and TAIL_GUARD_TRACKS_REMAINING
+    (fix-round-2 item 3; review finding 5's technique applied here), not
+    the fixed 6-item/3-track fixture fix-round-1 shipped, which only held
+    for TAIL_GUARD_TRACKS_REMAINING <= 3. Decoy items push the tail
+    duplicate far enough past `j` to clear the skip axis regardless of the
+    constant, and padding tracks (which match nothing) clear the tracks
+    axis the same way."""
+    ITEMS, TRACKS_REM, MAX_SKIP = TAIL_GUARD_ITEMS, TAIL_GUARD_TRACKS_REMAINING, TAIL_GUARD_MAX_SKIP
+    n_items = MAX_SKIP + 5   # margin of 4 over the skip bar
+    decoy_count = n_items - 5
+    rows = [
         ("1", "Alpha [5:20]", False), ("1", "Beta", False), ("1", "Gamma", False),
-        ("1", "Delta", False), ("2", "Epsilon", False), ("encore", "Alpha", False),
-    )
-    tracks = [tr(1, "Alpha"), tr(2, "Beta"), tr(3, "Gamma")]
+        ("1", "Delta", False),
+        *[("1", f"Decoy{i}", False) for i in range(decoy_count)],
+        ("encore", "Alpha", False),  # tail duplicate: hijacks the primary compare
+    ]
+    assert len(rows) == n_items
+    c = canon(*rows)
+    pad_tracks = [tr(100 + i, f"Filler{i}") for i in range(TRACKS_REM)]  # clears the tracks axis
+    tracks = [tr(1, "Alpha"), tr(2, "Beta"), tr(3, "Gamma")] + pad_tracks
     with _GuardSpy() as spy:
-        r = align(tracks, c, lookahead=8)
-    assert spy.declined  # the primary compare's tail hit (idx5) was genuinely reached and declined
-    assert r.matched == [True, True, True]
-    assert r.sets == ["1", "1", "1"]  # idx0/idx1/idx2, not the tail idx5
+        r = align(tracks, c, lookahead=n_items)
+    assert spy.declined  # the primary compare's tail hit was genuinely reached and declined
+    assert r.matched[:3] == [True, True, True]
+    assert r.sets[:3] == ["1", "1", "1"]  # items 0/1/2, not the tail duplicate
 
 
 def test_tail_guard_declines_a_merge_run_landing_in_the_tail():
@@ -1181,30 +1198,112 @@ def test_tail_guard_declines_a_merge_run_landing_in_the_tail():
     components, so the item that matters for the tail (item-axis) test is
     the LAST consumed item (`run + len(comps) - 1`), while the skip axis is
     measured from where the run STARTS (`run - j`) - two different
-    questions, "how deep did it land" vs "how far did it jump". Four
-    canonical items (C, D, E, F) sit between `j` and the merge target and
-    are genuinely absent from this tape, so the skip (4) clears
-    TAIL_GUARD_MAX_SKIP - this is the actual measured shape (a wide-open
-    gap, not a 1-item skip). Declining must leave `j` untouched so C-F stay
-    available and the tracks that follow keep their own shot at the real
-    items. FAILS WITHOUT THE GUARD: the merge run is taken directly
-    (matched[2] True, sets[2] "2"), `j` jumps to the end of the item list,
-    and "C"/"D"/"E"/"F" - which should cleanly match - come back unmatched
-    instead."""
+    questions, "how deep did it land" vs "how far did it jump". The
+    canonical items between `j` and the merge target are genuinely absent
+    from this tape, so the skip clears TAIL_GUARD_MAX_SKIP - a wide-open
+    gap, not a 1-item skip, which is the actual measured shape. Declining
+    must leave `j` untouched so those items stay available and the tracks
+    that follow keep their own shot at them. FAILS WITHOUT THE GUARD: the
+    merge run is taken directly (matched[2] True, sets[2] "2"), `j` jumps to
+    the end of the item list, and the skipped items - which should cleanly
+    match - come back unmatched instead.
+
+    Sized off all three constants (fix-round-2 item 3; review finding 5's
+    technique applied here), not the fixed 8-item/7-track fixture
+    fix-round-1 shipped, which only held for TAIL_GUARD_TRACKS_REMAINING <
+    6 and broke outright at TAIL_GUARD_ITEMS == 1. The merge components are
+    single words ("X", "Y") rather than real song names on purpose: a
+    multi-word component (the original used "China Cat Sunflower") is
+    itself a valid match for the DECLINED run's single-title fallback
+    compare - the whole merged track's normalized text starts with the
+    first component's normalized text as a literal subphrase (see
+    fuzzy_title_eq's subphrase rule) - so it can resurface as a SECOND
+    guard candidate anchored at the run's START rather than its last item,
+    and whether THAT candidate also gets declined depends on the constants
+    in a way unrelated to what this test is about (measured: this is
+    exactly what broke the original fixture at TAIL_GUARD_ITEMS == 1). A
+    single-word component can never satisfy the subphrase rule
+    (`_is_subphrase` requires >= 2 words on the short side), so no second
+    candidate arises and the fixture stays governed by exactly the two axes
+    under test."""
+    ITEMS, TRACKS_REM, MAX_SKIP = TAIL_GUARD_ITEMS, TAIL_GUARD_TRACKS_REMAINING, TAIL_GUARD_MAX_SKIP
+    skip = MAX_SKIP + 3                     # comfortably clears the skip axis
+    skipped = [f"Skip{i}" for i in range(skip)]  # canonical items absent from the tape
+    run = 2 + skip                          # merge target's start index (after A, B)
+    last_item = run + 1                     # 2-component run (X, Y): the LAST consumed item
+    n_items = last_item + ITEMS             # boundary: item axis clears at exactly ITEMS
+    trailing = n_items - 1 - last_item
+
     c = canon(
-        ("1", "A", False), ("1", "B", False), ("1", "C", False), ("1", "D", False),
-        ("1", "E", False), ("1", "F", False),
-        ("2", "China Cat Sunflower", True), ("2", "I Know You Rider", False),
+        ("1", "A", False), ("1", "B", False),
+        *[("1", s, False) for s in skipped],
+        ("2", "X", True), ("2", "Y", False),
+        *[("2", f"Trail{i}", False) for i in range(trailing)],
     )
     tracks = [
         tr(1, "A"), tr(2, "B"),
-        tr(3, "China Cat Sunflower > I Know You Rider"),  # merge run landing on the tail pair
-        tr(4, "C"), tr(5, "D"), tr(6, "E"), tr(7, "F"),
+        tr(3, "X > Y"),  # merge run landing on the tail pair
+        *[tr(4 + i, s) for i, s in enumerate(skipped)],
     ]
+    pad = [tr(100 + i, f"Pad{i}") for i in range(TRACKS_REM)]  # clears the tracks axis with margin
     with _GuardSpy() as spy:
-        r = align(tracks, c, lookahead=8)
-    assert spy.declined  # the merge run (and its single-title fallback) were genuinely declined
+        r = align(tracks + pad, c, lookahead=n_items)
+    assert spy.declined  # the merge run was genuinely declined
     assert r.matched[2] is False  # merge run declined - falls to the single-match miss path
     assert r.sets[2] == "1"       # inherits B's set, not "2"
-    assert r.matched[3:] == [True, True, True, True]  # "C"/"D"/"E"/"F" still reachable
-    assert r.sets[3:] == ["1", "1", "1", "1"]          # j did not advance
+    assert r.matched[3:3 + skip] == [True] * skip  # the skipped items still reachable
+    assert r.sets[3:3 + skip] == ["1"] * skip      # j did not advance
+
+
+def test_tail_guard_merge_run_pins_run_start_vs_last_item():
+    """Condition B residual (fix-round-1 addendum / review): the merge-run
+    call site must pass the LAST consumed item (`run + len(comps) - 1`) as
+    the item axis and the RUN START distance (`run - j`) as the skip axis -
+    two different indices, easy to accidentally swap. Both plausible swaps
+    (item=run with skip measured from the last item; or only the skip axis
+    swapped) survived every OTHER guard test, because the 2-component
+    fixture above puts `run` and `run + len(comps) - 1` only one index
+    apart - on the same side of both thresholds either way.
+
+    This test uses a 3-component run, so `run` and the last consumed item
+    (`run + 2`) are two apart, and sizes the item axis so the LAST item
+    clears its bar while `run` itself - two items further from the end -
+    provably does not, for ANY TAIL_GUARD_ITEMS: n_items - run =
+    (n_items - last_item) + 2, and n_items - last_item is pinned at exactly
+    TAIL_GUARD_ITEMS by construction, so the swapped value is always
+    TAIL_GUARD_ITEMS + 2 - never <= TAIL_GUARD_ITEMS. It then asserts the
+    EXACT arguments `_GuardSpy` recorded for the merge call, not just the
+    align() outcome: an item-axis swap flips the outcome (item axis fails
+    to clear, so the swap's guard call would return False, not True), but
+    a skip-axis-only swap does not - real skip and swapped skip both clear
+    TAIL_GUARD_MAX_SKIP here, so only reading the recorded argument value
+    itself (not the outcome) catches it."""
+    ITEMS, TRACKS_REM, MAX_SKIP = TAIL_GUARD_ITEMS, TAIL_GUARD_TRACKS_REMAINING, TAIL_GUARD_MAX_SKIP
+    skip = MAX_SKIP + 1        # just clears the skip axis
+    j = 2                      # pointer position when the merge track is reached (after A, B)
+    run = j + skip
+    fillers = [f"Filler{i}" for i in range(run - 2)]  # items between B and the run start
+    last_item = run + 2        # 3-component run (X, Y, Z): the LAST consumed item
+    n_items = last_item + ITEMS  # boundary: item axis clears at exactly ITEMS for last_item,
+                                  # and therefore at ITEMS + 2 (never clearing) for `run` itself
+    trailing = n_items - 1 - last_item
+
+    c = canon(
+        ("1", "A", False), ("1", "B", False),
+        *[("1", f, False) for f in fillers],
+        ("2", "X", True), ("2", "Y", True), ("2", "Z", False),
+        *[("2", f"Trail{i}", False) for i in range(trailing)],
+    )
+    tracks = [tr(1, "A"), tr(2, "B"), tr(3, "X > Y > Z")]
+    pad = [tr(100 + i, f"Pad{i}") for i in range(TRACKS_REM)]  # clears the tracks axis with margin
+    with _GuardSpy() as spy:
+        r = align(tracks + pad, c, lookahead=n_items)
+
+    assert spy.calls, "the merge-run call site never reached the guard"
+    args, result = spy.calls[0]
+    item_idx, n_items_arg, track_pos, n_tracks_arg, recorded_skip = args
+    assert item_idx == last_item, "item axis must be the LAST consumed item, not the run start"
+    assert recorded_skip == skip, "skip axis must be measured from the run START, not the last item"
+    assert result is True  # both axes clear at this fixture's real values - genuinely declined
+    assert r.matched[2] is False
+    assert r.sets[2] == "1"
