@@ -480,15 +480,49 @@ def _strip_trailing_duration(title: str) -> str:
 # which is deliberate - Task 2 measures a grid including that setting, so
 # measurement can still conclude the axis is unnecessary.
 #
-# TODO(task-3): all three values below are PROVISIONAL - TAIL_GUARD_ITEMS and
-# TAIL_GUARD_TRACKS_REMAINING carried over from the measurement run's own
-# mechanical detector thresholds, TAIL_GUARD_MAX_SKIP chosen only to match
-# the shipped lookahead default, as a starting point ONLY. Task 3 chooses the
-# real values by measurement against the corpus and replaces this comment
-# with the real provenance.
-TAIL_GUARD_ITEMS = 2
+# Measured by the Task-2 corpus sweep (1838 shows: 1120 Grateful-Dead-family +
+# 718 non-Dead; 192-cell grid x lookahead {3,8,10,12}; real align() + real
+# jerrybase.anchor_breaks, tracer validated at 0 divergences).
+#
+# TAIL_GUARD_ITEMS = 3
+#   The SMALLEST value that catches every measured tail-exhaustion casualty.
+#   The eight confirmed-wrong shows land their spurious match 1, 1, 1, 1, 1, 2,
+#   2 and 3 items from the end of the canonical list. ITEMS=2 leaves
+#   gd1985-04-28 broken at la=10. The nearest LEGITIMATE match a larger value
+#   would start declining sits at 4 items from the end (15-31 candidates
+#   across the corpus); ITEMS=5 measurably reverts a correct recovery.
+#
+# TAIL_GUARD_TRACKS_REMAINING = 3
+#   Inert on both corpora: for (ITEMS=3, MAX_SKIP=6) every value from 0 to 10
+#   produces byte-identical results at every lookahead. Every decline observed
+#   anywhere in the corpus has 10-15 tracks remaining, and no candidate ever
+#   satisfied the other two axes with fewer than 3 tracks left. Kept, not
+#   because the corpus needs it, but because it is the only thing standing
+#   between the guard and a legitimate tail match on a short tape - the
+#   counter-case the design brief says decides the design, pinned by
+#   test_legitimate_tail_matching_survives_the_guard, which FAILS if this axis
+#   is disabled.
+#
+# TAIL_GUARD_MAX_SKIP = 6
+#   The LARGEST value (hence the fewest firings) that still catches every
+#   casualty: their skips are 7, 8, 9, 10, 10, 10, 10, 11, 11, 12, and
+#   MAX_SKIP=7 misses gd85-04-06's skip-7 hit outright. The largest skip on a
+#   legitimate match anywhere in 1838 shows is 6 (26 non-Dead candidates),
+#   saved only by the strict `>` comparison above - a margin of ZERO, so do
+#   NOT lower this to 5 without re-measuring. Any value >= 3 also makes the
+#   guard structurally inert at the shipped lookahead=3 (max reachable skip at
+#   lookahead L is L - see test_tail_guard_max_skip_makes_la3_structurally_inert
+#   above).
+#
+# Effect at these values: at la=3, zero declines and zero changed rows on both
+# corpora. At la=8, 2 declined tracks out of 23,275 (Dead) and 0 of 14,193
+# (non-Dead). At la=10, 7 and 1. Both confirmed-wrong shows at la=8 and all
+# seven at la=10 are fixed, with zero new wrong vectors, zero correct
+# recoveries lost, zero textually-wrong matches, and 0 of 602 anchored rows
+# moved. Full measurement: task-2-report.md.
+TAIL_GUARD_ITEMS = 3
 TAIL_GUARD_TRACKS_REMAINING = 3
-TAIL_GUARD_MAX_SKIP = 3
+TAIL_GUARD_MAX_SKIP = 6
 
 
 def _tail_guard_declines(hit: int, n_items: int, track_index: int, n_tracks: int,
