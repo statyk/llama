@@ -1328,3 +1328,97 @@ def test_tail_guard_merge_run_pins_run_start_vs_last_item():
     assert result is True  # both axes clear at this fixture's real values - genuinely declined
     assert r.matched[2] is False
     assert r.sets[2] == "1"
+
+
+# --- F3 (final review, both reviewers): call-site coverage -----------------
+# Of the five `_tail_guard_declines` call sites in `align`, three already had
+# a fixture that drives a genuine decline through them (the primary compare,
+# the merge run, and the glued-duration fallback - all covered above).
+# Measured: short-circuiting the guard check at either of the remaining two
+# sites - the Space/Drums -> "jam" fallback, or the enumerated-tape
+# track-prefix-strip fallback - left the FULL 1334-test suite green, because
+# no fixture anywhere ever drove a live decline through them. That is the
+# same blind spot the branch's own `_GuardSpy` standard exists to prevent,
+# one level up: the standard catches a test that never reaches a guard it
+# claims to test; a call site with no test at all is the limiting case the
+# standard cannot see, because there is no fixture to put the spy in. The two
+# tests below close it, verified by mutation (see the fixwave report for the
+# executed `if False:` short-circuit at each site, run with
+# PYTHONDONTWRITEBYTECODE=1 and a cleared __pycache__, restored after).
+
+
+def test_tail_guard_declines_a_jam_fallback_match_in_the_tail():
+    """Call site structure.py (search "Setlists often write \"Jam\""). A
+    preamble of two matched tracks puts the walk pointer at j=2; a skip-gap
+    of TAIL_GUARD_MAX_SKIP + 1 canonical items absent from the tape clears
+    the skip axis; the canonical "Jam" item sits exactly TAIL_GUARD_ITEMS
+    items from the end, clearing the item axis; and enough padding tracks
+    after the Drums/Space pair leave exactly TAIL_GUARD_TRACKS_REMAINING
+    tracks remaining, clearing the tracks axis too - all three, so the guard
+    genuinely declines rather than merely being reached.
+
+    The Space track's PRIMARY compare must miss first (no canonical item is
+    literally titled "Space" here) so it is the jam-fallback specifically -
+    not the primary compare, already covered elsewhere - that reaches the
+    guard. `spy.declined` proves that, rather than assuming it from the
+    fixture's shape."""
+    ITEMS, TRACKS_REM, MAX_SKIP = TAIL_GUARD_ITEMS, TAIL_GUARD_TRACKS_REMAINING, TAIL_GUARD_MAX_SKIP
+    skip = MAX_SKIP + 1                      # clears the skip axis
+    skipped = [f"Skip{i}" for i in range(skip)]  # canonical items absent from the tape
+    hit = 2 + skip                           # index of the "Jam" canonical item
+    n_items = hit + ITEMS                    # boundary: item axis clears at exactly ITEMS remaining
+    trailing = n_items - 1 - hit
+    c = canon(
+        ("1", "A", False), ("1", "B", False),
+        *[("1", s, False) for s in skipped],
+        ("2", "Jam", False),
+        *[("2", f"Trail{i}", False) for i in range(trailing)],
+    )
+    pad = [tr(100 + i, f"Filler{i}") for i in range(TRACKS_REM - 1)]  # clears the tracks axis exactly
+    tracks = [tr(1, "A"), tr(2, "B"), tr(3, "Drums"), tr(4, "Space")] + pad
+    with _GuardSpy() as spy:
+        r = align(tracks, c, lookahead=n_items)
+    assert spy.declined, "the jam fallback's guard check was never reached - this test proves nothing"
+    assert r.matched[3] is False   # declined: contained, single-track miss
+    assert r.sets[3] == "1"        # inherits the preceding set, not "2" (the Jam item's set)
+
+
+def test_tail_guard_declines_an_enumerated_prefix_fallback_match_in_the_tail():
+    """Call site structure.py (the `_TRACK_PREFIX`-strip fallback, reached
+    only when `_is_enumerated_tape` is True and the unstripped compare has
+    already missed). Three numeric-prefixed tracks (clearing
+    `_ENUMERATED_MIN`) so the tape reads as enumerated; the third strips to a
+    bare title matching a canonical item TAIL_GUARD_MAX_SKIP + 1 items past
+    the pointer (clears the skip axis), positioned TAIL_GUARD_ITEMS items
+    from the end (clears the item axis), with enough padding tracks after it
+    to leave exactly TAIL_GUARD_TRACKS_REMAINING tracks remaining (clears
+    the tracks axis).
+
+    The unstripped PRIMARY compare must miss first: "09 Closer" is two
+    normalized words against the canonical one-word "Closer", so
+    `_is_subphrase`'s two-word floor on the short side never fires (the same
+    property the module comment notes for "16 Tons" vs "8 Miles High") and
+    the match is only found once the enumerated fallback strips the leading
+    "09 ". `spy.declined` proves that path was the one reached, rather than
+    assuming it from the fixture's shape."""
+    ITEMS, TRACKS_REM, MAX_SKIP = TAIL_GUARD_ITEMS, TAIL_GUARD_TRACKS_REMAINING, TAIL_GUARD_MAX_SKIP
+    skip = MAX_SKIP + 1                      # clears the skip axis
+    skipped = [f"Skip{i}" for i in range(skip)]  # canonical items absent from the tape
+    hit = 2 + skip                           # index of the "Closer" canonical item
+    n_items = hit + ITEMS                    # boundary: item axis clears at exactly ITEMS remaining
+    trailing = n_items - 1 - hit
+    c = canon(
+        ("1", "A", False), ("1", "B", False),
+        *[("1", s, False) for s in skipped],
+        ("2", "Closer", False),
+        *[("2", f"Trail{i}", False) for i in range(trailing)],
+    )
+    pad = [tr(100 + i, f"{100 + i} Filler{i}") for i in range(TRACKS_REM - 1)]  # clears tracks axis
+    tracks = [tr(1, "01 A"), tr(2, "02 B"), tr(3, "09 Closer")] + pad
+    with _GuardSpy() as spy:
+        r = align(tracks, c, lookahead=n_items)
+    assert spy.declined, (
+        "the enumerated-prefix fallback's guard check was never reached - this test proves nothing"
+    )
+    assert r.matched[2] is False   # declined: contained, single-track miss
+    assert r.sets[2] == "1"        # inherits the preceding set, not "2" (the Closer item's set)
