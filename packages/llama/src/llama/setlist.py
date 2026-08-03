@@ -138,6 +138,11 @@ _CREDIT_INSTR = (
     r"|shakers?|tambourine|congas?|bongos|agogo|timbales?|flute|clarinet"
     r"|synth(?:esizer)?|moog|clavinet|rhodes|vibes|marimba|washboard"
     r"|ukulele|drumitar|b-?3|melodica|didgeridoo|tabla|theremin|guitarron"
+    # "drumz" is a misspelling that appears in real credit lines (e.g. "Jay
+    # Lane - drumz"), which is why it is listed here as an instrument token
+    # - even though `Drumz` is also a SONG by standing domain ruling (see
+    # the hazard note on `_NOISE` below), so the same word is simultaneously
+    # credit vocabulary in one context and a title elsewhere.
     r"|bells|beam|steel|drumz"
 )
 _CREDIT_MOD = (
@@ -156,13 +161,29 @@ _CREDIT_LIST = rf"{_CREDIT_PHRASE}(?:{_CREDIT_JOIN}{_CREDIT_PHRASE})*"
 # NAME alone - the `^...$` whole-line anchor around the whole grammar is
 # untouched. Net corpus effect is folded into the `_NOISE` note below (866
 # vs 853 total, items-gained down from 7 to 4) rather than stated standalone
-# here: most of the extra drops are lines the pre-task-3 code ALSO declined
-# via the same quoted-nickname/non-ASCII shape (so they don't move the
-# "853" figure's own baseline, only what this widening additionally
-# recovers from it), which makes a simple "+N" here misleading in isolation.
+# here: measured over all 31,923 distinct description lines, the widening
+# newly drops 10 lines. 7 of those were NOT dropped by the pre-task-3 code -
+# those 7 are precisely what moves the "853" figure to "866". The remaining
+# 3 were ALREADY dropped by the pre-task-3 code via the same quoted-
+# nickname/non-ASCII shape; they are the recovered residual that moved
+# items-gained from 7 to 4.
 # 0 tracks lost/re-pointed, 0 rows losing `align()` coverage, hazard probe
 # clean (see `_NOISE`'s comment for the one pre-existing, already-accepted
 # exception).
+#
+# The widening was ratified on the further measurement that it enlarges the
+# already-accepted "<song title> - <instrument>" exposure class by exactly
+# 10 real corpus titles (+100 synthetic acceptances over 14,817 real track
+# titles x 10 instruments; 60,370 -> 60,470 - a +0.17% move inside a change
+# that shrinks that same surface 32% versus the pre-branch code). The
+# condition of that ratification was that the 10 titles be named here so
+# the instance is on record:
+#     'Béla Solo'      'Béla talks'     'Béla’s Banjo Demo'     'Cliché Guevara'
+#     'Good Morning Aztlán'    'Más y Más'    'Más y más'    'Serenata Norteña'
+#     'Simon Says "The Kingpin"'     'Simon Sayz "The Kingpin"'
+# Every one is admitted for the same reason: a non-ASCII letter or a quoted
+# aside. None of them is dropped standing alone - the exposure is only for
+# the synthetic "<title> - <instrument>" whole-line shape.
 _CREDIT_LETTER = r"[^\W\d_]"  # any Unicode letter: a "word" char, minus digits/underscore
 _CREDIT_NAME_CHAR = rf"(?:{_CREDIT_LETTER}|[.'’\-])"
 _CREDIT_NICK = r'"[^"\n]{1,24}"'  # a short quoted nickname aside
@@ -219,18 +240,19 @@ _NOISE = re.compile(
     # anchor, so it dropped a credit line through ANY prefix, decoration or
     # not. `_CREDIT_NAME`'s Unicode-letter/quoted-nickname/`w/`-prefix
     # tolerance (see its own comment above) recovers most of that - what's
-    # left is 4 ITEMS (3 distinct lines) `_NOISE` still declines: two lines
-    # carry a leading footnote-number marker before "w/" ("1. w/ Oteil
-    # Burbridge - bass"), and one joins two full NAME-instrument entries
-    # with a bare comma instead of `;` ("w/ Anna Moss - vocals, Joel
-    # Ludford - guitar"). Both root causes sit OUTSIDE "widen NAME only" -
-    # the first is a leading-decor problem that interacts with the
-    # enumerated-tracklist number-stripping logic, the second is an
-    # entry-separator problem that risks confusing the instrument-list
-    # comma with an entry-list comma - so neither was attempted; per the
-    # "one attempt, then stop" ruling on this widening, they are recorded
-    # here as accepted residual rather than chased. None of the 4 is a real
-    # song and none touches `align()` (still 0 tracks lost/re-pointed) - a
+    # left is 4 ITEMS (3 distinct lines) `_NOISE` still declines: ALL THREE
+    # carry a leading footnote-number marker before "w/" ("1. w/ Donna Jean
+    # Godchaux - vocals", "1. w/ Oteil Burbridge - bass", "2. w/ Anna Moss -
+    # vocals, Joel Ludford - guitar"), and the third of those ALSO joins two
+    # full NAME-instrument entries with a bare comma instead of `;`. Both
+    # root causes sit OUTSIDE "widen NAME only" - the number-marker is a
+    # leading-decor problem that interacts with the enumerated-tracklist
+    # number-stripping logic, the bare-comma join is an entry-separator
+    # problem that risks confusing the instrument-list comma with an
+    # entry-list comma - so neither was attempted; per the "one attempt,
+    # then stop" ruling on this widening, they are recorded here as
+    # accepted residual rather than chased. None of the 4 is a real song
+    # and none touches `align()` (still 0 tracks lost/re-pointed) - a
     # same-class, smaller-than-before residual, not a new hazard.
     #
     # Residual exposure, named rather than left implicit: this grammar
