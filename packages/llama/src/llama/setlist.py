@@ -144,15 +144,38 @@ _CREDIT_MOD = (
     r"lead|rhythm|acoustic|electric|upright|backing|back-up|background"
     r"|pedal|lap|slide|hand|talking|bass|baritone|tenor|alto|soprano"
     r"|harmony|additional|second|hammond|grand|steel|12-string|six-string"
-    r"|all|main|nylon|string|slide|b-?3"
+    r"|all|main|nylon|string|b-?3"
 )
 _CREDIT_PHRASE = rf"(?:(?:{_CREDIT_MOD})\s+){{0,3}}(?:{_CREDIT_INSTR})"
 _CREDIT_JOIN = r"(?:\s*(?:,|&|\+|/|\band\b|\bw/\b)\s*)+"
 _CREDIT_LIST = rf"{_CREDIT_PHRASE}(?:{_CREDIT_JOIN}{_CREDIT_PHRASE})*"
-_CREDIT_NAME = r"[A-Za-z][A-Za-z.'’\-]*(?:\s+[A-Za-z.'’\-]+){0,3}"
+# NAME: any Unicode letter (not just A-Za-z - a real name like "Béla Fleck"
+# is otherwise unreachable), and up to 3 further "words" each either an
+# ordinary name-word or one short quoted nickname aside ('Brad "The EZB"
+# Morgan'). Bounded-length quotes only (no wildcard growth), and this widens
+# NAME alone - the `^...$` whole-line anchor around the whole grammar is
+# untouched. Net corpus effect is folded into the `_NOISE` note below (866
+# vs 853 total, items-gained down from 7 to 4) rather than stated standalone
+# here: most of the extra drops are lines the pre-task-3 code ALSO declined
+# via the same quoted-nickname/non-ASCII shape (so they don't move the
+# "853" figure's own baseline, only what this widening additionally
+# recovers from it), which makes a simple "+N" here misleading in isolation.
+# 0 tracks lost/re-pointed, 0 rows losing `align()` coverage, hazard probe
+# clean (see `_NOISE`'s comment for the one pre-existing, already-accepted
+# exception).
+_CREDIT_LETTER = r"[^\W\d_]"  # any Unicode letter: a "word" char, minus digits/underscore
+_CREDIT_NAME_CHAR = rf"(?:{_CREDIT_LETTER}|[.'’\-])"
+_CREDIT_NICK = r'"[^"\n]{1,24}"'  # a short quoted nickname aside
+_CREDIT_NAME = (
+    rf"{_CREDIT_LETTER}{_CREDIT_NAME_CHAR}*"
+    rf"(?:\s+(?:{_CREDIT_NAME_CHAR}+|{_CREDIT_NICK})){{0,3}}"
+)
 _CREDIT_ENTRY = rf"{_CREDIT_NAME}\s*[-–—:]\s*{_CREDIT_LIST}"
+# Leading decor also tolerates a literal `w/`/`#w/` prefix ("w/ Oteil
+# Burbridge - bass" is a common "with guest X" phrasing) - a fixed literal
+# alternative, not a wildcard, so it doesn't loosen the anchor itself.
 _CREDIT_LINE = (
-    rf"^[\s*\-–—]*{_CREDIT_ENTRY}(?:\s*;\s*{_CREDIT_ENTRY})*\s*[*#$%!.†‡]?\s*$"
+    rf"^[\s*\-–—]*(?:#?w/\s*)?{_CREDIT_ENTRY}(?:\s*;\s*{_CREDIT_ENTRY})*\s*[*#$%!.†‡]?\s*$"
 )
 
 # Lines that are lineage/provenance chatter, not songs. Checked before song splitting.
@@ -181,36 +204,51 @@ _NOISE = re.compile(
     # failure modes of the old dash-anchored rule were SHAPE, not
     # vocabulary (trailing decoration, a modifier between the dash and the
     # instrument, no space before the dash, a colon instead of a dash -
-    # vocabulary alone was the smallest of five dimensions). Measured over
-    # two 1841-row corpora, in-process against the real parser and real
-    # `align()`: 853 junk items dropped (450 Dead / 403 non-Dead), 0 tracks
-    # lost a match, 0 tracks re-pointed, 0 rows lost `align()` coverage.
-    # One track GAINED a match (a curiosity on an already-broken row, not a
-    # win worth relying on).
+    # vocabulary alone was the smallest of five dimensions). Measured over a
+    # combined 1841-row corpus (1121 Dead + 720 non-Dead), in-process
+    # against the real parser and real `align()`: 866 junk items dropped
+    # (453 Dead / 413 non-Dead - this figure includes the NAME widening
+    # below), 0 tracks lost a match, 0 tracks re-pointed, 0 rows lost
+    # `align()` coverage. One track GAINED a match (a curiosity on an
+    # already-broken row, not a win worth relying on).
     #
     # This REPLACES the old dash-anchored alternative rather than adding
     # the new grammar alongside it, per the ruling - and that has one
     # measured, honestly-reported cost the original (additive) measurement
     # didn't surface: the old alternative used `.search()` with no leading
     # anchor, so it dropped a credit line through ANY prefix, decoration or
-    # not ("w/ Oteil Burbridge - bass", "#w/ Casey Driessen - Fiddle", a
-    # quoted nickname, a non-ASCII name like "Béla Fleck"). This grammar's
-    # leading decor is deliberately narrow (dashes/asterisks/whitespace
-    # only - see the anchor comment above), so those 7 corpus-wide lines no
-    # longer get caught: they surface as junk items instead of being
-    # silently dropped. None of the 7 is a real song and none touches
-    # `align()` (still 0 tracks lost/re-pointed) - it is a same-class,
-    # smaller-than-before residual, not a new hazard, and not worth
-    # chasing per the "do not chase the residual" ruling; it is recorded
-    # here rather than left for someone to rediscover as a regression.
+    # not. `_CREDIT_NAME`'s Unicode-letter/quoted-nickname/`w/`-prefix
+    # tolerance (see its own comment above) recovers most of that - what's
+    # left is 4 ITEMS (3 distinct lines) `_NOISE` still declines: two lines
+    # carry a leading footnote-number marker before "w/" ("1. w/ Oteil
+    # Burbridge - bass"), and one joins two full NAME-instrument entries
+    # with a bare comma instead of `;` ("w/ Anna Moss - vocals, Joel
+    # Ludford - guitar"). Both root causes sit OUTSIDE "widen NAME only" -
+    # the first is a leading-decor problem that interacts with the
+    # enumerated-tracklist number-stripping logic, the second is an
+    # entry-separator problem that risks confusing the instrument-list
+    # comma with an entry-list comma - so neither was attempted; per the
+    # "one attempt, then stop" ruling on this widening, they are recorded
+    # here as accepted residual rather than chased. None of the 4 is a real
+    # song and none touches `align()` (still 0 tracks lost/re-pointed) - a
+    # same-class, smaller-than-before residual, not a new hazard.
     #
     # Residual exposure, named rather than left implicit: this grammar
     # would accept a synthetic whole-line "Space - Drums" or "Jam - Drums"
     # (a SONG title, a dash, an instrument word) - `Space` and `Drums` are
-    # songs by standing domain ruling. Measured at 0 occurrences across
-    # 1841 real descriptions (both corpora), which is why this is an
-    # accepted risk rather than a blocker - it is not evidence the case
-    # cannot occur.
+    # songs by standing domain ruling. Measured at 0 occurrences of that
+    # WHOLE-LINE shape across 1841 real descriptions (both corpora), which
+    # is why this is an accepted risk rather than a blocker - it is not
+    # evidence the case cannot occur. A related but distinct case is
+    # nonzero and NOT a false positive: a tail COMPONENT of a correctly
+    # dropped multi-instrument credit line can textually equal a real song
+    # title - e.g. "Oteil Burbridge - vocals, bass, drums" is correctly
+    # dropped on tapes whose track list also contains a real "Drums" track.
+    # The drop is still correct (the line as a whole is credit-shaped, not
+    # the standalone song) and `align()` is unaffected; it just means the
+    # "0 occurrences" above is scoped to the whole-line hazard shape, not
+    # to every string that could ever appear as a substring of a dropped
+    # line.
     rf"|{_CREDIT_LINE}"
     r"|^comments?\b)",
     re.I,

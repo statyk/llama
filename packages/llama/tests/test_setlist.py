@@ -436,6 +436,53 @@ def test_credit_line_a2_extra_instrument_words():
     assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
 
 
+def test_credit_line_with_guest_prefix():
+    # MEASURED (fix round 1): a "w/ <name> - <instrument>" guest credit -
+    # common "with special guest X" phrasing - is caught via the leading
+    # `w/`/`#w/` decor tolerance added to `_CREDIT_LINE`, without loosening
+    # the whole-line anchor itself (the prefix is a fixed literal
+    # alternative, not a wildcard).
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "w/ Oteil Burbridge - bass\n#w/ Casey Driessen - Fiddle\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_with_quoted_nickname():
+    # MEASURED (fix round 1): a quoted nickname aside inside the name
+    # ('Brad "The EZB" Morgan') is tolerated as one bounded-length "word"
+    # in `_CREDIT_NAME`, not an open-ended wildcard.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Brad \"The EZB\" Morgan - drums\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_with_non_ascii_name():
+    # MEASURED (fix round 1): `_CREDIT_NAME`'s letter class covers any
+    # Unicode letter, not just A-Za-z, so a real accented name like
+    # "Béla Fleck" is reachable.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "Béla Fleck - Banjo\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert titles == ["Bertha", "Jack Straw", "Sugaree", "Row Jimmy", "Big River"]
+
+
+def test_credit_line_residual_after_name_widening_still_leaks():
+    # DOCUMENTED RESIDUAL (fix round 1, not chased further - "one attempt,
+    # then stop"): a leading footnote-number marker before "w/" ("1. w/
+    # Oteil Burbridge - bass") and two full entries joined by a bare comma
+    # instead of ";" both sit outside "widen NAME only" and are left as
+    # accepted residual - this pins that they are STILL not dropped, so a
+    # future widening attempt doesn't have to rediscover the boundary.
+    desc = ("Set 1:\nBertha\nJack Straw\nSugaree\nRow Jimmy\nBig River\n"
+            "1. w/ Oteil Burbridge - bass\n"
+            "w/ Anna Moss - vocals, Joel Ludford - guitar\n")
+    titles = [i.title for i in parse_setlist(desc).items]
+    assert any("Oteil Burbridge" in t for t in titles)
+    assert any("Anna Moss" in t for t in titles)
+
+
 def test_credit_line_role_vocabulary_is_out_of_scope():
     # DECIDED AND DECLINED: no role vocabulary (sound/lighting/production
     # are real title words). A role-only credit line is NOT dropped - it is
@@ -451,15 +498,18 @@ def test_credit_line_role_vocabulary_is_out_of_scope():
 def test_credit_line_hazard_words_survive():
     # The standing-ruling hazard probe (task-3-attribution.md section 3):
     # none of these may ever be treated as noise, credit-shaped or not.
-    # `Drums` and `Space` are SONGS by standing domain ruling.
+    # `Drums` and `Space` are SONGS by standing domain ruling. `drums`
+    # (lowercase) and `Drumz` are included explicitly, not just `Drums` -
+    # `drumz` is a word THIS CHANGE added to `_CREDIT_INSTR`, so `Drumz` is
+    # precisely the token whose song-hood this new vocabulary put at risk.
     # "Drums > Space" is a segue, not a single title - `_split_songs` splits
     # it into "Drums" then "Space" upstream of any noise/junk filtering, so
     # it is exercised here as a segue pair rather than as one literal title.
-    desc = ("Set 1:\nBertha\n333\n1977\n1662\n16\n?\n??\nDrums\nSpace\nJam\n"
-            "Drums > Space\nDrums/Space\n")
+    desc = ("Set 1:\nBertha\n333\n1977\n1662\n16\n?\n??\nDrums\ndrums\nDrumz\n"
+            "Space\nJam\nDrums > Space\nDrums/Space\n")
     titles = [i.title for i in parse_setlist(desc).items]
     for hazard in ("Bertha", "333", "1977", "1662", "16", "?", "??",
-                   "Drums", "Space", "Jam", "Drums/Space"):
+                   "Drums", "drums", "Drumz", "Space", "Jam", "Drums/Space"):
         assert hazard in titles, f"{hazard!r} was wrongly treated as noise"
 
 
@@ -493,6 +543,17 @@ def test_credit_line_requires_whole_line_consumption():
             "Row Jimmy\nBig River\n")
     titles = [i.title for i in parse_setlist(desc).items]
     assert "Sugaree" in titles
+
+
+def test_credit_line_requires_whole_line_consumption_at_the_end_too():
+    # MEASURED: dropping only the trailing `$` newly eats 48 distinct lines,
+    # including the real song 'Two-Horn Blues' (bfft1999-04-25.nak.flac16) —
+    # "Two" is a NAME, "-" a separator, "Horn" an instrument, and "Blues" is
+    # simply left over. Nothing may be left over - this is a SEPARATE test
+    # from the `^` one above (not another assert on it) because `assert`
+    # short-circuits and the first test's only assert already guards `^`.
+    desc = ("Set 1:\nBertha\nJack Straw\nTwo-Horn Blues\nRow Jimmy\nBig River\n")
+    assert "Two-Horn Blues" in [i.title for i in parse_setlist(desc).items]
 
 
 def test_noise_lines_do_not_open_the_enumerated_gate():
@@ -868,10 +929,16 @@ def test_total_time_hazard_words_survive():
 
 
 def test_total_time_item_level_does_not_eat_a_glued_song():
-    # Item-level scoping, proven directly: a total-time item glued onto a
+    # A regression guard, not the test that PROVES item-level scoping - this
+    # fixture is inside a comma run reached via the `Set 1:` marker branch,
+    # which `_NOISE` never sees regardless of whether the total-time rule
+    # lives in `_NOISE` or `_JUNK_TITLE`, so it would pass even if the rule
+    # were (wrongly) moved to `_NOISE`. `test_total_time_after_a_set_marker_
+    # is_dropped` is the one that actually pins item- vs line-level
+    # placement (moving the rule to `_NOISE` and reverting `_JUNK_TITLE`
+    # kills it). What THIS test does pin: a total-time item glued onto a
     # real song via a comma survives right alongside it - only the
-    # total-time item itself is dropped, unlike a line-level rule which
-    # could take the whole comma run with it.
+    # total-time item itself is dropped.
     desc = "Set 1: Bertha, Total Time: 45:00, Sugaree\n"
     titles = [i.title for i in parse_setlist(desc).items]
     assert titles == ["Bertha", "Sugaree"]
