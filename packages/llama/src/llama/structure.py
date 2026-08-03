@@ -428,50 +428,107 @@ def _strip_trailing_duration(title: str) -> str:
 # and this axis is what stops the guard from declining them too - see
 # test_legitimate_tail_matching_survives_the_guard.
 #
-# CALLER CONTRACT - not encoded in the predicate itself, because Task 2's
-# measurement instrument calls `_tail_guard_declines` directly with exactly
-# the 4 positional args below and must see every real decline decision, not
-# a 5th "was this a skip" argument: `align` below only CONSULTS the guard for
-# a candidate that actually skipped forward (`hit > j` / `run > j`). A match
-# at the current pointer position (no skip at all) can never exhaust the walk
-# regardless of how few canonical items remain, and on a short setlist
-# (2-3 items) a same-position match otherwise trivially satisfies
-# `TAIL_GUARD_ITEMS` too - measured via two baseline-suite regressions
-# (test_align_unmatched_tracks_inherit_previous_set,
-# test_alignment_coverage_ignores_filler_tracks) when this gate was missing.
+# CALLER CONTRACT (unchanged by the skip axis below) - `align` only CONSULTS
+# the guard for a candidate that actually skipped forward (`hit > j` /
+# `run > j`), as a cheap short-circuit, not as a hidden condition: a match at
+# the current pointer position (no skip at all, `skip == 0`) can never
+# exhaust the walk no matter how few canonical items remain, and the skip
+# axis below would decline it anyway (`0 > TAIL_GUARD_MAX_SKIP` is never
+# true), so this is a redundant fast path, not a load-bearing gate - measured
+# via two baseline-suite regressions (test_align_unmatched_tracks_inherit_
+# previous_set, test_alignment_coverage_ignores_filler_tracks) when neither
+# this gate nor the skip axis existed and a same-position match on a short
+# setlist trivially satisfied the (then two-axis) formula.
 #
-# TODO(task-3): both values below are PROVISIONAL - carried over from the
-# measurement run's own mechanical detector thresholds as a starting point
-# ONLY. Task 3 chooses the real values by measurement against the corpus and
-# replaces this comment with the real provenance.
+# THIRD AXIS (added in fix round 1, review finding 1) - NOT a deviation from
+# the design brief, a CORRECTION to a defect in it. The brief's own prose
+# describes the defect as *far*-ahead matching, then hands down a two-axis
+# formula with no distance term at all - the formula did not implement the
+# brief's own description. A hit landing in the last `TAIL_GUARD_ITEMS`
+# items while enough tracks remain gets declined regardless of how far it
+# reached to get there, so a single legitimate 1-item skip near a real
+# closer (a song missing from THIS tape, the ordinary reason lookahead
+# exists at all, followed by a couple of trailing filler tracks) got
+# declined and dropped the show's encore label, AT THE SHIPPED DEFAULT
+# lookahead=3 - that was the brief's formula being taken literally, not an
+# implementation bug against it. `TAIL_GUARD_MAX_SKIP` is the missing
+# distance term. `skip` MUST reach the predicate as an explicit argument
+# (not read off an enclosing `j`, not pre-computed into a bool by the
+# caller) so Task 2's instrument, which calls this predicate directly,
+# observes the real decline decision on this axis too. Applies identically
+# on the merge-run path (below): skip is measured from where the run
+# STARTS (`run - j`), never from the last consumed item (`run + n - 1`,
+# which stays the item axis's job) - "how far did it skip" and "how deep
+# did it land" are different questions and must not share an index.
+#
+# Convention (pin this, it decides what the measured constant means):
+# `skip = (match start index) - j` - the number of canonical items bypassed
+# to reach the match. `skip == 0` is a same-position match (see CALLER
+# CONTRACT above); `skip == 1` (`hit == j + 1`) means exactly one item, the
+# one sitting at `j`, was passed over - see
+# test_tail_guard_declines_skip_axis_boundary and
+# test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3.
+#
+# TAIL_GUARD_MAX_SKIP = 3 is chosen so the guard is PROVABLY, STRUCTURALLY
+# inert at the shipped lookahead=3: the window is `items[j : j+1+lookahead]`,
+# so the largest possible skip at lookahead=L is L itself, and declining
+# requires `skip > TAIL_GUARD_MAX_SKIP` (strict). At la=3 the maximum
+# reachable skip is 3, which can never exceed a threshold of 3 - so this is
+# no longer an empirical no-op claim (design gate 2), it is a structural one.
+# See test_tail_guard_max_skip_makes_la3_structurally_inert. Setting this
+# constant to 0 disables the axis entirely (every skip > 0 clears the bar),
+# which is deliberate - Task 2 measures a grid including that setting, so
+# measurement can still conclude the axis is unnecessary.
+#
+# TODO(task-3): all three values below are PROVISIONAL - TAIL_GUARD_ITEMS and
+# TAIL_GUARD_TRACKS_REMAINING carried over from the measurement run's own
+# mechanical detector thresholds, TAIL_GUARD_MAX_SKIP chosen only to match
+# the shipped lookahead default, as a starting point ONLY. Task 3 chooses the
+# real values by measurement against the corpus and replaces this comment
+# with the real provenance.
 TAIL_GUARD_ITEMS = 2
 TAIL_GUARD_TRACKS_REMAINING = 3
+TAIL_GUARD_MAX_SKIP = 3
 
 
-def _tail_guard_declines(hit: int, n_items: int, track_index: int, n_tracks: int) -> bool:
+def _tail_guard_declines(hit: int, n_items: int, track_index: int, n_tracks: int,
+                          skip: int) -> bool:
     """True when a candidate match at canonical-item index `hit` (0-based)
     would exhaust the two-pointer walk while too many tracks remain to trust
-    it - see the module comment above `TAIL_GUARD_ITEMS` for why.
+    it and it reached that far by skipping too much - see the module comment
+    above `TAIL_GUARD_ITEMS` for why there are three axes and what each one
+    means.
 
-    Both `hit` and `track_index` are 0-based, and both counts below are
-    INCLUSIVE of the position itself, not just what comes after it:
-    `n_items - hit` is how many canonical items sit at-or-after `hit` (the
-    literal last item, hit == n_items - 1, counts as "1 item remaining", not
-    0), and `n_tracks - track_index` is how many tracks sit at-or-after the
-    current one (the literal last track counts as "1 remaining"). Pinned by
+    `hit` and `track_index` are 0-based, and both counts below are INCLUSIVE
+    of the position itself, not just what comes after it: `n_items - hit` is
+    how many canonical items sit at-or-after `hit` (the literal last item,
+    hit == n_items - 1, counts as "1 item remaining", not 0), and
+    `n_tracks - track_index` is how many tracks sit at-or-after the current
+    one (the literal last track counts as "1 remaining"). Pinned by
     test_tail_guard_declines_hit_index_is_zero_based_and_inclusive.
 
-    Declines only when BOTH axes clear their bar: landing near the end of the
-    item list is exactly what legitimate tail matching looks like, and only
-    firing there too would break every normal show's ending - see
-    test_legitimate_tail_matching_survives_the_guard.
+    `skip` is the caller-computed distance from the walk's current pointer to
+    where this candidate match started (`hit - j`, or `run - j` for a merge
+    run) - see the module comment's "Convention" paragraph. It is NOT derived
+    from `hit`/`n_items` here; a candidate can land deep in the tail via a
+    tiny skip (a short setlist) or a huge one (the measured defect), and only
+    the latter is what this axis exists to catch.
+
+    Declines only when ALL THREE axes clear their bar: landing near the end
+    of the item list, with a same-position or small-skip match, is exactly
+    what legitimate tail matching looks like (a song simply missing from
+    this particular tape), and firing there too would break every normal
+    show's ending - see test_legitimate_tail_matching_survives_the_guard and
+    test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3.
 
     Read as a plain expression, not cached into a default argument, so a
     measurement harness can override `TAIL_GUARD_ITEMS`/
-    `TAIL_GUARD_TRACKS_REMAINING` on the module in-process (the same
-    technique `gather._HEAD_GAP`/`_ENUMERATED_MIN` use)."""
+    `TAIL_GUARD_TRACKS_REMAINING`/`TAIL_GUARD_MAX_SKIP` on the module
+    in-process (the same technique `gather._HEAD_GAP`/`_ENUMERATED_MIN`
+    use)."""
     return ((n_items - hit) <= TAIL_GUARD_ITEMS
-            and (n_tracks - track_index) >= TAIL_GUARD_TRACKS_REMAINING)
+            and (n_tracks - track_index) >= TAIL_GUARD_TRACKS_REMAINING
+            and skip > TAIL_GUARD_MAX_SKIP)
 
 
 def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
@@ -527,12 +584,16 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
         comps = title_components(t.title, aliases)
         run = _merge_run(norms, j, hi, comps) if len(comps) > 1 else None
         if run is not None and run > j and _tail_guard_declines(
-                run + len(comps) - 1, len(items), track_pos, n_tracks):
+                run + len(comps) - 1, len(items), track_pos, n_tracks, run - j):
             # `run > j`: only a run that actually skipped forward from the
             # current pointer is a tail-exhaustion candidate at all - see the
             # CALLER CONTRACT note above `TAIL_GUARD_ITEMS`. A merge run
             # consumes every component, so the item that matters for the tail
-            # test itself is the LAST one, not `run`. Declining drops back to
+            # test itself is the LAST one, not `run` - but the SKIP distance
+            # is measured from `run` (where the run starts), not the last
+            # consumed item, since skip asks "how far did this jump", not
+            # "how deep did it land" (that's the item axis's job). Declining
+            # drops back to
             # `run = None` exactly as `_merge_run` finding nothing would - the
             # track falls through to the single-title cascade below (and, on
             # the constructed regression case, misses there too and stays a
@@ -554,7 +615,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             continue
         nt = fuzzy_norm_title(t.title, aliases)
         hit = _window_match(norms, j, hi, nt)
-        if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks):
+        if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks, hit - j):
             # Declined candidates are treated exactly like a miss, not a
             # terminal failure: the cascade below still gets its shot at an
             # earlier, non-tail hit in the same window. See
@@ -567,7 +628,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             # only for a track titled Space that directly follows Drums, and
             # never in reverse. Measured on 45 corpus shows.
             hit = next((k for k in range(j, hi) if norms[k] == "jam"), None)
-            if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks):
+            if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks, hit - j):
                 hit = None
         if hit is None and enumerated:
             # Retry the same window with the track index/duration stripped, at
@@ -586,7 +647,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             bare = t.title[m.end():] if m else ""
             if bare:
                 hit = _window_match(norms, j, hi, fuzzy_norm_title(bare, aliases))
-                if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks):
+                if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks, hit - j):
                     hit = None
         if hit is None:
             # Retry the same window with a trailing duration stripped off the
@@ -613,7 +674,7 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
             # either fallback and is out of scope here - no fixture in the
             # measured corpora needed it.
             hit = _window_match(stripped_norms, j, hi, nt)
-            if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks):
+            if hit is not None and hit > j and _tail_guard_declines(hit, len(items), track_pos, n_tracks, hit - j):
                 hit = None
         if hit is None:
             sets.append(sets[-1] if sets else "1")

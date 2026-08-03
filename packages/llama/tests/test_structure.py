@@ -1,7 +1,9 @@
+import llama.structure as structure
 from llama.models import ParsedSetlist, SetlistItem, SourcedParse, Track
 from llama.songs import normalize_song
 from llama.structure import (
     TAIL_GUARD_ITEMS,
+    TAIL_GUARD_MAX_SKIP,
     TAIL_GUARD_TRACKS_REMAINING,
     _tail_guard_declines,
     align,
@@ -851,134 +853,291 @@ def test_an_emptied_strip_never_becomes_a_wildcard():
 
 
 # --- Tail-exhaustion guard ---------------------------------------------------
-# See TAIL_GUARD_ITEMS/_tail_guard_declines in structure.py for the mechanism:
-# at wide lookahead a mid-tape track can match a canonical item near the very
-# END of the item list, exhausting `j` and silently dragging every later,
-# otherwise-correct track into the wrong set. These tests were written first
-# and run against a variant with the guard's decline checks removed (`hit`/
-# `run` never reset to None after `_tail_guard_declines`) to confirm each one
-# actually depends on the guard - noted per test below.
+# See TAIL_GUARD_ITEMS/_tail_guard_declines in structure.py for the mechanism
+# (now three axes: how near the item list's end, how many tracks remain, how
+# far the candidate skipped ahead to get there). These tests were written
+# first and run against two mutants of `_tail_guard_declines` - `lambda *a:
+# False` (never decline: "under-eager") and `lambda *a: True` (always
+# decline: "over-eager") - to confirm each one actually depends on the
+# guard, in the direction that matters for what it asserts. See the fix-1
+# section of task-1-report.md for the full per-test two-mutant table.
+#
+# Fix-round-1 addendum, condition C: an outcome-only assertion on an
+# align()-level guard test is indistinguishable from a fixture that never
+# reaches the guard at all - exactly the failure the review caught (two
+# tests, zero predicate calls, that looked green and meaningful). Every
+# align()-level test below therefore spies on `_tail_guard_declines` via
+# `_GuardSpy` and asserts on the recorded calls, not merely on the resulting
+# labels - including the negative ones, where the assertion is "reached the
+# guard, AND the guard correctly returned False". Pure predicate-unit tests
+# above (item/tracks/skip axis boundaries etc.) call `_tail_guard_declines`
+# directly as their own assertion subject - the call IS the test, so a spy
+# wrapper around it would be circular and is intentionally not used there.
+
+
+class _GuardSpy:
+    """Records every call to `structure._tail_guard_declines` as
+    `(args, result)` while active, via `pytest.MonkeyPatch` wrapping the real
+    function (never replacing its logic). Lets an align()-level test assert
+    the guard was genuinely CONSULTED - and what it decided - rather than
+    only that a particular outcome resulted, which a bypassed guard could
+    also produce (review finding 2 / fix-round-1 addendum condition C)."""
+
+    def __init__(self):
+        self.calls: list[tuple[tuple, bool]] = []
+
+    def __enter__(self):
+        real = structure._tail_guard_declines
+
+        def spy(*args):
+            result = real(*args)
+            self.calls.append((args, result))
+            return result
+
+        import pytest
+        self._mp = pytest.MonkeyPatch()
+        self._mp.setattr(structure, "_tail_guard_declines", spy)
+        return self
+
+    def __exit__(self, *exc_info):
+        self._mp.undo()
+        return False
+
+    @property
+    def declined(self):
+        return [c for c in self.calls if c[1] is True]
+
+    @property
+    def allowed(self):
+        return [c for c in self.calls if c[1] is False]
 
 def test_tail_guard_declines_hit_index_is_zero_based_and_inclusive():
-    # Pins the exact semantics from the predicate's docstring: `hit` is
-    # 0-based, and both counts are INCLUSIVE of the position itself. Landing
-    # on the literal last item (hit == n_items - 1) always counts as "1 item
-    # remaining", so with n_items=10 this hit clears the item axis regardless
-    # of TAIL_GUARD_ITEMS's exact value (any value >= 1). Varying only
-    # track_index isolates the tracks axis: at the literal last track
-    # (track_index == n_tracks - 1) there is "1 track remaining", which is
-    # below TAIL_GUARD_TRACKS_REMAINING's provisional value of 3.
-    assert _tail_guard_declines(9, 10, 0, 100) is True
-    assert _tail_guard_declines(9, 10, 99, 100) is False
+    """hit and track_index are 0-based, and n_items-hit / n_tracks-track_index
+    are both INCLUSIVE of the position itself, not just what comes after it.
+    Landing on the literal last item (hit == n_items - 1) counts as "1 item
+    remaining", not 0 - clears the item axis for any TAIL_GUARD_ITEMS >= 1.
+    Value-agnostic (review finding 6): derives its "not enough tracks" case
+    directly from TAIL_GUARD_TRACKS_REMAINING rather than a hardcoded
+    number, so it keeps holding whatever Task 3 measures the constant to."""
+    n_items, n_tracks = 10, 1000
+    skip = TAIL_GUARD_MAX_SKIP + 1  # comfortably clears the skip axis too
+    assert _tail_guard_declines(9, n_items, 0, n_tracks, skip) is True
+    short_of_threshold = n_tracks - (TAIL_GUARD_TRACKS_REMAINING - 1)
+    assert _tail_guard_declines(9, n_items, short_of_threshold, n_tracks, skip) is False
 
 
 def test_tail_guard_declines_item_axis_boundary():
-    # Holds the tracks axis safely inside the firing zone (0 of 20 consumed,
-    # 20 remaining) throughout, so only the item axis is under test.
+    # Holds the tracks and skip axes safely inside their firing zones
+    # throughout, so only the item axis is under test.
     n_items, n_tracks, track_index = 10, 20, 0
+    skip = TAIL_GUARD_MAX_SKIP + 1
     at_threshold = n_items - TAIL_GUARD_ITEMS       # n_items - hit == TAIL_GUARD_ITEMS exactly
     one_outside = at_threshold - 1                  # one item further from the end
-    assert _tail_guard_declines(at_threshold, n_items, track_index, n_tracks) is True
-    assert _tail_guard_declines(one_outside, n_items, track_index, n_tracks) is False
+    assert _tail_guard_declines(at_threshold, n_items, track_index, n_tracks, skip) is True
+    assert _tail_guard_declines(one_outside, n_items, track_index, n_tracks, skip) is False
 
 
 def test_tail_guard_declines_tracks_axis_boundary():
-    # Holds the item axis deep in the tail (the last item) throughout, so
+    # Holds the item and skip axes deep in their firing zones throughout, so
     # only the tracks-remaining axis is under test.
     n_items, hit, n_tracks = 10, 9, 20
+    skip = TAIL_GUARD_MAX_SKIP + 1
     at_threshold = n_tracks - TAIL_GUARD_TRACKS_REMAINING  # remaining == TAIL_GUARD_TRACKS_REMAINING exactly
     one_outside = at_threshold + 1                          # one track closer to the end
-    assert _tail_guard_declines(hit, n_items, at_threshold, n_tracks) is True
-    assert _tail_guard_declines(hit, n_items, one_outside, n_tracks) is False
+    assert _tail_guard_declines(hit, n_items, at_threshold, n_tracks, skip) is True
+    assert _tail_guard_declines(hit, n_items, one_outside, n_tracks, skip) is False
 
 
-def test_tail_guard_declines_requires_both_conditions():
+def test_tail_guard_declines_skip_axis_boundary():
+    """Holds the item and tracks axes deep in their firing zones throughout,
+    so only the skip axis is under test. Pins the convention from the module
+    comment above TAIL_GUARD_MAX_SKIP: skip must be STRICTLY greater than
+    TAIL_GUARD_MAX_SKIP to decline - at exactly the threshold the guard
+    still lets the match through (this is also what makes la=3 structurally
+    inert when TAIL_GUARD_MAX_SKIP == 3 - see
+    test_tail_guard_max_skip_makes_la3_structurally_inert)."""
+    n_items, hit, n_tracks, track_index = 10, 9, 20, 0
+    at_threshold = TAIL_GUARD_MAX_SKIP        # skip == TAIL_GUARD_MAX_SKIP exactly: not enough
+    one_more = at_threshold + 1               # one item further skipped: enough
+    assert _tail_guard_declines(hit, n_items, track_index, n_tracks, at_threshold) is False
+    assert _tail_guard_declines(hit, n_items, track_index, n_tracks, one_more) is True
+
+
+def test_tail_guard_declines_requires_all_three_conditions():
     n_items, n_tracks = 10, 20
     tail_hit, non_tail_hit = n_items - 1, 0
     plenty_remaining, almost_done = 0, n_tracks - 1
-    # Item axis alone (tail hit) is not enough when few tracks remain.
-    assert _tail_guard_declines(tail_hit, n_items, almost_done, n_tracks) is False
-    # Tracks axis alone (plenty remaining) is not enough on a non-tail hit.
-    assert _tail_guard_declines(non_tail_hit, n_items, plenty_remaining, n_tracks) is False
-    # Both axes clear the bar together.
-    assert _tail_guard_declines(tail_hit, n_items, plenty_remaining, n_tracks) is True
+    big_skip, no_skip = TAIL_GUARD_MAX_SKIP + 1, 0
+    # item + tracks clear their bars, but nothing was skipped.
+    assert _tail_guard_declines(tail_hit, n_items, plenty_remaining, n_tracks, no_skip) is False
+    # item + skip clear their bars, but too few tracks remain.
+    assert _tail_guard_declines(tail_hit, n_items, almost_done, n_tracks, big_skip) is False
+    # tracks + skip clear their bars, but the hit isn't near the end.
+    assert _tail_guard_declines(non_tail_hit, n_items, plenty_remaining, n_tracks, big_skip) is False
+    # all three together decline.
+    assert _tail_guard_declines(tail_hit, n_items, plenty_remaining, n_tracks, big_skip) is True
 
 
-def test_align_la3_no_op_on_a_realistic_fixture():
-    # Cheapest invariant available: at the shipped default lookahead=3 the
-    # guard's decline checks are inert on ordinary shows, because a track's
-    # window never reaches far enough to land a candidate in the tail while
-    # many tracks remain. This is a NO-OP claim - unlike the other tests
-    # below, it is expected to pass identically with or without the guard;
-    # it documents that the guard does not perturb normal la=3 behavior,
-    # rather than pinning new behavior.
+def test_tail_guard_max_skip_makes_la3_structurally_inert():
+    """Direct, fixture-free proof of design gate 2 (no-op at the shipped
+    default lookahead=3) - review finding 1/4, fix-round-1 addendum
+    condition A: state the RELATIONSHIP, not just "we tried la=3 and
+    nothing changed".
+
+    `align`'s search window is `hi = min(j + 1 + lookahead, len(items))`
+    (mirrored below, not just asserted against, so this test breaks loudly
+    if that arithmetic ever changes), which makes the last reachable index
+    `hi - 1 == j + lookahead` - so the largest possible skip at lookahead=L
+    is exactly L. That is also why the measured defect (gd85-04-06,
+    gd91-03-28) only appears at la>=8: la=3 cannot reach far enough to
+    trigger the mechanism in the first place, independent of this guard.
+
+    Given that, `TAIL_GUARD_MAX_SKIP >= lookahead` makes the skip axis
+    UNREACHABLE at that lookahead - not an empirical property of some
+    corpus, a structural one of the arithmetic itself. This test derives
+    the bound from the window formula and sweeps every skip the shipped
+    default can actually produce, with the other two axes held maximally in
+    their firing zones so only the skip axis is left to save the match."""
+    lookahead = 3  # the shipped default
+    j = 0  # arbitrary - the relationship holds for any j
+    hi = min(j + 1 + lookahead, 10 ** 9)  # mirrors align()'s window formula exactly
+    max_reachable_skip = (hi - 1) - j
+    assert max_reachable_skip == lookahead  # sanity: the derivation matches the stated claim
+
+    assert TAIL_GUARD_MAX_SKIP >= max_reachable_skip, (
+        "TAIL_GUARD_MAX_SKIP must be >= the shipped lookahead for la=3 to be "
+        "structurally a no-op - if this fails, the guard can now fire at la=3"
+    )
+    n_items, n_tracks = 10, 100
+    for skip in range(0, max_reachable_skip + 1):  # every skip reachable at la=3
+        assert _tail_guard_declines(n_items - 1, n_items, 0, n_tracks, skip) is False
+
+
+def test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3():
+    """Review finding 1/2. A real closer reached by a genuine 1-item skip -
+    the ordinary reason lookahead exists at all is a song that isn't on THIS
+    particular tape - must not be declined, even though the item and tracks
+    axes alone (the pre-fix, two-axis formula) were both satisfied. Modeled
+    on the reviewer's Probe A: 10 canonical items, the recording is missing
+    item 8 (a song cut from the tape), the real closer is item 9, and two
+    trailing filler tracks (crowd noise, tuning) follow it - present in the
+    list `align` walks, since `is_filler`/`_songish_coverage` exist
+    precisely to tolerate them there.
+
+    Unlike the sequential-ending shapes elsewhere in this file, this one is
+    PROVEN to actually reach `_tail_guard_declines` (review finding 2: two
+    earlier tests never called it, because every match in them was a
+    same-position match short-circuited by the caller's `hit > j` gate
+    before the predicate was ever consulted) - the closer here is a genuine
+    1-item skip (`hit == j + 1`), so the gate lets the call through, and
+    this test spies on it (fix-round-1 addendum condition C) to prove that
+    AND that the guard, having been reached, correctly returned False -
+    rather than merely asserting a green vector a bypassed guard would also
+    produce."""
     c = canon(
-        ("1", "Feel Like A Stranger", False), ("1", "Franklin's Tower", False),
-        ("1", "Big River", False), ("1", "Cassidy", False),
-        ("2", "China Cat Sunflower", True), ("2", "I Know You Rider", False),
-        ("2", "Estimated Prophet", True), ("2", "Eyes Of The World", False),
-        ("encore", "Casey Jones", False),
+        ("1", "Song A", False), ("1", "Song B", False),
+        ("1", "Song C", False), ("1", "Song D", False),
+        ("2", "Song E", False), ("2", "Song F", False),
+        ("2", "Song G", False), ("2", "Song H", False),
+        ("2", "Song I", False),   # NOT on this tape - the cut song
+        ("encore", "Song J", False),
     )
     tracks = [
-        tr(1, "Feel Like A Stranger"), tr(2, "Franklin's Tower"),
-        tr(3, "Big River"), tr(4, "Cassidy"),
-        tr(5, "China Cat Sunflower >"), tr(6, "I Know You Rider"),
-        tr(7, "Estimated Prophet >"), tr(8, "Eyes Of The World"),
-        tr(9, "Casey Jones"),
+        tr(1, "Song A"), tr(2, "Song B"), tr(3, "Song C"), tr(4, "Song D"),
+        tr(5, "Song E"), tr(6, "Song F"), tr(7, "Song G"), tr(8, "Song H"),
+        tr(9, "Song J"),           # the real closer - "Song I" isn't on this tape
+        tr(10, "Crowd Noise"), tr(11, "Tuning"),
     ]
-    r = align(tracks, c)  # default lookahead=3
-    assert r.matched == [True] * 9
-    assert r.sets == ["1", "1", "1", "1", "2", "2", "2", "2", "encore"]
-    assert r.coverage == 1.0
+    with _GuardSpy() as spy:
+        r = align(tracks, c)  # shipped default lookahead=3
+
+    assert spy.calls, "the guard predicate was never consulted - this test proves nothing"
+    assert spy.allowed and not spy.declined  # reached the guard, which correctly did not fire
+    assert r.matched[8] is True
+    assert r.sets[8] == "encore"
+    assert r.sets[9:] == ["encore", "encore"]
 
 
 def test_tail_guard_declines_a_mid_tape_match_on_the_encore_song():
-    # Constructed shape of the measured defect (gd85-04-06, gd91-03-28): the
-    # encore song appears as a FILE mid-tape (a rip/filename-ordering
-    # artifact). At a wide lookahead the far-ahead match lands on the true
-    # encore item at the very end of the canonical list, which - unguarded -
-    # exhausts `j` and wrongly drags every later, otherwise-correct track
-    # into "encore". FAILS WITHOUT THE GUARD: matched[4] comes back True
-    # (not False), sets[4] comes back "encore" (not "1"), and sets[5:] come
-    # back ["encore", "encore", "encore", "encore"] instead of the real sets,
-    # because the window guard-lessly matches idx8 at the artifact track and
-    # then finds nothing left for every track after it.
+    """Constructed shape of the measured defect (gd85-04-06, gd91-03-28): the
+    encore song appears as a FILE mid-tape (a rip/filename-ordering
+    artifact). At a wide lookahead the far-ahead match lands on the true
+    encore item at the very end of the canonical list, which - unguarded -
+    exhausts `j` and wrongly drags every later, otherwise-correct track into
+    "encore".
+
+    Sized off TAIL_GUARD_TRACKS_REMAINING and TAIL_GUARD_MAX_SKIP (review
+    finding 5), not a hardcoded track count, so it keeps exercising the
+    tracks axis regardless of what Task 3 measures the constants to be -
+    the original fixed-9-track version only held for
+    TAIL_GUARD_TRACKS_REMAINING <= 5. `lookahead` is likewise sized off the
+    padding so the window always reaches the tail item."""
+    pad = TAIL_GUARD_TRACKS_REMAINING + TAIL_GUARD_MAX_SKIP + 2  # tail songs after the artifact
+    preamble = [f"Preamble {i}" for i in range(4)]
+    tail_songs = [f"Tail Song {i}" for i in range(pad)]
     c = canon(
-        ("1", "Feel Like A Stranger", False), ("1", "Franklin's Tower", False),
-        ("1", "Big River", False), ("1", "Cassidy", False),
-        ("2", "China Cat Sunflower", False), ("2", "I Know You Rider", False),
-        ("2", "Estimated Prophet", False), ("2", "Eyes Of The World", False),
+        *[("1", t, False) for t in preamble],
+        *[("2", t, False) for t in tail_songs],
         ("encore", "Casey Jones", False),
     )
-    tracks = [
-        tr(1, "Feel Like A Stranger"), tr(2, "Franklin's Tower"),
-        tr(3, "Big River"), tr(4, "Cassidy"),
-        tr(5, "Casey Jones"),  # rip artifact: the encore song mid-tape
-        tr(6, "China Cat Sunflower"), tr(7, "I Know You Rider"),
-        tr(8, "Estimated Prophet"), tr(9, "Eyes Of The World"),
-    ]
-    r = align(tracks, c, lookahead=8)
-    assert r.matched[4] is False           # declined: contained, single-track miss
-    assert r.sets[4] == "1"                # inherits Cassidy's set, not "encore"
-    assert r.matched[5:] == [True, True, True, True]
-    assert r.sets[5:] == ["2", "2", "2", "2"]  # tail NOT exhausted
+    tracks = [tr(i + 1, t) for i, t in enumerate(preamble)]
+    tracks.append(tr(len(tracks) + 1, "Casey Jones"))  # rip artifact: encore song mid-tape
+    tracks += [tr(len(tracks) + 1 + i, t) for i, t in enumerate(tail_songs)]
+
+    with _GuardSpy() as spy:
+        r = align(tracks, c, lookahead=pad + 4)
+
+    assert spy.declined, "the guard predicate was never consulted to decline anything"
+    artifact_pos = len(preamble)
+    assert r.matched[artifact_pos] is False           # declined: contained, single-track miss
+    assert r.sets[artifact_pos] == "1"                # inherits the preamble's set, not "encore"
+    assert r.matched[artifact_pos + 1:] == [True] * pad
+    assert r.sets[artifact_pos + 1:] == ["2"] * pad    # tail NOT exhausted
 
 
 def test_legitimate_tail_matching_survives_the_guard():
-    # The counter-case that decides the whole design (see the design brief):
-    # the last tracks of a tape ARE supposed to match the last canonical
-    # items. TAIL_GUARD_TRACKS_REMAINING is the entire protection - at the
-    # true end of a tape few tracks remain, so the guard must not fire even
-    # though the item axis alone would clear its bar. This test passes
-    # identically with or without the guard; it is a regression guard against
-    # an over-eager decline, not a characterization of new behavior.
+    """The counter-case that decides the whole design (see the design
+    brief): the last tracks of a tape ARE supposed to match the last
+    canonical items, however far ahead the match has to reach.
+
+    Two shapes (review finding 2): a same-position sequential ending (never
+    calls the predicate at all, since the caller's `hit > j` gate
+    short-circuits first - kept as the cheapest possible baseline, but by
+    itself this shape is NOT evidence the guard behaves correctly, only
+    that the gate does) and a true tail match reached via a big skip (5
+    missing items, comfortably over TAIL_GUARD_MAX_SKIP) with only one
+    track left, where TAIL_GUARD_TRACKS_REMAINING - not the skip axis -
+    is what has to save it. The second shape proves the tracks axis is
+    still load-bearing even with the skip axis in place, not made
+    redundant by it, and genuinely reaches the predicate."""
+    # Sequential ending - trivial, does not reach the predicate. Spied and
+    # asserted explicitly (fix-round-1 addendum condition C), rather than
+    # left as an implicit assumption: this shape alone is NOT evidence the
+    # guard behaves correctly, only that the `hit > j` gate does.
     c = canon(("1", "A", False), ("1", "B", False), ("2", "C", False),
               ("2", "D", False), ("encore", "E", False))
     tracks = [tr(1, "A"), tr(2, "B"), tr(3, "C"), tr(4, "D"), tr(5, "E")]
     for la in (3, 8, 12):
-        r = align(tracks, c, lookahead=la)
+        with _GuardSpy() as spy:
+            r = align(tracks, c, lookahead=la)
+        assert not spy.calls  # confirms this shape never reaches the guard at all
         assert r.matched == [True, True, True, True, True]
         assert r.sets == ["1", "1", "2", "2", "encore"]
+
+    # Big-skip ending: only the tracks axis protects it. Genuinely reaches
+    # the predicate (hit=7, j=2, skip=5) and must be seen returning False.
+    c2 = canon(
+        ("1", "A", False), ("1", "B", False),
+        ("1", "Missing 1", False), ("1", "Missing 2", False), ("1", "Missing 3", False),
+        ("1", "Missing 4", False), ("1", "Missing 5", False),
+        ("encore", "Closer", False),
+    )
+    tracks2 = [tr(1, "A"), tr(2, "B"), tr(3, "Closer")]  # the 5 "Missing" songs are not on this tape
+    with _GuardSpy() as spy2:
+        r2 = align(tracks2, c2, lookahead=8)
+    assert spy2.allowed and not spy2.declined  # reached the guard; tracks axis correctly saved it
+    assert r2.matched == [True, True, True]
+    assert r2.sets == ["1", "1", "encore"]
 
 
 def test_tail_guard_decline_lets_a_later_fallback_find_an_earlier_hit():
@@ -998,31 +1157,42 @@ def test_tail_guard_decline_lets_a_later_fallback_find_an_earlier_hit():
         ("1", "Delta", False), ("2", "Epsilon", False), ("encore", "Alpha", False),
     )
     tracks = [tr(1, "Alpha"), tr(2, "Beta"), tr(3, "Gamma")]
-    r = align(tracks, c, lookahead=8)
+    with _GuardSpy() as spy:
+        r = align(tracks, c, lookahead=8)
+    assert spy.declined  # the primary compare's tail hit (idx5) was genuinely reached and declined
     assert r.matched == [True, True, True]
     assert r.sets == ["1", "1", "1"]  # idx0/idx1/idx2, not the tail idx5
 
 
 def test_tail_guard_declines_a_merge_run_landing_in_the_tail():
-    # The merge-run path advances `j` past ALL of a merged track's matched
-    # components, so the item that matters for the tail test is the LAST
-    # consumed item (`run + len(comps) - 1`), not the first. Declining must
-    # leave `j` untouched so the components stay available and the tracks
-    # that follow keep their own shot at the real items. FAILS WITHOUT THE
-    # GUARD: the merge run is taken directly (matched[2] True, sets[2]
-    # "2"), `j` jumps to the end of the item list, and "C"/"D" - which
-    # should cleanly match - come back unmatched instead.
+    """The merge-run path advances `j` past ALL of a merged track's matched
+    components, so the item that matters for the tail (item-axis) test is
+    the LAST consumed item (`run + len(comps) - 1`), while the skip axis is
+    measured from where the run STARTS (`run - j`) - two different
+    questions, "how deep did it land" vs "how far did it jump". Four
+    canonical items (C, D, E, F) sit between `j` and the merge target and
+    are genuinely absent from this tape, so the skip (4) clears
+    TAIL_GUARD_MAX_SKIP - this is the actual measured shape (a wide-open
+    gap, not a 1-item skip). Declining must leave `j` untouched so C-F stay
+    available and the tracks that follow keep their own shot at the real
+    items. FAILS WITHOUT THE GUARD: the merge run is taken directly
+    (matched[2] True, sets[2] "2"), `j` jumps to the end of the item list,
+    and "C"/"D"/"E"/"F" - which should cleanly match - come back unmatched
+    instead."""
     c = canon(
         ("1", "A", False), ("1", "B", False), ("1", "C", False), ("1", "D", False),
+        ("1", "E", False), ("1", "F", False),
         ("2", "China Cat Sunflower", True), ("2", "I Know You Rider", False),
     )
     tracks = [
         tr(1, "A"), tr(2, "B"),
         tr(3, "China Cat Sunflower > I Know You Rider"),  # merge run landing on the tail pair
-        tr(4, "C"), tr(5, "D"),
+        tr(4, "C"), tr(5, "D"), tr(6, "E"), tr(7, "F"),
     ]
-    r = align(tracks, c, lookahead=8)
+    with _GuardSpy() as spy:
+        r = align(tracks, c, lookahead=8)
+    assert spy.declined  # the merge run (and its single-title fallback) were genuinely declined
     assert r.matched[2] is False  # merge run declined - falls to the single-match miss path
     assert r.sets[2] == "1"       # inherits B's set, not "2"
-    assert r.matched[3] is True and r.sets[3] == "1"  # "C" still reachable: j did not advance
-    assert r.matched[4] is True and r.sets[4] == "1"  # "D" likewise
+    assert r.matched[3:] == [True, True, True, True]  # "C"/"D"/"E"/"F" still reachable
+    assert r.sets[3:] == ["1", "1", "1", "1"]          # j did not advance
