@@ -220,6 +220,25 @@ tier (pins never escalate).
   artists in the dataset. `structure._NEVER_EQUAL` blocklists subphrase pairs
   that are genuinely different songs (`It's All Over Now` vs `… Baby Blue`).
   Design: `docs/superpowers/specs/2026-08-01-fuzzy-title-matching-design.md`.
+  **`align()`'s lookahead window defaults to 8** (raised from 3), paired with a
+  **tail-exhaustion guard** — `structure._tail_guard_declines`, constants
+  `TAIL_GUARD_ITEMS=3` / `TRACKS_REMAINING=3` / `MAX_SKIP=6`. `j` advances only
+  on a match, so without the guard one far-ahead match can consume the last
+  canonical item, exhaust the two-pointer walk and mislabel a show's whole
+  tail. The guard declines a hit landing in the final few items while many
+  tracks remain unprocessed. **`MAX_SKIP >= lookahead` makes the guard
+  structurally unreachable** — that is why it is inert at the old default of 3,
+  and `test_align_default_lookahead_is_8` deliberately pins the shipped value
+  (reverting it fails that test plus one gather fixture). `TRACKS_REMAINING` is
+  measured INERT on both corpora and kept anyway: it is the only thing
+  protecting a legitimate tail match on a short tape — do not "simplify" it
+  away; its comment records the measurement. Evidence for the change lives in
+  `docs/superpowers/2026-08-03-tail-guard-sanity-check.md` and
+  `2026-08-04-tail-guard-family-sample.md`.
+  **Known gap, filed not fixed:** coverage is matched-tracks over
+  song-like-tracks and never inspects UNMATCHED ITEMS, so a partial recording
+  can score ~1.0 while missing half the show; `select_recording`'s completeness
+  is RELATIVE (best sibling), not absolute.
   Nine named touchpoints (one
   per file under `packages/llama/src/llama/prompts/` — `synthesize` is gone,
   emcee has its own separate `scriptwrite` prompt), each with a Pydantic
