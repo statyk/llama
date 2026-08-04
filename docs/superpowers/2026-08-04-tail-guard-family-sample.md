@@ -1,17 +1,30 @@
 # Tail-guard family sample: do Furthur/DSO/Dead & Co behave like the Dead or like non-Dead?
 
+> **Update (2026-08-04):** the bump this sample fed into landed in
+> `c2740d2`, shortly after this document was written — `align()`'s shipped
+> default is now **`8`**, not 3. This document was written while `3` was
+> still the shipped default; the measurements below are part of the
+> evidence that justified moving it. The "Shipped default: still 3" line
+> and every "la=3 (shipped default)" label below (now reworded to "la=3
+> (the default at the time of this review)") describe the default **at the
+> time of this review**, not the branch's current default — left as
+> measured, since the numbers themselves are unchanged and correct. See
+> `2026-08-03-tail-guard-sanity-check.md` for the same note.
+
 **Branch:** `tail-guard` @ `eda63f0` (same reviewed HEAD as the sibling
 `2026-08-03-tail-guard-sanity-check.md`; this document lands as a second
 docs-only commit on top of it — `packages/` is untouched).
 **Lookahead:** `8`, applied **in-process only** — the file's own default
-stays **`3`** on this branch and was not edited anywhere for this check.
+was **`3`** at the time of this check and was not edited anywhere for it
+(the branch now ships `8`, as of `c2740d2` — see the update note above).
 **Tail guard constants:** `TAIL_GUARD_ITEMS=3, TAIL_GUARD_TRACKS_REMAINING=3,
 TAIL_GUARD_MAX_SKIP=6` — the shipped values, unconditionally active
 regardless of lookahead. The guard never fires anywhere in this sample or in
 the full 271-row corpus-wide sweep below (0 declines), so no GUARD DECLINED
 markers appear in this document — only MATCH CHANGED and UNMATCHED, and only
 where they occurred.
-**Shipped default:** still **3**. Nothing here changes it.
+**Shipped default (at the time of this review):** still **3**. Nothing
+here changes it.
 
 ## Why this sample exists
 
@@ -165,7 +178,7 @@ this document.
 
 Corpus: Family (jerrybase-covered, non-GD) · collection `DarkStarOrchestra` · 24 tracks, 51 canonical setlist items · **no jerrybase event resolved for this artist/date**
 
-**la=3 (shipped default):** 0/24 matched, breaks=none (single undifferentiated block), structure source = deterministic align(), coverage=0.00
+**la=3 (the default at the time of this review):** 0/24 matched, breaks=none (single undifferentiated block), structure source = deterministic align(), coverage=0.00
 **la=8 (proposed):** 24/24 matched, breaks=none, structure source = deterministic align(), coverage=1.00, guard declines = 0
 
 **IDENTICAL final structure at la=3 and la=8** (both are one undifferentiated block — there's no internal break to find either way, since jerrybase never got a chance to anchor one in).
@@ -234,7 +247,7 @@ is held (the two real flags above are).
 
 Corpus: Family (jerrybase-covered, non-GD) · collection `DeadAndCompany` · 21 tracks, 38 canonical setlist items · jerrybase event 3695 (Darien Lake Performing Arts Center, Darien Center, NY)
 
-**la=3 (shipped default):** 0/21 matched, breaks=[9, 20], structure source = **jerrybase anchoring**, coverage=0.00
+**la=3 (the default at the time of this review):** 0/21 matched, breaks=[9, 20], structure source = **jerrybase anchoring**, coverage=0.00
 **la=8 (proposed):** 21/21 matched, breaks=[9, 20], structure source = **jerrybase anchoring**, coverage=1.00, guard declines = 0
 
 **IDENTICAL final structure at la=3 and la=8** — despite raw `align()`
@@ -311,7 +324,7 @@ threaten the sample's conclusion.
 
 Corpus: Family (jerrybase-covered, non-GD) · collection `Furthur` · 21 tracks, 26 canonical setlist items · jerrybase event 2590 (1st Bank Center, Broomfield, CO)
 
-**la=3 (shipped default):** 0/21 matched, breaks=[9, 19], structure source = **jerrybase anchoring**, coverage=0.00
+**la=3 (the default at the time of this review):** 0/21 matched, breaks=[9, 19], structure source = **jerrybase anchoring**, coverage=0.00
 **la=8 (proposed):** 17/21 matched, breaks=[9, 19], structure source = **jerrybase anchoring**, coverage=0.81, guard declines = 0
 
 **IDENTICAL final structure at la=3 and la=8.**
@@ -377,7 +390,7 @@ exact same clean ship as a 100% one would.
 
 Corpus: Family (jerrybase-covered, non-GD) · collection `DarkStarOrchestra` · 23 tracks, 25 canonical setlist items · jerrybase event 3888 (Legend Valley Concert Venue and Campground, Thornville, OH)
 
-**la=3 (shipped default):** 22/23 matched, breaks=[12, 21], structure source = deterministic align() (**anchoring did not resolve**), coverage=0.95
+**la=3 (the default at the time of this review):** 22/23 matched, breaks=[12, 21], structure source = deterministic align() (**anchoring did not resolve**), coverage=0.95
 **la=8 (proposed):** 22/23 matched, breaks=[12, 21], structure source = deterministic align(), coverage=0.95, guard declines = 0
 
 **IDENTICAL final structure at la=3 and la=8 — in fact per-track match
@@ -472,7 +485,7 @@ the description names.
 
 Corpus: Family (jerrybase-covered, non-GD) · collection `DarkStarOrchestra` · 21 tracks, 25 canonical setlist items · jerrybase event 2743 (Higher Ground Music Hall, South Burlington, VT)
 
-**la=3 (shipped default):** 10/21 matched, breaks=[8, 17], structure source = **jerrybase anchoring**, coverage=0.50
+**la=3 (the default at the time of this review):** 10/21 matched, breaks=[8, 17], structure source = **jerrybase anchoring**, coverage=0.50
 **la=8 (proposed):** 15/21 matched, breaks=[8, 17], structure source = **jerrybase anchoring**, coverage=0.75, guard declines = 0
 
 **IDENTICAL final structure at la=3 and la=8.**
@@ -541,7 +554,7 @@ because it's the median case for this bucket, not an outlier.
 
 Corpus: Family (jerrybase-covered, non-GD) · collection `DeadAndCompany` · 22 tracks, 21 canonical setlist items · jerrybase event 3548 (Wrigley Field, Chicago, IL)
 
-**la=3 (shipped default):** 21/22 matched, breaks=[7, 20], structure source = **jerrybase anchoring**, coverage=1.00
+**la=3 (the default at the time of this review):** 21/22 matched, breaks=[7, 20], structure source = **jerrybase anchoring**, coverage=1.00
 **la=8 (proposed):** **15/22 matched** (−6), breaks=[7, 20], structure source = **jerrybase anchoring**, coverage=0.70, guard declines = 0
 
 **IDENTICAL final structure at la=3 and la=8 — but the internal alignment

@@ -1,11 +1,23 @@
 # Tail-guard sanity check: does la=8 look like real Grateful Dead shows?
 
+> **Update (2026-08-04):** the bump this check evidenced landed in
+> `c2740d2`, after this document was written — `align()`'s shipped default
+> is now **`8`**, not 3. Everything below was measured one to two commits
+> **before** that bump, while `3` was still the shipped default; the
+> comparisons here are the evidence that justified moving it. Every "la=3
+> (shipped default)" label and the "stays 3" line below describe the
+> default **at the time of this review**, not the branch's current
+> default — left as measured, since the numbers themselves are unchanged
+> and correct. See `2026-08-04-tail-guard-family-sample.md` for the same
+> note.
+
 **Branch:** `tail-guard` @ `16eac9b` (this document itself lands as a
 docs-only commit on top of that reviewed HEAD — `packages/` is untouched).
 **Lookahead:** `8`, applied **in-process only** (`lookahead=8` passed
 directly to `align()`/`traced_align()`, exactly as the branch's own
-measurement instruments do it) — the file's own default stays **`3`** on
-this branch and was not edited anywhere for this check.
+measurement instruments do it) — the file's own default was **`3`** at
+the time of this check and was not edited anywhere for it (the branch now
+ships `8`, as of `c2740d2` — see the update note above).
 **Tail guard constants:** `TAIL_GUARD_ITEMS=3, TAIL_GUARD_TRACKS_REMAINING=3,
 TAIL_GUARD_MAX_SKIP=6` — the shipped values, unconditionally active in
 `structure.py` regardless of lookahead (only lookahead is varied below; the
@@ -42,12 +54,13 @@ three — everything else is unmarked because it didn't change:
   likely to look wrong on a visual scan, because the label is inherited
   rather than evidenced.
 
-Every show also states its la=3 (today's shipped default) baseline —
-matched count, break positions, and whether jerrybase anchoring or plain
-`align()` produced the structure — so you can judge la=8 as a change from
-what ships today, not in isolation. Where la=3 already had real structure
-(the two mandatory shows and the control), the full la=3 setlist is
-included for direct comparison, not just a summary line.
+Every show also states its la=3 (the shipped default at the time of this
+review) baseline — matched count, break positions, and whether jerrybase
+anchoring or plain `align()` produced the structure — so you can judge la=8
+as a change from what shipped at the time of this review, not in isolation.
+Where la=3 already had real structure (the two mandatory shows and the
+control), the full la=3 setlist is included for direct comparison, not
+just a summary line.
 
 **The question this document is asking you:** for each show, does the la=8
 set structure look like something the band actually played, and — where
@@ -110,7 +123,7 @@ Lobos, Josh Ritter.
 
 Collection `GratefulDead` · 19 tracks, 17 canonical setlist items · jerrybase event 4065 (Spectrum, Philadelphia, PA)
 
-**la=3 (shipped default):** 16/19 matched, breaks=none, structure source = deterministic align()
+**la=3 (the default at the time of this review):** 16/19 matched, breaks=none, structure source = deterministic align()
 **la=8 (proposed):** 16/19 matched, breaks=none, structure source = deterministic align(), guard declines = 2
 
 **Guard-fire show (mandatory).** Track 10's own tape tag is “One More Saturday Night” — the same words as this show's real encore (the last canonical item, per the archive.org description's trailing `E: One More Saturday Night`). Without the guard, la=8's wider window lets that title leap 7 items ahead and claim the encore slot, which would exhaust the canonical list and mislabel every one of the 9 tracks after it (China Cat Sunflower through Not Fade Away) as “encore.” **With the guard, that candidate is declined** and the track falls back to unmatched, landing la=8 on the exact same final structure as la=3 (this tape never surfaces set breaks at either lookahead — the source description itself has no `Set 1`/`Set 2` labels, only a flat song list plus an encore marker, so `align()` puts everything in one undifferentiated block regardless). See the 'guard OFF' illustration below for what la=8 does to this show if the guard is removed.
@@ -180,7 +193,7 @@ Collection `GratefulDead` · 19 tracks, 17 canonical setlist items · jerrybase 
 
 Collection `GratefulDead` · 17 tracks, 15 canonical setlist items · jerrybase event 4874 (Nassau Veterans Memorial Coliseum, Uniondale, NY)
 
-**la=3 (shipped default):** 14/17 matched, breaks=[9], structure source = deterministic align()
+**la=3 (the default at the time of this review):** 14/17 matched, breaks=[9], structure source = deterministic align()
 **la=8 (proposed):** 14/17 matched, breaks=[9], structure source = deterministic align(), guard declines = 2
 
 **Guard-fire show (mandatory).** Track 8's own tape tag is “Terrapin Station”, positioned right after `Let It Grow` (the true Set 1 closer per the description: `Set 1 Bertha, Greatest Story Ever Told, Loser, Black Throated Wind, Ramble On Rose, Let It Grow`). The description's actual Terrapin Station is the encore, the very last item. la=8 without the guard reaches 8 items ahead, matches this track to the encore's Terrapin instead, and drags the rest of the tape (Victim Or The Crime through Good Lovin', the entire real Set 2) into “encore.” **With the guard, that candidate is declined**, track 8 stays unmatched (as it already was at la=3) and inherits Set 1, and la=8 lands on the exact same final structure as la=3: Set 1 through track 9, Set 2 from Victim Or The Crime on. That is the historically correct shape for this show.
@@ -252,7 +265,7 @@ Collection `GratefulDead` · 17 tracks, 15 canonical setlist items · jerrybase 
 
 Corpus: Dead · collection `GratefulDead` · 14 tracks, 20 canonical setlist items · jerrybase event 4370 (Roanoke Civic Center, Roanoke, VA)
 
-**la=3 (shipped default) baseline:** 0/14 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 0/14 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 11/14 tracks matched, breaks=[2, 13], structure source = deterministic align(), guard declines = 0
 
@@ -293,7 +306,7 @@ Corpus: Dead · collection `GratefulDead` · 14 tracks, 20 canonical setlist ite
 
 Corpus: Dead · collection `GratefulDead` · 13 tracks, 18 canonical setlist items · jerrybase event 4050 (Berkeley Community Theater, Berkeley, CA)
 
-**la=3 (shipped default) baseline:** 0/13 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 0/13 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 10/13 tracks matched, breaks=[3], structure source = deterministic align(), guard declines = 0
 
@@ -329,7 +342,7 @@ Corpus: Dead · collection `GratefulDead` · 13 tracks, 18 canonical setlist ite
 
 Corpus: Dead · collection `GratefulDead` · 10 tracks, 19 canonical setlist items · jerrybase event 3921 (Marin Veterans Memorial Auditorium, San Rafael, CA)
 
-**la=3 (shipped default) baseline:** 0/10 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 0/10 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 9/10 tracks matched, breaks=[1], structure source = deterministic align(), guard declines = 0
 
@@ -360,7 +373,7 @@ Corpus: Dead · collection `GratefulDead` · 10 tracks, 19 canonical setlist ite
 
 Corpus: Dead · collection `GratefulDead` · 13 tracks, 29 canonical setlist items · jerrybase event 1168 (Capitol Theater, Port Chester, NY)
 
-**la=3 (shipped default) baseline:** 0/13 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 0/13 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 12/13 tracks matched, breaks=[7], structure source = deterministic align(), guard declines = 0
 
@@ -396,7 +409,7 @@ Corpus: Dead · collection `GratefulDead` · 13 tracks, 29 canonical setlist ite
 
 Collection `GratefulDead` · 32 tracks, 34 canonical setlist items · jerrybase event 1668 (Roscoe Maples Pavilion, Stanford University, Palo Alto, CA)
 
-**la=3 (shipped default):** 32/32 matched, breaks=[15, 31], structure source = jerrybase anchoring
+**la=3 (the default at the time of this review):** 32/32 matched, breaks=[15, 31], structure source = jerrybase anchoring
 **la=8 (proposed):** 32/32 matched, breaks=[15, 31], structure source = jerrybase anchoring, guard declines = 0
 
 **IDENTICAL final structure at la=3 and la=8**
@@ -454,7 +467,7 @@ Collection `GratefulDead` · 32 tracks, 34 canonical setlist items · jerrybase 
 
 Corpus: non-Dead · collection `Radiators` · 23 tracks, 38 canonical setlist items · no jerrybase event resolved for this artist/date
 
-**la=3 (shipped default) baseline:** 5/23 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 5/23 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 23/23 tracks matched, breaks=[11], structure source = deterministic align(), guard declines = 0
 
@@ -497,7 +510,7 @@ Corpus: non-Dead · collection `Radiators` · 23 tracks, 38 canonical setlist it
 
 Corpus: non-Dead · collection `AgainstMe` · 30 tracks, 38 canonical setlist items · no jerrybase event resolved for this artist/date
 
-**la=3 (shipped default) baseline:** 10/30 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 10/30 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 28/30 tracks matched, breaks=[24], structure source = deterministic align(), guard declines = 0
 
@@ -549,7 +562,7 @@ Corpus: non-Dead · collection `AgainstMe` · 30 tracks, 38 canonical setlist it
 
 Corpus: non-Dead · collection `Guster` · 26 tracks, 32 canonical setlist items · no jerrybase event resolved for this artist/date
 
-**la=3 (shipped default) baseline:** 0/26 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 0/26 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 25/26 tracks matched, breaks=[21], structure source = deterministic align(), guard declines = 0
 
@@ -596,7 +609,7 @@ Corpus: non-Dead · collection `Guster` · 26 tracks, 32 canonical setlist items
 
 Corpus: non-Dead · collection `BuiltToSpill` · 18 tracks, 25 canonical setlist items · no jerrybase event resolved for this artist/date
 
-**la=3 (shipped default) baseline:** 0/18 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 0/18 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 18/18 tracks matched, breaks=[15], structure source = deterministic align(), guard declines = 0
 
@@ -634,7 +647,7 @@ Corpus: non-Dead · collection `BuiltToSpill` · 18 tracks, 25 canonical setlist
 
 Corpus: non-Dead · collection `LosLobosMusic` · 19 tracks, 28 canonical setlist items · no jerrybase event resolved for this artist/date
 
-**la=3 (shipped default) baseline:** 0/19 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 0/19 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 19/19 tracks matched, breaks=[17], structure source = deterministic align(), guard declines = 0
 
@@ -673,7 +686,7 @@ Corpus: non-Dead · collection `LosLobosMusic` · 19 tracks, 28 canonical setlis
 
 Corpus: non-Dead · collection `JoshRitter` · 19 tracks, 27 canonical setlist items · no jerrybase event resolved for this artist/date
 
-**la=3 (shipped default) baseline:** 0/19 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
+**la=3 (the default at the time of this review) baseline:** 0/19 tracks matched, breaks=— none (single undifferentiated block), structure source = deterministic align()
 
 **la=8 (proposed) result:** 18/19 tracks matched, breaks=[18], structure source = deterministic align(), guard declines = 0
 
@@ -719,15 +732,16 @@ guard fires in exactly 2 of those 1120+718 = 1838 rows, both Dead, both
 shown above in full, both with a same-titled far-ahead candidate that would
 otherwise have exhausted the canonical list and mislabeled the rest of the
 tape — and both land la=8 on the *identical* final structure la=3 already
-ships today, not a new one.
+shipped at the time of this review, not a new one.
 
 None of the 13 rendered shows come out looking worse at la=8 than la=3 by
-this reader's own pass — the two guard shows are unchanged from today's
-shipped output (the guard's job, working as designed), the four other Dead
-picks and all six non-Dead picks go from "no set breaks recovered at all"
-(or, for Radiators/Against Me!, partial) to a structured, plausible setlist
-with the expected shape (segue chains, Drums>Space placement, standard
-encore slots). The `UNMATCHED`-marked tracks that remain are consistently
+this reader's own pass — the two guard shows are unchanged from what
+shipped at the time of this review (the guard's job, working as designed),
+the four other Dead picks and all six non-Dead picks go from "no set
+breaks recovered at all" (or, for Radiators/Against Me!, partial) to a
+structured, plausible setlist with the expected shape (segue chains,
+Drums>Space placement, standard encore slots). The `UNMATCHED`-marked
+tracks that remain are consistently
 explainable as filler (crowd noise, tuning, stage banter, "encore break")
 or tracks whose canonical setlist item was itself dropped by an upstream
 parser artifact (e.g. `gd85-04-06`'s "China Cat Sunflower" got glued into
