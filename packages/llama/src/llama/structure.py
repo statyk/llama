@@ -455,9 +455,10 @@ def _strip_trailing_duration(title: str) -> str:
 #
 # `skip == 0` is possible on the merge-run path: a run with `run == j`
 # advances `j` to `run + len(comps)`, which CAN land exactly on `len(items)`
-# and exhaust the walk (`_merge_run`'s own bound, `k + n <= len(norms)` at its
-# call site above, guarantees this lands AT `len(items)`, never past it). So
-# the walk being exhausted at `skip == 0` is real, not hypothetical.
+# and exhaust the walk (`_merge_run`'s own bound, `k + n <= len(norms)`,
+# enforced in `_merge_run`'s body, guarantees this lands AT `len(items)`,
+# never past it). So the walk being exhausted at `skip == 0` is real, not
+# hypothetical.
 #
 # It is nonetheless harmless, and the reason is structural, not a hope: a
 # same-position match consumes the contiguous span `items[j : j + len(comps))`
@@ -476,9 +477,17 @@ def _strip_trailing_duration(title: str) -> str:
 # genuinely finished, not a symptom of the tail-exhaustion defect this guard
 # targets.
 #
-# So the true claim is: a same-position match can drive `j` to `len(items)`,
-# but cannot do so WRONGLY - and that, not the stronger "never exhausts, full
-# stop" phrasing this replaces, is what makes the fast path above safe.
+# So the true claim - the one actually proven above, and the only one this
+# paragraph is entitled to - is narrower than either replaced phrasing: a
+# same-position match can drive `j` to `len(items)`, but in doing so it
+# STRANDS NOTHING, because it consumes a contiguous span with no gap a later
+# track could have matched into instead. That is NOT the same as "cannot do
+# so wrongly" in general - a same-position run whose own match is itself
+# textually incorrect would still consume its span, and this guard would not
+# catch that either, at `skip == 0` or anywhere else; that is a different
+# failure mode than the one this guard exists for. "Strands nothing" is what
+# makes the fast path above safe against tail-exhaustion specifically, and
+# is all this paragraph proves.
 #
 # THIRD AXIS (added in fix round 1, review finding 1) - NOT a deviation from
 # the design brief, a CORRECTION to a defect in it. The brief's own prose
