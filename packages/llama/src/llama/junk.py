@@ -1,9 +1,21 @@
 import re
 from collections import Counter
+from collections.abc import Sequence
 
 from llama.util import length_seconds
 
-FORMAT_BY_AUDIO = {"mp3": "VBR MP3", "flac": "Flac"}
+# Delivery formats, in preference order. archive.org tags lossless files
+# either "Flac" or "24bit Flac"; matching only the first made every 24-bit
+# item look like it had no lossless copy at all, so audio_format="flac"
+# yielded zero kept files and the recording became unselectable.
+FORMAT_BY_AUDIO = {"mp3": ("VBR MP3",), "flac": ("Flac", "24bit Flac")}
+
+# Lossless formats worth READING titles from. Deliberately broader than the
+# delivery formats: title recovery reads metadata strings and never downloads
+# these files, so Shorten is safe here - and deliberately absent above, since
+# adding it would change what llama ships.
+LOSSLESS_TITLE_FORMATS = ("Flac", "24bit Flac", "Shorten")
+
 MIN_PLAUSIBLE_SEC = 90.0
 
 _LEADING_INT = re.compile(r"\s*(\d+)")
@@ -26,10 +38,22 @@ def _track_number(f: dict, orig_tracks: dict[str, object]) -> int | None:
 
 
 def filter_files(
-    files: list[dict], want_format: str = "VBR MP3"
+    files: list[dict], want_format: str | Sequence[str] = "VBR MP3"
 ) -> tuple[list[dict], list[dict], dict]:
-    """Returns (kept, excluded, ordering) with kept in canonical play order."""
-    audio = [f for f in files if f.get("format") == want_format]
+    """Returns (kept, excluded, ordering) with kept in canonical play order.
+
+    `want_format` may be one format or an ordered preference list. A list is
+    tried in order and the FIRST one present wins - never a union, because an
+    item carrying both Flac and 24bit Flac would otherwise keep every track
+    twice."""
+    wanted = (want_format,) if isinstance(want_format, str) else tuple(want_format)
+    audio: list[dict] = []
+    matched = ""
+    for fmt in wanted:
+        audio = [f for f in files if f.get("format") == fmt]
+        if audio:
+            matched = fmt
+            break
     original_names = {f["name"] for f in files if f.get("source") == "original"}
     stems = Counter(_stem(f["name"]) for f in audio)
     dominant = stems.most_common(1)[0][0] if stems else ""
@@ -57,11 +81,12 @@ def filter_files(
     kept.sort(key=lambda f: f["name"])
     orig_tracks = {f["name"]: f.get("track") for f in files if f.get("source") == "original"}
     nums = [_track_number(f, orig_tracks) for f in kept]
-    ordering = {"order_source": "filename", "reordered": False}
+    ordering = {"order_source": "filename", "reordered": False, "format": matched}
     # Track-tag order only when complete and unique: per-disc numbering
     # restarts at 1, which makes duplicates ambiguous.
     if kept and all(n is not None for n in nums) and len(set(nums)) == len(nums):
         by_track = [f for _, f in sorted(zip(nums, kept), key=lambda p: p[0])]
-        ordering = {"order_source": "track-tags", "reordered": by_track != kept}
+        ordering = {"order_source": "track-tags", "reordered": by_track != kept,
+                    "format": matched}
         kept = by_track
     return kept, excluded, ordering

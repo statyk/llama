@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from llama.junk import filter_files
+from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 
 FIXTURE = Path(__file__).parent / "fixtures" / "gd73_metadata.json"
 
@@ -55,13 +55,13 @@ def test_unique_track_tags_reorder():
              _mp3("gd73d1t03.mp3", track="1")]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t03.mp3", "gd73d1t01.mp3", "gd73d1t02.mp3"]
-    assert ordering == {"order_source": "track-tags", "reordered": True}
+    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3"}
 
 
 def test_track_tags_agreeing_with_filenames_not_flagged():
     files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d1t02.mp3", track="2")]
     _, _, ordering = filter_files(files)
-    assert ordering == {"order_source": "track-tags", "reordered": False}
+    assert ordering == {"order_source": "track-tags", "reordered": False, "format": "VBR MP3"}
 
 
 def test_duplicate_track_tags_fall_back_to_filename_order():
@@ -69,7 +69,7 @@ def test_duplicate_track_tags_fall_back_to_filename_order():
     files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d2t01.mp3", track="1")]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t01.mp3", "gd73d2t01.mp3"]
-    assert ordering == {"order_source": "filename", "reordered": False}
+    assert ordering == {"order_source": "filename", "reordered": False, "format": "VBR MP3"}
 
 
 def test_missing_track_tag_falls_back_to_filename_order():
@@ -88,4 +88,49 @@ def test_derivative_inherits_original_track_number():
     ]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t02.mp3", "gd73d1t01.mp3"]
-    assert ordering == {"order_source": "track-tags", "reordered": True}
+    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3"}
+
+
+def audio(name: str, fmt: str, length: str = "05:00") -> dict:
+    return {"name": name, "format": fmt, "source": "original", "length": length}
+
+
+def test_filter_files_falls_back_to_24bit_flac():
+    """A 24-bit-only item must not read as 'no lossless available'."""
+    files = [audio("t01.flac", "24bit Flac"), audio("t02.flac", "24bit Flac")]
+    kept, _, ordering = filter_files(files, want_format=FORMAT_BY_AUDIO["flac"])
+    assert [f["name"] for f in kept] == ["t01.flac", "t02.flac"]
+    assert ordering["format"] == "24bit Flac"
+
+
+def test_filter_files_prefers_plain_flac_and_never_unions():
+    """5 corpus items carry both Flac and 24bit Flac. A union would keep every
+    track of those items twice."""
+    files = [
+        audio("t01.flac", "Flac"), audio("t02.flac", "Flac"),
+        audio("t01.24.flac", "24bit Flac"), audio("t02.24.flac", "24bit Flac"),
+    ]
+    kept, _, ordering = filter_files(files, want_format=FORMAT_BY_AUDIO["flac"])
+    assert [f["name"] for f in kept] == ["t01.flac", "t02.flac"]
+    assert ordering["format"] == "Flac"
+
+
+def test_filter_files_still_accepts_a_bare_format_string():
+    files = [audio("t01.mp3", "VBR MP3")]
+    kept, _, ordering = filter_files(files, want_format="VBR MP3")
+    assert len(kept) == 1
+    assert ordering["format"] == "VBR MP3"
+
+
+def test_filter_files_reports_no_format_when_nothing_matches():
+    kept, _, ordering = filter_files([audio("t01.ogg", "Ogg Vorbis")],
+                                     want_format=FORMAT_BY_AUDIO["flac"])
+    assert kept == []
+    assert ordering["format"] == ""
+
+
+def test_lossless_title_formats_is_broader_than_the_delivery_formats():
+    """Shorten is a title-reading source only - recovery never downloads it,
+    and adding it to delivery would change what llama ships."""
+    assert "Shorten" in LOSSLESS_TITLE_FORMATS
+    assert "Shorten" not in FORMAT_BY_AUDIO["flac"]
