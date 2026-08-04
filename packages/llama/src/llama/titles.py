@@ -27,6 +27,47 @@ def is_real_title(cleaned: str) -> bool:
     return sum(ch.isascii() and ch.isalpha() for ch in cleaned) >= 3
 
 
+# A leading track number on an enumerated tape: 1-3 digits, an optional single
+# separator, then whitespace and a non-space character.
+#
+# The 1-3 digit bound with (?!\d) is LOAD-BEARING and must not be widened to
+# \d+: it is what puts "1952 Vincent Black Lightning" and a bare "2001" out of
+# this rule's reach entirely, without the gate below having to save them.
+_TRACK_NUM_PREFIX = re.compile(r"^\d{1,3}(?!\d)[.)\-:]?\s+(?=\S)")
+
+# Whether a leading number is a track number or part of the title cannot be
+# decided from one string - "01 Intro - Ramona" and "100 Years" are identical
+# in isolation. It is decided by the RECORDING: an enumerated tape numbers
+# essentially every track, while a real numeric title is one lone numbered
+# file among unnumbered ones.
+#
+# Measured over 2,095 cached archive.org items (see the spec's A1 evidence):
+# this gate strips 94 of the 96 genuinely enumerated tapes, and mutilates NONE
+# of the 105 items carrying a real numeric title. The two it misses keep their
+# prefixes, which is today's behaviour - a false negative, never a destroyed
+# title. Both floors are required; dropping either one breaks a pinned test.
+_ENUMERATED_MIN_FILES = 3
+_ENUMERATED_MIN_COVERAGE = 0.8
+
+
+def title_fraction(titles: list[str]) -> float:
+    """Fraction of cleaned titles that are usable. 0.0 for no titles."""
+    return sum(1 for t in titles if is_real_title(t)) / len(titles) if titles else 0.0
+
+
+def clean_tag_titles(kept_files: list[dict]) -> list[str]:
+    """Cleaned embedded-tag titles for one recording's kept files, in play
+    order. Wraps clean_tag_title with the one decision that needs the whole
+    recording: whether to strip leading track numbers."""
+    titles = [clean_tag_title(f.get("title")) for f in kept_files]
+    numbered = sum(1 for t in titles if _TRACK_NUM_PREFIX.match(t))
+    if numbered < _ENUMERATED_MIN_FILES or numbered < _ENUMERATED_MIN_COVERAGE * len(titles):
+        return titles
+    # Strip exactly one number, never loop: on an enumerated tape
+    # "01 200 More Miles" must lose only the "01".
+    return [_TRACK_NUM_PREFIX.sub("", t, count=1) for t in titles]
+
+
 def resolve_titles(
     kept_files: list[dict],
     setlist: ParsedSetlist,
