@@ -38,9 +38,11 @@ pick*, and nothing here describes llama's tape-selection behaviour.
 
 `titles.clean_tag_title` strips an identifier prefix (`gd73-06-10d1t04 `) and
 a file extension, but nothing strips a bare leading track number. Shipped
-examples seen in production: `01 Intro - Ramona`, `02 Two Points For
-Honesty`, and the double-numbered `10. 10 Satellite`. These land in
-`manifest.json` verbatim and are read aloud.
+examples seen in production, all from `gus2018-01-13`: `01 Intro - Ramona`,
+`02 Two Points For Honesty`, `10 Satellite`. These land in `manifest.json`
+verbatim and are read aloud. (A fourth example once cited here, the
+"double-numbered" `10. 10 Satellite`, was a reporting artifact — see "A
+retired premise" below.)
 
 Measured: **201 of 2,053 items (9.8%) and 1,831 of 39,009 tracks (4.7%)**
 still carry a leading number after today's `clean_tag_title`.
@@ -94,9 +96,10 @@ only if it is.
   all, and it must not be widened to `\d+` without re-measuring.
 - **Enumerated-tape gate**: at least **3** kept files carry a leading number
   **and** at least **80%** of kept files do. Both arms required.
-- **Double numbering** (`10. 10 Satellite`): strip a *repeated identical*
-  leading number as one unit. Do **not** loop the single strip — a second pass
-  would take a legitimate `10 Satellite` down to `Satellite`.
+- **Strip exactly one leading number, never loop.** On an enumerated tape a
+  title may legitimately begin with a number of its own — `01 200 More Miles`
+  must become `200 More Miles`, and a second pass would take it to
+  `More Miles`. One strip, unconditionally.
 
 All four call sites already hold the kept file list, so this needs no new
 plumbing: `gather.py:78`, `gather.py:522`, `select_recording.py:70`, and
@@ -120,12 +123,24 @@ Of the 201 affected items, 96 (1,719 tracks) are genuine enumerated tapes and
 That asymmetry is deliberate and matches the project's standing bias: a
 surviving prefix is visible and ugly, a mutilated title is silent and ships.
 
-### Not observed, designed for anyway
+### A retired premise: there is no "double numbering" defect
 
-`A1.4` searched the whole corpus for the `10. 10 Satellite` shape and found
-**zero** instances. The handling above exists because the shape was seen in
-production, not because this corpus supports it. Record it as *not observed
-here*, never as *does not happen*.
+Earlier notes on this work — and the backlog entry that scoped it — claimed a
+double-numbered shipped title, `10. 10 Satellite`, alongside the
+`01 Intro - Ramona` examples. **That string does not exist and no rule should
+be written for it.**
+
+`gus2018-01-13` is a fully enumerated tape: 26 of 26 kept files numbered,
+`1..26`, and its title at position 10 is `10 Satellite`. Rendering that list
+with list indices produces the literal text `10. 10 Satellite`. The "defect"
+was the enumeration of a report, not a property of the data. Corroborating:
+`A1.4` swept all 2,095 cached items for the double-number shape and found
+**zero** instances — a result that reads as a puzzle under the old premise and
+as confirmation under this one.
+
+Kept here because it survived several hops — report, memory, spec — before
+anyone checked it against the item, and it is cheaper to read this paragraph
+than to re-derive the rule.
 
 ## Part 2 — the `FORMAT_BY_AUDIO` exact-match gap
 
