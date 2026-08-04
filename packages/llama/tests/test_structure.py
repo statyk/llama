@@ -1056,6 +1056,58 @@ def test_tail_guard_inert_whenever_lookahead_le_max_skip():
     )
 
 
+import inspect
+
+
+def test_align_default_lookahead_is_8():
+    """Pins the VALUE this entire branch exists to choose - nothing else in
+    this file does. `align`'s default was bumped 3 -> 8 in c2740d2 (see the
+    "shipped default" paragraph in structure.py, right above
+    TAIL_GUARD_ITEMS). Every other tail-guard test here proves the guard's
+    SHAPE - the relationship between lookahead and TAIL_GUARD_MAX_SKIP, e.g.
+    test_tail_guard_inert_whenever_lookahead_le_max_skip above - not this
+    specific number, so reverting the default to 3 leaves all of them green.
+    Measured: with only this test removed, that revert fails exactly one
+    other test in the full suite (test_gather_anchoring_rescues_low_
+    confidence_without_llm, via a set_breaks mismatch, for reasons unrelated
+    to this decision) - i.e. without this assertion, the choice this branch
+    exists to make is protected by an incidental fixture that looks
+    unrelated to it, and a reasonable-looking fix to THAT fixture would
+    silently revert the bump with a green suite.
+
+    Why 8, not any other value >= 7 (the smallest lookahead that makes the
+    guard reachable at all, since TAIL_GUARD_MAX_SKIP=6): margin decay, not
+    today's numbers. `gd1989-03-27` is a known unfixed duplicate-title-
+    collision case, reachable at lookahead=11 with skip=11 - `skip` is
+    `hit - j`, and both shift whenever the parsed item list changes, which
+    this project does in bulk routinely. At la=10 the collision is missed
+    by exactly one index (skip=10 < 11); at la=8 that margin is 3, not 1.
+    And the regression would ship SILENTLY if it ever goes live:
+    `gd1989-03-27`'s items_from_end is 20 against TAIL_GUARD_ITEMS=3, so the
+    guard is never even consulted for it - there is no safety net past the
+    lookahead value itself. A thin margin is tolerable on a failure that
+    gets flagged; not on one that ships silently.
+
+    The value is paired with the guard constants, not independently
+    tunable: at TAIL_GUARD_MAX_SKIP=6 the guard is structurally unreachable
+    at any lookahead <= 6 (test_tail_guard_inert_whenever_lookahead_le_max_
+    skip above), so lowering this default below 7 makes the guard inert
+    again in production, and raising it re-opens the margin question above.
+
+    Changing this value requires re-running A1 (zero-worse final
+    post-anchoring set-break vector), gate 0 (no show drops to zero matched
+    tracks), identity (no textually wrong matches), and the live 32-show
+    library - not just making the suite green again. See task-2-report.md
+    and the task-4 plan section of the branch's implementation plan for the
+    margin analysis this number rests on."""
+    assert inspect.signature(align).parameters["lookahead"].default == 8, (
+        "align()'s shipped default lookahead moved off 8 - this is the "
+        "value the whole branch exists to choose (see the docstring above): "
+        "re-run A1, gate 0, identity, and the live 32-show library before "
+        "changing this assertion, not just the number"
+    )
+
+
 def test_align_window_bound_reachability_is_pinned_through_align():
     """M10 (final review F4, both reviewers; mid-wave design-author addendum:
     the probe must assert BOTH directions, not just one). The test above
