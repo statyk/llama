@@ -498,9 +498,12 @@ def _strip_trailing_duration(title: str) -> str:
 # reached to get there, so a single legitimate 1-item skip near a real
 # closer (a song missing from THIS tape, the ordinary reason lookahead
 # exists at all, followed by a couple of trailing filler tracks) got
-# declined and dropped the show's encore label, AT THE SHIPPED DEFAULT
-# lookahead=3 - that was the brief's formula being taken literally, not an
-# implementation bug against it. `TAIL_GUARD_MAX_SKIP` is the missing
+# declined and dropped the show's encore label, AT THE THEN-SHIPPED DEFAULT
+# lookahead=3 (fix-round-1; the default was bumped to 8 later on this same
+# branch, see the STRUCTURAL INERTNESS and TAIL_GUARD_MAX_SKIP paragraphs
+# below for what that bump means for this axis) - that was the brief's
+# formula being taken literally, not an implementation bug against it.
+# `TAIL_GUARD_MAX_SKIP` is the missing
 # distance term. `skip` MUST reach the predicate as an explicit argument
 # (not read off an enclosing `j`, not pre-computed into a bool by the
 # caller) so Task 2's instrument, which calls this predicate directly,
@@ -516,7 +519,7 @@ def _strip_trailing_duration(title: str) -> str:
 # CONTRACT above); `skip == 1` (`hit == j + 1`) means exactly one item, the
 # one sitting at `j`, was passed over - see
 # test_tail_guard_declines_skip_axis_boundary and
-# test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3.
+# test_tail_guard_never_declines_a_legitimate_one_item_skip_at_the_shipped_default.
 #
 # STRUCTURAL INERTNESS is a RELATIONSHIP, not a literal value - do not read a
 # chosen constant off this paragraph; the value actually shipped is set below.
@@ -526,12 +529,18 @@ def _strip_trailing_duration(title: str) -> str:
 # itself, and declining requires `skip > TAIL_GUARD_MAX_SKIP` (strict) - so
 # `skip > L` can never hold once TAIL_GUARD_MAX_SKIP >= L. This is no longer
 # an empirical no-op claim (design gate 2), it is a structural one. See
-# test_tail_guard_max_skip_makes_la3_structurally_inert, and the
-# TAIL_GUARD_MAX_SKIP paragraph below for the value actually shipped and why
-# it satisfies this relationship at the shipped lookahead=3. Setting this
-# constant to 0 disables the axis entirely (every skip > 0 clears the bar),
-# which is deliberate - Task 2 measures a grid including that setting, so
-# measurement can still conclude the axis is unnecessary.
+# test_tail_guard_inert_whenever_lookahead_le_max_skip, and the
+# TAIL_GUARD_MAX_SKIP paragraph below for the value actually shipped. As of
+# this branch's lookahead bump, the relationship no longer holds AT the
+# shipped default: TAIL_GUARD_MAX_SKIP=6 < lookahead=8, so the guard's skip
+# axis is deliberately REACHABLE in production for the first time - that is
+# the point of shipping the guard at all. The relationship above still holds
+# for any lookahead <= TAIL_GUARD_MAX_SKIP (e.g. the pre-bump default of 3),
+# which is what test_tail_guard_inert_whenever_lookahead_le_max_skip proves
+# directly rather than at whatever `align`'s current default happens to be.
+# Setting TAIL_GUARD_MAX_SKIP to 0 disables the axis entirely (every skip > 0
+# clears the bar), which is deliberate - Task 2 measures a grid including
+# that setting, so measurement can still conclude the axis is unnecessary.
 #
 # Measured by the Task-2 corpus sweep (1838 shows: 1120 Grateful-Dead-family +
 # 718 non-Dead; 192-cell grid x lookahead {3,8,10,12}; real align() + real
@@ -588,11 +597,14 @@ def _strip_trailing_duration(title: str) -> str:
 #   largest skip on a legitimate match anywhere in 1838 shows is 6 (26
 #   non-Dead candidates), saved only by the strict `>` comparison above - a
 #   margin of ZERO, so do NOT lower this to 5 without re-measuring. Any value
-#   >= 3 also makes the guard structurally inert at the shipped lookahead=3
-#   (max reachable skip at lookahead L is L - see
-#   test_tail_guard_max_skip_makes_la3_structurally_inert above, and the
+#   >= L makes the guard structurally inert at lookahead L (max reachable
+#   skip at lookahead L is L - see
+#   test_tail_guard_inert_whenever_lookahead_le_max_skip above, and the
 #   STRUCTURAL INERTNESS paragraph above for the general relationship this is
-#   an instance of).
+#   an instance of). This constant (6) does NOT satisfy that relationship at
+#   the shipped lookahead (8) - 6 < 8 - so the guard is reachable in
+#   production at the shipped default; it DOES satisfy it at the pre-bump
+#   default of 3, which is the case the test above proves directly.
 #
 # Effect at these values: at la=3, zero declines and zero changed rows on both
 # corpora. At la=8, 2 declined tracks out of 23,275 (Dead) and 0 of 14,193
@@ -600,6 +612,15 @@ def _strip_trailing_duration(title: str) -> str:
 # seven at la=10 are fixed, with zero new wrong vectors, zero correct
 # recoveries lost, zero textually-wrong matches, and 0 of 602 anchored rows
 # moved. Full measurement: task-2-report.md.
+#
+# `align`'s shipped default is now lookahead=8 (bumped from 3 on this same
+# branch once the guard above existed to make it safe) - i.e. the guard is
+# no longer inert in production; it is expected to fire on the measured
+# casualties above. `gd1989-03-27` remains a known unfixed
+# duplicate-title-collision case, reachable only at lookahead=11 - the
+# specific reason the default is 8 and not higher; see task-2-report.md and
+# the task-4 plan section of the branch's implementation plan for the margin
+# analysis.
 TAIL_GUARD_ITEMS = 3
 TAIL_GUARD_TRACKS_REMAINING = 3
 TAIL_GUARD_MAX_SKIP = 6
@@ -633,7 +654,7 @@ def _tail_guard_declines(hit: int, n_items: int, track_index: int, n_tracks: int
     what legitimate tail matching looks like (a song simply missing from
     this particular tape), and firing there too would break every normal
     show's ending - see test_legitimate_tail_matching_survives_the_guard and
-    test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3.
+    test_tail_guard_never_declines_a_legitimate_one_item_skip_at_the_shipped_default.
 
     Read as a plain expression, not cached into a default argument, so a
     measurement harness can override `TAIL_GUARD_ITEMS`/
@@ -650,21 +671,24 @@ def _window_hi(j: int, lookahead: int, n_items: int) -> int:
     candidate match in `items[j:hi]`, never past it. Factored out to be the
     ONE place this arithmetic lives, called by BOTH `align` (to compute its
     real search window) and
-    test_tail_guard_max_skip_makes_la3_structurally_inert (to derive the
-    largest skip reachable at a given lookahead, which is what makes
-    TAIL_GUARD_MAX_SKIP's la=3 no-op a structural property rather than an
-    empirical one - fix-round-2, condition A).
+    test_tail_guard_inert_whenever_lookahead_le_max_skip (to derive the
+    largest skip reachable at a given lookahead, which is what makes the
+    inertness relationship a structural property rather than an empirical
+    one - fix-round-2, condition A; that test no longer ties the claim to
+    `align`'s shipped default, since the shipped default (8) now EXCEEDS
+    TAIL_GUARD_MAX_SKIP (6) and the guard is deliberately reachable there -
+    it sweeps every lookahead <= TAIL_GUARD_MAX_SKIP instead).
 
     Inlining this back into `align` silently degrades that test to a
     mirror: it would keep asserting a copy of the formula, decoupled from
     the one `align` actually runs, so a later change to the real window
-    arithmetic (e.g. widening it) could regress la=3's no-op guarantee
-    without any test noticing. Keep `align` calling this function, not a
-    restated inline expression."""
+    arithmetic (e.g. widening it) could regress the inertness guarantee for
+    low lookahead without any test noticing. Keep `align` calling this
+    function, not a restated inline expression."""
     return min(j + 1 + lookahead, n_items)
 
 
-def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 3,
+def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 8,
           aliases: dict[str, str] | None = None) -> "AlignResult":
     """Map canonical set/segue structure onto tracks, in recording order.
 

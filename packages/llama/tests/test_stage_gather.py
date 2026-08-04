@@ -419,7 +419,22 @@ def test_gather_anchoring_rescues_low_confidence_without_llm(tmp_path, monkeypat
     show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT,
                       align_provider=fake_align, jerrybase_enabled=True)
     assert fake_align.calls == []  # anchoring short-circuited the LLM fallback
-    assert show.set_breaks == [2]
+    # Task 4 (lookahead bumped 3->8): the fixture's untitled disc-3 track
+    # resolves to "One More Saturday Night", which is ALSO the fake
+    # description's own encore item - at the shipped lookahead=8 the
+    # deterministic pass reaches far enough (skip=5) to match it directly,
+    # correctly labeling that one track "encore" even though every other
+    # track still misses. That single correct match is what feeds jerrybase
+    # anchoring's encore guard (`aligned_sets`, jerrybase.anchor_breaks),
+    # which restores the trailing encore break the closer-only anchoring
+    # would otherwise fold into set "2" - so set_breaks now surfaces BOTH
+    # breaks the closers above describe, not just the first. At the pre-bump
+    # lookahead=3 this track was unreachable (skip=5 > lookahead=3) and
+    # set_breaks was [2] alone - see test_tail_guard_never_declines_a_
+    # legitimate_one_item_skip_at_the_shipped_default in test_structure.py
+    # for the general shape of this exact kind of far, legitimate, low-skip
+    # tail match.
+    assert show.set_breaks == [2, 5]
     assert show.structure is not None and show.structure.alignment == "jerrybase"
     assert any(c.startswith("set breaks anchored from jerrybase")
                for c in show.structure.conflicts)

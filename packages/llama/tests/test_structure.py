@@ -1,5 +1,3 @@
-import inspect
-
 import llama.structure as structure
 from llama.models import ParsedSetlist, SetlistItem, SourcedParse, Track
 from llama.songs import normalize_song
@@ -958,8 +956,9 @@ def test_tail_guard_declines_skip_axis_boundary():
     TAIL_GUARD_MAX_SKIP to decline - at exactly the threshold the guard
     still lets the match through. This strictness is also what makes la=3
     structurally inert for any TAIL_GUARD_MAX_SKIP >= 3 (the shipped value of
-    6 satisfies this with margin) - see
-    test_tail_guard_max_skip_makes_la3_structurally_inert."""
+    6 satisfies this with margin - la=3 was the shipped default before Task
+    4's bump to 8, at which the relationship no longer holds) - see
+    test_tail_guard_inert_whenever_lookahead_le_max_skip."""
     n_items, hit, n_tracks, track_index = 10, 9, 20, 0
     at_threshold = TAIL_GUARD_MAX_SKIP        # skip == TAIL_GUARD_MAX_SKIP exactly: not enough
     one_more = at_threshold + 1               # one item further skipped: enough
@@ -990,11 +989,24 @@ def test_tail_guard_declines_requires_all_three_conditions():
     assert _tail_guard_declines(tail_hit, n_items, plenty_remaining, n_tracks, big_skip) is True
 
 
-def test_tail_guard_max_skip_makes_la3_structurally_inert():
-    """Direct, fixture-free proof of design gate 2 (no-op at the shipped
-    default lookahead=3) - review finding 1/4, fix-round-1 addendum
-    condition A: state the RELATIONSHIP, not just "we tried la=3 and
+def test_tail_guard_inert_whenever_lookahead_le_max_skip():
+    """Direct, fixture-free proof of design gate 2's general RELATIONSHIP
+    (review finding 1/4, fix-round-1 addendum condition A): state the
+    relationship itself, not just "we tried some particular lookahead and
     nothing changed".
+
+    Task 4 re-scoped this test: it used to read `align`'s shipped default
+    off its real signature and assert inertness THERE, back when the
+    shipped default (3) satisfied `TAIL_GUARD_MAX_SKIP >= lookahead`. Task 4
+    bumped the shipped default to 8 specifically so the guard becomes
+    REACHABLE in production for the first time (`TAIL_GUARD_MAX_SKIP=6 <
+    8`) - that is the entire point of landing the guard, so an assertion of
+    inertness AT the shipped default would now be FALSE by design, not a
+    regression to catch. The invariant that is actually, permanently true -
+    independent of whatever `align`'s current default happens to be - is
+    that the guard cannot fire for ANY lookahead `L <= TAIL_GUARD_MAX_SKIP`
+    (which includes the pre-bump default of 3). This test sweeps that whole
+    range directly instead of reading off `align`'s signature.
 
     `align`'s search window bound is computed by `_window_hi` - CALLED
     below, not a copied expression, so this test breaks loudly if that
@@ -1002,36 +1014,46 @@ def test_tail_guard_max_skip_makes_la3_structurally_inert():
     version mirrored the formula in its own body instead, which cannot
     break when the original changes - measured: widening `_window_hi` to
     `j + 2 + lookahead` left that version, and the whole guard subset and
-    full suite, green). `_window_hi(j, L, huge) - 1 == j + L`, so the
-    largest possible skip at lookahead=L is exactly L. That is also why the
-    measured defect (gd85-04-06, gd91-03-28) only appears at la>=8: la=3
-    cannot reach far enough to trigger the mechanism in the first place,
-    independent of this guard.
-
-    `lookahead` is read off `align`'s real signature, not hardcoded, so
-    this is tied to whatever the shipped default actually is (measured:
-    hardcoding `3` left this test green even after changing the real
-    default to 8).
+    full suite, green; re-verified after this re-scoping - see the Task 4
+    report). `_window_hi(j, L, huge) - 1 == j + L`, so the largest possible
+    skip at lookahead=L is exactly L.
 
     Given that, `TAIL_GUARD_MAX_SKIP >= lookahead` makes the skip axis
     UNREACHABLE at that lookahead - not an empirical property of some
-    corpus, a structural one of the arithmetic itself. This test derives
-    the bound from the window formula and sweeps every skip the shipped
-    default can actually produce, with the other two axes held maximally in
-    their firing zones so only the skip axis is left to save the match."""
-    lookahead = inspect.signature(align).parameters["lookahead"].default
-    j = 0  # arbitrary - the relationship holds for any j
-    hi = _window_hi(j, lookahead, 10 ** 9)  # the SAME function align() calls, not a copy
-    max_reachable_skip = (hi - 1) - j
-    assert max_reachable_skip == lookahead  # sanity: the derivation matches the stated claim
-
-    assert TAIL_GUARD_MAX_SKIP >= max_reachable_skip, (
-        "TAIL_GUARD_MAX_SKIP must be >= the shipped lookahead for la=3 to be "
-        "structurally a no-op - if this fails, the guard can now fire at la=3"
-    )
+    corpus, a structural one of the arithmetic itself. For each lookahead in
+    the swept range this test derives the bound from the window formula and
+    checks every skip that lookahead can actually produce, with the other
+    two axes held maximally in their firing zones so only the skip axis is
+    left to save the match. A final boundary check one lookahead past
+    `TAIL_GUARD_MAX_SKIP` confirms the relationship is tight, not merely
+    "small lookahead never happens to trigger it": that boundary IS the
+    shipped default's actual regime (8 > 6)."""
     n_items, n_tracks = 10, 100
-    for skip in range(0, max_reachable_skip + 1):  # every skip reachable at la=3
-        assert _tail_guard_declines(n_items - 1, n_items, 0, n_tracks, skip) is False
+    for lookahead in range(0, TAIL_GUARD_MAX_SKIP + 1):
+        j = 0  # arbitrary - the relationship holds for any j
+        hi = _window_hi(j, lookahead, 10 ** 9)  # the SAME function align() calls, not a copy
+        max_reachable_skip = (hi - 1) - j
+        assert max_reachable_skip == lookahead, (
+            "window arithmetic diverged from the stated relationship at "
+            f"lookahead={lookahead} - the sanity check that keeps this test "
+            "coupled to _window_hi's real formula"
+        )
+        for skip in range(0, max_reachable_skip + 1):
+            assert _tail_guard_declines(n_items - 1, n_items, 0, n_tracks, skip) is False, (
+                f"guard fired at lookahead={lookahead}, skip={skip}, even though "
+                f"TAIL_GUARD_MAX_SKIP={TAIL_GUARD_MAX_SKIP} >= lookahead should make it inert"
+            )
+
+    # Boundary: one lookahead past TAIL_GUARD_MAX_SKIP, the largest reachable
+    # skip clears the strict `>` bar and the guard DOES fire. This is the
+    # shipped default's own regime (lookahead=8 > TAIL_GUARD_MAX_SKIP=6).
+    boundary_lookahead = TAIL_GUARD_MAX_SKIP + 1
+    hi = _window_hi(0, boundary_lookahead, 10 ** 9)
+    boundary_skip = hi - 1
+    assert _tail_guard_declines(n_items - 1, n_items, 0, n_tracks, boundary_skip) is True, (
+        "the guard should be reachable one lookahead past TAIL_GUARD_MAX_SKIP "
+        "- if this fails, the relationship swept above is not tight"
+    )
 
 
 def test_align_window_bound_reachability_is_pinned_through_align():
@@ -1120,7 +1142,7 @@ def test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3():
         tr(10, "Crowd Noise"), tr(11, "Tuning"),
     ]
     with _GuardSpy() as spy:
-        r = align(tracks, c)  # shipped default lookahead=3
+        r = align(tracks, c)  # shipped default lookahead=8
 
     assert spy.calls, "the guard predicate was never consulted - this test proves nothing"
     assert spy.allowed and not spy.declined  # reached the guard, which correctly did not fire
