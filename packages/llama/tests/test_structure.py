@@ -1085,7 +1085,16 @@ def test_align_window_bound_reachability_is_pinned_through_align():
     track_index` is 1, under any realistic TAIL_GUARD_TRACKS_REMAINING), so
     `_tail_guard_declines` cannot fire here regardless of `L` - this probe
     measures `_window_hi`'s arithmetic AS USED BY `align`, deliberately
-    decoupled from the guard's own decision, not entangled with it.
+    decoupled from the guard's own decision, not entangled with it. That
+    claim about the guard is asserted with `_GuardSpy`, not left to prose
+    (final-review standing requirement / F4 residual): at lookahead=L the
+    walk skips forward (`hit > j`), so `align` DOES consult the guard - and
+    the guard, reached, correctly returns False (tracks axis unmet); at
+    lookahead=L-1 no candidate is found at all, so the guard is never even
+    consulted. Both are measured below, not assumed - a probe that only
+    checked outcomes would be indistinguishable from one where the guard is
+    never reached at all, which is exactly the defect class two earlier
+    tests on this branch were caught with (zero predicate calls).
 
     Keep the existing `_window_hi`-calling structural test above alongside
     this one - one pins the expression, this one pins the consequence, and
@@ -1095,18 +1104,26 @@ def test_align_window_bound_reachability_is_pinned_through_align():
     c = canon(*[("1", f"Skip{i}", False) for i in range(L)], ("1", "Target", False))
     tracks = [tr(1, "Target")]
 
-    r_at_l = align(tracks, c, lookahead=L)
+    with _GuardSpy() as spy_l:
+        r_at_l = align(tracks, c, lookahead=L)
     assert r_at_l.matched == [True], "a match exactly L items ahead must be found at lookahead=L"
     assert r_at_l.sets == ["1"]
+    assert spy_l.calls, "the guard predicate was never consulted at lookahead=L - this probe proves nothing about it"
+    assert not spy_l.declined, "the guard declined this match - it should have been reached and allowed it"
 
-    r_at_l_minus_1 = align(tracks, c, lookahead=L - 1)
+    with _GuardSpy() as spy_l_minus_1:
+        r_at_l_minus_1 = align(tracks, c, lookahead=L - 1)
     assert r_at_l_minus_1.matched == [False], (
         "that same match must NOT be reachable at lookahead=L-1 - if it is, "
         "the window bound is wider than lookahead promises"
     )
+    assert not spy_l_minus_1.calls, (
+        "the guard was consulted at lookahead=L-1, but no candidate should "
+        "have been found at all - the window bound may be wider than intended"
+    )
 
 
-def test_tail_guard_never_declines_a_legitimate_one_item_skip_at_shipped_la3():
+def test_tail_guard_never_declines_a_legitimate_one_item_skip_at_the_shipped_default():
     """Review finding 1/2. A real closer reached by a genuine 1-item skip -
     the ordinary reason lookahead exists at all is a song that isn't on THIS
     particular tape - must not be declined, even though the item and tracks
