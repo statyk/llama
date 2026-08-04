@@ -68,6 +68,34 @@ def clean_tag_titles(kept_files: list[dict]) -> list[str]:
     return [_TRACK_NUM_PREFIX.sub("", t, count=1) for t in titles]
 
 
+def _stem_no_ext(name: str) -> str:
+    """Filename without its extension, directory component retained - two
+    files sharing a basename in different directories are different tracks."""
+    head, sep, tail = name.rpartition(".")
+    return head if sep and "/" not in tail else name
+
+
+def sibling_format_titles(
+    kept: list[dict], other_kept: list[dict]
+) -> dict[str, str] | None:
+    """Map each kept file's name to the title carried by the SAME track in a
+    different-format copy of the same archive.org item.
+
+    archive.org builds the lossy derivative from the lossless original and
+    sometimes does not carry the tags across, leaving a fully-tagged FLAC
+    beside an untagged MP3 of the same tracks. Matching is by filename stem
+    and requires a bijection: anything less declines rather than guessing by
+    position."""
+    if not kept or len(kept) != len(other_kept):
+        return None
+    ours = {_stem_no_ext(f["name"]): f["name"] for f in kept}
+    theirs = {_stem_no_ext(f["name"]): f for f in other_kept}
+    if len(ours) != len(kept) or len(theirs) != len(other_kept) or set(ours) != set(theirs):
+        return None
+    titles = clean_tag_titles([theirs[stem] for stem in ours])
+    return {name: title for name, title in zip(ours.values(), titles)}
+
+
 def resolve_titles(
     kept_files: list[dict],
     setlist: ParsedSetlist,

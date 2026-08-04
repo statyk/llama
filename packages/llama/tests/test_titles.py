@@ -3,7 +3,7 @@ import pytest
 from llama.models import ParsedSetlist, SetlistItem
 from llama.titles import (
     clean_tag_title, clean_tag_titles, is_real_title, resolve_titles,
-    set_breaks, title_fraction,
+    set_breaks, sibling_format_titles, title_fraction,
 )
 
 
@@ -224,3 +224,72 @@ def test_title_fraction():
     assert title_fraction(["Dark Star", "Eyes of the World"]) == 1.0
     assert title_fraction(["Dark Star", "", "d1t02", "Eyes"]) == 0.5
     assert title_fraction([]) == 0.0
+
+
+def fmt_files(names_titles: list[tuple[str, str]]) -> list[dict]:
+    return [{"name": n, "title": t} for n, t in names_titles]
+
+
+def test_sibling_format_titles_matches_by_stem():
+    mp3 = fmt_files([("d1t01.mp3", ""), ("d1t02.mp3", "")])
+    flac = fmt_files([("d1t01.flac", "Jack Straw"), ("d1t02.flac", "Sugaree")])
+    assert sibling_format_titles(mp3, flac) == {
+        "d1t01.mp3": "Jack Straw", "d1t02.mp3": "Sugaree",
+    }
+
+
+def test_sibling_format_titles_survives_a_reordered_sibling():
+    """The map is keyed by name, so sibling order is irrelevant."""
+    mp3 = fmt_files([("d1t01.mp3", ""), ("d1t02.mp3", "")])
+    flac = fmt_files([("d1t02.flac", "Sugaree"), ("d1t01.flac", "Jack Straw")])
+    assert sibling_format_titles(mp3, flac) == {
+        "d1t01.mp3": "Jack Straw", "d1t02.mp3": "Sugaree",
+    }
+
+
+def test_sibling_format_titles_declines_on_a_count_mismatch():
+    mp3 = fmt_files([("d1t01.mp3", ""), ("d1t02.mp3", "")])
+    flac = fmt_files([("d1t01.flac", "Jack Straw")])
+    assert sibling_format_titles(mp3, flac) is None
+
+
+def test_sibling_format_titles_declines_when_stems_differ():
+    """Same count, different naming convention - guessing by position here is
+    exactly the failure this function exists to refuse."""
+    mp3 = fmt_files([("d1t01.mp3", ""), ("d1t02.mp3", "")])
+    flac = fmt_files([("track01.flac", "Jack Straw"), ("track02.flac", "Sugaree")])
+    assert sibling_format_titles(mp3, flac) is None
+
+
+def test_sibling_format_titles_declines_on_duplicate_stems():
+    mp3 = fmt_files([("t01.mp3", ""), ("t01.mp3", "")])
+    flac = fmt_files([("t01.flac", "A"), ("t01.flac", "B")])
+    assert sibling_format_titles(mp3, flac) is None
+
+
+def test_sibling_format_titles_declines_on_empty_input():
+    assert sibling_format_titles([], []) is None
+
+
+def test_sibling_format_titles_keeps_subdirectories_distinct():
+    """archive.org names can carry a directory component; two files sharing a
+    basename in different directories are different tracks."""
+    mp3 = fmt_files([("d1/t01.mp3", ""), ("d2/t01.mp3", "")])
+    flac = fmt_files([("d1/t01.flac", "Bertha"), ("d2/t01.flac", "Sugaree")])
+    assert sibling_format_titles(mp3, flac) == {
+        "d1/t01.mp3": "Bertha", "d2/t01.mp3": "Sugaree",
+    }
+
+
+def test_sibling_format_titles_cleans_recovered_titles():
+    """Recovered FLAC tags carry leading track numbers too - measured at 5 of
+    2,928 - so the enumerated-tape gate must run over them as well."""
+    mp3 = fmt_files([(f"t{n:02d}.mp3", "") for n in range(1, 5)])
+    flac = fmt_files([
+        ("t01.flac", "01 Bertha"), ("t02.flac", "02 Sugaree"),
+        ("t03.flac", "03 Dire Wolf"), ("t04.flac", "04 Loser"),
+    ])
+    assert sibling_format_titles(mp3, flac) == {
+        "t01.mp3": "Bertha", "t02.mp3": "Sugaree",
+        "t03.mp3": "Dire Wolf", "t04.mp3": "Loser",
+    }
