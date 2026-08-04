@@ -123,6 +123,49 @@ Of the 201 affected items, 96 (1,719 tracks) are genuine enumerated tapes and
 That asymmetry is deliberate and matches the project's standing bias: a
 surviving prefix is visible and ugly, a mutilated title is silent and ships.
 
+### Accepted gap: a real numeric title on an enumerated tape
+
+**Ruled acceptable by Shawn 2026-08-04. Do not re-litigate without new
+evidence; do not "fix" it by tightening the gate.**
+
+The gate is fooled when an otherwise-enumerated tape carries one track whose
+tag omits its track number and whose real title begins with 1-3 digits:
+
+```
+01 The Way It Is
+02 Mandolin Rain
+100 Years           <- real title, the "03 " is missing
+04 Every Little Kiss
+```
+
+`100 Years` both **counts toward** the enumerated tally and **is stripped**,
+shipping as `Years`. `is_real_title` accepts `Years`, so nothing flags it and
+the DJ reads it aloud.
+
+**What is measured and what is not.** Across the 1,708 tracks the gate strips,
+zero carry a number that is *out of range* for its tape (a `200` on a
+17-track recording cannot be a track number). That detector was
+positive-controlled two ways — it returns `[100]` on the synthetic shape above,
+and it fires on 55 real lone-number corpus items — so the zero is a real
+measurement rather than a check that never looked. **The in-range half is
+undetectable**: if the title is `2 x 4` or `8 Cylinders`, the number is a
+plausible track number and no rule inspecting only the number can tell. That
+half is unbounded, not zero.
+
+**Why it is accepted anyway.** It needs all three of: an enumerated tape, a
+track missing its number, and that title starting with 1-3 digits. Two fixes
+were considered and rejected:
+- *Require the number to match play position* — rejects the legitimate
+  partial/per-disc numbering the gate handles (`Fishbone1992-09-18` runs 8..16
+  against positions 7..15), and still would not save `2 x 4` sitting at
+  position 2.
+- *Strip but flag an out-of-sequence number* — measured inert, and the first
+  time it fires it costs a held show and a triage step. Recorded as a
+  defensible option if the balance ever shifts.
+
+Pinned by a test asserting the destructive behaviour, so it is a known,
+deliberate loss rather than an unexamined one.
+
 ### A retired premise: there is no "double numbering" defect
 
 Earlier notes on this work — and the backlog entry that scoped it — claimed a
