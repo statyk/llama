@@ -16,7 +16,7 @@ from llama.songs import GD_SHORTHAND
 from llama.structure import (align, apply_llm_alignment, blend_segues,
                              from_setlistfm, fuzzy_norm_title, norm_title,
                              rank_parses, structure_guard, venues_equivalent)
-from llama.titles import clean_tag_title, is_real_title, resolve_titles, set_breaks
+from llama.titles import clean_tag_titles, is_real_title, resolve_titles, set_breaks, title_fraction
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -75,7 +75,7 @@ def _sibling_titles(ia, candidate: Candidate, identifier: str, want: str, n: int
         if rec.identifier == identifier:
             continue
         kept, _, _ = filter_files(ia.metadata(rec.identifier).get("files", []), want_format=want)
-        titles = [clean_tag_title(f.get("title")) for f in kept]
+        titles = clean_tag_titles(kept)
         if len(kept) == n and all(is_real_title(t) for t in titles):
             return titles
     return None
@@ -519,7 +519,7 @@ def run_gather(
     canonical = _drop_artist_items(canonical, artist)
 
     siblings = None
-    if any(not is_real_title(clean_tag_title(f.get("title"))) for f in kept) and (
+    if title_fraction(clean_tag_titles(kept)) < 1.0 and (
         canonical.confidence == "low" or len(canonical.items) != len(kept)
     ):
         siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))

@@ -81,10 +81,11 @@ def resolve_titles(
     files = kept_files
     n = len(files)
     aligned = setlist.items if (setlist.confidence != "low" and len(setlist.items) == n) else None
+    tag_titles = clean_tag_titles(files)
 
     tracks: list[Track] = []
     for pos, f in enumerate(files):
-        tag_title = clean_tag_title(f.get("title"))
+        tag_title = tag_titles[pos]
         if is_real_title(tag_title):
             title, source = tag_title, "tags"
         elif aligned:

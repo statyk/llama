@@ -5,7 +5,7 @@ from llama.config import SelectionConfig
 from llama.junk import FORMAT_BY_AUDIO, filter_files
 from llama.models import Candidate, QualityAssessment
 from llama.scoring import lineage_class, score_recording
-from llama.titles import clean_tag_title, is_real_title
+from llama.titles import clean_tag_titles, title_fraction
 from llama.workspace import ShowWorkspace, read_json, should_run, write_artifact
 
 
@@ -66,9 +66,7 @@ def run_select_recording(
             "lineage": lineage_class(rec.identifier, meta),
             "has_format": bool(kept),
             "kept_tracks": len(kept),
-            "title_fraction": (
-                sum(1 for f in kept if is_real_title(clean_tag_title(f.get("title")))) / len(kept)
-            ) if kept else 0.0,
+            "title_fraction": title_fraction(clean_tag_titles(kept)),
             "addeddate": str(meta.get("addeddate") or ""),
             "complaints": len(assessment.recording_complaints)
             if rec.identifier == assessment.reviewed_identifier else 0,

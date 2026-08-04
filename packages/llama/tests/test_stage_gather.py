@@ -255,6 +255,41 @@ def test_prefixed_tag_titles_align(tmp_path: Path):
     assert show.order_source in ("track-tags", "filename")  # recorded on the artifact
 
 
+def _enumerate_tag_titles(md: dict) -> dict:
+    """Rewrite every tagged file's title as a numbered tracklist - the shape of
+    gus2018-01-13, where all 26 files are numbered 1..26."""
+    md = {"metadata": dict(md["metadata"]), "files": [dict(f) for f in md["files"]]}
+    n = 0
+    for f in md["files"]:
+        if f.get("title"):
+            n += 1
+            f["title"] = f"{n:02d} {f['title']}"
+    return md
+
+
+def test_gather_strips_track_numbers_on_an_enumerated_tape(tmp_path: Path):
+    """An enumerated tape's numbers must not reach the manifest - emcee's
+    scriptwriter reads the title verbatim."""
+    md = _enumerate_tag_titles(json.loads(FIXTURE.read_text()))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    tagged = [t for t in show.tracks if t.title_source == "tags"]
+    assert tagged
+    assert all(not t.title[0].isdigit() for t in tagged)
+
+
+def test_gather_keeps_a_lone_numeric_title(tmp_path: Path):
+    """One numbered title among unnumbered ones is a song, not enumeration.
+    This should already pass before Task 2 - it is a regression guard."""
+    md = json.loads(FIXTURE.read_text())
+    md = {"metadata": dict(md["metadata"]), "files": [dict(f) for f in md["files"]]}
+    tagged = [f for f in md["files"] if f.get("title")]
+    tagged[1]["title"] = "100 Years"
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    assert "100 Years" in [t.title for t in show.tracks]
+
+
 from llama import jerrybase
 from llama.models import JerrybaseEvent, JerrybaseSet
 
