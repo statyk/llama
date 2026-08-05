@@ -5,6 +5,7 @@ import pytest
 
 from llama.config import StructureConfig
 from herder import FakeProvider
+from llama.junk import filter_files
 from llama.models import (Candidate, Overrides, ParsedSetlist, RecordingSummary,
                           SetlistItem)
 from llama.setlistfm import SetlistFMClient
@@ -288,6 +289,99 @@ def test_gather_keeps_a_lone_numeric_title(tmp_path: Path):
     show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
                       make_candidate(), IDENT)
     assert "100 Years" in [t.title for t in show.tracks]
+
+
+_LOSSLESS_TITLES = {
+    "gd73-06-10d1t01": "Morning Dew", "gd73-06-10d1t02": "China Cat Sunflower",
+    "gd73-06-10d1t03": "I Know You Rider", "gd73-06-10d2t01": "Dark Star",
+    "gd73-06-10d2t02": "Eyes of the World", "gd73-06-10d3t01": "Johnny B. Goode",
+}
+
+
+def _with_tagged_lossless(md: dict, *, lossless_format: str = "Shorten",
+                          tag_mp3: bool = False) -> dict:
+    """The A3 shape: the mp3 derivatives carry no titles while the lossless
+    originals of the SAME item are fully tagged, stems matching.
+
+    The fixture's .shn entries have length=None, which filter_files excludes as
+    'missing duration' - a length MUST be set here or the lossless set is empty
+    and every assertion below becomes vacuous."""
+    md = {"metadata": dict(md["metadata"]), "files": [dict(f) for f in md["files"]]}
+    for f in md["files"]:
+        stem = f["name"].rsplit(".", 1)[0]
+        if f.get("format") == "VBR MP3" and not tag_mp3:
+            f["title"] = None
+        if f.get("format") == "Shorten":
+            f["format"] = lossless_format
+            f["length"] = "05:00"
+            f["title"] = _LOSSLESS_TITLES.get(stem)
+    return md
+
+
+def test_the_tagged_lossless_helper_is_not_vacuous():
+    """Guards the helper itself: if filter_files drops the lossless set, every
+    recovery assertion below passes for a reason unrelated to recovery."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    kept, _, _ = filter_files(md["files"], want_format="Shorten")
+    assert len(kept) == 6
+
+
+def test_gather_recovers_titles_from_the_lossless_sibling(tmp_path: Path):
+    """The mp3 derivative carries no titles; the lossless originals of the same
+    item are fully tagged. Measured at 166 of 1,444 two-format items."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    assert [t.title for t in show.tracks] == list(_LOSSLESS_TITLES.values())
+    assert all(t.title_source == "sibling-format" for t in show.tracks)
+
+
+def test_gather_recovers_from_24bit_flac(tmp_path: Path):
+    """gd1971-02-23's shape: the lossless files are tagged '24bit Flac', which
+    was invisible before the format-preference fix."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()),
+                               lossless_format="24bit Flac")
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    assert [t.title for t in show.tracks] == list(_LOSSLESS_TITLES.values())
+    assert all(t.title_source == "sibling-format" for t in show.tracks)
+
+
+def test_gather_prefers_its_own_tags_when_they_are_good(tmp_path: Path):
+    """Recovery must not fire on a healthy tape. The sibling titles are
+    poisoned so a wrongly-firing recovery is visible rather than silent."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()), tag_mp3=True)
+    for f in md["files"]:
+        if f.get("format") == "Shorten":
+            f["title"] = "WRONG"
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    assert "WRONG" not in [t.title for t in show.tracks]
+    assert all(t.title_source != "sibling-format" for t in show.tracks)
+
+
+def test_gather_declines_recovery_when_the_sibling_is_also_untagged(tmp_path: Path):
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    for f in md["files"]:
+        if f.get("format") == "Shorten":
+            f["title"] = None
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    assert all(t.title_source != "sibling-format" for t in show.tracks)
+
+
+def test_gather_recovery_survives_an_operator_exclusion(tmp_path: Path):
+    """overrides.exclude drops a file AFTER filtering. A positional recovery
+    list would misalign every title after the hole; the filename-keyed map
+    does not."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    ws = ShowWorkspace(tmp_path / "show")
+    write_artifact(ws.overrides, Overrides(exclude=["gd73-06-10d1t02.mp3"]))
+    show = run_gather(ws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert [t.title for t in show.tracks] == [
+        "Morning Dew", "I Know You Rider", "Dark Star",
+        "Eyes of the World", "Johnny B. Goode",
+    ]
 
 
 from llama import jerrybase

@@ -100,8 +100,13 @@ def resolve_titles(
     kept_files: list[dict],
     setlist: ParsedSetlist,
     sibling_titles: list[str] | None = None,
+    format_titles: dict[str, str] | None = None,
 ) -> list[Track]:
     """Resolve track titles (tags -> setlist -> sibling -> unresolved).
+
+    `format_titles` (from gather's `_recover_format_titles`) is a filename ->
+    title map lifted from a different-format copy of the SAME item; when it is
+    present it stands in for the tag layer entirely.
 
     Sets and segues are placeholders here; llama.structure.align stamps the
     real values from the canonical performance setlist. Callers pass
@@ -109,13 +114,22 @@ def resolve_titles(
     files = kept_files
     n = len(files)
     aligned = setlist.items if (setlist.confidence != "low" and len(setlist.items) == n) else None
-    tag_titles = clean_tag_titles(files)
+
+    # When format recovery fired, the delivered format's own tags are known
+    # bad and are not consulted at all - a manifest never interleaves two tag
+    # sources. A recovered title that is still unusable falls through to the
+    # setlist/sibling cascade rather than back to the bad tags.
+    if format_titles is not None:
+        tag_titles = [format_titles.get(f["name"], "") for f in files]
+        tag_source = "sibling-format"
+    else:
+        tag_titles = clean_tag_titles(files)
+        tag_source = "tags"
 
     tracks: list[Track] = []
     for pos, f in enumerate(files):
-        tag_title = tag_titles[pos]
-        if is_real_title(tag_title):
-            title, source = tag_title, "tags"
+        if is_real_title(tag_titles[pos]):
+            title, source = tag_titles[pos], tag_source
         elif aligned:
             title, source = aligned[pos].title, "setlist"
         elif sibling_titles and len(sibling_titles) == n:

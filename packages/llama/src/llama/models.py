@@ -154,7 +154,7 @@ class Track(BaseModel):
     filename: str  # source filename within the archive.org item
     duration_sec: float | None = None
     segue: bool = False
-    title_source: str  # "tags" | "setlist" | "sibling" | "unresolved" | "override"
+    title_source: str  # "tags" | "sibling-format" | "setlist" | "sibling" | "unresolved" | "override"
 
 
 class Show(BaseModel):

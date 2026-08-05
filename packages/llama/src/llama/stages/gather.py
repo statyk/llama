@@ -6,7 +6,7 @@ from herder import HerderError, TaskFailed, run_json_task
 from llama import jerrybase
 from llama.config import StructureConfig
 from llama.errors import LlamaError
-from llama.junk import FORMAT_BY_AUDIO, filter_files
+from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 from llama.ia_client import IAError
 from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
                           SourcedParse, StructureInfo)
@@ -16,7 +16,8 @@ from llama.songs import GD_SHORTHAND
 from llama.structure import (align, apply_llm_alignment, blend_segues,
                              from_setlistfm, fuzzy_norm_title, norm_title,
                              rank_parses, structure_guard, venues_equivalent)
-from llama.titles import clean_tag_titles, is_real_title, resolve_titles, set_breaks, title_fraction
+from llama.titles import (clean_tag_titles, is_real_title, resolve_titles,
+                          set_breaks, sibling_format_titles, title_fraction)
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -78,6 +79,31 @@ def _sibling_titles(ia, candidate: Candidate, identifier: str, want: str, n: int
         titles = clean_tag_titles(kept)
         if len(kept) == n and all(is_real_title(t) for t in titles):
             return titles
+    return None
+
+
+# Recovery fires below this and requires the sibling to clear the second
+# threshold. Both are the values the spec's 166-item measurement was taken
+# at and were not independently swept - changing them invalidates it.
+_RECOVER_BELOW = 0.5
+_RECOVER_SIBLING_ABOVE = 0.9
+
+
+def _recover_format_titles(
+    files: list[dict], kept: list[dict], ordering: dict
+) -> dict[str, str] | None:
+    """Titles lifted from a lossless copy of the same item, when the delivered
+    format's own tags are missing. archive.org sometimes builds the lossy
+    derivative without carrying the tags across."""
+    if title_fraction(clean_tag_titles(kept)) >= _RECOVER_BELOW:
+        return None
+    for fmt in LOSSLESS_TITLE_FORMATS:
+        if fmt == ordering.get("format"):
+            continue  # that is the set we already have
+        other, _, _ = filter_files(files, want_format=fmt)
+        recovered = sibling_format_titles(kept, other)
+        if recovered and title_fraction(list(recovered.values())) >= _RECOVER_SIBLING_ABOVE:
+            return recovered
     return None
 
 
@@ -446,6 +472,11 @@ def run_gather(
     artist = str(_creator(meta) or candidate.collection)
     want = FORMAT_BY_AUDIO[audio_format]
     kept, excluded, ordering = filter_files(md.get("files", []), want_format=want)
+    # Computed on the unexcluded set, deliberately: it is a filename-keyed map
+    # and resolve_titles only looks up names still in `kept`, so covering files
+    # the operator later drops is harmless, while moving it below the exclusion
+    # would let one dropped file change whether recovery fires at all.
+    format_titles = _recover_format_titles(md.get("files", []), kept, ordering)
 
     overrides = read_overrides(show_ws)
     if overrides.exclude:
@@ -523,7 +554,8 @@ def run_gather(
         canonical.confidence == "low" or len(canonical.items) != len(kept)
     ):
         siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))
-    tracks = resolve_titles(kept, canonical, sibling_titles=siblings)
+    tracks = resolve_titles(kept, canonical, sibling_titles=siblings,
+                            format_titles=format_titles)
     for n, forced in overrides.titles.items():
         if not (1 <= n <= len(tracks)):
             raise LlamaError(f"overrides.titles: no track {n} "
