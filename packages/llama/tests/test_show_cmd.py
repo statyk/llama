@@ -7,6 +7,7 @@ pre-`show.json` fallback, `--tracks`, `--json`, and the `fix --overrule` hint.
 """
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import typer.testing as typer_testing
@@ -91,6 +92,25 @@ def test_tracks_flag_lists_numbered_tracks(tmp_path: Path):
     assert r.exit_code == 0, r.output
     assert "tracks:" in r.output
     assert "1." in r.output and "Morning Dew" in r.output and "a.mp3" in r.output
+
+
+def test_tracks_flag_prints_every_title_source_in_full():
+    """`sibling-format` is 14 characters and the column was 10, so this branch
+    shipped it as `sibling-fo`. Driven through _format_tracks directly - the
+    fixture show has no recovered titles, and truncation is a formatting
+    property, not a pipeline one."""
+    from llama.cli import _format_tracks
+    from llama.models import Track
+    sources = ["tags", "setlist", "sibling", "override", "unresolved", "sibling-format"]
+    tracks = [Track(index=i, set="1", title="Dark Star", filename=f"t{i:02d}.mp3",
+                    duration_sec=300, segue=False, title_source=s)
+              for i, s in enumerate(sources, 1)]
+    lines = _format_tracks(SimpleNamespace(tracks=tracks))[1:]
+    for source, line in zip(sources, lines):
+        assert source in line, line
+    # Every row's duration column starts at the same offset, or the table
+    # stopped lining up.
+    assert len({line.index(" 5:00") for line in lines}) == 1
 
 
 # --- stage table ---

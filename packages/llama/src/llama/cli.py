@@ -630,8 +630,11 @@ def _format_tracks(show) -> list[str]:
         title = t.title if t.title_source != "unresolved" else "(unknown)"
         # duration before filename so a long filename can print in full without
         # misaligning the numeric column.
+        # 14 is the width of the longest title_source, "sibling-format" - at 10
+        # it rendered as "sibling-fo". Nothing wider exists: tags 4, setlist 7,
+        # sibling 7, override 8, unresolved 10.
         lines.append(f"  {t.index:2d}. set {t.set:6.6s} {title:28.28s} "
-                     f"{t.title_source:10.10s} {_fmt_dur(t.duration_sec):>6s}  {t.filename}")
+                     f"{t.title_source:14.14s} {_fmt_dur(t.duration_sec):>6s}  {t.filename}")
     return lines
 
 

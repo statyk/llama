@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+from collections.abc import Sequence
 
 from herder import HerderError, TaskFailed, run_json_task
 from llama import jerrybase
@@ -71,7 +72,8 @@ def _creator(meta: dict) -> str | None:
     return creator
 
 
-def _sibling_titles(ia, candidate: Candidate, identifier: str, want: str, n: int) -> list[str] | None:
+def _sibling_titles(ia, candidate: Candidate, identifier: str,
+                    want: str | Sequence[str], n: int) -> list[str] | None:
     for rec in candidate.recordings:
         if rec.identifier == identifier:
             continue
@@ -550,7 +552,11 @@ def run_gather(
     canonical = _drop_artist_items(canonical, artist)
 
     siblings = None
-    if title_fraction(clean_tag_titles(kept)) < 1.0 and (
+    # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
+    # exclude-everything tape would otherwise fetch every sibling recording's
+    # metadata to resolve zero titles. The output was never wrong, only the
+    # fetches wasted.
+    if kept and title_fraction(clean_tag_titles(kept)) < 1.0 and (
         canonical.confidence == "low" or len(canonical.items) != len(kept)
     ):
         siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))

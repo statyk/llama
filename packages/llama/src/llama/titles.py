@@ -30,9 +30,15 @@ def is_real_title(cleaned: str) -> bool:
 # A leading track number on an enumerated tape: 1-3 digits, an optional single
 # separator, then whitespace and a non-space character.
 #
-# The 1-3 digit bound with (?!\d) is LOAD-BEARING and must not be widened to
-# \d+: it is what puts "1952 Vincent Black Lightning" and a bare "2001" out of
-# this rule's reach entirely, without the gate below having to save them.
+# The 1-3 digit bound is LOAD-BEARING and must not be widened to \d+: it is
+# what puts "1952 Vincent Black Lightning" and a bare "2001" out of this rule's
+# reach entirely, without the gate below having to save them. Pinned by
+# test_clean_tag_titles_leaves_an_unnumbered_year_title_alone.
+#
+# The (?!\d) does none of that work and is provably INERT - the mandatory \s+
+# already makes a 4th digit unmatchable, since backtracking to 3 digits leaves
+# the 4th where a separator or space must be. Kept because it states the
+# intent, at zero cost; do not credit it with the protection.
 _TRACK_NUM_PREFIX = re.compile(r"^\d{1,3}(?!\d)[.)\-:]?\s+(?=\S)")
 
 # Whether a leading number is a track number or part of the title cannot be
@@ -64,7 +70,10 @@ def clean_tag_titles(kept_files: list[dict]) -> list[str]:
     if numbered < _ENUMERATED_MIN_FILES or numbered < _ENUMERATED_MIN_COVERAGE * len(titles):
         return titles
     # Strip exactly one number, never loop: on an enumerated tape
-    # "01 200 More Miles" must lose only the "01".
+    # "01 200 More Miles" must lose only the "01". The no-loop property comes
+    # from the ^ anchor, which can only match at position 0, and is pinned by
+    # test_clean_tag_titles_strips_once_never_loops; count=1 is provably INERT
+    # and kept only because it states that intent at the call site.
     return [_TRACK_NUM_PREFIX.sub("", t, count=1) for t in titles]
 
 
