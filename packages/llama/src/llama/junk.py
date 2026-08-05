@@ -1,6 +1,7 @@
 import re
 from collections import Counter
 from collections.abc import Sequence
+from statistics import median
 
 from llama.util import length_seconds
 
@@ -36,6 +37,36 @@ FORMAT_BY_AUDIO = {"mp3": ("VBR MP3",), "flac": ("Flac", "24bit Flac")}
 # items, so it stays in LOSSLESS_TITLE_FORMATS.
 LOSSLESS_TITLE_FORMATS = ("Flac", "24bit Flac", "Shorten")
 
+# The duration arm of junk filtering. It exists to drop tuning, crowd noise and
+# stray clips, NOT to have an opinion about how long a song is - but an absolute
+# 90s floor has exactly that opinion, and on short-song bands it is wrong by
+# construction. Measured 2026-08-05 over minutemen1983-03-09: 38 audio files
+# matching a 38-song description one-for-one, 27 of them under 90s, so llama
+# kept 11 tracks, aligned them at coverage 1.00 and shipped a 29%-complete show
+# with NO review flag. The tape was whole; the filter made it partial. Across
+# the 71 lookahead flip rows, 47 had >=1 sub-90s file and 21 had >=20% of files
+# under it; Minutemen + Mike Watt alone were 15 of 71.
+#
+# So the floor is taken RELATIVE to the tape's own median track length: a tape
+# of one-minute songs gets a one-minute-scale floor, a tape of five-minute songs
+# gets a five-minute-scale one. Swept over 2,030 cached items (both corpora),
+# counting only files this arm UNIQUELY removes, classified by their embedded
+# tag titles via `structure.is_filler`:
+#
+#   rule                       filler dropped   song-like dropped
+#   absolute 90s (old)              1061              890
+#   < 10% of median                  206               77
+#   < 25% of median                  987              415
+#   < 30% of median                 1194              579
+#
+# 0.25 keeps 93% of the old rule's junk-catching while more than halving the
+# real songs it destroyed - and the song-like column is itself contaminated
+# (`tunig`, `Take A Step Back`, `Drums`, `Jam #2` all sit in it), so the true
+# song loss is lower still. Retuning this pair invalidates that measurement.
+SHORT_FRACTION_OF_MEDIAN = 0.25
+# Below this many usable durations a median is not worth trusting, so the old
+# absolute floor stands. A two-file tape must not get to infer its own floor.
+MIN_MEDIAN_SAMPLE = 5
 MIN_PLAUSIBLE_SEC = 90.0
 
 _LEADING_INT = re.compile(r"\s*(\d+)")
@@ -67,8 +98,11 @@ def _keep_and_exclude(
     stems = Counter(_stem(f["name"]) for f in audio)
     dominant = stems.most_common(1)[0][0] if stems else ""
 
-    kept: list[dict] = []
-    excluded: list[dict] = []
+    # TWO PASSES, and the order is load-bearing. The duration floor is derived
+    # from the median of files that pass every OTHER arm, so junk cannot move
+    # the threshold that decides what junk is: an item padded with twenty 20s
+    # spam clips would otherwise drag the median down and license itself.
+    non_duration: list[list[str]] = []
     for f in audio:
         reasons: list[str] = []
         if f.get("source") == "derivative":
@@ -78,10 +112,27 @@ def _keep_and_exclude(
             reasons.append("unknown provenance")
         if _stem(f["name"]) != dominant:
             reasons.append("filename convention mismatch")
+        non_duration.append(reasons)
+
+    clean_secs = [
+        secs
+        for f, other in zip(audio, non_duration)
+        if not other and (secs := length_seconds(f.get("length"))) is not None
+    ]
+    floor = (
+        SHORT_FRACTION_OF_MEDIAN * median(clean_secs)
+        if len(clean_secs) >= MIN_MEDIAN_SAMPLE
+        else MIN_PLAUSIBLE_SEC
+    )
+
+    kept: list[dict] = []
+    excluded: list[dict] = []
+    for f, other in zip(audio, non_duration):
+        reasons = list(other)
         secs = length_seconds(f.get("length"))
         if secs is None:
             reasons.append("missing duration")
-        elif secs < MIN_PLAUSIBLE_SEC:
+        elif secs < floor:
             reasons.append("implausibly short")
         if reasons:
             excluded.append({"filename": f["name"], "reasons": reasons})
