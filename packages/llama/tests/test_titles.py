@@ -172,17 +172,30 @@ def test_clean_tag_titles_leaves_a_four_digit_year_alone_even_when_enumerated():
 
 def test_clean_tag_titles_leaves_an_unnumbered_year_title_alone():
     """titles._TRACK_NUM_PREFIX's \\d{1,3} bound, isolated. The year title
-    carries no track number of its own, so nothing else can save it: 4 numbered
-    of 5 is 0.8 coverage, exactly at the floor, so the gate does fire and the
-    substitution does run over this title.
+    carries no track number of its own, so nothing else can save it.
 
     Shipped -> "1952 Vincent Black Lightning". Widen the bound to \\d+ and the
-    year is eaten, leaving "Vincent Black Lightning"."""
-    files = numbered_files([
-        "01 A Song", "02 B Song", "03 C Song", "04 D Song",
-        "1952 Vincent Black Lightning",
-    ])
-    assert clean_tag_titles(files)[4] == "1952 Vincent Black Lightning"
+    year is eaten, leaving "Vincent Black Lightning".
+
+    The 9-of-10 shape is deliberate and the margin matters. A bare year does
+    NOT match the leading-number pattern, so it never counts toward the
+    enumerated tally: the obvious fixture - 3 numbered tracks plus the year -
+    is 3/4 = 0.75 coverage, the gate DECLINES, nothing is stripped, and the
+    test passes under both regexes. That is a test that pins nothing while
+    looking like it does. 9/10 = 0.90 fires with room to spare; 4/5 = 0.80
+    fires but sits exactly on the floor, one fixture edit from silence.
+
+    The first assertion is not decoration: a test whose subject is "the bound
+    protects this title" must first establish that anything was being stripped
+    at all, or a future coverage-floor change turns it green for the wrong
+    reason."""
+    files = numbered_files(
+        [f"{n:02d} Song {n}" for n in range(1, 10)]
+        + ["1952 Vincent Black Lightning"]
+    )
+    cleaned = clean_tag_titles(files)
+    assert cleaned[0] == "Song 1", "the gate must be firing, or this pins nothing"
+    assert cleaned[9] == "1952 Vincent Black Lightning"
 
 
 def test_clean_tag_titles_strips_once_never_loops():

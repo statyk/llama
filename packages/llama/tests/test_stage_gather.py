@@ -382,7 +382,14 @@ def test_gather_declines_recovery_and_keeps_its_own_partial_tags(tmp_path: Path)
     that the two tagged tracks read "tags". Delete the
     >= _RECOVER_SIBLING_ABOVE comparison and the all-empty recovered map stands
     in for the tag layer wholesale, suppressing both and dropping them to
-    "setlist"."""
+    "setlist".
+
+    Deliberately paired with test_gather_recovery_discards_usable_own_tags_
+    wholesale: identical partially-tagged mp3 set, opposite sibling. That one
+    has a fully TAGGED sibling and asserts every track reads "sibling-format";
+    this one has a fully UNTAGGED sibling and asserts the own-tagged tracks
+    read "tags". Together they pin both halves of "a manifest never interleaves
+    two tag sources" - recovery fires wholesale, or it does not fire at all."""
     md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
     own_tagged = {"gd73-06-10d1t01.mp3": "Morning Dew", "gd73-06-10d2t01.mp3": "Dark Star"}
     for f in md["files"]:
@@ -407,7 +414,12 @@ def test_gather_recovery_discards_usable_own_tags_wholesale(tmp_path: Path):
     A gap-filling resolve_titles - own real tags win per track, recovered
     titles fill only the holes - passes every other recovery test in this file,
     because they all have zero usable own tags. It fails here twice over: those
-    two tracks would read their own tag text and title_source "tags"."""
+    two tracks would read their own tag text and title_source "tags".
+
+    Deliberately paired with test_gather_declines_recovery_and_keeps_its_own_
+    partial_tags: identical partially-tagged mp3 set, opposite sibling (that
+    one fully untagged so the 0.9 gate declines, this one fully tagged so
+    recovery fires). Together they pin both halves of the rule."""
     md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
     own_tagged = {"gd73-06-10d1t01.mp3": "Own Tag Alpha", "gd73-06-10d2t01.mp3": "Own Tag Beta"}
     for f in md["files"]:

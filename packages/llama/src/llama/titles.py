@@ -35,10 +35,12 @@ def is_real_title(cleaned: str) -> bool:
 # reach entirely, without the gate below having to save them. Pinned by
 # test_clean_tag_titles_leaves_an_unnumbered_year_title_alone.
 #
-# The (?!\d) does none of that work and is provably INERT - the mandatory \s+
-# already makes a 4th digit unmatchable, since backtracking to 3 digits leaves
-# the 4th where a separator or space must be. Kept because it states the
-# intent, at zero cost; do not credit it with the protection.
+# The (?!\d) is BELT-AND-BRACES and provably INERT: the REAL protection
+# against a 4th digit is the mandatory \s+, which leaves nowhere for that digit
+# to go once backtracking has trimmed the match to 3. Kept because it states
+# the intent at zero cost - but do not credit it with any of the work. Three
+# invariants on this branch shipped unpinned precisely because a guard that
+# looks protective was assumed to be doing something.
 _TRACK_NUM_PREFIX = re.compile(r"^\d{1,3}(?!\d)[.)\-:]?\s+(?=\S)")
 
 # Whether a leading number is a track number or part of the title cannot be
@@ -70,10 +72,12 @@ def clean_tag_titles(kept_files: list[dict]) -> list[str]:
     if numbered < _ENUMERATED_MIN_FILES or numbered < _ENUMERATED_MIN_COVERAGE * len(titles):
         return titles
     # Strip exactly one number, never loop: on an enumerated tape
-    # "01 200 More Miles" must lose only the "01". The no-loop property comes
-    # from the ^ anchor, which can only match at position 0, and is pinned by
-    # test_clean_tag_titles_strips_once_never_loops; count=1 is provably INERT
-    # and kept only because it states that intent at the call site.
+    # "01 200 More Miles" must lose only the "01". count=1 is BELT-AND-BRACES
+    # and provably INERT: the REAL guarantee is the ^ anchor, which can only
+    # match at position 0, so a second strip is unreachable with or without it.
+    # The property is pinned by test_clean_tag_titles_strips_once_never_loops.
+    # Kept because it states the intent at the call site - not because it does
+    # anything.
     return [_TRACK_NUM_PREFIX.sub("", t, count=1) for t in titles]
 
 
