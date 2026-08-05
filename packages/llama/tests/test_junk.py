@@ -115,6 +115,38 @@ def test_filter_files_prefers_plain_flac_and_never_unions():
     assert ordering["format"] == "Flac"
 
 
+def test_filter_files_skips_a_format_whose_kept_set_is_empty():
+    """gd1985-07-01.144157.nak304.guy.pailes.miller.clugston.flac2496's shape:
+    every `Flac` entry is junk while a clean `24bit Flac` set sits in the same
+    item. Preference is decided on the KEPT set, not the raw format-matched
+    list, or a flac-configured user sees no lossless at all on that show.
+    (Durationless entries are junk the same way the gd73 fixture's .shn files
+    are.)"""
+    files = [
+        audio("t01.flac", "Flac", length=None),
+        audio("t02.flac", "Flac", length=None),
+        audio("t01.24.flac", "24bit Flac"), audio("t02.24.flac", "24bit Flac"),
+    ]
+    kept, _, ordering = filter_files(files, want_format=FORMAT_BY_AUDIO["flac"])
+    assert [f["name"] for f in kept] == ["t01.24.flac", "t02.24.flac"]
+    assert ordering["format"] == "24bit Flac"
+
+
+def test_filter_files_falls_back_to_the_first_format_when_every_kept_set_is_empty():
+    """A genuinely unusable item keeps today's behaviour: the first format that
+    had any audio entries at all is reported, so `excluded` still explains WHY
+    the item was rejected instead of coming back empty and saying nothing."""
+    files = [
+        audio("t01.flac", "Flac", length=None),
+        audio("t01.24.flac", "24bit Flac", length=None),
+    ]
+    kept, excluded, ordering = filter_files(files, want_format=FORMAT_BY_AUDIO["flac"])
+    assert kept == []
+    assert ordering["format"] == "Flac"
+    assert [e["filename"] for e in excluded] == ["t01.flac"]
+    assert "missing duration" in excluded[0]["reasons"]
+
+
 def test_filter_files_still_accepts_a_bare_format_string():
     files = [audio("t01.mp3", "VBR MP3")]
     kept, _, ordering = filter_files(files, want_format="VBR MP3")
