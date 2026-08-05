@@ -18,7 +18,9 @@ FORMAT_BY_AUDIO = {"mp3": ("VBR MP3",), "flac": ("Flac", "24bit Flac")}
 # Shorten is LOAD-BEARING, do not drop it. It looks inert in the tests because
 # the gd73_metadata.json fixture's .shn entries all have length=None and are
 # filtered as junk - that property is the FIXTURE's, not production's.
-# Measured over the 2,095 cached archive.org items:
+# Measured against the 2,095 cached archive.org items in
+# /Users/shawn/projects/llama-setlist-analysis/iacache/, using llama's real
+# filter_files:
 #
 #   items with Shorten files                : 209
 #   ...where ALL Shorten files lack length  :   0
@@ -26,6 +28,12 @@ FORMAT_BY_AUDIO = {"mp3": ("VBR MP3",), "flac": ("Flac", "24bit Flac")}
 #   items whose ONLY lossless is Shorten    : 209
 #
 # i.e. Shorten is the sole lossless title source for ~10% of the sample.
+# Standing caveat: that cache is a random.shuffle(seed=7) decade-stratified
+# sample of archive.org ITEMS (built by build_corpus.py, which does not run
+# select_recording or any scoring), so this is a rate over cached items, not
+# over shows llama would actually select. The conclusion still holds either
+# way - Shorten is the only lossless source for a substantial minority of
+# items, so it stays in LOSSLESS_TITLE_FORMATS.
 LOSSLESS_TITLE_FORMATS = ("Flac", "24bit Flac", "Shorten")
 
 MIN_PLAUSIBLE_SEC = 90.0
@@ -100,7 +108,11 @@ def filter_files(
 
     When NO format yields a non-empty kept set, the first format that had any
     audio entries at all is returned - today's behaviour for a genuinely
-    unusable item, and `excluded` still explains why it was rejected."""
+    unusable item, and `excluded` still explains why it was rejected.
+
+    `excluded` covers only the WINNING format - a losing format's rejects are
+    never merged in, so a short `excluded` list does not mean every other
+    format's files were clean too."""
     wanted = (want_format,) if isinstance(want_format, str) else tuple(want_format)
     fallback: tuple[str, list[dict], list[dict]] | None = None
     chosen: tuple[str, list[dict], list[dict]] | None = None

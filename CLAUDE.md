@@ -328,7 +328,9 @@ tier (pins never escalate).
   `LOSSLESS_TITLE_FORMATS` is the broader, read-only set used for title
   recovery and deliberately includes `Shorten`, which is not a delivery
   format — measured load-bearing (sole lossless source for 209 of 2,095
-  cached items; the numbers are in its comment), so don't "simplify" it away.
+  items in a decade-stratified `iacache` sample, not a rate over shows
+  llama would select; the numbers and the sample's provenance caveat are
+  in its comment), so don't "simplify" it away.
 - Setlists in descriptions are convention, not schema; the parser must be
   defensive and report confidence, with an LLM extraction fallback.
 - Multiple recordings of the same performance are the norm; show-level merit
