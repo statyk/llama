@@ -25,6 +25,44 @@ def test_spam_file_excluded_with_reasons():
     assert "implausibly short" in spam["reasons"]
 
 
+def _tape(durations: list[float], stem: str = "band1983t") -> list[dict]:
+    """A synthetic single-format tape: every file clean except its duration."""
+    return [
+        {"name": f"{stem}{i:02d}.mp3", "format": "VBR MP3", "source": "original",
+         "length": f"{secs}"}
+        for i, secs in enumerate(durations, start=1)
+    ]
+
+
+def _short_reasons(files: list[dict]) -> set[str]:
+    _, excluded, _ = filter_files(files)
+    return {e["filename"] for e in excluded if "implausibly short" in e["reasons"]}
+
+
+def test_short_song_tape_keeps_its_songs():
+    """A hardcore/punk tape whose songs are ~60s must not be gutted.
+
+    The floor is relative to the tape's OWN median, so a tape of one-minute
+    songs has a one-minute-scale floor. Measured on minutemen1983-03-09: an
+    absolute 90s floor dropped 27 of 38 real songs and the package still
+    shipped at coverage 1.00 with no review flag."""
+    assert _short_reasons(_tape([62, 58, 71, 65, 60, 55, 68, 74])) == set()
+
+
+def test_long_song_tape_still_drops_tuning():
+    """The junk arm must keep working where it always did: a 40s tuning
+    snippet among five-minute songs is still junk."""
+    files = _tape([310, 288, 340, 295, 302, 40])
+    assert _short_reasons(files) == {"band1983t06.mp3"}
+
+
+def test_relative_floor_falls_back_to_absolute_on_a_tiny_sample():
+    """Too few durations to trust a median — keep the old absolute behaviour
+    rather than inferring a floor from two files."""
+    files = _tape([62, 58])
+    assert _short_reasons(files) == {"band1983t01.mp3", "band1983t02.mp3"}
+
+
 def test_non_audio_files_ignored_silently():
     _, excluded, _ = filter_files(load_files())
     names = {e["filename"] for e in excluded}
