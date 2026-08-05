@@ -285,6 +285,19 @@ tier (pins never escalate).
   that would play on air if file lists were trusted. Filter to originals (or
   derivatives of originals) matching the item's dominant filename convention
   with plausible durations.
+  **"Plausible duration" is RELATIVE to the tape, never absolute.** The floor is
+  `junk.SHORT_FRACTION_OF_MEDIAN` (0.25) × that tape's own median track length,
+  falling back to `MIN_PLAUSIBLE_SEC` (90 s) only below `MIN_MEDIAN_SAMPLE` (5)
+  usable durations. The old absolute 90 s floor sat *above* the median track
+  length of short-song bands and amputated them: `minutemen1983-03-09` has 38
+  audio files matching a 38-song description one-for-one, 27 of them under 90 s,
+  so llama kept 11 tracks, aligned at coverage **1.00**, and shipped a
+  29%-complete show with **no review flag** — the tape was whole and the filter
+  made it partial. The two-pass structure in `_keep_and_exclude` is load-bearing:
+  the median is taken over files passing every OTHER junk arm, so an item padded
+  with spam clips cannot drag the threshold down and license itself. The 0.25/90/5
+  constants were measured over 2,030 cached items (see the comment above them) and
+  are the same do-not-retune class as the tail-guard constants.
 - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track
   numbering doesn't map to sets. Titles resolve via cascade: recovered-format
   tags → own tags → setlist parsed from the item description → sibling
