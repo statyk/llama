@@ -286,9 +286,24 @@ tier (pins never escalate).
   derivatives of originals) matching the item's dominant filename convention
   with plausible durations.
 - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track
-  numbering doesn't map to sets. Titles resolve via cascade: embedded tags →
-  setlist parsed from the item description → sibling recordings of the same
-  performance. Never guess — flag unresolved.
+  numbering doesn't map to sets. Titles resolve via cascade: recovered-format
+  tags → own tags → setlist parsed from the item description → sibling
+  recordings of the same performance → unresolved, with `title_source`
+  recording which fired. Never guess — flag unresolved. **Recovery is
+  wholesale, not gap-filling**: when it fires, the delivered format's own
+  tags are not consulted at all, and a recovered title that is still
+  unusable falls through to the setlist/sibling cascade rather than back to
+  the bad tags. `titles.clean_tag_titles` (the recording-level cleaner;
+  `clean_tag_title` remains the per-string one) gates the
+  leading-track-number strip on whether the *recording* looks enumerated
+  (`>=3` numbered files and `>=80%` coverage) — the `\d{1,3}` bound in its
+  regex is what protects `1952 Vincent Black Lightning` and a bare `2001`,
+  and must never be widened to `\d+`. `FORMAT_BY_AUDIO`'s values are ordered
+  preference tuples, tried in order, first present wins, never unioned (a
+  union would keep every track of a both-formats item twice);
+  `LOSSLESS_TITLE_FORMATS` is the broader, read-only set used for title
+  recovery and deliberately includes `Shorten`, which is not a delivery
+  format.
 - Setlists in descriptions are convention, not schema; the parser must be
   defensive and report confidence, with an LLM extraction fallback.
 - Multiple recordings of the same performance are the norm; show-level merit
