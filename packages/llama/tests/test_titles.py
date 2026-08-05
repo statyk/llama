@@ -156,12 +156,33 @@ def test_clean_tag_titles_never_mutilates_a_real_numeric_title(title):
 
 
 def test_clean_tag_titles_leaves_a_four_digit_year_alone_even_when_enumerated():
-    """The \\d{1,3} bound, not the gate, is what protects this one - so it must
-    hold even on a tape the gate is actively stripping."""
+    """A year title that carries its OWN track number keeps the year on a tape
+    the gate is actively stripping.
+
+    This does NOT pin the \\d{1,3} bound, despite what it used to claim: the
+    title's own "02 " is stripped by one anchored substitution and the year
+    survives under a widened \\d+ too. The bound is pinned by
+    test_clean_tag_titles_leaves_an_unnumbered_year_title_alone; what this one
+    validly pins is strip-once."""
     files = numbered_files([
         "01 Opener", "02 1952 Vincent Black Lightning", "03 Third", "04 Fourth",
     ])
     assert clean_tag_titles(files)[1] == "1952 Vincent Black Lightning"
+
+
+def test_clean_tag_titles_leaves_an_unnumbered_year_title_alone():
+    """titles._TRACK_NUM_PREFIX's \\d{1,3} bound, isolated. The year title
+    carries no track number of its own, so nothing else can save it: 4 numbered
+    of 5 is 0.8 coverage, exactly at the floor, so the gate does fire and the
+    substitution does run over this title.
+
+    Shipped -> "1952 Vincent Black Lightning". Widen the bound to \\d+ and the
+    year is eaten, leaving "Vincent Black Lightning"."""
+    files = numbered_files([
+        "01 A Song", "02 B Song", "03 C Song", "04 D Song",
+        "1952 Vincent Black Lightning",
+    ])
+    assert clean_tag_titles(files)[4] == "1952 Vincent Black Lightning"
 
 
 def test_clean_tag_titles_strips_once_never_loops():
@@ -181,6 +202,19 @@ def test_clean_tag_titles_declines_below_the_count_floor():
     0 left it passing/failing for the same reason either way."""
     files = numbered_files(["100 Years", "18 Wheels Of Love"])
     assert clean_tag_titles(files) == ["100 Years", "18 Wheels Of Love"]
+
+
+def test_clean_tag_titles_leaves_dbt2014_01_31s_corpus_shape_alone():
+    """Documents a real corpus shape rather than isolating a floor.
+    dbt2014-01-31 is two numbered files among ten, and both numbers are song
+    titles - it sits below the count floor (2 < 3) AND the coverage floor
+    (0.2 < 0.8), so it cannot tell you which one declined it. Kept alongside
+    test_clean_tag_titles_declines_below_the_count_floor, which can, because
+    this is the shape the floors exist for."""
+    files = numbered_files(
+        ["18 Wheels Of Love", "3 Dimes Down"] + [f"Song {n}" for n in range(8)]
+    )
+    assert clean_tag_titles(files)[:2] == ["18 Wheels Of Love", "3 Dimes Down"]
 
 
 def test_clean_tag_titles_declines_below_the_coverage_floor():
@@ -208,6 +242,22 @@ def test_clean_tag_titles_accepts_its_known_false_negatives():
         + [f"{n:02d} Numbered {n}" for n in range(8, 17)]
     )
     assert clean_tag_titles(files)[6] == "08 Numbered 8"
+
+
+def test_clean_tag_titles_strips_a_real_numeric_title_on_an_enumerated_tape():
+    """The gate's destructive mode, pinned as deliberate and known rather than
+    left unexamined. See the spec's Part 1 section "Accepted gap: a real
+    numeric title on an enumerated tape" - accepted, NOT fixed. Do not tighten
+    the gate or add an out-of-sequence flag to make this test pass.
+
+    What was measured, precisely: for the OUT-OF-RANGE half (a numeric title
+    whose number falls outside the tape's own sequence, as "100 Years" does
+    here) there are ZERO occurrences across the 1,708 stripped tracks, with the
+    detector positive-controlled two ways. The IN-RANGE half - "2 x 4",
+    "8 Cylinders" on a tape numbering 1..n - is undetectable by ANY rule that
+    inspects only the number, so its rate is UNBOUNDED, not zero."""
+    files = numbered_files(["01 A", "02 B", "100 Years", "04 D"])
+    assert clean_tag_titles(files)[2] == "Years"
 
 
 def test_clean_tag_titles_still_strips_the_identifier_prefix():
@@ -262,8 +312,25 @@ def test_sibling_format_titles_declines_when_stems_differ():
 
 
 def test_sibling_format_titles_declines_on_duplicate_stems():
+    """Duplicates on BOTH sides at once - which a one-sided guard would also
+    decline, hence the two one-sided cases below."""
     mp3 = fmt_files([("t01.mp3", ""), ("t01.mp3", "")])
     flac = fmt_files([("t01.flac", "A"), ("t01.flac", "B")])
+    assert sibling_format_titles(mp3, flac) is None
+
+
+def test_sibling_format_titles_declines_on_duplicates_on_our_side_only():
+    """Equal counts, duplicates only in `kept`: the bijection is broken on the
+    left and the sibling is clean."""
+    mp3 = fmt_files([("t01.mp3", ""), ("t01.mp3", "")])
+    flac = fmt_files([("t01.flac", "Jack Straw"), ("t02.flac", "Sugaree")])
+    assert sibling_format_titles(mp3, flac) is None
+
+
+def test_sibling_format_titles_declines_on_duplicates_on_the_sibling_side_only():
+    """Equal counts, duplicates only in `other_kept`: broken on the right."""
+    mp3 = fmt_files([("t01.mp3", ""), ("t02.mp3", "")])
+    flac = fmt_files([("t01.flac", "Jack Straw"), ("t01.flac", "Sugaree")])
     assert sibling_format_titles(mp3, flac) is None
 
 

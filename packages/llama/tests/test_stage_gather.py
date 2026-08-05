@@ -370,6 +370,55 @@ def test_gather_declines_recovery_when_the_sibling_is_also_untagged(tmp_path: Pa
     assert all(t.title_source != "sibling-format" for t in show.tracks)
 
 
+def test_gather_declines_recovery_and_keeps_its_own_partial_tags(tmp_path: Path):
+    """_RECOVER_SIBLING_ABOVE = 0.9, isolated. Own tags are partial - 2 of 6
+    real, a 0.33 fraction, below _RECOVER_BELOW, so recovery IS attempted - and
+    the lossless sibling is fully untagged, so the 0.9 floor must decline and
+    format_titles must stay None.
+
+    Asserted on title_source, never on the title: the gd73 description carries
+    a real setlist, so the cascade supplies the right TITLE either way, which
+    is exactly the false green this test exists to avoid. The discriminator is
+    that the two tagged tracks read "tags". Delete the
+    >= _RECOVER_SIBLING_ABOVE comparison and the all-empty recovered map stands
+    in for the tag layer wholesale, suppressing both and dropping them to
+    "setlist"."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    own_tagged = {"gd73-06-10d1t01.mp3": "Morning Dew", "gd73-06-10d2t01.mp3": "Dark Star"}
+    for f in md["files"]:
+        if f.get("format") == "Shorten":
+            f["title"] = None
+        if f["name"] in own_tagged:
+            f["title"] = own_tagged[f["name"]]
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    by_name = {t.filename: t.title_source for t in show.tracks}
+    assert [by_name[n] for n in own_tagged] == ["tags", "tags"]
+    assert all(t.title_source != "sibling-format" for t in show.tracks)
+
+
+def test_gather_recovery_discards_usable_own_tags_wholesale(tmp_path: Path):
+    """Recovery replaces the tag layer WHOLESALE - a manifest never interleaves
+    two tag sources. Own tags are partial (2 of 6 real, so recovery fires) and
+    the lossless sibling is fully tagged, so all six tracks come back
+    "sibling-format" INCLUDING the two whose own tags were perfectly usable.
+    They are deliberately discarded.
+
+    A gap-filling resolve_titles - own real tags win per track, recovered
+    titles fill only the holes - passes every other recovery test in this file,
+    because they all have zero usable own tags. It fails here twice over: those
+    two tracks would read their own tag text and title_source "tags"."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    own_tagged = {"gd73-06-10d1t01.mp3": "Own Tag Alpha", "gd73-06-10d2t01.mp3": "Own Tag Beta"}
+    for f in md["files"]:
+        if f["name"] in own_tagged:
+            f["title"] = own_tagged[f["name"]]
+    show = run_gather(ShowWorkspace(tmp_path / "show"), StubIA(md), FakeProvider(),
+                      make_candidate(), IDENT)
+    assert all(t.title_source == "sibling-format" for t in show.tracks)
+    assert [t.title for t in show.tracks] == list(_LOSSLESS_TITLES.values())
+
+
 def test_gather_recovery_survives_an_operator_exclusion(tmp_path: Path):
     """overrides.exclude drops a file AFTER filtering. A positional recovery
     list would misalign every title after the hole; the filename-keyed map
@@ -382,6 +431,9 @@ def test_gather_recovery_survives_an_operator_exclusion(tmp_path: Path):
         "Morning Dew", "I Know You Rider", "Dark Star",
         "Eyes of the World", "Johnny B. Goode",
     ]
+    # Titles alone would still read correctly off the setlist; the source is
+    # what says recovery is the layer that supplied them.
+    assert all(t.title_source == "sibling-format" for t in show.tracks)
 
 
 from llama import jerrybase
