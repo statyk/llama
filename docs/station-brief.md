@@ -30,8 +30,9 @@ each request ("well-regarded Grateful Dead shows 1969–1977", a standing
 4. **Recovers set structure** — canonical setlist from every sibling
    recording's description plus setlist.fm, aligned onto the chosen
    recording's tracks. Track titles come from a resolution cascade
-   (embedded tags → parsed setlist → sibling recordings); titles are never
-   guessed.
+   (tags recovered from a different-format copy of the same item → embedded
+   tags → parsed setlist → sibling recordings); each track records which rung
+   supplied it, and titles are never guessed.
 5. **Researches the specific performance** on the open web, then runs a
    deterministic **grounding check** (does the research assert songs or
    dates that don't belong to this show?), and writes a neutral, vetted

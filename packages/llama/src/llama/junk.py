@@ -14,6 +14,18 @@ FORMAT_BY_AUDIO = {"mp3": ("VBR MP3",), "flac": ("Flac", "24bit Flac")}
 # delivery formats: title recovery reads metadata strings and never downloads
 # these files, so Shorten is safe here - and deliberately absent above, since
 # adding it would change what llama ships.
+#
+# Shorten is LOAD-BEARING, do not drop it. It looks inert in the tests because
+# the gd73_metadata.json fixture's .shn entries all have length=None and are
+# filtered as junk - that property is the FIXTURE's, not production's.
+# Measured over the 2,095 cached archive.org items:
+#
+#   items with Shorten files                : 209
+#   ...where ALL Shorten files lack length  :   0
+#   ...where filter_files keeps some        : 209
+#   items whose ONLY lossless is Shorten    : 209
+#
+# i.e. Shorten is the sole lossless title source for ~10% of the sample.
 LOSSLESS_TITLE_FORMATS = ("Flac", "24bit Flac", "Shorten")
 
 MIN_PLAUSIBLE_SEC = 90.0

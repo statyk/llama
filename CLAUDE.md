@@ -289,21 +289,46 @@ tier (pins never escalate).
   numbering doesn't map to sets. Titles resolve via cascade: recovered-format
   tags → own tags → setlist parsed from the item description → sibling
   recordings of the same performance → unresolved, with `title_source`
-  recording which fired. Never guess — flag unresolved. **Recovery is
+  recording which fired. Never guess — flag unresolved.
+  **"Recovered-format tags" is `title_source="sibling-format"`** (the literal
+  string a manifest carries), produced by `gather._recover_format_titles` via
+  `titles.sibling_format_titles`. Its defining property, and the thing that
+  makes it a *different* rung from the "sibling recordings" one four words
+  later: the tags come from a **different-format copy of the SAME archive.org
+  item** — the FLAC originals beside the MP3 derivatives — matched by a
+  **filename-stem bijection** (anything less than a bijection declines rather
+  than guessing by position). It is read straight out of cached item metadata:
+  **no download, no tag parsing**. The "sibling" rung, by contrast, is a
+  *different item* — another taper's recording of the same performance.
+  Recovery fires only when the delivered format's `title_fraction` is
+  **< 0.5** (`gather._RECOVER_BELOW`) and the other format's clears **>= 0.9**
+  (`_RECOVER_SIBLING_ABOVE`). Those two are the values the spec's 166-item
+  measurement was taken at and were **not** independently swept — changing
+  them invalidates it, the same do-not-retune class as the tail guard's
+  constants above. **Recovery is
   wholesale, not gap-filling**: when it fires, the delivered format's own
   tags are not consulted at all, and a recovered title that is still
   unusable falls through to the setlist/sibling cascade rather than back to
   the bad tags. `titles.clean_tag_titles` (the recording-level cleaner;
   `clean_tag_title` remains the per-string one) gates the
   leading-track-number strip on whether the *recording* looks enumerated
-  (`>=3` numbered files and `>=80%` coverage) — the `\d{1,3}` bound in its
-  regex is what protects `1952 Vincent Black Lightning` and a bare `2001`,
-  and must never be widened to `\d+`. `FORMAT_BY_AUDIO`'s values are ordered
-  preference tuples, tried in order, first present wins, never unioned (a
-  union would keep every track of a both-formats item twice);
+  (`>=3` numbered files and `>=80%` coverage) — the `\d{1,3}` bound in
+  `titles._TRACK_NUM_PREFIX` is what protects `1952 Vincent Black Lightning`
+  and a bare `2001`, and must never be widened to `\d+`. The gate's
+  destructive mode — a real numeric title tagged without its own track number
+  on an enumerated tape (`100 Years` → `Years`) — is an **accepted, ruled-on
+  gap**, pinned by test not fixed; do not tighten the gate.
+  `FORMAT_BY_AUDIO`'s values are ordered
+  preference tuples, tried in order, never unioned (a
+  union would keep every track of a both-formats item twice). The winner is
+  the first format whose **kept** set is non-empty — decided *after* junk
+  filtering, because one corpus item's every `Flac` entry is junk while 15
+  clean tracks sit under `24bit Flac`; when no format survives filtering, the
+  first with any audio at all is returned so `excluded` still says why.
   `LOSSLESS_TITLE_FORMATS` is the broader, read-only set used for title
   recovery and deliberately includes `Shorten`, which is not a delivery
-  format.
+  format — measured load-bearing (sole lossless source for 209 of 2,095
+  cached items; the numbers are in its comment), so don't "simplify" it away.
 - Setlists in descriptions are convention, not schema; the parser must be
   defensive and report confidence, with an LLM extraction fallback.
 - Multiple recordings of the same performance are the norm; show-level merit
