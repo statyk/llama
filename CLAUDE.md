@@ -94,7 +94,8 @@ concurrent `llama get`s.
 
 LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
 gemini-flash/sonnet-5/opus-5 on openrouter): medium by default, high for
-llama's deep_research/brief and emcee's scriptwrite, low for vet_research,
+llama's interpret/deep_research/brief and emcee's scriptwrite, low for
+vet_research,
 overridable per task via `[llm.<task>]` `tier`/`model` or per backend via
 `[llm.tiers.<backend>]`; a failed validation's final retry escalates one
 tier (pins never escalate).
@@ -346,6 +347,25 @@ tier (pins never escalate).
   in its comment), so don't "simplify" it away.
 - Setlists in descriptions are convention, not schema; the parser must be
   defensive and report confidence, with an LLM extraction fallback.
+  **`parse_setlist`'s items are NOT a reliable "was this song played" oracle,
+  and its confidence does not tell you when they aren't.** Plenty of
+  descriptions separate non-segued songs with nothing at all — `"Bertha &gt;
+  Greatest Story Ever Told West L.A. Fadeaway C.C. Rider ... My Brother Esau"`
+  — so only the `&gt;` chains and set markers can be split on; the parser
+  merges the rest into one blob, drops it, and still reports
+  `confidence="high"` (65 of 67 items in the 1984 GD corpus were "high").
+  Anything asking *does this performance contain song X* must therefore match
+  the **description text**, via `structure.contains_sequence`, never parsed
+  items: on that corpus, of the 27 shows that played "My Brother Esau",
+  item equality found **0**, item containment 8, and text containment 27.
+  The 0 is not hypothetical — it shipped, as a populated
+  `setlist_constraints` that silently emptied the shortlist.
+  `contains_sequence` requires order but deliberately **not** adjacency:
+  normalization leaves segue markers behind as tokens (`&gt;` → `and gt`), so
+  genuinely adjacent songs are almost never adjacent in the normalized text.
+  It is a matching-layer function and uses `fuzzy_norm_title` — the same
+  `&`/`and` folding as `align()`, for the same reason, and `normalize_song`
+  stays untouched (see the fuzzy-matching note above).
 - Multiple recordings of the same performance are the norm; show-level merit
   (winnow) and recording-level quality (select-recording) are deliberately
   separate decisions.

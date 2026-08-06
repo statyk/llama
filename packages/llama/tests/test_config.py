@@ -58,7 +58,7 @@ def test_provider_for_uses_task_config():
 
 def test_default_tiers_vocabulary():
     assert DEFAULT_TIERS == {
-        "interpret": "medium", "score_reviews": "medium",
+        "interpret": "high", "score_reviews": "medium",
         "light_research": "medium", "extract_setlist": "medium",
         "deep_research": "high", "brief": "high",
         "find_artists": "medium",
@@ -72,7 +72,7 @@ def test_out_of_box_defaults_are_concrete():
     # llama's actual task-tier vocabulary end to end (was test_model_tiers.py's
     # test_out_of_box_defaults_are_concrete before DEFAULT_TIERS moved here).
     settings = Config().llm_settings()
-    assert resolve_model(settings, "interpret") == ("claude_cli", "sonnet")
+    assert resolve_model(settings, "interpret") == ("claude_cli", "opus")
     assert resolve_model(settings, "score_reviews") == ("claude_cli", "sonnet")
     assert resolve_model(settings, "deep_research") == ("claude_cli", "opus")
     assert resolve_model(settings, "brief") == ("claude_cli", "opus")

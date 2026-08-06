@@ -91,6 +91,52 @@ def title_components(title: str, aliases: dict[str, str] | None = None) -> list[
     return [p for p in parts if p] or [fuzzy_norm_title(title, aliases)]
 
 
+def contains_sequence(text: str, sequence: list[str],
+                      aliases: dict[str, str] | None = None) -> bool:
+    """True when every title in `sequence` occurs in `text`, in order.
+
+    Containment over the raw description, NOT equality against parsed setlist
+    items — because the items cannot be trusted for this question. LMA
+    descriptions routinely run songs together with no separator at all ("... C.C.
+    Rider Ramble On Rose My Brother Esau Bird Song ..."): nothing but a capital
+    letter divides them, so `setlist.parse_setlist` cannot split the run and
+    drops the merged blob, while still reporting `confidence="high"`. Measured on
+    the 1984 Grateful Dead corpus (67 candidates, 27 of which played "My Brother
+    Esau"): item equality found 0, item containment 8, this function 26. That
+    zero is why a populated `setlist_constraints` used to return no shows at all.
+
+    Order is required; **adjacency deliberately is not**, which is weaker than
+    the name `SetlistConstraint.sequence` suggests. Segue markers survive
+    normalization as tokens ("&gt;" -> "and gt"), so two songs that are adjacent
+    in the performance are almost never adjacent in the normalized text.
+    Requiring adjacency here would reject the very shows a segue constraint
+    exists to find.
+
+    Both sides pass through `fuzzy_norm_title`, so "&"/"and" spellings fold
+    together (`normalize_song` alone turns "&" into whitespace but leaves "and",
+    so "Samson & Delilah" and "Samson and Delilah" otherwise never meet).
+    Matching is on token boundaries, which makes it asymmetric in a useful
+    direction: a distinctive fragment ("Esau") matches the full title ("My
+    Brother Esau") but not the reverse, so shorter queries are the safer ones.
+
+    `aliases` is `songs.GD_SHORTHAND` for Garcia-universe artists and empty for
+    everyone else, on the same family gate `gather` uses. It is applied to the
+    query only: the table is a whole-string lookup, so it can never fire against
+    a description-length haystack.
+    """
+    hay = f" {fuzzy_norm_title(text)} "
+    at = 0
+    for title in sequence:
+        needle = f" {fuzzy_norm_title(title, aliases)} "
+        found = hay.find(needle, at)
+        if found < 0:
+            return False
+        # Resume on the needle's trailing space so a song that immediately
+        # follows can still match against its own leading space.
+        at = found + len(needle) - 1
+    return True
+
+
 def _is_subphrase(short: str, long: str) -> bool:
     ws, wl = short.split(), long.split()
     if len(ws) < 2 or len(ws) >= len(wl):

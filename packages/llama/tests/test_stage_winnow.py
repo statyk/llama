@@ -292,3 +292,64 @@ def test_winnow_logs_progress(tmp_path: Path, caplog):
     assert "batch 3/3" in messages
     assert "winnow: researching shortlist (5 shows)" in messages
     assert any(m.endswith("(5/5)") for m in messages)
+
+
+# --- Real-corpus regression: the shape that made a populated constraint match
+# nothing at all. Songs run together with no separator, only "&gt;" for segues,
+# so parse_setlist cannot split the run and drops the merged blob. Measured on
+# the 1984 GD corpus: 27 shows played "My Brother Esau" and item-equality
+# matching found 0 of them, so the run silently shipped an unrelated show.
+
+_RUNON_ESAU = (
+    "Set I Bertha &gt; Greatest Story Ever Told West L.A. Fadeaway C.C. Rider "
+    "Ramble On Rose My Brother Esau Bird Song Jack Straw Set II Shakedown Street"
+)
+_RUNON_NO_ESAU = (
+    "Set I Alabama Getaway &gt; Promised Land Franklin's Tower Me & My Uncle "
+    "Big River Deal Set II Scarlet Begonias &gt; Fire On The Mountain"
+)
+
+
+def test_single_song_constraint_matches_runon_description(tmp_path):
+    cands = [
+        candidate("GratefulDead/1984-01-20", "1984-01-20", desc=_RUNON_ESAU),
+        candidate("GratefulDead/1984-10-12", "1984-10-12", desc=_RUNON_NO_ESAU),
+    ]
+    ws, led = setup(tmp_path, cands)
+    crit = Criteria(query="q", collection="GratefulDead",
+                    setlist_constraints=[SetlistConstraint(sequence=["My Brother Esau"])])
+    fake = FakeProvider(completes=[assessments_json(["GratefulDead/1984-01-20"])],
+                        researches=["well regarded (blog.example)"])
+    entries = run_winnow(ws, fake, fake, StubIA(), crit, led)
+    assert [e.candidate.performance_id for e in entries] == ["GratefulDead/1984-01-20"]
+
+
+def test_constraint_matches_any_recordings_description(tmp_path):
+    """The constraint is a property of the performance: one taper naming the
+    song is enough, even when the longest description omits it."""
+    c = Candidate(
+        performance_id="GratefulDead/1984-01-20", collection="GratefulDead",
+        date="1984-01-20", venue="V",
+        recordings=[
+            RecordingSummary(identifier="a.sbd", date="1984-01-20", avg_rating=4.5,
+                             num_reviews=10, description=_RUNON_NO_ESAU + " padding " * 20),
+            RecordingSummary(identifier="b.aud", date="1984-01-20", avg_rating=4.0,
+                             num_reviews=5, description=_RUNON_ESAU),
+        ],
+    )
+    ws, led = setup(tmp_path, [c])
+    crit = Criteria(query="q", collection="GratefulDead",
+                    setlist_constraints=[SetlistConstraint(sequence=["Esau"])])
+    fake = FakeProvider(completes=[assessments_json(["GratefulDead/1984-01-20"])],
+                        researches=["ok (blog.example)"])
+    entries = run_winnow(ws, fake, fake, StubIA(), crit, led)
+    assert [e.candidate.performance_id for e in entries] == ["GratefulDead/1984-01-20"]
+
+
+def test_constraint_still_excludes_shows_without_the_song(tmp_path):
+    cands = [candidate("GratefulDead/1984-10-12", "1984-10-12", desc=_RUNON_NO_ESAU)]
+    ws, led = setup(tmp_path, cands)
+    crit = Criteria(query="q", collection="GratefulDead",
+                    setlist_constraints=[SetlistConstraint(sequence=["My Brother Esau"])])
+    fake = FakeProvider(completes=[assessments_json([])], researches=[])
+    assert run_winnow(ws, fake, fake, StubIA(), crit, led) == []

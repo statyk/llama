@@ -20,7 +20,7 @@ from emcee.presenters import Presenter
 from emcee.prompts import load_prompt
 
 # --- normalize_song, ported verbatim from packages/llama/src/llama/songs.py
-# (just the normalizer emcee needs -- not matches_sequence). GD-heavy curated
+# (just the normalizer emcee needs). GD-heavy curated
 # alias table, per spec; extend as other artists come up.
 
 # Keys and values are in normalized form (lowercase, no punctuation, apostrophes dropped).

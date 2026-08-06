@@ -14,8 +14,16 @@ Tier = Literal["low", "medium", "high"]
 # Task -> tier defaults. Sonnet is the workhorse; deep_research and brief are
 # the two tasks whose quality is audible on air. (llama's task vocabulary —
 # moved here from the LLM layer, which is app-agnostic.)
+#
+# `interpret` is high for leverage, not for quality-on-air: it is one small call
+# (a one-line query in, a small JSON object out) against the ~25 a full run
+# makes, several of which carry review bodies or run web search — so it is a
+# rounding error on spend. But it is stage one, and every later stage only ever
+# sees the Criteria it produced. A field it drops is not recoverable downstream:
+# a required song left out of `setlist_constraints` cannot be filtered on later,
+# and the run ships the wrong show without ever knowing it.
 DEFAULT_TIERS = {
-    "interpret": "medium",
+    "interpret": "high",
     "score_reviews": "medium",
     "light_research": "medium",
     "extract_setlist": "medium",
@@ -161,7 +169,7 @@ backend = "claude_cli"
 
 # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
 # gemini-2.5-flash / claude-sonnet-5 / claude-opus-5 on openrouter.
-# Defaults: medium for most tasks; high for deep_research and brief;
+# Defaults: medium for most tasks; high for interpret, deep_research and brief;
 # low for vet_research.
 # A failed validation's final retry escalates one tier (pins never escalate).
 

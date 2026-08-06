@@ -1563,3 +1563,78 @@ def test_tail_guard_declines_an_enumerated_prefix_fallback_match_in_the_tail():
     )
     assert r.matched[2] is False   # declined: contained, single-track miss
     assert r.sets[2] == "1"        # inherits the preceding set, not "2" (the Closer item's set)
+
+
+# --- contains_sequence: setlist-constraint matching over raw description text.
+#
+# The 1984 GD corpus is the motivating shape: songs run together with no
+# separator at all, so `parse_setlist` cannot split them and drops the merged
+# blob. Every fixture below is the real description shape, not a tidy one.
+
+_RUNON = (
+    "Set I Bertha &gt; Greatest Story Ever Told West L.A. Fadeaway C.C. Rider "
+    "Ramble On Rose My Brother Esau Bird Song Jack Straw Set II Shakedown Street "
+    "&gt; Samson & Delilah He's Gone &gt; Touch of Grey Encore: Revolution"
+)
+
+
+def test_contains_sequence_finds_song_parse_cannot_split():
+    from llama.setlist import parse_setlist
+    # the premise: the parser genuinely loses it, so item-equality can never work
+    assert not any("esau" in i.title.lower() for i in parse_setlist(_RUNON).items)
+    assert structure.contains_sequence(_RUNON, ["My Brother Esau"])
+
+
+def test_contains_sequence_matches_distinctive_fragment():
+    assert structure.contains_sequence(_RUNON, ["Esau"])
+    assert structure.contains_sequence(_RUNON, ["Brother Esau"])
+
+
+def test_contains_sequence_is_asymmetric_superset_does_not_match():
+    # a fragment matches the full title; a title the text does not contain does not
+    assert not structure.contains_sequence("Set I Esau Bird Song", ["My Brother Esau"])
+
+
+def test_contains_sequence_matches_on_token_boundaries():
+    assert not structure.contains_sequence("Set I Idealistic Notions", ["Deal"])
+    assert structure.contains_sequence("Set I Big River Deal", ["Deal"])
+
+
+def test_contains_sequence_expands_default_aliases():
+    """Shorthand in `DEFAULT_ALIASES` expands, which is what the user meant —
+    and is why it declines a same-word song it did NOT mean. In Dead usage
+    "Rider" is "I Know You Rider", never "C.C. Rider"."""
+    assert structure.contains_sequence("Set I China Cat Sunflower &gt; I Know You Rider", ["Rider"])
+    assert not structure.contains_sequence("Set I C.C. Rider Deal", ["Rider"])
+
+
+def test_contains_sequence_folds_ampersand_both_directions():
+    assert structure.contains_sequence(_RUNON, ["Samson & Delilah"])
+    assert structure.contains_sequence(_RUNON, ["Samson and Delilah"])
+    assert structure.contains_sequence("Set I Samson and Delilah Deal", ["Samson & Delilah"])
+
+
+def test_contains_sequence_shorthand_only_with_aliases():
+    from llama.songs import GD_SHORTHAND
+    assert structure.contains_sequence(_RUNON, ["Touch of Gray"], GD_SHORTHAND)
+    # off-family: no table, so the American spelling is simply absent
+    assert not structure.contains_sequence(_RUNON, ["Touch of Gray"])
+    assert structure.contains_sequence(_RUNON, ["Touch of Grey"])
+
+
+def test_contains_sequence_requires_order_not_adjacency():
+    # china>rider: adjacent in the show, separated by a segue token once normalized
+    text = "Set I China Cat Sunflower &gt; I Know You Rider Deal"
+    assert structure.contains_sequence(text, ["China Cat Sunflower", "I Know You Rider"])
+    assert not structure.contains_sequence(text, ["I Know You Rider", "China Cat Sunflower"])
+
+
+def test_contains_sequence_all_elements_required():
+    assert not structure.contains_sequence(_RUNON, ["My Brother Esau", "Dark Star"])
+    assert structure.contains_sequence(_RUNON, [])
+
+
+def test_contains_sequence_repeated_song_advances_past_first_hit():
+    text = "Set I Playing In The Band Deal Set II Playing In The Band Wharf Rat"
+    assert structure.contains_sequence(text, ["Playing In The Band", "Playing In The Band"])
+    assert not structure.contains_sequence(text, ["Playing In The Band"] * 3)

@@ -73,12 +73,3 @@ def normalize_song(name: str, aliases: dict[str, str] | None = None) -> str:
     s = _WS.sub(" ", s).strip()
     table = DEFAULT_ALIASES if aliases is None else {**DEFAULT_ALIASES, **aliases}
     return table.get(s, s)
-
-
-def matches_sequence(setlist: list[str], sequence: list[str]) -> bool:
-    """True if `sequence` appears as an adjacent, in-order run within `setlist`."""
-    norm = [normalize_song(s) for s in setlist]
-    seq = [normalize_song(s) for s in sequence]
-    if not seq:
-        return True
-    return any(norm[i : i + len(seq)] == seq for i in range(len(norm) - len(seq) + 1))

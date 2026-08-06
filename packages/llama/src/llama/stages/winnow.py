@@ -2,12 +2,13 @@ import json
 import logging
 
 from herder import run_json_task, run_research_task
+from llama import jerrybase
 from llama.ledger import Ledger
 from llama.models import Candidate, Criteria, QualityBatch, ShortlistEntry
 from llama.prompts import load_prompt
-from llama.setlist import parse_setlist
-from llama.songs import matches_sequence
+from llama.songs import GD_SHORTHAND
 from llama.status import detail, step
+from llama.structure import contains_sequence
 from llama.util import cap_across_artists
 from llama.workspace import RunWorkspace, read_model_list, should_run, write_artifact
 
@@ -23,20 +24,34 @@ def _evidence(c: Candidate):
             max((r.avg_rating or 0.0) for r in c.recordings))
 
 
+def _has_songs(c: Candidate, criteria: Criteria) -> bool:
+    """Whether this performance satisfies every setlist constraint.
+
+    Matched against EVERY recording's description, not just the longest: the
+    constraint is a property of the performance, and any taper who names the
+    song is evidence it was played. On the 1984 GD corpus that is the difference
+    between 26 and 27 of the 27 shows that actually played "My Brother Esau".
+
+    Deliberately no parse and no confidence gate. The old implementation parsed
+    the description and compared parsed items for equality, which found 0 of
+    those 27 — descriptions run songs together with no separator, so the parser
+    drops the merged blob while still reporting `confidence="high"`. See
+    `structure.contains_sequence`.
+    """
+    aliases = GD_SHORTHAND if jerrybase.is_family_artist(c.collection) else {}
+    descs = [r.description or "" for r in c.recordings]
+    return all(
+        any(contains_sequence(d, sc.sequence, aliases) for d in descs)
+        for sc in criteria.setlist_constraints
+    )
+
+
 def _passes_mechanical(c: Candidate, criteria: Criteria) -> bool:
     best_rating = max((r.avg_rating or 0.0) for r in c.recordings)
     total_reviews = sum(r.num_reviews for r in c.recordings)
     if best_rating < criteria.min_avg_rating or total_reviews < criteria.min_reviews:
         return False
-    if criteria.setlist_constraints:
-        desc = max((r.description or "" for r in c.recordings), key=len)
-        parsed = parse_setlist(desc)
-        if parsed.confidence == "low":
-            return False
-        titles = [i.title for i in parsed.items]
-        if not all(matches_sequence(titles, sc.sequence) for sc in criteria.setlist_constraints):
-            return False
-    return True
+    return _has_songs(c, criteria)
 
 
 def run_winnow(

@@ -66,7 +66,8 @@ these defaults with `llama config init` (`--stdout` to print instead):
     # backend = "openrouter"         # HTTP alternative; set OPENROUTER_API_KEY
     # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
     # gemini-2.5-flash / claude-sonnet-5 / claude-opus-5 on openrouter.
-    # Defaults: medium for most tasks; high for deep_research and brief;
+    # Defaults: medium for most tasks; high for interpret, deep_research and
+    # brief;
     # low for vet_research.
     # If a task's output fails validation twice, the final retry runs one
     # tier up (exact `model` pins never escalate).

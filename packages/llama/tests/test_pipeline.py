@@ -94,9 +94,10 @@ def test_make_providers_builds_ladders():
     from llama.pipeline import make_providers
 
     providers = make_providers(Config())
-    # interpret is a medium task: base, base, escalated-to-high
-    assert [p.model for p in providers["interpret"]] == ["sonnet", "sonnet", "opus"]
-    # brief is already high: no headroom
+    # score_reviews is a medium task: base, base, escalated-to-high
+    assert [p.model for p in providers["score_reviews"]] == ["sonnet", "sonnet", "opus"]
+    # interpret and brief are already high: no headroom
+    assert [p.model for p in providers["interpret"]] == ["opus", "opus", "opus"]
     assert [p.model for p in providers["brief"]] == ["opus", "opus", "opus"]
 
 
