@@ -26,15 +26,16 @@ class LLMSettings(BaseModel):
 
 
 # Backend -> tier -> model. claude_cli uses the CLI's stable aliases so the
-# table carries no dated model ids. openrouter uses cross-vendor value picks
-# (slugs verified against the live catalog 2026-07-14); retarget via
-# [llm.tiers.openrouter] in config.
+# table carries no dated model ids and floats forward on its own; openrouter
+# has no aliases, so its slugs are pinned and go stale - re-check them against
+# the live catalog when a generation ships (slugs verified 2026-08-06).
+# Retarget either backend via [llm.tiers.<backend>] in config.
 TIER_MODELS = {
     "claude_cli": {"low": "haiku", "medium": "sonnet", "high": "opus"},
     "openrouter": {
         "low": "google/gemini-2.5-flash",
-        "medium": "anthropic/claude-sonnet-4.5",
-        "high": "anthropic/claude-opus-4.1",
+        "medium": "anthropic/claude-sonnet-5",
+        "high": "anthropic/claude-opus-5",
     },
 }
 

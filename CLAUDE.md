@@ -93,7 +93,7 @@ concurrently. Don't fan out `emcee run` the way llama's workspace tolerates
 concurrent `llama get`s.
 
 LLM model choice is tiered (low/medium/high; haiku/sonnet/opus on claude_cli,
-gemini-flash/sonnet-4.5/opus-4.1 on openrouter): medium by default, high for
+gemini-flash/sonnet-5/opus-5 on openrouter): medium by default, high for
 llama's deep_research/brief and emcee's scriptwrite, low for vet_research,
 overridable per task via `[llm.<task>]` `tier`/`model` or per backend via
 `[llm.tiers.<backend>]`; a failed validation's final retry escalates one

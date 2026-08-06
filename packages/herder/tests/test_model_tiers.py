@@ -76,19 +76,19 @@ def test_tables_match_spec():
 def test_openrouter_tier_table_matches_spec():
     assert TIER_MODELS["openrouter"] == {
         "low": "google/gemini-2.5-flash",
-        "medium": "anthropic/claude-sonnet-4.5",
-        "high": "anthropic/claude-opus-4.1",
+        "medium": "anthropic/claude-sonnet-5",
+        "high": "anthropic/claude-opus-5",
     }
 
 
 def test_openrouter_backend_resolves_and_constructs(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     s = settings(tasks={"default": TaskConfig(backend="openrouter")})
-    assert resolve_model(s, "interpret") == ("openrouter", "anthropic/claude-sonnet-4.5")
-    assert resolve_model(s, "deep_research") == ("openrouter", "anthropic/claude-opus-4.1")
+    assert resolve_model(s, "interpret") == ("openrouter", "anthropic/claude-sonnet-5")
+    assert resolve_model(s, "deep_research") == ("openrouter", "anthropic/claude-opus-5")
     p = provider_for(s, "interpret")
     assert isinstance(p, OpenRouterProvider)
-    assert p.model == "anthropic/claude-sonnet-4.5"
+    assert p.model == "anthropic/claude-sonnet-5"
 
 
 def test_openrouter_without_key_fails_fast(monkeypatch):
@@ -103,7 +103,7 @@ def test_config_tiers_overlay_beats_shipped_table():
                  tasks={"default": TaskConfig(backend="openrouter")})
     assert resolve_model(s, "interpret") == ("openrouter", "deepseek/deepseek-chat-v3")
     # tiers the overlay doesn't touch still come from the shipped table
-    assert resolve_model(s, "deep_research") == ("openrouter", "anthropic/claude-opus-4.1")
+    assert resolve_model(s, "deep_research") == ("openrouter", "anthropic/claude-opus-5")
 
 
 def test_overlay_applies_to_claude_cli_too():
@@ -131,9 +131,9 @@ def test_ladder_escalates_final_attempt(monkeypatch):
     s = settings(tasks={"default": TaskConfig(backend="openrouter")})
     ladder = provider_ladder(s, "interpret")  # medium task: final rung one tier up
     assert [p.model for p in ladder] == [
-        "anthropic/claude-sonnet-4.5",
-        "anthropic/claude-sonnet-4.5",
-        "anthropic/claude-opus-4.1",
+        "anthropic/claude-sonnet-5",
+        "anthropic/claude-sonnet-5",
+        "anthropic/claude-opus-5",
     ]
 
 

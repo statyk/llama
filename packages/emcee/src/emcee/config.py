@@ -133,7 +133,7 @@ backend = "claude_cli"
 # backend = "openrouter"
 
 # Model tiers (low/medium/high): haiku/sonnet/opus on claude_cli;
-# gemini-2.5-flash / claude-sonnet-4.5 / claude-opus-4.1 on openrouter.
+# gemini-2.5-flash / claude-sonnet-5 / claude-opus-5 on openrouter.
 # Default: high (scriptwrite quality is audible on air).
 # A failed validation's final retry escalates one tier (pins never escalate).
 # tier = "medium"
