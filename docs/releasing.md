@@ -135,9 +135,10 @@ change.
 
 ## Verifying a signed build
 
-Verify **from the workflow run logs**, not from an interactive shell — a green
-job is not proof the artifact was signed. Each leg signs llama then emcee, so
-expect the pattern below **twice** per macOS/Windows `Build` step log:
+Signing happens inside the Build step, so the run logs are where to confirm it —
+job status alone won't distinguish a signed artifact from an unsigned one. Each
+leg signs llama then emcee, so the pattern below appears twice per macOS/Windows
+`Build` step log:
 
 - macOS: `Current status: Accepted` and `signed + notarized`.
 - Windows: `Number of files successfully Signed: 1` and `signed + verified`.
