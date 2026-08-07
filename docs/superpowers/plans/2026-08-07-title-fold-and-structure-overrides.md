@@ -17,7 +17,7 @@
 - **Do not touch `songs.normalize_song` or `songs.DEFAULT_ALIASES`.** Folding there would also move `grouping`, `vet_research`, `brief` and setlist.fm matching, none of which was measured.
 - **Do not remove existing per-song alias patches.** `DEFAULT_ALIASES`' four GDTRFB entries and `GD_SHORTHAND`'s `throwin stones` cover apostrophe-less spellings the new fold deliberately cannot reach.
 - `ManifestTrack` must not gain fields. The package contract and emcee stay untouched.
-- Commit after every task, using a Conventional-Commits subject with the scope in parentheses (`fix(structure): …`, `feat(cli): …`, `test(jerrybase): …`) followed by a body explaining *why*. Match the surrounding history; do not add a "Generated with" footer.
+- Commit after every task, using a Conventional-Commits subject with the scope in parentheses (`fix(structure): …`, `feat(cli): …`, `test(jerrybase): …`) followed by a body explaining *why*. Match the surrounding history: end every commit message with the repo's two trailers, `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_0164aTBm9rErqrFfqRKY1AHq`. Do not add a "Generated with" footer.
 
 ---
 
