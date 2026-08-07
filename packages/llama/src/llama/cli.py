@@ -649,6 +649,8 @@ def _format_tracks(show) -> list[str]:
                      f"{t.title_source:14.14s} {_fmt_dur(t.duration_sec):>6s}  {t.filename}")
     if any(t.matched is False for t in show.tracks):
         lines.append("  ? = no setlist match")
+    if any(t.matched is None for t in show.tracks):
+        lines.append("  - = not measured")
     return lines
 
 
@@ -1182,7 +1184,10 @@ def fix(
         False, "--clear-set-breaks", help="Clear the set-breaks override"),
     set_encore: str = typer.Option(
         None, "--set-encore",
-        help="Mark the encore: it begins after track N (same convention as --set-breaks)"),
+        help="Mark the encore: it begins after track N (same convention as --set-breaks). "
+             "On a multi-set show, combine with --set-breaks -- the override path replaces "
+             "alignment entirely rather than adding to it, so --set-encore alone flattens "
+             "every earlier set into set 1 and loses every segue."),
     clear_encore: bool = typer.Option(
         False, "--clear-encore", help="Clear the encore override"),
     narration: NarrationMode = typer.Option(

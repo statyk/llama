@@ -157,9 +157,12 @@ tier (pins never escalate).
   `--set-venue`/`--set-city`/`--set-date`/`--set-title N=…`/`--set-breaks`/
   `--set-encore` (plus their `--clear-*` counterparts) all redo from
   `gather`, and a hold **self-clears** whenever the re-gather no longer
-  reproduces the flag that caused it (gather recomputes `needs_review`/
-  `review_flags` from scratch every run). The other two gate-2
-  resolutions: **accept-vague** (`fix
+  reproduces the flag that caused it (gather recomputes `needs_review`
+  /`review_flags` from scratch every run). On a multi-set show,
+  `--set-encore` must be combined with `--set-breaks` — the override path
+  skips alignment entirely rather than layering on it, so `--set-encore`
+  alone flattens every set into `"1"` and loses every segue. The other
+  two gate-2 resolutions: **accept-vague** (`fix
   --narration vague` → redo from `brief`, regenerating the briefing and
   package too, clears the hold immediately), and **overrule** (`fix
   --overrule` → redo from `package`, clears the hold without touching

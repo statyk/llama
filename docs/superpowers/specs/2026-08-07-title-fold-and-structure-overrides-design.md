@@ -232,6 +232,14 @@ Semantics:
   relabelled `encore`.
 - `encore_after` may be set with `set_breaks` absent (a one-set show plus
   encore).
+- **On a multi-set show, omitting `set_breaks` flattens it.** The override
+  path skips `align()` entirely, so `_sets_from_breaks` labels every track
+  before `encore_after` `"1"` and every segue is lost — `structure_guard`
+  does not catch this either, because `encore_after` implies a break,
+  `set_breaks` becomes non-empty, and the guard short-circuits before its
+  "setlist evidence shows multiple sets" arm can fire. The structural fix —
+  run the normal align path and relabel only the tail `encore` — is filed,
+  not done.
 - Validation: `1 <= encore_after < len(tracks)`, and `> max(set_breaks)` when
   both are present. Out of range raises `LlamaError`, matching the existing
   `set_breaks` behaviour.

@@ -150,6 +150,39 @@ def test_format_tracks_omits_the_legend_when_everything_matched():
     assert not any("no setlist match" in ln for ln in lines)
 
 
+def test_format_tracks_flags_unmeasured_tracks_with_a_legend():
+    """Every show gathered before this branch has no `matched` key in
+    show.json, so it deserializes to Track.matched=None for every track --
+    the WHOLE existing library renders an all-"-" column with nothing
+    explaining it unless this legend fires. Checked as exact-line
+    membership (not `in` on joined text, not `any(text in ln ...)`) so a
+    mutation that drops this line, or one that emits it as a substring of
+    something else, cannot slip through."""
+    from llama.cli import _format_tracks
+
+    lines = _format_tracks(_show_with([None, None]))
+    assert "  - = not measured" in lines
+
+
+def test_format_tracks_omits_the_unmeasured_legend_when_everything_measured():
+    from llama.cli import _format_tracks
+
+    lines = _format_tracks(_show_with([True, False]))
+    assert "  - = not measured" not in lines
+
+
+def test_format_tracks_can_show_both_legends_at_once():
+    """An unmatched track and an unmeasured track can coexist on one show
+    (e.g. after a partial redo); both legends must appear together, each
+    independently -- proves the two `if`s aren't wired as mutually
+    exclusive (e.g. via elif)."""
+    from llama.cli import _format_tracks
+
+    lines = _format_tracks(_show_with([False, None]))
+    assert "  ? = no setlist match" in lines
+    assert "  - = not measured" in lines
+
+
 def test_format_tracks_distinguishes_matched_unmatched_and_unknown():
     """Reviewer-caught gap: two mutations that collapse only TWO of the three
     `matched` states each still passed all other format_tracks tests --

@@ -105,7 +105,11 @@ def test_tracks_flag_prints_every_title_source_in_full():
     tracks = [Track(index=i, set="1", title="Dark Star", filename=f"t{i:02d}.mp3",
                     duration_sec=300, segue=False, title_source=s)
               for i, s in enumerate(sources, 1)]
-    lines = _format_tracks(SimpleNamespace(tracks=tracks))[1:]
+    # These tracks all default to matched=None ("not measured"), which now
+    # trips the "- = not measured" legend line appended after every track
+    # row -- slice to just the N track rows so that legend line (unrelated
+    # to title_source truncation) doesn't join the per-row checks below.
+    lines = _format_tracks(SimpleNamespace(tracks=tracks))[1:1 + len(tracks)]
     for source, line in zip(sources, lines):
         assert source in line, line
     # Every row's duration column starts at the same offset, or the table
