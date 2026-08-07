@@ -1164,3 +1164,58 @@ def test_a_wiped_setlist_is_flagged_for_review_not_shipped_silently(tmp_path: Pa
     show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
     assert show.review_flags == ["low-confidence setlist"]
     assert show.needs_review is True
+
+
+def test_sets_from_breaks_labels_the_encore():
+    from llama.stages.gather import _sets_from_breaks
+
+    labels = _sets_from_breaks(17, [7], encore_after=16)
+    assert labels[:7] == ["1"] * 7
+    assert labels[7:16] == ["2"] * 9
+    assert labels[16] == "encore"
+
+
+def test_sets_from_breaks_encore_without_numbered_breaks():
+    from llama.stages.gather import _sets_from_breaks
+
+    assert _sets_from_breaks(5, [], encore_after=4) == ["1", "1", "1", "1", "encore"]
+
+
+def test_sets_from_breaks_unchanged_when_no_encore():
+    from llama.stages.gather import _sets_from_breaks
+
+    assert _sets_from_breaks(4, [2]) == ["1", "1", "2", "2"]
+
+
+def test_overrides_accepts_encore_after():
+    from llama.models import Overrides
+
+    assert Overrides().encore_after is None
+    assert Overrides(encore_after=16).encore_after == 16
+
+
+def test_encore_override_labels_tracks_and_implies_a_break(tmp_path):
+    """encore_after implies a break at that track, so the operator does not
+    list it twice, and show.set_breaks reports it."""
+    from llama.stages.gather import _sets_from_breaks
+
+    labels = _sets_from_breaks(17, [7], encore_after=16)
+    breaks = sorted({7} | {16})
+    assert breaks == [7, 16]
+    assert labels[16] == "encore"
+
+
+def test_encore_override_out_of_range_is_rejected():
+    from llama.errors import LlamaError
+    from llama.stages.gather import _validate_structure_override
+
+    with pytest.raises(LlamaError, match="encore_after"):
+        _validate_structure_override(n_tracks=5, breaks=[2], encore_after=9)
+
+
+def test_encore_override_must_follow_every_set_break():
+    from llama.errors import LlamaError
+    from llama.stages.gather import _validate_structure_override
+
+    with pytest.raises(LlamaError, match="greater than"):
+        _validate_structure_override(n_tracks=17, breaks=[7, 16], encore_after=7)

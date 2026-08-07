@@ -24,16 +24,45 @@ from llama.workspace import ShowWorkspace, read_model, read_overrides, should_ru
 log = logging.getLogger("llama")
 
 
-def _sets_from_breaks(n_tracks: int, breaks: list[int]) -> list[str]:
+def _sets_from_breaks(n_tracks: int, breaks: list[int],
+                      encore_after: int | None = None) -> list[str]:
     """Numbered set labels ("1","2",...) for each 1-based track, given the
-    track numbers a break falls *after*. Break after track b closes a set."""
+    track numbers a break falls *after*. Break after track b closes a set.
+
+    `encore_after` relabels every track past it "encore" -- the one label this
+    function cannot otherwise emit. Without it, an operator forcing a break
+    before a one-song encore gets set "3", which then contradicts jerrybase's
+    numbered-set count (`expected_set_count` excludes encores) and trips
+    `structure_guard`. That is a hold traded for a different hold, which is
+    what this parameter exists to stop.
+    """
     bset = set(breaks)
     labels, cur = [], 1
     for i in range(1, n_tracks + 1):
         labels.append(str(cur))
         if i in bset:
             cur += 1
+    if encore_after is not None:
+        for i in range(encore_after, n_tracks):
+            labels[i] = "encore"
     return labels
+
+
+def _validate_structure_override(n_tracks: int, breaks: list[int],
+                                 encore_after: int | None) -> None:
+    """Range- and order-check the structure overrides. Raises LlamaError."""
+    bad = [n for n in breaks if not (1 <= n < n_tracks)]
+    if bad:
+        raise LlamaError(f"overrides.set_breaks: track number(s) out of range "
+                         f"{bad} (show has {n_tracks} tracks)")
+    if encore_after is None:
+        return
+    if not (1 <= encore_after < n_tracks):
+        raise LlamaError(f"overrides.encore_after: track {encore_after} out of range "
+                         f"(show has {n_tracks} tracks)")
+    if breaks and encore_after <= max(breaks):
+        raise LlamaError(f"overrides.encore_after ({encore_after}) must be greater "
+                         f"than every set break {sorted(breaks)}")
 
 
 def _breaks_of(sets: list[str]) -> list[int]:
@@ -570,14 +599,13 @@ def run_gather(
             update={"title": forced, "title_source": "override"})
 
     flags = []
-    if overrides.set_breaks is not None:
-        bad = [n for n in overrides.set_breaks if not (1 <= n < len(tracks))]
-        if bad:
-            raise LlamaError(f"overrides.set_breaks: track number(s) out of range "
-                             f"{bad} (show has {len(tracks)} tracks)")
-        labels = _sets_from_breaks(len(tracks), overrides.set_breaks)
+    if overrides.set_breaks is not None or overrides.encore_after is not None:
+        breaks_in = list(overrides.set_breaks or [])
+        _validate_structure_override(len(tracks), breaks_in, overrides.encore_after)
+        labels = _sets_from_breaks(len(tracks), breaks_in, overrides.encore_after)
         tracks = [t.model_copy(update={"set": s}) for t, s in zip(tracks, labels)]
-        breaks = sorted(overrides.set_breaks)
+        breaks = sorted(set(breaks_in) | ({overrides.encore_after}
+                                          if overrides.encore_after is not None else set()))
         alignment = "override"
         coverage, conflicts = 1.0, []
     else:
@@ -707,7 +735,7 @@ def run_gather(
         flags.append("no playable tracks")
 
     structure_info = None
-    if overrides.set_breaks is not None:
+    if overrides.set_breaks is not None or overrides.encore_after is not None:
         structure_info = StructureInfo(source="override", alignment="override",
                                        coverage=1.0, conflicts=[])
     elif best is not None or notes:
