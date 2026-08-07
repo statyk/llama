@@ -59,7 +59,11 @@ in the ground truth.
 
 ---
 
-# A. The `-in'`/`-ing` fold
+# A. The `-in'`/`-ing` fold — **TABLED 2026-08-07, NOT IMPLEMENTED**
+
+**Status: tabled at Shawn's direction. Implemented as `aa7ff5f`, then reverted
+in `366df8a`. B shipped without it.** Do not implement A1 below as written — the
+measurement in A5 refutes it. If A is revived, start from A5's alternative.
 
 ## A1. Fold before normalization, signalled by the apostrophe
 
@@ -149,6 +153,57 @@ the closer vocabulary:
 
 A "no pairs found" result is only believable if the sweep can return non-empty at
 all: run it against a known-positive case first.
+
+## A5. Why A1 is wrong, measured — and the direction that is not
+
+A1 shipped, passed spec review, and was **refuted by measurement at the real call
+site**. Recorded here in full because the naive fold is an attractive nuisance:
+it looks obviously correct, and the reasoning that kills it is not visible from
+the code.
+
+**The error in A1's premise.** A1 calls the apostrophe-less taper spelling
+(`Truckin`, no apostrophe) an "accepted residual gap" that "**still** will not
+match." That word *still* is false. It matched **before**. `norm_title` strips
+apostrophes, so jerrybase's `Truckin'` and a taper's `Truckin` both already
+normalized to `truckin`. A1 moves the canonical form to `trucking` and
+**orphans** the bare spelling. A1 does not add matches; it trades one partition
+of the three spellings for another.
+
+**Measurement.** `anchor_breaks` outcome over the **535 cached shows that carry a
+jerrybase event**, comparing designs against pre-change behaviour:
+
+| design | anchors gained | anchors **lost** | anchors changed |
+|---|---:|---:|---:|
+| A1 (`in'` -> `ing`, pre-normalization) | 4 | **5** | 2 |
+| A5 alternative (`ing` -> `in`, post-normalization) | 4 | **0** | 0 |
+
+Identical gains — the same four shows, including both `gd1990-03-29` tapes that
+motivated the work. A1's five losses are all on `Good Lovin'`, the single most
+common closer in the vocabulary (437 rows), because tapers routinely write
+`Good Lovin`. Two further shows silently move their encore boundary.
+
+A vocabulary-wide proxy (every title x every closer over 612 items / 26,434
+titles) had shown 24 titles lost vs 21 gained — roughly a wash. That proxy
+*understated* the harm: at the call site the losses land on shows that were
+anchoring correctly. **Do not judge a matching change by vocabulary-wide pair
+counts; judge it by outcomes at the call site.**
+
+**The alternative, if A is revived.** Canonicalize toward the g-*dropped* form,
+post-normalization: fold word-final `ing` -> `in`, so `Trucking` joins the
+`{Truckin', Truckin}` class that already existed. This is **purely additive** by
+construction — it only ever merges a new spelling *into* an existing class,
+never moves a class — which is a far stronger safety property than A1's
+collision argument.
+
+Guard: fold only when the stem is >= 4 characters, plus a blocklist. Stems of 3
+are where the real collisions live (`sing`/`sin`, `king`/`kin`, `wing`/`win`,
+`ring`/`rin`); at length 4 the only English collision found is `thing`/`thin`,
+which the blocklist covers. That exception set is enumerable, and A4's sweep is
+what validates it rather than this paragraph.
+
+**Unmeasured, and required before reviving A:** this compares closer matching and
+anchoring only. `fuzzy_norm_title` also feeds `align()` and `contains_sequence`.
+The additive property is an argument for those call sites, not yet a measurement.
 
 ---
 

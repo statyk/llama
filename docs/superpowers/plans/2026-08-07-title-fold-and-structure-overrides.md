@@ -21,7 +21,11 @@
 
 ---
 
-### Task 1: The `-in'` → `-ing` fold in `fuzzy_norm_title`
+### Task 1: The `-in'` → `-ing` fold in `fuzzy_norm_title` — **TABLED, DO NOT IMPLEMENT**
+
+> Implemented as `aa7ff5f`, reverted in `366df8a`. Measurement refuted the design:
+> +4 anchors gained but **5 lost** across 535 cached shows. See spec section A5.
+> Tasks 2 and 3 are tabled with it — they exist only to validate this fold.
 
 **Files:**
 - Modify: `packages/llama/src/llama/structure.py:61-74`
@@ -131,7 +135,7 @@ would collide sing/sin, thing/thin, wing/win, king/kin."
 
 ---
 
-### Task 2: Validation sweep over the closer vocabulary
+### Task 2: Validation sweep over the closer vocabulary — **TABLED with Task 1**
 
 **Files:**
 - Test: `packages/llama/tests/test_structure.py`
@@ -215,7 +219,7 @@ can return non-empty at all."
 
 ---
 
-### Task 3: `gratefuldead-1990-03-29` closer regression
+### Task 3: `gratefuldead-1990-03-29` closer regression — **TABLED with Task 1**
 
 **Files:**
 - Test: `packages/llama/tests/test_jerrybase.py`
@@ -864,5 +868,5 @@ gd1990-03-29 encore read 'tags' while matching nothing."
 ## Final verification
 
 - [ ] **Full suite:** `./.venv/bin/pytest -q` — all green, count >= 1416 plus the new tests.
-- [ ] **Corpus acceptance (spec A4.2):** re-gather the local library and confirm no show's set structure changes except `gratefuldead-1990-03-29`. Compare `set_breaks` and per-track `set` before and after across `~/.llama/shows/*/show.json`. Any other show that moves must be explained before merge, not after.
-- [ ] **Docs:** update `CLAUDE.md`'s override list — `overrides.json` gains `encore_after`, and `llama fix` gains `--set-encore` / `--clear-encore`. The "Domain gotchas" title-cascade paragraph should note the `-in'` fold beside the existing `&`/`and` note.
+- [ ] **Corpus acceptance:** with Task 1 tabled, no matching behaviour changes, so no show's structure may move at all. Confirm across `~/.llama/shows/*/show.json` that `set_breaks` and per-track `set` are unchanged.
+- [ ] **Docs:** update `CLAUDE.md`'s override list — `overrides.json` gains `encore_after`, and `llama fix` gains `--set-encore` / `--clear-encore`. No title-cascade note, since the fold is tabled.
