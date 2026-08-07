@@ -557,7 +557,8 @@ _UNSET = object()
 
 def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None,
                     venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
-                    clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False):
+                    clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False,
+                    encore_after=_UNSET, clear_encore=False):
     from llama.workspace import read_overrides
 
     ov = read_overrides(show_ws)
@@ -585,6 +586,10 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None,
         data = data.model_copy(update={"set_breaks": None})
     elif set_breaks is not _UNSET:
         data = data.model_copy(update={"set_breaks": set_breaks})
+    if clear_encore:
+        data = data.model_copy(update={"encore_after": None})
+    elif encore_after is not _UNSET:
+        data = data.model_copy(update={"encore_after": encore_after})
     write_artifact(show_ws.overrides, data)
     return data
 
@@ -827,6 +832,8 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
         parts.append(f"titles={ov.titles}")
     if ov.set_breaks is not None:
         parts.append(f"set_breaks={ov.set_breaks}")
+    if ov.encore_after is not None:
+        parts.append(f"encore_after={ov.encore_after}")
     if parts:
         typer.echo("overrides: " + "  ".join(parts))
     _print_stages(sws)
@@ -879,6 +886,7 @@ def _print_show_json(entry, show_tracks: bool = False) -> None:
             "exclude": ov.exclude, "narration": ov.narration, "venue": ov.venue,
             "city": ov.city, "date": ov.date, "titles": ov.titles,
             "set_breaks": ov.set_breaks,
+            "encore_after": ov.encore_after,
         }
     if show_tracks:
         data["tracks"] = [t.model_dump() for t in s.tracks] if s is not None else None
@@ -1163,6 +1171,11 @@ def fix(
         None, "--set-breaks", help='Force set breaks by track number: "9,17"'),
     clear_set_breaks: bool = typer.Option(
         False, "--clear-set-breaks", help="Clear the set-breaks override"),
+    set_encore: str = typer.Option(
+        None, "--set-encore",
+        help="Mark the encore: it begins after track N (same convention as --set-breaks)"),
+    clear_encore: bool = typer.Option(
+        False, "--clear-encore", help="Clear the encore override"),
     narration: NarrationMode = typer.Option(
         None, "--narration", help="vague clears the hold; full resets narration and leaves it"),
     overrule: bool = typer.Option(
@@ -1197,10 +1210,17 @@ def fix(
             typer.echo(f"--set-breaks expects comma-separated track numbers, got {set_breaks!r}", err=True)
             raise typer.Exit(1)
         breaks_val = [int(p) for p in parts]
+    encore_val = None
+    if set_encore:
+        if not set_encore.strip().isdigit():
+            typer.echo(f"--set-encore expects a track number, got {set_encore!r}", err=True)
+            raise typer.Exit(1)
+        encore_val = int(set_encore.strip())
 
     did_exclude = bool(exclude or unexclude)
     did_meta = bool(set_venue or set_city or set_date or parsed_titles
-                    or clear_title_nums or set_breaks or clear_set_breaks)
+                    or clear_title_nums or set_breaks or clear_set_breaks
+                    or set_encore or clear_encore)
     did_narration = narration is not None
 
     if not (did_exclude or did_meta or did_narration or overrule):
@@ -1248,7 +1268,9 @@ def fix(
             set_titles=parsed_titles or None,
             clear_titles=clear_title_nums,
             set_breaks=breaks_val if set_breaks else _UNSET,
-            clear_set_breaks=clear_set_breaks)
+            clear_set_breaks=clear_set_breaks,
+            encore_after=encore_val if set_encore else _UNSET,
+            clear_encore=clear_encore)
         typer.echo(f"{entry.slug}: metadata override updated")
         real_edit = True
 

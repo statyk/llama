@@ -145,6 +145,44 @@ def test_set_breaks_and_clear(tmp_path, monkeypatch):
     assert read_overrides(ws).set_breaks is None
 
 
+def test_set_encore_and_clear(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _gathered_show(tmp_path)
+    _stub_redo(monkeypatch)
+    cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "16")
+    assert read_overrides(ws).encore_after == 16
+    cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore")
+    assert read_overrides(ws).encore_after is None
+
+
+def test_set_encore_composes_with_set_breaks(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _gathered_show(tmp_path)
+    _stub_redo(monkeypatch)
+    cli_invoke(cfg, "fix", "gratefuldead", "--set-breaks", "7", "--set-encore", "16")
+    ov = read_overrides(ws)
+    assert ov.set_breaks == [7]
+    assert ov.encore_after == 16
+
+
+def test_set_encore_redoes_from_gather(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    _gathered_show(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "16", "--no-run")
+    assert r.exit_code == 0, r.output
+    assert "--from gather" in r.output
+
+
+def test_set_encore_non_numeric_errors_cleanly(tmp_path):
+    cfg = _cfg(tmp_path)
+    _gathered_show(tmp_path)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-encore", "sixteen")
+    assert r.exit_code != 0
+    assert "--set-encore expects" in r.output
+    assert not isinstance(r.exception, ValueError)
+
+
 def test_narration_vague_and_full(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     ws = _held_show(tmp_path)

@@ -155,7 +155,7 @@ def test_json_schema_spot_checks(tmp_path: Path):
     assert data["overrides"] == {
         "exclude": ["junk.mp3"], "narration": "vague", "venue": "My Hall",
         "city": "Springfield", "date": "1973-06-10", "titles": {"1": "Bertha"},
-        "set_breaks": [2, 4],
+        "set_breaks": [2, 4], "encore_after": None,
     }
     assert data["stages"]["show.json"] is not None      # age in days
     assert data["stages"]["research.md"] is None        # never written
