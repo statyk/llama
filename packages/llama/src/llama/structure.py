@@ -57,17 +57,6 @@ _SEGUE_SEP = re.compile(r"\s*(?:->|>|→)\s*")
 # credit-only component would otherwise form a spurious merge run.
 _TRAILING_PAREN = re.compile(r"\s*\([^)]*\)\s*$")
 
-# Tapers and canonical setlists disagree constantly on dropped g's
-# ("Knockin'" vs "Knocking"). Fold BEFORE norm_title, because its punctuation
-# strip removes the apostrophe that makes this rewrite safe: after the strip we
-# could only guess from word shape, which manufactures sing->sin, thing->thin,
-# wing->win and king->kin -- all collisions against real LMA titles. Requiring
-# the apostrophe means a token is only rewritten where the source explicitly
-# spells the dropped g, and only onto that same word's spelled-out form.
-# Accepted gap: a taper writing "Knockin" with no apostrophe still will not
-# match. Catching that needs exactly the unsafe blanket fold.
-_IN_APOSTROPHE = re.compile(r"in'(?![A-Za-z])")
-
 
 def fuzzy_norm_title(title: str, aliases: dict[str, str] | None = None) -> str:
     """`norm_title` with "&" folded to "and" first, then an optional
@@ -79,14 +68,9 @@ def fuzzy_norm_title(title: str, aliases: dict[str, str] | None = None) -> str:
     itself: folding there would also change grouping, vet_research, brief and
     setlist.fm artist matching, none of which was measured.
 
-    Word-final "in'" is folded to "ing" first, for the same reason the "&"
-    fold happens here: `norm_title`'s punctuation strip destroys the signal
-    that makes the rewrite safe. See `_IN_APOSTROPHE`.
-
     `aliases` is `songs.GD_SHORTHAND` for Garcia-universe artists and empty for
     everyone else — see that table's comment for why it cannot be global."""
-    folded = _IN_APOSTROPHE.sub("ing", title.replace("&", " and "))
-    norm = norm_title(folded)
+    norm = norm_title(title.replace("&", " and "))
     return (aliases or {}).get(norm, norm)
 
 

@@ -1638,36 +1638,3 @@ def test_contains_sequence_repeated_song_advances_past_first_hit():
     text = "Set I Playing In The Band Deal Set II Playing In The Band Wharf Rat"
     assert structure.contains_sequence(text, ["Playing In The Band", "Playing In The Band"])
     assert not structure.contains_sequence(text, ["Playing In The Band"] * 3)
-
-
-import pytest
-from llama.structure import fuzzy_norm_title, fuzzy_title_eq
-
-
-@pytest.mark.parametrize("dropped,spelled", [
-    ("Knockin' On Heaven's Door", "Knocking On Heaven's Door"),
-    ("Truckin'", "Trucking"),
-    ("Doin' That Rag", "Doing That Rag"),
-    ("Playin' In The Band", "Playing In The Band"),
-    ("Dancin' In The Streets", "Dancing In The Streets"),
-])
-def test_dropped_g_folds_to_the_spelled_out_form(dropped, spelled):
-    assert fuzzy_norm_title(dropped) == fuzzy_norm_title(spelled)
-
-
-@pytest.mark.parametrize("a,b", [
-    ("Sin City", "Sing Me Back Home"),
-    ("The Thing", "Thin Man"),
-    ("King Bee", "Kin Folk"),
-    ("Ring Of Fire", "Rin Tin Tin"),
-])
-def test_words_without_an_apostrophe_are_never_folded(a, b):
-    # The apostrophe is the whole safety mechanism. Folding normalized forms
-    # instead would collide sing/sin, thing/thin, wing/win, king/kin.
-    assert fuzzy_norm_title(a) != fuzzy_norm_title(b)
-    assert not fuzzy_title_eq(fuzzy_norm_title(a), fuzzy_norm_title(b))
-
-
-def test_fold_only_fires_at_a_word_ending():
-    # An interior "in'" followed by a letter is not a dropped g.
-    assert fuzzy_norm_title("Sin'ful Days") == fuzzy_norm_title("Sinful Days")
