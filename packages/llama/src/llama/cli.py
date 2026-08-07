@@ -630,6 +630,11 @@ def _fmt_dur(sec) -> str:
 
 
 def _format_tracks(show) -> list[str]:
+    # title_source says where a title CAME FROM, not whether it MATCHED. The
+    # gd1990-03-29 encore read "tags" -- the most ordinary value there is --
+    # while matching nothing, so the only symptom was a hold naming a
+    # different song. The two are orthogonal; this column carries the second.
+    _MARK = {True: " ", False: "?", None: "-"}
     lines = ["tracks:"]
     for t in show.tracks:
         title = t.title if t.title_source != "unresolved" else "(unknown)"
@@ -638,8 +643,10 @@ def _format_tracks(show) -> list[str]:
         # 14 is the width of the longest title_source, "sibling-format" - at 10
         # it rendered as "sibling-fo". Nothing wider exists: tags 4, setlist 7,
         # sibling 7, override 8, unresolved 10.
-        lines.append(f"  {t.index:2d}. set {t.set:6.6s} {title:28.28s} "
+        lines.append(f"  {t.index:2d}. set {t.set:6.6s} {_MARK[t.matched]} {title:28.28s} "
                      f"{t.title_source:14.14s} {_fmt_dur(t.duration_sec):>6s}  {t.filename}")
+    if any(t.matched is False for t in show.tracks):
+        lines.append("  ? = no setlist match")
     return lines
 
 

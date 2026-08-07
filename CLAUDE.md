@@ -139,11 +139,13 @@ tier (pins never escalate).
 - **`overrides.json`:** the one durable, app-edited per-show input —
   excluded source-track filenames, `narration` (`full`/`vague`), and
   metadata corrections (`venue`, `city`, `date`, `titles`: track#→forced
-  title, `set_breaks`: track numbers a break falls after, numbered-sets-only)
-  — that survive every `redo`. `gather` drops excluded files (reason
+  title, `set_breaks`: track numbers a break falls after, numbered-sets-only,
+  `encore_after`: track number past which every remaining track relabels
+  "encore") — that survive every `redo`. `gather` drops excluded files (reason
   `operator-excluded`), forces `venue`/`city`/`date`/track titles/set
   breaks when their fields are set (bypassing structure alignment entirely
-  for `set_breaks`), and `brief` reads `narration=vague` to write a
+  for `set_breaks`/`encore_after`; `encore_after` must exceed every
+  `set_breaks` entry), and `brief` reads `narration=vague` to write a
   briefing that names no songs and asserts no set structure (the LLM's own
   opinion of `narration` is never trusted — stamped from `overrides.json`
   after generation); `show.json` stays purely derived and is never itself
@@ -152,8 +154,9 @@ tier (pins never escalate).
   `llama triage` (interactive walkthrough over held shows, default
   `--held`) are the only ways to edit it — `--exclude`/`--unexclude`
   (filename or track number, `--tracks` on `show` lists them) and
-  `--set-venue`/`--set-city`/`--set-date`/`--set-title N=…`/`--set-breaks`
-  (plus their `--clear-*` counterparts) all redo from `gather`, and a hold
+  `--set-venue`/`--set-city`/`--set-date`/`--set-title N=…`/`--set-breaks`/
+  `--set-encore` (plus their `--clear-*` counterparts) all redo from
+  `gather`, and a hold
   **self-clears** whenever the re-gather no longer reproduces the flag that
   caused it (gather recomputes `needs_review`/`review_flags` from scratch
   every run). The other two gate-2 resolutions: **accept-vague** (`fix

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from llama.models import Criteria, Overrides
+from llama.models import Criteria, Overrides, Show, Track
 from llama.workspace import (
     RunWorkspace, ShowWorkspace, drop_stage_artifacts, read_json, read_model, read_model_list,
     read_overrides, should_run, write_artifact,
@@ -14,6 +14,27 @@ def test_atomic_model_roundtrip(tmp_path: Path):
     write_artifact(p, c)
     assert read_model(p, Criteria) == c
     assert not list(tmp_path.rglob("*.tmp"))
+
+
+def test_track_matched_survives_show_json_round_trip(tmp_path: Path):
+    """Nothing pinned that `matched` isn't silently dropped from show.json --
+    which is exactly what _format_tracks reads back. True/False/None must
+    all come back distinct, not just "present"."""
+    ws = ShowWorkspace(tmp_path / "shows" / "x")
+    show = Show(
+        performance_id="x/1990-03-29", identifier="gd90-03-29", artist="Grateful Dead",
+        date="1990-03-29",
+        tracks=[
+            Track(index=1, set="1", title="Matched", filename="a.mp3",
+                  title_source="tags", matched=True),
+            Track(index=2, set="1", title="Unmatched", filename="b.mp3",
+                  title_source="tags", matched=False),
+            Track(index=3, set="1", title="Unknown", filename="c.mp3",
+                  title_source="override", matched=None),
+        ])
+    write_artifact(ws.show, show)
+    loaded = read_model(ws.show, Show)
+    assert [t.matched for t in loaded.tracks] == [True, False, None]
 
 
 def test_model_list_and_plain_data(tmp_path: Path):

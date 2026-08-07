@@ -94,3 +94,42 @@ def test_pipeline_makes_no_writes(tmp_path: Path, monkeypatch):
     result = runner.invoke(app, ["pipeline"])
     assert result.exit_code == 0
     assert list(tmp_path.iterdir()) == []
+
+
+def _show_with(matched_flags):
+    """duration_sec=300 on every track so _fmt_dur never falls back to its own
+    "?" for a missing duration -- that would collide with the unmatched-track
+    marker this suite is asserting on, independent of `matched`."""
+    from llama.models import Show, Track
+
+    return Show(
+        performance_id="x/1990-03-29", identifier="gd90-03-29", artist="Grateful Dead",
+        date="1990-03-29",
+        tracks=[Track(index=i + 1, set="1", title=f"Song {i + 1}",
+                      filename=f"t{i + 1}.mp3", title_source="tags", matched=m,
+                      duration_sec=300)
+                for i, m in enumerate(matched_flags)])
+
+
+def test_format_tracks_flags_an_unmatched_track():
+    from llama.cli import _format_tracks
+
+    lines = _format_tracks(_show_with([True, False]))
+    assert "?" not in lines[1], "a matched track carries no marker"
+    assert "?" in lines[2], "an unmatched track is marked"
+    assert any("? = no setlist match" in ln for ln in lines), "legend must appear"
+
+
+def test_format_tracks_renders_unknown_distinctly():
+    from llama.cli import _format_tracks
+
+    lines = _format_tracks(_show_with([None, None]))
+    assert "?" not in "".join(lines), "unknown must not read as unmatched"
+    assert "-" in lines[1]
+
+
+def test_format_tracks_omits_the_legend_when_everything_matched():
+    from llama.cli import _format_tracks
+
+    lines = _format_tracks(_show_with([True, True]))
+    assert not any("no setlist match" in ln for ln in lines)
