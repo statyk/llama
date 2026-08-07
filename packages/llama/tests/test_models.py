@@ -23,6 +23,21 @@ def test_show_defaults():
     assert s.needs_review is False and s.review_flags == [] and s.set_breaks == []
 
 
+def test_track_matched_defaults_to_unknown():
+    from llama.models import Track
+
+    t = Track(index=1, set="1", title="Bertha", filename="a.mp3", title_source="tags")
+    assert t.matched is None
+
+
+def test_manifest_track_has_no_matched_field():
+    """The cue is show-internal. ManifestTrack is the package contract emcee
+    reads; adding a field there would be a contract change."""
+    from llama.models import ManifestTrack
+
+    assert "matched" not in ManifestTrack.model_fields
+
+
 def test_manifest_schema_version():
     m = Manifest(
         show={}, source={}, tracks=[], set_breaks=[],

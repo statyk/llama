@@ -155,6 +155,10 @@ class Track(BaseModel):
     duration_sec: float | None = None
     segue: bool = False
     title_source: str  # "tags" | "sibling-format" | "setlist" | "sibling" | "unresolved" | "override"
+    # Did this track match a canonical setlist item? None = not measured --
+    # the override path skips align() entirely and forces coverage to 1.0, so
+    # rendering unknown as "matched" would assert something never checked.
+    matched: bool | None = None
 
 
 class Show(BaseModel):

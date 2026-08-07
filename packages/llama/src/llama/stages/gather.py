@@ -659,8 +659,8 @@ def run_gather(
             else:
                 flags.append("low-confidence structure alignment")
 
-        tracks = [t.model_copy(update={"set": s, "segue": g})
-                  for t, s, g in zip(tracks, result.sets, result.segues)]
+        tracks = [t.model_copy(update={"set": s, "segue": g, "matched": m})
+                  for t, s, g, m in zip(tracks, result.sets, result.segues, result.matched)]
         breaks = set_breaks(tracks)
         coverage, conflicts = result.coverage, result.conflicts
         # merge_conflicts has three different lifecycles, same exposure as

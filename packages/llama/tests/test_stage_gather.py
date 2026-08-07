@@ -138,6 +138,33 @@ def test_gather_recovers_structure_from_sibling(tmp_path: Path):
     assert show.needs_review is False
 
 
+def test_align_result_matched_reaches_the_track(tmp_path: Path):
+    """AlignResult.matched was computed per track, used for coverage, and
+    discarded. It is the only record of whether a title matched a canonical
+    setlist item -- title_source says only where the title came from."""
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
+    assert show.structure.alignment == "deterministic"
+    assert show.structure.coverage == 1.0
+    assert all(t.matched is not None for t in show.tracks), \
+        "the deterministic path measures every track"
+    # coverage 1.0 on this fixture means every track matched -- a weaker
+    # `any(... is True)` would pass even if `matched` were fed the wrong
+    # per-track boolean list (e.g. segues, which is also list[bool] and also
+    # has some True values), so it wouldn't catch that class of mistake.
+    assert all(t.matched is True for t in show.tracks)
+
+
+def test_override_path_leaves_matched_unmeasured(tmp_path: Path):
+    """The override path skips align() and forces coverage to 1.0, so there is
+    no per-track match data. None must mean unknown, never matched."""
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(set_breaks=[11], encore_after=26))
+    show = run_gather(sws, gd74_ia(), FakeProvider(), gd74_candidate(), W_IDENT)
+    assert show.structure.alignment == "override"
+    assert all(t.matched is None for t in show.tracks)
+
+
 def test_gather_setlistfm_wins_with_lma_segues(tmp_path: Path):
     import httpx
 
