@@ -1187,7 +1187,8 @@ def fix(
         help="Mark the encore: it begins after track N (same convention as --set-breaks). "
              "On a multi-set show, combine with --set-breaks -- the override path replaces "
              "alignment entirely rather than adding to it, so --set-encore alone flattens "
-             "every earlier set into set 1 and loses every segue."),
+             "every earlier set into set 1. Any structure override loses every segue; "
+             "combining the flags does not bring segues back."),
     clear_encore: bool = typer.Option(
         False, "--clear-encore", help="Clear the encore override"),
     narration: NarrationMode = typer.Option(

@@ -234,12 +234,19 @@ Semantics:
   encore).
 - **On a multi-set show, omitting `set_breaks` flattens it.** The override
   path skips `align()` entirely, so `_sets_from_breaks` labels every track
-  before `encore_after` `"1"` and every segue is lost — `structure_guard`
-  does not catch this either, because `encore_after` implies a break,
-  `set_breaks` becomes non-empty, and the guard short-circuits before its
-  "setlist evidence shows multiple sets" arm can fire. The structural fix —
-  run the normal align path and relabel only the tail `encore` — is filed,
-  not done.
+  before `encore_after` `"1"`. Segue loss is not specific to this case —
+  taking the override path at all (`set_breaks` and/or `encore_after`, any
+  combination) sets only `set` and never `segue`/`matched`, so every
+  segue is lost regardless of whether the flattening itself is caught.
+  Whether `structure_guard` catches the flattening **depends on jerrybase
+  evidence**: its `expected_set_count` arm (fed from jerrybase) runs first
+  and, when the show has a jerrybase event, fires `structure has 1 sets but
+  jerrybase shows 2` before the `set_breaks`-non-empty short-circuit is
+  ever reached. Only when there is no jerrybase event for the show does
+  that short-circuit (`encore_after` implies a break, so `set_breaks` is
+  non-empty) suppress the guard's "setlist evidence shows multiple sets"
+  arm and let a flattened show ship unflagged. The structural fix — run the
+  normal align path and relabel only the tail `encore` — is filed, not done.
 - Validation: `1 <= encore_after < len(tracks)`, and `> max(set_breaks)` when
   both are present. Out of range raises `LlamaError`, matching the existing
   `set_breaks` behaviour.
