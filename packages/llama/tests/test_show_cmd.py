@@ -126,6 +126,17 @@ def test_stage_table_lists_briefing_json_once_present(tmp_path: Path):
     assert "d old" in line
 
 
+# --- overrides display (text mode) ---
+
+def test_encore_after_shown_in_text_mode(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    write_artifact(ws.overrides, {"encore_after": 16})
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert r.exit_code == 0, r.output
+    assert "encore_after=16" in r.output
+
+
 # --- --json ---
 
 def test_json_schema_spot_checks(tmp_path: Path):
