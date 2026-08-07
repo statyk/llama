@@ -62,7 +62,9 @@ def _validate_structure_override(n_tracks: int, breaks: list[int],
                          f"(show has {n_tracks} tracks)")
     if breaks and encore_after <= max(breaks):
         raise LlamaError(f"overrides.encore_after ({encore_after}) must be greater "
-                         f"than every set break {sorted(breaks)}")
+                         f"than every set break {sorted(breaks)} -- if {encore_after} "
+                         f"is already listed in set_breaks, drop it there instead: "
+                         f"encore_after implies that break on its own")
 
 
 def _breaks_of(sets: list[str]) -> list[int]:

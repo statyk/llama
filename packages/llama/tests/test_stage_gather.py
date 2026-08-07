@@ -1194,15 +1194,16 @@ def test_overrides_accepts_encore_after():
     assert Overrides(encore_after=16).encore_after == 16
 
 
-def test_encore_override_labels_tracks_and_implies_a_break(tmp_path):
-    """encore_after implies a break at that track, so the operator does not
-    list it twice, and show.set_breaks reports it."""
-    from llama.stages.gather import _sets_from_breaks
-
-    labels = _sets_from_breaks(17, [7], encore_after=16)
-    breaks = sorted({7} | {16})
-    assert breaks == [7, 16]
-    assert labels[16] == "encore"
+def test_gather_encore_override_labels_tracks_and_implies_a_break(tmp_path: Path):
+    """encore_after alone (no set_breaks) implies a break at that track, so
+    the operator does not list it twice, and show.set_breaks reports it."""
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(encore_after=4))
+    show = run_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    # 6-track fixture, encore_after=4 -> tracks 1-4 unbroken, 5-6 are the encore
+    assert [t.set for t in show.tracks][-2:] == ["encore", "encore"]
+    assert show.set_breaks == [4]
+    assert show.structure is not None and show.structure.alignment == "override"
 
 
 def test_encore_override_out_of_range_is_rejected():
