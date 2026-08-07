@@ -634,6 +634,8 @@ def _format_tracks(show) -> list[str]:
     # gd1990-03-29 encore read "tags" -- the most ordinary value there is --
     # while matching nothing, so the only symptom was a hold naming a
     # different song. The two are orthogonal; this column carries the second.
+    # the duration column's own "?" (_fmt_dur) can't co-occur: junk drops
+    # files with no length.
     _MARK = {True: " ", False: "?", None: "-"}
     lines = ["tracks:"]
     for t in show.tracks:

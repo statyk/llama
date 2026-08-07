@@ -111,12 +111,23 @@ def _show_with(matched_flags):
                 for i, m in enumerate(matched_flags)])
 
 
+# Fixed column of the match-marker char in a _format_tracks row: 2 leading
+# spaces + 2-digit index + ". set " (6 chars) + the 6-wide `set` field + 1
+# space = 17. Verified directly against _format_tracks's own output, not
+# assumed -- a substring check ("?" in line) would also be satisfied by a
+# "?" elsewhere on the line (duration) or a "-" inside a filename, title, or
+# the literal title_source "sibling-format", so only a fixed-offset check is
+# load-bearing.
+_MARK_COL = 17
+
+
 def test_format_tracks_flags_an_unmatched_track():
     from llama.cli import _format_tracks
 
     lines = _format_tracks(_show_with([True, False]))
-    assert "?" not in lines[1], "a matched track carries no marker"
-    assert "?" in lines[2], "an unmatched track is marked"
+    assert lines[1][_MARK_COL] == " ", "a matched track carries no marker"
+    assert lines[2][_MARK_COL] == "?", "an unmatched track is marked"
+    assert lines[1].count("?") == 0
     assert any("? = no setlist match" in ln for ln in lines), "legend must appear"
 
 
@@ -124,8 +135,8 @@ def test_format_tracks_renders_unknown_distinctly():
     from llama.cli import _format_tracks
 
     lines = _format_tracks(_show_with([None, None]))
-    assert "?" not in "".join(lines), "unknown must not read as unmatched"
-    assert "-" in lines[1]
+    assert lines[1][_MARK_COL] == "-", "unknown must not read as unmatched"
+    assert lines[1].count("?") == 0 and lines[2].count("?") == 0
 
 
 def test_format_tracks_omits_the_legend_when_everything_matched():
@@ -133,3 +144,27 @@ def test_format_tracks_omits_the_legend_when_everything_matched():
 
     lines = _format_tracks(_show_with([True, True]))
     assert not any("no setlist match" in ln for ln in lines)
+
+
+def test_format_tracks_distinguishes_matched_unmatched_and_unknown():
+    """Reviewer-caught gap: two mutations that collapse only TWO of the three
+    `matched` states each still passed all other format_tracks tests --
+    _MARK[True] = " " -> "-" (matched reads identically to unmeasured), and
+    _MARK[True] = " " -> "" (mixed rows misalign, but that alone escaped a
+    fixed-column check too: dropping the marker to a zero-width string still
+    happened to land a space at column 17 on the shortened row, by
+    coincidence of the surrounding padding -- only a whole-row alignment
+    check catches it). A single show carrying all three states, checked both
+    at the fixed marker column AND for equal row length / a shared duration
+    offset, closes both mutations: it requires three DISTINCT one-character
+    markers rendered at a consistent width, not merely "a marker is present
+    somewhere"."""
+    from llama.cli import _format_tracks
+
+    lines = _format_tracks(_show_with([True, False, None]))
+    rows = lines[1:4]
+    marks = [ln[_MARK_COL] for ln in rows]
+    assert marks == [" ", "?", "-"]
+    assert len(set(marks)) == 3, "matched/unmatched/unknown must render as three distinct marks"
+    assert len({len(ln) for ln in rows}) == 1, "every row must be the same width"
+    assert len({ln.index(" 5:00") for ln in rows}) == 1, "the duration column must line up"

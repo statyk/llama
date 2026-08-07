@@ -155,9 +155,8 @@ tier (pins never escalate).
   `--held`) are the only ways to edit it — `--exclude`/`--unexclude`
   (filename or track number, `--tracks` on `show` lists them) and
   `--set-venue`/`--set-city`/`--set-date`/`--set-title N=…`/`--set-breaks`/
-  `--set-encore` (plus their `--clear-*` counterparts) all redo from
-  `gather`, and a hold
-  **self-clears** whenever the re-gather no longer reproduces the flag that
+  `--set-encore` (plus their `--clear-*` counterparts) all redo from `gather`,
+  and a hold **self-clears** whenever the re-gather no longer reproduces the flag that
   caused it (gather recomputes `needs_review`/`review_flags` from scratch
   every run). The other two gate-2 resolutions: **accept-vague** (`fix
   --narration vague` → redo from `brief`, regenerating the briefing and
