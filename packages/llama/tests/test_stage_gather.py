@@ -1204,6 +1204,7 @@ def test_gather_encore_override_labels_tracks_and_implies_a_break(tmp_path: Path
     assert [t.set for t in show.tracks][-2:] == ["encore", "encore"]
     assert show.set_breaks == [4]
     assert show.structure is not None and show.structure.alignment == "override"
+    assert show.structure.source == "override"
 
 
 def test_encore_override_out_of_range_is_rejected():
