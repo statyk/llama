@@ -1,11 +1,46 @@
 import re
+import time
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ValidationError
 
-from herder.provider import LLMProvider, TaskFailed
+from herder.provider import HerderError, LLMProvider, ResearchNotSupported, TaskFailed
 
 ProviderOrLadder = LLMProvider | Sequence[LLMProvider]
+
+# Transport failures are a different class from bad replies and get their own
+# retries. A backend can die mid-response for reasons that have nothing to do
+# with the prompt - the observed case is `claude` exiting 1 with "API Error:
+# Connection closed mid-response" after streaming an Opus reply for 3.5
+# minutes. Retrying the identical prompt is the whole fix; without it a single
+# network blip failed a show that was one stage from packaging.
+TRANSPORT_ATTEMPTS = 3
+TRANSPORT_BACKOFF_S = (2.0, 8.0)
+
+_sleep = time.sleep  # indirection so tests don't actually wait
+
+
+def _with_transport_retry(call, prompt: str, attempts: int = TRANSPORT_ATTEMPTS) -> str:
+    """Call a provider, retrying transient backend failures verbatim.
+
+    Deliberately does NOT escalate the ladder or amend the prompt: a dropped
+    connection is not evidence the model needed to be smarter, and paying for
+    a tier upgrade over a network blip is the wrong reflex. TaskFailed and
+    ResearchNotSupported are definitive verdicts, not transport noise, so
+    they propagate on the first raise.
+    """
+    last: BaseException | None = None
+    for attempt in range(attempts):
+        try:
+            return call(prompt)
+        except (TaskFailed, ResearchNotSupported):
+            raise
+        except HerderError as err:
+            last = err
+            if attempt + 1 < attempts:
+                _sleep(TRANSPORT_BACKOFF_S[min(attempt, len(TRANSPORT_BACKOFF_S) - 1)])
+    assert last is not None  # the loop only exits here after catching
+    raise last
 
 
 def _as_ladder(provider: ProviderOrLadder) -> list[LLMProvider]:
@@ -52,7 +87,7 @@ def run_json_task(
     attempt_prompt = prompt
     raw = ""
     for attempt in range(retries + 1):
-        raw = ladder[min(attempt, len(ladder) - 1)].complete(attempt_prompt)
+        raw = _with_transport_retry(ladder[min(attempt, len(ladder) - 1)].complete, attempt_prompt)
         try:
             return schema.model_validate_json(extract_json(raw))
         except (ValidationError, ValueError) as err:
@@ -81,7 +116,7 @@ def run_research_task(
     attempt_prompt = prompt
     raw = ""
     for attempt in range(retries + 1):
-        raw = ladder[min(attempt, len(ladder) - 1)].research(attempt_prompt)
+        raw = _with_transport_retry(ladder[min(attempt, len(ladder) - 1)].research, attempt_prompt)
         missing = [s for s in required_sections if s.lower() not in raw.lower()]
         if not missing:
             return raw

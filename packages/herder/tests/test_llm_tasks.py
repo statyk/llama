@@ -1,7 +1,7 @@
 import pytest
 from pydantic import BaseModel
 
-from herder import FakeProvider, TaskFailed, tasks
+from herder import FakeProvider, HerderError, ResearchNotSupported, TaskFailed, tasks
 
 
 class Answer(BaseModel):
@@ -105,3 +105,83 @@ def test_run_research_task_escalates_on_final_attempt():
                                   required_sections=SECTIONS, topic="x")
     assert out == REPORT
     assert len(base.calls) == 2 and len(escalated.calls) == 1
+
+
+# --- transport-failure retries -------------------------------------------
+# A dropped connection mid-response (observed: claude exits 1 with
+# "API Error: Connection closed mid-response") used to escape run_json_task's
+# loop entirely, because the provider call sat outside the try. One network
+# blip killed a whole show that was otherwise minutes from packaging.
+
+
+def _no_sleep(monkeypatch):
+    monkeypatch.setattr(tasks, "_sleep", lambda _s: None)
+
+
+def test_transport_failure_is_retried_on_the_same_prompt(monkeypatch):
+    _no_sleep(monkeypatch)
+    fake = FakeProvider(completes=[HerderError("connection closed"), '{"value": 5}'])
+    assert tasks.run_json_task(fake, "brief", Answer, template="Q: {{q}}", q="x").value == 5
+    # retried verbatim: a dropped connection says nothing about prompt quality,
+    # so it must not carry the "your previous response was invalid" feedback
+    assert [c[1] for c in fake.calls] == ["Q: x", "Q: x"]
+
+
+def test_transport_failure_exhausts_and_raises_the_last_error(monkeypatch):
+    _no_sleep(monkeypatch)
+    fake = FakeProvider(completes=[HerderError("boom 1"), HerderError("boom 2"),
+                                   HerderError("boom 3")])
+    with pytest.raises(HerderError, match="boom 3"):
+        tasks.run_json_task(fake, "brief", Answer, template="Q: {{q}}", q="x")
+    assert len(fake.calls) == 3
+
+
+def test_transport_retry_does_not_consume_validation_attempts(monkeypatch):
+    _no_sleep(monkeypatch)
+    # one blip, then two bad replies, then a good one: the blip must not eat a
+    # validation attempt, so the third reply still gets served
+    fake = FakeProvider(completes=[HerderError("blip"), "bad", "worse", '{"value": 1}'])
+    assert tasks.run_json_task(fake, "brief", Answer, template="Q: {{q}}", q="x").value == 1
+
+
+def test_transport_retry_stays_on_the_same_ladder_rung(monkeypatch):
+    _no_sleep(monkeypatch)
+    base = FakeProvider(completes=[HerderError("blip"), '{"value": 2}'])
+    escalated = FakeProvider(completes=['{"value": 99}'])
+    result = tasks.run_json_task([base, base, escalated], "brief", Answer,
+                                 template="Q: {{q}}", q="x")
+    # a network blip must not buy a tier upgrade
+    assert result.value == 2
+    assert escalated.calls == []
+
+
+def test_task_failed_is_not_retried_as_transport(monkeypatch):
+    _no_sleep(monkeypatch)
+    fake = FakeProvider(completes=[TaskFailed("definitive"), '{"value": 1}'])
+    with pytest.raises(TaskFailed, match="definitive"):
+        tasks.run_json_task(fake, "brief", Answer, template="Q: {{q}}", q="x")
+    assert len(fake.calls) == 1
+
+
+def test_research_not_supported_is_not_retried(monkeypatch):
+    _no_sleep(monkeypatch)
+    fake = FakeProvider(researches=[ResearchNotSupported("no web"), "# Findings"])
+    with pytest.raises(ResearchNotSupported):
+        tasks.run_research_task(fake, "deep_research", template="R {{t}}", t="x")
+    assert len(fake.calls) == 1
+
+
+def test_research_transport_failure_is_retried(monkeypatch):
+    _no_sleep(monkeypatch)
+    fake = FakeProvider(researches=[HerderError("connection closed"), "# Findings"])
+    assert tasks.run_research_task(fake, "deep_research", template="R {{t}}", t="x") == "# Findings"
+    assert len(fake.calls) == 2
+
+
+def test_transport_retry_backs_off_between_attempts(monkeypatch):
+    slept = []
+    monkeypatch.setattr(tasks, "_sleep", slept.append)
+    fake = FakeProvider(completes=[HerderError("a"), HerderError("b"), '{"value": 1}'])
+    tasks.run_json_task(fake, "brief", Answer, template="Q: {{q}}", q="x")
+    # backs off before each retry, and waits longer the second time
+    assert len(slept) == 2 and slept[1] > slept[0]
