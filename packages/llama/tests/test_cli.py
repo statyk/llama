@@ -137,6 +137,10 @@ def test_format_tracks_renders_unknown_distinctly():
     lines = _format_tracks(_show_with([None, None]))
     assert lines[1][_MARK_COL] == "-", "unknown must not read as unmatched"
     assert lines[1].count("?") == 0 and lines[2].count("?") == 0
+    # whole-output check, not just the track rows: unknown must not trip the
+    # legend either -- narrowing this to the row-only checks above is what
+    # let "matched is False" -> "matched is not True" slip through unpinned.
+    assert "?" not in "".join(lines)
 
 
 def test_format_tracks_omits_the_legend_when_everything_matched():
