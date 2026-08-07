@@ -157,7 +157,8 @@ tier (pins never escalate).
   `--set-venue`/`--set-city`/`--set-date`/`--set-title N=…`/`--set-breaks`/
   `--set-encore` (plus their `--clear-*` counterparts) all redo from
   `gather`, and a hold **self-clears** whenever the re-gather no longer
-  reproduces the flag that caused it (gather recomputes `needs_review`/`review_flags` from scratch every run). On a multi-set show,
+  reproduces the flag that caused it (gather recomputes
+  `needs_review`/`review_flags` from scratch every run). On a multi-set show,
   `--set-encore` must be combined with `--set-breaks` to keep set labelling
   correct — the override path skips alignment entirely rather than layering
   on it, so `--set-encore` alone flattens every set into `"1"`. Any
