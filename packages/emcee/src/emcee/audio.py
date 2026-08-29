@@ -181,6 +181,42 @@ def _segment_pcm(text: str, speech, chunk: bool) -> tuple[bytes, int, int]:
         return w.readframes(w.getnframes()), w.getframerate(), w.getnchannels()
 
 
+def render_speech_mp3(text: str, speech, *, chunk: bool = False,
+                      bed_pcm: bytes | None = None, bed_rate: int | None = None,
+                      bed_gain_db: float = 0.0) -> bytes:
+    """One passage of already-normalized text, rendered to MP3 bytes.
+
+    The single place the three render modes fork, shared by DJ-clip
+    synthesis (`_synthesize_dj_audio`) and ad-hoc narration (`emcee say`)
+    so the two can never drift apart:
+
+    - bed active (`bed_pcm` given): synthesize as PCM, mix the bed under it
+      (`mix_bed`), and encode once via lameenc. Hard-fails when the bed's
+      sample rate does not match the voice audio, or the voice is not mono.
+    - `chunk`: sentence-by-sentence synthesis concatenated as PCM, one
+      encode at the end (`_synthesize_chunked`).
+    - neither: a single whole-passage call, shipping the provider's own MP3
+      untouched.
+
+    Callers normalize the text (`normalize_for_speech`) and load the bed
+    (`load_bed_pcm`) themselves; this function does no I/O beyond the
+    provider call.
+    """
+    if bed_pcm is not None:
+        pcm, rate, channels = _segment_pcm(text, speech, chunk)
+        if rate != bed_rate:
+            raise SpeechError(
+                f"bed music sample rate {bed_rate}Hz does not match the "
+                f"voice audio ({rate}Hz)")
+        if channels != 1:
+            raise SpeechError("bed mixing requires mono voice audio")
+        return _encode_mp3(mix_bed(pcm, bed_pcm, rate, gain_db=bed_gain_db),
+                           rate, channels)
+    if chunk:
+        return _synthesize_chunked(text, speech)
+    return speech.synthesize(text)
+
+
 def _segment_texts(notes: ScriptNotes) -> list[tuple[str, str]]:
     """(segment file stem, text) in broadcast order: one lead-in per set, then outro."""
     ordered = sorted(notes.set_intros, key=lambda x: (x == "encore", x))
@@ -239,20 +275,9 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
         keys[filename] = key
         if force or not dest.exists() or cached.get(filename) != key:
             detail(f"synthesizing {filename}")
-            if bed is not None:
-                pcm, rate, channels = _segment_pcm(spoken, speech, chunk)
-                if rate != bed_rate:
-                    raise SpeechError(
-                        f"bed music sample rate {bed_rate}Hz does not match the "
-                        f"voice audio ({rate}Hz)")
-                if channels != 1:
-                    raise SpeechError("bed mixing requires mono voice audio")
-                data = _encode_mp3(mix_bed(pcm, bed_pcm, rate, gain_db=bed.gain_db),
-                                   rate, channels)
-            elif chunk:
-                data = _synthesize_chunked(spoken, speech)
-            else:
-                data = speech.synthesize(spoken)
+            data = render_speech_mp3(
+                spoken, speech, chunk=chunk, bed_pcm=bed_pcm, bed_rate=bed_rate,
+                bed_gain_db=bed.gain_db if bed is not None else 0.0)
             atomic_write_bytes(dest, data)
     for existing in audio_dir.glob("*.mp3"):
         if existing.name not in keys:

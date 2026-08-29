@@ -89,6 +89,54 @@ def speech_for(config: EmceeConfig, presenter: Presenter | None):
     return speech, _resolve_bed(config, presenter)
 
 
+def ad_hoc_speech(config: EmceeConfig, *, clone_ref: str | None = None,
+                  voice: str | None = None, presenter: Presenter | None = None):
+    """The speech provider for one ad-hoc `emcee say` run.
+
+    At most one voice source may be named: a reference clip to clone
+    (`--clone`), a preset voice (`--voice`), or an existing presenter
+    (`--presenter`, which brings its own voice or voice clone exactly as a
+    voiced package would). With none of them, falls back to the house
+    `[tts] voice`/`voice_clone` via `speech_for`, whose error message
+    already points at the right config keys when nothing is set.
+
+    Unlike `speech_for` this returns the provider alone -- `say` resolves
+    its bed separately through `ad_hoc_bed`, which layers the command
+    line's overrides on top.
+    """
+    named = [s for s in (clone_ref, voice, presenter) if s]
+    if len(named) > 1:
+        raise EmceeError("--clone, --voice and --presenter are mutually exclusive")
+    if presenter is not None:
+        return speech_provider_for(config, presenter.voice_id,
+                                   clone_ref=presenter.voice_clone)
+    if clone_ref:
+        return speech_provider_for(config, None, clone_ref=clone_ref)
+    if voice:
+        return speech_provider_for(config, voice)
+    speech, _ = speech_for(config, None)
+    return speech
+
+
+def ad_hoc_bed(config: EmceeConfig, presenter: Presenter | None, *,
+               bed_path: Path | None = None, no_bed: bool = False,
+               gain_db: float | None = None) -> Bed | None:
+    """The bed for one ad-hoc `emcee say` run, or None for a dry read.
+
+    Resolution order, highest first: `--no-bed` (suppresses every source),
+    `--bed PATH`, the presenter's own bed, `[tts] bed`. Gain comes from
+    `--bed-gain` when given, else the station `[tts] bed_gain_db` -- so a
+    presenter still never overrides gain, matching `_resolve_bed`.
+    """
+    if no_bed:
+        return None
+    gain = config.tts.bed_gain_db if gain_db is None else gain_db
+    if bed_path is not None:
+        return Bed(Path(bed_path), gain)
+    base = _resolve_bed(config, presenter)
+    return None if base is None else Bed(base.path, gain)
+
+
 def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = False) -> None:
     """Script, voice, and broadcast-assemble one delivered package.
 

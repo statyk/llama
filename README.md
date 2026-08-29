@@ -332,6 +332,27 @@ emcee's own factual guard, not llama's.
     emcee status                       # table of every package: ready / pending / unsupported
     emcee status --json
 
+**Ad-hoc narration.** Apart from the package pipeline entirely — no package,
+no script, no LLM, so it works on a station with no `[llm]` backend
+configured at all:
+
+    emcee say notes.txt                # -> notes.mp3, in the house [tts] voice
+    emcee say notes.txt --clone ref.wav -o read.mp3
+                                       # clone a 3-25s reference clip (Voxtral only)
+    emcee say notes.txt --presenter casey
+                                       # read it in a presenter's voice (and bed)
+    emcee say notes.txt --no-bed       # dry read; --bed FILE / --bed-gain DB override
+    emcee say notes.txt --no-chunk     # one call for the whole passage
+    emcee say notes.txt --raw          # verbatim: no symbol expansion, no lexicon
+
+Voice sources are mutually exclusive (`--clone` / `--voice` / `--presenter`);
+with none of them the house `[tts] voice`/`voice_clone` reads it. The bed
+resolves as a voiced package's does — the presenter's own bed, else
+`[tts] bed` — with `--bed`/`--bed-gain`/`--no-bed` overriding on the command
+line. Unlike DJ clips, chunking is **on** by default: an arbitrary text file
+routinely exceeds the backend's per-request character cap, which a single
+whole-passage call cannot survive.
+
 `emcee run` is the everyday command — "not broadcast-ready" *is* the work
 predicate, so there's nothing to track separately: every pending package
 gets a script, speech, and a `broadcast.m3u`, written straight into the

@@ -27,11 +27,13 @@ from emcee.audio import (
     _bitrate_for_rate,
     _split_sentences,
     _synthesize_chunked,
+    render_speech_mp3,
 )
 from emcee.config import EmceeConfig, TTSConfig
 from emcee.models import ScriptNotes
 from emcee.package_io import Package
 from emcee.process import process_package
+from emcee.tts.bed import load_bed_pcm
 from emcee.tts.fake import SILENT_MP3, FakeSpeechProvider
 from emcee.tts.provider import SpeechError
 
@@ -509,3 +511,48 @@ def test_chunk_false_uses_single_call_per_segment(tmp_path):
 
     # One call per segment (set1-intro, set2-intro, outro), not per sentence.
     assert speech.calls == [notes.set_intros["1"], notes.set_intros["2"], notes.outro]
+
+
+# --- render_speech_mp3: the shared single-text renderer ---------------------
+# The three-way render fork (bed -> chunk -> plain) extracted out of
+# _synthesize_dj_audio so `emcee say` renders ad-hoc text through the exact
+# same path a DJ clip does, rather than a parallel copy that can drift.
+
+
+def test_render_speech_mp3_plain_returns_the_providers_own_mp3():
+    speech = FakeSpeechProvider()
+
+    data = render_speech_mp3("Just a line.", speech, chunk=False)
+
+    assert data == SILENT_MP3
+    assert speech.calls == ["Just a line."]
+
+
+def test_render_speech_mp3_chunked_synthesizes_each_sentence():
+    speech = FakeSpeechProvider()
+
+    data = render_speech_mp3("First sentence here. Second sentence here.",
+                             speech, chunk=True)
+
+    assert speech.calls == ["First sentence here.", "Second sentence here."]
+    assert data.startswith(b"\xff")  # a real lameenc-encoded MP3, not SILENT_MP3
+    assert data != SILENT_MP3
+
+
+def test_render_speech_mp3_with_bed_is_longer_than_without(tmp_path):
+    bed_pcm, bed_rate, _, _ = load_bed_pcm(_bed_file(tmp_path))
+
+    plain = render_speech_mp3("A short read.", FakeSpeechProvider(), chunk=False)
+    bedded = render_speech_mp3("A short read.", FakeSpeechProvider(), chunk=False,
+                               bed_pcm=bed_pcm, bed_rate=bed_rate, bed_gain_db=-20.0)
+
+    # mix_bed adds 1.5s of pre-roll and 2s of tail around a ~0.3s clip.
+    assert len(bedded) > len(plain) * 4
+
+
+def test_render_speech_mp3_rejects_a_bed_whose_rate_differs_from_the_voice(tmp_path):
+    bed_pcm, _, _, _ = load_bed_pcm(_bed_file(tmp_path))
+
+    with pytest.raises(SpeechError, match="does not match the voice audio"):
+        render_speech_mp3("A short read.", FakeSpeechProvider(), chunk=False,
+                          bed_pcm=bed_pcm, bed_rate=48000, bed_gain_db=-20.0)

@@ -25,7 +25,7 @@ def test_ordered_panel_group_lists_commands_in_declared_order():
     click_group = get_command(app)
     ctx = click_group.make_context("emcee", [], resilient_parsing=True)
     assert click_group.list_commands(ctx) == _COMMAND_ORDER == \
-        ["run", "voice", "status", "presenter", "config"]
+        ["run", "voice", "status", "say", "presenter", "config"]
 
 
 def test_main_cli_renders_emcee_error(monkeypatch, capsys):

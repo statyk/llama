@@ -20,10 +20,15 @@ from emcee.package_io import Package, UnsupportedPackage, rewrite_manifest
 from emcee.presenters import (
     Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
 )
-from emcee.process import process_package, resolve_assignment, speech_for
+from emcee.audio import render_speech_mp3
+from emcee.process import (ad_hoc_bed, ad_hoc_speech, process_package,
+                           resolve_assignment, speech_for)
+from emcee.speech_text import load_lexicon, normalize_for_speech
+from emcee.tts.bed import load_bed_pcm
+from emcee.workspace import atomic_write_bytes
 from emcee.station import PackageStatus, readiness, scan
 
-_COMMAND_ORDER = ["run", "voice", "status", "presenter", "config"]
+_COMMAND_ORDER = ["run", "voice", "status", "say", "presenter", "config"]
 
 
 class OrderedPanelGroup(TyperGroup):
@@ -364,6 +369,87 @@ def voice_cmd(
             typer.echo(f"  {line}", err=True)
         raise typer.Exit(1)
     typer.echo(f"voiced: {pkg.dir}")
+
+
+@app.command("say")
+def say_cmd(
+    text_file: Path = typer.Argument(..., help="UTF-8 text file to read aloud"),
+    out: Path = typer.Option(
+        None, "-o", "--out",
+        help="Where to write the MP3; default <text file>.mp3 beside the input"),
+    clone: Path = typer.Option(
+        None, "--clone",
+        help="Reference clip to clone (3-25s WAV, Voxtral only), instead of a "
+             "preset voice"),
+    voice: str = typer.Option(
+        None, "--voice", help="Preset voice name, instead of the house [tts] voice"),
+    presenter: str = typer.Option(
+        None, "--presenter",
+        help="Read in this presenter's voice (and its bed), as a voiced package would"),
+    bed: Path = typer.Option(
+        None, "--bed",
+        help="Instrumental bed WAV (24kHz mono 16-bit) mixed under the voice; "
+             "overrides the presenter's bed and [tts] bed"),
+    no_bed: bool = typer.Option(
+        False, "--no-bed", help="Read dry: suppress the presenter's bed and [tts] bed"),
+    bed_gain: float = typer.Option(
+        None, "--bed-gain",
+        help="Bed loudness under the voice in dB (negative = quieter); "
+             "default [tts] bed_gain_db"),
+    chunk: bool = typer.Option(
+        True, "--chunk/--no-chunk",
+        help="Synthesize sentence-by-sentence and concatenate (default), rather "
+             "than one call for the whole passage"),
+    raw: bool = typer.Option(
+        False, "--raw",
+        help="Speak the text verbatim: skip symbol expansion and the "
+             "pronunciation lexicon"),
+):
+    """Voice an arbitrary text file to an MP3 -- no package, no script, no LLM.
+
+    The ad-hoc counterpart to `emcee voice`: `say` never touches a delivered
+    package, writes no manifest, and calls no language model -- it is purely
+    text in, speech out, so it works on a station whose `[llm]` backend is
+    absent or unconfigured.
+
+    VOICE: at most one of `--clone`, `--voice` and `--presenter`; with none of
+    them the house `[tts] voice`/`voice_clone` reads it.
+
+    BED: resolved exactly as a voiced package's is (the presenter's own bed,
+    else `[tts] bed`), with `--bed` overriding the file, `--bed-gain` the
+    loudness, and `--no-bed` suppressing it outright. As elsewhere, a bed must
+    be a 24kHz mono 16-bit WAV matching the voice audio, and a bedded clip is
+    re-encoded via lameenc rather than shipping the provider's own MP3.
+
+    CHUNKING defaults ON here, unlike `[tts] chunk` for DJ clips: an arbitrary
+    text file routinely exceeds the backend's per-request character cap, which
+    a single whole-passage call cannot survive. `--no-chunk` restores the
+    single call for short passages.
+    """
+    config = load_config()
+
+    text = text_file.read_text().strip()
+    if not text:
+        raise EmceeError(f"nothing to say: {text_file} is empty")
+
+    host = load_presenter(config.root, presenter) if presenter else None
+    speech = ad_hoc_speech(config, clone_ref=str(clone) if clone else None,
+                           voice=voice, presenter=host)
+    resolved_bed = ad_hoc_bed(config, host, bed_path=bed, no_bed=no_bed,
+                              gain_db=bed_gain)
+
+    spoken = text if raw else normalize_for_speech(text, load_lexicon(config.root))
+    bed_pcm = bed_rate = None
+    if resolved_bed is not None:
+        bed_pcm, bed_rate, _, _ = load_bed_pcm(resolved_bed.path)
+
+    data = render_speech_mp3(
+        spoken, speech, chunk=chunk, bed_pcm=bed_pcm, bed_rate=bed_rate,
+        bed_gain_db=resolved_bed.gain_db if resolved_bed is not None else 0.0)
+
+    dest = out or text_file.with_suffix(".mp3")
+    atomic_write_bytes(dest, data)
+    typer.echo(f"wrote {dest}")
 
 
 @app.command("status")

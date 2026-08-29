@@ -317,6 +317,15 @@ no separate queue file to fall out of sync:
 - `emcee status` — a table of every package's state (`ready` / `pending` /
   `unsupported` for a pre-v3 manifest, which needs re-delivering from
   llama, not upgrading in place).
+- `emcee say <text-file>` — the odd one out: ad-hoc narration of an
+  arbitrary text file to an MP3, touching no package, writing no manifest
+  and calling no LLM. It shares the station's voice and bed configuration
+  (and the same renderer the DJ clips go through), but every part of it is
+  overridable per invocation: `--clone`/`--voice`/`--presenter` for the
+  voice, `--bed`/`--bed-gain`/`--no-bed` for the bed, `--no-chunk` and
+  `--raw` for the text handling. Chunking defaults **on** here, unlike
+  `[tts] chunk`, because an arbitrary text file routinely exceeds the
+  backend's per-request character cap.
 
 For each pending package, emcee writes a DJ script (its own scriptwrite LLM
 task, factually guarded against that package's manifest — persona-styled

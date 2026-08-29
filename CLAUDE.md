@@ -45,7 +45,11 @@ implementation plan this was built from. The approved design spec is
   invalidates every clip's cache too — in practice `--fresh` normally
   re-renders every clip, not just the named one; `--force` re-synthesizes
   all of them unconditionally), `emcee status` (table of every package's
-  state: ready/pending/unsupported), `emcee presenter add/list/show/remove`
+  state: ready/pending/unsupported), `emcee say <text-file>` (ad-hoc
+  narration: text file in, MP3 out, no package/script/LLM — voice via
+  `--clone`/`--voice`/`--presenter` else the house `[tts] voice`, bed via
+  `--bed`/`--bed-gain`/`--no-bed` else the package rules, chunking ON by
+  default unlike `[tts] chunk`), `emcee presenter add/list/show/remove`
   (`presenters/<id>.toml`), `emcee config init`.
 
 ## What this is
@@ -70,6 +74,10 @@ not held for review, and every manifest track's audio file present on disk.
 (`[station] root`), never on llama's own library. "Not broadcast-ready" IS
 the work predicate: `emcee run` scans the station root and voices every
 package that isn't yet broadcast-ready, no separate state file needed.
+The one exception to the package-shaped rule is `emcee say`, which voices
+an arbitrary text file to an MP3 — no package, no manifest, no LLM call —
+reusing the same voice/bed resolution and `audio.render_speech_mp3`
+renderer as the DJ clips.
 emcee owns presenters (`presenters/<id>.toml`: name/sex/character +
 `voice` XOR `voice_clone`), the script LLM task and its own factual guard,
 `speech_text` normalization, TTS (hosted Mistral Voxtral by default,

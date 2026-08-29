@@ -19,7 +19,8 @@ from emcee.errors import EmceeError
 from emcee.models import DJAudioBlock
 from emcee.package_io import Package
 from emcee.presenters import Presenter, save_presenter
-from emcee.process import _resolve_bed, process_package, resolve_assignment, speech_for
+from emcee.process import (_resolve_bed, ad_hoc_bed, ad_hoc_speech, process_package,
+                           resolve_assignment, speech_for)
 from emcee.tts.bed import Bed
 from emcee.tts.fake import FakeSpeechProvider
 from emcee.tts.provider import SpeechError
@@ -325,3 +326,106 @@ def test_broadcast_m3u_text_wraps_interleaved_paths():
     assert lines[2] == "audio/01 - Morning Dew.mp3"
     assert lines[-1] == "dj-audio/99-outro.mp3"
     assert text.endswith("\n")
+
+
+# ---------------------------------------------------------------------------
+# Ad-hoc narration (`emcee say`): voice + bed resolution
+# ---------------------------------------------------------------------------
+# `say` reuses the station's voice and bed configuration but lets the command
+# line override either, so an ad-hoc read is not forced through whatever the
+# station happens to be set up to broadcast.
+
+
+def test_ad_hoc_speech_falls_back_to_the_house_voice():
+    config = EmceeConfig(tts=TTSConfig(backend="voxtral", voice="house-preset",
+                                       api_key="k"))
+
+    speech = ad_hoc_speech(config)
+
+    assert speech.voice == "house-preset"
+
+
+def test_ad_hoc_speech_prefers_an_explicit_preset_over_the_house_voice():
+    config = EmceeConfig(tts=TTSConfig(backend="voxtral", voice="house-preset",
+                                       api_key="k"))
+
+    speech = ad_hoc_speech(config, voice="other-preset")
+
+    assert speech.voice == "other-preset"
+
+
+def test_ad_hoc_speech_clones_the_given_reference_clip(tmp_path):
+    ref = tmp_path / "ref.wav"
+    ref.write_bytes(b"REFERENCE-AUDIO-BYTES")
+    config = EmceeConfig(tts=TTSConfig(backend="voxtral", voice="house-preset",
+                                       api_key="k"))
+
+    speech = ad_hoc_speech(config, clone_ref=str(ref))
+
+    # Clone mode ignores the house preset entirely (VoxtralProvider stamps a
+    # content-hash voice id for a cloned reference).
+    assert speech.voice.startswith("clone:")
+
+
+def test_ad_hoc_speech_uses_a_presenters_own_voice():
+    config = EmceeConfig(tts=TTSConfig(backend="voxtral", voice="house-preset",
+                                       api_key="k"))
+
+    speech = ad_hoc_speech(config, presenter=_presenter(voice="waldo-preset"))
+
+    assert speech.voice == "waldo-preset"
+
+
+def test_ad_hoc_speech_rejects_more_than_one_voice_source(tmp_path):
+    config = EmceeConfig(tts=TTSConfig(backend="voxtral", api_key="k"))
+
+    with pytest.raises(EmceeError, match="mutually exclusive"):
+        ad_hoc_speech(config, voice="a-preset", presenter=_presenter())
+
+
+def test_ad_hoc_bed_defaults_to_the_station_bed():
+    config = EmceeConfig(tts=TTSConfig(bed="/station/bed.wav", bed_gain_db=-18.0))
+
+    bed = ad_hoc_bed(config, None)
+
+    assert bed == Bed(Path("/station/bed.wav"), -18.0)
+
+
+def test_ad_hoc_bed_prefers_a_presenters_own_bed():
+    config = EmceeConfig(tts=TTSConfig(bed="/station/bed.wav", bed_gain_db=-18.0))
+
+    bed = ad_hoc_bed(config, _presenter(bed="/waldo/bed.wav"))
+
+    # The presenter owns the bed FILE; gain stays station-level, matching
+    # `_resolve_bed`.
+    assert bed == Bed(Path("/waldo/bed.wav"), -18.0)
+
+
+def test_ad_hoc_bed_path_overrides_presenter_and_station():
+    config = EmceeConfig(tts=TTSConfig(bed="/station/bed.wav", bed_gain_db=-18.0))
+
+    bed = ad_hoc_bed(config, _presenter(bed="/waldo/bed.wav"),
+                     bed_path=Path("/cli/bed.wav"))
+
+    assert bed == Bed(Path("/cli/bed.wav"), -18.0)
+
+
+def test_ad_hoc_bed_no_bed_wins_over_every_other_source():
+    config = EmceeConfig(tts=TTSConfig(bed="/station/bed.wav"))
+
+    bed = ad_hoc_bed(config, _presenter(bed="/waldo/bed.wav"),
+                     bed_path=Path("/cli/bed.wav"), no_bed=True)
+
+    assert bed is None
+
+
+def test_ad_hoc_bed_gain_override_replaces_the_station_gain():
+    config = EmceeConfig(tts=TTSConfig(bed="/station/bed.wav", bed_gain_db=-18.0))
+
+    bed = ad_hoc_bed(config, None, gain_db=-6.0)
+
+    assert bed == Bed(Path("/station/bed.wav"), -6.0)
+
+
+def test_ad_hoc_bed_is_none_when_nothing_configures_one():
+    assert ad_hoc_bed(EmceeConfig(), None) is None
