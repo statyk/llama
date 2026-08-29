@@ -33,7 +33,10 @@ implementation plan this was built from. The approved design spec is
   editor, auto-redoes), `llama redo <name> --from <stage>`,
   `llama deliver <name>`, `llama rm <name>`, `llama suppress`/
   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
-  (session namespace). Shows/sessions are addressed by name or unique
+  (session namespace; a run that lost shows to a failure ends
+  `incomplete`, not `complete`, so it stays on `run list`'s attention list
+  — with the per-show reasons recorded in `session.json` — until a
+  `run resume` finishes cleanly). Shows/sessions are addressed by name or unique
   substring; paths still work. `llama config init` seeds a commented config
   of the baked-in defaults (config values replace defaults; nothing
   merges). No `voice`/`presenter` commands — that's emcee's job now.

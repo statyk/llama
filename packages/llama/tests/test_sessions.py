@@ -8,10 +8,13 @@ import llama.cli as cli
 from llama.models import Criteria
 from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
                             SessionInfo, attention_sessions, iter_sessions,
-                            mark_awaiting, mark_complete, session_state)
+                            mark_awaiting, mark_complete, mark_incomplete,
+                            session_state)
 from llama.workspace import RunWorkspace, claim_run_dir, write_artifact
 
-from test_pipeline import FakeIA, fake_providers
+from herder import FakeProvider
+
+from test_pipeline import JB_OFF, FakeIA, fake_providers
 
 runner = CliRunner()
 
@@ -187,3 +190,105 @@ def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypat
     run_dir = next((tmp_path / "runs").glob("*-sunday-dead-hour"))
     criteria = json.loads((run_dir / "criteria.json").read_text())
     assert criteria["profile"] == "sunday-dead-hour"
+
+
+# --- a run that lost shows stays on the attention list ---------------------
+# A per-show failure (usage limit, dropped connection, IA error) used to be
+# counted and forgotten: the run marked itself `complete` regardless, so
+# `run list` -- an attention list of state != complete -- never mentioned it
+# again, and the reasons existed only in the terminal.
+
+
+def _run_ws(tmp_path: Path) -> RunWorkspace:
+    ws = RunWorkspace(tmp_path, "2026-08-29-dead")
+    ws.dir.mkdir(parents=True, exist_ok=True)
+    return ws
+
+
+def test_mark_incomplete_records_state_outcome_and_failures(tmp_path: Path):
+    ws = _run_ws(tmp_path)
+    failures = [{"show": "GratefulDead/1968-02-14", "error": "usage limit reached"}]
+
+    mark_incomplete(ws, "5 packaged, 3 held, 1 failed", failures)
+
+    marker = json.loads(ws.session.read_text())
+    assert marker["state"] == STATE_INCOMPLETE
+    assert marker["outcome"] == "5 packaged, 3 held, 1 failed"
+    assert marker["failures"] == failures
+
+
+def test_incomplete_session_appears_on_the_attention_list(tmp_path: Path):
+    ws = _run_ws(tmp_path)
+
+    mark_incomplete(ws, "1 failed", [{"show": "x", "error": "boom"}])
+
+    assert [s.id for s in attention_sessions(tmp_path)] == ["2026-08-29-dead"]
+
+
+def test_session_info_carries_the_outcome_and_failures(tmp_path: Path):
+    ws = _run_ws(tmp_path)
+    failures = [{"show": "GratefulDead/1968-02-14", "error": "usage limit reached"}]
+
+    mark_incomplete(ws, "1 failed", failures)
+
+    info = attention_sessions(tmp_path)[0]
+    assert info.outcome == "1 failed"
+    assert info.failures == failures
+
+
+def test_a_clean_re_mark_clears_the_earlier_failures(tmp_path: Path):
+    ws = _run_ws(tmp_path)
+    mark_incomplete(ws, "1 failed", [{"show": "x", "error": "boom"}])
+
+    mark_complete(ws, "6 packaged")
+
+    # The marker is rewritten wholesale, so a successful resume erases the
+    # stale failure list by construction -- nothing to clean up separately.
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_COMPLETE
+    assert info.failures == []
+    assert attention_sessions(tmp_path) == []
+
+
+def test_a_complete_session_carries_no_failures(tmp_path: Path):
+    ws = _run_ws(tmp_path)
+
+    mark_complete(ws, "6 packaged")
+
+    assert iter_sessions(tmp_path)[0].failures == []
+
+
+def test_a_run_that_lost_a_show_ends_incomplete_and_records_why(tmp_path: Path, monkeypatch):
+    """End-to-end: the per-show failure handler used to count the loss and
+    call mark_complete anyway, so the run vanished from the attention list
+    and the reason survived only in the terminal."""
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = fake_providers(None)
+    providers["brief"] = FakeProvider(completes=["not json"] * 3)
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "get", "GD 1973", "--auto", "--name", "lostrun"])
+    assert result.exit_code == 0, result.output
+
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_INCOMPLETE
+    assert info.outcome == "1 failed"
+    assert [f["show"] for f in info.failures] == ["GratefulDead/1973-06-10"]
+    assert info.failures[0]["error"]  # the exception text, not an empty string
+
+
+def test_a_clean_run_still_ends_complete(tmp_path: Path, monkeypatch):
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "get", "GD 1973", "--auto", "--name", "cleanrun"])
+    assert result.exit_code == 0, result.output
+
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_COMPLETE
+    assert info.failures == []
+    assert attention_sessions(tmp_path) == []

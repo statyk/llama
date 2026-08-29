@@ -28,7 +28,7 @@ from llama.profiles import (
 )
 from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE,
                             attention_sessions, mark_awaiting, mark_complete,
-                            session_state)
+                            mark_incomplete, session_state)
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
@@ -222,10 +222,11 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         typer.echo(f"Shortlist awaits review: llama run approve {ws.name}")
         return
     setlistfm = make_client(config)
-    packaged = held = failed = 0
+    packaged = held = 0
+    failures: list[dict] = []          # {show, error} per show this run lost
 
     def _process(entry):
-        nonlocal packaged, held, failed
+        nonlocal packaged, held
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
                                force=force,
@@ -239,7 +240,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 failure_path.parent.mkdir(parents=True, exist_ok=True)
                 failure_path.write_text(exc.raw_output)
             typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
-            failed += 1
+            failures.append({"show": entry.candidate.performance_id, "error": str(exc)})
             return
         if pkg:
             typer.echo(f"packaged: {pkg}")
@@ -264,9 +265,17 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         parts.append(f"{packaged} packaged")
     if held:
         parts.append(f"{held} held")
-    if failed:
-        parts.append(f"{failed} failed")
-    mark_complete(ws, ", ".join(parts) if parts else None)
+    if failures:
+        parts.append(f"{len(failures)} failed")
+    outcome = ", ".join(parts) if parts else None
+    # A run that lost shows stays on the attention list (`run list` is
+    # state != complete) until a `run resume` finishes cleanly -- otherwise a
+    # usage limit or a dropped connection costs shows silently, and the only
+    # record of why scrolls off the terminal.
+    if failures:
+        mark_incomplete(ws, outcome, failures)
+    else:
+        mark_complete(ws, outcome)
 
 
 def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
@@ -446,7 +455,13 @@ def _print_sessions(sessions) -> None:
     for s in sessions:
         label = _ATTENTION_LABELS.get(s.state, s.state)
         age = _humanize_age(s.updated_at)
-        typer.echo(f"{s.id:<36} {label:<18} {age:>4}  {_session_criteria_str(s)}")
+        line = f"{s.id:<36} {label:<18} {age:>4}  {_session_criteria_str(s)}"
+        if s.outcome:
+            line += f"   {s.outcome}"
+        typer.echo(line)
+        # One line per show the run lost, mirroring `status`'s flag lines.
+        for failure in s.failures:
+            typer.echo(f"      - {failure.get('show', '?')}: {failure.get('error', '')}")
 
 
 @run_app.command("list")
@@ -1650,7 +1665,8 @@ _ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: 
 
 def _session_json(s) -> dict:
     return {"id": s.id, "state": s.state, "updated_at": s.updated_at,
-            "query": s.query, "profile": s.profile}
+            "query": s.query, "profile": s.profile,
+            "outcome": s.outcome, "failures": s.failures}
 
 
 def _print_attention(sessions) -> None:

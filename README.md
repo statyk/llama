@@ -141,7 +141,8 @@ unsigned — verify them against `SHA256SUMS`. See
     llama status                     # attention-list, then every show + its state
     llama status --held              # just the shows waiting on your judgment
     llama status --by-run            # sessions with per-state show counts
-    llama run list                   # sessions awaiting approval or incomplete
+    llama run list                   # sessions awaiting approval or incomplete,
+                                     # with what each run lost and why
     llama run approve countryish     # gate 1: approve a session's shortlist, optionally process it
     llama run resume countryish      # resume/replay a session; finished stages are skipped
     llama show 1973-06-10            # inspect one show (its state, artifacts, archive URL, flags)

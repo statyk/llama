@@ -10,7 +10,8 @@ import llama.cli as cli
 from llama.models import (
     Candidate, Criteria, QualityAssessment, RecordingSummary, ShortlistEntry,
 )
-from llama.sessions import STATE_AWAITING, STATE_COMPLETE, mark_awaiting, mark_complete
+from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, mark_awaiting,
+                            mark_complete, mark_incomplete)
 from llama.workspace import RunWorkspace, read_model_list, write_artifact
 
 runner = CliRunner()
@@ -411,3 +412,67 @@ def test_run_help_text_is_verbatim(tmp_path: Path):
     assert result.exit_code == 0, result.output
     assert ("Acquisition sessions — approve, resume, list, or discard."
             in result.output.replace("\n", " "))
+
+
+# ---------------------------------------------------------------------------
+# run list: what a run lost
+# ---------------------------------------------------------------------------
+# The outcome string has been recorded on every session since the marker
+# existed and was displayed nowhere; a run that lost shows now reports both
+# it and the per-show reasons, which used to survive only in the terminal.
+
+
+def _lost(tmp_path, name, failures, outcome="1 packaged, 1 failed", query="q"):
+    ws = RunWorkspace(tmp_path, name)
+    write_artifact(ws.criteria, Criteria(query=query, profile=None))
+    mark_incomplete(ws, outcome, failures)
+    return ws
+
+
+def test_run_list_shows_the_outcome_of_a_run_that_lost_shows(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _lost(tmp_path, "s-lost", [{"show": "GratefulDead/1968-02-14",
+                                "error": "usage limit reached"}])
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "1 packaged, 1 failed" in result.output
+
+
+def test_run_list_names_each_lost_show_and_its_reason(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _lost(tmp_path, "s-lost", [
+        {"show": "GratefulDead/1968-02-14", "error": "usage limit reached"},
+        {"show": "GratefulDead/1973-02-09", "error": "connection reset"},
+    ])
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+
+    assert "      - GratefulDead/1968-02-14: usage limit reached" in result.output
+    assert "      - GratefulDead/1973-02-09: connection reset" in result.output
+
+
+def test_run_list_json_carries_outcome_and_failures(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    failures = [{"show": "GratefulDead/1968-02-14", "error": "usage limit reached"}]
+    _lost(tmp_path, "s-lost", failures)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list", "--json"])
+
+    payload = json.loads(result.output)
+    assert payload[0]["outcome"] == "1 packaged, 1 failed"
+    assert payload[0]["failures"] == failures
+
+
+def test_run_list_adds_no_failure_lines_for_a_session_that_lost_nothing(tmp_path: Path):
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _session(tmp_path, "s-awaiting", state=STATE_AWAITING, query="a query")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+
+    assert "      - " not in result.output

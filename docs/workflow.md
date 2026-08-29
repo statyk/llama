@@ -83,9 +83,12 @@ Everything lives under `~/.llama/` (configurable as `root` in
 │   ├── criteria.json            # interpreted query (interpret stage)
 │   ├── candidates.json          # every performance found (search stage)
 │   ├── shortlist.json           # ranked + scored top shows (winnow stage)
-│   ├── session.json             # lifecycle marker: awaiting-approval | complete
-│   │                            # (missing/other = incomplete) — read by
-│   │                            # `llama run list`/`status`'s attention-list
+│   ├── session.json             # lifecycle marker: awaiting-approval |
+│   │                            # complete | incomplete, plus the run's
+│   │                            # outcome and one {show, error} per show it
+│   │                            # lost (missing/unreadable = incomplete) —
+│   │                            # read by `llama run list`/`status`'s
+│   │                            # attention-list
 │   └── artists.json             # artist-less queries only: matched artists
 └── shows/<slug>/                # canonical shows library: one dir per
     │                            # performance, slug = slugified performance id
@@ -683,7 +686,27 @@ The session **attention-list**: sessions awaiting approval or incomplete,
 newest first (complete sessions never show here — their dirs remain on
 disk harmlessly). Columns: session id, state, age (from the
 `session.json` marker, else dir mtime), criteria (`profile: <name>` or the
-truncated query).
+truncated query), and the run's outcome when it recorded one.
+
+**A run that lost shows ends `incomplete`, not `complete`**, so it stays on
+this list until a `llama run resume` finishes cleanly. Per-show failures
+(usage limit, dropped connection, archive.org error) never abort a run —
+each is caught, the rest of the shortlist still processes — but they are
+now recorded rather than only printed, and listed one per line beneath the
+session:
+
+```
+SESSION                              STATE               AGE   CRITERIA
+2026-08-29-dead                      incomplete          14h  profile: dead   5 packaged, 3 held, 5 failed
+      - GratefulDead/1968-02-14: usage limit reached
+      - GratefulDead/1973-02-09: usage limit reached
+```
+
+The failure list lives in the session marker, so a clean resume clears it
+by rewriting the marker — there is nothing to tidy up separately. Shows
+lost this way are not gone: they sit in the library at whatever stage they
+reached (usually `gathered`), and `llama redo --state gathered --from
+research` picks up every one of them.
 
 ### `llama run approve <session> [--full-rationale]`
 Gate 1: prints the session's persisted shortlist, prompts `Approve which

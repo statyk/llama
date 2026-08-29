@@ -3,7 +3,7 @@ of content, so its lifecycle is recorded on its own directory as
 runs/<id>/session.json. Show state stays derived-never-stored; this marker
 never lives under shows/ (spec §4)."""
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,14 +12,17 @@ from llama.workspace import RunWorkspace, read_model, write_artifact
 
 STATE_AWAITING = "awaiting-approval"
 STATE_COMPLETE = "complete"
-STATE_INCOMPLETE = "incomplete"          # derived: no clean stop recorded
+STATE_INCOMPLETE = "incomplete"          # written when shows failed; also the
+                                         # fallback when no clean stop was recorded
 
 
-def _write(ws: RunWorkspace, state: str, outcome: str | None) -> None:
+def _write(ws: RunWorkspace, state: str, outcome: str | None,
+           failures: list[dict] | None = None) -> None:
     write_artifact(ws.session, json.dumps({
         "state": state,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "outcome": outcome,
+        "failures": failures or [],
     }, indent=2))
 
 
@@ -31,15 +34,42 @@ def mark_complete(ws: RunWorkspace, outcome: str | None = None) -> None:
     _write(ws, STATE_COMPLETE, outcome)
 
 
-def session_state(run_dir: Path) -> str:
+def mark_incomplete(ws: RunWorkspace, outcome: str | None = None,
+                    failures: list[dict] | None = None) -> None:
+    """Stop a run that lost shows: it stays on the attention list until a
+    resume finishes cleanly.
+
+    `failures` is one `{"show": performance_id, "error": str}` per show the
+    run could not process -- the only durable record of WHY, since the
+    per-show handler otherwise only prints to stderr. They live in the
+    session marker rather than a file of their own so that a later
+    `mark_complete` erases them by rewriting the marker wholesale; a
+    separate failures file would have to be deleted on every clean path, and
+    a missed delete would leave a resumed run showing stale corpses.
+    """
+    _write(ws, STATE_INCOMPLETE, outcome, failures)
+
+
+def _read_marker(run_dir: Path) -> dict:
+    """The session marker as a dict, or {} when absent or unreadable."""
     path = run_dir / "session.json"
     if not path.exists():
-        return STATE_INCOMPLETE
+        return {}
     try:
-        state = json.loads(path.read_text()).get("state")
+        marker = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):
-        return STATE_INCOMPLETE
-    return state if state in (STATE_AWAITING, STATE_COMPLETE) else STATE_INCOMPLETE
+        return {}
+    return marker if isinstance(marker, dict) else {}
+
+
+def _state_of(marker: dict) -> str:
+    state = marker.get("state")
+    return state if state in (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE) \
+        else STATE_INCOMPLETE
+
+
+def session_state(run_dir: Path) -> str:
+    return _state_of(_read_marker(run_dir))
 
 
 @dataclass
@@ -49,18 +79,13 @@ class SessionInfo:
     updated_at: str       # marker updated_at, else dir-mtime ISO
     query: str            # criteria.query, "" when no criteria.json
     profile: str | None   # criteria.profile
+    outcome: str | None = None      # marker outcome ("5 packaged, 3 held, 1 failed")
+    failures: list[dict] = field(default_factory=list)  # per-show {show, error}
 
 
-def _updated_at(run_dir: Path) -> str:
-    path = run_dir / "session.json"
-    if path.exists():
-        try:
-            updated_at = json.loads(path.read_text()).get("updated_at")
-        except (OSError, json.JSONDecodeError):
-            updated_at = None
-        if updated_at:
-            return updated_at
-    return datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
+def _updated_at(run_dir: Path, marker: dict) -> str:
+    return marker.get("updated_at") or \
+        datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
 
 
 def iter_sessions(root: Path) -> list[SessionInfo]:
@@ -76,12 +101,15 @@ def iter_sessions(root: Path) -> list[SessionInfo]:
             if ws.criteria.exists():
                 criteria = read_model(ws.criteria, Criteria)
                 query, profile = criteria.query, criteria.profile
+            marker = _read_marker(run_dir)
             infos.append(SessionInfo(
                 id=run_dir.name,
-                state=session_state(run_dir),
-                updated_at=_updated_at(run_dir),
+                state=_state_of(marker),
+                updated_at=_updated_at(run_dir, marker),
                 query=query,
                 profile=profile,
+                outcome=marker.get("outcome"),
+                failures=marker.get("failures") or [],
             ))
     infos.sort(key=lambda s: s.updated_at, reverse=True)
     return infos
