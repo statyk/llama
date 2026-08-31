@@ -950,3 +950,96 @@ def apply_llm_alignment(tracks: list[Track], resp: AlignedStructure) -> AlignRes
     coverage = _songish_coverage(tracks, matched)
     return AlignResult(sets=[a.set for a in ordered], segues=[a.segue for a in ordered],
                        matched=matched, coverage=coverage)
+
+
+def _unresolved_runs(tracks: list["Track"]) -> list[tuple[int, int]]:
+    """Maximal inclusive [lo, hi] runs of consecutive unresolved tracks."""
+    runs, lo = [], None
+    for pos, t in enumerate(tracks):
+        if t.title_source == "unresolved":
+            lo = pos if lo is None else lo
+        elif lo is not None:
+            runs.append((lo, pos - 1))
+            lo = None
+    if lo is not None:
+        runs.append((lo, len(tracks) - 1))
+    return runs
+
+
+def _hygienic(title: str, metadata_norms: set[str]) -> bool:
+    """A canonical item fit to become a shipped title. Deliberately strict:
+    this is the only silent adopter in the pipeline."""
+    from llama.setlist import MAX_TITLE_LEN, is_junk_title
+    from llama.titles import is_real_title
+    t = title.strip()
+    return (bool(t) and is_real_title(t) and not is_junk_title(t)
+            and len(t) <= MAX_TITLE_LEN and not t.endswith(":")
+            and fuzzy_norm_title(t) not in metadata_norms)
+
+
+def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
+                     metadata_norms: set[str],
+                     aliases: dict[str, str] | None = None) -> list["Track"]:
+    """Fill runs of unresolved tracks that are COUNT-FORCED between
+    tag-verified anchors.
+
+    Count-forced is the whole safety argument: when a gap's item count equals
+    its file count exactly, no merge, filler or skip is needed to make it fit,
+    so there is no assignment freedom for an off-by-one shift to hide in.
+    Unanchored monotone correspondence measured 45-52% wrong on the
+    blind-the-tags corpus and margin could not discriminate; this evidence
+    class measured 2.4%. See the spec.
+
+    Anchors match by EXACT normalized equality. `_window_match` is deliberately
+    NOT used: its subphrase fallback is right for structure recovery and too
+    weak to license adopting titles on either side of the match.
+
+    `metadata_norms` is passed in rather than imported: it is built in
+    stages/gather.py, and structure.py must not depend on a stage.
+    """
+    items = canonical.items
+    if not items or not tracks:
+        return tracks
+    norms = [fuzzy_norm_title(it.title, aliases) for it in items]
+
+    # Anchor pass: monotone walk over tracks that already carry a title.
+    anchors: dict[int, tuple[int, int]] = {}   # track pos -> half-open item span
+    j = 0
+    for pos, t in enumerate(tracks):
+        if t.title_source == "unresolved":
+            continue
+        comps = title_components(t.title, aliases)
+        if len(comps) > 1:
+            run = _merge_run(norms, j, len(norms), comps)
+            if run is not None:
+                anchors[pos] = (run, run + len(comps))
+                j = run + len(comps)
+                continue
+        nt = fuzzy_norm_title(t.title, aliases)
+        hit = next((k for k in range(j, len(norms)) if norms[k] == nt), None)
+        if hit is None:
+            continue
+        anchors[pos] = (hit, hit + 1)
+        j = hit + 1
+
+    out = list(tracks)
+    for lo, hi in _unresolved_runs(tracks):
+        left = anchors.get(lo - 1) if lo > 0 else None
+        right = anchors.get(hi + 1) if hi + 1 < len(tracks) else None
+        if left is not None and right is not None:
+            span = (left[1], right[0])
+        elif left is not None and hi == len(tracks) - 1:
+            span = (left[1], len(items))
+        elif right is not None and lo == 0:
+            span = (0, right[0])
+        else:
+            continue
+        gap = items[span[0]:span[1]]
+        if len(gap) != hi - lo + 1:          # not count-forced
+            continue
+        if not all(_hygienic(it.title, metadata_norms) for it in gap):
+            continue
+        for off, it in enumerate(gap):
+            out[lo + off] = out[lo + off].model_copy(
+                update={"title": it.title.strip(), "title_source": "setlist-gap"})
+    return out

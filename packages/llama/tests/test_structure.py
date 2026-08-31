@@ -1638,3 +1638,105 @@ def test_contains_sequence_repeated_song_advances_past_first_hit():
     text = "Set I Playing In The Band Deal Set II Playing In The Band Wharf Rat"
     assert structure.contains_sequence(text, ["Playing In The Band", "Playing In The Band"])
     assert not structure.contains_sequence(text, ["Playing In The Band"] * 3)
+
+
+from llama.models import ParsedSetlist, SetlistItem, Track
+from llama.structure import adopt_gap_titles
+
+
+def _gap_items(*specs):
+    """specs: (title, set, segue) triples."""
+    return ParsedSetlist(
+        items=[SetlistItem(title=t, normalized=t.lower(), set=s, segue=g)
+               for t, s, g in specs],
+        confidence="high")
+
+
+def _gap_tracks(*specs):
+    """specs: (title, title_source) pairs."""
+    return [Track(index=i + 1, set="1", title=t, filename=f"f{i + 1}.mp3",
+                  duration_sec=300.0, title_source=src)
+            for i, (t, src) in enumerate(specs)]
+
+
+def test_count_forced_interior_gap_adopts():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False),
+                       ("Charlie", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"),
+                     ("f3.mp3", "unresolved"), ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert [t.title for t in out] == ["Alpha", "Bravo", "Charlie", "Delta"]
+    assert [t.title_source for t in out] == [
+        "tags", "setlist-gap", "setlist-gap", "tags"]
+
+
+def test_gap_whose_counts_disagree_declines_whole():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False),
+                       ("Charlie", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title_source == "unresolved"
+    assert out[1].title == "f2.mp3"
+
+
+def test_unanchored_run_declines():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False))
+    tracks = _gap_tracks(("f1.mp3", "unresolved"), ("f2.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert all(t.title_source == "unresolved" for t in out)
+
+
+def test_tail_edge_run_adopts_with_one_real_anchor():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title == "Bravo" and out[1].title_source == "setlist-gap"
+
+
+def test_head_edge_run_adopts_with_one_real_anchor():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False))
+    tracks = _gap_tracks(("f1.mp3", "unresolved"), ("Bravo", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[0].title == "Alpha" and out[0].title_source == "setlist-gap"
+
+
+def test_a_merged_tag_anchor_consumes_both_its_items():
+    # "Alpha > Bravo" is ONE file holding TWO items; without _merge_run the
+    # pointer stops at Alpha and the gap adopts Bravo instead of Charlie.
+    canonical = _gap_items(("Alpha", "1", True), ("Bravo", "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha > Bravo", "tags"), ("f2.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title == "Charlie"
+
+
+def test_override_titles_anchor_and_are_never_overwritten():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha", "override"), ("f2.mp3", "unresolved"),
+                     ("Charlie", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[0].title_source == "override"
+    assert out[1].title == "Bravo" and out[1].title_source == "setlist-gap"
+
+
+def test_hygiene_rejects_a_junk_item():
+    canonical = _gap_items(("Alpha", "1", False), ("Set List:", "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Charlie", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title_source == "unresolved"
+
+
+def test_hygiene_rejects_show_metadata_residue():
+    canonical = _gap_items(("Alpha", "1", False), ("Fillmore Auditorium", "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Charlie", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms={"fillmore auditorium"})
+    assert out[1].title_source == "unresolved"
+
+
+def test_empty_canonical_is_a_no_op():
+    tracks = _gap_tracks(("f1.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, ParsedSetlist(), metadata_norms=set())
+    assert out[0].title_source == "unresolved"
