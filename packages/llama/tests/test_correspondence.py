@@ -57,6 +57,13 @@ def test_a_short_filler_track_consumes_no_item():
     assert prop.rows[0].margin_sec == 560.0
     assert prop.rows[2].margin_sec == 560.0
     assert prop.rows[1].margin_sec is None
+    # Round 4: the trichotomy in test_margins_are_reported_per_row never
+    # exercises a filler row (that fixture has zero fillers), so a producer
+    # that sets forced=True on filler rows -- exactly the forced/filler
+    # collapse these rounds exist to prevent -- passed every test until
+    # this. Pin the trichotomy at a second site that DOES have a filler row.
+    for r in prop.rows:
+        assert (r.margin_sec is not None) + r.forced + (r.item_span is None) == 1
 
 
 def test_infeasible_when_merges_needed_exceed_segue_markers():

@@ -338,8 +338,10 @@ class ProposalRow(BaseModel):
     # given this track count and this canonical item list. This is a
     # RIGIDITY signal, NOT a correctness signal: on a no-segue setlist with
     # one track per item every row is forced, and that is the same
-    # unanchored regime measured 45-52% wrong (module docstring / spec
-    # lines 137-143). margin_sec is None and forced=False = row is filler
+    # unanchored regime measured 45-52% wrong (module docstring; spec's
+    # "What the blind-the-tags experiment showed" section -- cited by
+    # section name, not line number, since line numbers rot as the spec
+    # is edited). margin_sec is None and forced=False = row is filler
     # (item_span is None), so a margin is not applicable. `forced` exists
     # as a separate bool -- NOT float("inf") in margin_sec -- because
     # pydantic's default `ser_json_inf_nan="null"` serializes inf to JSON
