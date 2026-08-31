@@ -474,3 +474,92 @@ def test_missing_provenance_declines_cleanly(tmp_path, monkeypatch):
     assert "no provenance.json" in result.output
     assert "reprocess it via its run first" in result.output
     assert read_overrides(sws).titles == {}
+
+
+# --- task-8 review round 1: A1/A2/A3 ------------------------------------
+
+def test_suggest_titles_threads_setlistfm_client_and_jerrybase_events(tmp_path, monkeypatch):
+    """A2 (task-8 review): pin the ARGUMENTS `build_canonical` receives, not
+    the behavior behind them -- every test in this suite runs with
+    SETLISTFM_API_KEY unset (conftest's autouse `_no_ambient_setlistfm_key`
+    fixture), so a sentinel object standing in for `make_client(config)`'s
+    return is the only way to catch a future regression that drops the
+    setlistfm/events threading and silently reverts the proposal path back
+    to an LMA-only canonical -- invisible offline, since every test already
+    runs with `setlistfm=None`. Deliberately does NOT build a real
+    setlist.fm stub/fixture: that would be testing behavior no other test
+    in this suite exercises, a larger scope expansion than this phase
+    should absorb."""
+    cfg = _cfg(tmp_path)
+    _staged_ymsb_show(tmp_path, monkeypatch)
+
+    class _SentinelSetlistfmClient:
+        """A bare `object()` isn't enough here: `build_canonical` calls
+        `.setlist(...)` on whatever it's handed whenever it isn't None, so
+        the sentinel needs that one method (returning falsy, so it's a
+        no-op on the rest of the build) while still being an identity-
+        distinct object this test can assert `is` against."""
+
+        def setlist(self, *args, **kwargs):
+            return None
+
+    sentinel_client = _SentinelSetlistfmClient()
+    # Empty rather than populated with fake Event objects: `events` reaches
+    # real jerrybase-consuming code inside `build_canonical`
+    # (`_show_metadata_norms`) that expects real `Event` attributes (venue,
+    # etc.) whenever the list is non-empty -- an empty list needs none of
+    # that and is exactly what a non-family artist's real `jerrybase.lookup`
+    # already returns, so this doubles as the identity-check payload without
+    # inventing a fake `Event`.
+    sentinel_events = []
+    monkeypatch.setattr("llama.setlistfm.make_client", lambda config: sentinel_client)
+    monkeypatch.setattr("llama.jerrybase.lookup", lambda artist, date: sentinel_events)
+
+    from llama.stages import gather as gather_mod
+    real_build_canonical = gather_mod.build_canonical
+    captured = {}
+
+    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
+        captured["setlistfm"] = setlistfm
+        captured["events"] = events
+        return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
+                                    setlistfm=setlistfm, provider=provider)
+
+    monkeypatch.setattr(gather_mod, "build_canonical", spy)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert captured["setlistfm"] is sentinel_client
+    assert captured["events"] is sentinel_events
+
+
+def test_format_proposal_row_trichotomy_is_distinct():
+    """A3 (task-8 review): pin the margin_sec/forced/filler trichotomy
+    (models.ProposalRow's docstring) directly against synthetic rows --
+    the ymsb fixture this module's other tests share never produces a
+    forced row (its setlist carries no segues, so `build_canonical` always
+    aligns one track per canonical item with no ambiguous cost tie), so
+    collapsing the `forced` label into the filler dash previously left
+    `test_cli.py` green: the same forced/filler collapse a Task 5
+    correspondence.py test exists to prevent, silently reintroduced one
+    layer up at render time. Verified directly (see task-8-report.md): a
+    manual mutation collapsing the `forced` branch to `margin = "     -"`
+    fails this test."""
+    from llama.models import ProposalRow
+
+    matched = ProposalRow(index=1, duration_sec=300.0, item_span=(0, 1),
+                          title="Song A", evidence="sibling-duration", margin_sec=12.5)
+    forced = ProposalRow(index=2, duration_sec=180.0, item_span=(1, 2),
+                         title="Song B", evidence="duration-model", forced=True)
+    filler = ProposalRow(index=3, duration_sec=None, item_span=None,
+                         title="", evidence="filler")
+
+    rendered = {name: cli._format_proposal_row(r)
+               for name, r in [("matched", matched), ("forced", forced), ("filler", filler)]}
+    assert len(set(rendered.values())) == 3, rendered
+    assert "forced" in rendered["forced"]
+    assert "forced" not in rendered["matched"]
+    assert "forced" not in rendered["filler"]
+    assert "12" in rendered["matched"]   # the margin_sec value renders as a number
+    assert "(unresolved - hand-edit)" in rendered["filler"]

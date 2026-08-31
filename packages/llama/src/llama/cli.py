@@ -1178,6 +1178,41 @@ class NarrationMode(str, Enum):
     full = "full"
 
 
+def _format_proposal_row(r) -> str:
+    """Render one `ProposalRow` for `_propose_titles_for_show`'s proposal
+    table. Extracted into its own function (Task 8 review finding A3) so
+    the margin/forced/filler trichotomy (see `models.ProposalRow`'s
+    docstring) can be pinned directly against synthetic rows: the ymsb
+    fixture this module's tests otherwise share never produces a forced
+    row (its setlist has no segues, so every row is either matched with a
+    real margin or filler), so a collapse of the `forced` label into the
+    filler dash previously left the whole suite green -- the same
+    forced/filler collapse a Task 5 correspondence.py test exists to
+    prevent, silently reintroduced one layer up at render time."""
+    shown = r.title or "(unresolved - hand-edit)"
+    if r.margin_sec is not None:
+        margin = f"{r.margin_sec:5.0f}s"
+    elif r.forced:
+        # No alternative assignment exists for this track/item count --
+        # a RIGIDITY signal, not a correctness one (see the trichotomy
+        # comment on models.ProposalRow.forced). A no-segue, one-track-
+        # per-item setlist is forced on EVERY row, and that is exactly
+        # the unanchored regime measured 45-52% wrong -- so this column
+        # must never look like a confidence score. A blank/dash would
+        # read as "no signal, presumably fine"; the explicit "forced"
+        # label reads as "no signal, unverified", which is the honest
+        # claim. It is deliberately NOT rendered as a large/high margin
+        # (e.g. as if margin_sec were +inf) -- that would flatter a
+        # forced row as if it had cleared a real comparison.
+        margin = "forced"
+    else:
+        # Filler (item_span is None): no canonical item was assigned to
+        # this track at all, so a margin is not applicable.
+        margin = "     -"
+    return (f"  {r.index:2d}. {_fmt_dur(r.duration_sec):>6s} "
+            f"{margin:>6s}  {shown}")
+
+
 def _propose_titles_for_show(ia, config, entry, show):
     """Build the canonical setlist and render a title-correspondence
     proposal for `show`'s tracks. `build_canonical` is always called with
@@ -1193,7 +1228,18 @@ def _propose_titles_for_show(ia, config, entry, show):
     reviewer-caught gap: an earlier draft passed `setlistfm=None,
     events=[]` unconditionally, which meant an operator with a setlist.fm
     key configured would confirm a proposal built from a strictly weaker
-    LMA-only canonical than the one `gather` actually consumes.
+    LMA-only canonical than the one `gather` actually consumes. `kept` is
+    filtered against `entry.overrides.exclude` for the same reason (Task 8
+    review finding A1): `run_gather` drops excluded files from `kept`
+    *before* calling `build_canonical` (gather.py), so on a show with prior
+    exclusions an unfiltered `kept` here could rank a different winning
+    parse (`rank_parses(..., target_count=len(kept))` feeds the `plausible`
+    tier) than the redo the confirmation triggers will itself compute.
+    `entry.overrides` (not a fresh `read_overrides` call) is deliberate:
+    every caller resolves `entry` immediately before this call and
+    `--suggest-titles` refuses to combine with `--exclude`/`--unexclude` in
+    the same invocation, so it can never go stale between resolution and
+    use here.
 
     Returns `(prop, picks)`: the raw `TitleProposal` (so a caller can read
     `.feasible`/`.reason` without re-deriving it) and `picks` -- track
@@ -1219,6 +1265,9 @@ def _propose_titles_for_show(ia, config, entry, show):
     meta = ia.metadata(show.identifier).get("metadata", {})
     want = FORMAT_BY_AUDIO[config.audio_format]
     kept, _, _ = filter_files(ia.metadata(show.identifier).get("files", []), want_format=want)
+    if entry.overrides.exclude:
+        drop = set(entry.overrides.exclude)
+        kept = [f for f in kept if f["name"] not in drop]
     events = jerrybase.lookup(show.artist, cand.date) if config.jerrybase.enabled else []
     canonical = build_canonical(ia, cand, show.identifier, meta, kept, show.artist, events,
                                 setlistfm=make_client(config), provider=None).setlist
@@ -1231,32 +1280,33 @@ def _propose_titles_for_show(ia, config, entry, show):
 
     typer.echo(f"{entry.slug}: proposal ({prop.evidence_source})")
     for r in prop.rows:
-        shown = r.title or "(unresolved - hand-edit)"
-        if r.margin_sec is not None:
-            margin = f"{r.margin_sec:5.0f}s"
-        elif r.forced:
-            # No alternative assignment exists for this track/item count --
-            # a RIGIDITY signal, not a correctness one (see the trichotomy
-            # comment on models.ProposalRow.forced). A no-segue, one-track-
-            # per-item setlist is forced on EVERY row, and that is exactly
-            # the unanchored regime measured 45-52% wrong -- so this column
-            # must never look like a confidence score. A blank/dash would
-            # read as "no signal, presumably fine"; the explicit "forced"
-            # label reads as "no signal, unverified", which is the honest
-            # claim. It is deliberately NOT rendered as a large/high margin
-            # (e.g. as if margin_sec were +inf) -- that would flatter a
-            # forced row as if it had cleared a real comparison.
-            margin = "forced"
-        else:
-            # Filler (item_span is None): no canonical item was assigned to
-            # this track at all, so a margin is not applicable.
-            margin = "     -"
-        typer.echo(f"  {r.index:2d}. {_fmt_dur(r.duration_sec):>6s} "
-                   f"{margin:>6s}  {shown}")
+        typer.echo(_format_proposal_row(r))
 
     picks = {r.index: r.title for r in prop.rows
              if r.title and show.tracks[r.index - 1].title_source == "unresolved"}
     return prop, picks
+
+
+def _propose_and_confirm_titles(ia, config, entry, show) -> dict[int, str] | None:
+    """The propose -> render -> confirm surface shared by `fix
+    --suggest-titles` and `triage`'s `[t] suggest titles` resolution
+    (Task 8) -- factored out so the two surfaces cannot silently diverge
+    (a divergence here would be invisible: both read the same proposal,
+    but only one code path would echo/gate it). Returns the picks dict
+    (track number -> title) the operator confirmed, or None when there is
+    nothing to adopt -- infeasible proposal, no picks, or a declined
+    confirmation, each of which has already echoed its own reason. Every
+    caller must treat None as "nothing changed", not as an error."""
+    prop, picks = _propose_titles_for_show(ia, config, entry, show)
+    if not prop.feasible:
+        return None   # _propose_titles_for_show already echoed prop.reason
+    if not picks:
+        typer.echo("nothing to adopt: every track already has a title")
+        return None
+    if not typer.confirm(f"write {len(picks)} titles into overrides?"):
+        typer.echo("declined; nothing written")
+        return None
+    return picks
 
 
 @app.command(rich_help_panel="Fix & ship",
@@ -1362,11 +1412,11 @@ def fix(
                        "reprocess it via its run first", err=True)
             raise typer.Exit(1)
         show = read_model(sws.show, Show)
-        prop, picks = _propose_titles_for_show(ia, config, entry, show)
-        # I1 (review round 1): the three outcomes below used to always exit
-        # 0 immediately, silently discarding any OTHER edit flag given in
-        # the same invocation (worst case: `--suggest-titles --overrule` on
-        # a declined proposal reads as exit 0 = "hold cleared" when it was
+        # I1 (review round 1): the outcomes handled inside
+        # _propose_and_confirm_titles used to always exit 0 immediately,
+        # silently discarding any OTHER edit flag given in the same
+        # invocation (worst case: `--suggest-titles --overrule` on a
+        # declined proposal reads as exit 0 = "hold cleared" when it was
         # not). Only exit early when suggest-titles was the ONLY edit flag
         # given; otherwise warn and fall through to the remaining edits
         # below. `exclude`/`unexclude` are omitted from this check -- the
@@ -1375,14 +1425,9 @@ def fix(
             set_venue or set_city or set_date or parsed_titles or clear_title_nums
             or set_breaks or clear_set_breaks or set_encore or clear_encore
             or narration is not None or overrule)
+        picks = _propose_and_confirm_titles(ia, config, entry, show)
         adopted = False
-        if not prop.feasible:
-            pass   # _propose_titles_for_show already echoed prop.reason
-        elif not picks:
-            typer.echo("nothing to adopt: every track already has a title")
-        elif not typer.confirm(f"write {len(picks)} titles into overrides?"):
-            typer.echo("declined; nothing written")
-        else:
+        if picks:
             # M10 (review round 1): an explicit --set-title on the same
             # invocation must win over a generated proposal for the same
             # track -- the same human-authority principle the confirmation
