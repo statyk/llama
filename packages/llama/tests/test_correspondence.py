@@ -1,5 +1,5 @@
 from llama.correspondence import propose_titles
-from llama.models import ParsedSetlist, SetlistItem, Track
+from llama.models import ParsedSetlist, ProposalRow, SetlistItem, Track
 
 
 def _canon(*specs):
@@ -60,4 +60,26 @@ def test_margins_are_reported_per_row():
     canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
     prop = propose_titles(_tracks(300.0, 300.0), canonical,
                           item_durations=[300.0, 300.0])
-    assert all(r.margin_sec is not None for r in prop.rows)
+    assert all(r.margin_sec is not None or r.forced for r in prop.rows)
+
+
+def test_forced_and_filler_rows_stay_distinguishable_across_a_json_round_trip():
+    # Regression pin: margin_sec used to carry float("inf") for a forced
+    # row, but pydantic's default ser_json_inf_nan="null" serializes inf to
+    # JSON null, so a forced row and a filler row became byte-identical
+    # JSON and both read back as margin_sec=None. `forced` exists precisely
+    # so this distinction survives serialization.
+    forced_row = ProposalRow(index=1, item_span=(0, 1), title="Alpha",
+                             evidence="sibling-duration", margin_sec=None,
+                             forced=True)
+    filler_row = ProposalRow(index=2, item_span=None, title="",
+                             evidence="filler", margin_sec=None, forced=False)
+
+    forced_back = ProposalRow.model_validate_json(forced_row.model_dump_json())
+    filler_back = ProposalRow.model_validate_json(filler_row.model_dump_json())
+
+    assert forced_back.forced is True
+    assert forced_back.margin_sec is None
+    assert filler_back.forced is False
+    assert filler_back.margin_sec is None
+

@@ -84,5 +84,6 @@ def propose_titles(tracks: list[Track], canonical: ParsedSetlist, *,
         rows.append(ProposalRow(
             index=t.index, duration_sec=t.duration_sec, item_span=span,
             title=title, evidence=source,
-            margin_sec=_INF if alt == _INF else alt - cost))
+            margin_sec=None if alt == _INF else alt - cost,
+            forced=alt == _INF))
     return TitleProposal(rows=rows, feasible=True, evidence_source=source)

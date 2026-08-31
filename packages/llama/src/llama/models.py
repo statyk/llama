@@ -331,12 +331,21 @@ class ProposalRow(BaseModel):
     item_span: tuple[int, int] | None = None     # half-open canonical range; None = filler
     title: str = ""                              # "" when the row is a decline
     evidence: str = ""                           # "sibling-duration" | "duration-model" | "filler"
-    # Display column only (never gates automatic adoption). Three states:
-    # a number = cost gap to the best alternative assignment; float("inf") =
-    # no alternative assignment exists at all, i.e. this row is FORCED (the
-    # most certain outcome the DP can produce); None = row is filler
-    # (item_span is None), so a margin is not applicable.
+    # Display column only (never gates automatic adoption). (margin_sec, forced)
+    # together carry three states: margin_sec is a number = cost gap to the
+    # best alternative assignment; margin_sec is None and forced=True = no
+    # alternative assignment exists at all (the most certain outcome the DP
+    # can produce); margin_sec is None and forced=False = row is filler
+    # (item_span is None), so a margin is not applicable. `forced` exists
+    # as a separate bool -- NOT float("inf") in margin_sec -- because
+    # pydantic's default `ser_json_inf_nan="null"` serializes inf to JSON
+    # null, which round-trips back as None and silently collapses the
+    # forced and filler states into the same value. Measured directly:
+    # ProposalRow(margin_sec=float("inf")).model_dump_json() -> margin_sec
+    # is "null", and model_validate_json of that reads back None. Do not
+    # "simplify" this back to an inf sentinel.
     margin_sec: float | None = None
+    forced: bool = False
 
 
 class TitleProposal(BaseModel):
