@@ -29,8 +29,13 @@ implementation plan this was built from. The approved design spec is
   `llama artists "..."`, `llama status` (global triage view, `--by-run` for
   session rollups), `llama show <name>` (read-only), `llama pipeline`
   (static stage/state teaching command), `llama triage` (interactive
-  held-show walkthrough), `llama fix <name> <edit-flags>` (overrides/hold
-  editor, auto-redoes), `llama redo <name> --from <stage>`,
+  held-show walkthrough -- `[t] suggest titles`, offered only on a hold
+  flagged "unresolved track titles", proposes a full set of titles from
+  the setlist correspondence and writes them all on confirmation), `llama
+  fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
+  `--suggest-titles` is the same title-proposal resolution, one
+  invocation, one confirmation, refuses to combine with
+  `--exclude`/`--unexclude`), `llama redo <name> --from <stage>`,
   `llama deliver <name>`, `llama rm <name>`, `llama suppress`/
   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
   (session namespace; a run that lost shows to a failure ends
@@ -169,7 +174,22 @@ tier (pins never escalate).
   `--set-encore` (plus their `--clear-*` counterparts) all redo from
   `gather`, and a hold **self-clears** whenever the re-gather no longer
   reproduces the flag that caused it (gather recomputes
-  `needs_review`/`review_flags` from scratch every run). On a multi-set show,
+  `needs_review`/`review_flags` from scratch every run). A hold flagged
+  "unresolved track titles" additionally gets **`--suggest-titles`**
+  (`fix`) / **`[t] suggest titles`** (`triage`, same helper, offered only
+  under that flag): both build the same canonical setlist `gather` itself
+  would (via `build_canonical(..., provider=None)` — this path never fires
+  an LLM call), render a per-track proposal table via the correspondence
+  DP (`llama/correspondence.py` — **proposal-only, never auto-adopted**;
+  unanchored monotone correspondence measured 45-52% wrong, so a human
+  confirmation is the only thing standing between a proposed title and
+  adoption), and on confirmation write every proposed title into
+  `overrides.titles` at once, then redo from `gather` like every other
+  metadata edit. `--suggest-titles` refuses to combine with
+  `--exclude`/`--unexclude` in the same `fix` invocation (an exclusion
+  renumbers tracks before the proposal's numbering would apply), and an
+  explicit `--set-title N="..."` on the same invocation always wins over
+  the proposal for that track. On a multi-set show,
   `--set-encore` must be combined with `--set-breaks` to keep set labelling
   correct — the override path skips alignment entirely rather than layering
   on it, so `--set-encore` alone flattens every set into `"1"`. Any
