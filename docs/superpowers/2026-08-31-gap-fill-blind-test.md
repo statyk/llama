@@ -5,10 +5,27 @@ answers one question: when `structure.adopt_gap_titles` fills a count-forced
 run of unresolved tracks from the canonical setlist, how often is the title it
 adopts *not* the title the tape itself carries?
 
-**Branch:** `title-correspondence` @ `a37bb83` — the reviewed Phase A HEAD.
-Every number below was produced against that tree. The harness itself lands as
-`8ac7d77` and this document on top of it; neither commit touches `packages/`,
-so the code measured is byte-identical to the code that would ship.
+> **Revised 2026-08-31 after review.** The first version of this document
+> drew two claims its instrument could not support, and both are corrected
+> below rather than quietly softened. (1) Its merged-anchor gate was attributed
+> by the *adjacent* anchor, which answers a different question than the one the
+> gate exists to ask — see "The gate answered a question nobody asked". (2) It
+> estimated the cost of the trailing-edge fix at ~3.6× the measured value. The
+> fix itself has since been applied to `structure.adopt_gap_titles`, so the
+> corpus is now reported at two code states, both named.
+
+**Branch:** `title-correspondence`. Two code states are measured and every
+number below says which:
+
+- **`a37bb83`** — the reviewed Phase A HEAD, before the trailing-edge fix. This
+  is the population the hand triage was performed on.
+- **`b1ca393`** — with the trailing-edge fix (`adopt_gap_titles` no longer fills
+  a run reaching the last track). **This is what ships.**
+
+Reproduce the `a37bb83` sweep with
+`git checkout a37bb83 -- packages/llama/src/llama/structure.py`, run, then
+`git checkout HEAD -- packages/llama/src/llama/structure.py`. Neither the
+harness nor this document touches `packages/` otherwise.
 
 **Source:** every number comes from the REAL
 `llama.structure.adopt_gap_titles`, run in-process. The harness
@@ -24,6 +41,14 @@ setlist is therefore **the real gather canonical**
 `_drop_artist_items`), not raw `parse_setlist` output — which is the specific
 thing that made the design spec's 45–52% pilot figure a bound rather than a
 truth.
+
+**Merged anchors are attributed three ways, and the distinction is the whole
+point.** A merged anchor can corrupt a gap by binding its own flank wrongly
+(*adjacent*), or by mis-advancing the walk pointer so that every gap after it
+is shifted (*upstream*) — and `adopt_gap_titles`' docstring states the risk in
+the second form. Each adoption therefore carries `merged_attr` ∈
+{`adjacent`, `upstream`, `none`}. The first version of this document reported
+only the adjacent split; see "The gate answered a question nobody asked".
 
 **Anchor kinds are spied, not inferred.** `adopt_gap_titles` does not expose
 which anchors it bound or how. The harness wraps `structure._merge_run` for the
@@ -106,18 +131,20 @@ For every cached archive.org item under `~/.llama/cache/md_*.json`
    gate and can change the *other* tracks' titles — i.e. the anchors.)
 5. Call the real `adopt_gap_titles`, with the `_merge_run` spy armed.
 6. Score every adopted track inside the blinded window against the tag it could
-   not see, by `fuzzy_norm_title` equality. Adoptions *outside* the window have
-   no ground truth and are counted separately as unverifiable (135 of 28,740,
-   0.5%).
+   not see, by `fuzzy_norm_title` equality. Adoptions *outside* the window are
+   **induced by the blinding** — removing an anchor changes the monotone walk
+   and can let a pre-existing unresolved run elsewhere become fillable — have no
+   ground truth, and are counted separately as unverifiable (135 of 28,740 at
+   `a37bb83`, 54 of 27,273 at `b1ca393`).
 
 ### Two populations are reported, and they are different
 
 Trials overlap by construction: blinding `[3,3]`, `[3,4]` and `[3,5]` all put
 track 3 in a gap. **Per-trial** counts therefore weight a track by how many
 windows contain it. **Distinct** counts collapse every row making the same
-claim about the same track (same identifier, track, adopted title, hidden tag,
-anchor kind). The triage below operates on the distinct population, and so does
-the ship gate; the per-trial numbers are reported because the spec's pilot
+claim about the same track — the key is (identifier, track, adopted title,
+hidden tag, anchor kind, merged attribution, verdict). The triage below operates
+on the distinct population, and so does the ship gate; the per-trial numbers are reported because the spec's pilot
 counted that way ("1,652 firings, 3,144 adoptions") and the comparison is
 otherwise not like-for-like.
 
@@ -125,8 +152,11 @@ otherwise not like-for-like.
 
 ## Corpus and headline numbers
 
+### At `a37bb83` (pre-fix) — the population the triage was performed on
+
 ```console
-$ ./.venv/bin/python scripts/blind_tag_gapfill.py --progress 100 > gapfill-mp3.tsv
+$ git checkout a37bb83 -- packages/llama/src/llama/structure.py
+$ ./.venv/bin/python scripts/blind_tag_gapfill.py --progress 500 > sweep-prefix.tsv
 format=mp3
 cached items scanned          : 968
 items with usable audio       : 960
@@ -137,12 +167,34 @@ trials in which gap-fill FIRED: 15118
 scored adoptions              : 28605
 unverifiable adoptions        : 135
   pooled  ok=26497 wrong=2108 rate=7.37%
-  single  ok=26010 wrong=2086 rate=7.42%
-  merged  ok=487 wrong=22 rate=4.32%
 distinct adoptions            : 6864
   pooled  ok=6237 wrong=627 rate=9.13%
+  [adjacency view, NARROWER THAN THE MECHANISM -- see merged_attr]
   single  ok=5990 wrong=617 rate=9.34%
   merged  ok=247 wrong=10 rate=3.89%
+  [merged attribution: adjacent | upstream-only | none]
+  adjacent  ok=247 wrong=10 rate=3.89%
+  upstream  ok=279 wrong=25 rate=8.22%
+  none      ok=5711 wrong=592 rate=9.39%
+edge is a TRIAL property; 922 of 6864 distinct adoptions carry both values
+  edge population, first-window-wins : 1156
+  edge population, any-edge-wins     : 1594
+  edge population, any-interior-wins : 672
+$ git checkout HEAD -- packages/llama/src/llama/structure.py
+```
+
+### At `b1ca393` (shipped)
+
+```console
+$ ./.venv/bin/python scripts/blind_tag_gapfill.py --progress 500 > sweep-postfix.tsv
+trials in which gap-fill FIRED: 14414
+scored adoptions              : 27219
+unverifiable adoptions        : 54
+distinct adoptions            : 6546
+  pooled  ok=5972 wrong=574 rate=8.77%
+  adjacent  ok=241 wrong=10 rate=3.98%
+  upstream  ok=248 wrong=20 rate=7.46%
+  none      ok=5483 wrong=544 rate=9.03%
 ```
 
 **The 25,416 pre-empted trials are not a harness defect and are worth reading.**
@@ -157,58 +209,86 @@ before triage, and the pilot's headline contained all three classes. The great
 majority of these are the scorer disagreeing with itself, not the adoption being
 wrong.
 
+### The `edge` split is collapse-rule-dependent and no single number is the truth
+
+`edge` is a property of the **trial** — did the blinded window touch a tape end
+— not of the adoption. The same adoption is reached by several windows, and
+**922 of 6,864 distinct adoptions carry both values**. Any edge/interior split
+is therefore an artifact of the collapse rule, and the answer moves with it:
+
+| collapse rule | edge population (of 6,864) |
+|---|---|
+| first window wins | 1,156 |
+| any edge window wins | 1,594 |
+| edge only if every window was an edge | 672 |
+
+The first version of this document reported the 1,156 figure without stating
+that a rule had been chosen. The harness now prints all three. Wherever an
+edge-conditioned rate appears below, it uses **first-window-wins** and says so.
+
 ### Robustness: the same sweep on `flac`
 
 ```console
-$ ./.venv/bin/python scripts/blind_tag_gapfill.py --format flac --progress 400 > gapfill-flac.tsv
+$ ./.venv/bin/python scripts/blind_tag_gapfill.py --format flac --progress 500 > sweep-flac.tsv
 format=flac
 cached items scanned          : 968
 items with usable audio       : 683
-...
-distinct adoptions            : 4892
-  pooled  ok=4491 wrong=401 rate=8.20%
-  single  ok=4316 wrong=393 rate=8.35%
-  merged  ok=175 wrong=8 rate=4.37%
+distinct adoptions            : 4700
+  pooled  ok=4328 wrong=372 rate=7.91%
+  adjacent  ok=173 wrong=8 rate=4.42%
+  upstream  ok=178 wrong=9 rate=4.81%
+  none      ok=3977 wrong=355 rate=8.19%
 ```
 
 Different delivery format, largely overlapping but differently-filtered tapes,
-same raw rate to within a point and the same ordering between anchor kinds. The
-flac sweep was **not** hand-triaged; it is reported as a consistency check on
-the pre-triage rate only, and no gate is taken from it.
+same raw rate to within a point. The flac sweep was **not** hand-triaged; it is
+reported as a consistency check on the pre-triage rate only, and no gate is
+taken from it. Note that `upstream` and `none` sit close together here, which is
+one more reason not to read a mechanism into the mp3 gap between them.
 
 ---
 
 ## The three-way triage
 
-Every one of the 627 distinct wrong adoptions was classified by hand into
-exactly one class. 627 rows collapse to **382 distinct (adopted, hidden)
-pairs**; the classification is per pair, applied to every row carrying it.
+Every one of the 627 distinct wrong adoptions at `a37bb83` was classified by
+hand into exactly one class. 627 rows collapse to **382 distinct
+(adopted, hidden) pairs**; the classification is per pair, applied to every row
+carrying it.
+
+**The classification ships as data, not as prose.**
+`docs/superpowers/2026-08-31-gap-fill-blind-test.triage.tsv` carries all 382
+pairs, one per row, and `scripts/blind_tag_gapfill.py --triage <that file>
+--rows <sweep.tsv>` produces every class count below. The tables later in this
+section are generated from the same file, so they cannot drift from it.
 
 **The rule, stated before the exceptions:**
 
 - **`scorer-artifact`** — adopted and hidden name the same song or the same
   segment, differing only by spelling variant, punctuation, diacritics, a
   leading article, a subtitle kept or dropped, a segue/encore/duration/taper
-  annotation, an abbreviation or nickname, or because the adoption names one
-  component of a merged tape track. The adoption is acceptable; the strict
-  `fuzzy_norm_title` equality the scorer uses is what failed. **This class
-  includes cases where the adopted title is the *worse* rendering of the right
-  song** (`Sugar Magnoli` for `Sugar Magnolia`, `Miles From Denver` for
-  `40 Miles From Denver` — the canonical's own text, warts included). Those are
-  cosmetic, not correspondence errors.
+  annotation, an abbreviation or nickname, or **because one side merges songs
+  the other splits and the extra components are accounted for at neighbouring
+  positions**. The adoption is acceptable; the strict `fuzzy_norm_title`
+  equality the scorer uses is what failed. **This class includes cases where the
+  adopted title is the *worse* rendering of the right song** (`Sugar Magnoli`
+  for `Sugar Magnolia`, `Miles From Denver` for `40 Miles From Denver` — the
+  canonical's own text, warts included). Those are cosmetic, not correspondence
+  errors.
 - **`tag-typo-adoption-superior`** — the hidden tag is a misspelling or mangling
   and the adopted title is the correct rendering. Split out from
   `scorer-artifact` on this test: is the *tag* a plausible rendering of the
   song's name at all? `Lazy Lightnin'` is; `Loset` is not.
 - **`genuinely-wrong`** — the adopted title names a different song, a different
   segment, or a different movement (main vs reprise) than the tape carries at
-  that position.
+  that position — **including the case where the adopted title names an
+  ADDITIONAL song the track does not contain.**
 
-**Auditing this classification from this document alone:** every pair in the
-`genuinely-wrong` and `tag-typo-adoption-superior` tables below is enumerated in
-full. Everything else — the residue — is `scorer-artifact`.
+**Auditing this classification:** every pair in the `genuinely-wrong` and
+`tag-typo-adoption-superior` tables below is enumerated in full; everything else
+is `scorer-artifact`, and the residue is enumerated in the companion
+`.triage.tsv`.
 
-Three judgement calls made deliberately and recorded so they can be overturned:
+Four judgement calls made deliberately and recorded so they can be overturned:
 
 1. **Main vs reprise counts as genuinely wrong.** `Playin' In The Band` and
    `Playin' In The Band Reprise` are different tracks in different halves of a
@@ -217,82 +297,179 @@ Three judgement calls made deliberately and recorded so they can be overturned:
    tag), which is the signature of a shift rather than of loose tagging. Same
    for `Dark Star Reprise`/`Dark Star` and `Hey Jude Reprise`/`Hey Jude`.
    **Fifteen** distinct adoptions ride on this call. Calling them cosmetic
-   instead would move the pooled genuinely-wrong rate from 1.57% to **1.35%**
-   (93/6,864) — so the headline is not sensitive to it in any direction that
-   changes a decision.
-2. **Interchangeable jam/segment labels are broken out as a subclass rather
-   than excused.** `Jam` adopted where the tape says `Space`, `Drums` where the
-   tape says `Jam`, and so on: 56 distinct adoptions where both sides are
-   improvisation-segment names that tapers genuinely use interchangeably. They
-   are *not* counted in the headline `genuinely-wrong` figure, because the
-   adopted string does not misattribute a song; they are reported separately and
-   the "including filler-segment" total is given everywhere the headline is.
-   Anyone who thinks that is too generous should read the second number.
+   instead would move the strict rate from 1.65% to **1.43%** (98/6,864).
+2. **Interchangeable jam/segment labels are a subclass, not an exclusion — and
+   this call is in tension with call 1.** `Jam` adopted where the tape says
+   `Space`, `Drums` where the tape says `Jam`, and so on: 56 distinct adoptions
+   where both sides are improvisation-segment names tapers use interchangeably,
+   so no song is misattributed. **But `Drums`↔`Space` appears in both
+   directions too**, which is the exact signature call 1 uses to convict the
+   reprises. The two calls cannot both be right on that test, and rather than
+   invent a principle to reconcile them **the headline is published as the range
+   1.54%–2.38%** (shipped code), with the subclass counted at the top end. Where
+   a single number is unavoidable below, the strict figure is used and labelled
+   strict.
 3. `Phil & Ned`/`Seastones` and `Sunshine Daydream`/`Sugar Magnolia` are the
    same music under two names and are `scorer-artifact`;
    `One More Saturday Night`/`One More Halloween Night` is a taper's Halloween
    joke on the same song and is likewise `scorer-artifact`.
+4. **An adopted title that names an *extra* song is genuinely wrong, not an
+   artifact.** Five adoptions where the canonical item is a merged string
+   asserting a song the track does not contain —
+   `Dancin' In The Streets Scarlet Begonias` over a `Dancing In The Street` tag
+   (×3), `Not Fade Away Encore Baby Blue` over `Not Fade Away`,
+   `Don't Ease Me In Touch Of Gray` over `Touch Of Grey`. The first version of
+   this document classed them `scorer-artifact` under a rule that covered only
+   the *opposite* direction (the adoption naming one component of a merged tape
+   track, where nothing is invented). They are reclassified, which moved the
+   strict rate 1.57% → 1.65% pre-fix. Direction matters: dropping a name the
+   track has is a lesser fault than asserting one it does not.
 
 ### Results
 
 ```console
-$ python triage.py            # roll-up over the classification below
-distinct adoptions: 6864  ok=6237  wrong=627
-  scorer-artifact: 422  (6.15% of all distinct adoptions)
-  genuinely-wrong: 108  (1.57% of all distinct adoptions)
-  genuinely-wrong/filler-segment: 56  (0.82% of all distinct adoptions)
-  tag-typo-adoption-superior: 41  (0.60% of all distinct adoptions)
-  genuinely-wrong incl. filler-segment: 164 (2.39%)
-  single: n=6607 genuinely-wrong=107 (1.62%) +filler=163 (2.47%) artifact=415 typo=39
-  merged: n=257 genuinely-wrong=1   (0.39%) +filler=1   (0.39%) artifact=7   typo=2
-  interior: n=5708 genuinely-wrong=85 (1.49%)
-  edge:     n=1156 genuinely-wrong=23 (1.99%)
+$ ./.venv/bin/python scripts/blind_tag_gapfill.py \
+    --triage docs/superpowers/2026-08-31-gap-fill-blind-test.triage.tsv \
+    --rows sweep-prefix.tsv
+distinct adoptions            : 6864
+unclassified wrong adoptions  : 0   (must be 0; a nonzero value means the sweep and the classification have drifted apart)
+  ok                                6237  90.87%
+  scorer-artifact                    417  6.08%
+  tag-typo-adoption-superior          41  0.60%
+  genuinely-wrong                    113  1.65%
+  genuinely-wrong/filler-segment      56  0.82%
+  HEADLINE RANGE: genuinely-wrong 1.65% -- incl. filler-segment 2.46%
+  by merged attribution (genuinely-wrong, strict / incl. filler):
+    adjacent  n=  257 strict=   1 (0.39%)  incl-filler=   1 (0.39%)
+    upstream  n=  304 strict=   8 (2.63%)  incl-filler=   8 (2.63%)
+    none      n= 6303 strict= 104 (1.65%)  incl-filler= 160 (2.54%)
 ```
 
-| | distinct adoptions | genuinely-wrong | rate | incl. filler-segment |
+Same command with `--rows sweep-postfix.tsv` (the shipped code):
+
+```console
+distinct adoptions            : 6546
+  ok                                5972  91.23%
+  scorer-artifact                    378  5.77%
+  tag-typo-adoption-superior          40  0.61%
+  genuinely-wrong                    101  1.54%
+  genuinely-wrong/filler-segment      55  0.84%
+  HEADLINE RANGE: genuinely-wrong 1.54% -- incl. filler-segment 2.38%
+    adjacent  n=  251 strict=   1 (0.40%)
+    upstream  n=  268 strict=   8 (2.99%)
+    none      n= 6027 strict=  92 (1.53%)
+```
+
+**The headline is a range, not a point.**
+
+> **`setlist-gap` is wrong on 1.54%–2.38% of the adoptions it makes** (shipped
+> code; 1.65%–2.46% before the trailing-edge fix). The low end excludes the
+> filler-segment subclass, the high end includes it, and the doc's own
+> reasoning does not settle which is right — see judgement call 2.
+
+The upper end is very close to the spec pilot's **2.4% interior / 1.5% edge**,
+from a different instrument on a differently-built canonical. That is
+corroboration, not a coincidence to lean on.
+
+**The `--triage` roll-up carries its own non-empty discipline.** It prints
+`unclassified wrong adoptions` unconditionally and exits 1 when that is nonzero,
+so a sweep and a classification that have drifted apart cannot be mistaken for a
+clean run. Demonstrated by truncating the classification file to its first 100
+rows: `unclassified wrong adoptions : 507`, exit 1.
+
+### The gate answered a question nobody asked
+
+**This is the most important methodological finding in this document, and it is
+a finding about the gate, not about the code.**
+
+The by-anchor-kind gate was added because `adopt_gap_titles`' docstring names a
+specific weakness: `_merge_run` compares components with `fuzzy_title_eq`, which
+falls through to `_is_subphrase`, so **a merged anchor can bind one item off and
+count-forcing cannot catch a same-size shift** — and the consequence the
+docstring states is that the mis-advanced pointer **shifts every gap that
+follows**.
+
+The first version of this document labelled a gap `merged` when its
+*immediately adjacent* anchor was merged. That measures whether a merged anchor
+corrupts **its own** gap. The stated risk is about gaps **downstream** of it. A
+gap two tracks past a mis-bound merged anchor was recorded as `single`. The gate
+was therefore defined over what was easiest to label rather than over the
+mechanism it meant to bound — and it reported `0.39% vs 1.62%`, which reads as
+an exoneration.
+
+Re-attributed on the mechanism the docstring actually describes, the sign
+reverses:
+
+| attribution (pre-fix) | n | genuinely-wrong | rate | Wilson 95% CI |
 |---|---|---|---|---|
-| **pooled** | 6,864 | 108 | **1.57%** | 164 (2.39%) |
-| single anchors only | 6,607 | 107 | **1.62%** | 163 (2.47%) |
-| **≥1 merged anchor** | 257 | 1 | **0.39%** | 1 (0.39%) |
-| interior gaps | 5,708 | 85 | 1.49% | — |
-| edge gaps (one anchor + a tape end) | 1,156 | 23 | 1.99% | — |
+| `adjacent` — a flanking anchor was merged | 257 | 1 | 0.39% | 0.07%–2.17% |
+| `upstream` — a merged anchor bound before this gap, none adjacent | 304 | 8 | **2.63%** | 1.34%–5.11% |
+| `none` — no merged anchor anywhere before this gap | 6,303 | 104 | 1.65% | 1.36%–2.00% |
 
-The "incl. filler-segment" column is very close to the spec pilot's **2.4%
-interior / 1.5% edge**, from a different instrument on a differently-built
-canonical. That is corroboration, not a coincidence to lean on.
+257 + 304 + 6,303 = 6,864 and 1 + 8 + 104 = 113, so the partition reconciles
+with the totals above.
 
-### The merged-anchor path is not the weak point the docstring feared
+**The lesson, stated so it is not learned again:** a gate must be defined over
+the mechanism it means to bound, not over the property that is easiest to
+attach to a row. A gate that is merely absent leaves a question open; a gate
+that measures the wrong thing *closes* it, wrongly, and hands you a number that
+looks like reassurance. This is the fourth instance in this design of a metric
+that is blind at exactly its own boundary — the tail-guard evidence docs record
+two, the spec's coverage-vs-correctness finding a third.
 
-This was the gate the plan added on top of the brief (Rulings 7 and 9): a
-merged anchor binds via `_merge_run`, which compares components with
-`fuzzy_title_eq` and falls through to `_is_subphrase`, so it can land one item
-off and count-forcing cannot catch a same-size shift.
+### Both directions are underpowered — apply symmetric skepticism or none
 
-Measured: **1 genuinely-wrong adoption out of 257 distinct merged-anchor
-adoptions, 0.39%** — four times *better* than the single-anchor path, not
-worse. And the one case is not a merged-anchor failure. It is
-`billystrings2021-08-14.Neumann` track 3, where the canonical carries an extra
-item (`There Is a Time`) the tape does not:
+The replacement figure deserves exactly the skepticism the original one did.
 
-```
-billystrings2021-08-14.Neumann  ... run 2-3  track 3  merged  wrong  There Is a Time | Red Daisy
-billystrings2021-08-14.Neumann  ... run 3-3  track 3  single  wrong  There Is a Time | Red Daisy
-```
+- `adjacent`: 1 observed against **4.2 expected** at the `none` rate. Fisher
+  one-sided P(X ≤ 1) = **0.078**. The interval 0.07%–2.17% overlaps `none`'s
+  1.36%–2.00%: the data are consistent with the adjacent path being somewhat
+  *worse*.
+- `upstream`: 8 observed against **5.0 expected** at the `none` rate. Fisher
+  one-sided P(X ≥ 8) = **0.143**. The interval 1.34%–5.11% likewise overlaps.
 
-The identical error occurs at the same track with a *single* anchor when the
-blinded window starts one track later. The merged bind is incidental.
+So the honest statement is: **no evidence of harm, no evidence of safety, and
+underpowered in both directions.** Seven or eight events license a code change
+no more than one event licensed calling the path safe. The words "passes
+decisively", "four times better" and "the merged path is the better one" were in
+the first version of this document and are withdrawn. On the `flac` corpus
+`upstream` (4.81%) and `none` (8.19%) sit the other way round again, which is a
+further reason to read no mechanism into the mp3 gap.
 
-**Consequence for the ship decision:** the conservative tightening the plan held
-in reserve — making `_merge_run`'s call site in `adopt_gap_titles` require
-exact per-component equality — **is not indicated by this evidence and should
-not be applied.** It would decline 257 adoptions to prevent one error that a
-single anchor produces anyway. Recorded as measured, not as an argument that
-the docstring's stated weakness is impossible; it is reachable, it is just not
-where the errors are.
+### The `_merge_run` tightening: OPEN, with a reactivation condition
+
+**Not applied — and the disposition is OPEN, not settled.** The reasoning that
+matters is not the first version's ("the merged path is better"; withdrawn) but
+this:
+
+1. **Both directions are underpowered**, per the section above. A tightening
+   justified by eight events would be exactly the kind of unmeasured knob this
+   project refuses to ship — the tail-guard constants carry their measurements
+   in comments precisely so that a constant nobody can re-validate does not
+   become folklore.
+2. **It would guard a path that does not currently execute.** After the
+   trailing-edge fix the rung makes **one** adoption on the whole 960-item
+   cache, and that adoption's `merged_attr` is `none` (the only merged anchor on
+   that tape is at track 22, *after* the gap at track 19). So the tightening
+   would change nothing that runs today, and could not be re-validated
+   afterwards either.
+
+**Reactivation condition, stated as a requirement rather than an aside:** the
+merged-anchor question is **open**; the three-way partition above is the best
+available evidence and is underpowered in both directions; and **if this rung
+begins making natural adoptions on a future corpus, the merged-anchor error rate
+MUST be re-measured with adequate power BEFORE any adoption is trusted.**
+
+**The prepared response, so whoever re-measures does not have to re-derive it:**
+in `adopt_gap_titles`' anchor pass, require exact per-component equality at
+`_merge_run`'s call site instead of `fuzzy_title_eq` — i.e. accept a merged
+anchor only when every component matches a canonical item's normalized form
+exactly. It is strictly conservative: a declined merged anchor makes the
+adjacent gaps decline rather than mis-adopt.
 
 ### What the genuinely-wrong adoptions actually are
 
-Reading the 88 distinct pairs below, they fall into four recognisable shapes,
+Reading the 92 distinct pairs below, they fall into five recognisable shapes,
 and the first one accounts for most of them:
 
 **1. The tape carries filler the canonical does not list.** `Estimated` adopted
@@ -313,198 +490,203 @@ a `Bertha` tag (the parser emitted a bare `Prophet` item, splitting
 `Let It Grow` over `Spanish Jam` on five different tapes of gd1974-07-19 — one
 upstream parse defect reproduced across every recording of the same
 performance. Note the corollary: **wrong adoptions are correlated across
-sibling recordings**, so 108 distinct adoptions are fewer than 108 independent
-failures.
+sibling recordings**, so 113 distinct adoptions are far fewer than 113
+independent failures.
 
 **3. Main vs reprise.** Fifteen adoptions, per judgement call 1 above.
 
-**4. Tail junk adopted as a title — the most serious shape, and the smallest.**
+**4. The adopted item names an extra song.** Five adoptions, per judgement call
+4 above.
+
+**5. Tail junk adopted as a title — the shape that got fixed.**
 `gd1991-09-10` (two recordings): the last track's tag is
-`It's All Over Now Baby Blue` and the adopted title is
+`It's All Over Now Baby Blue` and the adopted title was
 **`Branford Marsalis on saxophone throughout`** — a taper's credit line sitting
 at the *end* of the parsed setlist. `_strip_head_banner` cleans the head only;
-there is no tail equivalent, and `_hygienic` passes the string (it has three
-letters, is under 80 characters, is not `is_junk_title`, and is not in
-`metadata_norms`). Both instances are **edge gaps**: a trailing run anchored on
-one side only, whose span runs to the end of the canonical — which is precisely
-where the junk lives. Same shape: `= no lyrics` adopted on two
-recordings of gd1975-06-17, both at track 18, both edge gaps (one classed
-`genuinely-wrong`, one `filler-segment` because the tag it displaced was
-`Crowd Out`). This is four distinct adoptions out of 6,864 in the blind test,
-but see the exposure section: it is **one of the two** adoptions the rung makes
-on the cache as it actually stands.
+there is no tail counterpart, and `_hygienic` passes the string (three letters,
+under 80 characters, not `is_junk_title`, not in `metadata_norms`). Same shape:
+`= no lyrics` adopted on two recordings of gd1975-06-17, both at track 18. All
+four sat at `track == n_tracks`, and **all four are gone at `b1ca393`** — see
+"Exposure" for the fix and its measured cost.
 
 
 ### The classification, in full
 
-Every `genuinely-wrong` and `tag-typo-adoption-superior` pair is listed. The
-`scorer-artifact` table is a sample; that class is the residue, so anything not
-appearing in the two complete tables belongs to it. `n` is distinct adoptions
-(not trials); `anchor` and `edge` show how those adoptions split.
+Generated from `2026-08-31-gap-fill-blind-test.triage.tsv` joined onto the
+`a37bb83` sweep, so these tables cannot drift from the data the roll-up counts.
+Every `genuinely-wrong` and `tag-typo-adoption-superior` pair is listed;
+`scorer-artifact` is the residue and only its 20 most frequent pairs are shown
+here. `n` is distinct adoptions (not trials). **merged reach** is the three-way
+attribution. **fix removes** is how many of that pair's adoptions the
+trailing-edge fix eliminates.
 
-#### genuinely-wrong — 108 distinct adoptions, 88 distinct pairs
+#### genuinely-wrong — 113 distinct adoptions, 92 distinct pairs (12 removed by the trailing-edge fix)
 
-| n | adopted (canonical item) | hidden (tape tag) | anchor | edge | first example |
+| n | adopted (canonical item) | hidden (tape tag) | merged reach | fix removes | first example |
 |---|---|---|---|---|---|
-| 4 | `Estimated` | `Tuning` | single:4 | int:4 | `gd1977-04-23.143220.weidner.akg-d200e.miller.flac1644 t12` |
-| 3 | `Playing In The Band` | `Playin' (Reprise)` | single:3 | int:3 | `gd1991-06-17.dts.dan.33670.sbeok.flac16 t18` |
-| 3 | `Prophet` | `Bertha` | single:3 | int:3 | `gd1977-04-23.139535.fob.ecm.99a.hopkins.miller.clugston.flac1648 t21` |
-| 2 | `Bertha` | `Tuning` | single:2 | int:2 | `gd1977-04-23.139535.fob.ecm.99a.hopkins.miller.clugston.flac1648 t22` |
-| 2 | `Blues For Allah` | `Tuning` | single:2 | int:2 | `gd1975-06-17.fob.menke.motb.97078.flac24 t10` |
-| 2 | `Estimated` | `Take A Step Back` | single:2 | int:2 | `gd1977-04-23.139535.fob.ecm.99a.hopkins.miller.clugston.flac1648 t19` |
-| 2 | `Hey Jude Reprise` | `Hey Jude ->` | single:2 | int:2 | `gd1989-10-09.sbd.miller.32902.sbeok.flac16 t20` |
-| 2 | `Let It Grow` | `Spanish Jam >` | single:2 | int:2 | `gd1974-07-19.mtx.sirmick.103132.sbeok.flac16 t20` |
-| 2 | `Mama Tried` | `Sugaree` | single:2 | edge:2 | `gd1979-12-28.167365.nak700.biggar.smith.miller.clugston.flac1648 t2` |
-| 2 | `Playin' In The Band` | `Playing In The Band (reprise)` | single:2 | int:2 | `gd1977-11-04.141004.aud.boswell.smith.sirmick.flac2496 t21` |
-| 2 | `Playin' In The Band Reprise` | `Playin in the Band>` | single:2 | int:2 | `gd1989-10-09.125737.mk4.48khz.flac16 t14` |
-| 2 | `Saint Stephen` | `Tuning/Dead Air` | single:2 | int:2 | `gd1977-05-08.sbd.cantor.sacks.266.shnf t17` |
-| 2 | `Stronger Than Dirt Or Milkin' The Turkey` | `Blues For Allah >` | single:2 | int:2 | `gd1975-06-17.fob.menke.motb.97078.flac24 t11` |
-| 2 | `Sugaree` | `Crowd/Tuning` | single:2 | edge:2 | `gd1979-12-28.167365.nak700.biggar.smith.miller.clugston.flac1648 t1` |
-| 2 | `There Is a Time` | `Red Daisy` | merged:1/single:1 | int:2 | `billystrings2021-08-14.Neumann t3` |
-| 2 | `Weather Report Suite Part 1` | `Let It Grow >` | single:2 | int:2 | `gd1974-07-19.mtx.sirmick.103132.sbeok.flac16 t19` |
-| 1 | `(Encores) It's All Over Now` | `Sugar Magnolia` | single:1 | int:1 | `gd1982-08-10.sbd.kempa.334.shnf t46` |
-| 1 | `= no lyrics` | `U.S. Blues` | single:1 | edge:1 | `gd1975-06-17.mtx.menke.gems.97079.flac16 t18` |
-| 1 | `Alligator` | `Jam` | single:1 | int:1 | `gd71-04-29.sbd.frisco.16782.sbeok.shnf t22` |
-| 1 | `Angeline` | `Instrumental` | single:1 | int:1 | `bluegrassgenerals2017-01-06.matrix t8` |
-| 1 | `Back In The Goodle Days` | `Good Ole Days` | single:1 | int:1 | `tmc2015-05-23 t7` |
-| 1 | `Beat It On Down The Line` | `Crazy Fingers` | single:1 | edge:1 | `gd1975-06-17.fob.menke.motb.97078.flac24 t2` |
-| 1 | `Bertha` | `The Music Never Stopped` | single:1 | int:1 | `gd1977-04-23.sonyECM99a.hopkins.minches.83685.flac16 t15` |
-| 1 | `Blue Collar Blues` | `I Love My Job` | single:1 | int:1 | `ymsb2010-07-16.aud.flac16 t2` |
-| 1 | `Boo Boo` | `Rise Up` | single:1 | int:1 | `los1996-08-09.shnf t2` |
-| 1 | `Branford Marsalis on saxophone throughout` | `It's All Over Now Baby Blue` | single:1 | edge:1 | `gd1991-09-10.fob.brennecke-young.GEMS.96422.flac16 t22` |
-| 1 | `Branford Marsalis on saxophone throughout` | `It’s All Over Now, Baby Blue` | single:1 | edge:1 | `gd1991-09-10.153418.mtx.photoleon.flac1644 t22` |
-| 1 | `Crazy` | `Used To Call Me Baby` | single:1 | int:1 | `ymsb2010-07-16.aud.flac16 t8` |
-| 1 | `Crazy Fingers` | `Tuning/ Bill Graham intro` | single:1 | edge:1 | `gd1975-06-17.fob.menke.motb.97078.flac24 t1` |
-| 1 | `Crowd/Tuning` | `I Know You Rider` | single:1 | int:1 | `gd1982-08-10.sbd.kempa.334.shnf t28` |
-| 1 | `Crowd/Tuning` | `Stagger Lee` | single:1 | int:1 | `gd1982-08-10.sbd.kempa.334.shnf t20` |
-| 1 | `Cryptical Envelopment` | `Drums` | single:1 | int:1 | `gd85-06-30.aud.oade-sacks.set2.7833.sbefail.shnf t5` |
-| 1 | `Cryptical Envelopment` | `Drums >` | single:1 | int:1 | `gd1985-06-30.165131.s2.sbd.pcm.latvala.miller.flac1644 t6` |
-| 1 | `Cryptical Envelopment` | `Midnight Hour` | single:1 | int:1 | `gd1968-02-14.sbd.douglas-cleef.2267.shnf t7` |
-| 1 | `Dark Star Reprise` | `Dark Star >` | single:1 | int:1 | `gd1991-09-10.sbd.sacks.tetzeli.fix-511.34678.reflac.flac16 t13` |
-| 1 | `Depot Bay` | `Too Tired` | single:1 | int:1 | `gsbg2014-02-28.BusmanLD.24bit t13` |
-| 1 | `Drums` | `Dark Star` | single:1 | int:1 | `gd91-06-17.sbd.gardner.3591.sbeok.shnf t14` |
-| 1 | `E. And We Bid You Good Night` | `Not Fade Away` | single:1 | edge:1 | `gd1989-10-26.sbd.cribbs.1829.shnf t34` |
-| 1 | `Estimated Prophet` | `Crowd` | single:1 | edge:1 | `gd1977-02-26.sbd.wizard.32009.sbefail.shnf t31` |
-| 1 | `Ewie with the Crooked Horn` | `Instrumental (forgot)` | single:1 | int:1 | `ymsb2010-07-16.aud.flac16 t13` |
-| 1 | `Feel Like A Stranger` | `Tuning` | single:1 | edge:1 | `gd1980-11-30.128440.naks.mason.flac16 t2` |
-| 1 | `First Terrapin Station` | `E: U.S. Blues` | single:1 | edge:1 | `gd1977-02-26.sbd.wizard.32009.sbefail.shnf t30` |
-| 1 | `Fixin' To Ruin` | `Old Dangerfield*` | single:1 | int:1 | `bluegrassgenerals2017-01-06.matrix t5` |
-| 1 | `Good Morning Little Schoolgirl` | `Morning Dew` | single:1 | edge:1 | `gd68-02-14.sbd.kaplan.15640.sbeok.shnf t1` |
-| 1 | `Good Times` | `Never Trust A Woman >` | single:1 | int:1 | `gd84-04-26.sbd.pj.4770.sbeok.shnf t13` |
-| 1 | `Hey Jude Reprise` | `Hey Jude >` | single:1 | int:1 | `gd1989-10-09.mtx.v2.haugh.92495.flac16 t19` |
-| 1 | `Hillbillies` | `Getting Down The Road**` | single:1 | int:1 | `bluegrassgenerals2017-01-06.matrix t14` |
-| 1 | `Introduction` | `Morning Dew` | single:1 | edge:1 | `gd1968-10-12.139745.sbd.miller.Glassberg.flac1644 t1` |
-| 1 | `It Must Have Been The Roses` | `Run For The Roses` | single:1 | edge:1 | `gd1974-06-18.sbd.bertha-ashley.18150.sbeok.shnf t2` |
-| 1 | `It's All Over Now Baby Blue` | `Crowd` | single:1 | edge:1 | `gd1991-09-10.fob.brennecke-young.GEMS.96422.flac16 t21` |
-| 1 | `It's All Over Now Baby Blue` | `encore break` | single:1 | edge:1 | `gd1991-09-10.153418.mtx.photoleon.flac1644 t21` |
-| 1 | `La Bamba` | `Good Lovin\'` | single:1 | int:1 | `gd1987-09-18.sbd.bobh.10536.sbeok.shnf t30` |
-| 1 | `Let It Grow` | `Spanish Jam` | single:1 | int:1 | `gd1974-07-19.sbd.gans-finney.217.sbeok.shnf t5` |
-| 1 | `Let It Grow` | `Spanish Jam ->` | single:1 | int:1 | `gd1974-07-19.shure.unknown.102766.flac16 t20` |
-| 1 | `Let It Grow` | `Spanish Jam>` | single:1 | int:1 | `gd1974-07-19.sbd.pre-dankfix.4596.sbeok.shnf t20` |
-| 1 | `Man Smart` | `Shakedown Street>` | single:1 | int:1 | `gd1987-09-18.nak300.pasternak.mallick.105497.flac16 t8` |
-| 1 | `Momma` | `outtro and taper signout` | single:1 | edge:1 | `HackensawBoys2007-06-13 t31` |
-| 1 | `Morning Dew` | `Good Morning Little Schoolgirl` | single:1 | edge:1 | `gd68-02-14.sbd.kaplan.15640.sbeok.shnf t2` |
-| 1 | `Natural to Be Gone` | `What's the Difference >` | single:1 | int:1 | `tmc2015-05-23 t6` |
-| 1 | `Not Fade Away` | `Saint Stephen` | single:1 | int:1 | `gd77-05-08.sbd.hicks.4982.sbeok.shnf t15` |
-| 1 | `Not Fade Away` | `Saint Stephen->` | single:1 | int:1 | `gd1977-05-08.sbd.cantor.sacks.266.shnf t18` |
-| 1 | `On the Run` | `Encore break` | single:1 | int:1 | `ymsb2009-08-28.dpa4027.flac16 t27` |
-| 1 | `Playin' In The Band` | `Playin' In The Band Reprise` | single:1 | int:1 | `gd1977-11-04.141833.sony.ecm33p.moore.dalton.miller.clugston.flac1644 t20` |
-| 1 | `Playin' In The Band Reprise` | `Playin` | single:1 | int:1 | `gd89-10-09.schoeps.howland.443.sbeok.shnf t12` |
-| 1 | `Playin' In The Band Reprise` | `Playin' In The Band` | single:1 | int:1 | `gd1989-10-09.nak300.juteau.116646.flac t14` |
-| 1 | `Playin' In The Band Reprise` | `Playin' in the Band` | single:1 | int:1 | `gd83-06-18.senn421.nawrocki.14411.sbeok.shnf t16` |
-| 1 | `Saint Stephen` | `Not Fade Away` | single:1 | int:1 | `gd77-05-08.sbd.hicks.4982.sbeok.shnf t16` |
-| 1 | `Saint Stephen` | `Not Fade Away->` | single:1 | int:1 | `gd1977-05-08.sbd.cantor.sacks.266.shnf t19` |
-| 1 | `Scarlet Begonias` | `Minglewood Blues` | single:1 | int:1 | `gd1978-04-16.sbd.unknown.20085.shnf t14` |
-| 1 | `Shakedown Street` | `E: Knockin' On Heaven's Door` | single:1 | int:1 | `gd1987-09-18.nak300.pasternak.mallick.105497.flac16 t7` |
-| 1 | `Supplication` | `Don't Ease Me In` | single:1 | int:1 | `gd84-10-31.senn.14947.sbeok.shnf t8` |
-| 1 | `Take a Step Back` | `Fire On The Mountain` | single:1 | int:1 | `gd1977-04-23.sbd.aj.gardner.4334.shnf t34` |
-| 1 | `The Music Never Stopped` | `tuning` | single:1 | int:1 | `gd1977-04-23.sonyECM99a.hopkins.minches.83685.flac16 t16` |
-| 1 | `The Other One` | `Spanish Jam` | single:1 | int:1 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t15` |
-| 1 | `The Wheel` | `Space >` | single:1 | int:1 | `gd84-07-13.sbd.ferguson.353.sbeok.shnf t15` |
-| 1 | `Throwing Stones` | `The Other One` | single:1 | int:1 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t16` |
-| 1 | `Throwing Stones` | `Wharf Rat` | single:1 | int:1 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t17` |
-| 1 | `Tied Down` | `[banter/crowd]` | single:1 | int:1 | `gsbg2007-03-03.matrix.flac16 t28` |
-| 1 | `Tuning` | `Feel Like A Stranger` | single:1 | edge:1 | `gd1980-11-30.128440.naks.mason.flac16 t1` |
-| 1 | `U.S. Blues` | `Crowd` | single:1 | edge:1 | `gd1975-06-17.mtx.menke.gems.97079.flac16 t17` |
-| 1 | `U.S. Blues` | `Crowd + Tune Up` | single:1 | edge:1 | `gd1977-02-26.sbd.wizard.32009.sbefail.shnf t29` |
-| 1 | `Weather Report Suite Part 1` | `Let It Grow` | single:1 | int:1 | `gd1974-07-19.sbd.gans-finney.217.sbeok.shnf t4` |
-| 1 | `Weather Report Suite Part 1` | `Let It Grow ->` | single:1 | int:1 | `gd1974-07-19.shure.unknown.102766.flac16 t19` |
-| 1 | `Weather Report Suite Part 1` | `Let It Grow>` | single:1 | int:1 | `gd1974-07-19.sbd.pre-dankfix.4596.sbeok.shnf t19` |
-| 1 | `Weather Report Suite Prelude` | `WRS Part I>` | single:1 | int:1 | `gd1974-07-19.sbd.pre-dankfix.4596.sbeok.shnf t18` |
-| 1 | `Wharf Rat` | `Throwing Stones` | single:1 | int:1 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t18` |
-| 1 | `What You're Selling` | `Things You're Selling` | single:1 | int:1 | `ymsb2007-02-01.SBD-KM184.flac16 t21` |
-| 1 | `Wheel Hoss` | `Tied Down` | single:1 | int:1 | `gsbg2007-03-03.matrix.flac16 t27` |
+| 4 | `Estimated` | `Tuning` | none:4 | 0 | `gd1977-04-23.143220.weidner.akg-d200e.miller.flac1644 t12` |
+| 3 | `Playing In The Band` | `Playin' (Reprise)` | none:3 | 0 | `gd1991-06-17.dts.dan.33670.sbeok.flac16 t18` |
+| 3 | `Prophet` | `Bertha` | none:3 | 0 | `gd1977-04-23.139535.fob.ecm.99a.hopkins.miller.clugston.flac1648 t21` |
+| 2 | `Bertha` | `Tuning` | none:2 | 0 | `gd1977-04-23.139535.fob.ecm.99a.hopkins.miller.clugston.flac1648 t22` |
+| 2 | `Blues For Allah` | `Tuning` | none:2 | 0 | `gd1975-06-17.fob.menke.motb.97078.flac24 t10` |
+| 2 | `Dancin' In The Streets Scarlet Begonias` | `Dancing In The Street` | none:2 | 0 | `gd1977-05-08.aud.moore.berger.28354.flac16 t11` |
+| 2 | `Estimated` | `Take A Step Back` | none:2 | 0 | `gd1977-04-23.139535.fob.ecm.99a.hopkins.miller.clugston.flac1648 t19` |
+| 2 | `Hey Jude Reprise` | `Hey Jude ->` | none:2 | 0 | `gd1989-10-09.sbd.miller.32902.sbeok.flac16 t20` |
+| 2 | `Let It Grow` | `Spanish Jam >` | none:2 | 0 | `gd1974-07-19.mtx.sirmick.103132.sbeok.flac16 t20` |
+| 2 | `Mama Tried` | `Sugaree` | none:2 | 0 | `gd1979-12-28.167365.nak700.biggar.smith.miller.clugston.flac1648 t2` |
+| 2 | `Playin' In The Band` | `Playing In The Band (reprise)` | none:2 | 0 | `gd1977-11-04.141004.aud.boswell.smith.sirmick.flac2496 t21` |
+| 2 | `Playin' In The Band Reprise` | `Playin in the Band>` | none:2 | 0 | `gd1989-10-09.125737.mk4.48khz.flac16 t14` |
+| 2 | `Saint Stephen` | `Tuning/Dead Air` | none:1/upstream:1 | 0 | `gd1977-05-08.sbd.cantor.sacks.266.shnf t17` |
+| 2 | `Stronger Than Dirt Or Milkin' The Turkey` | `Blues For Allah >` | none:2 | 0 | `gd1975-06-17.fob.menke.motb.97078.flac24 t11` |
+| 2 | `Sugaree` | `Crowd/Tuning` | none:2 | 0 | `gd1979-12-28.167365.nak700.biggar.smith.miller.clugston.flac1648 t1` |
+| 2 | `There Is a Time` | `Red Daisy` | adjacent:1/upstream:1 | 0 | `billystrings2021-08-14.Neumann t3` |
+| 2 | `Weather Report Suite Part 1` | `Let It Grow >` | none:2 | 0 | `gd1974-07-19.mtx.sirmick.103132.sbeok.flac16 t19` |
+| 1 | `(Encores) It's All Over Now` | `Sugar Magnolia` | none:1 | 0 | `gd1982-08-10.sbd.kempa.334.shnf t46` |
+| 1 | `= no lyrics` | `U.S. Blues` | none:1 | 1 | `gd1975-06-17.mtx.menke.gems.97079.flac16 t18` |
+| 1 | `Alligator` | `Jam` | none:1 | 0 | `gd71-04-29.sbd.frisco.16782.sbeok.shnf t22` |
+| 1 | `Angeline` | `Instrumental` | none:1 | 0 | `bluegrassgenerals2017-01-06.matrix t8` |
+| 1 | `Back In The Goodle Days` | `Good Ole Days` | none:1 | 0 | `tmc2015-05-23 t7` |
+| 1 | `Beat It On Down The Line` | `Crazy Fingers` | none:1 | 0 | `gd1975-06-17.fob.menke.motb.97078.flac24 t2` |
+| 1 | `Bertha` | `The Music Never Stopped` | none:1 | 0 | `gd1977-04-23.sonyECM99a.hopkins.minches.83685.flac16 t15` |
+| 1 | `Blue Collar Blues` | `I Love My Job` | none:1 | 0 | `ymsb2010-07-16.aud.flac16 t2` |
+| 1 | `Boo Boo` | `Rise Up` | none:1 | 0 | `los1996-08-09.shnf t2` |
+| 1 | `Branford Marsalis on saxophone throughout` | `It's All Over Now Baby Blue` | none:1 | 1 | `gd1991-09-10.fob.brennecke-young.GEMS.96422.flac16 t22` |
+| 1 | `Branford Marsalis on saxophone throughout` | `It’s All Over Now, Baby Blue` | none:1 | 1 | `gd1991-09-10.153418.mtx.photoleon.flac1644 t22` |
+| 1 | `Crazy` | `Used To Call Me Baby` | none:1 | 0 | `ymsb2010-07-16.aud.flac16 t8` |
+| 1 | `Crazy Fingers` | `Tuning/ Bill Graham intro` | none:1 | 0 | `gd1975-06-17.fob.menke.motb.97078.flac24 t1` |
+| 1 | `Crowd/Tuning` | `I Know You Rider` | none:1 | 0 | `gd1982-08-10.sbd.kempa.334.shnf t28` |
+| 1 | `Crowd/Tuning` | `Stagger Lee` | none:1 | 0 | `gd1982-08-10.sbd.kempa.334.shnf t20` |
+| 1 | `Cryptical Envelopment` | `Drums` | none:1 | 0 | `gd85-06-30.aud.oade-sacks.set2.7833.sbefail.shnf t5` |
+| 1 | `Cryptical Envelopment` | `Drums >` | none:1 | 0 | `gd1985-06-30.165131.s2.sbd.pcm.latvala.miller.flac1644 t6` |
+| 1 | `Cryptical Envelopment` | `Midnight Hour` | none:1 | 0 | `gd1968-02-14.sbd.douglas-cleef.2267.shnf t7` |
+| 1 | `Dancin' In The Streets Scarlet Begonias` | `Dancin' In The Streets` | upstream:1 | 0 | `gd77-05-08.sbd.hicks.4982.sbeok.shnf t11` |
+| 1 | `Dark Star Reprise` | `Dark Star >` | none:1 | 0 | `gd1991-09-10.sbd.sacks.tetzeli.fix-511.34678.reflac.flac16 t13` |
+| 1 | `Depot Bay` | `Too Tired` | none:1 | 0 | `gsbg2014-02-28.BusmanLD.24bit t13` |
+| 1 | `Don't Ease Me In Touch Of Gray` | `Touch Of Grey` | none:1 | 0 | `gd84-10-31.senn.14947.sbeok.shnf t9` |
+| 1 | `Drums` | `Dark Star` | none:1 | 0 | `gd91-06-17.sbd.gardner.3591.sbeok.shnf t14` |
+| 1 | `E. And We Bid You Good Night` | `Not Fade Away` | none:1 | 1 | `gd1989-10-26.sbd.cribbs.1829.shnf t34` |
+| 1 | `Estimated Prophet` | `Crowd` | none:1 | 1 | `gd1977-02-26.sbd.wizard.32009.sbefail.shnf t31` |
+| 1 | `Ewie with the Crooked Horn` | `Instrumental (forgot)` | none:1 | 0 | `ymsb2010-07-16.aud.flac16 t13` |
+| 1 | `Feel Like A Stranger` | `Tuning` | none:1 | 0 | `gd1980-11-30.128440.naks.mason.flac16 t2` |
+| 1 | `First Terrapin Station` | `E: U.S. Blues` | none:1 | 1 | `gd1977-02-26.sbd.wizard.32009.sbefail.shnf t30` |
+| 1 | `Fixin' To Ruin` | `Old Dangerfield*` | none:1 | 0 | `bluegrassgenerals2017-01-06.matrix t5` |
+| 1 | `Good Morning Little Schoolgirl` | `Morning Dew` | none:1 | 0 | `gd68-02-14.sbd.kaplan.15640.sbeok.shnf t1` |
+| 1 | `Good Times` | `Never Trust A Woman >` | none:1 | 0 | `gd84-04-26.sbd.pj.4770.sbeok.shnf t13` |
+| 1 | `Hey Jude Reprise` | `Hey Jude >` | none:1 | 0 | `gd1989-10-09.mtx.v2.haugh.92495.flac16 t19` |
+| 1 | `Hillbillies` | `Getting Down The Road**` | none:1 | 0 | `bluegrassgenerals2017-01-06.matrix t14` |
+| 1 | `Introduction` | `Morning Dew` | none:1 | 0 | `gd1968-10-12.139745.sbd.miller.Glassberg.flac1644 t1` |
+| 1 | `It Must Have Been The Roses` | `Run For The Roses` | none:1 | 0 | `gd1974-06-18.sbd.bertha-ashley.18150.sbeok.shnf t2` |
+| 1 | `It's All Over Now Baby Blue` | `Crowd` | none:1 | 1 | `gd1991-09-10.fob.brennecke-young.GEMS.96422.flac16 t21` |
+| 1 | `It's All Over Now Baby Blue` | `encore break` | none:1 | 1 | `gd1991-09-10.153418.mtx.photoleon.flac1644 t21` |
+| 1 | `La Bamba` | `Good Lovin\'` | none:1 | 0 | `gd1987-09-18.sbd.bobh.10536.sbeok.shnf t30` |
+| 1 | `Let It Grow` | `Spanish Jam` | none:1 | 0 | `gd1974-07-19.sbd.gans-finney.217.sbeok.shnf t5` |
+| 1 | `Let It Grow` | `Spanish Jam ->` | none:1 | 0 | `gd1974-07-19.shure.unknown.102766.flac16 t20` |
+| 1 | `Let It Grow` | `Spanish Jam>` | none:1 | 0 | `gd1974-07-19.sbd.pre-dankfix.4596.sbeok.shnf t20` |
+| 1 | `Man Smart` | `Shakedown Street>` | none:1 | 0 | `gd1987-09-18.nak300.pasternak.mallick.105497.flac16 t8` |
+| 1 | `Momma` | `outtro and taper signout` | none:1 | 1 | `HackensawBoys2007-06-13 t31` |
+| 1 | `Morning Dew` | `Good Morning Little Schoolgirl` | none:1 | 0 | `gd68-02-14.sbd.kaplan.15640.sbeok.shnf t2` |
+| 1 | `Natural to Be Gone` | `What's the Difference >` | none:1 | 0 | `tmc2015-05-23 t6` |
+| 1 | `Not Fade Away` | `Saint Stephen` | upstream:1 | 0 | `gd77-05-08.sbd.hicks.4982.sbeok.shnf t15` |
+| 1 | `Not Fade Away` | `Saint Stephen->` | none:1 | 0 | `gd1977-05-08.sbd.cantor.sacks.266.shnf t18` |
+| 1 | `Not Fade Away Encore Baby Blue` | `Not Fade Away` | none:1 | 1 | `gd84-04-26.sbd.pj.4770.sbeok.shnf t18` |
+| 1 | `On the Run` | `Encore break` | none:1 | 0 | `ymsb2009-08-28.dpa4027.flac16 t27` |
+| 1 | `Playin' In The Band` | `Playin' In The Band Reprise` | none:1 | 0 | `gd1977-11-04.141833.sony.ecm33p.moore.dalton.miller.clugston.flac1644 t20` |
+| 1 | `Playin' In The Band Reprise` | `Playin` | none:1 | 0 | `gd89-10-09.schoeps.howland.443.sbeok.shnf t12` |
+| 1 | `Playin' In The Band Reprise` | `Playin' In The Band` | none:1 | 0 | `gd1989-10-09.nak300.juteau.116646.flac t14` |
+| 1 | `Playin' In The Band Reprise` | `Playin' in the Band` | none:1 | 0 | `gd83-06-18.senn421.nawrocki.14411.sbeok.shnf t16` |
+| 1 | `Saint Stephen` | `Not Fade Away` | upstream:1 | 0 | `gd77-05-08.sbd.hicks.4982.sbeok.shnf t16` |
+| 1 | `Saint Stephen` | `Not Fade Away->` | none:1 | 0 | `gd1977-05-08.sbd.cantor.sacks.266.shnf t19` |
+| 1 | `Scarlet Begonias` | `Minglewood Blues` | upstream:1 | 0 | `gd1978-04-16.sbd.unknown.20085.shnf t14` |
+| 1 | `Shakedown Street` | `E: Knockin' On Heaven's Door` | none:1 | 0 | `gd1987-09-18.nak300.pasternak.mallick.105497.flac16 t7` |
+| 1 | `Supplication` | `Don't Ease Me In` | none:1 | 0 | `gd84-10-31.senn.14947.sbeok.shnf t8` |
+| 1 | `Take a Step Back` | `Fire On The Mountain` | none:1 | 0 | `gd1977-04-23.sbd.aj.gardner.4334.shnf t34` |
+| 1 | `The Music Never Stopped` | `tuning` | none:1 | 0 | `gd1977-04-23.sonyECM99a.hopkins.minches.83685.flac16 t16` |
+| 1 | `The Other One` | `Spanish Jam` | none:1 | 0 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t15` |
+| 1 | `The Wheel` | `Space >` | none:1 | 0 | `gd84-07-13.sbd.ferguson.353.sbeok.shnf t15` |
+| 1 | `Throwing Stones` | `The Other One` | none:1 | 0 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t16` |
+| 1 | `Throwing Stones` | `Wharf Rat` | none:1 | 0 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t17` |
+| 1 | `Tied Down` | `[banter/crowd]` | upstream:1 | 0 | `gsbg2007-03-03.matrix.flac16 t28` |
+| 1 | `Tuning` | `Feel Like A Stranger` | none:1 | 0 | `gd1980-11-30.128440.naks.mason.flac16 t1` |
+| 1 | `U.S. Blues` | `Crowd` | none:1 | 1 | `gd1975-06-17.mtx.menke.gems.97079.flac16 t17` |
+| 1 | `U.S. Blues` | `Crowd + Tune Up` | none:1 | 1 | `gd1977-02-26.sbd.wizard.32009.sbefail.shnf t29` |
+| 1 | `Weather Report Suite Part 1` | `Let It Grow` | none:1 | 0 | `gd1974-07-19.sbd.gans-finney.217.sbeok.shnf t4` |
+| 1 | `Weather Report Suite Part 1` | `Let It Grow ->` | none:1 | 0 | `gd1974-07-19.shure.unknown.102766.flac16 t19` |
+| 1 | `Weather Report Suite Part 1` | `Let It Grow>` | none:1 | 0 | `gd1974-07-19.sbd.pre-dankfix.4596.sbeok.shnf t19` |
+| 1 | `Weather Report Suite Prelude` | `WRS Part I>` | none:1 | 0 | `gd1974-07-19.sbd.pre-dankfix.4596.sbeok.shnf t18` |
+| 1 | `Wharf Rat` | `Throwing Stones` | none:1 | 0 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t18` |
+| 1 | `What You're Selling` | `Things You're Selling` | none:1 | 0 | `ymsb2007-02-01.SBD-KM184.flac16 t21` |
+| 1 | `Wheel Hoss` | `Tied Down` | upstream:1 | 0 | `gsbg2007-03-03.matrix.flac16 t27` |
 
-#### genuinely-wrong / filler-segment subclass — 56 distinct adoptions, 25 distinct pairs
+#### genuinely-wrong / filler-segment subclass — 56 distinct adoptions, 25 distinct pairs (1 removed by the trailing-edge fix)
 
-| n | adopted (canonical item) | hidden (tape tag) | anchor | edge | first example |
+| n | adopted (canonical item) | hidden (tape tag) | merged reach | fix removes | first example |
 |---|---|---|---|---|---|
-| 10 | `Jam` | `Space ->` | single:10 | int:10 | `gd1989-10-09.aud.robr.31211.sbeok.shnf t18` |
-| 10 | `Jam` | `Space >` | single:10 | int:10 | `gd1989-10-09.dts.dan.26235.sbeok.shnf t16` |
-| 5 | `Jam` | `Space>` | single:5 | int:5 | `gd1989-10-09.125737.mk4.48khz.flac16 t17` |
-| 3 | `Drums` | `Dark Star Jam >` | single:3 | int:3 | `gd1991-06-17.dts.dan.33670.sbeok.flac16 t14` |
-| 3 | `Space` | `Drums ->` | single:3 | int:3 | `gd1991-06-17.128692.mtx.dusborne.flac16 t15` |
-| 3 | `Space` | `Drums >` | single:3 | int:3 | `gd1991-06-17.dts.dan.33670.sbeok.flac16 t15` |
-| 2 | `Drums` | `Dark Star Jam ->` | single:2 | int:2 | `gd1991-06-17.128692.mtx.dusborne.flac16 t14` |
-| 2 | `Drums` | `Space ->` | single:2 | int:2 | `gd1984-06-27.getto.aud.122873.flac16 t7` |
-| 2 | `Drums` | `Space >` | single:2 | int:2 | `gd84-03-28.fob-faintych.miller.27303.sbeok.shnf t15` |
-| 1 | `= no lyrics` | `Crowd Out` | single:1 | edge:1 | `gd1975-06-17.fob.menke.motb.97078.flac24 t18` |
-| 1 | `Drums` | `Dark Star jam ->` | single:1 | int:1 | `gd1991-06-17.150371.FOB.Schoeps.Brotman.Metchick.Miller.Noel.t-flac1648 t13` |
-| 1 | `Drums` | `Jam` | single:1 | int:1 | `gd68-10-12.sbd.eD.10909.sbeok.shnf t8` |
-| 1 | `Drums` | `Jam \>` | single:1 | int:1 | `gd1968-10-12.sbd.gans.miller.owen.9385.shnf t16` |
-| 1 | `Drums` | `Space` | single:1 | int:1 | `gd85-06-30.aud.oade-sacks.set2.7833.sbefail.shnf t6` |
-| 1 | `Intro` | `Blah, Blah, Blah` | single:1 | edge:1 | `ymsb2006-08-25.neumann140.flac16 t1` |
-| 1 | `Jam` | `Primal Jam >` | single:1 | int:1 | `gd1971-04-29.sbd.murphy.1858.shnf t39` |
-| 1 | `Jam` | `Space` | single:1 | int:1 | `gd91-06-17.sbd.gardner.3591.sbeok.shnf t16` |
-| 1 | `Jam` | `Space/Jam` | single:1 | int:1 | `gd90-03-22.sbd.bertha-ashley.21433.sbeok.shnf t15` |
-| 1 | `Jam` | `The Eleven Jam % >` | single:1 | int:1 | `gd1975-09-28.aud.gofob.86250.flac16 t9` |
-| 1 | `Jam` | `eleven jam>` | single:1 | int:1 | `gd1975-09-28.sbd.unknown.2562.sbefail.shnf t9` |
-| 1 | `Space` | `Drums` | single:1 | int:1 | `gd91-06-17.sbd.gardner.3591.sbeok.shnf t15` |
-| 1 | `Spanish Jam` | `Space` | single:1 | int:1 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t14` |
-| 1 | `Spanish Jam` | `Space ->` | single:1 | int:1 | `gd84-04-23.set2-sbd.miller.14949.sbeok.shnf t7` |
-| 1 | `[ instrumental ]` | `Unknown Title #1` | single:1 | int:1 | `delmccouryband2005-07-29.flac16 t5` |
-| 1 | `[ instrumental ]` | `[ banjo tune ]` | single:1 | int:1 | `del2005-07-29.mk21.flac16 t5` |
+| 10 | `Jam` | `Space ->` | none:10 | 0 | `gd1989-10-09.aud.robr.31211.sbeok.shnf t18` |
+| 10 | `Jam` | `Space >` | none:10 | 0 | `gd1989-10-09.dts.dan.26235.sbeok.shnf t16` |
+| 5 | `Jam` | `Space>` | none:5 | 0 | `gd1989-10-09.125737.mk4.48khz.flac16 t17` |
+| 3 | `Drums` | `Dark Star Jam >` | none:3 | 0 | `gd1991-06-17.dts.dan.33670.sbeok.flac16 t14` |
+| 3 | `Space` | `Drums ->` | none:3 | 0 | `gd1991-06-17.128692.mtx.dusborne.flac16 t15` |
+| 3 | `Space` | `Drums >` | none:3 | 0 | `gd1991-06-17.dts.dan.33670.sbeok.flac16 t15` |
+| 2 | `Drums` | `Dark Star Jam ->` | none:2 | 0 | `gd1991-06-17.128692.mtx.dusborne.flac16 t14` |
+| 2 | `Drums` | `Space ->` | none:2 | 0 | `gd1984-06-27.getto.aud.122873.flac16 t7` |
+| 2 | `Drums` | `Space >` | none:2 | 0 | `gd84-03-28.fob-faintych.miller.27303.sbeok.shnf t15` |
+| 1 | `= no lyrics` | `Crowd Out` | none:1 | 1 | `gd1975-06-17.fob.menke.motb.97078.flac24 t18` |
+| 1 | `Drums` | `Dark Star jam ->` | none:1 | 0 | `gd1991-06-17.150371.FOB.Schoeps.Brotman.Metchick.Miller.Noel.t-flac1648 t13` |
+| 1 | `Drums` | `Jam` | none:1 | 0 | `gd68-10-12.sbd.eD.10909.sbeok.shnf t8` |
+| 1 | `Drums` | `Jam \>` | none:1 | 0 | `gd1968-10-12.sbd.gans.miller.owen.9385.shnf t16` |
+| 1 | `Drums` | `Space` | none:1 | 0 | `gd85-06-30.aud.oade-sacks.set2.7833.sbefail.shnf t6` |
+| 1 | `Intro` | `Blah, Blah, Blah` | none:1 | 0 | `ymsb2006-08-25.neumann140.flac16 t1` |
+| 1 | `Jam` | `Primal Jam >` | none:1 | 0 | `gd1971-04-29.sbd.murphy.1858.shnf t39` |
+| 1 | `Jam` | `Space` | none:1 | 0 | `gd91-06-17.sbd.gardner.3591.sbeok.shnf t16` |
+| 1 | `Jam` | `Space/Jam` | none:1 | 0 | `gd90-03-22.sbd.bertha-ashley.21433.sbeok.shnf t15` |
+| 1 | `Jam` | `The Eleven Jam % >` | none:1 | 0 | `gd1975-09-28.aud.gofob.86250.flac16 t9` |
+| 1 | `Jam` | `eleven jam>` | none:1 | 0 | `gd1975-09-28.sbd.unknown.2562.sbefail.shnf t9` |
+| 1 | `Space` | `Drums` | none:1 | 0 | `gd91-06-17.sbd.gardner.3591.sbeok.shnf t15` |
+| 1 | `Spanish Jam` | `Space` | none:1 | 0 | `gd84-04-07.sbd.dodd.13816.sbeok.shnf t14` |
+| 1 | `Spanish Jam` | `Space ->` | none:1 | 0 | `gd84-04-23.set2-sbd.miller.14949.sbeok.shnf t7` |
+| 1 | `[ instrumental ]` | `Unknown Title #1` | none:1 | 0 | `delmccouryband2005-07-29.flac16 t5` |
+| 1 | `[ instrumental ]` | `[ banjo tune ]` | none:1 | 0 | `del2005-07-29.mk21.flac16 t5` |
 
-#### tag-typo-adoption-superior — 41 distinct adoptions, 34 distinct pairs
+#### tag-typo-adoption-superior — 41 distinct adoptions, 34 distinct pairs (1 removed by the trailing-edge fix)
 
-| n | adopted (canonical item) | hidden (tape tag) | anchor | edge | first example |
+| n | adopted (canonical item) | hidden (tape tag) | merged reach | fix removes | first example |
 |---|---|---|---|---|---|
-| 3 | `Loser` | `Loset` | single:3 | int:3 | `gd1974-02-24.136140.mtx.tobin.flac16 t10` |
-| 2 | `Around & Around` | `Arouond & Around` | single:2 | int:2 | `gd1977-05-25.147785.fob.shure.sm57.sublette.miller.clugston.flac1648 t22` |
-| 2 | `Gimme Some Lovin'` | `Gimmie Some Lovin` | single:2 | int:2 | `gd1985-06-30.126176.chasingwilma.flac24 t12` |
-| 2 | `Mexicali Blues` | `Mexical Blues` | single:2 | int:2 | `gd1980-11-29.132456.aud.flac16 t8` |
-| 2 | `Mexicali Blues` | `Mexicalli Blues` | single:2 | int:2 | `gd85-06-30.aud.set1.mckeown.7893.sbefail.shnf t5` |
-| 2 | `Watermelon Man` | `is Watermelon Man` | merged:1/single:1 | int:2 | `lkeel2009-03-07.dpa4022_portico t6` |
-| 1 | `- All Four Wheels` | `All Four` | single:1 | int:1 | `gsbg2015-01-22.c4.flac16 t19` |
-| 1 | `Box Of Rain` | `Box OfRain` | single:1 | int:1 | `gd1973-02-09.sbd.ashley.12571.shnf t24` |
-| 1 | `Brown Eyed Women` | `Bown Eyed Women` | single:1 | int:1 | `gd79-10-27.sbd.clugston.13980.sbeok.shnf t6` |
-| 1 | `Damned If The Right One Didn't Go Wrong` | `Damed if the right one didnt go wrong` | single:1 | int:1 | `ymsb2006-08-25.neumann140.flac16 t10` |
-| 1 | `First Girl I Ever Loved` | `is First Girl I Ever Loved` | merged:1 | edge:1 | `lkeel2009-03-07.dpa4022_portico t3` |
-| 1 | `Franklin's Tower` | `Franklins's Tower` | single:1 | int:1 | `gd1975-09-28.unknown.beggs.236.shnf t5` |
-| 1 | `GDTRFB` | `Goin' Down The Raod Feeling Bad` | single:1 | int:1 | `gd1977-04-23.143220.weidner.akg-d200e.miller.flac1644 t20` |
-| 1 | `Gimme Some Lovin'` | `Gimmie Some Lovin'` | single:1 | int:1 | `gd85-06-30.aud.oade-sacks.set2.7833.sbefail.shnf t3` |
-| 1 | `Goldbricking` | `Goldbreaken` | single:1 | int:1 | `del2002-05-24.shnf t3` |
-| 1 | `Greatest Story Ever Told` | `Greates Story Ever Told ->` | single:1 | int:1 | `gd1971-04-29.sbd.unknown.4333.shnf t42` |
-| 1 | `I Ain't Superstitous` | `I Ain' Superstitious` | single:1 | int:1 | `gd85-04-08.sbd.wiley.8755.sbeok.shnf t7` |
-| 1 | `It Hurts Me Too` | `It Hurts Me To` | single:1 | edge:1 | `gd1971-04-29.sbd.haugh.33565.flac16 t3` |
-| 1 | `It's All Over Now Baby Blue` | `It's All Ove Now Baby Blue` | single:1 | edge:1 | `gd84-12-31.sbd.gorinsky.6395.sbeok.shnf t21` |
-| 1 | `Jack Straw` | `Jack Staw` | single:1 | edge:1 | `gd1978-04-16.139240.sbd.ForTheFaithful_KTS528-529.flac1644 t1` |
-| 1 | `Looks Like Rain` | `Look Like Rain` | single:1 | int:1 | `gd1973-05-26.147312.aud.taback.flac16 t8` |
-| 1 | `Loser` | `Lose/r` | single:1 | edge:1 | `gd1980-11-30.128440.naks.mason.flac16 t3` |
-| 1 | `Me And Bobby McGee` | `Me & My Bobby McGee` | single:1 | int:1 | `gd1971-04-29.sbd.haugh.33565.flac16 t12` |
-| 1 | `Me And Bobby McGee` | `Me and My Bobby McGee` | single:1 | int:1 | `gd1971-04-29.mtx.hansokolow.97660.flac16 t12` |
-| 1 | `Morning Dew` | `Moring Dew` | single:1 | int:1 | `gd1977-05-08.148737.SBD.Betty.Anon.Noel.t-flac2448 t22` |
-| 1 | `New Minglewood Blues` | `New Minlewood Blues` | single:1 | edge:1 | `gd1982-08-10.152133.mouth.akg-ce1.mac.uherarchive.rogers.wise.flac2444 t3` |
-| 1 | `New Speedway Boogie` | `New Speedway Boogies` | single:1 | int:1 | `ymsb2010-07-17.aud.flac16 t9` |
-| 1 | `Peggy-O` | `Peggio` | single:1 | int:1 | `gd1975-06-17.aud.unknown.87560.flac16 t5` |
-| 1 | `Playin' In The Band` | `Playing In The Bnad` | single:1 | int:1 | `gd1974-07-19.shure.unknown.fix-102766.102866.flac16 t10` |
-| 1 | `Stronger Than Dirt Or Milkin' The Turkey` | `tronger Than Dirt Or Milkin' The Turkey >` | single:1 | int:1 | `gd1975-06-17.fob.menke.motb.97078.flac24 t13` |
-| 1 | `Tennessee Jed` | `Tennesee Jed` | single:1 | int:1 | `gd1973-11-17.sbd.patched.bec.22799.flac16 t6` |
-| 1 | `Tennessee Jed` | `Tennesse Jed` | single:1 | int:1 | `gd1974-06-18.sbd.bertha-ashley.18150.sbeok.shnf t21` |
-| 1 | `They Love Each Other` | `The Love Each Other` | single:1 | edge:1 | `gd77-09-03.sbd.unk.276.sbefixed.shnf t2` |
-| 1 | `Wharf Rat` | `Whar Rat` | single:1 | int:1 | `gd84-04-19.aud.willy.14013.sbeok.shnf t17` |
+| 3 | `Loser` | `Loset` | none:3 | 0 | `gd1974-02-24.136140.mtx.tobin.flac16 t10` |
+| 2 | `Around & Around` | `Arouond & Around` | none:2 | 0 | `gd1977-05-25.147785.fob.shure.sm57.sublette.miller.clugston.flac1648 t22` |
+| 2 | `Gimme Some Lovin'` | `Gimmie Some Lovin` | none:2 | 0 | `gd1985-06-30.126176.chasingwilma.flac24 t12` |
+| 2 | `Mexicali Blues` | `Mexical Blues` | none:2 | 0 | `gd1980-11-29.132456.aud.flac16 t8` |
+| 2 | `Mexicali Blues` | `Mexicalli Blues` | none:2 | 0 | `gd85-06-30.aud.set1.mckeown.7893.sbefail.shnf t5` |
+| 2 | `Watermelon Man` | `is Watermelon Man` | adjacent:1/upstream:1 | 0 | `lkeel2009-03-07.dpa4022_portico t6` |
+| 1 | `- All Four Wheels` | `All Four` | none:1 | 0 | `gsbg2015-01-22.c4.flac16 t19` |
+| 1 | `Box Of Rain` | `Box OfRain` | none:1 | 0 | `gd1973-02-09.sbd.ashley.12571.shnf t24` |
+| 1 | `Brown Eyed Women` | `Bown Eyed Women` | none:1 | 0 | `gd79-10-27.sbd.clugston.13980.sbeok.shnf t6` |
+| 1 | `Damned If The Right One Didn't Go Wrong` | `Damed if the right one didnt go wrong` | none:1 | 0 | `ymsb2006-08-25.neumann140.flac16 t10` |
+| 1 | `First Girl I Ever Loved` | `is First Girl I Ever Loved` | adjacent:1 | 0 | `lkeel2009-03-07.dpa4022_portico t3` |
+| 1 | `Franklin's Tower` | `Franklins's Tower` | none:1 | 0 | `gd1975-09-28.unknown.beggs.236.shnf t5` |
+| 1 | `GDTRFB` | `Goin' Down The Raod Feeling Bad` | none:1 | 0 | `gd1977-04-23.143220.weidner.akg-d200e.miller.flac1644 t20` |
+| 1 | `Gimme Some Lovin'` | `Gimmie Some Lovin'` | none:1 | 0 | `gd85-06-30.aud.oade-sacks.set2.7833.sbefail.shnf t3` |
+| 1 | `Goldbricking` | `Goldbreaken` | none:1 | 0 | `del2002-05-24.shnf t3` |
+| 1 | `Greatest Story Ever Told` | `Greates Story Ever Told ->` | none:1 | 0 | `gd1971-04-29.sbd.unknown.4333.shnf t42` |
+| 1 | `I Ain't Superstitous` | `I Ain' Superstitious` | none:1 | 0 | `gd85-04-08.sbd.wiley.8755.sbeok.shnf t7` |
+| 1 | `It Hurts Me Too` | `It Hurts Me To` | none:1 | 0 | `gd1971-04-29.sbd.haugh.33565.flac16 t3` |
+| 1 | `It's All Over Now Baby Blue` | `It's All Ove Now Baby Blue` | none:1 | 1 | `gd84-12-31.sbd.gorinsky.6395.sbeok.shnf t21` |
+| 1 | `Jack Straw` | `Jack Staw` | none:1 | 0 | `gd1978-04-16.139240.sbd.ForTheFaithful_KTS528-529.flac1644 t1` |
+| 1 | `Looks Like Rain` | `Look Like Rain` | none:1 | 0 | `gd1973-05-26.147312.aud.taback.flac16 t8` |
+| 1 | `Loser` | `Lose/r` | none:1 | 0 | `gd1980-11-30.128440.naks.mason.flac16 t3` |
+| 1 | `Me And Bobby McGee` | `Me & My Bobby McGee` | none:1 | 0 | `gd1971-04-29.sbd.haugh.33565.flac16 t12` |
+| 1 | `Me And Bobby McGee` | `Me and My Bobby McGee` | none:1 | 0 | `gd1971-04-29.mtx.hansokolow.97660.flac16 t12` |
+| 1 | `Morning Dew` | `Moring Dew` | none:1 | 0 | `gd1977-05-08.148737.SBD.Betty.Anon.Noel.t-flac2448 t22` |
+| 1 | `New Minglewood Blues` | `New Minlewood Blues` | none:1 | 0 | `gd1982-08-10.152133.mouth.akg-ce1.mac.uherarchive.rogers.wise.flac2444 t3` |
+| 1 | `New Speedway Boogie` | `New Speedway Boogies` | none:1 | 0 | `ymsb2010-07-17.aud.flac16 t9` |
+| 1 | `Peggy-O` | `Peggio` | none:1 | 0 | `gd1975-06-17.aud.unknown.87560.flac16 t5` |
+| 1 | `Playin' In The Band` | `Playing In The Bnad` | none:1 | 0 | `gd1974-07-19.shure.unknown.fix-102766.102866.flac16 t10` |
+| 1 | `Stronger Than Dirt Or Milkin' The Turkey` | `tronger Than Dirt Or Milkin' The Turkey >` | none:1 | 0 | `gd1975-06-17.fob.menke.motb.97078.flac24 t13` |
+| 1 | `Tennessee Jed` | `Tennesee Jed` | none:1 | 0 | `gd1973-11-17.sbd.patched.bec.22799.flac16 t6` |
+| 1 | `Tennessee Jed` | `Tennesse Jed` | none:1 | 0 | `gd1974-06-18.sbd.bertha-ashley.18150.sbeok.shnf t21` |
+| 1 | `They Love Each Other` | `The Love Each Other` | none:1 | 0 | `gd77-09-03.sbd.unk.276.sbefixed.shnf t2` |
+| 1 | `Wharf Rat` | `Whar Rat` | none:1 | 0 | `gd84-04-19.aud.willy.14013.sbeok.shnf t17` |
 
-#### scorer-artifact — 422 distinct adoptions, 235 distinct pairs (sample of the 20 most frequent)
+#### scorer-artifact — 417 distinct adoptions, 231 distinct pairs (20 most frequent; the class is the residue and is enumerated in full in the companion `.triage.tsv`)
 
 | n | adopted | hidden |
 |---|---|---|
@@ -529,62 +711,128 @@ appearing in the two complete tables belongs to it. `n` is distinct adoptions
 | 4 | `Women Are Smarter` | `Man Smart, Woman Smarter` |
 | 4 | `Mississippi Half-Step Uptown Toodleloo` | `Mississippi Half-Step Uptown Toodeloo >` |
 
+
 ---
 
 ## Exposure: what the rung does to the cache as it actually stands
 
 The blind test manufactures gaps. This measures the real ones — blinding
-nothing, running `adopt_gap_titles` over every cached item exactly as gathered:
+nothing, running `adopt_gap_titles` over every cached item exactly as gathered.
+
+### Before the fix (`a37bb83`): two adoptions, one of them junk
 
 ```console
-$ ./.venv/bin/python scripts/blind_tag_gapfill.py --natural --progress 400 > natural-mp3.tsv
+$ ./.venv/bin/python scripts/blind_tag_gapfill.py --natural --progress 500
 items measured                : 960
 naturally unresolved tracks   : 210
 items the rung changes at all : 2
 tracks the rung fills         : 2
 
-is2008-12-06.flac16.aud   34  for being so nice and quiet which allowed me to pull a nice recording.  is2008-12-06d2t22.mp3
-ymsb2010-07-17.aud.flac16 19  Robot Jam                                                               ymsb2010-07-17d2t10.mp3
+is2008-12-06.flac16.aud   34  for being so nice and quiet which allowed me to pull a nice recording.
+ymsb2010-07-17.aud.flac16 19  Robot Jam
 ```
 
-**Two adoptions across 960 items and 210 genuinely-unresolved tracks. One is
-exactly right and one is a taper's thank-you sentence.**
+- `ymsb2010-07-17` track 19 is the mechanism working as designed. The tape's own
+  tags run `... Another Day / <untagged> / Ramblin In The Rambler pt.1 ...`; the
+  canonical has `Another Day / Robot Jam / Ramblin In The Rambler pt.1`; the gap
+  is one file against one item between two exact anchors, in the **interior** of
+  the tape. `Robot Jam` is a title nothing else in llama could have recovered,
+  and before this rung it shipped as `ymsb2010-07-17d2t10.mp3`.
+- `is2008-12-06` track 34 is failure shape 5. It is the **last** file on the
+  tape; the parsed canonical's 39th and final item is the tail of the taper's
+  notes; the gap is a trailing run anchored on the left only, so its span ran to
+  the end of the canonical. One item, one file, count-forced, and `_hygienic`
+  cannot reject the sentence. That tape's canonical tail is
+  `... / Tuning / Banter / for being so nice and quiet which allowed me to pull
+  a nice recording.` — and `ymsb2010-07-17`'s is
+  `Zoom H4n @ 44.1/16 / sdhc card / Sound Forge 6 / TLH`. The trailing span of a
+  parsed LMA setlist really is where the lineage notes live.
 
-- `ymsb2010-07-17` track 19 is the mechanism working as designed. The tape's
-  own tags run `... Another Day / <untagged> / Ramblin In The Rambler pt.1 ...`;
-  the canonical has `Another Day / Robot Jam / Ramblin In The Rambler pt.1`; the
-  gap is one file against one item between two exact anchors. `Robot Jam` is a
-  title nothing else in llama could have recovered, and today it ships as
-  `ymsb2010-07-17d2t10.mp3`.
-- `is2008-12-06` track 34 is failure shape 4. It is the last file on the tape;
-  the parsed canonical's 39th and final item is the tail of the taper's notes,
-  `for being so nice and quiet which allowed me to pull a nice recording.`; the
-  gap is an **edge** gap anchored on the left only, so its span runs to the end
-  of the canonical. One item, one file, count-forced, hygienic — adopted.
+### The fix, and its measured cost
 
-The other 208 unresolved tracks are not touched, overwhelmingly because they sit
-on wholly-untagged tapes where there are no anchors at all, or in runs whose
-item count does not match. That is count-forcing declining, which is what it is
-for.
+`adopt_gap_titles` no longer fills a run reaching the last track
+(`b1ca393`). The leading-edge branch is kept — its span ends at a real anchor's
+item, so it can never reach the canonical's tail. Cost measured by sweeping the
+corpus with and without:
 
-**Read this number honestly in both directions.** It bounds the damage Phase A
-can do on today's cache to one bad title. It also bounds the *good* it does to
-one good title, and the 1.57% blind-test rate is measured on 6,864 synthetic
-adoptions that the production population does not currently supply. The
-mechanism's value is prospective — it fires when a tape is well tagged *except*
-for a short run — and the exposure measurement says that situation is rare in
-this library today.
+| | `a37bb83` | `b1ca393` | delta |
+|---|---|---|---|
+| distinct adoptions | 6,864 | 6,546 | **−318 (−4.6%)** |
+| — correct | 6,237 | 5,972 | −265 |
+| — scorer-artifact | 417 | 378 | −39 |
+| — tag-typo (adoption superior) | 41 | 40 | −1 |
+| — **genuinely-wrong** | 113 | 101 | **−12** |
+| — genuinely-wrong / filler | 56 | 55 | −1 |
+| strict genuinely-wrong rate | 1.65% | **1.54%** | −0.11 pp |
+
+The first version of this document estimated the cost as "the 1.99% edge
+population" — 1,156 adoptions, 17% of the corpus. **The measured cost is 318,
+4.6%**, roughly 3.6× smaller. That estimate was wrong because it conflated the
+whole edge population with the *trailing* half of it.
+
+**On the blind corpus the fix trades 265 correct titles for 12 wrong ones —
+about 22:1 — and that lopsided ratio is the right trade, because the two costs
+are not comparable.** A **declined** title leaves the track showing its
+filename, which the operator repairs with a single `llama fix --set-title N=…`
+call, and which `llama status` already surfaces as an unresolved title. A
+**wrong** title is silent: it reaches `manifest.json`, the m3u, the ID3 tags and
+the air, and neither of the guards downstream can catch it — llama's
+`briefing_guard` and emcee's `script_guard` both take the tracklist as their
+definition of truth, so a title that is confidently wrong is simply the premise
+they reason from. Asymmetric costs justify a lopsided ratio.
+
+**And the fix is targeted rather than blunt.** All five bad adoptions in
+evidence — four in the blind corpus, one natural — sit at `track == n_tracks`.
+The good natural adoption is interior and survives.
+
+### After the fix (`b1ca393`): one adoption, and it is the right one
+
+```console
+$ ./.venv/bin/python scripts/blind_tag_gapfill.py --natural --progress 500
+items measured                : 960
+naturally unresolved tracks   : 210
+items the rung changes at all : 1
+tracks the rung fills         : 1
+
+ymsb2010-07-17.aud.flac16 19  Robot Jam
+```
+
+**One adoption across 960 cached items and 210 genuinely-unresolved tracks, and
+it is correct.** This is the number that matters for shipping, and it should be
+read plainly in both directions: the rung's blast radius on today's corpus is
+one track, and so is its yield. The other 209 unresolved tracks are untouched —
+overwhelmingly because they sit on wholly-untagged tapes where there are no
+anchors at all, or in runs whose item count does not match. That is
+count-forcing declining, which is what it is for.
+
+**The rung is very nearly inert on this corpus, and that is a measurement, not
+a defect.** Its value is prospective: it fires when a tape is well tagged
+*except* for a short interior run, and the `--natural` measurement says that
+situation occurs once in 960 cached items today. Anyone who finds this rung
+later and wonders whether it is dead code should re-run the command above rather
+than re-diagnose it:
+
+> `./.venv/bin/python scripts/blind_tag_gapfill.py --natural` — 2026-08-31,
+> 960 cached items, 210 unresolved tracks, **1 adoption**
+> (`ymsb2010-07-17.aud.flac16` t19 → `Robot Jam`), correct.
 
 ---
 
 ## The ship gate
 
 The plan's gate: *"ship unflagged only if `genuinely-wrong` is at or below the
-tag rung's own typo baseline."* Ruling 9 made the by-anchor-kind breakout a
-second, independent gate.
+tag rung's own typo baseline."* Ruling 9 of the Phase A SDD ledger
+(`docs/superpowers/2026-08-31-phase-a-sdd-ledger.md`) made the by-anchor-kind
+breakout a second, independent gate; Ruling 7 there is the merged-anchor
+question and Ruling 6 the escalation rule.
 
-**Gate on the merged-anchor path: passes, decisively.** 0.39% (1/257) against
-1.62% (107/6,607) for single anchors. The merged path is the better one.
+**Gate on the merged-anchor path: NOT PASSED, NOT FAILED — the gate as
+originally instrumented was measuring the wrong thing, and re-instrumented it is
+underpowered in both directions.** See "The gate answered a question nobody
+asked" and "Both directions are underpowered". The first version of this
+document reported this gate as passing decisively; that is withdrawn. The
+merged-anchor question is **open**, with the reactivation condition and the
+prepared tightening recorded above.
 
 **Gate on the pooled rate: cannot be settled as written, because the reference
 quantity does not exist.** "The tag rung's own typo baseline" has never been
@@ -599,51 +847,51 @@ them needs a *third* source. What this instrument does yield are two bounds:
 - **6.5%** of scored disagreements (41 of 627) are the tag's fault rather than
   the adoption's.
 
-Against the floor, 1.57% is about 2.6× the tag rung's demonstrated error rate,
-so on a literal reading the pooled gate **does not pass**. Against any honest
-estimate of the true tag-typo rate the comparison is unresolved — the floor is
-certainly a large undercount, because every tag defect the canonical happens to
-reproduce is invisible to this experiment.
+Against the floor, the shipped strict rate of 1.54% is about 2.6× the tag rung's
+demonstrated error rate, so on a literal reading the pooled gate **does not
+pass**. Against any honest estimate of the true tag-typo rate the comparison is
+unresolved — the floor is certainly a large undercount, because every tag defect
+the canonical happens to reproduce is invisible to this experiment.
 
-**I am recording that the gate is unresolvable as specified rather than
-adjusting the measurement until it resolves.** No threshold was moved and no
-class boundary was drawn after seeing a number; the three judgement calls above
-were all made before the roll-up was run, and judgement call 1 — the only one
-that moves the headline — was made in the *conservative* direction.
+**The gate is recorded as unresolvable as specified rather than adjusted until
+it resolves.** No threshold was moved and no class boundary was drawn to reach a
+number: judgement calls 1–3 were made before the first roll-up was run, and
+judgement call 4 (added at review) moved the headline **up**, not down.
 
 ### Recommendation
 
-**Ship Piece 1, with the edge/trailing-gap path tightened first — not
-unflagged, and not abandoned.** Reasoning, in the order it should be weighed:
+**Ship Piece 1. The trailing-edge fix is applied; do not add a review flag; do
+not apply the `_merge_run` tightening.** Reasoning, in the order it should be
+weighed:
 
-1. **The merged-anchor gate passes and the reserved tightening should not be
-   applied.** That is a clean result and it retires Ruling 7's open question.
-2. **The strict genuinely-wrong rate of 1.57% is the good half of the number.**
-   Roughly two thirds of it is one upstream defect class — the canonical parse
-   listing songs the tape splits differently, or the tape carrying filler the
-   canonical omits — and it is correlated across sibling recordings, so it is
-   fewer than 108 independent failures. Against the alternative (the track
-   ships as `gd77-05-08d2t04.mp3`), a 98.4%-correct title is a large
-   improvement in what a listener sees and what a scriptwriter reads.
-3. **The one shape I would not ship as-is is the trailing edge gap.** It is
-   where `_hygienic` demonstrably fails — a taper's sentence and a lineage
-   credit adopted as track titles — because `_strip_head_banner` has no tail
-   counterpart and the trailing span of a parsed LMA setlist is where the notes
-   live. It is 1 of the 2 real adoptions on today's cache. Two options, in
-   preference order:
-   - **decline edge gaps whose span reaches the last canonical item** (a
-     three-line change in `adopt_gap_titles`; strictly conservative, costs the
-     1.99% edge population and prevents both observed junk adoptions), or
-   - **add a tail counterpart to `_strip_head_banner`**, which is the real fix
-     and is Phase-B-sized.
-   Either is above this task; both are cheaper than shipping the taper sentence.
-4. **A review flag on adoption is defensible but I do not recommend it as the
-   primary control.** At today's exposure it would fire on 2 shows out of 89 and
-   would have flagged the good adoption as loudly as the bad one; the shape that
-   needs catching is specific enough to decline outright.
+1. **The trailing-edge path was the one shape that could not ship, and it is
+   fixed.** Measured cost 318 adoptions (4.6%), trading 265 declined titles for
+   12 wrong ones at asymmetric cost, and on the natural population it removes
+   the one junk adoption while sparing the one good one. See "Exposure".
+2. **The shipped rate is 1.54%–2.38%**, the range rather than a point because
+   judgement calls 1 and 2 are in tension (see call 2). Against the alternative
+   — the track ships as `gd77-05-08d2t04.mp3` — a title that is right 97.6–98.5%
+   of the time is a large improvement in what a listener sees and what a
+   scriptwriter reads. Two thirds of the residual error is one upstream
+   parse-defect class, correlated across sibling recordings, so 101 distinct
+   adoptions are far fewer than 101 independent failures.
+3. **Do not apply the `_merge_run` tightening**, for the reasons in its own
+   section: both attributions are underpowered, this project does not ship
+   knobs it cannot re-validate, and the sole natural adoption has
+   `merged_attr = none`, so the tightening would not touch anything that
+   currently executes. The question stays open with a stated reactivation
+   condition rather than being retired.
+4. **No review flag.** At the measured exposure it would fire on one show in 89
+   and would flag the correct adoption. The shape that needed catching was
+   specific enough to decline outright, and it has been.
+5. **What would change this recommendation:** the rung making natural adoptions
+   at any volume on a future corpus. At that point the merged-anchor rate must
+   be re-measured with adequate power before adoptions are trusted, and the
+   1.54%–2.38% rate — measured on synthetic gaps — should be re-derived on the
+   real population rather than assumed to carry over.
 
-**This is a recommendation, not a decision.** Whether Phase A ships unflagged,
-ships flagged, ships with the edge tightening, or is held is the plan owner's
+**This is a recommendation, not a decision.** Ruling 6 of the SDD ledger applies:
+whether Phase A ships unflagged, ships flagged, or is held is the plan owner's
 call.
 
 ---
@@ -751,41 +999,85 @@ docstring) and on any future tape where that rung fires.
   single largest caveat: every canonical here is LMA-only, and the real
   canonicals for several of these shows are setlist.fm-won. **Every number in
   this document is a bound.**
-- **Correlated failures are counted as independent.** 108 distinct
+- **Correlated failures are counted as independent.** The 113 distinct
   genuinely-wrong adoptions include the same upstream parse defect reproduced
   across five recordings of gd1974-07-19 and two of gd1991-09-10. The count of
-  distinct *causes* is materially smaller.
+  distinct *causes* is materially smaller, which cuts both ways: it makes the
+  rate look worse than the number of underlying problems, and it means a single
+  upstream parser fix could remove a large slice of it.
 - **The blinded population is not the production population.** Blinding a
   well-tagged tape's tuning track manufactures a one-file gap that production
   reaches only when the tape is untagged at that spot. The `--natural` run is
   the honest exposure measure; the blind test is the honest *rate* measure, on a
   population chosen to be measurable rather than to be representative.
-- **Adoptions outside the blinded window are unscored** (135 per-trial, 0.5%);
-  they have no ground truth by construction.
+- **The blind test systematically bypasses the sibling rung, so production's
+  pre-emptions are undercounted.** `prepare()` computes `sibling_titles` from
+  the *unblinded* tape, so a fully-tagged tape has `title_fraction == 1.0` and
+  gather's sibling-lookup gate never fires — whereas in production that same
+  tape with a genuinely untagged run would fetch sibling recordings and often
+  resolve the gap before `adopt_gap_titles` is reached. The 1,138 recorded
+  sibling pre-emptions are therefore a floor. This inflates the blind test's
+  *firing* rate, not its error rate, and it is one more reason `--natural` is
+  the number to ship on.
+- **The `extract_setlist` LLM fallback population is silently excluded.** When
+  `rank_parses` returns None, production runs the `extract_setlist` LLM task on
+  the longest description; the harness is offline and uses an empty canonical
+  instead, so those recordings contribute no adoptions either way. Their true
+  behaviour is unmeasured here.
+- **The 135 unverifiable adoptions are *induced* by the blinding, not merely
+  out of window.** Removing an anchor changes the monotone walk, which can let a
+  pre-existing unresolved run elsewhere on the tape become count-forced and
+  fillable. They are an artifact of the experiment rather than a property of the
+  code — consistent with `--natural` finding one fill in the whole cache — and
+  they are excluded from every rate above because they have no ground truth. The
+  trailing-edge fix drops them to 54.
+- **`edge`-conditioned figures depend on a collapse rule.** See "The `edge`
+  split is collapse-rule-dependent".
 - **Coverage is not evaluated here.** The known gap recorded in `CLAUDE.md` —
   coverage never inspects unmatched *items* — is untouched by this work.
 - **The `flac` sweep is untriaged.** Its rate is a raw rate and no gate is drawn
   from it.
+- **Statistical power.** Every by-attribution comparison in this document rests
+  on single-digit event counts and none of them is significant. Intervals are
+  given so this is visible rather than implied.
 
 ---
 
 ## Reproduction
 
-From the worktree root, with its own venv (never a bare `pytest`/`python`):
+From the worktree root, with its own venv (never a bare `pytest`/`python`).
+The harness reads `~/.llama/cache/md_*.json` and writes nothing anywhere.
 
 ```bash
+# 0. the non-empty demonstration -- run this first, it exits non-zero on failure
 ./.venv/bin/python scripts/blind_tag_gapfill.py --selftest
-./.venv/bin/python scripts/blind_tag_gapfill.py --progress 100        > gapfill-mp3.tsv
-./.venv/bin/python scripts/blind_tag_gapfill.py --format flac         > gapfill-flac.tsv
-./.venv/bin/python scripts/blind_tag_gapfill.py --natural             > natural-mp3.tsv
-./.venv/bin/python scripts/title_source_census.py                     # the 2,015-track census
+
+# 1. the shipped code (b1ca393)
+./.venv/bin/python scripts/blind_tag_gapfill.py --progress 500 > sweep-postfix.tsv
+./.venv/bin/python scripts/blind_tag_gapfill.py --format flac  > sweep-flac.tsv
+./.venv/bin/python scripts/blind_tag_gapfill.py --natural      > natural-postfix.tsv
+
+# 2. the pre-fix population the hand triage was performed on (a37bb83)
+git checkout a37bb83 -- packages/llama/src/llama/structure.py
+./.venv/bin/python scripts/blind_tag_gapfill.py --progress 500 > sweep-prefix.tsv
+./.venv/bin/python scripts/blind_tag_gapfill.py --natural      > natural-prefix.tsv
+git checkout HEAD -- packages/llama/src/llama/structure.py
+
+# 3. every class count in this document, from the shipped classification
+./.venv/bin/python scripts/blind_tag_gapfill.py \
+    --triage docs/superpowers/2026-08-31-gap-fill-blind-test.triage.tsv \
+    --rows sweep-prefix.tsv
+./.venv/bin/python scripts/blind_tag_gapfill.py \
+    --triage docs/superpowers/2026-08-31-gap-fill-blind-test.triage.tsv \
+    --rows sweep-postfix.tsv
+
+# 4. the 2,015-track production census used by the fixture caveat
+./.venv/bin/python scripts/title_source_census.py
 ```
 
-The harness reads `~/.llama/cache/md_*.json` and writes nothing anywhere. The
-triage roll-up is the classification tables in this document applied to
-`gapfill-mp3.tsv`; the tables enumerate the `genuinely-wrong` and
-`tag-typo-adoption-superior` classes in full, and everything else is
-`scorer-artifact`.
+`--triage` exits 1 if any wrong adoption in the sweep has no class in the
+classification file, so a sweep and a classification that have drifted apart
+report loudly instead of looking clean.
 
-Suite at the time of writing: `./.venv/bin/pytest -q` → **1499 passed, 7
+Suite at the time of writing: `./.venv/bin/pytest -q` → **1500 passed, 7
 deselected**.
