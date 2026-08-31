@@ -20,6 +20,8 @@ FIXTURE = FIXTURES / "gd73_metadata.json"
 IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
 W_IDENT = "gd74-02-24.sbd.windsor.199.sbefail.shnf"
 M_IDENT = "gd1974-02-24.sbd.miller.116902.flac16"
+YMSB_FIXTURE = FIXTURES / "ymsb2005_metadata.json"
+Y_IDENT = "ymsb2005-12-31.flac16.wav"
 
 
 class StubIA:
@@ -1248,3 +1250,53 @@ def test_encore_override_must_follow_every_set_break():
 
     with pytest.raises(LlamaError, match="greater than"):
         _validate_structure_override(n_tracks=17, breaks=[7, 16], encore_after=7)
+
+
+def _ymsb_candidate():
+    return Candidate(
+        performance_id="YonderMountainStringBand/2005-12-31",
+        collection="YonderMountainStringBand", date="2005-12-31",
+        venue="Fillmore Auditorium", city="Denver, CO",
+        recordings=[RecordingSummary(identifier=Y_IDENT)])
+
+
+def test_gap_fill_resolves_a_mixed_show(tmp_path: Path):
+    """Tagged tracks anchor; the count-forced unresolved run between them fills."""
+    md = json.loads(FIXTURE.read_text())
+    mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
+    for i, f in enumerate(mp3s):
+        f["title"] = None if i in (1, 2) else f.get("title")
+    sws = ShowWorkspace(tmp_path / "show")
+    # gd73's kept-file count exactly equals its canonical setlist's item count
+    # (6 == 6), so titles.resolve_titles's whole-tape rung ("aligned = ...")
+    # would otherwise resolve the blanked positions as "setlist" before
+    # adopt_gap_titles ever sees an unresolved run to fill. Excluding the
+    # trailing encore file (already untagged in the fixture, resolved via
+    # that same whole-tape rung) breaks the exact count match (kept=5,
+    # items=6) without touching either anchor or the gap under test — this
+    # is exactly the LOCAL count-forcing-between-anchors scenario the rung
+    # exists for, as opposed to the whole-tape one.
+    write_artifact(sws.overrides, Overrides(exclude=["gd73-06-10d3t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    filled = [t for t in show.tracks if t.title_source == "setlist-gap"]
+    assert filled, "expected the blanked run to be gap-filled"
+    assert all(t.title_source != "unresolved" for t in show.tracks)
+
+
+def test_a_fully_tagged_show_is_untouched(tmp_path: Path):
+    md = json.loads(FIXTURE.read_text())
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert not any(t.title_source == "setlist-gap" for t in show.tracks)
+
+
+def test_a_wholly_untagged_tape_gets_no_gap_fill(tmp_path: Path):
+    """ymsb2005 has no tagged track, therefore no anchor, therefore no
+    adoption. Piece 1 deliberately does NOT solve the whole-tape case; that
+    is Piece 2's job."""
+    md = json.loads(YMSB_FIXTURE.read_text())
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), _ymsb_candidate(), Y_IDENT)
+    assert all(t.title_source == "unresolved" for t in show.tracks)
+    assert show.needs_review is True
+    assert "unresolved track titles" in show.review_flags

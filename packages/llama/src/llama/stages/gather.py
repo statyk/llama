@@ -14,9 +14,10 @@ from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.songs import GD_SHORTHAND
-from llama.structure import (align, apply_llm_alignment, blend_segues,
-                             from_setlistfm, fuzzy_norm_title, norm_title,
-                             rank_parses, structure_guard, venues_equivalent)
+from llama.structure import (adopt_gap_titles, align, apply_llm_alignment,
+                             blend_segues, from_setlistfm, fuzzy_norm_title,
+                             norm_title, rank_parses, structure_guard,
+                             venues_equivalent)
 from llama.titles import (clean_tag_titles, is_real_title, resolve_titles,
                           set_breaks, sibling_format_titles, title_fraction)
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
@@ -599,6 +600,15 @@ def run_gather(
                              f"(show has {len(tracks)} tracks)")
         tracks[n - 1] = tracks[n - 1].model_copy(
             update={"title": forced, "title_source": "override"})
+
+    # Fill count-forced runs of unresolved tracks between tag-verified anchors.
+    # Runs here, after the overrides loop, so an operator-forced title can
+    # ANCHOR a gap as well as survive it. metadata_norms is passed down
+    # because structure.py must not import a stage.
+    tracks = adopt_gap_titles(
+        tracks, canonical,
+        metadata_norms=_show_metadata_norms(artist, candidate, meta, events),
+        aliases=GD_SHORTHAND if jerrybase.is_family_artist(artist) else {})
 
     flags = []
     if overrides.set_breaks is not None or overrides.encore_after is not None:

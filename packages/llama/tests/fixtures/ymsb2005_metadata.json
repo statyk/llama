@@ -1,0 +1,1574 @@
+{
+  "metadata": {
+    "identifier": "ymsb2005-12-31.flac16.wav",
+    "mediatype": "etree",
+    "subject": "Live concert",
+    "publicdate": "2006-01-03 23:31:29",
+    "creator": "Yonder Mountain String Band",
+    "description": "Set I\n\nGranny Woncha Smoke Some >\nRide The Wild Turkey\nOn The Run >\nPostcard To My Son From Jail [tentative title] >\nOn The Run\nSteep Grade Sharp Curves *\nHoward Hughes Blues *\nPolly Put The Kettle On * ^ >\nJenny Run Away In the Mud & Rain * ^\nPeace Of Mind * >\nKing Ebenezer Rap * >\nPeace Of Mind *\n\nSet II\n\nGet Me Outta This City # %\nMidnight Blues # %\nJack London # % *\nUp On The Hill Where They Do The Boogie # % *\nCountdown to Happy New Year - Auld Lang Syne # % *\nAngel *\nIt's All Too Much *\nFinally Saw The Light \nEwe With The Crooked Horn >\nIf You're Ever In Oklahoma >\nSpanish Harlem Incident >\n\nEncore:\n\nHigh Lonesome Sound * # $\nTear Down The Grand Ole Opry @",
+    "coverage": "Denver, CO",
+    "md5s": "ymsb2005-12-31d01t01.flac:e20f64e0da832161f1543823b9c838c6\nymsb2005-12-31d01t02.flac:079fb7ac3a7ebbc3ade83102963bcd25\nymsb2005-12-31d01t03.flac:315c080fd80ca738cd87c846353f72a1\nymsb2005-12-31d01t04.flac:05072e5e3148c05427c89534926598f1\nymsb2005-12-31d01t05.flac:d8093956aa579cb77a6385edf44d1f51\nymsb2005-12-31d01t06.flac:9330939a3513b75197a8c6db62a28558\nymsb2005-12-31d01t07.flac:9eac704e7a7bcb316d622d55d5fb5b37\nymsb2005-12-31d01t08.flac:392378c585748150757eaa573fd696d0\nymsb2005-12-31d01t09.flac:2a961ad36bf0a0fccd84ec4c7a3836bf\nymsb2005-12-31d01t10.flac:8fa9bcebbc4dde24c19c5fe2c605faaa\nymsb2005-12-31d02t01.flac:641553f1bfc1e703693f124882c62564\nymsb2005-12-31d02t02.flac:d32a17bc4aaddcabac82f143d6a93e39\nymsb2005-12-31d02t03.flac:1e3fb32c203e937ccb665e2f637da0fa\nymsb2005-12-31d02t04.flac:ee535d914647dcf2987b6e068c43d01e\nymsb2005-12-31d02t05.flac:e7da1db5d2d9453005772c3c377e50f0\nymsb2005-12-31d02t06.flac:6607adfc419a460494e07f7f207daceb\nymsb2005-12-31d02t07.flac:35ddc0a64b3124e56420dee6583c7955\nymsb2005-12-31d02t08.flac:88af446d74ee48c8d44737b6b3ecb524\nymsb2005-12-31d03t01.flac:95230f0ee74d7fbca4a6489ff286ab46\nymsb2005-12-31d03t02.flac:2b4aa653910b21a69e326b47ab612654\nymsb2005-12-31d03t03.flac:a008b06066a4f907f5d345facd8d8bf2\nymsb2005-12-31d03t04.flac:85ccb71ab5d74fff431ea570ad10646f\nymsb2005-12-31d03t05.flac:02dd5570ec31fc90fa96dbfb2496da21\nymsb2005-12-31d03t06.flac:f906fc52e9e27f287c66f0dc9b202892",
+    "date": "2005-12-31",
+    "uploader": "taperaaron@hotmail.com",
+    "addeddate": "2006-01-02 15:03:19",
+    "adder": "aisraels",
+    "pick": "0",
+    "notes": "NOTES:\nA YonderTaper Production - \"Broadcasting in the Highest of Fidelity\"\nEntire show with Darol Anger - Fiddle\n* w/ Bela Fleck - Banjo\n^ w/ Rayna Gellert (Uncle Earl) - Fiddle\n# w/ Drew Emmitt - Mandolin, Vocals\n% w/ Vince Herman - Guitar, Vocals\n$ w/ Peter Rowan - Guitar, Vocals\n@ w/ Everyone - Bela Fleck, Drew Emmitt, Vince Herman, Peter Rowan,\nRayna Gellert, KC Groves, Abigail Washburn, Sharon Gilchrist,\nKristin Andreassen\n\n**A big thanks to Andrew Pierce and Phil Rollins for getting the stand situation organized and helping me out with the clamp space. In general, thanks to everyone I meet for the hospitality; the weekend was awesome. Also, thanks for the setlist Tim!",
+    "source": "AKG 483's > Bumblebee MiAGi-II Silver Cables > Lunatec V3 > Kind Kable (Coax) > MicroTrack 24/96 (at 16/44.1)",
+    "taper": "Aaron Israels taperaaron AT hotmail Dot com",
+    "lineage": "MicroTrack 24/96 > usb > G4 powerbook > Spark XL > xAct > Flac",
+    "venue": "Fillmore Auditorium",
+    "transferer": "Aaron Israels",
+    "discs": "3",
+    "has_mp3": "1",
+    "shndiscs": "3",
+    "publisher": "Aaron Israels taperaaron AT hotmail Dot com",
+    "updater": "unix:etree",
+    "type": "sound",
+    "year": "2005",
+    "collection": [
+      "YonderMountainStringBand",
+      "etree"
+    ],
+    "title": "Yonder Mountain String Band Live at Fillmore Auditorium on 2005-12-31",
+    "backup_location": "ia903600_12"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "bb1769a6e892e09fe7705646d138ef94"
+    },
+    {
+      "name": "ymsb2005-12-31.flac16.wav.ffp",
+      "source": "original",
+      "original": "ymsb2005-12-31d03t06.flac",
+      "format": "Flac FingerPrint",
+      "md5": "46778a6febcadb41a9a0939cc0fc03a7"
+    },
+    {
+      "name": "ymsb2005-12-31.flac16.wav_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "dc05dc483da954621aeb97ad71b36a3c"
+    },
+    {
+      "name": "ymsb2005-12-31.flac16.wav_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "5cc2ac0d0ff50e03df7b61ed7556e9c3"
+    },
+    {
+      "name": "ymsb2005-12-31.flac16.wav_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "14e8c62d86a4df45783d146afd4a5744"
+    },
+    {
+      "name": "ymsb2005-12-31.flac16.wav_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "ea262546644059a86e7a5219c82d9789"
+    },
+    {
+      "name": "ymsb2005-12-31.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "61679976b23d1a69285abb4d2b80c240"
+    },
+    {
+      "name": "ymsb2005-12-31d01t01.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "bf7775deef19278fb95c167304ae2ae3"
+    },
+    {
+      "name": "ymsb2005-12-31d01t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "525.21",
+      "md5": "568a7401d1991a80d8059605187f19b7"
+    },
+    {
+      "name": "ymsb2005-12-31d01t01.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t01.flac",
+      "format": "VBR MP3",
+      "length": "08:45",
+      "md5": "73f676c9f36b7e10f5cfada7d8432661"
+    },
+    {
+      "name": "ymsb2005-12-31d01t01.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "525.21",
+      "md5": "2a7e096cdc55c01ed64afd3bd5bf0a55"
+    },
+    {
+      "name": "ymsb2005-12-31d01t01.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t01.flac",
+      "format": "PNG",
+      "md5": "d2d20d617156357a017538b466a6d127"
+    },
+    {
+      "name": "ymsb2005-12-31d01t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "b069b6c61b427a61ea472c73d368df37"
+    },
+    {
+      "name": "ymsb2005-12-31d01t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "96e425879a4cc463ce791681ebcff477"
+    },
+    {
+      "name": "ymsb2005-12-31d01t01_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t01.flac",
+      "format": "Spectrogram",
+      "md5": "eb0fd1bc89a63bb4c0896cf39af06daa"
+    },
+    {
+      "name": "ymsb2005-12-31d01t02.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "10deff3c0f3905c15ea819ee2cbb0776"
+    },
+    {
+      "name": "ymsb2005-12-31d01t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "430.28",
+      "md5": "f762460207a840d276e454860b50135c"
+    },
+    {
+      "name": "ymsb2005-12-31d01t02.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t02.flac",
+      "format": "VBR MP3",
+      "length": "07:10",
+      "md5": "46566ce5a0bed3fab68c0a3ff3326e5f"
+    },
+    {
+      "name": "ymsb2005-12-31d01t02.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "430.28",
+      "md5": "1794ad7e788a678d70ac1a9b8c7f3ed1"
+    },
+    {
+      "name": "ymsb2005-12-31d01t02.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t02.flac",
+      "format": "PNG",
+      "md5": "945b08cf2c062002e2e5df5ed7d1e4fa"
+    },
+    {
+      "name": "ymsb2005-12-31d01t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "1565ad052d6e9ace5b94215f93e63d00"
+    },
+    {
+      "name": "ymsb2005-12-31d01t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "26e1769c0d9bec4b9240ac86a0b9e1fe"
+    },
+    {
+      "name": "ymsb2005-12-31d01t02_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t02.flac",
+      "format": "Spectrogram",
+      "md5": "00fb029a15ce3167564733a518936a87"
+    },
+    {
+      "name": "ymsb2005-12-31d01t03.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "48e3d160fe63273047338b4764c993ac"
+    },
+    {
+      "name": "ymsb2005-12-31d01t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "299.58",
+      "md5": "32213560fa2934caca8a016e786d9ff1"
+    },
+    {
+      "name": "ymsb2005-12-31d01t03.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t03.flac",
+      "format": "VBR MP3",
+      "length": "04:59",
+      "md5": "4129b7e1ddccd9349d906000b33fc3f3"
+    },
+    {
+      "name": "ymsb2005-12-31d01t03.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "299.58",
+      "md5": "c860b97e00ab77f7056d81c4574492ee"
+    },
+    {
+      "name": "ymsb2005-12-31d01t03.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t03.flac",
+      "format": "PNG",
+      "md5": "8ce30a902201487ff3f798512c1159ca"
+    },
+    {
+      "name": "ymsb2005-12-31d01t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "1ff9c352899720a4d87593d356fc0ecf"
+    },
+    {
+      "name": "ymsb2005-12-31d01t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "42e3164a78568d51d47ee781a5be0b47"
+    },
+    {
+      "name": "ymsb2005-12-31d01t03_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t03.flac",
+      "format": "Spectrogram",
+      "md5": "806763b19568a61a015e0eac316a9007"
+    },
+    {
+      "name": "ymsb2005-12-31d01t04.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "b9d16b707e72a07e1da7f7c393aec144"
+    },
+    {
+      "name": "ymsb2005-12-31d01t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "317.32",
+      "md5": "a13d19052e888a35b33a133686ad35f4"
+    },
+    {
+      "name": "ymsb2005-12-31d01t04.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t04.flac",
+      "format": "VBR MP3",
+      "length": "05:17",
+      "md5": "0a8d52001f04295fe9d980f312464b3c"
+    },
+    {
+      "name": "ymsb2005-12-31d01t04.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "317.32",
+      "md5": "18e63c883368e1baf30d338715f67997"
+    },
+    {
+      "name": "ymsb2005-12-31d01t04.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t04.flac",
+      "format": "PNG",
+      "md5": "7e9e822571becf86a316bbc009f3ae46"
+    },
+    {
+      "name": "ymsb2005-12-31d01t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "3e7cb181d5b11f4a115088c5e29c755c"
+    },
+    {
+      "name": "ymsb2005-12-31d01t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "067c620fdab64cc283563265ddab18d3"
+    },
+    {
+      "name": "ymsb2005-12-31d01t04_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t04.flac",
+      "format": "Spectrogram",
+      "md5": "236498ef4275faba0f346c818ddbb9f5"
+    },
+    {
+      "name": "ymsb2005-12-31d01t05.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "a3e61c9d7dadb8aa6e953017c4ce55d4"
+    },
+    {
+      "name": "ymsb2005-12-31d01t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "435.88",
+      "md5": "223c668c4d1ab45ecb22299b69c515d4"
+    },
+    {
+      "name": "ymsb2005-12-31d01t05.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t05.flac",
+      "format": "VBR MP3",
+      "length": "07:15",
+      "md5": "b4ae64df2ca66269dd92d916063a552e"
+    },
+    {
+      "name": "ymsb2005-12-31d01t05.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "435.88",
+      "md5": "4803893a423e01c3cfa971c8ba5c32fd"
+    },
+    {
+      "name": "ymsb2005-12-31d01t05.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t05.flac",
+      "format": "PNG",
+      "md5": "0e2a93855a83032c3dd4b69894e1201b"
+    },
+    {
+      "name": "ymsb2005-12-31d01t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "ebd39ec3278d6b1c44b81bc408de7b2b"
+    },
+    {
+      "name": "ymsb2005-12-31d01t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "82b86e989ef959646bb9a8a6b837e97b"
+    },
+    {
+      "name": "ymsb2005-12-31d01t05_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t05.flac",
+      "format": "Spectrogram",
+      "md5": "969add2396cc4d27236aa44d270749fd"
+    },
+    {
+      "name": "ymsb2005-12-31d01t06.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t06.flac",
+      "format": "Columbia Peaks",
+      "md5": "105812add62f5c6cfdbb269df6ce53e3"
+    },
+    {
+      "name": "ymsb2005-12-31d01t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "292.52",
+      "md5": "9252c7bc775bb3c93b31417498e2c015"
+    },
+    {
+      "name": "ymsb2005-12-31d01t06.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t06.flac",
+      "format": "VBR MP3",
+      "length": "04:52",
+      "md5": "7d17470917d30959be67808f416a4c39"
+    },
+    {
+      "name": "ymsb2005-12-31d01t06.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "292.52",
+      "md5": "822bc7aa51b93c5a88e2e1aef074d22f"
+    },
+    {
+      "name": "ymsb2005-12-31d01t06.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t06.flac",
+      "format": "PNG",
+      "md5": "6c6d83e657a388ccdfdd6036c305fb64"
+    },
+    {
+      "name": "ymsb2005-12-31d01t06_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t06_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "f8262230c30cd2caf9e44c6d0faf4282"
+    },
+    {
+      "name": "ymsb2005-12-31d01t06_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t06.flac",
+      "format": "Essentia Low GZ",
+      "md5": "af76e289546d558689a9fb16a426f0ba"
+    },
+    {
+      "name": "ymsb2005-12-31d01t06_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t06.flac",
+      "format": "Spectrogram",
+      "md5": "f8c6801415b4107fe46f7bf7cec64f83"
+    },
+    {
+      "name": "ymsb2005-12-31d01t07.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t07.flac",
+      "format": "Columbia Peaks",
+      "md5": "234b8470502d40b79b45fa9cced4a84b"
+    },
+    {
+      "name": "ymsb2005-12-31d01t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "464.45",
+      "md5": "557ca6d215f4c0e1049fa4dd0c6e6c01"
+    },
+    {
+      "name": "ymsb2005-12-31d01t07.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t07.flac",
+      "format": "VBR MP3",
+      "length": "07:44",
+      "md5": "4ac121fa1655d2441da235980a53465a"
+    },
+    {
+      "name": "ymsb2005-12-31d01t07.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "464.45",
+      "md5": "e081125483a6710e924679e05ad6c072"
+    },
+    {
+      "name": "ymsb2005-12-31d01t07.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t07.flac",
+      "format": "PNG",
+      "md5": "fd2cc7d8b789b5007ff76a6d93d4e707"
+    },
+    {
+      "name": "ymsb2005-12-31d01t07_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t07_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "0683ccd54271b5ef0bfdf035194accf6"
+    },
+    {
+      "name": "ymsb2005-12-31d01t07_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t07.flac",
+      "format": "Essentia Low GZ",
+      "md5": "6a142af86de59cebd04bf7b22689d530"
+    },
+    {
+      "name": "ymsb2005-12-31d01t07_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t07.flac",
+      "format": "Spectrogram",
+      "md5": "8c66345f30ab85e85f18bc2de8d35a42"
+    },
+    {
+      "name": "ymsb2005-12-31d01t08.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t08.flac",
+      "format": "Columbia Peaks",
+      "md5": "80b56f31627c04a6cfa2cc686552ecc3"
+    },
+    {
+      "name": "ymsb2005-12-31d01t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "327.49",
+      "md5": "ebe1d8f31b5d19d0f0d20af109bfadec"
+    },
+    {
+      "name": "ymsb2005-12-31d01t08.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t08.flac",
+      "format": "VBR MP3",
+      "length": "05:27",
+      "md5": "2b7028b401183dcb3eb80b51e982e2d7"
+    },
+    {
+      "name": "ymsb2005-12-31d01t08.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "327.49",
+      "md5": "bc40dacd80a633f9ba4fd911fae7708f"
+    },
+    {
+      "name": "ymsb2005-12-31d01t08.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t08.flac",
+      "format": "PNG",
+      "md5": "81eacd376e66e03466ee7fd1d758d8a3"
+    },
+    {
+      "name": "ymsb2005-12-31d01t08_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t08_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "72f5901ba772671ecb61704e294ad8ba"
+    },
+    {
+      "name": "ymsb2005-12-31d01t08_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t08.flac",
+      "format": "Essentia Low GZ",
+      "md5": "22938c361be3cc039f0c8f6a2f57efa8"
+    },
+    {
+      "name": "ymsb2005-12-31d01t08_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t08.flac",
+      "format": "Spectrogram",
+      "md5": "c34bc6c3219cc3ed3d6cf62f76cf3952"
+    },
+    {
+      "name": "ymsb2005-12-31d01t09.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t09.flac",
+      "format": "Columbia Peaks",
+      "md5": "605f4ccd5f2c045c8aca97543a48d7a2"
+    },
+    {
+      "name": "ymsb2005-12-31d01t09.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "750.3",
+      "md5": "5c336f1e1a8b7140cbca1d41836a9b4a"
+    },
+    {
+      "name": "ymsb2005-12-31d01t09.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t09.flac",
+      "format": "VBR MP3",
+      "length": "12:30",
+      "md5": "efc5cb55a5653d6429db8fb56137bd3e"
+    },
+    {
+      "name": "ymsb2005-12-31d01t09.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t09.flac",
+      "format": "Ogg Vorbis",
+      "length": "750.3",
+      "md5": "ee625431a1fa16eb6e772842d4138469"
+    },
+    {
+      "name": "ymsb2005-12-31d01t09.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t09.flac",
+      "format": "PNG",
+      "md5": "6ef0c5b431594ceeb80f17b6f61875a9"
+    },
+    {
+      "name": "ymsb2005-12-31d01t09_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t09_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "9ed6d59ae66cb73c756b29112d00c6e0"
+    },
+    {
+      "name": "ymsb2005-12-31d01t09_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t09.flac",
+      "format": "Essentia Low GZ",
+      "md5": "d57f0a7262b536ff7d3b4ee57a78a9b7"
+    },
+    {
+      "name": "ymsb2005-12-31d01t09_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t09.flac",
+      "format": "Spectrogram",
+      "md5": "5a697065bc716af43c3d506f200fe293"
+    },
+    {
+      "name": "ymsb2005-12-31d01t10.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t10.flac",
+      "format": "Columbia Peaks",
+      "md5": "590447d749cad97abe3afb45c332bc04"
+    },
+    {
+      "name": "ymsb2005-12-31d01t10.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "463.57",
+      "md5": "11585cf04a96c26d1537689fffb5e787"
+    },
+    {
+      "name": "ymsb2005-12-31d01t10.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t10.flac",
+      "format": "VBR MP3",
+      "length": "07:43",
+      "md5": "222280929f4dfcd2a9d988a1cbad7e3e"
+    },
+    {
+      "name": "ymsb2005-12-31d01t10.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t10.flac",
+      "format": "Ogg Vorbis",
+      "length": "463.57",
+      "md5": "41b07744a328fa84ee88a3a672b36e7d"
+    },
+    {
+      "name": "ymsb2005-12-31d01t10.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t10.flac",
+      "format": "PNG",
+      "md5": "767bbe8e2c16f9e524d0053b30e8f8a4"
+    },
+    {
+      "name": "ymsb2005-12-31d01t10_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t10_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "a56d105a43083c9ffe4192fea1b2056b"
+    },
+    {
+      "name": "ymsb2005-12-31d01t10_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t10.flac",
+      "format": "Essentia Low GZ",
+      "md5": "22b6391ab6433d692fc8cc26c225bdf5"
+    },
+    {
+      "name": "ymsb2005-12-31d01t10_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d01t10.flac",
+      "format": "Spectrogram",
+      "md5": "9b04e2ef4934ad8f0df933d876ec319a"
+    },
+    {
+      "name": "ymsb2005-12-31d02t01.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "9661d5b4e02b96b97d3cb39b6f824850"
+    },
+    {
+      "name": "ymsb2005-12-31d02t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "116.17",
+      "md5": "081a640e0a52578aa3b9c6de7124da4b"
+    },
+    {
+      "name": "ymsb2005-12-31d02t01.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t01.flac",
+      "format": "VBR MP3",
+      "length": "01:56",
+      "md5": "3a26308d7ecab045816807dcddcf0160"
+    },
+    {
+      "name": "ymsb2005-12-31d02t01.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "116.17",
+      "md5": "ccefcf73cb1776711111abb3d99637c4"
+    },
+    {
+      "name": "ymsb2005-12-31d02t01.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t01.flac",
+      "format": "PNG",
+      "md5": "9141a6bed20f0f3ae3c663ce5c53b3f3"
+    },
+    {
+      "name": "ymsb2005-12-31d02t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "9a49059fd7358274881cec7d2708d701"
+    },
+    {
+      "name": "ymsb2005-12-31d02t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "12d7c7a2fa40724f7a6baf24446c2fe6"
+    },
+    {
+      "name": "ymsb2005-12-31d02t01_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t01.flac",
+      "format": "Spectrogram",
+      "md5": "b2356510b4b3243d6db0f31ad6a4ec0c"
+    },
+    {
+      "name": "ymsb2005-12-31d02t02.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "ad3bac5ab8689c46432b9f2e3e3f7d96"
+    },
+    {
+      "name": "ymsb2005-12-31d02t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "277.15",
+      "md5": "8415f2b392b548d0029ce422fa1ba37b"
+    },
+    {
+      "name": "ymsb2005-12-31d02t02.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t02.flac",
+      "format": "VBR MP3",
+      "length": "04:37",
+      "md5": "66dc2c6b783bc4779ee67b96fe37ec87"
+    },
+    {
+      "name": "ymsb2005-12-31d02t02.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "277.15",
+      "md5": "8bf91d8acfffd3692a30e3878315963a"
+    },
+    {
+      "name": "ymsb2005-12-31d02t02.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t02.flac",
+      "format": "PNG",
+      "md5": "b1af3bacd8fad48c5269a5a7140ad635"
+    },
+    {
+      "name": "ymsb2005-12-31d02t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "fa3a4a93901550208b11418dc2c74cdc"
+    },
+    {
+      "name": "ymsb2005-12-31d02t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "9ebf8f35c505db5e32bbecb77bfb0003"
+    },
+    {
+      "name": "ymsb2005-12-31d02t02_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t02.flac",
+      "format": "Spectrogram",
+      "md5": "2f4ebee91cbae4d80ebd6920be60bfea"
+    },
+    {
+      "name": "ymsb2005-12-31d02t03.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "abecf45d5f07d2c624d514c85e9ad90a"
+    },
+    {
+      "name": "ymsb2005-12-31d02t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "314.15",
+      "md5": "01885d7df3808927d85824cce7c979dd"
+    },
+    {
+      "name": "ymsb2005-12-31d02t03.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t03.flac",
+      "format": "VBR MP3",
+      "length": "05:14",
+      "md5": "a4c1503eaf0487a946d28c1102ec001d"
+    },
+    {
+      "name": "ymsb2005-12-31d02t03.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "314.15",
+      "md5": "048d7fee834477512432b0912628a02d"
+    },
+    {
+      "name": "ymsb2005-12-31d02t03.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t03.flac",
+      "format": "PNG",
+      "md5": "28f72370bd5a11eeada2e0697a10a7ae"
+    },
+    {
+      "name": "ymsb2005-12-31d02t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "a1603751fff23d85356071f74f0a4af9"
+    },
+    {
+      "name": "ymsb2005-12-31d02t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "90785ed1a26e461e7238e92edf245458"
+    },
+    {
+      "name": "ymsb2005-12-31d02t03_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t03.flac",
+      "format": "Spectrogram",
+      "md5": "2cc836262e5b2314d3eacb9b25c699b4"
+    },
+    {
+      "name": "ymsb2005-12-31d02t04.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "11f5bfac2525adf259d23c98c573ad04"
+    },
+    {
+      "name": "ymsb2005-12-31d02t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "332.46",
+      "md5": "de24b21dc082ecc0456a8d1c52b8f967"
+    },
+    {
+      "name": "ymsb2005-12-31d02t04.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t04.flac",
+      "format": "VBR MP3",
+      "length": "05:32",
+      "md5": "481617523cdfc07e2409b2c92f7c1860"
+    },
+    {
+      "name": "ymsb2005-12-31d02t04.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "332.46",
+      "md5": "df3126a35e55e144210982cbce39fd5b"
+    },
+    {
+      "name": "ymsb2005-12-31d02t04.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t04.flac",
+      "format": "PNG",
+      "md5": "cdb57e4be5ddab67b4dd93e79754c77c"
+    },
+    {
+      "name": "ymsb2005-12-31d02t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "e256d18905321a6470a7de40a60ce544"
+    },
+    {
+      "name": "ymsb2005-12-31d02t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "b4654404337d7c2a234f6cccd811c3ce"
+    },
+    {
+      "name": "ymsb2005-12-31d02t04_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t04.flac",
+      "format": "Spectrogram",
+      "md5": "51030cc5fac5ab8918f6c114893d97e7"
+    },
+    {
+      "name": "ymsb2005-12-31d02t05.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "4ec29dc9fd39c82148f4c0d9b0d4cb06"
+    },
+    {
+      "name": "ymsb2005-12-31d02t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "509.98",
+      "md5": "0c6420440dd2cac252e8904b7340c220"
+    },
+    {
+      "name": "ymsb2005-12-31d02t05.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t05.flac",
+      "format": "VBR MP3",
+      "length": "08:30",
+      "md5": "f9a9ca448e2ee94e4d199ba1b8dfd714"
+    },
+    {
+      "name": "ymsb2005-12-31d02t05.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "509.98",
+      "md5": "572441ca16718015fe6e97f405cb95db"
+    },
+    {
+      "name": "ymsb2005-12-31d02t05.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t05.flac",
+      "format": "PNG",
+      "md5": "12750a8c128db892a1d627b49a6830ca"
+    },
+    {
+      "name": "ymsb2005-12-31d02t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "72dbea0b85d6c95366758f9b0bf8afa5"
+    },
+    {
+      "name": "ymsb2005-12-31d02t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "3d0ea650977065fdb4e05972eaa1db13"
+    },
+    {
+      "name": "ymsb2005-12-31d02t05_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t05.flac",
+      "format": "Spectrogram",
+      "md5": "b5a71f32d68db34322ad538e73bf7b71"
+    },
+    {
+      "name": "ymsb2005-12-31d02t06.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t06.flac",
+      "format": "Columbia Peaks",
+      "md5": "a115f595782bc182065ef22f505a3d69"
+    },
+    {
+      "name": "ymsb2005-12-31d02t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "209.32",
+      "md5": "915a702ed89be7572cae4d04ea920295"
+    },
+    {
+      "name": "ymsb2005-12-31d02t06.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t06.flac",
+      "format": "VBR MP3",
+      "length": "03:29",
+      "md5": "a6c124b761a2c8a3c0c33c174e9b0bc0"
+    },
+    {
+      "name": "ymsb2005-12-31d02t06.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "209.32",
+      "md5": "7fad117141b0a02c1e1a1f7153bef8c0"
+    },
+    {
+      "name": "ymsb2005-12-31d02t06.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t06.flac",
+      "format": "PNG",
+      "md5": "82f1d99a096e4396e37340d3c8b830fc"
+    },
+    {
+      "name": "ymsb2005-12-31d02t06_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t06_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "9e204f30568c4c5c6d61f705240eefb3"
+    },
+    {
+      "name": "ymsb2005-12-31d02t06_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t06.flac",
+      "format": "Essentia Low GZ",
+      "md5": "9c538f60332c201a9fb425194f610c05"
+    },
+    {
+      "name": "ymsb2005-12-31d02t06_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t06.flac",
+      "format": "Spectrogram",
+      "md5": "2eee2b029afeb4b18b73e1740d65e901"
+    },
+    {
+      "name": "ymsb2005-12-31d02t07.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t07.flac",
+      "format": "Columbia Peaks",
+      "md5": "ce5ee92a20500af4f2fa2e7cdc64997a"
+    },
+    {
+      "name": "ymsb2005-12-31d02t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "441.52",
+      "md5": "e6ce64ed63ff83ebb31a2446d89960c5"
+    },
+    {
+      "name": "ymsb2005-12-31d02t07.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t07.flac",
+      "format": "VBR MP3",
+      "length": "07:21",
+      "md5": "d48efe1c41737814d21367ade74a5eb7"
+    },
+    {
+      "name": "ymsb2005-12-31d02t07.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "441.52",
+      "md5": "84828f6cb146c70df0989af20acd2e04"
+    },
+    {
+      "name": "ymsb2005-12-31d02t07.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t07.flac",
+      "format": "PNG",
+      "md5": "c04d6584025408f2c5a2740fbb4289b3"
+    },
+    {
+      "name": "ymsb2005-12-31d02t07_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t07_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "1f85e8e0364e65b4514f653f33b34cb3"
+    },
+    {
+      "name": "ymsb2005-12-31d02t07_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t07.flac",
+      "format": "Essentia Low GZ",
+      "md5": "b44ecbc51260c0616f61f44497a44468"
+    },
+    {
+      "name": "ymsb2005-12-31d02t07_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t07.flac",
+      "format": "Spectrogram",
+      "md5": "7a6bc80ab17c41e73a3051f62d8e4ccd"
+    },
+    {
+      "name": "ymsb2005-12-31d02t08.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t08.flac",
+      "format": "Columbia Peaks",
+      "md5": "8f98b22d50d0e9a1552e01b73f13c046"
+    },
+    {
+      "name": "ymsb2005-12-31d02t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "523.27",
+      "md5": "f8c16bcf3acb3bf806d3a235479f7e47"
+    },
+    {
+      "name": "ymsb2005-12-31d02t08.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t08.flac",
+      "format": "VBR MP3",
+      "length": "08:43",
+      "md5": "11886c7b767ecddf909086ee28eb2c96"
+    },
+    {
+      "name": "ymsb2005-12-31d02t08.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "523.27",
+      "md5": "b20958d27328e0a7ea6bed37eed2f2d2"
+    },
+    {
+      "name": "ymsb2005-12-31d02t08.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t08.flac",
+      "format": "PNG",
+      "md5": "d20f48ba936a856f92f787bdd6c9696d"
+    },
+    {
+      "name": "ymsb2005-12-31d02t08_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t08_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "c7e9794a7574dfaaea6ce955d071c476"
+    },
+    {
+      "name": "ymsb2005-12-31d02t08_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t08.flac",
+      "format": "Essentia Low GZ",
+      "md5": "44da7012d2a14670a4009c4a5e1dd164"
+    },
+    {
+      "name": "ymsb2005-12-31d02t08_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d02t08.flac",
+      "format": "Spectrogram",
+      "md5": "e33f547d0b84481d916dae2507eae865"
+    },
+    {
+      "name": "ymsb2005-12-31d03t01.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "014ae35805bbd19df449c5bbeb986600"
+    },
+    {
+      "name": "ymsb2005-12-31d03t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "345.88",
+      "md5": "b76afb2b62216a84eb5a229aa17153d5"
+    },
+    {
+      "name": "ymsb2005-12-31d03t01.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t01.flac",
+      "format": "VBR MP3",
+      "length": "05:45",
+      "md5": "35c58d8becbdd8cd6dce61852d2bf236"
+    },
+    {
+      "name": "ymsb2005-12-31d03t01.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "345.88",
+      "md5": "cab52444dd85535231c5746fec113906"
+    },
+    {
+      "name": "ymsb2005-12-31d03t01.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t01.flac",
+      "format": "PNG",
+      "md5": "f64951d8b068e0c88403156f78f997f8"
+    },
+    {
+      "name": "ymsb2005-12-31d03t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "f0f5bd3842f761a32d2772c5ddf59fc1"
+    },
+    {
+      "name": "ymsb2005-12-31d03t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "f3b9552e8f11c678c7d3bbbca6eac983"
+    },
+    {
+      "name": "ymsb2005-12-31d03t01_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t01.flac",
+      "format": "Spectrogram",
+      "md5": "39a1e4f0820ca1d81c8860031054ce0e"
+    },
+    {
+      "name": "ymsb2005-12-31d03t02.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "ca04ed6e74018776cf5e98d29d00baa0"
+    },
+    {
+      "name": "ymsb2005-12-31d03t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "532.94",
+      "md5": "4ecaba87735ef4b5eaf7438da7ec5e74"
+    },
+    {
+      "name": "ymsb2005-12-31d03t02.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t02.flac",
+      "format": "VBR MP3",
+      "length": "08:52",
+      "md5": "015aca48492c14aaa1f359fb16d4dfaa"
+    },
+    {
+      "name": "ymsb2005-12-31d03t02.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "532.94",
+      "md5": "987675d513d1311089751ff4daef895f"
+    },
+    {
+      "name": "ymsb2005-12-31d03t02.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t02.flac",
+      "format": "PNG",
+      "md5": "8e234734f693c3fc91ecc12d2c01b256"
+    },
+    {
+      "name": "ymsb2005-12-31d03t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "a0fb7a91a7287c53b1a7c2384ee01a3c"
+    },
+    {
+      "name": "ymsb2005-12-31d03t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "1800d5caf091b6d83a90c6c331d7b224"
+    },
+    {
+      "name": "ymsb2005-12-31d03t02_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t02.flac",
+      "format": "Spectrogram",
+      "md5": "5cd38ab1ed8240f7653b59d6aa54012b"
+    },
+    {
+      "name": "ymsb2005-12-31d03t03.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "100ac0c7db9d7153b13ba7386db14659"
+    },
+    {
+      "name": "ymsb2005-12-31d03t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "612.49",
+      "md5": "709454f3f16f8f4f755edcf990e54314"
+    },
+    {
+      "name": "ymsb2005-12-31d03t03.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t03.flac",
+      "format": "VBR MP3",
+      "length": "10:12",
+      "md5": "3c3668d963f5941f8302e0c9e0dbfb32"
+    },
+    {
+      "name": "ymsb2005-12-31d03t03.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "612.49",
+      "md5": "778ee8f2af30169fa52d998d52837dce"
+    },
+    {
+      "name": "ymsb2005-12-31d03t03.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t03.flac",
+      "format": "PNG",
+      "md5": "175376d4bc93bc6ac701219d968c26e1"
+    },
+    {
+      "name": "ymsb2005-12-31d03t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "c64bd09faed0f649c01fd71c25ae929f"
+    },
+    {
+      "name": "ymsb2005-12-31d03t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "f92be6889b7eb7e8cb579f75f80a0828"
+    },
+    {
+      "name": "ymsb2005-12-31d03t03_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t03.flac",
+      "format": "Spectrogram",
+      "md5": "41f13ff1148e3dbbb4b5ac26c0fae5eb"
+    },
+    {
+      "name": "ymsb2005-12-31d03t04.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "fac67f7d228c9c607f28d16354f202fb"
+    },
+    {
+      "name": "ymsb2005-12-31d03t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "186.63",
+      "md5": "056485b6635af2fbf1ec1856c049a139"
+    },
+    {
+      "name": "ymsb2005-12-31d03t04.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t04.flac",
+      "format": "VBR MP3",
+      "length": "03:06",
+      "md5": "b1ebe4afbf18c5e92ea2d4630b491edc"
+    },
+    {
+      "name": "ymsb2005-12-31d03t04.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "186.63",
+      "md5": "8145ec5a3269e5227034b77dbf926db3"
+    },
+    {
+      "name": "ymsb2005-12-31d03t04.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t04.flac",
+      "format": "PNG",
+      "md5": "28615df9a2a050759d1df085a828d7fb"
+    },
+    {
+      "name": "ymsb2005-12-31d03t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "2f978781c544c5ef3c3066d2a2efe86d"
+    },
+    {
+      "name": "ymsb2005-12-31d03t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "8a34efc57c7b0d23114b9a15696f993d"
+    },
+    {
+      "name": "ymsb2005-12-31d03t04_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t04.flac",
+      "format": "Spectrogram",
+      "md5": "1fd09bd6f42c975c8157480a801323fa"
+    },
+    {
+      "name": "ymsb2005-12-31d03t05.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "1acd034a6acb4c1b86d2adb0016ef206"
+    },
+    {
+      "name": "ymsb2005-12-31d03t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "353.78",
+      "md5": "401b41ddca1ebb88a6adb08dd93bf185"
+    },
+    {
+      "name": "ymsb2005-12-31d03t05.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t05.flac",
+      "format": "VBR MP3",
+      "length": "05:53",
+      "md5": "92071846dacecf2e6ca13a3ee65f109d"
+    },
+    {
+      "name": "ymsb2005-12-31d03t05.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "353.78",
+      "md5": "97acd695bc5cc8d571dc3d6a92f288c8"
+    },
+    {
+      "name": "ymsb2005-12-31d03t05.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t05.flac",
+      "format": "PNG",
+      "md5": "97c02a171b34fadf5dba367cf8d4c442"
+    },
+    {
+      "name": "ymsb2005-12-31d03t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "7b678a33727eaa63a094d83e678f6eaf"
+    },
+    {
+      "name": "ymsb2005-12-31d03t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "56e294d299077fdd54aaebc336d62d27"
+    },
+    {
+      "name": "ymsb2005-12-31d03t05_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t05.flac",
+      "format": "Spectrogram",
+      "md5": "5bba6e63a044f805dbbf549e06241716"
+    },
+    {
+      "name": "ymsb2005-12-31d03t06.afpk",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t06.flac",
+      "format": "Columbia Peaks",
+      "md5": "3095e9d6dcb785816dfda9acedaf5242"
+    },
+    {
+      "name": "ymsb2005-12-31d03t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "395.18",
+      "md5": "1b7f4de31278028de28b2cc001cd2a25"
+    },
+    {
+      "name": "ymsb2005-12-31d03t06.mp3",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t06.flac",
+      "format": "VBR MP3",
+      "length": "06:35",
+      "md5": "928435c3091c64e39100336b95ae91c6"
+    },
+    {
+      "name": "ymsb2005-12-31d03t06.ogg",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "395.18",
+      "md5": "31236d8a13021a36e7a3c29389a0bbaa"
+    },
+    {
+      "name": "ymsb2005-12-31d03t06.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t06.flac",
+      "format": "PNG",
+      "md5": "30ea92dfcb96fbb3f536bb6111d91093"
+    },
+    {
+      "name": "ymsb2005-12-31d03t06_esshigh.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t06_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "9756148c82651e08367bdcf2acdb2e05"
+    },
+    {
+      "name": "ymsb2005-12-31d03t06_esslow.json.gz",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t06.flac",
+      "format": "Essentia Low GZ",
+      "md5": "5ca9cebbe859d5c6d00692c8c18bba42"
+    },
+    {
+      "name": "ymsb2005-12-31d03t06_spectrogram.png",
+      "source": "derivative",
+      "original": "ymsb2005-12-31d03t06.flac",
+      "format": "Spectrogram",
+      "md5": "d7916424ccb5ce2a1db9af6aeb944b30"
+    }
+  ],
+  "reviews": [
+    {
+      "review_id": "59174",
+      "reviewbody": "great show... even better audio, and the sit-ins were spot on!  the boys threw down on new years, definately worth the listen!",
+      "reviewtitle": "yes sir.",
+      "reviewer": "the REAL ____________",
+      "reviewdate": "2006-01-04 07:05:33",
+      "createdate": "2006-01-04 06:59:44",
+      "stars": "5"
+    },
+    {
+      "review_id": "59179",
+      "reviewbody": "There's just nothing I can say; you have to hear it to believe it!  Thanks to Drew and Vince and Bela and The Neville Brothers and the ladies of Uncle Earl... am I forgetting anyone?  Oh yes: Yonder Mountain!  Thanks for a great pair of shows!",
+      "reviewtitle": "Speechless",
+      "reviewer": "Team New Mexico",
+      "reviewdate": "2006-01-04 08:03:31",
+      "createdate": "2006-01-04 08:03:31",
+      "stars": "5"
+    },
+    {
+      "review_id": "59180",
+      "reviewbody": "Since their fall tour break, Yonder has entered into what appears to be a new level of playing, accompanined by exquisite [new] songwriting.  This show was also like getting a Salmon show as Drew and Vince led us into New Year's with the band, and Darol, and Bela.  The band was super well rested, looked really healthy, and played fantastically.  From a 'being there' perspective, the show exceeded all expectations.  The music goes to insane and mind-bending heights.  The new songs are dynamic; like I said, it's a new era for Yonder.  The sound quality for this audience recording is quite good (ANYBODY HAVE A SBD TO POST?), and it was a super fun and CLASSY night.  With Peter Rowan and all of Uncle Earl joining the above mentioned guests with Yonder onstage for the double encore, it's a closer like none I've ever seen.  Get very high and enjoy this fine show...",
+      "reviewtitle": "Dawn Of A New Era",
+      "reviewer": "busker",
+      "reviewdate": "2006-01-04 08:14:24",
+      "createdate": "2006-01-04 08:14:24",
+      "stars": "5"
+    },
+    {
+      "review_id": "59428",
+      "reviewbody": "Someone correct me If I'm wrong.  There are 25 songs listed but only 24 tracks.  I don't hear a return to \"On The Run\" after \"Postcard To My Son From Jail\"\nOtherwise great sound and thanks for getting this up so early.",
+      "reviewtitle": "25 songs, 24 tracks?",
+      "reviewer": "slowfoot",
+      "reviewdate": "2006-01-07 07:03:34",
+      "createdate": "2006-01-07 07:03:34",
+      "stars": "5"
+    },
+    {
+      "review_id": "59490",
+      "reviewbody": "Wow, what an amazing show!!!!  I was there and it was a mindblowingly good show.  This band is starting to do great things.  I envy those who will see them on the Winter tour, because those are going to be some special shows!! .   But as far as NYE, its out of this world.  Up to this point, its the most impressive picking that I'VE ever heared this band do.  They are just soooooo hot!!!!!  The shit with the boys from Salmon is just unreal.  And Bela showing up?!?!?!?!? What a great suprise!!!!!!\n     And the song order definitly works despite only 24 tracks.  The beginning track order is 1.Granny Woncha>Wild Turkey 2. On the Run> 3. Postcards> 4. On the Run, then later 9. Peace of Mind>King Ebenezer 10. Peace of Mind.  Other then that, the listed track order is perfect.\n     If you like this band at all, or just enjoy fantasic, smokin bluegrass viutuocity, do your self a favor and download this show.  It's one to be remembered!!!",
+      "reviewtitle": "DAMN!!!!!!!!",
+      "reviewer": "mBmskier",
+      "reviewdate": "2006-01-08 00:42:37",
+      "createdate": "2006-01-08 00:42:37",
+      "stars": "5"
+    },
+    {
+      "review_id": "59516",
+      "reviewbody": "If you want a higher fidelity copy, get the 24 bit source off of tapers.org... it will be available here shortly too. \n\ngreat job, aaron, it was nice to meet you out there.\n\nthis was the first time yonder broke their NYE curse, and NYE was as good, if not better than the show on the 30th.",
+      "reviewtitle": "there is no SBD patch available",
+      "reviewer": "pierce",
+      "reviewdate": "2006-01-08 15:30:43",
+      "createdate": "2006-01-08 15:26:27",
+      "stars": "5"
+    },
+    {
+      "review_id": "59622",
+      "reviewbody": "KIller set, did not make it to Denver for New Years, but I saw the boys in Portland for the River City Bluegrass festival a week later and they rocked the house for 90 minutes until they cut  on these beautiful florescent lights to bring our evening to an end. HIghlight of the night was getting a shoutout to the Redskins from Jeff at the end of the show. Cabin Feaver 2006 is just the beginning of a special year for some special people.",
+      "reviewtitle": "YEE-HAAAAAAAAAA!!!!!!!!!!!!!",
+      "reviewer": "fatrugcutter",
+      "reviewdate": "2006-01-10 13:45:52",
+      "createdate": "2006-01-10 13:45:52",
+      "stars": "5"
+    },
+    {
+      "review_id": "59746",
+      "reviewbody": "Thanks!  This soyrce sounds great.  Any word on availability of the 24 bit source?  I checked at tapers.org as suggested, but they only have the 16 bit source available.",
+      "reviewtitle": "YMSB",
+      "reviewer": "Panama_Red",
+      "reviewdate": "2006-01-12 09:08:20",
+      "createdate": "2006-01-12 09:08:20",
+      "stars": "5"
+    },
+    {
+      "review_id": "59869",
+      "reviewbody": "A virtual \"who's who\" of the current scene who play together expertly without a clash of egos.  A great set, missing only \"Four Walls of Raiford\" to make it perfect.",
+      "reviewtitle": "An All-Star Show (Literally)",
+      "reviewer": "Jose Gaspar",
+      "reviewdate": "2006-01-14 08:14:03",
+      "createdate": "2006-01-14 08:14:03",
+      "stars": "5"
+    },
+    {
+      "review_id": "60510",
+      "reviewbody": "This was an amazing show to be at.  The vibe was sweet, the guests were out of hand, and the music was what you look for in a NYE show.  They lost a little of the umph after new years, but all and all a great show.  For an audience recording it is pretty sweet.  Suprisingly free of crowd noise and static for a Filmore show.  I gotta give it a 4 though because it is not SB.",
+      "reviewtitle": "yondage yo!",
+      "reviewer": "joyfulsnd",
+      "reviewdate": "2006-01-22 20:30:50",
+      "createdate": "2006-01-22 20:30:50",
+      "stars": "4"
+    },
+    {
+      "review_id": "60706",
+      "reviewbody": "OOPS, I see the correction. THANKS. YONDER 2006!",
+      "reviewtitle": "Anyone have the track listing for the files?",
+      "reviewer": "rpmFADEAWAY",
+      "reviewdate": "2006-01-25 15:10:48",
+      "createdate": "2006-01-25 15:07:38",
+      "stars": "5"
+    }
+  ]
+}

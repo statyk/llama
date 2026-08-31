@@ -972,6 +972,9 @@ def _hygienic(title: str, metadata_norms: set[str]) -> bool:
     from llama.setlist import MAX_TITLE_LEN, is_junk_title
     from llama.titles import is_real_title
     t = title.strip()
+    # No `aliases` here, deliberately: metadata_norms is built aliaslessly by
+    # gather's `_place_norms`/`_date_norms`, so threading aliases into only
+    # this side would break the comparison's symmetry.
     return (bool(t) and is_real_title(t) and not is_junk_title(t)
             and len(t) <= MAX_TITLE_LEN and not t.endswith(":")
             and fuzzy_norm_title(t) not in metadata_norms)
@@ -990,9 +993,14 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
     blind-the-tags corpus and margin could not discriminate; this evidence
     class measured 2.4%. See the spec.
 
-    Anchors match by EXACT normalized equality. `_window_match` is deliberately
-    NOT used: its subphrase fallback is right for structure recovery and too
-    weak to license adopting titles on either side of the match.
+    Anchors match by EXACT normalized equality for a single-component track;
+    a merged track (multiple components) matches its item run via `_merge_run`,
+    which compares each component with `fuzzy_title_eq` (component-fuzzy, with
+    an `_is_subphrase` fallback) because a merged track must consume ALL of
+    its items — there is no partial-credit anchor. `_window_match` is
+    deliberately NOT used for either case: its subphrase fallback is right for
+    structure recovery and too weak to license adopting titles on either side
+    of the match.
 
     `metadata_norms` is passed in rather than imported: it is built in
     stages/gather.py, and structure.py must not depend on a stage.

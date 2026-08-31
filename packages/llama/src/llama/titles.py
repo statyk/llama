@@ -126,6 +126,12 @@ def resolve_titles(
     kept_files in canonical play order (filter_files decides it)."""
     files = kept_files
     n = len(files)
+    # The whole-tape setlist rung. MEASURED DEAD: 0 of 2,015 tracks across the
+    # 89-show library (2026-08-30) — exact count equality between a parsed
+    # description and a tape's file list is close to a measure-zero event.
+    # Kept because structure.adopt_gap_titles is its localized successor
+    # (count-forced GAPS between anchors), which makes this rung's deadness a
+    # design property rather than a defect to re-diagnose.
     aligned = setlist.items if (setlist.confidence != "low" and len(setlist.items) == n) else None
 
     # When format recovery fired, the delivered format's own tags are known
