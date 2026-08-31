@@ -955,7 +955,16 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     evidence set _songish_coverage computes over is empty, coverage is the
     safe-direction 0.0, and "low-confidence structure alignment" correctly
     fires -- this show's titles came entirely from the setlist it is being
-    checked against, which is exactly the case that flag exists to catch."""
+    checked against, which is exactly the case that flag exists to catch.
+
+    Round 2 (review): `matched` is ALSO None on every track now, not just
+    excluded from coverage's denominator -- gather.py's final assembly
+    tests membership in the same TAUTOLOGICAL_TITLE_SOURCES constant
+    _songish_coverage filters on, rather than naming "setlist-gap" alone,
+    so a "setlist"-sourced track can no longer report matched=True (an
+    independent match that never happened) while simultaneously being
+    excluded from coverage as tautological -- the two signals describe the
+    same fact and must agree."""
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(_mccoury_md(tagged=False)), FakeProvider(),
                       make_candidate(), IDENT)
@@ -967,6 +976,7 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     assert show.structure.coverage == 0.0
     assert show.review_flags == ["low-confidence structure alignment"]
     assert show.needs_review is True
+    assert all(t.matched is None for t in show.tracks)
 
 
 # --- Head-banner guard (spec 1b) -------------------------------------------

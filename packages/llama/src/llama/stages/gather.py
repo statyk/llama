@@ -14,10 +14,10 @@ from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.songs import GD_SHORTHAND
-from llama.structure import (adopt_gap_titles, align, apply_llm_alignment,
-                             blend_segues, from_setlistfm, fuzzy_norm_title,
-                             norm_title, rank_parses, structure_guard,
-                             venues_equivalent)
+from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align,
+                             apply_llm_alignment, blend_segues, from_setlistfm,
+                             fuzzy_norm_title, norm_title, rank_parses,
+                             structure_guard, venues_equivalent)
 from llama.titles import (clean_tag_titles, is_real_title, resolve_titles,
                           set_breaks, sibling_format_titles, title_fraction)
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
@@ -691,15 +691,23 @@ def run_gather(
             else:
                 flags.append("low-confidence structure alignment")
 
-        # A setlist-gap track's title IS the canonical item's own text, so
-        # align()'s match on it is tautological (see _songish_coverage's
-        # docstring) -- honesty requires overriding `m` to None here rather
-        # than recording align()'s True. `matched=None` already means "not
-        # measured" per models.py:158-160, and this IS an unmeasured track:
-        # nothing independent was ever checked against it.
+        # A track whose title_source is in TAUTOLOGICAL_TITLE_SOURCES
+        # ("setlist-gap" AND the whole-tape "setlist" rung) carries the
+        # canonical item's own text, so align()'s match on it is tautological
+        # (see _songish_coverage's docstring) -- honesty requires overriding
+        # `m` to None here rather than recording align()'s True.
+        # `matched=None` already means "not measured" per models.py:158-160,
+        # and this IS an unmeasured track: nothing independent was ever
+        # checked against it. Round 2 (review): this must test membership in
+        # the SAME constant _songish_coverage filters on, not name one
+        # source -- the two signals describe the same fact, and a literal
+        # here let them drift apart (a "setlist"-sourced track was excluded
+        # from coverage as tautological while still reporting matched=True,
+        # the same models.py:158-160 violation the whole ruling exists to
+        # prevent, just on the other rung).
         tracks = [t.model_copy(update={
             "set": s, "segue": g,
-            "matched": None if t.title_source == "setlist-gap" else m})
+            "matched": None if t.title_source in TAUTOLOGICAL_TITLE_SOURCES else m})
                   for t, s, g, m in zip(tracks, result.sets, result.segues, result.matched)]
         breaks = set_breaks(tracks)
         coverage, conflicts = result.coverage, result.conflicts
