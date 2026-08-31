@@ -323,3 +323,24 @@ class ArtistMatch(BaseModel):
 
 class ArtistMatches(BaseModel):
     matches: list[ArtistMatch] = Field(default_factory=list)
+
+
+class ProposalRow(BaseModel):
+    index: int                                   # 1-based track number
+    duration_sec: float | None = None
+    item_span: tuple[int, int] | None = None     # half-open canonical range; None = filler
+    title: str = ""                              # "" when the row is a decline
+    evidence: str = ""                           # "sibling-duration" | "duration-model" | "filler"
+    # Display column only (never gates automatic adoption). Three states:
+    # a number = cost gap to the best alternative assignment; float("inf") =
+    # no alternative assignment exists at all, i.e. this row is FORCED (the
+    # most certain outcome the DP can produce); None = row is filler
+    # (item_span is None), so a margin is not applicable.
+    margin_sec: float | None = None
+
+
+class TitleProposal(BaseModel):
+    rows: list[ProposalRow] = Field(default_factory=list)
+    feasible: bool = False
+    reason: str = ""            # why not, when feasible is False
+    evidence_source: str = ""   # "sibling-duration" | "duration-model"
