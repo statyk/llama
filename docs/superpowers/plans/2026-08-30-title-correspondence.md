@@ -18,7 +18,7 @@
 - Adopted titles are always the **canonical item's** text, never a model's or a synthesized string.
 - No margins or scoring may gate an *automatic* adoption. Scoring is measurably unable to carry that decision (blind-the-tags: 41.8% wrong even at margin >= 240 s).
 - `structure.py` must not import `stages/gather.py` — pass `metadata_norms` in as a parameter.
-- Tests run offline against the `fake` LLM backend. Full suite: `pytest -q` (currently 1440 passing).
+- Tests run offline against the `fake` LLM backend. Full suite: `pytest -q` — baseline measured 2026-08-31 on branch `title-correspondence`: **1479 passed, 7 deselected**.
 - In a worktree, use that worktree's own `.venv` and run `./.venv/bin/pytest`.
 
 ## Deviation from the spec, already decided
@@ -427,7 +427,7 @@ In `titles.py`, above line 129, add:
 - [ ] **Step 5: Run the tests**
 
 Run: `./.venv/bin/pytest packages/llama/tests/test_stage_gather.py -q && ./.venv/bin/pytest -q`
-Expected: PASS, 1440 + new tests, zero regressions.
+Expected: PASS, 1479 + new tests, zero regressions.
 
 - [ ] **Step 6: Commit**
 
@@ -916,7 +916,7 @@ the duration model is the fallback.
 - [ ] **Step 5: Run the tests**
 
 Run: `./.venv/bin/pytest -q`
-Expected: PASS, 1440 + new, zero regressions. The extraction is behaviour-preserving.
+Expected: PASS, 1479 + new, zero regressions. The extraction is behaviour-preserving.
 
 - [ ] **Step 6: Commit**
 
