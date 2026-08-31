@@ -52,6 +52,7 @@ import contextlib
 import json
 import sys
 from collections import Counter
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -347,10 +348,31 @@ def anchor_kinds(tracks: list[Track], calls: list[bool],
     return out
 
 
+def merged_attribution(kinds: dict[int, str], lo: int, hi: int, n: int) -> str:
+    """How a merged anchor could have reached this gap: "adjacent", "upstream"
+    or "none".
+
+    The distinction is the whole point, and getting it wrong was the Critical
+    finding of this task's review. A merged anchor can corrupt a gap two ways:
+    by binding its OWN flank wrongly (adjacent), or by mis-advancing `j` so
+    that every gap AFTER it is shifted (upstream). `adopt_gap_titles`'
+    docstring states the risk in the second form; labelling gaps only by their
+    adjacent anchor answers the first question and is blind to the second.
+
+    "upstream" means: no flanking anchor was merged, but some merged anchor was
+    bound at a track position before this run -- so the pointer this gap's span
+    was computed from passed through a merged bind.
+    """
+    if kinds.get(lo - 1) == "merged" or kinds.get(hi + 1) == "merged":
+        return "adjacent"
+    return "upstream" if any(pos < lo for pos in kinds) else "none"
+
+
 # --- scoring ---------------------------------------------------------------
 
 COLUMNS = ("identifier", "artist", "n_tracks", "n_items", "run_lo", "run_hi",
-           "track", "edge", "anchor_kind", "verdict", "adopted", "hidden")
+           "track", "edge", "anchor_kind", "merged_attr", "verdict",
+           "adopted", "hidden")
 
 
 @dataclass
@@ -400,13 +422,13 @@ def measure_item(prep: Prepared, totals: Totals, rows: list[str]) -> None:
             verdict = ("ok" if fuzzy_norm_title(adopted) == fuzzy_norm_title(hidden)
                        else "wrong")
             edge = int(lo == 0 or hi == n - 1)
-            kind = "merged" if (kinds.get(lo - 1) == "merged"
-                                or kinds.get(hi + 1) == "merged") else "single"
+            attr = merged_attribution(kinds, lo, hi, n)
+            kind = "merged" if attr == "adjacent" else "single"
             totals.adoptions += 1
             (totals.ok if verdict == "ok" else totals.wrong)[kind] += 1
             rows.append("\t".join(str(v) for v in (
                 prep.identifier, _clean(prep.artist), n, len(prep.canonical.items),
-                lo + 1, hi + 1, pos + 1, edge, kind, verdict,
+                lo + 1, hi + 1, pos + 1, edge, kind, attr, verdict,
                 _clean(adopted), _clean(hidden))))
         if fired:
             totals.firings += 1
@@ -429,21 +451,53 @@ def distinct_lines(rows: list[str]) -> list[str]:
     seen: set[tuple] = set()
     ok: Counter = Counter()
     wrong: Counter = Counter()
+    attr_ok: Counter = Counter()
+    attr_wrong: Counter = Counter()
+    edges: dict[tuple, set[str]] = {}
     for row in rows:
         f = row.split("\t")
-        key = (f[0], f[6], f[8], f[9], f[10], f[11])
+        key = (f[0], f[6], f[8], f[9], f[10], f[11], f[12])
+        edges.setdefault(key, set()).add(f[7])
         if key in seen:
             continue
         seen.add(key)
-        (ok if f[9] == "ok" else wrong)[f[8]] += 1
+        (ok if f[10] == "ok" else wrong)[f[8]] += 1
+        (attr_ok if f[10] == "ok" else attr_wrong)[f[9]] += 1
     ok_s, wr_s, ok_m, wr_m = ok["single"], wrong["single"], ok["merged"], wrong["merged"]
-    return [
+    out = [
         f"distinct adoptions            : {len(seen)}",
         f"  pooled  ok={ok_s + ok_m} wrong={wr_s + wr_m} "
         f"rate={_rate(wr_s + wr_m, ok_s + ok_m + wr_s + wr_m)}",
+        f"  [adjacency view, NARROWER THAN THE MECHANISM -- see merged_attr]",
         f"  single  ok={ok_s} wrong={wr_s} rate={_rate(wr_s, ok_s + wr_s)}",
         f"  merged  ok={ok_m} wrong={wr_m} rate={_rate(wr_m, ok_m + wr_m)}",
+        f"  [merged attribution: adjacent | upstream-only | none]",
     ]
+    for a in ("adjacent", "upstream", "none"):
+        o, w = attr_ok[a], attr_wrong[a]
+        out.append(f"  {a:<9} ok={o} wrong={w} rate={_rate(w, o + w)}")
+    # `edge` is a property of the TRIAL (did the blinded window touch a tape
+    # end), not of the adoption: the same adoption is reached by several
+    # windows and can carry both values. Collapsing it therefore needs a
+    # stated rule, and the answer moves with the rule -- so all three are
+    # printed rather than one being passed off as the number.
+    both = sum(1 for v in edges.values() if len(v) > 1)
+    firstwins: dict[tuple, str] = {}
+    for row in rows:
+        f = row.split("\t")
+        key = (f[0], f[6], f[8], f[9], f[10], f[11], f[12])
+        firstwins.setdefault(key, f[7])
+    out += [
+        f"edge is a TRIAL property; {both} of {len(seen)} distinct adoptions "
+        f"carry both values",
+        f"  edge population, first-window-wins : "
+        f"{sum(1 for v in firstwins.values() if v == '1')}",
+        f"  edge population, any-edge-wins     : "
+        f"{sum(1 for v in edges.values() if '1' in v)}",
+        f"  edge population, any-interior-wins : "
+        f"{sum(1 for v in edges.values() if v == {'1'})}",
+    ]
+    return out
 
 
 def summary_lines(totals: Totals, audio_format: str) -> list[str]:
@@ -523,8 +577,7 @@ def selftest() -> int:
         with merge_run_spy() as calls:
             out = adopt_gap_titles(blinded, canonical, metadata_norms=set())
         kinds = anchor_kinds(blinded, calls, {})
-        kind = "merged" if (kinds.get(lo - 1) == "merged"
-                            or kinds.get(hi + 1) == "merged") else "single"
+        kind = merged_attribution(kinds, lo, hi, len(blinded))
         for pos in range(lo, hi + 1):
             adopted = out[pos].title
             if out[pos].title_source != "setlist-gap":
@@ -536,7 +589,7 @@ def selftest() -> int:
                        else "wrong")
             saw_wrong = saw_wrong or verdict == "wrong"
             n_adoptions += 1
-            print(f"  {label}: track {pos + 1} anchor={kind} verdict={verdict} "
+            print(f"  {label}: track {pos + 1} merged={kind} verdict={verdict} "
                   f"adopted={adopted!r} hidden={hidden!r}")
     print(f"# selftest adoptions={n_adoptions} saw_wrong={saw_wrong}")
     if n_adoptions == 0 or not saw_wrong:
@@ -545,6 +598,77 @@ def selftest() -> int:
         return 1
     print("# SELFTEST PASSED: the harness adopts, and it can score an adoption wrong")
     return 0
+
+
+# --- triage roll-up --------------------------------------------------------
+
+def read_triage(path: Path) -> dict[tuple[str, str], str]:
+    """(adopted, hidden) -> hand-assigned class, from the companion TSV.
+
+    The classification is data, not a heuristic: one row per distinct pair,
+    assigned by hand, shipped beside the evidence doc so every published class
+    count is regenerable rather than reconstructible.
+    """
+    out: dict[tuple[str, str], str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        cls, adopted, hidden = line.split("\t")
+        out[(adopted, hidden)] = cls
+    return out
+
+
+def triage(class_path: Path, rows_path) -> int:
+    """Roll the hand classification up over a sweep TSV."""
+    src = sys.stdin if rows_path is None else open(rows_path, encoding="utf-8")
+    try:
+        raw = [l.rstrip("\n").split("\t") for l in src if not l.startswith("#") and l.strip()]
+    finally:
+        if src is not sys.stdin:
+            src.close()
+    classes = read_triage(class_path)
+    i = {name: n for n, name in enumerate(COLUMNS)}
+    seen: set[tuple] = set()
+    distinct = []
+    for f in raw:
+        key = (f[i["identifier"]], f[i["track"]], f[i["anchor_kind"]],
+               f[i["merged_attr"]], f[i["verdict"]], f[i["adopted"]], f[i["hidden"]])
+        if key in seen:
+            continue
+        seen.add(key)
+        distinct.append(f)
+    total = len(distinct)
+    cls: Counter = Counter()
+    by_attr: dict[str, Counter] = defaultdict(Counter)
+    unknown = 0
+    for f in distinct:
+        if f[i["verdict"]] == "ok":
+            cls["ok"] += 1
+            by_attr[f[i["merged_attr"]]]["ok"] += 1
+            continue
+        c = classes.get((f[i["adopted"]], f[i["hidden"]]))
+        if c is None:
+            unknown += 1
+            continue
+        cls[c] += 1
+        by_attr[f[i["merged_attr"]]][c] += 1
+    gw, gwf = cls["genuinely-wrong"], cls["genuinely-wrong/filler-segment"]
+    print(f"distinct adoptions            : {total}")
+    print(f"unclassified wrong adoptions  : {unknown}   "
+          f"(must be 0; a nonzero value means the sweep and the "
+          f"classification have drifted apart)")
+    for c in ("ok", "scorer-artifact", "tag-typo-adoption-superior",
+              "genuinely-wrong", "genuinely-wrong/filler-segment"):
+        print(f"  {c:<32} {cls[c]:>5}  {_rate(cls[c], total)}")
+    print(f"  HEADLINE RANGE: genuinely-wrong {_rate(gw, total)} "
+          f"-- incl. filler-segment {_rate(gw + gwf, total)}")
+    print("  by merged attribution (genuinely-wrong, strict / incl. filler):")
+    for a in ("adjacent", "upstream", "none"):
+        n = sum(by_attr[a].values())
+        g, gf = by_attr[a]["genuinely-wrong"], by_attr[a]["genuinely-wrong/filler-segment"]
+        print(f"    {a:<9} n={n:>5} strict={g:>4} ({_rate(g, n)})"
+              f"  incl-filler={g + gf:>4} ({_rate(g + gf, n)})")
+    return 1 if unknown else 0
 
 
 # --- exposure: what the rung does to the cache as it actually stands --------
@@ -599,6 +723,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--progress", type=int, default=50)
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--triage", type=Path, default=None,
+                    help="roll a hand-classification TSV up over a sweep TSV")
+    ap.add_argument("--rows", type=Path, default=None,
+                    help="sweep TSV for --triage (default: stdin)")
     ap.add_argument("--natural", action="store_true",
                     help="blind nothing; report how many genuinely-unresolved "
                          "tracks the rung fills as the cache stands")
@@ -606,6 +734,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.selftest:
         return selftest()
+    if args.triage is not None:
+        return triage(args.triage, args.rows)
 
     ia = CacheIA(args.cache.expanduser())
     pairs = build_candidates(ia)
