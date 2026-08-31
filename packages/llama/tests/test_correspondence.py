@@ -137,10 +137,152 @@ def test_item_durations_length_mismatch_is_rejected():
         propose_titles(_tracks(300.0, 300.0), canonical, item_durations=[300.0])
 
 
+def _file(name: str, title: str, length, fmt: str = "VBR MP3") -> dict:
+    """One archive.org file entry, shaped to clear junk.filter_files'
+    provenance/naming/duration filters (source="original", a shared filename
+    stem so the dominant-convention check passes, a plausible duration)."""
+    return {"name": name, "title": title, "length": str(length),
+           "format": fmt, "source": "original"}
+
+
+class _Donor:
+    """Serves a fixed `files` list for any identifier other than the one it
+    is told to reject."""
+
+    def __init__(self, files):
+        self.files = files
+        self.calls = 0
+
+    def metadata(self, identifier):
+        self.calls += 1
+        return {"files": self.files}
+
+
 def test_sibling_item_durations_returns_none_without_a_tagged_sibling():
+    """I1: the brief's own version of this test passed `ia=None`, so it
+    returned on the `if ia is None` guard and never reached the donor loop,
+    the uniqueness refusal, or the length invariant -- despite its name.
+    Measured: replacing the whole function body with `return None` left the
+    suite green. This version passes a REAL `ia` whose `.metadata` raises if
+    called, so "no tagged sibling" is exercised by the candidate genuinely
+    having no other recording (the for loop's `continue` skips the only
+    entry and falls through to `return None`), not by short-circuiting on a
+    None `ia` before the loop is ever reached."""
     from llama.correspondence import sibling_item_durations
+
+    class _Unreachable:
+        def metadata(self, identifier):
+            raise AssertionError("must not be called -- there is no sibling recording")
+
     canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
     cand = Candidate(performance_id="X/2000-01-01", collection="X",
                      date="2000-01-01",
                      recordings=[RecordingSummary(identifier="only")])
-    assert sibling_item_durations(None, cand, "only", canonical, ("VBR MP3",)) is None
+    assert sibling_item_durations(_Unreachable(), cand, "only", canonical,
+                                  ("VBR MP3",)) is None
+
+
+def test_sibling_item_durations_resolves_every_item_from_a_tagged_donor():
+    """Positive path: a donor that tags every canonical item returns exactly
+    len(canonical.items) floats, and the result is usable end-to-end through
+    propose_titles -- not just shape-checked in isolation."""
+    from llama.correspondence import sibling_item_durations
+
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
+    donor = _Donor([_file("d1.mp3", "Alpha", 300), _file("d2.mp3", "Bravo", 400)])
+    cand = Candidate(performance_id="X/2000-01-01", collection="X",
+                     date="2000-01-01",
+                     recordings=[RecordingSummary(identifier="only"),
+                                RecordingSummary(identifier="donor")])
+    durations = sibling_item_durations(donor, cand, "only", canonical, ("VBR MP3",))
+    assert durations == [300.0, 400.0]
+    assert donor.calls == 1
+
+    prop = propose_titles(_tracks(300.0, 400.0), canonical, item_durations=durations)
+    assert prop.feasible
+    assert [r.title for r in prop.rows] == ["Alpha", "Bravo"]
+    assert [r.evidence for r in prop.rows] == ["sibling-duration", "sibling-duration"]
+
+
+def test_sibling_item_durations_refuses_a_donor_that_misses_an_item():
+    """A donor that resolves only part of the setlist must not guess by
+    position for the rest -- refuse the whole donor, not just the miss."""
+    from llama.correspondence import sibling_item_durations
+
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
+    donor = _Donor([_file("d1.mp3", "Alpha", 300), _file("d2.mp3", "Charlie", 400)])
+    cand = Candidate(performance_id="X/2000-01-01", collection="X",
+                     date="2000-01-01",
+                     recordings=[RecordingSummary(identifier="only"),
+                                RecordingSummary(identifier="donor")])
+    assert sibling_item_durations(donor, cand, "only", canonical, ("VBR MP3",)) is None
+
+
+def test_sibling_item_durations_refuses_a_donor_with_a_duplicate_title():
+    """Two donor tracks sharing a normalized title make that title
+    ambiguous on the DONOR side; refuse rather than guess which one is the
+    real match for the canonical item."""
+    from llama.correspondence import sibling_item_durations
+
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
+    donor = _Donor([_file("d1.mp3", "Alpha", 300), _file("d2.mp3", "Alpha", 310),
+                    _file("d3.mp3", "Bravo", 400)])
+    cand = Candidate(performance_id="X/2000-01-01", collection="X",
+                     date="2000-01-01",
+                     recordings=[RecordingSummary(identifier="only"),
+                                RecordingSummary(identifier="donor")])
+    assert sibling_item_durations(donor, cand, "only", canonical, ("VBR MP3",)) is None
+
+
+def test_sibling_item_durations_refuses_a_zero_length_donor_track():
+    """A donor track with no usable duration (missing/zero `length`) must
+    not silently hand back a 0.0 that would then poison _solve's cost model
+    as if it were a real, tiny duration."""
+    from llama.correspondence import sibling_item_durations
+
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
+    donor = _Donor([_file("d1.mp3", "Alpha", 0), _file("d2.mp3", "Bravo", 400)])
+    cand = Candidate(performance_id="X/2000-01-01", collection="X",
+                     date="2000-01-01",
+                     recordings=[RecordingSummary(identifier="only"),
+                                RecordingSummary(identifier="donor")])
+    assert sibling_item_durations(donor, cand, "only", canonical, ("VBR MP3",)) is None
+
+
+def test_sibling_item_durations_refuses_an_empty_canonical():
+    """M3: `all(...)` over an empty `norms` list is vacuously true, so
+    without an explicit guard the first non-self recording would "resolve"
+    a zero-item setlist and hand back `[]` -- read by a caller as
+    successfully-resolved evidence rather than "nothing to resolve"."""
+    from llama.correspondence import sibling_item_durations
+
+    canonical = ParsedSetlist(items=[], confidence="low")
+    donor = _Donor([_file("d1.mp3", "Alpha", 300)])
+    cand = Candidate(performance_id="X/2000-01-01", collection="X",
+                     date="2000-01-01",
+                     recordings=[RecordingSummary(identifier="only"),
+                                RecordingSummary(identifier="donor")])
+    assert sibling_item_durations(donor, cand, "only", canonical, ("VBR MP3",)) is None
+
+
+def test_sibling_item_durations_refuses_a_repeated_canonical_title():
+    """I2 regression, reproducing the reviewer's measured case verbatim:
+    before this fix, a canonical repeat (a reprise, or two merged tracks
+    sharing a title) let a donor's single duration for that title get
+    assigned by POSITION to every occurrence -- canonical
+    [Alpha, Bravo, Alpha, Charlie, Delta, Echo] against a donor with one
+    Alpha returned [300, 400, 300, 500, 350, 450]. That is exactly the
+    positional guess this function's docstring says it refuses to make."""
+    from llama.correspondence import sibling_item_durations
+
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False),
+                       ("Alpha", "1", False), ("Charlie", "1", False),
+                       ("Delta", "1", False), ("Echo", "1", False))
+    donor = _Donor([_file("d1.mp3", "Alpha", 300), _file("d2.mp3", "Bravo", 400),
+                    _file("d3.mp3", "Charlie", 500), _file("d4.mp3", "Delta", 350),
+                    _file("d5.mp3", "Echo", 450)])
+    cand = Candidate(performance_id="X/2000-01-01", collection="X",
+                     date="2000-01-01",
+                     recordings=[RecordingSummary(identifier="only"),
+                                RecordingSummary(identifier="donor")])
+    assert sibling_item_durations(donor, cand, "only", canonical, ("VBR MP3",)) is None

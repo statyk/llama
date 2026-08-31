@@ -2,6 +2,7 @@ import datetime
 import logging
 import re
 from collections.abc import Sequence
+from typing import NamedTuple
 
 from herder import HerderError, TaskFailed, run_json_task
 from llama import jerrybase
@@ -484,10 +485,21 @@ def _drop_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
     return parsed.model_copy(update={"items": kept})
 
 
+class CanonicalBuild(NamedTuple):
+    """`build_canonical`'s result. A NamedTuple rather than a bare 3-tuple so
+    call sites read `result.source` instead of a positional index, and rather
+    than an output-parameter (an earlier draft's `source_out: dict | None`)
+    because that shape lets a caller silently forget to pass it and lose
+    provenance with no signal -- exactly the kind of guess-by-omission this
+    module elsewhere refuses to make."""
+    setlist: ParsedSetlist
+    notes: list[str]
+    source: str | None
+
+
 def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                     kept: list[dict], artist: str, events, *,
-                    setlistfm=None, provider=None,
-                    source_out: dict | None = None) -> tuple[ParsedSetlist, list[str]]:
+                    setlistfm=None, provider=None) -> CanonicalBuild:
     """The cleaned canonical performance setlist: every recording's
     description, plus setlist.fm when configured, ranked pick-best, then
     head-banner-stripped and artist-item-dropped.
@@ -502,14 +514,9 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     date leaves the caller's `event` None, and the banner guard still needs
     to recognize every candidate venue's name.
 
-    `source_out`, if given, is populated with `{"source": <winning
-    SourcedParse.source, or None if nothing ranked>}` -- an internal hook so
-    `run_gather` can still report `StructureInfo.source` (pinned by
-    `test_missed_anchor_...`-style tests) without either widening this
-    function's public 2-tuple return (which would break Task 7's unpacking
-    of it) or re-running `_collect_parses` a second time, which would
-    re-fetch every sibling recording's metadata. Not part of the public
-    interface Task 7 consumes.
+    `.source` names the winning parse's provenance (a `SourcedParse.source`
+    value, or None if nothing ranked) -- `run_gather` reports it as
+    `StructureInfo.source`.
     """
     parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
     if setlistfm is not None:
@@ -527,8 +534,7 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                                    template=load_prompt("extract_setlist"),
                                    description=longest)
             best = SourcedParse(source="llm", parsed=parsed)
-    if source_out is not None:
-        source_out["source"] = best.source if best is not None else None
+    source = best.source if best is not None else None
     canonical = best.parsed if best else ParsedSetlist()
     if best is not None and best.source == "setlist.fm":
         best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"],
@@ -537,7 +543,8 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
 
     metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
     canonical = _strip_head_banner(canonical, metadata_norms)
-    return _drop_artist_items(canonical, artist), notes
+    canonical = _drop_artist_items(canonical, artist)
+    return CanonicalBuild(setlist=canonical, notes=notes, source=source)
 
 
 def run_gather(
@@ -604,14 +611,11 @@ def run_gather(
     # stripped, artist-only items dropped) at the point it enters the stage,
     # before anything consumes it -- `resolve_titles` below only trusts the
     # setlist when `len(items) == len(tracks)`, so on an untagged tape one
-    # header item costs every title on the show.
-    # `source_out` recovers the winning parse's provenance for
-    # `StructureInfo.source` below without widening build_canonical's public
-    # 2-tuple return -- see its docstring.
-    source_out: dict = {}
-    canonical, notes = build_canonical(
+    # header item costs every title on the show. `.source` (the winning
+    # parse's provenance) is used below for `StructureInfo.source`.
+    canonical, notes, canonical_source = build_canonical(
         ia, candidate, identifier, meta, kept, artist, events,
-        setlistfm=setlistfm, provider=provider, source_out=source_out)
+        setlistfm=setlistfm, provider=provider)
     # Recomputed (not re-fetched) rather than threaded out of build_canonical:
     # it's a pure function of already-in-scope values, and adopt_gap_titles
     # below needs it independently of the canonical-setlist build.
@@ -822,8 +826,8 @@ def run_gather(
     if overrides.set_breaks is not None or overrides.encore_after is not None:
         structure_info = StructureInfo(source="override", alignment="override",
                                        coverage=1.0, conflicts=[])
-    elif source_out.get("source") is not None or notes:
-        source = source_out.get("source") or "none"
+    elif canonical_source is not None or notes:
+        source = canonical_source if canonical_source is not None else "none"
         structure_info = StructureInfo(source=source, alignment=alignment,
                                        coverage=coverage,
                                        conflicts=conflicts + notes)

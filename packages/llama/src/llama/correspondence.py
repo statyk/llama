@@ -108,7 +108,21 @@ def sibling_item_durations(ia, candidate, identifier: str,
     from llama.util import length_seconds
     if ia is None:
         return None
+    if not canonical.items:
+        # `all(...)` over an empty `norms` is vacuously true, so without this
+        # guard the first non-self recording would "resolve" a zero-item
+        # setlist and hand back `[]` -- callers would read that as a
+        # successfully-resolved empty duration list, not "no evidence".
+        return None
     norms = [fuzzy_norm_title(it.title) for it in canonical.items]
+    if len(set(norms)) != len(norms):
+        # A repeated song in the CANONICAL setlist (a reprise, or two merged
+        # tracks sharing a title) is exactly as ambiguous as a repeated title
+        # on the donor side: a single donor duration cannot tell which
+        # occurrence it belongs to, so guessing by position would corrupt the
+        # DP's cost model for every duplicated item. Refuse rather than guess
+        # -- the duration model is the intended fallback.
+        return None
     for rec in candidate.recordings:
         if rec.identifier == identifier:
             continue

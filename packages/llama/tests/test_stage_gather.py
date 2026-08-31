@@ -1464,12 +1464,63 @@ def test_build_canonical_matches_what_gather_uses(tmp_path: Path):
     md = json.loads(FIXTURE.read_text())
     kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
     cand = make_candidate()
-    canonical, notes = build_canonical(StubIA(md), cand, IDENT, md["metadata"],
-                                       kept, "Grateful Dead", [])
+    canonical, notes, source = build_canonical(StubIA(md), cand, IDENT, md["metadata"],
+                                               kept, "Grateful Dead", [])
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(md), FakeProvider(), cand, IDENT)
     assert [i.title for i in canonical.items]
     assert len(canonical.items) >= len([t for t in show.tracks if t.matched])
+    assert source == "chosen"
+
+
+def test_build_canonical_applies_the_cleaning_pass():
+    """M1 mutation pin: `test_build_canonical_matches_what_gather_uses`
+    above is the brief's own test, and its `>=` comparison does not fail
+    when the cleaning pass is deleted from `build_canonical` -- measured:
+    deleting `_strip_head_banner`/`_drop_artist_items` from the function
+    leaves that test green while 4 pre-existing gather tests fail
+    downstream. So the one test written to protect this extraction did not
+    actually protect it; the extraction was guarded only by tests that
+    predate it. This test closes that gap directly, on `build_canonical`
+    alone.
+
+    Constructs a description whose head is a 4-line taper banner (band
+    name, venue, city, date) with NO "Set N:"/"Encore:" marker anywhere, so
+    `parse_setlist`'s OWN header truncation (which fires only when such a
+    marker starts a line) does not remove the banner first -- an earlier
+    draft of this test reused the fixture's real description, which DOES
+    start "Set 1:\n...", and `parse_setlist` truncated the banner on its
+    own before `build_canonical` was ever called, making the test pass
+    whether or not `_strip_head_banner` ran at all. This version instead
+    joins songs with inline "&gt;" segue markers only, so the 4 banner
+    lines survive into `parse_setlist`'s output as ordinary items --
+    exactly the "recovered block is sometimes a taper banner" case
+    `_strip_head_banner` exists for. Traced by hand and verified directly
+    against `_show_metadata_norms`/`_strip_head_banner`'s stage-1 majority
+    rule: 3 of the 4 head items are direct metadata matches (band name,
+    venue, and "6/10/73" -- one of `_date_norms`'s own renderings of
+    1973-06-10), which clears the majority threshold and drops the whole
+    4-item span, carrying the one non-matching line ("Washington DC") along
+    with it. Deleting the cleaning pass leaves all 4 banner lines in
+    `canonical.items`, which the assertions below catch directly (verified
+    against a mutated copy of `build_canonical` with the cleaning pass
+    removed: this test fails there).
+    """
+    from llama.stages.gather import build_canonical
+    md = json.loads(FIXTURE.read_text())
+    meta = dict(md["metadata"])
+    meta["description"] = (
+        "Grateful Dead\nRFK Stadium\nWashington DC\n6/10/73\n"
+        "Morning Dew\nChina Cat Sunflower &gt; I Know You Rider\n"
+        "Dark Star &gt; Eyes of the World\nJohnny B. Goode"
+    )
+    kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
+    cand = make_candidate()
+    canonical, notes, source = build_canonical(StubIA(md), cand, IDENT, meta,
+                                               kept, "Grateful Dead", [])
+    titles = [i.title for i in canonical.items]
+    assert titles == ["Morning Dew", "China Cat Sunflower", "I Know You Rider",
+                      "Dark Star", "Eyes of the World", "Johnny B. Goode"]
 
 
 def test_build_canonical_provider_none_never_reaches_the_llm_fallback(monkeypatch):
@@ -1505,8 +1556,8 @@ def test_build_canonical_provider_none_never_reaches_the_llm_fallback(monkeypatc
     # Guard: provider=None must not reach the fallback, even though `best is
     # None` (rank_parses has nothing to rank) makes this exactly the input
     # that would otherwise trigger it.
-    canonical, notes = build_canonical(None, cand, "only", meta, [], "Test Artist",
-                                       [], provider=None)
+    canonical, notes, source = build_canonical(None, cand, "only", meta, [], "Test Artist",
+                                               [], provider=None)
     assert canonical.items == []
 
     # Positive control: the identical input WITH a provider must reach the
