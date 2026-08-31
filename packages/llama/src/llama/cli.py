@@ -695,6 +695,17 @@ def _print_recording_info(ws) -> None:
 
 
 RESOLVE_PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit"
+# The `[t]` variant, shown only on a hold flagged `unresolved track titles`
+# (see UNRESOLVED_TITLES_FLAG below). A separate constant rather than
+# building the string inline each call so `RESOLVE_PROMPT`'s spelling stays
+# the single source of truth for the common (non-titles) tail -- M1 (task-8
+# review round 1): this used to be a one-off `typer.echo` printed ONCE
+# before the `while True:` loop, so the option silently vanished from the
+# visible prompt after any `continue` back to it (e.g. a declined proposal,
+# or `[m]` with nothing changed) -- the operator would see the bare prompt
+# again with no reminder `[t]` was still available.
+RESOLVE_PROMPT_WITH_TITLES = ("[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / "
+                              "[t] suggest titles / [s]kip / [q]uit")
 
 # Must stay byte-for-byte in sync with the literal `gather.py` appends to
 # `review_flags` (`stages/gather.py`, ~line 819) -- there is no shared named
@@ -772,12 +783,15 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     # Task 8: offered only on a hold this feature can actually help with --
     # `entry.flags` is `derive_state`'s (== `show.review_flags`) for a held
     # show, so this reads it the same way `test_held_beats_everything`
-    # pins it, no extra I/O.
+    # pins it, no extra I/O. Read once per show, not re-derived per loop
+    # iteration: the only branch that mutates `review_flags` in a way that
+    # could change this (a `[t]` adoption) always redoes-and-returns rather
+    # than looping back, so it can never go stale within one show's session
+    # (see the M3 comment on the `t` branch below for the fuller invariant).
     suggest_titles_offered = UNRESOLVED_TITLES_FLAG in entry.flags
-    if suggest_titles_offered:
-        typer.echo("[t] suggest titles")
+    prompt_text = RESOLVE_PROMPT_WITH_TITLES if suggest_titles_offered else RESOLVE_PROMPT
     while True:
-        choice = typer.prompt(RESOLVE_PROMPT, default="s", show_default=False).strip().lower()
+        choice = typer.prompt(prompt_text, default="s", show_default=False).strip().lower()
         if choice in ("", "s"):
             return
         if choice == "q":
@@ -816,6 +830,17 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             picks = _propose_and_confirm_titles(ia, config, entry, show)
             if not picks:
                 continue   # nothing changed - back to the prompt, same show
+            # No `parsed_titles.setdefault(...)` merge here, unlike `fix`'s
+            # own adoption -- and that is not a hole (M3, task-8 review
+            # round 1): `_propose_and_confirm_titles` only ever returns
+            # picks for tracks still `title_source == "unresolved"` (see
+            # `_propose_titles_for_show`'s docstring), so there is no
+            # already-titled track a same-invocation human edit could be
+            # racing against here the way `fix --set-title` can race a
+            # proposal on the same track; and `_edit_overrides(set_titles=
+            # ...)` itself MERGES into the existing `overrides.titles` dict
+            # rather than replacing it (see `_edit_overrides`), so no prior
+            # override this show may already carry is lost either.
             _edit_overrides(entry.ws, set_titles=picks)
             stage = "gather"
         else:
@@ -1266,11 +1291,25 @@ def _propose_titles_for_show(ia, config, entry, show):
     exclusions an unfiltered `kept` here could rank a different winning
     parse (`rank_parses(..., target_count=len(kept))` feeds the `plausible`
     tier) than the redo the confirmation triggers will itself compute.
-    `entry.overrides` (not a fresh `read_overrides` call) is deliberate:
-    every caller resolves `entry` immediately before this call and
-    `--suggest-titles` refuses to combine with `--exclude`/`--unexclude` in
-    the same invocation, so it can never go stale between resolution and
-    use here.
+    `entry.overrides` (not a fresh `read_overrides` call) is deliberate, and
+    relies on a different invariant per caller (M3, task-8 review round 1
+    -- spelled out here rather than left implicit, since it's easy to
+    silently invalidate by changing control flow elsewhere):
+    - `fix --suggest-titles`: every invocation resolves `entry` once at the
+      top of `fix`, and `--suggest-titles` refuses to combine with
+      `--exclude`/`--unexclude` in the same invocation, so nothing in that
+      same call can change `overrides.exclude` between resolution and use.
+    - `triage`'s `[t]` resolution: each `entry` comes from one
+      `iter_shows`/`resolve_show` call feeding exactly one
+      `_interactive_resolve(..., entry)`, and inside that function every
+      choice that WRITES overrides (`e`/`m`/`v`/`o`/`t`) redoes and
+      `return`s immediately rather than looping back -- so `entry` is
+      never reused across a write. **This is load-bearing on `[e]` staying
+      non-looping**: if `[e]` were ever changed to loop back to the prompt
+      the way `[m]` does on "nothing changed", a `[t]` chosen afterward in
+      that same session would read a stale `entry.overrides.exclude`,
+      reopening exactly the silent-wrong-title hazard the `--suggest-titles
+      --exclude` refusal (I2) exists to prevent on the `fix` side.
 
     Returns `(prop, picks)`: the raw `TitleProposal` (so a caller can read
     `.feasible`/`.reason` without re-deriving it) and `picks` -- track
@@ -1553,8 +1592,10 @@ def triage(
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
 ):
     """Interactively walk shows for resolution (default: held shows) —
-    exclude tracks, edit metadata, accept vague narration, or overrule the
-    hold. Always interactive: requires a TTY."""
+    exclude tracks, edit metadata, accept vague narration, overrule the
+    hold, or (only on a hold flagged "unresolved track titles") suggest
+    titles from the setlist correspondence, confirm, and adopt them all at
+    once. Always interactive: requires a TTY."""
     if not sys.stdin.isatty():
         typer.echo("triage is interactive; use 'llama status' or 'llama show' "
                    "for scripted reads", err=True)

@@ -522,6 +522,7 @@ def test_suggest_titles_threads_setlistfm_client_and_jerrybase_events(tmp_path, 
     def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
         captured["setlistfm"] = setlistfm
         captured["events"] = events
+        captured["provider"] = provider
         return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
                                     setlistfm=setlistfm, provider=provider)
 
@@ -532,6 +533,46 @@ def test_suggest_titles_threads_setlistfm_client_and_jerrybase_events(tmp_path, 
     assert result.exit_code == 0, result.output
     assert captured["setlistfm"] is sentinel_client
     assert captured["events"] is sentinel_events
+    # M2 (task-8 review round 1): pin the OTHER half of the "never fires an
+    # LLM call" guarantee at the same argument level as setlistfm/events --
+    # `provider=None` is always passed, never threaded through from the
+    # real LLM provider the pipeline would otherwise use.
+    assert captured["provider"] is None
+
+
+def test_suggest_titles_drops_excluded_files_from_kept(tmp_path, monkeypatch):
+    """A1 (task-8 review round 1, I1): the `kept` handed to `build_canonical`
+    must match what `run_gather` computes -- excluded files dropped BEFORE
+    the canonical build -- or `rank_parses`' `target_count` differs between
+    the proposal and the redo the confirmation triggers, and since
+    `overrides.titles` is applied by 1-based position (gather.py), a
+    different winning parse means confirmed titles could land on the wrong
+    tracks. Pins the ARGUMENT `build_canonical` receives (the same style as
+    A2), not a full re-derivation of `rank_parses`' behavior."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    victim = read_model(sws.show, Show).tracks[0].filename
+    ov = read_overrides(sws)
+    write_artifact(sws.overrides, ov.model_copy(update={"exclude": [victim]}))
+
+    from llama.stages import gather as gather_mod
+    real_build_canonical = gather_mod.build_canonical
+    captured = {}
+
+    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
+        captured["kept"] = list(kept)
+        captured["provider"] = provider
+        return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
+                                    setlistfm=setlistfm, provider=provider)
+
+    monkeypatch.setattr(gather_mod, "build_canonical", spy)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    names = [f["name"] for f in captured["kept"]]
+    assert victim not in names
+    assert len(names) == 23
+    assert captured["provider"] is None
 
 
 def test_format_proposal_row_trichotomy_is_distinct():
