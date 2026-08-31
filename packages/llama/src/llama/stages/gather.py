@@ -484,6 +484,62 @@ def _drop_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
     return parsed.model_copy(update={"items": kept})
 
 
+def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
+                    kept: list[dict], artist: str, events, *,
+                    setlistfm=None, provider=None,
+                    source_out: dict | None = None) -> tuple[ParsedSetlist, list[str]]:
+    """The cleaned canonical performance setlist: every recording's
+    description, plus setlist.fm when configured, ranked pick-best, then
+    head-banner-stripped and artist-item-dropped.
+
+    `provider=None` skips the `extract_setlist` LLM fallback entirely, so
+    callers outside the pipeline (`llama fix --suggest-titles`) never trigger
+    an LLM call.
+
+    Order matters for the cleaning pass: the banner strip runs on the head
+    span first, then the artist drop globally. `events` covers every
+    jerrybase event on the date, not just a resolved one -- a multi-event
+    date leaves the caller's `event` None, and the banner guard still needs
+    to recognize every candidate venue's name.
+
+    `source_out`, if given, is populated with `{"source": <winning
+    SourcedParse.source, or None if nothing ranked>}` -- an internal hook so
+    `run_gather` can still report `StructureInfo.source` (pinned by
+    `test_missed_anchor_...`-style tests) without either widening this
+    function's public 2-tuple return (which would break Task 7's unpacking
+    of it) or re-running `_collect_parses` a second time, which would
+    re-fetch every sibling recording's metadata. Not part of the public
+    interface Task 7 consumes.
+    """
+    parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
+    if setlistfm is not None:
+        raw = setlistfm.setlist(artist, candidate.date,
+                                venue=candidate.venue, city=candidate.city)
+        converted = from_setlistfm(raw) if raw else None
+        if converted is not None:
+            parses.insert(0, SourcedParse(source="setlist.fm", parsed=converted))
+
+    best = rank_parses(parses, target_count=len(kept))
+    if best is None and provider is not None:
+        longest = max(descriptions, key=len, default="")
+        if longest.strip():
+            parsed = run_json_task(provider, "extract_setlist", ParsedSetlist,
+                                   template=load_prompt("extract_setlist"),
+                                   description=longest)
+            best = SourcedParse(source="llm", parsed=parsed)
+    if source_out is not None:
+        source_out["source"] = best.source if best is not None else None
+    canonical = best.parsed if best else ParsedSetlist()
+    if best is not None and best.source == "setlist.fm":
+        best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"],
+                               target_count=len(kept))
+        canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
+
+    metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
+    canonical = _strip_head_banner(canonical, metadata_norms)
+    return _drop_artist_items(canonical, artist), notes
+
+
 def run_gather(
     show_ws: ShowWorkspace,
     ia,
@@ -522,35 +578,12 @@ def run_gather(
                      for f in kept if f["name"] in drop]
         kept = [f for f in kept if f["name"] not in drop]
 
-    # Canonical performance setlist: every recording's description, plus
-    # setlist.fm when configured, ranked pick-best.
-    parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
-    if setlistfm is not None:
-        raw = setlistfm.setlist(artist, candidate.date,
-                                venue=candidate.venue, city=candidate.city)
-        converted = from_setlistfm(raw) if raw else None
-        if converted is not None:
-            parses.insert(0, SourcedParse(source="setlist.fm", parsed=converted))
-
-    best = rank_parses(parses, target_count=len(kept))
-    if best is None:
-        longest = max(descriptions, key=len, default="")
-        if longest.strip():
-            parsed = run_json_task(provider, "extract_setlist", ParsedSetlist,
-                                   template=load_prompt("extract_setlist"),
-                                   description=longest)
-            best = SourcedParse(source="llm", parsed=parsed)
-    canonical = best.parsed if best else ParsedSetlist()
-    if best is not None and best.source == "setlist.fm":
-        best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"],
-                               target_count=len(kept))
-        canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
-
     # Jerrybase structure evidence (no-op for artists absent from the dataset).
     # A per-event candidate (/eN) selects events[N-1] for every evidence check.
-    # Resolved HERE, above the setlist cleaning below, because the head-banner
-    # guard reads the event venues as part of this show's own metadata; nothing
-    # in this block depends on tracks or on the canonical setlist.
+    # Resolved HERE, above the canonical-setlist build below, because
+    # `build_canonical`'s head-banner guard reads the event venues as part of
+    # this show's own metadata; nothing in this block depends on tracks or on
+    # the canonical setlist.
     events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
     # `ev_n`, not `n`: hoisting this block above the overrides loop below put
     # it in scope of that loop's `for n, forced in ...`, which rebinds `n`.
@@ -566,22 +599,23 @@ def run_gather(
     else:
         event = None
 
-    # Clean the canonical setlist at the point it enters the stage, before
-    # anything consumes it. Neither a taper banner nor an artist header line is
-    # a song, so neither has any business in title resolution either — not just
-    # in alignment. Placing this immediately before `align` would treat a
-    # data-cleaning step as an alignment concern, and `resolve_titles` below is
-    # upstream of that: it only trusts the setlist when
-    # `len(items) == len(tracks)`, so on an untagged tape one header item costs
-    # every title on the show.
-    #
-    # Order matters: the banner strip runs on the head span first, then the
-    # artist drop globally. Every event on the date contributes its venue, not
-    # just the resolved one — a multi-event date leaves `event` None, and the
-    # banner still names the building.
+    # Canonical performance setlist: every recording's description, plus
+    # setlist.fm when configured, ranked pick-best, then cleaned (head-banner
+    # stripped, artist-only items dropped) at the point it enters the stage,
+    # before anything consumes it -- `resolve_titles` below only trusts the
+    # setlist when `len(items) == len(tracks)`, so on an untagged tape one
+    # header item costs every title on the show.
+    # `source_out` recovers the winning parse's provenance for
+    # `StructureInfo.source` below without widening build_canonical's public
+    # 2-tuple return -- see its docstring.
+    source_out: dict = {}
+    canonical, notes = build_canonical(
+        ia, candidate, identifier, meta, kept, artist, events,
+        setlistfm=setlistfm, provider=provider, source_out=source_out)
+    # Recomputed (not re-fetched) rather than threaded out of build_canonical:
+    # it's a pure function of already-in-scope values, and adopt_gap_titles
+    # below needs it independently of the canonical-setlist build.
     metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
-    canonical = _strip_head_banner(canonical, metadata_norms)
-    canonical = _drop_artist_items(canonical, artist)
 
     siblings = None
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
@@ -788,8 +822,8 @@ def run_gather(
     if overrides.set_breaks is not None or overrides.encore_after is not None:
         structure_info = StructureInfo(source="override", alignment="override",
                                        coverage=1.0, conflicts=[])
-    elif best is not None or notes:
-        source = best.source if best is not None else "none"
+    elif source_out.get("source") is not None or notes:
+        source = source_out.get("source") or "none"
         structure_info = StructureInfo(source=source, alignment=alignment,
                                        coverage=coverage,
                                        conflicts=conflicts + notes)

@@ -91,3 +91,41 @@ def propose_titles(tracks: list[Track], canonical: ParsedSetlist, *,
             margin_sec=None if alt == _INF else alt - cost,
             forced=alt == _INF))
     return TitleProposal(rows=rows, feasible=True, evidence_source=source)
+
+
+def sibling_item_durations(ia, candidate, identifier: str,
+                           canonical: ParsedSetlist, want) -> list[float] | None:
+    """Per-canonical-item durations lifted from a TAGGED sibling recording of
+    the same performance.
+
+    Requires every canonical item to match exactly one sibling track by
+    normalized title. Anything less returns None rather than guessing by
+    position - a partially-matched donor is exactly the 20%-wrong case the
+    blind test measured.
+    """
+    from llama.junk import filter_files
+    from llama.titles import clean_tag_titles
+    from llama.util import length_seconds
+    if ia is None:
+        return None
+    norms = [fuzzy_norm_title(it.title) for it in canonical.items]
+    for rec in candidate.recordings:
+        if rec.identifier == identifier:
+            continue
+        try:
+            kept, _, _ = filter_files(
+                ia.metadata(rec.identifier).get("files", []), want_format=want)
+        except Exception:
+            continue
+        by_norm: dict[str, float] = {}
+        for f, title in zip(kept, clean_tag_titles(kept)):
+            n = fuzzy_norm_title(title)
+            if not n:
+                continue
+            if n in by_norm:          # ambiguous donor; refuse it
+                by_norm[n] = -1.0
+                continue
+            by_norm[n] = length_seconds(f.get("length")) or 0.0
+        if all(by_norm.get(n, -1.0) > 0 for n in norms):
+            return [by_norm[n] for n in norms]
+    return None

@@ -1456,3 +1456,63 @@ def test_adopted_titles_make_the_closer_tripwire_reachable(tmp_path: Path):
     # every adopted title is a real song name, so norm_title comparisons in the
     # closer/spans checks now have something to match against
     assert all(not t.title.endswith(".mp3") for t in adopted)
+
+
+def test_build_canonical_matches_what_gather_uses(tmp_path: Path):
+    """The extraction must be behaviour-preserving: same items, same order."""
+    from llama.stages.gather import build_canonical
+    md = json.loads(FIXTURE.read_text())
+    kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
+    cand = make_candidate()
+    canonical, notes = build_canonical(StubIA(md), cand, IDENT, md["metadata"],
+                                       kept, "Grateful Dead", [])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), cand, IDENT)
+    assert [i.title for i in canonical.items]
+    assert len(canonical.items) >= len([t for t in show.tracks if t.matched])
+
+
+def test_build_canonical_provider_none_never_reaches_the_llm_fallback(monkeypatch):
+    """Regression pin for the provider=None guard: without it, a CLI edit
+    command (llama fix --suggest-titles) could trigger a live LLM call.
+
+    The brief's own version of this test (`fake = FakeProvider(); ...;
+    assert not fake.calls`) is vacuous: `fake` is never passed to
+    `build_canonical`, so the assertion is trivially true regardless of
+    whether the guard exists. This version instead forces the exact branch
+    the guard protects and proves it is reachable at all.
+
+    Input: a single-recording candidate whose description has no setlist
+    markers ("Just some random taper notes..."), so `parse_setlist` returns
+    zero items and `rank_parses` has no non-empty candidate to pick --
+    `best is None`, the precondition for the `extract_setlist` fallback.
+    `run_json_task` is monkeypatched to raise, so its absence-of-a-call is
+    directly observable rather than inferred from a mock's call list.
+    """
+    from llama.stages.gather import build_canonical
+
+    def boom(*a, **k):
+        raise AssertionError("run_json_task must not be called")
+
+    monkeypatch.setattr(gather_mod, "run_json_task", boom)
+
+    cand = Candidate(
+        performance_id="Test/2000-01-01", collection="Test", date="2000-01-01",
+        recordings=[RecordingSummary(identifier="only")],
+    )
+    meta = {"description": "Just some random taper notes with no songs listed at all."}
+
+    # Guard: provider=None must not reach the fallback, even though `best is
+    # None` (rank_parses has nothing to rank) makes this exactly the input
+    # that would otherwise trigger it.
+    canonical, notes = build_canonical(None, cand, "only", meta, [], "Test Artist",
+                                       [], provider=None)
+    assert canonical.items == []
+
+    # Positive control: the identical input WITH a provider must reach the
+    # raiser. Without this half, a guard that always no-ops (e.g. if the
+    # fallback code were deleted entirely) would pass the assertion above
+    # for the wrong reason -- this proves the branch is genuinely reachable.
+    with pytest.raises(AssertionError, match="run_json_task must not be called"):
+        build_canonical(None, cand, "only", meta, [], "Test Artist",
+                        [], provider=object())

@@ -1,7 +1,8 @@
 import pytest
 
 from llama.correspondence import propose_titles
-from llama.models import ParsedSetlist, ProposalRow, SetlistItem, TitleProposal, Track
+from llama.models import (Candidate, ParsedSetlist, ProposalRow, RecordingSummary,
+                          SetlistItem, TitleProposal, Track)
 
 
 def _canon(*specs):
@@ -134,3 +135,12 @@ def test_item_durations_length_mismatch_is_rejected():
     canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
     with pytest.raises(ValueError, match="item_durations has 1 entries, expected 2"):
         propose_titles(_tracks(300.0, 300.0), canonical, item_durations=[300.0])
+
+
+def test_sibling_item_durations_returns_none_without_a_tagged_sibling():
+    from llama.correspondence import sibling_item_durations
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
+    cand = Candidate(performance_id="X/2000-01-01", collection="X",
+                     date="2000-01-01",
+                     recordings=[RecordingSummary(identifier="only")])
+    assert sibling_item_durations(None, cand, "only", canonical, ("VBR MP3",)) is None
