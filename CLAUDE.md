@@ -322,8 +322,22 @@ tier (pins never escalate).
 - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track
   numbering doesn't map to sets. Titles resolve via cascade: recovered-format
   tags → own tags → setlist parsed from the item description → sibling
-  recordings of the same performance → unresolved, with `title_source`
-  recording which fired. Never guess — flag unresolved.
+  recordings of the same performance → **setlist-gap** → unresolved, with
+  `title_source` recording which fired. Never guess — flag unresolved.
+  **`setlist-gap`** fills a run of unresolved tracks ONLY when it is
+  count-forced (the gap's canonical-item count exactly equals its file count,
+  so no shift can hide in it) and anchored by tracks that independently
+  matched, plus per-title hygiene; trailing-edge runs are declined outright.
+  Measured on 960 cached items it adopts ONCE, so treat it as a slow-burn
+  asset: the candidate population (17 items) skews 16:1 toward non-Dead acts,
+  where a taper tagging all but a couple of songs is common.
+  **Both tautological rungs are excluded from alignment evidence.** A title
+  taken from the canonical setlist IS that item's own text, so `align()`
+  matching it back is circular — `structure.TAUTOLOGICAL_TITLE_SOURCES`
+  (`setlist-gap`, `setlist`) is filtered out of `_songish_coverage`, and those
+  tracks carry `matched=None`, not `True`. Without this a mis-adoption raises
+  coverage and suppresses the very `low-confidence structure alignment` flag
+  that would have caught it.
   **"Recovered-format tags" is `title_source="sibling-format"`** (the literal
   string a manifest carries), produced by `gather._recover_format_titles` via
   `titles.sibling_format_titles`. Its defining property, and the thing that

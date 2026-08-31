@@ -897,10 +897,53 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 8,
                        merge_conflicts=merge_conflicts)
 
 
+# Title sources whose text IS the canonical item's own text, copied
+# verbatim, so a track carrying one of these is GUARANTEED to match its own
+# provenance in align() -- the match is tautological, not independent
+# evidence, and must not count toward _songish_coverage either way.
+# `setlist-gap` (structure.adopt_gap_titles, count-forced anchored gap fill)
+# and `setlist` (titles.py's whole-tape rung -- MEASURED DEAD in production
+# per titles.py:129, but deliberately KEPT there, so its tautology is a
+# standing property of this codebase, not a transient to special-case away)
+# both copy straight from `canonical.items`. `tags`, `sibling-format`,
+# `sibling`, and `override` all originate INDEPENDENTLY of the canonical
+# setlist (the tape's own tags, a sibling recording's tags, or an
+# operator's judgement made via `llama fix`), so a match against one of
+# those is real evidence and must stay in the denominator.
+TAUTOLOGICAL_TITLE_SOURCES = frozenset({"setlist-gap", "setlist"})
+
+
 def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
-    """Matched fraction over song-like tracks only: filler (tuning, repairs,
-    crowd) can never match a canonical setlist and must not drag coverage."""
-    songish = [m for t, m in zip(tracks, matched) if not is_filler(t.title)]
+    """Matched fraction over song-like tracks with INDEPENDENT evidence only:
+    filler (tuning, repairs, crowd) can never match a canonical setlist and
+    must not drag coverage, and a track whose title_source is in
+    TAUTOLOGICAL_TITLE_SOURCES (see that constant) has a title that IS the
+    canonical item's own text, so align() matching it is tautological, not a
+    measurement -- counting it here would let a mis-adopted (shifted)
+    `setlist-gap` run, or a `setlist`-sourced whole-tape resolution, raise
+    coverage and suppress the very "low-confidence structure alignment" flag
+    that would have caught it. Ruled: coverage must be computed only over
+    tracks whose titles came from independent evidence.
+
+    Coverage is therefore a ratio over a POSSIBLY SMALL independent-evidence
+    set, not over every track: on a mostly gap-filled or mostly
+    whole-tape-resolved show, a single independent measurement decides the
+    entire ratio. A single matched anchor among many tautological tracks
+    reports coverage 1.0 on ONE data point -- that is the DANGEROUS
+    direction (a real miss elsewhere in an otherwise-tautological show would
+    still look clean) and is fully reachable, unlike the empty-set 0.0 floor
+    below, which is the safe direction.
+
+    If every songish track is tautological, `songish` is empty and this
+    returns 0.0 -- the safe direction, since an empty independent-evidence
+    set is exactly the "no real signal" case the low-confidence flag exists
+    for. Expected unreachable via adopt_gap_titles alone in practice
+    (adoption requires tag-verified anchors, and an anchor is itself a
+    matched, non-adopted track), but see
+    test_songish_coverage_is_zero_when_every_songish_track_is_adopted, which
+    asserts it directly rather than trusting that reasoning."""
+    songish = [m for t, m in zip(tracks, matched)
+               if not is_filler(t.title) and t.title_source not in TAUTOLOGICAL_TITLE_SOURCES]
     return (sum(songish) / len(songish)) if songish else 0.0
 
 
@@ -950,3 +993,141 @@ def apply_llm_alignment(tracks: list[Track], resp: AlignedStructure) -> AlignRes
     coverage = _songish_coverage(tracks, matched)
     return AlignResult(sets=[a.set for a in ordered], segues=[a.segue for a in ordered],
                        matched=matched, coverage=coverage)
+
+
+def _unresolved_runs(tracks: list["Track"]) -> list[tuple[int, int]]:
+    """Maximal inclusive [lo, hi] runs of consecutive unresolved tracks."""
+    runs, lo = [], None
+    for pos, t in enumerate(tracks):
+        if t.title_source == "unresolved":
+            lo = pos if lo is None else lo
+        elif lo is not None:
+            runs.append((lo, pos - 1))
+            lo = None
+    if lo is not None:
+        runs.append((lo, len(tracks) - 1))
+    return runs
+
+
+def _hygienic(title: str, metadata_norms: set[str]) -> bool:
+    """A canonical item fit to become a shipped title. Deliberately strict:
+    this is the only silent adopter in the pipeline."""
+    from llama.setlist import MAX_TITLE_LEN, is_junk_title
+    from llama.titles import is_real_title
+    t = title.strip()
+    # No `aliases` here, deliberately: metadata_norms is built aliaslessly by
+    # gather's `_place_norms`/`_date_norms`, so threading aliases into only
+    # this side would break the comparison's symmetry.
+    return (bool(t) and is_real_title(t) and not is_junk_title(t)
+            and len(t) <= MAX_TITLE_LEN and not t.endswith(":")
+            and fuzzy_norm_title(t) not in metadata_norms)
+
+
+def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
+                     metadata_norms: set[str],
+                     aliases: dict[str, str] | None = None) -> list["Track"]:
+    """Fill runs of unresolved tracks that are COUNT-FORCED between
+    tag-verified anchors.
+
+    Count-forced is the whole safety argument: when a gap's item count equals
+    its file count exactly, no merge, filler or skip is needed to make it fit,
+    so there is no assignment freedom for an off-by-one shift to hide in.
+    Unanchored monotone correspondence measured 45-52% wrong on the
+    blind-the-tags corpus and margin could not discriminate; this evidence
+    class measured 2.4%. See the spec.
+
+    Anchors match by EXACT normalized equality for a single-component track;
+    a merged track (multiple components) matches its item run via `_merge_run`,
+    which compares each component with `fuzzy_title_eq` (component-fuzzy, with
+    an `_is_subphrase` fallback) because a merged track must consume ALL of
+    its items — there is no partial-credit anchor. This is a real, accepted
+    weak point, not just a mechanism note: because `fuzzy_title_eq` tolerates
+    dropped subtitles and credit-only parentheticals, a merged anchor can bind
+    to the WRONG item run — one item off from where it truly belongs — and
+    still report success. Count-forcing does NOT catch this: a same-size shift
+    (the anchor's span slides by one item but keeps the same length) preserves
+    the gap's item count exactly, so the `len(gap) == hi - lo + 1` check passes
+    regardless of which end the anchor actually lands on. This is the same
+    failure shape that sank both the LLM approach and the unanchored DP in the
+    spec's own measurements: a wrong-but-internally-consistent shift satisfies
+    every consistency check precisely because a shift is consistent by
+    construction — consistency is not correctness. `_window_match` is
+    deliberately NOT used for either case: its subphrase fallback is right for
+    structure recovery and too weak to license adopting titles on either side
+    of the match.
+
+    A run touching the START of the tape fills against a real right anchor; a
+    run touching the END never fills at all, whatever it looks like. See the
+    comment on the missing branch below for the measurement behind that
+    asymmetry.
+
+    `metadata_norms` is passed in rather than imported: it is built in
+    stages/gather.py, and structure.py must not depend on a stage.
+    """
+    items = canonical.items
+    if not items or not tracks:
+        return tracks
+    norms = [fuzzy_norm_title(it.title, aliases) for it in items]
+
+    # Anchor pass: monotone walk over tracks that already carry a title.
+    anchors: dict[int, tuple[int, int]] = {}   # track pos -> half-open item span
+    j = 0
+    for pos, t in enumerate(tracks):
+        if t.title_source == "unresolved":
+            continue
+        comps = title_components(t.title, aliases)
+        if len(comps) > 1:
+            run = _merge_run(norms, j, len(norms), comps)
+            if run is not None:
+                anchors[pos] = (run, run + len(comps))
+                j = run + len(comps)
+                continue
+        nt = fuzzy_norm_title(t.title, aliases)
+        hit = next((k for k in range(j, len(norms)) if norms[k] == nt), None)
+        if hit is None:
+            continue
+        anchors[pos] = (hit, hit + 1)
+        j = hit + 1
+
+    out = list(tracks)
+    for lo, hi in _unresolved_runs(tracks):
+        left = anchors.get(lo - 1) if lo > 0 else None
+        right = anchors.get(hi + 1) if hi + 1 < len(tracks) else None
+        if left is not None and right is not None:
+            span = (left[1], right[0])
+        elif right is not None and lo == 0:
+            span = (0, right[0])
+        else:
+            # DELIBERATELY NO TRAILING-EDGE BRANCH. A run reaching the last
+            # track was once filled from `(left[1], len(items))` -- a span
+            # anchored on one side only, running to the END of the canonical.
+            # That is precisely where a parsed LMA setlist keeps the taper's
+            # notes: `_strip_head_banner` cleans the head and has no tail
+            # counterpart, so the trailing items are lineage, gear lists and
+            # thank-yous, and `_hygienic` cannot tell them from a song (they
+            # have three letters, are under MAX_TITLE_LEN, are not
+            # `is_junk_title`, and are not this show's own metadata).
+            #
+            # MEASURED, not feared. In the M1 blind-the-tags corpus
+            # (docs/superpowers/2026-08-31-gap-fill-blind-test.md, 968 cached
+            # items) every junk-title adoption sat at `track == n_tracks`:
+            # `Branford Marsalis on saxophone throughout` on two recordings of
+            # gd1991-09-10, `= no lyrics` on two of gd1975-06-17 -- and on the
+            # unblinded cache the one bad adoption was
+            # `is2008-12-06.flac16.aud` track 34 of 34 adopting canonical item
+            # 39 of 39, `for being so nice and quiet which allowed me to pull
+            # a nice recording.`
+            #
+            # The LEADING branch above is kept: its span ends at a real
+            # anchor's item, so it can never reach the canonical's tail. Only
+            # the trailing one is open-ended, and only it is removed.
+            continue
+        gap = items[span[0]:span[1]]
+        if len(gap) != hi - lo + 1:          # not count-forced
+            continue
+        if not all(_hygienic(it.title, metadata_norms) for it in gap):
+            continue
+        for off, it in enumerate(gap):
+            out[lo + off] = out[lo + off].model_copy(
+                update={"title": it.title.strip(), "title_source": "setlist-gap"})
+    return out

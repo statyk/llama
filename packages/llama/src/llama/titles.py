@@ -126,6 +126,20 @@ def resolve_titles(
     kept_files in canonical play order (filter_files decides it)."""
     files = kept_files
     n = len(files)
+    # The whole-tape setlist rung. MEASURED DEAD: 0 of 2,015 tracks across the
+    # 89-show library (2026-08-30) — exact count equality between a parsed
+    # description and a tape's file list is close to a measure-zero event on
+    # real tapes; it DOES fire on small trimmed fixtures such as
+    # `gd73_metadata.json` (6 files, 6 items), where it pre-empts
+    # `adopt_gap_titles` entirely — a test blanking a title on that fixture
+    # without also breaking the exact count match exercises this rung, not
+    # the gap-fill one. Reproduce via `scripts/title_source_census.py`
+    # (2026-08-30): tags 1917 | unresolved 75 | sibling 21 | override 2 |
+    # setlist 0, over shows=89 tracks=2015 — same citation style as
+    # `refresh_jerrybase.py`/`capture_fixture.py` for their own numbers.
+    # Kept because structure.adopt_gap_titles is its localized successor
+    # (count-forced GAPS between anchors), which makes this rung's deadness a
+    # design property rather than a defect to re-diagnose.
     aligned = setlist.items if (setlist.confidence != "low" and len(setlist.items) == n) else None
 
     # When format recovery fired, the delivered format's own tags are known

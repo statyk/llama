@@ -1638,3 +1638,243 @@ def test_contains_sequence_repeated_song_advances_past_first_hit():
     text = "Set I Playing In The Band Deal Set II Playing In The Band Wharf Rat"
     assert structure.contains_sequence(text, ["Playing In The Band", "Playing In The Band"])
     assert not structure.contains_sequence(text, ["Playing In The Band"] * 3)
+
+
+from llama.models import ParsedSetlist, SetlistItem, Track
+from llama.structure import _hygienic, adopt_gap_titles
+
+
+def _gap_items(*specs):
+    """specs: (title, set, segue) triples."""
+    return ParsedSetlist(
+        items=[SetlistItem(title=t, normalized=t.lower(), set=s, segue=g)
+               for t, s, g in specs],
+        confidence="high")
+
+
+def _gap_tracks(*specs):
+    """specs: (title, title_source) pairs."""
+    return [Track(index=i + 1, set="1", title=t, filename=f"f{i + 1}.mp3",
+                  duration_sec=300.0, title_source=src)
+            for i, (t, src) in enumerate(specs)]
+
+
+def test_count_forced_interior_gap_adopts():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False),
+                       ("Charlie", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"),
+                     ("f3.mp3", "unresolved"), ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert [t.title for t in out] == ["Alpha", "Bravo", "Charlie", "Delta"]
+    assert [t.title_source for t in out] == [
+        "tags", "setlist-gap", "setlist-gap", "tags"]
+
+
+def test_gap_whose_counts_disagree_declines_whole():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False),
+                       ("Charlie", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title_source == "unresolved"
+    assert out[1].title == "f2.mp3"
+
+
+def test_unanchored_run_declines():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False))
+    tracks = _gap_tracks(("f1.mp3", "unresolved"), ("f2.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert all(t.title_source == "unresolved" for t in out)
+
+
+def test_tail_edge_run_declines_even_when_count_forced():
+    """A trailing run is NEVER filled, however well-formed it looks.
+
+    This case is count-forced (1 item, 1 file), anchored on the left by an
+    exact tag match, and hygienic -- every condition the rung asks for -- and
+    it is still declined, because the span of a trailing run runs to the END
+    of the canonical and that is where a parsed LMA setlist keeps the taper's
+    notes. Pinned as a deliberate REMOVAL of behaviour: this test asserted the
+    opposite until the M1 evidence
+    (docs/superpowers/2026-08-31-gap-fill-blind-test.md) measured every
+    junk-title adoption in the corpus sitting at `track == n_tracks`. See
+    test_tail_edge_run_declines_a_taper_note for the real-world case, and
+    test_head_edge_run_adopts_with_one_real_anchor for the leading edge, which
+    is kept."""
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title_source == "unresolved"
+    assert out[1].title == "f2.mp3"
+
+
+def test_tail_edge_run_declines_a_taper_note():
+    """The shape that forced the removal, taken from the offending item.
+
+    `is2008-12-06.flac16.aud` (M1 `--natural` run, 2026-08-31): 34 tracks, 39
+    canonical items, track 34 unresolved, canonical item 39 being the tail of
+    the taper's own notes. Every gate passes -- one item against one file,
+    left-anchored on an exact tag match, and `_hygienic` cannot reject the
+    sentence (>= 3 letters, 70 chars so under MAX_TITLE_LEN, not
+    `is_junk_title`, not this show's metadata) -- which is exactly why the
+    branch had to go rather than the screen be tightened.
+
+    The first assertion is the point of the test; the second and third are the
+    mutation guard. Restoring the trailing branch makes the first fail, and
+    the `_hygienic` assertion documents that no cheaper fix was available."""
+    note = "for being so nice and quiet which allowed me to pull a nice recording."
+    canonical = _gap_items(("Poor Boy's Delight", "2", False),
+                           ("Tuning / Banter", "2", False),
+                           (note, "2", False))
+    tracks = _gap_tracks(("Poor Boy's Delight", "tags"),
+                         ("Tuning / Banter", "tags"),
+                         ("is2008-12-06d2t22.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[2].title_source == "unresolved"
+    assert out[2].title == "is2008-12-06d2t22.mp3"
+    # The gate that would have had to catch it, and cannot.
+    assert _hygienic(note, set()) is True
+
+
+def test_head_edge_run_adopts_with_one_real_anchor():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False))
+    tracks = _gap_tracks(("f1.mp3", "unresolved"), ("Bravo", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[0].title == "Alpha" and out[0].title_source == "setlist-gap"
+
+
+def test_a_merged_tag_anchor_consumes_both_its_items():
+    # "Alpha > Bravo" is ONE file holding TWO items; without _merge_run the
+    # pointer stops at Alpha, so the gap spans Bravo+Charlie -- two items
+    # against one file -- and count-forcing declines it.
+    #
+    # The trailing anchor ("Delta") is load-bearing and is why this reads
+    # differently from the version that shipped before the trailing-edge
+    # branch was removed: an interior gap is now the only kind that fills, so
+    # a merged-anchor test has to put a real anchor on the far side. The
+    # discrimination is unchanged and if anything sharper -- with _merge_run
+    # the gap is one item (Charlie) and adopts; without it the gap is two and
+    # declines.
+    canonical = _gap_items(("Alpha", "1", True), ("Bravo", "1", False),
+                           ("Charlie", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha > Bravo", "tags"), ("f2.mp3", "unresolved"),
+                         ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title == "Charlie"
+    assert out[1].title_source == "setlist-gap"
+
+
+def test_override_titles_anchor_and_are_never_overwritten():
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha", "override"), ("f2.mp3", "unresolved"),
+                     ("Charlie", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[0].title_source == "override"
+    assert out[1].title == "Bravo" and out[1].title_source == "setlist-gap"
+
+
+def test_hygiene_rejects_a_junk_item():
+    # NOTE: "Set List:" is rejected by _hygienic's `not t.endswith(":")`
+    # clause, not by `is_junk_title` (is_junk_title("Set List:") is False —
+    # it has no duration/disc/total-time shape). This test alone would still
+    # pass if `is_junk_title` were dropped from _hygienic entirely; see
+    # test_hygiene_rejects_via_is_junk_title_specifically below for a case
+    # that isolates that clause.
+    canonical = _gap_items(("Alpha", "1", False), ("Set List:", "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Charlie", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title_source == "unresolved"
+
+
+def test_hygiene_rejects_via_is_junk_title_specifically():
+    """A title that clears every OTHER _hygienic clause but is rejected
+    because `is_junk_title` says so, and for no other reason — proof that
+    the `not is_junk_title(t)` clause is load-bearing (see mutation evidence
+    in the task-2 report). "Disc Two" matches setlist.is_junk_title's
+    disc-number pattern (`^discs?\\s*#?\\s*(?:\\d+|one|two|...)$`) while being
+    non-empty, clearing `is_real_title` (7 ASCII letters), at MAX_TITLE_LEN
+    (80), not ending in ":", and not present in metadata_norms."""
+    from llama.setlist import MAX_TITLE_LEN, is_junk_title
+    from llama.titles import is_real_title
+    title = "Disc Two"
+    assert is_junk_title(title) is True
+    assert is_real_title(title) is True
+    assert len(title) <= MAX_TITLE_LEN
+    assert not title.endswith(":")
+    canonical = _gap_items(("Alpha", "1", False), (title, "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Charlie", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title_source == "unresolved"
+
+
+def test_hygiene_rejects_show_metadata_residue():
+    canonical = _gap_items(("Alpha", "1", False), ("Fillmore Auditorium", "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Charlie", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms={"fillmore auditorium"})
+    assert out[1].title_source == "unresolved"
+
+
+def test_empty_canonical_is_a_no_op():
+    tracks = _gap_tracks(("f1.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, ParsedSetlist(), metadata_norms=set())
+    assert out[0].title_source == "unresolved"
+
+
+def test_songish_coverage_excludes_adopted_tracks():
+    """Ruled on I1: a setlist-gap track's title IS the canonical item's own
+    text, so align() matching it is tautological, not a measurement --
+    counting it in coverage would let a mis-adopted (shifted) run raise
+    coverage and mask itself. Constructed so excluding the adopted track
+    changes the numeric result: the mixed-show integration fixture in
+    test_stage_gather.py cannot show this on its own, because its anchors
+    already cover 100% by themselves regardless of whether the adopted
+    tracks are counted."""
+    tracks = _gap_tracks(
+        ("Alpha", "tags"), ("Bravo", "setlist-gap"), ("f3.mp3", "tags"))
+    # align() would report all three as matched (the third's title happens to
+    # equal a canonical item it wasn't independently verified against here --
+    # the point under test is purely the DENOMINATOR, so its title_source is
+    # what matters, not why `matched` says what it says).
+    matched = [True, True, False]
+    coverage = structure._songish_coverage(tracks, matched)
+    # Only "Alpha" (tags, matched) and "f3.mp3" (tags, unmatched) are
+    # independent evidence; "Bravo" (setlist-gap) is excluded from both the
+    # numerator and the denominator.
+    assert coverage == 0.5
+
+
+def test_songish_coverage_is_zero_when_every_songish_track_is_adopted():
+    """Edge case named in the I1 ruling: if every songish track were
+    adopted, the independent-evidence set is empty. Asserted directly
+    rather than assumed -- `_songish_coverage` already returns 0.0 for an
+    empty `songish` list (the same branch a wholly-filler tape hits), which
+    is the safe direction: it trips the low-confidence-alignment flag
+    instead of reporting a vacuous 1.0. Expected unreachable via
+    adopt_gap_titles in practice, since adoption requires tag-verified
+    anchors and an anchor is itself a matched, non-adopted track -- this
+    test pins the arithmetic in isolation, not that reachability claim."""
+    tracks = _gap_tracks(("Alpha", "setlist-gap"), ("Bravo", "setlist-gap"))
+    matched = [True, True]
+    assert structure._songish_coverage(tracks, matched) == 0.0
+
+
+def test_songish_coverage_excludes_setlist_sourced_tracks_too():
+    """Important 2 (review round 1): `title_source == "setlist"` (titles.py's
+    whole-tape rung) is the IDENTICAL tautology `setlist-gap` was fixed for
+    -- its title is also copied straight from the canonical item's own text,
+    by position (see titles.py:129's `aligned = setlist.items`). Ruled:
+    extend TAUTOLOGICAL_TITLE_SOURCES rather than narrow the docstring's
+    "independent evidence" claim, since Item C deliberately KEEPS that rung,
+    making its tautology a standing property here, not a transient.
+
+    Constructed exactly like test_songish_coverage_excludes_adopted_tracks,
+    swapping the tautological source, so excluding the "setlist" track
+    changes the numeric result the same way."""
+    tracks = _gap_tracks(
+        ("Alpha", "tags"), ("Bravo", "setlist"), ("f3.mp3", "tags"))
+    matched = [True, True, False]
+    coverage = structure._songish_coverage(tracks, matched)
+    assert coverage == 0.5

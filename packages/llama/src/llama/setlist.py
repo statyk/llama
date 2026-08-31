@@ -350,8 +350,11 @@ _JUNK_TITLE = re.compile(
 )
 
 
-def _is_junk_title(title: str) -> bool:
+def is_junk_title(title: str) -> bool:
     return bool(_JUNK_TITLE.match(title.strip()))
+
+
+_is_junk_title = is_junk_title  # back-compat alias; prefer the public name
 
 
 # Older LMA items often give the whole setlist as one unbroken, comma/segue-separated
@@ -461,7 +464,7 @@ def _emit_items(raw_lines: list[str]) -> tuple[list[SetlistItem], bool]:
         for title, segue in _split_songs(rest):
             if len(title) > MAX_TITLE_LEN:
                 continue  # implausibly long fragment - prose, not a song title
-            if _is_junk_title(title):
+            if is_junk_title(title):
                 continue
             items.append(
                 SetlistItem(

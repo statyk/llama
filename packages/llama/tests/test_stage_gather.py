@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
+import llama.stages.gather as gather_mod
 from llama.config import StructureConfig
 from herder import FakeProvider
 from llama.junk import filter_files
@@ -20,6 +22,8 @@ FIXTURE = FIXTURES / "gd73_metadata.json"
 IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
 W_IDENT = "gd74-02-24.sbd.windsor.199.sbefail.shnf"
 M_IDENT = "gd1974-02-24.sbd.miller.116902.flac16"
+YMSB_FIXTURE = FIXTURES / "ymsb2005_metadata.json"
+Y_IDENT = "ymsb2005-12-31.flac16.wav"
 
 
 class StubIA:
@@ -941,17 +945,38 @@ def test_gather_artist_item_does_not_block_title_resolution(tmp_path: Path):
     equals the track count, so the surviving header item makes 7 != 6 and every
     title falls through to "unresolved", holding the show for review and
     leaving all six real songs stranded in conflicts. Dropping the header at
-    the point the data enters fixes the whole cascade at once."""
+    the point the data enters fixes THAT cascade -- no "unresolved track
+    titles" flag, every song resolved, no orphaned conflicts.
+
+    `needs_review` itself is no longer False here, and that is a SEPARATE,
+    correctly-ruled consequence of Important 2 (title_source=="setlist" is
+    TAUTOLOGICAL_TITLE_SOURCES), not a regression of the fix this test
+    targets: every track here is "setlist"-sourced, so the independent-
+    evidence set _songish_coverage computes over is empty, coverage is the
+    safe-direction 0.0, and "low-confidence structure alignment" correctly
+    fires -- this show's titles came entirely from the setlist it is being
+    checked against, which is exactly the case that flag exists to catch.
+
+    Round 2 (review): `matched` is ALSO None on every track now, not just
+    excluded from coverage's denominator -- gather.py's final assembly
+    tests membership in the same TAUTOLOGICAL_TITLE_SOURCES constant
+    _songish_coverage filters on, rather than naming "setlist-gap" alone,
+    so a "setlist"-sourced track can no longer report matched=True (an
+    independent match that never happened) while simultaneously being
+    excluded from coverage as tautological -- the two signals describe the
+    same fact and must agree."""
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(_mccoury_md(tagged=False)), FakeProvider(),
                       make_candidate(), IDENT)
     assert [t.title for t in show.tracks] == MCCOURY_SONGS
     assert all(t.title_source == "setlist" for t in show.tracks)
     assert not any("unresolved" in f for f in show.review_flags)
-    assert show.needs_review is False
     assert show.structure is not None
     assert show.structure.conflicts == []
-    assert show.structure.coverage == 1.0
+    assert show.structure.coverage == 0.0
+    assert show.review_flags == ["low-confidence structure alignment"]
+    assert show.needs_review is True
+    assert all(t.matched is None for t in show.tracks)
 
 
 # --- Head-banner guard (spec 1b) -------------------------------------------
@@ -1248,3 +1273,186 @@ def test_encore_override_must_follow_every_set_break():
 
     with pytest.raises(LlamaError, match="greater than"):
         _validate_structure_override(n_tracks=17, breaks=[7, 16], encore_after=7)
+
+
+def _ymsb_candidate():
+    return Candidate(
+        performance_id="YonderMountainStringBand/2005-12-31",
+        collection="YonderMountainStringBand", date="2005-12-31",
+        venue="Fillmore Auditorium", city="Denver, CO",
+        recordings=[RecordingSummary(identifier=Y_IDENT)])
+
+
+def test_gap_fill_resolves_a_mixed_show(tmp_path: Path):
+    """Tagged tracks anchor; the count-forced unresolved run between them fills."""
+    md = json.loads(FIXTURE.read_text())
+    mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
+    for i, f in enumerate(mp3s):
+        f["title"] = None if i in (1, 2) else f.get("title")
+    sws = ShowWorkspace(tmp_path / "show")
+    # gd73's kept-file count exactly equals its canonical setlist's item count
+    # (6 == 6), so titles.resolve_titles's whole-tape rung ("aligned = ...")
+    # would otherwise resolve the blanked positions as "setlist" before
+    # adopt_gap_titles ever sees an unresolved run to fill. Excluding the
+    # trailing encore file (already untagged in the fixture, resolved via
+    # that same whole-tape rung) breaks the exact count match (kept=5,
+    # items=6) without touching either anchor or the gap under test — this
+    # is exactly the LOCAL count-forcing-between-anchors scenario the rung
+    # exists for, as opposed to the whole-tape one.
+    write_artifact(sws.overrides, Overrides(exclude=["gd73-06-10d3t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    filled = [t for t in show.tracks if t.title_source == "setlist-gap"]
+    assert filled, "expected the blanked run to be gap-filled"
+    assert all(t.title_source != "unresolved" for t in show.tracks)
+    # Pins content, not just firing: a regression that adopted the wrong two
+    # items (e.g. shifted by one) would still satisfy the assertions above.
+    assert [t.title for t in filled] == ["China Cat Sunflower", "I Know You Rider"]
+
+
+def test_a_fully_tagged_show_is_untouched(tmp_path: Path):
+    md = json.loads(FIXTURE.read_text())
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert not any(t.title_source == "setlist-gap" for t in show.tracks)
+
+
+def test_a_wholly_untagged_tape_gets_no_gap_fill(tmp_path: Path):
+    """ymsb2005 has no tagged track, so there is no anchor -- but this test
+    cannot tell you that's *why* adoption declines: it is 24 kept files
+    against 25 canonical items, so count-forcing rejects independently of
+    anchoring (verified by mutation: making the unanchored branch permissive
+    leaves this test passing; the anchoring requirement is pinned instead by
+    the unit-level test_unanchored_run_declines). What this test pins
+    end-to-end on a real wholly-untagged tape is needs_review and the
+    "unresolved track titles" flag. Piece 1 deliberately does NOT solve the
+    whole-tape case; that is Piece 2's job."""
+    md = json.loads(YMSB_FIXTURE.read_text())
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), _ymsb_candidate(), Y_IDENT)
+    assert all(t.title_source == "unresolved" for t in show.tracks)
+    assert show.needs_review is True
+    assert "unresolved track titles" in show.review_flags
+
+
+def _mixed_show_gap_setup(tmp_path: Path, subdir: str):
+    """Shared setup (Minor 6, review round 1) for the wired/un-wired
+    coverage-contamination comparison below: blank tracks 1 and 2 of gd73's
+    MP3s and exclude the trailing encore file so titles.resolve_titles's
+    whole-tape rung cannot pre-empt the local count-forced gap (see
+    test_gap_fill_resolves_a_mixed_show's comment for why the exclude is
+    needed). Returns (md, sws) so a caller can still run wired, or wrap the
+    run_gather call in a monkeypatch for the un-wired half."""
+    md = json.loads(FIXTURE.read_text())
+    mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
+    for i, f in enumerate(mp3s):
+        f["title"] = None if i in (1, 2) else f.get("title")
+    sws = ShowWorkspace(tmp_path / subdir)
+    write_artifact(sws.overrides, Overrides(exclude=["gd73-06-10d3t01.mp3"]))
+    return md, sws
+
+
+def test_adopted_tracks_report_matched_none(tmp_path: Path):
+    """Pins the I1 ruling (CORRECTED behaviour, decided, not open): because
+    an adopted title *is* the canonical item's own text, align() matching it
+    is tautological, not a measurement. So gather.py forces a setlist-gap
+    track's final `matched` to None (= "not measured", per
+    models.py:158-160) rather than align()'s tautological True.
+
+    Renamed from test_adopted_tracks_report_matched_none_and_exclude_from_coverage
+    (Minor 4, review round 1): on THIS fixture the three tag anchors already
+    cover 100% by themselves, so this test cannot demonstrate the coverage
+    EXCLUSION half numerically (mutation confirms: removing the exclusion
+    clause leaves this test green) -- only the `matched` half. The coverage
+    exclusion is pinned by test_songish_coverage_excludes_adopted_tracks
+    (test_structure.py, a synthetic case built to discriminate) and by
+    test_missed_anchor_flags_low_confidence_once_adopted_tracks_are_excluded
+    below (an integration-level case built the same way).
+
+    Compare to the identical show with adopt_gap_titles's wiring
+    monkeypatched out below, where coverage is 0.6, two tracks are
+    unmatched (False, not None -- they are actually-checked misses), and
+    needs_review is True."""
+    md, sws = _mixed_show_gap_setup(tmp_path, "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert show.structure is not None
+    assert show.structure.coverage == 1.0
+    assert [t.matched for t in show.tracks] == [True, None, None, True, True]
+    assert show.needs_review is False
+    assert show.review_flags == []
+
+    def identity_adopt(tracks, canonical, *, metadata_norms, aliases):
+        return tracks
+
+    md2, sws2 = _mixed_show_gap_setup(tmp_path, "show-unwired")
+    with patch.object(gather_mod, "adopt_gap_titles", identity_adopt):
+        unwired = gather_mod.run_gather(sws2, StubIA(md2), FakeProvider(),
+                                        make_candidate(), IDENT)
+    assert unwired.structure is not None
+    assert unwired.structure.coverage == 0.6
+    assert [t.matched for t in unwired.tracks] == [True, False, False, True, True]
+    assert unwired.needs_review is True
+    assert unwired.review_flags == [
+        "low-confidence structure alignment", "unresolved track titles"]
+
+
+def test_missed_anchor_flags_low_confidence_once_adopted_tracks_are_excluded(tmp_path: Path):
+    """Important 1 (review round 1): the end-to-end purpose of the I1 ruling,
+    demonstrated on THIS mixed-show fixture -- unlike
+    test_adopted_tracks_report_matched_none, this case DOES change
+    coverage's numeric value, because it adds a genuine miss on top of the
+    same gap-fill setup: the last kept file ("Eyes of the World", tag
+    title_source, an independent anchor) is retitled to "Zzyzx Road Blues",
+    a song absent from the canonical setlist, so align() cannot match it on
+    its own merits -- it stays title_source="tags" (a real tag, just a
+    wrong one), so it is independent evidence that genuinely misses, not a
+    tautological non-match.
+
+    With adopted tracks excluded from coverage, that miss is judged against
+    only the two OTHER independent anchors ("Morning Dew", "Dark Star": 2 of
+    3 matched -> 0.6667), which is below align_coverage_threshold (0.8) and
+    correctly raises "low-confidence structure alignment". Without the
+    exclusion (verified by mutation below), the same miss is diluted by the
+    two tautological setlist-gap "matches" (3 of 5 -> 0.8), which clears the
+    threshold and ships silently clean -- the exact failure mode I1 exists
+    to close: a real miss hidden behind adoption's own tautological
+    matches."""
+    md, sws = _mixed_show_gap_setup(tmp_path, "show")
+    mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
+    mp3s[4]["title"] = "Zzyzx Road Blues"  # last kept file; independent anchor that now misses
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert show.structure is not None
+    assert [t.title_source for t in show.tracks] == [
+        "tags", "setlist-gap", "setlist-gap", "tags", "tags"]
+    assert [t.matched for t in show.tracks] == [True, None, None, True, False]
+    assert show.structure.coverage == pytest.approx(2 / 3)
+    assert show.review_flags == ["low-confidence structure alignment"]
+    assert show.needs_review is True
+
+
+def test_adopted_titles_make_the_closer_tripwire_reachable(tmp_path: Path):
+    """With filenames as titles the closer check matches nothing and is
+    silently inert. Once a gap is filled, a wrong closer must be able to
+    speak. Pins the behaviour change so it is owned, not discovered.
+
+    Task 3's original brief wrote this test without excluding a track, which
+    (per M2/titles.py:129) makes gd73's kept-file count exactly equal its
+    canonical setlist's item count -- so titles.resolve_titles's whole-tape
+    "setlist" rung fires and resolves the blanked positions before
+    adopt_gap_titles ever sees a gap; the test's own `assert adopted` then
+    fails (adopted == []). Fixed by reusing the same exclude-a-track trick as
+    test_gap_fill_resolves_a_mixed_show, so this exercises adopt_gap_titles
+    specifically, not the dead whole-tape rung."""
+    md = json.loads(FIXTURE.read_text())
+    mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
+    for i, f in enumerate(mp3s):
+        if i in (1, 2):
+            f["title"] = None
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(exclude=["gd73-06-10d3t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    adopted = [t for t in show.tracks if t.title_source == "setlist-gap"]
+    assert adopted
+    # every adopted title is a real song name, so norm_title comparisons in the
+    # closer/spans checks now have something to match against
+    assert all(not t.title.endswith(".mp3") for t in adopted)

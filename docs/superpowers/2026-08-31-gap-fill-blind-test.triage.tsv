@@ -1,0 +1,395 @@
+# Hand triage of every distinct wrong adoption in the M1 blind-the-tags sweep.
+# Companion data for docs/superpowers/2026-08-31-gap-fill-blind-test.md; that
+# document states the classification rule and the judgement calls. Consumed by
+#   ./.venv/bin/python scripts/blind_tag_gapfill.py --triage <this file> --rows <sweep.tsv>
+#
+# Columns: class <TAB> adopted (canonical item) <TAB> hidden (tape tag).
+# One row per distinct (adopted, hidden) pair; the class applies to every
+# adoption carrying that pair. Classes:
+#   scorer-artifact             same song/segment, the scorer's strict equality failed
+#   tag-typo-adoption-superior  the tape's tag is a misspelling; the adoption is right
+#   genuinely-wrong             a different song, segment or movement
+#   genuinely-wrong/filler-segment   subclass: both sides are interchangeable
+#                                    improvisation-segment names (Jam/Space/Drums)
+genuinely-wrong	(Encores) It's All Over Now	Sugar Magnolia
+scorer-artifact	(Walk Me Out In The) Morning Dew	Morning Dew ->
+scorer-artifact	(Walk Me Out In The) Morning Dew	morning dew
+tag-typo-adoption-superior	- All Four Wheels	All Four
+scorer-artifact	-Technical Issues-	Crowd/Technical Difficulties/Tico Tico
+scorer-artifact	-Technical Issues-	Crowd/Tuning/Technical Difficulties/Noodling
+scorer-artifact	-Technical Issues-	technical problems
+genuinely-wrong/filler-segment	= no lyrics	Crowd Out
+genuinely-wrong	= no lyrics	U.S. Blues
+scorer-artifact	A Little Light	Just A Little Light
+scorer-artifact	All Along The Watchtower	all along the watch tower
+scorer-artifact	Alligator	Alligator Jam >
+genuinely-wrong	Alligator	Jam
+scorer-artifact	And We Bid You Good Night	We Bid You Good Night
+genuinely-wrong	Angeline	Instrumental
+tag-typo-adoption-superior	Around & Around	Arouond & Around
+genuinely-wrong	Back In The Goodle Days	Good Ole Days
+scorer-artifact	Back Up And Push	Backup & Push
+scorer-artifact	Beat It On Down The Line	BIODTL
+genuinely-wrong	Beat It On Down The Line	Crazy Fingers
+scorer-artifact	Bertha	Intro > Bertha
+genuinely-wrong	Bertha	The Music Never Stopped
+genuinely-wrong	Bertha	Tuning
+scorer-artifact	Big Railroad Blues	Big Rail Road Blues
+scorer-artifact	Bird Song	Birdsong
+scorer-artifact	Bird Song	Birdsong >
+genuinely-wrong	Blue Collar Blues	I Love My Job
+genuinely-wrong	Blues For Allah	Tuning
+scorer-artifact	Boatman	Boatman's Dance
+genuinely-wrong	Boo Boo	Rise Up
+tag-typo-adoption-superior	Box Of Rain	Box OfRain
+genuinely-wrong	Branford Marsalis on saxophone throughout	It's All Over Now Baby Blue
+genuinely-wrong	Branford Marsalis on saxophone throughout	It’s All Over Now, Baby Blue
+scorer-artifact	Breakin' Through *^	Breakin' Through *&#^
+tag-typo-adoption-superior	Brown Eyed Women	Bown Eyed Women
+scorer-artifact	Brown Eyed Women	Brown Eyed Woman
+scorer-artifact	C.C. Rider	CC Rider
+scorer-artifact	C.C. Rider	CC Rider >
+scorer-artifact	CC Rider	C C Rider
+scorer-artifact	CC Rider	C. C. Rider
+scorer-artifact	CC Rider	C.C Rider
+scorer-artifact	CC Rider	C.C. Rider
+scorer-artifact	CC Rider	C.C. Rider ->
+scorer-artifact	CC Rider	C.C. Rider >
+scorer-artifact	Casey Jones	E1: Casey Jones
+scorer-artifact	China Cat Jam	China Cat Sunflower Jam ->
+scorer-artifact	China Cat Sunflower	China Cat Sunflower > Jam >
+scorer-artifact	China Cat Sunflower	China Cat Sunflower [4:59] >
+scorer-artifact	China Cat Sunflower	ChinaCat Sunflower >
+scorer-artifact	Close Encounters	Jerry Solo (Close Encounters)
+scorer-artifact	Codeine	Codiene
+scorer-artifact	Corinna	Corrina
+scorer-artifact	Corinna	Corrina ->
+genuinely-wrong	Crazy	Used To Call Me Baby
+genuinely-wrong	Crazy Fingers	Tuning/ Bill Graham intro
+genuinely-wrong	Crowd/Tuning	I Know You Rider
+genuinely-wrong	Crowd/Tuning	Stagger Lee
+scorer-artifact	Cryptical Envelopement	Cryptical Envelopment >
+genuinely-wrong	Cryptical Envelopment	Drums
+genuinely-wrong	Cryptical Envelopment	Drums >
+genuinely-wrong	Cryptical Envelopment	Midnight Hour
+scorer-artifact	Cylinders	8 Cylinders
+tag-typo-adoption-superior	Damned If The Right One Didn't Go Wrong	Damed if the right one didnt go wrong
+scorer-artifact	Dancin' In The Streets	Dancin' In The Street
+scorer-artifact	Dancin' In The Streets	Dancin' In The Street ->
+scorer-artifact	Dancin' In The Streets	Dancin' In The Street >
+scorer-artifact	Dancin' In The Streets	Dancing in the Streets
+genuinely-wrong	Dancin' In The Streets Scarlet Begonias	Dancin' In The Streets
+genuinely-wrong	Dancin' In The Streets Scarlet Begonias	Dancing In The Street
+scorer-artifact	Dancing In The Street	Dancin' in the Streets >
+scorer-artifact	Dark Star	Dark Star -> Space ->
+scorer-artifact	Dark Star	DarkStar
+genuinely-wrong	Dark Star Reprise	Dark Star >
+scorer-artifact	Day Job	Keep Your Day Job
+genuinely-wrong	Depot Bay	Too Tired
+genuinely-wrong	Don't Ease Me In Touch Of Gray	Touch Of Grey
+scorer-artifact	Drums	/Drums (cont'd) ->
+genuinely-wrong	Drums	Dark Star
+genuinely-wrong/filler-segment	Drums	Dark Star Jam ->
+genuinely-wrong/filler-segment	Drums	Dark Star Jam >
+genuinely-wrong/filler-segment	Drums	Dark Star jam ->
+scorer-artifact	Drums	Drums (cont'd) ->
+scorer-artifact	Drums	Drums > Space
+scorer-artifact	Drums	Drums > Space>
+scorer-artifact	Drums	Drums Space
+scorer-artifact	Drums	Drums/Space
+scorer-artifact	Drums	Drumz
+scorer-artifact	Drums	Drumz>
+genuinely-wrong/filler-segment	Drums	Jam
+genuinely-wrong/filler-segment	Drums	Jam \>
+scorer-artifact	Drums	Midi Space > Drums
+genuinely-wrong/filler-segment	Drums	Space
+genuinely-wrong/filler-segment	Drums	Space ->
+genuinely-wrong/filler-segment	Drums	Space >
+scorer-artifact	Drums	drumz>
+scorer-artifact	Drums (cont'd)	Drums \>
+scorer-artifact	Dupree's Diamond Blues	Dupree’s Diamond Blues
+genuinely-wrong	E. And We Bid You Good Night	Not Fade Away
+scorer-artifact	Estimated	Estimated Prophet
+genuinely-wrong	Estimated	Take A Step Back
+genuinely-wrong	Estimated	Tuning
+genuinely-wrong	Estimated Prophet	Crowd
+scorer-artifact	Estimated Prophet	Estimated
+scorer-artifact	Estimated Prophet	Estimated >
+scorer-artifact	Ewie With The Crooked Horn	Ewie Wi' The Crookit Horn*
+genuinely-wrong	Ewie with the Crooked Horn	Instrumental (forgot)
+scorer-artifact	Eyes Of The World	Eyes
+scorer-artifact	Eyes Of The World	Eyes >
+scorer-artifact	Feel Like A Stranger	//Stranger
+genuinely-wrong	Feel Like A Stranger	Tuning
+scorer-artifact	Fire On	Scarlet> Fire on the Mountain
+scorer-artifact	Fire On The Mountain	Scarlet Begonias > Fire On The Mountain
+scorer-artifact	Fire On The Mountain	Scarlet Begonias-> Fire On The Mountain
+tag-typo-adoption-superior	First Girl I Ever Loved	is First Girl I Ever Loved
+genuinely-wrong	First Terrapin Station	E: U.S. Blues
+genuinely-wrong	Fixin' To Ruin	Old Dangerfield*
+scorer-artifact	Follow Me Down To The Riverside*^#$~@	Riverside
+tag-typo-adoption-superior	Franklin's Tower	Franklins's Tower
+tag-typo-adoption-superior	GDTRFB	Goin' Down The Raod Feeling Bad
+scorer-artifact	GDTRFB	Going Down the Road
+tag-typo-adoption-superior	Gimme Some Lovin'	Gimmie Some Lovin
+tag-typo-adoption-superior	Gimme Some Lovin'	Gimmie Some Lovin'
+scorer-artifact	Gimmie Some Lovin	Gimme Some Lovin' >
+scorer-artifact	Goin Across the Sea	Going Across the Sea
+scorer-artifact	Goin' Down The Road Feelin' Bad	Goin' Down the Road ->
+scorer-artifact	Goin' Down The Road Feeling Bad	Goin' Down The Road
+scorer-artifact	Goin' Down The Road Feeling Bad	Goin' Down the Road
+tag-typo-adoption-superior	Goldbricking	Goldbreaken
+scorer-artifact	Gone but not Forgotton	Gone but not Forgotten
+scorer-artifact	Good Lovin'	Good Lovin', Encore Break *
+scorer-artifact	Good Lovin' [01:38]	Good Lovin'
+scorer-artifact	Good Morning Little Schoolgirl	Good Morning Little School Girl
+genuinely-wrong	Good Morning Little Schoolgirl	Morning Dew
+genuinely-wrong	Good Times	Never Trust A Woman >
+tag-typo-adoption-superior	Greatest Story Ever Told	Greates Story Ever Told ->
+scorer-artifact	Greatest Story Ever Told	Greatest Story >
+scorer-artifact	Greatest Story Ever Told	Greatest Story Ever Told [2:47] >
+scorer-artifact	Groundhog	Groundhog > Wheel Hoss
+scorer-artifact	Handguns [7:54]	Handguns
+scorer-artifact	He's Gone	He's Gone (tape change at end)
+scorer-artifact	He's Gone	tuning > He's Gone >
+scorer-artifact	Help On The Way	Help On The Way (1) >
+genuinely-wrong	Hey Jude Reprise	Hey Jude ->
+genuinely-wrong	Hey Jude Reprise	Hey Jude >
+scorer-artifact	Hey Jude Reprise	Hey Jude Finale >
+scorer-artifact	Hey Jude Reprise	Hey Jude Finale>
+scorer-artifact	High On the Mountain	High On A Mountain
+genuinely-wrong	Hillbillies	Getting Down The Road**
+scorer-artifact	Hits and The Joint Turned Brown	2 Hits and The Joint Turned Brown
+scorer-artifact	Holding	Holdin'
+tag-typo-adoption-superior	I Ain't Superstitous	I Ain' Superstitious
+scorer-artifact	I Feel the Blues Moving In	I Feel the Blues Movin' In
+scorer-artifact	I I Just Want To Make Love To You To You	I Just Want To Make Love To You ->
+scorer-artifact	I I Just Want To Make Love To You To You	I Just Want to Make Love to You
+scorer-artifact	I Live on a Battle Field	I Live on a Battlefield
+scorer-artifact	I Need A Miracle	The Wheel > I Need a Miracle >
+scorer-artifact	I Second That Emotion	Second That Emotion
+scorer-artifact	I'm Working on a Building	Workin' On A Building
+scorer-artifact	Iko Iko	Aiko Aiko >
+genuinely-wrong/filler-segment	Intro	Blah, Blah, Blah
+genuinely-wrong	Introduction	Morning Dew
+tag-typo-adoption-superior	It Hurts Me Too	It Hurts Me To
+scorer-artifact	It Must Have Been The Roses	Roses
+genuinely-wrong	It Must Have Been The Roses	Run For The Roses
+scorer-artifact	It's All O	It's All Over Now, Baby Blue
+scorer-artifact	It's All Over Now Baby Blue	(Encores) It's All Over Now, Baby Blue ->
+genuinely-wrong	It's All Over Now Baby Blue	Crowd
+scorer-artifact	It's All Over Now Baby Blue	E: Baby Blue
+tag-typo-adoption-superior	It's All Over Now Baby Blue	It's All Ove Now Baby Blue
+genuinely-wrong	It's All Over Now Baby Blue	encore break
+scorer-artifact	Jack	Jack Straw
+scorer-artifact	Jack A Roe	Jack A Roe (Cuts In)
+tag-typo-adoption-superior	Jack Straw	Jack Staw
+genuinely-wrong/filler-segment	Jam	Primal Jam >
+genuinely-wrong/filler-segment	Jam	Space
+genuinely-wrong/filler-segment	Jam	Space ->
+genuinely-wrong/filler-segment	Jam	Space >
+genuinely-wrong/filler-segment	Jam	Space/Jam
+genuinely-wrong/filler-segment	Jam	Space>
+genuinely-wrong/filler-segment	Jam	The Eleven Jam % >
+genuinely-wrong/filler-segment	Jam	eleven jam>
+scorer-artifact	Johnny B. Goode	Johnny B. Goode (E)
+scorer-artifact	Keep On Growing	Keep on Growin'
+scorer-artifact	King Ebeneezer	King Ebeneezer Rap*
+scorer-artifact	King Ebenezer Rap	King Ebenezer>**
+scorer-artifact	Knockin' On Heaven's Door	knocking on heavens door
+genuinely-wrong	La Bamba	Good Lovin\'
+scorer-artifact	Lazy Lightning	Lazy Lightnin' >
+scorer-artifact	Learnin' the Blues	Learning The Blues
+genuinely-wrong	Let It Grow	Spanish Jam
+genuinely-wrong	Let It Grow	Spanish Jam ->
+genuinely-wrong	Let It Grow	Spanish Jam >
+genuinely-wrong	Let It Grow	Spanish Jam>
+tag-typo-adoption-superior	Looks Like Rain	Look Like Rain
+scorer-artifact	Lord Only Knows (Part One)	Lord Only Knows (Part 1)
+tag-typo-adoption-superior	Loser	Lose/r
+tag-typo-adoption-superior	Loser	Loset
+scorer-artifact	Lovelight	Turn On Your Lovelight
+scorer-artifact	Lovelight	Turn on Your Lovelight
+scorer-artifact	Lovelight (20:45)	Turn On Your Lovelight
+genuinely-wrong	Mama Tried	Sugaree
+genuinely-wrong	Man Smart	Shakedown Street>
+scorer-artifact	Man Smart (Woman Smarter)	The Woman are Smarter
+scorer-artifact	Mathilda	Matilda ->
+tag-typo-adoption-superior	Me And Bobby McGee	Me & My Bobby McGee
+tag-typo-adoption-superior	Me And Bobby McGee	Me and My Bobby McGee
+scorer-artifact	Memphis Blues	Memphis Blues Again
+scorer-artifact	Memphis Blues	Stuck In Mobile With The Memphis Blues Again
+scorer-artifact	Memphis Blues	Stuck Inside Of Mobile With The Memphis Blues Again
+scorer-artifact	Memphis Blues	Stuck Inside Of Mobile With the Memphis Blues Again
+scorer-artifact	Mexicali Blues	Mama Tried > Mexicali Blues
+tag-typo-adoption-superior	Mexicali Blues	Mexical Blues
+scorer-artifact	Mexicali Blues	Mexicali
+scorer-artifact	Mexicali Blues	Mexicali >
+tag-typo-adoption-superior	Mexicali Blues	Mexicalli Blues
+scorer-artifact	Mexicalli Blues	Mexicali Blues
+scorer-artifact	Midnight Hour	In The Midnight Hour
+scorer-artifact	Midnight Hour	In The Midnight Hour ->
+scorer-artifact	Midnight Hour	In The Midnight Hour [9:21] >
+scorer-artifact	Mighty The Mighty Quinn	Mighty Quinn
+scorer-artifact	Miles From Denver	40 Miles From Denver
+scorer-artifact	Miles From Montana	200 Miles From Montana
+scorer-artifact	Minglewood Blues	New Minglewood Blues
+scorer-artifact	Minglewood Blues	New New Minglewood Blues
+scorer-artifact	Mississippi Half Step	Mississippi Half Step Uptown Toodeloo
+scorer-artifact	Mississippi Half Step	Mississippi Half Step Uptown Toodle-oo
+scorer-artifact	Mississippi Half Step	Mississippi Half Step Uptown Toodleoo
+scorer-artifact	Mississippi Half Step	Mississippi Half-Step Uptown Toodeloo
+scorer-artifact	Mississippi Half Step	Mississippi Half-Step Uptown Toodeloo ->
+scorer-artifact	Mississippi Half-Step Upton Toodleloo	Mississippi Half Step
+scorer-artifact	Mississippi Half-Step Upton Toodleloo	Mississippi Half-Step Uptown Toodeloo
+scorer-artifact	Mississippi Half-Step Uptown Toodeloo	Half-Step
+scorer-artifact	Mississippi Half-Step Uptown Toodeloo	Mississippi Half Step ->
+scorer-artifact	Mississippi Half-Step Uptown Toodleloo	Mississippi 1/2 Step
+scorer-artifact	Mississippi Half-Step Uptown Toodleloo	Mississippi Half Step
+scorer-artifact	Mississippi Half-Step Uptown Toodleloo	Mississippi Half-Step
+scorer-artifact	Mississippi Half-Step Uptown Toodleloo	Mississippi Half-Step Uptown Toodeloo
+scorer-artifact	Mississippi Half-Step Uptown Toodleloo	Mississippi Half-Step Uptown Toodeloo >
+genuinely-wrong	Momma	outtro and taper signout
+genuinely-wrong	Morning Dew	Good Morning Little Schoolgirl
+tag-typo-adoption-superior	Morning Dew	Moring Dew
+scorer-artifact	Morning Dew	The Morning Dew
+scorer-artifact	My Brother Esau	Brother Esau
+genuinely-wrong	Natural to Be Gone	What's the Difference >
+scorer-artifact	New Minglewood Blues	Minglewood
+scorer-artifact	New Minglewood Blues	Minglewood Blues
+tag-typo-adoption-superior	New Minglewood Blues	New Minlewood Blues
+tag-typo-adoption-superior	New Speedway Boogie	New Speedway Boogies
+scorer-artifact	Not Fade Away	Not Fadeaway
+genuinely-wrong	Not Fade Away	Saint Stephen
+genuinely-wrong	Not Fade Away	Saint Stephen->
+genuinely-wrong	Not Fade Away Encore Baby Blue	Not Fade Away
+scorer-artifact	Nothin' But Nothin'	Nothing But Nothing
+genuinely-wrong	On the Run	Encore break
+scorer-artifact	One More Saturday Night	E2: One More Saturday Night
+scorer-artifact	One More Saturday Night	One More Halloween Night
+scorer-artifact	One More Saturday Night	Saturday Night
+scorer-artifact	One More Saturday Night	saturday night
+tag-typo-adoption-superior	Peggy-O	Peggio
+scorer-artifact	Phil & Ned	Seastones
+genuinely-wrong	Playin' In The Band	Playin' In The Band Reprise
+genuinely-wrong	Playin' In The Band	Playing In The Band (reprise)
+tag-typo-adoption-superior	Playin' In The Band	Playing In The Bnad
+genuinely-wrong	Playin' In The Band Reprise	Playin
+genuinely-wrong	Playin' In The Band Reprise	Playin in the Band>
+genuinely-wrong	Playin' In The Band Reprise	Playin' In The Band
+genuinely-wrong	Playin' In The Band Reprise	Playin' in the Band
+scorer-artifact	Playin' In The Band Reprise	Playing In The Band (Reprise) >
+scorer-artifact	Playin' In The Band Reprise	Playing In The Band Reprise
+scorer-artifact	Playin' In The Band Reprise	Playing In The Band Reprise ->
+scorer-artifact	Playin' In The Band Reprise	Playing Reprise
+genuinely-wrong	Playing In The Band	Playin' (Reprise)
+scorer-artifact	Portland Woman	Portland Women >
+scorer-artifact	Promised Land	Bill Graham intro -> Promised Land
+scorer-artifact	Promised Land	Intro -> Promised Land
+scorer-artifact	Promised Land	The Promised Land
+genuinely-wrong	Prophet	Bertha
+scorer-artifact	Prophet	Estimated Prophet
+scorer-artifact	Sailin'	Sailing Song
+genuinely-wrong	Saint Stephen	Not Fade Away
+genuinely-wrong	Saint Stephen	Not Fade Away->
+genuinely-wrong	Saint Stephen	Tuning/Dead Air
+scorer-artifact	Samson & Delilah	Sampson And Delilah
+scorer-artifact	Samson And Delilah	Samson & Delilah (some sorta momenart spike at beginning)
+genuinely-wrong	Scarlet Begonias	Minglewood Blues
+scorer-artifact	Second That Emotion	I Second That Emotion
+scorer-artifact	Señor	Senor
+genuinely-wrong	Shakedown Street	E: Knockin' On Heaven's Door
+scorer-artifact	She Makes My Love	She Makes My Love Come Rolling Down
+scorer-artifact	Smokestack Lightning	Smokestack Lightnin' >
+scorer-artifact	Smokestack Lightning	Smokestack Lightnin'>
+scorer-artifact	Snow On The Pines	Snow On the Pines & * %
+scorer-artifact	Soundcheck: Jack Straw	Jack Straw
+genuinely-wrong/filler-segment	Space	Drums
+genuinely-wrong/filler-segment	Space	Drums ->
+genuinely-wrong/filler-segment	Space	Drums >
+scorer-artifact	Space	Hammers of Gods/Space
+genuinely-wrong/filler-segment	Spanish Jam	Space
+genuinely-wrong/filler-segment	Spanish Jam	Space ->
+scorer-artifact	Steampowered Aereoplane	Steam-Powered Aereoplane
+scorer-artifact	Still Ramblin' in the Rambler	Ramblin' in the Rambler
+scorer-artifact	Straw	Jack Straw
+genuinely-wrong	Stronger Than Dirt Or Milkin' The Turkey	Blues For Allah >
+scorer-artifact	Stronger Than Dirt Or Milkin' The Turkey	Stronger Than Dirt >
+scorer-artifact	Stronger Than Dirt Or Milkin' The Turkey	stronger than dirt>
+tag-typo-adoption-superior	Stronger Than Dirt Or Milkin' The Turkey	tronger Than Dirt Or Milkin' The Turkey >
+scorer-artifact	Stronger Than Dirt Or Milking The Turkey	Stronger Than Dirt Or Milkin' The Turkey >
+scorer-artifact	Sugar Magnoli	Sugar Magnolia
+scorer-artifact	Sugar Magnolia	Sugar Magnolia (tape change at very beginning, not a great cut)
+genuinely-wrong	Sugaree	Crowd/Tuning
+scorer-artifact	Sunshine Daydream	Sugar Magnolia
+genuinely-wrong	Supplication	Don't Ease Me In
+genuinely-wrong	Take a Step Back	Fire On The Mountain
+tag-typo-adoption-superior	Tennessee Jed	Tennesee Jed
+tag-typo-adoption-superior	Tennessee Jed	Tennesse Jed
+scorer-artifact	The Mountain	Scarlet\> Fire on the Mountain
+genuinely-wrong	The Music Never Stopped	tuning
+genuinely-wrong	The Other One	Spanish Jam
+scorer-artifact	The Other One (4)	The Other One>
+scorer-artifact	The Promised Land	Promised Land
+genuinely-wrong	The Wheel	Space >
+scorer-artifact	The Wheel	Wheel >
+genuinely-wrong	There Is a Time	Red Daisy
+tag-typo-adoption-superior	They Love Each Other	The Love Each Other
+genuinely-wrong	Throwing Stones	The Other One
+scorer-artifact	Throwing Stones	Throwin' Stones
+scorer-artifact	Throwing Stones	Throwing Stones.. (Tape Ends)
+genuinely-wrong	Throwing Stones	Wharf Rat
+genuinely-wrong	Tied Down	[banter/crowd]
+scorer-artifact	Touch Of Gray	Touch of Grey
+scorer-artifact	Tueday Letter	Tuesday Letter
+genuinely-wrong	Tuning	Feel Like A Stranger
+scorer-artifact	Turn On Your Love Light	Turn On Your Lovelight
+scorer-artifact	Turn On Your Love Light	Turn on Your Lovelight
+genuinely-wrong	U.S. Blues	Crowd
+genuinely-wrong	U.S. Blues	Crowd + Tune Up
+scorer-artifact	U.S. Blues	E. U.S. Blues
+scorer-artifact	U.S. Blues	ENCORE U.S. Blues
+scorer-artifact	U.S. Blues	Encore U.S. Blues
+scorer-artifact	U.S. Blues	Intro > US Blues
+scorer-artifact	Up On the Hill Where They Do The Boogie	Up on the Hill Where They Do the Boogie & *
+tag-typo-adoption-superior	Watermelon Man	is Watermelon Man
+scorer-artifact	We Bid You Good Night	And We Bid You Good Night
+scorer-artifact	We Bid You Good Night	And We Bid You Goodnight
+scorer-artifact	We Bid You Good Night	Bid You Goodnight
+scorer-artifact	We Can Run But We Can't Hide	We Can Run
+scorer-artifact	We Can Run But We Can't Hide	We Can Run (Tape Flip After Song)
+genuinely-wrong	Weather Report Suite Part 1	Let It Grow
+genuinely-wrong	Weather Report Suite Part 1	Let It Grow ->
+genuinely-wrong	Weather Report Suite Part 1	Let It Grow >
+genuinely-wrong	Weather Report Suite Part 1	Let It Grow>
+scorer-artifact	Weather Report Suite Part 1	Weather Report Suite Part One
+genuinely-wrong	Weather Report Suite Prelude	WRS Part I>
+scorer-artifact	Weather Report Suite Prelude	Weather Report Prelude/Part 1
+scorer-artifact	Weather Report Suite Prelude	Weather Report Suite ->
+scorer-artifact	Weather Report Suite Prelude	Weather Report Suite >
+scorer-artifact	West	40 West
+scorer-artifact	West L.A. Fadeaway	West L.A. Fade Away
+scorer-artifact	West L.A. Fadeaway	West LA Fadeaway
+genuinely-wrong	Wharf Rat	Throwing Stones
+tag-typo-adoption-superior	Wharf Rat	Whar Rat
+scorer-artifact	What A Waste of Good Corn Liquor	What A Waste of Good Corn Likker
+genuinely-wrong	What You're Selling	Things You're Selling
+scorer-artifact	Wheel	The Wheel ->
+genuinely-wrong	Wheel Hoss	Tied Down
+scorer-artifact	When Doves Cry [12:47]	When Doves Cry
+scorer-artifact	When I Paint My Masterpiece	Masterpiece
+scorer-artifact	When I Paint My Masterpiece	when i paint my master piece
+scorer-artifact	While I’m Waiting Here	While I'm Waiting Here
+scorer-artifact	Whiskey	Whiskey, Momma
+scorer-artifact	Women Are Smarter	Man Smart (Woman Smarter)
+scorer-artifact	Women Are Smarter	Man Smart Woman Smarter
+scorer-artifact	Women Are Smarter	Man Smart, Woman Smarter
+scorer-artifact	Women Are Smarter	Man Smart, Woman Smarter >
+scorer-artifact	Women Are Smarter	Man Smart, Women Smarter
+scorer-artifact	Women Are Smarter	Man Smart, Women Smarter >
+scorer-artifact	Women Smarter	Man Smart (Woman Smarter)>
+scorer-artifact	Years	99 Years
+genuinely-wrong/filler-segment	[ instrumental ]	Unknown Title #1
+genuinely-wrong/filler-segment	[ instrumental ]	[ banjo tune ]
+scorer-artifact	intro	1st Set Intro
+scorer-artifact	ntro	intro,
