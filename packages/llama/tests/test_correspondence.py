@@ -1,5 +1,7 @@
+import pytest
+
 from llama.correspondence import propose_titles
-from llama.models import ParsedSetlist, ProposalRow, SetlistItem, Track
+from llama.models import ParsedSetlist, ProposalRow, SetlistItem, TitleProposal, Track
 
 
 def _canon(*specs):
@@ -46,6 +48,15 @@ def test_a_short_filler_track_consumes_no_item():
                           canonical, item_durations=[300.0, 300.0])
     assert prop.rows[1].item_span is None
     assert prop.rows[1].evidence == "filler"
+    # I2: pin the margin computation itself, not just its presence/absence.
+    # Measured directly against _solve: the optimal assignment costs 20.0
+    # (both 300s tracks match an item exactly; the 20s track is filler).
+    # Forbidding either 300s row's span from the solve raises the best
+    # remaining cost to 580.0, so margin_sec = 580.0 - 20.0 = 560.0 on both
+    # rows that consumed an item. The filler row has no margin at all.
+    assert prop.rows[0].margin_sec == 560.0
+    assert prop.rows[2].margin_sec == 560.0
+    assert prop.rows[1].margin_sec is None
 
 
 def test_infeasible_when_merges_needed_exceed_segue_markers():
@@ -60,7 +71,14 @@ def test_margins_are_reported_per_row():
     canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
     prop = propose_titles(_tracks(300.0, 300.0), canonical,
                           item_durations=[300.0, 300.0])
-    assert all(r.margin_sec is not None or r.forced for r in prop.rows)
+    # I3: "margins are reported per row" is a trichotomy, not a disjunction --
+    # every row is EXACTLY one of: has a numeric margin, is forced, or is
+    # filler (item_span is None). `r.margin_sec is not None or r.forced` is
+    # true for this fixture but false in general (a filler row is
+    # margin_sec=None, forced=False), so it doesn't actually pin the
+    # invariant its name claims. This does, for every row in every proposal:
+    for r in prop.rows:
+        assert (r.margin_sec is not None) + r.forced + (r.item_span is None) == 1
 
 
 def test_forced_and_filler_rows_stay_distinguishable_across_a_json_round_trip():
@@ -83,3 +101,29 @@ def test_forced_and_filler_rows_stay_distinguishable_across_a_json_round_trip():
     assert filler_back.forced is False
     assert filler_back.margin_sec is None
 
+
+def test_forced_rows_from_the_real_producer_stay_forced_across_a_json_round_trip():
+    # I1: the hand-built round-trip test above only pins that ProposalRow
+    # CAN carry the forced/filler distinction through JSON -- it never
+    # calls propose_titles, so it can't catch a producer that stops setting
+    # `forced` (e.g. a revert to the old margin_sec=float("inf") sentinel,
+    # forced=False). This drives the real entry point and round-trips the
+    # whole TitleProposal. Mutation-verified against the pre-fix producer
+    # (margin_sec=_INF if alt == _INF else alt - cost, forced=False): this
+    # test fails there because every row comes back forced=False.
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
+    prop = propose_titles(_tracks(300.0, 300.0), canonical,
+                          item_durations=[300.0, 300.0])
+    back = TitleProposal.model_validate_json(prop.model_dump_json())
+    assert all(r.forced and r.margin_sec is None for r in back.rows)
+
+
+def test_item_durations_length_mismatch_is_rejected():
+    # I5: a short/long item_durations list would otherwise silently
+    # truncate sum(idur[b:b+k]) inside _solve, corrupting every merge cost
+    # past the boundary with no signal -- the DP still returns a
+    # fully-populated table. Task 6 feeds this from a sibling recording
+    # where a length mismatch is a live possibility, so fail loudly instead.
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
+    with pytest.raises(ValueError, match="item_durations has 1 entries, expected 2"):
+        propose_titles(_tracks(300.0, 300.0), canonical, item_durations=[300.0])

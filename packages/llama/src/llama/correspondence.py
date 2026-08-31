@@ -19,7 +19,11 @@ def _merge_legal(items, lo: int, k: int) -> bool:
 
 def _item_durations(tracks, items, given):
     if given is not None:
-        return list(given), "sibling-duration"
+        given = list(given)
+        if len(given) != len(items):
+            raise ValueError(
+                f"item_durations has {len(given)} entries, expected {len(items)}")
+        return given, "sibling-duration"
     total = sum(t.duration_sec or 0.0 for t in tracks)
     mu = total / len(items) if items else 0.0
     return [mu] * len(items), "duration-model"

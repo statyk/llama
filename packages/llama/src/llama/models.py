@@ -334,8 +334,12 @@ class ProposalRow(BaseModel):
     # Display column only (never gates automatic adoption). (margin_sec, forced)
     # together carry three states: margin_sec is a number = cost gap to the
     # best alternative assignment; margin_sec is None and forced=True = no
-    # alternative assignment exists at all (the most certain outcome the DP
-    # can produce); margin_sec is None and forced=False = row is filler
+    # alternative assignment exists -- the mapping is structurally forced
+    # given this track count and this canonical item list. This is a
+    # RIGIDITY signal, NOT a correctness signal: on a no-segue setlist with
+    # one track per item every row is forced, and that is the same
+    # unanchored regime measured 45-52% wrong (module docstring / spec
+    # lines 137-143). margin_sec is None and forced=False = row is filler
     # (item_span is None), so a margin is not applicable. `forced` exists
     # as a separate bool -- NOT float("inf") in margin_sec -- because
     # pydantic's default `ser_json_inf_nan="null"` serializes inf to JSON
