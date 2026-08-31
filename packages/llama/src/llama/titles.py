@@ -133,7 +133,10 @@ def resolve_titles(
     # `gd73_metadata.json` (6 files, 6 items), where it pre-empts
     # `adopt_gap_titles` entirely — a test blanking a title on that fixture
     # without also breaking the exact count match exercises this rung, not
-    # the gap-fill one.
+    # the gap-fill one. Reproduce via `scripts/title_source_census.py`
+    # (2026-08-30): tags 1917 | unresolved 75 | sibling 21 | override 2 |
+    # setlist 0, over shows=89 tracks=2015 — same citation style as
+    # `refresh_jerrybase.py`/`capture_fixture.py` for their own numbers.
     # Kept because structure.adopt_gap_titles is its localized successor
     # (count-forced GAPS between anchors), which makes this rung's deadness a
     # design property rather than a defect to re-diagnose.
