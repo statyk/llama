@@ -619,13 +619,16 @@ def run_gather(
     # independently matched, which could suppress the "low-confidence
     # structure alignment" flag (gated on `align_coverage_threshold` below) on
     # exactly the shows where adoption took the riskiest action. RULED and
-    # DELIBERATELY CORRECTED FOR, not merely accepted: `_songish_coverage`
-    # excludes `setlist-gap` tracks from the coverage denominator, and the
-    # final track assembly below forces their `matched` to None (= "not
-    # measured", per models.py:158-160 -- an adopted match is tautological,
-    # never an independent measurement). See
-    # test_adopted_tracks_report_matched_none_and_exclude_from_coverage in
-    # test_stage_gather.py for the pinned corrected behaviour.
+    # DELIBERATELY CORRECTED FOR, not merely accepted: `structure._songish_coverage`
+    # excludes every source in `structure.TAUTOLOGICAL_TITLE_SOURCES`
+    # (`setlist-gap` AND the whole-tape `setlist` rung -- the same tautology,
+    # ruled to be excluded the same way) from the coverage denominator, and
+    # the final track assembly below forces a `setlist-gap` track's `matched`
+    # to None (= "not measured", per models.py:158-160 -- an adopted match is
+    # tautological, never an independent measurement). See
+    # test_adopted_tracks_report_matched_none and
+    # test_missed_anchor_flags_low_confidence_once_adopted_tracks_are_excluded
+    # in test_stage_gather.py for the pinned corrected behaviour.
     tracks = adopt_gap_titles(
         tracks, canonical,
         metadata_norms=metadata_norms,

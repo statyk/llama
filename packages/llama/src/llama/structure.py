@@ -897,25 +897,53 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 8,
                        merge_conflicts=merge_conflicts)
 
 
+# Title sources whose text IS the canonical item's own text, copied
+# verbatim, so a track carrying one of these is GUARANTEED to match its own
+# provenance in align() -- the match is tautological, not independent
+# evidence, and must not count toward _songish_coverage either way.
+# `setlist-gap` (structure.adopt_gap_titles, count-forced anchored gap fill)
+# and `setlist` (titles.py's whole-tape rung -- MEASURED DEAD in production
+# per titles.py:129, but deliberately KEPT there, so its tautology is a
+# standing property of this codebase, not a transient to special-case away)
+# both copy straight from `canonical.items`. `tags`, `sibling-format`,
+# `sibling`, and `override` all originate INDEPENDENTLY of the canonical
+# setlist (the tape's own tags, a sibling recording's tags, or an
+# operator's judgement made via `llama fix`), so a match against one of
+# those is real evidence and must stay in the denominator.
+TAUTOLOGICAL_TITLE_SOURCES = frozenset({"setlist-gap", "setlist"})
+
+
 def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
     """Matched fraction over song-like tracks with INDEPENDENT evidence only:
     filler (tuning, repairs, crowd) can never match a canonical setlist and
-    must not drag coverage, and a `setlist-gap`-adopted track's title IS the
+    must not drag coverage, and a track whose title_source is in
+    TAUTOLOGICAL_TITLE_SOURCES (see that constant) has a title that IS the
     canonical item's own text, so align() matching it is tautological, not a
-    measurement -- counting it here would let a mis-adopted (shifted) run
-    raise coverage and suppress the very "low-confidence structure alignment"
-    flag that would have caught it. Ruled: coverage must be computed only
-    over tracks whose titles came from independent evidence.
+    measurement -- counting it here would let a mis-adopted (shifted)
+    `setlist-gap` run, or a `setlist`-sourced whole-tape resolution, raise
+    coverage and suppress the very "low-confidence structure alignment" flag
+    that would have caught it. Ruled: coverage must be computed only over
+    tracks whose titles came from independent evidence.
 
-    If every songish track were adopted, `songish` is empty and this returns
-    0.0 -- the safe direction, since an empty independent-evidence set is
-    exactly the "no real signal" case the low-confidence flag exists for.
-    Expected unreachable in practice (adoption requires tag-verified anchors,
-    and an anchor is itself a matched, non-adopted track), but see
+    Coverage is therefore a ratio over a POSSIBLY SMALL independent-evidence
+    set, not over every track: on a mostly gap-filled or mostly
+    whole-tape-resolved show, a single independent measurement decides the
+    entire ratio. A single matched anchor among many tautological tracks
+    reports coverage 1.0 on ONE data point -- that is the DANGEROUS
+    direction (a real miss elsewhere in an otherwise-tautological show would
+    still look clean) and is fully reachable, unlike the empty-set 0.0 floor
+    below, which is the safe direction.
+
+    If every songish track is tautological, `songish` is empty and this
+    returns 0.0 -- the safe direction, since an empty independent-evidence
+    set is exactly the "no real signal" case the low-confidence flag exists
+    for. Expected unreachable via adopt_gap_titles alone in practice
+    (adoption requires tag-verified anchors, and an anchor is itself a
+    matched, non-adopted track), but see
     test_songish_coverage_is_zero_when_every_songish_track_is_adopted, which
     asserts it directly rather than trusting that reasoning."""
     songish = [m for t, m in zip(tracks, matched)
-               if not is_filler(t.title) and t.title_source != "setlist-gap"]
+               if not is_filler(t.title) and t.title_source not in TAUTOLOGICAL_TITLE_SOURCES]
     return (sum(songish) / len(songish)) if songish else 0.0
 
 

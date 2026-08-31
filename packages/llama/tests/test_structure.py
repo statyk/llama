@@ -1806,3 +1806,22 @@ def test_songish_coverage_is_zero_when_every_songish_track_is_adopted():
     tracks = _gap_tracks(("Alpha", "setlist-gap"), ("Bravo", "setlist-gap"))
     matched = [True, True]
     assert structure._songish_coverage(tracks, matched) == 0.0
+
+
+def test_songish_coverage_excludes_setlist_sourced_tracks_too():
+    """Important 2 (review round 1): `title_source == "setlist"` (titles.py's
+    whole-tape rung) is the IDENTICAL tautology `setlist-gap` was fixed for
+    -- its title is also copied straight from the canonical item's own text,
+    by position (see titles.py:129's `aligned = setlist.items`). Ruled:
+    extend TAUTOLOGICAL_TITLE_SOURCES rather than narrow the docstring's
+    "independent evidence" claim, since Item C deliberately KEEPS that rung,
+    making its tautology a standing property here, not a transient.
+
+    Constructed exactly like test_songish_coverage_excludes_adopted_tracks,
+    swapping the tautological source, so excluding the "setlist" track
+    changes the numeric result the same way."""
+    tracks = _gap_tracks(
+        ("Alpha", "tags"), ("Bravo", "setlist"), ("f3.mp3", "tags"))
+    matched = [True, True, False]
+    coverage = structure._songish_coverage(tracks, matched)
+    assert coverage == 0.5

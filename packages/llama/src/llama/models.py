@@ -157,7 +157,12 @@ class Track(BaseModel):
     title_source: str  # "tags" | "sibling-format" | "setlist" | "setlist-gap" | "sibling" | "unresolved" | "override"
     # Did this track match a canonical setlist item? None = not measured --
     # the override path skips align() entirely and forces coverage to 1.0, so
-    # rendering unknown as "matched" would assert something never checked.
+    # rendering unknown as "matched" would assert something never checked. A
+    # second, more common producer: structure.adopt_gap_titles's
+    # "setlist-gap" tracks carry the canonical item's own text, so align()'s
+    # match on them is tautological, not independent evidence -- gather.py
+    # forces their matched to None for that reason (see
+    # structure.TAUTOLOGICAL_TITLE_SOURCES).
     matched: bool | None = None
 
 
