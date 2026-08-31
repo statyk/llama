@@ -1768,3 +1768,41 @@ def test_empty_canonical_is_a_no_op():
     tracks = _gap_tracks(("f1.mp3", "unresolved"))
     out = adopt_gap_titles(tracks, ParsedSetlist(), metadata_norms=set())
     assert out[0].title_source == "unresolved"
+
+
+def test_songish_coverage_excludes_adopted_tracks():
+    """Ruled on I1: a setlist-gap track's title IS the canonical item's own
+    text, so align() matching it is tautological, not a measurement --
+    counting it in coverage would let a mis-adopted (shifted) run raise
+    coverage and mask itself. Constructed so excluding the adopted track
+    changes the numeric result: the mixed-show integration fixture in
+    test_stage_gather.py cannot show this on its own, because its anchors
+    already cover 100% by themselves regardless of whether the adopted
+    tracks are counted."""
+    tracks = _gap_tracks(
+        ("Alpha", "tags"), ("Bravo", "setlist-gap"), ("f3.mp3", "tags"))
+    # align() would report all three as matched (the third's title happens to
+    # equal a canonical item it wasn't independently verified against here --
+    # the point under test is purely the DENOMINATOR, so its title_source is
+    # what matters, not why `matched` says what it says).
+    matched = [True, True, False]
+    coverage = structure._songish_coverage(tracks, matched)
+    # Only "Alpha" (tags, matched) and "f3.mp3" (tags, unmatched) are
+    # independent evidence; "Bravo" (setlist-gap) is excluded from both the
+    # numerator and the denominator.
+    assert coverage == 0.5
+
+
+def test_songish_coverage_is_zero_when_every_songish_track_is_adopted():
+    """Edge case named in the I1 ruling: if every songish track were
+    adopted, the independent-evidence set is empty. Asserted directly
+    rather than assumed -- `_songish_coverage` already returns 0.0 for an
+    empty `songish` list (the same branch a wholly-filler tape hits), which
+    is the safe direction: it trips the low-confidence-alignment flag
+    instead of reporting a vacuous 1.0. Expected unreachable via
+    adopt_gap_titles in practice, since adoption requires tag-verified
+    anchors and an anchor is itself a matched, non-adopted track -- this
+    test pins the arithmetic in isolation, not that reachability claim."""
+    tracks = _gap_tracks(("Alpha", "setlist-gap"), ("Bravo", "setlist-gap"))
+    matched = [True, True]
+    assert structure._songish_coverage(tracks, matched) == 0.0

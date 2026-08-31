@@ -613,16 +613,19 @@ def run_gather(
     # ANCHOR a gap as well as survive it. metadata_norms is passed down
     # because structure.py must not import a stage.
     #
-    # KNOWN, OWNED CONSEQUENCE: an adopted title *is* the canonical item's own
-    # text, so align() below is guaranteed to match it. That mechanically
-    # raises `coverage` and flips `Track.matched` to True for tracks that were
-    # never independently matched, which in turn can suppress the
-    # "low-confidence structure alignment" flag (gated on
-    # `align_coverage_threshold` below) on exactly the shows where adoption
-    # took the riskiest action. Whether `setlist-gap` tracks should count
-    # toward coverage/`matched` at all is open and escalated to the plan
-    # owner; see test_adoption_inflates_coverage_and_matched in
-    # test_stage_gather.py for the pinned current behaviour.
+    # An adopted title *is* the canonical item's own text, so align() below
+    # WOULD be guaranteed to match it -- tautologically raising `coverage` and
+    # flipping `Track.matched` to True for tracks that were never
+    # independently matched, which could suppress the "low-confidence
+    # structure alignment" flag (gated on `align_coverage_threshold` below) on
+    # exactly the shows where adoption took the riskiest action. RULED and
+    # DELIBERATELY CORRECTED FOR, not merely accepted: `_songish_coverage`
+    # excludes `setlist-gap` tracks from the coverage denominator, and the
+    # final track assembly below forces their `matched` to None (= "not
+    # measured", per models.py:158-160 -- an adopted match is tautological,
+    # never an independent measurement). See
+    # test_adopted_tracks_report_matched_none_and_exclude_from_coverage in
+    # test_stage_gather.py for the pinned corrected behaviour.
     tracks = adopt_gap_titles(
         tracks, canonical,
         metadata_norms=metadata_norms,
@@ -685,7 +688,15 @@ def run_gather(
             else:
                 flags.append("low-confidence structure alignment")
 
-        tracks = [t.model_copy(update={"set": s, "segue": g, "matched": m})
+        # A setlist-gap track's title IS the canonical item's own text, so
+        # align()'s match on it is tautological (see _songish_coverage's
+        # docstring) -- honesty requires overriding `m` to None here rather
+        # than recording align()'s True. `matched=None` already means "not
+        # measured" per models.py:158-160, and this IS an unmeasured track:
+        # nothing independent was ever checked against it.
+        tracks = [t.model_copy(update={
+            "set": s, "segue": g,
+            "matched": None if t.title_source == "setlist-gap" else m})
                   for t, s, g, m in zip(tracks, result.sets, result.segues, result.matched)]
         breaks = set_breaks(tracks)
         coverage, conflicts = result.coverage, result.conflicts

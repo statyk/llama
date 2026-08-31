@@ -898,9 +898,24 @@ def align(tracks: list["Track"], canonical: ParsedSetlist, lookahead: int = 8,
 
 
 def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
-    """Matched fraction over song-like tracks only: filler (tuning, repairs,
-    crowd) can never match a canonical setlist and must not drag coverage."""
-    songish = [m for t, m in zip(tracks, matched) if not is_filler(t.title)]
+    """Matched fraction over song-like tracks with INDEPENDENT evidence only:
+    filler (tuning, repairs, crowd) can never match a canonical setlist and
+    must not drag coverage, and a `setlist-gap`-adopted track's title IS the
+    canonical item's own text, so align() matching it is tautological, not a
+    measurement -- counting it here would let a mis-adopted (shifted) run
+    raise coverage and suppress the very "low-confidence structure alignment"
+    flag that would have caught it. Ruled: coverage must be computed only
+    over tracks whose titles came from independent evidence.
+
+    If every songish track were adopted, `songish` is empty and this returns
+    0.0 -- the safe direction, since an empty independent-evidence set is
+    exactly the "no real signal" case the low-confidence flag exists for.
+    Expected unreachable in practice (adoption requires tag-verified anchors,
+    and an anchor is itself a matched, non-adopted track), but see
+    test_songish_coverage_is_zero_when_every_songish_track_is_adopted, which
+    asserts it directly rather than trusting that reasoning."""
+    songish = [m for t, m in zip(tracks, matched)
+               if not is_filler(t.title) and t.title_source != "setlist-gap"]
     return (sum(songish) / len(songish)) if songish else 0.0
 
 

@@ -1311,20 +1311,24 @@ def test_a_wholly_untagged_tape_gets_no_gap_fill(tmp_path: Path):
     assert "unresolved track titles" in show.review_flags
 
 
-def test_adoption_inflates_coverage_and_matched(tmp_path: Path):
-    """Pins I1: because an adopted title *is* the canonical item's own text,
-    align() is guaranteed to match it. On this mixed-show fixture that
-    mechanically raises coverage to 1.0, flips Track.matched to True for
-    both gap-filled tracks (which were never independently matched), and
-    suppresses both the "low-confidence structure alignment" flag and
-    needs_review entirely -- compare to the identical show with
-    adopt_gap_titles's wiring monkeypatched out below, where coverage is
-    0.6, two tracks are unmatched, and needs_review is True.
+def test_adopted_tracks_report_matched_none_and_exclude_from_coverage(tmp_path: Path):
+    """Pins the I1 ruling (CORRECTED behaviour, decided, not open): because
+    an adopted title *is* the canonical item's own text, align() matching it
+    is tautological, not a measurement. So gather.py forces a setlist-gap
+    track's final `matched` to None (= "not measured", per
+    models.py:158-160) rather than align()'s tautological True, and
+    structure._songish_coverage excludes setlist-gap tracks from the
+    coverage denominator entirely -- see test_songish_coverage_excludes_adopted_tracks
+    in test_structure.py for a case where that exclusion changes the numeric
+    result; on THIS fixture it does not (the three tag anchors already cover
+    100% by themselves), so coverage staying 1.0 here is not evidence the
+    exclusion is a no-op, only that this fixture's anchors happen to be
+    fully matched -- the discriminating case lives in test_structure.py.
 
-    This test pins CURRENT behaviour, not a decision: whether a
-    setlist-gap track should count toward coverage / report matched=True
-    at all is open and has been escalated to the plan owner (see the
-    comment at the adopt_gap_titles call site in stages/gather.py)."""
+    Compare to the identical show with adopt_gap_titles's wiring
+    monkeypatched out below, where coverage is 0.6, two tracks are
+    unmatched (False, not None -- they are actually-checked misses), and
+    needs_review is True."""
     md = json.loads(FIXTURE.read_text())
     mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
     for i, f in enumerate(mp3s):
@@ -1334,7 +1338,7 @@ def test_adoption_inflates_coverage_and_matched(tmp_path: Path):
     show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
     assert show.structure is not None
     assert show.structure.coverage == 1.0
-    assert [t.matched for t in show.tracks] == [True, True, True, True, True]
+    assert [t.matched for t in show.tracks] == [True, None, None, True, True]
     assert show.needs_review is False
     assert show.review_flags == []
 
