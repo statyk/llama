@@ -1178,7 +1178,7 @@ class NarrationMode(str, Enum):
     full = "full"
 
 
-def _propose_titles_for_show(sws, ia, config, entry, show):
+def _propose_titles_for_show(ia, config, entry, show):
     """Build the canonical setlist and render a title-correspondence
     proposal for `show`'s tracks. `build_canonical` is always called with
     `provider=None` -- this CLI path must never fire an LLM call, since the
@@ -1187,28 +1187,41 @@ def _propose_titles_for_show(sws, ia, config, entry, show):
     correspondence.py's module docstring: unanchored monotone correspondence
     measured 45-52% wrong).
 
+    `setlistfm=make_client(config)` and the real jerrybase `events` are
+    threaded through so the canonical this proposal is built from matches
+    what the `gather` redo the confirmation triggers will itself use --
+    reviewer-caught gap: an earlier draft passed `setlistfm=None,
+    events=[]` unconditionally, which meant an operator with a setlist.fm
+    key configured would confirm a proposal built from a strictly weaker
+    LMA-only canonical than the one `gather` actually consumes.
+
     Returns `(prop, picks)`: the raw `TitleProposal` (so a caller can read
     `.feasible`/`.reason` without re-deriving it) and `picks` -- track
     number -> title, for exactly the rows both proposed AND still
     `title_source == "unresolved"` on `show` (a track that already carries a
-    real title is never silently overwritten by a proposal). Rendering only:
-    an operator confirmation and the actual `overrides.titles` write stay
-    the caller's job, so Task 8 can wire this same helper into `llama
-    triage`'s interactive walkthrough as a pure wiring change rather than a
-    refactor of this function.
+    real title is never silently overwritten by a proposal -- reviewer
+    mutation-verified: deleting this clause leaves the rest of the suite
+    green, see test_never_clobbers_a_track_that_already_has_a_title).
+    Rendering only: an operator confirmation and the actual
+    `overrides.titles` write stay the caller's job, so Task 8 can wire this
+    same helper into `llama triage`'s interactive walkthrough as a pure
+    wiring change rather than a refactor of this function.
 
     Module-level rather than inlined in `fix` for the same reason.
     """
+    from llama import jerrybase
     from llama.correspondence import propose_titles, sibling_item_durations
     from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.setlistfm import make_client
     from llama.stages.gather import build_canonical
 
     cand = entry.provenance.candidate
     meta = ia.metadata(show.identifier).get("metadata", {})
     want = FORMAT_BY_AUDIO[config.audio_format]
     kept, _, _ = filter_files(ia.metadata(show.identifier).get("files", []), want_format=want)
-    canonical = build_canonical(ia, cand, show.identifier, meta, kept,
-                                show.artist, [], provider=None).setlist
+    events = jerrybase.lookup(show.artist, cand.date) if config.jerrybase.enabled else []
+    canonical = build_canonical(ia, cand, show.identifier, meta, kept, show.artist, events,
+                                setlistfm=make_client(config), provider=None).setlist
     prop = propose_titles(
         show.tracks, canonical,
         item_durations=sibling_item_durations(ia, cand, show.identifier, canonical, want))
@@ -1320,20 +1333,68 @@ def fix(
         encore_val = int(set_encore.strip())
 
     if suggest_titles:
+        # I2 (review round 1): the proposal is computed over the CURRENT
+        # track list, but a same-invocation --exclude/--unexclude renumbers
+        # tracks (titles.py's index=pos+1 over the post-exclusion kept
+        # list), while overrides.titles is applied by that same 1-based
+        # position (gather.py). Any picked index still in range after the
+        # renumbering would land on the wrong track with no error -- exactly
+        # the silent-wrong-title failure this whole feature exists to
+        # prevent. Refuse the combination outright rather than trying to
+        # re-derive the post-exclusion numbering here.
+        if exclude or unexclude:
+            typer.echo(
+                "--suggest-titles cannot be combined with --exclude/--unexclude: "
+                "an exclusion in the same invocation renumbers tracks before the "
+                "proposal's numbering would apply. Run the exclusion first (its "
+                "own `llama fix ... --exclude ...`), then --suggest-titles as a "
+                "separate invocation.", err=True)
+            raise typer.Exit(1)
         if not sws.show.exists():
             typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
             raise typer.Exit(1)
+        if entry.provenance is None:
+            # M7 (review round 1): match the two nearest analogues --
+            # _redo_show (raises LlamaError, caught by callers) and triage's
+            # own guard -- rather than an unguarded AttributeError on
+            # `entry.provenance.candidate` inside the helper below.
+            typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                       "reprocess it via its run first", err=True)
+            raise typer.Exit(1)
         show = read_model(sws.show, Show)
-        prop, picks = _propose_titles_for_show(sws, ia, config, entry, show)
+        prop, picks = _propose_titles_for_show(ia, config, entry, show)
+        # I1 (review round 1): the three outcomes below used to always exit
+        # 0 immediately, silently discarding any OTHER edit flag given in
+        # the same invocation (worst case: `--suggest-titles --overrule` on
+        # a declined proposal reads as exit 0 = "hold cleared" when it was
+        # not). Only exit early when suggest-titles was the ONLY edit flag
+        # given; otherwise warn and fall through to the remaining edits
+        # below. `exclude`/`unexclude` are omitted from this check -- the
+        # guard above already exits before this point whenever either is set.
+        other_edit_requested = bool(
+            set_venue or set_city or set_date or parsed_titles or clear_title_nums
+            or set_breaks or clear_set_breaks or set_encore or clear_encore
+            or narration is not None or overrule)
+        adopted = False
         if not prop.feasible:
-            raise typer.Exit(0)
-        if not picks:
+            pass   # _propose_titles_for_show already echoed prop.reason
+        elif not picks:
             typer.echo("nothing to adopt: every track already has a title")
-            raise typer.Exit(0)
-        if not typer.confirm(f"write {len(picks)} titles into overrides?"):
+        elif not typer.confirm(f"write {len(picks)} titles into overrides?"):
             typer.echo("declined; nothing written")
-            raise typer.Exit(0)
-        parsed_titles.update(picks)
+        else:
+            # M10 (review round 1): an explicit --set-title on the same
+            # invocation must win over a generated proposal for the same
+            # track -- the same human-authority principle the confirmation
+            # gate itself protects. `setdefault` never overwrites a key
+            # `parsed_titles` already carries from --set-title parsing above.
+            for idx, title in picks.items():
+                parsed_titles.setdefault(idx, title)
+            adopted = True
+        if not adopted:
+            if not other_edit_requested:
+                raise typer.Exit(0)
+            typer.echo("proposal not adopted; continuing with the other edit flag(s) given")
 
     did_exclude = bool(exclude or unexclude)
     did_meta = bool(set_venue or set_city or set_date or parsed_titles

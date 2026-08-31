@@ -7,9 +7,9 @@ import llama.cli as cli
 from conftest import cli_invoke
 from herder import FakeProvider
 from llama.cli import app
-from llama.models import Candidate, Provenance, RecordingSummary
+from llama.models import Candidate, Provenance, RecordingSummary, Show
 from llama.stages.gather import run_gather
-from llama.workspace import ShowWorkspace, read_overrides, write_artifact
+from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
 runner = CliRunner()
 
@@ -319,13 +319,24 @@ def test_suggest_titles_writes_every_row_into_overrides(tmp_path, monkeypatch):
     assert len(ov.titles) == 22
     assert ov.titles[1] == "Granny Woncha Smoke Some > Ride The Wild Turkey"
     assert 11 not in ov.titles and 22 not in ov.titles   # the two filler tracks
+    # M11 (review round 1): pin that adopting a proposal is a `did_meta`
+    # edit, so the existing redo selector stages `gather` -- confirmed
+    # (rather than re-derived) in the implementation that `parsed_titles`
+    # already sat in the `did_meta` expression; this is the pin.
+    assert "--from gather" in result.output
 
 
 def test_declining_the_proposal_writes_nothing(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     sws = _staged_ymsb_show(tmp_path, monkeypatch)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
-    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles")
+    # M8 (review round 1): --no-run is required, not cosmetic. Without it,
+    # this test is fast today only because the decline exits before ever
+    # reaching a real redo -- if a future regression removes that early
+    # exit, the test stops failing in milliseconds and instead HANGS inside
+    # a real `_redo_show` (network/pipeline calls this suite never stubs).
+    # A gate regression must fail fast, not time out.
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
     assert result.exit_code == 0, result.output
     assert read_overrides(sws).titles == {}
 
@@ -343,4 +354,123 @@ def test_an_infeasible_show_declines_without_writing(tmp_path, monkeypatch):
     sws = _staged_show_with_unusable_canonical(tmp_path, monkeypatch)
     result = cli_invoke(cfg, "fix", "nocanon", "--suggest-titles")
     assert "no usable canonical setlist" in result.output
+    assert read_overrides(sws).titles == {}
+
+
+# --- review round 1 fixes -----------------------------------------------
+
+def test_infeasible_proposal_falls_through_to_a_co_specified_edit(tmp_path, monkeypatch):
+    """I1 (round 1): an infeasible proposal used to always exit 0
+    immediately, silently discarding any OTHER edit flag on the same
+    invocation. It must instead warn and fall through."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_show_with_unusable_canonical(tmp_path, monkeypatch)
+    result = cli_invoke(cfg, "fix", "nocanon", "--suggest-titles",
+                        "--set-venue", "The Fillmore", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "no usable canonical setlist" in result.output
+    assert "continuing with the other edit flag(s) given" in result.output
+    assert read_overrides(sws).venue == "The Fillmore"
+
+
+def test_nothing_to_adopt_falls_through_to_a_co_specified_edit(tmp_path, monkeypatch):
+    """I1 (round 1): same guarantee when the proposal is feasible but every
+    track already has a title (picks is empty)."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    show = read_model(sws.show, Show)
+    show = show.model_copy(update={"tracks": [
+        t.model_copy(update={"title_source": "tags", "title": f"Song {t.index}"})
+        for t in show.tracks]})
+    write_artifact(sws.show, show)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles",
+                        "--set-venue", "The Fillmore", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "nothing to adopt: every track already has a title" in result.output
+    assert "continuing with the other edit flag(s) given" in result.output
+    assert read_overrides(sws).venue == "The Fillmore"
+
+
+def test_suggest_titles_declined_falls_through_to_a_co_specified_overrule(tmp_path, monkeypatch):
+    """I1 (round 1): the reviewer's worst case -- `--suggest-titles
+    --overrule` on a declined proposal must NOT read as exit 0 = "hold
+    cleared" when it was not. `_staged_ymsb_show`'s show is genuinely held
+    (a wholly untagged tape flags "unresolved track titles"), so this
+    exercises the real combination, not a synthetic stand-in."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    assert read_model(sws.show, Show).needs_review is True   # confirm it's actually held
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--overrule", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "declined; nothing written" in result.output
+    assert "continuing with the other edit flag(s) given" in result.output
+    assert read_overrides(sws).titles == {}
+    assert read_model(sws.show, Show).needs_review is False   # --overrule DID apply
+
+
+def test_suggest_titles_refuses_combination_with_exclude_flags(tmp_path, monkeypatch):
+    """I2 (round 1): the proposal is numbered over the CURRENT track list;
+    a same-invocation --exclude/--unexclude renumbers tracks before that
+    numbering would apply to the redo, so a picked index could silently
+    land on the wrong track. Refuse the combination outright rather than
+    guess at the post-exclusion numbering."""
+    cfg = _cfg(tmp_path)
+    for flag, value in [("--exclude", "1"), ("--unexclude", "1")]:
+        sws = _staged_ymsb_show(tmp_path, monkeypatch, slug=f"ymsb-{flag.strip('-')}")
+        result = cli_invoke(cfg, "fix", sws.dir.name, "--suggest-titles", flag, value)
+        assert result.exit_code != 0, (flag, result.output)
+        assert "cannot be combined with --exclude/--unexclude" in result.output, (flag, result.output)
+        assert read_overrides(sws).titles == {}
+        assert read_overrides(sws).exclude == []
+
+
+def test_explicit_set_title_wins_over_the_proposal(tmp_path, monkeypatch):
+    """M10 (round 1): an explicit --set-title on the same invocation must
+    beat a generated proposal for the same track -- the same human-
+    authority principle the confirmation gate itself protects."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles",
+                        "--set-title", "1=Operator Chosen Title", "--no-run")
+    assert result.exit_code == 0, result.output
+    ov = read_overrides(sws)
+    assert ov.titles[1] == "Operator Chosen Title"
+    assert len(ov.titles) == 22   # the rest of the proposal still lands
+
+
+def test_never_clobbers_a_track_that_already_has_a_title(tmp_path, monkeypatch):
+    """M4 (round 1): `picks` only includes rows still
+    `title_source == "unresolved"` on the live show. Reviewer-mutation-
+    verified as unpinned before this test existed: deleting that guard
+    clause from `_propose_titles_for_show` left the entire pre-round-1
+    `test_cli.py` suite green."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    show = read_model(sws.show, Show)
+    show = show.model_copy(update={"tracks": [
+        (t.model_copy(update={"title": "Already Tagged", "title_source": "tags"})
+         if t.index == 1 else t)
+        for t in show.tracks]})
+    write_artifact(sws.show, show)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    ov = read_overrides(sws)
+    assert 1 not in ov.titles
+    assert len(ov.titles) == 21   # 22 minus the now-already-titled track 1
+
+
+def test_missing_provenance_declines_cleanly(tmp_path, monkeypatch):
+    """M7 (round 1): matches the two nearest analogues (`_redo_show` and
+    `triage`'s own guard) instead of an unguarded AttributeError on
+    `entry.provenance.candidate`."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    sws.provenance.unlink()
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles")
+    assert result.exit_code == 1
+    assert "no provenance.json" in result.output
+    assert "reprocess it via its run first" in result.output
     assert read_overrides(sws).titles == {}
