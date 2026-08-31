@@ -1,10 +1,41 @@
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
 
+import llama.cli as cli
+from conftest import cli_invoke
+from herder import FakeProvider
 from llama.cli import app
+from llama.models import Candidate, Provenance, RecordingSummary
+from llama.stages.gather import run_gather
+from llama.workspace import ShowWorkspace, read_overrides, write_artifact
 
 runner = CliRunner()
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+class StubIA:
+    """Serves one metadata dict for every identifier (single-recording
+    tests). Copied from test_stage_gather.py rather than imported, per the
+    orchestrator ruling for this task: it's a private test double, not a
+    shared production interface, and test_stage_gather.py's own copy is not
+    part of any importable helper module."""
+
+    def __init__(self, md=None):
+        self.md = md or json.loads((FIXTURES / "gd73_metadata.json").read_text())
+
+    def metadata(self, identifier):
+        return self.md
+
+
+def _ymsb_candidate():
+    return Candidate(
+        performance_id="YonderMountainStringBand/2005-12-31",
+        collection="YonderMountainStringBand", date="2005-12-31",
+        venue="Fillmore Auditorium", city="Denver, CO",
+        recordings=[RecordingSummary(identifier="ymsb2005-12-31.flac16.wav")])
 
 
 def test_help_shows_description():
@@ -205,3 +236,111 @@ def test_format_tracks_distinguishes_matched_unmatched_and_unknown():
     assert len(set(marks)) == 3, "matched/unmatched/unknown must render as three distinct marks"
     assert len({len(ln) for ln in rows}) == 1, "every row must be the same width"
     assert len({ln.index(" 5:00") for ln in rows}) == 1, "the duration column must line up"
+
+
+def _cfg(tmp_path):
+    """A config.toml pointing `root` at tmp_path, the pattern test_fix.py
+    uses -- `llama fix` resolves shows by slug against `config.root`, so
+    without this a show staged under an arbitrary tmp_path is never found
+    (verified directly: an earlier draft of these tests passed `str(sws.dir)`
+    to a bare `runner.invoke` with no `--config` and every one failed with
+    CatalogError("no show matches ..."), since the default root is `~/.llama`,
+    not tmp_path)."""
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    return tmp_path / "config.toml"
+
+
+def _staged_ymsb_show(tmp_path, monkeypatch, slug="ymsb2005-12-31"):
+    """A cataloged show (provenance.json + a real gathered show.json, laid
+    out at `root/shows/<slug>/` the way `llama fix` expects to find it)
+    holding the real 24-track untagged ymsb tape, all titles unresolved.
+
+    provenance.json is written explicitly (mirroring test_catalog.py's
+    `build()`) because `--suggest-titles` reads `entry.provenance.candidate`
+    to rebuild the canonical setlist, and `run_gather` alone -- as used
+    directly in test_stage_gather.py -- never writes it; that happens one
+    layer up, in pipeline.process_show, before gather ever runs.
+
+    Also monkeypatches `cli.IAClient` to hand back a `StubIA` over the same
+    metadata: `llama fix` builds its own `IAClient` from scratch inside
+    `_setup()` (see `cli.py`), so a plain `StubIA` passed only to the
+    `run_gather` call above is invisible to the CLI invocation below --
+    without this the CLI's `ia.metadata(...)` call hits a REAL IAClient
+    against `config.root/cache`, which is empty here (verified directly: an
+    earlier draft crashed/produced whatever happened to be on-disk instead
+    of this fixture's metadata -- test_redo_cmd.py's `FakeIA` pattern, used
+    the same way here, is what fixes it)."""
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    cand = _ymsb_candidate()
+    sws = ShowWorkspace(tmp_path / "shows" / slug)
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    show = run_gather(sws, StubIA(md), FakeProvider(), cand,
+                      "ymsb2005-12-31.flac16.wav")
+    assert all(t.title_source == "unresolved" for t in show.tracks)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA(md))
+    return sws
+
+
+def _staged_show_with_unusable_canonical(tmp_path, monkeypatch, slug="nocanon"):
+    """Same tape, description replaced by prose that parses to nothing.
+
+    `provider=None` here (not `FakeProvider()`): with the description
+    unparseable, `rank_parses` finds no candidate and `build_canonical`
+    falls through to its `extract_setlist` LLM rescue whenever a provider is
+    given, which a bare `FakeProvider()` (no queued responses) blows up on --
+    verified directly, not assumed. `llama fix --suggest-titles` itself
+    always calls `build_canonical(..., provider=None)` (the whole point of
+    the CLI path never firing an LLM call), so staging with `provider=None`
+    reproduces exactly the canonical the CLI path will independently
+    recompute, without an incidental LLM round-trip this test doesn't care
+    about. Also monkeypatches `cli.IAClient` -- see `_staged_ymsb_show`."""
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    md["metadata"]["description"] = "A great night. Recorded from the balcony."
+    cand = _ymsb_candidate()
+    sws = ShowWorkspace(tmp_path / "shows" / slug)
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    run_gather(sws, StubIA(md), None, cand, "ymsb2005-12-31.flac16.wav")
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA(md))
+    return sws
+
+
+def test_suggest_titles_writes_every_row_into_overrides(tmp_path, monkeypatch):
+    """One confirmation replaces 24 --set-title calls."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)   # helper: show.json with 24 unresolved
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    ov = read_overrides(sws)
+    assert len(ov.titles) == 22
+    assert ov.titles[1] == "Granny Woncha Smoke Some > Ride The Wild Turkey"
+    assert 11 not in ov.titles and 22 not in ov.titles   # the two filler tracks
+
+
+def test_declining_the_proposal_writes_nothing(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles")
+    assert result.exit_code == 0, result.output
+    assert read_overrides(sws).titles == {}
+
+
+def test_an_infeasible_show_declines_without_writing(tmp_path, monkeypatch):
+    """Measured, not the brief's literal string: with the description parsing
+    to zero setlist items, `propose_titles` takes its `not items` branch and
+    returns reason="no usable canonical setlist" (correspondence.py), not
+    "no consistent correspondence - parse quality too low" (that second
+    string is DP infeasibility on a NON-empty canonical -- a different
+    branch, not reachable from an empty parse). Verified directly against
+    the real correspondence.propose_titles/build_canonical call the CLI path
+    makes, not tuned to whatever the code happened to emit."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_show_with_unusable_canonical(tmp_path, monkeypatch)
+    result = cli_invoke(cfg, "fix", "nocanon", "--suggest-titles")
+    assert "no usable canonical setlist" in result.output
+    assert read_overrides(sws).titles == {}

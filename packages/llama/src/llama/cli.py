@@ -1178,6 +1178,74 @@ class NarrationMode(str, Enum):
     full = "full"
 
 
+def _propose_titles_for_show(sws, ia, config, entry, show):
+    """Build the canonical setlist and render a title-correspondence
+    proposal for `show`'s tracks. `build_canonical` is always called with
+    `provider=None` -- this CLI path must never fire an LLM call, since the
+    correspondence DP is proposal-only and a human confirmation is the only
+    thing standing between a proposed title and adoption (see
+    correspondence.py's module docstring: unanchored monotone correspondence
+    measured 45-52% wrong).
+
+    Returns `(prop, picks)`: the raw `TitleProposal` (so a caller can read
+    `.feasible`/`.reason` without re-deriving it) and `picks` -- track
+    number -> title, for exactly the rows both proposed AND still
+    `title_source == "unresolved"` on `show` (a track that already carries a
+    real title is never silently overwritten by a proposal). Rendering only:
+    an operator confirmation and the actual `overrides.titles` write stay
+    the caller's job, so Task 8 can wire this same helper into `llama
+    triage`'s interactive walkthrough as a pure wiring change rather than a
+    refactor of this function.
+
+    Module-level rather than inlined in `fix` for the same reason.
+    """
+    from llama.correspondence import propose_titles, sibling_item_durations
+    from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.stages.gather import build_canonical
+
+    cand = entry.provenance.candidate
+    meta = ia.metadata(show.identifier).get("metadata", {})
+    want = FORMAT_BY_AUDIO[config.audio_format]
+    kept, _, _ = filter_files(ia.metadata(show.identifier).get("files", []), want_format=want)
+    canonical = build_canonical(ia, cand, show.identifier, meta, kept,
+                                show.artist, [], provider=None).setlist
+    prop = propose_titles(
+        show.tracks, canonical,
+        item_durations=sibling_item_durations(ia, cand, show.identifier, canonical, want))
+    if not prop.feasible:
+        typer.echo(f"{entry.slug}: {prop.reason}")
+        return prop, {}
+
+    typer.echo(f"{entry.slug}: proposal ({prop.evidence_source})")
+    for r in prop.rows:
+        shown = r.title or "(unresolved - hand-edit)"
+        if r.margin_sec is not None:
+            margin = f"{r.margin_sec:5.0f}s"
+        elif r.forced:
+            # No alternative assignment exists for this track/item count --
+            # a RIGIDITY signal, not a correctness one (see the trichotomy
+            # comment on models.ProposalRow.forced). A no-segue, one-track-
+            # per-item setlist is forced on EVERY row, and that is exactly
+            # the unanchored regime measured 45-52% wrong -- so this column
+            # must never look like a confidence score. A blank/dash would
+            # read as "no signal, presumably fine"; the explicit "forced"
+            # label reads as "no signal, unverified", which is the honest
+            # claim. It is deliberately NOT rendered as a large/high margin
+            # (e.g. as if margin_sec were +inf) -- that would flatter a
+            # forced row as if it had cleared a real comparison.
+            margin = "forced"
+        else:
+            # Filler (item_span is None): no canonical item was assigned to
+            # this track at all, so a margin is not applicable.
+            margin = "     -"
+        typer.echo(f"  {r.index:2d}. {_fmt_dur(r.duration_sec):>6s} "
+                   f"{margin:>6s}  {shown}")
+
+    picks = {r.index: r.title for r in prop.rows
+             if r.title and show.tracks[r.index - 1].title_source == "unresolved"}
+    return prop, picks
+
+
 @app.command(rich_help_panel="Fix & ship",
              short_help="Edit a show's overrides / resolve its hold, then auto-run the redo.")
 def fix(
@@ -1206,6 +1274,10 @@ def fix(
              "combining the flags does not bring segues back."),
     clear_encore: bool = typer.Option(
         False, "--clear-encore", help="Clear the encore override"),
+    suggest_titles: bool = typer.Option(
+        False, "--suggest-titles",
+        help="Propose titles for unresolved tracks from the setlist and, on "
+             "confirmation, write them all into overrides.titles at once"),
     narration: NarrationMode = typer.Option(
         None, "--narration", help="vague clears the hold; full resets narration and leaves it"),
     overrule: bool = typer.Option(
@@ -1246,6 +1318,22 @@ def fix(
             typer.echo(f"--set-encore expects a track number, got {set_encore!r}", err=True)
             raise typer.Exit(1)
         encore_val = int(set_encore.strip())
+
+    if suggest_titles:
+        if not sws.show.exists():
+            typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+            raise typer.Exit(1)
+        show = read_model(sws.show, Show)
+        prop, picks = _propose_titles_for_show(sws, ia, config, entry, show)
+        if not prop.feasible:
+            raise typer.Exit(0)
+        if not picks:
+            typer.echo("nothing to adopt: every track already has a title")
+            raise typer.Exit(0)
+        if not typer.confirm(f"write {len(picks)} titles into overrides?"):
+            typer.echo("declined; nothing written")
+            raise typer.Exit(0)
+        parsed_titles.update(picks)
 
     did_exclude = bool(exclude or unexclude)
     did_meta = bool(set_venue or set_city or set_date or parsed_titles
