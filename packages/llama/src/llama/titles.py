@@ -128,7 +128,12 @@ def resolve_titles(
     n = len(files)
     # The whole-tape setlist rung. MEASURED DEAD: 0 of 2,015 tracks across the
     # 89-show library (2026-08-30) — exact count equality between a parsed
-    # description and a tape's file list is close to a measure-zero event.
+    # description and a tape's file list is close to a measure-zero event on
+    # real tapes; it DOES fire on small trimmed fixtures such as
+    # `gd73_metadata.json` (6 files, 6 items), where it pre-empts
+    # `adopt_gap_titles` entirely — a test blanking a title on that fixture
+    # without also breaking the exact count match exercises this rung, not
+    # the gap-fill one.
     # Kept because structure.adopt_gap_titles is its localized successor
     # (count-forced GAPS between anchors), which makes this rung's deadness a
     # design property rather than a defect to re-diagnose.

@@ -1281,6 +1281,9 @@ def test_gap_fill_resolves_a_mixed_show(tmp_path: Path):
     filled = [t for t in show.tracks if t.title_source == "setlist-gap"]
     assert filled, "expected the blanked run to be gap-filled"
     assert all(t.title_source != "unresolved" for t in show.tracks)
+    # Pins content, not just firing: a regression that adopted the wrong two
+    # items (e.g. shifted by one) would still satisfy the assertions above.
+    assert [t.title for t in filled] == ["China Cat Sunflower", "I Know You Rider"]
 
 
 def test_a_fully_tagged_show_is_untouched(tmp_path: Path):
@@ -1291,9 +1294,15 @@ def test_a_fully_tagged_show_is_untouched(tmp_path: Path):
 
 
 def test_a_wholly_untagged_tape_gets_no_gap_fill(tmp_path: Path):
-    """ymsb2005 has no tagged track, therefore no anchor, therefore no
-    adoption. Piece 1 deliberately does NOT solve the whole-tape case; that
-    is Piece 2's job."""
+    """ymsb2005 has no tagged track, so there is no anchor -- but this test
+    cannot tell you that's *why* adoption declines: it is 24 kept files
+    against 25 canonical items, so count-forcing rejects independently of
+    anchoring (verified by mutation: making the unanchored branch permissive
+    leaves this test passing; the anchoring requirement is pinned instead by
+    the unit-level test_unanchored_run_declines). What this test pins
+    end-to-end on a real wholly-untagged tape is needs_review and the
+    "unresolved track titles" flag. Piece 1 deliberately does NOT solve the
+    whole-tape case; that is Piece 2's job."""
     md = json.loads(YMSB_FIXTURE.read_text())
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(md), FakeProvider(), _ymsb_candidate(), Y_IDENT)
