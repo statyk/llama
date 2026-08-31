@@ -1641,7 +1641,7 @@ def test_contains_sequence_repeated_song_advances_past_first_hit():
 
 
 from llama.models import ParsedSetlist, SetlistItem, Track
-from llama.structure import adopt_gap_titles
+from llama.structure import _hygienic, adopt_gap_titles
 
 
 def _gap_items(*specs):
@@ -1686,11 +1686,53 @@ def test_unanchored_run_declines():
     assert all(t.title_source == "unresolved" for t in out)
 
 
-def test_tail_edge_run_adopts_with_one_real_anchor():
+def test_tail_edge_run_declines_even_when_count_forced():
+    """A trailing run is NEVER filled, however well-formed it looks.
+
+    This case is count-forced (1 item, 1 file), anchored on the left by an
+    exact tag match, and hygienic -- every condition the rung asks for -- and
+    it is still declined, because the span of a trailing run runs to the END
+    of the canonical and that is where a parsed LMA setlist keeps the taper's
+    notes. Pinned as a deliberate REMOVAL of behaviour: this test asserted the
+    opposite until the M1 evidence
+    (docs/superpowers/2026-08-31-gap-fill-blind-test.md) measured every
+    junk-title adoption in the corpus sitting at `track == n_tracks`. See
+    test_tail_edge_run_declines_a_taper_note for the real-world case, and
+    test_head_edge_run_adopts_with_one_real_anchor for the leading edge, which
+    is kept."""
     canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False))
     tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"))
     out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
-    assert out[1].title == "Bravo" and out[1].title_source == "setlist-gap"
+    assert out[1].title_source == "unresolved"
+    assert out[1].title == "f2.mp3"
+
+
+def test_tail_edge_run_declines_a_taper_note():
+    """The shape that forced the removal, taken from the offending item.
+
+    `is2008-12-06.flac16.aud` (M1 `--natural` run, 2026-08-31): 34 tracks, 39
+    canonical items, track 34 unresolved, canonical item 39 being the tail of
+    the taper's own notes. Every gate passes -- one item against one file,
+    left-anchored on an exact tag match, and `_hygienic` cannot reject the
+    sentence (>= 3 letters, 70 chars so under MAX_TITLE_LEN, not
+    `is_junk_title`, not this show's metadata) -- which is exactly why the
+    branch had to go rather than the screen be tightened.
+
+    The first assertion is the point of the test; the second and third are the
+    mutation guard. Restoring the trailing branch makes the first fail, and
+    the `_hygienic` assertion documents that no cheaper fix was available."""
+    note = "for being so nice and quiet which allowed me to pull a nice recording."
+    canonical = _gap_items(("Poor Boy's Delight", "2", False),
+                           ("Tuning / Banter", "2", False),
+                           (note, "2", False))
+    tracks = _gap_tracks(("Poor Boy's Delight", "tags"),
+                         ("Tuning / Banter", "tags"),
+                         ("is2008-12-06d2t22.mp3", "unresolved"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[2].title_source == "unresolved"
+    assert out[2].title == "is2008-12-06d2t22.mp3"
+    # The gate that would have had to catch it, and cannot.
+    assert _hygienic(note, set()) is True
 
 
 def test_head_edge_run_adopts_with_one_real_anchor():
@@ -1702,12 +1744,23 @@ def test_head_edge_run_adopts_with_one_real_anchor():
 
 def test_a_merged_tag_anchor_consumes_both_its_items():
     # "Alpha > Bravo" is ONE file holding TWO items; without _merge_run the
-    # pointer stops at Alpha and the gap adopts Bravo instead of Charlie.
+    # pointer stops at Alpha, so the gap spans Bravo+Charlie -- two items
+    # against one file -- and count-forcing declines it.
+    #
+    # The trailing anchor ("Delta") is load-bearing and is why this reads
+    # differently from the version that shipped before the trailing-edge
+    # branch was removed: an interior gap is now the only kind that fills, so
+    # a merged-anchor test has to put a real anchor on the far side. The
+    # discrimination is unchanged and if anything sharper -- with _merge_run
+    # the gap is one item (Charlie) and adopts; without it the gap is two and
+    # declines.
     canonical = _gap_items(("Alpha", "1", True), ("Bravo", "1", False),
-                       ("Charlie", "1", False))
-    tracks = _gap_tracks(("Alpha > Bravo", "tags"), ("f2.mp3", "unresolved"))
+                           ("Charlie", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha > Bravo", "tags"), ("f2.mp3", "unresolved"),
+                         ("Delta", "tags"))
     out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
     assert out[1].title == "Charlie"
+    assert out[1].title_source == "setlist-gap"
 
 
 def test_override_titles_anchor_and_are_never_overwritten():

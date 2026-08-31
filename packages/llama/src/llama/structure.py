@@ -1056,6 +1056,11 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
     structure recovery and too weak to license adopting titles on either side
     of the match.
 
+    A run touching the START of the tape fills against a real right anchor; a
+    run touching the END never fills at all, whatever it looks like. See the
+    comment on the missing branch below for the measurement behind that
+    asymmetry.
+
     `metadata_norms` is passed in rather than imported: it is built in
     stages/gather.py, and structure.py must not depend on a stage.
     """
@@ -1090,11 +1095,32 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
         right = anchors.get(hi + 1) if hi + 1 < len(tracks) else None
         if left is not None and right is not None:
             span = (left[1], right[0])
-        elif left is not None and hi == len(tracks) - 1:
-            span = (left[1], len(items))
         elif right is not None and lo == 0:
             span = (0, right[0])
         else:
+            # DELIBERATELY NO TRAILING-EDGE BRANCH. A run reaching the last
+            # track was once filled from `(left[1], len(items))` -- a span
+            # anchored on one side only, running to the END of the canonical.
+            # That is precisely where a parsed LMA setlist keeps the taper's
+            # notes: `_strip_head_banner` cleans the head and has no tail
+            # counterpart, so the trailing items are lineage, gear lists and
+            # thank-yous, and `_hygienic` cannot tell them from a song (they
+            # have three letters, are under MAX_TITLE_LEN, are not
+            # `is_junk_title`, and are not this show's own metadata).
+            #
+            # MEASURED, not feared. In the M1 blind-the-tags corpus
+            # (docs/superpowers/2026-08-31-gap-fill-blind-test.md, 968 cached
+            # items) every junk-title adoption sat at `track == n_tracks`:
+            # `Branford Marsalis on saxophone throughout` on two recordings of
+            # gd1991-09-10, `= no lyrics` on two of gd1975-06-17 -- and on the
+            # unblinded cache the one bad adoption was
+            # `is2008-12-06.flac16.aud` track 34 of 34 adopting canonical item
+            # 39 of 39, `for being so nice and quiet which allowed me to pull
+            # a nice recording.`
+            #
+            # The LEADING branch above is kept: its span ends at a real
+            # anchor's item, so it can never reach the canonical's tail. Only
+            # the trailing one is open-ended, and only it is removed.
             continue
         gap = items[span[0]:span[1]]
         if len(gap) != hi - lo + 1:          # not count-forced
