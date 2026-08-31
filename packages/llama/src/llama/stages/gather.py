@@ -579,8 +579,8 @@ def run_gather(
     # artist drop globally. Every event on the date contributes its venue, not
     # just the resolved one — a multi-event date leaves `event` None, and the
     # banner still names the building.
-    canonical = _strip_head_banner(
-        canonical, _show_metadata_norms(artist, candidate, meta, events))
+    metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
+    canonical = _strip_head_banner(canonical, metadata_norms)
     canonical = _drop_artist_items(canonical, artist)
 
     siblings = None
@@ -601,14 +601,32 @@ def run_gather(
         tracks[n - 1] = tracks[n - 1].model_copy(
             update={"title": forced, "title_source": "override"})
 
+    # Single-word Dead shorthand ("Scarlet", "Dew", "Help") is only safe
+    # inside the Garcia universe — they are ordinary English words
+    # elsewhere. Non-family shows get an empty table, which makes the
+    # vocabulary a provable no-op on the non-Dead corpus. Shared with the
+    # `align()` call below.
+    family_aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
+
     # Fill count-forced runs of unresolved tracks between tag-verified anchors.
     # Runs here, after the overrides loop, so an operator-forced title can
     # ANCHOR a gap as well as survive it. metadata_norms is passed down
     # because structure.py must not import a stage.
+    #
+    # KNOWN, OWNED CONSEQUENCE: an adopted title *is* the canonical item's own
+    # text, so align() below is guaranteed to match it. That mechanically
+    # raises `coverage` and flips `Track.matched` to True for tracks that were
+    # never independently matched, which in turn can suppress the
+    # "low-confidence structure alignment" flag (gated on
+    # `align_coverage_threshold` below) on exactly the shows where adoption
+    # took the riskiest action. Whether `setlist-gap` tracks should count
+    # toward coverage/`matched` at all is open and escalated to the plan
+    # owner; see test_adoption_inflates_coverage_and_matched in
+    # test_stage_gather.py for the pinned current behaviour.
     tracks = adopt_gap_titles(
         tracks, canonical,
-        metadata_norms=_show_metadata_norms(artist, candidate, meta, events),
-        aliases=GD_SHORTHAND if jerrybase.is_family_artist(artist) else {})
+        metadata_norms=metadata_norms,
+        aliases=family_aliases)
 
     flags = []
     if overrides.set_breaks is not None or overrides.encore_after is not None:
@@ -621,12 +639,10 @@ def run_gather(
         alignment = "override"
         coverage, conflicts = 1.0, []
     else:
-        # Single-word Dead shorthand ("Scarlet", "Dew", "Help") is only safe
-        # inside the Garcia universe — they are ordinary English words
-        # elsewhere. Non-family shows get an empty table, which makes the
-        # vocabulary a provable no-op on the non-Dead corpus.
-        aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
-        result = align(tracks, canonical, aliases=aliases)
+        # family_aliases (Single-word Dead shorthand — "Scarlet", "Dew",
+        # "Help" — safe only inside the Garcia universe) was computed above,
+        # before the adopt_gap_titles call, and is reused here unchanged.
+        result = align(tracks, canonical, aliases=family_aliases)
         alignment = "deterministic"
         # Jerrybase closers are ground truth for where breaks fall, so anchoring
         # is tried on its own evidence and wins whenever it succeeds — it is not
