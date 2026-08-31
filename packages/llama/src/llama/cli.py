@@ -696,6 +696,12 @@ def _print_recording_info(ws) -> None:
 
 RESOLVE_PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit"
 
+# Must stay byte-for-byte in sync with the literal `gather.py` appends to
+# `review_flags` (`stages/gather.py`, ~line 819) -- there is no shared named
+# constant on that side, only the inline string, so this comment is the only
+# thing keeping the two from drifting apart silently.
+UNRESOLVED_TITLES_FLAG = "unresolved track titles"
+
 
 def _metadata_editor(entry) -> bool:
     """The `[m]etadata` mini-editor: sequential prompts for the gather-consumed
@@ -763,6 +769,13 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     _print_show_entry(entry)
     if entry.state != "held":
         return
+    # Task 8: offered only on a hold this feature can actually help with --
+    # `entry.flags` is `derive_state`'s (== `show.review_flags`) for a held
+    # show, so this reads it the same way `test_held_beats_everything`
+    # pins it, no extra I/O.
+    suggest_titles_offered = UNRESOLVED_TITLES_FLAG in entry.flags
+    if suggest_titles_offered:
+        typer.echo("[t] suggest titles")
     while True:
         choice = typer.prompt(RESOLVE_PROMPT, default="s", show_default=False).strip().lower()
         if choice in ("", "s"):
@@ -787,6 +800,24 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         elif choice == "o":
             _clear_hold(entry.ws)
             stage = "package"
+        elif choice == "t" and suggest_titles_offered:
+            # Shares `_propose_and_confirm_titles`/`_propose_titles_for_show`
+            # with `fix --suggest-titles` (Task 8) -- deliberately, so this
+            # surface and that one can never silently diverge (see both
+            # functions' docstrings). `entry.provenance`/`entry.ws.show`
+            # guards mirror `fix`'s M7 guard rather than risking an
+            # unguarded AttributeError; a held show is normally gathered,
+            # but this is defensive, not load-bearing.
+            if entry.provenance is None or not entry.ws.show.exists():
+                typer.echo(f"{entry.slug}: no provenance.json/show.json to "
+                           "propose titles from", err=True)
+                continue
+            show = read_model(entry.ws.show, Show)
+            picks = _propose_and_confirm_titles(ia, config, entry, show)
+            if not picks:
+                continue   # nothing changed - back to the prompt, same show
+            _edit_overrides(entry.ws, set_titles=picks)
+            stage = "gather"
         else:
             typer.echo("unrecognized; skipping")
             return
