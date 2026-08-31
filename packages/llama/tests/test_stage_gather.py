@@ -1309,3 +1309,83 @@ def test_a_wholly_untagged_tape_gets_no_gap_fill(tmp_path: Path):
     assert all(t.title_source == "unresolved" for t in show.tracks)
     assert show.needs_review is True
     assert "unresolved track titles" in show.review_flags
+
+
+def test_adoption_inflates_coverage_and_matched(tmp_path: Path):
+    """Pins I1: because an adopted title *is* the canonical item's own text,
+    align() is guaranteed to match it. On this mixed-show fixture that
+    mechanically raises coverage to 1.0, flips Track.matched to True for
+    both gap-filled tracks (which were never independently matched), and
+    suppresses both the "low-confidence structure alignment" flag and
+    needs_review entirely -- compare to the identical show with
+    adopt_gap_titles's wiring monkeypatched out below, where coverage is
+    0.6, two tracks are unmatched, and needs_review is True.
+
+    This test pins CURRENT behaviour, not a decision: whether a
+    setlist-gap track should count toward coverage / report matched=True
+    at all is open and has been escalated to the plan owner (see the
+    comment at the adopt_gap_titles call site in stages/gather.py)."""
+    md = json.loads(FIXTURE.read_text())
+    mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
+    for i, f in enumerate(mp3s):
+        f["title"] = None if i in (1, 2) else f.get("title")
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(exclude=["gd73-06-10d3t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert show.structure is not None
+    assert show.structure.coverage == 1.0
+    assert [t.matched for t in show.tracks] == [True, True, True, True, True]
+    assert show.needs_review is False
+    assert show.review_flags == []
+
+    def identity_adopt(tracks, canonical, *, metadata_norms, aliases):
+        return tracks
+
+    from unittest.mock import patch
+
+    import llama.stages.gather as gather_mod
+
+    md2 = json.loads(FIXTURE.read_text())
+    mp3s2 = [f for f in md2["files"] if f.get("format") == "VBR MP3"]
+    for i, f in enumerate(mp3s2):
+        f["title"] = None if i in (1, 2) else f.get("title")
+    sws2 = ShowWorkspace(tmp_path / "show-unwired")
+    write_artifact(sws2.overrides, Overrides(exclude=["gd73-06-10d3t01.mp3"]))
+    with patch.object(gather_mod, "adopt_gap_titles", identity_adopt):
+        unwired = gather_mod.run_gather(sws2, StubIA(md2), FakeProvider(),
+                                        make_candidate(), IDENT)
+    assert unwired.structure is not None
+    assert unwired.structure.coverage == 0.6
+    assert [t.matched for t in unwired.tracks] == [True, False, False, True, True]
+    assert unwired.needs_review is True
+    assert unwired.review_flags == [
+        "low-confidence structure alignment", "unresolved track titles"]
+
+
+def test_adopted_titles_make_the_closer_tripwire_reachable(tmp_path: Path):
+    """With filenames as titles the closer check matches nothing and is
+    silently inert. Once a gap is filled, a wrong closer must be able to
+    speak. Pins the behaviour change so it is owned, not discovered.
+
+    Task 3's original brief wrote this test without excluding a track, which
+    (per M2/titles.py:129) makes gd73's kept-file count exactly equal its
+    canonical setlist's item count -- so titles.resolve_titles's whole-tape
+    "setlist" rung fires and resolves the blanked positions before
+    adopt_gap_titles ever sees a gap; the test's own `assert adopted` then
+    fails (adopted == []). Fixed by reusing the same exclude-a-track trick as
+    test_gap_fill_resolves_a_mixed_show, so this exercises adopt_gap_titles
+    specifically, not the dead whole-tape rung."""
+    md = json.loads(FIXTURE.read_text())
+    mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
+    for i, f in enumerate(mp3s):
+        if i in (1, 2):
+            f["title"] = None
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(exclude=["gd73-06-10d3t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT,
+                      jerrybase_enabled=True)
+    adopted = [t for t in show.tracks if t.title_source == "setlist-gap"]
+    assert adopted
+    # every adopted title is a real song name, so norm_title comparisons in the
+    # closer/spans checks now have something to match against
+    assert all(not t.title.endswith(".mp3") for t in adopted)
