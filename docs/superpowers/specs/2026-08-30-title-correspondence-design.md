@@ -163,14 +163,35 @@ reimplementing a walk. It lives in `structure.py`, beside `apply_llm_alignment`:
 this is a matching-layer concern, and CLAUDE.md is explicit that fuzzy matching
 stays at that layer.
 
+**Placement, as shipped (deviation from the draft above).** The rung runs
+AFTER the `overrides.titles` loop, not before it. At the earlier position no
+anchors exist yet — `align()` has not run and nothing has matched — and an
+operator-forced title could not anchor a gap. Running after, and skipping
+tracks whose `title_source` is `override`, keeps operator titles winning while
+also letting them anchor.
+
 ### Adoption conditions — all required
 
 1. **Count-forced.** The gap's canonical-item count exactly equals its file
    count. No merges, no fillers, no skips are needed to make it fit. This is the
    whole safety argument: with the count forced, there is no assignment freedom
    for a shift to hide in.
-2. **Anchored.** Both flanking tracks are real matches (interior gap), or the run
-   touches a tape edge with the other anchor real.
+2. **Anchored.** Both flanking tracks are real matches (interior gap), or the
+   run touches the LEADING tape edge with the other anchor real.
+
+   **Trailing-edge runs are declined outright** — ratified 2026-08-31 after M1
+   measured them. All five bad adoptions in the corpus sat at
+   `track == n_tracks`, because `_hygienic` has no tail counterpart to
+   `_strip_head_banner` and a taper's closing thank-you sentence reaches the
+   end of a description exactly where a banner reaches the start. Surviving
+   leading-edge runs (n=837) measured 1.43-1.55% wrong against 1.56-2.50% for
+   everything else, so the leading edge is not the problem and is kept. The
+   narrowing costs 318 adoptions (4.6%) — 265 correct traded against 12
+   genuinely-wrong, about 22:1 — which is worth taking because the costs are
+   asymmetric: a declined title costs the operator one `--set-title`, while a
+   wrong one reaches the manifest, the ID3 tag and the air with
+   `brief.briefing_guard` and emcee's `script_guard` both structurally blind to
+   it, since each defines truth FROM the tracklist.
 3. **Hygiene**, per adopted title: passes `titles.is_real_title`; is not junk
    per `setlist._is_junk_title`; is within `setlist.MAX_TITLE_LEN` (80); does not
    end in `:`; and is not show-metadata residue — a "song" titled like the venue

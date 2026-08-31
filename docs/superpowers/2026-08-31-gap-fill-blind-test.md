@@ -993,6 +993,48 @@ docstring) and on any future tape where that rung fires.
 
 ---
 
+## Candidate population, and why one adoption understates the trajectory
+
+Measured 2026-08-31 over the same 958 usable cached items, counting the SHAPE
+the rung needs rather than the adoptions it makes:
+
+| tag state of the item | items |
+|---|---|
+| every track tagged | 880 |
+| no track tagged | 57 |
+| **mixed** | **21** |
+| ...of which carry an interior untagged run between tagged tracks | **17** |
+
+Split by artist family (`jerrybase.is_family_artist`):
+
+| | interior-gap items |
+|---|---|
+| other artists | 16 |
+| Garcia family | 1 |
+
+Two things follow, and the second corrects an impression the one-adoption
+headline gives on its own.
+
+**The binding constraint is conversion, not population.** Seventeen items
+already have the target shape and the rung adopts on one. So the filter is not
+"mixed-tag shows are rare" — they are seventeen times more common than the
+adoption count. It is that count-forcing rarely holds even when the shape is
+right. Sharpest form: those 17 include all four partially-unresolved shows in
+the live library (Del McCoury 8/21, Greensky, Stringdusters, Trampled) and the
+rung resolves none of them.
+
+**The population skews 16:1 away from the Dead**, toward exactly the acts where
+a taper tags most tracks and leaves a couple they do not recognise — Del
+McCoury, Greensky Bluegrass, Infamous Stringdusters, Trampled by Turtles,
+Yonder Mountain. A library that grows in lower-profile acts grows this rung's
+candidate pool along the axis that feeds it, so its value trends up over time
+rather than down. That is the forward-looking case for keeping it, and it is
+measured rather than assumed. It does not change the present-day number.
+
+Census command: `scripts/title_source_census.py` for the library view; the
+tag-state census above is reproducible from the cache with `filter_files` +
+`clean_tag_titles` + `is_real_title` over `~/.llama/cache/md_*.json`.
+
 ## What this does not measure
 
 - **`setlistfm=None`.** Stated at the top and restated here because it is the
@@ -1081,3 +1123,41 @@ report loudly instead of looking clean.
 
 Suite at the time of writing: `./.venv/bin/pytest -q` → **1500 passed, 7
 deselected**.
+
+
+## M2: full-library no-op check (2026-08-31)
+
+Gate M2 from the spec, run by `scripts/regather_diff.py`. Re-gathers every show
+in the on-disk library twice from cached metadata — once with the rung active,
+once with `adopt_gap_titles` monkeypatched to a no-op — and asserts that
+enabling it changes no track the unwired run already resolved.
+
+    $ ./.venv/bin/python scripts/regather_diff.py --assert-no-regressions
+    compared 89 shows (0 skipped)
+    0 regressions; 0 newly resolved
+    exit 0
+
+Wired-vs-unwired rather than "stored show.json vs new code": the stored shows
+were produced by several older code versions (some by a released binary
+predating `Track.matched`), so a diff against them would be dominated by
+unrelated drift and could attribute nothing to this change.
+
+**Zero regressions AND zero adoptions cannot, on its own, distinguish a check
+that ran from one that never engaged**, so the harness carries a `--selftest`
+mode that substitutes a deliberately wrong adopter:
+
+    $ ./.venv/bin/python scripts/regather_diff.py --selftest
+    compared 89 shows (0 skipped)
+    0 regressions; 75 newly resolved
+    SELFTEST: harness CAN detect a difference -> PASS
+
+75 is exactly the library's unresolved-track count, so the comparison is live
+and the real run's zeros are a measurement.
+
+Zero adoptions on the library is consistent with the one natural adoption
+reported above: `ymsb2010-07-17` is cached but is not one of the 89 shows.
+
+Standing caveat, as everywhere else here: this runs with `setlistfm=None`, so
+shows whose real canonical was setlist.fm-won are re-derived from LMA
+descriptions alone. It bounds the change's blast radius; it does not replicate
+production.
