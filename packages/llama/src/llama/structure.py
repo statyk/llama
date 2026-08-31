@@ -997,7 +997,18 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
     a merged track (multiple components) matches its item run via `_merge_run`,
     which compares each component with `fuzzy_title_eq` (component-fuzzy, with
     an `_is_subphrase` fallback) because a merged track must consume ALL of
-    its items — there is no partial-credit anchor. `_window_match` is
+    its items — there is no partial-credit anchor. This is a real, accepted
+    weak point, not just a mechanism note: because `fuzzy_title_eq` tolerates
+    dropped subtitles and credit-only parentheticals, a merged anchor can bind
+    to the WRONG item run — one item off from where it truly belongs — and
+    still report success. Count-forcing does NOT catch this: a same-size shift
+    (the anchor's span slides by one item but keeps the same length) preserves
+    the gap's item count exactly, so the `len(gap) == hi - lo + 1` check passes
+    regardless of which end the anchor actually lands on. This is the same
+    failure shape that sank both the LLM approach and the unanchored DP in the
+    spec's own measurements: a wrong-but-internally-consistent shift satisfies
+    every consistency check precisely because a shift is consistent by
+    construction — consistency is not correctness. `_window_match` is
     deliberately NOT used for either case: its subphrase fallback is right for
     structure recovery and too weak to license adopting titles on either side
     of the match.

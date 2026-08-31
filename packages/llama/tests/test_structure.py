@@ -1721,7 +1721,35 @@ def test_override_titles_anchor_and_are_never_overwritten():
 
 
 def test_hygiene_rejects_a_junk_item():
+    # NOTE: "Set List:" is rejected by _hygienic's `not t.endswith(":")`
+    # clause, not by `is_junk_title` (is_junk_title("Set List:") is False —
+    # it has no duration/disc/total-time shape). This test alone would still
+    # pass if `is_junk_title` were dropped from _hygienic entirely; see
+    # test_hygiene_rejects_via_is_junk_title_specifically below for a case
+    # that isolates that clause.
     canonical = _gap_items(("Alpha", "1", False), ("Set List:", "1", False),
+                       ("Charlie", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Charlie", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert out[1].title_source == "unresolved"
+
+
+def test_hygiene_rejects_via_is_junk_title_specifically():
+    """A title that clears every OTHER _hygienic clause but is rejected
+    because `is_junk_title` says so, and for no other reason — proof that
+    the `not is_junk_title(t)` clause is load-bearing (see mutation evidence
+    in the task-2 report). "Disc Two" matches setlist.is_junk_title's
+    disc-number pattern (`^discs?\\s*#?\\s*(?:\\d+|one|two|...)$`) while being
+    non-empty, clearing `is_real_title` (7 ASCII letters), at MAX_TITLE_LEN
+    (80), not ending in ":", and not present in metadata_norms."""
+    from llama.setlist import MAX_TITLE_LEN, is_junk_title
+    from llama.titles import is_real_title
+    title = "Disc Two"
+    assert is_junk_title(title) is True
+    assert is_real_title(title) is True
+    assert len(title) <= MAX_TITLE_LEN
+    assert not title.endswith(":")
+    canonical = _gap_items(("Alpha", "1", False), (title, "1", False),
                        ("Charlie", "1", False))
     tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"), ("Charlie", "tags"))
     out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
