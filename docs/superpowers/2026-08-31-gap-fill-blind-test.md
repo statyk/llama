@@ -1161,3 +1161,399 @@ Standing caveat, as everywhere else here: this runs with `setlistfm=None`, so
 shows whose real canonical was setlist.fm-won are re-derived from LMA
 descriptions alone. It bounds the change's blast radius; it does not replicate
 production.
+
+## Section A — the footnote-strip differential (2026-08-31)
+
+The change under test is `gather._strip_footnote_markers`, added to
+`build_canonical`'s cleaning pass in `90f8f9f`, which removes trailing
+description apparatus (`*`, `#`, `%`, `^`, `$`, `@`) from canonical setlist
+item titles. The differential harness is `scripts/footnote_strip_diff.py`
+(`2706af2`). The prediction and its abort condition were pre-registered,
+before the harness existed, in
+`docs/superpowers/2026-08-31-footnote-strip-prediction.md` (`f4c3cf0`).
+
+### The control ran first, and it went red
+
+The registered prediction said the abort set would come back **empty**. An
+empty result and a harness that never engaged the changed code are
+byte-identical on the page and cannot be told apart afterwards, so the
+control is not optional — it is the only thing that makes a subsequent zero
+mean anything.
+
+    $ ./.venv/bin/python scripts/footnote_strip_diff.py --selftest
+    ...
+    SELFTEST: harness CAN see a canonical mutation -> PASS
+    exit 0
+
+`--selftest` replaces the strip with a cleaner that renames every canonical
+item outright — a mutation matching cannot possibly ignore. It moved
+**2742 abort-set entries across 89/89 shows**, hitting every registered
+member:
+
+| member | moves |
+| --- | --- |
+| `matched` | 1700 |
+| `segue` | 442 |
+| `set` | 236 |
+| `structure.conflicts` | 197 (112 element-level + 85 list-length) |
+| `structure.coverage` | 85 |
+| `review_flags` | 34 |
+| `needs_review` | 25 |
+| `set_breaks` | 23 |
+| **total** | **2742** |
+
+The mutation is flag-scoped and restored in a `finally`, and the revert was
+confirmed before the real arms ran.
+
+### The real arms
+
+    $ ./.venv/bin/python scripts/footnote_strip_diff.py
+    compared 89 shows (0 skipped)
+    0 track titles stripped; 11 structure.conflicts entries stripped; 0 other abort-set moves
+    exit 2
+
+The 11 deltas fall on 3 shows, and every one is a pure marker strip of the
+text of an **unmatched** canonical item:
+
+| show | entries |
+| --- | --- |
+| `greenskybluegrass-2008-02-29` | 1 — `'Thick Smoke #@%' -> 'Thick Smoke'` |
+| `yondermountainstringband-2002-12-31` | 1 — `'Roll on Blues $' -> 'Roll on Blues'` |
+| `yondermountainstringband-2005-12-31` | 9 — e.g. `'High Lonesome Sound * # $' -> 'High Lonesome Sound'` |
+
+List length and ordering are unchanged; coverage is byte-identical; there is
+zero movement in `matched`, `set`, `segue`, `set_breaks`, `title_source`,
+`review_flags` or `needs_review` anywhere in the corpus.
+
+### This is a FALSIFICATION with a scoped waiver, not a pass
+
+**1. The registered abort condition FIRED.** The registration named
+"alignment output" in the abort set. `structure.conflicts` is produced by
+`align()` (`structure.py:894`) and is alignment output by any ordinary
+reading. The harness exits **2 — ABORT SET MOVED**, which is what it is
+built to do. The letter of the prediction is broken.
+
+**2. The stated mechanism was nonetheless confirmed.** Zero matching
+*decisions* moved on 89 shows, exactly as the `fuzzy_norm_title` argument
+predicted: it folds the marker characters before any comparison, so matching
+cannot observe the strip. What moved is a diagnostic that quotes canonical
+text verbatim, downstream of every decision.
+
+**3. The ruling is a scoped waiver, issued by the author of the wording.**
+The intent behind "alignment output" was matching decisions, not diagnostics
+that quote canonical text; the wording was too broad for the intent. **The
+imprecision is the author's — not the registrar's and not the instrument's.**
+The registrar reproduced the wording faithfully, and the harness measured
+exactly what it was asked to measure and reported it correctly. A future
+reader should distrust neither.
+
+**4. The corrected wording, for whoever inherits this:** abort on movement in
+matching **decisions** — `matched`, `set`, `segue`, `set_breaks`, `coverage`,
+`title_source`, `review_flags`, `needs_review` — and **not** on diagnostics
+that merely quote canonical text.
+
+The point of principle, plainly: **pre-registration is worth nothing if the
+author gets to narrow the claim after seeing the numbers.** The firing is
+recorded here as a firing, in the same document that lets the change proceed,
+precisely so the narrowing is visible rather than invisible.
+
+### The null result, stated plainly
+
+**ZERO improved track titles corpus-wide.** Not one track title changed on
+any of the 89 shows. This differential demonstrates **absence of harm, not
+presence of benefit**.
+
+The benefit lives at the proposal layer, where `fix --suggest-titles` renders
+canonical text directly to an operator: 9 of the 25 canonical items on the
+`ymsb2005` fixture are cleaned. Section B's M3 is what shows that. These are
+two separate findings about two separate layers and are deliberately not
+blended into one favourable-sounding sentence.
+
+**A correction to the reason, made after measuring rather than assuming.** An
+earlier framing of this result held that all three marked shows align at
+coverage 0.0 offline, so nothing could adopt on them. That is true for two of
+the three and **false for the third**: measured under the harness's own
+conditions (`setlistfm=None`, cached metadata),
+
+    greenskybluegrass-2008-02-29:        coverage=1.0  (28 of 30 items matched)
+    yondermountainstringband-2002-12-31: coverage=0.0  (0 of 58 matched)
+    yondermountainstringband-2005-12-31: coverage=0.0  (0 of 25 matched)
+
+The zero therefore does not rest on coverage at all. The real mechanism is
+narrower and stronger: **all 11 deltas are on UNMATCHED canonical items, and
+only a matched item can supply a track title.** On `greenskybluegrass-2008-02-29`
+alignment succeeds completely, and the two conflicts entries — `'Intro'` and
+`'Thick Smoke #@%'` — are precisely the two items alignment left over.
+
+### Standing caveat
+
+`setlistfm=None` throughout — the suite's autouse fixture keeps
+`SETLISTFM_API_KEY` unset, and the harness passes `setlistfm=None`
+explicitly. Shows whose real canonical was setlist.fm-won are re-derived here
+from LMA descriptions alone. This is an **upper bound on blast radius, not a
+production measurement**, the same standing caveat every other offline number
+in this repo carries. (Section B's M3, by contrast, ran with the real
+setlist.fm client active — see there.)
+
+### `conflicts` does reach a prompt-facing surface
+
+Verified in tree rather than assumed, and reproduced here before being
+written down. `structure.conflicts` has exactly one in-tree consumer:
+
+- `gather.py:803` (and `:885`) assigns it into `StructureInfo`.
+- `StructureInfo` is a field of `Show` — `models.py:190`,
+  `structure: StructureInfo | None`.
+- `stages/brief.py:138` passes `show_json=show.model_dump_json(indent=2)`
+  into the briefing prompt inputs.
+- `prompts/brief.md:19` interpolates `{{show_json}}` into the prompt body.
+
+So conflicts text is serialized wholesale into the briefing LLM's prompt.
+Confirmed on real data — `~/.llama/shows/greenskybluegrass-2008-02-29/show.json`
+currently carries:
+
+    "structure": { "conflicts": ["Intro", "Thick Smoke #@%"] }
+
+Cleaning it is therefore **neutral-to-better — in fact strictly better**: the
+briefing LLM stops seeing description apparatus glued onto song names.
+
+### Reproduction
+
+Corpus: the 89 shows in `~/.llama/shows`. Commits: `90f8f9f` (the strip),
+`2706af2` (the harness), `f4c3cf0` (the pre-registration).
+
+    # control FIRST -- a zero from the real arm means nothing without it
+    $ ./.venv/bin/python scripts/footnote_strip_diff.py --selftest
+    # the real differential
+    $ ./.venv/bin/python scripts/footnote_strip_diff.py
+
+Exit codes: 0 clean, 1 selftest failed to detect, 2 abort set moved.
+
+## Section B — M3: hand-review of the six held-show proposals (2026-08-31)
+
+Gate M3 from the spec: render `llama fix <show> --suggest-titles` for the six
+held shows and **check every table by hand**. A green exit code is not the
+deliverable; the failure this gate exists to catch is a proposal that looks
+right and is uniformly shifted.
+
+    $ for s in <the six>; do
+    >   ./.venv/bin/llama fix "$s" --suggest-titles --no-run </dev/null
+    > done
+
+All six resolved to exactly-named directories under `~/.llama/shows`; none
+was absent or substituted. `stdin` was redirected from `/dev/null`, so the
+confirmation prompt takes EOF and aborts — **exit 1 means "table rendered,
+nothing written", and exit 0 means "declined before the prompt"**. Nothing
+was adopted into any `overrides.json`.
+
+**This run had setlist.fm ACTIVE** (`api_key` is set in `~/.llama/config.toml`,
+and `make_client(config)` returns a live client), unlike every offline number
+elsewhere in this document. That turns out to matter — see ymsb2005 below.
+
+### Result: GATE FAILED
+
+**Three of the four feasible shows render confident-looking wrong tables.**
+Of the six shows, two declined safely, one produced a correct adoption, and
+three would have written wrong titles into `overrides.json` on a `y`.
+
+| show | outcome | rows | titled / unresolved | `forced` | evidence | verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| `yondermountainstringband-2002-12-31` | feasible | 38 | 36 / 2 | never | duration-model | **GATE FAILURE** — ~all 36 wrong |
+| `yondermountainstringband-2005-12-31` | feasible | 24 | 22 / 2 | never | duration-model | **GATE FAILURE** — 13 of 22 wrong |
+| `delmccouryband-2003-04-19` | **declined** | — | — | — | — | correct, safe |
+| `infamousstringdusters-2014-03-15` | feasible | 28 | 28 / 0 | never | duration-model | **GATE FAILURE** — all 3 picks wrong |
+| `greenskybluegrass-2007-08-05` | **declined** | — | — | — | — | correct, safe |
+| `trampledbyturtles-2007-07-20` | feasible | 25 | 23 / 2 | never | duration-model | pick correct; 3 non-pick rows wrong |
+
+The `forced` label **never appeared in any of the six tables**. Every titled
+row carried a numeric margin, which is the presentation that reads as
+confident.
+
+Both declines emitted the same message and exited 0 before any table:
+
+    delmccouryband-2003-04-19: no consistent correspondence - parse quality too low
+    greenskybluegrass-2007-08-05: no consistent correspondence - parse quality too low
+
+### Method for the hand-check
+
+Self-consistency proves nothing — a uniform shift is perfectly
+self-consistent. Each table was checked against **external ground truth for
+that specific tape**, never against itself:
+
+- `ymsb2005-12-31` — the sibling item `ymsb2005-12-31.flac16` carries **fully
+  tagged per-track titles with durations**. Ground truth was established by
+  cumulative-offset alignment of the two recordings across all three discs;
+  the drift is monotone and small (−21 s to −57 s on disc 1, +19 s to +49 s on
+  disc 3), and several boundaries land within a second or two (track 2 =
+  430 s vs `On The Run` 431.33 s; track 6 = 292 s vs `Howard Hughes Blues`
+  292.4 s; track 22 = 186 s vs `Crowd` 186.83 s).
+- `ymsb2002-12-31` — the selected item's **own description is numbered per
+  disc**, and its per-disc counts match the tape's file counts exactly
+  (12/13/12). Cross-checked against the sibling `ymsb2002-12-31.fullshow`,
+  whose merged tracks sum to the selected tape's runs (intro 66 s + track 642 s
+  = 708 s vs the sibling's single 708.55 s `Mother's Only Son`).
+- `infamousstringdusters-2014-03-15` and `trampledbyturtles-2007-07-20` — the
+  items' own descriptions enumerate every track by number, and most tracks
+  already carry `title_source="tags"`, giving row-by-row anchors on both sides
+  of each pick.
+
+### `yondermountainstringband-2005-12-31` — GATE FAILURE
+
+The table's **shape** matches the spec's expectation exactly: 24 rows, 22
+titled, tracks 11 and 22 rendered `(unresolved - hand-edit)`. Those two
+fillers are even correct — track 11 is the Set II intro and track 22 is the
+`Crowd` track, neither of which is a song.
+
+**The content is wrong.** Against the tagged sibling:
+
+| row | proposed | actual | |
+| --- | --- | --- | --- |
+| 1 | Granny Wontcha Smoke Some Marijuana | `Granny > Ride The Wild Turkey` (merged) | partial |
+| 2 | Ride the Wild Turkey | On The Run | **wrong** |
+| 3 | On the Run | Postcard To My Son From Jail | **wrong** |
+| 4 | Postcard to My Son From Jail | On The Run (reprise) | **wrong** |
+| 5–9 | Steep Grade … Peace of Mind > King Ebeneezer | (same) | correct |
+| 10 | Get Me Outta This City | Peace Of Mind (reprise) | **wrong** |
+| 12–18 | Midnight Blues … Finally Saw the Light | Get Me Outta This City … It's All Too Much | **wrong (uniform +1)** |
+| 19 | Ewe With the Crooked Horn | Finally Saw The Light | **wrong** |
+| 20 | If You're Ever in Oklahoma | Ewe With The Crooked Horn | **wrong** |
+| 21 | Spanish Harlem Incident | `Oklahoma > Spanish Harlem` (merged) | **wrong** |
+| 23–24 | High Lonesome Sound; Tear Down… | (same) | correct |
+
+**13 of 22 titles are outright wrong**, 2 more are partial, 7 are right.
+Rows 12–21 are a textbook uniform off-by-one shift — every row internally
+plausible, the whole block displaced by one.
+
+**Root cause, and it is not the DP.** The canonical built for this show has
+**23 items**; the performance has 25 songs. It is missing **both reprises** —
+the second `On The Run` and the third `Peace Of Mind`. Two missing items
+produce two independent +1 shifts which happen to cancel across rows 5–9,
+which is why part of the table looks right.
+
+**The canonical is missing them because setlist.fm supplied it.** Measured
+both ways on this show:
+
+    setlistfm=ACTIVE: n=23  ['Granny Wontcha Smoke Some Marijuana', 'Ride the Wild Turkey', 'On the Run', ...]
+    setlistfm=None  : n=25  ['Granny Woncha Smoke Some', 'Ride The Wild Turkey', 'On The Run', 'Postcard To My Son From Jail [tentative title]', 'On The Run', ...]
+
+The LMA-only canonical is the **correct 25 items**, matching ground truth
+exactly, reprises included. The production path — with setlist.fm active — is
+strictly worse here. That inverts the usual assumption that the offline
+numbers in this document are the pessimistic ones.
+
+### `yondermountainstringband-2002-12-31` — GATE FAILURE, the worst of the six
+
+The spec expected this show to render "either a partial table or the decline
+message, and **must not render a confident-looking wrong one**." It rendered
+a full 38-row table with 36 confident titles and no `forced` markers.
+
+Against the item's own numbered description, **essentially every row is
+wrong.** The tape's discs open with untitled tracks — `d1t01 intro` (1:21),
+`d2t01 intro` (1:30), `d3t01 intro` (1:06) — and the canonical contains no
+`intro` items, so the DP assigned `I Am a Man of Constant Sorrow` to the
+1:21 intro and shifted the entire first 25 rows by one. Row 38, the tape's
+`New Horizons`, is labelled `Roll On Blues`.
+
+Two compounding defects:
+
+- **The canonical describes the full performance; the tape does not.** The
+  canonical has 40 items; the tape has 35 songs. This recording is truncated
+  — the sibling uploader says so explicitly ("the other recording … is not
+  complete, leaving out the majority of disc 4"). The DP has no notion of a
+  tape ending early, so it **smeared a 40-item setlist across 38 tracks**.
+  This is the filed-not-fixed gap in `CLAUDE.md` — coverage never inspects
+  unmatched items — surfacing at the proposal layer.
+- **Songs absent from either description were proposed as titles**:
+  `Blue Collar Blues`, `Easy as Pie`, `The Muppet Show Theme`. These come
+  from setlist.fm's canonical, which is authoritative for the *performance*
+  and wrong for this *tape*.
+
+### `infamousstringdusters-2014-03-15` — GATE FAILURE, and the most dangerous
+
+Only 3 rows are picks (tracks 8, 9, 10 are the show's only `unresolved`
+tracks); the confirmation reads `write 3 titles into overrides?`. The small
+adopted set makes this look like the low-risk case. It is the opposite: **all
+three picks are wrong.**
+
+The item's own description numbers Set 01 unambiguously — `07. How Far I'd
+Fall For You`, `08. 3x5`, `09. Something Wind`, `10. Machines` — and set 1 on
+the tape is exactly 10 tracks.
+
+| track | proposed | actual |
+| --- | --- | --- |
+| 8 | How Far I'd Fall For You | **3x5** |
+| 9 | 3x5 | **Something Wind** |
+| 10 | Something Wind | **Machines** |
+
+Confirming, on a `y` this would have:
+
+- written `How Far I'd Fall For You` onto track 8 while track 7 **already
+  carries that exact title from its own tags** — a visible duplicate;
+- dropped `Machines` from the show entirely.
+
+The shift begins at row 6: the tape tags track 5 as the whole sandwich
+`Traveling Teardrop Blues > After Midnight > Traveling Teardrop Blues >`,
+while the canonical holds it as three separate items, so the DP spent an
+extra track on it. Rows 6–25 are all displaced by one and the table re-syncs
+only at row 26. A set marker also leaked in as a proposed song title: row 12
+renders `~Set 02~`.
+
+### `trampledbyturtles-2007-07-20` — the one correct adoption
+
+One pick: track 21, `TBT2007-07-20D2T08.mp3`, proposed `1922`. **Correct.**
+The item's own description reads `D2 … 07 Valley, 08 1922 $, 09 Trouble`, and
+the filename itself is `D2T08`. The pick is anchored on both sides by rows the
+tape's own tags confirm (row 20 `Valley`, row 22 `Trouble`), and rows 13–25
+align correctly throughout.
+
+The table around it is not clean: row 1 proposes `Lost Highway` for the tape's
+`Wizard Intro`, row 2 proposes `Ain't No Use in Tryin'` for `Lost Highway`,
+and row 12 proposes `Jars at Home` for `I'm a Target Too` (the canonical omits
+`I'm a Target Too` and the misplaced filler lands one row early). Those three
+rows are wrong but sit on tracks that already have tag titles, so they are
+**not picks and would not be written** — the "never clobber a track that
+already has a title" clause is what contains the damage here, and this show is
+a live demonstration that the clause is load-bearing.
+
+### The footnote strip is not visible in this run, and here is why
+
+The M3 tables render clean — `High Lonesome Sound`, not
+`High Lonesome Sound * # $`. But **this run does not demonstrate the strip**,
+because setlist.fm was active and supplied already-clean titles. Measured
+directly on `ymsb2005-12-31`, the canonical carries **zero** marker-bearing
+titles under either setting:
+
+    setlistfm=ACTIVE: n=23 dirty=0
+    setlistfm=None  : n=25 dirty=0
+
+The `setlistfm=None` arm is the one that exercises the strip — its canonical
+comes from the description text, which does carry `* # $ @ % ^` — and it comes
+back clean, which is the strip working. Section A's harness, which runs
+`setlistfm=None`, is where that is actually measured: 9 items cleaned on this
+show, 11 across the corpus.
+
+### What this gate establishes
+
+The design premise holds and is now demonstrated rather than argued: **the
+correspondence DP is proposal-only, and the human confirmation is the only
+thing preventing silent wrong adoption.** Four of six shows rendered a
+feasible table; three of those four would have written wrong titles. Nothing
+in the rendering distinguished them — no `forced` labels, plausible margins,
+correct row counts, and on `ymsb2005-12-31` even the two correct fillers in
+exactly the positions the spec predicted.
+
+The specific mechanism to carry forward: **every failure is a canonical/track
+count mismatch, not a duration error.** Missing reprises (ymsb2005), missing
+`intro` tracks plus a truncated tape (ymsb2002), a segue sandwich held at
+different granularity (ISD). The DP assumes the canonical and the track list
+cover the same material, and nothing checks that assumption before rendering.
+
+### Reproduction
+
+    $ for s in yondermountainstringband-2002-12-31 yondermountainstringband-2005-12-31 \
+    >          delmccouryband-2003-04-19 infamousstringdusters-2014-03-15 \
+    >          greenskybluegrass-2007-08-05 trampledbyturtles-2007-07-20; do
+    >   ./.venv/bin/llama fix "$s" --suggest-titles --no-run </dev/null
+    > done
+
+Run from the worktree with the worktree's own venv. A bare `llama` resolves to
+the main checkout and exercises the wrong source.
