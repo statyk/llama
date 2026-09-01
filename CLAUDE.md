@@ -188,7 +188,27 @@ tier (pins never escalate).
   for, via the correspondence DP (`llama/correspondence.py` —
   **proposal-only, never auto-adopted**; unanchored monotone
   correspondence measured 45-52% wrong, so a human confirmation is the
-  only thing standing between a proposed title and adoption). On
+  only thing standing between a proposed title and adoption). **The DP is
+  gated by an accountability guard that declines rather than renders**
+  (`correspondence._unaccounted` / `_contradicts_forced_gaps`): each
+  maximal run of still-`unresolved` tracks — the only adoptable ones —
+  must be **count-forced between anchors**, exactly as `setlist-gap`
+  requires, and the DP's own solution must not contradict a forced gap.
+  Both checks are exact structural counts, never a margin/score/coverage
+  threshold; they reuse `structure.anchor_spans`/`gap_span`/
+  `unresolved_runs`, extracted from `adopt_gap_titles` so the silent rung
+  and the confirmed one cannot drift apart on what an anchor is. What
+  they do NOT share is the `_hygienic` veto — an operator reads this
+  table — which is the command's whole residual value over `setlist-gap`.
+  **Consequence, deliberate and load-bearing: a WHOLLY UNTAGGED tape is
+  no longer proposable at all**, since nothing anchors the setlist to it.
+  That is the population this feature was aimed at, and the M3 gate
+  measured it 13-of-22 wrong via a uniform off-by-one with nothing in the
+  table saying so. **A whole-tape count comparison cannot substitute for
+  the per-run one**: `yondermountainstringband-2005-12-31` (declines) and
+  `trampledbyturtles-2007-07-20` (renders, correctly) are both 24
+  song-like tracks against 23 canonical items — measured, don't retry it.
+  On
   confirmation, the proposed titles for still-`unresolved` tracks are
   written into `overrides.titles` at once (a filler row gets no proposal
   and stays `(unresolved - hand-edit)`; a track that already carries a
