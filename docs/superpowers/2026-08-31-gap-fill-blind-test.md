@@ -2001,3 +2001,36 @@ with `setlistfm=make_client(config)` and `setlistfm=None`, reusing
 `cli._propose_titles_for_show`'s exact argument construction (same
 `FORMAT_BY_AUDIO` / `filter_files` / `jerrybase.lookup` / overrides-exclusion
 sequence) so the measured canonical is the one the command actually builds.
+
+### Filed, not fixed: the `?`-titled-items misread, and why the one-line fix buys nothing
+
+`sibling_item_durations`'s duplicate-canonical-norms refusal
+(`if len(set(norms)) != len(norms): return None`) misfires on
+`delmccouryband-2003-04-19`, whose canonical carries three items titled literally
+`?`. All three normalize to `''`, so the guard reads "three unnamed songs" as "a
+reprise" and refuses the donor. That is a genuine misread.
+
+The obvious one-line remedy — exclude empty norms from the duplicate check — was
+proposed and **measured before being written. It recovers no yield at all**, so it
+was filed rather than implemented.
+
+Reason, and it is structural rather than incidental: the donor loop skips empty
+norms when building its table (`if not n: continue`), so `by_norm` can never
+contain `''`. Any canonical item normalizing to `''` therefore hits
+`by_norm.get(n, -1.0)` -> `-1.0`, fails `> 0`, and fails the final
+all-items-resolved check. The function still returns `None`; the fix only changes
+*which* branch returns it.
+
+Demonstrated on a `delmccoury`-shaped canonical (`['', 'alpha', '', 'bravo', '']`)
+against a **perfect** donor resolving every named item, in a shadowed copy outside
+the worktree:
+
+```
+dup guard fires after fix? False      <- the fix works as intended
+all() check passes?        False      <- and the yield is lost one branch later anyway
+```
+
+So the misread costs no measurable yield, and correcting it in isolation would be
+a cosmetic change presented as a yield fix. Any real remedy here is the
+`list[float | None]` per-item redesign recorded above, which was marked REDESIGN
+and not undertaken.
