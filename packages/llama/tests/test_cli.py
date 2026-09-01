@@ -283,6 +283,73 @@ def _staged_ymsb_show(tmp_path, monkeypatch, slug="ymsb2005-12-31"):
     return sws
 
 
+#: Tracks left `unresolved` by `_staged_anchored_ymsb_show`, and the canonical
+#: item each one is COUNT-FORCED to by the tag-titled tracks bracketing it.
+#: Measured against the real fixture, not asserted by construction -- see that
+#: helper's docstring for why they cannot simply be chosen.
+ANCHORED_GAPS = {5: "Steep Grade Sharp Curves",
+                 14: "Jack London",
+                 20: "Ewe With The Crooked Horn"}
+
+
+def _staged_anchored_ymsb_show(tmp_path, monkeypatch, slug="ymsb2005-12-31",
+                               gaps=tuple(ANCHORED_GAPS)):
+    """The same real ymsb tape, but ANCHORED: every track except `gaps`
+    carries a tag title lifted from the canonical setlist, so each remaining
+    unresolved run is bracketed by tracks that independently place
+    themselves in that setlist.
+
+    This exists because `_staged_ymsb_show`'s tape -- wholly untagged -- is
+    no longer proposable at all, and that is the point of the M3 guard, not
+    an accident to work around: with no track carrying a title of its own,
+    nothing pins the setlist to the tape and `propose_titles` declines (see
+    `test_the_untagged_tape_is_no_longer_proposable`). Every test that needs
+    a RENDERED proposal therefore needs an anchored tape.
+
+    Track 1 carries a MERGED tag title (`Granny Woncha Smoke Some > Ride The
+    Wild Turkey`) rather than a plain one, and that is load-bearing: this
+    canonical parses to 25 items over 24 files, so exactly one merge has to
+    absorb the extra item somewhere. Put it on track 1 and the DP agrees with
+    the anchoring; leave it for the DP to place and it spends the merge later
+    on the tape, slides its assignment past the gaps, and the proposal is
+    declined by the contradiction half of the guard -- verified directly
+    against this fixture, which is also why `ANCHORED_GAPS`' titles are
+    measured rather than derived from the tagging rule.
+    """
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    cand = _ymsb_candidate()
+    sws = ShowWorkspace(tmp_path / "shows" / slug)
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    show = run_gather(sws, StubIA(md), FakeProvider(), cand,
+                      "ymsb2005-12-31.flac16.wav")
+    items = _ymsb_canonical_items(md, cand, show.artist)
+    tagged = []
+    for t in show.tracks:
+        title = (f"{items[0].title} > {items[1].title}" if t.index == 1
+                 else (items[t.index].title if t.index < len(items) else None))
+        tagged.append(t if (t.index in gaps or title is None) else
+                      t.model_copy(update={"title": title, "title_source": "tags"}))
+    write_artifact(sws.show, show.model_copy(update={"tracks": tagged}))
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA(md))
+    return sws
+
+
+def _ymsb_canonical_items(md, cand, artist):
+    """The canonical setlist `--suggest-titles` will itself rebuild for this
+    fixture -- computed by calling the real `build_canonical` the same way
+    the CLI path does (`provider=None`, `setlistfm=None` offline), rather
+    than hardcoding a parsed setlist that could drift away from it."""
+    from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.stages.gather import build_canonical
+    kept, _, _ = filter_files(md.get("files", []),
+                              want_format=FORMAT_BY_AUDIO["flac"])
+    return build_canonical(StubIA(md), cand, "ymsb2005-12-31.flac16.wav",
+                           md.get("metadata", {}), kept, artist, [],
+                           setlistfm=None, provider=None).setlist.items
+
+
 def _staged_show_with_unusable_canonical(tmp_path, monkeypatch, slug="nocanon"):
     """Same tape, description replaced by prose that parses to nothing.
 
@@ -309,21 +376,44 @@ def _staged_show_with_unusable_canonical(tmp_path, monkeypatch, slug="nocanon"):
 
 
 def test_suggest_titles_writes_every_row_into_overrides(tmp_path, monkeypatch):
-    """One confirmation replaces 24 --set-title calls."""
+    """One confirmation replaces one --set-title call per unresolved track --
+    three here, in three separate runs, all in one go."""
     cfg = _cfg(tmp_path)
-    sws = _staged_ymsb_show(tmp_path, monkeypatch)   # helper: show.json with 24 unresolved
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
     assert result.exit_code == 0, result.output
     ov = read_overrides(sws)
-    assert len(ov.titles) == 22
-    assert ov.titles[1] == "Granny Woncha Smoke Some > Ride The Wild Turkey"
-    assert 11 not in ov.titles and 22 not in ov.titles   # the two filler tracks
+    assert ov.titles == ANCHORED_GAPS
     # M11 (review round 1): pin that adopting a proposal is a `did_meta`
     # edit, so the existing redo selector stages `gather` -- confirmed
     # (rather than re-derived) in the implementation that `parsed_titles`
     # already sat in the `did_meta` expression; this is the pin.
     assert "--from gather" in result.output
+
+
+def test_the_untagged_tape_is_no_longer_proposable(tmp_path, monkeypatch):
+    """The M3 gate's headline regression pin, over the real 24-track untagged
+    ymsb tape. This show USED to render 24 rows and adopt 22 titles, 13 of
+    them wrong via a uniform off-by-one, with nothing in the table saying so.
+    Not a single track carries a title of its own, so nothing anchors the
+    setlist to the tape and there is no such thing as a count-forced run --
+    it must decline before rendering, and say what it could not account
+    for."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert read_overrides(sws).titles == {}
+    assert "cannot be pinned to tracks 1-24" in result.output
+    # Requirement: the reason has to be actionable, i.e. tell an operator
+    # whether to go looking for a better setlist source. Both counts and the
+    # discrepancy between them, not just a verdict.
+    assert "25 canonical items vs 24 song-like tracks" in result.output
+    assert "1 song" in result.output
+    # ... and no table was printed at all.
+    assert "proposal (" not in result.output
 
 
 def test_resolve_prompt_with_titles_is_derived_from_resolve_prompt():
@@ -415,7 +505,7 @@ def test_suggest_titles_declined_falls_through_to_a_co_specified_overrule(tmp_pa
     (a wholly untagged tape flags "unresolved track titles"), so this
     exercises the real combination, not a synthetic stand-in."""
     cfg = _cfg(tmp_path)
-    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
     assert read_model(sws.show, Show).needs_review is True   # confirm it's actually held
     monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--overrule", "--no-run")
@@ -447,14 +537,16 @@ def test_explicit_set_title_wins_over_the_proposal(tmp_path, monkeypatch):
     beat a generated proposal for the same track -- the same human-
     authority principle the confirmation gate itself protects."""
     cfg = _cfg(tmp_path)
-    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    victim = sorted(ANCHORED_GAPS)[0]
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles",
-                        "--set-title", "1=Operator Chosen Title", "--no-run")
+                        "--set-title", f"{victim}=Operator Chosen Title", "--no-run")
     assert result.exit_code == 0, result.output
     ov = read_overrides(sws)
-    assert ov.titles[1] == "Operator Chosen Title"
-    assert len(ov.titles) == 22   # the rest of the proposal still lands
+    assert ov.titles[victim] == "Operator Chosen Title"
+    # the rest of the proposal still lands, unchanged
+    assert ov.titles == {**ANCHORED_GAPS, victim: "Operator Chosen Title"}
 
 
 def test_never_clobbers_a_track_that_already_has_a_title(tmp_path, monkeypatch):
@@ -464,19 +556,15 @@ def test_never_clobbers_a_track_that_already_has_a_title(tmp_path, monkeypatch):
     clause from `_propose_titles_for_show` left the entire pre-round-1
     `test_cli.py` suite green."""
     cfg = _cfg(tmp_path)
-    sws = _staged_ymsb_show(tmp_path, monkeypatch)
-    show = read_model(sws.show, Show)
-    show = show.model_copy(update={"tracks": [
-        (t.model_copy(update={"title": "Already Tagged", "title_source": "tags"})
-         if t.index == 1 else t)
-        for t in show.tracks]})
-    write_artifact(sws.show, show)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
     assert result.exit_code == 0, result.output
-    ov = read_overrides(sws)
-    assert 1 not in ov.titles
-    assert len(ov.titles) == 21   # 22 minus the now-already-titled track 1
+    # The proposal covers all 24 rows -- every anchored tape's table does,
+    # since the DP is asked about the whole tape -- but the 21 rows that
+    # already carry a tag title are not adopted, only the 3 unresolved ones.
+    assert "Midnight Blues" in result.output   # a proposed row that is NOT adopted
+    assert read_overrides(sws).titles == ANCHORED_GAPS
 
 
 def test_missing_provenance_declines_cleanly(tmp_path, monkeypatch):

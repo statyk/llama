@@ -64,6 +64,128 @@ def _solve(tracks, items, idur, max_merge, forbid=None):
     return best[nt][ni], spans
 
 
+def _counts(tracks, items) -> str:
+    """The whole-tape shape, in the operator's terms: is the setlist I have
+    describing the same performance as the tape I have? Song-like is
+    `structure.is_filler`'s complement -- the same notion `_songish_coverage`
+    counts over, since tuning/crowd/encore-break tracks are never in a
+    canonical setlist and must not read as missing songs."""
+    from llama.structure import is_filler
+    songish = sum(1 for t in tracks if not is_filler(t.title))
+    d = songish - len(items)
+    if d > 0:
+        return (f"{len(items)} canonical items vs {songish} song-like tracks - "
+                f"the setlist is {d} song{'s' if d > 1 else ''} short of this tape")
+    if d < 0:
+        return (f"{len(items)} canonical items vs {songish} song-like tracks - "
+                f"the setlist describes {-d} song{'s' if -d > 1 else ''} "
+                f"this tape does not hold")
+    return f"{len(items)} canonical items vs {songish} song-like tracks - counts agree"
+
+
+def _unaccounted(tracks, canonical) -> str | None:
+    """A decline reason when the canonical cannot account for the tracks this
+    proposal could actually adopt for, or None when it can.
+
+    THE SAFETY ARGUMENT, and why it is a count and not a confidence. Only
+    tracks still `title_source == "unresolved"` are ever adopted (see
+    `cli._propose_titles_for_show`), so what has to hold is that every
+    maximal run of them is COUNT-FORCED between anchors: bracketed by tracks
+    whose own titles independently place them in the canonical, with exactly
+    as many canonical items in between as there are files to put them on.
+    Then no shift can hide in the run. This is `adopt_gap_titles`' argument
+    verbatim -- deliberately, and it reuses that code (`anchor_spans` /
+    `gap_span`) rather than restating it -- and it is the only evidence class
+    the spec's blind test measured safe: 2.4% wrong, against 45-52% for the
+    unanchored monotone correspondence this DP otherwise performs.
+
+    What the two paths do NOT share is the veto: `adopt_gap_titles` also
+    demands `_hygienic` titles because it adopts SILENTLY. Here an operator
+    reads the table first, so hygiene is their call -- which is the whole
+    residual value of this command over the `setlist-gap` rung, and it is
+    real: `trampledbyturtles-2007-07-20` track 21 is a count-forced,
+    two-side-anchored gap over the canonical item `1922`, which
+    `is_real_title` rejects (no three ASCII letters) and `setlist-gap`
+    therefore refuses to adopt.
+
+    Measured on the M3 gate's six held shows: this declines
+    `yondermountainstringband-2005-12-31` and `-2002-12-31` (wholly untagged
+    tapes -- no anchors exist at all, so nothing pins the setlist to the
+    tape, and both rendered a uniform off-by-one), declines
+    `infamousstringdusters-2014-03-15` (its 3-file unresolved run is
+    bracketed by 4 canonical items -- `3x5`, `Something Wind`, `Machines`
+    and the set marker `~Set 02~` -- which is exactly the extra item the DP
+    spent displacing rows 6-25), and passes
+    `trampledbyturtles-2007-07-20`, the one adoption that was right.
+
+    Note what this does NOT check, since it would be easy to read more into
+    it: nothing here compares the DP's assignment against the anchors on
+    rows that are ALREADY titled. Those rows are never adopted, so they are
+    display noise rather than a hazard -- but they are visibly wrong on
+    `trampledbyturtles-2007-07-20` itself (rows 1-3, 11-12), so the rendered
+    table is not evidence that the DP understood the tape. The adoptable
+    rows ARE checked against the anchors, in `_contradicts_forced_gaps`.
+
+    Returns `(reason, gaps)`: the decline reason or None, and the forced
+    `[lo, hi] -> item span` gaps for the caller to hold the DP to.
+    """
+    from llama.structure import anchor_spans, gap_span, unresolved_runs
+    items = canonical.items
+    anchors = anchor_spans(tracks, canonical)
+    gaps: list[tuple[int, int, tuple[int, int]]] = []
+    for lo, hi in unresolved_runs(tracks):
+        where = f"track {lo + 1}" if lo == hi else f"tracks {lo + 1}-{hi + 1}"
+        span = gap_span(anchors, lo, hi, len(tracks))
+        if span is None:
+            return (f"the setlist cannot be pinned to {where}: no track with a "
+                    f"title of its own brackets that run, so nothing fixes where "
+                    f"in the setlist it starts ({_counts(tracks, items)})"), []
+        have, need = span[1] - span[0], hi - lo + 1
+        if have != need:
+            gap = ", ".join(it.title.strip() for it in items[span[0]:span[1]]) or "none"
+            return (f"the setlist does not account for {where}: {need} file"
+                    f"{'s' if need > 1 else ''} but {have} setlist item"
+                    f"{'s' if have != 1 else ''} between the titled tracks that "
+                    f"bracket them ({gap}) - off by {abs(have - need)} "
+                    f"({_counts(tracks, items)})"), []
+        gaps.append((lo, hi, span))
+    return None, gaps
+
+
+def _contradicts_forced_gaps(spans, gaps) -> str | None:
+    """The second half of the guard, and the reason the first half is not
+    enough on its own.
+
+    `_unaccounted` proves that a run of adoptable tracks has exactly as many
+    canonical items between its anchors as it has files -- which FIXES what
+    those tracks' titles are, one item per file, in order. The DP does not
+    know that: it never sees an anchor, and it is free to spend a merge
+    somewhere else on the tape and slide its whole assignment past the gap.
+    So a tape can clear the count check and still be handed a proposal that
+    contradicts the very anchoring that licensed it.
+
+    Declining on that contradiction is deliberately the response, rather
+    than quietly substituting the forced titles: this command stays
+    proposal-only, with the DP its single proposer, and a disagreement
+    between the DP and the structure is a reason to send the operator back
+    to their sources -- not to invent a second, silent adoption path with no
+    human in it. Measured on the M3 gate's six shows this fires on none of
+    them; on `trampledbyturtles-2007-07-20` the DP independently agrees with
+    the forced gap (`1922`, track 21).
+    """
+    for lo, hi, span in gaps:
+        want = [(span[0] + k, span[0] + k + 1) for k in range(hi - lo + 1)]
+        got = list(spans[lo:hi + 1])
+        if got != want:
+            where = f"track {lo + 1}" if lo == hi else f"tracks {lo + 1}-{hi + 1}"
+            return (f"the correspondence contradicts the setlist at {where}: the "
+                    f"titled tracks bracketing that run fix its {hi - lo + 1} "
+                    f"setlist item{'s' if hi > lo else ''}, but the durations "
+                    f"place different ones there - the tape and the setlist "
+                    f"disagree about what is on these files")
+    return None
+
+
 def propose_titles(tracks: list[Track], canonical: ParsedSetlist, *,
                    item_durations: list[float] | None = None,
                    max_merge: int = 3) -> TitleProposal:
@@ -71,11 +193,23 @@ def propose_titles(tracks: list[Track], canonical: ParsedSetlist, *,
     if not items:
         return TitleProposal(feasible=False, reason="no usable canonical setlist")
     idur, source = _item_durations(tracks, items, item_durations)
+    # Before the DP, not after: this is a structural question about whether
+    # the canonical and the track list describe the same material, and the
+    # DP's cost cannot answer it. A shift is CONSISTENT by construction, so
+    # it produces a cheap, feasible, entirely wrong solution -- which is the
+    # M3 gate's finding (3 of 4 rendered tables would have written wrong
+    # titles, with nothing in the rendering telling them apart).
+    unaccounted, gaps = _unaccounted(tracks, canonical)
+    if unaccounted is not None:
+        return TitleProposal(feasible=False, evidence_source=source, reason=unaccounted)
     cost, spans = _solve(tracks, items, idur, max_merge)
     if spans is None:
         return TitleProposal(
             feasible=False, evidence_source=source,
             reason="no consistent correspondence - parse quality too low")
+    contradiction = _contradicts_forced_gaps(spans, gaps)
+    if contradiction is not None:
+        return TitleProposal(feasible=False, evidence_source=source, reason=contradiction)
 
     rows = []
     for pos, (t, span) in enumerate(zip(tracks, spans)):

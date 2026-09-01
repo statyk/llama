@@ -14,7 +14,7 @@ from conftest import cli_invoke
 from llama.workspace import read_overrides
 
 from test_catalog import build
-from test_cli import _staged_ymsb_show
+from test_cli import ANCHORED_GAPS, _staged_anchored_ymsb_show, _staged_ymsb_show
 
 PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit"
 
@@ -306,10 +306,13 @@ def test_voiced_and_broadcast_ready_selectors_are_gone(tmp_path, tty):
 # Shares `_propose_and_confirm_titles`/`_propose_titles_for_show` with `fix
 # --suggest-titles` (see cli.py) rather than duplicating the propose/render/
 # confirm surface -- a divergence between the two would be invisible, per
-# the task brief. `_staged_ymsb_show` (imported from test_cli.py rather than
-# copied) gives a REAL held show flagged "unresolved track titles" -- the
-# one flag this resolution is gated on -- with a real 24-track untagged
-# tape behind it, the same fixture `fix --suggest-titles`'s own tests use.
+# the task brief. Both fixtures are imported from test_cli.py rather than
+# copied, and are the same ones `fix --suggest-titles`'s own tests use:
+# `_staged_ymsb_show` is a REAL held show flagged "unresolved track titles"
+# -- the one flag this resolution is gated on -- over a wholly untagged
+# 24-track tape, which is now correctly UNPROPOSABLE (nothing anchors the
+# setlist to it); `_staged_anchored_ymsb_show` is the same held show with
+# all but three tracks tag-titled, which is what a rendered proposal needs.
 
 def test_suggest_titles_hint_hidden_without_the_unresolved_titles_flag(tmp_path, tty, monkeypatch):
     """`_held_show`'s hold flag is "research asserts wrong date: x", not
@@ -341,15 +344,12 @@ def test_suggest_titles_resolution_writes_overrides_and_redoes_gather(tmp_path, 
     test_cli.py::test_suggest_titles_writes_every_row_into_overrides --
     same helper, different surface, per the task-8 brief's DRY requirement."""
     cfg = _cfg(tmp_path)
-    sws = _staged_ymsb_show(tmp_path, monkeypatch)   # 24 unresolved tracks -> held
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)   # 3 unresolved -> held
     calls = _stub_redo(monkeypatch)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
     r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\n")
     assert r.exit_code == 0, r.output
-    ov = read_overrides(sws)
-    assert len(ov.titles) == 22
-    assert ov.titles[1] == "Granny Woncha Smoke Some > Ride The Wild Turkey"
-    assert 11 not in ov.titles and 22 not in ov.titles   # the two filler tracks
+    assert read_overrides(sws).titles == ANCHORED_GAPS
     assert calls == ["gather"]
     assert "packaged: /pkg" in r.output
 
@@ -360,7 +360,7 @@ def test_declining_the_triage_proposal_writes_nothing_and_returns_to_the_prompt(
     the same prompt (like [m] with no changes), so a second choice ([s] here)
     is still needed to move on."""
     cfg = _cfg(tmp_path)
-    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
     calls = _stub_redo(monkeypatch)
     monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
     r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\ns\n")
