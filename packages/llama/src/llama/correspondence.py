@@ -137,6 +137,36 @@ def _unaccounted(tracks, canonical) -> str | None:
         where = f"track {lo + 1}" if lo == hi else f"tracks {lo + 1}-{hi + 1}"
         span = gap_span(anchors, lo, hi, len(tracks))
         if span is None:
+            # I3 (final review): "no track with a title of its own brackets
+            # that run" is only true when a bracketing position does not
+            # even EXIST (the run reaches an edge of the tape, or -- the
+            # `test_a_wholly_untagged_tape_...` case -- the run IS the whole
+            # tape). Whenever lo>0 (or hi+1<len(tracks)), `unresolved_runs`'
+            # own maximality guarantees the neighbor at that position is NOT
+            # itself unresolved, i.e. it DOES carry a title of its own --
+            # `anchor_spans` just failed to match that title to any
+            # canonical item. On `trampledbyturtles-2007-07-20` offline,
+            # tracks 20/22 are tag-titled (`Valley`, `Trouble`) and the old
+            # unconditional message fired anyway, because the canonical
+            # items there carry the description's inline annotation columns
+            # (`'Valley                      [4:00]'`) that fuzzy_norm_title
+            # does not strip -- "no track ... brackets" was simply false,
+            # and pointed an operator at the wrong remedy (there is no
+            # missing title to go add; the match failed on noise). Name
+            # which side(s) actually failed to match, and what title they
+            # carry, whenever such a side exists; fall back to the original
+            # wording only when no bracketing position exists at all.
+            left_pos = lo - 1 if lo > 0 else None
+            right_pos = hi + 1 if hi + 1 < len(tracks) else None
+            unmatched = [f"track {p + 1} ({tracks[p].title!r})"
+                        for p in (left_pos, right_pos)
+                        if p is not None and p not in anchors]
+            if unmatched:
+                return (f"the setlist cannot be pinned to {where}: "
+                        f"{' and '.join(unmatched)} carries a title of its "
+                        f"own, but it matches no canonical item, so nothing "
+                        f"fixes where in the setlist this run starts "
+                        f"({_counts(tracks, items)})"), []
             return (f"the setlist cannot be pinned to {where}: no track with a "
                     f"title of its own brackets that run, so nothing fixes where "
                     f"in the setlist it starts ({_counts(tracks, items)})"), []

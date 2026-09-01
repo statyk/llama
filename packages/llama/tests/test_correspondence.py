@@ -394,6 +394,35 @@ def test_a_wholly_untagged_tape_declines_for_want_of_an_anchor():
     assert not prop.feasible
     assert "cannot be pinned to tracks 1-3" in prop.reason
     assert "3 canonical items vs 3 song-like tracks - counts agree" in prop.reason
+    # I3 (final review): this branch is the one case where "no track with a
+    # title of its own brackets that run" is actually TRUE -- the run IS the
+    # whole tape, so no bracketing position exists at all. Pin that this
+    # branch keeps the original wording, not the "matches no canonical item"
+    # wording the other branch (below) now uses for a different failure.
+    assert "no track with a title of its own brackets that run" in prop.reason
+    assert "matches no canonical item" not in prop.reason
+
+
+def test_decline_reason_names_a_titled_track_whose_title_matches_no_canonical_item():
+    """I3 (final review): the OTHER way `gap_span` can return None -- a
+    bracketing track exists and carries a title of its own, but that title
+    fails to match any canonical item (the `trampledbyturtles-2007-07-20`
+    shape offline: `anchor_spans` returns `{}` because the canonical items
+    there carry the description's inline annotation columns, e.g.
+    `'Valley                      [4:00]'`, which nothing normalizes past).
+    The old unconditional "no track with a title of its own brackets that
+    run" was LITERALLY FALSE here -- track 1 is tag-titled `Somebody Else`,
+    which is simply not in this canonical's vocabulary -- and pointed an
+    operator at the wrong remedy (there is no missing tag to go add; the
+    match failed). The reason must name the track and its title instead."""
+    canonical = _canon(("Alpha", "1", False), ("Bravo", "1", False))
+    tape = _tape((300.0, "Somebody Else"), (300.0, None))
+    prop = propose_titles(tape, canonical, item_durations=[300.0, 300.0])
+    assert not prop.feasible
+    assert "cannot be pinned to track 2" in prop.reason
+    assert "track 1 ('Somebody Else')" in prop.reason
+    assert "matches no canonical item" in prop.reason
+    assert "no track with a title of its own brackets that run" not in prop.reason
 
 
 def test_a_trailing_run_declines_even_when_the_counts_work_out():
@@ -484,3 +513,47 @@ def test_the_dp_is_held_to_a_forced_gap_only_where_it_is_adoptable():
     # tagged `Bravo` filler.
     assert prop.rows[0].title == "Alpha > Bravo" and tape[0].title == "Alpha"
     assert prop.rows[1].item_span is None and tape[1].title == "Bravo"
+
+
+def test_every_unresolved_run_is_checked_not_just_the_first():
+    """I2 (final review): `_unaccounted` loops over
+    `structure.unresolved_runs(tracks)` and checks every run before it will
+    say the tape is accountable. Nothing in the pre-review suite pinned that
+    -- `unresolved_runs` mutated to `return runs[:1]` still left the whole
+    suite (1554 tests) green, because every accountability test above has
+    exactly one unresolved run. For `adopt_gap_titles` that truncation is
+    merely fail-SAFE (fewer silent adoptions); here it is fail-OPEN:
+    `_unaccounted`'s `gaps` list (what `_contradicts_forced_gaps` later
+    checks the DP's solution against) only ever gets entries for runs the
+    loop actually reached, so a run the guard never examined is invisible
+    to BOTH halves of the guard -- if the DP can independently produce some
+    full assignment (not necessarily this one), the whole proposal renders
+    feasible with a confident-looking title for the unchecked run's track.
+
+    Two runs, in track order: the FIRST is count-forced (Alpha .. GapItem1
+    .. Bravo, one file for one item) and must be accepted on its own. The
+    SECOND is NOT count-forced (Bravo .. GapItem2a > GapItem2b .. Omega,
+    one file but two setlist items between the anchors) -- it happens that
+    GapItem2a segues into GapItem2b, so the DP CAN legally merge them onto
+    the single file, but the guard declines it anyway, deliberately: an
+    unforced merge is exactly the ambiguity 3 of the M3 gate's 4 rendered
+    tables got wrong, and the guard does not get to assume the DP guessed
+    right just because a legal merge exists. A guard that only inspects
+    `unresolved_runs()[0]` sees just the first, good run, never adds the
+    second run's span to `gaps`, and the DP -- with a real target now in
+    reach -- finds that full merge, so `_contradicts_forced_gaps` has
+    nothing to check it against either: the whole proposal comes back
+    `feasible=True` with a title for track 4, silently reproducing the
+    finding's `PICKS THAT WOULD BE WRITTEN` scenario."""
+    canonical = _canon(("Alpha", "1", False), ("GapItem1", "1", False),
+                       ("Bravo", "1", False), ("GapItem2a", "1", True),
+                       ("GapItem2b", "1", False), ("Omega", "1", False))
+    tape = _tape((300.0, "Alpha"), (300.0, None), (300.0, "Bravo"),
+                 (600.0, None), (300.0, "Omega"))
+    prop = propose_titles(tape, canonical, item_durations=[300.0] * 6)
+    assert not prop.feasible
+    # The decline must name the SECOND run, not stop silent after the first
+    # (a proposal that instead comes back `feasible=True` with a title for
+    # track 4 is exactly what the fail-open truncation produces).
+    assert "does not account for track 4" in prop.reason
+    assert "1 file but 2 setlist items" in prop.reason
