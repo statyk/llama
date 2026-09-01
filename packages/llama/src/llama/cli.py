@@ -1334,6 +1334,7 @@ def _propose_titles_for_show(ia, config, entry, show):
     from llama import jerrybase
     from llama.correspondence import propose_titles, sibling_item_durations
     from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.models import TitleProposal
     from llama.setlistfm import make_client
     from llama.stages.gather import build_canonical
 
@@ -1344,6 +1345,31 @@ def _propose_titles_for_show(ia, config, entry, show):
     if entry.overrides.exclude:
         drop = set(entry.overrides.exclude)
         kept = [f for f in kept if f["name"] not in drop]
+    # C1 (final review): `kept` is recomputed here straight from
+    # `ia.metadata` + `entry.overrides.exclude`, but `show.tracks` is
+    # whatever `show.json` last had `gather` write -- NOT re-derived. Those
+    # two agree only when the most recent `gather` redo already saw the
+    # current `overrides.exclude` (and cache). When they disagree (an
+    # `--exclude`/`--unexclude` staged with `--no-run`, or a redo that died
+    # after `_edit_overrides` wrote `overrides.json` but before `gather`
+    # completed, or a refreshed metadata cache changing the file list), the
+    # DP below still runs over `show.tracks`' STALE 1-based numbering while
+    # `overrides.titles` gets applied post-exclusion by `gather` -- a
+    # confirmed proposal then writes titles onto the wrong tracks with no
+    # error and no flag (reproduced end to end: three titles landed on three
+    # wrong files). Comparing the filename LISTS, not just lengths, also
+    # catches the metadata-cache-refresh case, where lengths could still
+    # match by coincidence. This must be a hard decline, not a warning --
+    # nothing downstream can tell a stale proposal from a fresh one.
+    kept_names = [f["name"] for f in kept]
+    track_names = [t.filename for t in show.tracks]
+    if kept_names != track_names:
+        reason = (f"show.json is stale relative to overrides.json "
+                  f"({len(kept_names)} files kept, {len(track_names)} tracks on disk) "
+                  f"- run `llama redo {entry.slug} --from gather` first")
+        prop = TitleProposal(feasible=False, reason=reason)
+        typer.echo(f"{entry.slug}: {prop.reason}")
+        return prop, {}
     events = jerrybase.lookup(show.artist, cand.date) if config.jerrybase.enabled else []
     canonical = build_canonical(ia, cand, show.identifier, meta, kept, show.artist, events,
                                 setlistfm=make_client(config), provider=None).setlist

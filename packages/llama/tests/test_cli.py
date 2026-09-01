@@ -392,6 +392,43 @@ def test_suggest_titles_writes_every_row_into_overrides(tmp_path, monkeypatch):
     assert "--from gather" in result.output
 
 
+def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude(tmp_path, monkeypatch):
+    """C1 (final review, the merge blocker): staging `--exclude` with
+    `--no-run` writes `overrides.json` without re-running `gather`, so
+    `_propose_titles_for_show`'s freshly recomputed `kept` (`ia.metadata`
+    filtered by the now-written `overrides.exclude`, 23 files) disagrees
+    with `show.tracks` read from the untouched `show.json` (still the
+    pre-exclusion 24). Before the C1 fix this silently built a proposal
+    over the stale 24-track numbering while `overrides.titles` gets applied
+    by 1-based POST-exclusion position when `gather` eventually runs --
+    landing confirmed titles on the wrong tracks with no error and no flag
+    (reproduced end to end in the final review: three titles landed on
+    three wrong files). The guard must decline hard, not warn, and must
+    leave `overrides.titles` untouched -- this command's own `--exclude`
+    refusal message ("Run the exclusion first, then `--suggest-titles` as a
+    separate invocation") routes an operator straight into this exact
+    sequence, so the two-invocation workflow it recommends must be safe."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    victim = read_model(sws.show, Show).tracks[0].filename
+    stage_result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--exclude", victim, "--no-run")
+    assert stage_result.exit_code == 0, stage_result.output
+    assert read_overrides(sws).exclude == [victim]
+    # confirm show.json really is stale -- NOT re-derived by --no-run
+    assert len(read_model(sws.show, Show).tracks) == 24
+
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "show.json is stale relative to overrides.json" in result.output
+    assert "23 files kept" in result.output
+    assert "24 tracks on disk" in result.output
+    assert "redo ymsb2005-12-31 --from gather" in result.output
+    assert read_overrides(sws).titles == {}
+    # ... and no table was printed at all.
+    assert "proposal (" not in result.output
+
+
 def test_the_untagged_tape_is_no_longer_proposable(tmp_path, monkeypatch):
     """The M3 gate's headline regression pin, over the real 24-track untagged
     ymsb tape. This show USED to render 24 rows and adopt 22 titles, 13 of
@@ -653,12 +690,27 @@ def test_suggest_titles_drops_excluded_files_from_kept(tmp_path, monkeypatch):
     `overrides.titles` is applied by 1-based position (gather.py), a
     different winning parse means confirmed titles could land on the wrong
     tracks. Pins the ARGUMENT `build_canonical` receives (the same style as
-    A2), not a full re-derivation of `rank_parses`' behavior."""
+    A2), not a full re-derivation of `rank_parses`' behavior.
+
+    C1 (final review): this test used to stage `overrides.exclude` directly
+    and never re-derive `show.json` -- exactly the stale state C1's guard
+    now declines on (kept 23 files, `show.tracks` still 24), so after the
+    C1 fix this test silently stopped reaching `build_canonical` at all and
+    started passing for the wrong reason (a KeyError on `captured["kept"]`
+    caught it -- see the C1 fix report). Re-running `run_gather(...,
+    force=True)` after writing the exclusion mirrors what a real `llama fix
+    --exclude` redo does, keeping `show.tracks` in sync with `kept` so this
+    test again exercises what its docstring claims rather than the C1
+    staleness guard."""
     cfg = _cfg(tmp_path)
     sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    cand = _ymsb_candidate()
     victim = read_model(sws.show, Show).tracks[0].filename
     ov = read_overrides(sws)
     write_artifact(sws.overrides, ov.model_copy(update={"exclude": [victim]}))
+    run_gather(sws, StubIA(md), FakeProvider(), cand,
+              "ymsb2005-12-31.flac16.wav", force=True)
 
     from llama.stages import gather as gather_mod
     real_build_canonical = gather_mod.build_canonical
