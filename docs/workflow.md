@@ -279,7 +279,7 @@ every held show with an `[e]xclude / [m]etadata / [v]ague / [o]verrule /
 | Resolution | When | Do (`fix`) | Do (`triage`) | Clears the hold? |
 |---|---|---|---|---|
 | **Correct** | The flag is real and fixable — e.g. junk tracks slipped past the filter, a setlist source is missing, or the venue/date/a title/a set break is wrong | `llama fix <show> --exclude 9,10` (track numbers or filenames; `--unexclude` to undo one) or `--set-venue`/`--set-city`/`--set-date`/`--set-title N="..."`/`--set-breaks "9,17"` | `[e]xclude` or `[m]etadata` | No — a clean re-gather self-clears by producing structure with no flags |
-| **Suggest titles** | The hold is `unresolved track titles` specifically, and the setlist correspondence can propose a title per track | `llama fix <show> --suggest-titles` — renders the proposal table, then a single confirmation writes every proposed title into `overrides.titles` at once | `[t] suggest titles` — same proposal/confirm, only offered under this flag | No — like **Correct**, a clean re-gather self-clears once every track has a resolved title and nothing else is flagged |
+| **Suggest titles** | The hold is `unresolved track titles` specifically, and the setlist correspondence can propose titles for some of the unresolved tracks | `llama fix <show> --suggest-titles` — renders the proposal table, then a single confirmation writes the proposed titles into `overrides.titles` at once | `[t] suggest titles` — same proposal/confirm, only offered under this flag | No — like **Correct**, a clean re-gather self-clears once every track has a resolved title and nothing else is flagged |
 | **Accept as vague** | The setlist genuinely can't be resolved, but the show is otherwise fine to air without naming songs | `llama fix <show> --narration vague` | `[v]ague` | Yes, immediately (narration mode also survives future redos) |
 | **Overrule** | The flag is a false alarm | `llama fix <show> --overrule` | `[o]verrule` | Yes, immediately |
 
@@ -557,15 +557,21 @@ a `[t] suggest titles` option in the same slot instead:
   package too).
 - **`[o]verrule`** — clears the hold, redoes from `package`.
 - **`[t] suggest titles`** (only offered under `unresolved track titles`)
-  — builds the same canonical setlist a `gather` redo would (never firing
-  an LLM call) and renders a per-track title proposal from the setlist
-  correspondence — the same DP and the same render/confirm helper `fix
-  --suggest-titles` uses below, so the two surfaces can't silently diverge.
-  A single confirmation writes every proposed title into
-  `overrides.titles` at once and redoes from `gather`. Declining, or a
-  proposal with nothing left to adopt (every track already titled),
-  returns to the same prompt for the same show rather than skipping it —
-  the proposal is **never** adopted without that confirmation.
+  — builds a canonical setlist via `build_canonical(..., provider=None)`,
+  which never fires the `extract_setlist` LLM fallback a `gather` redo
+  itself may use (`provider=None` is precisely what suppresses it — an
+  unrankable setlist here yields an infeasible proposal, not a silently
+  weaker canonical), and renders a title proposal for the tracks the
+  setlist correspondence can propose for — the same DP and the same
+  render/confirm helper `fix --suggest-titles` uses below, so the two
+  surfaces can't silently diverge. A single confirmation writes the
+  proposed titles into `overrides.titles` at once (a filler row gets no
+  proposal and stays `(unresolved - hand-edit)`; a track that already
+  carries a title is never overwritten) and redoes from `gather`.
+  Declining, or a proposal with nothing left to adopt (every proposable
+  track already titled), returns to the same prompt for the same show
+  rather than skipping it — the proposal is **never** adopted without
+  that confirmation.
 - **`[s]kip`** / **`[q]uit`** — next show / stop the walk.
 
 After each action it reports `packaged: <path>` or `still held: <slug>`
@@ -587,15 +593,20 @@ non-held shows too — overrides are general inputs, not hold-only.
 | `--set-venue V` / `--set-city C` / `--set-date YYYY-MM-DD` | force the field | gather |
 | `--set-title N="Song"` / `--clear-title N` | force/drop a track title | gather |
 | `--set-breaks "9,17"` / `--clear-set-breaks` | force/drop set breaks (the track numbers a break falls *after*; numbered-sets-only) | gather |
-| `--suggest-titles` | propose titles for every unresolved track from the setlist correspondence, print the proposal table, and on confirmation write them all into `overrides.titles` at once | gather |
+| `--suggest-titles` | propose titles for the unresolved tracks the setlist correspondence can propose for, print the proposal table, and on confirmation write the proposed titles into `overrides.titles` at once | gather |
 | `--narration vague\|full` | set `overrides.narration`; `vague` also clears the hold | brief |
 | `--overrule` | clear `needs_review`/`review_flags`: "I've reviewed it, ship it" | package |
 
-`--suggest-titles` is not a plain metadata edit like the others: it never
-fires an LLM call (`build_canonical(..., provider=None)`, same as `gather`
-itself would use), the DP behind the proposal is **proposal-only** — it is
-never auto-adopted, only ever offered for a human confirmation — and it
-**refuses to combine** with `--exclude`/`--unexclude` in the same
+`--suggest-titles` is not a plain metadata edit like the others: it builds
+its canonical setlist via `build_canonical(..., provider=None)`, which —
+unlike a `gather` redo (`gather` row above: "LLM only as alignment/
+extraction fallback") — never fires the `extract_setlist` LLM fallback; an
+unrankable setlist here yields an infeasible proposal rather than a
+silently weaker one. The DP behind the proposal is **proposal-only** — it
+is never auto-adopted, only ever offered for a human confirmation, and
+only for tracks it can propose for (a filler row stays `(unresolved -
+hand-edit)`, and a track that already has a title is never overwritten)
+— and it **refuses to combine** with `--exclude`/`--unexclude` in the same
 invocation (an exclusion in the same call renumbers tracks before the
 proposal's numbering would apply; run the exclusion first, as its own
 `fix` call, then `--suggest-titles` separately). An explicit `--set-title

@@ -177,14 +177,22 @@ tier (pins never escalate).
   `needs_review`/`review_flags` from scratch every run). A hold flagged
   "unresolved track titles" additionally gets **`--suggest-titles`**
   (`fix`) / **`[t] suggest titles`** (`triage`, same helper, offered only
-  under that flag): both build the same canonical setlist `gather` itself
-  would (via `build_canonical(..., provider=None)` — this path never fires
-  an LLM call), render a per-track proposal table via the correspondence
-  DP (`llama/correspondence.py` — **proposal-only, never auto-adopted**;
-  unanchored monotone correspondence measured 45-52% wrong, so a human
-  confirmation is the only thing standing between a proposed title and
-  adoption), and on confirmation write every proposed title into
-  `overrides.titles` at once, then redo from `gather` like every other
+  under that flag): both build a canonical setlist via
+  `build_canonical(..., provider=None)` — deliberately **not** the same
+  call `gather` itself makes: `run_gather` passes gather's real provider
+  (`gather.py:616-618`), and `provider=None` is precisely what stops this
+  CLI-side proposal path from ever firing the `extract_setlist` LLM
+  fallback. The difference is benign, not weaker — an unrankable setlist
+  yields an infeasible proposal rather than a silently worse one — and
+  then render a per-track proposal table, for tracks the DP can propose
+  for, via the correspondence DP (`llama/correspondence.py` —
+  **proposal-only, never auto-adopted**; unanchored monotone
+  correspondence measured 45-52% wrong, so a human confirmation is the
+  only thing standing between a proposed title and adoption). On
+  confirmation, the proposed titles for still-`unresolved` tracks are
+  written into `overrides.titles` at once (a filler row gets no proposal
+  and stays `(unresolved - hand-edit)`; a track that already carries a
+  title is never overwritten), then redo from `gather` like every other
   metadata edit. `--suggest-titles` refuses to combine with
   `--exclude`/`--unexclude` in the same `fix` invocation (an exclusion
   renumbers tracks before the proposal's numbering would apply), and an
