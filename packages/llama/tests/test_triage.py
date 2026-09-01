@@ -368,6 +368,13 @@ def test_declining_the_triage_proposal_writes_nothing_and_returns_to_the_prompt(
     assert "declined; nothing written" in r.output
     assert read_overrides(sws).titles == {}
     assert calls == []
+    # M1 (task-8 review round 1): the `[t] suggest titles` hint must still be
+    # visible on the SECOND prompt (after the decline's `continue`), not just
+    # the first -- pins RESOLVE_PROMPT_WITH_TITLES being selected per loop
+    # iteration rather than echoed once before the `while True:` loop. Two
+    # prompts are shown here (once for "t", once for "s"), so the hint must
+    # appear at least twice.
+    assert r.output.count("[t] suggest titles") >= 2
 
 
 def test_nothing_to_adopt_returns_to_the_prompt(tmp_path, tty, monkeypatch):

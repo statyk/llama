@@ -696,16 +696,22 @@ def _print_recording_info(ws) -> None:
 
 RESOLVE_PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit"
 # The `[t]` variant, shown only on a hold flagged `unresolved track titles`
-# (see UNRESOLVED_TITLES_FLAG below). A separate constant rather than
-# building the string inline each call so `RESOLVE_PROMPT`'s spelling stays
-# the single source of truth for the common (non-titles) tail -- M1 (task-8
-# review round 1): this used to be a one-off `typer.echo` printed ONCE
-# before the `while True:` loop, so the option silently vanished from the
+# (see UNRESOLVED_TITLES_FLAG below). Selected per show (not echoed once
+# before the loop) -- M1 (task-8 review round 1): the old code printed the
+# hint ONCE before the `while True:` loop, so it silently vanished from the
 # visible prompt after any `continue` back to it (e.g. a declined proposal,
 # or `[m]` with nothing changed) -- the operator would see the bare prompt
 # again with no reminder `[t]` was still available.
-RESOLVE_PROMPT_WITH_TITLES = ("[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / "
-                              "[t] suggest titles / [s]kip / [q]uit")
+#
+# Derived from `RESOLVE_PROMPT` by inserting the `[t]` option before
+# `[s]kip`, rather than a hand-copied literal, so `RESOLVE_PROMPT` is
+# actually (not just claimed to be) the single source of truth for the
+# common tail -- M2 (task-8 review round 2): the previous hand-copied
+# literal meant a sentinel edit to `RESOLVE_PROMPT` passed every test
+# without the `WITH_TITLES` variant moving at all; see
+# test_resolve_prompt_with_titles_is_derived_from_resolve_prompt.
+RESOLVE_PROMPT_WITH_TITLES = RESOLVE_PROMPT.replace(
+    "[s]kip", "[t] suggest titles / [s]kip")
 
 # Must stay byte-for-byte in sync with the literal `gather.py` appends to
 # `review_flags` (`stages/gather.py`, ~line 819) -- there is no shared named
