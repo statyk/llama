@@ -1495,12 +1495,23 @@ def fix(
         # prevent. Refuse the combination outright rather than trying to
         # re-derive the post-exclusion numbering here.
         if exclude or unexclude:
+            # C1 (final review): naming only "run the exclusion first, then
+            # --suggest-titles" used to be the attack path INTO C1 -- an
+            # operator following it literally via `--exclude ... --no-run`
+            # staged overrides.json without ever re-running gather, so the
+            # second invocation's `show.tracks` was stale relative to the
+            # exclusion. The C1 fix makes that second invocation refuse
+            # rather than silently misnumber, but the remedy this message
+            # names must actually finish the job in one pass: the exclusion
+            # has to be followed by a real `gather` redo, not just staged,
+            # before --suggest-titles can see a consistent track list.
             typer.echo(
                 "--suggest-titles cannot be combined with --exclude/--unexclude: "
                 "an exclusion in the same invocation renumbers tracks before the "
-                "proposal's numbering would apply. Run the exclusion first (its "
-                "own `llama fix ... --exclude ...`), then --suggest-titles as a "
-                "separate invocation.", err=True)
+                "proposal's numbering would apply. Run the exclusion first and let "
+                f"it redo (`llama fix {entry.slug} --exclude ...` without --no-run, "
+                f"or `--no-run` followed by `llama redo {entry.slug} --from gather`), "
+                "then --suggest-titles as a separate invocation.", err=True)
             raise typer.Exit(1)
         if not sws.show.exists():
             typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)

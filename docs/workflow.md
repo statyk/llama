@@ -609,7 +609,11 @@ hand-edit)`, and a track that already has a title is never overwritten)
 — and it **refuses to combine** with `--exclude`/`--unexclude` in the same
 invocation (an exclusion in the same call renumbers tracks before the
 proposal's numbering would apply; run the exclusion first, as its own
-`fix` call, then `--suggest-titles` separately). An explicit `--set-title
+`fix` call that actually redoes — not staged with `--no-run` and left
+there — then `--suggest-titles` separately; `--suggest-titles` itself
+refuses to run at all against a `show.json` that is stale relative to a
+pending `overrides.exclude`, rather than risk numbering the proposal over
+the wrong track list). An explicit `--set-title
 N="..."` on the same invocation always wins over the proposal for that
 track. Declining, or a proposal with nothing left to adopt, falls through
 to any other edit flag given in the same invocation rather than exiting
