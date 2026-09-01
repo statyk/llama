@@ -818,3 +818,167 @@ it. It is FALSE for greenskybluegrass-2008-02-29, which aligns at coverage 1.0
 mechanism — all 11 deltas are on UNMATCHED items and only matched items supply
 titles — but I relayed an unverified claim into a dispatch brief. Same class as my
 "alignment output" wording imprecision earlier in this run.
+
+=== ROOT RULING ON M3 FAILURE: (b) then (c), then re-run M3. Not (a), not (d). ===
+Ship/merge is Shawn's and waits for him; nothing merges tonight either way. The
+question is only what is worth building before he sees it.
+Not (a): a confidently wrong table is WORSE than no table — it converts an
+operator's careful confirmation into a rubber stamp. Not (d): the machinery is
+sound and the human gate held; the defect is that nothing checks the canonical and
+the track list describe the same material before rendering.
+(b) count-mismatch guard — dispatched FIRST (Opus). Decline rather than render.
+  Requirement: the reason must be operator-readable and diagnostic (canonical item
+  count vs song-like track count vs the shortfall), because "no consistent
+  correspondence" tells an operator nothing about whether to go find a better
+  source. Acceptance stated as an OUTCOME over real data: ymsb2005, ymsb2002 and
+  ISD must become declines while TBT still renders `1922` for track 21.
+  Told explicitly: if no single rule cleanly separates the three wrong from the one
+  right, SAY SO rather than fitting a threshold to six points; a rule fitted to six
+  data points that does not generalize is worse than an honest "does not separate".
+  Guard must be a STRUCTURAL COUNT check — margin/score/coverage are all barred as
+  gating signals by standing constraint.
+(c) sibling_item_durations — DIAGNOSE BEFORE FIXING (Opus, read-only, snapshot at
+  39f9a93). Root's leading hypothesis, and it is his own Task 6 endorsement under
+  test: the whole-donor duplicate-norms refusal `if len(set(norms)) != len(norms):
+  return None` may be firing on all four shows, since reprise-bearing shows are
+  exactly this population. That would NOT make the guard wrong — handing one
+  duration to two items is still a positional guess — but it would move the remedy
+  from whole-donor to PER-ITEM refusal. Report cause + proposed remedy shape before
+  implementing; BOUNDED -> take it, REDESIGN -> stop and escalate.
+  Also asked: if the donor DID resolve every item, would the proposal be right? A
+  remedy that fixes yield but still produces wrong titles is not worth having.
+GATE ITSELF GETS FIXED, not just the code: M3's acceptance criterion is rewritten
+CONTENT-based (per-title correctness vs hand-established ground truth), and the
+shape-passed-while-content-failed fact is recorded in the evidence doc as a finding
+about the GATE, at the same prominence as the data. Third instrument-blind-at-its-
+own-boundary failure this phase.
+Evidence doc also owes: the setlist.fm inversion as its OWN SECTION (not a table
+line), the `forced` inversion (expected to over-signal, never fired at all), and
+the corrected coverage-1.0 fact for greenskybluegrass — in the DOC, not only here.
+Sequencing: guard, diagnosis, M3 re-run, and HOLD the final whole-branch review if
+the band binds — it is the one piece that can wait for the 01:09 window without
+blocking anything Shawn needs to see.
+
+=== (b) GUARD: DONE_WITH_CONCERNS. All six acceptance flips correct. ===
+Commits 92febf7 (guard) + 306453f (docs). Suite 1554 passed, 7 deselected (+11),
+verified by the orchestrator. ymsb2005 / ymsb2002 / ISD all render -> DECLINE;
+TBT still renders and still proposes `1922` for track 21; the two prior declines
+unchanged. Requirement 1 met — each reason names canonical item count, song-like
+track count, direction and size of the discrepancy, and where bracketed, the
+specific items it could not fit.
+
+THE BRIEF'S PROPOSED COMPARISON WAS REFUTED, and the agent was right to refuse it.
+"Canonical item count vs song-like track count" PROVABLY cannot separate: ymsb2005
+and TBT are IDENTICAL on that statistic — both 24 song-like tracks vs 23 canonical
+items, shortfall 1 — and the two shows are exactly the pair the rule must tell
+apart. Every refinement preserved the tie; the one statistic that did separate
+(merge capacity) would decline every canonical carrying any segue, i.e. every
+Grateful Dead show, which is fitting one fixture's shape. It reported this instead
+of tuning a threshold until the table came out right. That was the explicit
+instruction and it is the first time this phase a "do not curve-fit" instruction
+was actually exercised.
+Built instead — two EXACT structural checks, no threshold/margin/score/coverage:
+  (a) every maximal run of still-unresolved tracks (the only adoptable ones) must
+      be COUNT-FORCED BETWEEN ANCHORS. Not a new criterion — it is
+      `adopt_gap_titles`' own argument, the one evidence class the blind test
+      measured safe (2.4% wrong vs 45-52% unanchored). It REUSES that code
+      (anchor_spans/gap_span/unresolved_runs extracted unchanged) so the silent
+      setlist-gap rung and the human-confirmed path cannot drift on what an anchor
+      is. The `_hygienic` veto is deliberately NOT shared — that difference IS the
+      command's residual value (`1922` is count-forced but is_real_title rejects
+      it, so setlist-gap refuses it and --suggest-titles is the only path to it).
+  (b) the DP solution must not CONTRADICT a forced gap — added after finding a
+      hole: the DP never sees an anchor, so it can spend a merge elsewhere and
+      slide its assignment past a forced gap, handing back a title that
+      contradicts the very anchoring that licensed the render.
+
+=== (c) SIBLING DIAGNOSIS: REDESIGN. ROOT'S HYPOTHESIS REFUTED. ===
+The duplicate-norms guard is NOT the cause. It fires on 1 of 4 shows (ISD) and is
+INERT even there — ISD's candidate.recordings holds only the selected recording, so
+with the guard bypassed the next branch returns None anyway. Measured, not argued.
+Dominant cause is the final `all(...)` check, 3 of 4: ymsb2005 resolves 17/23 (4
+near-miss title variants + 2 donor-side reprises); ymsb2002's donor is ENTIRELY
+UNTAGGED (36 files, 0 usable norms); TBT resolves 21/23 (`Hammock Swinging` vs
+donor `Hammock`, `Sleep Soundly` vs `Sleep Soundly In The Morning`).
+Incidental find: delmccoury's 3 "duplicates" are items titled literally `?`, all
+normalizing to '', so the guard misreads "three unnamed songs" as "a reprise".
+COUNTERFACTUAL, and it is what settles the value question: even with perfect
+per-item durations, ymsb2005 goes 6/1/15 -> 16/1/5 ok/partial/wrong — the uniform
++1 shift dissolves, but the 5 still-wrong rows sit around the two reprises the
+canonical is MISSING, all on unresolved tracks, so confirming still writes 4 wrong
+titles. TBT changes 0 of 25 rows. ISD and ymsb2002 inert. And the fill constant has
+a 27-second band (362-389 s) where accuracy COLLAPSES to 11/0/10, with one of four
+natural fill policies landing inside it.
+=> ~40 lines across correspondence.py/models.py/cli.py plus a measurement, and it
+   rethinks the duration interface (list[float] -> list[float | None], donor
+   selection among partials, a fill policy + constant, per-row provenance so a
+   mixed real/invented vector is not rendered as `sibling-duration`).
+   STOPPED per the root's instruction. Not implemented.
+
+=== COMPOUND STRATEGIC FINDING — the two results together ===
+Library sweep, 89 shows: 3 flip render->decline, 0 the other way, no collateral.
+But 71 of the 72 still rendering have ZERO unresolved tracks, so
+**--suggest-titles can now adopt on 1 of 89 shows.**
+A wholly untagged tape has NO ANCHORS BY CONSTRUCTION and can therefore never clear
+the guard. Phase B, as designed, DOES NOT FIX UNTAGGED SHOWS — the exact thing the
+memory line calls "the half that actually fixes the untagged shows" and the exact
+goal in the plan's first line. And the sibling-duration remedy does not rescue it
+either: the counterfactual above still writes 4 wrong titles on the trigger case.
+The residual value is real but narrow and differently-shaped than the goal: it is a
+HYGIENE-OVERRIDE surface for gaps `setlist-gap` already proves forced but refuses
+because `_hygienic` vetoes the title. TBT's `1922` is the entire demonstrated
+population of that class (1 track, 1 show, 89-show census — not a sample).
+Anything that actually helps untagged tapes must add EVIDENCE (sibling tags,
+setlist.fm, fingerprinting), not another gate. OWNER DECISION — escalated, not
+ruled on.
+Note the test-suite finding underneath it: NINE --suggest-titles tests had been
+pinning bulk adoption over the untagged tape — i.e. pinning the very behaviour the
+gate identified as dangerous. Moved to a new anchored fixture; the untagged tape
+gained a regression pin instead.
+
+=== M3 RE-RUN: GATE PASSES under the content-based criterion. ===
+Commit 025cdd5 (doc only, +445). Suite 1554 passed, 7 deselected.
+Five shows decline (each with a diagnostic reason; ISD's names `3x5`,
+`Something Wind`, `Machines` plus the intruding `~Set 02~`, i.e. it declines for
+the RIGHT reason); TBT renders and its single adoptable row is correct on three
+independent axes (description `D2 08 1922 3:26`, filename `D2T08`, rendered
+duration 3:26). ZERO adoptable rows wrong.
+The doc preserves the original failure in full under a supersession header —
+outcome superseded, evidence not.
+Honest scope of the pass, recorded: it is a MUCH SMALLER CLAIM than M3 was written
+to make. The feature passes by declining almost everywhere — one adoptable row
+across 89 shows.
+
+NEW MEASUREMENT, not previously on record, and it refines the setlist.fm inversion:
+on TBT the inversion runs the OTHER WAY — setlistfm=None gives 28 items vs 24
+song-like tracks and the guard DECLINES, losing the one correct adoption. So
+neither arm dominates; the honest statement is "measure both per show", not
+"production is worse". Recorded.
+Also recorded: `forced` has never been exercised on real data at all, so NOTHING
+can be concluded about its usefulness from six tables in which it is absent.
+Flagged for its own look, beyond this phase: the setlist.fm inversion is a LIVE
+PRODUCTION-QUALITY issue, not just documentation — ymsb2005's production canonical
+is missing two real songs, and that canonical also feeds gather, alignment and the
+briefing on every other path, where both arms do NOT decline.
+
+`?`-TITLED MISREAD: FILED, NOT FIXED — and the one-line fix was MEASURED BEFORE
+BEING WRITTEN rather than after. Commit 68b2baa (doc only).
+Excluding empty norms from the duplicate check stops the guard misfiring, but
+recovers ZERO yield: the donor loop skips empty norms when building `by_norm`
+(`if not n: continue`), so any canonical item normalizing to '' hits
+`by_norm.get(n, -1.0)` -> -1.0, fails `> 0`, and fails the final all-items-resolved
+check. The function still returns None; the fix only changes WHICH branch returns
+it. Demonstrated in a shadowed copy outside the worktree on a delmccoury-shaped
+canonical ['', 'alpha', '', 'bravo', ''] against a PERFECT donor:
+  dup guard fires after fix? False   <- fix works as intended
+  all() check passes?        False   <- yield lost one branch later regardless
+Ruling: not implemented. The root's criterion was "costs yield for no safety
+benefit"; measured, it costs NO yield, so implementing it would be a cosmetic
+change presented as a yield fix. Any real remedy is the list[float | None]
+per-item redesign, already marked REDESIGN and not undertaken.
+
+Final whole-branch review dispatched (Opus) over 33b4eaf..68b2baa, 23 commits.
+Asked specifically to verify the guard's extraction of anchor_spans/gap_span/
+unresolved_runs is behaviour-preserving for the ALREADY-SHIPPING silent
+setlist-gap rung — a regression there is a larger hazard than anything in the new
+command — and to triage the deferred/parked list into merge / do-not-merge.
