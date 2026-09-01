@@ -1083,3 +1083,60 @@ CENSUS FIGURE, BOTH ARMS, to be reported together and never singly:
   --suggest-titles adopts on 1 of 89 library shows WITH setlist.fm active,
   and 0 of 89 OFFLINE. That the two differ IS the setlist.fm inversion showing up
   in the headline number.
+
+=== FIX-ROUND SCOPED RE-REVIEW (Opus, 77e75b6..b1dd418): ALL ADDRESSED. ===
+Verdict file: .superpowers/sdd/2026-08-30-title-correspondence/final-rereview.md
+shasum -a 256: 803168cf399e6dfc4da74bb6421fe14e0270d343ae69c57a64ad59e33d460536
+C1, I2, I3, I4 and the mid-round addendum all ADDRESSED. No new Critical, no new
+Important. Four Minor (N1-N4). Suite 1557 passed, 7 deselected; worktree untouched,
+HEAD 3fd59a7.
+
+All three verification asks answered by INSTRUMENTATION, not reading:
+ 1. C1 fires on the real path — confirmed three independent ways. Control flow:
+    one entry point (fix:1541 and triage:836 both -> _propose_and_confirm_titles ->
+    _propose_titles_for_show), guard at :1367, jerrybase.lookup/build_canonical at
+    :1374. Booby-trap: patched BOTH build_canonical and jerrybase.lookup to raise,
+    staged the exclusion, drove the real CLI -> clean decline, exit 0, titles == {}.
+    Instrumentation: the C1 test logs GUARD_FIRED and never GUARD_PASSED. Also
+    verified the INTERRUPTED-REDO shape (overrides written directly, no CLI
+    staging) trips the same guard. And checked the guard cannot FALSE-POSITIVE:
+    gather.py:622-636 computes `kept` identically, resolve_titles is 1:1 with no
+    later filtering, and ordering is safe because filter_files does the reorder.
+ 2. I2's pin binds — `runs[:1]` re-run with caches purged and the restore
+    diff -q-verified byte-identical; red at exactly one test
+    (test_every_unresolved_run_is_checked_not_just_the_first), failing on
+    `assert not prop.feasible` with feasible=True, i.e. on the FAIL-OPEN outcome
+    rather than an incidental string.
+ 3. Hollow-test sweep — full-suite instrumentation, every reaching test NAMED with
+    its branch. 16 tests reach the guarded helper: 15 GUARD_PASSED, 1 GUARD_FIRED,
+    and that one IS the C1 pin. Three more never reach it, each for a checked
+    reason. test_suggest_titles_drops_excluded_files_from_kept is genuinely
+    repaired — GUARD_PASSED with its captured["kept"] assertions live again.
+    Nothing is passing for a new or wrong reason.
+
+New Minors, none merge-blocking:
+ N1 the I3 fallback still misattributes a TRAILING run with a matched left anchor
+    (gap_span has no trailing branch, so `unmatched` is empty and the old wording
+    fires), and the new comment asserts an invariant the code does not hold. The
+    reviewer SIZED IT BEFORE RATING IT: classified all 89 shows, that case occurs
+    0 times -> Minor.
+ N2 grammar in the shipped message ("track 20 ... and track 22 ... carries a title
+    of its own, but it matches...").
+ N3 the addendum's remedy wording is UNPINNED — no test asserts `without --no-run`
+    or `llama redo ... --from gather`, so it can be reverted to the attack-path
+    wording with the suite green. Same hollow-pin class this phase keeps finding,
+    on safety-relevant operator text. Worth a follow-up ticket.
+ N4 "24 tracks on disk" is the wrong noun — the number came from show.json, and
+    the on-disk count agrees with 23.
+
+INDEPENDENT CORROBORATION of the census, from a reviewer that did not author it:
+its own 89-show offline classification found **0 shows currently produce a
+feasible proposal** (2 no anchor, 2 unmatched anchor, 2 count mismatch, 83 no
+unresolved run) — including trampledbyturtles-2007-07-20, M3's one correct
+adoption, blocked offline by the pre-existing annotation-column normalization gap.
+It explicitly could NOT reproduce "1 of 89" offline and flagged that it ran
+setlistfm=None while the real config has a key. This CONFIRMS the two-arm figure
+rather than contradicting it: 1 of 89 with setlist.fm active, 0 of 89 offline.
+
+RUN COMPLETE. Nothing merged, pushed, tagged, or deleted — ratification is the
+root's and the ship call is Shawn's.
