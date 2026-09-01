@@ -982,3 +982,104 @@ Asked specifically to verify the guard's extraction of anchor_spans/gap_span/
 unresolved_runs is behaviour-preserving for the ALREADY-SHIPPING silent
 setlist-gap rung — a regression there is a larger hazard than anything in the new
 command — and to triage the deferred/parked list into merge / do-not-merge.
+
+=== FINAL WHOLE-BRANCH REVIEW (Opus, 33b4eaf..68b2baa, 23 commits) ===
+VERDICT: DO NOT MERGE AS-IS. One Critical (~3 lines + a test), then ship.
+Verdict file: .superpowers/sdd/2026-08-30-title-correspondence/final-review.md
+shasum -a 256 (first 16): 72ff54aea79c194b
+
+HIGHEST-RISK ITEM CAME BACK CLEAN, and by measurement rather than reading. The
+guard's extraction of anchor_spans/gap_span/unresolved_runs out of
+adopt_gap_titles is BEHAVIOUR-PRESERVING for the already-shipping silent
+setlist-gap rung: pre-branch vs post-branch run over the cache with every 1-3
+track window blinded — 1,639 items x 2 formats, 98,856 runs, 104,078 adoptions,
+**0 differences**.
+Test quality: 15 of 17 mutations caught. The two misses are I2 and m1.
+
+C1 (CRITICAL, the merge blocker) — a staged-but-not-yet-run exclusion makes
+--suggest-titles write titles under STALE NUMBERING, onto the wrong files,
+silently. `_propose_titles_for_show` exclude-filters `kept` (the A1 fix) but runs
+the DP over `show.tracks` from show.json, which is not re-derived; when
+overrides.exclude is written and the gather redo has not run, the proposal's row
+numbers are PRE-exclusion while overrides.titles applies POST-exclusion.
+Reproduced end to end: 3 titles onto 3 wrong files, no error, no flag. Reachable
+via a documented flag (`fix --exclude 5 --no-run`) or any interrupted redo — AND
+THE FEATURE'S OWN I2 REFUSAL MESSAGE ROUTES OPERATORS STRAIGHT INTO IT ("run the
+exclusion first, then --suggest-titles as a separate invocation"). The
+accountability guard cannot catch it: the proposal is internally consistent; the
+inconsistency is BETWEEN show.json and a pending override, which no internal check
+inspects. Fix: hard decline on a filename-list mismatch (list, not length — also
+catches a refreshed metadata cache).
+I2 (Important) — unresolved_runs' multi-run iteration is UNPINNED and, for the new
+guard, FAILS OPEN. `return runs[:1]` leaves 1554 green. Fail-safe for
+adopt_gap_titles (fewer adoptions), fail-OPEN for _unaccounted, because picks is
+filtered per-TRACK not per-RUN — demonstrated writing an invented 'Delta > Echo'
+into a non-count-forced gap. Shipped code is correct; the safety argument's
+load-bearing half is unpinned.
+I3 (Important) — the decline reason is LITERALLY FALSE on the branch's own showcase
+show. "no track with a title of its own brackets that run" fires on TBT offline
+while tracks 20/22 ARE titled; anchor_spans returns {} because the offline canonical
+carries inline annotation columns ('Valley   [4:00]'). Since the feature declines on
+88 of 89 shows, THE DECLINE MESSAGE IS THE FEATURE.
+I4 (Important) — docs/workflow.md oversells; CLAUDE.md is honest and blunt and was
+left alone. workflow.md sells [t] as a routine fourth resolution without disclosing
+1-adoptable-row-in-89 and never-on-a-wholly-untagged-tape — precisely the tape an
+operator on an `unresolved track titles` hold is holding.
+
+TRIAGE OF THE DEFERRED/PARKED LIST: **none of it blocks merge.** The one blocker
+(C1) was NEW and not on the list. May ship: all six Task-1 minors, Task-5's grammar
+pin, Task-6 N1/O1/M2, Task-8's per-row evidence column, the ?-titled misread, the
+0/4 sibling path. CLOSED and removed: Task-2's unsourced "0 of 2,015" —
+scripts/title_source_census.py now exists and the reviewer reproduced its output
+exactly. Owner decisions, not blockers: Phase B not fixing untagged tapes (must be
+reflected in workflow.md per I4), and the setlist.fm inversion (file as an owner
+TODO — it affects gather/alignment/briefing on EVERY path, not just this command).
+
+REVIEWER SELF-DISCLOSURE, and it is the right kind: its first mutation harness
+restored files with `mv`, preserving same-second mtimes, so a same-size edit left a
+VALID STALE .pyc and silently contaminated three results. It caught this itself,
+purged __pycache__ per run, and re-ran every affected mutation. Carried into the
+fix dispatch as an explicit instruction.
+COULD NOT VERIFY (recorded, not hidden): the M3 re-run's production arm (its
+offline sweep got render=68/decline=21/0 adoptable — consistent with the recorded
+setlist.fm inversion but NOT a replication of "72 rendering, 1 adoptable"); the
+Phase-A blind-the-tags corpus numbers; live archive.org; and M2 at branch tip,
+covered by proxy rather than measurement.
+=> NOTE: the "1 of 89" figure holds with setlist.fm ACTIVE; offline it is 0 of 89.
+   Both must be stated when this is reported.
+
+Fix round dispatched (Sonnet): C1 + I2 + I3 + I4, with mutation proof required for
+C1 and I2 and an explicit __pycache__-purge instruction.
+
+=== C1 + I2/I3/I4 FIX ROUND: DONE. Suite 1557 passed, 7 deselected. ===
+Commits 842b836 (C1), fb6c407 (I2+I3), 13fadeb (routing message), b1dd418 (I4 docs).
+C1 FIX SHAPE IS REFUSE, NOT RE-DERIVE — the shape the root asked for, and it is
+what landed: a hard decline on a filename-LIST mismatch before jerrybase.lookup or
+build_canonical are called, matching the function's other early returns. Re-deriving
+numbering inside the CLI would duplicate logic `gather` owns and create a second
+place numbering can drift, invisible in exactly the way C1 was.
+ACCEPTANCE DEMONSTRATED, NOT ASSERTED — both arms, against a shadowed copy at
+77e75b6 for BEFORE and the live tree for AFTER:
+  BEFORE: overrides 5/14/20 landed on d01t06 / d02t05 / d03t03, all MATCH=False —
+          exactly reproducing the finding.
+  AFTER:  "show.json is stale relative to overrides.json (23 files kept, 24 tracks
+          on disk) - run `llama redo ymsb2005-12-31 --from gather` first";
+          overrides.titles written = {}.
+ROUTING MESSAGE FIXED (13fadeb) — this was a GAP IN MY OWN DISPATCH, caught by the
+root, not by me: my C1 brief quoted the routing problem as context but never
+instructed fixing the text. Sent as a mid-round addendum. The message now names the
+COMPLETE remedy (the exclusion must be followed by a real gather redo, not merely
+staged) instead of the two-step dead end.
+IMPLEMENTER CATCH WORTH KEEPING: `test_suggest_titles_drops_excluded_files_from_kept`
+was itself staging the stale state to test A1, so the new guard would have silently
+hollowed it out — it now re-runs gather after the exclusion so it still exercises
+build_canonical rather than the staleness guard.
+
+RUN PAUSED at b1dd418. The scoped re-review of the fix round is the ONE outstanding
+piece and is deliberately HELD for the 01:09 window on the root's pacing call:
+nothing merges tonight (ratification is the root's, Shawn's ship call is ahead of
+it), so a review landing unread is not worth the last of this window.
+CENSUS FIGURE, BOTH ARMS, to be reported together and never singly:
+  --suggest-titles adopts on 1 of 89 library shows WITH setlist.fm active,
+  and 0 of 89 OFFLINE. That the two differ IS the setlist.fm inversion showing up
+  in the headline number.
