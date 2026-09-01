@@ -279,7 +279,7 @@ every held show with an `[e]xclude / [m]etadata / [v]ague / [o]verrule /
 | Resolution | When | Do (`fix`) | Do (`triage`) | Clears the hold? |
 |---|---|---|---|---|
 | **Correct** | The flag is real and fixable — e.g. junk tracks slipped past the filter, a setlist source is missing, or the venue/date/a title/a set break is wrong | `llama fix <show> --exclude 9,10` (track numbers or filenames; `--unexclude` to undo one) or `--set-venue`/`--set-city`/`--set-date`/`--set-title N="..."`/`--set-breaks "9,17"` | `[e]xclude` or `[m]etadata` | No — a clean re-gather self-clears by producing structure with no flags |
-| **Suggest titles** | The hold is `unresolved track titles` specifically, and the setlist correspondence can propose titles for some of the unresolved tracks | `llama fix <show> --suggest-titles` — renders the proposal table, then a single confirmation writes the proposed titles into `overrides.titles` at once | `[t] suggest titles` — same proposal/confirm, only offered under this flag | No — like **Correct**, a clean re-gather self-clears once every track has a resolved title and nothing else is flagged |
+| **Suggest titles** | The hold is `unresolved track titles` specifically, and the setlist correspondence can propose titles for some of the unresolved tracks — it declines whenever the setlist cannot be pinned to the tape by tracks that already carry titles of their own, which is the common case, and a wholly untagged tape can never qualify | `llama fix <show> --suggest-titles` — renders the proposal table, then a single confirmation writes the proposed titles into `overrides.titles` at once | `[t] suggest titles` — same proposal/confirm, only offered under this flag | No — like **Correct**, a clean re-gather self-clears once every track has a resolved title and nothing else is flagged |
 | **Accept as vague** | The setlist genuinely can't be resolved, but the show is otherwise fine to air without naming songs | `llama fix <show> --narration vague` | `[v]ague` | Yes, immediately (narration mode also survives future redos) |
 | **Overrule** | The flag is a false alarm | `llama fix <show> --overrule` | `[o]verrule` | Yes, immediately |
 
@@ -564,10 +564,14 @@ a `[t] suggest titles` option in the same slot instead:
   weaker canonical), and renders a title proposal for the tracks the
   setlist correspondence can propose for — the same DP and the same
   render/confirm helper `fix --suggest-titles` uses below, so the two
-  surfaces can't silently diverge. A single confirmation writes the
-  proposed titles into `overrides.titles` at once (a filler row gets no
-  proposal and stays `(unresolved - hand-edit)`; a track that already
-  carries a title is never overwritten) and redoes from `gather`.
+  surfaces can't silently diverge. It declines whenever the setlist cannot
+  be pinned to the tape by tracks that already carry titles of their own
+  (the common case in practice) — a wholly untagged tape, the exact shape
+  an `unresolved track titles` hold usually is, can never qualify. A single
+  confirmation writes the proposed titles into `overrides.titles` at once
+  (a filler row gets no proposal and stays `(unresolved - hand-edit)`; a
+  track that already carries a title is never overwritten) and redoes
+  from `gather`.
   Declining, or a proposal with nothing left to adopt (every proposable
   track already titled), returns to the same prompt for the same show
   rather than skipping it — the proposal is **never** adopted without
