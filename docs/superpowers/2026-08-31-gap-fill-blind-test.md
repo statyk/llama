@@ -1330,6 +1330,16 @@ Exit codes: 0 clean, 1 selftest failed to detect, 2 abort set moved.
 
 ## Section B — M3: hand-review of the six held-show proposals (2026-08-31)
 
+> **This section records a FAILURE, and it is kept in full.** Everything below
+> was measured at `39f9a93`, before the accountability guard landed. Three of
+> the four feasible tables would have written wrong titles. **Section C is the
+> re-run** — same six shows, at `306453f`, under a criterion rewritten to be
+> content-based rather than shape-based. Section C supersedes this section's
+> *outcome*; it does not supersede its *evidence*, which is the ground-truth
+> hand-check every later judgment still rests on. One claim in this section is
+> corrected there: the acceptance criterion it was checked against (see
+> Section C's first finding).
+
 Gate M3 from the spec: render `llama fix <show> --suggest-titles` for the six
 held shows and **check every table by hand**. A green exit code is not the
 deliverable; the failure this gate exists to catch is a proposal that looks
@@ -1557,3 +1567,437 @@ cover the same material, and nothing checks that assumption before rendering.
 
 Run from the worktree with the worktree's own venv. A bare `llama` resolves to
 the main checkout and exercises the wrong source.
+
+## Section C — M3 re-run under a content-based criterion (2026-08-31)
+
+Code state: `306453f` (the accountability guard, `92febf7`, plus its doc
+commit). Suite at that state: `./.venv/bin/pytest -q` → **1554 passed, 7
+deselected**. Same six shows, same command, same library (89 shows in
+`~/.llama/shows`), setlist.fm **ACTIVE** as in production.
+
+### The first finding is about the gate, not the data
+
+**Section B's acceptance criterion for `yondermountainstringband-2005-12-31`
+was "renders the exactly-correct 24 rows". That is a SHAPE test, and the shape
+passed.** 24 rows, 22 titled, the two fillers landing on exactly tracks 11 and
+22 — every structural expectation the spec wrote down was met. Meanwhile **13
+of the 22 titles were wrong**, via a uniform off-by-one across rows 12–21.
+
+A uniform shift preserves row count, filler positions, margin plausibility and
+internal consistency. It changes only *content*. **A criterion a uniform shift
+can satisfy is not a criterion for a feature whose named failure mode is a
+uniform shift.** The gate was blind at precisely the boundary it was built to
+police.
+
+**The criterion is therefore rewritten, and this is the version that governs
+from here:**
+
+> For any show that renders a table, **every row that would actually be
+> adopted** (i.e. every row whose track is still `title_source ==
+> "unresolved"`, since those are the only rows `picks` can write) **must be
+> correct against hand-established external ground truth** — the item's own
+> description text, a sibling recording's tags, or filename evidence — and
+> **never** against the table's own internal consistency, row count, filler
+> placement, or margin values. A show that declines passes trivially, but its
+> decline must carry a diagnostic reason naming what it could not account for.
+> Rows that are rendered but not adoptable are recorded as display noise and
+> judged separately; they do not fail the gate, and they do not excuse it
+> either.
+
+Note what the new criterion deliberately drops: it says nothing about how many
+rows render. Under the old criterion a decline looked like a failure to
+produce; under the new one a decline is a pass, and the burden moves onto the
+single thing that can hurt an operator — a written title.
+
+#### This is the third time in this phase a check was blind at its own boundary
+
+Named together because they are one pattern, not three incidents:
+
+1. **`scripts/regather_diff.py`** — structurally blind to a cleaning-pass
+   change, because the pass runs identically in both of its arms. A
+   differential can only see what its two arms disagree about; a change applied
+   to both is invisible to it by construction.
+2. **The footnote-strip abort set** (Section A) — registered as "alignment
+   output" when the intent was "matching *decisions*". The wording was broader
+   than the intent, so a pure diagnostic that merely quotes canonical text
+   tripped the abort. The instrument was right; the boundary was drawn in the
+   wrong place.
+3. **M3's shape criterion** (here) — pinned the table's geometry while the
+   failure mode it existed to catch lives entirely in the table's content.
+
+The common shape: **each check was written by reasoning about the mechanism,
+and each mechanism's own blind spot was inherited by the check unexamined.** A
+differential inherits "both arms move together"; a registered abort set
+inherits its author's vocabulary; a shape assertion inherits the assumption
+that geometry implies content. The mitigation that actually worked, all three
+times, was the same and is cheap: **run a control that is known to be wrong and
+confirm the check goes red.** Section A's `--selftest` did exactly that and is
+the only reason its zero means anything. M3 had no such control, and that is
+why it took a hand-review to find out the criterion was hollow.
+
+### The re-run, as measured
+
+    $ for s in yondermountainstringband-2002-12-31 yondermountainstringband-2005-12-31 \
+    >          delmccouryband-2003-04-19 infamousstringdusters-2014-03-15 \
+    >          greenskybluegrass-2007-08-05 trampledbyturtles-2007-07-20; do
+    >   ./.venv/bin/llama fix "$s" --suggest-titles --no-run </dev/null
+    > done
+
+Exit 1 = table rendered, then EOF aborted the confirm. Exit 0 = declined before
+the prompt. Nothing was adopted into any `overrides.json`.
+
+| show | exit | outcome | adoptable rows | correct vs external ground truth | verdict |
+| --- | --- | --- | --- | --- | --- |
+| `yondermountainstringband-2002-12-31` | 0 | **declines** | — | — | pass (trivially) |
+| `yondermountainstringband-2005-12-31` | 0 | **declines** | — | — | pass (trivially) |
+| `delmccouryband-2003-04-19` | 0 | **declines** | — | — | pass (trivially) |
+| `infamousstringdusters-2014-03-15` | 0 | **declines** | — | — | pass (trivially) |
+| `greenskybluegrass-2007-08-05` | 0 | **declines** | — | — | pass (trivially) |
+| `trampledbyturtles-2007-07-20` | 1 | renders, 25 rows | **1** — track 21 → `1922` | **1 of 1 correct** | **pass** |
+
+**Gate result: PASS under the content-based criterion.** Zero rows that would
+be adopted are wrong, across the entire adoptable population of the library
+(see "the six shows were a census", below). This is a genuine pass and it is
+also a much smaller claim than the one M3 was originally written to make — the
+feature passes because it now declines almost everywhere, not because its
+proposals got better.
+
+#### The five decline reasons, verbatim
+
+    delmccouryband-2003-04-19: the setlist does not account for track 1: 1 file but 2 setlist
+      items between the titled tracks that bracket them (Travelin Teardrop Blues, Count Me Out)
+      - off by 1 (22 canonical items vs 21 song-like tracks - the setlist describes 1 song this
+      tape does not hold)
+
+    greenskybluegrass-2007-08-05: the setlist cannot be pinned to track 2: no track with a title
+      of its own brackets that run, so nothing fixes where in the setlist it starts (22 canonical
+      items vs 16 song-like tracks - the setlist describes 6 songs this tape does not hold)
+
+    infamousstringdusters-2014-03-15: the setlist does not account for tracks 8-10: 3 files but 4
+      setlist items between the titled tracks that bracket them (3x5, Something Wind, Machines,
+      ~Set 02~) - off by 1 (33 canonical items vs 27 song-like tracks - the setlist describes 6
+      songs this tape does not hold)
+
+    yondermountainstringband-2002-12-31: the setlist cannot be pinned to tracks 1-38: no track
+      with a title of its own brackets that run, so nothing fixes where in the setlist it starts
+      (40 canonical items vs 38 song-like tracks - the setlist describes 2 songs this tape does
+      not hold)
+
+    yondermountainstringband-2005-12-31: the setlist cannot be pinned to tracks 1-24: no track
+      with a title of its own brackets that run, so nothing fixes where in the setlist it starts
+      (23 canonical items vs 24 song-like tracks - the setlist is 1 song short of this tape)
+
+Every one names the canonical item count, the song-like track count, the
+direction and size of the discrepancy, and — where the run is bracketed —
+the specific items it could not fit. The criterion's diagnostic-reason
+requirement is met on all five.
+
+Note that the two ISD/DMB declines name the *right* items. ISD's decline lists
+`3x5, Something Wind, Machines, ~Set 02~` as the four items it cannot fit into
+three files — and Section B's hand-check established that `3x5`, `Something
+Wind` and `Machines` are exactly the three correct titles for tracks 8–10, with
+the set marker `~Set 02~` as the intruder. The guard declines for the right
+reason, not by luck.
+
+#### `trampledbyturtles-2007-07-20`, row by row
+
+The only adoptable row is track 21 (`TBT2007-07-20D2T08.mp3`), the show's only
+`title_source == "unresolved"` track. Proposed `1922`.
+
+**Ground truth, from the item's own description** (not from the table):
+
+    D2
+    07 Valley				3:57
+    08 1922	$				3:26
+    09 Trouble				5:27
+
+The file is literally `D2T08`, the rendered duration is `3:26`, and the
+description's `D2 08` entry is `1922` at `3:26`. Independent of the DP on all
+three axes. **Correct.**
+
+The rest of the table is rendered but not adoptable, and it is not clean:
+
+| row | proposed | the tape's own tag | |
+| --- | --- | --- | --- |
+| 1 | Lost Highway | `Wizard Intro` | **wrong** |
+| 2 | Ain't No Use in Tryin' | `Lost Highway &` | **wrong** |
+| 3 | *(unresolved — hand-edit)* | `Ain't No Use in Trying'` | filler, misplaced |
+| 4–10 | Wrong Way Street … Never Again | (same) | correct |
+| 11 | *(unresolved — hand-edit)* | `Jars at Home` | filler, misplaced |
+| 12 | Jars at Home | `I'm a Target Too` | **wrong** |
+| 13–20 | Blue Sky and the Devil … Valley | (same) | correct |
+| **21** | **1922** | *(unresolved)* | **the pick — correct** |
+| 22–25 | Trouble … Sloop John B | (same) | correct |
+
+Three rendered rows are wrong. **None of them is adoptable** — every one sits
+on a track that already carries a tag title, and `picks` filters to
+`title_source == "unresolved"` only. The "never clobber a track that already
+has a title" clause is what contains this, and it is mutation-verified
+(`test_never_clobbers_a_track_that_already_has_a_title`; deleting the clause
+leaves the rest of the suite green).
+
+**This is not a gate failure, and it is not nothing either.** The criterion
+judges adopted rows, and the adopted row is right. But an operator reading this
+table sees a DP that visibly does not understand the first twelve tracks of the
+tape, and is then asked to trust its twenty-first. That is a real usability
+defect, filed and not fixed; the cheap improvement is a marker on rows whose
+proposal contradicts the tape's own tag.
+
+### The setlist.fm inversion: production is strictly worse than offline here
+
+**This has its own section because it contradicts a standing project-wide
+assumption, and a table row would bury it.**
+
+Every offline number in this repository carries the caveat that `setlistfm=None`
+is an **upper bound on blast radius** — the pessimistic arm, re-deriving from
+LMA descriptions what production would have won from setlist.fm. On
+`yondermountainstringband-2005-12-31` that is **backwards**. Measured directly,
+both arms, same code state, same cached metadata:
+
+    setlistfm=ACTIVE: n=23  confidence=high
+    setlistfm=None  : n=25  confidence=high
+
+The 25-item offline canonical is the **correct** one. It matches ground truth
+(the tagged sibling `ymsb2005-12-31.flac16`) exactly, reprises included:
+
+| # | `setlistfm=None` (correct) | `setlistfm=ACTIVE` |
+| --- | --- | --- |
+| 2 | `On The Run` | `On the Run` |
+| 3 | `Postcard To My Son From Jail [tentative title]` | `Postcard to My Son From Jail` |
+| **4** | **`On The Run`** *(the reprise)* | **— absent —** |
+| 9 | `Peace Of Mind` | `Peace of Mind` |
+| 10 | `King Ebenezer Rap` | `King Ebeneezer` |
+| **11** | **`Peace Of Mind`** *(the reprise)* | **— absent —** |
+
+setlist.fm's entry for this performance holds each song once; the band played
+`On The Run` and `Peace Of Mind` twice each. Two missing items produce two
+independent +1 shifts, which happen to cancel across rows 5–9 — which is
+exactly why part of Section B's table looked right.
+
+**The proposal path threads `setlistfm=make_client(config)` deliberately**
+(`cli._propose_titles_for_show`), so that the canonical the operator is shown
+is the same canonical the confirmed `gather` redo will consume. That
+consistency reasoning is **sound and should not be reverted**: showing a
+proposal built from a canonical the redo would not reproduce is a worse failure
+than showing a worse canonical. The point of this section is only that the
+sound choice is producing the inferior canonical on this show, and nobody
+should be surprised by it a second time.
+
+**What this does and does not overturn.** It does *not* overturn the blast-radius
+caveat as a caveat: under the guard, both arms decline on this show, so the
+adopted-row count is 0 either way.
+
+    setlistfm=ACTIVE: feasible=False - ... (23 canonical items vs 24 song-like tracks)
+    setlistfm=None  : feasible=False - ... (25 canonical items vs 24 song-like tracks)
+
+What it overturns is the *reason* the caveat was believed — the assumption that
+setlist.fm-won canonicals are uniformly better than description-derived ones.
+They are not. Offline is an upper bound on **how much a change can move**, and
+it is **not** a lower bound on **canonical quality**. Those are different
+claims and this document had been quietly treating them as one.
+
+The inversion also runs the other way on a different show, which is the
+strongest evidence that neither arm dominates: on
+`trampledbyturtles-2007-07-20`, the offline canonical is 28 items against 24
+song-like tracks and the guard **declines**, losing the one correct adoption
+production makes. Neither setting is uniformly better. **Per-show, measure both.**
+
+### The `forced` inversion
+
+`ProposalRow.forced` was designed as an *anti*-confidence signal — a rigidity
+label, deliberately not rendered as a large margin, precisely so a forced row
+could never flatter itself as having cleared a real comparison. The concern
+recorded when it was built was that it would **over**-signal.
+
+**It never fired at all.** Zero `forced` labels across all six of Section B's
+tables — including all three that were wrong — and zero in this run's one
+remaining table (`forced rows=0` on TBT, measured directly, not read off the
+render). Every wrong row in Section B carried a **numeric margin**, which is
+the presentation that reads as confident.
+
+So the label that exists to say "no signal, unverified" was silent on exactly
+the population it was built for, and the presentation that reads as verified
+was the one shown. The trichotomy is still correct as designed; it simply has
+not yet been exercised on real data, and no conclusion about its usefulness can
+be drawn from six tables in which it is absent.
+
+### Correction carried forward: the coverage-0.0 claim was false for one show
+
+Recorded in full in Section A ("A correction to the reason, made after
+measuring rather than assuming") and re-verified here against the live library
+rather than the harness:
+
+    ~/.llama/shows/greenskybluegrass-2008-02-29/show.json
+      structure.coverage = 1.0
+      structure.conflicts = ['Intro', 'Thick Smoke #@%']
+      28 tracks
+
+The earlier claim that "the three marked shows align at coverage 0.0 offline,
+so nothing could adopt on them" is **false for `greenskybluegrass-2008-02-29`**,
+which aligns at **coverage 1.0** — 28 of 30 canonical items matched, the two
+left over being exactly the two `conflicts` entries.
+
+The zero-improved-titles conclusion survives, on a **different and stronger**
+mechanism: **all 11 footnote deltas fall on UNMATCHED canonical items, and only
+a matched item can supply a track title.** That holds regardless of coverage,
+including on a show that aligns perfectly — which is why it is the better
+argument, and why the original one had to go rather than be patched.
+
+### The guard, and what it costs
+
+`92febf7` added two exact structural checks to `propose_titles`: every maximal
+run of still-`unresolved` tracks must be **count-forced between anchors**
+(bracketed by tracks whose own titles independently place them in the
+canonical, with exactly as many canonical items between as there are files),
+and the DP's solution **must not contradict a forced gap**. No threshold, no
+margin, no score — exact equality plus anchoring, nothing to tune.
+
+| show | before (`39f9a93`) | after (`306453f`) | |
+| --- | --- | --- | --- |
+| `yondermountainstringband-2005-12-31` | renders (exit 1), 13 of 22 wrong | **declines** (exit 0) | ✓ |
+| `yondermountainstringband-2002-12-31` | renders (exit 1), ~all 36 wrong | **declines** (exit 0) | ✓ |
+| `infamousstringdusters-2014-03-15` | renders (exit 1), 3 of 3 picks wrong | **declines** (exit 0) | ✓ |
+| `delmccouryband-2003-04-19` | declines (exit 0) | declines (exit 0) | ✓ |
+| `greenskybluegrass-2007-08-05` | declines (exit 0) | declines (exit 0) | ✓ |
+| `trampledbyturtles-2007-07-20` | renders (exit 1), pick correct | **renders** (exit 1), `21. 3:26 1922` | ✓ |
+
+Library-wide sweep, 89 shows, proposal re-derived with and without the guard:
+72 renders→renders, **3 renders→declines** (exactly the three the gate wanted),
+14 declines→declines, **0 declines→renders**. No collateral.
+
+#### What it costs, at full weight
+
+**Across 89 shows, `--suggest-titles` can now adopt on exactly ONE.** 71 of the
+72 shows that still render have **zero** unresolved tracks, so the guard is
+vacuous there and the CLI's next line is already `nothing to adopt: every track
+already has a title`. The shows with anything at all to adopt are precisely the
+six gate shows:
+
+| show | unresolved tracks | before | after |
+| --- | --- | --- | --- |
+| `yondermountainstringband-2002-12-31` | 38 | renders | declines |
+| `yondermountainstringband-2005-12-31` | 24 | renders | declines |
+| `delmccouryband-2003-04-19` | 8 | declines | declines |
+| `infamousstringdusters-2014-03-15` | 3 | renders | declines |
+| `greenskybluegrass-2007-08-05` | 1 | declines | declines |
+| `trampledbyturtles-2007-07-20` | 1 | renders | **renders** |
+
+**So the six-show gate was a COMPLETE CENSUS of the library's adoptable
+population, not a sample.** No sampling error is available to explain the
+result away, in either direction — and equally, no extrapolation to shows
+outside this library is licensed by it.
+
+**Phase B, as designed, does not fix untagged shows.** This is the finding that
+matters most and it is not softened here: a wholly untagged tape has **no
+anchors by construction**, so it can never clear the count-forced-between-anchors
+check. The two ymsb tapes — the exact shows the phase was aimed at — are
+permanently outside what an unanchored duration DP plus this guard can reach.
+The project memory line "Phase B is the half that actually fixes the untagged
+shows" is, on this evidence, **not achievable by this design**. Anything that
+would help there must add *evidence* — a sibling recording's tags, setlist.fm,
+per-track fingerprinting — not another gate.
+
+**The residual value is real and narrowly shaped.** It is exactly: *gaps that
+`setlist-gap` already proves are count-forced, but refuses to adopt because
+`_hygienic` vetoes the title.* TBT track 21's gap is count-forced and
+two-side-anchored over the canonical item `1922`, which `is_real_title` rejects
+(no three ASCII letters) — so the silent `setlist-gap` rung declines it and
+`--suggest-titles` is the only path to that title. **`1922` is the entire
+demonstrated population of that class.** The command is a hygiene-override
+surface with a human in it, not a title generator. That is worth keeping; it is
+not what the phase set out to build.
+
+An inherited weak point is unchanged: `anchor_spans` uses
+`_merge_run`/`fuzzy_title_eq` for merged anchors, which tolerates dropped
+subtitles, so a merged anchor can bind one item off and still report success —
+and a *same-size* shift preserves the gap's item count exactly, which count
+forcing cannot see. This is `adopt_gap_titles`' own documented weak point; the
+guard inherits it rather than adding it, and the contradiction check does not
+help because the DP would be shifted the same way.
+
+### The `sibling_item_durations` diagnosis: REDESIGN, not implemented
+
+Full report: `.superpowers/sdd/2026-08-30-title-correspondence/sibling-diagnosis.md`.
+Read-only diagnosis against a `git archive 39f9a93` snapshot, with a traced
+mirror validated against the real function on all six shows.
+
+**The leading hypothesis was REFUTED.** The duplicate-canonical-norms refusal
+was believed to cause the 0/4 sibling-duration yield. It fires on **1 of 4**
+shows (`infamousstringdusters-2014-03-15`, 2 of 33 items), and even there it is
+**inert** — measured, not argued: `candidate.recordings` has exactly one entry,
+so the very next branch ("no sibling recording other than the selected one")
+returns `None` anyway.
+
+The dominant cause is the **final all-items-resolved check** — 3 of 4 shows —
+beneath which sit two unrelated sub-causes: one show's donor is **entirely
+untagged** (ymsb2002: 36 kept files, 0 usable norms), and two fail on a handful
+of **near-miss title variants** (`Hammock` vs `Hammock Swinging`; `King Ebenezer
+Rap` vs `King Ebeneezer`; a `[tentative title]` annotation).
+
+**The counterfactual matters more than the cause.** With per-item durations
+resolved as far as the donor allows:
+
+| show | rows changed | ok / partial / wrong |
+| --- | --- | --- |
+| `ymsb2005` baseline (`duration-model`) | — | **6 / 1 / 15** |
+| `ymsb2005` counterfactual (17 of 23 items real) | 12 of 24 | **16 / 1 / 5** |
+| `trampledbyturtles-2007-07-20` counterfactual (21 of 23 real) | **0 of 25** | identical to baseline |
+| `infamousstringdusters-2014-03-15` | — | n/a, no sibling exists |
+| `yondermountainstringband-2002-12-31` | — | n/a, donor untagged |
+
+So on `ymsb2005` it genuinely dissolves the uniform +1 shift — and **still
+leaves 4 wrong titles and 2 partial ones that would be written on a `y`**,
+because every track on that tape is unresolved and therefore every titled row
+is a pick. Per-item durations cannot invent the canonical items that are not
+there. **It would still be a gate failure, just a smaller one.** On TBT it
+changes **0 of 25 rows**. The improvement also rests on an unmeasured fill
+constant with a **27-second collapse band** inside its plausible range (one of
+the four natural fill policies lands inside the hole and scores worse than the
+baseline) — the do-not-retune hazard class, on a fresh constant with a
+single-show sample.
+
+**Marked REDESIGN and not implemented**: making it correct requires changing
+`sibling_item_durations`' contract (`list[float]` → `list[float | None]`), a
+donor-selection rule that does not exist today, a fill policy plus its
+constant, and per-row evidence provenance so a mixed real/invented duration
+vector is not presented to the operator as if it were all donor evidence. ~40
+lines, but four contract decisions. The substantive reason to stop is that the
+remedy does not clear the gate the work is blocked on: every M3 failure is a
+**canonical/track count mismatch, not a duration error**, and durations do not
+address missing canonical items, a truncated tape against a full-performance
+canonical, or a segue sandwich held at different granularity on the two sides.
+
+### Standing caveat — restated, because it now has an exception
+
+Every offline number in this document runs with `setlistfm=None` and is an
+**upper bound on blast radius, not a production measurement**. Section B and
+Section C both ran with setlist.fm **ACTIVE**; Section A's harness and the
+whole-corpus sweeps ran with it `None`.
+
+**The exception is the whole point of the inversion section above:** on
+`ymsb2005-12-31`, production is *worse* than offline — its canonical is missing
+two items the description-derived one has. "Upper bound on blast radius" is a
+statement about how far a change can move things; it is **not** a statement
+that the offline canonical is the inferior one. Do not read the caveat as the
+latter, which is how it had been read here until it was measured.
+
+### Reproduction
+
+    cd /Users/shawn/projects/llama/.worktrees/title-correspondence   # worktree venv, not the main checkout
+
+    # the gate, all six shows
+    $ for s in yondermountainstringband-2002-12-31 yondermountainstringband-2005-12-31 \
+    >          delmccouryband-2003-04-19 infamousstringdusters-2014-03-15 \
+    >          greenskybluegrass-2007-08-05 trampledbyturtles-2007-07-20; do
+    >   ./.venv/bin/llama fix "$s" --suggest-titles --no-run </dev/null; echo "exit=$?"
+    > done
+
+    # the suite this section's state is claimed at
+    $ ./.venv/bin/pytest -q          # 1554 passed, 7 deselected
+
+The setlist.fm A/B and the `forced`-count measurement were taken by calling
+`stages.gather.build_canonical` and `correspondence.propose_titles` in-process
+with `setlistfm=make_client(config)` and `setlistfm=None`, reusing
+`cli._propose_titles_for_show`'s exact argument construction (same
+`FORMAT_BY_AUDIO` / `filter_files` / `jerrybase.lookup` / overrides-exclusion
+sequence) so the measured canonical is the one the command actually builds.
