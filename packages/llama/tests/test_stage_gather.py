@@ -13,7 +13,8 @@ from llama.models import (Candidate, Overrides, ParsedSetlist, RecordingSummary,
 from llama.setlistfm import SetlistFMClient
 from llama.songs import normalize_song
 from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
-                                 _strip_head_banner, run_gather)
+                                 _strip_footnote_markers, _strip_head_banner,
+                                 run_gather)
 from llama.structure import fuzzy_norm_title
 from llama.workspace import ShowWorkspace, read_overrides, write_artifact
 
@@ -1069,6 +1070,64 @@ def test_artist_items_are_dropped_anywhere_not_just_at_the_head():
         "Bertha", "Jack Straw", "Deal", "Sugaree", "Ripple", "Casey Jones",
         "Truckin", "Dire Wolf", "Loser", "Big River", "Brown Eyed Women",
         "Sugar Magnolia", "Uncle Johns Band"]
+
+
+def test_footnote_markers_are_stripped_from_the_tail_only():
+    """Trailing description apparatus goes; the title is otherwise
+    byte-identical. Runs of markers ("* ^", "* # $") are one match, and a
+    marker character INSIDE a title is untouched -- these are footnote keys
+    ("* with Sam Bush" further down the description), not song names, and they
+    otherwise ride into the manifest's ID3 title frame."""
+    parsed = _parsed("Polly Put The Kettle On * ^", "Get Me Outta This City # %",
+                     "High Lonesome Sound * # $", "Tear Down The Grand Ole Opry @",
+                     "Steep Grade Sharp Curves *", "Cash $ Money",
+                     "Money For Nothing")
+    assert _titles(_strip_footnote_markers(parsed)) == [
+        "Polly Put The Kettle On", "Get Me Outta This City",
+        "High Lonesome Sound", "Tear Down The Grand Ole Opry",
+        "Steep Grade Sharp Curves", "Cash $ Money", "Money For Nothing"]
+
+
+def test_footnote_strip_leaves_a_marker_free_setlist_untouched():
+    """No marker anywhere means the same object back -- the strip is apparatus
+    removal, not a normalization pass, so it must not rewrite titles it has no
+    business touching."""
+    parsed = _parsed("Bertha", "Jack Straw", "Deal")
+    assert _strip_footnote_markers(parsed) is parsed
+
+
+def test_footnote_strip_never_eats_a_title_ending_in_a_marker_character():
+    """THE LEADING WHITESPACE BOUND, pinned. A footnote marker is written as a
+    separate token; a title character is not. Relaxing `_FOOTNOTE_TAIL`'s
+    leading `\\s+` to `\\s*` turns "100%" into "100" and "Ke$ha $" style
+    residue into nonsense -- the same failure mode as widening
+    `titles._TRACK_NUM_PREFIX` past `\\d{1,3}`, which is why that bound has its
+    own pin."""
+    parsed = _parsed("100%", "Cost Of Living$", "Track#1")
+    assert _titles(_strip_footnote_markers(parsed)) == [
+        "100%", "Cost Of Living$", "Track#1"]
+
+
+def test_footnote_strip_never_empties_a_title():
+    """An item that is nothing BUT markers is left alone. An empty title is
+    not a better outcome than a junk one: `align()` and `_window_match` treat
+    an empty norm as a wildcard that can match any junk track, which is the
+    exact hazard `structure.py`'s duration-strip fallback documents."""
+    parsed = _parsed("* ^", "Deal")
+    assert _titles(_strip_footnote_markers(parsed)) == ["* ^", "Deal"]
+
+
+def test_footnote_strip_leaves_normalized_alone_because_it_cannot_differ():
+    """`normalized` is not recomputed, and provably need not be:
+    `normalize_song` already strips every non-alphanumeric character, so the
+    stored norm of a marked title equals the norm of its stripped form. Pinned
+    because `blend_segues` pools items on `normalized` -- if this ever stopped
+    holding, the strip would silently move segues."""
+    parsed = _parsed("High Lonesome Sound * # $")
+    out = _strip_footnote_markers(parsed)
+    assert out.items[0].title == "High Lonesome Sound"
+    assert out.items[0].normalized == parsed.items[0].normalized
+    assert out.items[0].normalized == normalize_song("High Lonesome Sound")
 
 
 def test_head_chatter_never_matches_fade_titles():

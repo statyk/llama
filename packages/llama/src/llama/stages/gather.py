@@ -485,6 +485,57 @@ def _drop_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
     return parsed.model_copy(update={"items": kept})
 
 
+# A run of footnote markers at the very END of a canonical item's title, with
+# the whitespace that separates them: "Polly Put The Kettle On * ^",
+# "High Lonesome Sound * # $". These are apparatus of the DESCRIPTION (they
+# key a "* with Sam Bush" note further down the page), not part of any song's
+# name, and they survive into adopted titles -> overrides.titles -> manifest
+# v3 -> ID3 TIT2 -> the briefing -> emcee's script, where a "#" is wrong at
+# every sink.
+#
+# THE LEADING \s+ IS LOAD-BEARING and must not be relaxed to \s*: it is the
+# only thing that puts a real title ENDING in one of these characters -
+# "100%", a title ending in "$" - out of this rule's reach. A marker is
+# written as a separate token in every description convention; a title
+# character is not. This is the same class of bound as `titles._TRACK_NUM_PREFIX`'s
+# `\d{1,3}` (which keeps "1952 Vincent Black Lightning" and a bare "2001"
+# out of the track-number strip's reach) - widen it and the rule starts
+# eating real titles instead of apparatus.
+#
+# Trailing only, by construction: `$` anchors the match, so a marker
+# character INSIDE a title ("Rock $ Roll") is untouched.
+_FOOTNOTE_TAIL = re.compile(r"(?:\s+[*#%^$@]+)+\s*$")
+
+
+def _strip_footnote_markers(parsed: ParsedSetlist) -> ParsedSetlist:
+    """Drop trailing footnote markers from canonical item titles.
+
+    Removes only apparatus: the title is otherwise byte-identical, and an item
+    whose title is NOTHING but markers is left alone rather than reduced to
+    residue. The residue guard tests for a surviving ALPHANUMERIC, not merely
+    for a non-empty string: "* ^" strips to "*", which is non-empty and still
+    not a title. Nothing is lost by the stronger test -- a canonical item with
+    no alphanumeric character in it was never a song name.
+
+    `SetlistItem.normalized` is deliberately NOT recomputed, and does not need
+    to be: `songs.normalize_song` strips every non-alphanumeric character, so
+    every marker this removes is already absent from `normalized`. Recomputing
+    would produce the same string; leaving it alone makes that a guarantee
+    rather than an assumption, and keeps `blend_segues` (which pools on
+    `normalized`) provably untouched.
+    """
+    items = []
+    changed = False
+    for it in parsed.items:
+        stripped = _FOOTNOTE_TAIL.sub("", it.title)
+        if stripped != it.title and any(ch.isalnum() for ch in stripped):
+            items.append(it.model_copy(update={"title": stripped}))
+            changed = True
+        else:
+            items.append(it)
+    return parsed.model_copy(update={"items": items}) if changed else parsed
+
+
 class CanonicalBuild(NamedTuple):
     """`build_canonical`'s result. A NamedTuple rather than a bare 3-tuple so
     call sites read `result.source` instead of a positional index, and rather
@@ -502,7 +553,7 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                     setlistfm=None, provider=None) -> CanonicalBuild:
     """The cleaned canonical performance setlist: every recording's
     description, plus setlist.fm when configured, ranked pick-best, then
-    head-banner-stripped and artist-item-dropped.
+    head-banner-stripped, artist-item-dropped and footnote-marker-stripped.
 
     `provider=None` skips the `extract_setlist` LLM fallback entirely, so
     callers outside the pipeline (`llama fix --suggest-titles`) never trigger
@@ -544,6 +595,7 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
     canonical = _strip_head_banner(canonical, metadata_norms)
     canonical = _drop_artist_items(canonical, artist)
+    canonical = _strip_footnote_markers(canonical)
     return CanonicalBuild(setlist=canonical, notes=notes, source=source)
 
 
