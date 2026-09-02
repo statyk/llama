@@ -118,6 +118,55 @@ def _donor_key(agreement: float | None, cost: float, identifier: str) -> tuple:
     return (-rank, cost, identifier)
 
 
+def load_donor_tapes(ia, candidate: Candidate, identifier: str,
+                     want: str | Sequence[str]) -> tuple[list[DonorTape], list[str]]:
+    """Load every non-self recording in `candidate.recordings` as a
+    `DonorTape` -- the ONE definition of "qualifying donor", shared by
+    `_sibling_transfer` (gather's automatic pass) and `cli._propose_titles_for_show`
+    / triage's `[t]` (the operator surface, Task 6). Extracted out of
+    `_sibling_transfer` rather than reimplemented CLI-side: a second
+    "which recordings count as donors" would be invisible when it drifted,
+    exactly the class of duplication this module's docstrings keep warning
+    about.
+
+    A recording qualifies when: it is not `identifier` itself, its metadata
+    fetches without error, `filter_files` leaves at least one kept file, and
+    every kept file has a real (non-`None`) duration -- the same three
+    conditions `_sibling_transfer` checked inline before this extraction.
+
+    Returns `(donors, notes)`. `notes` carries one message per sibling whose
+    metadata could not be fetched (`IAError`); a sibling that fetches fine
+    but yields no kept files or an incomplete duration is silently skipped,
+    matching prior behaviour -- neither case is a fetch failure worth a note.
+    """
+    donors: list[DonorTape] = []
+    notes: list[str] = []
+    for rec in candidate.recordings:
+        if rec.identifier == identifier:
+            continue
+        try:
+            files = ia.metadata(rec.identifier).get("files", [])
+        except IAError as err:
+            # Same three-line idiom as _collect_parses above, on the same
+            # call, for the same identifiers -- one flaky sibling must not
+            # abort the whole gather stage (the loosened fetch gate widened
+            # how often this call fires; it does not change how a failure
+            # should be handled).
+            notes.append(f"could not fetch sibling {rec.identifier}: {err}")
+            continue
+        kept, _, _ = filter_files(files, want_format=want)
+        if not kept:
+            continue
+        durations = [length_seconds(f.get("length")) for f in kept]
+        if any(d is None for d in durations):    # skip donors with incomplete durations
+            continue
+        donors.append(DonorTape(identifier=rec.identifier,
+                                names=[f["name"] for f in kept],
+                                durations=durations,
+                                titles=clean_tag_titles(kept)))
+    return donors, notes
+
+
 def _sibling_transfer(ia, candidate: Candidate, identifier: str,
                       want: str | Sequence[str], tracks: list,
                       metadata_norms: set[str]) -> tuple[list, list[str]]:
@@ -163,36 +212,14 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     `build_canonical`) has already fetched every sibling's metadata for this
     same show before this function ever runs."""
     target_durs = [t.duration_sec for t in tracks]
+    donors, notes = load_donor_tapes(ia, candidate, identifier, want)
     candidates = []
-    notes: list[str] = []
-    for rec in candidate.recordings:
-        if rec.identifier == identifier:
-            continue
-        try:
-            files = ia.metadata(rec.identifier).get("files", [])
-        except IAError as err:
-            # Same three-line idiom as _collect_parses above, on the same
-            # call, for the same identifiers -- one flaky sibling must not
-            # abort the whole gather stage (the loosened fetch gate widened
-            # how often this call fires; it does not change how a failure
-            # should be handled).
-            notes.append(f"could not fetch sibling {rec.identifier}: {err}")
-            continue
-        kept, _, _ = filter_files(files, want_format=want)
-        if not kept:
-            continue
-        durations = [length_seconds(f.get("length")) for f in kept]
-        if any(d is None for d in durations):    # skip donors with incomplete durations
-            continue
-        donor = DonorTape(identifier=rec.identifier,
-                          names=[f["name"] for f in kept],
-                          durations=durations,
-                          titles=clean_tag_titles(kept))
+    for donor in donors:
         rows, diag = propose_rows(target_durs, donor, metadata_norms=metadata_norms)
         if rows is None:
             continue
         res = rate_alignment(rows, tracks)
-        candidates.append((_donor_key(res.agreement, diag["cost"], rec.identifier),
+        candidates.append((_donor_key(res.agreement, diag["cost"], donor.identifier),
                            donor, rows, res))
     if not candidates:
         return list(tracks), notes

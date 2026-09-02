@@ -330,7 +330,17 @@ class ProposalRow(BaseModel):
     duration_sec: float | None = None
     item_span: tuple[int, int] | None = None     # half-open canonical range; None = filler
     title: str = ""                              # "" when the row is a decline
-    evidence: str = ""                           # "sibling-duration" | "duration-model" | "filler"
+    evidence: str = ""                           # "sibling-duration" | "duration-model" | "sibling-align" | "filler"
+    # Task 6 (operator surface, sibling arm): the donor-track duration gap
+    # for this row's pairing, straight off `siblings.SiblingRow.residual_sec`.
+    # None on a row the sibling arm did not produce (every canonical-DP row).
+    residual_sec: float | None = None
+    # Task 6: a per-row annotation the sibling arm renders alongside a
+    # decline -- `siblings.SiblingRow.reason` verbatim ("sibling track
+    # untitled", "weak evidence (penalty ...)", a C+-style run reason, or the
+    # head-rows caution the CLI stamps on a no-anchors proposal's early rows).
+    # "" everywhere else, including every canonical-DP row.
+    note: str = ""
     # Display column only (never gates automatic adoption). (margin_sec, forced)
     # together carry three states: margin_sec is a number = cost gap to the
     # best alternative assignment; margin_sec is None and forced=True = no
@@ -358,4 +368,4 @@ class TitleProposal(BaseModel):
     rows: list[ProposalRow] = Field(default_factory=list)
     feasible: bool = False
     reason: str = ""            # why not, when feasible is False
-    evidence_source: str = ""   # "sibling-duration" | "duration-model"
+    evidence_source: str = ""   # "sibling-duration" | "duration-model" | "sibling-align"
