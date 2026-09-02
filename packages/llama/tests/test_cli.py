@@ -866,6 +866,64 @@ def test_untagged_fixture_with_tagged_donor_renders_sibling_proposal(tmp_path, m
     assert ov.titles[24] == "Song 24"
 
 
+def test_operator_band_sibling_titles_diverge_from_the_canonical_dp(tmp_path, monkeypatch):
+    """The named-mutation-B fixture. `_staged_anchored_ymsb_show`'s canonical
+    DP is FEASIBLE (its 3 interior gaps are count-forced between real
+    anchors -- `test_below_floor_donor_with_usable_canonical_falls_through_to_dp`
+    already pins its exact output: `ANCHORED_GAPS`). This test's donor
+    agrees with 16 of 21 real anchors (0.762, FLOOR <= x < AUTO -> operator
+    band -- NOT auto, so gather itself never auto-fills these tracks) but
+    tags the 3 gap positions with placeholder text instead of the real
+    song names, so the sibling arm's own proposal for those 3 tracks is
+    GUARANTEED to differ from the canonical DP's ("Steep Grade Sharp
+    Curves" etc.) -- unlike the untagged-fixture fixture above, whose
+    canonical DP is structurally infeasible either way (a wholly-unresolved
+    tape is one run spanning the whole tape, and `structure.gap_span` has no
+    trailing-edge branch, so `_unaccounted` always declines it regardless of
+    which arm runs first -- verified directly, see task-6-report.md) and so
+    cannot demonstrate this mutation on title content at all."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    audio = sorted((f for f in md["files"] if f.get("format") == "VBR MP3"),
+                   key=lambda f: f["name"])
+    show = read_model(sws.show, Show)
+    donor_ident = "ymsb2005-12-31.aud.divergent"
+    wrong_positions = {2, 6, 10, 15, 21}   # 0-based: 5 of 21 anchors disagree
+    donor_files = []
+    for i, f in enumerate(audio):
+        pos1 = i + 1
+        if pos1 in ANCHORED_GAPS:
+            title = f"Placeholder {pos1}"
+        elif i in wrong_positions:
+            title = "Some Wrong Title"
+        else:
+            title = show.tracks[i].title
+        donor_files.append({"name": f"{donor_ident}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                            "source": "original", "length": f["length"], "title": title})
+    donor_md = {"metadata": {"identifier": donor_ident, "description": ""},
+               "files": donor_files}
+    cand = _ymsb_candidate()
+    cand.recordings.append(RecordingSummary(identifier=donor_ident))
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    ia_map = {"ymsb2005-12-31.flac16.wav": md, donor_ident: donor_md}
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: MultiIA(ia_map))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "band operator" in result.output
+    ov = read_overrides(sws)
+    assert ov.titles == {5: "Placeholder 5", 14: "Placeholder 14", 20: "Placeholder 20"}
+    # the canonical DP's own (real) titles for the same 3 tracks, pinned by
+    # test_below_floor_donor_with_usable_canonical_falls_through_to_dp --
+    # content-different from what was actually written above.
+    assert ANCHORED_GAPS == {5: "Steep Grade Sharp Curves", 14: "Jack London",
+                             20: "Ewe With The Crooked Horn"}
+    assert set(ov.titles.values()).isdisjoint(ANCHORED_GAPS.values())
+
+
 def test_delmccoury_shaped_operator_band_confirms_only_unresolved_rows(tmp_path, monkeypatch):
     """13 anchors, 4 disagreeing (9/13 = 69% agreement, FLOOR <= x < AUTO):
     the operator band. Tracks 14-15 carry no tag of their own -- the sibling
