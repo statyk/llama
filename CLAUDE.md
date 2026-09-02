@@ -18,6 +18,7 @@ implementation plan this was built from. The approved design spec is
   The repo-root `.venv` installs llama editable against the *main* checkout, so a
   bare `pytest` from a worktree collects the worktree's tests but imports the main
   checkout's source — it silently tests the wrong code and still passes.
+  **And never run a `.venv/bin/*` console script from a COPY of the tree.** `pytest`, `pip`, `llama` and `emcee` are all shebanged with an absolute path to the original venv's interpreter, so from a copy they act on the original: `.venv/bin/pytest` tests the worktree instead of the copy (so a mutation you applied does nothing and the suite stays green), and `.venv/bin/pip install -e` reinstalls into the worktree's venv and repoints its `_editable_impl_*.pth` at your copy — poisoning every other process using that worktree, invisibly to `git status`. Use `python -m <tool>`, or shadow with `PYTHONPATH`. To check: `./.venv/bin/python -c "import llama; print(llama.__file__)"` must resolve inside the tree you meant to test.
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
 - Stitch a playlist into one mp3: `python3 scripts/stitch_m3u.py <playlist.m3u>`
