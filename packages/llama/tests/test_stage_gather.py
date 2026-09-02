@@ -327,6 +327,118 @@ def test_sibling_transfer_adopts_into_a_bracketed_gap(tmp_path: Path):
     assert all(got[i].matched is not None for i in (2, 3, 4, 5))
 
 
+def test_operator_band_run_stays_unresolved_even_though_cplus_would_bracket_it(tmp_path: Path):
+    """FIX ROUND 1, I1: the `rate_alignment` band gate (gather.py's
+    `if res.band != "auto": ... return`) had ZERO content coverage -- both
+    prior tests that name it use a ZERO-anchor tape, where `cplus_filter`
+    declines every run regardless of the band gate, so they reach the right
+    outcome through the wrong mechanism (deleting the gate left them green).
+
+    This fixture discriminates: tracks 1, 2 and 5 keep their own tags and
+    agree with the donor; track 6 is tagged "Bertha", which the donor
+    disagrees with (the donor's real content is "Johnny B. Goode"). That is
+    4 anchors, 3 agreeing -> 0.75, strictly between FLOOR (0.50) and AUTO
+    (0.80) -> band == "operator". The interior run (tracks 3-4) IS properly
+    bracketed by agreeing anchors and count-forced -- `cplus_filter` alone
+    would let it through -- so only the band gate stands between it and
+    adoption. It must stay unresolved."""
+    md = json.loads(FIXTURE.read_text())
+    chosen = {"metadata": dict(md["metadata"], description=""),
+              "files": [dict(f) for f in md["files"]]}
+    by_name = {f["name"]: f for f in chosen["files"]}
+    for name in ("gd73-06-10d1t03.mp3", "gd73-06-10d2t01.mp3"):
+        by_name[name].pop("title", None)               # tracks 3-4: unresolved
+    by_name["gd73-06-10d3t01.mp3"]["title"] = "Bertha"  # track 6: disagreeing anchor
+    # tracks 1, 2, 5 keep the base fixture's own correct tags (agreeing anchors)
+
+    sib = _gd73_donor(md, REAL_TITLES)                  # donor's track 6 is the true "Johnny B. Goode"
+    ia = MultiIA({IDENT: chosen, SIB_ID: sib})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    got = {t.index: t for t in show.tracks}
+    assert [got[i].title_source for i in (3, 4)] == ["unresolved"] * 2
+    assert [got[i].title for i in (3, 4)] == [got[i].filename for i in (3, 4)]
+    assert show.structure is not None
+    assert any(n == "sibling alignment needs operator review (anchor agreement 75%)"
+              for n in show.structure.conflicts)
+
+
+def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
+    """FIX ROUND 1, I2: `ia.metadata` inside `_sibling_transfer` was
+    unguarded, so one sibling recording raising `IAError` (a real archive.org
+    failure mode) aborted the entire gather stage instead of degrading
+    gracefully -- unlike `_collect_parses`, which already catches exactly
+    this call on exactly these identifiers and notes-and-continues. The two
+    must not diverge: a flaky sibling must not lose the show."""
+    from llama.ia_client import IAError
+
+    class FlakySiblingIA(MultiIA):
+        def metadata(self, identifier):
+            if identifier == SIB_ID:
+                raise IAError("boom 503")
+            return super().metadata(identifier)
+
+    # d3t01 (track 6) deliberately left untagged, matching the base fixture:
+    # title_fraction is 5/6 < 1.0, so the fetch gate still fires and
+    # `_sibling_transfer` actually attempts (and must survive) the failing
+    # donor fetch -- a fully-tagged target would skip the gate entirely and
+    # never exercise the fix.
+    md = json.loads(FIXTURE.read_text())
+    ia = FlakySiblingIA({IDENT: md})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
+
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    # Nothing crashed, and the show still resolved normally (track 6 via the
+    # ordinary whole-tape setlist rung, since its own tag is genuinely
+    # missing) -- sibling-align never got a chance to run at all.
+    assert [t.title for t in show.tracks] == REAL_TITLES
+    assert not any(t.title_source == "sibling-align" for t in show.tracks)
+    assert show.structure is not None
+    assert any(f"could not fetch sibling {SIB_ID}: boom 503" in n
+              for n in show.structure.conflicts)
+
+
+def test_the_higher_agreement_donor_wins_not_the_alphabetically_first_one(tmp_path: Path):
+    """FIX ROUND 1, I3 (= spec review Q2): `_donor_key` (highest agreement,
+    then lowest DP cost, then identifier) decides WHOSE TITLES SHIP and had
+    zero test coverage -- inverting the whole ranking left the entire suite
+    green. Donor A sorts FIRST alphabetically ("a-loser") so the identifier
+    tie-break cannot accidentally produce the right answer, but agrees with
+    only one of the two anchors (agreement 0.5, "operator" band alone) and
+    proposes distinguishable wrong interior titles. Donor B ("z-winner")
+    agrees with both anchors (agreement 1.0, "auto" band) and carries the
+    true interior titles. Donor B must win."""
+    md = json.loads(FIXTURE.read_text())
+    chosen = {"metadata": dict(md["metadata"], description=""),
+              "files": [dict(f) for f in md["files"]]}
+    by_name = {f["name"]: f for f in chosen["files"]}
+    for name in ("gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+                 "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3"):
+        by_name[name].pop("title", None)               # tracks 2-5: unresolved
+    by_name["gd73-06-10d3t01.mp3"]["title"] = "Johnny B. Goode"  # track 6 anchor
+
+    loser_titles = ["Morning Dew", "Wrong Two", "Wrong Three", "Wrong Four",
+                    "Wrong Five", "Truckin'"]            # disagrees on track 6
+    donor_a = _gd73_donor(md, loser_titles)
+    donor_b = _gd73_donor(md, REAL_TITLES)               # agrees with both anchors
+
+    ia = MultiIA({IDENT: chosen, "gd73-06-10.aud.a-loser": donor_a,
+                  "gd73-06-10.aud.z-winner": donor_b})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier="gd73-06-10.aud.a-loser"))
+    cand.recordings.append(RecordingSummary(identifier="gd73-06-10.aud.z-winner"))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    got = {t.index: t for t in show.tracks}
+    assert [got[i].title for i in (2, 3, 4, 5)] == [
+        "China Cat Sunflower", "I Know You Rider", "Dark Star", "Eyes of the World"]
+    assert not any(t.title.startswith("Wrong ") for t in show.tracks)
+
+
 def test_fully_tagged_tape_does_not_fetch_a_sibling_for_title_transfer(tmp_path: Path):
     """The loosened fetch gate (`kept and title_fraction(...) < 1.0`) must
     still skip the sibling-align pass entirely once the tape's own tags

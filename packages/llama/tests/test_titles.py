@@ -54,7 +54,19 @@ def test_resolve_titles_no_longer_has_a_sibling_fallback():
     unresolved, the same as any other cascade miss. Sibling-recording titles
     are transferred by the guarded duration-alignment pass
     (`llama.siblings` + `gather._sibling_transfer`), which runs later in
-    `gather`, not here."""
+    `gather`, not here.
+
+    FIX ROUND 1, m1: the assertions below never pass `sibling_titles`, so
+    restoring the deleted parameter (defaulted to None) as dead code left
+    this test green -- it pinned nothing about the removal. The signature
+    assertion is what actually detects that; the behavioural asserts stay
+    because they are also exercised (more weakly) by
+    test_unresolved_flagged_not_guessed, but the removal itself is pinned
+    here."""
+    import inspect
+
+    assert "sibling_titles" not in inspect.signature(resolve_titles).parameters
+
     files = make_files([None] * 6)
     short = ParsedSetlist(items=make_setlist().items[:3], confidence="high")  # count mismatch
     tracks = resolve_titles(files, short)

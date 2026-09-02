@@ -128,13 +128,14 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     running `siblings.cplus_filter` -- fills `unresolved` tracks with the
     surviving `adopt` rows, stamped `title_source="sibling-align"`.
 
-    Returns `(tracks, notes)`. `tracks` is a NEW list (inputs are never
-    mutated in place); `notes` carries both pair-level declines (why the
-    winning donor's band was not `auto`) and per-run declines (why an
-    `auto`-band run still did not fill) -- concern #2 from Task 4's review:
-    a C+ demotion reason is otherwise visible only on the (internal,
-    never-returned) `SiblingRow` itself, so it must be surfaced here or it is
-    simply lost.
+    Returns `(tracks, notes)`. `tracks` is always a NEW list -- inputs are
+    never mutated in place, on every return path including "no candidate
+    donor at all" -- and `notes` carries pair-level declines (why the
+    winning donor's band was not `auto`, or why a donor could not be fetched
+    at all), per-run declines (why an `auto`-band run still did not fill --
+    concern #2 from Task 4's review: a C+ demotion reason is otherwise
+    visible only on the internal, never-returned `SiblingRow` itself, so it
+    must be surfaced here or it is simply lost).
 
     CONCERN #1 (data loss): `cplus_filter` says nothing about a track that
     already has a title -- an `adopt` row on an already-titled track survives
@@ -148,13 +149,36 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     CONCERN #3: `cplus_filter` does not itself check the band -- it is called
     here ONLY when `rate_alignment` already routed the pair to `"auto"`;
     calling it on an `operator`/`declined`/`no-anchors` pair would gate
-    nothing meaningful (there is no automatic adoption to gate)."""
+    nothing meaningful (there is no automatic adoption to gate).
+
+    Fan-out cost (Task 5 fix round, measured): `propose_rows` per donor is
+    0.015 / 0.067 / 0.23 / 1.88 SECONDS at 20 / 40 / 60 / 120 target tracks.
+    Against 37,144 real candidates (~/.llama/runs): donors-per-performance is
+    median 1, p90 9, max 38; 89 gathered shows put track count at median 22,
+    p90 31, max 63. Typical show ~0.02-0.06s, p90 show ~0.3s, worst observed
+    (38 donors x 63 tracks) ~9s once, at gather time -- acceptable inside a
+    stage that already does per-recording network IO and audio downloads, no
+    change made. The loosened fetch gate above does not add network cost:
+    `IAClient.metadata` is disk-cached, and `_collect_parses` (above, in
+    `build_canonical`) has already fetched every sibling's metadata for this
+    same show before this function ever runs."""
     target_durs = [t.duration_sec for t in tracks]
     candidates = []
+    notes: list[str] = []
     for rec in candidate.recordings:
         if rec.identifier == identifier:
             continue
-        kept, _, _ = filter_files(ia.metadata(rec.identifier).get("files", []), want_format=want)
+        try:
+            files = ia.metadata(rec.identifier).get("files", [])
+        except IAError as err:
+            # Same three-line idiom as _collect_parses above, on the same
+            # call, for the same identifiers -- one flaky sibling must not
+            # abort the whole gather stage (the loosened fetch gate widened
+            # how often this call fires; it does not change how a failure
+            # should be handled).
+            notes.append(f"could not fetch sibling {rec.identifier}: {err}")
+            continue
+        kept, _, _ = filter_files(files, want_format=want)
         if not kept:
             continue
         durations = [length_seconds(f.get("length")) for f in kept]
@@ -171,12 +195,11 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
         candidates.append((_donor_key(res.agreement, diag["cost"], rec.identifier),
                            donor, rows, res))
     if not candidates:
-        return tracks, []
+        return list(tracks), notes
 
     candidates.sort(key=lambda c: c[0])
     _, donor, rows, res = candidates[0]
     new_tracks = list(tracks)
-    notes: list[str] = []
 
     if res.band != "auto":
         pct = f"{res.agreement:.0%}" if res.agreement is not None else None
