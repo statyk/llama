@@ -100,7 +100,7 @@ def _unaccounted(tracks, canonical) -> str | None:
     unanchored monotone correspondence this DP otherwise performs.
 
     What the two paths do NOT share is the veto: `adopt_gap_titles` also
-    demands `_hygienic` titles because it adopts SILENTLY. Here an operator
+    demands `hygienic_title` titles because it adopts SILENTLY. Here an operator
     reads the table first, so hygiene is their call -- which is the whole
     residual value of this command over the `setlist-gap` rung.
 
@@ -112,7 +112,7 @@ def _unaccounted(tracks, canonical) -> str | None:
     adopt it. That claim is now FALSE: `titles.is_real_title` was widened to
     accept a bare 4-digit numeral (see the constant's comment in
     `titles.py` and `.superpowers/sdd/2026-09-02-sibling-title-transfer/
-    task-2-report.md`), so `is_real_title("1922")` and `_hygienic("1922",
+    task-2-report.md`), so `is_real_title("1922")` and `hygienic_title("1922",
     ...)` are both `True` now -- `setlist-gap` itself adopts this specific
     case without needing this command at all. The general argument above
     (an operator's hygiene call beating a silent one) still holds; finding a

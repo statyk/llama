@@ -1067,7 +1067,7 @@ def gap_span(anchors: dict[int, tuple[int, int]], lo: int, hi: int,
     only, running to the END of the canonical. That is precisely where a
     parsed LMA setlist keeps the taper's notes: `_strip_head_banner` cleans
     the head and has no tail counterpart, so the trailing items are lineage,
-    gear lists and thank-yous, and `_hygienic` cannot tell them from a song
+    gear lists and thank-yous, and `hygienic_title` cannot tell them from a song
     (they have three letters, are under MAX_TITLE_LEN, are not
     `is_junk_title`, and are not this show's own metadata).
 
@@ -1092,9 +1092,17 @@ def gap_span(anchors: dict[int, tuple[int, int]], lo: int, hi: int,
     return None
 
 
-def _hygienic(title: str, metadata_norms: set[str]) -> bool:
-    """A canonical item fit to become a shipped title. Deliberately strict:
-    this is the only silent adopter in the pipeline."""
+def hygienic_title(title: str, metadata_norms: set[str]) -> bool:
+    """A title fit to be adopted onto a track. Deliberately strict: the rungs
+    that call this are the pipeline's silent adopters.
+
+    PUBLIC, and deliberately single-sourced. Two rungs adopt without a human --
+    `adopt_gap_titles` (a canonical setlist item) and the sibling-transfer pass
+    (another taper's tag) -- and they must agree on what a shippable title is.
+    An earlier cut of `siblings.py` re-composed the same four predicates from
+    the same imports and pinned the two compositions equal by a table; adding a
+    clause to one of them left the table green, so the pin could not see the
+    drift it existed to catch. Hence one definition, imported."""
     from llama.setlist import MAX_TITLE_LEN, is_junk_title
     from llama.titles import is_real_title
     t = title.strip()
@@ -1160,7 +1168,7 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
         gap = items[span[0]:span[1]]
         if len(gap) != hi - lo + 1:          # not count-forced
             continue
-        if not all(_hygienic(it.title, metadata_norms) for it in gap):
+        if not all(hygienic_title(it.title, metadata_norms) for it in gap):
             continue
         for off, it in enumerate(gap):
             out[lo + off] = out[lo + off].model_copy(

@@ -1641,7 +1641,7 @@ def test_contains_sequence_repeated_song_advances_past_first_hit():
 
 
 from llama.models import ParsedSetlist, SetlistItem, Track
-from llama.structure import _hygienic, adopt_gap_titles
+from llama.structure import adopt_gap_titles, hygienic_title
 
 
 def _gap_items(*specs):
@@ -1713,14 +1713,14 @@ def test_tail_edge_run_declines_a_taper_note():
     `is2008-12-06.flac16.aud` (M1 `--natural` run, 2026-08-31): 34 tracks, 39
     canonical items, track 34 unresolved, canonical item 39 being the tail of
     the taper's own notes. Every gate passes -- one item against one file,
-    left-anchored on an exact tag match, and `_hygienic` cannot reject the
+    left-anchored on an exact tag match, and `hygienic_title` cannot reject the
     sentence (>= 3 letters, 70 chars so under MAX_TITLE_LEN, not
     `is_junk_title`, not this show's metadata) -- which is exactly why the
     branch had to go rather than the screen be tightened.
 
     The first assertion is the point of the test; the second and third are the
     mutation guard. Restoring the trailing branch makes the first fail, and
-    the `_hygienic` assertion documents that no cheaper fix was available."""
+    the `hygienic_title` assertion documents that no cheaper fix was available."""
     note = "for being so nice and quiet which allowed me to pull a nice recording."
     canonical = _gap_items(("Poor Boy's Delight", "2", False),
                            ("Tuning / Banter", "2", False),
@@ -1732,7 +1732,7 @@ def test_tail_edge_run_declines_a_taper_note():
     assert out[2].title_source == "unresolved"
     assert out[2].title == "is2008-12-06d2t22.mp3"
     # The gate that would have had to catch it, and cannot.
-    assert _hygienic(note, set()) is True
+    assert hygienic_title(note, set()) is True
 
 
 def test_head_edge_run_adopts_with_one_real_anchor():
@@ -1774,10 +1774,10 @@ def test_override_titles_anchor_and_are_never_overwritten():
 
 
 def test_hygiene_rejects_a_junk_item():
-    # NOTE: "Set List:" is rejected by _hygienic's `not t.endswith(":")`
+    # NOTE: "Set List:" is rejected by hygienic_title's `not t.endswith(":")`
     # clause, not by `is_junk_title` (is_junk_title("Set List:") is False —
     # it has no duration/disc/total-time shape). This test alone would still
-    # pass if `is_junk_title` were dropped from _hygienic entirely; see
+    # pass if `is_junk_title` were dropped from hygienic_title entirely; see
     # test_hygiene_rejects_via_is_junk_title_specifically below for a case
     # that isolates that clause.
     canonical = _gap_items(("Alpha", "1", False), ("Set List:", "1", False),
@@ -1788,7 +1788,7 @@ def test_hygiene_rejects_a_junk_item():
 
 
 def test_hygiene_rejects_via_is_junk_title_specifically():
-    """A title that clears every OTHER _hygienic clause but is rejected
+    """A title that clears every OTHER hygienic_title clause but is rejected
     because `is_junk_title` says so, and for no other reason — proof that
     the `not is_junk_title(t)` clause is load-bearing (see mutation evidence
     in the task-2 report). "Disc Two" matches setlist.is_junk_title's

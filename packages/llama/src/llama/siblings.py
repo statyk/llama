@@ -37,8 +37,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from llama.setlist import MAX_TITLE_LEN, is_junk_title
-from llama.structure import fuzzy_norm_title
+from llama.structure import hygienic_title
 from llama.titles import is_real_title
 
 INF = float("inf")
@@ -132,23 +131,18 @@ class SiblingRow:
     reason: str = ""
 
 
-def _hygienic_title(title: str, metadata_norms: set[str]) -> bool:
-    """A donor tag fit to become a shipped title.
+def _all_present(durations) -> bool:
+    """Every duration is a real, positive number.
 
-    The same predicate family as `structure._hygienic`, composed from the same
-    imported functions -- never a reimplementation of any of them. The
-    composition is pinned equal to `structure._hygienic`'s by
-    `test_hygiene_matches_structures_own_predicate_exactly`, because a second
-    definition that drifts from the first is invisible.
-
-    No `aliases` here, deliberately, for `_hygienic`'s reason: `metadata_norms`
-    is built aliaslessly by gather's `_place_norms`/`_date_norms`, so threading
-    aliases into only this side would break the comparison's symmetry.
+    The `isinstance` arm is NOT belt-and-braces. A missing duration reaches
+    this module as `None` -- that is exactly how `models.Track.duration_sec:
+    float | None` spells "the item's metadata had no length for this file" --
+    and gather (Task 5) feeds these lists straight off `Track` objects. A bare
+    `d > 0` raises `TypeError` on `None` instead of declining, i.e. one
+    untimed file would crash the stage rather than skip the donor.
+    `float("nan")` also fails this, via `> 0`.
     """
-    t = title.strip()
-    return (bool(t) and is_real_title(t) and not is_junk_title(t)
-            and len(t) <= MAX_TITLE_LEN and not t.endswith(":")
-            and fuzzy_norm_title(t) not in metadata_norms)
+    return all(isinstance(d, (int, float)) and d > 0 for d in durations)
 
 
 def _prefix(xs: list[float]) -> list[float]:
@@ -212,6 +206,10 @@ def align_durations(target: list[float], donor: list[float],
                         dp[i + a][j + b] = cost
                         bk[i + a][j + b] = (i, j, op)
     if dp[n][m] == INF:
+        # UNREACHABLE from any input, and kept for the same reason as the
+        # `inf` penalty the row model documents: skips are always legal, so
+        # some alignment always exists and `dp[n][m]` is always finite. The
+        # branch states the contract rather than guarding a real case.
         return INF, []
     ops: list[tuple] = []
     i, j = n, m
@@ -249,11 +247,11 @@ def propose_rows(target_durs: list[float], donor: DonorTape, *,
         return None, {**diag, "decline": "empty tape"}
     if not (len(donor.durations) == len(donor.titles) == len(donor.names)):
         return None, {**diag, "decline": "donor track fields disagree in length"}
-    if not all(d > 0 for d in target_durs) or not all(d > 0 for d in donor.durations):
+    if not (_all_present(target_durs) and _all_present(donor.durations)):
         return None, {**diag, "decline": "missing per-track durations"}
 
     cost, ops = align_durations(target_durs, donor.durations)
-    if cost == INF:
+    if cost == INF:                    # unreachable; see `align_durations`
         return None, {**diag, "decline": "no legal alignment"}
     diag["cost"] = cost
     diag["ops"] = ops
@@ -290,7 +288,7 @@ def propose_rows(target_durs: list[float], donor: DonorTape, *,
         if not all(t.strip() and is_real_title(t.strip()) for t in titles):
             rows.append(SiblingRow(i0 + 1, None, span, residual, penalty,
                                    "decline", "sibling track untitled"))
-        elif not all(_hygienic_title(t, metadata_norms) for t in titles):
+        elif not all(hygienic_title(t, metadata_norms) for t in titles):
             rows.append(SiblingRow(i0 + 1, None, span, residual, penalty,
                                    "decline", "sibling title fails hygiene"))
         elif penalty < MIN_EXCLUSION_PENALTY:

@@ -73,15 +73,15 @@ _YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
 # decision therefore stands on two independent bases, not one.
 #
 # SIZED, ACCEPTED EXPOSURE (not a re-scope, do not narrow the predicate):
-# "global" also widens what structure._hygienic -- THE PIPELINE'S ONLY
+# "global" also widens what structure.hygienic_title -- THE PIPELINE'S ONLY
 # SILENT ADOPTER, the one surface where a wrong title ships with no flag and
-# no operator ever sees it -- will accept, because _hygienic calls this same
+# no operator ever sees it -- will accept, because hygienic_title calls this same
 # is_real_title. That check runs over CANONICAL SETLIST ITEMS, not tag
 # titles, a much denser population of date-shaped strings. Measured
 # independently (not reused from the reviewer who first raised this) over
 # the same iacache corpus via parse_setlist: 48,031 canonical items across
 # 2,033 parsed descriptions, of which 181 are pure-4-digit. 162 of those 181
-# already normalize into that show's own `_date_norms` (i.e. _hygienic
+# already normalize into that show's own `_date_norms` (i.e. hygienic_title
 # already vetoes them on the metadata-match clause, widening or not) and 0
 # are caught by `is_junk_title` -- 162 confirmed under two independently
 # built date-source approximations, so this is not a number sensitive to
@@ -91,7 +91,7 @@ _YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
 # the mismatched 163. `minutemen1984-07-14`, which carries two of the 181
 # entries, is the boundary case that separates the two countings. Recorded
 # so the next reader does not re-open it.) The remaining 19 entries, on 18
-# distinct items, newly clear every _hygienic clause once this widening
+# distinct items, newly clear every hygienic_title clause once this widening
 # lands:
 #   LosLobos2024-10-17                                                1973
 #   MWatt2013-01-12                                                   1977
@@ -113,7 +113,7 @@ _YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
 #   ymsb2017-02-09.spyder9.flac16                                     1945
 # This list is NOT uniformly junk: "1977" and "1662" are the same two real
 # songs already established above (MWatt2013-01-12, turkuaz2018-01-18) --
-# _hygienic runs over canonical setlist items, and a real song's canonical
+# hygienic_title runs over canonical setlist items, and a real song's canonical
 # item is exactly as pure-4-digit as a taper's date stamp is. The exposure
 # is the REST of the list: "2448" comes out of a `flac2448` lineage fragment
 # mis-split into the description; "2026" sits on a 2025 show; "2020" sits on
@@ -121,7 +121,7 @@ _YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
 # surviving because `_date_norms` only vetoes a title equal to THAT show's
 # own date rendering, not some other date-shaped string.
 # THIS 18/19 IS AN UPPER BOUND ON EXPOSURE, NOT THE EXPOSURE: passing
-# `_hygienic` is necessary but not sufficient for a title to ship -- the
+# `hygienic_title` is necessary but not sufficient for a title to ship -- the
 # gap must ALSO be count-forced between two independently-matched anchors
 # (`adopt_gap_titles`'s whole argument). How many of these 18 would actually
 # alter a shipped title in a real re-gather is NOT YET MEASURED (that needs
@@ -130,7 +130,7 @@ _YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
 # Accepted anyway, because TBT's "1922" -- the one demonstrated-correct
 # `--suggest-titles` adoption this same widening also enables via
 # `setlist-gap` -- requires exactly this predicate change to reach
-# `_hygienic` at all; narrowing it back out would take 1922 with it. Task 7
+# `hygienic_title` at all; narrowing it back out would take 1922 with it. Task 7
 # sizes the real number.
 # DEFERRED, pre-existing, not introduced by this task (noted in fix round 2
 # rather than fixed): `\d` matches Unicode digits, not just ASCII, so

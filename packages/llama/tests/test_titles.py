@@ -121,7 +121,7 @@ def test_is_real_title_accepts_a_year_like_numeric_title():
     threshold. Zero STOP-qualifying items in either corpus means the
     widening is applied to `is_real_title` itself (global scope), not only
     to a hygiene/adoption-side check. Full numbers and the accepted
-    `structure._hygienic` exposure are recorded in the constant's comment
+    `structure.hygienic_title` exposure are recorded in the constant's comment
     above this function."""
     assert is_real_title("1922") is True
     assert is_real_title("2001") is True
