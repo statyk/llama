@@ -790,6 +790,13 @@ def _tape_tag_shift():
 
     Agreement is 8/10 = exactly AUTO, so the RATIO IS BLIND. That is what this
     fixture pins; the donor-span slide below pins the other half.
+
+    WHY THIS FIXTURE EXISTS ALONGSIDE THE DONOR-SPAN SLIDE BELOW: a tape-tag
+    shift like this one is the COMMONER phenomenon -- this phase measured
+    that 24.1% of disagreeing anchors are tape-wrong (the sibling and the
+    canonical setlist agree against the target's own tag). Deleting this
+    fixture to make room for the rarer donor-span slide below would trade
+    away coverage of the failure mode that actually shows up more often.
     """
     donor_durs = [300.0, 415.0, 520.0, 265.0, 380.0, 610.0, 245.0, 495.0,
                   330.0, 570.0, 250.0, 95.0, 440.0, 355.0]
@@ -849,7 +856,7 @@ def test_a_tape_tag_shift_adopts_zero_interior_titles_under_cplus():
 
 
 def _donor_span_slide():
-    """THE DONOR-SPAN SLIDE -- the class the spec names, through the real DP.
+    """The arithmetic signature of a donor-span slide, through the real DP.
 
     9 target files against a 10-track sibling. EVERY TAPE TAG IS CORRECT and
     every anchor agrees, so `rate_alignment` reports agreement 1.0: the ratio
@@ -864,6 +871,17 @@ def _donor_span_slide():
     of 406, 406 and 240 s -- layer 3 sees nothing wrong, because each pairing
     really is the best explanation of the durations.
 
+    THE ERROR IS STIPULATED, NOT EXHIBITED. A scoped re-review dumped this
+    fixture's rows: by the fixture's own durations, the DP's reading has
+    residuals of 2.0, 2.0 and 0.0 s (207 vs Echo's 205; 393 vs Foxtrot's 395;
+    425 vs Golf+Hotel's 305+120), while the DECLARED truth -- track 5 is
+    really Foxtrot, 6 is really Golf, 7 is really Hotel alone -- would
+    require duration errors of roughly 188, 88 and 305 s. The DP's reading is
+    the plausible one; the declared truth is not. So this fixture does not
+    exhibit C+ preventing a wrong adoption -- it pins C+'s YIELD COST: a
+    correct proposal declined because the donor span (4 tracks) holds one
+    more track than the target has files (3).
+
     Bracketing cannot catch this: both flanking anchors are correct AND
     agreeing. Only COUNT-FORCING can -- the donor span between them holds 4
     tracks for a 3-file run, which is the arithmetic signature of a slide.
@@ -871,19 +889,31 @@ def _donor_span_slide():
     both flanks are right and the span count equals the file count, the
     interior is forced and cannot slide. A slide therefore ALWAYS shows up as
     a count mismatch (a donor-side skip or a merge inside the run), which is
-    why mutation A cannot kill this test and mutation B must.
+    why mutation A cannot kill this test and mutation B must -- the asymmetry
+    is derivable from the guard, not incidental to this fixture, and a reader
+    who does not know it may try to "fix" this fixture to also respond to
+    mutation A and break it.
+
+    WHY THIS FIXTURE EXISTS ALONGSIDE THE TAPE-TAG SHIFT ABOVE: this is the
+    RARER case, the one C+ primarily exists for -- an alignment that actually
+    slides, as opposed to the commoner tape-tag failure (24.1% of disagreeing
+    anchors, measured this phase) that the fixture above pins. Deleting the
+    tape-tag fixture to make room for this one would trade away coverage of
+    the commoner failure for the rarer one; both stay.
 
     HONESTY NOTE ON THE DURATIONS, because it bears on Task 7. Forcing a slide
     through a real L1 duration cost requires the target's songs to differ from
-    the donor's by minutes, which is not credible tape-to-tape drift. The
-    credible real-world mechanism -- several adjacent songs of near-equal
-    length, one of them missing from the target -- was tried first and does NOT
-    reach this guard: with near-equal durations every rival pairing is nearly
-    as cheap, so the exclusion penalty collapses (measured: 2-18 s against
-    MIN_EXCLUSION_PENALTY = 60) and layer 3 declines the rows before C+ sees
-    them. The ambiguity that lets an alignment slide is the same quantity the
-    penalty measures. So this fixture is a faithful pin of the GUARD and an
-    open question about the POPULATION -- see the report.
+    the donor's by minutes, which is not credible tape-to-tape drift -- the
+    same stipulation flagged above, restated here for the population
+    question. The credible real-world mechanism -- several adjacent songs of
+    near-equal length, one of them missing from the target -- was tried first
+    and does NOT reach this guard: with near-equal durations every rival
+    pairing is nearly as cheap, so the exclusion penalty collapses (measured:
+    2-18 s against MIN_EXCLUSION_PENALTY = 60) and layer 3 declines the rows
+    before C+ sees them. The ambiguity that lets an alignment slide is the
+    same quantity the penalty measures. So this fixture is a faithful pin of
+    the GUARD and its yield cost, and an open question about the POPULATION
+    -- see the report.
     """
     donor_durs = [300.0, 415.0, 520.0, 265.0, 205.0, 395.0, 305.0, 120.0,
                   330.0, 355.0]
