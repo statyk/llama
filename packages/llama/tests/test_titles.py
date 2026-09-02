@@ -127,16 +127,22 @@ def test_is_real_title_accepts_a_year_like_numeric_title():
     assert is_real_title("2001") is True
 
 
-@pytest.mark.parametrize("cleaned", ["01", "174", "19770101", "12345"])
+@pytest.mark.parametrize("cleaned", ["3", "01", "174", "19770101", "12345"])
 def test_is_real_title_still_rejects_non_year_numeric_residue(cleaned):
-    """The widening is narrowly a bare 4-digit numeral. A short track number
-    (01, 174 -- "12" dropped, subsumed by "01": both only constrain the
-    lower bound) still fails on the letter count; a longer digit run that
-    merely CONTAINS 4 digits in a row must not slip through on an
-    unanchored match -- 19770101 is a yyyymmdd date stamp, exactly the junk
-    class this exists to reject, and 12345 is the minimal one-digit-over
-    case. ("d1t02" is covered by test_is_real_title above; not repeated
-    here.)"""
+    """The widening is narrowly a bare 4-digit numeral. A single digit (3)
+    and a short track number (01, 174 -- "12" dropped, subsumed by "01":
+    both only constrain the lower bound) still fail on the letter count; a
+    longer digit run that merely CONTAINS 4 digits in a row must not slip
+    through on an unanchored match -- 19770101 is a yyyymmdd date stamp,
+    exactly the junk class this exists to reject, and 12345 is the minimal
+    one-digit-over case. ("d1t02" is covered by test_is_real_title above;
+    not repeated here.)
+
+    "3" is restored here deliberately (fix round 2): dropping it in round 1
+    left single-digit rejection completely unpinned -- mutating
+    `_YEAR_LIKE_NUMERIC` to `r"\\d{4}|\\d"` (accepting every single digit as a
+    real title) left all 1567 tests green. Behaviour did not change
+    (`is_real_title("3")` was always `False`); the coverage did."""
     assert is_real_title(cleaned) is False
 
 

@@ -83,13 +83,14 @@ _YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
 # 2,033 parsed descriptions, of which 181 are pure-4-digit. 162 of those 181
 # already normalize into that show's own `_date_norms` (i.e. _hygienic
 # already vetoes them on the metadata-match clause, widening or not) and 0
-# are caught by `is_junk_title`. (The reviewer who first raised this counted
-# absorbed=163 against the same 181; my independent re-derivation gets 162 --
-# a 1-item difference from approximating `_show_metadata_norms` off raw
-# cache metadata rather than a real `Candidate`/`events` pair. Reported
-# rather than silently adopting either number. The number that matters for
-# the STOP-adjacent judgement below -- 18 distinct items newly passing -- is
-# NOT in dispute: both counts agree on it.) The remaining 19 entries, on 18
+# are caught by `is_junk_title` -- 162 confirmed under two independently
+# built date-source approximations, so this is not a number sensitive to
+# that choice. (162 vs. the reviewer-who-first-raised-this's 163 was never a
+# disagreement, just entry-vs-item granularity: 181 total ENTRIES minus 19
+# newly-passing ENTRIES is 162; 181 minus 18 DISTINCT newly-passing items is
+# the mismatched 163. `minutemen1984-07-14`, which carries two of the 181
+# entries, is the boundary case that separates the two countings. Recorded
+# so the next reader does not re-open it.) The remaining 19 entries, on 18
 # distinct items, newly clear every _hygienic clause once this widening
 # lands:
 #   LosLobos2024-10-17                                                1973
@@ -110,11 +111,15 @@ _YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
 #   ttws1995-03-20                                                    2013
 #   turkuaz2018-01-18                                                 1662
 #   ymsb2017-02-09.spyder9.flac16                                     1945
-# Examples of the mechanism: "2448" comes out of a `flac2448` lineage
-# fragment mis-split into the description; "2026" sits on a 2025 show;
-# "2020" sits on a 1994 show -- the shape this exposure is about is
-# lineage/tour-tag/date-adjacent junk, not real songs, surviving because
-# `_date_norms` only vetoes a title equal to THAT show's own date rendering.
+# This list is NOT uniformly junk: "1977" and "1662" are the same two real
+# songs already established above (MWatt2013-01-12, turkuaz2018-01-18) --
+# _hygienic runs over canonical setlist items, and a real song's canonical
+# item is exactly as pure-4-digit as a taper's date stamp is. The exposure
+# is the REST of the list: "2448" comes out of a `flac2448` lineage fragment
+# mis-split into the description; "2026" sits on a 2025 show; "2020" sits on
+# a 1994 show -- lineage/tour-tag/date-adjacent junk that isn't a real song,
+# surviving because `_date_norms` only vetoes a title equal to THAT show's
+# own date rendering, not some other date-shaped string.
 # THIS 18/19 IS AN UPPER BOUND ON EXPOSURE, NOT THE EXPOSURE: passing
 # `_hygienic` is necessary but not sufficient for a title to ship -- the
 # gap must ALSO be count-forced between two independently-matched anchors
@@ -127,6 +132,11 @@ _YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
 # `setlist-gap` -- requires exactly this predicate change to reach
 # `_hygienic` at all; narrowing it back out would take 1922 with it. Task 7
 # sizes the real number.
+# DEFERRED, pre-existing, not introduced by this task (noted in fix round 2
+# rather than fixed): `\d` matches Unicode digits, not just ASCII, so
+# `is_real_title("\u0661\u0669\u0667\u0667")` (Arabic-Indic digits for
+# "1977") is True. `^\d{4}$` had the identical hole before this widening --
+# it just had no caller that made it visible. Out of scope here.
 def is_real_title(cleaned: str) -> bool:
     """At least 3 ASCII letters (Deal, Jam) or a bare year-like 4-digit
     numeral (1922, 2001) is a real title; rejects date-less filename residue
