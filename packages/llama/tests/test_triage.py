@@ -14,6 +14,7 @@ from conftest import cli_invoke
 from llama.workspace import read_overrides
 
 from test_catalog import build
+from test_cli import ANCHORED_GAPS, _staged_anchored_ymsb_show, _staged_ymsb_show
 
 PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit"
 
@@ -298,3 +299,99 @@ def test_voiced_and_broadcast_ready_selectors_are_gone(tmp_path, tty):
         r = cli_invoke(cfg, "triage", flag)
         assert r.exit_code != 0, flag
         assert "no such option" in r.output.lower(), (flag, r.output)
+
+
+# --- [t] suggest titles (Task 8) ---
+#
+# Shares `_propose_and_confirm_titles`/`_propose_titles_for_show` with `fix
+# --suggest-titles` (see cli.py) rather than duplicating the propose/render/
+# confirm surface -- a divergence between the two would be invisible, per
+# the task brief. Both fixtures are imported from test_cli.py rather than
+# copied, and are the same ones `fix --suggest-titles`'s own tests use:
+# `_staged_ymsb_show` is a REAL held show flagged "unresolved track titles"
+# -- the one flag this resolution is gated on -- over a wholly untagged
+# 24-track tape, which is now correctly UNPROPOSABLE (nothing anchors the
+# setlist to it); `_staged_anchored_ymsb_show` is the same held show with
+# all but three tracks tag-titled, which is what a rendered proposal needs.
+
+def test_suggest_titles_hint_hidden_without_the_unresolved_titles_flag(tmp_path, tty, monkeypatch):
+    """`_held_show`'s hold flag is "research asserts wrong date: x", not
+    "unresolved track titles" -- the [t] hint must not appear, and typing
+    "t" anyway must fall through to the ordinary unrecognized-choice path
+    (no crash, no redo) rather than being silently accepted."""
+    cfg = _cfg(tmp_path)
+    _held_show(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="t\n")
+    assert r.exit_code == 0, r.output
+    assert "suggest titles" not in r.output.lower()
+    assert "unrecognized" in r.output
+    assert calls == []
+
+
+def test_suggest_titles_hint_shown_with_the_unresolved_titles_flag(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    _staged_ymsb_show(tmp_path, monkeypatch)
+    _stub_redo(monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\ns\n")
+    assert r.exit_code == 0, r.output
+    assert "suggest titles" in r.output.lower()
+
+
+def test_suggest_titles_resolution_writes_overrides_and_redoes_gather(tmp_path, tty, monkeypatch):
+    """The triage-side twin of
+    test_cli.py::test_suggest_titles_writes_every_row_into_overrides --
+    same helper, different surface, per the task-8 brief's DRY requirement."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)   # 3 unresolved -> held
+    calls = _stub_redo(monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\n")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(sws).titles == ANCHORED_GAPS
+    assert calls == ["gather"]
+    assert "packaged: /pkg" in r.output
+
+
+def test_declining_the_triage_proposal_writes_nothing_and_returns_to_the_prompt(
+        tmp_path, tty, monkeypatch):
+    """A decline must not advance/skip the show outright -- it returns to
+    the same prompt (like [m] with no changes), so a second choice ([s] here)
+    is still needed to move on."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    calls = _stub_redo(monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\ns\n")
+    assert r.exit_code == 0, r.output
+    assert "declined; nothing written" in r.output
+    assert read_overrides(sws).titles == {}
+    assert calls == []
+    # M1 (task-8 review round 1): the `[t] suggest titles` hint must still be
+    # visible on the SECOND prompt (after the decline's `continue`), not just
+    # the first -- pins RESOLVE_PROMPT_WITH_TITLES being selected per loop
+    # iteration rather than echoed once before the `while True:` loop. Two
+    # prompts are shown here (once for "t", once for "s"), so the hint must
+    # appear at least twice.
+    assert r.output.count("[t] suggest titles") >= 2
+
+
+def test_nothing_to_adopt_returns_to_the_prompt(tmp_path, tty, monkeypatch):
+    """Every track already titled -> picks is empty -> no confirmation is
+    even offered, and the walkthrough returns to the prompt untouched."""
+    from llama.models import Show
+    from llama.workspace import read_model, write_artifact
+
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    show = read_model(sws.show, Show)
+    show = show.model_copy(update={"tracks": [
+        t.model_copy(update={"title_source": "tags", "title": f"Song {t.index}"})
+        for t in show.tracks]})
+    write_artifact(sws.show, show)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\ns\n")
+    assert r.exit_code == 0, r.output
+    assert "nothing to adopt: every track already has a title" in r.output
+    assert calls == []

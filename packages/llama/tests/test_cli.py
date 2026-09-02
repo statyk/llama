@@ -1,10 +1,41 @@
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
 
+import llama.cli as cli
+from conftest import cli_invoke
+from herder import FakeProvider
 from llama.cli import app
+from llama.models import Candidate, Provenance, RecordingSummary, Show
+from llama.stages.gather import run_gather
+from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
 runner = CliRunner()
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+class StubIA:
+    """Serves one metadata dict for every identifier (single-recording
+    tests). Copied from test_stage_gather.py rather than imported, per the
+    orchestrator ruling for this task: it's a private test double, not a
+    shared production interface, and test_stage_gather.py's own copy is not
+    part of any importable helper module."""
+
+    def __init__(self, md=None):
+        self.md = md or json.loads((FIXTURES / "gd73_metadata.json").read_text())
+
+    def metadata(self, identifier):
+        return self.md
+
+
+def _ymsb_candidate():
+    return Candidate(
+        performance_id="YonderMountainStringBand/2005-12-31",
+        collection="YonderMountainStringBand", date="2005-12-31",
+        venue="Fillmore Auditorium", city="Denver, CO",
+        recordings=[RecordingSummary(identifier="ymsb2005-12-31.flac16.wav")])
 
 
 def test_help_shows_description():
@@ -205,3 +236,528 @@ def test_format_tracks_distinguishes_matched_unmatched_and_unknown():
     assert len(set(marks)) == 3, "matched/unmatched/unknown must render as three distinct marks"
     assert len({len(ln) for ln in rows}) == 1, "every row must be the same width"
     assert len({ln.index(" 5:00") for ln in rows}) == 1, "the duration column must line up"
+
+
+def _cfg(tmp_path):
+    """A config.toml pointing `root` at tmp_path, the pattern test_fix.py
+    uses -- `llama fix` resolves shows by slug against `config.root`, so
+    without this a show staged under an arbitrary tmp_path is never found
+    (verified directly: an earlier draft of these tests passed `str(sws.dir)`
+    to a bare `runner.invoke` with no `--config` and every one failed with
+    CatalogError("no show matches ..."), since the default root is `~/.llama`,
+    not tmp_path)."""
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    return tmp_path / "config.toml"
+
+
+def _staged_ymsb_show(tmp_path, monkeypatch, slug="ymsb2005-12-31"):
+    """A cataloged show (provenance.json + a real gathered show.json, laid
+    out at `root/shows/<slug>/` the way `llama fix` expects to find it)
+    holding the real 24-track untagged ymsb tape, all titles unresolved.
+
+    provenance.json is written explicitly (mirroring test_catalog.py's
+    `build()`) because `--suggest-titles` reads `entry.provenance.candidate`
+    to rebuild the canonical setlist, and `run_gather` alone -- as used
+    directly in test_stage_gather.py -- never writes it; that happens one
+    layer up, in pipeline.process_show, before gather ever runs.
+
+    Also monkeypatches `cli.IAClient` to hand back a `StubIA` over the same
+    metadata: `llama fix` builds its own `IAClient` from scratch inside
+    `_setup()` (see `cli.py`), so a plain `StubIA` passed only to the
+    `run_gather` call above is invisible to the CLI invocation below --
+    without this the CLI's `ia.metadata(...)` call hits a REAL IAClient
+    against `config.root/cache`, which is empty here (verified directly: an
+    earlier draft crashed/produced whatever happened to be on-disk instead
+    of this fixture's metadata -- test_redo_cmd.py's `FakeIA` pattern, used
+    the same way here, is what fixes it)."""
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    cand = _ymsb_candidate()
+    sws = ShowWorkspace(tmp_path / "shows" / slug)
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    show = run_gather(sws, StubIA(md), FakeProvider(), cand,
+                      "ymsb2005-12-31.flac16.wav")
+    assert all(t.title_source == "unresolved" for t in show.tracks)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA(md))
+    return sws
+
+
+#: Tracks left `unresolved` by `_staged_anchored_ymsb_show`, and the canonical
+#: item each one is COUNT-FORCED to by the tag-titled tracks bracketing it.
+#: Measured against the real fixture, not asserted by construction -- see that
+#: helper's docstring for why they cannot simply be chosen.
+ANCHORED_GAPS = {5: "Steep Grade Sharp Curves",
+                 14: "Jack London",
+                 20: "Ewe With The Crooked Horn"}
+
+
+def _staged_anchored_ymsb_show(tmp_path, monkeypatch, slug="ymsb2005-12-31",
+                               gaps=tuple(ANCHORED_GAPS)):
+    """The same real ymsb tape, but ANCHORED: every track except `gaps`
+    carries a tag title lifted from the canonical setlist, so each remaining
+    unresolved run is bracketed by tracks that independently place
+    themselves in that setlist.
+
+    This exists because `_staged_ymsb_show`'s tape -- wholly untagged -- is
+    no longer proposable at all, and that is the point of the M3 guard, not
+    an accident to work around: with no track carrying a title of its own,
+    nothing pins the setlist to the tape and `propose_titles` declines (see
+    `test_the_untagged_tape_is_no_longer_proposable`). Every test that needs
+    a RENDERED proposal therefore needs an anchored tape.
+
+    Track 1 carries a MERGED tag title (`Granny Woncha Smoke Some > Ride The
+    Wild Turkey`) rather than a plain one, and that is load-bearing: this
+    canonical parses to 25 items over 24 files, so exactly one merge has to
+    absorb the extra item somewhere. Put it on track 1 and the DP agrees with
+    the anchoring; leave it for the DP to place and it spends the merge later
+    on the tape, slides its assignment past the gaps, and the proposal is
+    declined by the contradiction half of the guard -- verified directly
+    against this fixture, which is also why `ANCHORED_GAPS`' titles are
+    measured rather than derived from the tagging rule.
+    """
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    cand = _ymsb_candidate()
+    sws = ShowWorkspace(tmp_path / "shows" / slug)
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    show = run_gather(sws, StubIA(md), FakeProvider(), cand,
+                      "ymsb2005-12-31.flac16.wav")
+    items = _ymsb_canonical_items(md, cand, show.artist)
+    tagged = []
+    for t in show.tracks:
+        title = (f"{items[0].title} > {items[1].title}" if t.index == 1
+                 else (items[t.index].title if t.index < len(items) else None))
+        tagged.append(t if (t.index in gaps or title is None) else
+                      t.model_copy(update={"title": title, "title_source": "tags"}))
+    write_artifact(sws.show, show.model_copy(update={"tracks": tagged}))
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA(md))
+    return sws
+
+
+def _ymsb_canonical_items(md, cand, artist):
+    """The canonical setlist `--suggest-titles` will itself rebuild for this
+    fixture -- computed by calling the real `build_canonical` the same way
+    the CLI path does (`provider=None`, `setlistfm=None` offline), rather
+    than hardcoding a parsed setlist that could drift away from it."""
+    from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.stages.gather import build_canonical
+    kept, _, _ = filter_files(md.get("files", []),
+                              want_format=FORMAT_BY_AUDIO["flac"])
+    return build_canonical(StubIA(md), cand, "ymsb2005-12-31.flac16.wav",
+                           md.get("metadata", {}), kept, artist, [],
+                           setlistfm=None, provider=None).setlist.items
+
+
+def _staged_show_with_unusable_canonical(tmp_path, monkeypatch, slug="nocanon"):
+    """Same tape, description replaced by prose that parses to nothing.
+
+    `provider=None` here (not `FakeProvider()`): with the description
+    unparseable, `rank_parses` finds no candidate and `build_canonical`
+    falls through to its `extract_setlist` LLM rescue whenever a provider is
+    given, which a bare `FakeProvider()` (no queued responses) blows up on --
+    verified directly, not assumed. `llama fix --suggest-titles` itself
+    always calls `build_canonical(..., provider=None)` (the whole point of
+    the CLI path never firing an LLM call), so staging with `provider=None`
+    reproduces exactly the canonical the CLI path will independently
+    recompute, without an incidental LLM round-trip this test doesn't care
+    about. Also monkeypatches `cli.IAClient` -- see `_staged_ymsb_show`."""
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    md["metadata"]["description"] = "A great night. Recorded from the balcony."
+    cand = _ymsb_candidate()
+    sws = ShowWorkspace(tmp_path / "shows" / slug)
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    run_gather(sws, StubIA(md), None, cand, "ymsb2005-12-31.flac16.wav")
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA(md))
+    return sws
+
+
+def test_suggest_titles_writes_every_row_into_overrides(tmp_path, monkeypatch):
+    """One confirmation replaces one --set-title call per unresolved track --
+    three here, in three separate runs, all in one go."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    ov = read_overrides(sws)
+    assert ov.titles == ANCHORED_GAPS
+    # M11 (review round 1): pin that adopting a proposal is a `did_meta`
+    # edit, so the existing redo selector stages `gather` -- confirmed
+    # (rather than re-derived) in the implementation that `parsed_titles`
+    # already sat in the `did_meta` expression; this is the pin.
+    assert "--from gather" in result.output
+
+
+def test_suggest_titles_declines_when_show_json_is_stale_against_pending_exclude(tmp_path, monkeypatch):
+    """C1 (final review, the merge blocker): staging `--exclude` with
+    `--no-run` writes `overrides.json` without re-running `gather`, so
+    `_propose_titles_for_show`'s freshly recomputed `kept` (`ia.metadata`
+    filtered by the now-written `overrides.exclude`, 23 files) disagrees
+    with `show.tracks` read from the untouched `show.json` (still the
+    pre-exclusion 24). Before the C1 fix this silently built a proposal
+    over the stale 24-track numbering while `overrides.titles` gets applied
+    by 1-based POST-exclusion position when `gather` eventually runs --
+    landing confirmed titles on the wrong tracks with no error and no flag
+    (reproduced end to end in the final review: three titles landed on
+    three wrong files). The guard must decline hard, not warn, and must
+    leave `overrides.titles` untouched -- this command's own `--exclude`
+    refusal message ("Run the exclusion first, then `--suggest-titles` as a
+    separate invocation") routes an operator straight into this exact
+    sequence, so the two-invocation workflow it recommends must be safe."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    victim = read_model(sws.show, Show).tracks[0].filename
+    stage_result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--exclude", victim, "--no-run")
+    assert stage_result.exit_code == 0, stage_result.output
+    assert read_overrides(sws).exclude == [victim]
+    # confirm show.json really is stale -- NOT re-derived by --no-run
+    assert len(read_model(sws.show, Show).tracks) == 24
+
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "show.json is stale relative to overrides.json" in result.output
+    assert "23 files kept" in result.output
+    assert "24 tracks on disk" in result.output
+    assert "redo ymsb2005-12-31 --from gather" in result.output
+    assert read_overrides(sws).titles == {}
+    # ... and no table was printed at all.
+    assert "proposal (" not in result.output
+
+
+def test_the_untagged_tape_is_no_longer_proposable(tmp_path, monkeypatch):
+    """The M3 gate's headline regression pin, over the real 24-track untagged
+    ymsb tape. This show USED to render 24 rows and adopt 22 titles, 13 of
+    them wrong via a uniform off-by-one, with nothing in the table saying so.
+    Not a single track carries a title of its own, so nothing anchors the
+    setlist to the tape and there is no such thing as a count-forced run --
+    it must decline before rendering, and say what it could not account
+    for."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert read_overrides(sws).titles == {}
+    assert "cannot be pinned to tracks 1-24" in result.output
+    # Requirement: the reason has to be actionable, i.e. tell an operator
+    # whether to go looking for a better setlist source. Both counts and the
+    # discrepancy between them, not just a verdict.
+    assert "25 canonical items vs 24 song-like tracks" in result.output
+    assert "1 song" in result.output
+    # ... and no table was printed at all.
+    assert "proposal (" not in result.output
+
+
+def test_resolve_prompt_with_titles_is_derived_from_resolve_prompt():
+    """N2 (task-8 review round 2, task-8n): `RESOLVE_PROMPT_WITH_TITLES`'s
+    comment claims `RESOLVE_PROMPT` is the single source of truth for the
+    common tail, but it used to be a hand-copied literal that could drift
+    silently -- a sentinel edit to `RESOLVE_PROMPT` passed every test because
+    nothing re-derived the `WITH_TITLES` variant from it. This pins the
+    derivation directly: splitting `RESOLVE_PROMPT` on its `[s]kip` option
+    and checking both halves survive verbatim into `RESOLVE_PROMPT_WITH_TITLES`
+    is exactly what a sentinel edit to either half would break under the old
+    hand-copied literal and cannot break under the derived one."""
+    before, sep, after = cli.RESOLVE_PROMPT.partition("[s]kip")
+    assert sep, "RESOLVE_PROMPT must still contain the [s]kip option"
+    assert cli.RESOLVE_PROMPT_WITH_TITLES.startswith(before)
+    assert cli.RESOLVE_PROMPT_WITH_TITLES.endswith(sep + after)
+    assert "[t] suggest titles" in cli.RESOLVE_PROMPT_WITH_TITLES
+
+
+def test_declining_the_proposal_writes_nothing(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    # M8 (review round 1): --no-run is required, not cosmetic. Without it,
+    # this test is fast today only because the decline exits before ever
+    # reaching a real redo -- if a future regression removes that early
+    # exit, the test stops failing in milliseconds and instead HANGS inside
+    # a real `_redo_show` (network/pipeline calls this suite never stubs).
+    # A gate regression must fail fast, not time out.
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert read_overrides(sws).titles == {}
+
+
+def test_an_infeasible_show_declines_without_writing(tmp_path, monkeypatch):
+    """Measured, not the brief's literal string: with the description parsing
+    to zero setlist items, `propose_titles` takes its `not items` branch and
+    returns reason="no usable canonical setlist" (correspondence.py), not
+    "no consistent correspondence - parse quality too low" (that second
+    string is DP infeasibility on a NON-empty canonical -- a different
+    branch, not reachable from an empty parse). Verified directly against
+    the real correspondence.propose_titles/build_canonical call the CLI path
+    makes, not tuned to whatever the code happened to emit."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_show_with_unusable_canonical(tmp_path, monkeypatch)
+    result = cli_invoke(cfg, "fix", "nocanon", "--suggest-titles")
+    assert "no usable canonical setlist" in result.output
+    assert read_overrides(sws).titles == {}
+
+
+# --- review round 1 fixes -----------------------------------------------
+
+def test_infeasible_proposal_falls_through_to_a_co_specified_edit(tmp_path, monkeypatch):
+    """I1 (round 1): an infeasible proposal used to always exit 0
+    immediately, silently discarding any OTHER edit flag on the same
+    invocation. It must instead warn and fall through."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_show_with_unusable_canonical(tmp_path, monkeypatch)
+    result = cli_invoke(cfg, "fix", "nocanon", "--suggest-titles",
+                        "--set-venue", "The Fillmore", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "no usable canonical setlist" in result.output
+    assert "continuing with the other edit flag(s) given" in result.output
+    assert read_overrides(sws).venue == "The Fillmore"
+
+
+def test_nothing_to_adopt_falls_through_to_a_co_specified_edit(tmp_path, monkeypatch):
+    """I1 (round 1): same guarantee when the proposal is feasible but every
+    track already has a title (picks is empty)."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    show = read_model(sws.show, Show)
+    show = show.model_copy(update={"tracks": [
+        t.model_copy(update={"title_source": "tags", "title": f"Song {t.index}"})
+        for t in show.tracks]})
+    write_artifact(sws.show, show)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles",
+                        "--set-venue", "The Fillmore", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "nothing to adopt: every track already has a title" in result.output
+    assert "continuing with the other edit flag(s) given" in result.output
+    assert read_overrides(sws).venue == "The Fillmore"
+
+
+def test_suggest_titles_declined_falls_through_to_a_co_specified_overrule(tmp_path, monkeypatch):
+    """I1 (round 1): the reviewer's worst case -- `--suggest-titles
+    --overrule` on a declined proposal must NOT read as exit 0 = "hold
+    cleared" when it was not. `_staged_ymsb_show`'s show is genuinely held
+    (a wholly untagged tape flags "unresolved track titles"), so this
+    exercises the real combination, not a synthetic stand-in."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    assert read_model(sws.show, Show).needs_review is True   # confirm it's actually held
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--overrule", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "declined; nothing written" in result.output
+    assert "continuing with the other edit flag(s) given" in result.output
+    assert read_overrides(sws).titles == {}
+    assert read_model(sws.show, Show).needs_review is False   # --overrule DID apply
+
+
+def test_suggest_titles_refuses_combination_with_exclude_flags(tmp_path, monkeypatch):
+    """I2 (round 1): the proposal is numbered over the CURRENT track list;
+    a same-invocation --exclude/--unexclude renumbers tracks before that
+    numbering would apply to the redo, so a picked index could silently
+    land on the wrong track. Refuse the combination outright rather than
+    guess at the post-exclusion numbering."""
+    cfg = _cfg(tmp_path)
+    for flag, value in [("--exclude", "1"), ("--unexclude", "1")]:
+        sws = _staged_ymsb_show(tmp_path, monkeypatch, slug=f"ymsb-{flag.strip('-')}")
+        result = cli_invoke(cfg, "fix", sws.dir.name, "--suggest-titles", flag, value)
+        assert result.exit_code != 0, (flag, result.output)
+        assert "cannot be combined with --exclude/--unexclude" in result.output, (flag, result.output)
+        assert read_overrides(sws).titles == {}
+        assert read_overrides(sws).exclude == []
+
+
+def test_explicit_set_title_wins_over_the_proposal(tmp_path, monkeypatch):
+    """M10 (round 1): an explicit --set-title on the same invocation must
+    beat a generated proposal for the same track -- the same human-
+    authority principle the confirmation gate itself protects."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    victim = sorted(ANCHORED_GAPS)[0]
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles",
+                        "--set-title", f"{victim}=Operator Chosen Title", "--no-run")
+    assert result.exit_code == 0, result.output
+    ov = read_overrides(sws)
+    assert ov.titles[victim] == "Operator Chosen Title"
+    # the rest of the proposal still lands, unchanged
+    assert ov.titles == {**ANCHORED_GAPS, victim: "Operator Chosen Title"}
+
+
+def test_never_clobbers_a_track_that_already_has_a_title(tmp_path, monkeypatch):
+    """M4 (round 1): `picks` only includes rows still
+    `title_source == "unresolved"` on the live show. Reviewer-mutation-
+    verified as unpinned before this test existed: deleting that guard
+    clause from `_propose_titles_for_show` left the entire pre-round-1
+    `test_cli.py` suite green."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    # The proposal covers all 24 rows -- every anchored tape's table does,
+    # since the DP is asked about the whole tape -- but the 21 rows that
+    # already carry a tag title are not adopted, only the 3 unresolved ones.
+    assert "Midnight Blues" in result.output   # a proposed row that is NOT adopted
+    assert read_overrides(sws).titles == ANCHORED_GAPS
+
+
+def test_missing_provenance_declines_cleanly(tmp_path, monkeypatch):
+    """M7 (round 1): matches the two nearest analogues (`_redo_show` and
+    `triage`'s own guard) instead of an unguarded AttributeError on
+    `entry.provenance.candidate`."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    sws.provenance.unlink()
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles")
+    assert result.exit_code == 1
+    assert "no provenance.json" in result.output
+    assert "reprocess it via its run first" in result.output
+    assert read_overrides(sws).titles == {}
+
+
+# --- task-8 review round 1: A1/A2/A3 ------------------------------------
+
+def test_suggest_titles_threads_setlistfm_client_and_jerrybase_events(tmp_path, monkeypatch):
+    """A2 (task-8 review): pin the ARGUMENTS `build_canonical` receives, not
+    the behavior behind them -- every test in this suite runs with
+    SETLISTFM_API_KEY unset (conftest's autouse `_no_ambient_setlistfm_key`
+    fixture), so a sentinel object standing in for `make_client(config)`'s
+    return is the only way to catch a future regression that drops the
+    setlistfm/events threading and silently reverts the proposal path back
+    to an LMA-only canonical -- invisible offline, since every test already
+    runs with `setlistfm=None`. Deliberately does NOT build a real
+    setlist.fm stub/fixture: that would be testing behavior no other test
+    in this suite exercises, a larger scope expansion than this phase
+    should absorb."""
+    cfg = _cfg(tmp_path)
+    _staged_ymsb_show(tmp_path, monkeypatch)
+
+    class _SentinelSetlistfmClient:
+        """A bare `object()` isn't enough here: `build_canonical` calls
+        `.setlist(...)` on whatever it's handed whenever it isn't None, so
+        the sentinel needs that one method (returning falsy, so it's a
+        no-op on the rest of the build) while still being an identity-
+        distinct object this test can assert `is` against."""
+
+        def setlist(self, *args, **kwargs):
+            return None
+
+    sentinel_client = _SentinelSetlistfmClient()
+    # Empty rather than populated with fake Event objects: `events` reaches
+    # real jerrybase-consuming code inside `build_canonical`
+    # (`_show_metadata_norms`) that expects real `Event` attributes (venue,
+    # etc.) whenever the list is non-empty -- an empty list needs none of
+    # that and is exactly what a non-family artist's real `jerrybase.lookup`
+    # already returns, so this doubles as the identity-check payload without
+    # inventing a fake `Event`.
+    sentinel_events = []
+    monkeypatch.setattr("llama.setlistfm.make_client", lambda config: sentinel_client)
+    monkeypatch.setattr("llama.jerrybase.lookup", lambda artist, date: sentinel_events)
+
+    from llama.stages import gather as gather_mod
+    real_build_canonical = gather_mod.build_canonical
+    captured = {}
+
+    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
+        captured["setlistfm"] = setlistfm
+        captured["events"] = events
+        captured["provider"] = provider
+        return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
+                                    setlistfm=setlistfm, provider=provider)
+
+    monkeypatch.setattr(gather_mod, "build_canonical", spy)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert captured["setlistfm"] is sentinel_client
+    assert captured["events"] is sentinel_events
+    # M2 (task-8 review round 1): pin the OTHER half of the "never fires an
+    # LLM call" guarantee at the same argument level as setlistfm/events --
+    # `provider=None` is always passed, never threaded through from the
+    # real LLM provider the pipeline would otherwise use.
+    assert captured["provider"] is None
+
+
+def test_suggest_titles_drops_excluded_files_from_kept(tmp_path, monkeypatch):
+    """A1 (task-8 review round 1, I1): the `kept` handed to `build_canonical`
+    must match what `run_gather` computes -- excluded files dropped BEFORE
+    the canonical build -- or `rank_parses`' `target_count` differs between
+    the proposal and the redo the confirmation triggers, and since
+    `overrides.titles` is applied by 1-based position (gather.py), a
+    different winning parse means confirmed titles could land on the wrong
+    tracks. Pins the ARGUMENT `build_canonical` receives (the same style as
+    A2), not a full re-derivation of `rank_parses`' behavior.
+
+    C1 (final review): this test used to stage `overrides.exclude` directly
+    and never re-derive `show.json` -- exactly the stale state C1's guard
+    now declines on (kept 23 files, `show.tracks` still 24), so after the
+    C1 fix this test silently stopped reaching `build_canonical` at all and
+    started passing for the wrong reason (a KeyError on `captured["kept"]`
+    caught it -- see the C1 fix report). Re-running `run_gather(...,
+    force=True)` after writing the exclusion mirrors what a real `llama fix
+    --exclude` redo does, keeping `show.tracks` in sync with `kept` so this
+    test again exercises what its docstring claims rather than the C1
+    staleness guard."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_ymsb_show(tmp_path, monkeypatch)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    cand = _ymsb_candidate()
+    victim = read_model(sws.show, Show).tracks[0].filename
+    ov = read_overrides(sws)
+    write_artifact(sws.overrides, ov.model_copy(update={"exclude": [victim]}))
+    run_gather(sws, StubIA(md), FakeProvider(), cand,
+              "ymsb2005-12-31.flac16.wav", force=True)
+
+    from llama.stages import gather as gather_mod
+    real_build_canonical = gather_mod.build_canonical
+    captured = {}
+
+    def spy(ia, cand, identifier, meta, kept, artist, events, *, setlistfm=None, provider=None):
+        captured["kept"] = list(kept)
+        captured["provider"] = provider
+        return real_build_canonical(ia, cand, identifier, meta, kept, artist, events,
+                                    setlistfm=setlistfm, provider=provider)
+
+    monkeypatch.setattr(gather_mod, "build_canonical", spy)
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    names = [f["name"] for f in captured["kept"]]
+    assert victim not in names
+    assert len(names) == 23
+    assert captured["provider"] is None
+
+
+def test_format_proposal_row_trichotomy_is_distinct():
+    """A3 (task-8 review): pin the margin_sec/forced/filler trichotomy
+    (models.ProposalRow's docstring) directly against synthetic rows --
+    the ymsb fixture this module's other tests share never produces a
+    forced row (its setlist carries no segues, so `build_canonical` always
+    aligns one track per canonical item with no ambiguous cost tie), so
+    collapsing the `forced` label into the filler dash previously left
+    `test_cli.py` green: the same forced/filler collapse a Task 5
+    correspondence.py test exists to prevent, silently reintroduced one
+    layer up at render time. Verified directly (see task-8-report.md): a
+    manual mutation collapsing the `forced` branch to `margin = "     -"`
+    fails this test."""
+    from llama.models import ProposalRow
+
+    matched = ProposalRow(index=1, duration_sec=300.0, item_span=(0, 1),
+                          title="Song A", evidence="sibling-duration", margin_sec=12.5)
+    forced = ProposalRow(index=2, duration_sec=180.0, item_span=(1, 2),
+                         title="Song B", evidence="duration-model", forced=True)
+    filler = ProposalRow(index=3, duration_sec=None, item_span=None,
+                         title="", evidence="filler")
+
+    rendered = {name: cli._format_proposal_row(r)
+               for name, r in [("matched", matched), ("forced", forced), ("filler", filler)]}
+    assert len(set(rendered.values())) == 3, rendered
+    assert "forced" in rendered["forced"]
+    assert "forced" not in rendered["matched"]
+    assert "forced" not in rendered["filler"]
+    assert "12" in rendered["matched"]   # the margin_sec value renders as a number
+    assert "(unresolved - hand-edit)" in rendered["filler"]

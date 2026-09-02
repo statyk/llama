@@ -29,8 +29,13 @@ implementation plan this was built from. The approved design spec is
   `llama artists "..."`, `llama status` (global triage view, `--by-run` for
   session rollups), `llama show <name>` (read-only), `llama pipeline`
   (static stage/state teaching command), `llama triage` (interactive
-  held-show walkthrough), `llama fix <name> <edit-flags>` (overrides/hold
-  editor, auto-redoes), `llama redo <name> --from <stage>`,
+  held-show walkthrough -- `[t] suggest titles`, offered only on a hold
+  flagged "unresolved track titles", proposes a full set of titles from
+  the setlist correspondence and writes them all on confirmation), `llama
+  fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
+  `--suggest-titles` is the same title-proposal resolution, one
+  invocation, one confirmation, refuses to combine with
+  `--exclude`/`--unexclude`), `llama redo <name> --from <stage>`,
   `llama deliver <name>`, `llama rm <name>`, `llama suppress`/
   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
   (session namespace; a run that lost shows to a failure ends
@@ -169,7 +174,50 @@ tier (pins never escalate).
   `--set-encore` (plus their `--clear-*` counterparts) all redo from
   `gather`, and a hold **self-clears** whenever the re-gather no longer
   reproduces the flag that caused it (gather recomputes
-  `needs_review`/`review_flags` from scratch every run). On a multi-set show,
+  `needs_review`/`review_flags` from scratch every run). A hold flagged
+  "unresolved track titles" additionally gets **`--suggest-titles`**
+  (`fix`) / **`[t] suggest titles`** (`triage`, same helper, offered only
+  under that flag): both build a canonical setlist via
+  `build_canonical(..., provider=None)` — deliberately **not** the same
+  call `gather` itself makes: `run_gather` passes gather's real provider
+  (`gather.py:616-618`), and `provider=None` is precisely what stops this
+  CLI-side proposal path from ever firing the `extract_setlist` LLM
+  fallback. The difference is benign, not weaker — an unrankable setlist
+  yields an infeasible proposal rather than a silently worse one — and
+  then render a per-track proposal table, for tracks the DP can propose
+  for, via the correspondence DP (`llama/correspondence.py` —
+  **proposal-only, never auto-adopted**; unanchored monotone
+  correspondence measured 45-52% wrong, so a human confirmation is the
+  only thing standing between a proposed title and adoption). **The DP is
+  gated by an accountability guard that declines rather than renders**
+  (`correspondence._unaccounted` / `_contradicts_forced_gaps`): each
+  maximal run of still-`unresolved` tracks — the only adoptable ones —
+  must be **count-forced between anchors**, exactly as `setlist-gap`
+  requires, and the DP's own solution must not contradict a forced gap.
+  Both checks are exact structural counts, never a margin/score/coverage
+  threshold; they reuse `structure.anchor_spans`/`gap_span`/
+  `unresolved_runs`, extracted from `adopt_gap_titles` so the silent rung
+  and the confirmed one cannot drift apart on what an anchor is. What
+  they do NOT share is the `_hygienic` veto — an operator reads this
+  table — which is the command's whole residual value over `setlist-gap`.
+  **Consequence, deliberate and load-bearing: a WHOLLY UNTAGGED tape is
+  no longer proposable at all**, since nothing anchors the setlist to it.
+  That is the population this feature was aimed at, and the M3 gate
+  measured it 13-of-22 wrong via a uniform off-by-one with nothing in the
+  table saying so. **A whole-tape count comparison cannot substitute for
+  the per-run one**: `yondermountainstringband-2005-12-31` (declines) and
+  `trampledbyturtles-2007-07-20` (renders, correctly) are both 24
+  song-like tracks against 23 canonical items — measured, don't retry it.
+  On
+  confirmation, the proposed titles for still-`unresolved` tracks are
+  written into `overrides.titles` at once (a filler row gets no proposal
+  and stays `(unresolved - hand-edit)`; a track that already carries a
+  title is never overwritten), then redo from `gather` like every other
+  metadata edit. `--suggest-titles` refuses to combine with
+  `--exclude`/`--unexclude` in the same `fix` invocation (an exclusion
+  renumbers tracks before the proposal's numbering would apply), and an
+  explicit `--set-title N="..."` on the same invocation always wins over
+  the proposal for that track. On a multi-set show,
   `--set-encore` must be combined with `--set-breaks` to keep set labelling
   correct — the override path skips alignment entirely rather than layering
   on it, so `--set-encore` alone flattens every set into `"1"`. Any

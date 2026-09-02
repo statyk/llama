@@ -2,6 +2,7 @@ import datetime
 import logging
 import re
 from collections.abc import Sequence
+from typing import NamedTuple
 
 from herder import HerderError, TaskFailed, run_json_task
 from llama import jerrybase
@@ -484,6 +485,120 @@ def _drop_artist_items(parsed: ParsedSetlist, artist: str) -> ParsedSetlist:
     return parsed.model_copy(update={"items": kept})
 
 
+# A run of footnote markers at the very END of a canonical item's title, with
+# the whitespace that separates them: "Polly Put The Kettle On * ^",
+# "High Lonesome Sound * # $". These are apparatus of the DESCRIPTION (they
+# key a "* with Sam Bush" note further down the page), not part of any song's
+# name, and they survive into adopted titles -> overrides.titles -> manifest
+# v3 -> ID3 TIT2 -> the briefing -> emcee's script, where a "#" is wrong at
+# every sink.
+#
+# THE LEADING \s+ IS LOAD-BEARING and must not be relaxed to \s*: it is the
+# only thing that puts a real title ENDING in one of these characters -
+# "100%", a title ending in "$" - out of this rule's reach. A marker is
+# written as a separate token in every description convention; a title
+# character is not. This is the same class of bound as `titles._TRACK_NUM_PREFIX`'s
+# `\d{1,3}` (which keeps "1952 Vincent Black Lightning" and a bare "2001"
+# out of the track-number strip's reach) - widen it and the rule starts
+# eating real titles instead of apparatus.
+#
+# Trailing only, by construction: `$` anchors the match, so a marker
+# character INSIDE a title ("Rock $ Roll") is untouched.
+_FOOTNOTE_TAIL = re.compile(r"(?:\s+[*#%^$@]+)+\s*$")
+
+
+def _strip_footnote_markers(parsed: ParsedSetlist) -> ParsedSetlist:
+    """Drop trailing footnote markers from canonical item titles.
+
+    Removes only apparatus: the title is otherwise byte-identical, and an item
+    whose title is NOTHING but markers is left alone rather than reduced to
+    residue. The residue guard tests for a surviving ALPHANUMERIC, not merely
+    for a non-empty string: "* ^" strips to "*", which is non-empty and still
+    not a title. Nothing is lost by the stronger test -- a canonical item with
+    no alphanumeric character in it was never a song name.
+
+    `SetlistItem.normalized` is deliberately NOT recomputed, and does not need
+    to be: `songs.normalize_song` strips every non-alphanumeric character, so
+    every marker this removes is already absent from `normalized`. Recomputing
+    would produce the same string; leaving it alone makes that a guarantee
+    rather than an assumption, and keeps `blend_segues` (which pools on
+    `normalized`) provably untouched.
+    """
+    items = []
+    changed = False
+    for it in parsed.items:
+        stripped = _FOOTNOTE_TAIL.sub("", it.title)
+        if stripped != it.title and any(ch.isalnum() for ch in stripped):
+            items.append(it.model_copy(update={"title": stripped}))
+            changed = True
+        else:
+            items.append(it)
+    return parsed.model_copy(update={"items": items}) if changed else parsed
+
+
+class CanonicalBuild(NamedTuple):
+    """`build_canonical`'s result. A NamedTuple rather than a bare 3-tuple so
+    call sites read `result.source` instead of a positional index, and rather
+    than an output-parameter (an earlier draft's `source_out: dict | None`)
+    because that shape lets a caller silently forget to pass it and lose
+    provenance with no signal -- exactly the kind of guess-by-omission this
+    module elsewhere refuses to make."""
+    setlist: ParsedSetlist
+    notes: list[str]
+    source: str | None
+
+
+def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
+                    kept: list[dict], artist: str, events, *,
+                    setlistfm=None, provider=None) -> CanonicalBuild:
+    """The cleaned canonical performance setlist: every recording's
+    description, plus setlist.fm when configured, ranked pick-best, then
+    head-banner-stripped, artist-item-dropped and footnote-marker-stripped.
+
+    `provider=None` skips the `extract_setlist` LLM fallback entirely, so
+    callers outside the pipeline (`llama fix --suggest-titles`) never trigger
+    an LLM call.
+
+    Order matters for the cleaning pass: the banner strip runs on the head
+    span first, then the artist drop globally. `events` covers every
+    jerrybase event on the date, not just a resolved one -- a multi-event
+    date leaves the caller's `event` None, and the banner guard still needs
+    to recognize every candidate venue's name.
+
+    `.source` names the winning parse's provenance (a `SourcedParse.source`
+    value, or None if nothing ranked) -- `run_gather` reports it as
+    `StructureInfo.source`.
+    """
+    parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
+    if setlistfm is not None:
+        raw = setlistfm.setlist(artist, candidate.date,
+                                venue=candidate.venue, city=candidate.city)
+        converted = from_setlistfm(raw) if raw else None
+        if converted is not None:
+            parses.insert(0, SourcedParse(source="setlist.fm", parsed=converted))
+
+    best = rank_parses(parses, target_count=len(kept))
+    if best is None and provider is not None:
+        longest = max(descriptions, key=len, default="")
+        if longest.strip():
+            parsed = run_json_task(provider, "extract_setlist", ParsedSetlist,
+                                   template=load_prompt("extract_setlist"),
+                                   description=longest)
+            best = SourcedParse(source="llm", parsed=parsed)
+    source = best.source if best is not None else None
+    canonical = best.parsed if best else ParsedSetlist()
+    if best is not None and best.source == "setlist.fm":
+        best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"],
+                               target_count=len(kept))
+        canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
+
+    metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
+    canonical = _strip_head_banner(canonical, metadata_norms)
+    canonical = _drop_artist_items(canonical, artist)
+    canonical = _strip_footnote_markers(canonical)
+    return CanonicalBuild(setlist=canonical, notes=notes, source=source)
+
+
 def run_gather(
     show_ws: ShowWorkspace,
     ia,
@@ -522,35 +637,12 @@ def run_gather(
                      for f in kept if f["name"] in drop]
         kept = [f for f in kept if f["name"] not in drop]
 
-    # Canonical performance setlist: every recording's description, plus
-    # setlist.fm when configured, ranked pick-best.
-    parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
-    if setlistfm is not None:
-        raw = setlistfm.setlist(artist, candidate.date,
-                                venue=candidate.venue, city=candidate.city)
-        converted = from_setlistfm(raw) if raw else None
-        if converted is not None:
-            parses.insert(0, SourcedParse(source="setlist.fm", parsed=converted))
-
-    best = rank_parses(parses, target_count=len(kept))
-    if best is None:
-        longest = max(descriptions, key=len, default="")
-        if longest.strip():
-            parsed = run_json_task(provider, "extract_setlist", ParsedSetlist,
-                                   template=load_prompt("extract_setlist"),
-                                   description=longest)
-            best = SourcedParse(source="llm", parsed=parsed)
-    canonical = best.parsed if best else ParsedSetlist()
-    if best is not None and best.source == "setlist.fm":
-        best_lma = rank_parses([p for p in parses if p.source != "setlist.fm"],
-                               target_count=len(kept))
-        canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
-
     # Jerrybase structure evidence (no-op for artists absent from the dataset).
     # A per-event candidate (/eN) selects events[N-1] for every evidence check.
-    # Resolved HERE, above the setlist cleaning below, because the head-banner
-    # guard reads the event venues as part of this show's own metadata; nothing
-    # in this block depends on tracks or on the canonical setlist.
+    # Resolved HERE, above the canonical-setlist build below, because
+    # `build_canonical`'s head-banner guard reads the event venues as part of
+    # this show's own metadata; nothing in this block depends on tracks or on
+    # the canonical setlist.
     events = jerrybase.lookup(artist, candidate.date) if jerrybase_enabled else []
     # `ev_n`, not `n`: hoisting this block above the overrides loop below put
     # it in scope of that loop's `for n, forced in ...`, which rebinds `n`.
@@ -566,22 +658,20 @@ def run_gather(
     else:
         event = None
 
-    # Clean the canonical setlist at the point it enters the stage, before
-    # anything consumes it. Neither a taper banner nor an artist header line is
-    # a song, so neither has any business in title resolution either — not just
-    # in alignment. Placing this immediately before `align` would treat a
-    # data-cleaning step as an alignment concern, and `resolve_titles` below is
-    # upstream of that: it only trusts the setlist when
-    # `len(items) == len(tracks)`, so on an untagged tape one header item costs
-    # every title on the show.
-    #
-    # Order matters: the banner strip runs on the head span first, then the
-    # artist drop globally. Every event on the date contributes its venue, not
-    # just the resolved one — a multi-event date leaves `event` None, and the
-    # banner still names the building.
+    # Canonical performance setlist: every recording's description, plus
+    # setlist.fm when configured, ranked pick-best, then cleaned (head-banner
+    # stripped, artist-only items dropped) at the point it enters the stage,
+    # before anything consumes it -- `resolve_titles` below only trusts the
+    # setlist when `len(items) == len(tracks)`, so on an untagged tape one
+    # header item costs every title on the show. `.source` (the winning
+    # parse's provenance) is used below for `StructureInfo.source`.
+    canonical, notes, canonical_source = build_canonical(
+        ia, candidate, identifier, meta, kept, artist, events,
+        setlistfm=setlistfm, provider=provider)
+    # Recomputed (not re-fetched) rather than threaded out of build_canonical:
+    # it's a pure function of already-in-scope values, and adopt_gap_titles
+    # below needs it independently of the canonical-setlist build.
     metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
-    canonical = _strip_head_banner(canonical, metadata_norms)
-    canonical = _drop_artist_items(canonical, artist)
 
     siblings = None
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
@@ -788,8 +878,8 @@ def run_gather(
     if overrides.set_breaks is not None or overrides.encore_after is not None:
         structure_info = StructureInfo(source="override", alignment="override",
                                        coverage=1.0, conflicts=[])
-    elif best is not None or notes:
-        source = best.source if best is not None else "none"
+    elif canonical_source is not None or notes:
+        source = canonical_source if canonical_source is not None else "none"
         structure_info = StructureInfo(source=source, alignment=alignment,
                                        coverage=coverage,
                                        conflicts=conflicts + notes)

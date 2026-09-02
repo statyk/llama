@@ -323,3 +323,39 @@ class ArtistMatch(BaseModel):
 
 class ArtistMatches(BaseModel):
     matches: list[ArtistMatch] = Field(default_factory=list)
+
+
+class ProposalRow(BaseModel):
+    index: int                                   # 1-based track number
+    duration_sec: float | None = None
+    item_span: tuple[int, int] | None = None     # half-open canonical range; None = filler
+    title: str = ""                              # "" when the row is a decline
+    evidence: str = ""                           # "sibling-duration" | "duration-model" | "filler"
+    # Display column only (never gates automatic adoption). (margin_sec, forced)
+    # together carry three states: margin_sec is a number = cost gap to the
+    # best alternative assignment; margin_sec is None and forced=True = no
+    # alternative assignment exists -- the mapping is structurally forced
+    # given this track count and this canonical item list. This is a
+    # RIGIDITY signal, NOT a correctness signal: on a no-segue setlist with
+    # one track per item every row is forced, and that is the same
+    # unanchored regime measured 45-52% wrong (module docstring; spec's
+    # "What the blind-the-tags experiment showed" section -- cited by
+    # section name, not line number, since line numbers rot as the spec
+    # is edited). margin_sec is None and forced=False = row is filler
+    # (item_span is None), so a margin is not applicable. `forced` exists
+    # as a separate bool -- NOT float("inf") in margin_sec -- because
+    # pydantic's default `ser_json_inf_nan="null"` serializes inf to JSON
+    # null, which round-trips back as None and silently collapses the
+    # forced and filler states into the same value. Measured directly:
+    # ProposalRow(margin_sec=float("inf")).model_dump_json() -> margin_sec
+    # is "null", and model_validate_json of that reads back None. Do not
+    # "simplify" this back to an inf sentinel.
+    margin_sec: float | None = None
+    forced: bool = False
+
+
+class TitleProposal(BaseModel):
+    rows: list[ProposalRow] = Field(default_factory=list)
+    feasible: bool = False
+    reason: str = ""            # why not, when feasible is False
+    evidence_source: str = ""   # "sibling-duration" | "duration-model"

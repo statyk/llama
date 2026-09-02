@@ -13,7 +13,8 @@ from llama.models import (Candidate, Overrides, ParsedSetlist, RecordingSummary,
 from llama.setlistfm import SetlistFMClient
 from llama.songs import normalize_song
 from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
-                                 _strip_head_banner, run_gather)
+                                 _strip_footnote_markers, _strip_head_banner,
+                                 run_gather)
 from llama.structure import fuzzy_norm_title
 from llama.workspace import ShowWorkspace, read_overrides, write_artifact
 
@@ -1071,6 +1072,64 @@ def test_artist_items_are_dropped_anywhere_not_just_at_the_head():
         "Sugar Magnolia", "Uncle Johns Band"]
 
 
+def test_footnote_markers_are_stripped_from_the_tail_only():
+    """Trailing description apparatus goes; the title is otherwise
+    byte-identical. Runs of markers ("* ^", "* # $") are one match, and a
+    marker character INSIDE a title is untouched -- these are footnote keys
+    ("* with Sam Bush" further down the description), not song names, and they
+    otherwise ride into the manifest's ID3 title frame."""
+    parsed = _parsed("Polly Put The Kettle On * ^", "Get Me Outta This City # %",
+                     "High Lonesome Sound * # $", "Tear Down The Grand Ole Opry @",
+                     "Steep Grade Sharp Curves *", "Cash $ Money",
+                     "Money For Nothing")
+    assert _titles(_strip_footnote_markers(parsed)) == [
+        "Polly Put The Kettle On", "Get Me Outta This City",
+        "High Lonesome Sound", "Tear Down The Grand Ole Opry",
+        "Steep Grade Sharp Curves", "Cash $ Money", "Money For Nothing"]
+
+
+def test_footnote_strip_leaves_a_marker_free_setlist_untouched():
+    """No marker anywhere means the same object back -- the strip is apparatus
+    removal, not a normalization pass, so it must not rewrite titles it has no
+    business touching."""
+    parsed = _parsed("Bertha", "Jack Straw", "Deal")
+    assert _strip_footnote_markers(parsed) is parsed
+
+
+def test_footnote_strip_never_eats_a_title_ending_in_a_marker_character():
+    """THE LEADING WHITESPACE BOUND, pinned. A footnote marker is written as a
+    separate token; a title character is not. Relaxing `_FOOTNOTE_TAIL`'s
+    leading `\\s+` to `\\s*` turns "100%" into "100" and "Ke$ha $" style
+    residue into nonsense -- the same failure mode as widening
+    `titles._TRACK_NUM_PREFIX` past `\\d{1,3}`, which is why that bound has its
+    own pin."""
+    parsed = _parsed("100%", "Cost Of Living$", "Track#1")
+    assert _titles(_strip_footnote_markers(parsed)) == [
+        "100%", "Cost Of Living$", "Track#1"]
+
+
+def test_footnote_strip_never_empties_a_title():
+    """An item that is nothing BUT markers is left alone. An empty title is
+    not a better outcome than a junk one: `align()` and `_window_match` treat
+    an empty norm as a wildcard that can match any junk track, which is the
+    exact hazard `structure.py`'s duration-strip fallback documents."""
+    parsed = _parsed("* ^", "Deal")
+    assert _titles(_strip_footnote_markers(parsed)) == ["* ^", "Deal"]
+
+
+def test_footnote_strip_leaves_normalized_alone_because_it_cannot_differ():
+    """`normalized` is not recomputed, and provably need not be:
+    `normalize_song` already strips every non-alphanumeric character, so the
+    stored norm of a marked title equals the norm of its stripped form. Pinned
+    because `blend_segues` pools items on `normalized` -- if this ever stopped
+    holding, the strip would silently move segues."""
+    parsed = _parsed("High Lonesome Sound * # $")
+    out = _strip_footnote_markers(parsed)
+    assert out.items[0].title == "High Lonesome Sound"
+    assert out.items[0].normalized == parsed.items[0].normalized
+    assert out.items[0].normalized == normalize_song("High Lonesome Sound")
+
+
 def test_head_chatter_never_matches_fade_titles():
     """MEASURED HAZARD: `fades?` in the chatter lexicon matches the word *Fade*
     and stripped the heads of "Not Fade Away" and "West L.A. Fade Away". The
@@ -1456,3 +1515,114 @@ def test_adopted_titles_make_the_closer_tripwire_reachable(tmp_path: Path):
     # every adopted title is a real song name, so norm_title comparisons in the
     # closer/spans checks now have something to match against
     assert all(not t.title.endswith(".mp3") for t in adopted)
+
+
+def test_build_canonical_matches_what_gather_uses(tmp_path: Path):
+    """The extraction must be behaviour-preserving: same items, same order."""
+    from llama.stages.gather import build_canonical
+    md = json.loads(FIXTURE.read_text())
+    kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
+    cand = make_candidate()
+    canonical, notes, source = build_canonical(StubIA(md), cand, IDENT, md["metadata"],
+                                               kept, "Grateful Dead", [])
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(md), FakeProvider(), cand, IDENT)
+    assert [i.title for i in canonical.items]
+    assert len(canonical.items) >= len([t for t in show.tracks if t.matched])
+    assert source == "chosen"
+
+
+def test_build_canonical_applies_the_cleaning_pass():
+    """M1 mutation pin: `test_build_canonical_matches_what_gather_uses`
+    above is the brief's own test, and its `>=` comparison does not fail
+    when the cleaning pass is deleted from `build_canonical` -- measured:
+    deleting `_strip_head_banner`/`_drop_artist_items` from the function
+    leaves that test green while 4 pre-existing gather tests fail
+    downstream. So the one test written to protect this extraction did not
+    actually protect it; the extraction was guarded only by tests that
+    predate it. This test closes that gap directly, on `build_canonical`
+    alone.
+
+    Constructs a description whose head is a 4-line taper banner (band
+    name, venue, city, date) with NO "Set N:"/"Encore:" marker anywhere, so
+    `parse_setlist`'s OWN header truncation (which fires only when such a
+    marker starts a line) does not remove the banner first -- an earlier
+    draft of this test reused the fixture's real description, which DOES
+    start "Set 1:\n...", and `parse_setlist` truncated the banner on its
+    own before `build_canonical` was ever called, making the test pass
+    whether or not `_strip_head_banner` ran at all. This version instead
+    joins songs with inline "&gt;" segue markers only, so the 4 banner
+    lines survive into `parse_setlist`'s output as ordinary items --
+    exactly the "recovered block is sometimes a taper banner" case
+    `_strip_head_banner` exists for. Traced by hand and verified directly
+    against `_show_metadata_norms`/`_strip_head_banner`'s stage-1 majority
+    rule: 3 of the 4 head items are direct metadata matches (band name,
+    venue, and "6/10/73" -- one of `_date_norms`'s own renderings of
+    1973-06-10), which clears the majority threshold and drops the whole
+    4-item span, carrying the one non-matching line ("Washington DC") along
+    with it. Deleting the cleaning pass leaves all 4 banner lines in
+    `canonical.items`, which the assertions below catch directly (verified
+    against a mutated copy of `build_canonical` with the cleaning pass
+    removed: this test fails there).
+    """
+    from llama.stages.gather import build_canonical
+    md = json.loads(FIXTURE.read_text())
+    meta = dict(md["metadata"])
+    meta["description"] = (
+        "Grateful Dead\nRFK Stadium\nWashington DC\n6/10/73\n"
+        "Morning Dew\nChina Cat Sunflower &gt; I Know You Rider\n"
+        "Dark Star &gt; Eyes of the World\nJohnny B. Goode"
+    )
+    kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
+    cand = make_candidate()
+    canonical, notes, source = build_canonical(StubIA(md), cand, IDENT, meta,
+                                               kept, "Grateful Dead", [])
+    titles = [i.title for i in canonical.items]
+    assert titles == ["Morning Dew", "China Cat Sunflower", "I Know You Rider",
+                      "Dark Star", "Eyes of the World", "Johnny B. Goode"]
+
+
+def test_build_canonical_provider_none_never_reaches_the_llm_fallback(monkeypatch):
+    """Regression pin for the provider=None guard: without it, a CLI edit
+    command (llama fix --suggest-titles) could trigger a live LLM call.
+
+    The brief's own version of this test (`fake = FakeProvider(); ...;
+    assert not fake.calls`) is vacuous: `fake` is never passed to
+    `build_canonical`, so the assertion is trivially true regardless of
+    whether the guard exists. This version instead forces the exact branch
+    the guard protects and proves it is reachable at all.
+
+    Input: a single-recording candidate whose description has no setlist
+    markers ("Just some random taper notes..."), so `parse_setlist` returns
+    zero items and `rank_parses` has no non-empty candidate to pick --
+    `best is None`, the precondition for the `extract_setlist` fallback.
+    `run_json_task` is monkeypatched to raise, so its absence-of-a-call is
+    directly observable rather than inferred from a mock's call list.
+    """
+    from llama.stages.gather import build_canonical
+
+    def boom(*a, **k):
+        raise AssertionError("run_json_task must not be called")
+
+    monkeypatch.setattr(gather_mod, "run_json_task", boom)
+
+    cand = Candidate(
+        performance_id="Test/2000-01-01", collection="Test", date="2000-01-01",
+        recordings=[RecordingSummary(identifier="only")],
+    )
+    meta = {"description": "Just some random taper notes with no songs listed at all."}
+
+    # Guard: provider=None must not reach the fallback, even though `best is
+    # None` (rank_parses has nothing to rank) makes this exactly the input
+    # that would otherwise trigger it.
+    canonical, notes, source = build_canonical(None, cand, "only", meta, [], "Test Artist",
+                                               [], provider=None)
+    assert canonical.items == []
+
+    # Positive control: the identical input WITH a provider must reach the
+    # raiser. Without this half, a guard that always no-ops (e.g. if the
+    # fallback code were deleted entirely) would pass the assertion above
+    # for the wrong reason -- this proves the branch is genuinely reachable.
+    with pytest.raises(AssertionError, match="run_json_task must not be called"):
+        build_canonical(None, cand, "only", meta, [], "Test Artist",
+                        [], provider=object())
