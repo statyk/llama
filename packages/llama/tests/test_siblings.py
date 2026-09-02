@@ -741,10 +741,13 @@ def test_the_localised_shift_adopts_zero_interior_titles_under_cplus():
         "Kilo > Xray"                      # the DP does propose it
     out = cplus_filter(rows, tracks)
     adopted = _adopted(out)
-    assert 8 not in adopted and 9 not in adopted and 11 not in adopted
-    assert "Hotel" not in adopted.values()
+    # One assertion per wrong title, so a mutation says which one it ships.
+    assert "Hotel" not in adopted.values()        # bracketing catches 8-9
     assert "India" not in adopted.values()
-    assert "Kilo > Xray" not in adopted.values()
+    assert "Kilo > Xray" not in adopted.values()  # count-forcing catches 11
+    assert 8 not in adopted
+    assert 9 not in adopted
+    assert 11 not in adopted
     reasons = {r.track: r.reason for r in out}
     assert reasons[8] == "tracks 8-9: not bracketed by agreeing anchors"
     assert reasons[9] == "tracks 8-9: not bracketed by agreeing anchors"
