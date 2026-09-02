@@ -150,7 +150,11 @@ def _dedupe_duplicate_listings(kept: list[dict]) -> tuple[list[dict], list[dict]
     duration): keep the first copy encountered unless a later duplicate
     carries a title the kept one lacks, in which case it swaps in. Runs
     AFTER _keep_and_exclude for the winning format, so play-order derivation
-    sees only the deduped list."""
+    sees only the deduped list.
+
+    Measured 2026-09-02 with scripts/dedupe_sweep.py over 968 cached items
+    (1936 item/format pairs): exactly one item changes -
+    ymsb2005-12-31.flac16, 56 -> 28 kept files in both mp3 and flac."""
     winners: dict[tuple[str, int], dict] = {}
     order: list[tuple[str, int]] = []
     excluded: list[dict] = []
@@ -193,7 +197,15 @@ def filter_files(
 
     `excluded` covers only the WINNING format - a losing format's rejects are
     never merged in, so a short `excluded` list does not mean every other
-    format's files were clean too."""
+    format's files were clean too.
+
+    After the winning format's junk filtering, duplicate listings (an item
+    that lists the same track twice - once at top level, once under an
+    <identifier>/ prefix, both surviving the junk arms) are collapsed to one
+    copy each; the dropped copy is appended to `excluded` with reason
+    "duplicate-listing" - not a junk verdict about its content, just a
+    second listing of a track already kept. See
+    `_dedupe_duplicate_listings`."""
     wanted = (want_format,) if isinstance(want_format, str) else tuple(want_format)
     fallback: tuple[str, list[dict], list[dict]] | None = None
     chosen: tuple[str, list[dict], list[dict]] | None = None

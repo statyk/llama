@@ -239,6 +239,41 @@ def test_same_basename_different_duration_both_kept():
     assert not any("duplicate-listing" in e["reasons"] for e in excluded)
 
 
+def test_dedupe_runs_before_play_order_derivation():
+    """Play order must be derived from the DEDUPED list, per the brief. With
+    both duplicate pairs still present the two "1" track tags (and the two
+    "2"s) are non-unique, so ordering falls back to filename order; only
+    once the duplicates collapse do the tags become unique and
+    order_source can read "track-tags". (Here the titled copies are the
+    prefixed ones and win the swap - the real ymsb2005 item is the other
+    way around, with the top-level copies carrying the tags; either
+    direction should collapse onto whichever copy has a title.)"""
+    files = [
+        _mp3("band1t02.mp3", track="2", length="300.0"),
+        _mp3("band1t01.mp3", track="1", length="180.0"),
+        {**_mp3("band99/band1t01.mp3", track="1", length="180.0"), "title": "Alpha"},
+        {**_mp3("band99/band1t02.mp3", track="2", length="300.0"), "title": "Beta"},
+    ]
+    kept, _, ordering = filter_files(files)
+    assert ordering["order_source"] == "track-tags"
+    assert [f["name"] for f in kept] == ["band99/band1t01.mp3", "band99/band1t02.mp3"]
+
+
+def test_dedupe_runs_after_junk_filtering():
+    """Dedupe must run AFTER _keep_and_exclude for the winning format, not
+    on the raw file list: a titled copy of bad provenance must never win
+    the swap and displace the clean untitled original, or the track would
+    be junk-filtered away entirely instead of surviving as the clean
+    copy."""
+    files = [
+        _mp3("band1t01.mp3", length="300.0"),
+        {**_mp3("band99/band1t01.mp3", length="300.0", source="mystery"),
+         "title": "Alpha"},
+    ]
+    kept, _, _ = filter_files(files)
+    assert [f["name"] for f in kept] == ["band1t01.mp3"]
+
+
 def test_clean_item_byte_identical_through_filter_files():
     """An item with no duplicate listings must pass through unchanged: same
     kept objects (not copies), same names, no duplicate-listing reasons."""
