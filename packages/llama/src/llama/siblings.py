@@ -394,6 +394,19 @@ def _anchor_row(track, row: SiblingRow | None) -> bool:
             and bool(row.proposed))
 
 
+def _anchor_agrees(track, row: SiblingRow | None) -> bool:
+    """THE definition of an AGREEING anchor -- layer 1 counts them, layer 2
+    brackets fill runs with them, and there is one function so the two can
+    never drift.
+
+    Composed inline in both places in an earlier cut. Nothing was logically
+    duplicated then either, which is exactly the shape of the drift Task 3
+    shipped: a change to what "agreement" means in the ratio would silently
+    not reach the bracketing.
+    """
+    return _anchor_row(track, row) and loosely_same_title(track.title, row.proposed)
+
+
 def rate_alignment(rows: list[SiblingRow], tracks: list) -> GuardResult:
     """Layer 1: rate the pair by anchor agreement and route it to a band.
 
@@ -403,11 +416,29 @@ def rate_alignment(rows: list[SiblingRow], tracks: list) -> GuardResult:
     explanations of the SAME two tapes, and control A5 showed a wholly
     unrelated tape passing it.
 
-    Band order is deliberate: **fewer than MIN_ANCHORS anchors routes to the
-    operator whatever the ratio says**, including below FLOOR. The bands were
-    measured over pairs with >= 2 anchors; over one anchor the ratio is not
-    the measured statistic at all, so it may neither license adoption nor
-    justify throwing the proposal away.
+    THE BANDS ARE A PRECEDENCE, NOT A SET OF PREDICATES -- evaluated in this
+    order: no anchors, then anchor count, then the ratio clauses. **Fewer than
+    MIN_ANCHORS anchors routes to the operator whatever the ratio says**,
+    including below FLOOR.
+
+    The overlap that ordering resolves is exactly two cases: zero anchors
+    (0/0, undefined -- returned before the division, never inherited from
+    float semantics, since a wholly untagged tape is this phase's central
+    case), and ONE DISAGREEING anchor, whose ratio is 0.0 and so satisfies
+    both `< FLOOR` and `< MIN_ANCHORS`. A ratio strictly between 0 and 1 is
+    arithmetically impossible at one anchor, so those two are the whole
+    surface.
+
+    Why `operator` and not `declined` for the lone disagreeing anchor, on the
+    merits: FLOOR's 68-99% marginal-error basis was measured over pairs with
+    >= 2 anchors and DOES NOT EXIST at 1, so declining there would apply a
+    threshold whose justification is absent for that population. 24.1% of
+    disagreeing anchors are the TAPE being wrong, so one disagreeing anchor is
+    near-zero evidence either way; and since neither band adopts, `operator`
+    costs a minute of attention while `declined` silently discards a possibly
+    correct alignment for exactly the barely-tagged population this phase
+    exists to serve. Generalises: a threshold is only valid over the
+    population it was measured on.
     """
     by_track = {r.track: r for r in rows}
     n_anchors, agreeing = 0, 0
@@ -417,7 +448,7 @@ def rate_alignment(rows: list[SiblingRow], tracks: list) -> GuardResult:
         if not _anchor_row(track, row):
             continue
         n_anchors += 1
-        if loosely_same_title(track.title, row.proposed):
+        if _anchor_agrees(track, row):
             agreeing += 1
         else:
             disagreements.append(
@@ -487,7 +518,7 @@ def cplus_filter(rows: list[SiblingRow], tracks: list) -> list[SiblingRow]:
     anchors: dict[int, tuple[int, int]] = {}
     for pos, track in enumerate(tracks):
         row = by_track.get(pos + 1)
-        if _anchor_row(track, row) and loosely_same_title(track.title, row.proposed):
+        if _anchor_agrees(track, row):
             anchors[pos] = row.donor_span
 
     demoted: dict[int, str] = {}

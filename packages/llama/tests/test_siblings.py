@@ -501,6 +501,33 @@ def test_a_single_agreeing_anchor_routes_to_the_operator_not_auto():
     assert res.band == "operator"
 
 
+def test_a_single_disagreeing_anchor_routes_to_the_operator_not_declined():
+    """THE ONE CASE THAT SEPARATES THE BAND LADDER'S TWO POSSIBLE ORDERINGS.
+
+    One anchor that disagrees scores 0.0, which satisfies `< FLOOR` and
+    `< MIN_ANCHORS` at once. Anchor count is evaluated FIRST, so it routes to
+    the operator: FLOOR's 68-99% marginal-error basis was measured over pairs
+    with >= 2 anchors and does not exist at 1. Reorder the ladder to put
+    `declined` above the anchor-count clause and this test -- and, before it
+    existed, nothing at all -- goes red.
+
+    Every other single-anchor test in this file uses an AGREEING anchor
+    (ratio 1.0), which both orderings route to `operator`, so none of them can
+    see the difference. A ratio strictly between 0 and 1 is impossible at one
+    anchor, so this fixture is the entire separating surface.
+    """
+    rows, tracks = _one_to_one(
+        ["Alpha", "Bravo", "Charlie"],
+        [("Casey Jones", "tags"), ("f2.mp3", "unresolved"),
+         ("f3.mp3", "unresolved")])
+    res = rate_alignment(rows, tracks)
+    assert res.n_anchors == 1
+    assert res.agreement == 0.0
+    assert res.band == "operator"
+    assert [(d.track, d.tape_title, d.proposed) for d in res.disagreements] == [
+        (1, "Casey Jones", "Alpha")]
+
+
 def test_a_wholly_untagged_tape_has_no_anchors_and_no_agreement():
     rows, tracks = _one_to_one(
         ["Alpha", "Bravo", "Charlie"],
@@ -537,8 +564,9 @@ def test_a_setlist_gap_title_is_not_an_anchor():
     assert res.band == "operator"
 
 
-def test_an_unpaired_tagged_track_is_not_an_anchor():
-    """A track the DP paired with nothing offers no proposal to agree with."""
+def test_a_track_the_dp_paired_with_nothing_is_not_an_anchor():
+    """Pins `donor_span is not None` ONLY -- this fixture never reaches the
+    `bool(row.proposed)` clause, which the next two tests own."""
     rows, tracks = _one_to_one(
         ["Alpha", "Bravo", "Charlie"],
         [("Alpha", "tags"), ("Bravo", "tags"), ("Charlie", "tags")])
@@ -546,6 +574,49 @@ def test_an_unpaired_tagged_track_is_not_an_anchor():
     res = rate_alignment(rows, tracks)
     assert res.n_anchors == 2
     assert [d.track for d in res.disagreements] == []
+
+
+def _untitled_donor_pairing():
+    """A tagged target track the DP DID pair, with a donor track carrying no
+    usable tag -- the exact row `propose_rows` emits for that shape."""
+    rows, tracks = _one_to_one(
+        ["Alpha", "Bravo", "Charlie"],
+        [("Alpha", "tags"), ("Bravo", "tags"), ("f3.mp3", "unresolved")])
+    rows[1] = SiblingRow(2, None, (1, 2), 0.0, 900.0, "decline",
+                         "sibling track untitled")
+    return rows, tracks
+
+
+def test_a_row_with_no_proposal_does_not_crash_the_guard():
+    """`bool(row.proposed)` in `_anchor_row`, pinned as a CRASH guard.
+
+    Without it the untitled-donor row reaches
+    `loosely_same_title(track.title, None)` and `fuzzy_norm_title` raises
+    `AttributeError: 'NoneType' object has no attribute 'replace'` -- a stage
+    crash, not a decline, on a row the DP emits by itself.
+
+    Deliberately separate from the denominator test below: one test asserting
+    both would let either half rot while staying green.
+    """
+    rows, tracks = _untitled_donor_pairing()
+    res = rate_alignment(rows, tracks)          # must not raise
+    assert res.band in {"auto", "operator", "declined", "no-anchors"}
+
+
+def test_a_track_paired_with_an_untitled_donor_is_not_counted_as_an_anchor():
+    """The same clause, pinned as the ANCHOR DENOMINATOR -- the definition
+    Task 7's measurement scorer has to mirror.
+
+    An untitled donor track offers nothing to agree WITH, so it is neither an
+    agreement nor a disagreement. Counting it as a disagreement would let a
+    partly-untagged sibling drag a correct alignment below FLOOR, which is the
+    per-donor gating this module's docstring rules out.
+    """
+    rows, tracks = _untitled_donor_pairing()
+    res = rate_alignment(rows, tracks)
+    assert res.n_anchors == 1                   # track 1 only, not track 2
+    assert res.agreement == 1.0
+    assert res.disagreements == []
 
 
 # --------------------------------------------------------------------------
@@ -668,34 +739,57 @@ def test_cplus_applied_to_the_display_would_blind_the_operator():
 
 
 def test_cplus_leaves_a_layer_three_decline_reason_alone():
-    tracks = _tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"),
-                     ("Charlie", "tags"))
-    rows = [_row(1, "Alpha", (0, 1)),
-            _row(2, None, (1, 2), "decline", "sibling track untitled"),
-            _row(3, "Charlie", (2, 3))]
+    """C+ demotes ADOPTS; it never rewrites a reason layer 3 already gave.
+
+    The run must be one C+ actually declines, or this pins nothing: a
+    bracketed count-forced run takes the `continue` and no row is rewritten at
+    all. Hence a TAIL run (tracks 3-4), which `gap_span` never brackets.
+    """
+    tracks = _tracks(("Alpha", "tags"), ("Bravo", "tags"),
+                     ("f3.mp3", "unresolved"), ("f4.mp3", "unresolved"))
+    rows = [_row(1, "Alpha", (0, 1)), _row(2, "Bravo", (1, 2)),
+            _row(3, None, (2, 3), "decline", "sibling track untitled"),
+            _row(4, "Delta", (3, 4))]
     out = cplus_filter(rows, tracks)
-    assert [r.reason for r in out if r.track == 2] == ["sibling track untitled"]
+    by = {r.track: r for r in out}
+    assert by[3].reason == "sibling track untitled"      # layer 3 survives
+    assert by[4].reason == "tracks 3-4: not bracketed by agreeing anchors"
+    assert by[4].verdict == "decline"
 
 
 # --------------------------------------------------------------------------
-# The localised shift -- the regression pin for the class C+ exists to catch
+# Two shift shapes, both driven through the real DP. They are DIFFERENT
+# mechanisms and neither substitutes for the other:
+#
+#   1. a TAPE-TAG shift  -- the alignment is correct, the tape's own tags are
+#      a song ahead. Anchors disagree, so BRACKETING declines the runs beside
+#      them. Pins the ratio's blindness at exactly AUTO.
+#   2. a DONOR-SPAN SLIDE -- the tags are right and the ALIGNMENT slid, so the
+#      interior proposals are wrong titles while every anchor agrees
+#      (agreement 1.0). Bracketing cannot see it; COUNT-FORCING is the only
+#      thing that declines it. This is the class the spec names.
 # --------------------------------------------------------------------------
 
-def _localised_shift():
-    """The `gd1971-08-06` shape, synthetic and driven through the real DP.
+def _tape_tag_shift():
+    """13 target files against a 14-track sibling, through the real DP.
 
-    13 target files against a 14-track sibling. Head (1-5) and tail (10, 12,
-    13) tags are correct and agree. Tracks 6-7 carry tags shifted one song
-    forward -- the tape's own tagger was a song ahead -- so they disagree.
-    Tracks 8-9 and 11 are unresolved.
+    NOT a donor-span shift -- the ops are 1:1 throughout and the alignment is
+    correct end to end. What is shifted is the TAPE'S OWN TAGS: tracks 6-7
+    carry the titles of tracks 7-8, so those two anchors disagree. Head (1-5)
+    and tail (10, 12, 13) tags are correct and agree. Tracks 8-9 and 11 are
+    unresolved.
 
-    Donor track 12 ("Xray") is a short donor-only segment the target's taper
-    dropped; the DP absorbs it into target track 11 (the module docstring's
-    absorption rule), giving that run a 2-track donor span for one file.
+    Consequences, stated plainly because the earlier docstring overclaimed
+    them: the two interior fills C+ blocks at tracks 8-9 ("Hotel", "India")
+    are the CORRECT titles, refused because their left flank is a disagreeing
+    anchor. The one genuinely wrong title is track 11's "Kilo > Xray" -- donor
+    track 12 ("Xray") is a short donor-only segment the target's taper
+    dropped, and the DP absorbs it (the module docstring's absorption rule),
+    proposing a segue for a file that holds one song. Count-forcing catches
+    that one.
 
-    Agreement is 8/10 = exactly AUTO, so the RATIO IS BLIND to the shift.
-    That blindness is the point: pinned here as documentation, and the reason
-    layer 2 exists.
+    Agreement is 8/10 = exactly AUTO, so the RATIO IS BLIND. That is what this
+    fixture pins; the donor-span slide below pins the other half.
     """
     donor_durs = [300.0, 415.0, 520.0, 265.0, 380.0, 610.0, 245.0, 495.0,
                   330.0, 570.0, 250.0, 95.0, 440.0, 355.0]
@@ -704,7 +798,7 @@ def _localised_shift():
                       donor_durs, list(NATO))
     target = [300.0, 415.0, 520.0, 265.0, 380.0, 610.0, 245.0, 495.0,
               330.0, 570.0, 300.0, 440.0, 355.0]
-    rows, diag = propose_rows(target, donor, metadata_norms=set())
+    rows, _ = propose_rows(target, donor, metadata_norms=set())
     tracks = _tracks(
         ("Alpha", "tags"), ("Bravo", "tags"), ("Charlie", "tags"),
         ("Delta", "tags"), ("Echo", "tags"),
@@ -714,11 +808,11 @@ def _localised_shift():
         ("Juliett", "tags"),
         ("f11.mp3", "unresolved"),
         ("Mike", "tags"), ("November", "tags"))
-    return rows, tracks, diag
+    return rows, tracks
 
 
-def test_the_localised_shift_passes_the_ratio_band_the_ratio_is_blind():
-    rows, tracks, _ = _localised_shift()
+def test_a_tape_tag_shift_passes_the_ratio_band_the_ratio_is_blind():
+    rows, tracks = _tape_tag_shift()
     res = rate_alignment(rows, tracks)
     assert res.agreement == AUTO
     assert res.n_anchors == 10
@@ -727,16 +821,16 @@ def test_the_localised_shift_passes_the_ratio_band_the_ratio_is_blind():
         (6, "Golf", "Foxtrot"), (7, "Hotel", "Golf")}
 
 
-def test_the_localised_shift_adopts_zero_interior_titles_under_cplus():
-    """NAMED IN MUTATIONS A AND B. The pair clears the ratio band; C+ must
-    ship nothing in the shifted interior.
+def test_a_tape_tag_shift_adopts_zero_interior_titles_under_cplus():
+    """NAMED IN MUTATIONS A AND B (this is the test those acceptance criteria
+    called "the localised-shift test"; renamed to what it reproduces).
 
-    Run 8-9 is flanked by a disagreeing anchor -> not bracketed. Run 11 IS
-    bracketed by two agreeing anchors and is caught only by count-forcing --
-    the shift's last wrong title, which would otherwise ship "Kilo > Xray"
-    onto a file holding one song.
+    The pair clears the ratio band and C+ ships nothing. Run 8-9 is flanked by
+    a disagreeing anchor -> not bracketed (mutation A ships "Hotel"). Run 11 is
+    bracketed by two AGREEING anchors and is caught only by count-forcing
+    (mutation B ships "Kilo > Xray").
     """
-    rows, tracks, _ = _localised_shift()
+    rows, tracks = _tape_tag_shift()
     assert {r.track: r.proposed for r in rows if r.verdict == "adopt"}[11] == \
         "Kilo > Xray"                      # the DP does propose it
     out = cplus_filter(rows, tracks)
@@ -752,3 +846,94 @@ def test_the_localised_shift_adopts_zero_interior_titles_under_cplus():
     assert reasons[8] == "tracks 8-9: not bracketed by agreeing anchors"
     assert reasons[9] == "tracks 8-9: not bracketed by agreeing anchors"
     assert reasons[11] == "track 11: donor span holds 2 tracks for a 1-file run"
+
+
+def _donor_span_slide():
+    """THE DONOR-SPAN SLIDE -- the class the spec names, through the real DP.
+
+    9 target files against a 10-track sibling. EVERY TAPE TAG IS CORRECT and
+    every anchor agrees, so `rate_alignment` reports agreement 1.0: the ratio
+    has nothing to object to. The alignment itself has slid.
+
+    The donor's track 5 ("Echo") is a song the target's taper cut. Its three
+    interior files are unresolved, and their durations line up one-to-one with
+    the donor's tracks 5, 6 and 7-plus-8 rather than with 6, 7 and 8, so the DP
+    pairs them a song early: it proposes "Echo", "Foxtrot" and "Golf > Hotel"
+    for files whose ground truth (declared by this fixture) is Foxtrot, Golf
+    and Hotel. Three wrong titles, all as `adopt` rows with exclusion penalties
+    of 406, 406 and 240 s -- layer 3 sees nothing wrong, because each pairing
+    really is the best explanation of the durations.
+
+    Bracketing cannot catch this: both flanking anchors are correct AND
+    agreeing. Only COUNT-FORCING can -- the donor span between them holds 4
+    tracks for a 3-file run, which is the arithmetic signature of a slide.
+    That is not a coincidence of this fixture but a property of the guard: if
+    both flanks are right and the span count equals the file count, the
+    interior is forced and cannot slide. A slide therefore ALWAYS shows up as
+    a count mismatch (a donor-side skip or a merge inside the run), which is
+    why mutation A cannot kill this test and mutation B must.
+
+    HONESTY NOTE ON THE DURATIONS, because it bears on Task 7. Forcing a slide
+    through a real L1 duration cost requires the target's songs to differ from
+    the donor's by minutes, which is not credible tape-to-tape drift. The
+    credible real-world mechanism -- several adjacent songs of near-equal
+    length, one of them missing from the target -- was tried first and does NOT
+    reach this guard: with near-equal durations every rival pairing is nearly
+    as cheap, so the exclusion penalty collapses (measured: 2-18 s against
+    MIN_EXCLUSION_PENALTY = 60) and layer 3 declines the rows before C+ sees
+    them. The ambiguity that lets an alignment slide is the same quantity the
+    penalty measures. So this fixture is a faithful pin of the GUARD and an
+    open question about the POPULATION -- see the report.
+    """
+    donor_durs = [300.0, 415.0, 520.0, 265.0, 205.0, 395.0, 305.0, 120.0,
+                  330.0, 355.0]
+    donor = DonorTape("sib.slide", [f"d{i + 1:02d}.mp3" for i in range(10)],
+                      donor_durs, list(NATO[:10]))
+    target = [300.0, 415.0, 520.0, 265.0, 207.0, 393.0, 425.0, 330.0, 355.0]
+    rows, _ = propose_rows(target, donor, metadata_norms=set())
+    tracks = _tracks(("Alpha", "tags"), ("Bravo", "tags"), ("Charlie", "tags"),
+                     ("Delta", "tags"),
+                     ("f5.mp3", "unresolved"), ("f6.mp3", "unresolved"),
+                     ("f7.mp3", "unresolved"),
+                     ("India", "tags"), ("Juliett", "tags"))
+    return rows, tracks
+
+
+def test_a_donor_span_slide_passes_the_ratio_band_with_perfect_agreement():
+    """The ratio's blindness in its sharpest form: agreement is 1.0 -- not
+    merely at the AUTO knee -- while three interior titles are wrong. No
+    anchor can see inside a fill run, which is the whole reason layer 2
+    exists."""
+    rows, tracks = _donor_span_slide()
+    res = rate_alignment(rows, tracks)
+    assert res.agreement == 1.0
+    assert res.n_anchors == 6
+    assert res.disagreements == []
+    assert res.band == "auto"
+
+
+def test_a_donor_span_slide_adopts_zero_interior_titles_under_cplus():
+    """NAMED IN MUTATION B. The regression pin for the class C+ exists for.
+
+    The DP really has slid: track 5's donor span is (4, 5) -- the donor's
+    "Echo" -- where the correct span is (5, 6). Asserted on the span, not just
+    the title, so a fixture that stopped reproducing the slide would fail here
+    rather than pass vacuously.
+    """
+    rows, tracks = _donor_span_slide()
+    proposed = {r.track: r.proposed for r in rows}
+    by = {r.track: r for r in rows}
+    assert by[5].donor_span == (4, 5)          # the slide, one donor track early
+    assert by[5].verdict == "adopt"            # layer 3 sees nothing wrong
+    assert [proposed[t] for t in (5, 6, 7)] == ["Echo", "Foxtrot", "Golf > Hotel"]
+
+    out = cplus_filter(rows, tracks)
+    adopted = _adopted(out)
+    assert "Echo" not in adopted.values()
+    assert "Foxtrot" not in adopted.values()
+    assert "Golf > Hotel" not in adopted.values()
+    assert 5 not in adopted and 6 not in adopted and 7 not in adopted
+    assert {r.reason for r in out if r.track in (5, 6, 7)} == {
+        "tracks 5-7: donor span holds 4 tracks for a 3-file run"}
+    # The anchors around it are untouched and still ship.
+    assert adopted[4] == "Delta" and adopted[8] == "India"
