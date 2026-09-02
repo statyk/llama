@@ -106,23 +106,37 @@ def test_is_real_title_accepts_a_year_like_numeric_title():
     Mike Watt's Clash cover "1977" or Stooges cover "1970") is a real title,
     not filename/date residue.
 
-    scripts/numeric_title_census.py (2026-09-02) over the 2,095-item iacache
-    corpus (2,064 with kept files) found exactly 2 pure-4-digit tag titles
-    total, on 2 different items, neither item carrying a second one (the
-    STOP condition named in the Task 2 brief is >=2 on one item) and neither
-    value equal to that item's own metadata.year -- both hand-checked as
-    real song titles, not a taper's date stamp. Zero qualifying items means
-    the widening is applied to `is_real_title` itself (global scope), not
-    only to a hygiene/adoption-side check."""
+    scripts/numeric_title_census.py (2026-09-02, corrected in fix round 1
+    over the 2,095-item iacache corpus, 2,064 with kept files) found exactly
+    3 pure-4-digit tag titles total, on 3 different items -- "1977"
+    (MWatt2013-01-12), "1970" (mwatt2012-05-02.Poisson_Rouge.JFCB) and
+    "1662" (turkuaz2018-01-18, reached via sibling-format recovery -- the
+    first census cut broke on the first non-empty delivery format and missed
+    it). No item carries a second one (the STOP condition named in the Task
+    2 brief is >=2 on one item) and no value equals that item's own
+    metadata.year -- all three hand-checked as real song titles, not a
+    taper's date stamp. Cross-checked against the ~968-item working cache
+    the pipeline actually touches: 1 more (also "1922", on a sibling
+    recording of trampledbyturtles-2007-07-20), also below the STOP
+    threshold. Zero STOP-qualifying items in either corpus means the
+    widening is applied to `is_real_title` itself (global scope), not only
+    to a hygiene/adoption-side check. Full numbers and the accepted
+    `structure._hygienic` exposure are recorded in the constant's comment
+    above this function."""
     assert is_real_title("1922") is True
     assert is_real_title("2001") is True
 
 
-@pytest.mark.parametrize("cleaned", ["d1t02", "01", "174", "12", "3"])
+@pytest.mark.parametrize("cleaned", ["01", "174", "19770101", "12345"])
 def test_is_real_title_still_rejects_non_year_numeric_residue(cleaned):
-    """The widening is narrowly a bare 4-digit numeral. Filename residue
-    (d1t02), short track numbers (01, 174, 12) and any other digit run that
-    isn't exactly 4 digits are still rejected."""
+    """The widening is narrowly a bare 4-digit numeral. A short track number
+    (01, 174 -- "12" dropped, subsumed by "01": both only constrain the
+    lower bound) still fails on the letter count; a longer digit run that
+    merely CONTAINS 4 digits in a row must not slip through on an
+    unanchored match -- 19770101 is a yyyymmdd date stamp, exactly the junk
+    class this exists to reject, and 12345 is the minimal one-digit-over
+    case. ("d1t02" is covered by test_is_real_title above; not repeated
+    here.)"""
     assert is_real_title(cleaned) is False
 
 

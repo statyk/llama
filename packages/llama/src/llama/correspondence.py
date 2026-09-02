@@ -102,11 +102,22 @@ def _unaccounted(tracks, canonical) -> str | None:
     What the two paths do NOT share is the veto: `adopt_gap_titles` also
     demands `_hygienic` titles because it adopts SILENTLY. Here an operator
     reads the table first, so hygiene is their call -- which is the whole
-    residual value of this command over the `setlist-gap` rung, and it is
-    real: `trampledbyturtles-2007-07-20` track 21 is a count-forced,
-    two-side-anchored gap over the canonical item `1922`, which
-    `is_real_title` rejects (no three ASCII letters) and `setlist-gap`
-    therefore refuses to adopt.
+    residual value of this command over the `setlist-gap` rung.
+
+    STALE AS OF 2026-09-02, corrected rather than left to mislead: this
+    docstring used to point at `trampledbyturtles-2007-07-20` track 21 (a
+    count-forced, two-side-anchored gap over the canonical item `1922`) as
+    that residual-value example, on the claim that `is_real_title` rejects
+    `1922` (no three ASCII letters) and `setlist-gap` therefore refuses to
+    adopt it. That claim is now FALSE: `titles.is_real_title` was widened to
+    accept a bare 4-digit numeral (see the constant's comment in
+    `titles.py` and `.superpowers/sdd/2026-09-02-sibling-title-transfer/
+    task-2-report.md`), so `is_real_title("1922")` and `_hygienic("1922",
+    ...)` are both `True` now -- `setlist-gap` itself adopts this specific
+    case without needing this command at all. The general argument above
+    (an operator's hygiene call beating a silent one) still holds; finding a
+    fresh demonstrating example -- one `setlist-gap` still declines on
+    hygiene grounds -- is deferred to Task 5/7, per the Task 2 brief.
 
     Measured on the M3 gate's six held shows: this declines
     `yondermountainstringband-2005-12-31` and `-2002-12-31` (wholly untagged
