@@ -101,6 +101,31 @@ def test_is_real_title(cleaned, real):
     assert is_real_title(cleaned) is real
 
 
+def test_is_real_title_accepts_a_year_like_numeric_title():
+    """A bare 4-digit numeral (a song literally titled after a year, e.g.
+    Mike Watt's Clash cover "1977" or Stooges cover "1970") is a real title,
+    not filename/date residue.
+
+    scripts/numeric_title_census.py (2026-09-02) over the 2,095-item iacache
+    corpus (2,064 with kept files) found exactly 2 pure-4-digit tag titles
+    total, on 2 different items, neither item carrying a second one (the
+    STOP condition named in the Task 2 brief is >=2 on one item) and neither
+    value equal to that item's own metadata.year -- both hand-checked as
+    real song titles, not a taper's date stamp. Zero qualifying items means
+    the widening is applied to `is_real_title` itself (global scope), not
+    only to a hygiene/adoption-side check."""
+    assert is_real_title("1922") is True
+    assert is_real_title("2001") is True
+
+
+@pytest.mark.parametrize("cleaned", ["d1t02", "01", "174", "12", "3"])
+def test_is_real_title_still_rejects_non_year_numeric_residue(cleaned):
+    """The widening is narrowly a bare 4-digit numeral. Filename residue
+    (d1t02), short track numbers (01, 174, 12) and any other digit run that
+    isn't exactly 4 digits are still rejected."""
+    assert is_real_title(cleaned) is False
+
+
 def test_junk_tag_title_falls_through_cascade():
     # tag is filename residue -> cleaned to junk -> setlist wins
     files = make_files(["gd73-06-10d1t01.mp3", "China Cat Sunflower",

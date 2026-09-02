@@ -21,10 +21,24 @@ def clean_tag_title(raw: str | None) -> str:
     return "" if s.lower() == "unknown" else s
 
 
+_YEAR_LIKE_NUMERIC = re.compile(r"^\d{4}$")
+
+# Widened from letters-only after scripts/numeric_title_census.py
+# (2026-09-02) over the 2,095-item iacache corpus (2,064 items with kept
+# files): exactly 2 items carried a pure-4-digit cleaned tag title (1
+# each -- "1977" on MWatt2013-01-12, a Clash cover, and "1970" on
+# mwatt2012-05-02.Poisson_Rouge.JFCB, a Stooges cover), zero items carried
+# the >=2-on-one-item STOP condition, and neither value equalled that
+# item's own metadata.year (2013, 2012) -- both hand-checked as real song
+# titles, not a taper's recording-year stamp. Zero qualifying items means
+# global scope: this function itself accepts the numeral, not only a
+# hygiene/adoption-side check layered on top of it.
 def is_real_title(cleaned: str) -> bool:
-    """At least 3 ASCII letters: accepts real short titles (Deal, Jam),
-    rejects date-less filename residue (d1t02)."""
-    return sum(ch.isascii() and ch.isalpha() for ch in cleaned) >= 3
+    """At least 3 ASCII letters (Deal, Jam) or a bare year-like 4-digit
+    numeral (1922, 2001) is a real title; rejects date-less filename residue
+    (d1t02) and other short digit runs (01, 174)."""
+    return (sum(ch.isascii() and ch.isalpha() for ch in cleaned) >= 3
+            or bool(_YEAR_LIKE_NUMERIC.match(cleaned)))
 
 
 # A leading track number on an enumerated tape: 1-3 digits, an optional single
