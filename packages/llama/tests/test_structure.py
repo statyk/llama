@@ -1878,3 +1878,58 @@ def test_songish_coverage_excludes_setlist_sourced_tracks_too():
     matched = [True, True, False]
     coverage = structure._songish_coverage(tracks, matched)
     assert coverage == 0.5
+
+
+# ---------------------------------------------------------------------------
+# `loosely_same_title` -- the sibling guard's comparator
+# ---------------------------------------------------------------------------
+
+from llama.structure import LOOSE_TITLE_RATIO, loosely_same_title
+
+
+def test_loosely_same_title_equates_normalized_spellings():
+    assert loosely_same_title("Truckin'", "Truckin")
+    assert loosely_same_title("Me & My Uncle", "Me and My Uncle")
+
+
+def test_loosely_same_title_accepts_a_dropped_parenthetical_either_way():
+    """Containment, not subphrase: `fuzzy_title_eq`'s two-word floor would
+    reject this pair, and the guard must not fire on a taper's annotation."""
+    assert loosely_same_title("Sugaree", "Sugaree (encore)")
+    assert loosely_same_title("Sugaree (encore)", "Sugaree")
+
+
+def test_loosely_same_title_accepts_a_spelling_variant_on_the_ratio():
+    # ratio 0.833 -- the arm that exists so the guard fires on alignment
+    # errors rather than on orthography. Pins LOOSE_TITLE_RATIO from above:
+    # raising it past 0.833 fails this.
+    assert loosely_same_title("Mister Charlie", "Mr. Charlie")
+
+
+def test_loosely_same_title_misses_an_initialism_known_limit():
+    """KNOWN LIMIT, pinned not fixed. Taper initialisms score far below the
+    ratio; a disagreement here is the comparator's miss, not the alignment's
+    (10.1% of measured anchor disagreements are exactly this)."""
+    assert not loosely_same_title("BIODTL", "Beat It On Down The Line")
+
+
+def test_loosely_same_title_misses_the_rain_go_away_near_miss_known_limit():
+    # ratio 0.774 -- the measured near-miss, documented in the spec as a known
+    # comparator limit rather than a reason to lower the bound. Pins
+    # LOOSE_TITLE_RATIO from below: dropping it to 0.75 fails this.
+    assert not loosely_same_title("Rain Please Go Away", "Rain go away (?)")
+
+
+def test_loosely_same_title_rejects_two_different_songs():
+    assert not loosely_same_title("Dark Star", "Sugar Magnolia")
+    assert not loosely_same_title("Golf", "Foxtrot")
+
+
+def test_loosely_same_title_rejects_an_empty_side():
+    # "" is contained in everything; an untitled side is not agreement.
+    assert not loosely_same_title("", "Sugaree")
+    assert not loosely_same_title("Sugaree", "   ")
+
+
+def test_loose_title_ratio_is_the_measured_bound():
+    assert LOOSE_TITLE_RATIO == 0.80

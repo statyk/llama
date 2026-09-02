@@ -35,9 +35,14 @@ See `docs/superpowers/specs/2026-09-02-sibling-title-transfer-design.md`.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from llama.structure import hygienic_title
+from llama.structure import (
+    gap_span,
+    hygienic_title,
+    loosely_same_title,
+    unresolved_runs,
+)
 from llama.titles import is_real_title
 
 INF = float("inf")
@@ -300,3 +305,205 @@ def propose_rows(target_durs: list[float], donor: DonorTape, *,
                                    "adopt"))
     rows.sort(key=lambda r: r.track)
     return rows, diag
+
+
+# ===========================================================================
+# The guards. Layer 1 (`rate_alignment`) rates the whole pair; layer 2
+# (`cplus_filter`) gates it run by run. Both live here rather than in gather
+# so they stay pure and testable; gather (Task 5) is what calls them.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# DO NOT RETUNE -- same class as the four above, and for a sharper reason:
+# every table in `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`
+# was taken AT these three values, under guard shape C+, with
+# `structure.loosely_same_title` as the comparator. Changing any one of them
+# does not adjust a number, it invalidates the sweep that chose all of them.
+# ---------------------------------------------------------------------------
+
+# Anchor agreement at or above which a pair may ship without a human. The band
+# sweep's knee: 0.80 is the first cut whose admitted MARGINAL band is not
+# dominated by error (the 0.65-0.80 band admits ~5 more titles per rep at a
+# 26.5% marginal error rate).
+AUTO = 0.80
+
+# Below this the pair is declined outright -- not even rendered as a proposal.
+# A failed guard is evidence of a BAD ALIGNMENT, not weak evidence of a good
+# one: marginal error is 68-99% below 0.30 and ~40% from 0.30 to 0.50.
+FLOOR = 0.50
+
+# Anchors (COUNT OF TARGET TRACKS, not runs or donors) required before the
+# ratio may license automatic adoption. The sweep's break is between 1 and 2;
+# 5 forfeits the sparse strata for no measured gain. It stays at 2 rather than
+# 1 as the last stop against a pair whose single agreeing anchor brackets
+# nothing.
+MIN_ANCHORS = 2
+
+# A track title is an ANCHOR only if it came from evidence independent of this
+# alignment. `tags` and `sibling-format` are the tape's own metadata;
+# `override` is an operator's ruling, the same trust class or stronger. NOT
+# `setlist`/`setlist-gap` (the canonical setlist's own text, which says
+# nothing about where this tape sits) and not `sibling`/`sibling-align`
+# (another alignment's output -- circular).
+INDEPENDENT_TITLE_SOURCES = frozenset({"tags", "sibling-format", "override"})
+
+
+@dataclass(frozen=True)
+class Disagreement:
+    """An anchor whose own title does not loosely match what the sibling
+    proposes for it. `track` is 1-based, as everywhere the operator looks.
+
+    This is the operator band's payload, not decoration: 31% of pairs in
+    [FLOOR, AUTO) carry a disagreement where the TAPE is the wrong one, so the
+    display shows all three readings (tape / sibling / canonical) and lets a
+    human rule.
+    """
+
+    track: int
+    tape_title: str
+    proposed: str
+
+
+@dataclass(frozen=True)
+class GuardResult:
+    """Layer 1's reading of one target/donor pair.
+
+    `agreement is None` means the tape has no anchors at all (wholly
+    untagged) -- distinct from 0.0, which means it has anchors and they all
+    disagree. The first is the phase's trigger case and routes to the
+    operator; the second is a wrong alignment and is declined.
+    """
+
+    agreement: float | None
+    n_anchors: int
+    disagreements: list[Disagreement]
+    band: str          # "auto" | "operator" | "declined" | "no-anchors"
+
+
+def _anchor_row(track, row: SiblingRow | None) -> bool:
+    """Is this (track, row) pair an anchor: independent evidence about the
+    tape, which the DP actually paired with a titled donor track?
+
+    A row the DP left unpaired, or one whose donor track had no usable title,
+    offers nothing to agree or disagree WITH -- counting it as a disagreement
+    would let an untitled donor drag a correct alignment below FLOOR.
+    """
+    return (track.title_source in INDEPENDENT_TITLE_SOURCES
+            and is_real_title(track.title.strip())
+            and row is not None and row.donor_span is not None
+            and bool(row.proposed))
+
+
+def rate_alignment(rows: list[SiblingRow], tracks: list) -> GuardResult:
+    """Layer 1: rate the pair by anchor agreement and route it to a band.
+
+    Agreement is the fraction of anchors whose own title `loosely_same_title`
+    the row's proposal. It is the one check in this module that is NOT
+    self-referential -- the exclusion penalty prices a pairing against rival
+    explanations of the SAME two tapes, and control A5 showed a wholly
+    unrelated tape passing it.
+
+    Band order is deliberate: **fewer than MIN_ANCHORS anchors routes to the
+    operator whatever the ratio says**, including below FLOOR. The bands were
+    measured over pairs with >= 2 anchors; over one anchor the ratio is not
+    the measured statistic at all, so it may neither license adoption nor
+    justify throwing the proposal away.
+    """
+    by_track = {r.track: r for r in rows}
+    n_anchors, agreeing = 0, 0
+    disagreements: list[Disagreement] = []
+    for pos, track in enumerate(tracks):
+        row = by_track.get(pos + 1)
+        if not _anchor_row(track, row):
+            continue
+        n_anchors += 1
+        if loosely_same_title(track.title, row.proposed):
+            agreeing += 1
+        else:
+            disagreements.append(
+                Disagreement(pos + 1, track.title.strip(), row.proposed))
+    if n_anchors == 0:
+        return GuardResult(None, 0, [], "no-anchors")
+    agreement = agreeing / n_anchors
+    if n_anchors < MIN_ANCHORS:
+        band = "operator"
+    elif agreement >= AUTO:
+        band = "auto"
+    elif agreement >= FLOOR:
+        band = "operator"
+    else:
+        band = "declined"
+    return GuardResult(agreement, n_anchors, disagreements, band)
+
+
+def _run_label(lo: int, hi: int) -> str:
+    return f"track {lo + 1}" if lo == hi else f"tracks {lo + 1}-{hi + 1}"
+
+
+def cplus_filter(rows: list[SiblingRow], tracks: list) -> list[SiblingRow]:
+    """Layer 2, guard shape C+: demote to `decline` every adopt row sitting in
+    a fill run that is not bracketed by agreeing anchors and count-forced
+    between them. Returns a new row list; input rows are untouched.
+
+    **C+ GATES THE AUTOMATIC BAND, NEVER THE PROPOSAL DISPLAY** (spec
+    invariant 1, quoted): "A wholly untagged tape has no anchors and therefore
+    no brackets; applied to the renderer, C+ would show ymsb2005 *nothing* --
+    the phase's trigger case destroyed by its own guard. The proposal renders
+    every row the DP produced, with residuals and per-run annotations; C+
+    decides only what ships without a human." So gather calls this; the
+    `--suggest-titles` renderer must not.
+
+    BY REUSE, NOT REINVENTION. Runs come from `structure.unresolved_runs` and
+    bracketing from `structure.gap_span` -- the real functions, called, so the
+    leading-edge exception and the ABSENT trailing branch are inherited rather
+    than restated. A second anchor definition inside the guard whose only job
+    is preventing silent adoption would be invisible when it drifted.
+    (`structure.anchor_spans` itself does not apply: it binds tracks to
+    canonical setlist ITEMS by title matching, whereas here the binding is the
+    DP's own duration pairing. Its half-open span SHAPE is what `donor_span`
+    reuses, which is what lets `gap_span` be called unconverted.)
+
+    COUNT-FORCING HERE IS WEAKER THAN `adopt_gap_titles`', and its
+    justification is measurement, not the upstream mechanism argument (spec
+    invariant 2). There the item count comes from the canonical setlist, a
+    source independent of the tape, so count-forcing removes all assignment
+    freedom. Here the donor span's endpoints are read off the *same alignment
+    under test* -- partly self-referential, exactly what the A5 ruling warns
+    about. It measured better anyway; do not restate the setlist-gap safety
+    argument for it.
+
+    RUNS DECLINE INDIVIDUALLY, each with its own reason. One unbracketed run
+    must not sink the pair -- gates on evidence are per-item, never per-donor,
+    and a checkerboard is the sweep's DEFAULT admitted outcome (~half of
+    admitted tapes decline >= 2 runs).
+
+    Rows on tracks that are not in an unresolved run are left alone: the
+    automatic rung fills only `title_source == "unresolved"` tracks, so C+ has
+    nothing to say about a track nobody is proposing to change.
+    """
+    by_track = {r.track: r for r in rows}
+    # Agreeing anchors, position -> the half-open DONOR span they occupy, the
+    # same shape `anchor_spans` returns over canonical items.
+    anchors: dict[int, tuple[int, int]] = {}
+    for pos, track in enumerate(tracks):
+        row = by_track.get(pos + 1)
+        if _anchor_row(track, row) and loosely_same_title(track.title, row.proposed):
+            anchors[pos] = row.donor_span
+
+    demoted: dict[int, str] = {}
+    for lo, hi in unresolved_runs(tracks):
+        span = gap_span(anchors, lo, hi, len(tracks))
+        files = hi - lo + 1
+        if span is None:
+            reason = f"{_run_label(lo, hi)}: not bracketed by agreeing anchors"
+        elif span[1] - span[0] != files:
+            reason = (f"{_run_label(lo, hi)}: donor span holds "
+                      f"{span[1] - span[0]} tracks for a {files}-file run")
+        else:
+            continue
+        for pos in range(lo, hi + 1):
+            demoted[pos + 1] = reason
+
+    return [replace(r, verdict="decline", reason=demoted[r.track])
+            if r.verdict == "adopt" and r.track in demoted else r
+            for r in rows]
