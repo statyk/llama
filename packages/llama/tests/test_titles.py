@@ -46,16 +46,20 @@ def test_tags_win_and_setlist_fills_gaps():
     assert [t.index for t in tracks] == [1, 2, 3, 4, 5, 6]
 
 
-def test_sibling_fallback_when_setlist_misaligned():
+def test_resolve_titles_no_longer_has_a_sibling_fallback():
+    """The old positional "sibling" rung (a same-count sibling recording's
+    titles copied on file-for-file, with zero content verification) was
+    removed from `resolve_titles` -- its `sibling_titles` parameter is gone.
+    A count-mismatched, untagged setlist now falls straight through to
+    unresolved, the same as any other cascade miss. Sibling-recording titles
+    are transferred by the guarded duration-alignment pass
+    (`llama.siblings` + `gather._sibling_transfer`), which runs later in
+    `gather`, not here."""
     files = make_files([None] * 6)
     short = ParsedSetlist(items=make_setlist().items[:3], confidence="high")  # count mismatch
-    tracks = resolve_titles(files, short, sibling_titles=[
-        "Morning Dew", "China Cat Sunflower", "I Know You Rider",
-        "Dark Star", "Eyes of the World", "Johnny B. Goode",
-    ])
-    assert all(t.title_source == "sibling" for t in tracks)
-    # placeholder set - structure stamping moved to gather
-    assert tracks[0].set == "1"
+    tracks = resolve_titles(files, short)
+    assert all(t.title_source == "unresolved" for t in tracks)
+    assert tracks[0].title == "d1t01.mp3"
 
 
 def test_unresolved_flagged_not_guessed():

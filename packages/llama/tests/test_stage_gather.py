@@ -47,6 +47,36 @@ class MultiIA:
         return self.mapping[identifier]
 
 
+class CountingIA(MultiIA):
+    """Like MultiIA, but records every identifier `.metadata()` was called
+    for -- used to pin how many times a sibling recording was actually
+    fetched (the loosened gather fetch gate must skip the sibling-align pass
+    entirely on a fully-tagged tape, not merely decline to adopt anything)."""
+
+    def __init__(self, mapping):
+        super().__init__(mapping)
+        self.calls: list[str] = []
+
+    def metadata(self, identifier):
+        self.calls.append(identifier)
+        return super().metadata(identifier)
+
+
+def _gd73_donor(base_md: dict, titles: list[str], description: str = "") -> dict:
+    """A fully-tagged sibling recording of gd73-06-10: one real title per kept
+    audio file, in play order. `titles` must have exactly 6 entries."""
+    sib = {"metadata": dict(base_md["metadata"], description=description),
+           "files": [dict(f) for f in base_md["files"]]}
+    sib_audio = sorted(
+        (f for f in sib["files"]
+         if f.get("format") == "VBR MP3" and f["name"].startswith("gd73-06-10d")),
+        key=lambda f: f["name"])
+    assert len(sib_audio) == len(titles)
+    for f, title in zip(sib_audio, titles):
+        f["title"] = title
+    return sib
+
+
 def make_candidate():
     return Candidate(
         performance_id="GratefulDead/1973-06-10", collection="GratefulDead",
@@ -249,29 +279,258 @@ def test_gather_llm_alignment_garbage_falls_back_and_flags(tmp_path: Path):
     assert show.structure.alignment == "deterministic"
 
 
-def test_sibling_titles_are_cleaned(tmp_path: Path):
-    md = json.loads(FIXTURE.read_text())
-    titles = ["Morning Dew", "China Cat Sunflower", "I Know You Rider",
+# ============================================================================
+# Task 5: the guarded sibling-align transfer pass, wired into gather.
+#
+# The old positional "sibling" rung (`titles._sibling_titles`,
+# `resolve_titles`'s `elif sibling_titles and len(sibling_titles) == n`) is
+# GONE -- see test_shifted_fully_tagged_sibling_does_not_transfer_positionally
+# below, the test the old rung could never pass. Its replacement is
+# `llama.siblings` (a pure duration-alignment DP + two guards) wired here via
+# `gather._sibling_transfer`, which runs after the `overrides.titles` loop and
+# before `adopt_gap_titles`.
+# ============================================================================
+
+SIB_ID = "gd73-06-10.aud.sibling"
+REAL_TITLES = ["Morning Dew", "China Cat Sunflower", "I Know You Rider",
               "Dark Star", "Eyes of the World", "Johnny B. Goode"]
+
+
+def test_sibling_transfer_adopts_into_a_bracketed_gap(tmp_path: Path):
+    """The core happy path: two tag-verified anchors (tracks 1 and 6) bracket
+    a 4-track unresolved run, a fully-tagged sibling agrees with both anchors
+    (agreement 1.0 >= AUTO), and guard shape C+ finds the interior run
+    count-forced between them -- so all four titles adopt, string for string,
+    with title_source == "sibling-align". `matched` must be align()'s real
+    per-track verdict, not forced to None: sibling-align is independent
+    evidence, unlike the tautological setlist-gap/setlist rungs (invariant:
+    do not add "sibling-align" to structure.TAUTOLOGICAL_TITLE_SOURCES)."""
+    md = json.loads(FIXTURE.read_text())
+    chosen = {"metadata": dict(md["metadata"], description=""),
+              "files": [dict(f) for f in md["files"]]}
+    by_name = {f["name"]: f for f in chosen["files"]}
+    for name in ("gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+                 "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3"):
+        by_name[name].pop("title", None)               # tracks 2-5: unresolved
+    by_name["gd73-06-10d3t01.mp3"]["title"] = "Johnny B. Goode"  # track 6 anchor
+
+    sib = _gd73_donor(md, REAL_TITLES)
+    ia = MultiIA({IDENT: chosen, SIB_ID: sib})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    got = {t.index: t for t in show.tracks}
+    assert [got[i].title for i in (2, 3, 4, 5)] == [
+        "China Cat Sunflower", "I Know You Rider", "Dark Star", "Eyes of the World"]
+    assert [got[i].title_source for i in (2, 3, 4, 5)] == ["sibling-align"] * 4
+    assert all(got[i].matched is not None for i in (2, 3, 4, 5))
+
+
+def test_fully_tagged_tape_does_not_fetch_a_sibling_for_title_transfer(tmp_path: Path):
+    """The loosened fetch gate (`kept and title_fraction(...) < 1.0`) must
+    still skip the sibling-align pass entirely once the tape's own tags
+    already cover every kept file -- not merely decline to adopt anything.
+    CountingIA pins the sibling identifier is fetched exactly once (by
+    `_collect_parses`' description scan, which runs unconditionally for every
+    recording), never a second time for title transfer."""
+    md = json.loads(FIXTURE.read_text())
+    for f in md["files"]:
+        if f["name"] == "gd73-06-10d3t01.mp3":
+            f["title"] = "Johnny B. Goode"
+    ia = CountingIA({IDENT: md, SIB_ID: json.loads(FIXTURE.read_text())})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    assert [t.title for t in show.tracks] == REAL_TITLES
+    assert all(t.title_source == "tags" for t in show.tracks)
+    assert ia.calls.count(SIB_ID) == 1
+
+
+def test_wholly_untagged_tape_gets_zero_automatic_sibling_adoptions(tmp_path: Path):
+    """ymsb2005 (Phase B's trigger fixture): no tagged track on the target
+    means no independent anchor, so `rate_alignment` reports band ==
+    "no-anchors" regardless of how well a sibling's durations line up -- and
+    gather must adopt nothing. This is the pin whose INVERSE Phase B shipped
+    nine times (a wholly untagged tape must never get automatic titles)."""
+    md = json.loads(YMSB_FIXTURE.read_text())
+    sib = json.loads(YMSB_FIXTURE.read_text())
+    for i, f in enumerate(sorted((f for f in sib["files"] if f.get("format") == "VBR MP3"),
+                                 key=lambda f: f["name"])):
+        f["title"] = f"Song Title {i + 1}"          # hygienic, but nothing anchors it
+    ident = "ymsb2005-12-31.aud.sibling"
+    ia = MultiIA({Y_IDENT: md, ident: sib})
+    cand = _ymsb_candidate()
+    cand.recordings.append(RecordingSummary(identifier=ident))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, Y_IDENT)
+
+    assert all(t.title_source == "unresolved" for t in show.tracks)
+    assert not any(t.title_source == "sibling-align" for t in show.tracks)
+
+
+def test_below_floor_sibling_alignment_declines_with_a_note(tmp_path: Path):
+    """5 of 6 tracks keep their own tags (title_fraction 0.833 < 1.0, so the
+    fetch gate still fires); the donor agrees on only 1 of those 5 anchors
+    (agreement 0.20 < FLOOR). That is a wrong alignment, not weak evidence of
+    a right one -- `rate_alignment` declines it outright, and gather must
+    surface why rather than silently doing nothing. Track 6 (no tag of its
+    own) is untouched by this test either way: it is not an anchor, and a
+    declined pair adopts nothing regardless."""
+    md = json.loads(FIXTURE.read_text())
+    chosen = {"metadata": dict(md["metadata"]),
+              "files": [dict(f) for f in md["files"]]}   # d3t01 keeps its own no-tag state
+
+    donor_titles = ["Morning Dew", "Sugar Magnolia", "Casey Jones",
+                    "Ripple", "Bertha", "Jack Straw"]   # only track 1 agrees
+    sib = _gd73_donor(md, donor_titles, description=chosen["metadata"]["description"])
+    ia = MultiIA({IDENT: chosen, SIB_ID: sib})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    assert [t.title for t in show.tracks] == REAL_TITLES     # nothing overwritten
+    assert not any(t.title_source == "sibling-align" for t in show.tracks)
+    assert show.structure is not None
+    assert any(n.startswith("sibling alignment declined (anchor agreement")
+              for n in show.structure.conflicts)
+
+
+def test_a_bracketing_failure_leaves_the_run_unresolved_with_its_reason_in_notes(tmp_path: Path):
+    """Overall agreement is high (2/2 agreeing anchors -> auto band), but the
+    unresolved run (tracks 3-6) reaches the tape's last track -- `gap_span`
+    deliberately has no trailing-edge branch, so C+ cannot bracket it and
+    demotes those rows to decline. Concern #2: that per-run reason is only
+    visible on the (internal) SiblingRow otherwise, so it must reach notes."""
+    md = json.loads(FIXTURE.read_text())
+    chosen = {"metadata": dict(md["metadata"], description=""),
+              "files": [dict(f) for f in md["files"]]}
+    for f in chosen["files"]:
+        if f["name"] in ("gd73-06-10d1t03.mp3", "gd73-06-10d2t01.mp3",
+                         "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"):
+            f.pop("title", None)                      # tracks 3-6: unresolved
+
+    sib = _gd73_donor(md, REAL_TITLES)
+    ia = MultiIA({IDENT: chosen, SIB_ID: sib})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    got = {t.index: t for t in show.tracks}
+    assert [got[i].title_source for i in (3, 4, 5, 6)] == ["unresolved"] * 4
+    assert [got[i].title for i in (3, 4, 5, 6)] == [got[i].filename for i in (3, 4, 5, 6)]
+    assert show.structure is not None
+    assert any("tracks 3-6: not bracketed by agreeing anchors" in n
+              for n in show.structure.conflicts)
+
+
+def test_shifted_fully_tagged_sibling_does_not_transfer_positionally(tmp_path: Path):
+    """OLD-RUNG REMOVAL PIN. Before this task, resolve_titles' "sibling" rung
+    transferred a same-count sibling's titles onto the target POSITIONALLY
+    with zero content verification -- a donor whose file COUNT matches but
+    whose title CONTENT is rotated one song over would have shipped wrong
+    titles at coverage 1.0, silently. The new sibling-align rung cannot make
+    that mistake: this target carries no tag of its own at all, so it has no
+    independent anchor and the pair routes to "no-anchors" regardless of how
+    well the donor's durations line up. This is the test the old positional
+    rung could never pass (see the acceptance mutation restoring it)."""
+    md = json.loads(FIXTURE.read_text())
     chosen = {"metadata": dict(md["metadata"], description=""),
               "files": [dict(f) for f in md["files"]]}
     for f in chosen["files"]:
         f.pop("title", None)
-    sib = {"metadata": dict(md["metadata"], description=""),
-           "files": [dict(f) for f in md["files"]]}
-    # Restrict to the dominant naming convention: the fixture's spam file
-    # ("FOLLOW-ME @BYPIKENO.mp3") is also tagged "VBR MP3" and would sort
-    # alphabetically first, shifting every title assignment below by one.
-    sib_audio = [f for f in sib["files"]
-                 if f.get("format") == "VBR MP3" and f["name"].startswith("gd73-06-10d")]
-    for f, title in zip(sorted(sib_audio, key=lambda f: f["name"]), titles):
-        f["title"] = f"gd73-06-10d1t01 {title}"  # id-prefixed tag
-    ia = MultiIA({IDENT: chosen, "gd73-06-10.aud.sibling": sib})
+
+    rotated = REAL_TITLES[1:] + REAL_TITLES[:1]        # every title one slot off
+    sib = _gd73_donor(md, rotated)
+    ia = MultiIA({IDENT: chosen, SIB_ID: sib})
     cand = make_candidate()
-    cand.recordings.append(RecordingSummary(identifier="gd73-06-10.aud.sibling"))
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
     show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
-    assert [t.title for t in show.tracks] == titles          # prefix stripped
-    assert all(t.title_source == "sibling" for t in show.tracks)
+
+    assert [t.title for t in show.tracks] == [t.filename for t in show.tracks]
+    assert all(t.title_source == "unresolved" for t in show.tracks)
+
+
+def test_an_already_titled_track_is_never_overwritten_by_a_surviving_adopt_row(tmp_path: Path):
+    """CONCERN #1 (data loss). `cplus_filter` says nothing about a track that
+    already has a title -- it gates FILL RUNS, and a track outside any run
+    keeps whatever verdict `propose_rows` gave it. Track 2 here keeps its own
+    tag "China Cat Sunflower" even though the donor proposes "Bertha" for it
+    and that "adopt" row survives every guard: the other 4 of 5 tag-verified
+    anchors agree (4/5 = 0.80 = AUTO exactly), so the pair still ships in the
+    automatic band. Track 6 has no tag of its own (title_fraction 0.833 < 1.0,
+    so the fetch gate still fires) and is not part of this test -- gather must
+    intersect surviving adoptions with the UNRESOLVED set itself, or this
+    overwrites the tape's own tag with the sibling's guess."""
+    md = json.loads(FIXTURE.read_text())
+    chosen = {"metadata": dict(md["metadata"], description=""),
+              "files": [dict(f) for f in md["files"]]}   # d3t01 keeps its own no-tag state
+
+    donor_titles = list(REAL_TITLES)
+    donor_titles[1] = "Bertha"                          # disagrees with track 2's tag
+    sib = _gd73_donor(md, donor_titles)
+    ia = MultiIA({IDENT: chosen, SIB_ID: sib})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    track2 = show.tracks[1]
+    assert track2.title == "China Cat Sunflower"
+    assert track2.title_source == "tags"
+
+
+def test_sibling_aligned_matches_count_as_independent_coverage_evidence(tmp_path: Path):
+    """MUTATION A PIN (spec's independence invariant): sibling-align must NOT
+    be in structure.TAUTOLOGICAL_TITLE_SOURCES, because align()'s match on a
+    sibling-aligned track is real, independent evidence -- unlike
+    setlist-gap/setlist, whose text IS the canonical item's own text.
+
+    Track 1 here is tagged "Drums" -- a real, independently-sourced tag that
+    matches no canonical setlist item -- and track 6 is tagged "Johnny B.
+    Goode" (matches). Tracks 2-5 sibling-align onto the real middle-of-show
+    songs and genuinely MATCH the canonical setlist too: real evidence, not a
+    copy of it.
+
+    Adding "sibling-align" to TAUTOLOGICAL_TITLE_SOURCES would drop tracks
+    2-5 from the coverage denominator, shrinking it to the two weak anchors
+    (1 match of 2 = 0.5, below the 0.8 default threshold) and wrongly firing
+    "low-confidence structure alignment" on a show that is not actually
+    low-confidence -- the mutation this test exists to catch."""
+    md = json.loads(FIXTURE.read_text())
+    # One extra encore item ("Space") the tape has no file for, so the
+    # canonical item count (7) no longer equals the kept file count (6) --
+    # otherwise resolve_titles' whole-tape "setlist" rung (aligned =
+    # setlist.items if len(items) == n) would fill tracks 2-5 itself, before
+    # the sibling-align pass ever sees them as unresolved.
+    desc = md["metadata"]["description"].replace(
+        "Encore:\nJohnny B. Goode", "Encore:\nJohnny B. Goode > Space")
+    chosen = {"metadata": dict(md["metadata"], description=desc),
+              "files": [dict(f) for f in md["files"]]}
+    by_name = {f["name"]: f for f in chosen["files"]}
+    by_name["gd73-06-10d1t01.mp3"]["title"] = "Drums"              # weak anchor: no match
+    for name in ("gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+                "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3"):
+        by_name[name].pop("title", None)                           # tracks 2-5: unresolved
+    by_name["gd73-06-10d3t01.mp3"]["title"] = "Johnny B. Goode"     # strong anchor: matches
+
+    sib_titles = ["Drums", "China Cat Sunflower", "I Know You Rider",
+                 "Dark Star", "Eyes of the World", "Johnny B. Goode"]
+    sib = _gd73_donor(md, sib_titles, description=desc)
+    ia = MultiIA({IDENT: chosen, SIB_ID: sib})
+    cand = make_candidate()
+    cand.recordings.append(RecordingSummary(identifier=SIB_ID))
+    show = run_gather(ShowWorkspace(tmp_path / "show"), ia, FakeProvider(), cand, IDENT)
+
+    got = {t.index: t for t in show.tracks}
+    assert got[1].title_source == "tags"
+    assert [got[i].title for i in (2, 3, 4, 5)] == [
+        "China Cat Sunflower", "I Know You Rider", "Dark Star", "Eyes of the World"]
+    assert [got[i].title_source for i in (2, 3, 4, 5)] == ["sibling-align"] * 4
+    assert got[6].title_source == "tags"
+    assert show.structure is not None
+    assert show.structure.coverage == 5 / 6
+    assert show.needs_review is False
+    assert "low-confidence structure alignment" not in show.review_flags
 
 
 def test_prefixed_tag_titles_align(tmp_path: Path):

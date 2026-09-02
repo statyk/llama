@@ -154,7 +154,7 @@ class Track(BaseModel):
     filename: str  # source filename within the archive.org item
     duration_sec: float | None = None
     segue: bool = False
-    title_source: str  # "tags" | "sibling-format" | "setlist" | "setlist-gap" | "sibling" | "unresolved" | "override"
+    title_source: str  # "tags" | "sibling-format" | "setlist" | "setlist-gap" | "sibling-align" | "unresolved" | "override" | "sibling" (legacy: the old positional rung, removed 2026-09-02 -- still a valid value on a show gathered before this change, no migration)
     # Did this track match a canonical setlist item? None = not measured --
     # the override path skips align() entirely and forces coverage to 1.0, so
     # rendering unknown as "matched" would assert something never checked. A

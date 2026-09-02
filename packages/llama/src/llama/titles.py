@@ -233,10 +233,19 @@ def sibling_format_titles(
 def resolve_titles(
     kept_files: list[dict],
     setlist: ParsedSetlist,
-    sibling_titles: list[str] | None = None,
     format_titles: dict[str, str] | None = None,
 ) -> list[Track]:
-    """Resolve track titles (tags -> setlist -> sibling -> unresolved).
+    """Resolve track titles (tags -> setlist -> unresolved).
+
+    The old positional "sibling" rung (a same-count fully-tagged sibling
+    recording copied onto the target file-for-file) lived here and is GONE --
+    it transferred titles with zero content verification, and a same-count
+    donor with shifted content shipped wrong titles at coverage 1.0. Its
+    replacement (`llama.siblings` + `gather._sibling_transfer`) is a guarded
+    duration-alignment pass that runs in `gather`, after this function and
+    after the `overrides.titles` loop, and stamps `title_source="sibling-align"`
+    directly onto the resolved tracks it fills. See titles.py's `is_real_title`
+    module docstring and `docs/superpowers/specs/2026-09-02-sibling-title-transfer-design.md`.
 
     `format_titles` (from gather's `_recover_format_titles`) is a filename ->
     title map lifted from a different-format copy of the SAME item; when it is
@@ -280,8 +289,6 @@ def resolve_titles(
             title, source = tag_titles[pos], tag_source
         elif aligned:
             title, source = aligned[pos].title, "setlist"
-        elif sibling_titles and len(sibling_titles) == n:
-            title, source = sibling_titles[pos], "sibling"
         else:
             title, source = f["name"], "unresolved"
         tracks.append(
