@@ -335,11 +335,18 @@ class ProposalRow(BaseModel):
     # for this row's pairing, straight off `siblings.SiblingRow.residual_sec`.
     # None on a row the sibling arm did not produce (every canonical-DP row).
     residual_sec: float | None = None
-    # Task 6: a per-row annotation the sibling arm renders alongside a
-    # decline -- `siblings.SiblingRow.reason` verbatim ("sibling track
-    # untitled", "weak evidence (penalty ...)", a C+-style run reason, or the
-    # head-rows caution the CLI stamps on a no-anchors proposal's early rows).
-    # "" everywhere else, including every canonical-DP row.
+    # Task 6: a per-row annotation the sibling arm attaches to a decline --
+    # `siblings.SiblingRow.reason` verbatim ("sibling track untitled",
+    # "sibling song split across target files", "no sibling track", "weak
+    # evidence (penalty ...)"), or that reason plus a "- DP proposed ..."
+    # suffix (fix round 1, I4) when the row still carried a candidate title
+    # (`SiblingRow.proposed`) the operator should see even though it never
+    # reaches `title` or `overrides.titles`. "" everywhere else, including
+    # every canonical-DP row and every ADOPTED sibling row. Trimmed (fix
+    # round 1, m3): the no-anchors caution and donor coverage figure are
+    # standalone echoed lines, never a row's own note, and the renderer
+    # never calls `cplus_filter` (spec invariant 1), so no row's note is
+    # ever a C+ bracketed range reason either.
     note: str = ""
     # Display column only (never gates automatic adoption). (margin_sec, forced)
     # together carry three states: margin_sec is a number = cost gap to the

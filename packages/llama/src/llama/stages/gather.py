@@ -167,6 +167,43 @@ def load_donor_tapes(ia, candidate: Candidate, identifier: str,
     return donors, notes
 
 
+def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[str],
+               tracks: list, metadata_norms: set[str]):
+    """Load every qualifying donor (`load_donor_tapes`), align each against
+    `tracks`' own durations, rate the pair, and return the single winner --
+    highest anchor agreement, then lowest DP cost, then identifier
+    (`_donor_key`'s tie-break). ONE definition of "who wins", shared by
+    `_sibling_transfer` (gather's automatic pass) and
+    `cli._sibling_proposal` (the operator surface) -- fix round 1 on Task 6:
+    the two used to re-implement this four-step loop (propose_rows -> skip
+    None -> rate_alignment -> `_donor_key` -> sort -> `[0]`) verbatim, and a
+    reviewer mutation (sort the CLI's copy in reverse, i.e. pick the WORST
+    donor) passed the whole suite -- the drift class this task exists to
+    close, one level up. Extracting this also removes the need for `cli.py`
+    to import `_donor_key` across the module boundary at all.
+
+    Returns `(donor, rows, res, notes)`. `notes` is `load_donor_tapes`'s
+    fetch-failure notes, always returned even when no donor qualifies.
+    `(donor, rows, res)` are `(None, [], None)` when no candidate produced
+    usable rows -- callers branch on `donor is None`, not on emptiness of
+    `notes` (a donor can fail to fetch AND another can still qualify)."""
+    target_durs = [t.duration_sec for t in tracks]
+    donors, notes = load_donor_tapes(ia, candidate, identifier, want)
+    candidates = []
+    for donor in donors:
+        rows, diag = propose_rows(target_durs, donor, metadata_norms=metadata_norms)
+        if rows is None:
+            continue
+        res = rate_alignment(rows, tracks)
+        candidates.append((_donor_key(res.agreement, diag["cost"], donor.identifier),
+                           donor, rows, res))
+    if not candidates:
+        return None, [], None, notes
+    candidates.sort(key=lambda c: c[0])
+    _, donor, rows, res = candidates[0]
+    return donor, rows, res, notes
+
+
 def _sibling_transfer(ia, candidate: Candidate, identifier: str,
                       want: str | Sequence[str], tracks: list,
                       metadata_norms: set[str]) -> tuple[list, list[str]]:
@@ -211,21 +248,9 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     `IAClient.metadata` is disk-cached, and `_collect_parses` (above, in
     `build_canonical`) has already fetched every sibling's metadata for this
     same show before this function ever runs."""
-    target_durs = [t.duration_sec for t in tracks]
-    donors, notes = load_donor_tapes(ia, candidate, identifier, want)
-    candidates = []
-    for donor in donors:
-        rows, diag = propose_rows(target_durs, donor, metadata_norms=metadata_norms)
-        if rows is None:
-            continue
-        res = rate_alignment(rows, tracks)
-        candidates.append((_donor_key(res.agreement, diag["cost"], donor.identifier),
-                           donor, rows, res))
-    if not candidates:
+    donor, rows, res, notes = best_donor(ia, candidate, identifier, want, tracks, metadata_norms)
+    if donor is None:
         return list(tracks), notes
-
-    candidates.sort(key=lambda c: c[0])
-    _, donor, rows, res = candidates[0]
     new_tracks = list(tracks)
 
     if res.band != "auto":
@@ -459,10 +484,19 @@ def _date_norms(date: str) -> set[str]:
     return {n for n in (fuzzy_norm_title(r) for r in renderings) if n}
 
 
-def _show_metadata_norms(artist: str, candidate: Candidate, meta: dict,
-                         events: list) -> set[str]:
+def show_metadata_norms(artist: str, candidate: Candidate, meta: dict,
+                        events: list) -> set[str]:
     """The closed vocabulary the head-banner guard matches against: everything
-    this show's own metadata says about who/where/when it is."""
+    this show's own metadata says about who/where/when it is.
+
+    PUBLIC (fix round 1 on Task 6) because the operator surface shares it:
+    `cli._sibling_proposal` needs the identical `metadata_norms` gather uses,
+    so the sibling arm's hygiene check (`siblings.hygienic_title` via
+    `propose_rows`) can never silently diverge from the pipeline's. A leading
+    underscore imported across a module boundary is a false promise that the
+    symbol is free to rename/re-signature -- the same reasoning
+    `structure.hygienic_title`'s own docstring already gives for the
+    identical choice, one task earlier in this feature."""
     norms = _date_norms(candidate.date)
     for value in (artist, candidate.venue, candidate.city,
                   meta.get("venue"), meta.get("coverage")):
@@ -731,7 +765,7 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                                target_count=len(kept))
         canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
 
-    metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
+    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
     canonical = _strip_head_banner(canonical, metadata_norms)
     canonical = _drop_artist_items(canonical, artist)
     canonical = _strip_footnote_markers(canonical)
@@ -810,7 +844,7 @@ def run_gather(
     # Recomputed (not re-fetched) rather than threaded out of build_canonical:
     # it's a pure function of already-in-scope values, and adopt_gap_titles
     # below needs it independently of the canonical-setlist build.
-    metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
+    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
 
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
     # exclude-everything tape would otherwise fetch every sibling recording's

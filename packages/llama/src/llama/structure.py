@@ -206,11 +206,18 @@ def loosely_same_title(a: str, b: str) -> bool:
     fires on orthography ("Mister Charlie" vs "Mr. Charlie") reports bad
     alignments that are merely bad spelling.
 
-    USED BY THE SIBLING GUARD (`siblings.rate_alignment`/`cplus_filter`) AND
-    THE MEASUREMENT SCORERS ONLY. Never by `align()` and never by
-    `normalize_song` -- the fuzzy-matching spec's layering rule stands, and
-    containment here is far too loose for a matching layer ("Dew" is contained
-    in "Morning Dew").
+    USED BY THE SIBLING GUARD (`siblings.rate_alignment`/`cplus_filter`), THE
+    MEASUREMENT SCORERS, and (fix round 1 on Task 6) the operator surface's
+    OWN display corroboration -- `cli._sibling_canonical_text` (the
+    three-way disagreement's "setlist:" column) and
+    `cli._sibling_donor_coverage` (the no-anchors embed-in-canonical figure)
+    both call it to check whether a proposed title shows up in the canonical
+    setlist. Neither of those is a new measurement basis: they render
+    evidence for a human, the same role the guard already has, not a new
+    threshold this docstring's "DO NOT RETUNE" governs. Never by `align()`
+    and never by `normalize_song` -- the fuzzy-matching spec's layering rule
+    stands, and containment here is far too loose for a matching layer
+    ("Dew" is contained in "Morning Dew").
 
     DO NOT RETUNE. This function is part of the measured basis of every
     threshold in `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`:
