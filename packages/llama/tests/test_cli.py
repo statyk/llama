@@ -948,6 +948,54 @@ def test_untagged_fixture_with_tagged_donor_renders_sibling_proposal(tmp_path, m
     assert 15 not in ov.titles   # I2: a declined row never reaches the write
 
 
+def test_suggest_titles_echoes_a_sibling_fetch_failure(tmp_path, monkeypatch):
+    """F2 (final whole-branch review): `_sibling_proposal`'s
+    `for note in notes: typer.echo(f"  {note}")` loop (cli.py, m4) is the
+    ONLY place `fix --suggest-titles` surfaces a sibling recording that
+    existed but failed to fetch. Unlike `run_gather`'s pipeline path,
+    `_propose_titles_for_show` calls `build_canonical(...).setlist` and
+    discards `.notes` entirely (verified: no other read of `.notes` exists
+    on this path), so there is no duplicate here and nothing else prints
+    this text -- confirmed by probe: replacing the echo loop's body with
+    `pass` leaves the rest of the suite green. Pinned directly, the same
+    way `run_gather`'s `test_a_sibling_fetch_failure_is_noted_not_fatal`
+    pins the pipeline side.
+
+    The donor exists during the initial `run_gather` staging (so the show
+    catalogs normally, all titles unresolved -- the untagged ymsb tape has
+    zero anchors regardless of donor content, so `rate_alignment` always
+    routes to "no-anchors" and nothing auto-adopts either way) but the
+    CLI's OWN `IAClient` -- built fresh inside `_setup()`, monkeypatched
+    separately from the one `run_gather` used above, matching
+    `_staged_ymsb_show`'s documented pattern -- fails every fetch for the
+    donor identifier."""
+    from llama.ia_client import IAError
+
+    cfg = _cfg(tmp_path)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    donor_ident, donor_md = _ymsb_sibling_donor(md)
+    cand = _ymsb_candidate()
+    cand.recordings.append(RecordingSummary(identifier=donor_ident))
+    sws = ShowWorkspace(tmp_path / "shows" / "ymsb2005-12-31")
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    ia_map = {"ymsb2005-12-31.flac16.wav": md, donor_ident: donor_md}
+    run_gather(sws, MultiIA(ia_map), FakeProvider(), cand, "ymsb2005-12-31.flac16.wav")
+
+    class FlakyDonorIA(MultiIA):
+        def metadata(self, identifier):
+            if identifier == donor_ident:
+                raise IAError("boom 503")
+            return super().metadata(identifier)
+
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: FlakyDonorIA(ia_map))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert f"could not fetch sibling {donor_ident}: boom 503" in result.output
+
+
 def test_operator_band_sibling_titles_diverge_from_the_canonical_dp(tmp_path, monkeypatch):
     """The named-mutation-B fixture. `_staged_anchored_ymsb_show`'s canonical
     DP is FEASIBLE (its 3 interior gaps are count-forced between real

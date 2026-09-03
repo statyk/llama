@@ -371,7 +371,29 @@ def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
     failure mode) aborted the entire gather stage instead of degrading
     gracefully -- unlike `_collect_parses`, which already catches exactly
     this call on exactly these identifiers and notes-and-continues. The two
-    must not diverge: a flaky sibling must not lose the show."""
+    must not diverge: a flaky sibling must not lose the show.
+
+    DUPLICATE-NOTE GUARD (deferred minor, final whole-branch review): both
+    `_collect_parses` (called first, unconditionally, via `build_canonical`)
+    and `load_donor_tapes` (called only when `_sibling_transfer` fires)
+    independently catch this exact `IAError` on this exact identifier
+    (`IAClient` never caches a failed fetch, so both really do retry) and
+    each append their own byte-identical note -- so this note used to reach
+    `StructureInfo.conflicts` TWICE, and `conflicts` is serialized straight
+    into the briefing LLM prompt via `show.model_dump_json()`
+    (`stages/brief.py:138`), making it duplicated prompt content, not merely
+    a duplicated log line. Fixed at the join, not by suppressing either
+    fetch: `run_gather`'s `_dedupe_ordered(conflicts + notes)` keeps the
+    first occurrence of each distinct string and drops repeats, order
+    preserved (an earlier cut threaded "already failed" state between the
+    two fetchers instead -- reverted: it changed fetch behaviour, turning a
+    transient failure that would have recovered on the second attempt into
+    a permanent one). The assertion below counts occurrences rather than
+    using `any(...)`, which cannot see a duplicate: removing the
+    `_dedupe_ordered` call reproduces the double note (count 2) and reddens
+    this; a dedupe that over-suppresses (drops every occurrence of a
+    repeated item instead of keeping one) reddens it the other way (count
+    0)."""
     from llama.ia_client import IAError
 
     class FlakySiblingIA(MultiIA):
@@ -398,8 +420,8 @@ def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
     assert [t.title for t in show.tracks] == REAL_TITLES
     assert not any(t.title_source == "sibling-align" for t in show.tracks)
     assert show.structure is not None
-    assert any(f"could not fetch sibling {SIB_ID}: boom 503" in n
-              for n in show.structure.conflicts)
+    note = f"could not fetch sibling {SIB_ID}: boom 503"
+    assert sum(1 for n in show.structure.conflicts if note in n) == 1
 
 
 def test_the_higher_agreement_donor_wins_not_the_alphabetically_first_one(tmp_path: Path):

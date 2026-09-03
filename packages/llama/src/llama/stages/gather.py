@@ -107,6 +107,33 @@ def _creator(meta: dict) -> str | None:
     return creator
 
 
+def _dedupe_ordered(items: list[str]) -> list[str]:
+    """Drop repeated entries, keeping the FIRST occurrence's position.
+
+    `StructureInfo.conflicts` is read straight into the briefing LLM prompt
+    (`show.model_dump_json()`, `stages/brief.py:138`) and its sequence
+    carries meaning, so a plain `set()` (or `sorted(set(...))`) is wrong here
+    -- it would scramble the order the rest of `run_gather` builds `flags`/
+    `notes` in. This exists because `_collect_parses` (via `build_canonical`,
+    always run first) and `load_donor_tapes` (via `_sibling_transfer`, run
+    only when the sibling-align gate fires) each independently retry and
+    independently catch/note the exact same `IAError` for the exact same
+    donor identifier -- `IAClient` never caches a failed fetch, so nothing
+    stops either from trying again and noting again. Deduping here, at the
+    join, rather than by threading "already failed" state between the two
+    fetchers, keeps that retry real: a transient failure that recovers on
+    the second attempt still gets its chance (see the two functions' own
+    docstrings for why a permanent failure note should appear only once
+    regardless of which of them happens to emit it first)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
 def _donor_key(agreement: float | None, cost: float, identifier: str) -> tuple:
     """Sort key for picking the winning donor: highest agreement, then lowest
     DP cost, then identifier (spec order). `agreement is None` (no anchors at
@@ -1073,7 +1100,7 @@ def run_gather(
         source = canonical_source if canonical_source is not None else "none"
         structure_info = StructureInfo(source=source, alignment=alignment,
                                        coverage=coverage,
-                                       conflicts=conflicts + notes)
+                                       conflicts=_dedupe_ordered(conflicts + notes))
 
     date, date_source, item_date = candidate.date, "item", None
     if overrides.date is not None:

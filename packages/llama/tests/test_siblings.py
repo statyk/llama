@@ -314,6 +314,57 @@ def test_a_donor_track_titled_with_show_metadata_fails_hygiene():
     assert got[3].proposed == "Charlie"
 
 
+def test_a_donor_track_titled_with_a_trailing_colon_fails_hygiene():
+    """`hygienic_title`'s `not t.endswith(":")` clause, exercised through the
+    sibling path -- deferred at the final whole-branch review as one of "two
+    hygiene clauses [with] no siblings-side discriminating fixture"
+    (structure-side only, via `test_hygiene_rejects_a_junk_item`). "Set
+    List:" clears every OTHER clause: 7 ASCII letters (`is_real_title`), not
+    matched by `is_junk_title` (no duration/disc/total-time shape), well
+    under `MAX_TITLE_LEN`, and not in `metadata_norms` -- so only the
+    trailing-colon clause can be what rejects it."""
+    target = [300.0, 420.0, 510.0]
+    donor = _donor([300.0, 420.0, 510.0],
+                   ["Alpha", "Set List:", "Charlie"])
+    rows, _diag = propose_rows(target, donor, metadata_norms=set())
+    assert rows is not None
+    got = _by_track(rows)
+    assert got[1].proposed == "Alpha"
+    assert got[2].verdict == "decline"
+    assert got[2].reason == "sibling title fails hygiene"
+    assert got[2].proposed is None
+    assert got[3].proposed == "Charlie"
+
+
+def test_a_donor_track_titled_with_a_junk_pattern_fails_hygiene():
+    """`hygienic_title`'s `not is_junk_title(t)` clause, exercised through
+    the sibling path -- the other of the two clauses named at the final
+    whole-branch review as lacking a siblings-side fixture. "Disc Two"
+    clears every OTHER clause (mirrors
+    test_hygiene_rejects_via_is_junk_title_specifically in
+    test_structure.py, which pins the same title structure-side): 7 ASCII
+    letters (`is_real_title`), does not end in ":", well under
+    `MAX_TITLE_LEN`, and is not in `metadata_norms` -- but matches
+    `setlist.is_junk_title`'s disc-number pattern, so only that clause can
+    be what rejects it."""
+    from llama.setlist import MAX_TITLE_LEN, is_junk_title
+    title = "Disc Two"
+    assert is_junk_title(title) is True
+    assert not title.endswith(":")
+    assert len(title) <= MAX_TITLE_LEN
+    target = [300.0, 420.0, 510.0]
+    donor = _donor([300.0, 420.0, 510.0],
+                   ["Alpha", title, "Charlie"])
+    rows, _diag = propose_rows(target, donor, metadata_norms=set())
+    assert rows is not None
+    got = _by_track(rows)
+    assert got[1].proposed == "Alpha"
+    assert got[2].verdict == "decline"
+    assert got[2].reason == "sibling title fails hygiene"
+    assert got[2].proposed is None
+    assert got[3].proposed == "Charlie"
+
+
 # --------------------------------------------------------------------------
 # Whole-tape preconditions
 # --------------------------------------------------------------------------
@@ -344,6 +395,24 @@ def test_a_missing_duration_on_either_side_declines_the_whole_pair():
 
     holey = _donor([300.0, 0.0, 510.0], ["Alpha", "Bravo", "Charlie"])
     rows, diag = propose_rows([300.0, 420.0, 510.0], holey, metadata_norms=set())
+    assert rows is None
+    assert diag["decline"] == "missing per-track durations"
+
+
+def test_a_bool_duration_declines_rather_than_passing_as_a_number():
+    """`bool` is a subclass of `int` in Python, so `isinstance(True, int)` is
+    `True` and `True > 0` is also `True` -- without the explicit exclusion in
+    `_all_present`, a literal `True` sitting where a duration should be would
+    pass the guard as if it meant "1 second" (`bool(True) == 1`), not decline
+    the pair. A `bool` is never a valid duration; this pins the guard against
+    it on both sides, matching the None/0.0 pattern above."""
+    donor = _donor([300.0, 420.0, 510.0], ["Alpha", "Bravo", "Charlie"])
+    rows, diag = propose_rows([300.0, True, 510.0], donor, metadata_norms=set())
+    assert rows is None
+    assert diag["decline"] == "missing per-track durations"
+
+    booled = _donor([300.0, True, 510.0], ["Alpha", "Bravo", "Charlie"])
+    rows, diag = propose_rows([300.0, 420.0, 510.0], booled, metadata_norms=set())
     assert rows is None
     assert diag["decline"] == "missing per-track durations"
 
