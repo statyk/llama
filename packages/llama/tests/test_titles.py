@@ -143,6 +143,18 @@ def test_is_real_title_accepts_a_year_like_numeric_title():
     assert is_real_title("2001") is True
 
 
+def test_is_real_title_rejects_unicode_digits():
+    """Final review, Task 2 Unicode gap: `\\d` matches Unicode digits, not
+    just ASCII, so the bare `\\d{4}` regex this function used to carry
+    treated Arabic-Indic digits as a year-like numeral too --
+    `is_real_title("\\u0661\\u0669\\u0667\\u0667")` ("1977" in Arabic-Indic
+    numerals) was `True`. `_YEAR_LIKE_NUMERIC` now matches `[0-9]{4}`
+    (ASCII only), closing the gap the character class alone can close
+    without widening any other accepted case -- ASCII "1922" still passes
+    (see `test_is_real_title_accepts_a_year_like_numeric_title`)."""
+    assert is_real_title("١٩٧٧") is False
+
+
 @pytest.mark.parametrize("cleaned", ["3", "01", "174", "19770101", "12345"])
 def test_is_real_title_still_rejects_non_year_numeric_residue(cleaned):
     """The widening is narrowly a bare 4-digit numeral. A single digit (3)

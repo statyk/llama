@@ -21,7 +21,7 @@ def clean_tag_title(raw: str | None) -> str:
     return "" if s.lower() == "unknown" else s
 
 
-_YEAR_LIKE_NUMERIC = re.compile(r"\d{4}")
+_YEAR_LIKE_NUMERIC = re.compile(r"[0-9]{4}")
 
 # Widened from letters-only after scripts/numeric_title_census.py
 # (2026-09-02, corrected 2026-09-02 fix round 1): over the 2,095-item
