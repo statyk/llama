@@ -15,7 +15,22 @@ setlistfm=None. That last one is the standing caveat -- shows whose real
 canonical was setlist.fm-won are re-derived here from LMA descriptions alone,
 so this is a bound on the change's blast radius, not a replica of production.
 
-Usage:  python scripts/regather_diff.py [--assert-no-regressions]
+Task 7 (Phase C) generalises it to three ARMS, same harness, same rule --
+turn ONE thing off, re-gather, and enumerate every track that moves:
+
+  --arm gap       `structure.adopt_gap_titles` off  (the original M2 check)
+  --arm sibling   `gather._sibling_transfer` off    (Phase C's new rung)
+  --arm numeric   `titles.is_real_title`'s 4-digit clause off (the widening
+                  that also opened `structure._hygienic`, the pipeline's
+                  only silent adopter -- Task 7 Step 6)
+
+Each arm names the ONE `title_source` transition it considers legal; every
+other change is a regression. The arm is what makes the diff attributable:
+comparing against the stored `show.json` would be dominated by unrelated
+drift from older code versions.
+
+Usage:  python scripts/regather_diff.py [--arm gap|sibling|numeric]
+                                        [--assert-no-regressions] [--selftest]
 """
 import json
 import sys
@@ -24,6 +39,7 @@ from pathlib import Path
 
 from herder import FakeProvider
 
+from llama import titles as titles_mod
 from llama.ia_client import IAError
 from llama.models import Candidate
 from llama.stages import gather as gather_mod
@@ -56,11 +72,41 @@ def _selftest_adopt(tracks, *a, **k):
             for t in tracks]
 
 
+# arm -> (the one legal title_source transition, `from` -> `to`)
+ARMS = {"gap": ("unresolved", "setlist-gap"),
+        "sibling": ("unresolved", "sibling-align"),
+        "numeric": (None, None)}     # numeric: ANY change is enumerated
+
+
+def _arm() -> str:
+    if "--arm" in sys.argv:
+        return sys.argv[sys.argv.index("--arm") + 1]
+    return "gap"
+
+
+def _no_four_digit(cleaned: str) -> bool:
+    """`titles.is_real_title` WITHOUT its pure-4-digit clause -- the
+    predicate as it stood before this phase widened it. Written out rather
+    than monkeypatching the regex, so the comparison is against a stated
+    function instead of a mutated constant whose other users would move
+    too."""
+    return len([c for c in cleaned if c.isascii() and c.isalpha()]) >= 3
+
+
 def _gather(candidate, identifier, wired):
-    real = gather_mod.adopt_gap_titles
+    arm = _arm()
+    saved = (gather_mod.adopt_gap_titles, gather_mod._sibling_transfer,
+             titles_mod.is_real_title)
     if not wired:
-        gather_mod.adopt_gap_titles = lambda tracks, *a, **k: tracks
-    elif "--selftest" in sys.argv:
+        if arm == "gap":
+            gather_mod.adopt_gap_titles = lambda tracks, *a, **k: tracks
+        elif arm == "sibling":
+            gather_mod._sibling_transfer = lambda ia, c, i, w, t, n: (list(t), [])
+        elif arm == "numeric":
+            titles_mod.is_real_title = _no_four_digit
+        else:
+            raise SystemExit(f"unknown --arm {arm!r}")
+    elif "--selftest" in sys.argv and arm == "gap":
         gather_mod.adopt_gap_titles = _selftest_adopt
     try:
         with tempfile.TemporaryDirectory() as td:
@@ -68,7 +114,8 @@ def _gather(candidate, identifier, wired):
                               FakeProvider(), candidate, identifier,
                               setlistfm=None, jerrybase_enabled=True)
     finally:
-        gather_mod.adopt_gap_titles = real
+        (gather_mod.adopt_gap_titles, gather_mod._sibling_transfer,
+         titles_mod.is_real_title) = saved
 
 
 def main() -> int:
@@ -95,14 +142,17 @@ def main() -> int:
         for a, b in zip(off.tracks, on.tracks):
             if a.title == b.title and a.title_source == b.title_source:
                 continue
-            if a.title_source == "unresolved" and b.title_source == "setlist-gap":
-                adopted.append(f"{d.name} t{b.index}: {b.title!r}")
+            legal_from, legal_to = ARMS[_arm()]
+            if legal_from is None or (a.title_source == legal_from
+                                      and b.title_source == legal_to):
+                adopted.append(f"{d.name} t{b.index}: {a.title_source}/"
+                               f"{a.title!r} -> {b.title_source}/{b.title!r}")
             else:
                 regressions.append(
                     f"{d.name} t{a.index}: {a.title_source}/{a.title!r} "
                     f"-> {b.title_source}/{b.title!r}")
 
-    print(f"\ncompared {compared} shows ({skipped} skipped)")
+    print(f"\narm={_arm()}: compared {compared} shows ({skipped} skipped)")
     print(f"{len(regressions)} regressions; {len(adopted)} newly resolved")
     for line in adopted:
         print(f"  ADOPTED  {line}")
