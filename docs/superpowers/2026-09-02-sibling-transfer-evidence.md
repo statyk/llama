@@ -14,6 +14,15 @@ and the three guard constants (`AUTO`, `FLOOR`, `MIN_ANCHORS`) cite this file:
 every number below was taken **at** those values, so changing one invalidates
 all of them, not just its own table.
 
+**Neither population is frozen.** The single-donor section below discloses
+that the cache moved (968 → 981 `md_*.json` items) between this document's
+measurement and a later recount. The same caveat applies to the show
+**library** the full-library re-gather ("89 shows" throughout) was taken
+against: it too has grown since, to 98 shows. Every figure keyed to either
+population is a snapshot, not a fixed constant — re-running against a later
+cache or library is expected to shift raw counts even where, as verified
+for both the cache and the library, the underlying conclusions reproduce.
+
 ---
 
 ## Verdict

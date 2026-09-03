@@ -113,7 +113,17 @@ def _donor_key(agreement: float | None, cost: float, identifier: str) -> tuple:
     all -- `rate_alignment`'s "no-anchors" band) ranks BELOW every real
     agreement value including 0.0: 0.0 is a real, if bad, measurement (the
     tape has anchors and none of them agree), while None means no measurement
-    was possible at all."""
+    was possible at all.
+
+    EMERGENT SAFETY ROLE, NOT A DESIGNED ONE -- worth knowing before this
+    ordering is "simplified": picking the highest-agreement donor is also
+    what keeps 135 of 136 measured slide-shaped donor pairs out of the
+    automatic band, since a displaced pairing scores lower agreement than a
+    clean donor of the same performance and so never wins the tie-break.
+    Two tests pin the ordering (a reversed sort fails in both gather and
+    cli) without naming this; see
+    `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`, Step 9, for
+    the measurement this ordering happens to protect."""
     rank = agreement if agreement is not None else -1.0
     return (-rank, cost, identifier)
 
