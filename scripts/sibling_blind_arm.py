@@ -494,7 +494,27 @@ def _localised_slide(rows, titles, res):
 
 # --- reconciliation: the cached path vs a live best_donor ------------------
 
-def reconcile(ia: CacheIA, path: Path, audio_format: str, n: int) -> int:
+def _plant_rows(entry: dict) -> dict:
+    """`--reconcile --plant`: rotate every cached pair's proposed titles by
+    one row. The live path is untouched, so a working reconciliation MUST
+    now report mismatches.
+
+    Without this, `--reconcile`'s headline is a zero with no demonstration
+    that it can ever be non-zero -- the same defect as `--arm numeric`'s
+    legality rule, one instrument over.
+    """
+    pairs = []
+    for pair in entry["pairs"]:
+        rows = [list(j) for j in pair["rows"]]
+        props = [r[1] for r in rows]
+        for r, prop in zip(rows, props[1:] + props[:1]):
+            r[1] = prop
+        pairs.append({**pair, "rows": rows})
+    return {**entry, "pairs": pairs}
+
+
+def reconcile(ia: CacheIA, path: Path, audio_format: str, n: int,
+              plant: bool = False) -> int:
     """For `n` cached targets, re-run the LIVE shipped path
     (`gather.best_donor` -> `siblings.rate_alignment` -> `cplus_filter`) and
     require identical donor, agreement, band and adopted title strings.
@@ -515,6 +535,8 @@ def reconcile(ia: CacheIA, path: Path, audio_format: str, n: int) -> int:
         cand = by_target.get(entry["target"])
         if cand is None:
             continue
+        if plant:
+            entry = _plant_rows(entry)
         titles = entry["titles"]
         hidden = random_hidden(len(titles), 0.65, seed=7)
         tracks = make_tracks(entry["names"], entry["durations"], titles, hidden)
@@ -549,10 +571,15 @@ def reconcile(ia: CacheIA, path: Path, audio_format: str, n: int) -> int:
                   f"{live_res.band if live_res else None} cached="
                   f"{c_donor}/{c_res.agreement if c_res else None}/"
                   f"{c_res.band if c_res else None}")
-    print(f"\nRECONCILE: {checked} targets, {mismatched} mismatched")
+    print(f"\nRECONCILE{' (PLANTED)' if plant else ''}: {checked} targets, "
+          f"{mismatched} mismatched")
     print(f"  bands: {dict(bands)}")
     print(f"  non-empty adopted-title sets compared: {n_title_sets} "
           f"({n_titles} title strings)")
+    if plant:
+        ok = bool(checked and mismatched)
+        print(f"  PLANT expects mismatches -> {'PASS' if ok else 'FAIL'}")
+        return 0 if ok else 1
     ok = bool(checked and not mismatched and n_titles)
     print(f"  -> {'PASS' if ok else 'FAIL'}"
           f"{'' if n_titles else '  (DEGENERATE: nothing was compared)'}")
@@ -561,20 +588,64 @@ def reconcile(ia: CacheIA, path: Path, audio_format: str, n: int) -> int:
 
 # --- selftest: planted positive controls through the committed scorer ------
 
-def _selftest(path: Path) -> int:
-    """Three plants, run through the code above exactly as committed.
+def _plant_titles(titles: list[str], hidden: set[int]) -> tuple[list[str], list[int]]:
+    """The POISON plant's donor titles: every hidden track gets a title from
+    THIS tape that is verifiably NOT `loosely_same_title` to its own truth.
+
+    A plain rotation is not good enough and the failure is not hypothetical.
+    On `gd1968-10-12.sbd.gans.miller.owen.9385.shnf` a rotation put `Jam \\`
+    on track 15 whose truth is `Jam >` -- the tape has two Jam tracks, the
+    two strings loosely match, and the scorer CORRECTLY scored the adoption
+    right. The plant had failed to corrupt; the scorer had not failed to see.
+    Accepting 246/247 there would have blunted the control permanently, so
+    the plant is made to corrupt instead.
+
+    Returns `(titles, unplantable)`. `unplantable` lists hidden indices for
+    which NO title anywhere on the tape is loosely different from the truth
+    (a tape of nine `Tuning`s); those tracks keep their own title and are
+    excluded from the plant's denominator, and the count is printed rather
+    than absorbed.
+    """
+    out = list(titles)
+    unplantable: list[int] = []
+    order = sorted(hidden)
+    for i in order:
+        truth = titles[i]
+        pick = None
+        # deterministic: the tape's own titles, starting just after `i`,
+        # hidden ones first so the plant stays a permutation where it can.
+        for j in ([k for k in order if k != i] + [k for k in range(len(titles))
+                                                 if k not in hidden]):
+            cand = titles[j]
+            if cand.strip() and not loosely_same_title(truth, cand):
+                pick = cand
+                break
+        if pick is None:
+            unplantable.append(i)
+        else:
+            out[i] = pick
+    return out, unplantable
+
+
+def _selftest(path: Path, limit: int | None) -> int:
+    """Two plants, run through the code above exactly as committed, over the
+    WHOLE cache by default -- the same population every table in the evidence
+    doc is taken over. `--limit` narrows it for a smoke run and the printed
+    line always names how many targets were actually used, because a plant
+    proven on 12 targets says nothing about a measurement made on 716.
 
     1. TRUTH -- the donor IS the target (identical durations and titles).
-       Every adoption must score CORRECT and at least one must occur, which
+       Every adoption must score CORRECT, and at least one must occur, which
        is what a scorer stubbed to `False` cannot produce.
-    2. POISON -- the donor is the target with the titles of the HIDDEN
-       tracks only rotated by one. The visible tracks still agree, so the
-       pair still reaches the automatic band and still adopts; every one of
-       those adoptions must score WRONG. Rotating the WHOLE donor (the
-       obvious plant, and Step 1's rotation control) is useless as a scorer
-       control precisely because the guard then declines the pair and the
-       scorer is never asked a question -- 0 adoptions, 0 errors, which is
-       indistinguishable from a scorer that cannot see failure.
+    2. POISON -- the donor is the target with every HIDDEN track's title
+       replaced by a title from the same tape that is verifiably loosely
+       DIFFERENT from its own truth (`_plant_titles`). The visible tracks
+       still agree, so the pair still reaches the automatic band and still
+       adopts; every one of those adoptions must score WRONG. Rotating the
+       WHOLE donor (the obvious plant, and Step 1's rotation control) is
+       useless as a scorer control precisely because the guard then declines
+       the pair and the scorer is never asked a question -- 0 adoptions, 0
+       errors, indistinguishable from a scorer that cannot see failure.
     3. DEGENERACY -- assert the two plants disagree. A measurement whose
        expected value is 0 cannot distinguish `computed correctly` from
        `never computed`, so the control that matters is the PAIR: one plant
@@ -582,22 +653,20 @@ def _selftest(path: Path) -> int:
        all-wrong, through the same code path.
     """
     entries = list(read_cache(path))
+    if limit:
+        entries = entries[:limit]
     rot_wrong = rot_adopted = true_correct = true_adopted = 0
-    used = 0
+    used = n_unplantable = 0
     for entry in entries:
         n = len(entry["titles"])
         hidden = random_hidden(n, 0.65, seed=11)
-        # plant 2: donor == target
         clone = DonorTape(identifier="SELFTEST-TRUTH", names=entry["names"],
                           durations=list(entry["durations"]),
                           titles=list(entry["titles"]))
-        poisoned = list(entry["titles"])
-        idx = sorted(hidden)
-        for a, b in zip(idx, idx[1:] + idx[:1]):
-            poisoned[a] = entry["titles"][b]
+        poisoned, unplantable = _plant_titles(entry["titles"], hidden)
+        n_unplantable += len(unplantable)
         rot = DonorTape(identifier="SELFTEST-POISON", names=entry["names"],
-                        durations=list(entry["durations"]),
-                        titles=poisoned)
+                        durations=list(entry["durations"]), titles=poisoned)
         norms = set(entry["norms"])
         for donor, bucket in ((clone, "truth"), (rot, "rot")):
             rows, diag = propose_rows(entry["durations"], donor,
@@ -612,18 +681,19 @@ def _selftest(path: Path) -> int:
                 if bucket == "truth":
                     true_adopted += 1
                     true_correct += bool(a["correct"])
-                else:
+                elif a["track"] - 1 not in unplantable:
                     rot_adopted += 1
                     rot_wrong += (not a["correct"])
         used += 1
-        if used >= 40:
-            break
     ok_truth = true_adopted > 0 and true_correct == true_adopted
     ok_rot = rot_adopted > 0 and rot_wrong == rot_adopted
+    print(f"population  : {used} targets from {path.name}")
     print(f"TRUTH plant : {true_correct}/{true_adopted} correct  "
           f"-> {'PASS' if ok_truth else 'FAIL'}")
     print(f"POISON plant: {rot_wrong}/{rot_adopted} wrong      "
-          f"-> {'PASS' if ok_rot else 'FAIL'}")
+          f"-> {'PASS' if ok_rot else 'FAIL'}"
+          f"  ({n_unplantable} track(s) had no loosely-different title on "
+          f"their own tape and are excluded)")
     print(f"DEGENERACY  : the two plants differ -> "
           f"{'PASS' if ok_truth and ok_rot else 'FAIL'}")
     return 0 if (ok_truth and ok_rot) else 1
@@ -801,36 +871,96 @@ def check_schema(cache_path: Path, dump: Path | None) -> int:
 
 
 def population_oracle(ia: CacheIA, cache_path: Path, audio_format: str) -> int:
-    """Proof 3 of 3: an INDEPENDENT recount of the measured population that
-    shares no code with `build_cache`.
+    """Proof 3 of 3: an INDEPENDENT recount of the measured population.
 
-    It re-derives the target set straight from the cached metadata -- its own
-    grouping call, its own tag-fraction test, its own duration test -- and
-    then explains the difference against the cache the sweep actually used.
-    The whole difference must be targets under `MIN_TRACKS`, which is the one
-    filter the oracle deliberately does not apply."""
+    INDEPENDENT MEANS: it calls **no function defined in this file**. Not
+    `build_candidates`, not `_collection_of`, not `_doc_of`, not
+    `load_target`, not `gather.load_donor_tapes` -- all of which
+    `build_cache` uses, and any one of which could carry a bug that moves
+    both sides of a check that shared it. (That is exactly the failure the
+    three-instrument bar was written to prevent: Task 2's census oracle
+    caught a first-non-empty-format bug BECAUSE it shared no assumptions.)
+    Its collection key, its search-document shape, its target test and its
+    donor test are all written out below.
+
+    What it does share, unavoidably and by design, is the SHIPPED llama
+    functions the population is defined in terms of -- `group_candidates`,
+    `filter_files`, `clean_tag_titles`, `title_fraction`, `length_seconds`.
+    Those are the system under measurement, not the instrument; an oracle
+    that re-implemented `filter_files` would be measuring a different
+    population and its agreement would mean nothing.
+
+    The whole difference against the sweep's cache must be targets under
+    `MIN_TRACKS`, which is the one filter the oracle deliberately omits.
+    """
     want = FORMAT_BY_AUDIO[audio_format]
-    oracle, short = set(), set()
-    for cand in build_candidates(ia):
-        if len(cand.recordings) < 2:
+
+    # -- the oracle's OWN search documents, grouped its OWN way -------------
+    docs_by_key: dict[str, list[dict]] = {}
+    metas: dict[str, dict] = {}
+    for identifier in ia.identifiers():
+        try:
+            md = ia.metadata(identifier)
+        except IAError:
             continue
-        for rec in cand.recordings:
-            try:
-                md = ia.metadata(rec.identifier)
-            except IAError:
+        meta = md.get("metadata", {})
+        ident = meta.get("identifier")
+        raw_date = meta.get("date")
+        raw_date = raw_date[0] if isinstance(raw_date, list) and raw_date else raw_date
+        if not ident or not raw_date:
+            continue
+        metas[identifier] = meta
+        colls = meta.get("collection")
+        colls = colls if isinstance(colls, list) else [colls] if colls else []
+        key = ""
+        for c in colls:
+            if isinstance(c, str) and c.lower() not in _GENERIC_COLLECTIONS:
+                key = c
+                break
+        if not key:
+            creator = meta.get("creator")
+            creator = (creator[0] if isinstance(creator, list) and creator
+                       else creator)
+            key = str(creator or (colls[0] if colls else "") or "unknown")
+        desc = meta.get("description", "")
+        desc = " ".join(desc) if isinstance(desc, list) else str(desc or "")
+        docs_by_key.setdefault(key, []).append({
+            "identifier": ident, "title": meta.get("title", ""),
+            "date": str(raw_date)[:10], "venue": meta.get("venue"),
+            "coverage": meta.get("coverage"), "description": desc})
+
+    # -- the oracle's OWN target and donor tests ---------------------------
+    def usable(identifier: str):
+        """(kept_count, all_durations_present, tag_fraction) or None."""
+        try:
+            files = ia.metadata(identifier).get("files", [])
+        except IAError:
+            return None
+        kept, _e, _o = filter_files(files, want_format=want)
+        if not kept:
+            return None
+        durs = [length_seconds(f.get("length")) for f in kept]
+        ok = all(isinstance(d, (int, float)) and d > 0 for d in durs)
+        return len(kept), ok, title_fraction(clean_tag_titles(kept))
+
+    oracle, short = set(), set()
+    for key in sorted(docs_by_key):
+        for cand in group_candidates(key, docs_by_key[key],
+                                     jerrybase_enabled=True):
+            idents = [r.identifier for r in cand.recordings]
+            if len(idents) < 2:
                 continue
-            kept, _e, _o = filter_files(md.get("files", []), want_format=want)
-            if not kept:
-                continue
-            durs = [length_seconds(f.get("length")) for f in kept]
-            if any(d is None or d <= 0 for d in durs):
-                continue
-            if title_fraction(clean_tag_titles(kept)) < WELL_TAGGED:
-                continue
-            donors, _n = load_donor_tapes(ia, cand, rec.identifier, want)
-            if not donors:
-                continue
-            (short if len(kept) < MIN_TRACKS else oracle).add(rec.identifier)
+            info = {i: usable(i) for i in idents}
+            for me in idents:
+                mine = info[me]
+                if mine is None or not mine[1] or mine[2] < WELL_TAGGED:
+                    continue
+                donors = [o for o in idents if o != me
+                          and info[o] is not None and info[o][1]]
+                if not donors:
+                    continue
+                (short if mine[0] < MIN_TRACKS else oracle).add(me)
+
     measured = {e["target"] for e in read_cache(cache_path)}
     missing = oracle - measured
     extra = measured - oracle
@@ -844,6 +974,90 @@ def population_oracle(ia: CacheIA, cache_path: Path, audio_format: str) -> int:
     return 0 if ok else 1
 
 
+def slide_rank(cache_path: Path) -> int:
+    """Step 9's 135-outranked / 1-survivor split, computed by the COMMITTED
+    script instead of an ad-hoc one, from the alignment cache.
+
+    For every localised-slide pair (`_localised_slide` over the fully-tagged
+    tracks -- no mask), ask whether that donor is the one `gather.best_donor`
+    would pick for its target: rate every donor of that target with the
+    shipped `rate_alignment` and rank with the shipped `_donor_key`.
+
+    THE FRAMING, corrected after review: "the tie-break eliminated 135" and
+    "135 of the slide pairs are multi-donor" are THE SAME OBSERVATION. The
+    tie-break does not filter a failure class; it selects among donors, and
+    where a better donor exists the slide pair simply is not the one used.
+    A single-donor target has no tie-break at all.
+    """
+    slides, wins, loses = [], [], []
+    per_show: Counter = Counter()
+    n_pairs = n_auto = 0
+    for e in read_cache(cache_path):
+        tracks = make_tracks(e["names"], e["durations"], e["titles"], hidden=set())
+        rated = []
+        for pair in e["pairs"]:
+            rows = [_row_of(j) for j in pair["rows"]]
+            res = rate_alignment(rows, tracks)
+            rated.append((pair, rows, res))
+            n_pairs += 1
+            if res.agreement is not None and res.agreement >= AUTO:
+                n_auto += 1
+        if not rated:
+            continue
+        best = min(rated, key=lambda c: _donor_key(
+            c[2].agreement, c[0]["cost"], c[0]["donor"]))[0]["donor"]
+        n_donors = len(rated)
+        for pair, rows, res in rated:
+            if res.agreement is None or res.agreement < AUTO:
+                continue
+            runs = _localised_slide(rows, e["titles"], res)
+            if not runs:
+                continue
+            rec = {"target": e["target"], "donor": pair["donor"],
+                   "agreement": res.agreement, "runs": runs,
+                   "donors_for_target": n_donors,
+                   "is_winner": pair["donor"] == best}
+            slides.append(rec)
+            per_show[_show_key(e["target"])] += 1
+            (wins if rec["is_winner"] else loses).append(rec)
+    print(json.dumps({
+        "pairs": n_pairs, "auto_band_pairs": n_auto,
+        "localised_slides": len(slides),
+        "distinct_targets": len({s["target"] for s in slides}),
+        "slide_donor_is_the_agreement_winner": len(wins),
+        "outranked_by_a_cleaner_donor": len(loses),
+        "winners_with_exactly_one_donor": sum(
+            1 for s in wins if s["donors_for_target"] == 1),
+        "slide_pairs_by_performance(date key)": dict(per_show.most_common()),
+        "winners": wins,
+    }, indent=2))
+    return 0
+
+
+_DATE4 = __import__("re").compile(r"((?:19|20)\d{2})-?(\d{2})-?(\d{2})")
+_DATE2 = __import__("re").compile(r"(?<![0-9])(\d{2})-(\d{2})-(\d{2})(?![0-9])")
+
+
+def _show_key(identifier: str) -> str:
+    """A performance key for grouping the slide census.
+
+    Presentational only -- it groups a table and never enters a rate. It has
+    to cope with BOTH archive.org date conventions on one corpus
+    (`gd1973-02-15...` and `gd73-02-15...` are the same night), because
+    keying them apart is what made an earlier draft's per-show counts
+    reconcile under no grouping at all.
+    """
+    mo = _DATE4.search(identifier)
+    if mo:
+        y, m, d = mo.group(1), mo.group(2), mo.group(3)
+    else:
+        mo = _DATE2.search(identifier)
+        if not mo:
+            return identifier
+        y, m, d = "19" + mo.group(1), mo.group(2), mo.group(3)
+    return f"{identifier[:mo.start()].lower().rstrip('.-')}{y}-{m}-{d}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
@@ -854,6 +1068,9 @@ def main() -> int:
     ap.add_argument("--slide-scan", action="store_true")
     ap.add_argument("--reconcile", type=Path)
     ap.add_argument("--reconcile-n", type=int, default=25)
+    ap.add_argument("--plant", action="store_true",
+                    help="--reconcile only: corrupt the cached rows, "
+                         "so a working check MUST report mismatches")
     ap.add_argument("--selftest", type=Path)
     ap.add_argument("--triage", type=Path)
     ap.add_argument("--triage-sample", type=int, default=8)
@@ -862,6 +1079,7 @@ def main() -> int:
     ap.add_argument("--row-census", type=Path)
     ap.add_argument("--schema", type=Path)
     ap.add_argument("--oracle", type=Path)
+    ap.add_argument("--slide-rank", type=Path)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--progress", type=int, default=25)
     args = ap.parse_args()
@@ -874,9 +1092,10 @@ def main() -> int:
     if args.slide_scan:
         return slide_scan(ia, args.format, args.progress)
     if args.reconcile:
-        return reconcile(ia, args.reconcile, args.format, args.reconcile_n)
+        return reconcile(ia, args.reconcile, args.format,
+                         args.reconcile_n, plant=args.plant)
     if args.selftest:
-        return _selftest(args.selftest)
+        return _selftest(args.selftest, args.limit)
     if args.triage:
         if not args.truths:
             ap.error("--triage needs --truths <alignment cache>")
@@ -887,6 +1106,8 @@ def main() -> int:
         return check_schema(args.schema, args.dump)
     if args.oracle:
         return population_oracle(ia, args.oracle, args.format)
+    if args.slide_rank:
+        return slide_rank(args.slide_rank)
     ap.error("pick a mode")
     return 2
 

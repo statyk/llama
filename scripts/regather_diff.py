@@ -29,8 +29,17 @@ other change is a regression. The arm is what makes the diff attributable:
 comparing against the stored `show.json` would be dominated by unrelated
 drift from older code versions.
 
+Two plants, because an arm has two zeros to keep honest:
+  --selftest          a deliberately wrong ADOPTER (gap arm) -- proves the
+                      harness sees a legal change at all
+  --selftest-regress  retitles an ALREADY-RESOLVED track -- proves the arm
+                      can report a REGRESSION. Run it on every arm; without
+                      it, "0 regressions" may be unfalsifiable rather than
+                      true, which is exactly what `--arm numeric` was.
+
 Usage:  python scripts/regather_diff.py [--arm gap|sibling|numeric]
-                                        [--assert-no-regressions] [--selftest]
+                                        [--assert-no-regressions]
+                                        [--selftest] [--selftest-regress]
 """
 import json
 import sys
@@ -72,10 +81,38 @@ def _selftest_adopt(tracks, *a, **k):
             for t in tracks]
 
 
-# arm -> (the one legal title_source transition, `from` -> `to`)
+# arm -> the one legal title_source transition, `from` -> `to`.
+#
+# `from` is NEVER None: a change to a track that was ALREADY resolved is a
+# regression in every arm, which is the whole point of the comparison. Only
+# `to` may be None, meaning "any source", and only where the arm genuinely
+# has more than one legal destination.
+#
+# `numeric` was ("numeric": (None, None)) in the first cut -- "any change is
+# legal" -- which made its "0 regressions" UNFALSIFIABLE BY CONSTRUCTION: no
+# code change of any kind could have produced a non-zero. That is not a
+# measurement. Widening `is_real_title` can legitimately resolve a track
+# that was `unresolved`, by any rung that consults the predicate (the tag
+# rung, the sibling arm's hygiene check, `_hygienic`), so `from` is
+# `unresolved` and `to` is open.
 ARMS = {"gap": ("unresolved", "setlist-gap"),
         "sibling": ("unresolved", "sibling-align"),
-        "numeric": (None, None)}     # numeric: ANY change is enumerated
+        "numeric": ("unresolved", None)}
+
+
+def _selftest_regress(tracks):
+    """The ILLEGAL-transition plant: retitle a track that is ALREADY
+    resolved. Every arm must report this as a REGRESSION, which is what
+    makes each arm's "0 regressions" falsifiable. `--arm numeric`'s zero was
+    not, until this ran."""
+    out, done = [], False
+    for t in tracks:
+        if not done and t.title_source != "unresolved":
+            out.append(t.model_copy(update={"title": "SELFTEST-REGRESSION"}))
+            done = True
+        else:
+            out.append(t)
+    return out
 
 
 def _arm() -> str:
@@ -131,6 +168,9 @@ def main() -> int:
         try:
             off = _gather(cand, ident, wired=False)
             on = _gather(cand, ident, wired=True)
+            if "--selftest-regress" in sys.argv:
+                on = on.model_copy(update={
+                    "tracks": _selftest_regress(on.tracks)})
         except Exception as exc:
             skipped += 1
             print(f"  SKIP {d.name}: {type(exc).__name__}: {exc}")
@@ -143,8 +183,8 @@ def main() -> int:
             if a.title == b.title and a.title_source == b.title_source:
                 continue
             legal_from, legal_to = ARMS[_arm()]
-            if legal_from is None or (a.title_source == legal_from
-                                      and b.title_source == legal_to):
+            if (a.title_source == legal_from
+                    and (legal_to is None or b.title_source == legal_to)):
                 adopted.append(f"{d.name} t{b.index}: {a.title_source}/"
                                f"{a.title!r} -> {b.title_source}/{b.title!r}")
             else:
@@ -162,6 +202,12 @@ def main() -> int:
         ok = bool(adopted or regressions)
         print(f"\nSELFTEST: harness {'CAN' if ok else 'CANNOT'} detect a "
               f"difference -> {'PASS' if ok else 'FAIL'}")
+        return 0 if ok else 1
+    if "--selftest-regress" in sys.argv:
+        ok = bool(regressions)
+        print(f"\nSELFTEST-REGRESS (arm={_arm()}): harness "
+              f"{'CAN' if ok else 'CANNOT'} report a regression -> "
+              f"{'PASS' if ok else 'FAIL'}")
         return 0 if ok else 1
     if "--assert-no-regressions" in sys.argv and regressions:
         return 1
