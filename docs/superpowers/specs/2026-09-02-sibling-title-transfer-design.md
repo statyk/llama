@@ -192,6 +192,14 @@ the 1, there is no tie-break at all: the single-donor slice is **9 of 716
 target recordings (1.26%)**, or **14 of 790 (1.77%)** without the tagging
 gate — the unit is the target recording, since the tie-break is evaluated
 per target — and it contains **exactly one** slide case, the same tape.
+**The 790 denominator is disputed, per the evidence doc:** the run that
+produced it is not retained and cannot be re-derived against its own
+population; two independent reconstructions and a third recount all got
+**782**, but that third recount ran against a cache that has since grown
+from 968 to 981 items, so no recount can confirm what 790 should have been
+against its own population. The numerator (14) is stable across all three
+recounts and the conclusion below does not depend on which denominator is
+correct.
 Its displaced rows carry exclusion penalties of 28 s and 0 s against
 `MIN_EXCLUSION_PENALTY = 60`, so **layer 3** declines them, and a
 counterfactual mask shows **C+ would decline them too** ("tracks 1-2: not
@@ -388,9 +396,14 @@ entries). That is **28.7 correct titles blocked per error prevented** under
 the random mask, 54:1 under the prefix mask. Two readings keep it from being
 pure cost: the blocked population's error rate (3.37%) is **4×** the
 admitted population's (0.83%), and on C+'s own primary class the enrichment
-is **6.7×** — 20 distinct shift-shaped errors blocked against 3 admitted,
-of which one is tape-wrong and two are a `Tuning` label coinciding with a
-neighbour. On the named localised-shift pair with its donor forced, C+ is
+depends on which quantity you name — so all three are given, per the
+evidence doc's own correction: **20 distinct shift-shaped errors blocked
+against 3 admitted is a 6.7:1 raw count, not a rate** (the two populations
+are different sizes); as a share of each population's wrong rows it is
+**6.5×** (13.1% vs 2.0%); as a rate over each population's rows it is
+**19.1×** (0.431% vs 0.023%). Of the 3 admitted shifts, one is tape-wrong
+and two are a `Tuning` label coinciding with a neighbour. On the named
+localised-shift pair with its donor forced, C+ is
 decisive: bare ratio 11 adopted / 8 wrong, C+ 2 adopted / 0 wrong. **C+
 stays regardless** — a silent adopter is the one surface where being wrong
 is unrecoverable, and the corpus is 89 shows — but it must be defended as
