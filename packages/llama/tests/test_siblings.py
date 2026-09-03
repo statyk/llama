@@ -477,6 +477,26 @@ def test_agreement_below_floor_is_declined_outright():
     assert res.agreement < FLOOR
 
 
+def test_agreement_inside_the_030_to_050_band_still_declines():
+    """MAJ-1 (final review): both existing below-FLOOR fixtures sit at 0.15
+    and 0.20 agreement, so nothing exercised the [0.30, 0.50) band FLOOR's
+    own justification is written about ("marginal error ... ~40% from 0.30
+    to 0.50", siblings.py comment above FLOOR). 2 of 5 anchors agree -> 0.40,
+    strictly inside that band: `declined` at the shipped FLOOR=0.50, but
+    `operator` if FLOOR were loosened to 0.30 -- this is the fixture that
+    makes that mutation fail."""
+    titles = list(NATO[:5])
+    sources = [(t, "tags") for t in titles]
+    rows, tracks = _one_to_one(titles, sources)
+    for pos, tag in enumerate(["Dire Wolf", "Casey Jones", "Ripple"]):
+        tracks[pos] = tracks[pos].model_copy(update={"title": tag})
+    res = rate_alignment(rows, tracks)
+    assert res.n_anchors == 5
+    assert res.agreement == 0.4
+    assert 0.30 <= res.agreement < 0.50
+    assert res.band == "declined"
+
+
 def test_two_agreeing_anchors_are_enough_for_the_automatic_band():
     """MIN_ANCHORS from above: at 3 this pair would route to the operator."""
     rows, tracks = _one_to_one(
