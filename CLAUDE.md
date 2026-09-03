@@ -370,9 +370,10 @@ tier (pins never escalate).
   are the same do-not-retune class as the tail-guard constants.
 - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track
   numbering doesn't map to sets. Titles resolve via cascade: recovered-format
-  tags → own tags → setlist parsed from the item description → sibling
-  recordings of the same performance → **setlist-gap** → unresolved, with
-  `title_source` recording which fired. Never guess — flag unresolved.
+  tags → own tags → setlist parsed from the item description → **sibling
+  recordings of the same performance (`sibling-align`)** → **setlist-gap** →
+  unresolved, with `title_source` recording which fired. Never guess — flag
+  unresolved.
   **`setlist-gap`** fills a run of unresolved tracks ONLY when it is
   count-forced (the gap's canonical-item count exactly equals its file count,
   so no shift can hide in it) and anchored by tracks that independently
@@ -387,6 +388,41 @@ tier (pins never escalate).
   tracks carry `matched=None`, not `True`. Without this a mis-adoption raises
   coverage and suppresses the very `low-confidence structure alignment` flag
   that would have caught it.
+  **`sibling-align` (v2.4.0) replaced a positional rung, and the old one was
+  dangerous.** It aligns the target's tracks against a **tagged sibling
+  recording of the same performance** on the *duration sequence*
+  (`packages/llama/src/llama/siblings.py`, pure; IO stays in `gather`),
+  tolerating merges, splits and filler. The rung it replaced required the
+  sibling's track count to equal the target's **exactly** and then transferred
+  **by position** — so it declined usable donors, and when it did fire on a
+  shifted sibling it shipped the whole tape rotated one song over (pinned by a
+  backward mutation in `test_siblings.py`). Adoption is intersected with the
+  **unresolved set at application time**, so a real tape tag is never
+  overwritten.
+  **Three-band anchor-reproduction guard**, of the target's own surviving tags
+  ("anchors") that the alignment reproduces: **>= AUTO (0.80)** adopts
+  automatically; **FLOOR (0.50) .. AUTO**, or fewer than **MIN_ANCHORS (2)**,
+  routes to an operator proposal; **< FLOOR** declines with a show-note. The
+  anchor-count clause is evaluated **first** — below `MIN_ANCHORS` the ratio is
+  not a measurement, and `declined`'s error basis was never measured there.
+  On top of the ratio sits **shape C+**: a run of fills is adopted only when
+  agreeing anchors **bracket it on both sides** (`structure.gap_span`'s rule
+  reused verbatim, not reimplemented) **and** the span is count-forced; an
+  unbracketed run declines **alone** rather than sinking the pair.
+  **C+ gates the automatic band and NEVER the proposal display** — applied to
+  the renderer it shows a wholly untagged tape nothing, destroying the case the
+  work exists for. Do not unify those paths.
+  `sibling-align` is deliberately **NOT** in `TAUTOLOGICAL_TITLE_SOURCES`:
+  another taper's text assigned by durations is cross-source evidence, not the
+  item's own text. Operator-path adoptions land as `override`.
+  **The four constants are do-not-retune** and cite
+  `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`, which also records
+  the honest limits: C+ is **quantified-cost insurance, not measured
+  necessity** (it blocks ~28.7 correct titles per error prevented, over a
+  population 4x more error-prone), the automatic library yield is **1 track**,
+  and the localised-slide class is **real at 136 pairs** but is selected away by
+  donor ordering rather than caught by C+. Reviewer verdicts:
+  `docs/superpowers/2026-09-02-phase-c-verdicts/`.
   **"Recovered-format tags" is `title_source="sibling-format"`** (the literal
   string a manifest carries), produced by `gather._recover_format_titles` via
   `titles.sibling_format_titles`. Its defining property, and the thing that
