@@ -81,6 +81,17 @@ YMSB_TRUTH = [
 ]
 
 
+def _check_shapes() -> None:
+    """Proof 1 of 3 for this instrument: the hand-transcribed ground truth
+    has exactly one entry per target track, and every entry is non-empty. A
+    transcription that silently lost or gained a line would shift every
+    comparison below by one -- the exact failure this whole phase is about."""
+    _n, durs, _t = load(YMSB_TARGET)
+    assert len(YMSB_TRUTH) == len(durs), (
+        f"YMSB_TRUTH has {len(YMSB_TRUTH)} entries for a {len(durs)}-track tape")
+    assert all(t.strip() for t in YMSB_TRUTH), "YMSB_TRUTH has an empty entry"
+
+
 def load(identifier: str):
     md = json.loads((CACHE / f"md_{identifier}.json").read_text())
     kept, _exc, _ord = filter_files(md.get("files", []), want_format=WANT)
@@ -413,6 +424,9 @@ def main() -> int:
     ap.add_argument("--wrong-performance", action="store_true")
     ap.add_argument("--six-shows", action="store_true")
     a = ap.parse_args()
+    _check_shapes()
+    print(f"SHAPE CHECK: YMSB_TRUTH is {len(YMSB_TRUTH)} entries for a "
+          f"{len(YMSB_TRUTH)}-track tape -> PASS")
     if a.baseline:
         return baseline()
     if a.deletions:
