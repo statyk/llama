@@ -748,6 +748,102 @@ def row_census(path: Path) -> int:
     return 0
 
 
+# --- instrument proofs: schema, and an independent population oracle ------
+
+def check_schema(cache_path: Path, dump: Path | None) -> int:
+    """Proof 1 of 3 for this instrument: the artefacts have the shape the
+    scorer assumes. Types, parallel-length invariants, 1-based track numbers
+    covering every target track exactly once, half-open donor spans inside
+    the donor, and (for the detail dump) that `adopted` and `cplus_blocked`
+    are disjoint and both subsets of `bare_adopted`."""
+    bad: list[str] = []
+    n_entries = n_pairs = n_rows = 0
+    for e in read_cache(cache_path):
+        n_entries += 1
+        n = len(e["names"])
+        if not (len(e["durations"]) == len(e["titles"]) == n):
+            bad.append(f"{e['target']}: names/durations/titles disagree")
+        if any(not isinstance(d, (int, float)) or d <= 0 for d in e["durations"]):
+            bad.append(f"{e['target']}: a non-positive duration")
+        for pair in e["pairs"]:
+            n_pairs += 1
+            rows = [_row_of(j) for j in pair["rows"]]
+            n_rows += len(rows)
+            if sorted(r.track for r in rows) != list(range(1, n + 1)):
+                bad.append(f"{e['target']}/{pair['donor']}: rows do not cover "
+                           f"1..{n} exactly once")
+            for r in rows:
+                if r.donor_span and not (0 <= r.donor_span[0] < r.donor_span[1]):
+                    bad.append(f"{e['target']}/{pair['donor']} t{r.track}: "
+                               f"bad span {r.donor_span}")
+                if r.verdict == "adopt" and not r.proposed:
+                    bad.append(f"{e['target']}/{pair['donor']} t{r.track}: "
+                               "adopt with no title")
+    print(f"cache: {n_entries} targets, {n_pairs} pairs, {n_rows} rows")
+    if dump is not None:
+        detail = json.loads(dump.read_text())
+        for t in detail:
+            ad = {a["track"] for a in t["adopted"]}
+            bl = {a["track"] for a in t["cplus_blocked"]}
+            ba = {a["track"] for a in t["bare_adopted"]}
+            if ad & bl:
+                bad.append(f"{t['target']}: adopted and blocked overlap")
+            if not (ad | bl) <= ba:
+                bad.append(f"{t['target']}: adopted|blocked not within bare")
+            if t["band"] != AUTO_BAND and (ad or bl):
+                bad.append(f"{t['target']}: rows outside the automatic band")
+        print(f"detail: {len(detail)} trials")
+    for line in bad[:20]:
+        print(f"  BAD {line}")
+    print(f"SCHEMA: {len(bad)} violations -> "
+          f"{'PASS' if not bad else 'FAIL'}")
+    return 0 if not bad else 1
+
+
+def population_oracle(ia: CacheIA, cache_path: Path, audio_format: str) -> int:
+    """Proof 3 of 3: an INDEPENDENT recount of the measured population that
+    shares no code with `build_cache`.
+
+    It re-derives the target set straight from the cached metadata -- its own
+    grouping call, its own tag-fraction test, its own duration test -- and
+    then explains the difference against the cache the sweep actually used.
+    The whole difference must be targets under `MIN_TRACKS`, which is the one
+    filter the oracle deliberately does not apply."""
+    want = FORMAT_BY_AUDIO[audio_format]
+    oracle, short = set(), set()
+    for cand in build_candidates(ia):
+        if len(cand.recordings) < 2:
+            continue
+        for rec in cand.recordings:
+            try:
+                md = ia.metadata(rec.identifier)
+            except IAError:
+                continue
+            kept, _e, _o = filter_files(md.get("files", []), want_format=want)
+            if not kept:
+                continue
+            durs = [length_seconds(f.get("length")) for f in kept]
+            if any(d is None or d <= 0 for d in durs):
+                continue
+            if title_fraction(clean_tag_titles(kept)) < WELL_TAGGED:
+                continue
+            donors, _n = load_donor_tapes(ia, cand, rec.identifier, want)
+            if not donors:
+                continue
+            (short if len(kept) < MIN_TRACKS else oracle).add(rec.identifier)
+    measured = {e["target"] for e in read_cache(cache_path)}
+    missing = oracle - measured
+    extra = measured - oracle
+    print(f"oracle targets (>= {MIN_TRACKS} tracks): {len(oracle)}; "
+          f"oracle targets under {MIN_TRACKS} tracks: {len(short)}; "
+          f"measured: {len(measured)}")
+    print(f"  in oracle, not measured: {len(missing)} {sorted(missing)[:5]}")
+    print(f"  measured, not in oracle: {len(extra)} {sorted(extra)[:5]}")
+    ok = not missing and not extra
+    print(f"ORACLE: -> {'PASS' if ok else 'FAIL'}")
+    return 0 if ok else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
@@ -764,6 +860,8 @@ def main() -> int:
     ap.add_argument("--truths", type=Path,
                     help="alignment cache, for --triage's full truth vectors")
     ap.add_argument("--row-census", type=Path)
+    ap.add_argument("--schema", type=Path)
+    ap.add_argument("--oracle", type=Path)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--progress", type=int, default=25)
     args = ap.parse_args()
@@ -785,6 +883,10 @@ def main() -> int:
         return run_triage(args.triage, args.truths, args.triage_sample)
     if args.row_census:
         return row_census(args.row_census)
+    if args.schema:
+        return check_schema(args.schema, args.dump)
+    if args.oracle:
+        return population_oracle(ia, args.oracle, args.format)
     ap.error("pick a mode")
     return 2
 
