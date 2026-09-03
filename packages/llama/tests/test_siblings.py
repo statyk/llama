@@ -348,6 +348,24 @@ def test_a_missing_duration_on_either_side_declines_the_whole_pair():
     assert diag["decline"] == "missing per-track durations"
 
 
+def test_a_bool_duration_declines_rather_than_passing_as_a_number():
+    """`bool` is a subclass of `int` in Python, so `isinstance(True, int)` is
+    `True` and `True > 0` is also `True` -- without the explicit exclusion in
+    `_all_present`, a literal `True` sitting where a duration should be would
+    pass the guard as if it meant "1 second" (`bool(True) == 1`), not decline
+    the pair. A `bool` is never a valid duration; this pins the guard against
+    it on both sides, matching the None/0.0 pattern above."""
+    donor = _donor([300.0, 420.0, 510.0], ["Alpha", "Bravo", "Charlie"])
+    rows, diag = propose_rows([300.0, True, 510.0], donor, metadata_norms=set())
+    assert rows is None
+    assert diag["decline"] == "missing per-track durations"
+
+    booled = _donor([300.0, True, 510.0], ["Alpha", "Bravo", "Charlie"])
+    rows, diag = propose_rows([300.0, 420.0, 510.0], booled, metadata_norms=set())
+    assert rows is None
+    assert diag["decline"] == "missing per-track durations"
+
+
 def test_too_few_matched_tracks_declines_the_whole_pair():
     donor = _donor([300.0], ["Alpha"])
     rows, diag = propose_rows([300.0, 420.0, 510.0, 360.0, 480.0], donor,

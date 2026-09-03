@@ -146,8 +146,19 @@ def _all_present(durations) -> bool:
     `d > 0` raises `TypeError` on `None` instead of declining, i.e. one
     untimed file would crash the stage rather than skip the donor.
     `float("nan")` also fails this, via `> 0`.
+
+    `bool` is EXCLUDED from the `isinstance` arm, deliberately, not merely
+    belt-and-braces itself: `bool` is a subclass of `int` in Python, so
+    `isinstance(True, int)` is `True` and `True > 0` is also `True` --
+    without this exclusion a literal `True` sitting where a duration should
+    be would pass as "300 seconds" rather than decline. Nothing upstream is
+    known to produce a bool duration today, but the guard exists precisely
+    to make that a declined precondition instead of a silently-accepted one
+    (the same posture as the `None`/`nan` arms above), and a `bool` is never
+    a valid duration on its own terms regardless of what currently feeds it.
     """
-    return all(isinstance(d, (int, float)) and d > 0 for d in durations)
+    return all(isinstance(d, (int, float)) and not isinstance(d, bool) and d > 0
+              for d in durations)
 
 
 def _prefix(xs: list[float]) -> list[float]:
