@@ -877,17 +877,26 @@ def check_schema(cache_path: Path, dump: Path | None) -> int:
 def population_oracle(ia: CacheIA, cache_path: Path, audio_format: str) -> int:
     """Proof 3 of 3: an INDEPENDENT recount of the measured population.
 
-    INDEPENDENT MEANS: it calls **no function defined in this file**. Not
-    `build_candidates`, not `_collection_of`, not `_doc_of`, not
-    `load_target`, not `gather.load_donor_tapes` -- all of which
-    `build_cache` uses, and any one of which could carry a bug that moves
-    both sides of a check that shared it. (That is exactly the failure the
-    three-instrument bar was written to prevent: Task 2's census oracle
-    caught a first-non-empty-format bug BECAUSE it shared no assumptions.)
-    Its collection key, its search-document shape, its target test and its
-    donor test are all written out below.
+    INDEPENDENT MEANS: it shares no *domain judgment* with the instrument.
+    It calls neither `build_candidates` nor `load_target` nor
+    `gather.load_donor_tapes` -- the three functions `build_cache` uses to
+    decide what belongs in the population, any one of which could carry a
+    bug that moves both sides of a check that shared it. (That is exactly
+    the failure the three-instrument bar was written to prevent: Task 2's
+    census oracle caught a first-non-empty-format bug BECAUSE it shared no
+    assumptions.) No grouping decision, tag-fraction test, duration test or
+    donor-qualification test is reused from this file -- its collection
+    key, its search-document shape, its target test and its donor test are
+    all written out below, re-derived from scratch.
 
-    What it does share, unavoidably and by design, is the SHIPPED llama
+    It DOES still call two in-file names, both judgment-free: `read_cache`
+    (a plain JSONL reader, used only to compare the oracle's recount
+    against what the sweep measured) and `CacheIA.identifiers`/`.metadata`
+    (the `ia` argument's own cache-file access -- read bytes off disk, no
+    decision). Neither encodes any opinion about what belongs in the
+    population.
+
+    What it also shares, unavoidably and by design, is the SHIPPED llama
     functions the population is defined in terms of -- `group_candidates`,
     `filter_files`, `clean_tag_titles`, `title_fraction`, `length_seconds`.
     Those are the system under measurement, not the instrument; an oracle

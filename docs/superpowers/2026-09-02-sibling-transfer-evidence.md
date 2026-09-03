@@ -79,7 +79,7 @@ guards.
 | --- | --- | --- |
 | schema | `--schema align.jsonl --dump detail.json` | 716 targets / 11,258 pairs / 230,600 rows / **11,849 detail records** (a record is written only when a trial adopted or blocked ≥1 row; the run performed **12,888 trials** = 716 × 3 strata × (5 random reps + 1 prefix)), **0 violations** (rows cover 1..n exactly once; half-open spans in range; no `adopt` without a title; `adopted` ∩ `cplus_blocked` = ∅ and both ⊆ `bare_adopted`; no rows outside the automatic band) |
 | planted control | `--selftest align.jsonl` — **the whole 716-target certified population**, and the line printed names it | TRUTH plant (donor == target): **4,146/4,146 adoptions correct**. POISON plant: **4,133/4,133 adoptions wrong**, with **21 tracks excluded and counted** as unplantable. Both non-empty; they disagree. |
-| independent oracle A | `--oracle align.jsonl` | recounts the population calling **no function defined in the instrument file** — its own collection key, search-document shape, target test and donor test — sharing only the shipped `llama` functions the population is *defined* in terms of (`group_candidates`, `filter_files`, `clean_tag_titles`, `title_fraction`, `length_seconds`). **716 = 716**, plus 6 targets under `MIN_TRACKS` the oracle deliberately does not filter. A third, throwaway probe counted 722 = 716 + 6. |
+| independent oracle A | `--oracle align.jsonl` | recounts the population sharing **no domain judgment with the instrument**: `build_candidates`, `load_target` and `gather.load_donor_tapes` — the three functions the coupling finding was actually about — are never called, and no grouping decision, tag-fraction test, duration test or donor-qualification test is reused; its own collection key, search-document shape, target test and donor test are written out below, re-derived from scratch. It does still call two in-file helpers that carry no judgment of their own — `read_cache` (a plain JSONL reader) and `CacheIA.identifiers`/`.metadata` (cache file access) — plus the shipped `llama` functions the population is *defined* in terms of (`group_candidates`, `filter_files`, `clean_tag_titles`, `title_fraction`, `length_seconds`). **716 = 716**, plus 6 targets under `MIN_TRACKS` the oracle deliberately does not filter. A third, throwaway probe counted 722 = 716 + 6. |
 | independent oracle B | `--reconcile align.jsonl --reconcile-n 40` | the cached path vs a **live `gather.best_donor`** call: 40 targets, bands `{auto: 31, operator: 8, declined: 1}`, **31 non-empty adopted-title sets / 612 title strings compared, 0 mismatches**. Its plant, `--reconcile … --plant` (rotate the cached proposals): **40 of 40 mismatched, PASS** — so the zero is falsifiable. |
 
 The POISON plant is the load-bearing half, and it took two corrections.
@@ -543,7 +543,28 @@ scratchpad):
 | population | unit | with ≥1 usable donor | with **exactly 1** |
 | --- | --- | --- | --- |
 | detector population (≥95%-tagged targets, ≥6 kept tracks) | target recordings | **716** | **9 (1.26%)** |
-| all cached recordings, `load_donor_tapes`-qualifying donors, no tagging gate | recordings | 790 of 968 | **14 (1.77% of 790)** |
+| all cached recordings, `load_donor_tapes`-qualifying donors, no tagging gate | recordings | 790 of 968 (denominator disputed — see note below) | **14 (1.77–1.79%)** |
+
+**Denominator discrepancy, disclosed rather than resolved.** The 790-of-968
+row above is this document's original figure; the run that produced it is
+not retained in the scratchpad, so it cannot be re-derived against its own
+population. A later scoped re-review reconstructed the same population
+independently twice and got **782** both times. A further independent
+recount for this correction got 782 as well, by the same method stated
+precisely: `build_candidates(ia)` over the cache, then per recording —
+`filter_files` + the `MIN_TRACKS` (6) floor, all per-track durations
+present, **no** `WELL_TAGGED` title-fraction gate — then keep it if
+`load_donor_tapes` returns at least one donor. But that recount ran against
+`~/.llama/cache` as it stood on 2026-09-03: **981** cached `md_*.json`
+items, not the 968 this document's own SYNTH population (716 targets) was
+measured against — the cache grew by roughly a dozen items in the interim.
+The cache is not a frozen artifact, so none of the three 782s actually
+confirm what 790 should have been against its *own* population; they
+confirm what a slightly larger population yields. **What does not move: the
+single-donor count is 14 in the original write-up and in all three
+independent recounts**, so the finding this table exists to support — one
+measured single-donor encounter with the slide class, stopped by layer 3
+and by C+ — is unaffected by which denominator is correct.
 
 **The unit is the target recording, not the performance**, because
 `best_donor`'s tie-break is evaluated per target: a 2-recording performance
@@ -702,8 +723,11 @@ Carried from the spec, with what this run changed:
   multi-donor pairs its production reachability rests on **donor selection**,
   which was never designed as a guard. Anything that changes `_donor_key`'s
   ordering re-opens those. **The single-donor slice, where no tie-break exists,
-  is now sized: 9 of 716 target recordings (1.26%), or 14 of 790 (1.77%) without
-  the tagging gate, containing exactly 1 slide case** — stopped by layer 3 and
+  is now sized: 9 of 716 target recordings (1.26%), or 14 of 790 without the
+  tagging gate (denominator disputed, see the note under "The single-donor
+  slice" — three independent recounts got 782 instead, but not against the
+  original run's own population; the numerator, 14, is unaffected either
+  way), containing exactly 1 slide case** — stopped by layer 3 and
   independently by C+. That is one case, not a rate; a second single-donor slide
   that layer 3 admitted would be the falsifier, and nothing here rules it out.
 - **Comparator fragility.** 74 of 80 hand-reviewed `genuine` errors turned out
