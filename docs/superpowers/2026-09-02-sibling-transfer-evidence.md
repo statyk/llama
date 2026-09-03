@@ -41,10 +41,12 @@ than absorbed:**
    cascade and gets there first. Safe direction, correct title, but the spec's
    "0 tracks" sentence is now wrong and should be amended.
 2. **A localised donor-span slide with high anchor agreement is REAL, not a
-   synthesis artifact** — 136 pairs in the unmasked corpus. It is nevertheless
-   unreachable in production for a reason nobody predicted: **135 of the 136
-   are outranked by a cleaner donor**, and the 1 survivor's shifted rows are
-   declined by layer 3. See Step 9.
+   synthesis artifact** — 136 pairs in the unmasked corpus, against the spec's
+   n=1. It is nevertheless unreachable in production: **135 of the 136 are
+   multi-donor, so a cleaner donor of the same performance is the one
+   `best_donor` selects** (that is one observation, not a filter — a tie-break
+   needs ≥2 donors to exist), and the single-donor survivor's shifted rows are
+   declined by layer 3 *and*, verified counterfactually, by C+. See Step 9.
 3. **A hygiene gap the sibling arm propagates**: a donor tagged
    `gd19730800.07.weather report suite` (a filename/lineage stamp) clears
    `hygienic_title` and is proposed verbatim onto a *different* tape. Named
@@ -65,22 +67,46 @@ instrument**. Every number below is credited only after all three.
 ### 1. `scripts/sibling_blind_arm.py` — the masked arm (SYNTH)
 
 Population: every cached recording that is ≥95% self-tagged, has complete
-per-track durations, has ≥6 tracks, and has ≥1 qualifying donor. **716 targets,
-11,258 (target, donor) pairs, 230,600 rows.** The DP sees only durations, so it
+per-track durations, has ≥6 tracks, and has ≥1 qualifying donor, drawn from
+**968 cached archive.org items** (`~/.llama/cache` holds 1,059 *files*; 968 of
+them are `md_*.json` item records and the rest are indexes — the earlier draft
+quoted the file count and called it items). **716 target recordings, 11,258
+(target, donor) pairs, 230,600 rows.** The DP sees only durations, so it
 is computed once per pair and cached; every stratum/mask/rep re-runs only the
 guards.
 
 | proof | command | result |
 | --- | --- | --- |
-| schema | `--schema align.jsonl --dump detail.json` | 716 targets / 11,258 pairs / 230,600 rows / 11,849 trials, **0 violations** (rows cover 1..n exactly once; half-open spans in range; no `adopt` without a title; `adopted` ∩ `cplus_blocked` = ∅ and both ⊆ `bare_adopted`; no rows outside the automatic band) |
-| planted control | `--selftest align.jsonl` | TRUTH plant (donor == target): **74/74 adoptions correct**. POISON plant (hidden tracks' donor titles rotated among themselves, visible ones honest): **74/74 adoptions wrong**. Both non-empty, and they disagree. |
-| independent oracle A | `--oracle align.jsonl` | recounts the population from cached metadata with its own grouping/tag/duration tests, sharing no code with `build_cache`: **716 = 716**, plus 6 targets under `MIN_TRACKS` which the oracle deliberately does not filter. A third, throwaway probe counted 722 = 716 + 6. |
-| independent oracle B | `--reconcile align.jsonl --reconcile-n 40` | the cached path vs a **live `gather.best_donor`** call: 40 targets, bands `{auto: 31, operator: 8, declined: 1}`, **31 non-empty adopted-title sets / 612 title strings compared, 0 mismatches** |
+| schema | `--schema align.jsonl --dump detail.json` | 716 targets / 11,258 pairs / 230,600 rows / **11,849 detail records** (a record is written only when a trial adopted or blocked ≥1 row; the run performed **12,888 trials** = 716 × 3 strata × (5 random reps + 1 prefix)), **0 violations** (rows cover 1..n exactly once; half-open spans in range; no `adopt` without a title; `adopted` ∩ `cplus_blocked` = ∅ and both ⊆ `bare_adopted`; no rows outside the automatic band) |
+| planted control | `--selftest align.jsonl` — **the whole 716-target certified population**, and the line printed names it | TRUTH plant (donor == target): **4,146/4,146 adoptions correct**. POISON plant: **4,133/4,133 adoptions wrong**, with **21 tracks excluded and counted** as unplantable. Both non-empty; they disagree. |
+| independent oracle A | `--oracle align.jsonl` | recounts the population calling **no function defined in the instrument file** — its own collection key, search-document shape, target test and donor test — sharing only the shipped `llama` functions the population is *defined* in terms of (`group_candidates`, `filter_files`, `clean_tag_titles`, `title_fraction`, `length_seconds`). **716 = 716**, plus 6 targets under `MIN_TRACKS` the oracle deliberately does not filter. A third, throwaway probe counted 722 = 716 + 6. |
+| independent oracle B | `--reconcile align.jsonl --reconcile-n 40` | the cached path vs a **live `gather.best_donor`** call: 40 targets, bands `{auto: 31, operator: 8, declined: 1}`, **31 non-empty adopted-title sets / 612 title strings compared, 0 mismatches**. Its plant, `--reconcile … --plant` (rotate the cached proposals): **40 of 40 mismatched, PASS** — so the zero is falsifiable. |
 
-The POISON plant is the load-bearing half. The obvious plant — rotate the whole
-donor — is useless here: the guard then declines the pair, the scorer is never
-asked a question, and "0 adoptions, 0 errors" is indistinguishable from a scorer
-that cannot see failure.
+The POISON plant is the load-bearing half, and it took two corrections.
+
+**First**, the obvious plant — rotate the whole donor — is useless here: the
+guard then declines the pair, the scorer is never asked a question, and "0
+adoptions, 0 errors" is indistinguishable from a scorer that cannot see failure.
+So the corruption is confined to the hidden tracks, leaving the anchors honest.
+
+**Second, and found by review: a rotation among the hidden tracks can fail to
+corrupt.** Run over the full population the first cut printed `POISON 246/247 →
+FAIL`. The single leak was `gd1968-10-12.sbd.gans.miller.owen.9385.shnf` t15,
+truth `Jam >` against a planted `Jam \` — the tape has two `Jam` tracks, the
+two strings loosely match, and **the scorer scored that adoption correct because
+it was correct.** The plant had failed to corrupt; the scorer had not failed to
+see. Accepting 246/247 would have converted a fixable control into a permanently
+blunted one, so `_plant_titles` now picks, per hidden track, a title from the
+same tape that is **verifiably not `loosely_same_title`** to that track's truth.
+Where no such title exists anywhere on the tape the track is *unplantable*, is
+excluded from the plant's denominator, and the count is printed (**21 of 4,154**)
+rather than absorbed.
+
+**The earlier draft of this document quoted `74/74` for both plants. That number
+came from a 12-target smoke cache, not from the 716-target population the tables
+below certify** — a plant proven on 12 targets says nothing about a measurement
+made on 716. `--selftest` now runs the whole cache by default and prints the
+population it covered on its first line.
 
 ### 2. `scripts/sibling_controls.py` — the named controls and the six-show table (REAL)
 
@@ -103,15 +129,18 @@ transition; anything else is a regression.
 | proof | result |
 | --- | --- |
 | schema | 89 shows compared, 0 skipped; a track-count change between arms is itself recorded as a regression (none occurred) |
-| planted control | `--arm gap --selftest` (a deliberately wrong adopter) → **harness CAN detect a difference, PASS** |
+| planted control (legal change) | `--arm gap --selftest` (a deliberately wrong adopter) → **harness CAN detect a difference, PASS** |
+| planted control (regression) | `--arm {gap,sibling,numeric} --selftest-regress` retitles an **already-resolved** track → **all three arms report REGRESS, PASS**. This is what makes each arm's "0 regressions" falsifiable, and it is the fix for a real defect: `ARMS["numeric"]` was `(None, None)`, i.e. *every* title change was legal, so that arm's zero **could not have been non-zero for any code change**. The source side of a legal transition is now never `None`; both arms were re-run under the tightened rule and both are unchanged (0 regressions, 1 adoption). |
 | independent oracle | `sibling_controls --six-shows`, a different driver reading stored `show.json`, independently reports the same single automatic adoption; and the live-network setlist.fm arm reproduces the same single row |
 
 ### Explicit degeneracy check
 
 **A measurement whose expected value is degenerate — zero, empty, the identity,
 the default — cannot distinguish *computed correctly* from *never computed*, and
-survives mutation.** Six of the results below are zero-shaped. Each is paired
-with a non-zero companion from the *same* run that proves the machinery engaged:
+survives mutation.** **Ten** of the results below are zero-shaped (an earlier
+draft said "six" over an eight-row table; the count was wrong and two rows have
+since been added). Each is paired with a non-zero companion from the *same* run
+that proves the machinery engaged:
 
 | zero-shaped result | its non-degenerate companion |
 | --- | --- |
@@ -122,7 +151,9 @@ with a non-zero companion from the *same* run that proves the machinery engaged:
 | re-gather: **0** regressions | the same run reports **1** newly resolved row, and `--selftest` produces many |
 | Step 6: **0** of the 18 pure-4-digit items alter a shipped title | the numeric arm's diff is **non-empty** (1 row moves), proving the arm engages |
 | A5 donor agreement **0.000** on one donor | the other A5 donor scores **0.083** — a real, non-zero, still-below-FLOOR reading |
-| `--reconcile` **0** mismatches | it reports the **612 title strings** it actually compared, and prints `DEGENERATE` if that count is 0 |
+| `--reconcile` **0** mismatches | it reports the **612 title strings** it actually compared, prints `DEGENERATE` if that count is 0, and `--plant` (corrupt the cached rows) makes the same call report **40 of 40 mismatched** |
+| `--arm numeric` **0** regressions | `--selftest-regress` makes that arm report a regression. Until the legality rule was tightened this zero was **unfalsifiable by construction**, which is worse than degenerate — see the `regather_diff.py` proof table |
+| POISON plant expects **all** adoptions wrong | its twin, the TRUTH plant, expects **all correct**, from the same code path on the same 716 targets; and the plant now verifies it actually corrupted each row before demanding the scorer call it wrong |
 
 ---
 
@@ -165,7 +196,8 @@ guard, so that is what the arm gates on.
 
 `./.venv/bin/python scripts/sibling_blind_arm.py --build-cache align.jsonl` then
 `--score align.jsonl --dump detail.json`, 2026-09-03, `~/.llama/cache`
-(1,059 cached items → 716 eligible targets).
+(**968 cached `md_*.json` item records** → 716 eligible target recordings; the
+1,059 figure an earlier draft used is the file count of `~/.llama/cache`).
 
 **Units.** `trials` = (target, stratum, mask, rep). `adopted` / `wrong` /
 `blocked` are **adopted-title instances (entries)** unless the row says
@@ -460,34 +492,85 @@ visible. A pair counts when its agreement is ≥ `AUTO` (0.80) **and** some run 
 ≥2 consecutive disagreeing anchors has, for every member, a proposal that
 loosely matches the tape's own title at one **constant non-zero offset**.
 
-| quantity | REAL, unmasked |
-| --- | --- |
-| (target, donor) pairs rated | **11,258** |
-| pairs reaching the automatic band | **8,355** |
-| pairs exhibiting a localised slide | **136** (1.63% of auto-band pairs), over **75 distinct targets** |
-| of those, where the slide donor is its target's **agreement-winner** | **1** |
-| of those, where a cleaner donor outranks it | **135** |
+All of the following is computed by the committed script —
+`--slide-scan` for the census and `--slide-rank align.jsonl` for the
+winner/outranked split, which recomputes the winner for each target with the
+shipped `rate_alignment` and the shipped `gather._donor_key`. (An earlier draft
+had no committed mode for the 135/1 split and quoted per-performance counts that
+reconciled under no grouping; both are fixed.)
+
+| quantity | REAL, unmasked | unit |
+| --- | --- | --- |
+| (target, donor) pairs rated | **11,258** | pairs |
+| pairs reaching the automatic band | **8,355** | pairs |
+| pairs exhibiting a localised slide | **136** (1.63% of auto-band pairs) | pairs |
+| distinct targets carrying one | **75** (of 716) | target recordings |
+| slide pairs whose donor **is** its target's agreement-winner | **1** | pairs |
+| slide pairs outranked by a cleaner donor of the same performance | **135** | pairs |
+| of the 1 winner, targets with **exactly one** usable donor | **1** | target recordings |
 
 **The class is REAL. It is not a synthesis artifact, and the spec's n=1 is
 wrong by two orders of magnitude.** 136 pairs, at agreements from 0.800 to
-0.926, with runs of 2–4 tracks at offsets ±1 and ±2 — `gd1971-08-06` (7 pairs),
-`gd1978-07-08` (19), `gd1987-09-18` (11), `gd1989-10-26` (14), `gd1982-10-10`
-(8), and others.
+0.926, with runs of 2–4 tracks at offsets ±1 and ±2. By performance, and these
+sum to exactly 136:
 
-**And it is nevertheless unreachable in production, for a reason none of the
-three prior instruments predicted: donor selection filters it out.** A
-displaced pairing depresses anchor agreement, and `gather.best_donor` picks the
-**highest-agreement** donor. So a sibling that aligns cleanly outranks the
-slide-y one on 135 of the 136. The tie-break is doing safety work nobody
-designed it to do — worth knowing before anyone "simplifies" it.
+`gd1978-07-08` 28 · `gd1971-08-06` 18 · `gd1989-10-26` 16 · `gd1984-10-12` 14 ·
+`gd1973-02-15` 12 · `gd1987-09-18` 11 · `gd1982-10-10` 8 · `gd1976-06-14` 6 ·
+`gd1977-05-09` 6 · `gd1971-04-29` 4 · `gd1974-07-19` 4 · `gd1975-09-28` 4 ·
+`gd1973-05-26` 2 · `gd1976-06-09` 1 · `gd1990-03-29` 1 · `tbt2007-07-20` 1.
 
-The **one** survivor is `TBT2007-07-20.sbd.flac` ← `tbt2007-07-20.391.flac16`
-(agreement 0.909, tracks 1–2 at offset +1): the target has a `Wizard Intro`
-(288 s) the donor lacks. Its two displaced rows carry exclusion penalties of
-**28 s and 0 s** against `MIN_EXCLUSION_PENALTY = 60` — **layer 3 declines them
-before C+ is ever consulted.** That is Task 4's mechanistic argument (*the
-ambiguity that lets an alignment slide is the same quantity the penalty
-measures*), now observed in the real corpus rather than argued.
+(Grouping a performance requires folding archive.org's two date conventions —
+`gd1973-02-15…` and `gd73-02-15…` are the same night. Keying them apart is what
+made the earlier draft's counts reconcile to nothing.)
+
+**Why it is nevertheless unreachable in production — stated in the weaker and
+more accurate form.** An earlier draft said "the tie-break eliminated 135",
+which reads as a filter removing a failure class. It is not. `best_donor`
+*selects among donors*, and a displaced pairing scores lower agreement than a
+clean one, so **where a better donor of the same performance exists, the slide
+pair simply is not the one used**. "The tie-break eliminated 135" and "135 of
+the slide pairs are multi-donor" are **one observation, not two independent
+ones** — a tie-break needs ≥2 donors to exist at all. The safety it provides is
+real but incidental to its purpose, which is still worth knowing before anyone
+"simplifies" `_donor_key`.
+
+### The single-donor slice — where no tie-break exists
+
+Measured separately (read-only, same detector, `--slide-rank`'s
+`donors_for_target` and a follow-up census; report retained in the run
+scratchpad):
+
+| population | unit | with ≥1 usable donor | with **exactly 1** |
+| --- | --- | --- | --- |
+| detector population (≥95%-tagged targets, ≥6 kept tracks) | target recordings | **716** | **9 (1.26%)** |
+| all cached recordings, `load_donor_tapes`-qualifying donors, no tagging gate | recordings | 790 of 968 | **14 (1.77% of 790)** |
+
+**The unit is the target recording, not the performance**, because
+`best_donor`'s tie-break is evaluated per target: a 2-recording performance
+yields two single-donor targets. 5 of the 9 are same-item format twins
+(`flac16`/`flac24`, `flac16`/`flac16.wav`) rather than genuinely different
+tapes.
+
+**Exactly 1 slide case falls in that slice, and it is the same tape as the one
+survivor above** — so "the 1 survivor of donor selection" and "the only
+single-donor slide" are one pair, and the 135/1 split partitions exactly along
+the multi-donor/single-donor line by construction rather than by luck.
+
+`TBT2007-07-20.sbd.flac` ← `tbt2007-07-20.391.flac16`, agreement 0.909 over 22
+anchors, tracks 1–2 displaced at offset +1 (the target has a `Wizard Intro`,
+288 s, the donor lacks). It is stopped **twice over**:
+
+| layer | verdict on tracks 1–2 |
+| --- | --- |
+| donor tie-break | **absent by construction** — sole usable donor, nothing to outrank it |
+| **layer 3** (`penalty < MIN_EXCLUSION_PENALTY = 60`) | **stops it**: t1 declines at 28 s, t2 at 0 s. `propose_rows` reads only durations and donor tags, so this is mask-independent and exact, not a counterfactual |
+| **guard C+** | **would also stop it**: masking tracks 1–2 (what production sees when they are untagged) leaves the band `auto` at agreement 1.000, so C+ *is* reached; forcing the two rows to `adopt` and calling `cplus_filter` returns **`decline` — "tracks 1-2: not bracketed by agreeing anchors"**, a leading-edge run |
+
+That is Task 4's mechanistic argument (*the ambiguity that lets an alignment
+slide is the same quantity the penalty measures*), observed rather than argued.
+**And it is the only measured encounter C+ has with its own class in the
+single-donor slice — on which it declined correctly. One case is not a rate,
+and this document does not turn it into one.**
 
 Net for the REAL corpus: **136 slide-shaped pairs, 0 slide-induced wrong titles
 reaching C+, 0 reaching the library.**
@@ -497,11 +580,19 @@ reaching C+, 0 reaching the library.**
 Of the rows C+ declines that the ratio band would otherwise have adopted, how
 many would have been **wrong** and how many **right**?
 
+**SYNTH** (masked arm, 716 targets) — the two are never pooled with the REAL row
+below, and neither is summed with it:
+
 | arm | blocked (entries) | **wrong** | **right** | blocked (distinct) | **wrong** | **right** |
 | --- | --- | --- | --- | --- | --- | --- |
-| SYNTH, random mask | 12,388 | **417** | **11,971** | 4,636 | **153** | **4,483** |
-| SYNTH, prefix mask | 14,789 | **269** | **14,520** | 8,906 | **188** | **8,718** |
-| REAL, named localised-shift pair, donor forced (worst cell) | 9 | **8** | **1** | — | — | — |
+| random mask | 12,388 | **417** | **11,971** | 4,636 | **153** | **4,483** |
+| prefix mask | 14,789 | **269** | **14,520** | 8,906 | **188** | **8,718** |
+
+**REAL** (one named pair, its donor forced; a single case, not a rate):
+
+| pair | blocked rows | **wrong** | **right** |
+| --- | --- | --- | --- |
+| `gd1971-08-06.aud.wolfe…` ← `…mtx.seamons.96668`, worst cell | 9 | **8** | **1** |
 
 **N is large. This is not outcome (c).** Under the random mask C+ blocks
 **28.7 correct titles for every wrong one**; under the prefix mask, 54:1 — and
@@ -514,12 +605,21 @@ Three readings that the raw ratio hides, all of which the owner needs:
    510/61,626 = **0.83%**. C+ is not blocking at random — it is selecting a
    materially worse subpopulation. It is just not selecting a *mostly-wrong*
    one.
-2. **On its own primary class the enrichment is 6.7×.** Triaging the blocked
-   errors the same way as the adopted ones (same classifier, same units):
-   random-mask blocked errors are 74 distinct `genuine`, 45 `non-song`,
-   **20 `shift`**, 14 `variant` — against **3** distinct `shift` among the 148
-   admitted errors, of which one is tape-wrong and two are a `Tuning` label
-   coinciding with a neighbour. The 20 blocked shifts are substantive:
+2. **On its own primary class it is enriched, and the factor depends on which
+   quantity you name — so all three are named.** Triaging the blocked errors the
+   same way as the adopted ones (same classifier, same units): random-mask
+   blocked errors are 74 distinct `genuine`, 45 `non-song`, **20 `shift`**, 14
+   `variant` — against **3** distinct `shift` among the 148 admitted errors, of
+   which one is tape-wrong and two are a `Tuning` label coinciding with a
+   neighbour.
+   - **Raw count ratio: 20 vs 3 (6.7:1).** This is a count comparison, not a
+     rate, and the two populations are different sizes — an earlier draft called
+     it "6.7× enrichment", which named the wrong quantity.
+   - **As a share of each population's wrong rows: 13.1% vs 2.0% — 6.5×.**
+   - **As a rate over each population's rows: 0.431% (20/4,636) vs 0.023%
+     (3/13,291) — 19.1×.**
+
+   The 20 blocked shifts are substantive:
    `gd1971-04-29` tracks 20–26 (a seven-track displacement), `gd1973-02-15`
    t23, `gd1980-11-30` t10, `gd1987-09-18`'s filler tracks, and the
    `gd1976-06-14` tape-tag case in both directions. **C+ is catching the class
@@ -598,12 +698,14 @@ Carried from the spec, with what this run changed:
 - **The wrong-anchor interaction is still unmeasured.** SYNTH anchors are
   correct by construction. The REAL arm has no hidden ground truth. Nothing
   here closes it.
-- **The localised-shift class is no longer n=1** — it is 136 — but its
-  production reachability now rests on **donor selection**, which was never
-  designed as a guard. Anything that changes `_donor_key`'s ordering (or lets a
-  target have exactly one donor) re-opens this. **A performance with exactly one
-  qualifying donor has no cleaner alternative to be outranked by**; that
-  sub-population was not separately sized here and is the sharpest follow-up.
+- **The localised-shift class is no longer n=1** — it is 136 — and for the 135
+  multi-donor pairs its production reachability rests on **donor selection**,
+  which was never designed as a guard. Anything that changes `_donor_key`'s
+  ordering re-opens those. **The single-donor slice, where no tie-break exists,
+  is now sized: 9 of 716 target recordings (1.26%), or 14 of 790 (1.77%) without
+  the tagging gate, containing exactly 1 slide case** — stopped by layer 3 and
+  independently by C+. That is one case, not a rate; a second single-donor slide
+  that layer 3 admitted would be the falsifier, and nothing here rules it out.
 - **Comparator fragility.** 74 of 80 hand-reviewed `genuine` errors turned out
   to be `loosely_same_title` misses. Any change to it moves every agreement
   number, shifts the knee, and re-runs everything above.
@@ -622,13 +724,15 @@ Carried from the spec, with what this run changed:
 ```console
 $ ./.venv/bin/python scripts/sibling_blind_arm.py --build-cache align.jsonl --progress 20
 $ ./.venv/bin/python scripts/sibling_blind_arm.py --schema align.jsonl --dump detail.json
-$ ./.venv/bin/python scripts/sibling_blind_arm.py --selftest align.jsonl
+$ ./.venv/bin/python scripts/sibling_blind_arm.py --selftest align.jsonl   # all 716 targets
 $ ./.venv/bin/python scripts/sibling_blind_arm.py --oracle align.jsonl
 $ ./.venv/bin/python scripts/sibling_blind_arm.py --reconcile align.jsonl --reconcile-n 40
+$ ./.venv/bin/python scripts/sibling_blind_arm.py --reconcile align.jsonl --reconcile-n 40 --plant
 $ ./.venv/bin/python scripts/sibling_blind_arm.py --score align.jsonl --dump detail.json
 $ ./.venv/bin/python scripts/sibling_blind_arm.py --triage detail.json --truths align.jsonl
 $ ./.venv/bin/python scripts/sibling_blind_arm.py --row-census align.jsonl
 $ ./.venv/bin/python scripts/sibling_blind_arm.py --slide-scan
+$ ./.venv/bin/python scripts/sibling_blind_arm.py --slide-rank align.jsonl
 $ ./.venv/bin/python scripts/sibling_controls.py --baseline
 $ ./.venv/bin/python scripts/sibling_controls.py --deletions
 $ ./.venv/bin/python scripts/sibling_controls.py --rotation align.jsonl --n 120
@@ -638,6 +742,9 @@ $ ./.venv/bin/python scripts/sibling_controls.py --six-shows
 $ ./.venv/bin/python scripts/regather_diff.py --arm sibling
 $ ./.venv/bin/python scripts/regather_diff.py --arm numeric
 $ ./.venv/bin/python scripts/regather_diff.py --arm gap --selftest
+$ ./.venv/bin/python scripts/regather_diff.py --arm gap --selftest-regress
+$ ./.venv/bin/python scripts/regather_diff.py --arm sibling --selftest-regress
+$ ./.venv/bin/python scripts/regather_diff.py --arm numeric --selftest-regress
 ```
 
 All read-only against `~/.llama/cache` and `~/.llama/shows`; the setlist.fm arm
