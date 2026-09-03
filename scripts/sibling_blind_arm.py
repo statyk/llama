@@ -507,6 +507,8 @@ def reconcile(ia: CacheIA, path: Path, audio_format: str, n: int) -> int:
                  for c in build_candidates(ia)
                  for i in range(len(c.recordings))}
     checked = mismatched = 0
+    bands: Counter = Counter()
+    n_title_sets = n_titles = 0
     for entry in read_cache(path):
         if checked >= n:
             break
@@ -526,12 +528,19 @@ def reconcile(ia: CacheIA, path: Path, audio_format: str, n: int) -> int:
                 == (c_res.agreement if c_res else None)
                 and (live_res.band if live_res else None)
                 == (c_res.band if c_res else None))
+        bands[live_res.band if live_res else "no-donor"] += 1
         if same and live_res and live_res.band == AUTO_BAND:
             lf = {r.track: r.proposed for r in cplus_filter(live_rows, tracks)
                   if r.verdict == "adopt"}
             cf = {r.track: r.proposed for r in cplus_filter(c_rows, tracks)
                   if r.verdict == "adopt"}
             same = lf == cf
+            # DEGENERACY GUARD: "0 mismatched" over 40 EMPTY title sets would
+            # be a pass that compared nothing. Report how many sets were
+            # non-empty and how many title strings they held.
+            if lf:
+                n_title_sets += 1
+                n_titles += len(lf)
         if not same:
             mismatched += 1
             print(f"  MISMATCH {entry['target']}: live="
@@ -540,9 +549,14 @@ def reconcile(ia: CacheIA, path: Path, audio_format: str, n: int) -> int:
                   f"{live_res.band if live_res else None} cached="
                   f"{c_donor}/{c_res.agreement if c_res else None}/"
                   f"{c_res.band if c_res else None}")
-    print(f"\nRECONCILE: {checked} targets, {mismatched} mismatched -> "
-          f"{'PASS' if checked and not mismatched else 'FAIL'}")
-    return 0 if checked and not mismatched else 1
+    print(f"\nRECONCILE: {checked} targets, {mismatched} mismatched")
+    print(f"  bands: {dict(bands)}")
+    print(f"  non-empty adopted-title sets compared: {n_title_sets} "
+          f"({n_titles} title strings)")
+    ok = bool(checked and not mismatched and n_titles)
+    print(f"  -> {'PASS' if ok else 'FAIL'}"
+          f"{'' if n_titles else '  (DEGENERATE: nothing was compared)'}")
+    return 0 if ok else 1
 
 
 # --- selftest: planted positive controls through the committed scorer ------
@@ -615,6 +629,125 @@ def _selftest(path: Path) -> int:
     return 0 if (ok_truth and ok_rot) else 1
 
 
+# --- triage of wrong adoptions (Step 2) and the row census (Step 7) -------
+
+_NON_SONG = ("tuning", "banter", "crowd", "intro", "outro", "applause",
+             "drums", "space", "jam", "tune", "encore", "announce", "talk",
+             "chatter", "noise", "silence", "cut", "filler")
+
+
+def _aggressive(t: str) -> str:
+    return "".join(c for c in t.lower() if c.isalnum())
+
+
+def classify(truth: str, proposed: str, shifted: set[str]) -> str:
+    """Triage class for one wrong adoption. Order matters and is stated:
+    a shift is the dangerous class, so it is tested FIRST and only then are
+    the benign explanations offered."""
+    if proposed in shifted:
+        return "shift"
+    a, b = _aggressive(truth), _aggressive(proposed)
+    if a and b and (a in b or b in a):
+        return "variant/comparator"
+    if any(w in truth.lower() for w in _NON_SONG) or \
+            any(w in proposed.lower() for w in _NON_SONG):
+        return "non-song boundary"
+    return "genuine"
+
+
+def run_triage(dump: Path, cache: Path, sample: int) -> int:
+    """Classify every wrong adoption, in BOTH units.
+
+    UNIT MATTERS HERE. One (target, donor, track) error is re-drawn by every
+    stratum and rep whose mask happens to hide that track, so the entry count
+    is several times the count of distinct errors. Both are reported; a rate
+    quoted in one unit against a denominator in the other is exactly the
+    defect the count-unit rule exists to prevent.
+
+    Shift detection uses the target's FULL hidden truth vector (read back
+    from the alignment cache), not just the tracks that happened to be
+    adopted in this trial -- a shift whose neighbour was visible in this rep
+    is still a shift."""
+    truths = {e["target"]: e["titles"] for e in read_cache(cache)}
+    detail = json.loads(dump.read_text())
+    classes: Counter = Counter()
+    distinct: dict[str, set] = defaultdict(set)
+    per_class: dict[str, list] = defaultdict(list)
+    for trial in detail:
+        if trial["mask"] != "random":
+            continue
+        vec = truths.get(trial["target"], [])
+        for a in trial["adopted"]:
+            if a["correct"]:
+                continue
+            neighbours = {t for k, t in enumerate(vec)
+                          if t and k != a["track"] - 1}
+            cls = classify(a["truth"], a["proposed"], neighbours)
+            classes[cls] += 1
+            distinct[cls].add((trial["target"], trial["donor"], a["track"]))
+            per_class[cls].append({"stratum": trial["stratum"],
+                                   "target": trial["target"],
+                                   "donor": trial["donor"], **a})
+    print("# WRONG ADOPTIONS, random mask (SYNTH)")
+    print("# entries = adopted title instances; distinct = (target, donor, track)")
+    total = sum(classes.values())
+    tot_d = len(set().union(*distinct.values())) if distinct else 0
+    for cls, n in classes.most_common():
+        print(f"  {cls:20s} entries {n:5d} ({n / total:5.1%})   "
+              f"distinct {len(distinct[cls]):4d}")
+    print(f"  {'TOTAL':20s} entries {total:5d}            distinct {tot_d:4d}")
+    rng = random.Random(99)
+    print(f"\n# hand-check sample ({sample} DISTINCT per class, seed 99)")
+    for cls, rows in sorted(per_class.items()):
+        seen, uniq = set(), []
+        for r in rows:
+            key = (r["target"], r["donor"], r["track"])
+            if key not in seen:
+                seen.add(key)
+                uniq.append(r)
+        print(f"\n## {cls}  ({len(uniq)} distinct)")
+        for r in rng.sample(uniq, min(sample, len(uniq))):
+            print(f"  {r['target']} <- {r['donor']} t{r['track']}"
+                  f"\n      truth={r['truth']!r}\n      prop ={r['proposed']!r}"
+                  f"  resid={r['residual']:.0f}s pen={r['penalty']:.0f}s")
+    return 0
+
+
+def row_census(path: Path) -> int:
+    """Step 7: how often does a TARGET-SIDE SKIP arise, and what does the
+    absorption alternative cost? Counted over every cached (target, donor)
+    alignment -- unit: rows (one target track in one pair) and pairs."""
+    n_pairs = n_rows = 0
+    skip_rows = skip_pairs = split_rows = split_pairs = 0
+    merge_rows = merge_pairs = 0
+    skip_hist: Counter = Counter()
+    for entry in read_cache(path):
+        for pair in entry["pairs"]:
+            n_pairs += 1
+            rows = [_row_of(j) for j in pair["rows"]]
+            n_rows += len(rows)
+            sk = sum(1 for r in rows if r.reason == "no sibling track")
+            sp = sum(1 for r in rows
+                     if r.reason == "sibling song split across target files")
+            mg = sum(1 for r in rows if r.donor_span
+                     and r.donor_span[1] - r.donor_span[0] > 1)
+            skip_rows += sk
+            split_rows += sp
+            merge_rows += mg
+            skip_pairs += bool(sk)
+            split_pairs += bool(sp)
+            merge_pairs += bool(mg)
+            skip_hist[min(sk, 5)] += 1
+    print(json.dumps({
+        "pairs": n_pairs, "rows": n_rows,
+        "target_side_skip_rows": skip_rows, "pairs_with_a_skip": skip_pairs,
+        "split_declined_rows": split_rows, "pairs_with_a_split": split_pairs,
+        "merged_rows": merge_rows, "pairs_with_a_merge": merge_pairs,
+        "skips_per_pair_histogram(5=5+)": dict(sorted(skip_hist.items())),
+    }, indent=2))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
@@ -626,6 +759,11 @@ def main() -> int:
     ap.add_argument("--reconcile", type=Path)
     ap.add_argument("--reconcile-n", type=int, default=25)
     ap.add_argument("--selftest", type=Path)
+    ap.add_argument("--triage", type=Path)
+    ap.add_argument("--triage-sample", type=int, default=8)
+    ap.add_argument("--truths", type=Path,
+                    help="alignment cache, for --triage's full truth vectors")
+    ap.add_argument("--row-census", type=Path)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--progress", type=int, default=25)
     args = ap.parse_args()
@@ -641,6 +779,12 @@ def main() -> int:
         return reconcile(ia, args.reconcile, args.format, args.reconcile_n)
     if args.selftest:
         return _selftest(args.selftest)
+    if args.triage:
+        if not args.truths:
+            ap.error("--triage needs --truths <alignment cache>")
+        return run_triage(args.triage, args.truths, args.triage_sample)
+    if args.row_census:
+        return row_census(args.row_census)
     ap.error("pick a mode")
     return 2
 
