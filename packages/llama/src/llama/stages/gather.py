@@ -107,6 +107,33 @@ def _creator(meta: dict) -> str | None:
     return creator
 
 
+def _dedupe_ordered(items: list[str]) -> list[str]:
+    """Drop repeated entries, keeping the FIRST occurrence's position.
+
+    `StructureInfo.conflicts` is read straight into the briefing LLM prompt
+    (`show.model_dump_json()`, `stages/brief.py:138`) and its sequence
+    carries meaning, so a plain `set()` (or `sorted(set(...))`) is wrong here
+    -- it would scramble the order the rest of `run_gather` builds `flags`/
+    `notes` in. This exists because `_collect_parses` (via `build_canonical`,
+    always run first) and `load_donor_tapes` (via `_sibling_transfer`, run
+    only when the sibling-align gate fires) each independently retry and
+    independently catch/note the exact same `IAError` for the exact same
+    donor identifier -- `IAClient` never caches a failed fetch, so nothing
+    stops either from trying again and noting again. Deduping here, at the
+    join, rather than by threading "already failed" state between the two
+    fetchers, keeps that retry real: a transient failure that recovers on
+    the second attempt still gets its chance (see the two functions' own
+    docstrings for why a permanent failure note should appear only once
+    regardless of which of them happens to emit it first)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
 def _donor_key(agreement: float | None, cost: float, identifier: str) -> tuple:
     """Sort key for picking the winning donor: highest agreement, then lowest
     DP cost, then identifier (spec order). `agreement is None` (no anchors at
@@ -129,9 +156,7 @@ def _donor_key(agreement: float | None, cost: float, identifier: str) -> tuple:
 
 
 def load_donor_tapes(ia, candidate: Candidate, identifier: str,
-                     want: str | Sequence[str], *,
-                     already_failed: frozenset[str] = frozenset()
-                     ) -> tuple[list[DonorTape], list[str]]:
+                     want: str | Sequence[str]) -> tuple[list[DonorTape], list[str]]:
     """Load every non-self recording in `candidate.recordings` as a
     `DonorTape` -- the ONE definition of "qualifying donor", shared by
     `_sibling_transfer` (gather's automatic pass) and `cli._propose_titles_for_show`
@@ -150,22 +175,11 @@ def load_donor_tapes(ia, candidate: Candidate, identifier: str,
     metadata could not be fetched (`IAError`); a sibling that fetches fine
     but yields no kept files or an incomplete duration is silently skipped,
     matching prior behaviour -- neither case is a fetch failure worth a note.
-
-    `already_failed` is the set of identifiers `_collect_parses` (run
-    unconditionally, over this same `candidate.recordings`, before this
-    function is ever reached from `run_gather`) already tried and failed to
-    fetch -- OWNS the note for those, so this function neither re-fetches
-    nor re-notes them; a second attempt would just reproduce the same
-    `IAError` and duplicate text into `StructureInfo.conflicts`, which
-    `stages/brief.py` feeds straight into the briefing LLM prompt. Defaults
-    to empty so `cli._sibling_proposal`'s standalone call (which never runs
-    `_collect_parses` first) is unaffected and keeps noting every failure
-    itself, as it did before.
     """
     donors: list[DonorTape] = []
     notes: list[str] = []
     for rec in candidate.recordings:
-        if rec.identifier == identifier or rec.identifier in already_failed:
+        if rec.identifier == identifier:
             continue
         try:
             files = ia.metadata(rec.identifier).get("files", [])
@@ -191,8 +205,7 @@ def load_donor_tapes(ia, candidate: Candidate, identifier: str,
 
 
 def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[str],
-               tracks: list, metadata_norms: set[str], *,
-               already_failed: frozenset[str] = frozenset()):
+               tracks: list, metadata_norms: set[str]):
     """Load every qualifying donor (`load_donor_tapes`), align each against
     `tracks`' own durations, rate the pair, and return the single winner --
     highest anchor agreement, then lowest DP cost, then identifier
@@ -210,13 +223,9 @@ def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[s
     fetch-failure notes, always returned even when no donor qualifies.
     `(donor, rows, res)` are `(None, [], None)` when no candidate produced
     usable rows -- callers branch on `donor is None`, not on emptiness of
-    `notes` (a donor can fail to fetch AND another can still qualify).
-
-    `already_failed` passes straight through to `load_donor_tapes` -- see
-    its docstring; `_sibling_transfer` is the only caller that supplies it."""
+    `notes` (a donor can fail to fetch AND another can still qualify)."""
     target_durs = [t.duration_sec for t in tracks]
-    donors, notes = load_donor_tapes(ia, candidate, identifier, want,
-                                     already_failed=already_failed)
+    donors, notes = load_donor_tapes(ia, candidate, identifier, want)
     candidates = []
     for donor in donors:
         rows, diag = propose_rows(target_durs, donor, metadata_norms=metadata_norms)
@@ -234,9 +243,7 @@ def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[s
 
 def _sibling_transfer(ia, candidate: Candidate, identifier: str,
                       want: str | Sequence[str], tracks: list,
-                      metadata_norms: set[str], *,
-                      already_failed: frozenset[str] = frozenset()
-                      ) -> tuple[list, list[str]]:
+                      metadata_norms: set[str]) -> tuple[list, list[str]]:
     """The guarded duration-alignment title transfer. Loads every non-self
     sibling recording, aligns each against `tracks`' own durations
     (`siblings.propose_rows`), rates the pair (`siblings.rate_alignment`),
@@ -277,14 +284,8 @@ def _sibling_transfer(ia, candidate: Candidate, identifier: str,
     change made. The loosened fetch gate above does not add network cost:
     `IAClient.metadata` is disk-cached, and `_collect_parses` (above, in
     `build_canonical`) has already fetched every sibling's metadata for this
-    same show before this function ever runs. On a fetch FAILURE nothing is
-    cached (the client raises before writing), so this still would have
-    re-attempted and re-noted the identical failure without `already_failed`
-    -- see `run_gather`'s call and `load_donor_tapes`'s docstring: one call
-    site owns the note, this one is told which identifiers already have
-    theirs."""
-    donor, rows, res, notes = best_donor(ia, candidate, identifier, want, tracks,
-                                         metadata_norms, already_failed=already_failed)
+    same show before this function ever runs."""
+    donor, rows, res, notes = best_donor(ia, candidate, identifier, want, tracks, metadata_norms)
     if donor is None:
         return list(tracks), notes
     new_tracks = list(tracks)
@@ -342,24 +343,9 @@ def _recover_format_titles(
     return None
 
 
-def _collect_parses(ia, candidate: Candidate, identifier: str, chosen_meta: dict,
-                    *, failed: set[str] | None = None):
+def _collect_parses(ia, candidate: Candidate, identifier: str, chosen_meta: dict):
     """Parse every recording's description. Chosen recording first so it wins
-    rank ties among copy-paste descriptions.
-
-    `failed`, when given, is a caller-owned set this function ADDS every
-    fetch-failed identifier to (in addition to noting it in the returned
-    `notes`, as before). This function runs unconditionally, for every
-    identifier in `candidate.recordings`, before anything else in
-    `run_gather` touches the network -- so it is the OWNING call site for
-    "could not fetch sibling X" over that identifier set. `run_gather`
-    passes its own set through so `_sibling_transfer` (`load_donor_tapes`,
-    same identifiers, same `IAError`) can skip a redundant re-fetch and
-    re-note of a failure already reported here, rather than duplicating the
-    text into `StructureInfo.conflicts`. Defaults to `None` (tracking
-    off) so every other caller -- `cli.py`'s `_propose_titles_for_show`
-    included, which never runs `_sibling_transfer` in the same call -- is
-    unaffected."""
+    rank ties among copy-paste descriptions."""
     parses: list[SourcedParse] = []
     notes: list[str] = []
     descriptions: list[str] = []
@@ -372,8 +358,6 @@ def _collect_parses(ia, candidate: Candidate, identifier: str, chosen_meta: dict
                 meta = ia.metadata(rec.identifier).get("metadata", {})
             except IAError as err:
                 notes.append(f"could not fetch sibling {rec.identifier}: {err}")
-                if failed is not None:
-                    failed.add(rec.identifier)
                 continue
         desc = _description(meta)
         descriptions.append(desc)
@@ -776,8 +760,7 @@ class CanonicalBuild(NamedTuple):
 
 def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                     kept: list[dict], artist: str, events, *,
-                    setlistfm=None, provider=None,
-                    failed_fetches: set[str] | None = None) -> CanonicalBuild:
+                    setlistfm=None, provider=None) -> CanonicalBuild:
     """The cleaned canonical performance setlist: every recording's
     description, plus setlist.fm when configured, ranked pick-best, then
     head-banner-stripped, artist-item-dropped and footnote-marker-stripped.
@@ -795,16 +778,8 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     `.source` names the winning parse's provenance (a `SourcedParse.source`
     value, or None if nothing ranked) -- `run_gather` reports it as
     `StructureInfo.source`.
-
-    `failed_fetches` passes straight through to `_collect_parses` -- see its
-    docstring. Not part of `CanonicalBuild`'s return shape deliberately: it
-    is a caller-owned accumulator (`run_gather` passes its own `set()` and
-    reads it back after the call), not a value this function computes and
-    hands back, so adding it does not touch the tuple every other caller
-    unpacks.
     """
-    parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta,
-                                                   failed=failed_fetches)
+    parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
     if setlistfm is not None:
         raw = setlistfm.setlist(artist, candidate.date,
                                 venue=candidate.venue, city=candidate.city)
@@ -900,17 +875,9 @@ def run_gather(
     # setlist when `len(items) == len(tracks)`, so on an untagged tape one
     # header item costs every title on the show. `.source` (the winning
     # parse's provenance) is used below for `StructureInfo.source`.
-    # Populated by `_collect_parses` (via `build_canonical`) with every
-    # sibling identifier it failed to fetch -- that call runs unconditionally,
-    # first, over the same `candidate.recordings` the sibling-transfer pass
-    # below iterates, so it OWNS the "could not fetch sibling" note for each
-    # of them. Threaded into `_sibling_transfer` so it does not re-fetch (and
-    # re-note, duplicating text into `StructureInfo.conflicts`) an identifier
-    # already known to fail.
-    failed_fetches: set[str] = set()
     canonical, notes, canonical_source = build_canonical(
         ia, candidate, identifier, meta, kept, artist, events,
-        setlistfm=setlistfm, provider=provider, failed_fetches=failed_fetches)
+        setlistfm=setlistfm, provider=provider)
     # Recomputed (not re-fetched) rather than threaded out of build_canonical:
     # it's a pure function of already-in-scope values, and adopt_gap_titles
     # below needs it independently of the canonical-setlist build.
@@ -939,8 +906,7 @@ def run_gather(
     # matters to `Track.matched`). `siblings.py` stays pure; all IO is here.
     if fetch_siblings:
         tracks, sib_notes = _sibling_transfer(ia, candidate, identifier, want,
-                                              tracks, metadata_norms,
-                                              already_failed=frozenset(failed_fetches))
+                                              tracks, metadata_norms)
         notes += sib_notes
 
     # Single-word Dead shorthand ("Scarlet", "Dew", "Help") is only safe
@@ -1134,7 +1100,7 @@ def run_gather(
         source = canonical_source if canonical_source is not None else "none"
         structure_info = StructureInfo(source=source, alignment=alignment,
                                        coverage=coverage,
-                                       conflicts=conflicts + notes)
+                                       conflicts=_dedupe_ordered(conflicts + notes))
 
     date, date_source, item_date = candidate.date, "item", None
     if overrides.date is not None:

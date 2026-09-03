@@ -375,16 +375,25 @@ def test_a_sibling_fetch_failure_is_noted_not_fatal(tmp_path: Path):
 
     DUPLICATE-NOTE GUARD (deferred minor, final whole-branch review): both
     `_collect_parses` (called first, unconditionally, via `build_canonical`)
-    and `load_donor_tapes` (called only when `_sibling_transfer` fires) used
-    to independently catch this exact `IAError` on this exact identifier and
-    each append their own byte-identical note -- so this note reached
+    and `load_donor_tapes` (called only when `_sibling_transfer` fires)
+    independently catch this exact `IAError` on this exact identifier
+    (`IAClient` never caches a failed fetch, so both really do retry) and
+    each append their own byte-identical note -- so this note used to reach
     `StructureInfo.conflicts` TWICE, and `conflicts` is serialized straight
     into the briefing LLM prompt via `show.model_dump_json()`
     (`stages/brief.py:138`), making it duplicated prompt content, not merely
-    a duplicated log line. The assertion below counts occurrences rather
-    than using `any(...)`, which cannot see a duplicate: reverting either
-    `run_gather`'s `failed_fetches` threading or `load_donor_tapes`'s
-    `already_failed` skip reproduces the double note and reddens this."""
+    a duplicated log line. Fixed at the join, not by suppressing either
+    fetch: `run_gather`'s `_dedupe_ordered(conflicts + notes)` keeps the
+    first occurrence of each distinct string and drops repeats, order
+    preserved (an earlier cut threaded "already failed" state between the
+    two fetchers instead -- reverted: it changed fetch behaviour, turning a
+    transient failure that would have recovered on the second attempt into
+    a permanent one). The assertion below counts occurrences rather than
+    using `any(...)`, which cannot see a duplicate: removing the
+    `_dedupe_ordered` call reproduces the double note (count 2) and reddens
+    this; a dedupe that over-suppresses (drops every occurrence of a
+    repeated item instead of keeping one) reddens it the other way (count
+    0)."""
     from llama.ia_client import IAError
 
     class FlakySiblingIA(MultiIA):
