@@ -181,16 +181,24 @@ NOT n=1.** An unmasked census of all 11,258 REAL (target, donor) pairs found
 **136 pairs exhibiting a localised slide** at agreement 0.80–0.93 — 1.63% of
 the 8,355 pairs reaching the automatic band, over 75 distinct targets. The
 draft's "empirical base thin" is superseded; the class is common in the raw
-corpus. **It is nonetheless unreachable in production, by two mechanisms
-neither of which is C+:** a displaced pairing depresses anchor agreement, so
-`best_donor`'s highest-agreement tie-break outranks the slide-y donor on
-**135 of the 136**; and the single survivor's displaced rows carry exclusion
-penalties of 28 s and 0 s against `MIN_EXCLUSION_PENALTY = 60`, so layer 3
-declines them before C+ is ever consulted. Net: 136 slide-shaped pairs, 0
+corpus. **It is nonetheless unreachable in production, and the reason splits
+cleanly along one line: 135 of the 136 are MULTI-DONOR and 1 is not.** For
+the 135, a displaced pairing scores lower anchor agreement than a clean one,
+so `best_donor` simply selects the clean donor — stated in the weaker and
+accurate form, the tie-break does not *filter* a failure class, it *selects
+among donors*, and "the tie-break eliminated 135" and "135 are multi-donor"
+are one observation, not two (a tie-break needs >= 2 donors to exist). For
+the 1, there is no tie-break at all: the single-donor slice is **9 of 716
+target recordings (1.26%)**, or **14 of 790 (1.77%)** without the tagging
+gate — the unit is the target recording, since the tie-break is evaluated
+per target — and it contains **exactly one** slide case, the same tape.
+Its displaced rows carry exclusion penalties of 28 s and 0 s against
+`MIN_EXCLUSION_PENALTY = 60`, so **layer 3** declines them, and a
+counterfactual mask shows **C+ would decline them too** ("tracks 1-2: not
+bracketed by agreeing anchors"). Net: 136 slide-shaped pairs, 0
 slide-induced titles reaching C+, 0 reaching the library. **Anything that
-changes `_donor_key`'s ordering re-opens this**, and a performance with
-exactly one qualifying donor has no cleaner alternative to be outranked by —
-that sub-population is unsized and is the sharpest follow-up.
+changes `_donor_key`'s ordering re-opens the 135**; the single-donor slice's
+only protection has always been layer 3 and C+, and one case is not a rate.
 
 ### The delmccoury class at population scale (REAL tags, adjudicated)
 
@@ -613,12 +621,13 @@ New to this design:
   on tracks that today ship as filenames.
 - **The localised-shift residual**: a shift confined to the tape's middle
   with anchors sampling the correct ends. **Measured 2026-09-03: 136 REAL
-  pairs, not one** — but removed before C+ by donor selection (135 of 136)
-  and by layer 3's exclusion penalty (the 1 survivor). The residual is
-  therefore not the class itself but its two removers: a single-donor
-  performance, or any change to `_donor_key`'s ordering. If either ever lets
-  one through, the fix is positional (agreement measured over the fills'
-  neighbourhood), not a different threshold.
+  pairs, not one** — but 135 of the 136 are multi-donor, so `best_donor`
+  selects a cleaner sibling instead, and the single remaining one is
+  declined by layer 3 (and, counterfactually, by C+). The residual is
+  therefore the single-donor slice — **9 of 716 target recordings (1.26%)**,
+  one slide case in it — plus any change to `_donor_key`'s ordering. If
+  either ever lets one through, the fix is positional (agreement measured
+  over the fills' neighbourhood), not a different threshold.
 - **Prefix-tagged tapes get no automatic help** — under a prefix mask C+
   ships zero titles, by construction (no run has a right anchor). The
   realistic partly-tagged taper routes entirely to the operator. Safe

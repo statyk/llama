@@ -862,7 +862,11 @@ def check_schema(cache_path: Path, dump: Path | None) -> int:
                 bad.append(f"{t['target']}: adopted|blocked not within bare")
             if t["band"] != AUTO_BAND and (ad or bl):
                 bad.append(f"{t['target']}: rows outside the automatic band")
-        print(f"detail: {len(detail)} trials")
+        # UNIT: a detail record is written only when a trial adopted or
+        # blocked at least one row, so this is BELOW the trial count
+        # (716 targets x 3 strata x (5 random reps + 1 prefix) = 12,888).
+        print(f"detail: {len(detail)} records (of "
+              f"{n_entries * len(STRATA) * (REPS + 1)} trials)")
     for line in bad[:20]:
         print(f"  BAD {line}")
     print(f"SCHEMA: {len(bad)} violations -> "
