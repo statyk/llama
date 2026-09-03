@@ -14,13 +14,15 @@ from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
                           SourcedParse, StructureInfo)
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
+from llama.siblings import DonorTape, cplus_filter, propose_rows, rate_alignment
 from llama.songs import GD_SHORTHAND
 from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align,
                              apply_llm_alignment, blend_segues, from_setlistfm,
                              fuzzy_norm_title, norm_title, rank_parses,
                              structure_guard, venues_equivalent)
-from llama.titles import (clean_tag_titles, is_real_title, resolve_titles,
-                          set_breaks, sibling_format_titles, title_fraction)
+from llama.titles import (clean_tag_titles, resolve_titles, set_breaks,
+                          sibling_format_titles, title_fraction)
+from llama.util import length_seconds
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
 log = logging.getLogger("llama")
@@ -105,16 +107,188 @@ def _creator(meta: dict) -> str | None:
     return creator
 
 
-def _sibling_titles(ia, candidate: Candidate, identifier: str,
-                    want: str | Sequence[str], n: int) -> list[str] | None:
+def _donor_key(agreement: float | None, cost: float, identifier: str) -> tuple:
+    """Sort key for picking the winning donor: highest agreement, then lowest
+    DP cost, then identifier (spec order). `agreement is None` (no anchors at
+    all -- `rate_alignment`'s "no-anchors" band) ranks BELOW every real
+    agreement value including 0.0: 0.0 is a real, if bad, measurement (the
+    tape has anchors and none of them agree), while None means no measurement
+    was possible at all.
+
+    EMERGENT SAFETY ROLE, NOT A DESIGNED ONE -- worth knowing before this
+    ordering is "simplified": picking the highest-agreement donor is also
+    what keeps 135 of 136 measured slide-shaped donor pairs out of the
+    automatic band, since a displaced pairing scores lower agreement than a
+    clean donor of the same performance and so never wins the tie-break.
+    Two tests pin the ordering (a reversed sort fails in both gather and
+    cli) without naming this; see
+    `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`, Step 9, for
+    the measurement this ordering happens to protect."""
+    rank = agreement if agreement is not None else -1.0
+    return (-rank, cost, identifier)
+
+
+def load_donor_tapes(ia, candidate: Candidate, identifier: str,
+                     want: str | Sequence[str]) -> tuple[list[DonorTape], list[str]]:
+    """Load every non-self recording in `candidate.recordings` as a
+    `DonorTape` -- the ONE definition of "qualifying donor", shared by
+    `_sibling_transfer` (gather's automatic pass) and `cli._propose_titles_for_show`
+    / triage's `[t]` (the operator surface, Task 6). Extracted out of
+    `_sibling_transfer` rather than reimplemented CLI-side: a second
+    "which recordings count as donors" would be invisible when it drifted,
+    exactly the class of duplication this module's docstrings keep warning
+    about.
+
+    A recording qualifies when: it is not `identifier` itself, its metadata
+    fetches without error, `filter_files` leaves at least one kept file, and
+    every kept file has a real (non-`None`) duration -- the same three
+    conditions `_sibling_transfer` checked inline before this extraction.
+
+    Returns `(donors, notes)`. `notes` carries one message per sibling whose
+    metadata could not be fetched (`IAError`); a sibling that fetches fine
+    but yields no kept files or an incomplete duration is silently skipped,
+    matching prior behaviour -- neither case is a fetch failure worth a note.
+    """
+    donors: list[DonorTape] = []
+    notes: list[str] = []
     for rec in candidate.recordings:
         if rec.identifier == identifier:
             continue
-        kept, _, _ = filter_files(ia.metadata(rec.identifier).get("files", []), want_format=want)
-        titles = clean_tag_titles(kept)
-        if len(kept) == n and all(is_real_title(t) for t in titles):
-            return titles
-    return None
+        try:
+            files = ia.metadata(rec.identifier).get("files", [])
+        except IAError as err:
+            # Same three-line idiom as _collect_parses above, on the same
+            # call, for the same identifiers -- one flaky sibling must not
+            # abort the whole gather stage (the loosened fetch gate widened
+            # how often this call fires; it does not change how a failure
+            # should be handled).
+            notes.append(f"could not fetch sibling {rec.identifier}: {err}")
+            continue
+        kept, _, _ = filter_files(files, want_format=want)
+        if not kept:
+            continue
+        durations = [length_seconds(f.get("length")) for f in kept]
+        if any(d is None for d in durations):    # skip donors with incomplete durations
+            continue
+        donors.append(DonorTape(identifier=rec.identifier,
+                                names=[f["name"] for f in kept],
+                                durations=durations,
+                                titles=clean_tag_titles(kept)))
+    return donors, notes
+
+
+def best_donor(ia, candidate: Candidate, identifier: str, want: str | Sequence[str],
+               tracks: list, metadata_norms: set[str]):
+    """Load every qualifying donor (`load_donor_tapes`), align each against
+    `tracks`' own durations, rate the pair, and return the single winner --
+    highest anchor agreement, then lowest DP cost, then identifier
+    (`_donor_key`'s tie-break). ONE definition of "who wins", shared by
+    `_sibling_transfer` (gather's automatic pass) and
+    `cli._sibling_proposal` (the operator surface) -- fix round 1 on Task 6:
+    the two used to re-implement this four-step loop (propose_rows -> skip
+    None -> rate_alignment -> `_donor_key` -> sort -> `[0]`) verbatim, and a
+    reviewer mutation (sort the CLI's copy in reverse, i.e. pick the WORST
+    donor) passed the whole suite -- the drift class this task exists to
+    close, one level up. Extracting this also removes the need for `cli.py`
+    to import `_donor_key` across the module boundary at all.
+
+    Returns `(donor, rows, res, notes)`. `notes` is `load_donor_tapes`'s
+    fetch-failure notes, always returned even when no donor qualifies.
+    `(donor, rows, res)` are `(None, [], None)` when no candidate produced
+    usable rows -- callers branch on `donor is None`, not on emptiness of
+    `notes` (a donor can fail to fetch AND another can still qualify)."""
+    target_durs = [t.duration_sec for t in tracks]
+    donors, notes = load_donor_tapes(ia, candidate, identifier, want)
+    candidates = []
+    for donor in donors:
+        rows, diag = propose_rows(target_durs, donor, metadata_norms=metadata_norms)
+        if rows is None:
+            continue
+        res = rate_alignment(rows, tracks)
+        candidates.append((_donor_key(res.agreement, diag["cost"], donor.identifier),
+                           donor, rows, res))
+    if not candidates:
+        return None, [], None, notes
+    candidates.sort(key=lambda c: c[0])
+    _, donor, rows, res = candidates[0]
+    return donor, rows, res, notes
+
+
+def _sibling_transfer(ia, candidate: Candidate, identifier: str,
+                      want: str | Sequence[str], tracks: list,
+                      metadata_norms: set[str]) -> tuple[list, list[str]]:
+    """The guarded duration-alignment title transfer. Loads every non-self
+    sibling recording, aligns each against `tracks`' own durations
+    (`siblings.propose_rows`), rates the pair (`siblings.rate_alignment`),
+    picks the winning donor, and -- only in the `auto` band, and only after
+    running `siblings.cplus_filter` -- fills `unresolved` tracks with the
+    surviving `adopt` rows, stamped `title_source="sibling-align"`.
+
+    Returns `(tracks, notes)`. `tracks` is always a NEW list -- inputs are
+    never mutated in place, on every return path including "no candidate
+    donor at all" -- and `notes` carries pair-level declines (why the
+    winning donor's band was not `auto`, or why a donor could not be fetched
+    at all), per-run declines (why an `auto`-band run still did not fill --
+    concern #2 from Task 4's review: a C+ demotion reason is otherwise
+    visible only on the internal, never-returned `SiblingRow` itself, so it
+    must be surfaced here or it is simply lost).
+
+    CONCERN #1 (data loss): `cplus_filter` says nothing about a track that
+    already has a title -- an `adopt` row on an already-titled track survives
+    C+ untouched (it gates FILL RUNS, not individual already-resolved
+    tracks). This function is what must refuse to apply such a row: only a
+    track whose OWN `title_source` is still `"unresolved"` at the moment of
+    application is ever written, so a tape's own tag (or an operator's
+    override) can never be clobbered by the sibling's guess, no matter what
+    verdict the row carries.
+
+    CONCERN #3: `cplus_filter` does not itself check the band -- it is called
+    here ONLY when `rate_alignment` already routed the pair to `"auto"`;
+    calling it on an `operator`/`declined`/`no-anchors` pair would gate
+    nothing meaningful (there is no automatic adoption to gate).
+
+    Fan-out cost (Task 5 fix round, measured): `propose_rows` per donor is
+    0.015 / 0.067 / 0.23 / 1.88 SECONDS at 20 / 40 / 60 / 120 target tracks.
+    Against 37,144 real candidates (~/.llama/runs): donors-per-performance is
+    median 1, p90 9, max 38; 89 gathered shows put track count at median 22,
+    p90 31, max 63. Typical show ~0.02-0.06s, p90 show ~0.3s, worst observed
+    (38 donors x 63 tracks) ~9s once, at gather time -- acceptable inside a
+    stage that already does per-recording network IO and audio downloads, no
+    change made. The loosened fetch gate above does not add network cost:
+    `IAClient.metadata` is disk-cached, and `_collect_parses` (above, in
+    `build_canonical`) has already fetched every sibling's metadata for this
+    same show before this function ever runs."""
+    donor, rows, res, notes = best_donor(ia, candidate, identifier, want, tracks, metadata_norms)
+    if donor is None:
+        return list(tracks), notes
+    new_tracks = list(tracks)
+
+    if res.band != "auto":
+        pct = f"{res.agreement:.0%}" if res.agreement is not None else None
+        if res.band == "declined":
+            notes.append(f"sibling alignment declined (anchor agreement {pct})")
+        elif res.band == "operator":
+            notes.append(f"sibling alignment needs operator review (anchor agreement {pct})")
+        else:                                     # "no-anchors"
+            notes.append(f"sibling alignment skipped ({donor.identifier}): "
+                         "tape has no independent anchors")
+        return new_tracks, notes
+
+    filtered = cplus_filter(rows, tracks)          # C+ is auto-band only (concern #3)
+    seen_reasons: set[str] = set()
+    for row in filtered:
+        pos = row.track - 1
+        if tracks[pos].title_source != "unresolved":
+            # concern #1: never overwrite a track that already has a title,
+            # regardless of what verdict the row carries.
+            continue
+        if row.verdict == "adopt":
+            new_tracks[pos] = new_tracks[pos].model_copy(
+                update={"title": row.proposed, "title_source": "sibling-align"})
+        elif row.reason and row.reason not in seen_reasons:
+            seen_reasons.add(row.reason)
+            notes.append(f"sibling alignment ({donor.identifier}): {row.reason}")
+    return new_tracks, notes
 
 
 # Recovery fires below this and requires the sibling to clear the second
@@ -320,10 +494,19 @@ def _date_norms(date: str) -> set[str]:
     return {n for n in (fuzzy_norm_title(r) for r in renderings) if n}
 
 
-def _show_metadata_norms(artist: str, candidate: Candidate, meta: dict,
-                         events: list) -> set[str]:
+def show_metadata_norms(artist: str, candidate: Candidate, meta: dict,
+                        events: list) -> set[str]:
     """The closed vocabulary the head-banner guard matches against: everything
-    this show's own metadata says about who/where/when it is."""
+    this show's own metadata says about who/where/when it is.
+
+    PUBLIC (fix round 1 on Task 6) because the operator surface shares it:
+    `cli._sibling_proposal` needs the identical `metadata_norms` gather uses,
+    so the sibling arm's hygiene check (`siblings.hygienic_title` via
+    `propose_rows`) can never silently diverge from the pipeline's. A leading
+    underscore imported across a module boundary is a false promise that the
+    symbol is free to rename/re-signature -- the same reasoning
+    `structure.hygienic_title`'s own docstring already gives for the
+    identical choice, one task earlier in this feature."""
     norms = _date_norms(candidate.date)
     for value in (artist, candidate.venue, candidate.city,
                   meta.get("venue"), meta.get("coverage")):
@@ -592,7 +775,7 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                                target_count=len(kept))
         canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
 
-    metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
+    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
     canonical = _strip_head_banner(canonical, metadata_norms)
     canonical = _drop_artist_items(canonical, artist)
     canonical = _strip_footnote_markers(canonical)
@@ -671,25 +854,33 @@ def run_gather(
     # Recomputed (not re-fetched) rather than threaded out of build_canonical:
     # it's a pure function of already-in-scope values, and adopt_gap_titles
     # below needs it independently of the canonical-setlist build.
-    metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
+    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
 
-    siblings = None
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
     # exclude-everything tape would otherwise fetch every sibling recording's
     # metadata to resolve zero titles. The output was never wrong, only the
-    # fetches wasted.
-    if kept and title_fraction(clean_tag_titles(kept)) < 1.0 and (
-        canonical.confidence == "low" or len(canonical.items) != len(kept)
-    ):
-        siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))
-    tracks = resolve_titles(kept, canonical, sibling_titles=siblings,
-                            format_titles=format_titles)
+    # fetches wasted. Loosened (Task 5): the old count-mismatch/confidence
+    # condition is gone -- the new sibling-align pass below is guarded on its
+    # own evidence (anchor agreement), not on how the canonical setlist lined
+    # up, so gating the FETCH on that condition too was never doing anything
+    # but adding false negatives.
+    fetch_siblings = bool(kept and title_fraction(clean_tag_titles(kept)) < 1.0)
+    tracks = resolve_titles(kept, canonical, format_titles=format_titles)
     for n, forced in overrides.titles.items():
         if not (1 <= n <= len(tracks)):
             raise LlamaError(f"overrides.titles: no track {n} "
                              f"(show has {len(tracks)} tracks)")
         tracks[n - 1] = tracks[n - 1].model_copy(
             update={"title": forced, "title_source": "override"})
+
+    # Guarded duration-alignment sibling transfer. After the overrides loop
+    # (an operator-forced title can anchor the guard) and before
+    # adopt_gap_titles (see that call's own comment for why ordering there
+    # matters to `Track.matched`). `siblings.py` stays pure; all IO is here.
+    if fetch_siblings:
+        tracks, sib_notes = _sibling_transfer(ia, candidate, identifier, want,
+                                              tracks, metadata_norms)
+        notes += sib_notes
 
     # Single-word Dead shorthand ("Scarlet", "Dew", "Help") is only safe
     # inside the Garcia universe — they are ordinary English words

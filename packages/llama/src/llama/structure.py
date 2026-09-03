@@ -6,6 +6,7 @@ the best source across all recordings (and setlist.fm) and aligned onto
 the chosen recording's tracks.
 """
 import re
+from difflib import SequenceMatcher
 
 from llama.models import AlignedStructure, AlignResult, ParsedSetlist, SetlistItem, SourcedParse, Track
 from llama.songs import normalize_song
@@ -189,6 +190,53 @@ def fuzzy_title_eq(a: str, b: str) -> bool:
     # better-supported match. Validated against all 517 jerrybase closers:
     # it introduces no new cross-song pair (see the phase-3 spec).
     return a.replace(" ", "") == b.replace(" ", "")
+
+
+# The sibling guard's loose comparator. 0.80 is not AUTO's 0.80 -- the two are
+# independent bounds that happen to share a value.
+LOOSE_TITLE_RATIO = 0.80
+
+
+def loosely_same_title(a: str, b: str) -> bool:
+    """Do two titles for the same track agree, allowing for taper spelling?
+
+    Normalized equality, or containment either way, or a `SequenceMatcher`
+    ratio >= LOOSE_TITLE_RATIO. Deliberately LOOSER than `fuzzy_title_eq`,
+    which is a matching rule: this one is an AGREEMENT rule, and a guard that
+    fires on orthography ("Mister Charlie" vs "Mr. Charlie") reports bad
+    alignments that are merely bad spelling.
+
+    USED BY THE SIBLING GUARD (`siblings.rate_alignment`/`cplus_filter`), THE
+    MEASUREMENT SCORERS, and (fix round 1 on Task 6) the operator surface's
+    OWN display corroboration -- `cli._sibling_canonical_text` (the
+    three-way disagreement's "setlist:" column) and
+    `cli._sibling_donor_coverage` (the no-anchors embed-in-canonical figure)
+    both call it to check whether a proposed title shows up in the canonical
+    setlist. Neither of those is a new measurement basis: they render
+    evidence for a human, the same role the guard already has, not a new
+    threshold this docstring's "DO NOT RETUNE" governs. Never by `align()`
+    and never by `normalize_song` -- the fuzzy-matching spec's layering rule
+    stands, and containment here is far too loose for a matching layer
+    ("Dew" is contained in "Morning Dew").
+
+    DO NOT RETUNE. This function is part of the measured basis of every
+    threshold in `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`:
+    10.1% of measured anchor disagreements are its own misses, so a change
+    moves every agreement number, shifts the band knee, and re-runs Task 7's
+    measurements wholesale. Two known misses are pinned as tests rather than
+    fixed: the initialism ("BIODTL" vs "Beat It On Down The Line", ratio 0.40)
+    and the near-miss ("Rain Please Go Away" vs "Rain go away (?)", 0.774).
+
+    An empty or whitespace-only side is never agreement -- "" is contained in
+    everything, and an untitled track is the absence of evidence, not its
+    confirmation.
+    """
+    na, nb = fuzzy_norm_title(a), fuzzy_norm_title(b)
+    if not na or not nb:
+        return False
+    if na == nb or na in nb or nb in na:
+        return True
+    return SequenceMatcher(None, na, nb).ratio() >= LOOSE_TITLE_RATIO
 
 
 # --- Venue equivalence (jerrybase venue-mismatch tripwire) -------------------
@@ -1067,7 +1115,7 @@ def gap_span(anchors: dict[int, tuple[int, int]], lo: int, hi: int,
     only, running to the END of the canonical. That is precisely where a
     parsed LMA setlist keeps the taper's notes: `_strip_head_banner` cleans
     the head and has no tail counterpart, so the trailing items are lineage,
-    gear lists and thank-yous, and `_hygienic` cannot tell them from a song
+    gear lists and thank-yous, and `hygienic_title` cannot tell them from a song
     (they have three letters, are under MAX_TITLE_LEN, are not
     `is_junk_title`, and are not this show's own metadata).
 
@@ -1092,9 +1140,17 @@ def gap_span(anchors: dict[int, tuple[int, int]], lo: int, hi: int,
     return None
 
 
-def _hygienic(title: str, metadata_norms: set[str]) -> bool:
-    """A canonical item fit to become a shipped title. Deliberately strict:
-    this is the only silent adopter in the pipeline."""
+def hygienic_title(title: str, metadata_norms: set[str]) -> bool:
+    """A title fit to be adopted onto a track. Deliberately strict: the rungs
+    that call this are the pipeline's silent adopters.
+
+    PUBLIC, and deliberately single-sourced. Two rungs adopt without a human --
+    `adopt_gap_titles` (a canonical setlist item) and the sibling-transfer pass
+    (another taper's tag) -- and they must agree on what a shippable title is.
+    An earlier cut of `siblings.py` re-composed the same four predicates from
+    the same imports and pinned the two compositions equal by a table; adding a
+    clause to one of them left the table green, so the pin could not see the
+    drift it existed to catch. Hence one definition, imported."""
     from llama.setlist import MAX_TITLE_LEN, is_junk_title
     from llama.titles import is_real_title
     t = title.strip()
@@ -1160,7 +1216,7 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
         gap = items[span[0]:span[1]]
         if len(gap) != hi - lo + 1:          # not count-forced
             continue
-        if not all(_hygienic(it.title, metadata_norms) for it in gap):
+        if not all(hygienic_title(it.title, metadata_norms) for it in gap):
             continue
         for off, it in enumerate(gap):
             out[lo + off] = out[lo + off].model_copy(

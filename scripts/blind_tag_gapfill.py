@@ -10,7 +10,10 @@ What this harness does NOT do, deliberately: it never reimplements the thing
 it measures. `adopt_gap_titles`, `resolve_titles`, `filter_files`,
 `parse_setlist`, `rank_parses`, `blend_segues`, `_strip_head_banner`,
 `_drop_artist_items`, `_show_metadata_norms`, `_collect_parses`,
-`_sibling_titles` and `_recover_format_titles` are all imported and called.
+and `_recover_format_titles` are all imported and called. (`_sibling_titles`
+was too, until Phase C removed the positional sibling rung it emulated;
+`siblings.py`'s duration-aligned transfer replaced it and is measured by
+`scripts/sibling_blind_arm.py`, not here.)
 The only logic written here is the driver (which is `run_gather`'s prefix
 minus the workspace I/O, since `run_gather` writes to the library) and the
 scorer.
@@ -64,8 +67,7 @@ from llama.models import Candidate, ParsedSetlist, SetlistItem, Track
 from llama.songs import GD_SHORTHAND
 from llama.stages.gather import (_collect_parses, _description, _creator,
                                  _drop_artist_items, _recover_format_titles,
-                                 _show_metadata_norms, _sibling_titles,
-                                 _strip_head_banner)
+                                 _strip_head_banner, show_metadata_norms)
 from llama.structure import (adopt_gap_titles, blend_segues, fuzzy_norm_title,
                              rank_parses, title_components)
 from llama.titles import resolve_titles
@@ -198,7 +200,6 @@ class Prepared:
     canonical: ParsedSetlist
     metadata_norms: set
     aliases: dict
-    sibling_titles: list[str] | None
     tracks: list[Track]
 
 
@@ -233,22 +234,15 @@ def prepare(ia: CacheIA, candidate: Candidate, identifier: str,
         canonical = blend_segues(canonical, best_lma.parsed if best_lma else None)
 
     events = jerrybase.lookup(artist, candidate.date)
-    metadata_norms = _show_metadata_norms(artist, candidate, meta, events)
+    metadata_norms = show_metadata_norms(artist, candidate, meta, events)
     canonical = _strip_head_banner(canonical, metadata_norms)
     canonical = _drop_artist_items(canonical, artist)
 
-    siblings = None
-    from llama.titles import clean_tag_titles, title_fraction
-    if kept and title_fraction(clean_tag_titles(kept)) < 1.0 and (
-        canonical.confidence == "low" or len(canonical.items) != len(kept)
-    ):
-        siblings = _sibling_titles(ia, candidate, identifier, want, len(kept))
-    tracks = resolve_titles(kept, canonical, sibling_titles=siblings,
-                            format_titles=format_titles)
+    tracks = resolve_titles(kept, canonical, format_titles=format_titles)
     aliases = GD_SHORTHAND if jerrybase.is_family_artist(artist) else {}
     return Prepared(identifier=identifier, artist=artist, kept=kept,
                     canonical=canonical, metadata_norms=metadata_norms,
-                    aliases=aliases, sibling_titles=siblings, tracks=tracks)
+                    aliases=aliases, tracks=tracks)
 
 
 # --- blinding --------------------------------------------------------------
@@ -280,8 +274,9 @@ def blind(prep: Prepared, lo: int, hi: int) -> list[Track]:
 
     The replacement rung is `titles.resolve_titles`' own fallback ladder
     (titles.py:150-160) for a track whose tag is unusable: the whole-tape
-    setlist rung if it is live for this recording, else the sibling rung, else
-    unresolved. Blanking the file dicts and re-running `resolve_titles`
+    setlist rung if it is live for this recording, else unresolved. (The
+    positional sibling rung this ladder used to include was removed in Phase
+    C; there is no longer a rung between the two.) Blanking the file dicts and re-running `resolve_titles`
     outright would have been circular in the other direction -- removing three
     titles perturbs `clean_tag_titles`' enumerated-tape gate and can change
     the OTHER tracks' titles, i.e. the anchors -- so the ladder is applied
@@ -290,14 +285,10 @@ def blind(prep: Prepared, lo: int, hi: int) -> list[Track]:
     n = len(prep.tracks)
     items = prep.canonical.items
     aligned = items if (prep.canonical.confidence != "low" and len(items) == n) else None
-    sibs = prep.sibling_titles if (prep.sibling_titles
-                                   and len(prep.sibling_titles) == n) else None
     out = list(prep.tracks)
     for pos in range(lo, hi + 1):
         if aligned:
             title, source = aligned[pos].title, "setlist"
-        elif sibs:
-            title, source = sibs[pos], "sibling"
         else:
             title, source = prep.kept[pos]["name"], "unresolved"
         out[pos] = out[pos].model_copy(update={"title": title, "title_source": source})

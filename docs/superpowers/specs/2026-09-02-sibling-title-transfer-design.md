@@ -174,9 +174,39 @@ the last fill) ships **the same 7** — the tape's tail is correct, so an
 anchor sits after the last fill and the rule is satisfied while the interior
 ships wrong; bracketed runs (C) ship 1; bracketed + count-forced (C+) ships
 **0**. Trailing-anchor closes the prefix hole and is blind to the interior
-one; it was measured and rejected. This case is n=1 — the mechanism argument
-is sound, the empirical base thin — and is carried as a named regression
-case in the acceptance run.
+one; it was measured and rejected.
+
+**AMENDED BY THE ACCEPTANCE RUN (2026-09-03, `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`). This case is
+NOT n=1.** An unmasked census of all 11,258 REAL (target, donor) pairs found
+**136 pairs exhibiting a localised slide** at agreement 0.80–0.93 — 1.63% of
+the 8,355 pairs reaching the automatic band, over 75 distinct targets. The
+draft's "empirical base thin" is superseded; the class is common in the raw
+corpus. **It is nonetheless unreachable in production, and the reason splits
+cleanly along one line: 135 of the 136 are MULTI-DONOR and 1 is not.** For
+the 135, a displaced pairing scores lower anchor agreement than a clean one,
+so `best_donor` simply selects the clean donor — stated in the weaker and
+accurate form, the tie-break does not *filter* a failure class, it *selects
+among donors*, and "the tie-break eliminated 135" and "135 are multi-donor"
+are one observation, not two (a tie-break needs >= 2 donors to exist). For
+the 1, there is no tie-break at all: the single-donor slice is **9 of 716
+target recordings (1.26%)**, or **14 of 790 (1.77%)** without the tagging
+gate — the unit is the target recording, since the tie-break is evaluated
+per target — and it contains **exactly one** slide case, the same tape.
+**The 790 denominator is disputed, per the evidence doc:** the run that
+produced it is not retained and cannot be re-derived against its own
+population; two independent reconstructions and a third recount all got
+**782**, but that third recount ran against a cache that has since grown
+from 968 to 981 items, so no recount can confirm what 790 should have been
+against its own population. The numerator (14) is stable across all three
+recounts and the conclusion below does not depend on which denominator is
+correct.
+Its displaced rows carry exclusion penalties of 28 s and 0 s against
+`MIN_EXCLUSION_PENALTY = 60`, so **layer 3** declines them, and a
+counterfactual mask shows **C+ would decline them too** ("tracks 1-2: not
+bracketed by agreeing anchors"). Net: 136 slide-shaped pairs, 0
+slide-induced titles reaching C+, 0 reaching the library. **Anything that
+changes `_donor_key`'s ordering re-opens the 135**; the single-donor slice's
+only protection has always been layer 3 and C+, and one case is not a rate.
 
 ### The delmccoury class at population scale (REAL tags, adjudicated)
 
@@ -206,7 +236,13 @@ human that the tape's tracks 2–4 are the thing that is wrong.
 
 ### Real yield, stated plainly (REAL)
 
-At AUTO 0.80 the automatic band's net yield on today's library is **0
+At AUTO 0.80 the automatic band's net yield on today's library is **1
+track** — **AMENDED (2026-09-03, `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`): the draft predicted 0, and
+the measured value is 1.** That track is `trampledbyturtles-2007-07-20` t21
+→ `1922`, residual 0 s, bracketed and count-forced; the composition note
+below expected it via `setlist-gap`, but `sibling-align` runs earlier in the
+cascade and gets there first. Correct title, safe direction. The draft's
+reasoning, otherwise unchanged, was **0
 tracks** (the sweep's full real-arm table: the only ≥0.80 partly-tagged
 target's fills are already resolved by other rungs; delmccoury is 0.69;
 GSBG2015-02-27 is 0.77). The automatic rung's value is **prospective** —
@@ -349,6 +385,30 @@ wholesale-failure titles in every stratum under both masks** (the bare
 ratio ships 4.8/rep random, 510/rep prefix), the localised shift's last
 wrong title caught, and lower loose error in every cell (e.g. 1.87% vs
 2.48% in the 50–80% stratum).
+
+**C+'S PRECISION, MEASURED (2026-09-03, `docs/superpowers/2026-09-02-sibling-transfer-evidence.md`). Stated plainly,
+because the paragraph above implies a frequency the automatic band does not
+see: C+ is mostly INSURANCE, and its yield cost is real and now
+quantified.** Of the rows C+ declines that the ratio band would otherwise
+have adopted: **random mask — 417 wrong, 11,971 right** (12,388 entries;
+153 / 4,483 distinct); **prefix mask — 269 wrong, 14,520 right** (14,789
+entries). That is **28.7 correct titles blocked per error prevented** under
+the random mask, 54:1 under the prefix mask. Two readings keep it from being
+pure cost: the blocked population's error rate (3.37%) is **4×** the
+admitted population's (0.83%), and on C+'s own primary class the enrichment
+depends on which quantity you name — so all three are given, per the
+evidence doc's own correction: **20 distinct shift-shaped errors blocked
+against 3 admitted is a 6.7:1 raw count, not a rate** (the two populations
+are different sizes); as a share of each population's wrong rows it is
+**6.5×** (13.1% vs 2.0%); as a rate over each population's rows it is
+**19.1×** (0.431% vs 0.023%). Of the 3 admitted shifts, one is tape-wrong
+and two are a `Tuning` label coinciding with a neighbour. On the named
+localised-shift pair with its donor forced, C+ is
+decisive: bare ratio 11 adopted / 8 wrong, C+ 2 adopted / 0 wrong. **C+
+stays regardless** — a silent adopter is the one surface where being wrong
+is unrecoverable, and the corpus is 89 shows — but it must be defended as
+cheap insurance with a quantified yield cost, never as a measured
+necessity.
 
 **Two invariants on C+, stated here because a later "simplification" would
 naturally unify or borrow them and be wrong both times:**
@@ -573,10 +633,14 @@ New to this design:
   and zero wholesale titles in every stratum under both masks — paid only
   on tracks that today ship as filenames.
 - **The localised-shift residual**: a shift confined to the tape's middle
-  with anchors sampling the correct ends. C+ caught the one measured
-  instance completely, but the class is n=1; if it turns out common in
-  production, the fix is positional (agreement measured over the fills'
-  neighbourhood), not a different threshold.
+  with anchors sampling the correct ends. **Measured 2026-09-03: 136 REAL
+  pairs, not one** — but 135 of the 136 are multi-donor, so `best_donor`
+  selects a cleaner sibling instead, and the single remaining one is
+  declined by layer 3 (and, counterfactually, by C+). The residual is
+  therefore the single-donor slice — **9 of 716 target recordings (1.26%)**,
+  one slide case in it — plus any change to `_donor_key`'s ordering. If
+  either ever lets one through, the fix is positional (agreement measured
+  over the fills' neighbourhood), not a different threshold.
 - **Prefix-tagged tapes get no automatic help** — under a prefix mask C+
   ships zero titles, by construction (no run has a right anchor). The
   realistic partly-tagged taper routes entirely to the operator. Safe

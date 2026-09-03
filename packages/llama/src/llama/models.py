@@ -154,7 +154,7 @@ class Track(BaseModel):
     filename: str  # source filename within the archive.org item
     duration_sec: float | None = None
     segue: bool = False
-    title_source: str  # "tags" | "sibling-format" | "setlist" | "setlist-gap" | "sibling" | "unresolved" | "override"
+    title_source: str  # "tags" | "sibling-format" | "setlist" | "setlist-gap" | "sibling-align" | "unresolved" | "override" | "sibling" (legacy: the old positional rung, removed 2026-09-02 -- still a valid value on a show gathered before this change, no migration)
     # Did this track match a canonical setlist item? None = not measured --
     # the override path skips align() entirely and forces coverage to 1.0, so
     # rendering unknown as "matched" would assert something never checked. A
@@ -330,7 +330,24 @@ class ProposalRow(BaseModel):
     duration_sec: float | None = None
     item_span: tuple[int, int] | None = None     # half-open canonical range; None = filler
     title: str = ""                              # "" when the row is a decline
-    evidence: str = ""                           # "sibling-duration" | "duration-model" | "filler"
+    evidence: str = ""                           # "sibling-duration" | "duration-model" | "sibling-align" | "filler"
+    # Task 6 (operator surface, sibling arm): the donor-track duration gap
+    # for this row's pairing, straight off `siblings.SiblingRow.residual_sec`.
+    # None on a row the sibling arm did not produce (every canonical-DP row).
+    residual_sec: float | None = None
+    # Task 6: a per-row annotation the sibling arm attaches to a decline --
+    # `siblings.SiblingRow.reason` verbatim ("sibling track untitled",
+    # "sibling song split across target files", "no sibling track", "weak
+    # evidence (penalty ...)"), or that reason plus a "- DP proposed ..."
+    # suffix (fix round 1, I4) when the row still carried a candidate title
+    # (`SiblingRow.proposed`) the operator should see even though it never
+    # reaches `title` or `overrides.titles`. "" everywhere else, including
+    # every canonical-DP row and every ADOPTED sibling row. Trimmed (fix
+    # round 1, m3): the no-anchors caution and donor coverage figure are
+    # standalone echoed lines, never a row's own note, and the renderer
+    # never calls `cplus_filter` (spec invariant 1), so no row's note is
+    # ever a C+ bracketed range reason either.
+    note: str = ""
     # Display column only (never gates automatic adoption). (margin_sec, forced)
     # together carry three states: margin_sec is a number = cost gap to the
     # best alternative assignment; margin_sec is None and forced=True = no
@@ -358,4 +375,4 @@ class TitleProposal(BaseModel):
     rows: list[ProposalRow] = Field(default_factory=list)
     feasible: bool = False
     reason: str = ""            # why not, when feasible is False
-    evidence_source: str = ""   # "sibling-duration" | "duration-model"
+    evidence_source: str = ""   # "sibling-duration" | "duration-model" | "sibling-align"

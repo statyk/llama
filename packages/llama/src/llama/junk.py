@@ -142,6 +142,40 @@ def _keep_and_exclude(
     return kept, excluded
 
 
+def _dedupe_duplicate_listings(kept: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Some archive.org items list every track twice - once at top level,
+    once under an <identifier>/ directory prefix - with identical durations
+    and a title on only one copy (ymsb2005's donor: 56 files for 28 tracks,
+    halving its apparent tag fraction). Collapse onto (basename, rounded
+    duration): keep the first copy encountered unless a later duplicate
+    carries a title the kept one lacks, in which case it swaps in. Runs
+    AFTER _keep_and_exclude for the winning format, so play-order derivation
+    sees only the deduped list.
+
+    Measured 2026-09-02 with scripts/dedupe_sweep.py over 968 cached items
+    (1936 item/format pairs): exactly one item changes -
+    ymsb2005-12-31.flac16, 56 -> 28 kept files in both mp3 and flac."""
+    winners: dict[tuple[str, int], dict] = {}
+    order: list[tuple[str, int]] = []
+    excluded: list[dict] = []
+    for f in kept:
+        base = f["name"].rsplit("/", 1)[-1]
+        key = (base, round(length_seconds(f.get("length")) or 0))
+        if key not in winners:
+            winners[key] = f
+            order.append(key)
+            continue
+        incumbent = winners[key]
+        incumbent_title = str(incumbent.get("title") or "").strip()
+        candidate_title = str(f.get("title") or "").strip()
+        if not incumbent_title and candidate_title:
+            excluded.append({"filename": incumbent["name"], "reasons": ["duplicate-listing"]})
+            winners[key] = f
+        else:
+            excluded.append({"filename": f["name"], "reasons": ["duplicate-listing"]})
+    return [winners[k] for k in order], excluded
+
+
 def filter_files(
     files: list[dict], want_format: str | Sequence[str] = "VBR MP3"
 ) -> tuple[list[dict], list[dict], dict]:
@@ -163,7 +197,15 @@ def filter_files(
 
     `excluded` covers only the WINNING format - a losing format's rejects are
     never merged in, so a short `excluded` list does not mean every other
-    format's files were clean too."""
+    format's files were clean too.
+
+    After the winning format's junk filtering, duplicate listings (an item
+    that lists the same track twice - once at top level, once under an
+    <identifier>/ prefix, both surviving the junk arms) are collapsed to one
+    copy each; the dropped copy is appended to `excluded` with reason
+    "duplicate-listing" - not a junk verdict about its content, just a
+    second listing of a track already kept. See
+    `_dedupe_duplicate_listings`."""
     wanted = (want_format,) if isinstance(want_format, str) else tuple(want_format)
     fallback: tuple[str, list[dict], list[dict]] | None = None
     chosen: tuple[str, list[dict], list[dict]] | None = None
@@ -178,6 +220,9 @@ def filter_files(
             chosen = (fmt, fmt_kept, fmt_excluded)
             break
     matched, kept, excluded = chosen or fallback or ("", [], [])
+
+    kept, dup_excluded = _dedupe_duplicate_listings(kept)
+    excluded = excluded + dup_excluded
 
     orig_tracks = {f["name"]: f.get("track") for f in files if f.get("source") == "original"}
     nums = [_track_number(f, orig_tracks) for f in kept]

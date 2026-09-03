@@ -1641,7 +1641,7 @@ def test_contains_sequence_repeated_song_advances_past_first_hit():
 
 
 from llama.models import ParsedSetlist, SetlistItem, Track
-from llama.structure import _hygienic, adopt_gap_titles
+from llama.structure import adopt_gap_titles, hygienic_title
 
 
 def _gap_items(*specs):
@@ -1713,14 +1713,14 @@ def test_tail_edge_run_declines_a_taper_note():
     `is2008-12-06.flac16.aud` (M1 `--natural` run, 2026-08-31): 34 tracks, 39
     canonical items, track 34 unresolved, canonical item 39 being the tail of
     the taper's own notes. Every gate passes -- one item against one file,
-    left-anchored on an exact tag match, and `_hygienic` cannot reject the
+    left-anchored on an exact tag match, and `hygienic_title` cannot reject the
     sentence (>= 3 letters, 70 chars so under MAX_TITLE_LEN, not
     `is_junk_title`, not this show's metadata) -- which is exactly why the
     branch had to go rather than the screen be tightened.
 
     The first assertion is the point of the test; the second and third are the
     mutation guard. Restoring the trailing branch makes the first fail, and
-    the `_hygienic` assertion documents that no cheaper fix was available."""
+    the `hygienic_title` assertion documents that no cheaper fix was available."""
     note = "for being so nice and quiet which allowed me to pull a nice recording."
     canonical = _gap_items(("Poor Boy's Delight", "2", False),
                            ("Tuning / Banter", "2", False),
@@ -1732,7 +1732,7 @@ def test_tail_edge_run_declines_a_taper_note():
     assert out[2].title_source == "unresolved"
     assert out[2].title == "is2008-12-06d2t22.mp3"
     # The gate that would have had to catch it, and cannot.
-    assert _hygienic(note, set()) is True
+    assert hygienic_title(note, set()) is True
 
 
 def test_head_edge_run_adopts_with_one_real_anchor():
@@ -1774,10 +1774,10 @@ def test_override_titles_anchor_and_are_never_overwritten():
 
 
 def test_hygiene_rejects_a_junk_item():
-    # NOTE: "Set List:" is rejected by _hygienic's `not t.endswith(":")`
+    # NOTE: "Set List:" is rejected by hygienic_title's `not t.endswith(":")`
     # clause, not by `is_junk_title` (is_junk_title("Set List:") is False —
     # it has no duration/disc/total-time shape). This test alone would still
-    # pass if `is_junk_title` were dropped from _hygienic entirely; see
+    # pass if `is_junk_title` were dropped from hygienic_title entirely; see
     # test_hygiene_rejects_via_is_junk_title_specifically below for a case
     # that isolates that clause.
     canonical = _gap_items(("Alpha", "1", False), ("Set List:", "1", False),
@@ -1788,7 +1788,7 @@ def test_hygiene_rejects_a_junk_item():
 
 
 def test_hygiene_rejects_via_is_junk_title_specifically():
-    """A title that clears every OTHER _hygienic clause but is rejected
+    """A title that clears every OTHER hygienic_title clause but is rejected
     because `is_junk_title` says so, and for no other reason — proof that
     the `not is_junk_title(t)` clause is load-bearing (see mutation evidence
     in the task-2 report). "Disc Two" matches setlist.is_junk_title's
@@ -1878,3 +1878,58 @@ def test_songish_coverage_excludes_setlist_sourced_tracks_too():
     matched = [True, True, False]
     coverage = structure._songish_coverage(tracks, matched)
     assert coverage == 0.5
+
+
+# ---------------------------------------------------------------------------
+# `loosely_same_title` -- the sibling guard's comparator
+# ---------------------------------------------------------------------------
+
+from llama.structure import LOOSE_TITLE_RATIO, loosely_same_title
+
+
+def test_loosely_same_title_equates_normalized_spellings():
+    assert loosely_same_title("Truckin'", "Truckin")
+    assert loosely_same_title("Me & My Uncle", "Me and My Uncle")
+
+
+def test_loosely_same_title_accepts_a_dropped_parenthetical_either_way():
+    """Containment, not subphrase: `fuzzy_title_eq`'s two-word floor would
+    reject this pair, and the guard must not fire on a taper's annotation."""
+    assert loosely_same_title("Sugaree", "Sugaree (encore)")
+    assert loosely_same_title("Sugaree (encore)", "Sugaree")
+
+
+def test_loosely_same_title_accepts_a_spelling_variant_on_the_ratio():
+    # ratio 0.833 -- the arm that exists so the guard fires on alignment
+    # errors rather than on orthography. Pins LOOSE_TITLE_RATIO from above:
+    # raising it past 0.833 fails this.
+    assert loosely_same_title("Mister Charlie", "Mr. Charlie")
+
+
+def test_loosely_same_title_misses_an_initialism_known_limit():
+    """KNOWN LIMIT, pinned not fixed. Taper initialisms score far below the
+    ratio; a disagreement here is the comparator's miss, not the alignment's
+    (10.1% of measured anchor disagreements are exactly this)."""
+    assert not loosely_same_title("BIODTL", "Beat It On Down The Line")
+
+
+def test_loosely_same_title_misses_the_rain_go_away_near_miss_known_limit():
+    # ratio 0.774 -- the measured near-miss, documented in the spec as a known
+    # comparator limit rather than a reason to lower the bound. Pins
+    # LOOSE_TITLE_RATIO from below: dropping it to 0.75 fails this.
+    assert not loosely_same_title("Rain Please Go Away", "Rain go away (?)")
+
+
+def test_loosely_same_title_rejects_two_different_songs():
+    assert not loosely_same_title("Dark Star", "Sugar Magnolia")
+    assert not loosely_same_title("Golf", "Foxtrot")
+
+
+def test_loosely_same_title_rejects_an_empty_side():
+    # "" is contained in everything; an untitled side is not agreement.
+    assert not loosely_same_title("", "Sugaree")
+    assert not loosely_same_title("Sugaree", "   ")
+
+
+def test_loose_title_ratio_is_the_measured_bound():
+    assert LOOSE_TITLE_RATIO == 0.80

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
+from llama.titles import clean_tag_titles
 
 FIXTURE = Path(__file__).parent / "fixtures" / "gd73_metadata.json"
 
@@ -204,3 +205,85 @@ def test_lossless_title_formats_is_broader_than_the_delivery_formats():
     and adding it to delivery would change what llama ships."""
     assert "Shorten" in LOSSLESS_TITLE_FORMATS
     assert "Shorten" not in FORMAT_BY_AUDIO["flac"]
+
+
+def test_duplicate_listing_keeps_the_titled_copy():
+    """Some archive.org items list every track twice - once at top level,
+    once under an <identifier>/ prefix - with identical durations and a
+    title on only one copy (ymsb2005's donor: 56 files for 28 tracks). The
+    prefix "band99" is chosen so its own leading text before a digit ("band")
+    matches the filename's ("band1t01.mp3" -> stem "band"), the same reason
+    real archive.org identifiers collide with their own track filenames'
+    naming convention - otherwise the mismatched copy would be dropped by
+    the filename-convention arm before dedupe ever sees it."""
+    files = [
+        _mp3("band1t01.mp3", length="300.0"),
+        {**_mp3("band99/band1t01.mp3", length="300.0"), "title": "Alpha"},
+    ]
+    kept, excluded, _ = filter_files(files)
+    assert len(kept) == 1
+    assert clean_tag_titles(kept) == ["Alpha"]
+    dropped = next(e for e in excluded if e["filename"] == "band1t01.mp3")
+    assert dropped["reasons"] == ["duplicate-listing"]
+
+
+def test_same_basename_different_duration_both_kept():
+    """Two files sharing a basename but with different lengths are different
+    tracks, not a duplicate listing - both must survive."""
+    files = [
+        _mp3("band1t01.mp3", length="180.0"),
+        _mp3("band99/band1t01.mp3", length="420.0"),
+    ]
+    kept, excluded, _ = filter_files(files)
+    assert {f["name"] for f in kept} == {"band1t01.mp3", "band99/band1t01.mp3"}
+    assert not any("duplicate-listing" in e["reasons"] for e in excluded)
+
+
+def test_dedupe_runs_before_play_order_derivation():
+    """Play order must be derived from the DEDUPED list, per the brief. With
+    both duplicate pairs still present the two "1" track tags (and the two
+    "2"s) are non-unique, so ordering falls back to filename order; only
+    once the duplicates collapse do the tags become unique and
+    order_source can read "track-tags". (Here the titled copies are the
+    prefixed ones and win the swap - the real ymsb2005 item is the other
+    way around, with the top-level copies carrying the tags; either
+    direction should collapse onto whichever copy has a title.)"""
+    files = [
+        _mp3("band1t02.mp3", track="2", length="300.0"),
+        _mp3("band1t01.mp3", track="1", length="180.0"),
+        {**_mp3("band99/band1t01.mp3", track="1", length="180.0"), "title": "Alpha"},
+        {**_mp3("band99/band1t02.mp3", track="2", length="300.0"), "title": "Beta"},
+    ]
+    kept, _, ordering = filter_files(files)
+    assert ordering["order_source"] == "track-tags"
+    assert [f["name"] for f in kept] == ["band99/band1t01.mp3", "band99/band1t02.mp3"]
+
+
+def test_dedupe_runs_after_junk_filtering():
+    """Dedupe must run AFTER _keep_and_exclude for the winning format, not
+    on the raw file list: a titled copy of bad provenance must never win
+    the swap and displace the clean untitled original, or the track would
+    be junk-filtered away entirely instead of surviving as the clean
+    copy."""
+    files = [
+        _mp3("band1t01.mp3", length="300.0"),
+        {**_mp3("band99/band1t01.mp3", length="300.0", source="mystery"),
+         "title": "Alpha"},
+    ]
+    kept, _, _ = filter_files(files)
+    assert [f["name"] for f in kept] == ["band1t01.mp3"]
+
+
+def test_clean_item_byte_identical_through_filter_files():
+    """An item with no duplicate listings must pass through unchanged: same
+    kept objects (not copies), same names, no duplicate-listing reasons."""
+    files = load_files()
+    kept, excluded, _ = filter_files(files)
+    assert [f["name"] for f in kept] == [
+        "gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3",
+        "gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3",
+    ]
+    assert not any("duplicate-listing" in e["reasons"] for e in excluded)
+    by_name = {f["name"]: f for f in files}
+    for f in kept:
+        assert f is by_name[f["name"]]

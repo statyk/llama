@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -9,6 +10,7 @@ from herder import FakeProvider
 from llama.cli import app
 from llama.models import Candidate, Provenance, RecordingSummary, Show
 from llama.stages.gather import run_gather
+from llama.util import length_seconds
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
 runner = CliRunner()
@@ -28,6 +30,19 @@ class StubIA:
 
     def metadata(self, identifier):
         return self.md
+
+
+class MultiIA:
+    """Serves per-identifier metadata -- for fixtures with a donor recording
+    alongside the target (Task 6: the sibling-arm tests). Copied from
+    test_stage_gather.py's own copy, same rationale as `StubIA` above: a
+    private test double, not a shared production interface."""
+
+    def __init__(self, mapping):
+        self.mapping = mapping
+
+    def metadata(self, identifier):
+        return self.mapping[identifier]
 
 
 def _ymsb_candidate():
@@ -761,3 +776,604 @@ def test_format_proposal_row_trichotomy_is_distinct():
     assert "forced" not in rendered["filler"]
     assert "12" in rendered["matched"]   # the margin_sec value renders as a number
     assert "(unresolved - hand-edit)" in rendered["filler"]
+
+
+# ===========================================================================
+# Task 6: the sibling-transfer arm of `--suggest-titles` / triage `[t]`.
+#
+# Donor fixtures are synthesized directly (archive.org-shaped file dicts,
+# `MultiIA` serving per-identifier metadata) rather than captured, since no
+# real fixture exercises a tagged sibling of an otherwise-untagged tape.
+# Every alignment below was verified against the real `siblings.propose_rows`
+# / `rate_alignment` before being encoded as an assertion (not just asserted
+# and hoped): see task-6-report.md for the scratch runs.
+# ===========================================================================
+
+def _ymsb_sibling_donor(md, ident="ymsb2005-12-31.aud.sibling"):
+    """A tagged donor recording for the real untagged ymsb2005 tape: one
+    real (placeholder) title per kept file, 1:1 by duration, except:
+    - track 9 (12:30) -- split into two donor songs summing to the same
+      duration, the merged "A > B" row the untagged-fixture acceptance test
+      pins;
+    - track 2 -- offset +12s from the target's real duration (fix round 1,
+      I3: a fixture whose donor durations all match exactly cannot tell
+      "residual computed correctly" from "residual hard-coded to 0.0" --
+      the identical defect this phase already shipped once in the same
+      field -- so this row's residual must render a specific non-zero
+      number, never a degenerate one);
+    - track 15 -- a blank title, declining "sibling track untitled" (fix
+      round 1, I2: a fixture that never produces a decline cannot pin that
+      declined runs render their reason instead of a silent hole).
+    What matters to the DP is duration correspondence, not song
+    authenticity, so titles are plain `Song NN` placeholders."""
+    audio = sorted((f for f in md["files"] if f.get("format") == "VBR MP3"),
+                   key=lambda f: f["name"])
+    donor_files = []
+    for i, f in enumerate(audio):
+        if i == 8:                              # track 9: 12:30 -> two donor songs
+            donor_files.append({"name": f"{ident}d1t{i + 1:02d}a.mp3", "format": "VBR MP3",
+                                "source": "original", "length": "400",
+                                "title": "Song 09a"})
+            donor_files.append({"name": f"{ident}d1t{i + 1:02d}b.mp3", "format": "VBR MP3",
+                                "source": "original", "length": "350",
+                                "title": "Song 09b"})
+        elif i == 1:                            # track 2: +12s offset (I3)
+            dur = length_seconds(f["length"]) + 12.0
+            donor_files.append({"name": f"{ident}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                                "source": "original", "length": str(dur),
+                                "title": "Song 02"})
+        elif i == 14:                           # track 15: blank title (I2)
+            dur = length_seconds(f["length"])
+            donor_files.append({"name": f"{ident}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                                "source": "original", "length": str(dur),
+                                "title": ""})
+        elif i in (2, 3):
+            # tracks 3-4: real, mutually-DISSIMILAR titles rather than the
+            # `Song NN` template (I1) -- every `Song NN` string is >= 0.80
+            # SequenceMatcher-similar to every other one (differs by a
+            # single digit), so a canonical item drawn from that template
+            # would `loosely_same_title`-match ALL 23 adopted rows at once
+            # (measured: 23/23, not the intended 2/23) and the coverage
+            # figure could not be non-degenerate no matter which two donor
+            # titles the test's description quoted. "Ripple"/"Casey Jones"
+            # share no textual similarity with "Song NN" or each other.
+            dur = length_seconds(f["length"])
+            title = "Ripple" if i == 2 else "Casey Jones"
+            donor_files.append({"name": f"{ident}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                                "source": "original", "length": str(dur),
+                                "title": title})
+        else:
+            dur = length_seconds(f["length"])
+            donor_files.append({"name": f"{ident}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                                "source": "original", "length": str(dur),
+                                "title": f"Song {i + 1:02d}"})
+    return ident, {"metadata": {"identifier": ident, "description": ""},
+                   "files": donor_files}
+
+
+def _bad_ymsb_donor(md, ident="ymsb2005-12-31.aud.bad-donor"):
+    """A donor with the SAME durations as the real ymsb tape but titles that
+    agree with nothing -- for the below-FLOOR-donor tests. Same durations
+    means the DP still pairs 1:1 with high confidence; the disagreement is
+    entirely in the titles, which is what `rate_alignment` actually rates."""
+    sib = {"metadata": {"identifier": ident, "description": ""},
+           "files": [dict(f) for f in md["files"]]}
+    audio = sorted((f for f in sib["files"] if f.get("format") == "VBR MP3"),
+                   key=lambda f: f["name"])
+    for i, f in enumerate(audio):
+        f["title"] = f"Wrong Song {i + 1}"
+    return ident, sib
+
+
+def test_untagged_fixture_with_tagged_donor_renders_sibling_proposal(tmp_path, monkeypatch):
+    """The phase's trigger case, end to end: ymsb2005's real untagged tape,
+    now paired with a tagged sibling. Zero of the target's own 24 tracks
+    carry a tag, so `rate_alignment` finds zero anchors and routes to the
+    "no-anchors" band -- one of the three bands the sibling arm renders from
+    (invariant: rows render despite zero anchors, the opposite of what
+    `cplus_filter` would do here -- see the named-mutation tests below).
+    Track 9 pins the merge: the donor's single 12:30 file was split into two
+    donor songs summing to the same duration, so only a real DP -- never a
+    positional/count-based transfer -- can produce the "A > B" join.
+
+    Fix round 1 additions, all reviewer-verified hollow before this change
+    (68/68 green under each mutant):
+    - I1: the no-anchors block (donor id, coverage figure, head-row caution)
+      used to be entirely deletable -- `"no-anchors" in result.output` was
+      satisfied by the header line alone. Now pinned on the literal caution
+      text, the donor identifier, and a NON-degenerate coverage figure (the
+      description below deliberately embeds "Song 01" and "Song 24" so the
+      figure is 2/23, never the vacuous 0/24 a `return 0, len(adopted)`
+      stub could also produce).
+    - I2/m1: track 15's donor title is blank (`_ymsb_sibling_donor`), so
+      this table has a genuine declined run -- pinned on its reason line
+      rendering (run-shaped, not inline-repeated) and its row showing
+      "(unresolved - hand-edit)", not a silent hole.
+    - I3: track 2's donor duration is offset +12s from the target's real
+      duration, so the residual column must show a SPECIFIC non-zero number
+      on that row (and 0s on an unaffected neighbour) -- the old
+      `\b0s\b` regex could not distinguish a computed residual from a
+      hard-coded `residual_sec=0.0`, the identical defect this phase
+      already shipped once in the same field.
+    """
+    cfg = _cfg(tmp_path)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    # I1: two titles the donor also carries, so the embed-in-canonical
+    # coverage figure is non-degenerate (2 hits of 23 adopted rows -- track
+    # 15 declines, see _ymsb_sibling_donor). Two items against 24 kept files
+    # cannot trip gather's own whole-tape "setlist" rung (which needs an
+    # exact count match), so the target tracks stay unresolved exactly as
+    # before this change.
+    md["metadata"]["description"] = "Ripple &gt; Casey Jones"
+    donor_ident, donor_md = _ymsb_sibling_donor(md)
+    cand = _ymsb_candidate()
+    cand.recordings.append(RecordingSummary(identifier=donor_ident))
+    sws = ShowWorkspace(tmp_path / "shows" / "ymsb2005-12-31")
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    ia_map = {"ymsb2005-12-31.flac16.wav": md, donor_ident: donor_md}
+    run_gather(sws, MultiIA(ia_map), FakeProvider(), cand, "ymsb2005-12-31.flac16.wav")
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: MultiIA(ia_map))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "sibling-align" in result.output
+    assert "no-anchors" in result.output
+
+    # I1: the no-anchors block's three pieces of evidence, verbatim.
+    assert f"donor {donor_ident}" in result.output
+    assert "embeds in canonical setlist: 2/23 (9%)" in result.output
+    assert "caution: check track 1 by ear" in result.output
+
+    # I2/m1: track 15's decline reason renders as its own run-shaped line,
+    # and the row itself shows the unresolved placeholder, not a hole.
+    assert "track 15: sibling track untitled" in result.output
+    assert any(ln.strip().startswith("15.") and "(unresolved - hand-edit)" in ln
+              for ln in result.output.splitlines())
+
+    # I3: a SPECIFIC non-zero residual on track 2, distinct from its
+    # unaffected neighbour (track 1, exact duration match).
+    row1 = next(ln for ln in result.output.splitlines() if ln.strip().startswith("1."))
+    row2 = next(ln for ln in result.output.splitlines() if ln.strip().startswith("2."))
+    assert "0s" in row1
+    assert "12s" in row2 and "0s" not in row2
+
+    ov = read_overrides(sws)
+    # >= 3 exact titles, including the merged "A > B" row.
+    assert ov.titles[1] == "Song 01"
+    assert ov.titles[2] == "Song 02"
+    assert ov.titles[9] == "Song 09a > Song 09b"
+    assert ov.titles[24] == "Song 24"
+    assert 15 not in ov.titles   # I2: a declined row never reaches the write
+
+
+def test_operator_band_sibling_titles_diverge_from_the_canonical_dp(tmp_path, monkeypatch):
+    """The named-mutation-B fixture. `_staged_anchored_ymsb_show`'s canonical
+    DP is FEASIBLE (its 3 interior gaps are count-forced between real
+    anchors -- `test_below_floor_donor_with_usable_canonical_falls_through_to_dp`
+    already pins its exact output: `ANCHORED_GAPS`). This test's donor
+    agrees with 16 of 21 real anchors (0.762, FLOOR <= x < AUTO -> operator
+    band -- NOT auto, so gather itself never auto-fills these tracks) but
+    tags the 3 gap positions with placeholder text instead of the real
+    song names, so the sibling arm's own proposal for those 3 tracks is
+    GUARANTEED to differ from the canonical DP's ("Steep Grade Sharp
+    Curves" etc.) -- unlike the untagged-fixture fixture above, whose
+    canonical DP is structurally infeasible either way (a wholly-unresolved
+    tape is one run spanning the whole tape, and `structure.gap_span` has no
+    trailing-edge branch, so `_unaccounted` always declines it regardless of
+    which arm runs first -- verified directly, see task-6-report.md) and so
+    cannot demonstrate this mutation on title content at all."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    audio = sorted((f for f in md["files"] if f.get("format") == "VBR MP3"),
+                   key=lambda f: f["name"])
+    show = read_model(sws.show, Show)
+    donor_ident = "ymsb2005-12-31.aud.divergent"
+    wrong_positions = {2, 6, 10, 15, 21}   # 0-based: 5 of 21 anchors disagree
+    donor_files = []
+    for i, f in enumerate(audio):
+        pos1 = i + 1
+        if pos1 in ANCHORED_GAPS:
+            title = f"Placeholder {pos1}"
+        elif i in wrong_positions:
+            title = "Some Wrong Title"
+        else:
+            title = show.tracks[i].title
+        donor_files.append({"name": f"{donor_ident}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                            "source": "original", "length": f["length"], "title": title})
+    donor_md = {"metadata": {"identifier": donor_ident, "description": ""},
+               "files": donor_files}
+    cand = _ymsb_candidate()
+    cand.recordings.append(RecordingSummary(identifier=donor_ident))
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    ia_map = {"ymsb2005-12-31.flac16.wav": md, donor_ident: donor_md}
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: MultiIA(ia_map))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "band operator" in result.output
+    ov = read_overrides(sws)
+    assert ov.titles == {5: "Placeholder 5", 14: "Placeholder 14", 20: "Placeholder 20"}
+    # the canonical DP's own (real) titles for the same 3 tracks, pinned by
+    # test_below_floor_donor_with_usable_canonical_falls_through_to_dp --
+    # content-different from what was actually written above.
+    assert ANCHORED_GAPS == {5: "Steep Grade Sharp Curves", 14: "Jack London",
+                             20: "Ewe With The Crooked Horn"}
+    assert set(ov.titles.values()).isdisjoint(ANCHORED_GAPS.values())
+
+
+def test_delmccoury_shaped_operator_band_confirms_only_unresolved_rows(tmp_path, monkeypatch):
+    """13 anchors, 4 disagreeing (9/13 = 69% agreement, FLOOR <= x < AUTO):
+    the operator band. Tracks 14-15 carry no tag of their own -- the sibling
+    arm proposes real titles for them too, and confirmation must write ONLY
+    those two into overrides.titles, never the 13 anchor tracks (even the
+    4 disagreeing ones, whose OWN rows also carry an "adopt" verdict from
+    the DP -- the `title_source == "unresolved"` gate is what excludes them,
+    exactly as it does for the canonical DP's own picks).
+
+    The description is DELIBERATELY split into two variants of the same
+    dict: an empty one fed to the initial `run_gather` (so gather's own
+    whole-tape "setlist" rung cannot positionally resolve tracks 14-15 before
+    this test ever gets to exercise the sibling arm -- verified directly: a
+    populated description at gather time resolves them via "setlist"
+    instead, leaving nothing "unresolved" for `--suggest-titles` to act on),
+    and the real chained description for the LATER `--suggest-titles`
+    invocation, which needs a real canonical to render the three-way
+    disagreement's "setlist:" column."""
+    cfg = _cfg(tmp_path)
+    nato = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf",
+           "Hotel", "India", "Juliett", "Kilo", "Xray", "Mike"]
+    extra = ["Beaumont Rag", "Sally Goodin"]
+    donor_titles = nato + extra
+    durs = [200.0 + 30.0 * i for i in range(15)]
+    wrong = {3: "Dire Wolf", 7: "Casey Jones", 9: "Ripple", 11: "Loser"}
+    ident = "delmccoury2001-07-01.sbd.example.flac16"
+    donor_ident = "delmccoury2001-07-01.aud.sibling"
+
+    def files(prefix, titles):
+        out = []
+        for i, dur in enumerate(durs):
+            f = {"name": f"{prefix}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                "source": "original", "length": str(dur)}
+            if titles[i] is not None:
+                f["title"] = titles[i]
+            out.append(f)
+        return out
+
+    target_titles = [wrong.get(i, nato[i]) if i < 13 else None for i in range(15)]
+    target_files = files(ident, target_titles)
+    description = " &gt; ".join(donor_titles)
+    meta_common = {"identifier": ident, "venue": "Wolf Trap Filene Center",
+                   "coverage": "Vienna, VA"}
+    md_gather = {"metadata": dict(meta_common, description=""),
+                "files": [dict(f) for f in target_files]}
+    md_cli = {"metadata": dict(meta_common, description=description),
+             "files": [dict(f) for f in target_files]}
+    donor_md = {"metadata": {"identifier": donor_ident, "description": ""},
+               "files": files(donor_ident, donor_titles)}
+
+    cand = Candidate(performance_id="DelMcCouryBand/2001-07-01", collection="DelMcCouryBand",
+                     date="2001-07-01", venue="Wolf Trap Filene Center", city="Vienna, VA",
+                     recordings=[RecordingSummary(identifier=ident),
+                                RecordingSummary(identifier=donor_ident)])
+    sws = ShowWorkspace(tmp_path / "shows" / "delmccoury2001-07-01")
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    run_gather(sws, MultiIA({ident: md_gather, donor_ident: donor_md}),
+              FakeProvider(), cand, ident)
+    monkeypatch.setattr(
+        cli, "IAClient",
+        lambda *a, **k: MultiIA({ident: md_cli, donor_ident: donor_md}))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+
+    result = cli_invoke(cfg, "fix", "delmccoury2001-07-01", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "band operator" in result.output
+    # the three-way disagreement block lists all 4 disagreeing tracks, each
+    # with tape / sibling / setlist all present.
+    for track, tape_title, sibling_title in (
+            (4, "Dire Wolf", "Delta"), (8, "Casey Jones", "Hotel"),
+            (10, "Ripple", "Juliett"), (12, "Loser", "Xray")):
+        line = next(l for l in result.output.splitlines() if l.strip().startswith(f"t{track} "))
+        assert f"tape: {tape_title!r}" in line
+        assert f"sibling: {sibling_title!r}" in line
+        assert f"setlist: {sibling_title!r}" in line   # canonical agrees with the sibling here
+
+    ov = read_overrides(sws)
+    assert ov.titles == {14: "Beaumont Rag", 15: "Sally Goodin"}
+
+
+def _ymsb_canonical_items(md, cand, artist):
+    """The canonical setlist `--suggest-titles` will itself rebuild for this
+    fixture -- computed by calling the real `build_canonical` the same way
+    the CLI path does, rather than hardcoding a parsed setlist that could
+    drift away from it. Copied from the pattern `_staged_anchored_ymsb_show`
+    already uses (below), since these below-FLOOR tests need the same real
+    anchor titles without going through that helper's own donor-less
+    staging."""
+    from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.stages.gather import build_canonical
+    kept, _, _ = filter_files(md.get("files", []), want_format=FORMAT_BY_AUDIO["flac"])
+    return build_canonical(StubIA(md), cand, "ymsb2005-12-31.flac16.wav",
+                           md.get("metadata", {}), kept, artist, [],
+                           setlistfm=None, provider=None).setlist.items
+
+
+def test_below_floor_donor_with_no_usable_canonical_declines_unchanged(tmp_path, monkeypatch):
+    """A donor is present and has real anchors to disagree with (21 of 24
+    tracks tag-titled, all disagreeing -> agreement 0.0 < FLOOR -> declined
+    band), but the canonical setlist is unparseable. The sibling arm must
+    decline (band != operator/auto/no-anchors) and fall through; the
+    existing "no usable canonical setlist" decline path -- unchanged --
+    is what must still fire, not a crash and not a different message."""
+    cfg = _cfg(tmp_path)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    cand = _ymsb_candidate()
+    sws = ShowWorkspace(tmp_path / "shows" / "nocanon-anchored")
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    show = run_gather(sws, StubIA(md), FakeProvider(), cand, "ymsb2005-12-31.flac16.wav")
+    items = _ymsb_canonical_items(md, cand, show.artist)
+    tagged = []
+    for t in show.tracks:
+        title = (f"{items[0].title} > {items[1].title}" if t.index == 1
+                 else (items[t.index].title if t.index < len(items) else None))
+        tagged.append(t if (t.index in ANCHORED_GAPS or title is None) else
+                      t.model_copy(update={"title": title, "title_source": "tags"}))
+    write_artifact(sws.show, show.model_copy(update={"tracks": tagged}))
+
+    donor_ident, donor_md = _bad_ymsb_donor(md)
+    cand2 = _ymsb_candidate()
+    cand2.recordings.append(RecordingSummary(identifier=donor_ident))
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand2.performance_id, run="r1", dossier="great",
+        candidate=cand2, processed_at="2026-08-31T00:00:00+00:00"))
+
+    md_unusable = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    md_unusable["metadata"]["description"] = "A great night. Recorded from the balcony."
+    ia_map = {"ymsb2005-12-31.flac16.wav": md_unusable, donor_ident: donor_md}
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: MultiIA(ia_map))
+    result = cli_invoke(cfg, "fix", "nocanon-anchored", "--suggest-titles")
+    assert "no usable canonical setlist" in result.output
+    assert read_overrides(sws).titles == {}
+
+
+def test_below_floor_donor_with_usable_canonical_falls_through_to_dp(tmp_path, monkeypatch):
+    """Same below-FLOOR donor, but this time the canonical setlist IS usable
+    (`_staged_anchored_ymsb_show`'s real fixture). The sibling arm must
+    decline and fall through to the canonical DP -- pinned on the proposal's
+    OWN evidence_source, not merely on the titles landing right: the header
+    line the DP path echoes never says "sibling-align" (it says
+    "duration-model" or "sibling-duration"), so a regression that made the
+    declined donor win anyway would show up as a wrong evidence tag before
+    it ever showed up as a wrong title."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    donor_ident, donor_md = _bad_ymsb_donor(md)
+    cand = _ymsb_candidate()
+    cand.recordings.append(RecordingSummary(identifier=donor_ident))
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    ia_map = {"ymsb2005-12-31.flac16.wav": md, donor_ident: donor_md}
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: MultiIA(ia_map))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "sibling-align" not in result.output
+    assert "proposal (duration-model)" in result.output or "proposal (sibling-duration)" in result.output
+    ov = read_overrides(sws)
+    assert ov.titles == ANCHORED_GAPS
+
+
+def test_suggest_titles_c1_staleness_guard_still_fires_before_donor_work(tmp_path, monkeypatch):
+    """C1's staleness guard must refuse BEFORE the sibling arm ever loads a
+    donor -- a stale `show.json` makes the track numbering untrustworthy for
+    either arm, and the guard's whole point is to decline before either one
+    touches it."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    victim = read_model(sws.show, Show).tracks[0].filename
+    stage_result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--exclude", victim, "--no-run")
+    assert stage_result.exit_code == 0, stage_result.output
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)   # would say yes
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert "show.json is stale relative to overrides.json" in result.output
+    assert read_overrides(sws).titles == {}
+    assert "proposal (" not in result.output
+
+
+def test_weak_evidence_decline_keeps_the_dp_candidate_out_of_the_write(tmp_path, monkeypatch):
+    """I4 (fix round 1). `siblings.SiblingRow`'s own docstring: a weak-
+    evidence decline "keeps [its proposed title] so the operator path can
+    render what the DP thought." This test bypasses `gather.load_donor_tapes`/
+    `propose_rows` (via a `gather.best_donor` monkeypatch) and hands
+    `_sibling_proposal` the EXACT rows
+    `test_siblings.py::test_near_ambiguous_pairing_declines_on_weak_evidence`
+    already unit-tests: track 1 declines "weak evidence (penalty 20s)" with
+    `proposed="Alpha > Crowd Noise"` (a 25s inter-song fragment absorbed into
+    a merge whose exclusion penalty is under MIN_EXCLUSION_PENALTY), track 2
+    the same at "Bravo". That donor cannot be routed through a real
+    recording here -- `filter_files`'s duration floor excludes a 25s file
+    relative to the other ~300-500s tracks (verified directly: the identical
+    fixture built as an actual donor recording produces NO fragment, NO
+    merge and NO decline at all, because the fragment never survives
+    junk-filtering) -- so this test is deliberately about
+    `_sibling_proposal`'s rendering/write-gating of an ALREADY-weak-evidence
+    row, not about whether `propose_rows` finds one (that part is
+    unit-tested already).
+
+    The property that actually matters is not the rendering (a reviewer
+    could satisfy an assertion on the printed note by any means) but that
+    a declined title -- even one the DP put a candidate string on -- can
+    NEVER reach `overrides.titles`, a durable on-disk artifact. `picks` is
+    built off the raw `SiblingRow.verdict`, never off whether
+    `ProposalRow.title` happens to be non-empty, so this stays true even if
+    a later change makes `title` render something for a decline."""
+    from llama.siblings import DonorTape, GuardResult, SiblingRow
+    from llama.stages import gather as gather_mod
+
+    cfg = _cfg(tmp_path)
+    ident = "weakevidence2011-05-01.sbd.example.flac16"
+    target_durs = [310.0, 420.0, 510.0, 360.0]
+    md = {"metadata": {"identifier": ident, "description": "",
+                       "venue": "The Ballroom", "coverage": "Elsewhere, ZZ"},
+         "files": [{"name": f"{ident}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                    "source": "original", "length": str(d)}
+                   for i, d in enumerate(target_durs)]}
+    cand = Candidate(performance_id="WeakEvidenceBand/2011-05-01", collection="WeakEvidenceBand",
+                     date="2011-05-01", venue="The Ballroom", city="Elsewhere, ZZ",
+                     recordings=[RecordingSummary(identifier=ident)])
+    sws = ShowWorkspace(tmp_path / "shows" / "weakevidence2011-05-01")
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    run_gather(sws, StubIA(md), FakeProvider(), cand, ident)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA(md))
+
+    donor = DonorTape(identifier="weak.donor", names=["d1", "d2", "d3", "d4", "d5"],
+                      durations=[300.0, 25.0, 420.0, 510.0, 360.0],
+                      titles=["Alpha", "Crowd Noise", "Bravo", "Charlie", "Delta"])
+    rows = [
+        SiblingRow(1, "Alpha > Crowd Noise", (0, 2), 15.0, 20.0, "decline",
+                  "weak evidence (penalty 20s)"),
+        SiblingRow(2, "Bravo", (2, 3), 0.0, 20.0, "decline",
+                  "weak evidence (penalty 20s)"),
+        SiblingRow(3, "Charlie", (3, 4), 0.0, 720.0, "adopt"),
+        SiblingRow(4, "Delta", (4, 5), 0.0, 720.0, "adopt"),
+    ]
+    res = GuardResult(None, 0, [], "no-anchors")
+    monkeypatch.setattr(gather_mod, "best_donor", lambda *a, **k: (donor, rows, res, []))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "weakevidence2011-05-01", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+
+    # the rendering: reason AND the DP's candidate text, on an otherwise
+    # blank ("unresolved - hand-edit") row.
+    assert "weak evidence (penalty 20s) - DP proposed 'Alpha > Crowd Noise'" in result.output
+    row1 = next(ln for ln in result.output.splitlines() if ln.strip().startswith("1."))
+    assert "(unresolved - hand-edit)" in row1
+
+    # the property: the declined candidate never reaches the durable write.
+    ov = read_overrides(sws)
+    assert ov.titles == {3: "Charlie", 4: "Delta"}
+    assert 1 not in ov.titles and 2 not in ov.titles
+
+
+def test_best_donor_picks_the_higher_agreement_donor_not_the_worse_one(tmp_path, monkeypatch):
+    """I5 (fix round 1). Two qualifying donors: A agrees fully with the
+    tape's one real anchor and proposes real titles for the two unresolved
+    tracks; B disagrees on that same anchor AND its own titles for the
+    unresolved tracks are too short to be real titles ("XX"/"YY"), so it
+    declines both of them outright. Both land in the `operator` band (one
+    anchor is always below MIN_ANCHORS, so the ratio never decides the
+    band) -- the winner is decided purely by `_donor_key`'s agreement
+    ranking (1.0 vs 0.0). `gather.best_donor` is the ONE place that
+    ranking now happens (fix round 1, I5) -- previously `cli.py` carried
+    its own copy of the same four-step loop, and a reviewer mutation that
+    reversed the CLI's own sort (picking donor B) passed 68/68 because no
+    fixture had two donors to tell them apart. This is that fixture."""
+    cfg = _cfg(tmp_path)
+    ident = "twodoors2012-02-02.sbd.example.flac16"
+    donor_a_ident = "twodoors2012-02-02.aud.good"
+    donor_b_ident = "twodoors2012-02-02.aud.bad"
+    durs = [300.0, 420.0, 510.0]
+
+    def files(prefix, titles):
+        out = []
+        for i, dur in enumerate(durs):
+            f = {"name": f"{prefix}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                "source": "original", "length": str(dur)}
+            if titles[i] is not None:
+                f["title"] = titles[i]
+            out.append(f)
+        return out
+
+    meta_common = {"identifier": ident, "venue": "The Hall", "coverage": "Nowhere, ZZ"}
+    md = {"metadata": dict(meta_common, description=""),
+         "files": files(ident, ["Alpha", None, None])}
+    donor_a_md = {"metadata": {"identifier": donor_a_ident, "description": ""},
+                 "files": files(donor_a_ident, ["Alpha", "Bravo", "Charlie"])}
+    donor_b_md = {"metadata": {"identifier": donor_b_ident, "description": ""},
+                 "files": files(donor_b_ident, ["Wrong", "XX", "YY"])}
+    cand = Candidate(performance_id="TwoDonorsBand/2012-02-02", collection="TwoDonorsBand",
+                     date="2012-02-02", venue="The Hall", city="Nowhere, ZZ",
+                     recordings=[RecordingSummary(identifier=ident),
+                                RecordingSummary(identifier=donor_a_ident),
+                                RecordingSummary(identifier=donor_b_ident)])
+    sws = ShowWorkspace(tmp_path / "shows" / "twodonors2012-02-02")
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    ia_map = {ident: md, donor_a_ident: donor_a_md, donor_b_ident: donor_b_md}
+    # track 1 already carries "Alpha" from its own tag (title_source="tags"),
+    # matching the fixture design above -- run_gather resolves it from the
+    # file's own tag, independent of either donor.
+    run_gather(sws, MultiIA(ia_map), FakeProvider(), cand, ident)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: MultiIA(ia_map))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "twodonors2012-02-02", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    assert f"donor {donor_a_ident}" in result.output
+    ov = read_overrides(sws)
+    assert ov.titles == {2: "Bravo", 3: "Charlie"}
+
+
+def test_operator_band_donor_untitled_on_the_gaps_falls_through_to_the_dp(tmp_path, monkeypatch):
+    """I6 (spec, fix round 1). An operator-band donor (16 of 21 real anchors
+    agree, 0.762 -- FLOOR <= x < AUTO) that happens to be BLANK on exactly
+    the tape's 3 unresolved tracks: every one of those 3 rows declines
+    "sibling track untitled", so `picks` is empty even though the pair
+    itself was accepted. Before this fix `_sibling_proposal` returned that
+    empty-picks proposal anyway, preempting the canonical DP -- which, on
+    this exact fixture, WOULD have proposed real titles for those same 3
+    tracks (`ANCHORED_GAPS`, independently pinned by
+    `test_below_floor_donor_with_usable_canonical_falls_through_to_dp`).
+    Now it falls through and the DP's titles land instead."""
+    cfg = _cfg(tmp_path)
+    sws = _staged_anchored_ymsb_show(tmp_path, monkeypatch)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    audio = sorted((f for f in md["files"] if f.get("format") == "VBR MP3"),
+                   key=lambda f: f["name"])
+    show = read_model(sws.show, Show)
+    donor_ident = "ymsb2005-12-31.aud.blankgaps"
+    wrong_positions = {2, 6, 10, 15, 21}   # 0-based: 5 of 21 anchors disagree
+    donor_files = []
+    for i, f in enumerate(audio):
+        pos1 = i + 1
+        if pos1 in ANCHORED_GAPS:
+            title = ""                          # blank -> declines, not adopts
+        elif i in wrong_positions:
+            title = "Some Wrong Title"
+        else:
+            title = show.tracks[i].title
+        donor_files.append({"name": f"{donor_ident}d1t{i + 1:02d}.mp3", "format": "VBR MP3",
+                            "source": "original", "length": f["length"], "title": title})
+    donor_md = {"metadata": {"identifier": donor_ident, "description": ""},
+               "files": donor_files}
+    cand = _ymsb_candidate()
+    cand.recordings.append(RecordingSummary(identifier=donor_ident))
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    ia_map = {"ymsb2005-12-31.flac16.wav": md, donor_ident: donor_md}
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: MultiIA(ia_map))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert result.exit_code == 0, result.output
+    # the sibling table WAS built and echoed (useful evidence, per the
+    # design notes) even though it is not what gets adopted from.
+    assert "band operator" in result.output
+    assert "sibling track untitled" in result.output
+    # ... but the canonical DP's own table is what actually confirmed.
+    assert "proposal (duration-model)" in result.output or "proposal (sibling-duration)" in result.output
+    ov = read_overrides(sws)
+    assert ov.titles == ANCHORED_GAPS

@@ -1275,6 +1275,204 @@ def _format_proposal_row(r) -> str:
             f"{margin:>6s}  {shown}")
 
 
+def _sibling_donor_coverage(rows, canonical) -> tuple[int, int]:
+    """How many ADOPTED sibling rows embed in the canonical setlist -- the
+    "tested fallback, useful evidence, known-insufficient guard" figure the
+    design spec calls for on a no-anchors proposal (it missed gd1982-10-10 at
+    92%, hence the head-row caution alongside it, not instead of it). A row
+    embeds when any component of its (possibly merged, "A > B") proposed
+    title loosely matches some canonical item -- this is corroborating
+    evidence, not a second alignment, so it does not need to be at the same
+    position."""
+    from llama.structure import loosely_same_title
+    adopted = [r for r in rows if r.verdict == "adopt" and r.proposed]
+    if not adopted:
+        return 0, 0
+    item_titles = [it.title for it in canonical.items]
+    hits = 0
+    for r in adopted:
+        comps = [c.strip() for c in r.proposed.split(" > ")]
+        if any(loosely_same_title(c, it) for c in comps for it in item_titles):
+            hits += 1
+    return hits, len(adopted)
+
+
+def _sibling_canonical_text(title: str, canonical) -> str:
+    """The canonical setlist's own text for `title` (the sibling's proposal,
+    or the tape's own disagreeing tag), when one of its components loosely
+    matches a canonical item -- the three-way disagreement display's
+    "setlist:" column, from the already-built canonical. "" when nothing
+    matches (spec: "blank when absent")."""
+    from llama.structure import loosely_same_title
+    if not title:
+        return ""
+    comps = [c.strip() for c in title.split(" > ")]
+    for it in canonical.items:
+        if any(loosely_same_title(c, it.title) for c in comps):
+            return it.title
+    return ""
+
+
+def _format_sibling_proposal_row(r) -> str:
+    """One sibling-arm `ProposalRow`, the counterpart of `_format_proposal_row`
+    for the canonical DP. Kept as a separate formatter rather than branching
+    inside one: the two row shapes carry different evidence (residual
+    seconds and a per-row decline note here; margin/forced there), and a
+    shared formatter would need a third trichotomy neither row actually has.
+
+    Fix round 1 (I2/m1): the per-row `note` is deliberately NOT rendered
+    inline here any more -- `_sibling_run_reasons` prints it once per
+    contiguous run instead, so a long declined run reads as one reason line
+    rather than the same bracket repeated on every row (the "checkerboard"
+    a reviewer mutation exposed: 24 identical brackets, one per row)."""
+    shown = r.title or "(unresolved - hand-edit)"
+    resid = f"{r.residual_sec:5.0f}s" if r.residual_sec is not None else "     -"
+    return f"  {r.index:2d}. {_fmt_dur(r.duration_sec):>6s} {resid:>6s}  {shown}"
+
+
+def _sibling_run_reasons(prop_rows) -> list[tuple[int, int, str]]:
+    """Contiguous `prop_rows` sharing the IDENTICAL decline `note`, collapsed
+    to one reason per run -- fix round 1, I2/m1: "declined runs printed with
+    their reason line, not silent holes" means one line per run, not the
+    same bracket repeated on every row of it (a reviewer-verified
+    "checkerboard" hazard: cplus_filter's own reason text, applied under
+    mutation A, printed `[tracks 1-24: not bracketed by agreeing anchors]`
+    24 times).
+
+    Adopted rows (empty `note`) never start or extend a run. Two declined
+    rows with genuinely DIFFERENT notes (e.g. two different weak-evidence
+    penalties) are deliberately NOT collapsed together -- only an exact text
+    match extends a run, so this never hides a real difference to save a
+    line. Returns `(lo, hi, note)` with `lo`/`hi` 0-based positions into
+    `prop_rows` (not `.index` -- the caller reads `.index` off the endpoints
+    itself, the same half-open-adjacent convention `structure.unresolved_runs`
+    uses for its own inclusive `[lo, hi]` runs)."""
+    runs: list[tuple[int, int, str]] = []
+    lo: int | None = None
+    prev_note = ""
+    for i, r in enumerate(prop_rows):
+        declined_with_note = bool(r.note) and not r.title
+        if declined_with_note and lo is not None and r.note == prev_note:
+            continue                                   # extend the current run
+        if lo is not None:
+            runs.append((lo, i - 1, prev_note))
+        lo, prev_note = (i, r.note) if declined_with_note else (None, "")
+    if lo is not None:
+        runs.append((lo, len(prop_rows) - 1, prev_note))
+    return runs
+
+
+def _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical):
+    """Task 6's entry seam: the sibling-transfer arm of
+    `_propose_titles_for_show`, attempted BEFORE the canonical correspondence
+    DP. Loads donors exactly as `gather._sibling_transfer` does and picks the
+    same winner it would (`gather.best_donor` -- fix round 1, I5: this used
+    to re-derive "which donor wins" with its own copy of `propose_rows` ->
+    `rate_alignment` -> `_donor_key` -> sort, and a reviewer mutation that
+    reversed the CLI's own sort (picking the WORST donor) passed the whole
+    suite. `best_donor` is the one definition now, and its extraction also
+    removes the need to import `_donor_key` privately across the module
+    boundary -- `show_metadata_norms` is `gather`'s other cross-boundary
+    dependency, promoted to public for the identical reason fix round 1's
+    reviewers gave (matching Task 3's `structure.hygienic_title` precedent):
+    a leading underscore imported by another module is a false promise that
+    the symbol is free to rename or re-signature.
+
+    Returns `(prop, picks)` when the winning pair reaches the operator,
+    auto, or no-anchors band -- the three bands this surface exists to
+    serve -- AND produces at least one pick. Returns None on a declined pair
+    (evidence of a BAD alignment, not weak evidence of a good one -- gather's
+    own note), when no donor loads at all, or when the winning pair's own
+    picks are EMPTY (fix round 1, I6 -- a spec-compliance finding: an
+    operator-band donor untagged on exactly this tape's unresolved tracks
+    used to preempt the canonical DP with a table nobody could adopt from,
+    silencing a fallback that might have proposed real titles for those
+    same tracks). Any of these three cases falls through to the canonical
+    correspondence DP UNCHANGED -- the sibling table, if one was built, has
+    already been echoed as a side effect by the time this returns None, so
+    an operator still sees it even when the caller discards the return
+    value and shows the DP's table underneath.
+
+    THE RENDERER NEVER CALLS `cplus_filter` -- spec invariant 1, quoted
+    verbatim: "applied to the renderer it would show an untagged tape
+    nothing -- C+ gates adoption, never display." C+ only ever runs inside
+    `gather`, at automatic-adoption time; every row `propose_rows` produced
+    for the winning donor is rendered here, whatever band the pair reached,
+    including rows an operator-band or no-anchors-band donor would never
+    have reached C+ for at all.
+    """
+    from llama.models import ProposalRow, TitleProposal
+    from llama.stages.gather import best_donor, show_metadata_norms
+
+    metadata_norms = show_metadata_norms(show.artist, cand, meta, events)
+    donor, rows, res, notes = best_donor(ia, cand, show.identifier, want,
+                                         show.tracks, metadata_norms)
+    for note in notes:      # m4: a donor that existed and failed to fetch is
+        typer.echo(f"  {note}")  # otherwise indistinguishable from no donor at all
+    if donor is None:
+        return None
+    if res.band not in ("operator", "auto", "no-anchors"):
+        return None    # declined -- fall through to the canonical DP
+
+    prop_rows = []
+    picks: dict[int, str] = {}
+    for row in rows:
+        is_adopt = row.verdict == "adopt"
+        # I4 (fix round 1): a declined row's OWN title column stays blank --
+        # `picks` below gates on `is_adopt` directly (the raw SiblingRow
+        # verdict), never on whether `ProposalRow.title` happens to be
+        # truthy, so a future change to what renders in `title` can never
+        # leak a declined title into `overrides.titles` by itself. What the
+        # SiblingRow docstring asks for -- "the operator path can render
+        # what the DP thought" on a weak-evidence decline -- is honoured in
+        # `note` instead, which never feeds `picks`.
+        note = row.reason
+        if not is_adopt and row.proposed:
+            note = f"{row.reason} - DP proposed {row.proposed!r}"
+        prop_rows.append(ProposalRow(
+            index=row.track, duration_sec=show.tracks[row.track - 1].duration_sec,
+            title=(row.proposed if is_adopt else ""),
+            evidence="sibling-align", residual_sec=row.residual_sec, note=note))
+        if is_adopt and show.tracks[row.track - 1].title_source == "unresolved":
+            picks[row.track] = row.proposed
+    prop = TitleProposal(rows=prop_rows, feasible=True, evidence_source="sibling-align")
+
+    typer.echo(f"{entry.slug}: proposal (sibling-align, donor {donor.identifier}, "
+               f"band {res.band})")
+    for r in prop_rows:
+        typer.echo(_format_sibling_proposal_row(r))
+    for lo, hi, note in _sibling_run_reasons(prop_rows):
+        label = (f"track {prop_rows[lo].index}" if lo == hi
+                else f"tracks {prop_rows[lo].index}-{prop_rows[hi].index}")
+        typer.echo(f"  {label}: {note}")
+
+    if res.disagreements:
+        typer.echo("  anchor disagreements (tape / sibling / setlist):")
+        for d in res.disagreements:
+            setlist_title = _sibling_canonical_text(d.proposed, canonical)
+            typer.echo(f"    t{d.track} tape: {d.tape_title!r} | "
+                      f"sibling: {d.proposed!r} | setlist: {setlist_title!r}")
+
+    if res.band == "no-anchors":
+        hits, total = _sibling_donor_coverage(rows, canonical)
+        pct = f"{hits / total:.0%}" if total else "n/a"
+        typer.echo(f"  no independent anchors on this tape -- donor {donor.identifier}, "
+                   f"embeds in canonical setlist: {hits}/{total} ({pct})")
+        typer.echo("  caution: check track 1 by ear before confirming -- the one "
+                   "measured miss on this path was a head-banner title shifted "
+                   "onto the tape's first track")
+
+    if not picks:
+        # I6: nothing this arm proposed is actually adoptable (e.g. an
+        # operator-band donor untitled on exactly the unresolved tracks) --
+        # fall through so the canonical DP still gets a chance, rather than
+        # preempting it with a table nobody can confirm anything from. The
+        # table above has already been echoed, so it is not lost, only not
+        # authoritative.
+        return None
+    return prop, picks
+
+
 def _propose_titles_for_show(ia, config, entry, show):
     """Build the canonical setlist and render a title-correspondence
     proposal for `show`'s tracks. `build_canonical` is always called with
@@ -1373,6 +1571,15 @@ def _propose_titles_for_show(ia, config, entry, show):
     events = jerrybase.lookup(show.artist, cand.date) if config.jerrybase.enabled else []
     canonical = build_canonical(ia, cand, show.identifier, meta, kept, show.artist, events,
                                 setlistfm=make_client(config), provider=None).setlist
+
+    # Task 6: the sibling-transfer arm, attempted BEFORE the canonical DP.
+    # `canonical` is already built above -- needed either way, since the
+    # sibling arm's own disagreement/coverage display reads it too -- so
+    # trying the sibling arm first costs nothing extra when it declines.
+    sib = _sibling_proposal(ia, entry, show, cand, want, meta, events, canonical)
+    if sib is not None:
+        return sib
+
     prop = propose_titles(
         show.tracks, canonical,
         item_durations=sibling_item_durations(ia, cand, show.identifier, canonical, want))

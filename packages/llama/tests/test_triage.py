@@ -4,6 +4,7 @@ Plan B Task 3: promotes the flagless `show`'s `_interactive_resolve` loop into
 its own command, adding a `[m]etadata` mini-editor and renaming `[c]lear` to
 `[o]verrule`. `show`'s own walkthrough stays in place until Task 4 strips it.
 """
+import json
 from pathlib import Path
 
 import pytest
@@ -11,10 +12,14 @@ import typer.testing as typer_testing
 
 import llama.cli as cli
 from conftest import cli_invoke
-from llama.workspace import read_overrides
+from herder import FakeProvider
+from llama.models import Provenance, RecordingSummary
+from llama.stages.gather import run_gather
+from llama.workspace import ShowWorkspace, read_overrides, write_artifact
 
 from test_catalog import build
-from test_cli import ANCHORED_GAPS, _staged_anchored_ymsb_show, _staged_ymsb_show
+from test_cli import (ANCHORED_GAPS, FIXTURES, MultiIA, _staged_anchored_ymsb_show,
+                      _staged_ymsb_show, _ymsb_candidate, _ymsb_sibling_donor)
 
 PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit"
 
@@ -352,6 +357,36 @@ def test_suggest_titles_resolution_writes_overrides_and_redoes_gather(tmp_path, 
     assert read_overrides(sws).titles == ANCHORED_GAPS
     assert calls == ["gather"]
     assert "packaged: /pkg" in r.output
+
+
+def test_suggest_titles_sibling_arm_shares_the_triage_seam(tmp_path, tty, monkeypatch):
+    """Task 6 (shared-seam pin): triage's `[t]` must reach the sibling arm
+    with zero extra wiring, since it shares `_propose_and_confirm_titles`/
+    `_propose_titles_for_show` with `fix --suggest-titles` rather than a
+    duplicated propose/render/confirm surface (see the module comment
+    above). Reuses `test_cli.py`'s untagged-ymsb-with-donor fixture
+    (no-anchors band, the phase's trigger case) rather than a synthetic
+    stand-in of its own."""
+    cfg = _cfg(tmp_path)
+    md = json.loads((FIXTURES / "ymsb2005_metadata.json").read_text())
+    donor_ident, donor_md = _ymsb_sibling_donor(md)
+    cand = _ymsb_candidate()
+    cand.recordings.append(RecordingSummary(identifier=donor_ident))
+    sws = ShowWorkspace(tmp_path / "shows" / "ymsb2005-12-31")
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    ia_map = {"ymsb2005-12-31.flac16.wav": md, donor_ident: donor_md}
+    run_gather(sws, MultiIA(ia_map), FakeProvider(), cand, "ymsb2005-12-31.flac16.wav")
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: MultiIA(ia_map))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\n")
+    assert r.exit_code == 0, r.output
+    assert "sibling-align" in r.output
+    ov = read_overrides(sws)
+    assert ov.titles[1] == "Song 01"
+    assert ov.titles[9] == "Song 09a > Song 09b"
 
 
 def test_declining_the_triage_proposal_writes_nothing_and_returns_to_the_prompt(

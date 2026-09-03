@@ -46,16 +46,32 @@ def test_tags_win_and_setlist_fills_gaps():
     assert [t.index for t in tracks] == [1, 2, 3, 4, 5, 6]
 
 
-def test_sibling_fallback_when_setlist_misaligned():
+def test_resolve_titles_no_longer_has_a_sibling_fallback():
+    """The old positional "sibling" rung (a same-count sibling recording's
+    titles copied on file-for-file, with zero content verification) was
+    removed from `resolve_titles` -- its `sibling_titles` parameter is gone.
+    A count-mismatched, untagged setlist now falls straight through to
+    unresolved, the same as any other cascade miss. Sibling-recording titles
+    are transferred by the guarded duration-alignment pass
+    (`llama.siblings` + `gather._sibling_transfer`), which runs later in
+    `gather`, not here.
+
+    FIX ROUND 1, m1: the assertions below never pass `sibling_titles`, so
+    restoring the deleted parameter (defaulted to None) as dead code left
+    this test green -- it pinned nothing about the removal. The signature
+    assertion is what actually detects that; the behavioural asserts stay
+    because they are also exercised (more weakly) by
+    test_unresolved_flagged_not_guessed, but the removal itself is pinned
+    here."""
+    import inspect
+
+    assert "sibling_titles" not in inspect.signature(resolve_titles).parameters
+
     files = make_files([None] * 6)
     short = ParsedSetlist(items=make_setlist().items[:3], confidence="high")  # count mismatch
-    tracks = resolve_titles(files, short, sibling_titles=[
-        "Morning Dew", "China Cat Sunflower", "I Know You Rider",
-        "Dark Star", "Eyes of the World", "Johnny B. Goode",
-    ])
-    assert all(t.title_source == "sibling" for t in tracks)
-    # placeholder set - structure stamping moved to gather
-    assert tracks[0].set == "1"
+    tracks = resolve_titles(files, short)
+    assert all(t.title_source == "unresolved" for t in tracks)
+    assert tracks[0].title == "d1t01.mp3"
 
 
 def test_unresolved_flagged_not_guessed():
@@ -99,6 +115,63 @@ def test_clean_tag_title(raw, cleaned):
 ])
 def test_is_real_title(cleaned, real):
     assert is_real_title(cleaned) is real
+
+
+def test_is_real_title_accepts_a_year_like_numeric_title():
+    """A bare 4-digit numeral (a song literally titled after a year, e.g.
+    Mike Watt's Clash cover "1977" or Stooges cover "1970") is a real title,
+    not filename/date residue.
+
+    scripts/numeric_title_census.py (2026-09-02, corrected in fix round 1
+    over the 2,095-item iacache corpus, 2,064 with kept files) found exactly
+    3 pure-4-digit tag titles total, on 3 different items -- "1977"
+    (MWatt2013-01-12), "1970" (mwatt2012-05-02.Poisson_Rouge.JFCB) and
+    "1662" (turkuaz2018-01-18, reached via sibling-format recovery -- the
+    first census cut broke on the first non-empty delivery format and missed
+    it). No item carries a second one (the STOP condition named in the Task
+    2 brief is >=2 on one item) and no value equals that item's own
+    metadata.year -- all three hand-checked as real song titles, not a
+    taper's date stamp. Cross-checked against the ~968-item working cache
+    the pipeline actually touches: 1 more (also "1922", on a sibling
+    recording of trampledbyturtles-2007-07-20), also below the STOP
+    threshold. Zero STOP-qualifying items in either corpus means the
+    widening is applied to `is_real_title` itself (global scope), not only
+    to a hygiene/adoption-side check. Full numbers and the accepted
+    `structure.hygienic_title` exposure are recorded in the constant's comment
+    above this function."""
+    assert is_real_title("1922") is True
+    assert is_real_title("2001") is True
+
+
+def test_is_real_title_rejects_unicode_digits():
+    """Final review, Task 2 Unicode gap: `\\d` matches Unicode digits, not
+    just ASCII, so the bare `\\d{4}` regex this function used to carry
+    treated Arabic-Indic digits as a year-like numeral too --
+    `is_real_title("\\u0661\\u0669\\u0667\\u0667")` ("1977" in Arabic-Indic
+    numerals) was `True`. `_YEAR_LIKE_NUMERIC` now matches `[0-9]{4}`
+    (ASCII only), closing the gap the character class alone can close
+    without widening any other accepted case -- ASCII "1922" still passes
+    (see `test_is_real_title_accepts_a_year_like_numeric_title`)."""
+    assert is_real_title("١٩٧٧") is False
+
+
+@pytest.mark.parametrize("cleaned", ["3", "01", "174", "19770101", "12345"])
+def test_is_real_title_still_rejects_non_year_numeric_residue(cleaned):
+    """The widening is narrowly a bare 4-digit numeral. A single digit (3)
+    and a short track number (01, 174 -- "12" dropped, subsumed by "01":
+    both only constrain the lower bound) still fail on the letter count; a
+    longer digit run that merely CONTAINS 4 digits in a row must not slip
+    through on an unanchored match -- 19770101 is a yyyymmdd date stamp,
+    exactly the junk class this exists to reject, and 12345 is the minimal
+    one-digit-over case. ("d1t02" is covered by test_is_real_title above;
+    not repeated here.)
+
+    "3" is restored here deliberately (fix round 2): dropping it in round 1
+    left single-digit rejection completely unpinned -- mutating
+    `_YEAR_LIKE_NUMERIC` to `r"\\d{4}|\\d"` (accepting every single digit as a
+    real title) left all 1567 tests green. Behaviour did not change
+    (`is_real_title("3")` was always `False`); the coverage did."""
+    assert is_real_title(cleaned) is False
 
 
 def test_junk_tag_title_falls_through_cascade():

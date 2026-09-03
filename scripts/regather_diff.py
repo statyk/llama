@@ -15,7 +15,31 @@ setlistfm=None. That last one is the standing caveat -- shows whose real
 canonical was setlist.fm-won are re-derived here from LMA descriptions alone,
 so this is a bound on the change's blast radius, not a replica of production.
 
-Usage:  python scripts/regather_diff.py [--assert-no-regressions]
+Task 7 (Phase C) generalises it to three ARMS, same harness, same rule --
+turn ONE thing off, re-gather, and enumerate every track that moves:
+
+  --arm gap       `structure.adopt_gap_titles` off  (the original M2 check)
+  --arm sibling   `gather._sibling_transfer` off    (Phase C's new rung)
+  --arm numeric   `titles.is_real_title`'s 4-digit clause off (the widening
+                  that also opened `structure._hygienic`, the pipeline's
+                  only silent adopter -- Task 7 Step 6)
+
+Each arm names the ONE `title_source` transition it considers legal; every
+other change is a regression. The arm is what makes the diff attributable:
+comparing against the stored `show.json` would be dominated by unrelated
+drift from older code versions.
+
+Two plants, because an arm has two zeros to keep honest:
+  --selftest          a deliberately wrong ADOPTER (gap arm) -- proves the
+                      harness sees a legal change at all
+  --selftest-regress  retitles an ALREADY-RESOLVED track -- proves the arm
+                      can report a REGRESSION. Run it on every arm; without
+                      it, "0 regressions" may be unfalsifiable rather than
+                      true, which is exactly what `--arm numeric` was.
+
+Usage:  python scripts/regather_diff.py [--arm gap|sibling|numeric]
+                                        [--assert-no-regressions]
+                                        [--selftest] [--selftest-regress]
 """
 import json
 import sys
@@ -24,6 +48,7 @@ from pathlib import Path
 
 from herder import FakeProvider
 
+from llama import titles as titles_mod
 from llama.ia_client import IAError
 from llama.models import Candidate
 from llama.stages import gather as gather_mod
@@ -56,11 +81,69 @@ def _selftest_adopt(tracks, *a, **k):
             for t in tracks]
 
 
+# arm -> the one legal title_source transition, `from` -> `to`.
+#
+# `from` is NEVER None: a change to a track that was ALREADY resolved is a
+# regression in every arm, which is the whole point of the comparison. Only
+# `to` may be None, meaning "any source", and only where the arm genuinely
+# has more than one legal destination.
+#
+# `numeric` was ("numeric": (None, None)) in the first cut -- "any change is
+# legal" -- which made its "0 regressions" UNFALSIFIABLE BY CONSTRUCTION: no
+# code change of any kind could have produced a non-zero. That is not a
+# measurement. Widening `is_real_title` can legitimately resolve a track
+# that was `unresolved`, by any rung that consults the predicate (the tag
+# rung, the sibling arm's hygiene check, `_hygienic`), so `from` is
+# `unresolved` and `to` is open.
+ARMS = {"gap": ("unresolved", "setlist-gap"),
+        "sibling": ("unresolved", "sibling-align"),
+        "numeric": ("unresolved", None)}
+
+
+def _selftest_regress(tracks):
+    """The ILLEGAL-transition plant: retitle a track that is ALREADY
+    resolved. Every arm must report this as a REGRESSION, which is what
+    makes each arm's "0 regressions" falsifiable. `--arm numeric`'s zero was
+    not, until this ran."""
+    out, done = [], False
+    for t in tracks:
+        if not done and t.title_source != "unresolved":
+            out.append(t.model_copy(update={"title": "SELFTEST-REGRESSION"}))
+            done = True
+        else:
+            out.append(t)
+    return out
+
+
+def _arm() -> str:
+    if "--arm" in sys.argv:
+        return sys.argv[sys.argv.index("--arm") + 1]
+    return "gap"
+
+
+def _no_four_digit(cleaned: str) -> bool:
+    """`titles.is_real_title` WITHOUT its pure-4-digit clause -- the
+    predicate as it stood before this phase widened it. Written out rather
+    than monkeypatching the regex, so the comparison is against a stated
+    function instead of a mutated constant whose other users would move
+    too."""
+    return len([c for c in cleaned if c.isascii() and c.isalpha()]) >= 3
+
+
 def _gather(candidate, identifier, wired):
-    real = gather_mod.adopt_gap_titles
+    arm = _arm()
+    saved = (gather_mod.adopt_gap_titles, gather_mod._sibling_transfer,
+             titles_mod.is_real_title)
     if not wired:
-        gather_mod.adopt_gap_titles = lambda tracks, *a, **k: tracks
-    elif "--selftest" in sys.argv:
+        if arm == "gap":
+            gather_mod.adopt_gap_titles = lambda tracks, *a, **k: tracks
+        elif arm == "sibling":
+            gather_mod._sibling_transfer = lambda ia, c, i, w, t, n: (list(t), [])
+        elif arm == "numeric":
+            titles_mod.is_real_title = _no_four_digit
+        else:
+            raise SystemExit(f"unknown --arm {arm!r}")
+    elif "--selftest" in sys.argv and arm == "gap":
         gather_mod.adopt_gap_titles = _selftest_adopt
     try:
         with tempfile.TemporaryDirectory() as td:
@@ -68,7 +151,8 @@ def _gather(candidate, identifier, wired):
                               FakeProvider(), candidate, identifier,
                               setlistfm=None, jerrybase_enabled=True)
     finally:
-        gather_mod.adopt_gap_titles = real
+        (gather_mod.adopt_gap_titles, gather_mod._sibling_transfer,
+         titles_mod.is_real_title) = saved
 
 
 def main() -> int:
@@ -84,6 +168,9 @@ def main() -> int:
         try:
             off = _gather(cand, ident, wired=False)
             on = _gather(cand, ident, wired=True)
+            if "--selftest-regress" in sys.argv:
+                on = on.model_copy(update={
+                    "tracks": _selftest_regress(on.tracks)})
         except Exception as exc:
             skipped += 1
             print(f"  SKIP {d.name}: {type(exc).__name__}: {exc}")
@@ -95,14 +182,17 @@ def main() -> int:
         for a, b in zip(off.tracks, on.tracks):
             if a.title == b.title and a.title_source == b.title_source:
                 continue
-            if a.title_source == "unresolved" and b.title_source == "setlist-gap":
-                adopted.append(f"{d.name} t{b.index}: {b.title!r}")
+            legal_from, legal_to = ARMS[_arm()]
+            if (a.title_source == legal_from
+                    and (legal_to is None or b.title_source == legal_to)):
+                adopted.append(f"{d.name} t{b.index}: {a.title_source}/"
+                               f"{a.title!r} -> {b.title_source}/{b.title!r}")
             else:
                 regressions.append(
                     f"{d.name} t{a.index}: {a.title_source}/{a.title!r} "
                     f"-> {b.title_source}/{b.title!r}")
 
-    print(f"\ncompared {compared} shows ({skipped} skipped)")
+    print(f"\narm={_arm()}: compared {compared} shows ({skipped} skipped)")
     print(f"{len(regressions)} regressions; {len(adopted)} newly resolved")
     for line in adopted:
         print(f"  ADOPTED  {line}")
@@ -112,6 +202,12 @@ def main() -> int:
         ok = bool(adopted or regressions)
         print(f"\nSELFTEST: harness {'CAN' if ok else 'CANNOT'} detect a "
               f"difference -> {'PASS' if ok else 'FAIL'}")
+        return 0 if ok else 1
+    if "--selftest-regress" in sys.argv:
+        ok = bool(regressions)
+        print(f"\nSELFTEST-REGRESS (arm={_arm()}): harness "
+              f"{'CAN' if ok else 'CANNOT'} report a regression -> "
+              f"{'PASS' if ok else 'FAIL'}")
         return 0 if ok else 1
     if "--assert-no-regressions" in sys.argv and regressions:
         return 1

@@ -344,8 +344,15 @@ def test_a_count_forced_gap_between_anchors_is_proposed():
     """One unresolved file, exactly one canonical item between the two
     tracks that bracket it: no shift can hide in the run, so it renders.
     This is `trampledbyturtles-2007-07-20` track 21 (`1922`) in miniature --
-    the M3 gate's one correct adoption, and a title `setlist-gap` itself
-    refuses because `is_real_title("1922")` is False."""
+    the M3 gate's one correct adoption. This test's assertions never
+    depended on `is_real_title` (the DP has no hygiene veto -- see
+    correspondence.py's module docstring), so it is unaffected by, and
+    still passes after, `titles.is_real_title` being widened
+    (2026-09-02) to accept a bare 4-digit numeral: `is_real_title("1922")`
+    is `True` now, not `False` as this docstring used to claim, and
+    `setlist-gap` itself adopts this specific case today without needing
+    this command. Corrected here rather than left stale; see
+    `.superpowers/sdd/2026-09-02-sibling-title-transfer/task-2-report.md`."""
     canonical = _two_items_one_gap(["1922"])
     prop = propose_titles(_tape((300.0, "Alpha"), (300.0, None), (300.0, "Omega")),
                           canonical, item_durations=[300.0, 300.0, 300.0])
