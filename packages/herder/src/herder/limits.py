@@ -2,7 +2,7 @@
 
 The 5-hour signature was captured from a live run on 2026-09-04:
 
-    claude exited 1: You've hit your session limit - resets 11:10am (America/New_York)
+    claude exited 1: You've hit your session limit · resets 11:10am (America/New_York)
 
 Three things follow. Exit code 1, so it arrives through claude_cli's
 returncode branch. "session limit" names the window, matching the usage
@@ -25,6 +25,9 @@ from herder.provider import HerderError
 # manufacture a day-long sleep.
 MAX_RESET_AHEAD_S = 5.5 * 3600
 
+# Most specific first: classify() returns on the first match, so ordering
+# is load-bearing whenever a text could match more than one pattern (see
+# test_specific_pattern_wins_when_generic_also_matches).
 _SIGNATURES: tuple[tuple[re.Pattern, str | None], ...] = (
     # Measured 2026-09-04. Do not loosen without a new capture.
     (re.compile(r"hit your session limit", re.I), "five_hour"),
@@ -32,11 +35,19 @@ _SIGNATURES: tuple[tuple[re.Pattern, str | None], ...] = (
     # scope is still useful when it matches, and a miss just falls through
     # to scope=None, which pauses without naming a window.
     (re.compile(r"(weekly|7-day|seven[ -]day) limit", re.I), "seven_day"),
+    # Unverified: wording not observed either. Deliberately the loosest of
+    # the three - the fallback for a limit whose window we cannot name.
     (re.compile(r"usage limit reached", re.I), None),
 )
 
+# Only the measured message shape is handled on purpose: "resets at ...",
+# "resets 11am" with no minutes, and a missing zone all correctly fail to
+# match and yield None rather than guessing. The zone group allows any
+# number of "/segment" pieces (`UTC`, `America/New_York`,
+# `America/Indiana/Indianapolis`) and digits within a segment (`Etc/GMT+5`).
 _RESET_RE = re.compile(
-    r"resets\s+(\d{1,2}):(\d{2})\s*([ap]m)\s*\(([A-Za-z_]+/[A-Za-z_+-]+)\)", re.I)
+    r"resets\s+(\d{1,2}):(\d{2})\s*([ap]m)\s*"
+    r"\(([A-Za-z_]+(?:/[A-Za-z0-9_+-]+)*)\)", re.I)
 
 
 class RateLimited(HerderError):
@@ -68,7 +79,7 @@ def parse_reset(text: str, now: datetime | None = None) -> datetime | None:
     hour12, minute, meridiem, zone_name = m.groups()
     try:
         tz = ZoneInfo(zone_name)
-    except Exception:
+    except Exception:  # noqa: BLE001 - a malformed or unknown zone name must not crash the caller
         return None
     hour = int(hour12) % 12 + (12 if meridiem.lower() == "pm" else 0)
     if not 0 <= int(minute) <= 59:
