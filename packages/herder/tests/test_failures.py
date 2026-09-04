@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from herder import failures
 
@@ -34,6 +35,23 @@ def test_capture_never_raises_when_the_dir_is_unwritable(tmp_path):
     blocked = tmp_path / "not-a-dir"
     blocked.write_text("i am a file")
     failures.set_capture_dir(blocked)
+    try:
+        assert failures.capture_failure(["claude"], FakeProc(returncode=1)) is None
+    finally:
+        failures.set_capture_dir(None)
+
+
+def test_capture_never_raises_when_the_write_itself_fails(tmp_path, monkeypatch):
+    # test_capture_never_raises_when_the_dir_is_unwritable only blocks
+    # mkdir (an OSError, already-covered arm) and never reaches write_text -
+    # it passes even if the handler is narrowed to `except FileExistsError`.
+    # This one fails on the write, with a non-OSError (ValueError), so it
+    # only passes when the handler is broad enough to cover that arm too.
+    def _boom(self, *args, **kwargs):
+        raise ValueError("simulated encoding failure")
+
+    monkeypatch.setattr(Path, "write_text", _boom)
+    failures.set_capture_dir(tmp_path)
     try:
         assert failures.capture_failure(["claude"], FakeProc(returncode=1)) is None
     finally:

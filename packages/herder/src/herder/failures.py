@@ -41,8 +41,9 @@ def capture_failure(cmd: list[str], proc) -> Path | None:
             f"cmd: {' '.join(cmd)}\n"
             f"exit_code: {getattr(proc, 'returncode', None)}\n"
             f"--- stdout ---\n{getattr(proc, 'stdout', '') or ''}\n"
-            f"--- stderr ---\n{getattr(proc, 'stderr', '') or ''}\n"
+            f"--- stderr ---\n{getattr(proc, 'stderr', '') or ''}\n",
+            encoding="utf-8", errors="replace",
         )
         return path
-    except OSError:
+    except Exception:  # noqa: BLE001 - defensive: a capture problem must never mask the backend failure being captured
         return None
