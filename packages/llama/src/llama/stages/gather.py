@@ -995,7 +995,13 @@ def run_gather(
                     # would write a `low-confidence structure alignment` the
                     # recording did not earn, and `should_run` means the
                     # resume never recomputes it - so the wrong flag would be
-                    # permanent. Let it reach _execute, which pauses instead.
+                    # permanent. Re-raise so a future `_execute` can pause the
+                    # run on it instead of degrading. That pause handler does
+                    # not exist yet: today this still reaches `cli.py`'s
+                    # per-show `except (TaskFailed, HerderError, IAError)` and
+                    # is recorded as a per-show failure, same as any other
+                    # unrecovered error - a later task is what makes the
+                    # pause real.
                     raise
                 except (TaskFailed, HerderError) as err:
                     log.warning("align_structure failed: %s", err)
