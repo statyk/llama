@@ -185,3 +185,42 @@ def test_transport_retry_backs_off_between_attempts(monkeypatch):
     tasks.run_json_task(fake, "brief", Answer, template="Q: {{q}}", q="x")
     # backs off before each retry, and waits longer the second time
     assert len(slept) == 2 and slept[1] > slept[0]
+
+
+# --- rate-limit propagation -------------------------------------------------
+
+from herder.limits import RateLimited
+
+
+class CountingLimitProvider:
+    """Raises a rate limit every time, counting attempts."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def complete(self, prompt: str) -> str:
+        self.calls += 1
+        raise RateLimited("You've hit your session limit", scope="five_hour")
+
+    def research(self, brief: str) -> str:
+        return self.complete(brief)
+
+
+def test_rate_limit_is_not_retried_as_transport_noise(monkeypatch):
+    # Retrying is not merely useless here, it spends three more calls
+    # against a window that has none left.
+    slept = []
+    monkeypatch.setattr(tasks, "_sleep", lambda s: slept.append(s))
+    provider = CountingLimitProvider()
+    with pytest.raises(RateLimited):
+        tasks.run_json_task(provider, "brief", Answer, template="hi")
+    assert provider.calls == 1
+    assert slept == []
+
+
+def test_rate_limit_propagates_from_a_research_task(monkeypatch):
+    monkeypatch.setattr(tasks, "_sleep", lambda s: None)
+    provider = CountingLimitProvider()
+    with pytest.raises(RateLimited):
+        tasks.run_research_task(provider, "deep_research", template="hi")
+    assert provider.calls == 1

@@ -4,6 +4,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ValidationError
 
+from herder.limits import RateLimited
 from herder.provider import HerderError, LLMProvider, ResearchNotSupported, TaskFailed
 
 ProviderOrLadder = LLMProvider | Sequence[LLMProvider]
@@ -27,13 +28,16 @@ def _with_transport_retry(call, prompt: str, attempts: int = TRANSPORT_ATTEMPTS)
     connection is not evidence the model needed to be smarter, and paying for
     a tier upgrade over a network blip is the wrong reflex. TaskFailed and
     ResearchNotSupported are definitive verdicts, not transport noise, so
-    they propagate on the first raise.
+    they propagate on the first raise. RateLimited joins them for a
+    different reason: the window is empty, so a retry is not merely useless
+    but spends two more calls against a budget that has none left, and the
+    caller has a reset time it can wait for instead.
     """
     last: BaseException | None = None
     for attempt in range(attempts):
         try:
             return call(prompt)
-        except (TaskFailed, ResearchNotSupported):
+        except (TaskFailed, ResearchNotSupported, RateLimited):
             raise
         except HerderError as err:
             last = err
