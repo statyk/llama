@@ -83,6 +83,32 @@ appear to refresh it at all. See "Open questions" — this is the single
 assumption most worth confirming, because it decides how much of the proactive
 half is load-bearing.
 
+**4. The 5-hour limit's error signature, captured from a live run.** A
+`llama get --profile dead` run on 2026-09-04 (13 shows: 3 packaged, 2 held, 8
+failed) recorded, identically, for every show after the fifth:
+
+```
+claude exited 1: You've hit your session limit · resets 11:10am (America/New_York)
+```
+
+Three properties follow, and they are load-bearing for the classifier:
+
+- **Exit code 1**, so it enters `claude_cli._run` via the `proc.returncode != 0`
+  branch and is rendered by `_error_detail` (`claude_cli.py:85-105`). The
+  message is well short of that function's 500-char truncation.
+- **"session limit" names the window.** This matches the usage cache's own
+  vocabulary, where `limits[]` carries `kind: "session"` for the 5-hour bucket
+  and `kind: "weekly_all"` for the 7-day one — so the text discriminates
+  *which* window was hit, not merely that one was.
+- **The reset instant is in the message.** It is a 12-hour wall-clock time plus
+  an IANA zone name, not an ISO instant. So `RateLimited.resets_at` is
+  parseable from the error alone, and the reactive path does **not** depend on
+  the undocumented cache file at all.
+
+The same run confirms the failure mode this design exists to fix: the limit hit
+after five shows, and the remaining eight failed in sequence, each first
+burning three transport retries and their 2 s / 8 s backoff.
+
 ## Architecture
 
 Approach: policy in `llama`, signals in `herder`. The irreducible parts (error
@@ -104,9 +130,20 @@ string. **This is task 1** — see "Implementation order".
 - `RateLimited(HerderError)` with `scope: "five_hour" | "seven_day" | None` and
   `resets_at: datetime | None`. Raised from `claude_cli._run`'s existing
   failure paths.
-- Classification is a small ordered list of signature patterns, overridable in
-  config, plus a structured check on `api_error_status` if it proves to carry
-  an HTTP status (unverified — see "Open questions").
+- Classification matches the message text against a small ordered pattern list,
+  overridable in config. The measured 5-hour signature is `hit your session
+  limit` → `scope="five_hour"`; the 7-day variant's wording is not yet observed
+  (see "Open questions"). A structured check on `api_error_status` is added as
+  the *preferred* discriminator if task 1's capture shows it carries an HTTP
+  status, demoting the pattern list to a fallback.
+- `parse_reset(text) -> datetime | None` reads the message's
+  `resets 11:10am (America/New_York)` form: a 12-hour time plus an IANA zone,
+  resolved via `zoneinfo` to the **next future occurrence** of that wall-clock
+  time in that zone. `am`/`pm` is explicit, so there is no 12-hour ambiguity.
+  **Sanity bound:** a 5-hour window's reset is always within ~5 hours, so a
+  resolved instant more than 5.5 h out means the parse or the clock is wrong —
+  return `None` and fall back to the cache, then to `unknown_reset_wait`.
+  Parsing must never be able to manufacture a 24-hour sleep.
 - `read_usage_snapshot(path) -> UsageSnapshot | None`, parsing
   `cachedUsageUtilization` from `$CLAUDE_CONFIG_DIR/.claude.json` (falling back
   to `~/.claude.json`). Returns per-window utilization, `resets_at`, and
@@ -333,7 +370,15 @@ path; the sleep is injected the way `tasks.py` already injects `_sleep`.
 - **Classification, with a negative set that matters**: the `CLOSED_MID`
   fixture already in `test_claude_cli.py` must classify as transport noise, not
   a limit. That test is what stands between a dropped connection and a
-  multi-hour idle.
+  multi-hour idle. The positive fixture is the measured string, verbatim:
+  `claude exited 1: You've hit your session limit · resets 11:10am (America/New_York)`
+  — note the U+00B7 middle dot, which must survive as a literal rather than
+  being normalized into the pattern.
+- **Reset parsing**, including the sanity bound: a message whose parsed reset
+  resolves more than 5.5 h out yields `None`, not a long sleep. Test with a
+  frozen `now` on both sides of the named wall-clock time, and across a DST
+  boundary in `America/New_York` — the zone is named in the message precisely
+  because it is not the caller's.
 - **False-positive cross-check**: `RateLimited` raised while a fresh snapshot
   reads 12% is demoted to a transport error and retried normally.
 - **Resume-after-pause costs nothing**: a fake provider with a call counter
@@ -353,17 +398,20 @@ Flip each, confirm the suite goes red, then restore.
 
 Both are open by design; neither blocks implementation.
 
-1. **The rate-limit error signature is unknown.** Deliberately not bought by
-   burning a window. Ships as a conservative pattern list plus the cross-check;
-   the raw-failure capture log (task 1) records the true text on the first
-   natural hit, and it gets pinned by test afterward. The specific fields to
-   look for, in priority order: `api_error_status` (success envelopes carry
-   `null`, which implies a status on failure — a 429 would demote the pattern
-   list to a fallback), the process exit code (it decides which of
-   `claude_cli._run`'s branches produces the message), whether the message body
-   names a reset time and in what format, and `subtype` / `terminal_reason`.
-   Also worth capturing: whether a `low`-tier haiku call still succeeds while
-   opus fails, i.e. whether the limit is model-scoped.
+1. **The 5-hour signature is now measured** (see "Measured signals" item 4) and
+   is pinned by test. Three narrower unknowns remain, none blocking:
+   - **The 7-day variant's wording.** Presumed to differ from "session limit"
+     — the cache calls it `weekly_all` — but unobserved. Until it is seen, a
+     limit message that matches no known scope classifies as `RateLimited` with
+     `scope=None`, which pauses on the reactive path but cannot pick a window;
+     it falls back to the cache, then `unknown_reset_wait`.
+   - **Whether `api_error_status` carries an HTTP status.** Success envelopes
+     carry `null`. Task 1's raw capture answers it on the next hit, and a 429
+     would make classification structural rather than text-based.
+   - **Whether the limit is model-scoped** — i.e. whether a `low`-tier haiku
+     call still succeeds while opus is refused. `probe-ratelimit.sh` tries both
+     models for exactly this reason. It matters because `vet_research` runs on
+     the `low` tier and might survive a limit that stops `brief`.
 2. **Whether a headless-only run refreshes the usage cache.** Measured once,
    negatively, on 2026-09-04. If headless calls *do* refresh it on some cadence,
    the staleness ladder is mostly decoration and the proactive rules get
