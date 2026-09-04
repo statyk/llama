@@ -7,6 +7,7 @@ import pytest
 import llama.stages.gather as gather_mod
 from llama.config import StructureConfig
 from herder import FakeProvider
+from herder.limits import RateLimited
 from llama.junk import filter_files
 from llama.models import (Candidate, Overrides, ParsedSetlist, RecordingSummary,
                           SetlistItem)
@@ -263,6 +264,30 @@ def test_gather_low_coverage_uses_llm_alignment(tmp_path: Path):
     assert show.structure.alignment == "llm"
     assert [t.set for t in show.tracks] == ["1", "1", "1", "2", "2", "encore"]
     assert show.set_breaks == [3, 5]
+
+
+def test_gather_rate_limit_during_llm_alignment_propagates_and_does_not_flag(tmp_path: Path):
+    # Same setup as test_gather_llm_alignment_garbage_falls_back_and_flags
+    # (wrecked tag titles force the deterministic alignment low enough to
+    # reach the align_structure LLM fallback), except align_provider raises
+    # RateLimited instead of returning garbage. Before the fix this was
+    # swallowed by `except (TaskFailed, HerderError)`, logged, and papered
+    # over with a `low-confidence structure alignment` flag the recording
+    # did not earn -- and because should_run means gather never reruns once
+    # show.json exists, that wrong flag would be permanent. The fix must
+    # let RateLimited propagate instead, and nothing should be written to
+    # disk in its place.
+    md = json.loads(FIXTURE.read_text())
+    for i, f in enumerate(f for f in md["files"] if f.get("format") == "VBR MP3"):
+        f["title"] = f"Track {i + 1}"
+    align_fake = FakeProvider(
+        completes=[RateLimited("You've hit your session limit", scope="five_hour")])
+    sws = ShowWorkspace(tmp_path / "show")
+    with pytest.raises(RateLimited):
+        run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT,
+                  align_provider=align_fake)
+    assert align_fake.calls, "align_structure LLM was not invoked"
+    assert not sws.show.exists(), "show.json must not be written on a rate-limit abort"
 
 
 def test_gather_llm_alignment_garbage_falls_back_and_flags(tmp_path: Path):

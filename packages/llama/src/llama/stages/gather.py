@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from typing import NamedTuple
 
 from herder import HerderError, TaskFailed, run_json_task
+from herder.limits import RateLimited
 from llama import jerrybase
 from llama.config import StructureConfig
 from llama.errors import LlamaError
@@ -989,6 +990,13 @@ def run_gather(
                                          tracks=_format_tracks(tracks),
                                          setlist=_format_setlist(canonical))
                     llm_result = apply_llm_alignment(tracks, resp)
+                except RateLimited:
+                    # A usage window ran out. Degrading to a review flag here
+                    # would write a `low-confidence structure alignment` the
+                    # recording did not earn, and `should_run` means the
+                    # resume never recomputes it - so the wrong flag would be
+                    # permanent. Let it reach _execute, which pauses instead.
+                    raise
                 except (TaskFailed, HerderError) as err:
                     log.warning("align_structure failed: %s", err)
             if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
