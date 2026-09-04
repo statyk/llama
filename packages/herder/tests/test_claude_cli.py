@@ -212,3 +212,47 @@ def test_neutral_directory_is_reused_across_calls(monkeypatch):
     p.complete("a")
     p.research("b")
     assert seen[0] == seen[1] and seen[0] is not None
+
+
+# --- rate-limit classification and failure capture ------------------------
+
+from herder.limits import RateLimited
+
+SESSION_LIMIT_MSG = ("You've hit your session limit · "
+                     "resets 11:10am (America/New_York)")
+
+
+def test_session_limit_on_nonzero_exit_raises_rate_limited(monkeypatch):
+    patch_run(monkeypatch, FakeProc(returncode=1, stderr=SESSION_LIMIT_MSG), {})
+    with pytest.raises(RateLimited) as exc:
+        ClaudeCLIProvider().complete("x")
+    assert exc.value.scope == "five_hour"
+    assert "session limit" in str(exc.value)
+
+
+def test_session_limit_in_an_error_envelope_raises_rate_limited(monkeypatch):
+    envelope = {"is_error": True, "result": SESSION_LIMIT_MSG}
+    patch_run(monkeypatch, FakeProc(returncode=0, stdout=json.dumps(envelope)), {})
+    with pytest.raises(RateLimited):
+        ClaudeCLIProvider().complete("x")
+
+
+def test_dropped_connection_stays_a_plain_herder_error(monkeypatch):
+    patch_run(monkeypatch, FakeProc(returncode=1, stdout=json.dumps(CLOSED_MID)), {})
+    with pytest.raises(HerderError) as exc:
+        ClaudeCLIProvider().complete("x")
+    assert not isinstance(exc.value, RateLimited)
+
+
+def test_a_failure_is_captured_when_a_capture_dir_is_set(monkeypatch, tmp_path):
+    from herder import failures
+    patch_run(monkeypatch, FakeProc(returncode=1, stderr="boom"), {})
+    failures.set_capture_dir(tmp_path)
+    try:
+        with pytest.raises(HerderError):
+            ClaudeCLIProvider().complete("x")
+    finally:
+        failures.set_capture_dir(None)
+    written = list(tmp_path.iterdir())
+    assert len(written) == 1
+    assert "boom" in written[0].read_text()
