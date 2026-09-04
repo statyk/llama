@@ -283,6 +283,24 @@ Three call sites in `_execute` (`cli.py:155-278`), and no others:
    test. A limit hit is **not** appended to `failures[]` — nothing about the
    show is wrong.
 
+**`cli.py` is not the only ordering hazard — `gather.py` is a second swallow
+site.** Corrected 2026-09-04 during implementation. `stages/gather.py:992`
+wraps the `align_structure` LLM fallback in `except (TaskFailed, HerderError)`
+and merely logs a warning, so a `RateLimited` raised there is swallowed:
+`gather` completes, appends a `low-confidence structure alignment` review flag
+the recording did not earn, and writes that flag to disk. Stage-level
+`should_run` then means the resume never recomputes it, so a transient window
+exhaustion leaves a permanent, wrong review flag on a show — which contradicts
+this section's own guarantee that nothing about the show is wrong. `gather`
+must re-raise `RateLimited` explicitly (`except RateLimited: raise` **above**
+the broad clause, rather than narrowing that clause, so the intent is legible
+at the call site), and that re-raise joins the mutation list. Every `except
+HerderError` on the `_execute` path is an ordering hazard by construction,
+because `RateLimited` subclasses it; these two are the only ones on that path
+(audited 2026-09-04: `setlistfm.py:96`, `jerrybase.py:128`,
+`correspondence.py:307` and `audio.py:37` are not LLM call sites, and
+`cli.py:1902`/`cli.py:2505` belong to `fix`/`triage`, outside `_execute`).
+
 **Session state.** `STATE_PAUSED = "paused"` joins the states at
 `sessions.py:13-16`, with `mark_paused(ws, outcome, failures, resume_after,
 scope, reason)` following the existing wholesale-rewrite discipline (`_write`,
@@ -384,13 +402,19 @@ path; the sleep is injected the way `tasks.py` already injects `_sleep`.
 - **Resume-after-pause costs nothing**: a fake provider with a call counter
   proves already-packaged shows make zero LLM calls on re-entry.
 
-Three constraints are to be **mutated, not merely run** — per the project's
+Four constraints are to be **mutated, not merely run** — per the project's
 "green suite ≠ pinned" lesson, each is a one-line change a loosely written test
 would happily keep passing:
 
 1. `RateLimited` caught before `HerderError` in `_execute`.
 2. `RateLimited` in `_with_transport_retry`'s no-retry set.
-3. Stale-cache disabling of the percent rules.
+3. `RateLimited` re-raised ahead of the broad clause in `gather`'s
+   `align_structure` fallback (added 2026-09-04 — see the swallow-site note
+   under "Integration").
+4. Stale-cache disabling of the percent rules. *(Phase 2 — the percent rules do
+   not exist in phase 1; phase 1 substitutes the reset sanity bound and the
+   negative classification of the dropped-connection message, which are the two
+   one-line constraints its own code actually carries.)*
 
 Flip each, confirm the suite goes red, then restore.
 
@@ -431,4 +455,4 @@ short of 100%, `five_hour_threshold`'s default of 85 should move.
 4. **`llama/pacing.py`** — pure policy plus its test tables.
 5. **`_execute` integration**, session `paused` state, CLI flags, config.
 6. **`llama pacing`** command.
-7. **Mutation pass** over the three constraints above.
+7. **Mutation pass** over the constraints above.

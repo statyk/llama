@@ -619,6 +619,73 @@ git commit -m "fix(herder): stop retrying a usage-limit refusal as transport noi
 
 ---
 
+### Task 4b: Stop `gather` swallowing a rate limit as an alignment failure
+
+Found in the preflight scan, 2026-09-04, and approved as its own task. `stages/gather.py:992` wraps the `align_structure` LLM fallback in `except (TaskFailed, HerderError)` and merely logs a warning. `RateLimited` subclasses `HerderError`, so a limit hit there is **swallowed**: gather completes, appends a `low-confidence structure alignment` review flag the recording did not earn, and writes it to disk. Stage-level `should_run` then means the resume never recomputes it — so a transient window exhaustion leaves a permanent, wrong review flag on a show. That contradicts the spec's own guarantee that a limit hit means *nothing about the show is wrong*.
+
+**Files:**
+- Modify: `packages/llama/src/llama/stages/gather.py` (the `except (TaskFailed, HerderError)` at line 992)
+- Modify: `packages/llama/tests/test_gather.py`
+
+**Interfaces:**
+- Consumes: `RateLimited` (Task 2).
+- Produces: no new API; `run_gather` now propagates `RateLimited` instead of degrading to a review flag.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `packages/llama/tests/test_gather.py`. Follow whatever fixture that file already uses to drive `run_gather` down the `align_structure` fallback branch — the branch is reached when there is no usable jerrybase evidence and `result.coverage < structure_cfg.align_coverage_threshold`, with a non-None `align_provider`. Reuse the file's existing helpers rather than building a new fixture; if the file has no test that reaches this branch, the smallest honest test is a direct one on the fallback's provider seam.
+
+The test must assert:
+
+```python
+    with pytest.raises(RateLimited):
+        run_gather(...)          # the same call the neighbouring tests make
+```
+
+and, critically, that no `low-confidence structure alignment` flag was written — the defect is not merely that the exception is eaten, it is that a wrong flag is persisted in its place.
+
+Add `from herder.limits import RateLimited` to the imports.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `./.venv/bin/python -m pytest packages/llama/tests/test_gather.py -q -k rate_limit`
+Expected: FAIL — the exception is caught by `except (TaskFailed, HerderError)`, logged, and `low-confidence structure alignment` is appended instead.
+
+- [ ] **Step 3: Write minimal implementation**
+
+In `packages/llama/src/llama/stages/gather.py`, add `from herder.limits import RateLimited` to the imports, and add an explicit re-raise **above** the existing broad clause — do **not** narrow the broad clause, because the point is that the intent is legible at the call site:
+
+```python
+                except RateLimited:
+                    # A usage window ran out. Degrading to a review flag here
+                    # would write a `low-confidence structure alignment` the
+                    # recording did not earn, and `should_run` means the
+                    # resume never recomputes it - so the wrong flag would be
+                    # permanent. Let it reach _execute, which pauses instead.
+                    raise
+                except (TaskFailed, HerderError) as err:
+                    log.warning("align_structure failed: %s", err)
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `./.venv/bin/python -m pytest packages/llama/tests/test_gather.py -q`
+Expected: all pass.
+
+- [ ] **Step 5: Run the full suite**
+
+Run: `./.venv/bin/python -m pytest -q`
+Expected: green.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/llama/src/llama/stages/gather.py packages/llama/tests/test_gather.py
+git commit -m "fix(gather): let a usage-limit refusal propagate instead of flagging the show"
+```
+
+---
+
 ### Task 5: Duration parsing and the `[pacing]` config table
 
 **Files:**
@@ -1109,6 +1176,13 @@ def test_a_usage_limit_within_max_wait_sleeps_and_then_finishes(
     assert info.state == STATE_COMPLETE           # slept, retried, finished
     assert info.failures == []
     assert clock["now"] >= datetime(2026, 9, 4, 10, 0, tzinfo=timezone.utc)
+    # The three assertions above ALL hold if the interrupted show is silently
+    # dropped from the queue instead of retried, which is exactly the bug this
+    # test exists to catch. These two are what actually pin it: the show came
+    # back round, and it packaged.
+    assert providers["brief"].calls >= 2          # refused once, then retried
+    assert info.outcome == "1 packaged"
+    assert "packaged:" in result.output
 
 
 def test_no_pacing_restores_the_old_failure_behaviour(tmp_path: Path, monkeypatch):
@@ -1224,27 +1298,32 @@ tail with:
         return ", ".join(parts) if parts else None
 
     pending = list(chosen)
+    done_before_pause = -1                  # progress watermark; see the guard below
     while pending:
         deferred, unprocessed = [], []
         for idx, entry in enumerate(pending):
-            if limited:
-                unprocessed.extend(pending[idx:])
-                break
             lock_path = ws.show_ws(entry.candidate.performance_id).lock
             try:
                 with file_lock(lock_path, blocking=False):
                     _process(entry)
             except Locked:
                 deferred.append(entry)         # another run is building it
+            # AFTER the call, not before: `pending[idx:]` must INCLUDE the show
+            # that hit the limit. Checking at the top of the body instead starts
+            # the slice one entry late and silently drops that show from the
+            # run, which then reports `complete` having never processed it.
+            if limited:
+                unprocessed.extend(pending[idx:])
+                break
         if limited:
             unprocessed.extend(deferred)
         else:
             for idx, entry in enumerate(deferred):   # come back and wait
+                with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
+                    _process(entry)
                 if limited:
                     unprocessed.extend(deferred[idx:])
                     break
-                with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
-                    _process(entry)
         if not limited:
             break
 
@@ -1252,8 +1331,18 @@ tail with:
         wait_s = (when - _pacing._now()).total_seconds()
         reason = str(limited)
         scope = limited.scope
+        # No-progress guard: if a whole pause cycle bought us nothing, sleeping
+        # again would nap indefinitely against a backend that keeps refusing.
+        # Checkpoint instead, and say WHY so it is not read as an ordinary
+        # window pause.
+        done_now = packaged + held + len(failures)
+        stalled = done_now == done_before_pause
+        done_before_pause = done_now
         typer.echo(f"paused after {packaged + held} shows: {reason}")
-        if pace.wait and wait_s <= pace.max_wait_s:
+        if stalled:
+            typer.echo("  no progress since last pause — checkpointing rather "
+                       "than waiting again")
+        if not stalled and pace.wait and wait_s <= pace.max_wait_s:
             typer.echo(f"  resumes {when.astimezone().strftime('%H:%M')} "
                        f"({format_delta(wait_s)})")
             try:
@@ -1363,9 +1452,9 @@ A green suite is not evidence a constraint is load-bearing. Each mutation below 
 - [ ] **Step 1: Mutation 1 — the catch ordering**
 
 In `cli.py`'s `_process`, move the `except RateLimited` clause *below* the
-`except (TaskFailed, HerderError, IAError)` clause. Python raises
-`SyntaxError`/unreachable-code behaviour differences here, so if it does not
-error outright, run:
+`except (TaskFailed, HerderError, IAError)` clause. Python does **not** reject
+this — the clause is simply unreachable, which is the whole point of the
+mutation. Then run:
 
 Run: `./.venv/bin/python -m pytest packages/llama/tests -q -k rate_limit`
 Expected: FAIL — `RateLimited` subclasses `HerderError`, so the broad clause
@@ -1395,6 +1484,17 @@ In `limits.py`, add `(re.compile(r"error", re.I), None)` to `_SIGNATURES`.
 Run: `./.venv/bin/python -m pytest packages/herder/tests -q`
 Expected: FAIL — the dropped-connection tests, which is exactly the guard that
 keeps a network blip from idling a run for hours.
+Restore and confirm green.
+
+- [ ] **Step 4b: Mutation 5 — the gather re-raise**
+
+In `stages/gather.py`, delete the `except RateLimited: raise` clause added in
+Task 4b, leaving only the broad `except (TaskFailed, HerderError)`.
+
+Run: `./.venv/bin/python -m pytest packages/llama/tests/test_gather.py -q -k rate_limit`
+Expected: FAIL — the limit is swallowed and a `low-confidence structure
+alignment` flag is written in its place, which is the permanent-wrong-flag
+defect Task 4b exists to prevent.
 Restore and confirm green.
 
 - [ ] **Step 5: Update CLAUDE.md**
