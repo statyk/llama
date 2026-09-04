@@ -313,8 +313,16 @@ _SIGNATURES: tuple[tuple[re.Pattern, str | None], ...] = (
     (re.compile(r"usage limit reached", re.I), None),
 )
 
+# Amended 2026-09-04 after code review: the original zone group was
+# `([A-Za-z_]+/[A-Za-z_+-]+)`, which demanded exactly one `/` and admitted no
+# digits - so it MISSED `UTC` (no slash), which is the likeliest zone on the
+# unattended headless host this feature exists for, and also
+# `America/Indiana/Indianapolis`, `America/Argentina/Buenos_Aires` and
+# `Etc/GMT+5`. The consequence was safe but silent: `resets_at=None` and a
+# blind `unknown_reset_wait` instead of the real reset instant.
 _RESET_RE = re.compile(
-    r"resets\s+(\d{1,2}):(\d{2})\s*([ap]m)\s*\(([A-Za-z_]+/[A-Za-z_+-]+)\)", re.I)
+    r"resets\s+(\d{1,2}):(\d{2})\s*([ap]m)\s*\(([A-Za-z_]+(?:/[A-Za-z0-9_+-]+)*)\)",
+    re.I)
 
 
 class RateLimited(HerderError):
@@ -384,6 +392,15 @@ from herder.limits import RateLimited, classify, parse_reset
 
 Run: `./.venv/bin/python -m pytest packages/herder/tests/test_limits.py -q`
 Expected: 10 passed
+
+**Test adequacy is part of this task, not a later one.** Review found that the
+brief's original 10 tests killed only 1 of 8 one-line mutations of this module:
+the `% 12` am/pm conversion (every test used `11:10am`, where the correct and
+the naive formula agree), `MAX_RESET_AHEAD_S` (a bound of 20 h passed the whole
+suite — the day-long sleep its own comment forbids), the minute guard, the
+`<=` rollover, both speculative `_SIGNATURES` entries, and the load-bearing
+most-specific-first ordering were ALL unpinned. The shipped test file pins each
+of them. Do not regress it to the ten tests printed above.
 
 - [ ] **Step 6: Run the full suite**
 
