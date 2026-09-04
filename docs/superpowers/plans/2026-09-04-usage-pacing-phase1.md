@@ -642,7 +642,7 @@ Found in the preflight scan, 2026-09-04, and approved as its own task. `stages/g
 
 **Files:**
 - Modify: `packages/llama/src/llama/stages/gather.py` (the `except (TaskFailed, HerderError)` at line 992)
-- Modify: `packages/llama/tests/test_gather.py`
+- Modify: `packages/llama/tests/test_stage_gather.py` (NOT `test_gather.py` — no such file exists; `test_stage_gather.py` is the one that drives `run_gather`)
 
 **Interfaces:**
 - Consumes: `RateLimited` (Task 2).
@@ -650,7 +650,7 @@ Found in the preflight scan, 2026-09-04, and approved as its own task. `stages/g
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `packages/llama/tests/test_gather.py`. Follow whatever fixture that file already uses to drive `run_gather` down the `align_structure` fallback branch — the branch is reached when there is no usable jerrybase evidence and `result.coverage < structure_cfg.align_coverage_threshold`, with a non-None `align_provider`. Reuse the file's existing helpers rather than building a new fixture; if the file has no test that reaches this branch, the smallest honest test is a direct one on the fallback's provider seam.
+Append to `packages/llama/tests/test_stage_gather.py`. Follow whatever fixture that file already uses to drive `run_gather` down the `align_structure` fallback branch — the branch is reached when there is no usable jerrybase evidence and `result.coverage < structure_cfg.align_coverage_threshold`, with a non-None `align_provider`. Reuse the file's existing helpers rather than building a new fixture; if the file has no test that reaches this branch, the smallest honest test is a direct one on the fallback's provider seam.
 
 The test must assert:
 
@@ -665,7 +665,7 @@ Add `from herder.limits import RateLimited` to the imports.
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./.venv/bin/python -m pytest packages/llama/tests/test_gather.py -q -k rate_limit`
+Run: `./.venv/bin/python -m pytest packages/llama/tests/test_stage_gather.py -q -k rate_limit`
 Expected: FAIL — the exception is caught by `except (TaskFailed, HerderError)`, logged, and `low-confidence structure alignment` is appended instead.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -686,7 +686,7 @@ In `packages/llama/src/llama/stages/gather.py`, add `from herder.limits import R
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./.venv/bin/python -m pytest packages/llama/tests/test_gather.py -q`
+Run: `./.venv/bin/python -m pytest packages/llama/tests/test_stage_gather.py -q`
 Expected: all pass.
 
 - [ ] **Step 5: Run the full suite**
@@ -697,7 +697,7 @@ Expected: green.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/llama/src/llama/stages/gather.py packages/llama/tests/test_gather.py
+git add packages/llama/src/llama/stages/gather.py packages/llama/tests/test_stage_gather.py
 git commit -m "fix(gather): let a usage-limit refusal propagate instead of flagging the show"
 ```
 
@@ -1508,7 +1508,7 @@ Restore and confirm green.
 In `stages/gather.py`, delete the `except RateLimited: raise` clause added in
 Task 4b, leaving only the broad `except (TaskFailed, HerderError)`.
 
-Run: `./.venv/bin/python -m pytest packages/llama/tests/test_gather.py -q -k rate_limit`
+Run: `./.venv/bin/python -m pytest packages/llama/tests/test_stage_gather.py -q -k rate_limit`
 Expected: FAIL — the limit is swallowed and a `low-confidence structure
 alignment` flag is written in its place, which is the permanent-wrong-flag
 defect Task 4b exists to prevent.
