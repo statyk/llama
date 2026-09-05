@@ -1473,9 +1473,20 @@ In `cli.py`'s `_process`, move the `except RateLimited` clause *below* the
 this — the clause is simply unreachable, which is the whole point of the
 mutation. Then run:
 
-Run: `./.venv/bin/python -m pytest packages/llama/tests -q -k rate_limit`
+Run: `./.venv/bin/python -m pytest packages/llama/tests/test_pace_loop.py packages/llama/tests/test_sessions.py -q`
 Expected: FAIL — `RateLimited` subclasses `HerderError`, so the broad clause
 swallows it and the run records a failure instead of pausing.
+
+**Do NOT use `-k rate_limit` here.** Measured 2026-09-05: over
+`packages/llama/tests` that filter selects exactly ONE test —
+`test_stage_gather.py::test_gather_rate_limit_during_llm_alignment_propagates_and_does_not_flag`,
+which is mutation 5's target and is unaffected by the catch ordering. It passes,
+and since this step's expected outcome is a FAILURE, a green run reads as
+"the constraint is not pinned" — a false alarm on a constraint that is in fact
+pinned by 17 of the 48 tests in the two files named above. Same defect class as
+the `test_gather.py` path error corrected in mutation 5: a command whose expected
+result is a failure must be checked for selecting the RIGHT tests, not merely for
+failing.
 Restore the original order and confirm green.
 
 - [ ] **Step 2: Mutation 2 — the no-retry set**
