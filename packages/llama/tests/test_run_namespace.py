@@ -528,6 +528,38 @@ def test_run_list_json_carries_outcome_and_failures(tmp_path: Path):
     assert payload[0]["failures"] == failures
 
 
+def test_run_list_json_carries_the_resume_time_of_a_paused_run(tmp_path: Path):
+    """The JSON view is the table's machine-readable equivalent, and the
+    table prints `resumes <instant>`. Without these keys a consumer reading
+    state="paused" has nothing to answer "when may this be retried?" with."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "s-onhold")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    mark_paused(ws, "2 packaged", [], "2026-09-04T15:10:00+00:00", "five_hour",
+                "You've hit your session limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list", "--json"])
+
+    payload = json.loads(result.output)
+    assert payload[0]["resume_after"] == "2026-09-04T15:10:00+00:00"
+    assert payload[0]["pause_reason"] == "You've hit your session limit"
+
+
+def test_run_list_json_keys_are_present_and_null_off_a_pause(tmp_path: Path):
+    """Always-present keys, like `outcome`: an unpaused row keeps its shape
+    rather than gaining and losing fields."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _session(tmp_path, "s1", query="q")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list", "--json"])
+
+    row = json.loads(result.output)[0]
+    assert row["resume_after"] is None
+    assert row["pause_reason"] is None
+
+
 def test_run_list_adds_no_failure_lines_for_a_session_that_lost_nothing(tmp_path: Path):
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')

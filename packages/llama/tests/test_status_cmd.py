@@ -282,7 +282,9 @@ def test_status_json_object_shape(tmp_path: Path):
     assert [s["id"] for s in obj["sessions"]] == ["2026-07-27-a-awaiting"]
     session = obj["sessions"][0]
     assert set(session.keys()) == {"id", "state", "updated_at", "query", "profile",
-                                   "outcome", "failures"}
+                                   "outcome", "failures",
+                                   # null off a pause; see _session_json
+                                   "resume_after", "pause_reason"}
     assert session["state"] == STATE_AWAITING
 
     assert obj["shows"][0]["slug"] == "aaa-1970-01-01"

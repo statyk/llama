@@ -145,3 +145,15 @@ def test_resume_at_declines_a_naive_reset_rather_than_guessing_its_zone(monkeypa
     when = pacing.resume_at(err, pacing.pace_options(_config()))
     assert when == now + timedelta(hours=1)
     assert when.tzinfo is not None
+
+
+def test_duration_arg_round_trips_through_parse_duration():
+    # format_delta's "2h 0m" is prose and parse_duration rejects it, so the
+    # hint a checkpoint prints has to use this one instead.
+    for seconds in (30, 60, 90, 3600, 7200, 7250, 30 * 3600, 5 * 3600 + 90):
+        arg = pacing.duration_arg(seconds)
+        assert " " not in arg
+        assert pacing.parse_duration(arg) >= seconds     # rounded up, never short
+    assert pacing.duration_arg(7200) == "2h"
+    assert pacing.duration_arg(7250) == "2h1m"
+    assert pacing.duration_arg(90) == "2m"

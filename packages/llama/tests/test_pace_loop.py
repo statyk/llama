@@ -145,6 +145,45 @@ def test_a_checkpoint_reports_how_many_shows_are_left(tmp_path, monkeypatch, cap
     assert "llama run resume r1" in out
 
 
+def test_the_resume_hint_prints_a_max_wait_the_shell_can_actually_take(
+        tmp_path, monkeypatch, capsys):
+    """A checkpoint over the cap suggests raising it. The suggested value has
+    to parse -- format_delta's "2h 0m" does not -- and has to cover the wait
+    it was printed for, or the rerun checkpoints again for the same reason."""
+    _clock(monkeypatch, sleep_budget=0)
+    pace = pacing.pace_options(Config(), max_wait="1h")
+    _drive(tmp_path, monkeypatch, _limits_once("a", NOW + timedelta(hours=2, seconds=30)),
+           ["a"], pace=pace)
+
+    out = capsys.readouterr().out
+    assert "exceeds --max-wait 1h 0m" in out                # prose, unchanged
+    hint = out.split("--max-wait ")[-1].strip()             # the copy-pasteable one
+    assert pacing.parse_duration(hint) >= 2 * 3600 + 30 + 120
+
+
+def test_an_interrupt_during_the_wait_checkpoints_rather_than_losing_the_run(
+        tmp_path, monkeypatch, capsys):
+    """Ctrl-C out of a multi-hour nap is the likeliest way this loop ends in
+    practice; it must leave the same resumable marker a checkpoint does."""
+    state = {"now": NOW}
+    monkeypatch.setattr(pacing, "_now", lambda: state["now"])
+
+    def _interrupt(seconds):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(pacing, "_sleep", _interrupt)
+    ws, seen = _drive(tmp_path, monkeypatch,
+                      _limits_once("b", NOW + timedelta(minutes=10)),
+                      ["a", "b", "c"], pace=pacing.pace_options(Config()))
+
+    assert seen == ["a", "b"]
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_PAUSED
+    assert info.outcome == "1 packaged"
+    assert info.resume_after == "2026-09-04T08:12:00+00:00"
+    assert "interrupted; resume with: llama run resume r1" in capsys.readouterr().out
+
+
 def test_a_backend_that_keeps_refusing_checkpoints_instead_of_napping_forever(
         tmp_path, monkeypatch, capsys):
     """The no-progress guard. One pause cycle that buys nothing is enough:
@@ -262,3 +301,89 @@ def test_a_limit_with_no_named_reset_waits_the_configured_default(tmp_path, monk
     assert marker["resume_after"] == "2026-09-04T09:00:00+00:00"   # +1h default
     assert marker["pause_scope"] is None
     assert clock["sleeps"] == 0
+
+
+# ---------------------------------------------------------------------------
+# The CLI flags: what reaches _execute, and what fails before the run starts
+# ---------------------------------------------------------------------------
+
+from typer.testing import CliRunner                                    # noqa: E402
+
+from llama.workspace import write_artifact                             # noqa: E402
+
+runner = CliRunner()
+
+
+def _captured_pace(tmp_path, monkeypatch, argv, *, config_body="") -> list:
+    """Invoke the CLI with _execute stubbed, returning the pace it was given."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'root = "{tmp_path}"\n{config_body}')
+    seen = []
+
+    def _fake_execute(*args, pace=None, **kwargs):
+        seen.append(pace)
+
+    monkeypatch.setattr(cli, "_execute", _fake_execute)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: None)
+    result = runner.invoke(cli.app, ["--config", str(cfg)] + argv)
+    return result, seen
+
+
+def _seeded_run(tmp_path, name="r1"):
+    ws = RunWorkspace(tmp_path, name)
+    write_artifact(ws.criteria, Criteria(query="q"))
+    return ws
+
+
+def test_get_passes_the_pacing_flags_through_to_the_loop(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query: Criteria(query=query))
+    monkeypatch.setattr(cli, "make_providers", lambda config: collections.defaultdict(lambda: None))
+    result, seen = _captured_pace(tmp_path, monkeypatch,
+                                  ["get", "q", "--auto", "--name", "r1",
+                                   "--no-wait", "--max-wait", "30h"])
+    assert result.exit_code == 0, result.output
+    assert seen[0].wait is False
+    assert seen[0].max_wait_s == 30 * 3600
+    assert seen[0].enabled is True
+
+
+def test_get_defaults_come_from_the_config(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_interpret", lambda ws, provider, query: Criteria(query=query))
+    monkeypatch.setattr(cli, "make_providers", lambda config: collections.defaultdict(lambda: None))
+    result, seen = _captured_pace(tmp_path, monkeypatch,
+                                  ["get", "q", "--auto", "--name", "r1"],
+                                  config_body="[pacing]\nwait = false\nmax_wait = \"90m\"\n")
+    assert result.exit_code == 0, result.output
+    assert seen[0].wait is False
+    assert seen[0].max_wait_s == 90 * 60
+
+
+def test_no_pacing_reaches_the_loop_disabled(tmp_path, monkeypatch):
+    _seeded_run(tmp_path)
+    result, seen = _captured_pace(tmp_path, monkeypatch,
+                                  ["run", "resume", "r1", "--no-pacing"])
+    assert result.exit_code == 0, result.output
+    assert seen[0].enabled is False
+
+
+def test_run_resume_passes_the_pacing_flags_through(tmp_path, monkeypatch):
+    _seeded_run(tmp_path)
+    result, seen = _captured_pace(tmp_path, monkeypatch,
+                                  ["run", "resume", "r1", "--max-wait", "12h"])
+    assert result.exit_code == 0, result.output
+    assert seen[0].max_wait_s == 12 * 3600
+
+
+@pytest.mark.parametrize("argv", [
+    ["get", "q", "--auto", "--max-wait", "soon"],
+    ["run", "resume", "r1", "--max-wait", "soon"],
+    ["run", "approve", "r1", "--max-wait", "soon"],
+])
+def test_a_malformed_max_wait_fails_before_the_run_starts(tmp_path, monkeypatch, argv):
+    """Eagerly validated on every command that takes it: a typo must not
+    surface four shows in, when the pause it governs finally happens."""
+    _seeded_run(tmp_path)
+    result, seen = _captured_pace(tmp_path, monkeypatch, argv)
+    assert result.exit_code == 1
+    assert "not a duration" in result.output
+    assert seen == []                       # _execute never ran

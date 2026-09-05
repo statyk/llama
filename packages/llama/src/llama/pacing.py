@@ -6,6 +6,7 @@ checkpoints. The proactive half - reading Claude Code's usage cache,
 projecting per-show cost, pausing BEFORE a window is exhausted - is
 phase 2 and deliberately absent here.
 """
+import math
 import re
 import time
 from dataclasses import dataclass
@@ -32,6 +33,22 @@ def format_delta(seconds: float) -> str:
     total = max(int(seconds), 60)
     hours, minutes = divmod(total // 60, 60)
     return f"{hours}h {minutes}m" if hours else f"{minutes}m"
+
+
+def duration_arg(seconds: float) -> str:
+    """A duration rendered so it can be handed straight back as `--max-wait`.
+
+    `format_delta` is for prose and emits `2h 0m`, which parse_duration
+    rejects on the space - so the copy-pasteable hint a checkpoint prints
+    would not run. This one has no space and rounds UP to the minute: a
+    floored value can be shorter than the wait it was printed for, so
+    re-running with it would checkpoint again for the same reason.
+    """
+    minutes = max(1, math.ceil(seconds / 60))
+    hours, minutes = divmod(minutes, 60)
+    if not hours:
+        return f"{minutes}m"
+    return f"{hours}h{minutes}m" if minutes else f"{hours}h"
 
 
 def sleep_until(when: datetime, echo, chunk_s: float = 900) -> None:

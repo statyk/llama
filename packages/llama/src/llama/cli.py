@@ -27,8 +27,8 @@ from llama.locks import Locked, file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
-from llama.pacing import (PaceOptions, format_delta, pace_options, resume_at,
-                          sleep_until)
+from llama.pacing import (PaceOptions, duration_arg, format_delta, pace_options,
+                          resume_at, sleep_until)
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
@@ -358,7 +358,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         mark_paused(ws, _outcome(), failures, when.isoformat(), scope, reason)
         typer.echo(f"  {len(unprocessed)} shows left; resume with: "
                    f"llama run resume {ws.name}"
-                   + (f" --max-wait {format_delta(wait_s)}"
+                   + (f" --max-wait {duration_arg(wait_s)}"
                       if wait_s > pace.max_wait_s else ""))
         return
 
@@ -2310,9 +2310,17 @@ _ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: 
 
 
 def _session_json(s) -> dict:
+    # Carries everything the human table renders, `resumes <instant>`
+    # included: a consumer reading state="paused" out of `run list --json`
+    # has nothing else to answer "when may this be retried?" with, and the
+    # table already answers it. Both keys are always present and null off a
+    # pause, like `outcome`, so no row changes shape. `pause_scope` is
+    # deliberately not here -- it is in the marker but not on SessionInfo,
+    # and the reason text names the window anyway.
     return {"id": s.id, "state": s.state, "updated_at": s.updated_at,
             "query": s.query, "profile": s.profile,
-            "outcome": s.outcome, "failures": s.failures}
+            "outcome": s.outcome, "failures": s.failures,
+            "resume_after": s.resume_after, "pause_reason": s.pause_reason}
 
 
 def _print_attention(sessions) -> None:
