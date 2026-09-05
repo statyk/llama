@@ -2,7 +2,7 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from herder import LLMSettings, TaskConfig
 from llama.errors import ConfigError
@@ -95,6 +95,27 @@ class ArtistsConfig(BaseModel):
     max_matched: int = 20
 
 
+class PacingConfig(BaseModel):
+    """Waiting out an exhausted usage window (see llama/pacing.py).
+
+    Durations are strings so the config reads in the units a human thinks
+    in; they are validated at load time rather than at the point of use, so
+    a typo fails `llama get` immediately instead of four shows in.
+    """
+    enabled: bool = True
+    wait: bool = True
+    max_wait: str = "6h"
+    unknown_reset_wait: str = "1h"
+    reset_skew: str = "2m"
+
+    @field_validator("max_wait", "unknown_reset_wait", "reset_skew")
+    @classmethod
+    def _durations_parse(cls, v: str) -> str:
+        from llama.pacing import parse_duration
+        parse_duration(v)
+        return v
+
+
 class Config(BaseModel):
     root: Path = DEFAULT_ROOT
     delivery_path: Path | None = None
@@ -106,6 +127,7 @@ class Config(BaseModel):
     artists: ArtistsConfig = Field(default_factory=ArtistsConfig)
     winnow: WinnowConfig = Field(default_factory=WinnowConfig)
     selection: SelectionConfig = Field(default_factory=SelectionConfig)
+    pacing: PacingConfig = Field(default_factory=PacingConfig)
     tiers: dict[str, dict[Tier, str]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -209,6 +231,29 @@ enabled = true
 # review-fetch budget: when more survivors than this, the best-evidenced are
 # sampled for scoring
 max_metadata_fetch = 40
+
+
+[pacing]
+# When the backend refuses because a usage window is exhausted, wait it out
+# instead of failing every remaining show. Set enabled = false to restore the
+# old behaviour (the run fails the show and moves on).
+enabled = true
+
+# Sleep through the wait (true) or checkpoint the session and exit 0 (false).
+# Either way the run resumes with `llama run resume <name>`; stages skip work
+# already done, so resuming costs nothing for shows already packaged.
+wait = true
+
+# Never sleep longer than this. A wait beyond it checkpoints instead - which
+# is what keeps a 7-day window from parking the process for days. Raise it
+# (e.g. --max-wait 30h) to deliberately wait out a weekly reset.
+max_wait = "6h"
+
+# How long to wait when the refusal names no reset time.
+unknown_reset_wait = "1h"
+
+# Added to the reset instant before resuming, so we do not race the window.
+reset_skew = "2m"
 
 
 [artists]
