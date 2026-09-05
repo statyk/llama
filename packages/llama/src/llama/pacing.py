@@ -38,7 +38,14 @@ def sleep_until(when: datetime, echo, chunk_s: float = 900) -> None:
 
     Chunked so a multi-hour wait is not a dead prompt, and so a
     KeyboardInterrupt lands promptly. The caller handles that interrupt.
+
+    `when` must be timezone-aware. A naive value is ambiguous (local time or
+    UTC?) and this function refuses to guess: silently treating it as UTC
+    would risk a multi-hour wake-time error that no one would notice until
+    the run was hours late or hours early. Raise, don't coerce.
     """
+    if when.tzinfo is None:
+        raise ValueError(f"sleep_until requires a timezone-aware datetime, got naive {when!r}")
     while True:
         remaining = (when - _now()).total_seconds()
         if remaining <= 0:

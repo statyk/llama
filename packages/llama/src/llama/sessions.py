@@ -93,7 +93,7 @@ def session_state(run_dir: Path) -> str:
 @dataclass
 class SessionInfo:
     id: str
-    state: str            # STATE_AWAITING | STATE_COMPLETE | STATE_INCOMPLETE
+    state: str            # STATE_AWAITING | STATE_COMPLETE | STATE_INCOMPLETE | STATE_PAUSED
     updated_at: str       # marker updated_at, else dir-mtime ISO
     query: str            # criteria.query, "" when no criteria.json
     profile: str | None   # criteria.profile

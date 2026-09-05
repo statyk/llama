@@ -14,7 +14,10 @@ def test_parse_duration_accepts_the_documented_forms():
 
 
 def test_parse_duration_rejects_nonsense():
-    for bad in ("", "soon", "6", "-2h", "6x"):
+    for bad in ("", "soon", "6", "-2h", "6x",
+                "6h banana",       # trailing garbage after a valid prefix
+                "5h30m!",          # trailing garbage after a full match
+                "6s30m"):          # units out of order (h, m, s only)
         with pytest.raises(ValueError):
             pacing.parse_duration(bad)
 
@@ -22,6 +25,13 @@ def test_parse_duration_rejects_nonsense():
 def test_format_delta_is_human_readable():
     assert pacing.format_delta(4 * 3600 + 12 * 60) == "4h 12m"
     assert pacing.format_delta(90) == "1m"
+
+
+def test_format_delta_floors_short_deltas_at_one_minute():
+    # The docstring's invariant is "never bare seconds" -- pin the floor
+    # itself, not just an upper bound on it.
+    assert pacing.format_delta(5) == "1m"
+    assert pacing.format_delta(0) == "1m"
 
 
 def test_sleep_until_naps_in_chunks_and_reports(monkeypatch):
@@ -43,6 +53,31 @@ def test_sleep_until_returns_at_once_when_the_time_has_passed(monkeypatch):
     pacing.sleep_until(now - timedelta(minutes=1), echo=lambda m: None)
 
 
+def test_sleep_until_defaults_to_900s_chunks(monkeypatch):
+    # Task 7 is the first real caller and will take this default; at 1s a
+    # 6-hour wait would spam 21,600 progress lines, and at 60000s it would
+    # emit none -- the dead prompt this function exists to prevent.
+    start = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+    clock = {"now": start}
+    naps = []
+    monkeypatch.setattr(pacing, "_now", lambda: clock["now"])
+
+    def fake_sleep(s):
+        naps.append(s)
+        clock["now"] += timedelta(seconds=s)
+    monkeypatch.setattr(pacing, "_sleep", fake_sleep)
+
+    pacing.sleep_until(start + timedelta(seconds=1000), echo=lambda m: None)
+    assert naps[0] == 900
+
+
+def test_sleep_until_rejects_a_naive_when(monkeypatch):
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("should not sleep"))
+    naive = datetime(2026, 9, 4, 9, 0)   # no tzinfo
+    with pytest.raises(ValueError):
+        pacing.sleep_until(naive, echo=lambda m: None)
+
+
 def test_pacing_config_defaults_are_parseable():
     cfg = PacingConfig()
     assert cfg.enabled is True and cfg.wait is True
@@ -51,6 +86,7 @@ def test_pacing_config_defaults_are_parseable():
     assert Config().pacing.max_wait == "6h"
 
 
-def test_pacing_config_rejects_an_unparseable_duration():
+@pytest.mark.parametrize("field", ["max_wait", "unknown_reset_wait", "reset_skew"])
+def test_pacing_config_rejects_an_unparseable_duration(field):
     with pytest.raises(Exception):
-        PacingConfig(max_wait="whenever")
+        PacingConfig(**{field: "whenever"})

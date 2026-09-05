@@ -10,8 +10,9 @@ import llama.cli as cli
 from llama.models import (
     Candidate, Criteria, QualityAssessment, RecordingSummary, ShortlistEntry,
 )
-from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, mark_awaiting,
-                            mark_complete, mark_incomplete)
+from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
+                            STATE_PAUSED, mark_awaiting, mark_complete,
+                            mark_incomplete, mark_paused)
 from llama.workspace import RunWorkspace, read_model_list, write_artifact
 
 runner = CliRunner()
@@ -114,6 +115,65 @@ def test_run_list_json_emits_session_info_dicts(tmp_path: Path):
     assert data[0]["query"] == "q"
     assert data[0]["profile"] is None
     assert "updated_at" in data[0]
+
+
+def test_run_list_shows_paused_label_and_resume_suffix(tmp_path: Path):
+    # Task 6's cli.py rendering (STATE_PAUSED label + "resumes <iso>" suffix)
+    # had zero coverage before this: reverting cli.py to its pre-Task-6
+    # state left the suite green. Pin both the label and the suffix, and
+    # confirm the suffix is paused-only (not printed for an incomplete run).
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    # Deliberately NOT named "*paused*" -- the id itself must not satisfy a
+    # substring check on the word "paused", or the assertion below would
+    # pass no matter what the label column actually says.
+    ws = RunWorkspace(tmp_path, "s-onhold")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    mark_paused(ws, None, [], "2026-09-04T15:10:00+00:00", "five_hour", "session limit")
+    _session(tmp_path, "s-incomplete", query="an incomplete query")   # no marker
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert result.exit_code == 0, result.output
+    lines_by_id = {ln.split()[0]: ln for ln in result.output.splitlines() if ln.strip()}
+
+    paused_line = lines_by_id["s-onhold"]
+    assert paused_line.split()[1] == "paused"   # the label column, exactly
+    assert "resumes 2026-09-04T15:10:00+00:00" in paused_line
+
+    incomplete_line = lines_by_id["s-incomplete"]
+    assert "resumes" not in incomplete_line
+
+
+def test_run_list_resume_suffix_requires_paused_state(tmp_path: Path):
+    # The public mark_* API can never produce state=incomplete with
+    # resume_after set (mark_incomplete always writes it None), so this
+    # marker is written directly to exercise the `s.state == STATE_PAUSED`
+    # guard itself, not just "this session happens to have no resume_after".
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "s-incomplete-carries-resume-after")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    write_artifact(ws.session, json.dumps({
+        "state": STATE_INCOMPLETE, "updated_at": "2026-09-04T00:00:00+00:00",
+        "outcome": None, "failures": [],
+        "resume_after": "2026-09-04T15:10:00+00:00",
+        "pause_scope": None, "pause_reason": None,
+    }))
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert result.exit_code == 0, result.output
+    line = next(ln for ln in result.output.splitlines()
+                if ln.startswith("s-incomplete-carries-resume-after"))
+    assert "resumes" not in line
+
+
+def test_attention_dicts_carry_a_paused_entry():
+    # `.get(state, state)` / `.get(state, "llama run resume {id}")` both
+    # happen to fall back to the exact text STATE_PAUSED's entry holds, so a
+    # CLI-output assertion cannot distinguish "entry present" from "entry
+    # deleted, default coincides". Index the dicts directly instead.
+    assert cli._ATTENTION_LABELS[STATE_PAUSED] == "paused"
+    assert cli._ATTENTION_HINTS[STATE_PAUSED] == "llama run resume {id}"
 
 
 # ---------------------------------------------------------------------------
