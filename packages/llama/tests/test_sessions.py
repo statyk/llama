@@ -7,9 +7,9 @@ from typer.testing import CliRunner
 import llama.cli as cli
 from llama.models import Criteria
 from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
-                            SessionInfo, attention_sessions, iter_sessions,
-                            mark_awaiting, mark_complete, mark_incomplete,
-                            session_state)
+                            STATE_PAUSED, SessionInfo, attention_sessions,
+                            iter_sessions, mark_awaiting, mark_complete,
+                            mark_incomplete, mark_paused, session_state)
 from llama.workspace import RunWorkspace, claim_run_dir, write_artifact
 
 from herder import FakeProvider
@@ -292,3 +292,30 @@ def test_a_clean_run_still_ends_complete(tmp_path: Path, monkeypatch):
     assert info.state == STATE_COMPLETE
     assert info.failures == []
     assert attention_sessions(tmp_path) == []
+
+
+def test_paused_round_trips_the_resume_time(tmp_path):
+    ws = _run_ws(tmp_path)
+    mark_paused(ws, "3 packaged", [], "2026-09-04T15:10:00+00:00",
+                "five_hour", "session limit")
+    assert session_state(ws.dir) == STATE_PAUSED
+    info = [s for s in attention_sessions(tmp_path) if s.id == ws.name][0]
+    assert info.state == STATE_PAUSED
+    assert info.resume_after == "2026-09-04T15:10:00+00:00"
+    assert info.pause_reason == "session limit"
+
+
+def test_a_paused_run_is_on_the_attention_list(tmp_path):
+    ws = _run_ws(tmp_path)
+    mark_paused(ws, None, [], "2026-09-04T15:10:00+00:00", "five_hour", "x")
+    assert [s.id for s in attention_sessions(tmp_path)] == [ws.name]
+
+
+def test_completing_a_paused_run_erases_the_pause_block(tmp_path):
+    ws = _run_ws(tmp_path)
+    mark_paused(ws, None, [], "2026-09-04T15:10:00+00:00", "five_hour", "x")
+    mark_complete(ws, "13 packaged")
+    assert session_state(ws.dir) == STATE_COMPLETE
+    assert attention_sessions(tmp_path) == []
+    marker = json.loads((ws.dir / "session.json").read_text())
+    assert "resume_after" not in marker or marker["resume_after"] is None

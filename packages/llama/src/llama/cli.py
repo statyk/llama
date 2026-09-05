@@ -26,7 +26,7 @@ from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
 )
-from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE,
+from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
                             attention_sessions, mark_awaiting, mark_complete,
                             mark_incomplete, session_state)
 from llama.setlistfm import make_client
@@ -458,6 +458,8 @@ def _print_sessions(sessions) -> None:
         line = f"{s.id:<36} {label:<18} {age:>4}  {_session_criteria_str(s)}"
         if s.outcome:
             line += f"   {s.outcome}"
+        if s.state == STATE_PAUSED and s.resume_after:
+            line += f"   resumes {s.resume_after}"
         typer.echo(line)
         # One line per show the run lost, mirroring `status`'s flag lines.
         for failure in s.failures:
@@ -2175,8 +2177,10 @@ def unsuppress(name: str = typer.Argument(
     typer.echo(f"removed {n} rejected row(s) for {pid}")
 
 
-_ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete"}
-_ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: "llama run resume {id}"}
+_ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete",
+                     STATE_PAUSED: "paused"}
+_ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: "llama run resume {id}",
+                    STATE_PAUSED: "llama run resume {id}"}
 
 
 def _session_json(s) -> dict:

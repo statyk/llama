@@ -14,15 +14,21 @@ STATE_AWAITING = "awaiting-approval"
 STATE_COMPLETE = "complete"
 STATE_INCOMPLETE = "incomplete"          # written when shows failed; also the
                                          # fallback when no clean stop was recorded
+STATE_PAUSED = "paused"                  # waiting out an exhausted usage window
 
 
 def _write(ws: RunWorkspace, state: str, outcome: str | None,
-           failures: list[dict] | None = None) -> None:
+           failures: list[dict] | None = None,
+           resume_after: str | None = None, scope: str | None = None,
+           reason: str | None = None) -> None:
     write_artifact(ws.session, json.dumps({
         "state": state,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "outcome": outcome,
         "failures": failures or [],
+        "resume_after": resume_after,
+        "pause_scope": scope,
+        "pause_reason": reason,
     }, indent=2))
 
 
@@ -50,6 +56,17 @@ def mark_incomplete(ws: RunWorkspace, outcome: str | None = None,
     _write(ws, STATE_INCOMPLETE, outcome, failures)
 
 
+def mark_paused(ws: RunWorkspace, outcome: str | None, failures: list[dict] | None,
+                resume_after: str, scope: str | None, reason: str | None) -> None:
+    """Stop a run that ran out of usage window, recording when to come back.
+
+    Distinct from `mark_incomplete`: nothing is wrong with the shows this run
+    has not reached yet, so they are not failures. It stays on the attention
+    list (state != complete) until a resume finishes cleanly.
+    """
+    _write(ws, STATE_PAUSED, outcome, failures, resume_after, scope, reason)
+
+
 def _read_marker(run_dir: Path) -> dict:
     """The session marker as a dict, or {} when absent or unreadable."""
     path = run_dir / "session.json"
@@ -64,7 +81,8 @@ def _read_marker(run_dir: Path) -> dict:
 
 def _state_of(marker: dict) -> str:
     state = marker.get("state")
-    return state if state in (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE) \
+    return state if state in (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
+                              STATE_PAUSED) \
         else STATE_INCOMPLETE
 
 
@@ -81,6 +99,8 @@ class SessionInfo:
     profile: str | None   # criteria.profile
     outcome: str | None = None      # marker outcome ("5 packaged, 3 held, 1 failed")
     failures: list[dict] = field(default_factory=list)  # per-show {show, error}
+    resume_after: str | None = None   # ISO instant a paused run may resume
+    pause_reason: str | None = None   # the backend's own refusal text
 
 
 def _updated_at(run_dir: Path, marker: dict) -> str:
@@ -110,6 +130,8 @@ def iter_sessions(root: Path) -> list[SessionInfo]:
                 profile=profile,
                 outcome=marker.get("outcome"),
                 failures=marker.get("failures") or [],
+                resume_after=marker.get("resume_after"),
+                pause_reason=marker.get("pause_reason"),
             ))
     infos.sort(key=lambda s: s.updated_at, reverse=True)
     return infos
