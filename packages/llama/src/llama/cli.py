@@ -576,8 +576,8 @@ def _print_sessions(sessions) -> None:
 def run_list(
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
-    """List sessions awaiting approval or incomplete (the attention-list);
-    complete sessions never show here."""
+    """List sessions awaiting approval, incomplete, or paused (the
+    attention-list); complete sessions never show here."""
     import json as _json
 
     config, _, _ = _setup()
