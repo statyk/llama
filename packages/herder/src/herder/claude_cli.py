@@ -6,6 +6,8 @@ import subprocess
 import sys
 import tempfile
 
+from herder.failures import capture_failure
+from herder.limits import classify
 from herder.provider import HerderError
 
 # complete() must be pure text->text; research() may search the web and nothing else.
@@ -123,15 +125,32 @@ class ClaudeCLIProvider:
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             raise HerderError(f"claude invocation failed: {e}") from e
         if proc.returncode != 0:
-            raise HerderError(f"claude exited {proc.returncode}: {_error_detail(proc)}")
+            message = f"claude exited {proc.returncode}: {_error_detail(proc)}"
+            capture_failure(cmd, proc)
+            limited = classify(message)
+            if limited is not None:
+                raise limited
+            raise HerderError(message)
         try:
             data = json.loads(proc.stdout)
         except json.JSONDecodeError as e:
+            # No classify() here: this branch is only reachable at
+            # returncode == 0, and the measured usage-limit signature always
+            # exits 1 (limits.py:3-11) - a non-zero exit with non-JSON stdout
+            # already classifies, via _error_detail's stderr-or-stdout
+            # fallback above.
+            capture_failure(cmd, proc)
             raise HerderError(f"claude output was not JSON: {proc.stdout[:200]}") from e
         if data.get("is_error"):
-            raise HerderError(f"claude reported an error: {_message_or(data, str(data))[:500]}")
+            message = f"claude reported an error: {_message_or(data, str(data))[:500]}"
+            capture_failure(cmd, proc)
+            limited = classify(message)
+            if limited is not None:
+                raise limited
+            raise HerderError(message)
         result = data.get("result")
         if not isinstance(result, str):
+            capture_failure(cmd, proc)
             raise HerderError("claude output has no string 'result' field")
         return result
 

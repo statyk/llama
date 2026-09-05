@@ -212,3 +212,96 @@ def test_neutral_directory_is_reused_across_calls(monkeypatch):
     p.complete("a")
     p.research("b")
     assert seen[0] == seen[1] and seen[0] is not None
+
+
+# --- rate-limit classification and failure capture ------------------------
+
+from herder.limits import RateLimited
+
+SESSION_LIMIT_MSG = ("You've hit your session limit · "
+                     "resets 11:10am (America/New_York)")
+
+
+def test_session_limit_on_nonzero_exit_raises_rate_limited(monkeypatch):
+    patch_run(monkeypatch, FakeProc(returncode=1, stderr=SESSION_LIMIT_MSG), {})
+    with pytest.raises(RateLimited) as exc:
+        ClaudeCLIProvider().complete("x")
+    assert exc.value.scope == "five_hour"
+    assert "session limit" in str(exc.value)
+
+
+def test_session_limit_in_an_error_envelope_raises_rate_limited(monkeypatch):
+    envelope = {"is_error": True, "result": SESSION_LIMIT_MSG}
+    patch_run(monkeypatch, FakeProc(returncode=0, stdout=json.dumps(envelope)), {})
+    with pytest.raises(RateLimited):
+        ClaudeCLIProvider().complete("x")
+
+
+def test_dropped_connection_stays_a_plain_herder_error(monkeypatch):
+    patch_run(monkeypatch, FakeProc(returncode=1, stdout=json.dumps(CLOSED_MID)), {})
+    with pytest.raises(HerderError) as exc:
+        ClaudeCLIProvider().complete("x")
+    assert not isinstance(exc.value, RateLimited)
+
+
+def test_a_failure_is_captured_when_a_capture_dir_is_set(monkeypatch, tmp_path):
+    from herder import failures
+    patch_run(monkeypatch, FakeProc(returncode=1, stderr="boom"), {})
+    failures.set_capture_dir(tmp_path)
+    try:
+        with pytest.raises(HerderError):
+            ClaudeCLIProvider().complete("x")
+    finally:
+        failures.set_capture_dir(None)
+    written = list(tmp_path.iterdir())
+    assert len(written) == 1
+    assert "boom" in written[0].read_text()
+
+
+def test_a_failure_is_captured_on_the_is_error_envelope(monkeypatch, tmp_path):
+    # The is_error envelope is the sharp case: failures.py's own docstring
+    # says the structured fields (api_error_status, subtype, terminal_reason)
+    # that make a capture worth having live in the full envelope, which is
+    # exactly what this branch throws away down to 500 chars of `result`.
+    from herder import failures
+    envelope = {"is_error": True, "result": "boom", "api_error_status": "internal_error"}
+    patch_run(monkeypatch, FakeProc(returncode=0, stdout=json.dumps(envelope)), {})
+    failures.set_capture_dir(tmp_path)
+    try:
+        with pytest.raises(HerderError):
+            ClaudeCLIProvider().complete("x")
+    finally:
+        failures.set_capture_dir(None)
+    written = list(tmp_path.iterdir())
+    assert len(written) == 1
+    assert "api_error_status" in written[0].read_text()
+
+
+def test_a_failure_is_captured_on_not_json_stdout(monkeypatch, tmp_path):
+    from herder import failures
+    patch_run(monkeypatch, FakeProc(returncode=0, stdout="not json"), {})
+    failures.set_capture_dir(tmp_path)
+    try:
+        with pytest.raises(HerderError):
+            ClaudeCLIProvider().complete("x")
+    finally:
+        failures.set_capture_dir(None)
+    written = list(tmp_path.iterdir())
+    assert len(written) == 1
+    assert "not json" in written[0].read_text()
+
+
+def test_a_failure_is_captured_when_result_field_is_missing(monkeypatch, tmp_path):
+    # The "no string 'result' field" message carries zero diagnostic
+    # content, which makes it the failure most in need of the raw envelope.
+    from herder import failures
+    patch_run(monkeypatch, FakeProc(returncode=0, stdout=json.dumps({"not_result": "x"})), {})
+    failures.set_capture_dir(tmp_path)
+    try:
+        with pytest.raises(HerderError):
+            ClaudeCLIProvider().complete("x")
+    finally:
+        failures.set_capture_dir(None)
+    written = list(tmp_path.iterdir())
+    assert len(written) == 1
+    assert "not_result" in written[0].read_text()

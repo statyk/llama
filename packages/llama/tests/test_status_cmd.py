@@ -9,7 +9,8 @@ from typer.testing import CliRunner
 
 import llama.cli as cli
 from llama.models import Criteria, Overrides
-from llama.sessions import STATE_AWAITING, STATE_COMPLETE, mark_awaiting, mark_complete
+from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, mark_awaiting,
+                            mark_complete, mark_paused)
 from llama.workspace import RunWorkspace, write_artifact
 
 from test_cli_commands import _seed_show
@@ -183,6 +184,25 @@ def test_status_attention_header_present_with_awaiting_and_incomplete(tmp_path: 
     assert "llama run resume 2026-07-27-b-crashed" in result.output
 
 
+def test_status_attention_shows_paused_label_and_resume_hint(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    # Deliberately NOT named "*paused*" -- the id itself must not satisfy a
+    # substring check on the word "paused", or the label assertion below
+    # would pass no matter what the label column actually says.
+    ws = RunWorkspace(tmp_path, "2026-09-04-onhold")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    mark_paused(ws, None, [], "2026-09-04T15:10:00+00:00", "five_hour", "session limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "status"])
+    assert result.exit_code == 0, result.output
+    assert "sessions needing attention:" in result.output
+    line = next(ln for ln in result.output.splitlines()
+                if "2026-09-04-onhold" in ln)
+    assert line.split()[1] == "paused"   # the label column, exactly
+    assert "llama run resume 2026-09-04-onhold" in line
+    assert "llama run approve 2026-09-04-onhold" not in line
+
+
 def test_status_attention_header_absent_when_all_complete(tmp_path: Path):
     cfg = _cfg(tmp_path)
     _session(tmp_path, "2026-07-27-done", state=STATE_COMPLETE)
@@ -262,7 +282,9 @@ def test_status_json_object_shape(tmp_path: Path):
     assert [s["id"] for s in obj["sessions"]] == ["2026-07-27-a-awaiting"]
     session = obj["sessions"][0]
     assert set(session.keys()) == {"id", "state", "updated_at", "query", "profile",
-                                   "outcome", "failures"}
+                                   "outcome", "failures",
+                                   # null off a pause; see _session_json
+                                   "resume_after", "pause_reason"}
     assert session["state"] == STATE_AWAITING
 
     assert obj["shows"][0]["slug"] == "aaa-1970-01-01"

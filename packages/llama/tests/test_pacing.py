@@ -1,0 +1,186 @@
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from herder.limits import RateLimited
+from llama import pacing
+from llama.config import Config, PacingConfig
+
+
+def test_parse_duration_accepts_the_documented_forms():
+    assert pacing.parse_duration("6h") == 6 * 3600
+    assert pacing.parse_duration("90m") == 90 * 60
+    assert pacing.parse_duration("5h30m") == 5 * 3600 + 30 * 60
+    assert pacing.parse_duration("45s") == 45
+
+
+def test_parse_duration_rejects_nonsense():
+    for bad in ("", "soon", "6", "-2h", "6x",
+                "   ", "\t\n",      # whitespace only: stripped to empty, still not a duration
+                "6h banana",       # trailing garbage after a valid prefix
+                "5h30m!",          # trailing garbage after a full match
+                "6 h banana",      # ... and the whitespace tolerance does not rescue it
+                "6s30m"):          # units out of order (h, m, s only)
+        with pytest.raises(ValueError):
+            pacing.parse_duration(bad)
+
+
+def test_format_delta_is_human_readable():
+    assert pacing.format_delta(4 * 3600 + 12 * 60) == "4h 12m"
+    assert pacing.format_delta(90) == "1m"
+
+
+def test_format_delta_floors_short_deltas_at_one_minute():
+    # The docstring's invariant is "never bare seconds" -- pin the floor
+    # itself, not just an upper bound on it.
+    assert pacing.format_delta(5) == "1m"
+    assert pacing.format_delta(0) == "1m"
+
+
+def test_sleep_until_naps_in_chunks_and_reports(monkeypatch):
+    start = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+    clock = {"now": start}
+    monkeypatch.setattr(pacing, "_now", lambda: clock["now"])
+    monkeypatch.setattr(pacing, "_sleep",
+                        lambda s: clock.update(now=clock["now"] + timedelta(seconds=s)))
+    said = []
+    pacing.sleep_until(start + timedelta(hours=1), echo=said.append, chunk_s=900)
+    assert clock["now"] >= start + timedelta(hours=1)
+    assert len(said) == 3          # reports after each of the first three naps
+
+
+def test_sleep_until_returns_at_once_when_the_time_has_passed(monkeypatch):
+    now = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(pacing, "_now", lambda: now)
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("should not sleep"))
+    pacing.sleep_until(now - timedelta(minutes=1), echo=lambda m: None)
+
+
+def test_sleep_until_defaults_to_900s_chunks(monkeypatch):
+    # Task 7 is the first real caller and will take this default; at 1s a
+    # 6-hour wait would spam 21,600 progress lines, and at 60000s it would
+    # emit none -- the dead prompt this function exists to prevent.
+    start = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+    clock = {"now": start}
+    naps = []
+    monkeypatch.setattr(pacing, "_now", lambda: clock["now"])
+
+    def fake_sleep(s):
+        naps.append(s)
+        clock["now"] += timedelta(seconds=s)
+    monkeypatch.setattr(pacing, "_sleep", fake_sleep)
+
+    pacing.sleep_until(start + timedelta(seconds=1000), echo=lambda m: None)
+    assert naps[0] == 900
+
+
+def test_sleep_until_rejects_a_naive_when(monkeypatch):
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("should not sleep"))
+    naive = datetime(2026, 9, 4, 9, 0)   # no tzinfo
+    with pytest.raises(ValueError):
+        pacing.sleep_until(naive, echo=lambda m: None)
+
+
+def test_pacing_config_defaults_are_parseable():
+    cfg = PacingConfig()
+    assert cfg.enabled is True and cfg.wait is True
+    assert pacing.parse_duration(cfg.max_wait) == 6 * 3600
+    assert pacing.parse_duration(cfg.unknown_reset_wait) == 3600
+    assert Config().pacing.max_wait == "6h"
+
+
+@pytest.mark.parametrize("field", ["max_wait", "unknown_reset_wait", "reset_skew"])
+def test_pacing_config_rejects_an_unparseable_duration(field):
+    with pytest.raises(Exception):
+        PacingConfig(**{field: "whenever"})
+
+
+def _config(**pacing_kwargs) -> Config:
+    return Config(pacing=PacingConfig(**pacing_kwargs))
+
+
+def test_pace_options_reads_the_config_defaults():
+    opts = pacing.pace_options(_config())
+    assert opts.enabled is True
+    assert opts.wait is True
+    assert opts.max_wait_s == 6 * 3600
+    assert opts.unknown_reset_wait_s == 3600
+    assert opts.reset_skew_s == 120
+
+
+def test_pace_options_layers_the_flags_over_the_config():
+    cfg = _config(wait=True, max_wait="6h")
+    assert pacing.pace_options(cfg, wait=False).wait is False
+    assert pacing.pace_options(cfg, max_wait="30h").max_wait_s == 30 * 3600
+    # None means "flag not given", so the config value survives -- and a
+    # config `wait = false` is equally overridable in the other direction.
+    assert pacing.pace_options(cfg, wait=None).wait is True
+    assert pacing.pace_options(_config(wait=False), wait=True).wait is True
+
+
+def test_pace_options_rejects_a_malformed_max_wait():
+    with pytest.raises(ValueError):
+        pacing.pace_options(_config(), max_wait="soon")
+
+
+def test_resume_at_uses_the_named_reset_plus_the_skew():
+    reset = datetime(2026, 9, 4, 11, 10, tzinfo=timezone.utc)
+    err = RateLimited("session limit", scope="five_hour", resets_at=reset)
+    assert pacing.resume_at(err, pacing.pace_options(_config())) == \
+        reset + timedelta(seconds=120)
+
+
+def test_resume_at_falls_back_when_the_refusal_named_no_reset(monkeypatch):
+    now = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(pacing, "_now", lambda: now)
+    err = RateLimited("usage limit reached")
+    assert pacing.resume_at(err, pacing.pace_options(_config())) == now + timedelta(hours=1)
+
+
+def test_resume_at_declines_a_naive_reset_rather_than_guessing_its_zone(monkeypatch):
+    """A naive instant cannot reach sleep_until, which refuses it outright --
+    so the pause would crash instead of pausing. The default wait is the
+    known-safe answer."""
+    now = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(pacing, "_now", lambda: now)
+    err = RateLimited("session limit", resets_at=datetime(2026, 9, 4, 11, 10))
+    when = pacing.resume_at(err, pacing.pace_options(_config()))
+    assert when == now + timedelta(hours=1)
+    assert when.tzinfo is not None
+
+
+def test_duration_arg_round_trips_through_parse_duration():
+    # format_delta's "2h 0m" is prose and parse_duration rejects it, so the
+    # hint a checkpoint prints has to use this one instead.
+    for seconds in (30, 60, 90, 3600, 7200, 7250, 30 * 3600, 5 * 3600 + 90):
+        arg = pacing.duration_arg(seconds)
+        assert " " not in arg
+        assert pacing.parse_duration(arg) >= seconds     # rounded up, never short
+    assert pacing.duration_arg(7200) == "2h"
+    assert pacing.duration_arg(7250) == "2h1m"
+    assert pacing.duration_arg(90) == "2m"
+
+
+def test_parse_duration_ignores_internal_whitespace():
+    # `6h 0m` is what format_delta emits, and the pause messages print it one
+    # line above a command meant to be pasted.
+    assert pacing.parse_duration("6h 0m") == 6 * 3600
+    assert pacing.parse_duration("5h 30m") == 5 * 3600 + 30 * 60
+    assert pacing.parse_duration("  90m  ") == 90 * 60
+
+
+def test_format_delta_output_always_parses_back(monkeypatch):
+    """The property, not the instance: anything format_delta prints can be
+    handed straight back as a duration.
+
+    Round-trip is to the MINUTE, and format_delta floors twice - it truncates
+    seconds, and it clamps at one minute. So the exact contract is
+    `parse_duration(format_delta(x)) == 60 * (max(int(x), 60) // 60)`: equal
+    to x for a whole number of minutes, the minute below for anything else,
+    and 60 for every x under a minute.
+    """
+    cases = [0, 1, 59, 60, 61, 90, 119, 120, 599, 600, 3600, 3601, 3660,
+             7200, 7250, 6 * 3600, 26 * 3600 + 12 * 60, 30 * 3600, 5.5 * 3600]
+    for x in cases:
+        rendered = pacing.format_delta(x)
+        assert pacing.parse_duration(rendered) == 60 * (max(int(x), 60) // 60), rendered
