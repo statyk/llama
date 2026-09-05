@@ -995,13 +995,14 @@ def run_gather(
                     # would write a `low-confidence structure alignment` the
                     # recording did not earn, and `should_run` means the
                     # resume never recomputes it - so the wrong flag would be
-                    # permanent. Re-raise so a future `_execute` can pause the
-                    # run on it instead of degrading. That pause handler does
-                    # not exist yet: today this still reaches `cli.py`'s
-                    # per-show `except (TaskFailed, HerderError, IAError)` and
-                    # is recorded as a per-show failure, same as any other
-                    # unrecovered error - a later task is what makes the
-                    # pause real.
+                    # permanent. Re-raise so `_execute` can pause the run on
+                    # it instead of degrading: `cli.py`'s per-show
+                    # `except RateLimited` (checked before the broader
+                    # `except (TaskFailed, HerderError, IAError)`, which it
+                    # would otherwise also match) catches this, marks the
+                    # session paused with a resume time, and leaves this
+                    # show's finished stages on disk for `run resume` to
+                    # pick up - not recorded as a per-show failure.
                     raise
                 except (TaskFailed, HerderError) as err:
                     log.warning("align_structure failed: %s", err)
