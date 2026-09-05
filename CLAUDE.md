@@ -27,6 +27,13 @@ implementation plan this was built from. The approved design spec is
   tags from a sibling `manifest.json` when there is one). `scripts` is in
   pytest `testpaths`, so its tests run under plain `pytest -q`.
 - Run (llama, acquisition): `llama get "..."`, `llama get --profile <name>`,
+  `llama get` takes `--wait/--no-wait`, `--max-wait <dur>` and `--no-pacing`
+  (also on `run approve`/`run resume`): when the claude_cli backend refuses
+  because a usage window is exhausted, the run pauses at the show boundary
+  rather than failing every remaining show — sleeping until the reset the
+  refusal names, or checkpointing the session as `paused` when the wait
+  exceeds `--max-wait` (default 6h). Resuming costs nothing for shows already
+  packaged: stage-level `should_run` skips them.
   `llama artists "..."`, `llama status` (global triage view, `--by-run` for
   session rollups), `llama show <name>` (read-only), `llama pipeline`
   (static stage/state teaching command), `llama triage` (interactive
@@ -254,7 +261,32 @@ tier (pins never escalate).
   (schema-validated, no tools) and `research` (needs web search). Dev backend
   shells out to headless `claude -p`; `openrouter` is the HTTP alternative
   (opt-in, needs `OPENROUTER_API_KEY`, research via the web plugin); a `fake`
-  backend serves tests. Set/segue structure is performance-level: gather builds
+  backend serves tests.
+  A usage-window refusal is classified as `herder.limits.RateLimited` (measured
+  signature: `You've hit your session limit · resets 11:10am (America/New_York)`),
+  carrying the reset instant parsed from the message itself — so pausing needs no
+  access to Claude Code's internal state. It is excluded from
+  `_with_transport_retry`, which would otherwise spend three more calls against
+  an empty window. Every failed `claude -p` is captured whole under
+  `~/.llama/llm-failures/`; the 7-day refusal's wording is still unobserved and
+  that capture is how it will be learned.
+  **Two boundaries on what phase 1's pause guarantee actually covers, both found
+  in review:** **(a) it is `claude_cli`-specific.**
+  `packages/herder/src/herder/openrouter.py:37` raises a plain `HerderError` on
+  any non-200 response, so an HTTP 429 on the `openrouter` backend is still
+  retried three times by `_with_transport_retry` like any other transient
+  failure and then fails the show — phase 1 recognizes no openrouter response as
+  a usage-window exhaustion. **(b) it is per-show, not per-run.** The pause
+  handling lives only in the show loop (`cli.py`'s `_process`, wrapping
+  `process_show`) that `_execute` runs after `interpret` (`run_discover`),
+  `search` (`run_search`) and `winnow` (`run_winnow`) have already completed. A
+  `RateLimited` raised during any of those three run-level stages is not caught
+  anywhere and escapes `_execute` as an ordinary unhandled exception: exit 1, no
+  checkpoint, no `paused` state, no `resume_after` — the operator sees a
+  failure, not a pause. Phase 2's proactive pre-flight gate is what is meant to
+  cover that opening burst; phase 1 has no such gate, so a limit hit during
+  those stages fails the run outright.
+  Set/segue structure is performance-level: gather builds
   a canonical setlist from every recording's description plus setlist.fm
   (optional, key via `SETLISTFM_API_KEY` or `[setlistfm] api_key`; absent key
   = best-effort LMA-only) and aligns it onto the chosen recording's tracks

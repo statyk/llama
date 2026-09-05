@@ -327,6 +327,28 @@ Three call sites in `_execute` (`cli.py:155-278`), and no others:
    test. A limit hit is **not** appended to `failures[]` — nothing about the
    show is wrong.
 
+**Amendment (R22, 2026-09-05): only call sites 2 and 3 are phase 1. Call site
+1 — the pre-flight check — is the proactive gate and belongs to phase 2,
+which is not built.** The numbered list above reads as though all three ship
+together, and a Task 8 review caught that it does not: this spec's own
+"Out of scope (phase 2)" list (and the phase-1 task brief) name "Proactive
+percent thresholds... and the pre-flight projection warning" as unbuilt, so
+item 1's "covers the opening burst that show-boundary checks would miss" is
+true of the *design* but describes a check phase 1 never installs.
+
+**Consequence, stated plainly: in phase 1, a `RateLimited` raised during
+`interpret` (`run_discover`), `search` (`run_search`) or `winnow`
+(`run_winnow`) is not caught anywhere.** All three run before the per-show
+loop that call site 3 wraps, and call site 2's before-each-show check does
+not exist either — it is also part of the unbuilt proactive gate, not a
+reactive catch. Such a `RateLimited` therefore propagates out of `_execute`
+as an ordinary unhandled exception: the process exits 1, no session marker
+is written, there is no `paused` state and no `resume_after` instant. The
+operator sees a failure, not a pause — the exact case call site 1 is
+*supposed* to cover once phase 2 builds it. Only a limit raised inside the
+per-show loop (call site 3, and by extension `gather`'s re-raise reaching
+it) gets phase 1's pause treatment.
+
 **`cli.py` is not the only ordering hazard — `gather.py` is a second swallow
 site.** Corrected 2026-09-04 during implementation. `stages/gather.py:992`
 wraps the `align_structure` LLM fallback in `except (TaskFailed, HerderError)`

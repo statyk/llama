@@ -760,6 +760,15 @@ lost this way are not gone: they sit in the library at whatever stage they
 reached (usually `gathered`), and `llama redo --state gathered --from
 research` picks up every one of them.
 
+The `usage limit reached` row above is now the **`--no-pacing`** picture.
+With pacing on (the default), that same refusal no longer becomes a
+per-show failure at all: the run pauses at the show boundary instead, the
+session state becomes `paused` rather than `incomplete`, and the marker
+carries a `resume_after` instant (the reset the refusal named, or a
+default wait when it named none) instead of a failure line. `llama run
+list` shows `paused` sessions on the same attention list, and `run resume`
+picks the wait back up.
+
 ### `llama run approve <session> [--full-rationale]`
 Gate 1: prints the session's persisted shortlist, prompts `Approve which
 ranks?` (unnamed ranks stay undecided), then confirms `Process approved
