@@ -216,10 +216,54 @@ the pure function should not know:
 | --- | --- |
 | `wait` and `when - now <= max_wait` | Sleep, then continue |
 | Cap exceeded, or `--no-wait` | Checkpoint and exit 0 |
-| Same, but no show has run yet | Refuse to start, exit non-zero |
+| ~~Same, but no show has run yet~~ | ~~Refuse to start, exit non-zero~~ — **deferred to phase 2**, see below |
 
-`max_wait` (default 6 h) is the **single** mechanism governing whether a pause
-is waited out. No rule overrides `--wait`. The 7-day window is not special-cased:
+**Amendment (R20, 2026-09-04): the third row is phase 2, and phase 1 does the
+opposite** — a limit on the very first show checkpoints and exits 0 like any
+other, leaving the session `paused` on the attention list.
+
+*The argument for the original row is real and is not being dismissed.* A
+cron-driven `llama get --profile … --auto` that packages nothing and exits 0 is
+indistinguishable, to the thing that scheduled it, from a successful no-op — no
+shows were due, or every candidate was already in the library. A window that was
+already exhausted before the run started is the one case where the run genuinely
+did nothing at all, and a non-zero exit is how a scheduler is told to look.
+
+*Why it loses in phase 1.* This spec already mandates exit 0 for the Ctrl-C
+checkpoint, "so an interrupted wait resumes with exactly the same command as a
+planned one" (see *Interrupts and signals*). A limit on the first show is
+near-identical to a limit on the seventh: nothing is wrong, nothing is lost, the
+session is checkpointed, and `llama run resume <name>` finishes it. Exiting
+non-zero there would contradict the exit-0 rule for a difference of one show,
+and would make an unattended `--auto` run look **failed** when it is merely
+paused, resumable, and already on the attention list — which is the louder
+error of the two, because a "failed" nightly run gets investigated by a human
+while a paused one gets resumed by the next run.
+
+*Instruction for phase 2.* Revisit this deliberately; do not inherit the
+silence. The information the scheduler actually wants is "this run was blocked,
+not idle", and the exit code is only one way to carry it — a distinct code (not
+1, which already means an error), a machine-readable line on stdout, or the
+existing `run list --json` attention list are all candidates, and the choice
+should be made against a real scheduler integration rather than in the
+abstract. Whatever phase 2 picks, the Ctrl-C path and the first-show path must
+end up with the same answer, since an operator cannot tell them apart.
+
+`max_wait` (default 6 h) and the **no-progress guard** are the two mechanisms
+governing whether a pause is waited out; nothing else overrides `--wait`.
+
+**Amendment (R21, 2026-09-04): `max_wait` is no longer the *single* mechanism.**
+The implementation added a second gate: if a whole pause cycle produced no
+progress at all — no show packaged, held, or failed since the previous pause —
+the next pause **checkpoints instead of sleeping again**, whatever `--wait` and
+`max_wait` say. Without it, a backend that keeps refusing inside the cap naps
+indefinitely: each refusal names a reset, the run sleeps to it, is refused
+again, and never terminates. The guard is deliberately one cycle deep, so a run
+that is merely slow (real progress between windows) keeps its right to another
+sleep; it bounds a *stuck* run, not a slow one. **Do not delete it on the
+strength of an unamended reading of the sentence above.**
+
+The 7-day window is not special-cased:
 it simply tends to produce a wait longer than the cap, so it checkpoints by
 default, and `--max-wait 30h` sleeps through a weekly reset that is within a day.
 This also caps the damage from a garbage or far-future `resets_at`.
