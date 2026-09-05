@@ -16,8 +16,10 @@ def test_parse_duration_accepts_the_documented_forms():
 
 def test_parse_duration_rejects_nonsense():
     for bad in ("", "soon", "6", "-2h", "6x",
+                "   ", "\t\n",      # whitespace only: stripped to empty, still not a duration
                 "6h banana",       # trailing garbage after a valid prefix
                 "5h30m!",          # trailing garbage after a full match
+                "6 h banana",      # ... and the whitespace tolerance does not rescue it
                 "6s30m"):          # units out of order (h, m, s only)
         with pytest.raises(ValueError):
             pacing.parse_duration(bad)
@@ -157,3 +159,28 @@ def test_duration_arg_round_trips_through_parse_duration():
     assert pacing.duration_arg(7200) == "2h"
     assert pacing.duration_arg(7250) == "2h1m"
     assert pacing.duration_arg(90) == "2m"
+
+
+def test_parse_duration_ignores_internal_whitespace():
+    # `6h 0m` is what format_delta emits, and the pause messages print it one
+    # line above a command meant to be pasted.
+    assert pacing.parse_duration("6h 0m") == 6 * 3600
+    assert pacing.parse_duration("5h 30m") == 5 * 3600 + 30 * 60
+    assert pacing.parse_duration("  90m  ") == 90 * 60
+
+
+def test_format_delta_output_always_parses_back(monkeypatch):
+    """The property, not the instance: anything format_delta prints can be
+    handed straight back as a duration.
+
+    Round-trip is to the MINUTE, and format_delta floors twice - it truncates
+    seconds, and it clamps at one minute. So the exact contract is
+    `parse_duration(format_delta(x)) == 60 * (max(int(x), 60) // 60)`: equal
+    to x for a whole number of minutes, the minute below for anything else,
+    and 60 for every x under a minute.
+    """
+    cases = [0, 1, 59, 60, 61, 90, 119, 120, 599, 600, 3600, 3601, 3660,
+             7200, 7250, 6 * 3600, 26 * 3600 + 12 * 60, 30 * 3600, 5.5 * 3600]
+    for x in cases:
+        rendered = pacing.format_delta(x)
+        assert pacing.parse_duration(rendered) == 60 * (max(int(x), 60) // 60), rendered

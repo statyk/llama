@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from herder import TaskFailed
 from herder.limits import RateLimited
 
 import llama.cli as cli
@@ -19,7 +20,8 @@ from llama import pacing
 from llama.config import Config, PacingConfig
 from llama.locks import Locked
 from llama.models import Candidate, Criteria, QualityAssessment, ShortlistEntry
-from llama.sessions import STATE_COMPLETE, STATE_PAUSED, iter_sessions
+from llama.sessions import (STATE_COMPLETE, STATE_INCOMPLETE, STATE_PAUSED,
+                            iter_sessions)
 from llama.workspace import RunWorkspace
 
 NOW = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
@@ -157,6 +159,12 @@ def test_the_resume_hint_prints_a_max_wait_the_shell_can_actually_take(
 
     out = capsys.readouterr().out
     assert "exceeds --max-wait 1h 0m" in out                # prose, unchanged
+    # Both printed durations have to parse. The prose one does because
+    # parse_duration tolerates the space; the copy-pasteable one uses
+    # duration_arg because it must additionally round UP -- a floored value
+    # would be shorter than the wait it was printed for, so pasting it would
+    # checkpoint again for the same reason.
+    assert pacing.parse_duration("1h 0m") == 3600
     hint = out.split("--max-wait ")[-1].strip()             # the copy-pasteable one
     assert pacing.parse_duration(hint) >= 2 * 3600 + 30 + 120
 
@@ -172,15 +180,26 @@ def test_an_interrupt_during_the_wait_checkpoints_rather_than_losing_the_run(
         raise KeyboardInterrupt
 
     monkeypatch.setattr(pacing, "_sleep", _interrupt)
-    ws, seen = _drive(tmp_path, monkeypatch,
-                      _limits_once("b", NOW + timedelta(minutes=10)),
-                      ["a", "b", "c"], pace=pacing.pace_options(Config()))
+
+    def _process(pid):
+        if pid == "a":
+            raise TaskFailed("LLM task 'brief' failed after 3 attempts")
+        if pid == "b":
+            raise RateLimited("You've hit your session limit", scope="five_hour",
+                              resets_at=NOW + timedelta(minutes=10))
+        return f"{pid}/package"
+
+    ws, seen = _drive(tmp_path, monkeypatch, _process, ["a", "b", "c"],
+                      pace=pacing.pace_options(Config()))
 
     assert seen == ["a", "b"]
     info = iter_sessions(tmp_path)[0]
     assert info.state == STATE_PAUSED
-    assert info.outcome == "1 packaged"
+    assert info.outcome == "1 failed"
     assert info.resume_after == "2026-09-04T08:12:00+00:00"
+    # Same rule as the ordinary checkpoint: the interrupted marker is the only
+    # durable record of the show this run had already lost.
+    assert [f["show"] for f in info.failures] == ["a"]
     assert "interrupted; resume with: llama run resume r1" in capsys.readouterr().out
 
 
@@ -281,6 +300,79 @@ def test_the_run_switches_on_raw_capture_for_every_provider(tmp_path, monkeypatc
            pace=pacing.pace_options(Config()))
 
     assert failures._capture_dir == tmp_path / "llm-failures"
+
+
+def test_a_checkpoint_carries_the_failures_the_run_had_already_taken(
+        tmp_path, monkeypatch):
+    """A run can lose a show to a real error and THEN hit a limit. The pause
+    marker is the only durable record of why that show was lost -- the
+    per-show handler otherwise just prints to stderr -- so it has to carry
+    the failure list, not an empty one."""
+    _clock(monkeypatch, sleep_budget=0)
+
+    def _process(pid):
+        if pid == "a":
+            raise TaskFailed("LLM task 'brief' failed after 3 attempts")
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=NOW + timedelta(hours=2))
+
+    ws, seen = _drive(tmp_path, monkeypatch, _process, ["a", "b", "c"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_PAUSED
+    assert [f["show"] for f in info.failures] == ["a"]
+    assert "brief" in info.failures[0]["error"]
+    assert info.outcome == "1 failed"
+
+
+def test_a_held_show_between_pauses_counts_as_progress(tmp_path, monkeypatch):
+    """The no-progress guard sums packaged + held + failures. Drop `held` and
+    a run whose only progress was a held show checkpoints prematurely -- the
+    same operator-visible harm as dropping a show."""
+    _clock(monkeypatch)
+    refused = set()
+
+    def _process(pid):
+        if pid not in refused:
+            refused.add(pid)
+            raise RateLimited("You've hit your session limit", scope="five_hour",
+                              resets_at=NOW + timedelta(minutes=10))
+        return None if pid == "a" else f"{pid}/package"   # a is held, b packages
+
+    ws, seen = _drive(tmp_path, monkeypatch, _process, ["a", "b"],
+                      pace=pacing.pace_options(Config()))
+
+    # a refused, slept; a held and b refused, slept AGAIN because the hold was
+    # progress; b packaged.
+    assert seen == ["a", "a", "b", "b"]
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_COMPLETE
+    assert info.outcome == "1 packaged, 1 held"
+
+
+def test_a_failed_show_between_pauses_counts_as_progress(tmp_path, monkeypatch):
+    """Same for the third term. A show that failed is a show the run got
+    through; the window was spent on it, so the next pause is not a stall."""
+    _clock(monkeypatch)
+    refused = set()
+
+    def _process(pid):
+        if pid not in refused:
+            refused.add(pid)
+            raise RateLimited("You've hit your session limit", scope="five_hour",
+                              resets_at=NOW + timedelta(minutes=10))
+        if pid == "a":
+            raise TaskFailed("LLM task 'brief' failed after 3 attempts")
+        return f"{pid}/package"
+
+    ws, seen = _drive(tmp_path, monkeypatch, _process, ["a", "b"],
+                      pace=pacing.pace_options(Config()))
+
+    assert seen == ["a", "a", "b", "b"]
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_INCOMPLETE          # it lost a show, so not complete
+    assert info.outcome == "1 packaged, 1 failed"
 
 
 def test_pacing_disabled_records_the_limit_as_a_show_failure(tmp_path, monkeypatch):

@@ -20,8 +20,17 @@ def _now() -> datetime:                              # noqa: E302 - paired with 
 
 
 def parse_duration(text: str) -> float:
-    """Seconds from `6h`, `90m`, `5h30m`, `45s`. Raises ValueError otherwise."""
-    m = _DURATION_RE.match((text or "").strip())
+    """Seconds from `6h`, `90m`, `5h30m`, `45s`. Raises ValueError otherwise.
+
+    Internal whitespace is ignored, so `6h 0m` parses: that is the shape
+    `format_delta` emits, and the pause messages print such a value one line
+    above a command the operator is meant to paste. Humans type the space
+    too. Whitespace is removed BEFORE matching, so the `$` anchor is
+    untouched and every rejection still rejects - `6h banana` becomes
+    `6hbanana`, which the anchor refuses, and a whitespace-only string
+    becomes empty, which the `any(m.groups())` guard refuses.
+    """
+    m = _DURATION_RE.match(re.sub(r"\s+", "", text or ""))
     if not m or not any(m.groups()):
         raise ValueError(f"not a duration: {text!r} (use forms like 6h, 90m, 5h30m)")
     hours, minutes, seconds = (int(g or 0) for g in m.groups())
