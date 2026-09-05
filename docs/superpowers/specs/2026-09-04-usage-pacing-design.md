@@ -1,7 +1,13 @@
 # Usage pacing — design
 
 Status: phase 1 (the reactive pause/resume path) implemented; phase 2 (the
-proactive pre-flight gate) not yet.
+proactive pre-flight gate) designed but not implemented, in
+`2026-09-05-usage-pacing-phase2-design.md`. **That document supersedes this
+one's proactive half.** The `~/.claude.json` snapshot reader described below in
+"Measured signals" item 2 and under "herder changes" was measured wrong on
+2026-09-05 and is not being built: `claude -p "/usage"` is a live, zero-token
+read of all three meters, and the cache can serve an already-expired window.
+Everything here about the reactive path is current and shipped.
 Date: 2026-09-04.
 
 ## Problem
