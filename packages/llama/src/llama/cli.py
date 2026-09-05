@@ -3,6 +3,7 @@ import sys
 import tempfile
 import textwrap
 import traceback
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -11,6 +12,8 @@ import typer
 from typer.core import TyperGroup
 
 from herder import HerderError, TaskFailed, provider_ladder
+from herder.failures import set_capture_dir
+from herder.limits import RateLimited
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
@@ -22,13 +25,17 @@ from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
 from llama.locks import Locked, file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
+from llama import pacing as _pacing   # module, not `from ... import _now`:
+                                      # a rebound name defeats the tests' clock
+from llama.pacing import (PaceOptions, format_delta, pace_options, resume_at,
+                          sleep_until)
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
 )
 from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
                             attention_sessions, mark_awaiting, mark_complete,
-                            mark_incomplete, session_state)
+                            mark_incomplete, mark_paused, session_state)
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
@@ -152,11 +159,29 @@ def _print_artists(rows: list[dict]) -> None:
             typer.echo(f"      {a['reason']}")
 
 
+def _pace(config, wait: bool | None, max_wait: str | None,
+           no_pacing: bool) -> PaceOptions:
+    """Resolve the pacing flags, failing on a bad --max-wait before the run
+    starts rather than four shows in."""
+    try:
+        pace = pace_options(config, wait=wait, max_wait=max_wait)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    return replace(pace, enabled=False) if no_pacing else pace
+
+
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
              force_stage: str | None = None,
-             full_rationale: bool = False, plan: bool = False) -> None:
+             full_rationale: bool = False, plan: bool = False,
+             pace: PaceOptions | None = None) -> None:
     providers = make_providers(config)
+    if pace is None:
+        pace = pace_options(config)
+    # The one place raw-output capture is switched on: every provider
+    # make_providers built shares this module-level destination.
+    set_capture_dir(config.root / "llm-failures")
     artists = None
     if criteria.artists:
         # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
@@ -224,9 +249,10 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     setlistfm = make_client(config)
     packaged = held = 0
     failures: list[dict] = []          # {show, error} per show this run lost
+    limited: RateLimited | None = None  # set when a usage window ran out
 
     def _process(entry):
-        nonlocal packaged, held
+        nonlocal packaged, held, limited
         try:
             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
                                force=force,
@@ -234,6 +260,16 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                                structure_cfg=config.structure, selection_cfg=config.selection,
                                jerrybase_enabled=config.jerrybase.enabled,
                                force_stage=force_stage, profile=criteria.profile)
+        except RateLimited as exc:
+            # Caught BEFORE the HerderError arm below, which it subclasses.
+            # Not a failure: nothing is wrong with this show. Its finished
+            # stages are on disk and a resume redoes only what is missing.
+            if not pace.enabled:
+                typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+                failures.append({"show": entry.candidate.performance_id, "error": str(exc)})
+                return
+            limited = exc
+            return
         except (TaskFailed, HerderError, IAError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
@@ -249,25 +285,84 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
             held += 1
 
-    deferred = []
-    for entry in chosen:
-        lock_path = ws.show_ws(entry.candidate.performance_id).lock
-        try:
-            with file_lock(lock_path, blocking=False):
-                _process(entry)
-        except Locked:
-            deferred.append(entry)                 # another run is building it
-    for entry in deferred:                          # come back and wait
-        with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
-            _process(entry)
-    parts = []
-    if packaged:
-        parts.append(f"{packaged} packaged")
-    if held:
-        parts.append(f"{held} held")
-    if failures:
-        parts.append(f"{len(failures)} failed")
-    outcome = ", ".join(parts) if parts else None
+    def _outcome() -> str | None:
+        parts = []
+        if packaged:
+            parts.append(f"{packaged} packaged")
+        if held:
+            parts.append(f"{held} held")
+        if failures:
+            parts.append(f"{len(failures)} failed")
+        return ", ".join(parts) if parts else None
+
+    pending = list(chosen)
+    done_before_pause = -1                  # progress watermark; see the guard below
+    while pending:
+        deferred, unprocessed = [], []
+        for idx, entry in enumerate(pending):
+            lock_path = ws.show_ws(entry.candidate.performance_id).lock
+            try:
+                with file_lock(lock_path, blocking=False):
+                    _process(entry)
+            except Locked:
+                deferred.append(entry)         # another run is building it
+            # AFTER the call, not before: `pending[idx:]` must INCLUDE the show
+            # that hit the limit. Checking at the top of the body instead starts
+            # the slice one entry late and silently drops that show from the
+            # run, which then reports `complete` having never processed it.
+            if limited:
+                unprocessed.extend(pending[idx:])
+                break
+        if limited:
+            unprocessed.extend(deferred)
+        else:
+            for idx, entry in enumerate(deferred):   # come back and wait
+                with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
+                    _process(entry)
+                if limited:
+                    unprocessed.extend(deferred[idx:])
+                    break
+        if not limited:
+            break
+
+        when = resume_at(limited, pace)
+        wait_s = (when - _pacing._now()).total_seconds()
+        reason = str(limited)
+        scope = limited.scope
+        # No-progress guard: if a whole pause cycle bought us nothing, sleeping
+        # again would nap indefinitely against a backend that keeps refusing.
+        # Checkpoint instead, and say WHY so it is not read as an ordinary
+        # window pause.
+        done_now = packaged + held + len(failures)
+        stalled = done_now == done_before_pause
+        done_before_pause = done_now
+        typer.echo(f"paused after {packaged + held} shows: {reason}")
+        if stalled:
+            typer.echo("  no progress since last pause — checkpointing rather "
+                       "than waiting again")
+        if not stalled and pace.wait and wait_s <= pace.max_wait_s:
+            typer.echo(f"  resumes {when.astimezone().strftime('%H:%M')} "
+                       f"({format_delta(wait_s)})")
+            try:
+                sleep_until(when, echo=lambda m: typer.echo(m))
+            except KeyboardInterrupt:
+                mark_paused(ws, _outcome(), failures, when.isoformat(), scope, reason)
+                typer.echo(f"\ninterrupted; resume with: llama run resume {ws.name}")
+                return
+            limited = None
+            pending = unprocessed
+            continue
+        if wait_s > pace.max_wait_s:
+            typer.echo(f"  resets in {format_delta(wait_s)} — exceeds "
+                       f"--max-wait {format_delta(pace.max_wait_s)}")
+        mark_paused(ws, _outcome(), failures, when.isoformat(), scope, reason)
+        typer.echo(f"  {len(unprocessed)} shows left; resume with: "
+                   f"llama run resume {ws.name}"
+                   + (f" --max-wait {format_delta(wait_s)}"
+                      if wait_s > pace.max_wait_s else ""))
+        return
+
+    outcome = _outcome()
     # A run that lost shows stays on the attention list (`run list` is
     # state != complete) until a `run resume` finishes cleanly -- otherwise a
     # usage limit or a dropped connection costs shows silently, and the only
@@ -281,7 +376,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
 def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
               name: str | None,
               artist_cap: float | None, min_score: float | None, year_cap: float | None,
-              full_rationale: bool) -> None:
+              full_rationale: bool, pace: PaceOptions | None = None) -> None:
     """Query mode: today's `find` verbatim (interpret -> stamp explicit flags
     into criteria for replay -> `_execute`)."""
     if artist_cap == 0.0 or year_cap == 0.0:
@@ -307,11 +402,11 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
         write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False,
-             full_rationale=full_rationale, plan=plan)
+             full_rationale=full_rationale, plan=plan, pace=pace)
 
 
 def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
-                 full_rationale: bool) -> None:
+                 full_rationale: bool, pace: PaceOptions | None = None) -> None:
     """Profile mode: today's `profile run` verbatim (load profile -> stamp
     count into the run's criteria -> `_execute`)."""
     profile = load_profile(config.root, name)
@@ -324,7 +419,7 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
     write_artifact(ws.criteria, criteria)
     _execute(config, ia, ledger, ws, criteria, profile.count, auto,
              human_gate=profile.human_gate,
-             full_rationale=full_rationale, plan=plan)
+             full_rationale=full_rationale, plan=plan, pace=pace)
 
 
 @app.command(rich_help_panel="Acquire",
@@ -357,6 +452,15 @@ def get(
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
+    wait: bool = typer.Option(None, "--wait/--no-wait",
+                              help="On a usage-limit pause: sleep until the window "
+                                   "resets (default), or checkpoint and exit"),
+    max_wait: str = typer.Option(None, "--max-wait",
+                                 help="Never sleep longer than this (default 6h); a "
+                                      "longer wait checkpoints instead. e.g. 30h"),
+    no_pacing: bool = typer.Option(False, "--no-pacing",
+                                   help="Disable usage pacing: a limit fails the show "
+                                        "as it did before"),
 ):
     """Acquire: find, vet, research, and package shows -- one-off (QUERY) or
     a standing profile (--profile NAME). --plan stops after the shortlist
@@ -366,6 +470,7 @@ def get(
         typer.echo("give exactly one of QUERY or --profile", err=True)
         raise typer.Exit(1)
     config, ia, ledger = _setup()
+    pace = _pace(config, wait, max_wait, no_pacing)
     if profile is not None:
         given = []
         if limit:
@@ -381,10 +486,11 @@ def get(
         if given:
             typer.echo(f"set these on the profile: {', '.join(given)}", err=True)
             raise typer.Exit(1)
-        _get_profile(config, ia, ledger, profile, auto, plan, full_rationale)
+        _get_profile(config, ia, ledger, profile, auto, plan, full_rationale,
+                     pace=pace)
         return
     _get_query(config, ia, ledger, query, limit, auto, plan, name,
-              artist_cap, min_score, year_cap, full_rationale)
+              artist_cap, min_score, year_cap, full_rationale, pace=pace)
 
 
 @app.command(rich_help_panel="Acquire",
@@ -488,10 +594,20 @@ def run_approve(
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
+    wait: bool = typer.Option(None, "--wait/--no-wait",
+                              help="On a usage-limit pause: sleep until the window "
+                                   "resets (default), or checkpoint and exit"),
+    max_wait: str = typer.Option(None, "--max-wait",
+                                 help="Never sleep longer than this (default 6h); a "
+                                      "longer wait checkpoints instead. e.g. 30h"),
+    no_pacing: bool = typer.Option(False, "--no-pacing",
+                                   help="Disable usage pacing: a limit fails the show "
+                                        "as it did before"),
 ):
     """Gate 1: show a session's persisted shortlist, approve ranks, then
     optionally process it now."""
     config, ia, ledger = _setup()
+    pace = _pace(config, wait, max_wait, no_pacing)
     ws = _resolve_run(config, session)
     entries = read_model_list(ws.shortlist, ShortlistEntry)
     _print_shortlist(entries, full=full_rationale)
@@ -510,7 +626,7 @@ def run_approve(
         criteria = read_model(ws.criteria, Criteria)
         _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
                  human_gate=False,
-                 full_rationale=full_rationale)
+                 full_rationale=full_rationale, pace=pace)
     else:
         typer.echo(f"next: llama run resume {ws.name}")
 
@@ -522,11 +638,21 @@ def run_resume(
     full_rationale: bool = typer.Option(False, "--full-rationale",
                                         help="Show each shortlisted show's full selection "
                                              "rationale (default: first few lines)"),
+    wait: bool = typer.Option(None, "--wait/--no-wait",
+                              help="On a usage-limit pause: sleep until the window "
+                                   "resets (default), or checkpoint and exit"),
+    max_wait: str = typer.Option(None, "--max-wait",
+                                 help="Never sleep longer than this (default 6h); a "
+                                      "longer wait checkpoints instead. e.g. 30h"),
+    no_pacing: bool = typer.Option(False, "--no-pacing",
+                                   help="Disable usage pacing: a limit fails the show "
+                                        "as it did before"),
 ):
     """Resume a crashed or incomplete session from its artifacts (stages
     skip work already done). To force a stage re-run (run-wide or per-show),
     use `llama redo --run`."""
     config, ia, ledger = _setup()
+    pace = _pace(config, wait, max_wait, no_pacing)
     ws = _resolve_run(config, session)
     if not ws.criteria.exists():
         typer.echo(f"no criteria.json in {ws.dir}", err=True)
@@ -535,7 +661,7 @@ def run_resume(
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=False,
              force_stage=None,
-             full_rationale=full_rationale)
+             full_rationale=full_rationale, pace=pace)
 
 
 @run_app.command("rm")

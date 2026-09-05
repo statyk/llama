@@ -1,10 +1,13 @@
 import json
 import multiprocessing as mp
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import llama.cli as cli
+from llama import pacing
 from llama.models import Criteria
 from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
                             STATE_PAUSED, SessionInfo, attention_sessions,
@@ -13,6 +16,7 @@ from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
 from llama.workspace import RunWorkspace, claim_run_dir, write_artifact
 
 from herder import FakeProvider
+from herder.limits import RateLimited
 
 from test_pipeline import JB_OFF, FakeIA, fake_providers
 
@@ -319,3 +323,99 @@ def test_completing_a_paused_run_erases_the_pause_block(tmp_path):
     assert attention_sessions(tmp_path) == []
     marker = json.loads((ws.dir / "session.json").read_text())
     assert "resume_after" not in marker or marker["resume_after"] is None
+
+
+class LimitedProvider:
+    """Raises a usage limit for the first `times` calls, then defers to `then`."""
+
+    def __init__(self, resets_at, times=1, then=None):
+        self.resets_at, self.times, self.then = resets_at, times, then
+        self.calls = 0
+
+    def complete(self, prompt: str) -> str:
+        self.calls += 1
+        if self.calls <= self.times:
+            raise RateLimited("You've hit your session limit", scope="five_hour",
+                              resets_at=self.resets_at)
+        return self.then.complete(prompt)
+
+    def research(self, brief: str) -> str:
+        return self.complete(brief)
+
+
+def test_a_usage_limit_pauses_the_run_instead_of_failing_the_show(
+        tmp_path: Path, monkeypatch):
+    """A limit is not a show failure: nothing is wrong with the show, so it
+    is left for the resume rather than recorded in failures[]."""
+    now = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(pacing, "_now", lambda: now)
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("must not sleep"))
+
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = fake_providers(None)
+    # 30h out, well past the 6h default cap, so it checkpoints rather than sleeps
+    providers["brief"] = LimitedProvider(now + timedelta(hours=30))
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "get", "GD 1973", "--auto", "--name", "pausedrun"])
+    assert result.exit_code == 0, result.output
+
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_PAUSED
+    assert info.failures == []                    # NOT a failure
+    assert info.resume_after.startswith("2026-09-05")
+    assert info in attention_sessions(tmp_path)
+    assert "run resume pausedrun" in result.output
+
+
+def test_a_usage_limit_within_max_wait_sleeps_and_then_finishes(
+        tmp_path: Path, monkeypatch):
+    clock = {"now": datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)}
+    monkeypatch.setattr(pacing, "_now", lambda: clock["now"])
+    monkeypatch.setattr(pacing, "_sleep",
+                        lambda s: clock.update(now=clock["now"] + timedelta(seconds=s)))
+
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = fake_providers(None)
+    real_brief = providers["brief"]
+    providers["brief"] = LimitedProvider(clock["now"] + timedelta(hours=2),
+                                         times=1, then=real_brief)
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "get", "GD 1973", "--auto", "--name", "sleptrun"])
+    assert result.exit_code == 0, result.output
+
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_COMPLETE           # slept, retried, finished
+    assert info.failures == []
+    assert clock["now"] >= datetime(2026, 9, 4, 10, 0, tzinfo=timezone.utc)
+    # The three assertions above ALL hold if the interrupted show is silently
+    # dropped from the queue instead of retried, which is exactly the bug this
+    # test exists to catch. These two are what actually pin it: the show came
+    # back round, and it packaged.
+    assert providers["brief"].calls >= 2          # refused once, then retried
+    assert info.outcome == "1 packaged"
+    assert "packaged:" in result.output
+
+
+def test_no_pacing_restores_the_old_failure_behaviour(tmp_path: Path, monkeypatch):
+    """--no-pacing is the escape hatch: the limit is a per-show failure again."""
+    now = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(pacing, "_now", lambda: now)
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = fake_providers(None)
+    providers["brief"] = LimitedProvider(now + timedelta(hours=2), times=99)
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "get", "GD 1973", "--auto", "--name", "nopacing", "--no-pacing"])
+    assert result.exit_code == 0, result.output
+
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_INCOMPLETE
+    assert [f["show"] for f in info.failures] == ["GratefulDead/1973-06-10"]

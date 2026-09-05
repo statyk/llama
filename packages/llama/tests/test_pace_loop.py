@@ -1,0 +1,264 @@
+"""The show loop's pause/resume bookkeeping, driven directly.
+
+These sit below the end-to-end pause tests in test_sessions.py on purpose.
+The end-to-end fixture processes ONE show, which cannot tell "the
+interrupted show came back round" apart from "it was dropped and something
+else finished the run" for every mutation of the queue arithmetic. Here the
+run has three shows and a scripted process_show, so the exact set that comes
+back after a pause is observable.
+"""
+import collections
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+from herder.limits import RateLimited
+
+import llama.cli as cli
+from llama import pacing
+from llama.config import Config, PacingConfig
+from llama.locks import Locked
+from llama.models import Candidate, Criteria, QualityAssessment, ShortlistEntry
+from llama.sessions import STATE_COMPLETE, STATE_PAUSED, iter_sessions
+from llama.workspace import RunWorkspace
+
+NOW = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+
+
+def _entry(pid: str, rank: int) -> ShortlistEntry:
+    return ShortlistEntry(
+        candidate=Candidate(performance_id=pid, collection="C", date="1973-06-10",
+                            recordings=[]),
+        assessment=QualityAssessment(performance_id=pid, quality_score=9.0,
+                                     rationale="fine"),
+        rank=rank)
+
+
+def _clock(monkeypatch, *, sleep_budget: int = 4) -> dict:
+    """A frozen clock that only moves when the loop sleeps.
+
+    Resets in these tests are minutes out, not hours, so one pause costs one
+    `_sleep` call: sleep_until naps in 15-minute chunks, and a budget
+    expressed in chunks would not measure pauses.
+
+    The budget is a guard, not a fixture detail: without the no-progress
+    guard a backend that keeps refusing naps forever, and a hanging test is
+    a much worse failure report than a failing one.
+    """
+    state = {"now": NOW, "sleeps": 0}
+
+    def _sleep(seconds):
+        state["sleeps"] += 1
+        if state["sleeps"] > sleep_budget:
+            raise AssertionError(f"slept more than {sleep_budget} times - "
+                                 "the loop is not making progress")
+        state["now"] = state["now"] + timedelta(seconds=seconds)
+
+    monkeypatch.setattr(pacing, "_now", lambda: state["now"])
+    monkeypatch.setattr(pacing, "_sleep", _sleep)
+    return state
+
+
+def _drive(tmp_path: Path, monkeypatch, process, pids, *,
+           pace=None, config=None) -> tuple[RunWorkspace, list[str]]:
+    """Run `_execute` over `pids` with `process` standing in for process_show."""
+    config = config or Config(root=tmp_path)
+    ws = RunWorkspace(tmp_path, "r1")
+    entries = [_entry(p, i + 1) for i, p in enumerate(pids)]
+    seen: list[str] = []
+
+    def _process_show(_ws, _ia, _ledger, entry, *args, **kwargs):
+        pid = entry.candidate.performance_id
+        seen.append(pid)
+        return process(pid)
+
+    # run_winnow/run_search are stubbed, but their argument lists are still
+    # evaluated, so the provider map has to answer every key by name.
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: collections.defaultdict(lambda: None))
+    monkeypatch.setattr(cli, "run_search", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: entries)
+    monkeypatch.setattr(cli, "choose_entries", lambda entries, *a, **k: entries)
+    monkeypatch.setattr(cli, "make_client", lambda config: None)
+    monkeypatch.setattr(cli, "process_show", _process_show)
+
+    cli._execute(config, None, None, ws, Criteria(query="x"), len(pids),
+                 auto=True, human_gate=False, pace=pace)
+    return ws, seen
+
+
+def _limits_once(pid_to_limit: str, resets_at):
+    """process_show that refuses `pid_to_limit` the first time and packages
+    everything else."""
+    refused = {"done": False}
+
+    def _process(pid):
+        if pid == pid_to_limit and not refused["done"]:
+            refused["done"] = True
+            raise RateLimited("You've hit your session limit", scope="five_hour",
+                              resets_at=resets_at)
+        return f"{pid}/package"
+    return _process
+
+
+def test_the_show_that_hit_the_limit_is_retried_not_dropped(tmp_path, monkeypatch):
+    """The interrupted show must be at the FRONT of the queue the resume
+    works through -- `pending[idx:]`, not `pending[idx + 1:]`, and not a
+    slice taken on the following iteration."""
+    _clock(monkeypatch)
+    pace = pacing.pace_options(Config())          # wait, 6h cap
+    ws, seen = _drive(tmp_path, monkeypatch,
+                      _limits_once("b", NOW + timedelta(minutes=10)),
+                      ["a", "b", "c"], pace=pace)
+
+    assert seen == ["a", "b", "b", "c"]           # b came back round
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_COMPLETE
+    assert info.outcome == "3 packaged"           # nothing silently lost
+
+
+def test_a_checkpoint_leaves_the_interrupted_show_for_the_resume(tmp_path, monkeypatch):
+    """Same arithmetic on the branch that does not sleep: the show that hit
+    the limit is one of the shows left, not one of the shows done."""
+    _clock(monkeypatch)
+    pace = pacing.pace_options(Config(), max_wait="1h")   # 2h reset exceeds it
+    ws, seen = _drive(tmp_path, monkeypatch,
+                      _limits_once("b", NOW + timedelta(hours=2)),
+                      ["a", "b", "c"], pace=pace)
+
+    assert seen == ["a", "b"]                     # c never reached
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_PAUSED
+    assert info.outcome == "1 packaged"           # only a
+    assert info.failures == []
+
+
+def test_a_checkpoint_reports_how_many_shows_are_left(tmp_path, monkeypatch, capsys):
+    _clock(monkeypatch)
+    pace = pacing.pace_options(Config(), max_wait="1h")
+    _drive(tmp_path, monkeypatch, _limits_once("b", NOW + timedelta(hours=2)),
+           ["a", "b", "c"], pace=pace)
+
+    out = capsys.readouterr().out
+    # b and c: the interrupted show plus the untouched tail.
+    assert "2 shows left" in out
+    assert "llama run resume r1" in out
+
+
+def test_a_backend_that_keeps_refusing_checkpoints_instead_of_napping_forever(
+        tmp_path, monkeypatch, capsys):
+    """The no-progress guard. One pause cycle that buys nothing is enough:
+    the second refusal checkpoints rather than sleeping again."""
+    clock = _clock(monkeypatch, sleep_budget=4)
+
+    def _always_limited(pid):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=clock["now"] + timedelta(minutes=10))
+
+    _drive(tmp_path, monkeypatch, _always_limited, ["a", "b"],
+           pace=pacing.pace_options(Config()))
+
+    out = capsys.readouterr().out
+    assert "no progress since last pause" in out
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+    assert clock["sleeps"] >= 1        # it did try once before giving up
+
+
+def test_progress_between_pauses_still_earns_another_sleep(tmp_path, monkeypatch):
+    """The guard must key on progress, not on "we have paused before" --
+    otherwise a long run that hits two windows stops at the second."""
+    clock = _clock(monkeypatch)
+    limited = {"a": True, "c": True}
+
+    def _process(pid):
+        if limited.get(pid):
+            limited[pid] = False
+            raise RateLimited("You've hit your session limit", scope="five_hour",
+                              resets_at=clock["now"] + timedelta(minutes=10))
+        return f"{pid}/package"
+
+    ws, seen = _drive(tmp_path, monkeypatch, _process, ["a", "b", "c"],
+                      pace=pacing.pace_options(Config()))
+
+    assert seen == ["a", "a", "b", "c", "c"]
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+    assert clock["sleeps"] >= 2
+
+
+def test_a_limit_on_a_deferred_show_keeps_it_queued(tmp_path, monkeypatch):
+    """The second bookkeeping site: shows another run held the lock on are
+    processed in a later pass, and a limit there must re-queue that show
+    too."""
+    _clock(monkeypatch)
+    real_file_lock = cli.file_lock
+    held = {"b"}
+
+    def _file_lock(path, *, blocking=True):
+        if not blocking and path.parent.name.endswith("b"):
+            raise Locked(path)
+        return real_file_lock(path, blocking=blocking)
+
+    monkeypatch.setattr(cli, "file_lock", _file_lock)
+    ws, seen = _drive(tmp_path, monkeypatch,
+                      _limits_once("b", NOW + timedelta(minutes=10)),
+                      ["a", "b"], pace=pacing.pace_options(Config()))
+
+    assert seen == ["a", "b", "b"]          # a first, b deferred, refused, retried
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+    assert held == {"b"}
+
+
+def test_pacing_disabled_records_the_limit_as_a_show_failure(tmp_path, monkeypatch):
+    """The escape hatch keeps the old behaviour exactly: a failure entry, the
+    run carries on to the next show, and nothing sleeps."""
+    _clock(monkeypatch, sleep_budget=0)
+    pace = pacing.pace_options(Config(pacing=PacingConfig(enabled=False)))
+    ws, seen = _drive(tmp_path, monkeypatch,
+                      _limits_once("b", NOW + timedelta(hours=2)),
+                      ["a", "b", "c"], pace=pace)
+
+    assert seen == ["a", "b", "c"]          # no retry, no pause
+    info = iter_sessions(tmp_path)[0]
+    assert [f["show"] for f in info.failures] == ["b"]
+    assert info.outcome == "2 packaged, 1 failed"
+
+
+def test_no_wait_checkpoints_even_inside_the_cap(tmp_path, monkeypatch, capsys):
+    _clock(monkeypatch, sleep_budget=0)
+    pace = pacing.pace_options(Config(), wait=False)
+    _drive(tmp_path, monkeypatch, _limits_once("a", NOW + timedelta(minutes=30)),
+           ["a", "b"], pace=pace)
+
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+    assert "2 shows left" in capsys.readouterr().out
+
+
+def test_a_pause_records_the_reset_time_and_the_scope(tmp_path, monkeypatch):
+    _clock(monkeypatch)
+    pace = pacing.pace_options(Config(), wait=False)
+    ws, _ = _drive(tmp_path, monkeypatch,
+                   _limits_once("a", NOW + timedelta(hours=2)),
+                   ["a"], pace=pace)
+
+    import json
+    marker = json.loads((ws.dir / "session.json").read_text())
+    assert marker["resume_after"] == "2026-09-04T10:02:00+00:00"   # reset + 2m skew
+    assert marker["pause_scope"] == "five_hour"
+    assert "session limit" in marker["pause_reason"]
+
+
+def test_a_limit_with_no_named_reset_waits_the_configured_default(tmp_path, monkeypatch):
+    clock = _clock(monkeypatch)
+
+    def _process(pid):
+        raise RateLimited("usage limit reached")     # no resets_at
+
+    _drive(tmp_path, monkeypatch, _process, ["a"],
+           pace=pacing.pace_options(Config(), wait=False))
+
+    import json
+    ws = RunWorkspace(tmp_path, "r1")
+    marker = json.loads((ws.dir / "session.json").read_text())
+    assert marker["resume_after"] == "2026-09-04T09:00:00+00:00"   # +1h default
+    assert marker["pause_scope"] is None
+    assert clock["sleeps"] == 0

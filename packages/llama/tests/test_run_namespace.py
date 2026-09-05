@@ -309,7 +309,7 @@ def test_run_resume_inherits_count_from_criteria(tmp_path: Path, monkeypatch):
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
                      force=False, force_stage=None,
-                     full_rationale=False):
+                     full_rationale=False, pace=None):
         captured.update(count=count)
 
     monkeypatch.setattr(cli, "_execute", fake_execute)

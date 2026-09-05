@@ -223,7 +223,7 @@ def test_get_profile_stamps_count_into_run_criteria(tmp_path: Path, monkeypatch)
 
     def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
                      force=False, force_stage=None,
-                     full_rationale=False, plan=False):
+                     full_rationale=False, plan=False, pace=None):
         captured.update(count=count, criteria=criteria)
 
     monkeypatch.setattr(cli, "_execute", fake_execute)
