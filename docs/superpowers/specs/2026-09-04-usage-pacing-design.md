@@ -1,6 +1,7 @@
 # Usage pacing — design
 
-Status: approved design, not yet implemented.
+Status: phase 1 (the reactive pause/resume path) implemented; phase 2 (the
+proactive pre-flight gate) not yet.
 Date: 2026-09-04.
 
 ## Problem
@@ -363,9 +364,17 @@ the broad clause, rather than narrowing that clause, so the intent is legible
 at the call site), and that re-raise joins the mutation list. Every `except
 HerderError` on the `_execute` path is an ordering hazard by construction,
 because `RateLimited` subclasses it; these two are the only ones on that path
-(audited 2026-09-04: `setlistfm.py:96`, `jerrybase.py:128`,
-`correspondence.py:307` and `audio.py:37` are not LLM call sites, and
-`cli.py:1902`/`cli.py:2505` belong to `fix`/`triage`, outside `_execute`).
+(audited 2026-09-04, current line numbers as of the branch point:
+`setlistfm.py:96`, `jerrybase.py:128`, `correspondence.py:307` and
+`audio.py:37` are not LLM call sites; `cli.py:2030`'s
+`except (LlamaError, TaskFailed, HerderError, IAError)` is `_redo_batch`'s
+per-show loop, the batch form shared by a plain selector redo and
+`redo --run`'s state-based batch — not `_execute`, so `RateLimited`
+propagating there is caught as an ordinary per-show failure, same as any
+other `HerderError`; and `cli.py:2643`'s `except (LlamaError, HerderError)`
+is `main_cli`'s global error boundary, which *does* wrap `_execute` — it is
+the last-resort catch-all if a `RateLimited` ever escapes every stage- and
+run-level handler, not a site outside `_execute`'s reach).
 
 **Session state.** `STATE_PAUSED = "paused"` joins the states at
 `sessions.py:13-16`, with `mark_paused(ws, outcome, failures, resume_after,
