@@ -8,7 +8,8 @@ phase 2 and deliberately absent here.
 """
 import re
 import time
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 _DURATION_RE = re.compile(r"^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
 
@@ -54,3 +55,57 @@ def sleep_until(when: datetime, echo, chunk_s: float = 900) -> None:
         left = (when - _now()).total_seconds()
         if left > 0:
             echo(f"  … waiting, {format_delta(left)} left")
+
+
+@dataclass(frozen=True)
+class PaceOptions:
+    """The pacing decisions a run is made with, resolved once at its start.
+
+    Frozen because a run must not change its own mind mid-loop: `_execute`
+    consults these on every pause, and a value that drifted would make the
+    pause after a sleep behave differently from the first one for reasons
+    nothing recorded.
+    """
+
+    enabled: bool          # False restores the pre-pacing behaviour: a limit fails the show
+    wait: bool             # sleep through a reset, rather than checkpoint and exit
+    max_wait_s: float      # never sleep longer than this; a longer wait checkpoints
+    unknown_reset_wait_s: float   # how long to wait when the refusal named no reset
+    reset_skew_s: float    # padding past the named reset, so we do not race its clock
+
+
+def pace_options(config, wait: bool | None = None,
+                 max_wait: str | None = None) -> PaceOptions:
+    """Config defaults with the CLI flags layered on top.
+
+    `None` means "the flag was not given", so a `--no-wait` can turn off a
+    config `wait = true` and vice versa. Raises ValueError on a malformed
+    `--max-wait`, which callers surface before the run starts rather than
+    four shows in.
+    """
+    cfg = config.pacing
+    return PaceOptions(
+        enabled=cfg.enabled,
+        wait=cfg.wait if wait is None else wait,
+        max_wait_s=parse_duration(max_wait or cfg.max_wait),
+        unknown_reset_wait_s=parse_duration(cfg.unknown_reset_wait),
+        reset_skew_s=parse_duration(cfg.reset_skew),
+    )
+
+
+def resume_at(err, pace: PaceOptions) -> datetime:
+    """When to come back after a refusal: the reset it named, else a default.
+
+    The skew keeps us from racing the window's own clock.
+
+    A naive `resets_at` is treated as no reset at all rather than coerced to
+    a zone. It cannot come from `herder.limits.parse_reset`, which always
+    resolves to UTC, so it would mean some other producer guessed - and
+    guessing again here (UTC? local?) risks waking hours early or hours
+    late. The default wait is a known-safe answer; `sleep_until` refuses the
+    naive value outright, which would crash the pause instead of pausing.
+    """
+    when = getattr(err, "resets_at", None)
+    if when is None or when.tzinfo is None:
+        return _now() + timedelta(seconds=pace.unknown_reset_wait_s)
+    return when + timedelta(seconds=pace.reset_skew_s)
