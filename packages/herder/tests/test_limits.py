@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from herder.limits import RateLimited, classify, parse_reset
+from herder.provider import HerderError
 
 # The measured signature, captured verbatim from a live run on 2026-09-04.
 # Note the U+00B7 middle dot: it is part of the real string and must not be
@@ -163,3 +164,13 @@ def test_reset_zone_multi_segment_is_recognized():
     now = datetime(2026, 9, 4, 8, 0, tzinfo=tz)
     got = parse_reset("resets 11:10am (America/Indiana/Indianapolis)", now=now)
     assert got == datetime(2026, 9, 4, 11, 10, tzinfo=tz).astimezone(timezone.utc)
+
+
+def test_rate_limited_is_a_herder_error():
+    # Load-bearing: cli.py's `except (LlamaError, HerderError)` boundary, and
+    # its per-show `except RateLimited` (checked first because RateLimited
+    # subclasses HerderError), both rely on this subclassing. If it silently
+    # broke, a rate limit would surface as an unhandled traceback instead of
+    # a clean pause/exit - nothing else in the suite pins it.
+    assert issubclass(RateLimited, HerderError)
+    assert isinstance(RateLimited("boom"), HerderError)
