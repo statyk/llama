@@ -247,6 +247,42 @@ def test_a_limit_on_a_deferred_show_keeps_it_queued(tmp_path, monkeypatch):
     assert held == {"b"}
 
 
+def test_a_limit_mid_pass_keeps_the_shows_another_run_had_locked(tmp_path, monkeypatch):
+    """The two queues merge: shows deferred earlier in the same pass are as
+    unprocessed as the tail after the limit, and dropping them loses a show
+    from a run that then reports itself complete."""
+    _clock(monkeypatch)
+    real_file_lock = cli.file_lock
+
+    def _file_lock(path, *, blocking=True):
+        if not blocking and path.parent.name.endswith("a"):
+            raise Locked(path)                 # another run holds `a`
+        return real_file_lock(path, blocking=blocking)
+
+    monkeypatch.setattr(cli, "file_lock", _file_lock)
+    ws, seen = _drive(tmp_path, monkeypatch,
+                      _limits_once("b", NOW + timedelta(minutes=10)),
+                      ["a", "b", "c"], pace=pacing.pace_options(Config()))
+
+    # a deferred, b refused mid-pass; the resume works through b, c and a.
+    assert sorted(seen) == ["a", "b", "b", "c"]
+    assert seen[0] == "b"                      # the interrupted show goes first
+    assert iter_sessions(tmp_path)[0].outcome == "3 packaged"
+
+
+def test_the_run_switches_on_raw_capture_for_every_provider(tmp_path, monkeypatch):
+    """_execute is the one place herder's capture destination is set; without
+    it an unrecognized backend failure leaves only 500 truncated characters."""
+    from herder import failures
+
+    monkeypatch.setattr(failures, "_capture_dir", None)
+    _clock(monkeypatch, sleep_budget=0)
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/package", ["a"],
+           pace=pacing.pace_options(Config()))
+
+    assert failures._capture_dir == tmp_path / "llm-failures"
+
+
 def test_pacing_disabled_records_the_limit_as_a_show_failure(tmp_path, monkeypatch):
     """The escape hatch keeps the old behaviour exactly: a failure entry, the
     run carries on to the next show, and nothing sleeps."""
