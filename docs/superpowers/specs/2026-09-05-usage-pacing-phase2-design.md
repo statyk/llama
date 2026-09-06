@@ -215,8 +215,12 @@ IO stays in the caller, matching `siblings.py` and `structure.py`.
 decide(now, reading, progress, opts) -> Proceed | PauseUntil(when, scope, reason)
 ```
 
-`progress` is counters only — shows done, shows remaining, learned per-show
-delta. No clock reads, no IO, so the whole policy is a table test.
+`progress` is counters only. No clock reads, no IO, so the whole policy is a
+table test. **What shipped carries one field, `per_show_delta`** — the learned
+EWMA. The shows-done and shows-remaining counters this section originally named
+were never built: no policy rule consumes them, and `_execute` sizes its own
+forecast against `count` at the call site. **Filed and unbuilt**, in the same
+sense as T6b and T7b; adding them is new surface, not a correction.
 
 ## Policy
 
@@ -430,8 +434,11 @@ Offline and deterministic, per the repo contract: injected runner, injected
   nothing.
 - **Run-level catch**: a `RateLimited` raised from `run_winnow` produces a
   `paused` session and exit 0, not a traceback.
-- **Resume costs nothing**: a fake provider with a call counter proves
-  already-packaged shows make zero LLM calls on re-entry.
+- **Resume costs nothing** — **FILED AND UNBUILT.** The intended test was a
+  fake provider with a call counter proving already-packaged shows make zero
+  LLM calls on re-entry. It was not written: the property it asserts is
+  `should_run`'s, which predates this phase and is not something phase 2
+  changed. Recorded here rather than quietly dropped, so the gap is tracked.
 
 ### Constraints to mutate, not merely run
 

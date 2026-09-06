@@ -302,11 +302,18 @@ tier (pins never escalate).
   The resume is recoverable but not cheap: those stages gate on `should_run` at
   WHOLE-STAGE granularity, so the interrupted one re-runs from the top. It does
   **not** cover `run_interpret`, which runs in `get` outside `_execute`
-  entirely — filed as **T6b, deliberately UNBUILT**, because `run_interpret`
-  writes `criteria.json` only on success and `run resume` refuses a session
-  without one, so a checkpoint there would park an unresumable run (the query
-  lives only in argv). A limit during interpret still exits 1 having spent one
-  LLM call and written nothing. **(c) the run-level pause sites checkpoint but
+  entirely. **`interpret` and `discover` are DIFFERENT stages and both exist** —
+  the phrase `interpret (run_discover)`, inherited from phase 1's spec, conflated
+  them and is the origin of every muddle about what this catch covers; read the
+  call sites, not the phrase (`_PIPELINE_RUN_STAGES` is a third, different
+  triple that excludes `discover`). The `run_interpret` gap is filed as
+  **T6b, deliberately UNBUILT**: `run_interpret` writes `criteria.json` only on
+  success and `run resume` refuses a session without one, so a checkpoint there
+  would park an unresumable run — the query lives only in argv, and covering it
+  is a resumability design (persist the raw query, and the flags stamped onto
+  criteria, at run-claim time), not a catch. A limit during interpret still
+  exits 1 having spent one LLM call and written nothing; `--profile` runs read
+  stored criteria and never call `run_interpret` at all. **(c) the run-level pause sites checkpoint but
   never sleep.** Both of them — the pre-flight gate and the reactive catch
   above — return after `_checkpoint_pause` even when the wait would fit inside
   `--max-wait`; only the per-show loop sleeps. Operator-visible consequence:
