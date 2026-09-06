@@ -30,7 +30,8 @@ Three things are left undone, and they are the whole of phase 2:
   `` `interpret` (`run_discover`) `` literally
   (`2026-09-04-usage-pacing-design.md:346-348`), which is where the recurring
   "interpret/search/winnow" phrasing comes from -- but `interpret` and
-  `discover` are different stages, and `_PIPELINE_RUN_STAGES` (`cli.py:1186`) is
+  `discover` are different stages, and `cli.py`'s module-level
+`_PIPELINE_RUN_STAGES` is
   a third, different triple that excludes `discover` altogether. Read the call
   sites, not the phrase.
 
@@ -42,11 +43,12 @@ Three things are left undone, and they are the whole of phase 2:
 
 A `RateLimited` raised by `run_interpret` still exits 1 with no checkpoint, and
 phase 2 deliberately leaves it that way. `run_interpret` is called at
-`cli.py:440` (inside the `get` command, **before** `_execute` is entered) and at
-`cli.py:2556` (the profile-creation path, against a scratch workspace in a
-`TemporaryDirectory`). Wrapping it would not produce a resumable run: it writes
+`cli._get_query` (the `get` command's query-mode helper, **before** `_execute`
+is entered) and in `cli.profile_add` (the profile-creation path, against a
+scratch workspace in a `TemporaryDirectory`). Wrapping it would not produce a resumable run: it writes
 `criteria.json` only on success (`stages/interpret.py:13`), and `run resume`
-refuses a session that has no `criteria.json` (`cli.py:708-710`), so a
+refuses a session that has no `criteria.json` (the `ws.criteria.exists()`
+guard at the top of `cli.run_resume`), so a
 checkpoint there would park a session that cannot be resumed -- the query exists
 only in argv. Making it resumable is new design (persist the raw query at run
 claim time), not a catch.
@@ -380,8 +382,9 @@ the proactive gate as well as the reactive pause.
 
 ### `llama pacing` (new, read-only)
 
-In the shape of the existing `llama pipeline` teaching command: the three
-meters, the learned per-show delta, what `decide()` would return right now, and
+In the shape of the existing `llama pipeline` teaching command: the two meters
+that render -- session and weekly -- the learned per-show delta, what `decide()`
+would return right now, and
 **the forecast** — how many shows fit before the reset. This is the command the
 operator runs *before* launching, given that runs are timed around available
 capacity by hand today.
@@ -402,7 +405,7 @@ When the read fails, one line says so and the proactive rules are skipped for
 that boundary, falling back to the reactive backstop:
 
 ```
-usage read unavailable — pacing on limit errors only
+pacing: usage read unavailable — pacing on limit errors only
 ```
 
 ## Testing

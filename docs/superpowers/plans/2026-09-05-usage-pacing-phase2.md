@@ -60,14 +60,19 @@ text below disagree, **the ruling governs**.
   Giving `PauseUntil` a `resets_at` property is the wrong fix: `PauseUntil.when`
   already includes `reset_skew`, so `resume_at` would apply it twice.
 
-- **R4 (Task 9) — mutation 1's expected red set is corrected.** Mutating
-  `usage.SEVEN_DAY_MAX_AHEAD_S` turns
-  `test_weekly_reset_uses_the_weekly_bound_not_the_session_one` and
-  `test_parses_all_three_meters_from_the_real_output` red, both in
-  `test_usage.py`. It does **not** touch
-  `test_parse_reset_bound_is_per_call_not_global`, which passes `7.5 * 86400`
-  as a literal and so never reads the constant. The constraint is pinned
-  either way; no test is strengthened.
+- **R4 (Task 9) — mutation 1's expected red set is corrected.** Narrowing
+  `usage.SEVEN_DAY_MAX_AHEAD_S` to `5.5 * 3600` turns **three** tests red, all
+  in `test_usage.py`: `test_weekly_reset_uses_the_weekly_bound_not_the_session_one`,
+  `test_parses_all_three_meters_from_the_real_output` and
+  `test_per_model_meter_parses_percent_reset_and_strips_whitespace` — the third
+  because the constant has a **second call site**, the per-model meter's
+  `parse_reset` call in `parse_usage_text`. (R4 as first written named only the
+  first two; corrected in the final fix wave, measured 2026-09-06: 3 failed,
+  1857 passed.) It does **not** touch
+  `test_parse_reset_bound_is_per_call_not_global`, which lives in
+  `test_limits.py` — a module that never imports `herder.usage` — and passes
+  `7.5 * 86400` as a literal, so it is structurally incapable of seeing this
+  mutation. The constraint is pinned either way; no test is strengthened.
 
 ## File Structure
 
@@ -1136,17 +1141,19 @@ landed covers exactly `run_discover`, `run_search` and `run_winnow` -- the three
 stages inside `_execute`'s try block.
 
 **Known gap: `run_interpret` is not covered.** A `RateLimited` there still exits
-1 with no checkpoint. `run_interpret` is called at `cli.py:440` (in `get`,
-before `_execute` is entered) and `cli.py:2556` (profile creation, scratch
-workspace). A checkpoint there would be **unresumable**: `run_interpret` writes
-`criteria.json` only on success (`stages/interpret.py:13`) and `run resume`
-refuses a session without one (`cli.py:708-710`), so the query would exist only
+1 with no checkpoint. `run_interpret` is called in `cli._get_query` (the `get`
+command's query-mode helper, before `_execute` is entered) and in
+`cli.profile_add` (profile creation, scratch workspace). A checkpoint there
+would be **unresumable**: `run_interpret` writes `criteria.json` only on success
+(`stages/interpret.py`'s `run_interpret`) and `run resume` refuses a session
+without one (the `ws.criteria.exists()` guard at the top of `cli.run_resume`),
+so the query would exist only
 in argv. Cost of leaving it: one LLM call with nothing written, `llama get`
 only -- the `--profile` path never calls `run_interpret`. The confusing phrasing
 originates in phase 1's spec, which wrote `` `interpret` (`run_discover`) ``
 literally at `2026-09-04-usage-pacing-design.md:346-348`; note also that
-`_PIPELINE_RUN_STAGES` (`cli.py:1186`) is a different triple that excludes
-`discover`.
+`cli.py`'s module-level `_PIPELINE_RUN_STAGES` is a different triple that
+excludes `discover`.
 
 ---
 
@@ -1155,8 +1162,8 @@ literally at `2026-09-04-usage-pacing-design.md:346-348`; note also that
 **Status: UNBUILT. Do not implement as part of phase 2.** Filed so the gap above
 is tracked rather than rediscovered.
 
-Scope: `llama get` (`cli.py:440`), the profile-creation path (`cli.py:2556`),
-and the `run approve` / `run resume` entry points, which must be able to pick up
+Scope: `llama get` (`cli._get_query`), the profile-creation path
+(`cli.profile_add`), and the `run approve` / `run resume` entry points, which must be able to pick up
 whatever a checkpoint there leaves behind.
 
 It is not a catch. It needs its own resumability design -- at minimum persisting
@@ -1373,8 +1380,9 @@ tracked rather than rediscovered, and because it is not Task 7's alone.
 
 Both run-level pause sites checkpoint and exit 0 without ever sleeping,
 whatever `--wait` and `--max-wait` say: the pre-flight gate (Task 7,
-`cli.py:236-242`) and the reactive catch around discover/search/winnow
-(Task 6, `cli.py:300-304`). Only the show loop sleeps. That is what each task
+`cli._execute`'s `isinstance(verdict, PauseUntil)` branch above the try) and
+the reactive catch around discover/search/winnow (Task 6, `_execute`'s
+`except RateLimited` arm). Only the show loop sleeps. That is what each task
 was asked to build, and the two are at least consistent with each other -- but
 it is a `--wait` contract break relative to phase 1: `llama get --wait` started
 twenty minutes before a reset used to enter the run, hit the limit reactively
@@ -1391,7 +1399,8 @@ this is a new shared pause renderer, not a parameter.
 Fold in while there: **the deferred second pass is ungated.** Shows another run
 held the lock on are processed in the `for idx, entry in enumerate(deferred)`
 pass with no gate and no boundary measurement, and that pass takes a
-**blocking** lock (`cli.py:422`) -- so it can sit for an arbitrary time and
+**blocking** lock -- `file_lock(...)` with no `blocking=False`, unlike the
+first pass -- so it can sit for an arbitrary time and
 then process on a window whose last gate reading is stale by that whole wait.
 The reactive `RateLimited` catch is still the backstop there, so the cost is
 one refused show rather than a wrong idle.
@@ -1493,7 +1502,7 @@ In `cli.py`, add a formatter and the command:
 def _pacing_line(reading, state, pace) -> str:
     """The one-line meter summary printed at run start and by `llama pacing`."""
     if reading is None or reading.five_hour is None:
-        return "usage read unavailable — pacing on limit errors only"
+        return "pacing: usage read unavailable — pacing on limit errors only"
     parts = [f"5h {reading.five_hour.percent}%"]
     if reading.seven_day is not None:
         parts.append(f"weekly {reading.seven_day.percent}%")
@@ -1569,16 +1578,49 @@ Per the project's "green suite is not pinned" lesson, four constraints must be s
 
 - [ ] **Step 1: Mutation 1 — the per-meter reset bound**
 
-Change `usage.SEVEN_DAY_MAX_AHEAD_S` from `7.5 * 86400` to `5.5 * 3600`.
-Run: `pytest packages/herder/tests/test_usage.py packages/herder/tests/test_limits.py -q`
-Expected: **RED** — `test_weekly_reset_uses_the_weekly_bound_not_the_session_one` and `test_parse_reset_bound_is_per_call_not_global` fail.
+Run the **full** suite for every mutation below (`pytest -q`): a file-scoped run
+cannot see a catching test that lives outside the file, which reads as a
+survivor when it is not.
+
+Mutation 1a, narrowing: change `usage.SEVEN_DAY_MAX_AHEAD_S` from `7.5 * 86400`
+to `5.5 * 3600`.
+Expected: **RED**, exactly three, all in `packages/herder/tests/test_usage.py` —
+`test_weekly_reset_uses_the_weekly_bound_not_the_session_one`,
+`test_parses_all_three_meters_from_the_real_output`, and
+`test_per_model_meter_parses_percent_reset_and_strips_whitespace` (the constant's
+second call site, the per-model meter). NOT
+`test_parse_reset_bound_is_per_call_not_global`, which is in `test_limits.py` and
+never imports `herder.usage` — see ruling R4. Measured: 3 failed, 1857 passed.
+
+Mutation 1b, **widening** — the direction that matters, since it is the one that
+manufactures a multi-day sleep out of a bad reset: change the constant to
+`30 * 86400`.
+Expected: **RED**, exactly one —
+`test_weekly_reset_far_beyond_the_seven_day_bound_is_rejected`. Measured: 1
+failed, 1859 passed. This direction was unpinned until the final fix wave
+(finding F2); do not drop it.
 Restore the value.
 
 - [ ] **Step 2: Mutation 2 — the EWMA rollover guard**
 
 In `pacing_state.observe`, delete `or b.resets_at != a.resets_at` from the guard.
-Run: `pytest packages/llama/tests/test_pacing_state.py -q`
-Expected: **RED** — `test_a_window_rollover_contributes_nothing` fails.
+Run the full suite: `pytest -q`.
+Expected: **RED**, exactly two, both in `packages/llama/tests/test_pacing_state.py` —
+`test_a_window_rollover_contributes_nothing` and
+`test_a_rollover_with_a_positive_delta_still_contributes_nothing`. Measured
+2026-09-06: 2 failed, 1858 passed.
+
+Both fixtures have to satisfy two conditions the originals did not, and the
+guard is unpinned if either is dropped. **A positive delta across the
+rollover**: with a negative one the *next* line's guard declines the mutant on
+its own, so the test is green under either guard alone and pins neither. **A
+delta different from the seeded estimate**: at delta == seed the EWMA is
+unchanged and only `samples` moves, so a later assertion narrowed to
+`per_show_delta` (or given a tolerance) would unpin the guard with nothing going
+red. `test_a_window_rollover_contributes_nothing` observed 90 -> 2 and
+`test_a_rollover_with_a_positive_delta_still_contributes_nothing` observed
+10 -> 14 as first written; corrected to 90 -> 92 and 10 -> 20 in the final fix
+wave (findings F3a/F3b). Keep both tests: neither covers the other.
 Restore.
 
 - [ ] **Step 3: Mutation 3 — the stale-usage marker**
@@ -1590,9 +1632,26 @@ Restore.
 
 - [ ] **Step 4: Mutation 4 — the run-level catch ordering**
 
-In `_execute`, move the `except RateLimited` arm added in Task 6 to sit *after* an `except HerderError` arm (add one if the block has none, catching and reporting as a stage failure).
-Run: `pytest packages/llama/tests/test_pace_loop.py -q`
-Expected: **RED** — `test_run_level_ratelimited_is_caught_before_herdererror` fails.
+In `_execute`, insert an `except HerderError:` arm whose body is a bare `raise`,
+**immediately above** the `except RateLimited` arm added in Task 6.
+
+The body must be `raise`, not "catch and report as a stage failure". A reporting
+body cannot even run — `failures` is not bound until below the try — and a body
+that merely swallows the exception additionally reddens
+`test_an_ordinary_stage_failure_is_not_turned_into_a_pause` and
+`test_pacing_disabled_lets_a_run_level_limit_propagate`, which are failures
+about the BODY, not the ordering this step means to test. A bare `raise` leaves
+both of those green (an unmutated `HerderError` propagates out of `_execute`
+too) and changes exactly one thing: which arm sees a `RateLimited`.
+
+Run the full suite: `pytest -q`.
+Expected: **RED**, exactly five, all in `packages/llama/tests/test_pace_loop.py` —
+`test_run_level_ratelimited_is_caught_before_herdererror`,
+`test_ratelimited_during_discover_checkpoints_too`,
+`test_ratelimited_during_winnow_checkpoints_instead_of_exiting`,
+`test_a_run_level_pause_records_the_reset_plus_skew_once` and
+`test_a_run_level_pause_says_what_a_resume_will_redo`. Measured 2026-09-06:
+5 failed, 1855 passed.
 Restore.
 
 - [ ] **Step 5: If any mutation stayed GREEN, strengthen the test**
