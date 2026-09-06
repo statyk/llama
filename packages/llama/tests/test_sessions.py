@@ -199,10 +199,14 @@ def test_request_is_written_even_when_interpret_fails(tmp_path: Path, monkeypatc
     """The write must happen BEFORE run_interpret, not merely before the run
     finishes -- a checkpoint written after the call it is meant to survive
     is worthless. RateLimited is the realistic failure here: it is exactly
-    the usage-window-exhausted case T6b exists for, and _get_query
-    deliberately does not catch it around this call (see the comment above
-    the `run_interpret(...)` call site), so it propagates straight out of
-    `get` uncaught."""
+    the usage-window-exhausted case T6b exists for, and `_get_query` now
+    catches it (`_interpret_with_pause`) and parks the run -- so this
+    artifact is the one thing that checkpoint has to point at, and it is
+    written before the call that produces the checkpoint or not at all.
+
+    `--no-wait` because this refusal names no reset: `resume_at` falls back
+    to `unknown_reset_wait` (1h, inside the 6h cap), so a waiting pause here
+    would sleep for a real hour."""
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
 
@@ -211,8 +215,9 @@ def test_request_is_written_even_when_interpret_fails(tmp_path: Path, monkeypatc
     monkeypatch.setattr(cli, "run_interpret", boom)
 
     result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
-                                     "--auto", "--name", "req2"])
-    assert result.exit_code != 0
+                                     "--auto", "--no-wait", "--name", "req2"])
+    assert result.exit_code == 0, result.output
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
 
     req = json.loads((tmp_path / "runs" / "req2" / "request.json").read_text())
     assert req["query"] == "GD 1973"
@@ -771,3 +776,181 @@ def test_resuming_a_criteria_less_session_gates_before_re_interpreting(
     assert not ws.criteria.exists()                 # nothing was interpreted
     assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
     assert ws.request.exists()                      # still resumable, again
+
+
+# --- T6b: a limit DURING interpret parks a resumable run ---------------------
+
+def test_a_limit_during_interpret_parks_a_resumable_session(
+        tmp_path: Path, monkeypatch):
+    """Before T6b this exited 1 with nothing written. It is the first LLM
+    call of the run, so an unattended run could spend its whole night here."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(pacing, "_now", lambda: PF_NOW)
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("must not sleep"))
+    providers = fake_providers(None)
+    # 30h out, past the 6h default cap, so it checkpoints rather than sleeps
+    providers["interpret"] = LimitedProvider(PF_NOW + timedelta(hours=30))
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                     "--auto", "--name", "interp"])
+
+    assert result.exit_code == 0, result.output          # parked, not failed
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_PAUSED
+    assert info.failures == []                           # not a show failure
+    assert info.query == "GD 1973"                       # readable on run list
+    assert "run resume interp" in result.output
+    # Added beyond the brief. `exit 0 + STATE_PAUSED + failures == []` is also
+    # what a catch that merely called `mark_paused(ws, None, [], ...)` itself
+    # would produce -- and such a catch would have none of the arithmetic the
+    # shared renderer exists for. These three discriminate:
+    ws = RunWorkspace(tmp_path, "interp")
+    assert providers["interpret"].calls == 1             # refused, not skipped
+    assert not ws.criteria.exists()                      # nothing interpreted
+    # PF_NOW + 30h + the 2m reset skew: the resume instant came from the
+    # refusal's own reset through `resume_at`, not from a bare "now".
+    assert info.resume_after.startswith("2026-09-07T14:02")
+
+    # Step 5: the end-to-end property all four T6b tasks exist for, which no
+    # single task's tests assert. The parked session must actually resume.
+    providers["interpret"] = fake_providers(None)["interpret"]   # window reset
+    resumed = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "interp"])
+    assert resumed.exit_code == 0, resumed.output
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+    # Added beyond the brief: STATE_COMPLETE is also reached by a resume that
+    # short-circuits on a session it thinks has nothing to do. The criteria
+    # this run never had is what proves it re-interpreted and then ran.
+    assert ws.criteria.exists()
+    assert read_model(ws.criteria, Criteria).query == "GD 1973"
+
+
+def test_a_limit_during_interpret_within_max_wait_sleeps_and_finishes(
+        tmp_path: Path, monkeypatch):
+    clock = {"now": PF_NOW}
+    monkeypatch.setattr(pacing, "_now", lambda: clock["now"])
+    monkeypatch.setattr(pacing, "_sleep",
+                        lambda s: clock.update(now=clock["now"] + timedelta(seconds=s)))
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = fake_providers(None)
+    real = providers["interpret"]
+    providers["interpret"] = LimitedProvider(PF_NOW + timedelta(hours=2),
+                                             times=1, then=real)
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                     "--auto", "--name", "slept"])
+
+    assert result.exit_code == 0, result.output
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+    # The state above holds just as well if interpret were skipped entirely.
+    # This is what pins that it was refused once and then actually retried.
+    assert providers["interpret"].calls >= 2
+    # Added beyond the brief: `calls >= 2` is equally satisfied by a retry
+    # loop that never sleeps at all -- which is the same hot spin the
+    # `stalled` guard exists to prevent, just one pass earlier. The clock
+    # only moves through `_sleep`, so this is what pins that it waited for
+    # the window the refusal named.
+    assert clock["now"] >= PF_NOW + timedelta(hours=2)
+    assert iter_sessions(tmp_path)[0].failures == []
+
+
+def test_a_limit_while_resume_re_interprets_parks_the_session_again(
+        tmp_path: Path, monkeypatch):
+    """`run resume` is the one command that exists to recover from a limit
+    during interpret, and its re-interpret branch spends an interpret call of
+    its own. A resume that dies there with an unhandled RateLimited is the
+    same defect wearing a different command name, on the very path built to
+    undo it -- and a pre-flight meter read that passes can still be followed
+    by a refusal.
+    """
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(pacing, "_now", lambda: PF_NOW)
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("must not sleep"))
+    providers = fake_providers(None)
+    providers["interpret"] = LimitedProvider(PF_NOW + timedelta(hours=30))
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "reparked")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                           "artist_cap": None, "min_score": None,
+                                           "year_cap": None, "auto": True,
+                                           "plan": False}))
+    mark_paused(ws, None, [], "2026-09-06T07:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "reparked"])
+
+    assert result.exit_code == 0, result.output          # parked again, not failed
+    info = iter_sessions(tmp_path)[0]
+    assert info.state == STATE_PAUSED
+    assert providers["interpret"].calls == 1             # refused, not skipped
+    assert not ws.criteria.exists()                      # still nothing interpreted
+    assert ws.request.exists()                           # still resumable, again
+    # The checkpoint was REWRITTEN from this refusal, not left at the stale
+    # instant the session was parked with -- a re-park that kept 07:10 would
+    # tell the operator to come back to an already-exhausted window.
+    assert info.resume_after.startswith("2026-09-07T14:02")
+
+
+def test_no_pacing_lets_a_limit_during_interpret_fail_the_run(
+        tmp_path: Path, monkeypatch):
+    """`--no-pacing` opts out of BOTH halves, as `_execute`'s run-level catch
+    already does with its own `if not pace.enabled: raise`. Without the same
+    guard here the new fourth pause site would quietly pause a run that asked
+    for the pre-pacing behaviour."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(pacing, "_now", lambda: PF_NOW)
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("must not sleep"))
+    providers = fake_providers(None)
+    providers["interpret"] = LimitedProvider(PF_NOW + timedelta(hours=30))
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto",
+                                     "--name", "nopace", "--no-pacing"])
+
+    assert result.exit_code != 0
+    assert iter_sessions(tmp_path)[0].state != STATE_PAUSED
+
+
+def test_a_limit_during_interpret_sleeps_at_most_once(tmp_path: Path, monkeypatch):
+    """Added beyond the brief: nothing else reaches a SECOND pause at this
+    site, so without this the `stalled` guard ships unpinned.
+
+    A window that refuses again after the nap names the same reset, now in
+    the past -- and `sleep_until` returns immediately on a `when` already
+    gone. Without `stalled` the retry loop becomes a hot spin: it never
+    calls `_sleep` again, so a sleep-budget assertion sees nothing and the
+    suite HANGS instead of reddening. Run this one under a hard timeout;
+    exit 124 is the caught mutant.
+    """
+    clock = {"now": PF_NOW}
+    monkeypatch.setattr(pacing, "_now", lambda: clock["now"])
+    monkeypatch.setattr(pacing, "_sleep",
+                        lambda s: clock.update(now=clock["now"] + timedelta(seconds=s)))
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = fake_providers(None)
+    # Refuses forever, always naming the same reset: two hours out on the
+    # first refusal, already elapsed on the second.
+    providers["interpret"] = LimitedProvider(PF_NOW + timedelta(hours=2), times=99)
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                     "--auto", "--name", "twice"])
+
+    assert result.exit_code == 0, result.output
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+    # Exactly two attempts: refused, slept once, refused again, checkpointed.
+    # A third would mean it napped on an instant already behind it.
+    assert providers["interpret"].calls == 2
+    assert "no progress since last pause" in result.output

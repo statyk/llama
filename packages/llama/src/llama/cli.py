@@ -707,6 +707,55 @@ def _interpret_and_stamp(config, ws: RunWorkspace, req: dict) -> Criteria:
     return criteria
 
 
+INTERPRET_NOTE = "interpret did not complete; resume when the window resets"
+
+
+def _interpret_with_pause(config, ws: RunWorkspace, req: dict,
+                          pace: PaceOptions) -> Criteria | None:
+    """Interpret, pausing instead of dying if the window refuses us.
+
+    The fourth pause site, through the same renderer as the other three:
+    same timing arithmetic, same sleep-or-checkpoint rule, same
+    KeyboardInterrupt contract. `None` means a checkpoint was written and
+    the caller must return, exactly as `_preflight_gate`'s `proceed=False`
+    does.
+
+    ONE copy for both entry points -- `_get_query`'s first pass and `run
+    resume`'s re-interpret branch -- for the same reason
+    `_interpret_and_stamp` is one copy. A resume that hit a limit and died
+    would be the very defect T6b removes, on the one command that exists to
+    recover from it; a proactive gate that passed a moment ago does not
+    stop the next call being refused.
+
+    `pace.enabled` is checked the way `_execute`'s run-level catch checks
+    it: `--no-pacing` restores the pre-pacing behaviour at EVERY site, and a
+    site that paused anyway would make that flag's promise false.
+
+    Sleeps AT MOST ONCE. Nothing completes between naps at a site where no
+    work has run, so a second pause passes `stalled=True` -- without it a
+    `when` already in the past makes `sleep_until` return immediately and
+    the pause becomes a hot spin, which HANGS the suite rather than
+    reddening it. No sleep-budget assertion can see that mutation; it is
+    caught only by running these tests under a hard timeout and reading the
+    exit code. Do not "simplify" `stalled=stalled` away.
+    """
+    stalled = False
+    while True:
+        try:
+            return _interpret_and_stamp(config, ws, req)
+        except RateLimited as limited:
+            if not pace.enabled:
+                raise
+            if not _render_pause(ws, limited, pace,
+                                 header=f"paused: {limited}", header_err=True,
+                                 stalled=stalled, note=INTERPRET_NOTE):
+                return None
+            # Re-interpret rather than proceed on the nap alone, for the same
+            # reason the pre-flight gate re-reads its meter: nothing this run
+            # did has changed, but the account-wide window may have.
+            stalled = True
+
+
 def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
               name: str | None,
               artist_cap: float | None, min_score: float | None, year_cap: float | None,
@@ -736,9 +785,11 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
                                  pacing_state.read_state(config.root))
     if not proceed:
         return
-    criteria = _interpret_and_stamp(config, ws, {
+    criteria = _interpret_with_pause(config, ws, {
         "query": query, "limit": limit, "artist_cap": artist_cap,
-        "min_score": min_score, "year_cap": year_cap})
+        "min_score": min_score, "year_cap": year_cap}, pace)
+    if criteria is None:
+        return
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False,
              full_rationale=full_rationale, plan=plan, pace=pace)
@@ -1007,7 +1058,14 @@ def run_resume(
                                      pacing_state.read_state(config.root))
         if not proceed:
             return
-        criteria = _interpret_and_stamp(config, ws, json.loads(ws.request.read_text()))
+        # ...and catch a refusal on the call itself, not just gate ahead of
+        # it: the gate reads an account-wide meter that another session can
+        # empty between the reading and the call. A resume that died here
+        # would leave the session exactly as parked, having spent the call.
+        criteria = _interpret_with_pause(
+            config, ws, json.loads(ws.request.read_text()), pace)
+        if criteria is None:
+            return
     else:
         criteria = read_model(ws.criteria, Criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
