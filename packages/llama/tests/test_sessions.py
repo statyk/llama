@@ -683,3 +683,91 @@ def test_run_resume_does_not_stamp_an_unspecified_limit(tmp_path: Path, monkeypa
     criteria = read_model(ws.criteria, Criteria)
     # The interpret fixture's own count, left alone -- NOT the persisted 0.
     assert criteria.count == 1
+
+
+# --- T6b: the pre-flight gate runs before interpret is paid for --------------
+
+PF_NOW = datetime(2026, 9, 6, 8, 0, tzinfo=timezone.utc)
+
+
+def _preflight_reading(five=10, seven=7):
+    from herder.usage import Meter, UsageReading
+    return UsageReading(five_hour=Meter(five, PF_NOW + timedelta(hours=2)),
+                        seven_day=Meter(seven, PF_NOW + timedelta(days=3)),
+                        per_model={}, fetched_at=PF_NOW)
+
+
+def test_the_preflight_gate_runs_before_interpret_is_paid_for(
+        tmp_path: Path, monkeypatch):
+    """The gate lives at the top of `_execute`, which in query mode runs
+    AFTER run_interpret -- so interpret was the one LLM call a run made with
+    no proactive check at all, and an unattended `--wait` run could be
+    defeated by its own first call."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(
+        f'root = "{tmp_path}"\n{JB_OFF}\n[llm.default]\nbackend = "claude_cli"\n')
+    providers = {k: CountingProvider(v) for k, v in fake_providers(None).items()}
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _preflight_reading(five=99))
+    monkeypatch.setattr(pacing, "_now", lambda: PF_NOW)
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("must not sleep"))
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto",
+                                     "--no-wait", "--name", "gated"])
+
+    assert result.exit_code == 0, result.output
+    assert providers["interpret"].calls == 0        # never paid for
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+    # Added beyond the brief: the three assertions above are all satisfied by
+    # a gate that pauses a run nothing can resume, which is precisely the
+    # failure Tasks 4/5 exist to prevent and the reason this task lands after
+    # them. The checkpoint is only worth writing if the request survived it
+    # and criteria never appeared -- that pair is what `run resume`'s
+    # re-interpret branch keys off.
+    ws = RunWorkspace(tmp_path, "gated")
+    assert ws.request.exists()
+    assert not ws.criteria.exists()
+
+
+def test_resuming_a_criteria_less_session_gates_before_re_interpreting(
+        tmp_path: Path, monkeypatch):
+    """`run resume`'s re-interpret branch is the one path that exists to
+    recover from a limit during interpret -- and it spends an interpret call
+    of its own before `_execute`'s gate is ever reached. Ungated, a resume
+    fired against the same still-exhausted window pays exactly the call T6b
+    exists to stop, on the command whose whole job is recovery.
+
+    The call count is the load-bearing assertion, not the paused state: a
+    gate that merely EXISTS on this branch but sits after
+    `_interpret_and_stamp` still pauses, still exits 0, and still leaves the
+    session paused -- it just does so having spent the call. Only
+    `calls == 0` discriminates "the gate runs first" from "a gate is
+    present".
+    """
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(
+        f'root = "{tmp_path}"\n{JB_OFF}\n[llm.default]\nbackend = "claude_cli"\n')
+    providers = {k: CountingProvider(v) for k, v in fake_providers(None).items()}
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _preflight_reading(five=99))
+    monkeypatch.setattr(pacing, "_now", lambda: PF_NOW)
+    monkeypatch.setattr(pacing, "_sleep", lambda s: pytest.fail("must not sleep"))
+
+    ws = RunWorkspace(tmp_path, "regated")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                           "artist_cap": None, "min_score": None,
+                                           "year_cap": None, "auto": True,
+                                           "plan": False}))
+    mark_paused(ws, None, [], "2026-09-06T07:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "regated",
+                                     "--no-wait"])
+
+    assert result.exit_code == 0, result.output
+    assert providers["interpret"].calls == 0        # the call this branch used to spend
+    assert not ws.criteria.exists()                 # nothing was interpreted
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+    assert ws.request.exists()                      # still resumable, again
