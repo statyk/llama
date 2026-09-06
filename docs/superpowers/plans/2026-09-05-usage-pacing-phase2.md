@@ -1366,6 +1366,38 @@ git commit -m "feat(cli): proactive pacing gate at run and show boundaries"
 
 ---
 
+### Task T7b (FILED, NOT IMPLEMENTED): let the run-level pause sites honour `--wait`
+
+**Status: UNBUILT. Do not implement as part of phase 2.** Filed so the gap is
+tracked rather than rediscovered, and because it is not Task 7's alone.
+
+Both run-level pause sites checkpoint and exit 0 without ever sleeping,
+whatever `--wait` and `--max-wait` say: the pre-flight gate (Task 7,
+`cli.py:236-242`) and the reactive catch around discover/search/winnow
+(Task 6, `cli.py:300-304`). Only the show loop sleeps. That is what each task
+was asked to build, and the two are at least consistent with each other -- but
+it is a `--wait` contract break relative to phase 1: `llama get --wait` started
+twenty minutes before a reset used to enter the run, hit the limit reactively
+at a show, sleep through it and finish. It now exits immediately having done
+nothing, and an unattended invocation needs a manual `llama run resume`.
+
+Scope: **both** sites, together. Doing one without the other replaces a
+symmetry with a worse asymmetry. It is not a flag lookup -- sleeping at a
+run-level site means re-deciding after the nap (the meter must be re-read; the
+reset may have moved) and carrying the no-progress guard, which today lives
+only in the show loop. `_checkpoint_pause` has no sleep branch by design, so
+this is a new shared pause renderer, not a parameter.
+
+Fold in while there: **the deferred second pass is ungated.** Shows another run
+held the lock on are processed in the `for idx, entry in enumerate(deferred)`
+pass with no gate and no boundary measurement, and that pass takes a
+**blocking** lock (`cli.py:422`) -- so it can sit for an arbitrary time and
+then process on a window whose last gate reading is stale by that whole wait.
+The reactive `RateLimited` catch is still the backstop there, so the cost is
+one refused show rather than a wrong idle.
+
+---
+
 ### Task 8: `llama pacing` and the run-start forecast
 
 **Files:**

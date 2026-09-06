@@ -34,6 +34,10 @@ Three things are left undone, and they are the whole of phase 2:
   a third, different triple that excludes `discover` altogether. Read the call
   sites, not the phrase.
 
+- **There is no way to plan a run against the window.** The operator times runs
+  around available capacity by hand, with no answer to "will 13 shows fit before
+  the reset?"
+
 ### Known gap: `run_interpret` is not covered
 
 A `RateLimited` raised by `run_interpret` still exits 1 with no checkpoint, and
@@ -50,9 +54,6 @@ claim time), not a catch.
 The cost of leaving it is one LLM call with nothing written, on `llama get`
 only: the profile path (`--profile`) reads stored criteria and never calls
 `run_interpret` at all. See **T6b** in the plan, filed and unbuilt.
-- **There is no way to plan a run against the window.** The operator times runs
-  around available capacity by hand, with no answer to "will 13 shows fit before
-  the reset?"
 
 ## What changed since phase 1: the signal
 
@@ -312,6 +313,20 @@ existing and unchanged.
 Rendering a pause is unchanged from phase 1 — sleep if it fits under `max_wait`,
 else checkpoint and exit 0 — including the no-progress guard (amendment R21),
 which stays exactly as built.
+
+**That sentence describes touch points 3 and 4 only.** The two RUN-LEVEL pause
+sites — the pre-flight gate (1) and the reactive catch around the three
+run-level stages (2) — deliberately checkpoint and exit 0 without sleeping,
+whatever `--wait` and `--max-wait` say. Both go through `_checkpoint_pause`,
+which has no sleep branch; only the show loop sleeps. They behave alike, which
+is the property R20 below actually protects.
+
+**The consequence, stated rather than discovered:** this is a `--wait` contract
+break relative to phase 1. `llama get --wait` started twenty minutes before a
+reset used to enter the run, hit the limit reactively at a show, sleep through
+it and finish; it now exits immediately having done nothing, and an unattended
+invocation needs a manual `llama run resume`. Closing that needs a re-decide
+loop around both run-level sites — see **T7b** in the plan, filed and unbuilt.
 
 ### Resolution of the deferred R20 question
 
