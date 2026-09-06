@@ -8,6 +8,7 @@ run has three shows and a scripted process_show, so the exact set that comes
 back after a pause is observable.
 """
 import collections
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -62,7 +63,8 @@ def _clock(monkeypatch, *, sleep_budget: int = 4) -> dict:
 
 
 def _drive(tmp_path: Path, monkeypatch, process, pids, *,
-           pace=None, config=None) -> tuple[RunWorkspace, list[str]]:
+           pace=None, config=None, winnow=None,
+           search=None) -> tuple[RunWorkspace, list[str]]:
     """Run `_execute` over `pids` with `process` standing in for process_show."""
     config = config or Config(root=tmp_path)
     ws = RunWorkspace(tmp_path, "r1")
@@ -78,8 +80,8 @@ def _drive(tmp_path: Path, monkeypatch, process, pids, *,
     # evaluated, so the provider map has to answer every key by name.
     monkeypatch.setattr(cli, "make_providers",
                         lambda config: collections.defaultdict(lambda: None))
-    monkeypatch.setattr(cli, "run_search", lambda *a, **k: None)
-    monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: entries)
+    monkeypatch.setattr(cli, "run_search", search or (lambda *a, **k: None))
+    monkeypatch.setattr(cli, "run_winnow", winnow or (lambda *a, **k: entries))
     monkeypatch.setattr(cli, "choose_entries", lambda entries, *a, **k: entries)
     monkeypatch.setattr(cli, "make_client", lambda config: None)
     monkeypatch.setattr(cli, "process_show", _process_show)
@@ -429,6 +431,116 @@ def test_a_limit_with_no_named_reset_waits_the_configured_default(tmp_path, monk
     assert marker["resume_after"] == "2026-09-04T09:00:00+00:00"   # +1h default
     assert marker["pause_scope"] is None
     assert clock["sleeps"] == 0
+
+
+# ---------------------------------------------------------------------------
+# The run-level stages, which all run BEFORE the per-show loop holds its catch
+# ---------------------------------------------------------------------------
+
+
+def test_ratelimited_during_winnow_checkpoints_instead_of_exiting(tmp_path, monkeypatch):
+    """Phase 1's stated gap: winnow runs BEFORE the per-show loop, so a limit
+    there escaped _execute entirely -- exit 1, no marker, no resume_after.
+    _drive returning normally is half the assertion."""
+    _clock(monkeypatch)
+
+    def _boom(*a, **k):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=NOW + timedelta(hours=6))
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False),
+                      winnow=_boom)
+
+    assert seen == []                                  # no show was reached
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+    marker = json.loads(ws.session.read_text())
+    assert marker["pause_scope"] == "five_hour"
+    assert marker["resume_after"]                      # an instant, not None
+
+
+def test_run_level_ratelimited_is_caught_before_herdererror(tmp_path, monkeypatch):
+    """RateLimited subclasses HerderError. Ordered the other way this becomes
+    an ordinary stage failure, so assert the PAUSED marker rather than merely
+    that nothing propagated."""
+    _clock(monkeypatch)
+
+    def _boom(*a, **k):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=None)
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False),
+                      search=_boom)
+
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_ratelimited_during_discover_checkpoints_too(tmp_path, monkeypatch):
+    """The guarded region has to START above the artist-matching branch, not
+    below it: run_discover is a run-level LLM stage like the other two, and a
+    region beginning at run_search leaves this one escaping. _drive cannot
+    reach it -- it hard-codes a query with no soft preferences -- so this one
+    drives _execute itself."""
+    _clock(monkeypatch)
+    ws = RunWorkspace(tmp_path, "r1")
+
+    def _boom(*a, **k):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=NOW + timedelta(hours=2))
+
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: collections.defaultdict(lambda: None))
+    monkeypatch.setattr(cli, "run_discover", _boom)
+    monkeypatch.setattr(cli, "run_search", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "run_winnow", lambda *a, **k: [])
+    monkeypatch.setattr(cli, "make_client", lambda config: None)
+
+    cli._execute(Config(root=tmp_path), None, None, ws,
+                 Criteria(query="x", soft_preferences="long jams"), 1,
+                 auto=True, human_gate=False,
+                 pace=pacing.pace_options(Config(), wait=False))
+
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_a_run_level_pause_records_the_reset_plus_skew_once(tmp_path, monkeypatch):
+    """`when` exists for a caller that already holds a skewed instant; a
+    RateLimited caller passes nothing, so resume_at applies the skew exactly
+    once -- reset + 2m, not + 4m."""
+    _clock(monkeypatch)
+
+    def _boom(*a, **k):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=NOW + timedelta(hours=2))
+
+    ws, _ = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                   pace=pacing.pace_options(Config(), wait=False), winnow=_boom)
+
+    marker = json.loads(ws.session.read_text())
+    assert marker["resume_after"] == "2026-09-04T10:02:00+00:00"   # reset + 2m
+    assert "session limit" in marker["pause_reason"]
+    assert marker["outcome"] is None        # no show ran, so nothing to report
+    assert marker["failures"] == []
+
+
+def test_pacing_disabled_lets_a_run_level_limit_propagate(tmp_path, monkeypatch):
+    """--no-pacing keeps the old behaviour here too: the refusal reaches the
+    CLI's top-level handler as an ordinary error and no marker is written.
+    The show loop's escape hatch records a per-show failure and carries on,
+    but at run level there is no next show to carry on to."""
+    _clock(monkeypatch, sleep_budget=0)
+
+    def _boom(*a, **k):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=NOW + timedelta(hours=2))
+
+    with pytest.raises(RateLimited):
+        _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+               pace=pacing.pace_options(Config(pacing=PacingConfig(enabled=False))),
+               winnow=_boom)
+
+    assert iter_sessions(tmp_path) == []          # no marker at all
 
 
 # ---------------------------------------------------------------------------

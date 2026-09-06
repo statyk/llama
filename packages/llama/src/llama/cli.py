@@ -170,6 +170,33 @@ def _pace(config, wait: bool | None, max_wait: str | None,
         raise typer.Exit(1)
 
 
+def _checkpoint_pause(ws: RunWorkspace, limited, pace: PaceOptions,
+                      outcome: str | None = None,
+                      failures: list[dict] | None = None,
+                      note: str | None = None,
+                      when: datetime | None = None) -> None:
+    """Record a pause and tell the operator how to resume.
+
+    What shares this is the run-level pause sites -- the stages that run
+    before the per-show loop, which have no show queue to report on. The loop
+    deliberately keeps its own rendering: it also prints how many shows are
+    left, and carries the no-progress guard and the sleep branch, none of
+    which belong in a helper whose job is "checkpoint and return".
+
+    `when` is for a caller that already holds a computed instant, whose value
+    already includes reset_skew; letting resume_at recompute it would add the
+    skew twice. `RateLimited` callers pass nothing and keep phase 1's
+    behaviour byte-for-byte.
+    """
+    when = when or resume_at(limited, pace)
+    typer.echo(f"paused: {limited}", err=True)
+    if note:
+        typer.echo(f"  {note}")
+    mark_paused(ws, outcome, failures or [], when.isoformat(),
+                getattr(limited, "scope", None), str(limited))
+    typer.echo(f"  resume with: llama run resume {ws.name}")
+
+
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
              force_stage: str | None = None,
@@ -181,44 +208,60 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     # The one place raw-output capture is switched on: every provider
     # make_providers built shares this module-level destination.
     set_capture_dir(config.root / "llm-failures")
-    artists = None
-    if criteria.artists:
-        # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
-        artists = [{"identifier": a, "title": a} for a in criteria.artists]
-        write_artifact(ws.artists, artists)
-        typer.echo("pinned artists: " + ", ".join(criteria.artists))
-    elif criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
-        artists = run_discover(ws, providers["find_artists"], ia, criteria,
-                               cache_dir=config.root / "cache",
-                               min_recordings=config.artists.min_recordings,
-                               min_downloads=config.artists.min_downloads,
-                               max_artists=config.artists.max_matched,
-                               force=force)
-        if not artists:
-            typer.echo("no matching artists found on the LMA - "
-                       "try naming an artist or broadening the style", err=True)
-            return
-        if not auto:
-            typer.echo("Matched artists:")
-            for i, a in enumerate(artists, 1):
-                typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
-            picks = typer.prompt("Search which artists? (comma-separated, empty = all)",
-                                 default="", show_default=False)
-            wanted = _parse_ranks(picks)
-            if wanted:
-                pruned = [a for i, a in enumerate(artists, 1) if i in wanted]
-                if not pruned:
-                    typer.echo("no valid selections - keeping none; aborting run", err=True)
-                    mark_complete(ws, "no valid selections - keeping none; aborting run")
-                    return
-                artists = pruned
-                write_artifact(ws.artists, artists)
-    run_search(ws, ia, criteria, artists=artists, force=force,
-               jerrybase_enabled=config.jerrybase.enabled)
-    shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
-                           library_ids=library_performance_ids(config.root),
-                           shortlist_size=max(12, count),
-                           max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
+    try:
+        artists = None
+        if criteria.artists:
+            # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
+            artists = [{"identifier": a, "title": a} for a in criteria.artists]
+            write_artifact(ws.artists, artists)
+            typer.echo("pinned artists: " + ", ".join(criteria.artists))
+        elif criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
+            artists = run_discover(ws, providers["find_artists"], ia, criteria,
+                                   cache_dir=config.root / "cache",
+                                   min_recordings=config.artists.min_recordings,
+                                   min_downloads=config.artists.min_downloads,
+                                   max_artists=config.artists.max_matched,
+                                   force=force)
+            if not artists:
+                typer.echo("no matching artists found on the LMA - "
+                           "try naming an artist or broadening the style", err=True)
+                return
+            if not auto:
+                typer.echo("Matched artists:")
+                for i, a in enumerate(artists, 1):
+                    typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
+                picks = typer.prompt("Search which artists? (comma-separated, empty = all)",
+                                     default="", show_default=False)
+                wanted = _parse_ranks(picks)
+                if wanted:
+                    pruned = [a for i, a in enumerate(artists, 1) if i in wanted]
+                    if not pruned:
+                        typer.echo("no valid selections - keeping none; aborting run", err=True)
+                        mark_complete(ws, "no valid selections - keeping none; aborting run")
+                        return
+                    artists = pruned
+                    write_artifact(ws.artists, artists)
+        run_search(ws, ia, criteria, artists=artists, force=force,
+                   jerrybase_enabled=config.jerrybase.enabled)
+        shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
+                               library_ids=library_performance_ids(config.root),
+                               shortlist_size=max(12, count),
+                               max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
+    except RateLimited as exc:
+        # BEFORE any `except HerderError`: RateLimited subclasses it, and the
+        # reverse ordering silently reverts this to an ordinary stage failure.
+        #
+        # Recoverable, not cheap: run_discover/run_search/run_winnow gate on
+        # `should_run` at WHOLE-STAGE granularity, so the resume re-runs the
+        # interrupted stage from the top and re-spends the light_research
+        # calls it had already made. Per-candidate artifacts are out of scope.
+        if not pace.enabled:
+            raise
+        _checkpoint_pause(
+            ws, exc, pace,
+            note="limit hit before any show ran; resume re-runs the stage "
+                 "that was interrupted")
+        return
     if not shortlist:
         typer.echo("No shows survived winnowing.")
         mark_complete(ws, "no shows survived winnowing")
