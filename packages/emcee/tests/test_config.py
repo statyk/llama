@@ -179,6 +179,20 @@ def test_unknown_key_in_assign_profile_block_raises(tmp_path: Path):
         load_config(p)
 
 
+def test_unknown_key_in_llm_task_section_raises(tmp_path: Path):
+    """emcee's copy of llama's `test_unknown_key_in_llm_task_section_raises`.
+    `[llm.scriptwrite] tierr = "high"` (missing the second `r`) is the
+    likeliest real-world typo the whole strictness change exists for, and it
+    is the one case emcee's own suite did not cover: reverting the strict
+    base on `LLMTaskConfig` in BOTH packages reddened llama and left emcee
+    entirely silent. Task names under `[llm.*]` stay free-form -- it is the
+    VALUES that are strict."""
+    p = tmp_path / "config.toml"
+    p.write_text('[llm.scriptwrite]\ntierr = "high"\n')
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
 # --- llm_for / llm_settings ---------------------------------------------
 
 
