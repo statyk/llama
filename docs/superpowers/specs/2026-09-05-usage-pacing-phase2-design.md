@@ -39,7 +39,7 @@ Three things are left undone, and they are the whole of phase 2:
   around available capacity by hand, with no answer to "will 13 shows fit before
   the reset?"
 
-### Known gap: `run_interpret` is not covered
+### Known gap: `run_interpret` is not covered — SUPERSEDED, it is (T6b, built)
 
 A `RateLimited` raised by `run_interpret` still exits 1 with no checkpoint, and
 phase 2 deliberately leaves it that way. `run_interpret` is called at
@@ -55,7 +55,17 @@ claim time), not a catch.
 
 The cost of leaving it is one LLM call with nothing written, on `llama get`
 only: the profile path (`--profile`) reads stored criteria and never calls
-`run_interpret` at all. See **T6b** in the plan, filed and unbuilt.
+`run_interpret` at all. See **T6b** in the plan.
+
+**SUPERSEDED — T6b is BUILT** (`2026-09-06-pacing-loose-ends-design.md`).
+The "new design" this section names is exactly what was built:
+`runs/<id>/request.json` is persisted at run-claim time, `run resume`
+re-interprets from it when a session has a request but no criteria, and
+`cli._interpret_with_pause` both gates ahead of the call and catches a
+refusal on it. A limit during interpret now parks a resumable session
+instead of exiting 1, at both in-run call sites. `profile_add`'s call,
+against a scratch workspace with no session to park, is the one that still
+exits 1.
 
 ## What changed since phase 1: the signal
 
@@ -219,8 +229,10 @@ decide(now, reading, progress, opts) -> Proceed | PauseUntil(when, scope, reason
 table test. **What shipped carries one field, `per_show_delta`** — the learned
 EWMA. The shows-done and shows-remaining counters this section originally named
 were never built: no policy rule consumes them, and `_execute` sizes its own
-forecast against `count` at the call site. **Filed and unbuilt**, in the same
-sense as T6b and T7b; adding them is new surface, not a correction.
+forecast against `count` at the call site. **CLOSED as won't-build**, not
+pending: `2026-09-06-pacing-loose-ends-design.md` ("Closed as won't-build")
+ruled on them, because building them adds an unconsumed field. Adding them
+later would be new surface, not a correction.
 
 ## Policy
 

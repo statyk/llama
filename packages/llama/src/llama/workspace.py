@@ -117,6 +117,7 @@ class RunWorkspace:
         self.name = name
         self.dir = root / "runs" / name
         self.criteria = self.dir / "criteria.json"
+        self.request = self.dir / "request.json"
         self.candidates = self.dir / "candidates.json"
         self.shortlist = self.dir / "shortlist.json"
         self.artists = self.dir / "artists.json"

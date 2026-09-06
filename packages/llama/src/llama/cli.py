@@ -1,3 +1,4 @@
+import json
 import shutil
 import sys
 import tempfile
@@ -183,8 +184,9 @@ def _render_pause(ws: RunWorkspace, limited, pace: PaceOptions, *,
                   resume_prefix: str = "") -> bool:
     """Render one pause. True = slept, the caller should retry; False = stop.
 
-    ONE renderer for all three pause sites -- the pre-flight gate, the
-    run-level catch, and the show loop -- because the half they share is the
+    ONE renderer for all four pause sites -- the pre-flight gate, the
+    run-level catch, the interpret catch (`_interpret_with_pause`) and the
+    show loop -- because the half they share is the
     half that must not drift: the timing arithmetic, the sleep-or-checkpoint
     decision, and the whole KeyboardInterrupt contract. When those lived in
     two copies they diverged three ways inside a single commit (`elif` vs `if`
@@ -315,6 +317,11 @@ def _pacing_line(reading, state, pace: PaceOptions) -> str:
     parts = [f"5h {reading.five_hour.percent}%"]
     if reading.seven_day is not None:
         parts.append(f"weekly {reading.seven_day.percent}%")
+    # The account's per-model window, when /usage reported one. Rendered but
+    # NOT consulted by `decide` -- see the spec's evidence bar for binding it.
+    # Sorted because dict order here is the account's parse order.
+    for label, meter in sorted(reading.per_model.items()):
+        parts.append(f"{label} {meter.percent}%")
     if state.per_show_delta:
         parts.append(f"est {state.per_show_delta:.1f}%/show")
     # The BINDING window, not the 5-hour one: `decide` checks the weekly
@@ -325,6 +332,46 @@ def _pacing_line(reading, state, pace: PaceOptions) -> str:
     if fc is not None and fc.resets_at is not None:
         parts.append(f"~{fc.shows} fit before {_reset_label(fc)}")
     return "pacing: " + " · ".join(parts)
+
+
+PREFLIGHT_NOTE = "nothing has run yet; resume when the window resets"
+
+
+def _preflight_gate(ws: RunWorkspace, config: Config, pace: PaceOptions,
+                    state, *, note: str = PREFLIGHT_NOTE) -> tuple[bool, object]:
+    """Meter, decide, and pause until the window can take the next unit.
+
+    Returns `(proceed, reading)`. `proceed=False` means a checkpoint was
+    written and the caller must return. The reading comes back because the
+    caller prints its pacing line from it: a second `_meter` call would spend
+    another subprocess to print a line that could disagree with the decision
+    already taken.
+
+    Sleeps AT MOST ONCE. Nothing completes between naps at a site where no
+    work has run, so a second pause passes `stalled=True` -- without it a
+    `when` already in the past makes `sleep_until` return immediately and the
+    pause becomes a hot spin, which HANGS the suite rather than reddening it.
+    No sleep-budget assertion can see that mutation; it is caught only by
+    running the pre-flight tests under a hard timeout and reading the exit
+    code. Do not "simplify" `stalled=slept` away.
+    """
+    slept = False
+    while True:
+        reading = _meter(config, pace)
+        verdict = decide(_pacing._now(), reading,
+                         Progress(state.per_show_delta), pace)
+        if not isinstance(verdict, PauseUntil):
+            return True, reading
+        # `when=` because the verdict already carries a skewed instant; see
+        # PauseUntil's docstring for what recomputing it would cost.
+        if not _render_pause(ws, verdict, pace, when=verdict.when,
+                             header=f"paused: {verdict}", header_err=True,
+                             stalled=slept, note=note):
+            return False, reading
+        # Re-read and re-decide rather than proceeding on the nap alone: the
+        # meter is account-wide, so another session may have spent the window
+        # we just waited for, and the reset itself may have moved.
+        slept = True
 
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
@@ -339,30 +386,13 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     # each write their artifact only on success, so a refusal part-way through
     # one costs the whole stage on the resume. This is the cheapest place in a
     # run to stop, and the only gate that runs before any of them.
+    #
+    # The reading is bound and reused, not re-read: the forecast below must
+    # describe the same reading this verdict was computed from.
     state = pacing_state.read_state(config.root)
-    # One read, bound and reused: the forecast below must describe the same
-    # reading this verdict was computed from, and a second `_meter` call
-    # would spend a second subprocess at run start to print a line that
-    # could disagree with the decision already taken.
-    slept = False
-    while True:
-        reading = _meter(config, pace)
-        verdict = decide(_pacing._now(), reading,
-                         Progress(state.per_show_delta), pace)
-        if not isinstance(verdict, PauseUntil):
-            break
-        # `when=` because the verdict already carries a skewed instant; see
-        # PauseUntil's docstring for what recomputing it would cost.
-        if not _render_pause(ws, verdict, pace, when=verdict.when,
-                             header=f"paused: {verdict}", header_err=True,
-                             stalled=slept,
-                             note="nothing has run yet; resume when the "
-                                  "window resets"):
-            return
-        # Re-read and re-decide rather than proceeding on the nap alone: the
-        # meter is account-wide, so another session may have spent the window
-        # we just waited for, and the reset itself may have moved.
-        slept = True
+    proceed, reading = _preflight_gate(ws, config, pace, state)
+    if not proceed:
+        return
     # Proceeding: say what the run is proceeding on. `count` is what makes
     # the consequence clause sayable here and not in `llama pacing`, which
     # has no run to size. NOT used to reduce `count` -- that feeds
@@ -446,9 +476,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             # reverse ordering silently reverts this to an ordinary stage failure.
             #
             # Covers exactly the three run-level stages inside this try --
-            # run_discover, run_search, run_winnow -- and NOT run_interpret, which
-            # runs in `get` outside _execute entirely; the comment at its call site
-            # says why wrapping it would not help.
+            # run_discover, run_search, run_winnow -- and NOT run_interpret,
+            # which runs outside `_execute` entirely, at two IN-RUN call
+            # sites (`_get_query` and `run_resume`'s criteria-less branch);
+            # `profile_add` is a third, outside any run. Both in-run ones go
+            # through `_interpret_with_pause`, which is that stage's own copy
+            # of this catch; there is no gap here to close.
             #
             # Recoverable, not cheap: those three gate on `should_run` at
             # WHOLE-STAGE granularity, so the resume re-runs the interrupted stage
@@ -650,6 +683,96 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         mark_complete(ws, outcome)
 
 
+def _interpret_and_stamp(config, ws: RunWorkspace, req: dict) -> Criteria:
+    """Interpret a persisted request and stamp its explicit flags.
+
+    ONE function for both entry points -- `_get_query`'s first pass and
+    `run resume`'s re-interpret -- because a resume that stamped a different
+    set of flags than the original command would replay as a different run,
+    silently. Two copies of this is exactly the drift T6b's checkpoint would
+    otherwise introduce.
+    """
+    criteria = run_interpret(ws, make_providers(config)["interpret"], req["query"])
+    updates = {}
+    # Falsy, not `is not None`: --limit is typer.Option(0, ...), so an
+    # unspecified limit persists as 0, and `is not None` would stamp
+    # count=0 onto every resumed run.
+    if req.get("limit"):
+        updates["count"] = req["limit"]
+    if req.get("artist_cap") is not None:
+        updates["artist_cap"] = req["artist_cap"]
+    if req.get("min_score") is not None:
+        updates["min_quality_score"] = req["min_score"]
+    if req.get("year_cap") is not None:
+        updates["year_cap"] = req["year_cap"]
+    if updates:
+        criteria = criteria.model_copy(update=updates)
+        write_artifact(ws.criteria, criteria)
+    return criteria
+
+
+INTERPRET_NOTE = "interpret did not complete; resume when the window resets"
+
+
+def _interpret_with_pause(config, ws: RunWorkspace, req: dict,
+                          pace: PaceOptions) -> Criteria | None:
+    """Interpret, pausing instead of dying if the window refuses us.
+
+    The fourth pause site, through the same renderer as the other three:
+    same timing arithmetic, same sleep-or-checkpoint rule, same
+    KeyboardInterrupt contract. `None` means a checkpoint was written and
+    the caller must return, exactly as `_preflight_gate`'s `proceed=False`
+    does.
+
+    ONE copy for both entry points -- `_get_query`'s first pass and `run
+    resume`'s re-interpret branch -- for the same reason
+    `_interpret_and_stamp` is one copy. A resume that hit a limit and died
+    would be the very defect T6b removes, on the one command that exists to
+    recover from it; a proactive gate that passed a moment ago does not
+    stop the next call being refused.
+
+    `pace.enabled` is checked the way `_execute`'s run-level catch checks
+    it: `--no-pacing` restores the pre-pacing behaviour at EVERY site, and a
+    site that paused anyway would make that flag's promise false.
+
+    Sleeps AT MOST ONCE. Nothing completes between naps at a site where no
+    work has run, so a second pause passes `stalled=True` -- without it a
+    `when` already in the past makes `sleep_until` return immediately and
+    the pause becomes a hot spin. No sleep-budget assertion can see it: the
+    spin never calls `_sleep` again.
+
+    What catches it HERE, measured rather than assumed:
+    `test_a_limit_during_interpret_sleeps_at_most_once` refuses through a
+    provider bounded at `times=99`, so `stalled=stalled` -> `stalled=False`
+    exhausts that bound and lands as a RED TEST in under a second -- no
+    timeout needed. That bound is deliberate. Unbounding it (`times=10**9`)
+    reproduces production instead: the same mutant then HANGS, exit 124
+    under `timeout 60`, while restoring the guard passes in 0.5s against
+    that same unbounded provider -- so it is the guard, not the bound, that
+    stops the spin. Do not "simplify" `stalled=stalled` away, and do not
+    unbound the test to "make the pin realistic": that trades a red test
+    for a hung suite and pins nothing extra.
+
+    (`_preflight_gate` says the hang version of this and is correct there --
+    its tests do not bound the refusal. Same invariant, different evidence.)
+    """
+    stalled = False
+    while True:
+        try:
+            return _interpret_and_stamp(config, ws, req)
+        except RateLimited as limited:
+            if not pace.enabled:
+                raise
+            if not _render_pause(ws, limited, pace,
+                                 header=f"paused: {limited}", header_err=True,
+                                 stalled=stalled, note=INTERPRET_NOTE):
+                return None
+            # Re-interpret rather than proceed on the nap alone, for the same
+            # reason the pre-flight gate re-reads its meter: nothing this run
+            # did has changed, but the account-wide window may have.
+            stalled = True
+
+
 def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
               name: str | None,
               artist_cap: float | None, min_score: float | None, year_cap: float | None,
@@ -663,24 +786,27 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     run_name = name or claim_run_dir(config.root,
                                      f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, run_name)
-    # Deliberately OUTSIDE _execute's RateLimited catch: run_interpret writes
-    # criteria.json only on success and `run resume` refuses a session without
-    # one, so a checkpoint here would be unresumable -- the query lives only in
-    # argv. A limit here exits 1 having spent one LLM call. See T6b in the plan.
-    criteria = run_interpret(ws, make_providers(config)["interpret"], query)
-    # Stamp explicit flags into the run's criteria so replays behave the same.
-    updates = {}
-    if limit:
-        updates["count"] = limit
-    if artist_cap is not None:
-        updates["artist_cap"] = artist_cap
-    if min_score is not None:
-        updates["min_quality_score"] = min_score
-    if year_cap is not None:
-        updates["year_cap"] = year_cap
-    if updates:
-        criteria = criteria.model_copy(update=updates)
-        write_artifact(ws.criteria, criteria)
+    # Persisted BEFORE the first LLM call: a limit during interpret parks a
+    # session whose query would otherwise live only in argv. This artifact is
+    # what makes such a session resumable at all (T6b).
+    write_artifact(ws.request, json.dumps({
+        "query": query, "limit": limit, "artist_cap": artist_cap,
+        "min_score": min_score, "year_cap": year_cap,
+        "auto": auto, "plan": plan}, indent=2))
+    if pace is None:
+        pace = pace_options(config)
+    # BEFORE interpret, not after: interpret is this run's first LLM call, and
+    # until now it was the one call spent with no proactive check at all.
+    # `_execute` keeps its own gate -- it has four other entry points.
+    proceed, _ = _preflight_gate(ws, config, pace,
+                                 pacing_state.read_state(config.root))
+    if not proceed:
+        return
+    criteria = _interpret_with_pause(config, ws, {
+        "query": query, "limit": limit, "artist_cap": artist_cap,
+        "min_score": min_score, "year_cap": year_cap}, pace)
+    if criteria is None:
+        return
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False,
              full_rationale=full_rationale, plan=plan, pace=pace)
@@ -936,9 +1062,29 @@ def run_resume(
     pace = _pace(config, wait, max_wait, no_pacing)
     ws = _resolve_run(config, session)
     if not ws.criteria.exists():
-        typer.echo(f"no criteria.json in {ws.dir}", err=True)
-        raise typer.Exit(1)
-    criteria = read_model(ws.criteria, Criteria)
+        if not ws.request.exists():
+            typer.echo(f"no criteria.json in {ws.dir}", err=True)
+            raise typer.Exit(1)
+        # Parked before interpret ever succeeded (T6b). The persisted request
+        # is enough to re-interpret and carry on -- but this branch spends an
+        # interpret call BEFORE `_execute`'s own gate is reached, so gate it
+        # here or the one command that exists to recover from a limit pays
+        # the very call T6b removed. Only this branch: the ordinary resume
+        # reaches `_execute`'s gate with nothing spent ahead of it.
+        proceed, _ = _preflight_gate(ws, config, pace,
+                                     pacing_state.read_state(config.root))
+        if not proceed:
+            return
+        # ...and catch a refusal on the call itself, not just gate ahead of
+        # it: the gate reads an account-wide meter that another session can
+        # empty between the reading and the call. A resume that died here
+        # would leave the session exactly as parked, having spent the call.
+        criteria = _interpret_with_pause(
+            config, ws, json.loads(ws.request.read_text()), pace)
+        if criteria is None:
+            return
+    else:
+        criteria = read_model(ws.criteria, Criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=False,
              force_stage=None,
@@ -2666,9 +2812,15 @@ def _by_run_rollup(config, ledger) -> list[dict]:
     run_dirs = sorted(d for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
     rows = []
     for d in run_dirs:
+        ws = RunWorkspace(config.root, d.name)
         query = ""
-        if (d / "criteria.json").exists():
-            query = read_model(RunWorkspace(config.root, d.name).criteria, Criteria).query
+        if ws.criteria.exists():
+            query = read_model(ws.criteria, Criteria).query
+        elif ws.request.exists():
+            # Paused before interpret ever wrote criteria: same fallback as
+            # iter_sessions (sessions.py) -- duplicated here rather than
+            # routed through it (deferred minor: unify the two lookups).
+            query = json.loads(ws.request.read_text()).get("query") or ""
         counts = by_run.get(d.name, Counter())
         rows.append({"id": d.name, "query": query, "states": dict(sorted(counts.items()))})
     return rows

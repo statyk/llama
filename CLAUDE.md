@@ -283,8 +283,10 @@ tier (pins never escalate).
   from the meter across show boundaries and persisted as an EWMA in
   `pacing-state.json` (`llama.pacing_state`), and `pacing.decide()` turns a
   reading plus that estimate into `Proceed` or `PauseUntil`. Gates sit at the
-  top of `_execute` (pre-flight, before the opening burst) and before each
-  show's lock. `llama pacing` prints the same picture read-only. `--no-pacing`
+  top of `_execute` (pre-flight, before the opening burst), before each
+  show's lock, and — since T6b — ahead of `run_interpret` at both of its
+  in-run call sites (`_get_query`, and `run resume`'s criteria-less
+  re-interpret branch). `llama pacing` prints the same picture read-only. `--no-pacing`
   opts out of both halves; a failed meter read degrades to the reactive
   backstop alone and says so.
   **Three boundaries on what that pause guarantee covers, all confirmed in
@@ -294,29 +296,46 @@ tier (pins never escalate).
   retried three times by `_with_transport_retry` like any other transient
   failure and then fails the show — nothing recognizes an openrouter response
   as a usage-window exhaustion, and `openrouter.py` was deliberately left
-  untouched. **(b) the run-level catch covers three stages, not four.** Phase 2
+  untouched. **(b) `_execute`'s run-level catch covers three stages, not four —
+  and `run_interpret`, the fourth, has a catch of its own.** Phase 2
   closed phase 1's per-show-only gap: `cli._execute` wraps `run_discover`,
   `run_search` and `run_winnow` in an `except RateLimited` arm — which must
   stay above any `except HerderError`, since it subclasses it — that
   checkpoints the session `paused` with a `resume_after` instead of exiting 1.
   The resume is recoverable but not cheap: those stages gate on `should_run` at
-  WHOLE-STAGE granularity, so the interrupted one re-runs from the top. It does
-  **not** cover `run_interpret`, which has two call sites and neither is on
-  the `_execute` path: `_get_query` (the `get` command) and `profile_add`. **`interpret` and `discover` are DIFFERENT stages and both exist** —
+  WHOLE-STAGE granularity, so the interrupted one re-runs from the top. That
+  arm does **not** cover `run_interpret`, which runs outside `_execute`
+  entirely. **`interpret` and `discover` are DIFFERENT stages and both exist** —
   the phrase `interpret (run_discover)`, inherited from phase 1's spec, conflated
   them and is the origin of every muddle about what this catch covers; read the
   call sites, not the phrase (`_PIPELINE_RUN_STAGES` is a third, different
-  triple that excludes `discover`). The `run_interpret` gap is filed as
-  **T6b, deliberately UNBUILT**: `run_interpret` writes `criteria.json` only on
-  success and `run resume` refuses a session without one, so a checkpoint there
-  would park an unresumable run — the query lives only in argv, and covering it
-  is a resumability design (persist the raw query, and the flags stamped onto
-  criteria, at run-claim time), not a catch. A limit during interpret still
-  exits 1 having spent one LLM call and written no artifacts (the run dir
-  itself already exists — `claim_run_dir` makes it). Note `profile add`
-  DOES call `run_interpret`, against a scratch workspace; it is `llama get
-  --profile`, which reads stored criteria, that never calls it. **(c) all three pause sites honour
-  `--wait`** — the pre-flight gate, the reactive catch above, and the per-show
+  triple that excludes `discover`). **T6b is BUILT**, and `run_interpret` is
+  covered by `cli._interpret_with_pause` instead: the pre-flight gate runs
+  BEFORE interpret is paid for, and a refusal on the call itself parks the
+  session `paused` rather than exiting 1. Both halves apply at both in-run
+  call sites — `_get_query` and `run resume`'s criteria-less re-interpret
+  branch — because a resume that died on a limit would be the same defect on
+  the one command that exists to recover from it, and an account-wide meter
+  reading that passed can still be followed by a refusal. What made the
+  checkpoint worth writing is the resumability design, not the catch:
+  `run_interpret` writes `criteria.json` only on success, so `_get_query`
+  persists the raw query and the flags stamped onto criteria as
+  `runs/<id>/request.json` at run-claim time, before any LLM call, and
+  `run resume` re-interprets from it whenever a session has a request but no
+  criteria (`iter_sessions` reads that request too, so a run parked at
+  interpret still lists its query). `--no-pacing` restores the pre-pacing
+  behaviour here as it does at every other site, though what that MEANS
+  differs per site and only two of them literally re-raise: this catch and
+  `_execute`'s run-level one do, the per-show loop records a per-show
+  failure instead, and the pre-flight gate simply never reads a meter (a
+  missing reading proceeds). Note `profile add`
+  DOES call `run_interpret`, against a scratch workspace with no session to
+  park — so **that one call site still exits 1**, and it is the only
+  `run_interpret` call the pause guarantee does not reach; it is `llama get
+  --profile`, which reads stored criteria, that never calls it at all.
+  **(c) all four pause sites honour
+  `--wait`** — the pre-flight gate, the reactive run-level catch above, the
+  interpret catch, and the per-show
   loop, through one shared `_render_pause`. This was T7b and is BUILT; the
   asymmetry that preceded it (run-level sites checkpointing even when the wait
   fit inside `--max-wait`, so `llama get --wait` shortly before a reset exited

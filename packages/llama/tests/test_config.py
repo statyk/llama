@@ -1,3 +1,4 @@
+import re
 import tomllib
 from pathlib import Path
 
@@ -185,16 +186,83 @@ def test_default_config_template_matches_defaults():
     assert parsed.llm_for("interpret") == default.llm_for("interpret")
 
 
-def test_default_config_template_documents_every_pacing_knob():
-    # The template above compares BEHAVIOUR, so a key simply left out of
-    # [pacing] still parses to its default and passes. That makes silently
-    # dropping a knob from the seeded file invisible - and the seeded file
-    # is how an operator discovers these knobs at all, since nothing else
-    # tells them a ceiling exists to lower.
-    from llama.config import PacingConfig
+_TEMPLATE_KEY = re.compile(r"^\s*#?\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
+_TEMPLATE_SECTION = re.compile(r"^\s*#?\s*\[\[?([A-Za-z_][A-Za-z0-9_.\-]*)\]\]?\s*$")
 
-    block = tomllib.loads(DEFAULT_CONFIG_TOML)["pacing"]
-    assert set(block) == set(PacingConfig.model_fields)
+
+def _template_keys(text: str) -> dict[str, set[str]]:
+    """Every key the seeded template mentions, per section path.
+
+    Commented lines count: `config init` documents the path knobs and
+    [setlistfm] as commented examples, so a parsed-only view would call a
+    correct template incomplete. Nested table headers count too, and for the
+    same reason -- [selection.tapers.X] and [[selection.lineage_eras]] are how
+    `selection`'s two fields are documented; neither appears as `key =`.
+    """
+    out: dict[str, set[str]] = {"": set()}
+    current = ""
+    for line in text.splitlines():
+        m = _TEMPLATE_SECTION.match(line)
+        if m:
+            current = m.group(1)
+            parts = current.split(".")
+            # `[a.b.c]` documents key `b` of section `a`, `c` of `a.b`, ...
+            for i in range(1, len(parts) + 1):
+                out.setdefault(".".join(parts[:i - 1]), set()).add(parts[i - 1])
+            out.setdefault(current, set())
+            continue
+        m = _TEMPLATE_KEY.match(line)
+        if m:
+            out.setdefault(current, set()).add(m.group(1))
+    return out
+
+
+# Free-form maps: `dict[str, LLMTaskConfig]` and `dict[str, dict[Tier, str]]`
+# have no fixed key set to assert against, so there is nothing here to check.
+_FREE_FORM = {"llm", "tiers"}
+
+
+def test_the_template_documents_every_config_key():
+    """The behaviour comparison above cannot see a key that is simply absent,
+    OR one that is simply extra: an absent key silently takes its default,
+    and Config sets no `model_config`, so pydantic's default `extra="ignore"`
+    silently drops a phantom one too. Either way the comparison still agrees.
+    The seeded file is how an operator discovers a knob exists at all -- or
+    wrongly believes one does, if a stale/typo'd key sits in the template
+    doing nothing. This test pins BOTH directions: every model field must be
+    documented (`missing`), and everything documented must be a real model
+    field (`phantom`). Measured 2026-09-06: this passes today with no
+    template change; it exists to keep that true.
+    """
+    from pydantic import BaseModel
+
+    sections = _template_keys(DEFAULT_CONFIG_TOML)
+    missing: dict[str, list[str]] = {}
+    phantom: dict[str, list[str]] = {}
+    for name, field in Config.model_fields.items():
+        if name in _FREE_FORM:
+            continue
+        ann = field.annotation
+        if isinstance(ann, type) and issubclass(ann, BaseModel):
+            documented = sections.get(name, set())
+            model_keys = set(ann.model_fields)
+            missing_here = model_keys - documented
+            phantom_here = documented - model_keys
+            if missing_here:
+                missing[name] = sorted(missing_here)
+            if phantom_here:
+                phantom[name] = sorted(phantom_here)
+        elif name not in sections[""]:
+            missing["<top-level>"] = missing.get("<top-level>", []) + [name]
+
+    phantom_top = sections[""] - set(Config.model_fields)
+    if phantom_top:
+        phantom["<top-level>"] = sorted(phantom_top)
+
+    assert missing == {} and phantom == {}, (
+        f"missing from DEFAULT_CONFIG_TOML: {missing}; "
+        f"documented in DEFAULT_CONFIG_TOML but not a Config field: {phantom}"
+    )
 
 
 def test_jerrybase_enabled_default_on():
