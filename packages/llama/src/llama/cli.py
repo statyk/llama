@@ -251,16 +251,21 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         # BEFORE any `except HerderError`: RateLimited subclasses it, and the
         # reverse ordering silently reverts this to an ordinary stage failure.
         #
-        # Recoverable, not cheap: run_discover/run_search/run_winnow gate on
-        # `should_run` at WHOLE-STAGE granularity, so the resume re-runs the
-        # interrupted stage from the top and re-spends the light_research
-        # calls it had already made. Per-candidate artifacts are out of scope.
+        # Covers exactly the three run-level stages inside this try --
+        # run_discover, run_search, run_winnow -- and NOT run_interpret, which
+        # runs in `get` outside _execute entirely; the comment at its call site
+        # says why wrapping it would not help.
+        #
+        # Recoverable, not cheap: those three gate on `should_run` at
+        # WHOLE-STAGE granularity, so the resume re-runs the interrupted stage
+        # from the top and re-spends the light_research calls it had already
+        # made. Per-candidate artifacts are out of scope.
         if not pace.enabled:
             raise
         _checkpoint_pause(
             ws, exc, pace,
-            note="limit hit before any show ran; resume re-runs the stage "
-                 "that was interrupted")
+            note="limit hit in discover/search/winnow, before any show ran; "
+                 "resume re-runs that whole stage")
         return
     if not shortlist:
         typer.echo("No shows survived winnowing.")
@@ -428,6 +433,10 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     run_name = name or claim_run_dir(config.root,
                                      f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, run_name)
+    # Deliberately OUTSIDE _execute's RateLimited catch: run_interpret writes
+    # criteria.json only on success and `run resume` refuses a session without
+    # one, so a checkpoint here would be unresumable -- the query lives only in
+    # argv. A limit here exits 1 having spent one LLM call. See T6b in the plan.
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
     # Stamp explicit flags into the run's criteria so replays behave the same.
     updates = {}

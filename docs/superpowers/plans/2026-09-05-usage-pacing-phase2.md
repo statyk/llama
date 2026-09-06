@@ -1129,6 +1129,42 @@ git add packages/llama/src/llama/cli.py packages/llama/tests/test_pace_loop.py
 git commit -m "fix(cli): a limit during interpret/search/winnow now checkpoints"
 ```
 
+**Correction, post-review.** That commit subject is wrong in both directions and
+is preserved only because the commit shipped under it. It names `interpret`,
+which this task does **not** cover, and omits `discover`, which it does. What
+landed covers exactly `run_discover`, `run_search` and `run_winnow` -- the three
+stages inside `_execute`'s try block.
+
+**Known gap: `run_interpret` is not covered.** A `RateLimited` there still exits
+1 with no checkpoint. `run_interpret` is called at `cli.py:440` (in `get`,
+before `_execute` is entered) and `cli.py:2556` (profile creation, scratch
+workspace). A checkpoint there would be **unresumable**: `run_interpret` writes
+`criteria.json` only on success (`stages/interpret.py:13`) and `run resume`
+refuses a session without one (`cli.py:708-710`), so the query would exist only
+in argv. Cost of leaving it: one LLM call with nothing written, `llama get`
+only -- the `--profile` path never calls `run_interpret`. The confusing phrasing
+originates in phase 1's spec, which wrote `` `interpret` (`run_discover`) ``
+literally at `2026-09-04-usage-pacing-design.md:346-348`; note also that
+`_PIPELINE_RUN_STAGES` (`cli.py:1186`) is a different triple that excludes
+`discover`.
+
+---
+
+### Task T6b (FILED, NOT IMPLEMENTED): checkpoint a limit during `run_interpret`
+
+**Status: UNBUILT. Do not implement as part of phase 2.** Filed so the gap above
+is tracked rather than rediscovered.
+
+Scope: `llama get` (`cli.py:440`), the profile-creation path (`cli.py:2556`),
+and the `run approve` / `run resume` entry points, which must be able to pick up
+whatever a checkpoint there leaves behind.
+
+It is not a catch. It needs its own resumability design -- at minimum persisting
+the raw query (and the explicit flags stamped onto criteria) at run-claim time
+so `run resume` has something to re-interpret, plus a decision on what the
+profile path's `TemporaryDirectory` scratch workspace should do, since it has no
+run directory to checkpoint into at all. It needs its own tests.
+
 ---
 
 ### Task 7: Wire the proactive gate into `_execute`

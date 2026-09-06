@@ -19,12 +19,37 @@ Three things are left undone, and they are the whole of phase 2:
   always discovers the limit by being refused. The refusal costs a
   partially-spent show, and the operator learns the window was nearly empty only
   once it is empty.
-- **A limit during `interpret`, `search` or `winnow` loses the run.** Phase 1's
+- **A limit during `discover`, `search` or `winnow` loses the run.** Phase 1's
   catch is inside the per-show loop. `run_discover`, `run_search` and
   `run_winnow` all execute before it, so a `RateLimited` raised there propagates
   out of `_execute`: exit 1, no session marker, no `paused` state, no
   `resume_after`. The operator sees a failure, not a pause. This is stated
   explicitly as a boundary in the phase-1 spec (amendment R22).
+
+  **These three stages, and only these three.** The phase-1 spec wrote
+  `` `interpret` (`run_discover`) `` literally
+  (`2026-09-04-usage-pacing-design.md:346-348`), which is where the recurring
+  "interpret/search/winnow" phrasing comes from -- but `interpret` and
+  `discover` are different stages, and `_PIPELINE_RUN_STAGES` (`cli.py:1186`) is
+  a third, different triple that excludes `discover` altogether. Read the call
+  sites, not the phrase.
+
+### Known gap: `run_interpret` is not covered
+
+A `RateLimited` raised by `run_interpret` still exits 1 with no checkpoint, and
+phase 2 deliberately leaves it that way. `run_interpret` is called at
+`cli.py:440` (inside the `get` command, **before** `_execute` is entered) and at
+`cli.py:2556` (the profile-creation path, against a scratch workspace in a
+`TemporaryDirectory`). Wrapping it would not produce a resumable run: it writes
+`criteria.json` only on success (`stages/interpret.py:13`), and `run resume`
+refuses a session that has no `criteria.json` (`cli.py:708-710`), so a
+checkpoint there would park a session that cannot be resumed -- the query exists
+only in argv. Making it resumable is new design (persist the raw query at run
+claim time), not a catch.
+
+The cost of leaving it is one LLM call with nothing written, on `llama get`
+only: the profile path (`--profile`) reads stored criteria and never calls
+`run_interpret` at all. See **T6b** in the plan, filed and unbuilt.
 - **There is no way to plan a run against the window.** The operator times runs
   around available capacity by hand, with no answer to "will 13 shows fit before
   the reset?"

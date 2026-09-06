@@ -413,7 +413,9 @@ def test_a_pause_records_the_reset_time_and_the_scope(tmp_path, monkeypatch):
     marker = json.loads((ws.dir / "session.json").read_text())
     assert marker["resume_after"] == "2026-09-04T10:02:00+00:00"   # reset + 2m skew
     assert marker["pause_scope"] == "five_hour"
-    assert "session limit" in marker["pause_reason"]
+    # Equality, not containment: `str(limited)` mutated to `repr(limited)`
+    # still contains the message, so a substring assertion cannot see it.
+    assert marker["pause_reason"] == "You've hit your session limit"
 
 
 def test_a_limit_with_no_named_reset_waits_the_configured_default(tmp_path, monkeypatch):
@@ -519,7 +521,7 @@ def test_a_run_level_pause_records_the_reset_plus_skew_once(tmp_path, monkeypatc
 
     marker = json.loads(ws.session.read_text())
     assert marker["resume_after"] == "2026-09-04T10:02:00+00:00"   # reset + 2m
-    assert "session limit" in marker["pause_reason"]
+    assert marker["pause_reason"] == "You've hit your session limit"   # not repr
     assert marker["outcome"] is None        # no show ran, so nothing to report
     assert marker["failures"] == []
 
@@ -539,8 +541,10 @@ def test_a_run_level_pause_says_what_a_resume_will_redo(tmp_path, monkeypatch, c
 
     captured = capsys.readouterr()
     assert "session limit" in captured.err                 # why it stopped
-    assert "limit hit before any show ran" in captured.out
-    assert "re-runs the stage" in captured.out
+    # Names the stages it covers: the operator must not read this as covering
+    # `interpret`, which runs outside _execute and is not covered.
+    assert "limit hit in discover/search/winnow, before any show ran" in captured.out
+    assert "resume re-runs that whole stage" in captured.out
     assert "resume with: llama run resume r1" in captured.out
 
 
