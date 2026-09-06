@@ -96,7 +96,11 @@ class ArtistsConfig(BaseModel):
 
 
 class PacingConfig(BaseModel):
-    """Waiting out an exhausted usage window (see llama/pacing.py).
+    """Pacing a run against a usage window (see llama/pacing.py).
+
+    Covers both halves: waiting out a window the backend has already
+    refused on, and the ceilings that stop the run at a show boundary
+    BEFORE it is exhausted.
 
     Durations are strings so the config reads in the units a human thinks
     in; they are validated at load time rather than at the point of use, so

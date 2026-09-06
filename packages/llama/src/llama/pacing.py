@@ -1,10 +1,16 @@
-"""Waiting out a usage window.
+"""Pacing a run against the account's usage windows.
 
-Phase 1 is the reactive half only: llama learns the reset time from the
-backend's own refusal (herder.limits) and either sleeps through it or
-checkpoints. The proactive half - reading Claude Code's usage cache,
-projecting per-show cost, pausing BEFORE a window is exhausted - is
-phase 2 and deliberately absent here.
+Two halves, both of them here. The REACTIVE one learns the reset time
+from the backend's own refusal (herder.limits) and either sleeps through
+it or checkpoints the session. The PROACTIVE one is `decide()`: a pure
+policy over a live meter reading and a learned per-show cost that pauses
+at a show boundary BEFORE a window is exhausted, one ceiling per window.
+
+The reading comes from herder.usage, which takes a live `/usage` call and
+deliberately NOT ~/.claude.json's cached utilization - that cache is
+write-throttled and was measured serving an already-expired window. The
+reactive half stays the backstop: a boundary the proactive half could not
+see costs one refused show, not a wrong multi-hour idle.
 """
 import math
 import re
@@ -163,7 +169,7 @@ class Progress:
     per_show_delta: float | None = None      # learned EWMA; None until observed
 
 
-def _pause(meter, ceiling, scope, projected, now, opts):
+def _pause(meter, ceiling, scope, projected, now, opts) -> PauseUntil | None:
     """A PauseUntil when this meter's projection crosses its ceiling, else None."""
     if meter is None or meter.percent + projected <= ceiling:
         return None
@@ -192,6 +198,13 @@ def decide(now: datetime, reading, progress: Progress,
     A missing reading proceeds rather than guessing. The reactive path
     (herder.limits.RateLimited, caught by the caller) remains the backstop,
     so a blind boundary costs one refused show, not a wrong multi-hour idle.
+
+    Precondition: `progress.per_show_delta` must be non-negative. A negative
+    value is not clamped here - it would quietly make the gate MORE
+    permissive the closer the run got to the wall. `pacing_state.observe` is
+    the sole producer and the guarantor, refusing negative deltas at the
+    source; clamping here would absorb a regression there that its own tests
+    already catch.
     """
     if not opts.enabled or reading is None:
         return Proceed()
