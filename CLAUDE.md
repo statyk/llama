@@ -315,13 +315,20 @@ tier (pins never escalate).
   exits 1 having spent one LLM call and written no artifacts (the run dir
   itself already exists — `claim_run_dir` makes it). Note `profile add`
   DOES call `run_interpret`, against a scratch workspace; it is `llama get
-  --profile`, which reads stored criteria, that never calls it. **(c) the run-level pause sites checkpoint but
-  never sleep.** Both of them — the pre-flight gate and the reactive catch
-  above — return after `_checkpoint_pause` even when the wait would fit inside
-  `--max-wait`; only the per-show loop sleeps. Operator-visible consequence:
-  `llama get --wait` launched shortly before a reset exits immediately having
-  done nothing, and an unattended run then needs a manual `llama run resume`.
-  Filed as **T7b, deliberately UNBUILT**.
+  --profile`, which reads stored criteria, that never calls it. **(c) all three pause sites honour
+  `--wait`** — the pre-flight gate, the reactive catch above, and the per-show
+  loop, through one shared `_render_pause`. This was T7b and is BUILT; the
+  asymmetry that preceded it (run-level sites checkpointing even when the wait
+  fit inside `--max-wait`, so `llama get --wait` shortly before a reset exited
+  having done nothing) is gone. Two things about the run-level sites remain
+  worth knowing: after a nap they **re-decide** rather than proceed — the
+  pre-flight re-reads the meter, the catch re-runs the stages — because the
+  meter is account-wide and the reset may have moved; and they sleep **at most
+  once**, since nothing can change between naps at a site where no work has
+  completed. That guard is load-bearing rather than tidy: a `when` already in
+  the past makes `sleep_until` return without sleeping, so without it the
+  second pause is a HOT spin, not a nap — and no sleep-budget guard in a test
+  can see it (it hangs rather than failing).
   Set/segue structure is performance-level: gather builds
   a canonical setlist from every recording's description plus setlist.fm
   (optional, key via `SETLISTFM_API_KEY` or `[setlistfm] api_key`; absent key

@@ -1373,10 +1373,12 @@ git commit -m "feat(cli): proactive pacing gate at run and show boundaries"
 
 ---
 
-### Task T7b (FILED, NOT IMPLEMENTED): let the run-level pause sites honour `--wait`
+### Task T7b (BUILT 2026-09-06): let the run-level pause sites honour `--wait`
 
-**Status: UNBUILT. Do not implement as part of phase 2.** Filed so the gap is
-tracked rather than rediscovered, and because it is not Task 7's alone.
+**Status: BUILT**, on branch `t7b-run-level-wait` (2026-09-06), after phase 2
+merged. Both sites plus the show loop now share one `_render_pause`; the
+run-level sites re-decide after a nap and sleep at most once. What follows is
+the task as filed, kept for the reasoning that shaped it.
 
 Both run-level pause sites checkpoint and exit 0 without ever sleeping,
 whatever `--wait` and `--max-wait` say: the pre-flight gate (Task 7,
