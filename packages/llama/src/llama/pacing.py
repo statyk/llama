@@ -230,9 +230,9 @@ def decide(now: datetime, reading, progress: Progress,
             or Proceed())
 
 
-def shows_that_fit(reading, per_show_delta: float | None,
+def shows_that_fit(meter, per_show_delta: float | None,
                    ceiling: float) -> int | None:
-    """How many more shows the session window has room for, or None.
+    """How many more shows ONE window has room for, or None.
 
     None means "no estimate", which is a different thing from zero and must
     render differently - a run that has learned nothing yet has not been
@@ -243,7 +243,60 @@ def shows_that_fit(reading, per_show_delta: float | None,
     shows this run would never be allowed to start. `not per_show_delta`
     also catches a 0.0 estimate, which would divide by zero and is not a
     cost any real show has.
+
+    Takes a METER, not a whole reading: an earlier version took the reading
+    and reached into `.five_hour` itself, which made "forecast the wrong
+    window" the easiest thing a caller could write - and it did, shipping a
+    line that read `weekly 84% ... ~17 fit` when the weekly headroom was one
+    show. Per-window is the only shape that cannot express that bug;
+    `binding_forecast` composes it over both.
     """
-    if reading is None or reading.five_hour is None or not per_show_delta:
+    if meter is None or not per_show_delta:
         return None
-    return max(0, int((ceiling - reading.five_hour.percent) // per_show_delta))
+    return max(0, int((ceiling - meter.percent) // per_show_delta))
+
+
+@dataclass(frozen=True)
+class Forecast:
+    """How many shows fit before the FIRST window to run out, and which.
+
+    `resets_at` is the binding window's own reset and may be None - a meter
+    whose reset clause did not parse is the live shape, not a hypothetical:
+    the real /usage output prints `Current week (Fable): 0% used` with no
+    reset clause at all. Renderers must guard it.
+    """
+    shows: int
+    scope: str                 # "five_hour" | "seven_day"
+    resets_at: datetime | None
+
+
+def binding_forecast(reading, per_show_delta: float | None,
+                     opts: PaceOptions) -> Forecast | None:
+    """The window that runs out first, or None when nothing can be forecast.
+
+    Both windows, each against ITS OWN ceiling - they are independent config
+    fields that merely happen to share a default - and the smaller count
+    wins, because a run stops at the first wall it reaches.
+
+    Ties go to the WEEKLY window, which is why it is listed first: `min`
+    keeps the earliest minimum, and on a tie `decide` pauses on seven_day
+    (it checks that one first), so the weekly reset is the instant the
+    operator would actually wait for. Naming the 5-hour reset there would
+    promise a wait of hours for a pause of days.
+
+    A window with no meter, or no estimate, simply does not compete; if
+    neither competes the answer is None ("no forecast"), never zero.
+    """
+    if reading is None:
+        return None
+    candidates = [
+        (shows_that_fit(reading.seven_day, per_show_delta,
+                        opts.seven_day_ceiling), "seven_day", reading.seven_day),
+        (shows_that_fit(reading.five_hour, per_show_delta,
+                        opts.five_hour_ceiling), "five_hour", reading.five_hour),
+    ]
+    live = [c for c in candidates if c[0] is not None]
+    if not live:
+        return None
+    shows, scope, meter = min(live, key=lambda c: c[0])
+    return Forecast(shows, scope, meter.resets_at)

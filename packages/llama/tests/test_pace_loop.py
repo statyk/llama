@@ -26,6 +26,8 @@ from llama.sessions import (STATE_COMPLETE, STATE_INCOMPLETE, STATE_PAUSED,
 from llama.workspace import RunWorkspace
 
 NOW = datetime(2026, 9, 4, 8, 0, tzinfo=timezone.utc)
+RESET_5H = NOW + timedelta(hours=2)
+RESET_7D = NOW + timedelta(days=3)
 
 
 def _entry(pid: str, rank: int) -> ShortlistEntry:
@@ -609,8 +611,8 @@ def test_pacing_disabled_lets_a_run_level_limit_propagate(tmp_path, monkeypatch)
 
 def _reading(five=10, seven=7):
     from herder.usage import Meter, UsageReading
-    return UsageReading(five_hour=Meter(five, NOW + timedelta(hours=2)),
-                        seven_day=Meter(seven, NOW + timedelta(days=3)),
+    return UsageReading(five_hour=Meter(five, RESET_5H),
+                        seven_day=Meter(seven, RESET_7D),
                         per_model={}, fetched_at=NOW)
 
 
@@ -1148,3 +1150,60 @@ def test_the_shortfall_clause_stays_quiet_unless_the_run_overruns(
     out = capsys.readouterr().out
     assert f"~{fits} fit before" in out       # the forecast really is that number
     assert "the remaining" not in out
+
+
+def test_the_line_names_the_weekly_window_and_dates_its_reset():
+    """A weekly reset days out rendered as a bare `07:00` reads as "this
+    morning" -- worse than a wrong count, because it looks like a bug rather
+    than a weekly ceiling. So the weekly form says which window it is and
+    carries the date; the 5-hour form, always within five hours, does not."""
+    line = cli._pacing_line(_reading(five=20, seven=84),
+                            pacing_state.PacingState(4.0, 5),
+                            pacing.pace_options(Config()))
+
+    assert "~1 fit before the weekly reset, " in line     # 1, not (90-20)//4
+    when = RESET_7D.astimezone()                          # rendered in local time
+    assert f"{when:%b}" in line and str(when.day) in line  # the date is carried
+
+
+def test_the_line_leaves_a_session_reset_as_a_bare_clock_time():
+    line = cli._pacing_line(_reading(five=65, seven=7),
+                            pacing_state.PacingState(4.0, 5),
+                            pacing.pace_options(Config()))
+
+    assert f"~6 fit before {RESET_5H.astimezone():%H:%M}" in line
+    assert "weekly reset" not in line                     # nothing to explain
+
+
+def test_the_missing_reset_guard_follows_the_binding_window():
+    """Round 1 pinned this for a binding 5-hour meter. The guard has to move
+    with the forecast, or a weekly meter with no reset -- which is what
+    /usage prints today for `Current week (Fable): 0% used` -- reaches
+    `.astimezone()` on None and takes the command down."""
+    from herder.usage import Meter, UsageReading
+    reading = UsageReading(five_hour=Meter(20, RESET_5H),
+                           seven_day=Meter(84, None),     # binds, names no reset
+                           per_model={}, fetched_at=NOW)
+
+    line = cli._pacing_line(reading, pacing_state.PacingState(4.0, 5),
+                            pacing.pace_options(Config()))
+
+    assert line == "pacing: 5h 20% · weekly 84% · est 4.0%/show"
+    assert "fit before" not in line       # and emphatically not the 5h instant
+
+
+def test_the_shortfall_clause_names_the_weekly_reset_when_the_weekly_binds(
+        tmp_path, monkeypatch, capsys):
+    """After "~1 fit before the weekly reset", a bare "the reset" in the
+    same sentence would point at the sooner window the run is not waiting
+    for."""
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=20, seven=84))
+    (tmp_path / "pacing-state.json").write_text(
+        json.dumps({"per_show_delta": 4.0, "samples": 5}))
+
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a", "b", "c"],
+           pace=pacing.pace_options(Config()))
+
+    out = capsys.readouterr().out
+    assert "the remaining 2 pause until the weekly reset" in out

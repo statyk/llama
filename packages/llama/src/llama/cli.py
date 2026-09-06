@@ -29,8 +29,8 @@ from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
 from llama import pacing_state
 from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
-                          decide, duration_arg, format_delta, pace_options,
-                          resume_at, shows_that_fit, sleep_until)
+                          binding_forecast, decide, duration_arg, format_delta,
+                          pace_options, resume_at, sleep_until)
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
@@ -232,6 +232,26 @@ def _meter(config: Config, pace: PaceOptions):
     return read_usage()
 
 
+def _reset_label(fc) -> str:
+    """How the binding window's reset is written in the pacing line.
+
+    A 5-hour reset is by construction within five hours, so a bare clock
+    time is unambiguous and stays exactly as it was. A weekly one can be
+    days out, where `07:00` alone reads as "this morning" -- worse than a
+    wrong count, because it looks like a bug rather than a weekly ceiling.
+    The weekly form therefore carries its date AND names the window: a bare
+    `Sep 9 07:00` would still leave the operator wondering why a session
+    reset is three days away.
+
+    `{when.day}` rather than `%-d`/`%e`: the first is not portable and the
+    second pads to a width, and `Sep  9` in running prose reads as a typo.
+    """
+    when = fc.resets_at.astimezone()
+    if fc.scope == "seven_day":
+        return f"the weekly reset, {when:%b} {when.day} {when:%H:%M}"
+    return f"{when:%H:%M}"
+
+
 def _pacing_line(reading, state, pace: PaceOptions) -> str:
     """The one-line meter summary printed at run start and by `llama pacing`.
 
@@ -252,10 +272,13 @@ def _pacing_line(reading, state, pace: PaceOptions) -> str:
         parts.append(f"weekly {reading.seven_day.percent}%")
     if state.per_show_delta:
         parts.append(f"est {state.per_show_delta:.1f}%/show")
-    fits = shows_that_fit(reading, state.per_show_delta, pace.five_hour_ceiling)
-    if fits is not None and reading.five_hour.resets_at is not None:
-        parts.append(f"~{fits} fit before "
-                     f"{reading.five_hour.resets_at.astimezone():%H:%M}")
+    # The BINDING window, not the 5-hour one: `decide` checks the weekly
+    # first and both ceilings default to 90, so forecasting only the session
+    # window printed `weekly 84% ... ~17 fit` where the weekly headroom was
+    # one show -- a line contradicting, inches away, the meter beside it.
+    fc = binding_forecast(reading, state.per_show_delta, pace)
+    if fc is not None and fc.resets_at is not None:
+        parts.append(f"~{fc.shows} fit before {_reset_label(fc)}")
     return "pacing: " + " · ".join(parts)
 
 
@@ -301,10 +324,13 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     # A failed read on a paced claude_cli run is the one case worth a line.
     if _meter_applies(config, pace):
         line = _pacing_line(reading, state, pace)
-        fits = shows_that_fit(reading, state.per_show_delta,
-                              pace.five_hour_ceiling)
-        if fits is not None and fits < count:
-            line += f"; the remaining {count - fits} pause until the reset"
+        fc = binding_forecast(reading, state.per_show_delta, pace)
+        if fc is not None and fc.shows < count:
+            # Names the window for the same reason the forecast does: after
+            # "~1 fit before the weekly reset", a bare "the reset" would
+            # point at the sooner one the run is not waiting for.
+            reset = "weekly reset" if fc.scope == "seven_day" else "reset"
+            line += f"; the remaining {count - fc.shows} pause until the {reset}"
         typer.echo(line)
     # The one place raw-output capture is switched on: every provider
     # make_providers built shares this module-level destination.

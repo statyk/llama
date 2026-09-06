@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from herder.usage import Meter, UsageReading
 from llama import pacing
-from llama.config import Config
+from llama.config import Config, PacingConfig
 
 NOW = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)
 RESET_5H = NOW + timedelta(hours=2)
@@ -120,22 +120,112 @@ def test_the_pause_reason_names_the_window_and_the_estimate():
     assert out.reason == "5h window at 95%"
 
 
+# `shows_that_fit` takes ONE meter, not a whole reading: taking the reading
+# is what let it reach into `.five_hour` itself and forecast a window the
+# gate was not binding on. `binding_forecast` below composes it over both.
+
+
 def test_shows_that_fit_uses_the_ceiling_not_a_hundred():
     # 90 - 65 = 25 points of usable headroom at 4.2%/show.
-    assert pacing.shows_that_fit(_reading(five=65), 4.2, 90) == 5
+    assert pacing.shows_that_fit(_reading(five=65).five_hour, 4.2, 90) == 5
 
 
 def test_shows_that_fit_is_unknown_without_an_estimate():
-    assert pacing.shows_that_fit(_reading(five=65), None, 90) is None
+    assert pacing.shows_that_fit(_reading(five=65).five_hour, None, 90) is None
     assert pacing.shows_that_fit(None, 4.2, 90) is None
 
 
 def test_shows_that_fit_floors_at_zero_when_already_over():
-    assert pacing.shows_that_fit(_reading(five=95), 4.2, 90) == 0
+    assert pacing.shows_that_fit(_reading(five=95).five_hour, 4.2, 90) == 0
 
 
 def test_shows_that_fit_treats_a_zero_estimate_as_no_estimate():
     # `observe` really does produce PacingState(0.0, 1) -- an integer-percent
     # meter plus a cheap show is the ordinary case -- and `is None` here
     # would divide by it.
-    assert pacing.shows_that_fit(_reading(five=65), 0.0, 90) is None
+    assert pacing.shows_that_fit(_reading(five=65).five_hour, 0.0, 90) is None
+
+
+# ---------------------------------------------------------------------------
+# binding_forecast: the window that runs out FIRST
+# ---------------------------------------------------------------------------
+
+
+def test_the_forecast_follows_the_weekly_window_when_that_is_what_binds():
+    """The measured regression, verbatim: 5h at 20%, weekly at 84%, 4%/show.
+
+    The session window has room for 17 more shows and the weekly one has
+    room for 1. Reporting 17 tells an operator to start a 13-show run that
+    will stop after one and wait three days -- the failure this feature
+    exists to prevent, committed by the feature itself.
+    """
+    out = pacing.binding_forecast(_reading(five=20, seven=84), 4.0, _opts())
+    assert out.shows == 1
+    assert out.scope == "seven_day"
+    assert out.resets_at == RESET_7D
+
+
+def test_the_forecast_follows_the_session_window_when_that_is_what_binds():
+    out = pacing.binding_forecast(_reading(five=65, seven=7), 4.0, _opts())
+    assert out.shows == 6                      # (90-65)//4, not (90-7)//4
+    assert out.scope == "five_hour"
+    assert out.resets_at == RESET_5H
+
+
+def test_a_tie_goes_to_the_weekly_window_because_that_is_where_decide_pauses():
+    """Both windows run out on the same show. `decide` checks seven_day
+    first, so that is the pause the run would actually take -- and naming
+    the 5-hour reset would promise a wait of hours for a wait of days."""
+    # 90-50 = 40 and 90-50 = 40: identical headroom, identical cost.
+    out = pacing.binding_forecast(_reading(five=50, seven=50), 4.0, _opts())
+    assert out.shows == 10
+    assert out.scope == "seven_day"
+    assert out.resets_at == RESET_7D
+
+
+def test_each_window_is_measured_against_its_own_ceiling():
+    """They are independent config fields that merely share a default. With
+    the weekly ceiling lowered the weekly binds even though its meter reads
+    LOWER than the session one -- which a shared ceiling cannot express."""
+    cfg = Config(pacing=PacingConfig(five_hour_ceiling=90, seven_day_ceiling=50))
+    opts = pacing.pace_options(cfg)
+
+    out = pacing.binding_forecast(_reading(five=60, seven=40), 5.0, opts)
+    assert out.scope == "seven_day"
+    assert out.shows == 2                      # (50-40)//5, not (90-40)//5
+
+
+def test_the_forecast_is_none_when_nothing_can_be_forecast():
+    assert pacing.binding_forecast(None, 4.0, _opts()) is None
+    assert pacing.binding_forecast(_reading(), None, _opts()) is None
+    assert pacing.binding_forecast(_reading(), 0.0, _opts()) is None
+
+
+def test_a_window_with_no_meter_does_not_compete():
+    """Half a reading still forecasts, against the half that exists. The
+    weekly meter is the one /usage most often omits."""
+    from herder.usage import Meter, UsageReading
+    only_session = UsageReading(five_hour=Meter(65, RESET_5H), seven_day=None,
+                                per_model={}, fetched_at=NOW)
+    out = pacing.binding_forecast(only_session, 5.0, _opts())
+    assert (out.shows, out.scope) == (5, "five_hour")
+
+    only_weekly = UsageReading(five_hour=None, seven_day=Meter(65, RESET_7D),
+                               per_model={}, fetched_at=NOW)
+    out = pacing.binding_forecast(only_weekly, 5.0, _opts())
+    assert (out.shows, out.scope) == (5, "seven_day")
+
+
+def test_the_binding_windows_missing_reset_is_carried_not_swapped():
+    """`Meter(pct, None)` is what the live meter produces -- /usage prints
+    `Current week (Fable): 0% used` with no reset clause at all. The
+    forecast must carry the binding window's own None rather than falling
+    back to the other window's instant, which would name a reset belonging
+    to a window that is not what stops the run."""
+    from herder.usage import Meter, UsageReading
+    reading = UsageReading(five_hour=Meter(20, RESET_5H),
+                           seven_day=Meter(84, None),
+                           per_model={}, fetched_at=NOW)
+    out = pacing.binding_forecast(reading, 4.0, _opts())
+    assert (out.shows, out.scope) == (1, "seven_day")
+    assert out.resets_at is None
