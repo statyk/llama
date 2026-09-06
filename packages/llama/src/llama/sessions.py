@@ -95,7 +95,7 @@ class SessionInfo:
     id: str
     state: str            # STATE_AWAITING | STATE_COMPLETE | STATE_INCOMPLETE | STATE_PAUSED
     updated_at: str       # marker updated_at, else dir-mtime ISO
-    query: str            # criteria.query, "" when no criteria.json
+    query: str            # criteria.query, else request.json's; "" if neither
     profile: str | None   # criteria.profile
     outcome: str | None = None      # marker outcome ("5 packaged, 3 held, 1 failed")
     failures: list[dict] = field(default_factory=list)  # per-show {show, error}

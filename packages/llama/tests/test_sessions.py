@@ -928,9 +928,15 @@ def test_a_limit_during_interpret_sleeps_at_most_once(tmp_path: Path, monkeypatc
     A window that refuses again after the nap names the same reset, now in
     the past -- and `sleep_until` returns immediately on a `when` already
     gone. Without `stalled` the retry loop becomes a hot spin: it never
-    calls `_sleep` again, so a sleep-budget assertion sees nothing and the
-    suite HANGS instead of reddening. Run this one under a hard timeout;
-    exit 124 is the caught mutant.
+    calls `_sleep` again, so no sleep-budget assertion can see it.
+
+    `times=99` is load-bearing and is what keeps that mutant a RED TEST
+    rather than a hung suite. All three states were measured on
+    `stalled=stalled` -> `stalled=False`: at `times=99` the spin exhausts
+    the provider and this test FAILS in 0.2s; at `times=10**9` the same
+    mutant hangs (exit 124 under `timeout 60`), which is what production
+    would do; and with the guard restored the unbounded provider passes in
+    0.5s -- so it is the guard, not the bound, that stops the spin.
     """
     clock = {"now": PF_NOW}
     monkeypatch.setattr(pacing, "_now", lambda: clock["now"])

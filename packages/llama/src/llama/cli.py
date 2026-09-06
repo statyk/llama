@@ -184,8 +184,9 @@ def _render_pause(ws: RunWorkspace, limited, pace: PaceOptions, *,
                   resume_prefix: str = "") -> bool:
     """Render one pause. True = slept, the caller should retry; False = stop.
 
-    ONE renderer for all three pause sites -- the pre-flight gate, the
-    run-level catch, and the show loop -- because the half they share is the
+    ONE renderer for all four pause sites -- the pre-flight gate, the
+    run-level catch, the interpret catch (`_interpret_with_pause`) and the
+    show loop -- because the half they share is the
     half that must not drift: the timing arithmetic, the sleep-or-checkpoint
     decision, and the whole KeyboardInterrupt contract. When those lived in
     two copies they diverged three ways inside a single commit (`elif` vs `if`
@@ -475,9 +476,11 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             # reverse ordering silently reverts this to an ordinary stage failure.
             #
             # Covers exactly the three run-level stages inside this try --
-            # run_discover, run_search, run_winnow -- and NOT run_interpret, which
-            # runs in `get` outside _execute entirely; the comment at its call site
-            # says why wrapping it would not help.
+            # run_discover, run_search, run_winnow -- and NOT run_interpret,
+            # which runs outside `_execute` entirely, at two call sites now
+            # (`_get_query` and `run_resume`'s criteria-less branch). Both go
+            # through `_interpret_with_pause`, which is that stage's own copy
+            # of this catch; there is no gap here to close.
             #
             # Recoverable, not cheap: those three gate on `should_run` at
             # WHOLE-STAGE granularity, so the resume re-runs the interrupted stage
