@@ -1203,6 +1203,52 @@ def test_the_missing_reset_guard_follows_the_binding_window():
     assert "fit before" not in line       # and emphatically not the 5h instant
 
 
+def test_the_line_renders_the_per_model_meter():
+    """`/usage` reports a per-model window (`Current week (Fable)`) that the
+    account may exhaust before either window `decide` watches. Rendering it
+    is how an operator sees that coming; it deliberately does NOT bind."""
+    from herder.usage import Meter, UsageReading
+    reading = UsageReading(five_hour=Meter(12, RESET_5H),
+                           seven_day=Meter(40, RESET_7D),
+                           per_model={"Fable": Meter(42, None)}, fetched_at=NOW)
+
+    line = cli._pacing_line(reading, pacing_state.PacingState(3.1, 3),
+                            pacing.pace_options(Config()))
+
+    assert line.startswith("pacing: 5h 12% · weekly 40% · Fable 42% · est 3.1%/show")
+
+
+def test_per_model_meters_render_in_a_stable_order():
+    """Dict order is insertion order, which is parse order, which is the
+    account's. Sorting makes the line diffable across runs."""
+    from herder.usage import Meter, UsageReading
+    reading = UsageReading(five_hour=Meter(12, RESET_5H),
+                           seven_day=Meter(40, RESET_7D),
+                           per_model={"Zeta": Meter(9, None),
+                                      "Alpha": Meter(1, None)}, fetched_at=NOW)
+
+    line = cli._pacing_line(reading, pacing_state.PacingState(3.1, 3),
+                            pacing.pace_options(Config()))
+
+    assert "Alpha 1% · Zeta 9%" in line
+
+
+def test_decide_ignores_the_per_model_meter():
+    """The render is not a policy change. A per-model window at 99% must not
+    pause a run: the key is account-dependent, so binding on it could stop an
+    unattended run for hours against a window llama never spends. The
+    reactive RateLimited backstop is what covers a real refusal."""
+    from herder.usage import Meter, UsageReading
+    reading = UsageReading(five_hour=Meter(10, RESET_5H),
+                           seven_day=Meter(7, RESET_7D),
+                           per_model={"Fable": Meter(99, None)}, fetched_at=NOW)
+
+    verdict = pacing.decide(NOW, reading, pacing.Progress(4.0),
+                            pacing.pace_options(Config()))
+
+    assert isinstance(verdict, pacing.Proceed)
+
+
 def test_the_shortfall_clause_names_the_weekly_reset_when_the_weekly_binds(
         tmp_path, monkeypatch, capsys):
     """After "~1 fit before the weekly reset", a bare "the reset" in the

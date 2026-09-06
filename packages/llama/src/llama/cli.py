@@ -315,6 +315,11 @@ def _pacing_line(reading, state, pace: PaceOptions) -> str:
     parts = [f"5h {reading.five_hour.percent}%"]
     if reading.seven_day is not None:
         parts.append(f"weekly {reading.seven_day.percent}%")
+    # The account's per-model window, when /usage reported one. Rendered but
+    # NOT consulted by `decide` -- see the spec's evidence bar for binding it.
+    # Sorted because dict order here is the account's parse order.
+    for label, meter in sorted(reading.per_model.items()):
+        parts.append(f"{label} {meter.percent}%")
     if state.per_show_delta:
         parts.append(f"est {state.per_show_delta:.1f}%/show")
     # The BINDING window, not the 5-hour one: `decide` checks the weekly
