@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 from herder.usage import Meter, UsageReading
@@ -174,3 +175,39 @@ def test_non_convertible_samples_degrades_to_empty(tmp_path):
     (tmp_path / "pacing-state.json").write_text(
         '{"per_show_delta": 4.0, "samples": ["x"]}')
     assert ps.read_state(tmp_path) == ps.PacingState(None, 0)
+
+
+def test_overflow_samples_degrades_to_empty(tmp_path):
+    # int(float('inf')) raises OverflowError, an ArithmeticError -- not in
+    # the old except tuple. json.loads accepts the Infinity literal (the
+    # same one _valid_persisted_delta already guards on the delta field),
+    # so samples must not be the field that crashes read_state's "never
+    # raises" contract instead.
+    (tmp_path / "pacing-state.json").write_text(
+        '{"per_show_delta": 4.0, "samples": Infinity}')
+    assert ps.read_state(tmp_path) == ps.PacingState(None, 0)
+
+
+def test_record_folds_into_the_persisted_estimate(tmp_path):
+    ps.record(tmp_path, _r(10), _r(14))                 # seeds at 4.0
+    out = ps.record(tmp_path, _r(14), _r(24))           # delta 10, smoothed onto 4.0
+    assert out == ps.PacingState(4.0 + ps.EWMA_ALPHA * (10.0 - 4.0), 2)
+    assert ps.read_state(tmp_path) == out
+
+
+def test_record_reads_and_writes_inside_the_lock(tmp_path, monkeypatch):
+    events = []
+    real_read, real_write, real_lock = ps.read_state, ps.write_artifact, ps.file_lock
+
+    @contextmanager
+    def _lock(path, **kw):
+        events.append(f"enter:{path.name}")
+        with real_lock(path, **kw):
+            yield
+        events.append("exit")
+
+    monkeypatch.setattr(ps, "file_lock", _lock)
+    monkeypatch.setattr(ps, "read_state", lambda root: (events.append("read"), real_read(root))[1])
+    monkeypatch.setattr(ps, "write_artifact", lambda p, d: (events.append("write"), real_write(p, d))[1])
+    ps.record(tmp_path, _r(10), _r(14))
+    assert events == ["enter:pacing-state.json.lock", "read", "write", "exit"]

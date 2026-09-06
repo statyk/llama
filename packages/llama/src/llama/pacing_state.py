@@ -89,7 +89,7 @@ def read_state(root: Path) -> PacingState:
             return PacingState(None, 0)
         samples = int(data.get("samples", 0))
         return PacingState(float(delta) if delta is not None else None, samples)
-    except (OSError, ValueError, TypeError, AttributeError):
+    except (OSError, ValueError, TypeError, AttributeError, OverflowError):
         return PacingState(None, 0)
 
 
