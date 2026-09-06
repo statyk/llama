@@ -1083,14 +1083,29 @@ def run_resume(
         criteria = _interpret_with_pause(config, ws, req, pace)
         if criteria is None:
             return
-        # Honor the persisted `--plan` on this resume, but NOT the persisted
-        # `auto`: `run resume` has its own explicit `--auto/--interactive`
-        # flag, and a persisted value must never override an explicit one.
-        # `auto` stays in the request artifact as informational only.
-        plan = bool(req.get("plan"))
     else:
         criteria = read_model(ws.criteria, Criteria)
-        plan = False
+        # A run parked by the run-level `RateLimited` catch -- in discover /
+        # search / winnow -- HAS criteria.json, and that is the LIKELIER
+        # place for a `--plan` run to die: interpret is one call, those three
+        # are where a window actually empties. So this branch has to read the
+        # request too. Guarded, because a run dir predating `--plan` has no
+        # request.json at all and must keep resuming exactly as it did.
+        req = json.loads(ws.request.read_text()) if ws.request.exists() else {}
+    # One expression, both branches. `--plan` means "stop AT the shortlist",
+    # so that directive is already SATISFIED once a shortlist exists, and a
+    # resume past that point should process normally. Replaying `plan`
+    # unconditionally is worse than dropping it: `request.json` carries
+    # `plan: true` for the life of the run, so every later `run resume` --
+    # including the one `run approve` itself recommends when the operator
+    # declines to process immediately -- would re-park the session awaiting
+    # and process nothing, permanently.
+    #
+    # `auto` is deliberately NOT replayed this way: `run resume` has its own
+    # explicit `--auto/--interactive` flag, and a persisted value must never
+    # override an explicit one. `auto` stays in the request artifact as
+    # informational only.
+    plan = bool(req.get("plan")) and not ws.shortlist.exists()
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=False,
              force_stage=None,
