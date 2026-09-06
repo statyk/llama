@@ -656,6 +656,34 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         mark_complete(ws, outcome)
 
 
+def _interpret_and_stamp(config, ws: RunWorkspace, req: dict) -> Criteria:
+    """Interpret a persisted request and stamp its explicit flags.
+
+    ONE function for both entry points -- `_get_query`'s first pass and
+    `run resume`'s re-interpret -- because a resume that stamped a different
+    set of flags than the original command would replay as a different run,
+    silently. Two copies of this is exactly the drift T6b's checkpoint would
+    otherwise introduce.
+    """
+    criteria = run_interpret(ws, make_providers(config)["interpret"], req["query"])
+    updates = {}
+    # Falsy, not `is not None`: --limit is typer.Option(0, ...), so an
+    # unspecified limit persists as 0, and `is not None` would stamp
+    # count=0 onto every resumed run.
+    if req.get("limit"):
+        updates["count"] = req["limit"]
+    if req.get("artist_cap") is not None:
+        updates["artist_cap"] = req["artist_cap"]
+    if req.get("min_score") is not None:
+        updates["min_quality_score"] = req["min_score"]
+    if req.get("year_cap") is not None:
+        updates["year_cap"] = req["year_cap"]
+    if updates:
+        criteria = criteria.model_copy(update=updates)
+        write_artifact(ws.criteria, criteria)
+    return criteria
+
+
 def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
               name: str | None,
               artist_cap: float | None, min_score: float | None, year_cap: float | None,
@@ -680,20 +708,9 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     # criteria.json only on success and `run resume` refuses a session without
     # one, so a checkpoint here would be unresumable -- the query lives only in
     # argv. A limit here exits 1 having spent one LLM call. See T6b in the plan.
-    criteria = run_interpret(ws, make_providers(config)["interpret"], query)
-    # Stamp explicit flags into the run's criteria so replays behave the same.
-    updates = {}
-    if limit:
-        updates["count"] = limit
-    if artist_cap is not None:
-        updates["artist_cap"] = artist_cap
-    if min_score is not None:
-        updates["min_quality_score"] = min_score
-    if year_cap is not None:
-        updates["year_cap"] = year_cap
-    if updates:
-        criteria = criteria.model_copy(update=updates)
-        write_artifact(ws.criteria, criteria)
+    criteria = _interpret_and_stamp(config, ws, {
+        "query": query, "limit": limit, "artist_cap": artist_cap,
+        "min_score": min_score, "year_cap": year_cap})
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False,
              full_rationale=full_rationale, plan=plan, pace=pace)
@@ -949,9 +966,14 @@ def run_resume(
     pace = _pace(config, wait, max_wait, no_pacing)
     ws = _resolve_run(config, session)
     if not ws.criteria.exists():
-        typer.echo(f"no criteria.json in {ws.dir}", err=True)
-        raise typer.Exit(1)
-    criteria = read_model(ws.criteria, Criteria)
+        if not ws.request.exists():
+            typer.echo(f"no criteria.json in {ws.dir}", err=True)
+            raise typer.Exit(1)
+        # Parked before interpret ever succeeded (T6b). The persisted request
+        # is enough to re-interpret and carry on.
+        criteria = _interpret_and_stamp(config, ws, json.loads(ws.request.read_text()))
+    else:
+        criteria = read_model(ws.criteria, Criteria)
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=False,
              force_stage=None,

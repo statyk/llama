@@ -13,7 +13,8 @@ from llama.sessions import (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
                             STATE_PAUSED, SessionInfo, attention_sessions,
                             iter_sessions, mark_awaiting, mark_complete,
                             mark_incomplete, mark_paused, session_state)
-from llama.workspace import RunWorkspace, claim_run_dir, write_artifact
+from llama.workspace import (RunWorkspace, claim_run_dir, read_model,
+                             write_artifact)
 
 from herder import FakeProvider
 from herder.limits import RateLimited
@@ -575,3 +576,83 @@ def test_resuming_a_packaged_run_costs_no_llm_calls(tmp_path: Path, monkeypatch)
     assert "packaged:" in resumed.output, resumed.output
 
     assert sum(p.calls for p in providers.values()) == spent
+
+
+# --- `run resume` re-interprets a session parked before criteria (T6b) -----
+
+
+def test_run_resume_reinterprets_a_session_that_never_got_criteria(
+        tmp_path: Path, monkeypatch):
+    """The branch T6b exists for: a session parked before interpret finished
+    has a request but no criteria, and today `run resume` refuses it."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = fake_providers(None)
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "reinterp")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                           "artist_cap": None, "min_score": None,
+                                           "year_cap": None, "auto": True,
+                                           "plan": False}))
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "reinterp"])
+
+    assert result.exit_code == 0, result.output
+    assert ws.criteria.exists()                    # interpret ran and persisted
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+    # The three assertions above are also satisfied by a resume that never
+    # interpreted anything -- writing a default Criteria straight to disk and
+    # falling through would pass all of them. The interpret provider's own
+    # recorded prompt is what separates "re-interpreted THIS request" from
+    # "the run completed some other way", so pin the call and its query.
+    assert any(kind == "complete" and "GD 1973" in prompt
+               for kind, prompt in providers["interpret"].calls), \
+        providers["interpret"].calls
+    assert "packaged:" in result.output, result.output
+
+
+def test_run_resume_replays_the_flags_the_request_recorded(
+        tmp_path: Path, monkeypatch):
+    """A resumed interpret must behave like the original command, not like
+    the defaults -- the flags were stamped into criteria on the first pass and
+    have to be stamped again here or the replay silently differs."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "flags")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 3,
+                                           "artist_cap": 0.5, "min_score": 7.5,
+                                           "year_cap": None, "auto": True,
+                                           "plan": False}))
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "flags"])
+
+    assert result.exit_code == 0, result.output
+    criteria = read_model(ws.criteria, Criteria)
+    # None of these three is a Criteria default (count=1, artist_cap=1/3,
+    # min_quality_score=6.0) nor the interpret fixture's own value (count=1),
+    # so each one fails if the flag came from anywhere but the request.
+    assert criteria.count == 3
+    assert criteria.artist_cap == 0.5
+    assert criteria.min_quality_score == 7.5
+
+
+def test_run_resume_still_refuses_a_dir_with_neither_artifact(tmp_path: Path):
+    """The pre-existing "not a llama run dir" case must keep its message."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    ws = RunWorkspace(tmp_path, "empty")
+    ws.dir.mkdir(parents=True)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "empty"])
+
+    assert result.exit_code == 1
+    assert "no criteria.json" in result.output
