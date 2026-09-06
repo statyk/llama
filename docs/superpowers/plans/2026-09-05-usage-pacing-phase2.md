@@ -21,6 +21,54 @@
 - **Venv discipline (from CLAUDE.md):** in a worktree, give the worktree its own `.venv` and run `./.venv/bin/pytest`. Never run a `.venv/bin/*` console script from a copy of the tree. Verify with `./.venv/bin/python -c "import llama; print(llama.__file__)"`.
 - Full suite: `pytest -q` from the repo root. Current baseline: 1742 tests passing.
 
+## Rulings applied during execution
+
+Recorded 2026-09-05 by the SDD orchestrator's pre-flight conflict scan, and
+confirmed against source by the plan's author. Where a ruling and the task
+text below disagree, **the ruling governs**.
+
+- **R1 (Task 4) — `_pace` keeps `typer.Exit(1)`.** Task 4's snippet rewrites
+  `_pace`'s except body to raise `typer.BadParameter`, which Typer exits with
+  code 2. `test_pace_loop.py::test_a_malformed_max_wait_fails_before_the_run_starts`
+  pins `exit_code == 1` across three parametrized argv. Change only the
+  *construction* — `pace_options(config, wait=..., max_wait=..., no_pacing=...)`
+  in place of `dataclasses.replace` — and leave the `typer.echo(...); raise
+  typer.Exit(1)` body alone. The unused `replace` import still goes.
+
+- **R2 (Task 6) — `_checkpoint_pause` is not shared with the per-show loop.**
+  Its docstring claims both callers; in fact it is wired only to the run-level
+  catch and Task 7's pre-flight gate. The per-show loop's own rendering
+  (`paused after N shows: ...`) is pinned by
+  `test_a_checkpoint_reports_how_many_shows_are_left` and additionally carries
+  the no-progress guard and the sleep branch. Do not refactor it into the
+  helper; write the docstring to match what the helper actually shares.
+
+- **R3 (Task 7) — the per-show loop's `when` needs an isinstance guard.**
+  Task 7 says to "pass `when=limited.when`", but the line in question is
+  `when = resume_at(limited, pace)`, which does not call `_checkpoint_pause`.
+  `resume_at` reads `getattr(err, "resets_at", None)`, and a `PauseUntil` has
+  no such attribute — so a proactive pause would silently sleep the one-hour
+  `unknown_reset_wait` default instead of sleeping to the reset the meter
+  named. It becomes:
+
+  ```python
+  when = (limited.when if isinstance(limited, PauseUntil)
+          else resume_at(limited, pace))
+  ```
+
+  and `limited`'s annotation widens to `RateLimited | PauseUntil | None`.
+  Giving `PauseUntil` a `resets_at` property is the wrong fix: `PauseUntil.when`
+  already includes `reset_skew`, so `resume_at` would apply it twice.
+
+- **R4 (Task 9) — mutation 1's expected red set is corrected.** Mutating
+  `usage.SEVEN_DAY_MAX_AHEAD_S` turns
+  `test_weekly_reset_uses_the_weekly_bound_not_the_session_one` and
+  `test_parses_all_three_meters_from_the_real_output` red, both in
+  `test_usage.py`. It does **not** touch
+  `test_parse_reset_bound_is_per_call_not_global`, which passes `7.5 * 86400`
+  as a literal and so never reads the constant. The constraint is pinned
+  either way; no test is strengthened.
+
 ## File Structure
 
 | File | Responsibility |
