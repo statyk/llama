@@ -408,12 +408,20 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             if limited:
                 unprocessed.extend(pending[idx:])
                 break
-            if ran:
+            if ran and reading_before is not None:
                 # One show boundary, measured from its own two readings: what
                 # the meter moved by while exactly this show ran. A deferred
                 # show ran nothing between them, and folding its zero in would
                 # teach the gate a cheaper show than any that exists -- an
                 # under-estimate being the direction that walks into the wall.
+                # A show that was REFUSED is excluded for the same reason, by
+                # the `if limited` break above: it did partial work, so its
+                # delta understates a whole show.
+                #
+                # No reading means no window to read -- every openrouter and
+                # fake-backend run, and every --no-pacing one. Recording there
+                # would fold nothing while still costing a mkdir, a lock and a
+                # `pacing-state.json` in a workspace that never paced.
                 state = pacing_state.record(config.root, reading_before,
                                             _meter(config, pace))
         if limited:

@@ -656,6 +656,10 @@ def test_gate_is_skipped_entirely_on_a_non_claude_cli_backend(tmp_path, monkeypa
                       pace=pacing.pace_options(Config()), config=cfg)
 
     assert seen == ["a"]
+    # Nor is a boundary recorded: with no window to read there is nothing to
+    # fold, and writing anyway leaves a pacing-state.json (plus a lock acquire
+    # per show) in the workspace of a user who never paced.
+    assert not (tmp_path / "pacing-state.json").exists()
 
 
 def test_a_preflight_pause_exits_zero_like_every_other_pause(tmp_path, monkeypatch):
@@ -818,6 +822,57 @@ def test_the_learned_cost_is_what_stops_the_next_show(tmp_path, monkeypatch):
     assert marker["pause_reason"] == "5h window at 85%, est 12.0%/show"
 
 
+def test_a_previous_runs_estimate_reaches_the_preflight_gate(tmp_path, monkeypatch):
+    """The cross-run payoff, and the only test that reads a `pacing-state.json`
+    this run did not write: 85% is under the 90 ceiling, but a show a PREVIOUS
+    run measured at 12% is not, so the burst never starts.
+
+    Without it the pre-flight gate can be disconnected from everything the
+    persisted estimate exists for -- `Progress(None)`, or never reading the
+    file -- and the suite stays green.
+    """
+    _clock(monkeypatch, sleep_budget=0)
+    (tmp_path / "pacing-state.json").write_text(
+        json.dumps({"per_show_delta": 12.0, "samples": 2}))
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=85))
+    searched = []
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False),
+                      search=lambda *a, **k: searched.append(1))
+
+    assert searched == [] and seen == []
+    assert json.loads(ws.session.read_text())["pause_reason"] == \
+        "5h window at 85%, est 12.0%/show"
+
+
+def test_a_rate_limited_show_is_not_a_boundary(tmp_path, monkeypatch):
+    """A refused show did PARTIAL work, so the meter moved by less than a show
+    costs. Folding it in is the same under-estimate a deferred show would be --
+    hence the record sitting below the `if limited` break, not above it.
+
+    Every other reactive test runs with the meter stubbed to None, where
+    `record` is a no-op and the ordering cannot matter; this one supplies a
+    reading so it can.
+    """
+    _clock(monkeypatch, sleep_budget=0)
+    reads = [10, 10, 14]          # pre-flight, before-a, and one spare
+
+    def _read(*a, **kw):
+        return _reading(five=reads.pop(0) if len(reads) > 1 else reads[0])
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+
+    def _process(pid):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=NOW + timedelta(hours=2))
+
+    _drive(tmp_path, monkeypatch, _process, ["a"],
+           pace=pacing.pace_options(Config(), wait=False))
+
+    assert pacing_state.read_state(tmp_path).samples == 0
+
+
 def test_a_deferred_show_is_not_a_boundary(tmp_path, monkeypatch):
     """A show another run holds the lock on never ran here, so the two
     readings around it bracket no work at all. Folding that in teaches the
@@ -855,6 +910,7 @@ def test_no_pacing_never_reads_the_meter(tmp_path, monkeypatch):
                       pace=pacing.pace_options(Config(pacing=PacingConfig(enabled=False))))
 
     assert seen == ["a"]
+    assert not (tmp_path / "pacing-state.json").exists()   # nothing to fold
 
 
 # ---------------------------------------------------------------------------
