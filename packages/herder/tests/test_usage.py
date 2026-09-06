@@ -154,3 +154,42 @@ def test_read_usage_never_raises_when_the_runner_explodes():
     def boom():
         raise OSError("claude is not installed")
     assert usage.read_usage(runner=boom, now=NOW) is None
+
+
+# Self-audit (mutation sweep) additions below. Mutation testing against the
+# implementation as written showed the given failure-shape and never-raises
+# tests leave several one-line changes to the failure ladder green:
+#
+#   - "runner = runner or _cli_runner" reduced to "runner = runner" (the
+#     default-runner wiring is never exercised - every test above injects
+#     its own runner).
+#   - dropping TypeError from "except (json.JSONDecodeError, TypeError)"
+#     (nothing feeds read_usage a truthy, non-string raw value, so the
+#     TypeError arm of that except is dead in the existing suite).
+#   - dropping the "isinstance(data, dict)" guard before ".get(\"result\")"
+#     (every envelope in the existing tests parses to a dict; a bare list or
+#     scalar at the JSON top level is never tried).
+#   - "if not isinstance(text, str)" narrowed to "if text is None" (the only
+#     non-string "result" value tried above is None itself, not e.g. an int).
+#   - "return parse_usage_text(text, now=now)" dropping the now= kwarg (the
+#     existing envelope test only checks .percent, which does not depend on
+#     which "now" was used).
+#
+# The tests below close each of those gaps without touching the
+# already-verbatim implementation or the tests above.
+def test_read_usage_defaults_to_the_module_level_cli_runner(monkeypatch):
+    monkeypatch.setattr(usage, "_cli_runner", lambda: _envelope(REAL))
+    r = usage.read_usage(now=NOW)
+    assert r.five_hour.percent == 10
+
+
+def test_read_usage_degrades_to_none_on_malformed_envelope_shapes():
+    for bad in (lambda: 12345,                 # raw violates its str|None contract
+                lambda: json.dumps([1, 2, 3]),  # valid JSON, but not an object
+                lambda: _envelope(12345)):      # result present but not a string
+        assert usage.read_usage(runner=bad, now=NOW) is None
+
+
+def test_read_usage_passes_now_through_to_the_parser():
+    r = usage.read_usage(runner=lambda: _envelope(REAL), now=NOW)
+    assert r.five_hour.resets_at == datetime(2026, 9, 5, 21, 20, tzinfo=timezone.utc)
