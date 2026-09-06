@@ -69,6 +69,16 @@ before `run_interpret` as well as from `_execute` where it lives today.
 (`_get_profile`, `run_approve`, `run_resume`, `_redo_run_level`) and must not
 depend on a caller having gated first.
 
+**Third call site, added during the run as a ruled spec deviation (2026-09-06).**
+Task 5 created a path this section could not have named: `run_resume`'s
+criteria-less branch re-interprets, and that call sits *before* `_execute` and
+therefore before its gate. A resume that spends an ungated interpret call
+against the same exhausted window is T6b's own defect on the one command that
+exists to undo it — and it is the path taken after a limit parks a run. The
+gate and the catch therefore also wrap `run_resume`'s re-interpret. The final
+whole-branch reviewer recorded that it would have escalated this had it been
+omitted.
+
 **Accepted cost, stated rather than engineered away:** a query-mode run start
 now performs two meter reads instead of one. Each is a `claude -p "/usage"`
 subprocess — zero tokens, ~0.5–3 s. Threading one reading through five call
@@ -112,7 +122,11 @@ Two properties carry over and must hold here:
   becomes a hot spin — a hang, not a red test.
 - **Exit 0, not 1.** A checkpoint is a parked run, not a failure.
 
-The checkpoint is `sessions.mark_paused(..., scope="interpret")`.
+The checkpoint is `sessions.mark_paused(...)`. **Correction (2026-09-06):
+this line originally said `scope="interpret"`; the code is right and the spec
+was wrong.** `_render_pause` takes `scope` from `getattr(limited, "scope",
+None)`, and `pause_scope` names the usage WINDOW (`five_hour`/`seven_day`)
+everywhere else it appears — not the stage that was interrupted.
 
 `run resume` gains one branch, and only one:
 
@@ -215,9 +229,14 @@ some failure somewhere.
 1. Delete a documented key from `DEFAULT_CONFIG_TOML` → item 4's test, by
    name, goes red.
 2. Drop the `stalled=True` argument at the new interpret pause site → the
-   second pause becomes a hot spin. **This one hangs rather than reddening**;
-   it is verified by reading the call site and by a bounded-timeout run, not
-   by a sleep-budget assertion, which structurally cannot see it.
+   second pause becomes a hot spin. **Measured 2026-09-06: whether that hangs
+   or reddens is SITE-SPECIFIC, and this line originally claimed it always
+   hangs.** At `_interpret_with_pause` the test provider is bounded
+   (`times=99`), so the mutant is a fast RED test (~6.5 s), no timeout needed.
+   At `_preflight_gate` the provider is unbounded, so the same mutant HANGS and
+   is caught only as `exit=124` under a hard timeout. Both were reproduced
+   independently by the final reviewer. A sleep-budget assertion cannot see
+   either form.
 3. Remove the `request.json` write → the resume test fails with today's
    refusal message.
 4. Make `decide()` read `per_model` → item 2's `Proceed` test goes red.

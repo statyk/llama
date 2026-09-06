@@ -754,7 +754,9 @@ The existing pre-flight tests in `test_pace_loop.py` (`test_preflight_gate_pause
 
 - [ ] **Step 7: Mutation check**
 
-Prediction, written first: replacing `stalled=slept` with `stalled=False` in `_preflight_gate` makes `test_preflight_re_reads_the_meter_after_the_nap` **hang** rather than fail, because a `when` in the past makes `sleep_until` return without sleeping. Run that one test with a hard timeout:
+Prediction, written first: replacing `stalled=slept` with `stalled=False` in `_preflight_gate` makes **`test_preflight_sleeps_at_most_once`** hang, because a `when` in the past makes `sleep_until` return without sleeping.
+
+**CORRECTION (2026-09-06) — this step originally named `test_preflight_re_reads_the_meter_after_the_nap`, and that is WRONG in a way that would retire a live guard.** That test PASSES under the mutant (exit 0): its meter recovers on the second read, so there is never a second pause for the guard to prevent. Confirmed three times independently. **Do not narrow the `-k` below to the single test named in prose** — `-k preflight` is what makes this check work at all. Run it with a hard timeout:
 
 ```bash
 timeout 60 ./.venv/bin/python -m pytest packages/llama/tests/test_pace_loop.py -k preflight -q; echo "exit=$?"
