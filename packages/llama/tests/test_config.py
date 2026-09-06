@@ -185,6 +185,18 @@ def test_default_config_template_matches_defaults():
     assert parsed.llm_for("interpret") == default.llm_for("interpret")
 
 
+def test_default_config_template_documents_every_pacing_knob():
+    # The template above compares BEHAVIOUR, so a key simply left out of
+    # [pacing] still parses to its default and passes. That makes silently
+    # dropping a knob from the seeded file invisible - and the seeded file
+    # is how an operator discovers these knobs at all, since nothing else
+    # tells them a ceiling exists to lower.
+    from llama.config import PacingConfig
+
+    block = tomllib.loads(DEFAULT_CONFIG_TOML)["pacing"]
+    assert set(block) == set(PacingConfig.model_fields)
+
+
 def test_jerrybase_enabled_default_on():
     from llama.config import Config
 
