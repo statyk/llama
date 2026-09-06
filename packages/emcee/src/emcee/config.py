@@ -3,13 +3,27 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from herder import LLMSettings, TaskConfig
 
 from emcee.errors import ConfigError
 
 DEFAULT_ROOT = Path.home() / ".emcee"
+
+
+class _StrictModel(BaseModel):
+    """Unknown keys are an error, not a silent drop.
+
+    config.toml is the one file this design expects a human to hand-edit, so
+    a typo'd knob must fail loudly rather than leave the default in place.
+    Set on a shared base because pydantic does not propagate model_config to
+    nested models -- on EmceeConfig alone, every section below it stays
+    permissive. emcee's own base, not llama's `_StrictModel` -- emcee never
+    imports llama (enforced by test_no_llama_imports.py).
+    """
+    model_config = ConfigDict(extra="forbid")
+
 
 Tier = Literal["low", "medium", "high"]
 
@@ -33,16 +47,16 @@ def default_root() -> Path:
     return Path(root) if root else DEFAULT_ROOT
 
 
-class LLMTaskConfig(TaskConfig):
+class LLMTaskConfig(_StrictModel, TaskConfig):
     # Narrows the shared type so a config-file tier typo fails at parse time.
     tier: Tier | None = None
 
 
-class StationConfig(BaseModel):
+class StationConfig(_StrictModel):
     root: Path | None = None   # the delivered-packages folder; required by run/status
 
 
-class TTSConfig(BaseModel):
+class TTSConfig(_StrictModel):
     """Spoken DJ patter (text-to-speech of the DJ script)."""
     backend: str = "voxtral"            # or "elevenlabs" / "fake"
     voice: str | None = None            # voxtral preset name / elevenlabs voice_id
@@ -57,17 +71,17 @@ class TTSConfig(BaseModel):
     bed_gain_db: float = -20.0          # bed loudness under the voice (station-level)
 
 
-class Assignment(BaseModel):
+class Assignment(_StrictModel):
     presenter: str
     title: str | None = None
 
 
-class AssignConfig(BaseModel):
+class AssignConfig(_StrictModel):
     default: str | None = None                          # station-default presenter id
     profiles: dict[str, Assignment] = Field(default_factory=dict)
 
 
-class EmceeConfig(BaseModel):
+class EmceeConfig(_StrictModel):
     root: Path = Field(default_factory=default_root)
     station: StationConfig = Field(default_factory=StationConfig)
     tts: TTSConfig = Field(default_factory=TTSConfig)
