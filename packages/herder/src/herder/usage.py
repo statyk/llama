@@ -85,3 +85,45 @@ def parse_usage_text(text: str, now: datetime | None = None) -> UsageReading | N
     }
     return UsageReading(five_hour=five, seven_day=seven, per_model=per_model,
                         fetched_at=now)
+
+
+def _cli_runner(binary: str = "claude", timeout_s: int = 60):
+    """Shell out to `claude -p "/usage"`, returning raw stdout or None.
+
+    Uses the same isolation and neutral cwd as an ordinary headless call, so
+    the operator's hooks, MCP servers and CLAUDE.md cannot alter the output.
+    """
+    from herder.claude_cli import ISOLATION_ARGS, _neutral_cwd, _subprocess_env
+    cmd = [binary, "-p", "/usage", "--output-format", "json", *ISOLATION_ARGS]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout_s, env=_subprocess_env(),
+                              cwd=_neutral_cwd())
+    except (subprocess.SubprocessError, OSError):
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def read_usage(runner=None, now: datetime | None = None) -> UsageReading | None:
+    """A live meter reading, or None when one cannot be had.
+
+    `runner` is injected so tests never spawn a subprocess. Every failure -
+    a missing binary, a non-zero exit, a malformed envelope, unrecognizable
+    prose, a stale banner - collapses to None, because a caller cannot act
+    differently on any of them.
+    """
+    runner = runner or _cli_runner
+    try:
+        raw = runner()
+    except Exception:  # noqa: BLE001 - a reading is never worth a crash
+        return None
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    text = data.get("result") if isinstance(data, dict) else None
+    if not isinstance(text, str):
+        return None
+    return parse_usage_text(text, now=now)

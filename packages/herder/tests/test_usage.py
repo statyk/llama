@@ -124,3 +124,33 @@ def test_session_line_is_matched_only_at_its_own_line_start():
     # anywhere, mid-prose. Fail-closed: the whole read is untrusted.
     text = "Note: Current session: 10% used\n"
     assert usage.parse_usage_text(text, now=NOW) is None
+
+
+import json
+
+
+def _envelope(text):
+    return json.dumps({"type": "result", "subtype": "success",
+                       "is_error": False, "num_turns": 0,
+                       "total_cost_usd": 0, "result": text})
+
+
+def test_read_usage_parses_the_json_envelope():
+    r = usage.read_usage(runner=lambda: _envelope(REAL), now=NOW)
+    assert r.five_hour.percent == 10
+
+
+def test_read_usage_degrades_to_none_on_every_failure_shape():
+    for bad in (lambda: None,                       # runner reported failure
+                lambda: "",                          # empty stdout
+                lambda: "not json at all",           # unparseable envelope
+                lambda: json.dumps({"result": None}),   # result not a string
+                lambda: json.dumps({"no_result": 1}),   # result absent
+                lambda: _envelope("unrecognized prose")):
+        assert usage.read_usage(runner=bad, now=NOW) is None
+
+
+def test_read_usage_never_raises_when_the_runner_explodes():
+    def boom():
+        raise OSError("claude is not installed")
+    assert usage.read_usage(runner=boom, now=NOW) is None
