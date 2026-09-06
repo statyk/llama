@@ -217,3 +217,17 @@ def test_parse_reset_still_handles_the_refusal_form_unchanged():
     now = datetime(2026, 9, 4, 13, 0, tzinfo=timezone.utc)   # 09:00 EDT
     out = limits.parse_reset("resets 11:10am (America/New_York)", now=now)
     assert out == datetime(2026, 9, 4, 15, 10, tzinfo=timezone.utc)
+
+
+def test_dated_reset_degrades_to_none_on_a_bad_zone_or_impossible_date():
+    # Both are guards, not accidents: parse_reset must never raise at its
+    # callers (see the module docstring). Neither was pinned before.
+    now = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)
+    W = 7.5 * 86400
+    assert limits.parse_reset("resets Sep 12 at 7am (Mars/Olympus)", now=now,
+                              max_ahead_s=W) is None
+    assert limits.parse_reset("resets Feb 29 at 7am (America/New_York)",
+                              now=now, max_ahead_s=W) is None   # 2026 not a leap year
+    assert limits.parse_reset("resets Sep 31 at 7am (America/New_York)",
+                              now=now, max_ahead_s=W) is None
+
