@@ -1,3 +1,4 @@
+import re
 import tomllib
 from pathlib import Path
 
@@ -185,16 +186,65 @@ def test_default_config_template_matches_defaults():
     assert parsed.llm_for("interpret") == default.llm_for("interpret")
 
 
-def test_default_config_template_documents_every_pacing_knob():
-    # The template above compares BEHAVIOUR, so a key simply left out of
-    # [pacing] still parses to its default and passes. That makes silently
-    # dropping a knob from the seeded file invisible - and the seeded file
-    # is how an operator discovers these knobs at all, since nothing else
-    # tells them a ceiling exists to lower.
-    from llama.config import PacingConfig
+_TEMPLATE_KEY = re.compile(r"^\s*#?\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
+_TEMPLATE_SECTION = re.compile(r"^\s*#?\s*\[\[?([A-Za-z_][A-Za-z0-9_.\-]*)\]\]?\s*$")
 
-    block = tomllib.loads(DEFAULT_CONFIG_TOML)["pacing"]
-    assert set(block) == set(PacingConfig.model_fields)
+
+def _template_keys(text: str) -> dict[str, set[str]]:
+    """Every key the seeded template mentions, per section path.
+
+    Commented lines count: `config init` documents the path knobs and
+    [setlistfm] as commented examples, so a parsed-only view would call a
+    correct template incomplete. Nested table headers count too, and for the
+    same reason -- [selection.tapers.X] and [[selection.lineage_eras]] are how
+    `selection`'s two fields are documented; neither appears as `key =`.
+    """
+    out: dict[str, set[str]] = {"": set()}
+    current = ""
+    for line in text.splitlines():
+        m = _TEMPLATE_SECTION.match(line)
+        if m:
+            current = m.group(1)
+            parts = current.split(".")
+            # `[a.b.c]` documents key `b` of section `a`, `c` of `a.b`, ...
+            for i in range(1, len(parts) + 1):
+                out.setdefault(".".join(parts[:i - 1]), set()).add(parts[i - 1])
+            out.setdefault(current, set())
+            continue
+        m = _TEMPLATE_KEY.match(line)
+        if m:
+            out.setdefault(current, set()).add(m.group(1))
+    return out
+
+
+# Free-form maps: `dict[str, LLMTaskConfig]` and `dict[str, dict[Tier, str]]`
+# have no fixed key set to assert against, so there is nothing here to check.
+_FREE_FORM = {"llm", "tiers"}
+
+
+def test_the_template_documents_every_config_key():
+    """The behaviour comparison above cannot see a key that is simply absent:
+    it parses to its default and agrees. And the seeded file is how an
+    operator discovers a knob exists at all -- nothing else tells them a
+    ceiling is there to lower. Measured 2026-09-06: this passes today with no
+    template change; it exists to keep that true.
+    """
+    from pydantic import BaseModel
+
+    sections = _template_keys(DEFAULT_CONFIG_TOML)
+    undocumented: dict[str, list[str]] = {}
+    for name, field in Config.model_fields.items():
+        if name in _FREE_FORM:
+            continue
+        ann = field.annotation
+        if isinstance(ann, type) and issubclass(ann, BaseModel):
+            missing = set(ann.model_fields) - sections.get(name, set())
+            if missing:
+                undocumented[name] = sorted(missing)
+        elif name not in sections[""]:
+            undocumented["<top-level>"] = undocumented.get("<top-level>", []) + [name]
+
+    assert undocumented == {}, f"keys missing from DEFAULT_CONFIG_TOML: {undocumented}"
 
 
 def test_jerrybase_enabled_default_on():
