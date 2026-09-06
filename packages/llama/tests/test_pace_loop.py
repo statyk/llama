@@ -64,7 +64,7 @@ def _clock(monkeypatch, *, sleep_budget: int = 4) -> dict:
 
 def _drive(tmp_path: Path, monkeypatch, process, pids, *,
            pace=None, config=None, winnow=None,
-           search=None) -> tuple[RunWorkspace, list[str]]:
+           search=None, choose=None) -> tuple[RunWorkspace, list[str]]:
     """Run `_execute` over `pids` with `process` standing in for process_show."""
     config = config or Config(root=tmp_path)
     ws = RunWorkspace(tmp_path, "r1")
@@ -82,7 +82,11 @@ def _drive(tmp_path: Path, monkeypatch, process, pids, *,
                         lambda config: collections.defaultdict(lambda: None))
     monkeypatch.setattr(cli, "run_search", search or (lambda *a, **k: None))
     monkeypatch.setattr(cli, "run_winnow", winnow or (lambda *a, **k: entries))
-    monkeypatch.setattr(cli, "choose_entries", lambda entries, *a, **k: entries)
+    # `choose=` because this is set AFTER the caller's own monkeypatches and
+    # would clobber one: a test that wants to see what `count` reaches
+    # choose_entries as has to hand it in, not patch around this.
+    monkeypatch.setattr(cli, "choose_entries",
+                        choose or (lambda entries, *a, **k: entries))
     monkeypatch.setattr(cli, "make_client", lambda config: None)
     monkeypatch.setattr(cli, "process_show", _process_show)
 
@@ -997,3 +1001,56 @@ def test_a_malformed_max_wait_fails_before_the_run_starts(tmp_path, monkeypatch,
     assert result.exit_code == 1
     assert "not a duration" in result.output
     assert seen == []                       # _execute never ran
+
+
+# ---------------------------------------------------------------------------
+# The run-start forecast line
+# ---------------------------------------------------------------------------
+
+
+def test_the_run_start_line_names_the_shortfall_without_shrinking_the_run(
+        tmp_path, monkeypatch, capsys):
+    """25 points of headroom at 10%/show is two shows of a three-show run.
+
+    The consequence is printed, not acted on: `count` still reaches
+    choose_entries intact, because it feeds the artist and year caps -- a
+    run trimmed to what fits would pick DIFFERENT shows, not merely fewer,
+    and the third one is not lost, it waits for the reset.
+    """
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=65))
+    (tmp_path / "pacing-state.json").write_text(
+        json.dumps({"per_show_delta": 10.0, "samples": 3}))
+    counts = []
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg",
+                      ["a", "b", "c"], pace=pacing.pace_options(Config()),
+                      choose=lambda entries, count, *a, **k: (
+                          counts.append(count) or entries))
+
+    out = capsys.readouterr().out
+    assert "pacing: 5h 65%" in out
+    assert "est 10.0%/show" in out
+    assert "~2 fit before" in out
+    assert "the remaining 1 pause until the reset" in out
+    assert counts == [3]                  # not trimmed to the two that fit
+    assert seen == ["a", "b", "c"]
+
+
+def test_the_run_start_line_forecasts_nothing_before_a_boundary_is_observed(
+        tmp_path, monkeypatch, capsys):
+    """No estimate is not zero. With nothing learned yet the line reports the
+    meters and stops -- a forecast would be a number invented from nothing,
+    and the shortfall clause would tell a run to expect a pause the policy
+    has no basis to predict."""
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=65))
+    assert not (tmp_path / "pacing-state.json").exists()
+
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a", "b", "c"],
+           pace=pacing.pace_options(Config()))
+
+    out = capsys.readouterr().out
+    assert "pacing: 5h 65%" in out
+    assert "fit before" not in out
+    assert "the remaining" not in out
