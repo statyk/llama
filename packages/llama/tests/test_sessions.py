@@ -656,3 +656,30 @@ def test_run_resume_still_refuses_a_dir_with_neither_artifact(tmp_path: Path):
 
     assert result.exit_code == 1
     assert "no criteria.json" in result.output
+
+
+def test_run_resume_does_not_stamp_an_unspecified_limit(tmp_path: Path, monkeypatch):
+    """`--limit` is `typer.Option(0, ...)`, so an unspecified limit persists as
+    0, not null. The stamp test must therefore be falsy: `is not None` would
+    read that 0 as an explicit choice and stamp `count=0` onto every resumed
+    run, quietly shortlisting nothing. Only a comment guarded this fork before
+    -- and a comment is not a constraint."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "nolimit")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 0,
+                                           "artist_cap": None, "min_score": None,
+                                           "year_cap": None, "auto": True,
+                                           "plan": False}))
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "nolimit"])
+
+    assert result.exit_code == 0, result.output
+    criteria = read_model(ws.criteria, Criteria)
+    # The interpret fixture's own count, left alone -- NOT the persisted 0.
+    assert criteria.count == 1
