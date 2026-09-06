@@ -1054,3 +1054,97 @@ def test_the_run_start_line_forecasts_nothing_before_a_boundary_is_observed(
     assert "pacing: 5h 65%" in out
     assert "fit before" not in out
     assert "the remaining" not in out
+
+
+def test_a_failed_read_on_a_paced_run_says_the_backstop_is_still_live(
+        tmp_path, monkeypatch, capsys):
+    """The ONE case the run-start line is for: pacing on, claude_cli backend,
+    and the meter would not read. The proactive gate is blind, the reactive
+    one is not, and that sentence is true only here."""
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: None)
+
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+           pace=pacing.pace_options(Config()))
+
+    assert "usage read unavailable — pacing on limit errors only" \
+        in capsys.readouterr().out
+
+
+def test_no_pacing_prints_no_run_start_line_at_all(tmp_path, monkeypatch, capsys):
+    """--no-pacing must print nothing, not "pacing on limit errors only".
+
+    With pacing off the RateLimited handler re-raises and a limit FAILS the
+    show, so that sentence promises a safety net at the exact moment the
+    operator removed it. Silence is also the point of the flag.
+    """
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage",
+                        lambda *a, **kw: pytest.fail("meter read under --no-pacing"))
+
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+           pace=pacing.pace_options(Config(), no_pacing=True))
+
+    out = capsys.readouterr().out
+    assert "pacing" not in out
+    assert "unavailable" not in out
+
+
+def test_a_backend_with_no_window_prints_no_run_start_line_at_all(
+        tmp_path, monkeypatch, capsys):
+    """fake/openrouter having no usage window is the steady state, not a
+    degradation. Warning about it once per run would train the operator to
+    ignore the line that matters."""
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage",
+                        lambda *a, **kw: pytest.fail("meter read on a fake backend"))
+    cfg = Config(root=tmp_path, llm={"default": LLMTaskConfig(backend="fake")})
+
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+           pace=pacing.pace_options(Config()), config=cfg)
+
+    out = capsys.readouterr().out
+    assert "pacing" not in out
+    assert "unavailable" not in out
+
+
+def test_the_line_survives_a_meter_that_named_no_reset():
+    """`resets_at` is None whenever the reset clause did not parse, which
+    `herder.limits.parse_reset` returns for an unrecognised clause, an
+    unknown zone, an out-of-range minute and an out-of-bound target --
+    and `pacing._pause` already branches on it. Without the guard,
+    `.astimezone()` on None raises and takes down `llama get` at run start
+    and `llama pacing` outright.
+    """
+    from herder.usage import Meter, UsageReading
+    reading = UsageReading(five_hour=Meter(65, None),
+                           seven_day=Meter(7, NOW + timedelta(days=3)),
+                           per_model={}, fetched_at=NOW)
+
+    line = cli._pacing_line(reading, pacing_state.PacingState(4.0, 3),
+                            pacing.pace_options(Config()))
+
+    assert line == "pacing: 5h 65% · weekly 7% · est 4.0%/show"
+    assert "fit before" not in line          # nothing to render it against
+
+
+@pytest.mark.parametrize("delta, pids, fits", [
+    (12.5, ["a", "b"], 2),        # exactly what fits: the boundary `<` guards
+    (5.0, ["a", "b"], 5),         # room to spare
+])
+def test_the_shortfall_clause_stays_quiet_unless_the_run_overruns(
+        tmp_path, monkeypatch, capsys, delta, pids, fits):
+    """`fits < count`, not `<=`: at equality the run fits exactly, and
+    `<=` would print the operator-facing "the remaining 0 pause until the
+    reset" -- a pause announced for no shows."""
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=65))
+    (tmp_path / "pacing-state.json").write_text(
+        json.dumps({"per_show_delta": delta, "samples": 3}))
+
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", pids,
+           pace=pacing.pace_options(Config()))
+
+    out = capsys.readouterr().out
+    assert f"~{fits} fit before" in out       # the forecast really is that number
+    assert "the remaining" not in out

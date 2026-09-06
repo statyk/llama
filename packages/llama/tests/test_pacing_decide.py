@@ -132,3 +132,10 @@ def test_shows_that_fit_is_unknown_without_an_estimate():
 
 def test_shows_that_fit_floors_at_zero_when_already_over():
     assert pacing.shows_that_fit(_reading(five=95), 4.2, 90) == 0
+
+
+def test_shows_that_fit_treats_a_zero_estimate_as_no_estimate():
+    # `observe` really does produce PacingState(0.0, 1) -- an integer-percent
+    # meter plus a cheap show is the ordinary case -- and `is None` here
+    # would divide by it.
+    assert pacing.shows_that_fit(_reading(five=65), 0.0, 90) is None
