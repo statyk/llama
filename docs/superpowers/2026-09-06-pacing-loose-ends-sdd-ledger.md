@@ -42,3 +42,17 @@ No conflicts found requiring a ruling against plan text.
 
 ## Progress
 
+### Task 1 — render the `per_model` meter (render-only)
+
+- Implementer: Sonnet. Spec reviewer: Opus. Code-quality reviewer: Opus. The two reviewers were dispatched in parallel with disjoint inputs (brief + implementer report + diff file); neither saw this ledger or the other's findings.
+- Test command run, by implementer and independently reproduced by BOTH reviewers: `cd /Users/shawn/projects/llama-wt-pacing-loose-ends && ./.venv/bin/python -m pytest -q` → **1874 passed, 7 deselected** (predicted 1871 + 3, exact).
+- Mutation checks, predictions named before application, both matching uniquely:
+  - delete `sorted()` → predicted `test_per_model_meters_render_in_a_stable_order`, observed the same as the SOLE failure.
+  - make `decide()` read `per_model` → predicted `test_decide_ignores_the_per_model_meter`, observed the same, with the concrete wrong verdict `PauseUntil(scope='five_hour', ...)`. This is the mutant that proves the render-only boundary is test-enforced rather than merely intended.
+  - The quality reviewer re-ran both mutants against the FULL suite (the implementer had used `-k per_model`) in a scratch shadow tree with a proven `llama.cli.__file__` sentinel, leaving the worktree untouched — and confirmed each produced exactly one failure, the predicted one.
+- Verdicts: **Spec ✅** (`$D/t1-spec/report.md`), **Task quality: Approved** (`$D/t1-qual/report.md`). No Critical or Important findings from either.
+- Task 1: minor (deferred): the per-model segment renders a bare account label (`· Fable 42% ·`) with no scope word, beside a segment already labelled `weekly`; an operator could read it as a differently-scoped meter. Brief-specified and test-pinned, so a spec-level revisit rather than an implementation slip.
+- Task 1: minor (deferred): `test_the_line_renders_the_per_model_meter` uses `startswith` where its neighbours assert full-line equality, so it cannot see content appended after `est`. Both reviewers raised this independently; the empty-`per_model` full-equality pin and mutant 1 already cover the realistic failure modes.
+- Two ⚠️ Cannot-verify-from-diff items, both resolved by me: (1) `llama pacing`'s side of spec item 2 holds via the shared `_pacing_line` at cli.py:1521 — the quality reviewer independently confirmed both call sites share the one function, so there is no second render site; not a gap. (2) the spec's evidence bar for binding `per_model` later is explicitly future work and the code comment points at it, which is all the brief asked; not a gap.
+- **Task 1: complete (commits cb5ff4e..8933fdb, review clean)**
+
