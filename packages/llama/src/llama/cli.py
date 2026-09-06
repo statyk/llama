@@ -13,6 +13,7 @@ from typer.core import TyperGroup
 from herder import HerderError, TaskFailed, provider_ladder
 from herder.failures import set_capture_dir
 from herder.limits import RateLimited
+from herder.usage import read_usage
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
@@ -26,8 +27,10 @@ from llama.locks import Locked, file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
-from llama.pacing import (PaceOptions, duration_arg, format_delta, pace_options,
-                          resume_at, sleep_until)
+from llama import pacing_state
+from llama.pacing import (PaceOptions, PauseUntil, Progress, decide,
+                          duration_arg, format_delta, pace_options, resume_at,
+                          sleep_until)
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
@@ -197,6 +200,24 @@ def _checkpoint_pause(ws: RunWorkspace, limited, pace: PaceOptions,
     typer.echo(f"  resume with: llama run resume {ws.name}")
 
 
+def _meter(config: Config, pace: PaceOptions):
+    """A live meter reading, or None when there is no window to read.
+
+    Gated on the backend because only claude_cli has an account window: the
+    fake backend must never read one (it would make the offline suite
+    non-deterministic) and openrouter has no `/usage` equivalent. Gated on
+    `pace.enabled` too, because `--no-pacing` opts out of the whole feature
+    and must not spend a subprocess per show on a reading nothing consults.
+
+    Deliberately NOT routed through `pipeline.make_providers`: a meter read
+    is not an LLM call and has no business going through the tier/model
+    resolution ladder.
+    """
+    if not pace.enabled or config.llm_for("default").backend != "claude_cli":
+        return None
+    return read_usage()
+
+
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
              force_stage: str | None = None,
@@ -205,6 +226,20 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     providers = make_providers(config)
     if pace is None:
         pace = pace_options(config)
+    # Pre-flight, BEFORE the opening burst: run_discover/run_search/run_winnow
+    # each write their artifact only on success, so a refusal part-way through
+    # one costs the whole stage on the resume. This is the cheapest place in a
+    # run to stop, and the only gate that runs before any of them.
+    state = pacing_state.read_state(config.root)
+    verdict = decide(_pacing._now(), _meter(config, pace),
+                     Progress(state.per_show_delta), pace)
+    if isinstance(verdict, PauseUntil):
+        # `when=` because the verdict already carries a skewed instant; see
+        # PauseUntil's docstring for what recomputing it would cost.
+        _checkpoint_pause(ws, verdict, pace, when=verdict.when,
+                          note="nothing has run yet; resume when the window "
+                               "resets")
+        return
     # The one place raw-output capture is switched on: every provider
     # make_providers built shares this module-level destination.
     set_capture_dir(config.root / "llm-failures")
@@ -296,7 +331,9 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     setlistfm = make_client(config)
     packaged = held = 0
     failures: list[dict] = []          # {show, error} per show this run lost
-    limited: RateLimited | None = None  # set when a usage window ran out
+    # A RateLimited is a window that refused us; a PauseUntil is one the gate
+    # stopped short of. Both pause the run, and the block below renders either.
+    limited: RateLimited | PauseUntil | None = None
 
     def _process(entry):
         nonlocal packaged, held, limited
@@ -347,12 +384,23 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     while pending:
         deferred, unprocessed = [], []
         for idx, entry in enumerate(pending):
+            # BEFORE the show lock, and before any of this show's work: the
+            # whole point is not to start a show the window cannot finish.
+            reading_before = _meter(config, pace)
+            verdict = decide(_pacing._now(), reading_before,
+                             Progress(state.per_show_delta), pace)
+            if isinstance(verdict, PauseUntil):
+                limited = verdict
+                unprocessed.extend(pending[idx:])   # this show has NOT run
+                break
             lock_path = ws.show_ws(entry.candidate.performance_id).lock
+            ran = True
             try:
                 with file_lock(lock_path, blocking=False):
                     _process(entry)
             except Locked:
                 deferred.append(entry)         # another run is building it
+                ran = False
             # AFTER the call, not before: `pending[idx:]` must INCLUDE the show
             # that hit the limit. Checking at the top of the body instead starts
             # the slice one entry late and silently drops that show from the
@@ -360,6 +408,14 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             if limited:
                 unprocessed.extend(pending[idx:])
                 break
+            if ran:
+                # One show boundary, measured from its own two readings: what
+                # the meter moved by while exactly this show ran. A deferred
+                # show ran nothing between them, and folding its zero in would
+                # teach the gate a cheaper show than any that exists -- an
+                # under-estimate being the direction that walks into the wall.
+                state = pacing_state.record(config.root, reading_before,
+                                            _meter(config, pace))
         if limited:
             unprocessed.extend(deferred)
         else:
@@ -372,7 +428,13 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         if not limited:
             break
 
-        when = resume_at(limited, pace)
+        # A PauseUntil already holds the instant to come back at, skew
+        # included; resume_at reads `resets_at`, which it has not got, so
+        # routing one through it silently swaps the reset the meter named
+        # for the unknown-reset default. See PauseUntil's docstring for why
+        # the fix is here and not a `resets_at` property on it.
+        when = (limited.when if isinstance(limited, PauseUntil)
+                else resume_at(limited, pace))
         wait_s = (when - _pacing._now()).total_seconds()
         reason = str(limited)
         scope = limited.scope

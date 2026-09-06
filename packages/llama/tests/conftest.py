@@ -22,3 +22,17 @@ def _no_ambient_elevenlabs_key(monkeypatch):
 @pytest.fixture(autouse=True)
 def _no_ambient_mistral_key(monkeypatch):
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _no_live_usage_meter(monkeypatch):
+    """No test may spawn `claude -p "/usage"`.
+
+    A default Config resolves to the claude_cli backend, so without this every
+    test reaching _execute shells out to the real CLI once per gate -- slow,
+    non-deterministic, and a network call from a suite contracted to be
+    offline. Tests that want a reading override this with their own
+    monkeypatch, which runs after the autouse fixture.
+    """
+    import llama.cli as cli
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: None, raising=False)

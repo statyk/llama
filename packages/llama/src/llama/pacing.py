@@ -155,9 +155,23 @@ class Proceed:
 
 @dataclass(frozen=True)
 class PauseUntil:
+    """Wait until `when` before starting the next unit of work.
+
+    `when` already has `reset_skew` folded in. A caller holding one must
+    therefore NOT route it through `resume_at`: that reads `resets_at`,
+    which this does not have, so it would quietly substitute the
+    unknown-reset default for the reset the meter actually named -- and
+    adding a `resets_at` here to satisfy it would apply the skew twice.
+    """
     when: datetime
     scope: str
     reason: str
+
+    def __str__(self) -> str:
+        """The reason alone, so the pause sites can render this and a
+        `RateLimited` through the same `str()`. The dataclass repr would put
+        a field dump and a datetime into the operator's session marker."""
+        return self.reason
 
 
 @dataclass(frozen=True)

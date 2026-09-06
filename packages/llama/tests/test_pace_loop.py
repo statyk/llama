@@ -17,8 +17,8 @@ from herder import HerderError, TaskFailed
 from herder.limits import RateLimited
 
 import llama.cli as cli
-from llama import pacing
-from llama.config import Config, PacingConfig
+from llama import pacing, pacing_state
+from llama.config import Config, LLMTaskConfig, PacingConfig
 from llama.locks import Locked
 from llama.models import Candidate, Criteria, QualityAssessment, ShortlistEntry
 from llama.sessions import (STATE_COMPLETE, STATE_INCOMPLETE, STATE_PAUSED,
@@ -596,6 +596,215 @@ def test_pacing_disabled_lets_a_run_level_limit_propagate(tmp_path, monkeypatch)
                winnow=_boom)
 
     assert iter_sessions(tmp_path) == []          # no marker at all
+
+
+# ---------------------------------------------------------------------------
+# The proactive gate: pausing BEFORE a window is exhausted
+# ---------------------------------------------------------------------------
+
+
+def _reading(five=10, seven=7):
+    from herder.usage import Meter, UsageReading
+    return UsageReading(five_hour=Meter(five, NOW + timedelta(hours=2)),
+                        seven_day=Meter(seven, NOW + timedelta(days=3)),
+                        per_model={}, fetched_at=NOW)
+
+
+def test_preflight_gate_pauses_before_any_stage_runs(tmp_path, monkeypatch):
+    """The opening burst is the expensive place to pause -- winnow writes its
+    shortlist only on success -- so the gate must fire BEFORE run_search."""
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=99))
+    searched = []
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False),
+                      search=lambda *a, **k: searched.append(1))
+
+    assert searched == []                     # never entered the burst
+    assert seen == []
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_per_show_gate_stops_between_shows(tmp_path, monkeypatch):
+    """Reading order: pre-flight, before-a, after-a (the delta), before-b.
+    The fourth read is over the ceiling, so 'a' is packaged and 'b' is not."""
+    _clock(monkeypatch)
+    calls = {"n": 0}
+
+    def _read(*a, **kw):
+        calls["n"] += 1
+        return _reading(five=5 if calls["n"] <= 3 else 99)
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a", "b"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    assert seen == ["a"]
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_gate_is_skipped_entirely_on_a_non_claude_cli_backend(tmp_path, monkeypatch):
+    """The fake backend has no window; reading a meter for it would be both
+    meaningless and non-deterministic in the offline suite."""
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage",
+                        lambda *a, **kw: pytest.fail("meter read on a fake backend"))
+    cfg = Config(root=tmp_path, llm={"default": LLMTaskConfig(backend="fake")})
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config()), config=cfg)
+
+    assert seen == ["a"]
+
+
+def test_a_preflight_pause_exits_zero_like_every_other_pause(tmp_path, monkeypatch):
+    """R20's resolution: a limit before any show ran is NOT a distinct failure
+    signal. _execute returns normally; the session lands on the attention list."""
+    _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=99))
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False))
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_a_proactive_pause_waits_for_the_meters_reset_not_the_unknown_default(
+        tmp_path, monkeypatch):
+    """The show loop does NOT route through _checkpoint_pause: it computes its
+    own instant. `resume_at` reads `resets_at`, which a PauseUntil has not
+    got, so routing one through it silently substitutes the one-hour
+    unknown-reset default for the reset the meter actually named -- a green
+    suite with the feature quietly broken.
+
+    A PauseUntil already carries that instant WITH reset_skew folded in, so
+    the fix is to keep it verbatim, not to give PauseUntil a `resets_at`
+    (which would let resume_at apply the skew a second time).
+    """
+    _clock(monkeypatch, sleep_budget=0)
+    calls = {"n": 0}
+
+    def _read(*a, **kw):
+        calls["n"] += 1
+        return _reading(five=5 if calls["n"] == 1 else 99)   # pre-flight ok, show not
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    assert seen == []                          # gated before the show ran
+    marker = json.loads(ws.session.read_text())
+    # The meter's own reset (NOW + 2h) plus the 2m skew, exactly once. The
+    # unknown-reset default would put this at 09:00, an hour too early.
+    assert marker["resume_after"] == "2026-09-04T10:02:00+00:00"
+    assert marker["pause_scope"] == "five_hour"
+    # Equality, not containment: it also pins PauseUntil.__str__ down to the
+    # reason, since the dataclass repr contains the reason as a substring.
+    assert marker["pause_reason"] == "5h window at 99%"
+
+
+def test_a_preflight_pause_records_the_meters_reset_and_reason(
+        tmp_path, monkeypatch, capsys):
+    """The other pause site, which DOES route through _checkpoint_pause: it
+    holds an already-skewed instant, so it has to hand it over as `when` --
+    letting resume_at recompute would fall back to the unknown-reset default
+    here too."""
+    _clock(monkeypatch, sleep_budget=0)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=99))
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    marker = json.loads(ws.session.read_text())
+    assert marker["resume_after"] == "2026-09-04T10:02:00+00:00"   # reset + 2m
+    assert marker["pause_reason"] == "5h window at 99%"
+    assert marker["outcome"] is None and marker["failures"] == []
+    captured = capsys.readouterr()
+    assert "paused: 5h window at 99%" in captured.err
+    assert "nothing has run yet" in captured.out
+
+
+def test_a_proactive_pause_leaves_the_gated_show_for_the_resume(
+        tmp_path, monkeypatch, capsys):
+    """Same queue arithmetic as the reactive pause: the show the gate stopped
+    IN FRONT OF has not run, so it belongs to the shows left. `pending[idx +
+    1:]` drops it and the resume never comes back for it."""
+    _clock(monkeypatch)
+    calls = {"n": 0}
+
+    def _read(*a, **kw):
+        calls["n"] += 1
+        return _reading(five=5 if calls["n"] <= 3 else 99)
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg",
+                      ["a", "b", "c"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    assert seen == ["a"]
+    assert "2 shows left" in capsys.readouterr().out       # b, the gated one, and c
+
+
+def test_the_learned_cost_folds_each_shows_own_before_and_after(tmp_path, monkeypatch):
+    """The boundary that teaches the gate is `after this show` minus `before
+    this show`. The pre-flight reading and the next show's own `before` sit
+    one read either side of it, and folding either in measures a different
+    interval than the show it is attributed to."""
+    _clock(monkeypatch, sleep_budget=0)
+    # pre-flight, before-a, after-a, before-b, after-b
+    reads = [1, 2, 10, 12, 30]
+
+    def _read(*a, **kw):
+        assert reads, "more meter reads than the boundary protocol calls for"
+        return _reading(five=reads.pop(0))
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a", "b"],
+           pace=pacing.pace_options(Config()))
+
+    assert reads == []                       # exactly five, in that order
+    state = json.loads((tmp_path / "pacing-state.json").read_text())
+    assert state["samples"] == 2
+    # a costs 8 (10 - 2), b costs 18 (30 - 12); EWMA at alpha 0.4 -> 12.0.
+    assert state["per_show_delta"] == pytest.approx(12.0)
+
+
+def test_a_deferred_show_is_not_a_boundary(tmp_path, monkeypatch):
+    """A show another run holds the lock on never ran here, so the two
+    readings around it bracket no work at all. Folding that in teaches the
+    gate a zero-cost show, and an UNDER-estimate is exactly what lets a run
+    walk into the wall."""
+    _clock(monkeypatch, sleep_budget=0)
+    real_file_lock = cli.file_lock
+
+    def _file_lock(path, *, blocking=True):
+        if not blocking and path.parent.name.endswith("a"):
+            raise Locked(path)                 # another run holds `a`
+        return real_file_lock(path, blocking=blocking)
+
+    monkeypatch.setattr(cli, "file_lock", _file_lock)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **kw: _reading(five=5))
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+           pace=pacing.pace_options(Config()))
+
+    # read_state, not the raw file: "no boundary" is equally well expressed by
+    # never writing one, and the point is the estimate, not the artifact.
+    state = pacing_state.read_state(tmp_path)
+    assert state.samples == 0                # the deferred pass is not measured
+    assert state.per_show_delta is None
+
+
+def test_no_pacing_never_reads_the_meter(tmp_path, monkeypatch):
+    """--no-pacing opts out of the whole feature. `decide` would return
+    Proceed on any reading, so a meter read under it is a subprocess per show
+    spent on an answer nothing consults."""
+    _clock(monkeypatch, sleep_budget=0)
+    monkeypatch.setattr(cli, "read_usage",
+                        lambda *a, **kw: pytest.fail("meter read with pacing off"))
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(pacing=PacingConfig(enabled=False))))
+
+    assert seen == ["a"]
 
 
 # ---------------------------------------------------------------------------
