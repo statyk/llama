@@ -223,28 +223,46 @@ _FREE_FORM = {"llm", "tiers"}
 
 
 def test_the_template_documents_every_config_key():
-    """The behaviour comparison above cannot see a key that is simply absent:
-    it parses to its default and agrees. And the seeded file is how an
-    operator discovers a knob exists at all -- nothing else tells them a
-    ceiling is there to lower. Measured 2026-09-06: this passes today with no
+    """The behaviour comparison above cannot see a key that is simply absent,
+    OR one that is simply extra: an absent key silently takes its default,
+    and Config sets no `model_config`, so pydantic's default `extra="ignore"`
+    silently drops a phantom one too. Either way the comparison still agrees.
+    The seeded file is how an operator discovers a knob exists at all -- or
+    wrongly believes one does, if a stale/typo'd key sits in the template
+    doing nothing. This test pins BOTH directions: every model field must be
+    documented (`missing`), and everything documented must be a real model
+    field (`phantom`). Measured 2026-09-06: this passes today with no
     template change; it exists to keep that true.
     """
     from pydantic import BaseModel
 
     sections = _template_keys(DEFAULT_CONFIG_TOML)
-    undocumented: dict[str, list[str]] = {}
+    missing: dict[str, list[str]] = {}
+    phantom: dict[str, list[str]] = {}
     for name, field in Config.model_fields.items():
         if name in _FREE_FORM:
             continue
         ann = field.annotation
         if isinstance(ann, type) and issubclass(ann, BaseModel):
-            missing = set(ann.model_fields) - sections.get(name, set())
-            if missing:
-                undocumented[name] = sorted(missing)
+            documented = sections.get(name, set())
+            model_keys = set(ann.model_fields)
+            missing_here = model_keys - documented
+            phantom_here = documented - model_keys
+            if missing_here:
+                missing[name] = sorted(missing_here)
+            if phantom_here:
+                phantom[name] = sorted(phantom_here)
         elif name not in sections[""]:
-            undocumented["<top-level>"] = undocumented.get("<top-level>", []) + [name]
+            missing["<top-level>"] = missing.get("<top-level>", []) + [name]
 
-    assert undocumented == {}, f"keys missing from DEFAULT_CONFIG_TOML: {undocumented}"
+    phantom_top = sections[""] - set(Config.model_fields)
+    if phantom_top:
+        phantom["<top-level>"] = sorted(phantom_top)
+
+    assert missing == {} and phantom == {}, (
+        f"missing from DEFAULT_CONFIG_TOML: {missing}; "
+        f"documented in DEFAULT_CONFIG_TOML but not a Config field: {phantom}"
+    )
 
 
 def test_jerrybase_enabled_default_on():
