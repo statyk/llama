@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from herder import TaskFailed
+from herder import HerderError, TaskFailed
 from herder.limits import RateLimited
 
 import llama.cli as cli
@@ -522,6 +522,57 @@ def test_a_run_level_pause_records_the_reset_plus_skew_once(tmp_path, monkeypatc
     assert "session limit" in marker["pause_reason"]
     assert marker["outcome"] is None        # no show ran, so nothing to report
     assert marker["failures"] == []
+
+
+def test_a_run_level_pause_says_what_a_resume_will_redo(tmp_path, monkeypatch, capsys):
+    """The loop's checkpoint reports how many shows are left; this one has no
+    show queue to report, so the note is all the operator gets telling them
+    the run stopped BEFORE any show and that a resume redoes a whole stage."""
+    _clock(monkeypatch)
+
+    def _boom(*a, **k):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=NOW + timedelta(hours=2))
+
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+           pace=pacing.pace_options(Config(), wait=False), winnow=_boom)
+
+    captured = capsys.readouterr()
+    assert "session limit" in captured.err                 # why it stopped
+    assert "limit hit before any show ran" in captured.out
+    assert "re-runs the stage" in captured.out
+    assert "resume with: llama run resume r1" in captured.out
+
+
+def test_an_ordinary_stage_failure_is_not_turned_into_a_pause(tmp_path, monkeypatch):
+    """The arm is `except RateLimited`, not `except HerderError`. A stage that
+    fails for any other reason is a failure, not an exhausted window: pausing
+    on it would park the run waiting for a reset that fixes nothing."""
+    _clock(monkeypatch, sleep_budget=0)
+
+    def _boom(*a, **k):
+        raise HerderError("provider blew up")
+
+    with pytest.raises(HerderError):
+        _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+               pace=pacing.pace_options(Config(), wait=False), winnow=_boom)
+
+    assert iter_sessions(tmp_path) == []          # no paused marker
+
+
+def test_checkpoint_pause_keeps_a_precomputed_instant_verbatim(tmp_path):
+    """`when` is for a caller that already holds a skewed instant. Recomputing
+    it through resume_at would add reset_skew a second time, so the helper has
+    to record exactly what it was handed."""
+    ws = RunWorkspace(tmp_path, "r1")
+    when = NOW + timedelta(hours=3)
+
+    cli._checkpoint_pause(ws, RateLimited("nearly out", scope="seven_day"),
+                          pacing.pace_options(Config()), when=when)
+
+    marker = json.loads(ws.session.read_text())
+    assert marker["resume_after"] == when.isoformat()   # no second skew
+    assert marker["pause_scope"] == "seven_day"
 
 
 def test_pacing_disabled_lets_a_run_level_limit_propagate(tmp_path, monkeypatch):
