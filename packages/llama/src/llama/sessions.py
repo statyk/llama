@@ -121,6 +121,10 @@ def iter_sessions(root: Path) -> list[SessionInfo]:
             if ws.criteria.exists():
                 criteria = read_model(ws.criteria, Criteria)
                 query, profile = criteria.query, criteria.profile
+            elif ws.request.exists():
+                # Paused before interpret ever wrote criteria: the persisted
+                # request carries the only copy of the query.
+                query = json.loads(ws.request.read_text()).get("query") or ""
             marker = _read_marker(run_dir)
             infos.append(SessionInfo(
                 id=run_dir.name,

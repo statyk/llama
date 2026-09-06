@@ -1,3 +1,4 @@
+import json
 import shutil
 import sys
 import tempfile
@@ -668,6 +669,13 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     run_name = name or claim_run_dir(config.root,
                                      f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, run_name)
+    # Persisted BEFORE the first LLM call: a limit during interpret parks a
+    # session whose query would otherwise live only in argv. This artifact is
+    # what makes such a session resumable at all (T6b).
+    write_artifact(ws.request, json.dumps({
+        "query": query, "limit": limit, "artist_cap": artist_cap,
+        "min_score": min_score, "year_cap": year_cap,
+        "auto": auto, "plan": plan}, indent=2))
     # Deliberately OUTSIDE _execute's RateLimited catch: run_interpret writes
     # criteria.json only on success and `run resume` refuses a session without
     # one, so a checkpoint here would be unresumable -- the query lives only in

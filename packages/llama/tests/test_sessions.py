@@ -175,6 +175,57 @@ def test_session_without_criteria(tmp_path: Path):
     assert info.query == "" and info.profile is None
 
 
+def test_get_persists_the_request_before_interpreting(tmp_path: Path, monkeypatch):
+    """The query lives only in argv. Without this artifact a limit during
+    interpret parks a session nothing can resume -- which is why T6b was a
+    resumability design and not a try/except."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                     "--auto", "--name", "req", "--limit", "2"])
+    assert result.exit_code == 0, result.output
+
+    req = json.loads((tmp_path / "runs" / "req" / "request.json").read_text())
+    assert req["query"] == "GD 1973"
+    assert req["limit"] == 2
+    assert req["auto"] is True
+
+
+def test_run_list_shows_the_query_of_a_run_with_no_criteria(tmp_path: Path):
+    """A run paused at interpret has no criteria.json, and `iter_sessions`
+    defaults `query` to "" -- so the one run whose query the operator most
+    needs to see would list as an empty pair of quotes."""
+    ws = RunWorkspace(tmp_path, "parked")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    info = iter_sessions(tmp_path)[0]
+
+    assert info.query == "GD 1977 Cornell"
+    assert info.profile is None
+
+
+def test_run_list_json_survives_a_session_with_no_criteria(tmp_path: Path):
+    """`run list --json` renders the same sessions through `_session_json`.
+    A run parked before interpret is the first session in this codebase to
+    reach either renderer without a criteria.json, so both paths are pinned."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    ws = RunWorkspace(tmp_path, "parked2")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)[0]["query"] == "GD 1977 Cornell"
+
+
 def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypatch):
     from llama.profiles import Profile, save_profile
 
