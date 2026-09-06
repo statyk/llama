@@ -98,10 +98,13 @@ class PaceOptions:
     max_wait_s: float      # never sleep longer than this; a longer wait checkpoints
     unknown_reset_wait_s: float   # how long to wait when the refusal named no reset
     reset_skew_s: float    # padding past the named reset, so we do not race its clock
+    five_hour_ceiling: float      # pause when the 5h meter + next show crosses this
+    seven_day_ceiling: float      # same for the weekly meter; checked first
 
 
 def pace_options(config, wait: bool | None = None,
-                 max_wait: str | None = None) -> PaceOptions:
+                 max_wait: str | None = None,
+                 no_pacing: bool = False) -> PaceOptions:
     """Config defaults with the CLI flags layered on top.
 
     `None` means "the flag was not given", so a `--no-wait` can turn off a
@@ -111,11 +114,13 @@ def pace_options(config, wait: bool | None = None,
     """
     cfg = config.pacing
     return PaceOptions(
-        enabled=cfg.enabled,
+        enabled=cfg.enabled and not no_pacing,
         wait=cfg.wait if wait is None else wait,
         max_wait_s=parse_duration(max_wait or cfg.max_wait),
         unknown_reset_wait_s=parse_duration(cfg.unknown_reset_wait),
         reset_skew_s=parse_duration(cfg.reset_skew),
+        five_hour_ceiling=cfg.five_hour_ceiling,
+        seven_day_ceiling=cfg.seven_day_ceiling,
     )
 
 
@@ -135,3 +140,64 @@ def resume_at(err, pace: PaceOptions) -> datetime:
     if when is None or when.tzinfo is None:
         return _now() + timedelta(seconds=pace.unknown_reset_wait_s)
     return when + timedelta(seconds=pace.reset_skew_s)
+
+
+@dataclass(frozen=True)
+class Proceed:
+    """Nothing in the way; run the next unit of work."""
+
+
+@dataclass(frozen=True)
+class PauseUntil:
+    when: datetime
+    scope: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class Progress:
+    """Everything the policy knows about the run, as counters only.
+
+    No clock, no IO - so the whole policy is a table test.
+    """
+    per_show_delta: float | None = None      # learned EWMA; None until observed
+
+
+def _pause(meter, ceiling, scope, projected, now, opts):
+    """A PauseUntil when this meter's projection crosses its ceiling, else None."""
+    if meter is None or meter.percent + projected <= ceiling:
+        return None
+    when = (meter.resets_at + timedelta(seconds=opts.reset_skew_s)
+            if meter.resets_at is not None
+            else now + timedelta(seconds=opts.unknown_reset_wait_s))
+    reason = (f"{'weekly' if scope == 'seven_day' else '5h'} window at "
+              f"{meter.percent}%"
+              + (f", est {projected:.1f}%/show" if projected else ""))
+    return PauseUntil(when, scope, reason)
+
+
+def decide(now: datetime, reading, progress: Progress,
+           opts: PaceOptions) -> Proceed | PauseUntil:
+    """Whether to start the next unit of work, or wait for a window to reset.
+
+    Rules in priority order, first match wins:
+
+    1. Weekly ceiling. Checked FIRST because a weekly exhaustion cannot be
+       slept off at the 5-hour reset - resuming there would land in a window
+       that is still empty.
+    2. Session gate, on the PROJECTION rather than the bare percentage: that
+       is what stops a run starting a show it cannot finish.
+    3. Proceed.
+
+    A missing reading proceeds rather than guessing. The reactive path
+    (herder.limits.RateLimited, caught by the caller) remains the backstop,
+    so a blind boundary costs one refused show, not a wrong multi-hour idle.
+    """
+    if not opts.enabled or reading is None:
+        return Proceed()
+    projected = progress.per_show_delta or 0.0
+    return (_pause(reading.seven_day, opts.seven_day_ceiling, "seven_day",
+                   projected, now, opts)
+            or _pause(reading.five_hour, opts.five_hour_ceiling, "five_hour",
+                      projected, now, opts)
+            or Proceed())

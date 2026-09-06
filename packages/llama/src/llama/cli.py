@@ -3,7 +3,6 @@ import sys
 import tempfile
 import textwrap
 import traceback
-from dataclasses import replace
 from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -164,11 +163,11 @@ def _pace(config, wait: bool | None, max_wait: str | None,
     """Resolve the pacing flags, failing on a bad --max-wait before the run
     starts rather than four shows in."""
     try:
-        pace = pace_options(config, wait=wait, max_wait=max_wait)
+        return pace_options(config, wait=wait, max_wait=max_wait,
+                            no_pacing=no_pacing)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
-    return replace(pace, enabled=False) if no_pacing else pace
 
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,

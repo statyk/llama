@@ -108,6 +108,15 @@ class PacingConfig(BaseModel):
     unknown_reset_wait: str = "1h"
     reset_skew: str = "2m"
 
+    # The proactive gate's whole policy surface for each window. A run pauses
+    # when the meter PLUS the projected next show would cross the ceiling.
+    # 90 is "careful": it stops before the wall without leaving much unused.
+    # Set lower (e.g. 70) to be "polite" and reserve headroom for interactive
+    # work; there is deliberately no second `reserve` knob, which would be a
+    # subtraction the reader has to perform.
+    five_hour_ceiling: float = 90
+    seven_day_ceiling: float = 90
+
     @field_validator("max_wait", "unknown_reset_wait", "reset_skew")
     @classmethod
     def _durations_parse(cls, v: str) -> str:
@@ -254,6 +263,12 @@ unknown_reset_wait = "1h"
 
 # Added to the reset instant before resuming, so we do not race the window.
 reset_skew = "2m"
+
+# Pause when a meter plus the projected next show would cross these. 90 is
+# careful - it stops before the wall. Lower them (e.g. 70) to reserve
+# headroom for your own interactive sessions; the meter is account-wide.
+five_hour_ceiling = 90
+seven_day_ceiling = 90
 
 
 [artists]
