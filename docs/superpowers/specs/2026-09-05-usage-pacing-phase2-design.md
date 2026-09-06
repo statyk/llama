@@ -236,10 +236,17 @@ degrade to gating on the bare percentage.
 
 ### The learned per-show delta
 
-An EWMA over `five_hour` deltas measured across llama's own show boundaries: the
-reading taken before show N+1 minus the reading taken before show N is exactly
-show N's cost. Persisted workspace-level in `pacing-state.json`, so a fresh run
+An EWMA over `five_hour` deltas measured across llama's own show boundaries: a
+reading taken **after** a show minus the one taken **before** it is exactly that
+show's cost. Persisted workspace-level in `pacing-state.json`, so a fresh run
 starts calibrated rather than blind.
+
+Before/after, and deliberately not before-N/before-N+1: the gate's own meter
+read and the `pacing-state.json` write both happen *between* shows, so a
+boundary spanning one show's start to the next show's start would fold them
+into every sample — a constant with nothing to do with the show it is
+attributed to. The cost is a second meter read per show, which is not an
+inference call.
 
 **A boundary contributes only when both readings succeeded and `resets_at` is
 unchanged between them.** A window rollover makes the delta negative and

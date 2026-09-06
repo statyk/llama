@@ -1,8 +1,16 @@
 """What a show costs, learned from the meter across show boundaries.
 
-The reading taken before show N+1 minus the reading taken before show N is
-exactly show N's cost. That is a cleaner attribution than any rate estimate
-over time, and it is available for free because the meter read costs nothing.
+A reading taken AFTER a show minus the one taken before it is exactly that
+show's cost (`cli.py:389` and `cli.py:426`). That is a cleaner attribution
+than any rate estimate over time, and it is available for free because the
+meter read costs nothing.
+
+Before/after, not before-N/before-N+1: the gate's own meter read and this
+module's `record` write both happen BETWEEN shows, so a boundary measured
+from one show's start to the next show's start would fold them into every
+sample -- a constant that has nothing to do with the show it is attributed
+to. Two reads per show buys that precision, and a read is not an inference
+call (see herder.usage).
 
 Known bias, accepted: the meter is account-wide, so a run paced while the
 operator works attributes their burn to llama and over-estimates. That
