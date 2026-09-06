@@ -327,19 +327,23 @@ Rendering a pause is unchanged from phase 1 — sleep if it fits under `max_wait
 else checkpoint and exit 0 — including the no-progress guard (amendment R21),
 which stays exactly as built.
 
-**That sentence describes touch points 3 and 4 only.** The two RUN-LEVEL pause
-sites — the pre-flight gate (1) and the reactive catch around the three
-run-level stages (2) — deliberately checkpoint and exit 0 without sleeping,
-whatever `--wait` and `--max-wait` say. Both go through `_checkpoint_pause`,
-which has no sleep branch; only the show loop sleeps. They behave alike, which
-is the property R20 below actually protects.
+**Superseded 2026-09-06 by T7b, which is BUILT.** As phase 2 shipped, that
+sentence described touch points 3 and 4 only: the two RUN-LEVEL pause sites —
+the pre-flight gate (1) and the reactive catch around the three run-level
+stages (2) — checkpointed and exited 0 without sleeping, whatever `--wait` and
+`--max-wait` said, because both went through `_checkpoint_pause`, which had no
+sleep branch. That was a `--wait` contract break relative to phase 1: `llama
+get --wait` started twenty minutes before a reset used to enter the run, hit
+the limit reactively at a show, sleep through it and finish, and instead exited
+immediately having done nothing.
 
-**The consequence, stated rather than discovered:** this is a `--wait` contract
-break relative to phase 1. `llama get --wait` started twenty minutes before a
-reset used to enter the run, hit the limit reactively at a show, sleep through
-it and finish; it now exits immediately having done nothing, and an unattended
-invocation needs a manual `llama run resume`. Closing that needs a re-decide
-loop around both run-level sites — see **T7b** in the plan, filed and unbuilt.
+**All three sites now honour `--wait`**, through one shared `_render_pause`
+(`_checkpoint_pause` is gone). The run-level sites re-decide after a nap rather
+than proceeding on it — the pre-flight re-reads the meter, the catch re-runs
+the stages — because the meter is account-wide and the reset may have moved.
+They sleep at most once: nothing can change between naps at a site where no
+work has completed, and a `when` already in the past makes `sleep_until` return
+without sleeping, so a second nap there is a hot spin rather than a wait.
 
 ### Resolution of the deferred R20 question
 
