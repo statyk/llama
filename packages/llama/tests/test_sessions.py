@@ -848,6 +848,51 @@ def test_run_resume_with_no_request_artifact_still_resumes(
     assert session_state(ws.dir) == STATE_COMPLETE
 
 
+
+def test_run_resume_never_replays_auto_over_the_explicit_flag(
+        tmp_path: Path, monkeypatch):
+    """`plan` is replayed off `request.json`; `auto` deliberately is NOT --
+    `run resume` has its own `--auto/--interactive` flag, and a persisted
+    value must never override an explicit one. Only a comment said so, and a
+    comment is not a constraint: replaying `auto` here went uncaught by the
+    whole suite. Asserted in BOTH directions so the pin cannot be satisfied
+    by a hardcoded constant either."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    captured = {}
+
+    def fake_execute(config, ia, ledger, ws, criteria, count, auto, human_gate,
+                     force=False, force_stage=None,
+                     full_rationale=False, plan=False, pace=None):
+        captured["auto"] = auto
+
+    monkeypatch.setattr(cli, "_execute", fake_execute)
+
+    def park(name: str, auto: bool):
+        ws = RunWorkspace(tmp_path, name)
+        ws.dir.mkdir(parents=True)
+        write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                               "artist_cap": None, "min_score": None,
+                                               "year_cap": None, "auto": auto,
+                                               "plan": False}))
+        mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    # persisted auto=True, resumed --interactive -> the flag wins
+    park("wasauto", auto=True)
+    r = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "wasauto",
+                                "--interactive"])
+    assert r.exit_code == 0, r.output
+    assert captured["auto"] is False
+
+    # persisted auto=False, resumed with the default --auto -> the flag wins
+    park("wasinteractive", auto=False)
+    r = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "wasinteractive"])
+    assert r.exit_code == 0, r.output
+    assert captured["auto"] is True
+
+
 # --- T6b: the pre-flight gate runs before interpret is paid for --------------
 
 PF_NOW = datetime(2026, 9, 6, 8, 0, tzinfo=timezone.utc)
