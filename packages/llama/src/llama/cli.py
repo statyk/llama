@@ -200,8 +200,8 @@ def _checkpoint_pause(ws: RunWorkspace, limited, pace: PaceOptions,
     typer.echo(f"  resume with: llama run resume {ws.name}")
 
 
-def _meter(config: Config, pace: PaceOptions):
-    """A live meter reading, or None when there is no window to read.
+def _meter_applies(config: Config, pace: PaceOptions) -> bool:
+    """Whether this run has a usage window worth reading at all.
 
     Gated on the backend because only claude_cli has an account window: the
     fake backend must never read one (it would make the offline suite
@@ -209,11 +209,25 @@ def _meter(config: Config, pace: PaceOptions):
     `pace.enabled` too, because `--no-pacing` opts out of the whole feature
     and must not spend a subprocess per show on a reading nothing consults.
 
+    Extracted from `_meter` so the print sites can ask the same question
+    without restating it. `_meter` collapses all three ways of getting None
+    -- disabled, wrong backend, failed read -- into one value, which is
+    right for a caller that only wants the number and wrong for one that
+    has to SAY something about it: only a failed read means "the proactive
+    gate is blind but the reactive backstop is live", and printing that
+    sentence on the other two says something false.
+    """
+    return pace.enabled and config.llm_for("default").backend == "claude_cli"
+
+
+def _meter(config: Config, pace: PaceOptions):
+    """A live meter reading, or None when there is no window to read.
+
     Deliberately NOT routed through `pipeline.make_providers`: a meter read
     is not an LLM call and has no business going through the tier/model
     resolution ladder.
     """
-    if not pace.enabled or config.llm_for("default").backend != "claude_cli":
+    if not _meter_applies(config, pace):
         return None
     return read_usage()
 
@@ -277,11 +291,21 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     # has no run to size. NOT used to reduce `count` -- that feeds
     # choose_entries' artist and year caps, so cutting it would change
     # *which* shows are picked, not just how many.
-    line = _pacing_line(reading, state, pace)
-    fits = shows_that_fit(reading, state.per_show_delta, pace.five_hour_ceiling)
-    if fits is not None and fits < count:
-        line += f"; the remaining {count - fits} pause until the reset"
-    typer.echo(line)
+    #
+    # Gated on `_meter_applies`, not on `reading is not None`: a None reading
+    # under `--no-pacing` or a non-claude_cli backend is the normal steady
+    # state, not a degradation, and the unavailable sentence would then be
+    # actively false -- with pacing off, a limit FAILS the show (the
+    # `except RateLimited` handler below re-raises), so promising "pacing on
+    # limit errors only" is a safety net announced at the moment it is gone.
+    # A failed read on a paced claude_cli run is the one case worth a line.
+    if _meter_applies(config, pace):
+        line = _pacing_line(reading, state, pace)
+        fits = shows_that_fit(reading, state.per_show_delta,
+                              pace.five_hour_ceiling)
+        if fits is not None and fits < count:
+            line += f"; the remaining {count - fits} pause until the reset"
+        typer.echo(line)
     # The one place raw-output capture is switched on: every provider
     # make_providers built shares this module-level destination.
     set_capture_dir(config.root / "llm-failures")
@@ -1378,6 +1402,21 @@ def pacing() -> None:      # shadows nothing: cli.py imports the pacing module
     """
     config = load_config(_config_path)   # the callback's --config, not the default
     pace = pace_options(config)
+    if not _meter_applies(config, pace):
+        # `_execute` prints NOTHING in these two cases -- an unsolicited
+        # run-start line about a mode the operator chose is noise. Here it is
+        # the opposite: this command exists to answer "what is my pacing
+        # situation", so silence, or the unavailable sentence (which promises
+        # a reactive backstop neither case has), would be the one answer it
+        # must not give. The gate is still `_meter_applies`; only the
+        # EXPLANATION branches, after it has already said no.
+        typer.echo("pacing is off ([pacing] enabled = false) — a usage limit "
+                   "will fail the show rather than pause the run"
+                   if not pace.enabled else
+                   f"no usage window to read on the "
+                   f"{config.llm_for('default').backend} backend — pacing "
+                   f"applies to claude_cli only")
+        return
     state = pacing_state.read_state(config.root)
     reading = _meter(config, pace)
     typer.echo(_pacing_line(reading, state, pace))
