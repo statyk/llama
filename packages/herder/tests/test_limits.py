@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from herder import limits
 from herder.limits import RateLimited, classify, parse_reset
 from herder.provider import HerderError
 
@@ -174,3 +175,45 @@ def test_rate_limited_is_a_herder_error():
     # a clean pause/exit - nothing else in the suite pins it.
     assert issubclass(RateLimited, HerderError)
     assert isinstance(RateLimited("boom"), HerderError)
+
+
+def test_parse_reset_accepts_the_dated_usage_form():
+    # /usage names a date; the refusal message does not. Same parser.
+    now = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)   # 16:00 EDT
+    out = limits.parse_reset("resets Sep 5 at 5:20pm (America/New_York)", now=now)
+    assert out == datetime(2026, 9, 5, 21, 20, tzinfo=timezone.utc)
+
+
+def test_parse_reset_accepts_a_dated_form_with_no_minutes():
+    # Measured: the weekly line renders as "7am", not "7:00am".
+    now = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)
+    out = limits.parse_reset("resets Sep 12 at 7am (America/New_York)", now=now,
+                             max_ahead_s=7.5 * 86400)
+    assert out == datetime(2026, 9, 12, 11, 0, tzinfo=timezone.utc)
+
+
+def test_parse_reset_bound_is_per_call_not_global():
+    # The same weekly text is REJECTED under the default 5.5h bound and
+    # ACCEPTED under a weekly one. This is the whole point of the parameter.
+    now = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)
+    text = "resets Sep 12 at 7am (America/New_York)"
+    assert limits.parse_reset(text, now=now) is None
+    assert limits.parse_reset(text, now=now, max_ahead_s=7.5 * 86400) is not None
+
+
+def test_parse_reset_dated_rolls_to_next_year_then_fails_the_bound():
+    # A date already past this year resolves to next year, which no bound
+    # admits -- so a stale or skewed date degrades to None, never to a
+    # year-long sleep.
+    now = datetime(2026, 12, 31, 20, 0, tzinfo=timezone.utc)
+    out = limits.parse_reset("resets Jan 2 at 7am (America/New_York)", now=now,
+                             max_ahead_s=7.5 * 86400)
+    assert out == datetime(2027, 1, 2, 12, 0, tzinfo=timezone.utc)
+    assert limits.parse_reset("resets Dec 1 at 7am (America/New_York)", now=now,
+                              max_ahead_s=7.5 * 86400) is None
+
+
+def test_parse_reset_still_handles_the_refusal_form_unchanged():
+    now = datetime(2026, 9, 4, 13, 0, tzinfo=timezone.utc)   # 09:00 EDT
+    out = limits.parse_reset("resets 11:10am (America/New_York)", now=now)
+    assert out == datetime(2026, 9, 4, 15, 10, tzinfo=timezone.utc)
