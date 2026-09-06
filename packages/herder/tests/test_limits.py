@@ -231,3 +231,20 @@ def test_dated_reset_degrades_to_none_on_a_bad_zone_or_impossible_date():
     assert limits.parse_reset("resets Sep 31 at 7am (America/New_York)",
                               now=now, max_ahead_s=W) is None
 
+
+
+def test_dated_form_wins_when_a_text_carries_two_reset_clauses():
+    # parse_reset's contract is at most one `resets ...` clause per text.
+    # When a caller doesn't honor that, ordering decides the winner - not
+    # because the time-only pattern "can't" match a dated clause (true
+    # per-clause, irrelevant to a multi-clause text): _RESET_DATED_RE.search
+    # scans the WHOLE string, so a dated clause anywhere wins even when a
+    # time-only clause appears first. Pinned here because trying the dated
+    # pattern second would also pass every other test in this file today.
+    now = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)
+    text = (
+        "Session: resets 11:10am (America/New_York)\n"
+        "Weekly: resets Sep 12 at 7am (America/New_York)"
+    )
+    out = limits.parse_reset(text, now=now, max_ahead_s=7.5 * 86400)
+    assert out == datetime(2026, 9, 12, 11, 0, tzinfo=timezone.utc)

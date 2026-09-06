@@ -55,8 +55,13 @@ _MONTHS = {m: i for i, m in enumerate(
 
 # The /usage form: a date, an optional minute ("7am" is what the weekly line
 # actually renders), then the same meridiem-and-zone tail as the refusal form.
-# Tried FIRST because it is the more specific of the two; the time-only
-# pattern cannot match it anyway, since "Sep" is not a digit.
+# Tried FIRST because ordering decides which clause wins when a text carries
+# MORE than one `resets ...` clause - not, as a prior version of this
+# comment claimed, because the time-only pattern "can't" match a dated
+# clause (true per-clause, but irrelevant here: _RESET_DATED_RE.search scans
+# the whole string, so a dated clause anywhere wins regardless of what else
+# is in the text). See parse_reset's docstring for the one-clause contract
+# this ordering exists to resolve when a caller doesn't honor it.
 _RESET_DATED_RE = re.compile(
     r"resets\s+([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})\s+at\s+"
     r"(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*"
@@ -129,6 +134,12 @@ def parse_reset(text: str, now: datetime | None = None,
     is legitimately up to seven days out. A single shared constant would
     either reject every valid weekly reading or let a mis-parsed session
     reset manufacture a week-long sleep.
+
+    Contract: `text` must contain at most one `resets ...` clause. When it
+    holds more than one, the dated form wins wherever in the text it
+    appears, silently discarding any time-only clause - callers with
+    multi-clause text (e.g. a full /usage listing) are responsible for
+    slicing per-clause before calling.
     """
     now = now or datetime.now(timezone.utc)
     dated = _RESET_DATED_RE.search(text)
