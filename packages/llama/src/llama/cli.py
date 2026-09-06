@@ -173,50 +173,37 @@ def _pace(config, wait: bool | None, max_wait: str | None,
         raise typer.Exit(1)
 
 
-def _checkpoint_pause(ws: RunWorkspace, limited, pace: PaceOptions,
-                      outcome: str | None = None,
-                      failures: list[dict] | None = None,
-                      note: str | None = None,
-                      when: datetime | None = None) -> None:
-    """Record a pause and tell the operator how to resume.
+def _render_pause(ws: RunWorkspace, limited, pace: PaceOptions, *,
+                  header: str, header_err: bool = False,
+                  note: str | None = None,
+                  when: datetime | None = None,
+                  stalled: bool = False,
+                  outcome: str | None = None,
+                  failures: list[dict] | None = None,
+                  resume_prefix: str = "") -> bool:
+    """Render one pause. True = slept, the caller should retry; False = stop.
 
-    What shares this is the run-level pause sites -- the stages that run
-    before the per-show loop, which have no show queue to report on. The loop
-    deliberately keeps its own rendering: it also prints how many shows are
-    left, and carries the no-progress guard and the sleep branch, none of
-    which belong in a helper whose job is "checkpoint and return".
+    ONE renderer for all three pause sites -- the pre-flight gate, the
+    run-level catch, and the show loop -- because the half they share is the
+    half that must not drift: the timing arithmetic, the sleep-or-checkpoint
+    decision, and the whole KeyboardInterrupt contract. When those lived in
+    two copies they diverged three ways inside a single commit (`elif` vs `if`
+    on the max-wait line, two spellings of the no-progress sentence, and the
+    header on a different stream), which is what a duplicated interrupt
+    contract looks like just before it costs something.
 
-    `when` is for a caller that already holds a computed instant, whose value
-    already includes reset_skew; letting resume_at recompute it would add the
-    skew twice. `RateLimited` callers pass nothing and keep phase 1's
-    behaviour byte-for-byte.
-    """
-    when = when or resume_at(limited, pace)
-    typer.echo(f"paused: {limited}", err=True)
-    if note:
-        typer.echo(f"  {note}")
-    mark_paused(ws, outcome, failures or [], when.isoformat(),
-                getattr(limited, "scope", None), str(limited))
-    typer.echo(f"  resume with: llama run resume {ws.name}")
+    What genuinely differs between the sites is passed in, and it is all
+    presentation: the header and its stream, an optional note, and the prefix
+    on the resume hint (the loop says how many shows are left; a run-level
+    site has no queue to report).
 
-
-def _run_level_pause(ws: RunWorkspace, limited, pace: PaceOptions, *,
-                     note: str, when: datetime | None = None,
-                     stalled: bool = False) -> bool:
-    """Render a pause at a run-level site. True = slept, retry; False = stop.
-
-    The run-level analogue of the show loop's pause block, and deliberately a
-    separate renderer rather than a parameter on `_checkpoint_pause`: sleeping
-    is a control-flow decision the caller has to act on, so this returns a
-    verdict where that one returns nothing.
-
-    **The no-progress guard degenerates here.** The loop's version compares a
-    progress watermark across pause cycles; a run-level site has no progress
-    to compare, because nothing of the run has completed at either end of the
-    nap. So the guard becomes `stalled`, which the caller sets on any pause
-    after the first at the same site. Sleeping twice at a site that cannot
-    make progress between naps is the indefinite nap the loop's guard exists
-    to prevent, one level up.
+    `stalled` is the no-progress guard. The loop computes it from a progress
+    watermark across pause cycles; a run-level site has no progress to compare
+    across a nap, so it passes `stalled` on any pause after the first at that
+    site. Sleeping twice where nothing can change between naps is not a slow
+    run, it is a stuck one -- and at a run-level site it is a HOT spin, because
+    a `when` already in the past makes `sleep_until` return without sleeping,
+    which no sleep-budget guard in a test can see.
 
     `when` is for a caller holding a `PauseUntil`, whose instant already
     includes reset_skew; routing one through `resume_at` would read a
@@ -224,31 +211,30 @@ def _run_level_pause(ws: RunWorkspace, limited, pace: PaceOptions, *,
     """
     when = when or resume_at(limited, pace)
     wait_s = (when - _pacing._now()).total_seconds()
-    typer.echo(f"paused: {limited}", err=True)
-    typer.echo(f"  {note}")
+    reason, scope = str(limited), getattr(limited, "scope", None)
+    typer.echo(header, err=header_err)
+    if note:
+        typer.echo(f"  {note}")
+    if stalled:
+        typer.echo("  no progress since last pause — checkpointing rather "
+                   "than waiting again")
     if not stalled and pace.wait and wait_s <= pace.max_wait_s:
         typer.echo(f"  resumes {when.astimezone().strftime('%H:%M')} "
                    f"({format_delta(wait_s)})")
         try:
             sleep_until(when, echo=lambda m: typer.echo(m))
         except KeyboardInterrupt:
-            # Same contract as the loop's nap: a clean checkpoint at exit 0,
-            # so an interrupted wait resumes with the command a planned one
-            # would have used.
-            mark_paused(ws, None, [], when.isoformat(),
-                        getattr(limited, "scope", None), str(limited))
+            # A clean checkpoint at exit 0, so an interrupted wait resumes
+            # with the command a planned one would have used.
+            mark_paused(ws, outcome, failures or [], when.isoformat(), scope, reason)
             typer.echo(f"\ninterrupted; resume with: llama run resume {ws.name}")
             return False
         return True
-    if stalled:
-        typer.echo("  no progress since the last pause — checkpointing rather "
-                   "than waiting again")
-    elif wait_s > pace.max_wait_s:
+    if wait_s > pace.max_wait_s:
         typer.echo(f"  resets in {format_delta(wait_s)} — exceeds "
                    f"--max-wait {format_delta(pace.max_wait_s)}")
-    mark_paused(ws, None, [], when.isoformat(),
-                getattr(limited, "scope", None), str(limited))
-    typer.echo(f"  resume with: llama run resume {ws.name}"
+    mark_paused(ws, outcome, failures or [], when.isoformat(), scope, reason)
+    typer.echo(f"  {resume_prefix}resume with: llama run resume {ws.name}"
                + (f" --max-wait {duration_arg(wait_s)}"
                   if wait_s > pace.max_wait_s else ""))
     return False
@@ -367,10 +353,11 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             break
         # `when=` because the verdict already carries a skewed instant; see
         # PauseUntil's docstring for what recomputing it would cost.
-        if not _run_level_pause(ws, verdict, pace, when=verdict.when,
-                                stalled=slept,
-                                note="nothing has run yet; resume when the "
-                                     "window resets"):
+        if not _render_pause(ws, verdict, pace, when=verdict.when,
+                             header=f"paused: {verdict}", header_err=True,
+                             stalled=slept,
+                             note="nothing has run yet; resume when the "
+                                  "window resets"):
             return
         # Re-read and re-decide rather than proceeding on the nap alone: the
         # meter is account-wide, so another session may have spent the window
@@ -406,6 +393,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     # `--wait`. The three stages gate on `should_run`, so a retry after the
     # nap re-runs only what did not finish -- cheap for the ones that did.
     slept_stage = False
+    # The interactive artist prune below is NOT idempotent and must not be
+    # retried: it writes the PRUNED roster to ws.artists, so a second pass
+    # re-lists an already-pruned set with fresh 1..N numbering and the same
+    # answer selects different artists. Every other test drives auto=True,
+    # so only a non-auto run can see it.
+    chose_artists = False
     while True:
         try:
             artists = None
@@ -425,7 +418,8 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                     typer.echo("no matching artists found on the LMA - "
                                "try naming an artist or broadening the style", err=True)
                     return
-                if not auto:
+                if not auto and not chose_artists:
+                    chose_artists = True
                     typer.echo("Matched artists:")
                     for i, a in enumerate(artists, 1):
                         typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
@@ -462,8 +456,9 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             # made. Per-candidate artifacts are out of scope.
             if not pace.enabled:
                 raise
-            if not _run_level_pause(
+            if not _render_pause(
                     ws, exc, pace, stalled=slept_stage,
+                    header=f"paused: {exc}", header_err=True,
                     note="limit hit in discover/search/winnow, before any "
                          "show ran; a resume re-runs that whole stage"):
                 return
@@ -634,31 +629,15 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         done_now = packaged + held + len(failures)
         stalled = done_now == done_before_pause
         done_before_pause = done_now
-        typer.echo(f"paused after {packaged + held} shows: {reason}")
-        if stalled:
-            typer.echo("  no progress since last pause — checkpointing rather "
-                       "than waiting again")
-        if not stalled and pace.wait and wait_s <= pace.max_wait_s:
-            typer.echo(f"  resumes {when.astimezone().strftime('%H:%M')} "
-                       f"({format_delta(wait_s)})")
-            try:
-                sleep_until(when, echo=lambda m: typer.echo(m))
-            except KeyboardInterrupt:
-                mark_paused(ws, _outcome(), failures, when.isoformat(), scope, reason)
-                typer.echo(f"\ninterrupted; resume with: llama run resume {ws.name}")
-                return
-            limited = None
-            pending = unprocessed
-            continue
-        if wait_s > pace.max_wait_s:
-            typer.echo(f"  resets in {format_delta(wait_s)} — exceeds "
-                       f"--max-wait {format_delta(pace.max_wait_s)}")
-        mark_paused(ws, _outcome(), failures, when.isoformat(), scope, reason)
-        typer.echo(f"  {len(unprocessed)} shows left; resume with: "
-                   f"llama run resume {ws.name}"
-                   + (f" --max-wait {duration_arg(wait_s)}"
-                      if wait_s > pace.max_wait_s else ""))
-        return
+        if not _render_pause(
+                ws, limited, pace, when=when, stalled=stalled,
+                header=f"paused after {packaged + held} shows: {reason}",
+                outcome=_outcome(), failures=failures,
+                resume_prefix=f"{len(unprocessed)} shows left; "):
+            return
+        limited = None
+        pending = unprocessed
+        continue
 
     outcome = _outcome()
     # A run that lost shows stays on the attention list (`run list` is

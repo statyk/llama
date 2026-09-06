@@ -66,7 +66,8 @@ def _clock(monkeypatch, *, sleep_budget: int = 4) -> dict:
 
 def _drive(tmp_path: Path, monkeypatch, process, pids, *,
            pace=None, config=None, winnow=None,
-           search=None, choose=None) -> tuple[RunWorkspace, list[str]]:
+           search=None, choose=None, discover=None, auto=True,
+           criteria=None) -> tuple[RunWorkspace, list[str]]:
     """Run `_execute` over `pids` with `process` standing in for process_show."""
     config = config or Config(root=tmp_path)
     ws = RunWorkspace(tmp_path, "r1")
@@ -92,8 +93,10 @@ def _drive(tmp_path: Path, monkeypatch, process, pids, *,
     monkeypatch.setattr(cli, "make_client", lambda config: None)
     monkeypatch.setattr(cli, "process_show", _process_show)
 
-    cli._execute(config, None, None, ws, Criteria(query="x"), len(pids),
-                 auto=True, human_gate=False, pace=pace)
+    if discover is not None:
+        monkeypatch.setattr(cli, "run_discover", discover)
+    cli._execute(config, None, None, ws, criteria or Criteria(query="x"), len(pids),
+                 auto=auto, human_gate=False, pace=pace)
     return ws, seen
 
 
@@ -570,16 +573,23 @@ def test_an_ordinary_stage_failure_is_not_turned_into_a_pause(tmp_path, monkeypa
     assert iter_sessions(tmp_path) == []          # no paused marker
 
 
-def test_checkpoint_pause_keeps_a_precomputed_instant_verbatim(tmp_path):
+def test_render_pause_keeps_a_precomputed_instant_verbatim(tmp_path, monkeypatch):
     """`when` is for a caller that already holds a skewed instant. Recomputing
-    it through resume_at would add reset_skew a second time, so the helper has
-    to record exactly what it was handed."""
+    it through resume_at would add reset_skew a second time, so the renderer
+    has to record exactly what it was handed.
+
+    `wait=False` so this stays a checkpoint: a 3-hour `when` is inside the
+    6-hour cap, and the shared renderer would otherwise sleep through it.
+    """
+    _clock(monkeypatch, sleep_budget=0)
     ws = RunWorkspace(tmp_path, "r1")
     when = NOW + timedelta(hours=3)
 
-    cli._checkpoint_pause(ws, RateLimited("nearly out", scope="seven_day"),
-                          pacing.pace_options(Config()), when=when)
+    slept = cli._render_pause(ws, RateLimited("nearly out", scope="seven_day"),
+                              pacing.pace_options(Config(), wait=False),
+                              header="paused: nearly out", when=when)
 
+    assert slept is False
     marker = json.loads(ws.session.read_text())
     assert marker["resume_after"] == when.isoformat()   # no second skew
     assert marker["pause_scope"] == "seven_day"
@@ -714,7 +724,7 @@ def test_a_proactive_pause_waits_for_the_meters_reset_not_the_unknown_default(
 
 def test_a_preflight_pause_records_the_meters_reset_and_reason(
         tmp_path, monkeypatch, capsys):
-    """The other pause site, which DOES route through _checkpoint_pause: it
+    """The other pause site, which also routes through _render_pause: it
     holds an already-skewed instant, so it has to hand it over as `when` --
     letting resume_at recompute would fall back to the unknown-reset default
     here too."""
@@ -1402,4 +1412,94 @@ def test_the_deferred_pass_is_gated_too(tmp_path, monkeypatch):
                       pace=pacing.pace_options(Config(), wait=False))
 
     assert seen == []                          # never processed ungated
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_a_retry_does_not_re_prompt_for_artists(tmp_path, monkeypatch):
+    """The interactive prune is not idempotent: it writes the PRUNED roster to
+    ws.artists, so a second pass would re-list an already-pruned set with
+    fresh 1..N numbering and the same answer would select different artists.
+
+    Every other test in this file drives auto=True, which is exactly why this
+    one does not -- the retry loop wraps a `should_run`-gated stage AND an
+    ungated prompt, and only a non-auto run can see the difference.
+    """
+    _clock(monkeypatch)
+    prompts = {"n": 0}
+    calls = {"n": 0}
+
+    def _prompt(text, *a, **kw):
+        # By TEXT, not by count: auto=False also fires the unrelated
+        # "Process which ranks?" prompt once, outside the retry loop, so a
+        # bare call count is 2 whether or not the artist gate repeats.
+        if text.startswith("Search which artists"):
+            prompts["n"] += 1
+        return ""                       # keep everything
+
+    def _winnow(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RateLimited("You've hit your session limit", scope="five_hour",
+                              resets_at=NOW + timedelta(minutes=10))
+        return [_entry("a", 1)]
+
+    monkeypatch.setattr(cli.typer, "prompt", _prompt)
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config()),
+                      winnow=_winnow, auto=False,
+                      criteria=Criteria(query="x", soft_preferences="jammy"),
+                      discover=lambda *a, **k: [{"identifier": "gd", "title": "GD"}])
+
+    assert calls["n"] == 2              # the stage really was retried
+    assert prompts["n"] == 1            # but the operator was asked once
+
+
+def test_a_run_level_wait_beyond_max_wait_checkpoints(tmp_path, monkeypatch, capsys):
+    """The --max-wait half of the condition. Every other T7b test uses a
+    10-minute reset, always inside the 6h cap, so a regression that napped
+    straight past --max-wait would ship green."""
+    clock = _clock(monkeypatch, sleep_budget=0)
+    monkeypatch.setattr(cli, "read_usage",
+                        lambda *a, **kw: _near_reading(99, mins=180))
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), max_wait="1h"))
+
+    assert clock["sleeps"] == 0
+    out = capsys.readouterr().out
+    assert "exceeds --max-wait 1h 0m" in out
+    assert "--max-wait 3h2m" in out            # the copy-pasteable hint
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_the_deferred_gate_leaves_the_show_it_stopped_in_front_of(
+        tmp_path, monkeypatch, capsys):
+    """Same queue arithmetic the first pass is pinned for: the deferred show
+    the gate stopped IN FRONT OF has not run, so `deferred[idx:]` -- not
+    `[idx + 1:]`, which drops it and never comes back for it. A one-show
+    queue cannot tell the two apart."""
+    _clock(monkeypatch, sleep_budget=0)
+    calls = {"n": 0}
+
+    def _read(*a, **kw):
+        calls["n"] += 1
+        return _near_reading(5 if calls["n"] <= 3 else 99)
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    real_lock = cli.file_lock
+
+    def _lock(path, *, blocking=True):
+        if not blocking:
+            raise Locked(path)            # both shows defer
+        return real_lock(path)
+
+    monkeypatch.setattr(cli, "file_lock", _lock)
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a", "b"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    assert seen == []
+    # The count is the whole point: `deferred[idx + 1:]` also leaves the run
+    # paused, just silently one show poorer, so asserting the state alone
+    # would pass on the mutant this test exists to kill.
+    assert "2 shows left" in capsys.readouterr().out
     assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
