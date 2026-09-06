@@ -209,3 +209,42 @@ Ruling: **three Minors pulled INTO the fix loop rather than deferred**, because 
 - **CARRY TO RATIFICATION — spec text to correct, no code change:** spec 1(c) says `mark_paused(..., scope="interpret")`, but the code passes the refusal's own scope. **The code is right and the spec line is wrong** — `pause_scope` means the usage window everywhere else in this codebase. The implementer deliberately left the code alone.
 - **Task 7: complete (commits a7839dc..c616304, review clean after 1 fix round)**
 
+### Final whole-branch review — APPROVE, merge as is
+
+Reviewer: **Opus** (`docs/superpowers/2026-09-06-pacing-loose-ends-verdicts/final.md`). Range `660f588..c1bac37` (code) — branch HEAD is `34e3f69`, one docs-only commit further, preserving the verdicts in-repo.
+
+- **Verdict: APPROVE — merge as is. No Critical findings. One Important, explicitly NOT merge-blocking.**
+- Suite verified by the reviewer with the mandated command: **1891 passed, 7 deselected**, interpreter resolving inside the worktree.
+- `--collect-only` node-ID diff against `660f588` (extracted via `git archive`, PYTHONPATH-shadowed): **21 added, 1 removed** — the removal is the deliberately retired `test_default_config_template_documents_every_pacing_knob`. 1871 − 1 + 21 = 1891. **No test was lost.**
+- 12 mutants, each with its red test named before application, all in an rsync copy excluding `__pycache__`, shadowing proven under pytest by a planted sentinel, copy restored byte-identical.
+- **Cross-task coherence: "It reads as one design, not seven edits."** `_get_query`'s ordering — validate caps → `claim_run_dir` → persist `request.json` → resolve `pace` → `_preflight_gate` → `_interpret_with_pause` → `_execute` — is coherent and every ordering constraint is pinned by a mutation the reviewer applied itself.
+- **The T6b story was walked end to end**, including the resume's own gate and catch, rather than read. The reviewer also **probed the KeyboardInterrupt contract at the interpret nap** — filed in this ledger as an unpinned minor; it is unpinned but it demonstrably works (exit 0, `STATE_PAUSED`, `resume_after` set, `request.json` intact).
+- **Both measured traps confirmed independently.** Trap 1: under the `stalled=False` mutant the plan's named test PASSES at exit 0; the hang is `test_preflight_sleeps_at_most_once` at exit 124. Trap 2: the same mutant is a red test at `_interpret_with_pause` and a hang at `_preflight_gate`. Both ledger warnings are accurate as written.
+- **All thirteen rulings upheld**, re-derived rather than read. Nothing to correct. The reviewer notes gating `run_resume`'s re-interpret is the one it would have escalated had it been omitted.
+- The reviewer hunted specifically for a seventh instance of the run's dominant defect class (a test claiming a constraint it does not pin) and **found none** — in all three cases it mutated for, the discriminating assertion was the one added BEYOND the brief.
+
+#### Finding I-1 (Important, NOT merge-blocking) — held, not fixed
+
+**`--plan` is silently dropped on the resume the CLI itself recommends.** `cli.py:1062-1090` → `cli.py:1086` calls `_execute(...)` with `plan` at its default `False`; `request.json` persists `plan` at `cli.py:795` and nothing reads it. **Measured, not reasoned:** a `llama get "..." --plan` refused at interpret parks correctly and prints `run resume interp`; following that hint runs the FULL acquisition — six audio files downloaded and the show packaged. The operator asked for a shortlist and got a processed show.
+
+Ruling: **HOLD the fix wave; hand I-1 to the session root as a decision.** The fix is ~2 lines plus a test, using data the branch already persists, and the reviewer recommends taking it. I am not taking it, on the coordinator's explicit pacing rule: at the 5-hour meter's 82% with the preceding stretch burning ~43%/hr, a two-seat fix wave (implementer + scoped re-review) projects to 90%+ — the checkpoint-mid-edit ceiling — and the window resets in ~110 minutes. A fix wave on a fresh window is strictly better than one that dies mid-edit, and nothing is lost by waiting: the branch is clean, committed, complete, and approved for merge without it. — Cost if wrong: `llama get --plan` interrupted by a usage limit and resumed via the CLI's own printed hint performs a full acquisition instead of stopping at the shortlist. Bounded: it matches pre-existing `run resume` semantics, costs bandwidth and LLM spend rather than correctness, and is recoverable by `llama rm`.
+
+The reviewer's prescribed fix, for whoever takes it: read `plan` from the persisted request in the **criteria-less branch only** and pass it into `_execute`; all four existing resume tests persist `plan: False` and stay green. **Do NOT replay `auto` the same way** — `run resume` has its own explicit `--auto/--interactive` flag and the persisted value must not override it.
+
+#### Merge triage of the deferred minors — the reviewer's, item by item
+
+- **Must-fix before merge: NONE.**
+- **Already resolved, struck from the list** (both verified by the reviewer): Task 4's stale "the query lives only in argv" comments — `cli.py:789-791` and `sessions.py:98` are both corrected, so the ledger's Task-5 CHECKLIST ITEM is satisfied and Task 7's doc step did happen; and Task 6's dangling `cli.py:478-480` cross-reference, which now names the two in-run call sites and `profile_add` explicitly.
+- **Recommended now (1):** Task 5's unconsumed `plan` → I-1, held above.
+- **Ship as is (all others).** The standout to **file, not fix here**: `Config` sets no `model_config`, so pydantic's `extra="ignore"` silently drops a typo'd key in a real operator `config.toml`. The reviewer calls it "the most valuable item on the whole deferred list and it does not belong to this branch" — `extra="forbid"` is a production behaviour change that would break anyone carrying a stale key. **File in `llama-next-steps-and-deferred`.**
+- Two minors the reviewer measured and **promoted from trust to evidence**: M-1, the twice-spelled request dict — substituting `artist_cap → None` in EITHER spelling leaves all 1891 green, but the base control at `660f588` is also green, so it is **pre-existing**, not introduced here; M-2, the unguarded `json.loads(request.json)` at `sessions.py:127` and `cli.py:2823`, while `_read_marker` five lines away IS guarded.
+- New minors from this review, all ship-as-is: M-4 `INTERPRET_NOTE` unpinned; M-5 unreachable `pace is None`; M-6 this ledger does not record `34e3f69`.
+
+#### Carry to ratification — documentation, no code change
+
+1. **Spec deviation to fold into §1(a):** the third `_preflight_gate` call site at `run_resume`'s criteria-less re-interpret branch, plus its `RateLimited` catch. The spec names only `_get_query` and `_execute` because the resume re-interpret path did not exist when it was written.
+2. **The plan's Task 6 Step 7 names the WRONG test.** `test_preflight_re_reads_the_meter_after_the_nap` should be `test_preflight_sleeps_at_most_once`. Confirmed three times independently. Do not narrow the `-k`.
+3. **Spec 1(c)'s `mark_paused(..., scope="interpret")` is wrong; the code is right** — `pause_scope` means the usage window everywhere else in this codebase.
+4. The spec's constraint 2 ("dropping `stalled` HANGS rather than reddening") should be marked **site-specific**: true at `_preflight_gate`, false at `_interpret_with_pause`.
+
+**RUN COMPLETE — all seven tasks landed, all reviewed, final review APPROVE. Branch `pacing-loose-ends` @ `34e3f69`, 1891 passed / 7 deselected, tree clean. Merge, push and tag belong to the session root.**
