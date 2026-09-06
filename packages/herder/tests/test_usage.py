@@ -1,6 +1,7 @@
+import subprocess
 from datetime import datetime, timezone
 
-from herder import usage
+from herder import claude_cli, usage
 
 NOW = datetime(2026, 9, 5, 20, 30, tzinfo=timezone.utc)     # 16:30 EDT
 
@@ -193,3 +194,76 @@ def test_read_usage_degrades_to_none_on_malformed_envelope_shapes():
 def test_read_usage_passes_now_through_to_the_parser():
     r = usage.read_usage(runner=lambda: _envelope(REAL), now=NOW)
     assert r.five_hour.resets_at == datetime(2026, 9, 5, 21, 20, tzinfo=timezone.utc)
+
+
+# F1 fix round: _cli_runner itself was pinned by nothing - every mutation of
+# its body (corrupt the "/usage" arg, drop --output-format/json, drop
+# ISOLATION_ARGS, drop the returncode==0 check, drop timeout/capture_output/
+# text/cwd/env, narrow the except tuple) left the suite above green, because
+# no test above ever calls it: every read_usage() call injects its own
+# runner. These tests patch subprocess.run directly, following
+# test_claude_cli.py's patch_run/FakeProc pattern, so nothing here spawns a
+# real process.
+class _FakeProc:
+    def __init__(self, returncode=0, stdout=""):
+        self.returncode, self.stdout = returncode, stdout
+
+
+def test_cli_runner_passes_usage_argv_and_isolation_args(monkeypatch):
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        return _FakeProc(returncode=0, stdout="OUT")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert usage._cli_runner() == "OUT"
+    cmd = seen["cmd"]
+    assert cmd[0] == "claude"
+    assert cmd[1] == "-p"
+    assert cmd[2] == "/usage"
+    idx = cmd.index("--output-format")
+    assert cmd[idx + 1] == "json"
+    assert cmd[-len(claude_cli.ISOLATION_ARGS):] == claude_cli.ISOLATION_ARGS
+
+
+def test_cli_runner_uses_neutral_cwd_and_subprocess_env(monkeypatch):
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen.update(kwargs)
+        return _FakeProc(returncode=0, stdout="OUT")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(claude_cli, "_neutral_cwd", lambda: "SENTINEL_CWD")
+    monkeypatch.setattr(claude_cli, "_subprocess_env", lambda: {"SENTINEL_ENV": "1"})
+    usage._cli_runner()
+    assert seen["cwd"] == "SENTINEL_CWD"
+    assert seen["env"] == {"SENTINEL_ENV": "1"}
+    assert seen["capture_output"] is True
+    assert seen["text"] is True
+    assert seen["timeout"] == 60
+
+
+def test_cli_runner_returns_none_on_nonzero_exit(monkeypatch):
+    def fake_run(cmd, **kwargs):
+        return _FakeProc(returncode=1, stdout="ignored - process failed")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert usage._cli_runner() is None
+
+
+def test_cli_runner_survives_a_missing_binary(monkeypatch):
+    def boom(cmd, **kwargs):
+        raise FileNotFoundError("no claude binary")
+
+    monkeypatch.setattr(subprocess, "run", boom)
+    assert usage._cli_runner() is None
+
+
+def test_cli_runner_survives_a_timeout(monkeypatch):
+    def boom(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="claude", timeout=60)
+
+    monkeypatch.setattr(subprocess, "run", boom)
+    assert usage._cli_runner() is None
