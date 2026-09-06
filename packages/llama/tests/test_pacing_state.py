@@ -32,7 +32,7 @@ def test_a_window_rollover_contributes_nothing():
     # Folding it in would drag the estimate toward zero -- an UNDER-estimate,
     # which is what walks a run into the wall.
     seeded = ps.PacingState(4.0, 3)
-    assert ps.observe(_r(90), _r(2, OTHER_RESET), seeded) == seeded
+    assert ps.observe(_r(90), _r(92, OTHER_RESET), seeded) == seeded
 
 
 def test_a_failed_reading_at_either_end_contributes_nothing():
@@ -52,7 +52,7 @@ def test_a_rollover_with_a_positive_delta_still_contributes_nothing():
     # look plausible (positive) must not slip past it just because the
     # negative-delta guard alone would have let it through.
     seeded = ps.PacingState(4.0, 3)
-    assert ps.observe(_r(10), _r(14, OTHER_RESET), seeded) == seeded
+    assert ps.observe(_r(10), _r(20, OTHER_RESET), seeded) == seeded
 
 
 def test_a_zero_delta_is_folded_in_normally():

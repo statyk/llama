@@ -108,6 +108,19 @@ def test_session_reset_far_beyond_the_five_hour_bound_is_rejected():
     assert r.five_hour == usage.Meter(10, None)
 
 
+def test_weekly_reset_far_beyond_the_seven_day_bound_is_rejected():
+    # The weekly meter's REJECT direction, and the dangerous one: WIDENING
+    # SEVEN_DAY_MAX_AHEAD_S is what lets a mis-parsed or clock-skewed reset
+    # manufacture a multi-day sleep. Only the narrowing direction was pinned
+    # (by test_weekly_reset_uses_the_weekly_bound_not_the_session_one), so a
+    # widened bound stayed green everywhere.
+    text = ("Current session: 10% used\n"
+            "Current week (all models): 7% used · resets Sep 19 at 7am "
+            "(America/New_York)\n")
+    r = usage.parse_usage_text(text, now=NOW)
+    assert r.seven_day == usage.Meter(7, None)
+
+
 def test_weekly_all_line_without_its_own_reset_is_not_polluted_by_a_later_clause():
     # F1 continued: the same slicing property, pinned for _WEEK_ALL_RE.
     text = ("Current session: 10% used\n"
