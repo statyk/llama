@@ -19,15 +19,43 @@ Three things are left undone, and they are the whole of phase 2:
   always discovers the limit by being refused. The refusal costs a
   partially-spent show, and the operator learns the window was nearly empty only
   once it is empty.
-- **A limit during `interpret`, `search` or `winnow` loses the run.** Phase 1's
+- **A limit during `discover`, `search` or `winnow` loses the run.** Phase 1's
   catch is inside the per-show loop. `run_discover`, `run_search` and
   `run_winnow` all execute before it, so a `RateLimited` raised there propagates
   out of `_execute`: exit 1, no session marker, no `paused` state, no
   `resume_after`. The operator sees a failure, not a pause. This is stated
   explicitly as a boundary in the phase-1 spec (amendment R22).
+
+  **These three stages, and only these three.** The phase-1 spec wrote
+  `` `interpret` (`run_discover`) `` literally
+  (`2026-09-04-usage-pacing-design.md:346-348`), which is where the recurring
+  "interpret/search/winnow" phrasing comes from -- but `interpret` and
+  `discover` are different stages, and `cli.py`'s module-level
+`_PIPELINE_RUN_STAGES` is
+  a third, different triple that excludes `discover` altogether. Read the call
+  sites, not the phrase.
+
 - **There is no way to plan a run against the window.** The operator times runs
   around available capacity by hand, with no answer to "will 13 shows fit before
   the reset?"
+
+### Known gap: `run_interpret` is not covered
+
+A `RateLimited` raised by `run_interpret` still exits 1 with no checkpoint, and
+phase 2 deliberately leaves it that way. `run_interpret` is called at
+`cli._get_query` (the `get` command's query-mode helper, **before** `_execute`
+is entered) and in `cli.profile_add` (the profile-creation path, against a
+scratch workspace in a `TemporaryDirectory`). Wrapping it would not produce a resumable run: it writes
+`criteria.json` only on success (`stages/interpret.py:13`), and `run resume`
+refuses a session that has no `criteria.json` (the `ws.criteria.exists()`
+guard at the top of `cli.run_resume`), so a
+checkpoint there would park a session that cannot be resumed -- the query exists
+only in argv. Making it resumable is new design (persist the raw query at run
+claim time), not a catch.
+
+The cost of leaving it is one LLM call with nothing written, on `llama get`
+only: the profile path (`--profile`) reads stored criteria and never calls
+`run_interpret` at all. See **T6b** in the plan, filed and unbuilt.
 
 ## What changed since phase 1: the signal
 
@@ -187,8 +215,12 @@ IO stays in the caller, matching `siblings.py` and `structure.py`.
 decide(now, reading, progress, opts) -> Proceed | PauseUntil(when, scope, reason)
 ```
 
-`progress` is counters only — shows done, shows remaining, learned per-show
-delta. No clock reads, no IO, so the whole policy is a table test.
+`progress` is counters only. No clock reads, no IO, so the whole policy is a
+table test. **What shipped carries one field, `per_show_delta`** — the learned
+EWMA. The shows-done and shows-remaining counters this section originally named
+were never built: no policy rule consumes them, and `_execute` sizes its own
+forecast against `count` at the call site. **Filed and unbuilt**, in the same
+sense as T6b and T7b; adding them is new surface, not a correction.
 
 ## Policy
 
@@ -210,10 +242,17 @@ degrade to gating on the bare percentage.
 
 ### The learned per-show delta
 
-An EWMA over `five_hour` deltas measured across llama's own show boundaries: the
-reading taken before show N+1 minus the reading taken before show N is exactly
-show N's cost. Persisted workspace-level in `pacing-state.json`, so a fresh run
+An EWMA over `five_hour` deltas measured across llama's own show boundaries: a
+reading taken **after** a show minus the one taken **before** it is exactly that
+show's cost. Persisted workspace-level in `pacing-state.json`, so a fresh run
 starts calibrated rather than blind.
+
+Before/after, and deliberately not before-N/before-N+1: the gate's own meter
+read and the `pacing-state.json` write both happen *between* shows, so a
+boundary spanning one show's start to the next show's start would fold them
+into every sample — a constant with nothing to do with the show it is
+attributed to. The cost is a second meter read per show, which is not an
+inference call.
 
 **A boundary contributes only when both readings succeeded and `resets_at` is
 unchanged between them.** A window rollover makes the delta negative and
@@ -288,6 +327,20 @@ Rendering a pause is unchanged from phase 1 — sleep if it fits under `max_wait
 else checkpoint and exit 0 — including the no-progress guard (amendment R21),
 which stays exactly as built.
 
+**That sentence describes touch points 3 and 4 only.** The two RUN-LEVEL pause
+sites — the pre-flight gate (1) and the reactive catch around the three
+run-level stages (2) — deliberately checkpoint and exit 0 without sleeping,
+whatever `--wait` and `--max-wait` say. Both go through `_checkpoint_pause`,
+which has no sleep branch; only the show loop sleeps. They behave alike, which
+is the property R20 below actually protects.
+
+**The consequence, stated rather than discovered:** this is a `--wait` contract
+break relative to phase 1. `llama get --wait` started twenty minutes before a
+reset used to enter the run, hit the limit reactively at a show, sleep through
+it and finish; it now exits immediately having done nothing, and an unattended
+invocation needs a manual `llama run resume`. Closing that needs a re-decide
+loop around both run-level sites — see **T7b** in the plan, filed and unbuilt.
+
 ### Resolution of the deferred R20 question
 
 Phase 1's spec deferred to phase 2 the question of how an unattended scheduler
@@ -333,8 +386,9 @@ the proactive gate as well as the reactive pause.
 
 ### `llama pacing` (new, read-only)
 
-In the shape of the existing `llama pipeline` teaching command: the three
-meters, the learned per-show delta, what `decide()` would return right now, and
+In the shape of the existing `llama pipeline` teaching command: the two meters
+that render -- session and weekly -- the learned per-show delta, what `decide()`
+would return right now, and
 **the forecast** — how many shows fit before the reset. This is the command the
 operator runs *before* launching, given that runs are timed around available
 capacity by hand today.
@@ -355,7 +409,7 @@ When the read fails, one line says so and the proactive rules are skipped for
 that boundary, falling back to the reactive backstop:
 
 ```
-usage read unavailable — pacing on limit errors only
+pacing: usage read unavailable — pacing on limit errors only
 ```
 
 ## Testing
@@ -380,8 +434,11 @@ Offline and deterministic, per the repo contract: injected runner, injected
   nothing.
 - **Run-level catch**: a `RateLimited` raised from `run_winnow` produces a
   `paused` session and exit 0, not a traceback.
-- **Resume costs nothing**: a fake provider with a call counter proves
-  already-packaged shows make zero LLM calls on re-entry.
+- **Resume costs nothing** — **FILED AND UNBUILT.** The intended test was a
+  fake provider with a call counter proving already-packaged shows make zero
+  LLM calls on re-entry. It was not written: the property it asserts is
+  `should_run`'s, which predates this phase and is not something phase 2
+  changed. Recorded here rather than quietly dropped, so the gap is tracked.
 
 ### Constraints to mutate, not merely run
 

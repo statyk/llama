@@ -1,10 +1,16 @@
-"""Waiting out a usage window.
+"""Pacing a run against the account's usage windows.
 
-Phase 1 is the reactive half only: llama learns the reset time from the
-backend's own refusal (herder.limits) and either sleeps through it or
-checkpoints. The proactive half - reading Claude Code's usage cache,
-projecting per-show cost, pausing BEFORE a window is exhausted - is
-phase 2 and deliberately absent here.
+Two halves, both of them here. The REACTIVE one learns the reset time
+from the backend's own refusal (herder.limits) and either sleeps through
+it or checkpoints the session. The PROACTIVE one is `decide()`: a pure
+policy over a live meter reading and a learned per-show cost that pauses
+at a show boundary BEFORE a window is exhausted, one ceiling per window.
+
+The reading comes from herder.usage, which takes a live `/usage` call and
+deliberately NOT ~/.claude.json's cached utilization - that cache is
+write-throttled and was measured serving an already-expired window. The
+reactive half stays the backstop: a boundary the proactive half could not
+see costs one refused show, not a wrong multi-hour idle.
 """
 import math
 import re
@@ -98,10 +104,13 @@ class PaceOptions:
     max_wait_s: float      # never sleep longer than this; a longer wait checkpoints
     unknown_reset_wait_s: float   # how long to wait when the refusal named no reset
     reset_skew_s: float    # padding past the named reset, so we do not race its clock
+    five_hour_ceiling: float      # pause when the 5h meter + next show crosses this
+    seven_day_ceiling: float      # same for the weekly meter; checked first
 
 
 def pace_options(config, wait: bool | None = None,
-                 max_wait: str | None = None) -> PaceOptions:
+                 max_wait: str | None = None,
+                 no_pacing: bool = False) -> PaceOptions:
     """Config defaults with the CLI flags layered on top.
 
     `None` means "the flag was not given", so a `--no-wait` can turn off a
@@ -111,11 +120,13 @@ def pace_options(config, wait: bool | None = None,
     """
     cfg = config.pacing
     return PaceOptions(
-        enabled=cfg.enabled,
+        enabled=cfg.enabled and not no_pacing,
         wait=cfg.wait if wait is None else wait,
         max_wait_s=parse_duration(max_wait or cfg.max_wait),
         unknown_reset_wait_s=parse_duration(cfg.unknown_reset_wait),
         reset_skew_s=parse_duration(cfg.reset_skew),
+        five_hour_ceiling=cfg.five_hour_ceiling,
+        seven_day_ceiling=cfg.seven_day_ceiling,
     )
 
 
@@ -135,3 +146,157 @@ def resume_at(err, pace: PaceOptions) -> datetime:
     if when is None or when.tzinfo is None:
         return _now() + timedelta(seconds=pace.unknown_reset_wait_s)
     return when + timedelta(seconds=pace.reset_skew_s)
+
+
+@dataclass(frozen=True)
+class Proceed:
+    """Nothing in the way; run the next unit of work."""
+
+
+@dataclass(frozen=True)
+class PauseUntil:
+    """Wait until `when` before starting the next unit of work.
+
+    `when` already has `reset_skew` folded in. A caller holding one must
+    therefore NOT route it through `resume_at`: that reads `resets_at`,
+    which this does not have, so it would quietly substitute the
+    unknown-reset default for the reset the meter actually named -- and
+    adding a `resets_at` here to satisfy it would apply the skew twice.
+    """
+    when: datetime
+    scope: str
+    reason: str
+
+    def __str__(self) -> str:
+        """The reason alone, so the pause sites can render this and a
+        `RateLimited` through the same `str()`. The dataclass repr would put
+        a field dump and a datetime into the operator's session marker."""
+        return self.reason
+
+
+@dataclass(frozen=True)
+class Progress:
+    """Everything the policy knows about the run, as counters only.
+
+    No clock, no IO - so the whole policy is a table test.
+    """
+    per_show_delta: float | None = None      # learned EWMA; None until observed
+
+
+def _pause(meter, ceiling, scope, projected, now, opts) -> PauseUntil | None:
+    """A PauseUntil when this meter's projection crosses its ceiling, else None."""
+    if meter is None or meter.percent + projected <= ceiling:
+        return None
+    when = (meter.resets_at + timedelta(seconds=opts.reset_skew_s)
+            if meter.resets_at is not None
+            else now + timedelta(seconds=opts.unknown_reset_wait_s))
+    reason = (f"{'weekly' if scope == 'seven_day' else '5h'} window at "
+              f"{meter.percent}%"
+              + (f", est {projected:.1f}%/show" if projected else ""))
+    return PauseUntil(when, scope, reason)
+
+
+def decide(now: datetime, reading, progress: Progress,
+           opts: PaceOptions) -> Proceed | PauseUntil:
+    """Whether to start the next unit of work, or wait for a window to reset.
+
+    Rules in priority order, first match wins:
+
+    1. Weekly ceiling. Checked FIRST because a weekly exhaustion cannot be
+       slept off at the 5-hour reset - resuming there would land in a window
+       that is still empty.
+    2. Session gate, on the PROJECTION rather than the bare percentage: that
+       is what stops a run starting a show it cannot finish.
+    3. Proceed.
+
+    A missing reading proceeds rather than guessing. The reactive path
+    (herder.limits.RateLimited, caught by the caller) remains the backstop,
+    so a blind boundary costs one refused show, not a wrong multi-hour idle.
+
+    Precondition: `progress.per_show_delta` must be non-negative. A negative
+    value is not clamped here - it would quietly make the gate MORE
+    permissive the closer the run got to the wall. `pacing_state.observe` is
+    the sole producer and the guarantor, refusing negative deltas at the
+    source; clamping here would absorb a regression there that its own tests
+    already catch.
+    """
+    if not opts.enabled or reading is None:
+        return Proceed()
+    projected = progress.per_show_delta or 0.0
+    return (_pause(reading.seven_day, opts.seven_day_ceiling, "seven_day",
+                   projected, now, opts)
+            or _pause(reading.five_hour, opts.five_hour_ceiling, "five_hour",
+                      projected, now, opts)
+            or Proceed())
+
+
+def shows_that_fit(meter, per_show_delta: float | None,
+                   ceiling: float) -> int | None:
+    """How many more shows ONE window has room for, or None.
+
+    None means "no estimate", which is a different thing from zero and must
+    render differently - a run that has learned nothing yet has not been
+    told it cannot proceed.
+
+    The headroom is measured to `decide`'s ceiling, not to 100%: the gate
+    pauses at the ceiling, so counting the points above it would forecast
+    shows this run would never be allowed to start. `not per_show_delta`
+    also catches a 0.0 estimate, which would divide by zero and is not a
+    cost any real show has.
+
+    Takes a METER, not a whole reading: an earlier version took the reading
+    and reached into `.five_hour` itself, which made "forecast the wrong
+    window" the easiest thing a caller could write - and it did, shipping a
+    line that read `weekly 84% ... ~17 fit` when the weekly headroom was one
+    show. Per-window is the only shape that cannot express that bug;
+    `binding_forecast` composes it over both.
+    """
+    if meter is None or not per_show_delta:
+        return None
+    return max(0, int((ceiling - meter.percent) // per_show_delta))
+
+
+@dataclass(frozen=True)
+class Forecast:
+    """How many shows fit before the FIRST window to run out, and which.
+
+    `resets_at` is the binding window's own reset and may be None - a meter
+    whose reset clause did not parse is the live shape, not a hypothetical:
+    the real /usage output prints `Current week (Fable): 0% used` with no
+    reset clause at all. Renderers must guard it.
+    """
+    shows: int
+    scope: str                 # "five_hour" | "seven_day"
+    resets_at: datetime | None
+
+
+def binding_forecast(reading, per_show_delta: float | None,
+                     opts: PaceOptions) -> Forecast | None:
+    """The window that runs out first, or None when nothing can be forecast.
+
+    Both windows, each against ITS OWN ceiling - they are independent config
+    fields that merely happen to share a default - and the smaller count
+    wins, because a run stops at the first wall it reaches.
+
+    Ties go to the WEEKLY window, which is why it is listed first: `min`
+    keeps the earliest minimum, and on a tie `decide` pauses on seven_day
+    (it checks that one first), so the weekly reset is the instant the
+    operator would actually wait for. Naming the 5-hour reset there would
+    promise a wait of hours for a pause of days.
+
+    A window with no meter, or no estimate, simply does not compete; if
+    neither competes the answer is None ("no forecast"), never zero.
+    """
+    if reading is None:
+        return None
+    candidates = [
+        (shows_that_fit(reading.seven_day, per_show_delta,
+                        opts.seven_day_ceiling), "seven_day", reading.seven_day),
+        (shows_that_fit(reading.five_hour, per_show_delta,
+                        opts.five_hour_ceiling), "five_hour", reading.five_hour),
+    ]
+    live = [c for c in candidates if c[0] is not None]
+    if not live:
+        return None
+    shows, scope, meter = min(live, key=lambda c: c[0])
+    return Forecast(shows, scope, meter.resets_at)

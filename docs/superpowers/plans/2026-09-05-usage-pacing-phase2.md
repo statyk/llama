@@ -21,6 +21,59 @@
 - **Venv discipline (from CLAUDE.md):** in a worktree, give the worktree its own `.venv` and run `./.venv/bin/pytest`. Never run a `.venv/bin/*` console script from a copy of the tree. Verify with `./.venv/bin/python -c "import llama; print(llama.__file__)"`.
 - Full suite: `pytest -q` from the repo root. Current baseline: 1742 tests passing.
 
+## Rulings applied during execution
+
+Recorded 2026-09-05 by the SDD orchestrator's pre-flight conflict scan, and
+confirmed against source by the plan's author. Where a ruling and the task
+text below disagree, **the ruling governs**.
+
+- **R1 (Task 4) — `_pace` keeps `typer.Exit(1)`.** Task 4's snippet rewrites
+  `_pace`'s except body to raise `typer.BadParameter`, which Typer exits with
+  code 2. `test_pace_loop.py::test_a_malformed_max_wait_fails_before_the_run_starts`
+  pins `exit_code == 1` across three parametrized argv. Change only the
+  *construction* — `pace_options(config, wait=..., max_wait=..., no_pacing=...)`
+  in place of `dataclasses.replace` — and leave the `typer.echo(...); raise
+  typer.Exit(1)` body alone. The unused `replace` import still goes.
+
+- **R2 (Task 6) — `_checkpoint_pause` is not shared with the per-show loop.**
+  Its docstring claims both callers; in fact it is wired only to the run-level
+  catch and Task 7's pre-flight gate. The per-show loop's own rendering
+  (`paused after N shows: ...`) is pinned by
+  `test_a_checkpoint_reports_how_many_shows_are_left` and additionally carries
+  the no-progress guard and the sleep branch. Do not refactor it into the
+  helper; write the docstring to match what the helper actually shares.
+
+- **R3 (Task 7) — the per-show loop's `when` needs an isinstance guard.**
+  Task 7 says to "pass `when=limited.when`", but the line in question is
+  `when = resume_at(limited, pace)`, which does not call `_checkpoint_pause`.
+  `resume_at` reads `getattr(err, "resets_at", None)`, and a `PauseUntil` has
+  no such attribute — so a proactive pause would silently sleep the one-hour
+  `unknown_reset_wait` default instead of sleeping to the reset the meter
+  named. It becomes:
+
+  ```python
+  when = (limited.when if isinstance(limited, PauseUntil)
+          else resume_at(limited, pace))
+  ```
+
+  and `limited`'s annotation widens to `RateLimited | PauseUntil | None`.
+  Giving `PauseUntil` a `resets_at` property is the wrong fix: `PauseUntil.when`
+  already includes `reset_skew`, so `resume_at` would apply it twice.
+
+- **R4 (Task 9) — mutation 1's expected red set is corrected.** Narrowing
+  `usage.SEVEN_DAY_MAX_AHEAD_S` to `5.5 * 3600` turns **three** tests red, all
+  in `test_usage.py`: `test_weekly_reset_uses_the_weekly_bound_not_the_session_one`,
+  `test_parses_all_three_meters_from_the_real_output` and
+  `test_per_model_meter_parses_percent_reset_and_strips_whitespace` — the third
+  because the constant has a **second call site**, the per-model meter's
+  `parse_reset` call in `parse_usage_text`. (R4 as first written named only the
+  first two; corrected in the final fix wave, measured 2026-09-06: 3 failed,
+  1857 passed.) It does **not** touch
+  `test_parse_reset_bound_is_per_call_not_global`, which lives in
+  `test_limits.py` — a module that never imports `herder.usage` — and passes
+  `7.5 * 86400` as a literal, so it is structurally incapable of seeing this
+  mutation. The constraint is pinned either way; no test is strengthened.
+
 ## File Structure
 
 | File | Responsibility |
@@ -1081,6 +1134,44 @@ git add packages/llama/src/llama/cli.py packages/llama/tests/test_pace_loop.py
 git commit -m "fix(cli): a limit during interpret/search/winnow now checkpoints"
 ```
 
+**Correction, post-review.** That commit subject is wrong in both directions and
+is preserved only because the commit shipped under it. It names `interpret`,
+which this task does **not** cover, and omits `discover`, which it does. What
+landed covers exactly `run_discover`, `run_search` and `run_winnow` -- the three
+stages inside `_execute`'s try block.
+
+**Known gap: `run_interpret` is not covered.** A `RateLimited` there still exits
+1 with no checkpoint. `run_interpret` is called in `cli._get_query` (the `get`
+command's query-mode helper, before `_execute` is entered) and in
+`cli.profile_add` (profile creation, scratch workspace). A checkpoint there
+would be **unresumable**: `run_interpret` writes `criteria.json` only on success
+(`stages/interpret.py`'s `run_interpret`) and `run resume` refuses a session
+without one (the `ws.criteria.exists()` guard at the top of `cli.run_resume`),
+so the query would exist only
+in argv. Cost of leaving it: one LLM call with nothing written, `llama get`
+only -- the `--profile` path never calls `run_interpret`. The confusing phrasing
+originates in phase 1's spec, which wrote `` `interpret` (`run_discover`) ``
+literally at `2026-09-04-usage-pacing-design.md:346-348`; note also that
+`cli.py`'s module-level `_PIPELINE_RUN_STAGES` is a different triple that
+excludes `discover`.
+
+---
+
+### Task T6b (FILED, NOT IMPLEMENTED): checkpoint a limit during `run_interpret`
+
+**Status: UNBUILT. Do not implement as part of phase 2.** Filed so the gap above
+is tracked rather than rediscovered.
+
+Scope: `llama get` (`cli._get_query`), the profile-creation path
+(`cli.profile_add`), and the `run approve` / `run resume` entry points, which must be able to pick up
+whatever a checkpoint there leaves behind.
+
+It is not a catch. It needs its own resumability design -- at minimum persisting
+the raw query (and the explicit flags stamped onto criteria) at run-claim time
+so `run resume` has something to re-interpret, plus a decision on what the
+profile path's `TemporaryDirectory` scratch workspace should do, since it has no
+run directory to checkpoint into at all. It needs its own tests.
+
 ---
 
 ### Task 7: Wire the proactive gate into `_execute`
@@ -1282,6 +1373,40 @@ git commit -m "feat(cli): proactive pacing gate at run and show boundaries"
 
 ---
 
+### Task T7b (FILED, NOT IMPLEMENTED): let the run-level pause sites honour `--wait`
+
+**Status: UNBUILT. Do not implement as part of phase 2.** Filed so the gap is
+tracked rather than rediscovered, and because it is not Task 7's alone.
+
+Both run-level pause sites checkpoint and exit 0 without ever sleeping,
+whatever `--wait` and `--max-wait` say: the pre-flight gate (Task 7,
+`cli._execute`'s `isinstance(verdict, PauseUntil)` branch above the try) and
+the reactive catch around discover/search/winnow (Task 6, `_execute`'s
+`except RateLimited` arm). Only the show loop sleeps. That is what each task
+was asked to build, and the two are at least consistent with each other -- but
+it is a `--wait` contract break relative to phase 1: `llama get --wait` started
+twenty minutes before a reset used to enter the run, hit the limit reactively
+at a show, sleep through it and finish. It now exits immediately having done
+nothing, and an unattended invocation needs a manual `llama run resume`.
+
+Scope: **both** sites, together. Doing one without the other replaces a
+symmetry with a worse asymmetry. It is not a flag lookup -- sleeping at a
+run-level site means re-deciding after the nap (the meter must be re-read; the
+reset may have moved) and carrying the no-progress guard, which today lives
+only in the show loop. `_checkpoint_pause` has no sleep branch by design, so
+this is a new shared pause renderer, not a parameter.
+
+Fold in while there: **the deferred second pass is ungated.** Shows another run
+held the lock on are processed in the `for idx, entry in enumerate(deferred)`
+pass with no gate and no boundary measurement, and that pass takes a
+**blocking** lock -- `file_lock(...)` with no `blocking=False`, unlike the
+first pass -- so it can sit for an arbitrary time and
+then process on a window whose last gate reading is stale by that whole wait.
+The reactive `RateLimited` catch is still the backstop there, so the cost is
+one refused show rather than a wrong idle.
+
+---
+
 ### Task 8: `llama pacing` and the run-start forecast
 
 **Files:**
@@ -1377,7 +1502,7 @@ In `cli.py`, add a formatter and the command:
 def _pacing_line(reading, state, pace) -> str:
     """The one-line meter summary printed at run start and by `llama pacing`."""
     if reading is None or reading.five_hour is None:
-        return "usage read unavailable — pacing on limit errors only"
+        return "pacing: usage read unavailable — pacing on limit errors only"
     parts = [f"5h {reading.five_hour.percent}%"]
     if reading.seven_day is not None:
         parts.append(f"weekly {reading.seven_day.percent}%")
@@ -1453,16 +1578,49 @@ Per the project's "green suite is not pinned" lesson, four constraints must be s
 
 - [ ] **Step 1: Mutation 1 — the per-meter reset bound**
 
-Change `usage.SEVEN_DAY_MAX_AHEAD_S` from `7.5 * 86400` to `5.5 * 3600`.
-Run: `pytest packages/herder/tests/test_usage.py packages/herder/tests/test_limits.py -q`
-Expected: **RED** — `test_weekly_reset_uses_the_weekly_bound_not_the_session_one` and `test_parse_reset_bound_is_per_call_not_global` fail.
+Run the **full** suite for every mutation below (`pytest -q`): a file-scoped run
+cannot see a catching test that lives outside the file, which reads as a
+survivor when it is not.
+
+Mutation 1a, narrowing: change `usage.SEVEN_DAY_MAX_AHEAD_S` from `7.5 * 86400`
+to `5.5 * 3600`.
+Expected: **RED**, exactly three, all in `packages/herder/tests/test_usage.py` —
+`test_weekly_reset_uses_the_weekly_bound_not_the_session_one`,
+`test_parses_all_three_meters_from_the_real_output`, and
+`test_per_model_meter_parses_percent_reset_and_strips_whitespace` (the constant's
+second call site, the per-model meter). NOT
+`test_parse_reset_bound_is_per_call_not_global`, which is in `test_limits.py` and
+never imports `herder.usage` — see ruling R4. Measured: 3 failed, 1857 passed.
+
+Mutation 1b, **widening** — the direction that matters, since it is the one that
+manufactures a multi-day sleep out of a bad reset: change the constant to
+`30 * 86400`.
+Expected: **RED**, exactly one —
+`test_weekly_reset_far_beyond_the_seven_day_bound_is_rejected`. Measured: 1
+failed, 1859 passed. This direction was unpinned until the final fix wave
+(finding F2); do not drop it.
 Restore the value.
 
 - [ ] **Step 2: Mutation 2 — the EWMA rollover guard**
 
 In `pacing_state.observe`, delete `or b.resets_at != a.resets_at` from the guard.
-Run: `pytest packages/llama/tests/test_pacing_state.py -q`
-Expected: **RED** — `test_a_window_rollover_contributes_nothing` fails.
+Run the full suite: `pytest -q`.
+Expected: **RED**, exactly two, both in `packages/llama/tests/test_pacing_state.py` —
+`test_a_window_rollover_contributes_nothing` and
+`test_a_rollover_with_a_positive_delta_still_contributes_nothing`. Measured
+2026-09-06: 2 failed, 1858 passed.
+
+Both fixtures have to satisfy two conditions the originals did not, and the
+guard is unpinned if either is dropped. **A positive delta across the
+rollover**: with a negative one the *next* line's guard declines the mutant on
+its own, so the test is green under either guard alone and pins neither. **A
+delta different from the seeded estimate**: at delta == seed the EWMA is
+unchanged and only `samples` moves, so a later assertion narrowed to
+`per_show_delta` (or given a tolerance) would unpin the guard with nothing going
+red. `test_a_window_rollover_contributes_nothing` observed 90 -> 2 and
+`test_a_rollover_with_a_positive_delta_still_contributes_nothing` observed
+10 -> 14 as first written; corrected to 90 -> 92 and 10 -> 20 in the final fix
+wave (findings F3a/F3b). Keep both tests: neither covers the other.
 Restore.
 
 - [ ] **Step 3: Mutation 3 — the stale-usage marker**
@@ -1474,9 +1632,26 @@ Restore.
 
 - [ ] **Step 4: Mutation 4 — the run-level catch ordering**
 
-In `_execute`, move the `except RateLimited` arm added in Task 6 to sit *after* an `except HerderError` arm (add one if the block has none, catching and reporting as a stage failure).
-Run: `pytest packages/llama/tests/test_pace_loop.py -q`
-Expected: **RED** — `test_run_level_ratelimited_is_caught_before_herdererror` fails.
+In `_execute`, insert an `except HerderError:` arm whose body is a bare `raise`,
+**immediately above** the `except RateLimited` arm added in Task 6.
+
+The body must be `raise`, not "catch and report as a stage failure". A reporting
+body cannot even run — `failures` is not bound until below the try — and a body
+that merely swallows the exception additionally reddens
+`test_an_ordinary_stage_failure_is_not_turned_into_a_pause` and
+`test_pacing_disabled_lets_a_run_level_limit_propagate`, which are failures
+about the BODY, not the ordering this step means to test. A bare `raise` leaves
+both of those green (an unmutated `HerderError` propagates out of `_execute`
+too) and changes exactly one thing: which arm sees a `RateLimited`.
+
+Run the full suite: `pytest -q`.
+Expected: **RED**, exactly five, all in `packages/llama/tests/test_pace_loop.py` —
+`test_run_level_ratelimited_is_caught_before_herdererror`,
+`test_ratelimited_during_discover_checkpoints_too`,
+`test_ratelimited_during_winnow_checkpoints_instead_of_exiting`,
+`test_a_run_level_pause_records_the_reset_plus_skew_once` and
+`test_a_run_level_pause_says_what_a_resume_will_redo`. Measured 2026-09-06:
+5 failed, 1855 passed.
 Restore.
 
 - [ ] **Step 5: If any mutation stayed GREEN, strengthen the test**

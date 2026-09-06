@@ -3,7 +3,6 @@ import sys
 import tempfile
 import textwrap
 import traceback
-from dataclasses import replace
 from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -14,6 +13,7 @@ from typer.core import TyperGroup
 from herder import HerderError, TaskFailed, provider_ladder
 from herder.failures import set_capture_dir
 from herder.limits import RateLimited
+from herder.usage import read_usage
 from llama.artist_index import (
     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
 )
@@ -27,8 +27,10 @@ from llama.locks import Locked, file_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
-from llama.pacing import (PaceOptions, duration_arg, format_delta, pace_options,
-                          resume_at, sleep_until)
+from llama import pacing_state
+from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
+                          binding_forecast, decide, duration_arg, format_delta,
+                          pace_options, resume_at, sleep_until)
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
@@ -49,7 +51,7 @@ from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brief", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
-_COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline",
+_COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline", "pacing",
                   "triage", "fix", "redo", "deliver", "rm",
                   "suppress", "unsuppress", "run", "profile",
                   "history", "config"]
@@ -164,11 +166,125 @@ def _pace(config, wait: bool | None, max_wait: str | None,
     """Resolve the pacing flags, failing on a bad --max-wait before the run
     starts rather than four shows in."""
     try:
-        pace = pace_options(config, wait=wait, max_wait=max_wait)
+        return pace_options(config, wait=wait, max_wait=max_wait,
+                            no_pacing=no_pacing)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
-    return replace(pace, enabled=False) if no_pacing else pace
+
+
+def _checkpoint_pause(ws: RunWorkspace, limited, pace: PaceOptions,
+                      outcome: str | None = None,
+                      failures: list[dict] | None = None,
+                      note: str | None = None,
+                      when: datetime | None = None) -> None:
+    """Record a pause and tell the operator how to resume.
+
+    What shares this is the run-level pause sites -- the stages that run
+    before the per-show loop, which have no show queue to report on. The loop
+    deliberately keeps its own rendering: it also prints how many shows are
+    left, and carries the no-progress guard and the sleep branch, none of
+    which belong in a helper whose job is "checkpoint and return".
+
+    `when` is for a caller that already holds a computed instant, whose value
+    already includes reset_skew; letting resume_at recompute it would add the
+    skew twice. `RateLimited` callers pass nothing and keep phase 1's
+    behaviour byte-for-byte.
+    """
+    when = when or resume_at(limited, pace)
+    typer.echo(f"paused: {limited}", err=True)
+    if note:
+        typer.echo(f"  {note}")
+    mark_paused(ws, outcome, failures or [], when.isoformat(),
+                getattr(limited, "scope", None), str(limited))
+    typer.echo(f"  resume with: llama run resume {ws.name}")
+
+
+def _meter_applies(config: Config, pace: PaceOptions) -> bool:
+    """Whether this run has a usage window worth reading at all.
+
+    Gated on the backend because only claude_cli has an account window: the
+    fake backend must never read one (it would make the offline suite
+    non-deterministic) and openrouter has no `/usage` equivalent. Gated on
+    `pace.enabled` too, because `--no-pacing` opts out of the whole feature
+    and must not spend a subprocess per show on a reading nothing consults.
+
+    Extracted from `_meter` so the print sites can ask the same question
+    without restating it. `_meter` collapses all three ways of getting None
+    -- disabled, wrong backend, failed read -- into one value, which is
+    right for a caller that only wants the number and wrong for one that
+    has to SAY something about it: only a failed read means "the proactive
+    gate is blind but the reactive backstop is live", and printing that
+    sentence on the other two says something false.
+    """
+    return pace.enabled and config.llm_for("default").backend == "claude_cli"
+
+
+def _meter(config: Config, pace: PaceOptions):
+    """A live meter reading, or None when there is no window to read.
+
+    Deliberately NOT routed through `pipeline.make_providers`: a meter read
+    is not an LLM call and has no business going through the tier/model
+    resolution ladder.
+    """
+    if not _meter_applies(config, pace):
+        return None
+    return read_usage()
+
+
+def _reset_label(fc) -> str:
+    """How the binding window's reset is written in the pacing line.
+
+    A 5-hour reset is by construction within five hours, so a bare clock
+    time is unambiguous and stays exactly as it was. A weekly one can be
+    days out, where `07:00` alone reads as "this morning" -- worse than a
+    wrong count, because it looks like a bug rather than a weekly ceiling.
+    The weekly form therefore carries its date AND names the window: a bare
+    `Sep 9 07:00` would still leave the operator wondering why a session
+    reset is three days away.
+
+    `{when.day}` rather than `%-d`/`%e`: the first is not portable and the
+    second pads to a width, and `Sep  9` in running prose reads as a typo.
+    """
+    when = fc.resets_at.astimezone()
+    if fc.scope == "seven_day":
+        return f"the weekly reset, {when:%b} {when.day} {when:%H:%M}"
+    return f"{when:%H:%M}"
+
+
+def _pacing_line(reading, state, pace: PaceOptions) -> str:
+    """The one-line meter summary printed at run start and by `llama pacing`.
+
+    Every part after the 5-hour meter is conditional, because each one is a
+    thing that may genuinely not be known yet: a reading can arrive without
+    the weekly meter, and `per_show_delta` is None until a boundary has been
+    observed. Rendering a placeholder for those would read as a measurement.
+
+    No `count` here: `llama pacing` has no run to size the forecast against,
+    so the consequence clause ("the remaining N pause until the reset") is
+    appended by `_execute`, which does. A formatter that rendered differently
+    per caller would be worse than one that does not.
+    """
+    if reading is None or reading.five_hour is None:
+        # Prefixed like every other line this function returns, so the
+        # run-start block has one identifiable owner per line. The CLAIM is
+        # untouched -- it is only ever printed where the reactive backstop
+        # really is live, which is what R19 protected; `_execute` and
+        # `llama pacing` both gate the other two None causes upstream.
+        return "pacing: usage read unavailable — pacing on limit errors only"
+    parts = [f"5h {reading.five_hour.percent}%"]
+    if reading.seven_day is not None:
+        parts.append(f"weekly {reading.seven_day.percent}%")
+    if state.per_show_delta:
+        parts.append(f"est {state.per_show_delta:.1f}%/show")
+    # The BINDING window, not the 5-hour one: `decide` checks the weekly
+    # first and both ceilings default to 90, so forecasting only the session
+    # window printed `weekly 84% ... ~17 fit` where the weekly headroom was
+    # one show -- a line contradicting, inches away, the meter beside it.
+    fc = binding_forecast(reading, state.per_show_delta, pace)
+    if fc is not None and fc.resets_at is not None:
+        parts.append(f"~{fc.shows} fit before {_reset_label(fc)}")
+    return "pacing: " + " · ".join(parts)
 
 
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
@@ -179,47 +295,110 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     providers = make_providers(config)
     if pace is None:
         pace = pace_options(config)
+    # Pre-flight, BEFORE the opening burst: run_discover/run_search/run_winnow
+    # each write their artifact only on success, so a refusal part-way through
+    # one costs the whole stage on the resume. This is the cheapest place in a
+    # run to stop, and the only gate that runs before any of them.
+    state = pacing_state.read_state(config.root)
+    # One read, bound and reused: the forecast below must describe the same
+    # reading this verdict was computed from, and a second `_meter` call
+    # would spend a second subprocess at run start to print a line that
+    # could disagree with the decision already taken.
+    reading = _meter(config, pace)
+    verdict = decide(_pacing._now(), reading,
+                     Progress(state.per_show_delta), pace)
+    if isinstance(verdict, PauseUntil):
+        # `when=` because the verdict already carries a skewed instant; see
+        # PauseUntil's docstring for what recomputing it would cost.
+        _checkpoint_pause(ws, verdict, pace, when=verdict.when,
+                          note="nothing has run yet; resume when the window "
+                               "resets")
+        return
+    # Proceeding: say what the run is proceeding on. `count` is what makes
+    # the consequence clause sayable here and not in `llama pacing`, which
+    # has no run to size. NOT used to reduce `count` -- that feeds
+    # choose_entries' artist and year caps, so cutting it would change
+    # *which* shows are picked, not just how many.
+    #
+    # Gated on `_meter_applies`, not on `reading is not None`: a None reading
+    # under `--no-pacing` or a non-claude_cli backend is the normal steady
+    # state, not a degradation, and the unavailable sentence would then be
+    # actively false -- with pacing off, a limit FAILS the show (the
+    # `except RateLimited` handler below re-raises), so promising "pacing on
+    # limit errors only" is a safety net announced at the moment it is gone.
+    # A failed read on a paced claude_cli run is the one case worth a line.
+    if _meter_applies(config, pace):
+        line = _pacing_line(reading, state, pace)
+        fc = binding_forecast(reading, state.per_show_delta, pace)
+        if fc is not None and fc.shows < count:
+            # Names the window for the same reason the forecast does: after
+            # "~1 fit before the weekly reset", a bare "the reset" would
+            # point at the sooner one the run is not waiting for.
+            reset = "weekly reset" if fc.scope == "seven_day" else "reset"
+            line += f"; the remaining {count - fc.shows} pause until the {reset}"
+        typer.echo(line)
     # The one place raw-output capture is switched on: every provider
     # make_providers built shares this module-level destination.
     set_capture_dir(config.root / "llm-failures")
-    artists = None
-    if criteria.artists:
-        # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
-        artists = [{"identifier": a, "title": a} for a in criteria.artists]
-        write_artifact(ws.artists, artists)
-        typer.echo("pinned artists: " + ", ".join(criteria.artists))
-    elif criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
-        artists = run_discover(ws, providers["find_artists"], ia, criteria,
-                               cache_dir=config.root / "cache",
-                               min_recordings=config.artists.min_recordings,
-                               min_downloads=config.artists.min_downloads,
-                               max_artists=config.artists.max_matched,
-                               force=force)
-        if not artists:
-            typer.echo("no matching artists found on the LMA - "
-                       "try naming an artist or broadening the style", err=True)
-            return
-        if not auto:
-            typer.echo("Matched artists:")
-            for i, a in enumerate(artists, 1):
-                typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
-            picks = typer.prompt("Search which artists? (comma-separated, empty = all)",
-                                 default="", show_default=False)
-            wanted = _parse_ranks(picks)
-            if wanted:
-                pruned = [a for i, a in enumerate(artists, 1) if i in wanted]
-                if not pruned:
-                    typer.echo("no valid selections - keeping none; aborting run", err=True)
-                    mark_complete(ws, "no valid selections - keeping none; aborting run")
-                    return
-                artists = pruned
-                write_artifact(ws.artists, artists)
-    run_search(ws, ia, criteria, artists=artists, force=force,
-               jerrybase_enabled=config.jerrybase.enabled)
-    shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
-                           library_ids=library_performance_ids(config.root),
-                           shortlist_size=max(12, count),
-                           max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
+    try:
+        artists = None
+        if criteria.artists:
+            # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
+            artists = [{"identifier": a, "title": a} for a in criteria.artists]
+            write_artifact(ws.artists, artists)
+            typer.echo("pinned artists: " + ", ".join(criteria.artists))
+        elif criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
+            artists = run_discover(ws, providers["find_artists"], ia, criteria,
+                                   cache_dir=config.root / "cache",
+                                   min_recordings=config.artists.min_recordings,
+                                   min_downloads=config.artists.min_downloads,
+                                   max_artists=config.artists.max_matched,
+                                   force=force)
+            if not artists:
+                typer.echo("no matching artists found on the LMA - "
+                           "try naming an artist or broadening the style", err=True)
+                return
+            if not auto:
+                typer.echo("Matched artists:")
+                for i, a in enumerate(artists, 1):
+                    typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
+                picks = typer.prompt("Search which artists? (comma-separated, empty = all)",
+                                     default="", show_default=False)
+                wanted = _parse_ranks(picks)
+                if wanted:
+                    pruned = [a for i, a in enumerate(artists, 1) if i in wanted]
+                    if not pruned:
+                        typer.echo("no valid selections - keeping none; aborting run", err=True)
+                        mark_complete(ws, "no valid selections - keeping none; aborting run")
+                        return
+                    artists = pruned
+                    write_artifact(ws.artists, artists)
+        run_search(ws, ia, criteria, artists=artists, force=force,
+                   jerrybase_enabled=config.jerrybase.enabled)
+        shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
+                               library_ids=library_performance_ids(config.root),
+                               shortlist_size=max(12, count),
+                               max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
+    except RateLimited as exc:
+        # BEFORE any `except HerderError`: RateLimited subclasses it, and the
+        # reverse ordering silently reverts this to an ordinary stage failure.
+        #
+        # Covers exactly the three run-level stages inside this try --
+        # run_discover, run_search, run_winnow -- and NOT run_interpret, which
+        # runs in `get` outside _execute entirely; the comment at its call site
+        # says why wrapping it would not help.
+        #
+        # Recoverable, not cheap: those three gate on `should_run` at
+        # WHOLE-STAGE granularity, so the resume re-runs the interrupted stage
+        # from the top and re-spends the light_research calls it had already
+        # made. Per-candidate artifacts are out of scope.
+        if not pace.enabled:
+            raise
+        _checkpoint_pause(
+            ws, exc, pace,
+            note="limit hit in discover/search/winnow, before any show ran; "
+                 "resume re-runs that whole stage")
+        return
     if not shortlist:
         typer.echo("No shows survived winnowing.")
         mark_complete(ws, "no shows survived winnowing")
@@ -249,7 +428,9 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     setlistfm = make_client(config)
     packaged = held = 0
     failures: list[dict] = []          # {show, error} per show this run lost
-    limited: RateLimited | None = None  # set when a usage window ran out
+    # A RateLimited is a window that refused us; a PauseUntil is one the gate
+    # stopped short of. Both pause the run, and the block below renders either.
+    limited: RateLimited | PauseUntil | None = None
 
     def _process(entry):
         nonlocal packaged, held, limited
@@ -300,12 +481,23 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     while pending:
         deferred, unprocessed = [], []
         for idx, entry in enumerate(pending):
+            # BEFORE the show lock, and before any of this show's work: the
+            # whole point is not to start a show the window cannot finish.
+            reading_before = _meter(config, pace)
+            verdict = decide(_pacing._now(), reading_before,
+                             Progress(state.per_show_delta), pace)
+            if isinstance(verdict, PauseUntil):
+                limited = verdict
+                unprocessed.extend(pending[idx:])   # this show has NOT run
+                break
             lock_path = ws.show_ws(entry.candidate.performance_id).lock
+            ran = True
             try:
                 with file_lock(lock_path, blocking=False):
                     _process(entry)
             except Locked:
                 deferred.append(entry)         # another run is building it
+                ran = False
             # AFTER the call, not before: `pending[idx:]` must INCLUDE the show
             # that hit the limit. Checking at the top of the body instead starts
             # the slice one entry late and silently drops that show from the
@@ -313,6 +505,22 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             if limited:
                 unprocessed.extend(pending[idx:])
                 break
+            if ran and reading_before is not None:
+                # One show boundary, measured from its own two readings: what
+                # the meter moved by while exactly this show ran. A deferred
+                # show ran nothing between them, and folding its zero in would
+                # teach the gate a cheaper show than any that exists -- an
+                # under-estimate being the direction that walks into the wall.
+                # A show that was REFUSED is excluded for the same reason, by
+                # the `if limited` break above: it did partial work, so its
+                # delta understates a whole show.
+                #
+                # No reading means no window to read -- every openrouter and
+                # fake-backend run, and every --no-pacing one. Recording there
+                # would fold nothing while still costing a mkdir, a lock and a
+                # `pacing-state.json` in a workspace that never paced.
+                state = pacing_state.record(config.root, reading_before,
+                                            _meter(config, pace))
         if limited:
             unprocessed.extend(deferred)
         else:
@@ -325,7 +533,13 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         if not limited:
             break
 
-        when = resume_at(limited, pace)
+        # A PauseUntil already holds the instant to come back at, skew
+        # included; resume_at reads `resets_at`, which it has not got, so
+        # routing one through it silently swaps the reset the meter named
+        # for the unknown-reset default. See PauseUntil's docstring for why
+        # the fix is here and not a `resets_at` property on it.
+        when = (limited.when if isinstance(limited, PauseUntil)
+                else resume_at(limited, pace))
         wait_s = (when - _pacing._now()).total_seconds()
         reason = str(limited)
         scope = limited.scope
@@ -386,6 +600,10 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     run_name = name or claim_run_dir(config.root,
                                      f"{date.today().isoformat()}-{slugify(query)[:40]}")
     ws = RunWorkspace(config.root, run_name)
+    # Deliberately OUTSIDE _execute's RateLimited catch: run_interpret writes
+    # criteria.json only on success and `run resume` refuses a session without
+    # one, so a checkpoint here would be unresumable -- the query lives only in
+    # argv. A limit here exits 1 having spent one LLM call. See T6b in the plan.
     criteria = run_interpret(ws, make_providers(config)["interpret"], query)
     # Stamp explicit flags into the run's criteria so replays behave the same.
     updates = {}
@@ -1201,6 +1419,43 @@ def pipeline():
                "manual escape hatch for any stage, including select/research):")
     for cause, stage in _PIPELINE_REDO_CHEATSHEET:
         typer.echo(f"  {cause.ljust(30)} -> redo --from {stage}")
+
+
+@app.command(rich_help_panel="Watch",
+             short_help="Print the usage meters, the learned per-show cost, "
+                        "and what fits.")
+def pacing() -> None:      # shadows nothing: cli.py imports the pacing module
+                           # as `_pacing`, deliberately
+    """Show the usage meters, the learned per-show cost, and what fits.
+
+    Read-only, in the shape of `llama pipeline`. Run it before launching to
+    decide whether a run fits in the current window.
+    """
+    config = load_config(_config_path)   # the callback's --config, not the default
+    pace = pace_options(config)
+    if not _meter_applies(config, pace):
+        # `_execute` prints NOTHING in these two cases -- an unsolicited
+        # run-start line about a mode the operator chose is noise. Here it is
+        # the opposite: this command exists to answer "what is my pacing
+        # situation", so silence, or the unavailable sentence (which promises
+        # a reactive backstop neither case has), would be the one answer it
+        # must not give. The gate is still `_meter_applies`; only the
+        # EXPLANATION branches, after it has already said no.
+        typer.echo("pacing is off ([pacing] enabled = false) — a usage limit "
+                   "will fail the show rather than pause the run"
+                   if not pace.enabled else
+                   f"no usage window to read on the "
+                   f"{config.llm_for('default').backend} backend — pacing "
+                   f"applies to claude_cli only")
+        return
+    state = pacing_state.read_state(config.root)
+    reading = _meter(config, pace)
+    typer.echo(_pacing_line(reading, state, pace))
+    if reading is None:
+        return
+    verdict = decide(_pacing._now(), reading, Progress(state.per_show_delta), pace)
+    typer.echo("would proceed" if isinstance(verdict, Proceed)
+               else f"would pause: {verdict.reason}")
 
 
 def _confirm_plan(entries, action: str, yes: bool) -> bool:

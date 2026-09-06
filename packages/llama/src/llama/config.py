@@ -96,7 +96,11 @@ class ArtistsConfig(BaseModel):
 
 
 class PacingConfig(BaseModel):
-    """Waiting out an exhausted usage window (see llama/pacing.py).
+    """Pacing a run against a usage window (see llama/pacing.py).
+
+    Covers both halves: waiting out a window the backend has already
+    refused on, and the ceilings that stop the run at a show boundary
+    BEFORE it is exhausted.
 
     Durations are strings so the config reads in the units a human thinks
     in; they are validated at load time rather than at the point of use, so
@@ -107,6 +111,15 @@ class PacingConfig(BaseModel):
     max_wait: str = "6h"
     unknown_reset_wait: str = "1h"
     reset_skew: str = "2m"
+
+    # The proactive gate's whole policy surface for each window. A run pauses
+    # when the meter PLUS the projected next show would cross the ceiling.
+    # 90 is "careful": it stops before the wall without leaving much unused.
+    # Set lower (e.g. 70) to be "polite" and reserve headroom for interactive
+    # work; there is deliberately no second `reserve` knob, which would be a
+    # subtraction the reader has to perform.
+    five_hour_ceiling: float = 90
+    seven_day_ceiling: float = 90
 
     @field_validator("max_wait", "unknown_reset_wait", "reset_skew")
     @classmethod
@@ -254,6 +267,12 @@ unknown_reset_wait = "1h"
 
 # Added to the reset instant before resuming, so we do not race the window.
 reset_skew = "2m"
+
+# Pause when a meter plus the projected next show would cross these. 90 is
+# careful - it stops before the wall. Lower them (e.g. 70) to reserve
+# headroom for your own interactive sessions; the meter is account-wide.
+five_hour_ceiling = 90
+seven_day_ceiling = 90
 
 
 [artists]

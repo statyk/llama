@@ -2,9 +2,11 @@ import json
 import tomllib
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import llama.cli as cli
+from conftest import cli_invoke
 from llama.config import DEFAULT_CONFIG_TOML
 from llama.ledger import Ledger
 from llama.models import (
@@ -473,3 +475,125 @@ def test_resolve_exclude_tokens_comma_form(tmp_path):
     assert cli._resolve_exclude_tokens(sws, ["1,2"]) == ["a.mp3", "b.mp3"]
     # filename passthrough needs no show.json read
     assert cli._resolve_exclude_tokens(ShowWorkspace(tmp_path / "none"), ["z.mp3"]) == ["z.mp3"]
+
+
+def _usage_reading(five, seven):
+    from datetime import datetime, timedelta, timezone
+    from herder.usage import Meter, UsageReading
+    now = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)
+    return UsageReading(five_hour=Meter(five, now + timedelta(hours=2)),
+                        seven_day=Meter(seven, now + timedelta(days=3)),
+                        per_model={}, fetched_at=now)
+
+
+def _cfg_file(tmp_path, extra=""):
+    """A config pointing at tmp_path, so the command never reads the real
+    ~/.llama/config.toml. `cli_invoke` lives in conftest.py."""
+    path = tmp_path / "config.toml"
+    path.write_text(f'root = "{tmp_path}"\n{extra}')
+    return path
+
+
+def test_pacing_command_reports_meters_and_forecast(monkeypatch, tmp_path):
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage", lambda *a, **kw: _usage_reading(65, 7))
+    result = cli_invoke(_cfg_file(tmp_path), "pacing")
+    assert result.exit_code == 0
+    assert "5h 65%" in result.stdout
+    assert "weekly 7%" in result.stdout
+
+
+def test_pacing_command_says_so_when_the_meter_cannot_be_read(monkeypatch, tmp_path):
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage", lambda *a, **kw: None)
+    result = cli_invoke(_cfg_file(tmp_path), "pacing")
+    assert result.exit_code == 0
+    assert "unavailable" in result.stdout
+
+
+def test_pacing_command_reports_the_verdict_the_next_show_would_get(
+        monkeypatch, tmp_path):
+    """The meters are half the answer; what the gate would DO with them is
+    the other half, and it is the half `_pacing_line` does not own."""
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage", lambda *a, **kw: _usage_reading(65, 7))
+    result = cli_invoke(_cfg_file(tmp_path), "pacing")
+    assert result.exit_code == 0
+    assert "would proceed" in result.stdout
+
+
+def test_pacing_command_reports_a_pause_verdict_and_names_the_window(
+        monkeypatch, tmp_path):
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage", lambda *a, **kw: _usage_reading(95, 7))
+    result = cli_invoke(_cfg_file(tmp_path), "pacing")
+    assert result.exit_code == 0
+    assert "would pause: 5h window at 95%" in result.stdout
+    assert "would proceed" not in result.stdout
+
+
+def test_pacing_command_gives_no_verdict_when_it_could_not_read_the_meter(
+        monkeypatch, tmp_path):
+    """The early return, which `assert "unavailable" in stdout` cannot see:
+    without it the command prints the unavailable line AND THEN a verdict
+    computed from the reading it just said it did not have."""
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage", lambda *a, **kw: None)
+    result = cli_invoke(_cfg_file(tmp_path), "pacing")
+    assert result.exit_code == 0
+    assert "unavailable" in result.stdout
+    assert "would proceed" not in result.stdout
+    assert "would pause" not in result.stdout
+
+
+def test_pacing_command_reads_the_learned_cost_from_the_configs_own_root(
+        monkeypatch, tmp_path):
+    """Two things at once, because one assertion pins both.
+
+    `est 3.0%/show` can only come from tmp_path's pacing-state.json, so the
+    command honours the callback's --config rather than the operator's real
+    ~/.llama; and `~5` can only come from this config's ceiling of 80 --
+    the baked-in 90 would forecast 8 -- so `pace_options(config)` is not
+    quietly `pace_options(Config())`.
+    """
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage", lambda *a, **kw: _usage_reading(65, 7))
+    (tmp_path / "pacing-state.json").write_text(
+        json.dumps({"per_show_delta": 3.0, "samples": 4}))
+    cfg = _cfg_file(tmp_path, "[pacing]\nfive_hour_ceiling = 80\n")
+
+    result = cli_invoke(cfg, "pacing")
+    assert result.exit_code == 0
+    assert "est 3.0%/show" in result.stdout
+    assert "~5 fit before" in result.stdout
+
+
+def test_pacing_command_names_pacing_being_switched_off_in_the_config(
+        monkeypatch, tmp_path):
+    """The read-only command that exists to answer "what is my pacing
+    situation" must not answer it with the meter-failure sentence: nothing
+    failed, and the reactive backstop that sentence promises is off too."""
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage",
+                        lambda *a, **kw: pytest.fail("meter read with pacing off"))
+    cfg = _cfg_file(tmp_path, "[pacing]\nenabled = false\n")
+
+    result = cli_invoke(cfg, "pacing")
+    assert result.exit_code == 0
+    assert "pacing is off" in result.stdout
+    assert "enabled = false" in result.stdout
+    assert "unavailable" not in result.stdout
+
+
+def test_pacing_command_names_the_backend_that_has_no_usage_window(
+        monkeypatch, tmp_path):
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage",
+                        lambda *a, **kw: pytest.fail("meter read on a fake backend"))
+    cfg = _cfg_file(tmp_path, '[llm.default]\nbackend = "fake"\n')
+
+    result = cli_invoke(cfg, "pacing")
+    assert result.exit_code == 0
+    assert "fake" in result.stdout
+    assert "claude_cli" in result.stdout        # says which backend it DOES need
+    assert "unavailable" not in result.stdout
