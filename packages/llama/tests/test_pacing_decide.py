@@ -118,3 +118,17 @@ def test_the_pause_reason_names_the_window_and_the_estimate():
     assert out.reason == "weekly window at 95%, est 4.0%/show"
     out = pacing.decide(NOW, _reading(five=95), pacing.Progress(None), _opts())
     assert out.reason == "5h window at 95%"
+
+
+def test_shows_that_fit_uses_the_ceiling_not_a_hundred():
+    # 90 - 65 = 25 points of usable headroom at 4.2%/show.
+    assert pacing.shows_that_fit(_reading(five=65), 4.2, 90) == 5
+
+
+def test_shows_that_fit_is_unknown_without_an_estimate():
+    assert pacing.shows_that_fit(_reading(five=65), None, 90) is None
+    assert pacing.shows_that_fit(None, 4.2, 90) is None
+
+
+def test_shows_that_fit_floors_at_zero_when_already_over():
+    assert pacing.shows_that_fit(_reading(five=95), 4.2, 90) == 0

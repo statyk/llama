@@ -228,3 +228,22 @@ def decide(now: datetime, reading, progress: Progress,
             or _pause(reading.five_hour, opts.five_hour_ceiling, "five_hour",
                       projected, now, opts)
             or Proceed())
+
+
+def shows_that_fit(reading, per_show_delta: float | None,
+                   ceiling: float) -> int | None:
+    """How many more shows the session window has room for, or None.
+
+    None means "no estimate", which is a different thing from zero and must
+    render differently - a run that has learned nothing yet has not been
+    told it cannot proceed.
+
+    The headroom is measured to `decide`'s ceiling, not to 100%: the gate
+    pauses at the ceiling, so counting the points above it would forecast
+    shows this run would never be allowed to start. `not per_show_delta`
+    also catches a 0.0 estimate, which would divide by zero and is not a
+    cost any real show has.
+    """
+    if reading is None or reading.five_hour is None or not per_show_delta:
+        return None
+    return max(0, int((ceiling - reading.five_hour.percent) // per_show_delta))
