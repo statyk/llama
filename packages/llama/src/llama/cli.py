@@ -200,6 +200,60 @@ def _checkpoint_pause(ws: RunWorkspace, limited, pace: PaceOptions,
     typer.echo(f"  resume with: llama run resume {ws.name}")
 
 
+def _run_level_pause(ws: RunWorkspace, limited, pace: PaceOptions, *,
+                     note: str, when: datetime | None = None,
+                     stalled: bool = False) -> bool:
+    """Render a pause at a run-level site. True = slept, retry; False = stop.
+
+    The run-level analogue of the show loop's pause block, and deliberately a
+    separate renderer rather than a parameter on `_checkpoint_pause`: sleeping
+    is a control-flow decision the caller has to act on, so this returns a
+    verdict where that one returns nothing.
+
+    **The no-progress guard degenerates here.** The loop's version compares a
+    progress watermark across pause cycles; a run-level site has no progress
+    to compare, because nothing of the run has completed at either end of the
+    nap. So the guard becomes `stalled`, which the caller sets on any pause
+    after the first at the same site. Sleeping twice at a site that cannot
+    make progress between naps is the indefinite nap the loop's guard exists
+    to prevent, one level up.
+
+    `when` is for a caller holding a `PauseUntil`, whose instant already
+    includes reset_skew; routing one through `resume_at` would read a
+    `resets_at` it has not got. See PauseUntil's docstring.
+    """
+    when = when or resume_at(limited, pace)
+    wait_s = (when - _pacing._now()).total_seconds()
+    typer.echo(f"paused: {limited}", err=True)
+    typer.echo(f"  {note}")
+    if not stalled and pace.wait and wait_s <= pace.max_wait_s:
+        typer.echo(f"  resumes {when.astimezone().strftime('%H:%M')} "
+                   f"({format_delta(wait_s)})")
+        try:
+            sleep_until(when, echo=lambda m: typer.echo(m))
+        except KeyboardInterrupt:
+            # Same contract as the loop's nap: a clean checkpoint at exit 0,
+            # so an interrupted wait resumes with the command a planned one
+            # would have used.
+            mark_paused(ws, None, [], when.isoformat(),
+                        getattr(limited, "scope", None), str(limited))
+            typer.echo(f"\ninterrupted; resume with: llama run resume {ws.name}")
+            return False
+        return True
+    if stalled:
+        typer.echo("  no progress since the last pause — checkpointing rather "
+                   "than waiting again")
+    elif wait_s > pace.max_wait_s:
+        typer.echo(f"  resets in {format_delta(wait_s)} — exceeds "
+                   f"--max-wait {format_delta(pace.max_wait_s)}")
+    mark_paused(ws, None, [], when.isoformat(),
+                getattr(limited, "scope", None), str(limited))
+    typer.echo(f"  resume with: llama run resume {ws.name}"
+               + (f" --max-wait {duration_arg(wait_s)}"
+                  if wait_s > pace.max_wait_s else ""))
+    return False
+
+
 def _meter_applies(config: Config, pace: PaceOptions) -> bool:
     """Whether this run has a usage window worth reading at all.
 
@@ -304,16 +358,24 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     # reading this verdict was computed from, and a second `_meter` call
     # would spend a second subprocess at run start to print a line that
     # could disagree with the decision already taken.
-    reading = _meter(config, pace)
-    verdict = decide(_pacing._now(), reading,
-                     Progress(state.per_show_delta), pace)
-    if isinstance(verdict, PauseUntil):
+    slept = False
+    while True:
+        reading = _meter(config, pace)
+        verdict = decide(_pacing._now(), reading,
+                         Progress(state.per_show_delta), pace)
+        if not isinstance(verdict, PauseUntil):
+            break
         # `when=` because the verdict already carries a skewed instant; see
         # PauseUntil's docstring for what recomputing it would cost.
-        _checkpoint_pause(ws, verdict, pace, when=verdict.when,
-                          note="nothing has run yet; resume when the window "
-                               "resets")
-        return
+        if not _run_level_pause(ws, verdict, pace, when=verdict.when,
+                                stalled=slept,
+                                note="nothing has run yet; resume when the "
+                                     "window resets"):
+            return
+        # Re-read and re-decide rather than proceeding on the nap alone: the
+        # meter is account-wide, so another session may have spent the window
+        # we just waited for, and the reset itself may have moved.
+        slept = True
     # Proceeding: say what the run is proceeding on. `count` is what makes
     # the consequence clause sayable here and not in `llama pacing`, which
     # has no run to size. NOT used to reduce `count` -- that feeds
@@ -340,65 +402,72 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     # The one place raw-output capture is switched on: every provider
     # make_providers built shares this module-level destination.
     set_capture_dir(config.root / "llm-failures")
-    try:
-        artists = None
-        if criteria.artists:
-            # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
-            artists = [{"identifier": a, "title": a} for a in criteria.artists]
-            write_artifact(ws.artists, artists)
-            typer.echo("pinned artists: " + ", ".join(criteria.artists))
-        elif criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
-            artists = run_discover(ws, providers["find_artists"], ia, criteria,
-                                   cache_dir=config.root / "cache",
-                                   min_recordings=config.artists.min_recordings,
-                                   min_downloads=config.artists.min_downloads,
-                                   max_artists=config.artists.max_matched,
-                                   force=force)
-            if not artists:
-                typer.echo("no matching artists found on the LMA - "
-                           "try naming an artist or broadening the style", err=True)
+    # Retried, not merely caught: a limit here used to checkpoint even under
+    # `--wait`. The three stages gate on `should_run`, so a retry after the
+    # nap re-runs only what did not finish -- cheap for the ones that did.
+    slept_stage = False
+    while True:
+        try:
+            artists = None
+            if criteria.artists:
+                # Pinned roster: deterministic fan-out, no LLM matching, no prune gate.
+                artists = [{"identifier": a, "title": a} for a in criteria.artists]
+                write_artifact(ws.artists, artists)
+                typer.echo("pinned artists: " + ", ".join(criteria.artists))
+            elif criteria.collection is None and criteria.artist is None and criteria.soft_preferences:
+                artists = run_discover(ws, providers["find_artists"], ia, criteria,
+                                       cache_dir=config.root / "cache",
+                                       min_recordings=config.artists.min_recordings,
+                                       min_downloads=config.artists.min_downloads,
+                                       max_artists=config.artists.max_matched,
+                                       force=force)
+                if not artists:
+                    typer.echo("no matching artists found on the LMA - "
+                               "try naming an artist or broadening the style", err=True)
+                    return
+                if not auto:
+                    typer.echo("Matched artists:")
+                    for i, a in enumerate(artists, 1):
+                        typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
+                    picks = typer.prompt("Search which artists? (comma-separated, empty = all)",
+                                         default="", show_default=False)
+                    wanted = _parse_ranks(picks)
+                    if wanted:
+                        pruned = [a for i, a in enumerate(artists, 1) if i in wanted]
+                        if not pruned:
+                            typer.echo("no valid selections - keeping none; aborting run", err=True)
+                            mark_complete(ws, "no valid selections - keeping none; aborting run")
+                            return
+                        artists = pruned
+                        write_artifact(ws.artists, artists)
+            run_search(ws, ia, criteria, artists=artists, force=force,
+                       jerrybase_enabled=config.jerrybase.enabled)
+            shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
+                                   library_ids=library_performance_ids(config.root),
+                                   shortlist_size=max(12, count),
+                                   max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
+            break
+        except RateLimited as exc:
+            # BEFORE any `except HerderError`: RateLimited subclasses it, and the
+            # reverse ordering silently reverts this to an ordinary stage failure.
+            #
+            # Covers exactly the three run-level stages inside this try --
+            # run_discover, run_search, run_winnow -- and NOT run_interpret, which
+            # runs in `get` outside _execute entirely; the comment at its call site
+            # says why wrapping it would not help.
+            #
+            # Recoverable, not cheap: those three gate on `should_run` at
+            # WHOLE-STAGE granularity, so the resume re-runs the interrupted stage
+            # from the top and re-spends the light_research calls it had already
+            # made. Per-candidate artifacts are out of scope.
+            if not pace.enabled:
+                raise
+            if not _run_level_pause(
+                    ws, exc, pace, stalled=slept_stage,
+                    note="limit hit in discover/search/winnow, before any "
+                         "show ran; a resume re-runs that whole stage"):
                 return
-            if not auto:
-                typer.echo("Matched artists:")
-                for i, a in enumerate(artists, 1):
-                    typer.echo(f"{i:2d}. {a.get('title') or a['identifier']}")
-                picks = typer.prompt("Search which artists? (comma-separated, empty = all)",
-                                     default="", show_default=False)
-                wanted = _parse_ranks(picks)
-                if wanted:
-                    pruned = [a for i, a in enumerate(artists, 1) if i in wanted]
-                    if not pruned:
-                        typer.echo("no valid selections - keeping none; aborting run", err=True)
-                        mark_complete(ws, "no valid selections - keeping none; aborting run")
-                        return
-                    artists = pruned
-                    write_artifact(ws.artists, artists)
-        run_search(ws, ia, criteria, artists=artists, force=force,
-                   jerrybase_enabled=config.jerrybase.enabled)
-        shortlist = run_winnow(ws, providers["score_reviews"], providers["light_research"], ia, criteria, ledger,
-                               library_ids=library_performance_ids(config.root),
-                               shortlist_size=max(12, count),
-                               max_metadata_fetch=config.winnow.max_metadata_fetch, force=force)
-    except RateLimited as exc:
-        # BEFORE any `except HerderError`: RateLimited subclasses it, and the
-        # reverse ordering silently reverts this to an ordinary stage failure.
-        #
-        # Covers exactly the three run-level stages inside this try --
-        # run_discover, run_search, run_winnow -- and NOT run_interpret, which
-        # runs in `get` outside _execute entirely; the comment at its call site
-        # says why wrapping it would not help.
-        #
-        # Recoverable, not cheap: those three gate on `should_run` at
-        # WHOLE-STAGE granularity, so the resume re-runs the interrupted stage
-        # from the top and re-spends the light_research calls it had already
-        # made. Per-candidate artifacts are out of scope.
-        if not pace.enabled:
-            raise
-        _checkpoint_pause(
-            ws, exc, pace,
-            note="limit hit in discover/search/winnow, before any show ran; "
-                 "resume re-runs that whole stage")
-        return
+            slept_stage = True
     if not shortlist:
         typer.echo("No shows survived winnowing.")
         mark_complete(ws, "no shows survived winnowing")
@@ -525,6 +594,21 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             unprocessed.extend(deferred)
         else:
             for idx, entry in enumerate(deferred):   # come back and wait
+                # Gated like the first pass. It was not, so a show another run
+                # held the lock on was the one show that could start on an
+                # exhausted window.
+                #
+                # Deliberately NOT measured as a boundary: this pass takes a
+                # BLOCKING lock, so the delta would span an unbounded wait
+                # during which the other run spent the meter. That is not this
+                # show's cost, and folding it in would teach the gate a show
+                # far more expensive than any that exists.
+                verdict = decide(_pacing._now(), _meter(config, pace),
+                                 Progress(state.per_show_delta), pace)
+                if isinstance(verdict, PauseUntil):
+                    limited = verdict
+                    unprocessed.extend(deferred[idx:])
+                    break
                 with file_lock(ws.show_ws(entry.candidate.performance_id).lock):
                     _process(entry)
                 if limited:

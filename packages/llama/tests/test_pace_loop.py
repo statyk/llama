@@ -1208,3 +1208,180 @@ def test_the_shortfall_clause_names_the_weekly_reset_when_the_weekly_binds(
 
     out = capsys.readouterr().out
     assert "the remaining 2 pause until the weekly reset" in out
+
+
+# --- T7b: the run-level pause sites honour --wait -----------------------------
+#
+# Both of them checkpointed and exited 0 without ever sleeping, whatever
+# --wait said, while only the show loop slept. That was a --wait contract
+# break relative to phase 1: `llama get --wait` shortly before a reset used
+# to enter the run, hit the limit reactively at a show, sleep through it and
+# finish. It exited immediately having done nothing.
+
+
+def _near_reading(five, mins=10):
+    """A reading whose 5-hour reset is minutes away, not hours.
+
+    `_reading`'s reset is two hours out, and `sleep_until` naps in 15-minute
+    chunks -- so a test asserting on the sleep COUNT there is measuring the
+    chunk size, not the pause. These tests are about whether a run-level site
+    sleeps at all and how often it decides to, so one chunk per pause is what
+    keeps the count meaningful.
+    """
+    from herder.usage import Meter, UsageReading
+    return UsageReading(five_hour=Meter(five, NOW + timedelta(minutes=mins)),
+                        seven_day=Meter(7, NOW + timedelta(days=3)),
+                        per_model={}, fetched_at=NOW)
+
+
+def _readings(*percents):
+    """A read_usage stub yielding one reading per call, then repeating the last."""
+    seq = list(percents)
+    def _read(*a, **kw):
+        return _near_reading(seq.pop(0) if len(seq) > 1 else seq[0])
+    return _read
+
+
+def test_preflight_sleeps_through_the_reset_and_then_proceeds(tmp_path, monkeypatch):
+    """The contract break itself: --wait before a reset must run the shows,
+    not exit having done nothing."""
+    clock = _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", _readings(99, 5))
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config()))      # wait, 6h cap
+
+    assert seen == ["a"]                       # it ran, rather than exiting
+    assert clock["sleeps"] == 1                # and it got there by sleeping
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+
+
+def test_preflight_re_reads_the_meter_after_the_nap(tmp_path, monkeypatch):
+    """Sleeping is not enough: the reset may have moved and the meter is
+    account-wide, so the verdict has to be recomputed, not assumed stale."""
+    _clock(monkeypatch)
+    calls = {"n": 0}
+
+    def _read(*a, **kw):
+        calls["n"] += 1
+        return _near_reading(99 if calls["n"] == 1 else 5)
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config()))
+
+    assert calls["n"] >= 2                     # re-read, not reused
+    assert seen == ["a"]
+
+
+def test_preflight_sleeps_at_most_once(tmp_path, monkeypatch):
+    """A run-level site can make no progress between naps, so a second pause
+    there means the wait bought nothing. Without this it naps forever."""
+    clock = _clock(monkeypatch, sleep_budget=3)
+    monkeypatch.setattr(cli, "read_usage", _readings(99))       # never recovers
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config()))
+
+    assert clock["sleeps"] == 1                # slept once, then gave up
+    assert seen == []
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_preflight_still_checkpoints_under_no_wait(tmp_path, monkeypatch):
+    """--no-wait keeps phase 2's behaviour exactly."""
+    clock = _clock(monkeypatch)
+    monkeypatch.setattr(cli, "read_usage", _readings(99))
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    assert clock["sleeps"] == 0
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_run_level_catch_sleeps_and_re_runs_the_stage(tmp_path, monkeypatch):
+    """A limit inside winnow must be waited out and the stage retried, not
+    turned into an immediate checkpoint."""
+    clock = _clock(monkeypatch)
+    entries = [_entry("a", 1)]
+    calls = {"n": 0}
+
+    def _winnow(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RateLimited("You've hit your session limit", scope="five_hour",
+                              resets_at=NOW + timedelta(minutes=10))
+        return entries
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config()), winnow=_winnow)
+
+    assert calls["n"] == 2                     # the stage was re-run
+    assert clock["sleeps"] == 1
+    assert seen == ["a"]
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+
+
+def test_run_level_catch_sleeps_at_most_once(tmp_path, monkeypatch):
+    clock = _clock(monkeypatch, sleep_budget=3)
+
+    def _winnow(*a, **k):
+        raise RateLimited("You've hit your session limit", scope="five_hour",
+                          resets_at=NOW + timedelta(minutes=10))
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config()), winnow=_winnow)
+
+    assert clock["sleeps"] == 1
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_an_interrupt_during_a_run_level_nap_checkpoints(tmp_path, monkeypatch):
+    """Same contract as the show loop's nap: Ctrl-C is a clean checkpoint at
+    exit 0, not a traceback, so an interrupted wait resumes with the same
+    command as a planned one."""
+    state = {"now": NOW}
+    monkeypatch.setattr(pacing, "_now", lambda: state["now"])
+
+    def _boom(_s):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(pacing, "_sleep", _boom)
+    monkeypatch.setattr(cli, "read_usage", _readings(99))
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config()))
+
+    assert seen == []
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_the_deferred_pass_is_gated_too(tmp_path, monkeypatch):
+    """Shows another run held the lock on were processed with no gate at all.
+    The first pass defers `a`; the meter is over the ceiling by the time the
+    deferred pass reaches it, so it must not be processed."""
+    _clock(monkeypatch)
+    calls = {"n": 0}
+
+    def _read(*a, **kw):
+        calls["n"] += 1
+        # low for pre-flight and the first pass, over the ceiling by the
+        # time the deferred pass asks
+        return _near_reading(5 if calls["n"] <= 2 else 99)
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    real_lock = cli.file_lock
+
+    def _lock(path, *, blocking=True):
+        if not blocking:
+            raise Locked(path)          # force the first pass to defer
+        return real_lock(path)
+
+    monkeypatch.setattr(cli, "file_lock", _lock)
+
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    assert seen == []                          # never processed ungated
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
