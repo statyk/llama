@@ -419,3 +419,45 @@ def test_no_pacing_restores_the_old_failure_behaviour(tmp_path: Path, monkeypatc
     info = iter_sessions(tmp_path)[0]
     assert info.state == STATE_INCOMPLETE
     assert [f["show"] for f in info.failures] == ["GratefulDead/1973-06-10"]
+
+
+class CountingProvider:
+    """Wraps a provider and counts every call that reaches it."""
+
+    def __init__(self, inner):
+        self.inner, self.calls = inner, 0
+
+    def complete(self, prompt: str) -> str:
+        self.calls += 1
+        return self.inner.complete(prompt)
+
+    def research(self, brief: str) -> str:
+        self.calls += 1
+        return self.inner.research(brief)
+
+
+def test_resuming_a_packaged_run_costs_no_llm_calls(tmp_path: Path, monkeypatch):
+    """`CLAUDE.md` promises operators that "resuming costs nothing for shows
+    already packaged" -- the property is `should_run`'s, and nothing tested
+    it. A pause is only cheap to recover from if this holds.
+    """
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    providers = {k: CountingProvider(v) for k, v in fake_providers(None).items()}
+    monkeypatch.setattr(cli, "make_providers", lambda config: providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    first = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                    "--auto", "--name", "cheap"])
+    assert first.exit_code == 0, first.output
+
+    spent = sum(p.calls for p in providers.values())
+    # The non-empty precondition, and the reason this test is worth having:
+    # `== spent` below is satisfied just as happily by a run that never
+    # happened. Assert the work occurred before asserting it is not repeated.
+    assert spent > 0
+
+    resumed = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "cheap"])
+    assert resumed.exit_code == 0, resumed.output
+
+    assert sum(p.calls for p in providers.values()) == spent
