@@ -145,6 +145,54 @@ def test_tts_section_from_toml(tmp_path: Path):
     assert cfg.tts.bed_gain_db == -15.0
 
 
+# --- extra="forbid": an unknown config key must fail loudly, not vanish ----
+
+
+def test_unknown_top_level_key_raises_through_load_config(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text('bogus_top_level_knob = 1\n')
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
+def test_unknown_key_in_nested_tts_section_raises(tmp_path: Path):
+    """The half a strict `EmceeConfig` alone would miss: pydantic does not
+    propagate `model_config` to nested models, so without `TTSConfig` itself
+    inheriting the strict base, a typo'd knob here is silently discarded
+    instead of failing to load."""
+    p = tmp_path / "config.toml"
+    p.write_text('[tts]\nbackendd = "voxtral"\n')
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
+def test_unknown_key_in_assign_profile_block_raises(tmp_path: Path):
+    """The emcee-specific case: `[assign.profiles.<name>]` nests a free-form
+    llama-profile name one level below a DECLARED shape (`presenter` +
+    optional `title`) -- a typo'd `titel` next to `presenter` must fail, even
+    though the profile name itself stays unconstrained."""
+    p = tmp_path / "config.toml"
+    p.write_text(
+        '[assign.profiles.prime-dead]\npresenter = "waldo"\ntitel = "oops"\n'
+    )
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
+def test_unknown_key_in_llm_task_section_raises(tmp_path: Path):
+    """emcee's copy of llama's `test_unknown_key_in_llm_task_section_raises`.
+    `[llm.scriptwrite] tierr = "high"` (missing the second `r`) is the
+    likeliest real-world typo the whole strictness change exists for, and it
+    is the one case emcee's own suite did not cover: reverting the strict
+    base on `LLMTaskConfig` in BOTH packages reddened llama and left emcee
+    entirely silent. Task names under `[llm.*]` stay free-form -- it is the
+    VALUES that are strict."""
+    p = tmp_path / "config.toml"
+    p.write_text('[llm.scriptwrite]\ntierr = "high"\n')
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
 # --- llm_for / llm_settings ---------------------------------------------
 
 

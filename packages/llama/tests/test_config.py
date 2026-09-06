@@ -135,6 +135,37 @@ def test_setlistfm_and_structure_from_toml(tmp_path):
     assert cfg.selection.lineage_eras[0].scores["matrix"] == 4.0
 
 
+# --- extra="forbid": an unknown config key must fail loudly, not vanish ----
+
+
+def test_unknown_top_level_key_raises_through_load_config(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text('bogus_top_level_knob = 1\n')
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
+def test_unknown_key_in_nested_pacing_section_raises(tmp_path: Path):
+    """The half a strict `Config` alone would miss: pydantic does not
+    propagate `model_config` to nested models, so without `PacingConfig`
+    itself inheriting the strict base, a typo'd knob here is silently
+    discarded (the operator's edit vanishes with no error) instead of
+    failing to load."""
+    p = tmp_path / "config.toml"
+    p.write_text('[pacing]\nfive_hour_ceilingg = 50\n')
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
+def test_unknown_key_in_llm_task_section_raises(tmp_path: Path):
+    """`[llm.brief] tierr = "high"` (missing the second `r`) is the likeliest
+    real-world typo this whole change exists for."""
+    p = tmp_path / "config.toml"
+    p.write_text('[llm.brief]\ntierr = "high"\n')
+    with pytest.raises(ConfigError):
+        load_config(p)
+
+
 def test_llm_tiers_lifted_from_llm_table(tmp_path: Path):
     p = tmp_path / "config.toml"
     p.write_text(
