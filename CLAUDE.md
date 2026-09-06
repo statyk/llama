@@ -37,8 +37,9 @@ implementation plan this was built from. The approved design spec is
   `llama artists "..."`, `llama status` (global triage view, `--by-run` for
   session rollups), `llama show <name>` (read-only), `llama pipeline`
   (static stage/state teaching command), `llama pacing` (read-only:
-  the usage meters, the learned per-show cost, and how many shows fit
-  before the reset), `llama triage` (interactive
+  the usage meters, the learned per-show cost, how many shows fit
+  before the reset, and the verdict — `would proceed`, or
+  `would pause: <reason>`), `llama triage` (interactive
   held-show walkthrough -- `[t] suggest titles`, offered only on a hold
   flagged "unresolved track titles", proposes a full set of titles from
   the setlist correspondence and writes them all on confirmation), `llama
@@ -272,22 +273,46 @@ tier (pins never escalate).
   an empty window. Every failed `claude -p` is captured whole under
   `~/.llama/llm-failures/`; the 7-day refusal's wording is still unobserved and
   that capture is how it will be learned.
-  **Two boundaries on what phase 1's pause guarantee actually covers, both found
-  in review:** **(a) it is `claude_cli`-specific.**
+  **Pacing has two halves.** *Reactive* (phase 1): the refusal above pauses the
+  run. *Proactive* (phase 2): a live meter read decides, BEFORE spending
+  anything, whether the window can finish the next unit of work. The meter is
+  `claude -p "/usage"` via `herder.usage` — a live `GET /api/oauth/usage`, zero
+  tokens, NOT an inference call, so it is affordable at every show boundary;
+  `~/.claude.json`'s cached utilization is deliberately not read (it was
+  measured serving an already-expired window). What a show costs is learned
+  from the meter across show boundaries and persisted as an EWMA in
+  `pacing-state.json` (`llama.pacing_state`), and `pacing.decide()` turns a
+  reading plus that estimate into `Proceed` or `PauseUntil`. Gates sit at the
+  top of `_execute` (pre-flight, before the opening burst) and before each
+  show's lock. `llama pacing` prints the same picture read-only. `--no-pacing`
+  opts out of both halves; a failed meter read degrades to the reactive
+  backstop alone and says so.
+  **Three boundaries on what that pause guarantee covers, all confirmed in
+  review:** **(a) it is `claude_cli`-specific.**
   `packages/herder/src/herder/openrouter.py:37` raises a plain `HerderError` on
   any non-200 response, so an HTTP 429 on the `openrouter` backend is still
   retried three times by `_with_transport_retry` like any other transient
-  failure and then fails the show — phase 1 recognizes no openrouter response as
-  a usage-window exhaustion. **(b) it is per-show, not per-run.** The pause
-  handling lives only in the show loop (`cli.py`'s `_process`, wrapping
-  `process_show`) that `_execute` runs after `interpret` (`run_discover`),
-  `search` (`run_search`) and `winnow` (`run_winnow`) have already completed. A
-  `RateLimited` raised during any of those three run-level stages is not caught
-  anywhere and escapes `_execute` as an ordinary unhandled exception: exit 1, no
-  checkpoint, no `paused` state, no `resume_after` — the operator sees a
-  failure, not a pause. Phase 2's proactive pre-flight gate is what is meant to
-  cover that opening burst; phase 1 has no such gate, so a limit hit during
-  those stages fails the run outright.
+  failure and then fails the show — nothing recognizes an openrouter response
+  as a usage-window exhaustion, and `openrouter.py` was deliberately left
+  untouched. **(b) the run-level catch covers three stages, not four.** Phase 2
+  closed phase 1's per-show-only gap: `cli._execute` wraps `run_discover`,
+  `run_search` and `run_winnow` in an `except RateLimited` arm — which must
+  stay above any `except HerderError`, since it subclasses it — that
+  checkpoints the session `paused` with a `resume_after` instead of exiting 1.
+  The resume is recoverable but not cheap: those stages gate on `should_run` at
+  WHOLE-STAGE granularity, so the interrupted one re-runs from the top. It does
+  **not** cover `run_interpret`, which runs in `get` outside `_execute`
+  entirely — filed as **T6b, deliberately UNBUILT**, because `run_interpret`
+  writes `criteria.json` only on success and `run resume` refuses a session
+  without one, so a checkpoint there would park an unresumable run (the query
+  lives only in argv). A limit during interpret still exits 1 having spent one
+  LLM call and written nothing. **(c) the run-level pause sites checkpoint but
+  never sleep.** Both of them — the pre-flight gate and the reactive catch
+  above — return after `_checkpoint_pause` even when the wait would fit inside
+  `--max-wait`; only the per-show loop sleeps. Operator-visible consequence:
+  `llama get --wait` launched shortly before a reset exits immediately having
+  done nothing, and an unattended run then needs a manual `llama run resume`.
+  Filed as **T7b, deliberately UNBUILT**.
   Set/segue structure is performance-level: gather builds
   a canonical setlist from every recording's description plus setlist.fm
   (optional, key via `SETLISTFM_API_KEY` or `[setlistfm] api_key`; absent key
