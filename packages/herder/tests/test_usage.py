@@ -60,3 +60,67 @@ def test_weekly_reset_uses_the_weekly_bound_not_the_session_one():
     # Seven days out must survive; under limits' 5.5h default it would not.
     r = usage.parse_usage_text(REAL, now=NOW)
     assert r.seven_day.resets_at is not None
+
+
+def test_session_line_without_its_own_reset_is_not_polluted_by_a_later_clause():
+    # F1: the (.*)$ tail on each regex keeps a meter's captured reset text
+    # to that meter's own line, honoring limits.parse_reset's single-clause
+    # contract. Widening any one of them to span lines (or dropping the
+    # anchors) would let the SESSION meter's parse_reset call pick up the
+    # WEEKLY line's reset clause instead of correctly seeing none.
+    text = ("Current session: 10% used\n"
+            "Current week (all models): 7% used · resets Sep 5 at 9pm "
+            "(America/New_York)\n")
+    r = usage.parse_usage_text(text, now=NOW)
+    assert r.five_hour == usage.Meter(10, None)
+
+
+# F2: REAL's only per-model line (Fable, 0%, no reset) is tautological -
+# every field of usage.Meter(0, None) is its own zero value, so the
+# per-model comprehension's percent group, reset-text group, bound, and
+# key .strip() can each be mutated with the suite still green. This
+# fixture adds a second per-model line with a non-zero percent, its own
+# dated reset clause, and surrounding whitespace around the model name.
+EXTRA_MODEL = REAL.replace(
+    "Current week (Fable): 0% used\n",
+    "Current week (Fable): 0% used\n"
+    "Current week ( Codex ): 31% used · resets Sep 12 at 7am "
+    "(America/New_York)\n",
+)
+
+
+def test_per_model_meter_parses_percent_reset_and_strips_whitespace():
+    r = usage.parse_usage_text(EXTRA_MODEL, now=NOW)
+    assert r.per_model["Codex"] == usage.Meter(
+        31, datetime(2026, 9, 12, 11, 0, tzinfo=timezone.utc))
+
+
+def test_session_reset_far_beyond_the_five_hour_bound_is_rejected():
+    # F3: swapping FIVE_HOUR_MAX_AHEAD_S for SEVEN_DAY_MAX_AHEAD_S on the
+    # session meter's parse_reset call would let a mis-parsed or
+    # clock-skewed week-out session reset survive. Only the opposite
+    # direction is pinned, by
+    # test_weekly_reset_uses_the_weekly_bound_not_the_session_one.
+    text = ("Current session: 10% used · resets Sep 12 at 5:20pm "
+            "(America/New_York)\n")
+    r = usage.parse_usage_text(text, now=NOW)
+    assert r.five_hour == usage.Meter(10, None)
+
+
+def test_weekly_all_line_without_its_own_reset_is_not_polluted_by_a_later_clause():
+    # F1 continued: the same slicing property, pinned for _WEEK_ALL_RE.
+    text = ("Current session: 10% used\n"
+            "Current week (all models): 7% used\n"
+            "Current week (Codex): 31% used · resets Sep 12 at 7am "
+            "(America/New_York)\n")
+    r = usage.parse_usage_text(text, now=NOW)
+    assert r.seven_day == usage.Meter(7, None)
+
+
+def test_session_line_is_matched_only_at_its_own_line_start():
+    # F1 continued: _SESSION_RE's leading ^ (with re.M) means a
+    # "Current session:" substring that does not begin its own line is not
+    # a session reading at all - dropping the anchor would instead match it
+    # anywhere, mid-prose. Fail-closed: the whole read is untrusted.
+    text = "Note: Current session: 10% used\n"
+    assert usage.parse_usage_text(text, now=NOW) is None
