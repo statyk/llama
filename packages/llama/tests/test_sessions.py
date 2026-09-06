@@ -194,6 +194,29 @@ def test_get_persists_the_request_before_interpreting(tmp_path: Path, monkeypatc
     assert req["auto"] is True
 
 
+def test_request_is_written_even_when_interpret_fails(tmp_path: Path, monkeypatch):
+    """The write must happen BEFORE run_interpret, not merely before the run
+    finishes -- a checkpoint written after the call it is meant to survive
+    is worthless. RateLimited is the realistic failure here: it is exactly
+    the usage-window-exhausted case T6b exists for, and _get_query
+    deliberately does not catch it around this call (see the comment above
+    the `run_interpret(...)` call site), so it propagates straight out of
+    `get` uncaught."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+
+    def boom(*a, **k):
+        raise RateLimited("You've hit your session limit", scope="five_hour")
+    monkeypatch.setattr(cli, "run_interpret", boom)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                     "--auto", "--name", "req2"])
+    assert result.exit_code != 0
+
+    req = json.loads((tmp_path / "runs" / "req2" / "request.json").read_text())
+    assert req["query"] == "GD 1973"
+
+
 def test_run_list_shows_the_query_of_a_run_with_no_criteria(tmp_path: Path):
     """A run paused at interpret has no criteria.json, and `iter_sessions`
     defaults `query` to "" -- so the one run whose query the operator most
@@ -224,6 +247,30 @@ def test_run_list_json_survives_a_session_with_no_criteria(tmp_path: Path):
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)[0]["query"] == "GD 1977 Cornell"
+
+    # The human-table renderer (`_print_sessions`) is the other of the "both
+    # paths"/"either renderer" this docstring claims -- pin it too.
+    table_result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert table_result.exit_code == 0, table_result.output
+    assert "GD 1977 Cornell" in table_result.output
+
+
+def test_status_by_run_shows_the_query_of_a_run_with_no_criteria(tmp_path: Path):
+    """`llama status --by-run` renders through `_by_run_rollup`, which
+    duplicates the criteria lookup instead of going through `iter_sessions`
+    -- so it needs its own `ws.request` fallback, independent of the one
+    `iter_sessions` already has."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    ws = RunWorkspace(tmp_path, "parked3")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "GD 1977 Cornell" in result.output
 
 
 def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypatch):

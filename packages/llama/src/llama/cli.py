@@ -2679,9 +2679,15 @@ def _by_run_rollup(config, ledger) -> list[dict]:
     run_dirs = sorted(d for d in runs_dir.iterdir() if d.is_dir()) if runs_dir.is_dir() else []
     rows = []
     for d in run_dirs:
+        ws = RunWorkspace(config.root, d.name)
         query = ""
-        if (d / "criteria.json").exists():
-            query = read_model(RunWorkspace(config.root, d.name).criteria, Criteria).query
+        if ws.criteria.exists():
+            query = read_model(ws.criteria, Criteria).query
+        elif ws.request.exists():
+            # Paused before interpret ever wrote criteria: same fallback as
+            # iter_sessions (sessions.py) -- duplicated here rather than
+            # routed through it (deferred minor: unify the two lookups).
+            query = json.loads(ws.request.read_text()).get("query") or ""
         counts = by_run.get(d.name, Counter())
         rows.append({"id": d.name, "query": query, "states": dict(sorted(counts.items()))})
     return rows
