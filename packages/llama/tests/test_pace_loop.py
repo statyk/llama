@@ -768,6 +768,56 @@ def test_the_learned_cost_folds_each_shows_own_before_and_after(tmp_path, monkey
     assert state["per_show_delta"] == pytest.approx(12.0)
 
 
+def test_the_gate_runs_before_the_show_lock_is_taken(tmp_path, monkeypatch):
+    """Placed inside the lock instead, a show another run holds slips past the
+    gate entirely: the non-blocking acquire raises first, the show goes to the
+    deferred pass, and it is processed on an exhausted window."""
+    _clock(monkeypatch, sleep_budget=0)
+    real_file_lock = cli.file_lock
+
+    def _file_lock(path, *, blocking=True):
+        if not blocking:
+            raise Locked(path)                 # another run holds every show
+        return real_file_lock(path, blocking=blocking)
+
+    monkeypatch.setattr(cli, "file_lock", _file_lock)
+    calls = {"n": 0}
+
+    def _read(*a, **kw):
+        calls["n"] += 1
+        return _reading(five=5 if calls["n"] == 1 else 99)
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    assert seen == []
+    assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_the_learned_cost_is_what_stops_the_next_show(tmp_path, monkeypatch):
+    """The gate is on the PROJECTION, so the estimate a boundary produces has
+    to reach the next decision. A meter comfortably under the ceiling still
+    pauses when one more show of the measured size would carry it over --
+    and a `record` whose result is dropped on the floor never pauses below
+    the ceiling at all."""
+    _clock(monkeypatch, sleep_budget=0)
+    reads = [50, 50, 62, 85]      # pre-flight, before-a, after-a, before-b
+
+    def _read(*a, **kw):
+        assert reads, "the projection did not stop the second show"
+        return _reading(five=reads.pop(0))
+
+    monkeypatch.setattr(cli, "read_usage", _read)
+    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a", "b"],
+                      pace=pacing.pace_options(Config(), wait=False))
+
+    assert seen == ["a"]
+    marker = json.loads(ws.session.read_text())
+    # 85 is under the 90 ceiling; 85 + the 12 that show `a` cost is not.
+    assert marker["pause_reason"] == "5h window at 85%, est 12.0%/show"
+
+
 def test_a_deferred_show_is_not_a_boundary(tmp_path, monkeypatch):
     """A show another run holds the lock on never ran here, so the two
     readings around it bracket no work at all. Folding that in teaches the
