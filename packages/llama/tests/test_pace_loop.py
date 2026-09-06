@@ -1267,10 +1267,20 @@ def test_preflight_re_reads_the_meter_after_the_nap(tmp_path, monkeypatch):
         return _near_reading(99 if calls["n"] == 1 else 5)
 
     monkeypatch.setattr(cli, "read_usage", _read)
-    ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
+    at_first_show = {}
+
+    def _proc(pid):
+        at_first_show.setdefault("n", calls["n"])
+        return f"{pid}/pkg"
+
+    ws, seen = _drive(tmp_path, monkeypatch, _proc, ["a"],
                       pace=pacing.pace_options(Config()))
 
-    assert calls["n"] >= 2                     # re-read, not reused
+    # Counted BEFORE the first show, because the per-show gate reads the meter
+    # too: a bare `calls >= 2` is satisfied whether or not the pre-flight
+    # re-read, and would pass on code that proceeded blindly after the nap.
+    # 2 pre-flight reads (pause, then re-decide) + 1 per-show gate = 3.
+    assert at_first_show["n"] >= 3
     assert seen == ["a"]
 
 
@@ -1340,7 +1350,15 @@ def test_run_level_catch_sleeps_at_most_once(tmp_path, monkeypatch):
 def test_an_interrupt_during_a_run_level_nap_checkpoints(tmp_path, monkeypatch):
     """Same contract as the show loop's nap: Ctrl-C is a clean checkpoint at
     exit 0, not a traceback, so an interrupted wait resumes with the same
-    command as a planned one."""
+    command as a planned one.
+
+    MUTATING THE HANDLER THIS TEST PINS DOES NOT PRODUCE A `FAILED` LINE.
+    Breaking `_run_level_pause`'s `except KeyboardInterrupt` lets the
+    interrupt escape into pytest, which ABORTS the session -- it prints
+    `!!! KeyboardInterrupt !!!` and a reduced pass count (64 of 66) rather
+    than reporting a failure. A mutation harness that scores by grepping
+    for `FAILED` therefore reads this kill as a SURVIVOR. Verified
+    2026-09-06. Score this one on the pass COUNT, not the failure list."""
     state = {"now": NOW}
     monkeypatch.setattr(pacing, "_now", lambda: state["now"])
 
