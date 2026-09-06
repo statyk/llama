@@ -5,6 +5,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 import llama.cli as cli
+from conftest import cli_invoke
 from llama.config import DEFAULT_CONFIG_TOML
 from llama.ledger import Ledger
 from llama.models import (
@@ -473,3 +474,37 @@ def test_resolve_exclude_tokens_comma_form(tmp_path):
     assert cli._resolve_exclude_tokens(sws, ["1,2"]) == ["a.mp3", "b.mp3"]
     # filename passthrough needs no show.json read
     assert cli._resolve_exclude_tokens(ShowWorkspace(tmp_path / "none"), ["z.mp3"]) == ["z.mp3"]
+
+
+def _usage_reading(five, seven):
+    from datetime import datetime, timedelta, timezone
+    from herder.usage import Meter, UsageReading
+    now = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)
+    return UsageReading(five_hour=Meter(five, now + timedelta(hours=2)),
+                        seven_day=Meter(seven, now + timedelta(days=3)),
+                        per_model={}, fetched_at=now)
+
+
+def _cfg_file(tmp_path):
+    """A config pointing at tmp_path, so the command never reads the real
+    ~/.llama/config.toml. `cli_invoke` lives in conftest.py."""
+    path = tmp_path / "config.toml"
+    path.write_text(f'root = "{tmp_path}"\n')
+    return path
+
+
+def test_pacing_command_reports_meters_and_forecast(monkeypatch, tmp_path):
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage", lambda *a, **kw: _usage_reading(65, 7))
+    result = cli_invoke(_cfg_file(tmp_path), "pacing")
+    assert result.exit_code == 0
+    assert "5h 65%" in result.stdout
+    assert "weekly 7%" in result.stdout
+
+
+def test_pacing_command_says_so_when_the_meter_cannot_be_read(monkeypatch, tmp_path):
+    from llama import cli as cli_mod
+    monkeypatch.setattr(cli_mod, "read_usage", lambda *a, **kw: None)
+    result = cli_invoke(_cfg_file(tmp_path), "pacing")
+    assert result.exit_code == 0
+    assert "unavailable" in result.stdout

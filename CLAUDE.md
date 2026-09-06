@@ -36,7 +36,9 @@ implementation plan this was built from. The approved design spec is
   packaged: stage-level `should_run` skips them.
   `llama artists "..."`, `llama status` (global triage view, `--by-run` for
   session rollups), `llama show <name>` (read-only), `llama pipeline`
-  (static stage/state teaching command), `llama triage` (interactive
+  (static stage/state teaching command), `llama pacing` (read-only:
+  the usage meters, the learned per-show cost, and how many shows fit
+  before the reset), `llama triage` (interactive
   held-show walkthrough -- `[t] suggest titles`, offered only on a hold
   flagged "unresolved track titles", proposes a full set of titles from
   the setlist correspondence and writes them all on confirmation), `llama

@@ -28,9 +28,9 @@ from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
 from llama import pacing_state
-from llama.pacing import (PaceOptions, PauseUntil, Progress, decide,
-                          duration_arg, format_delta, pace_options, resume_at,
-                          sleep_until)
+from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
+                          decide, duration_arg, format_delta, pace_options,
+                          resume_at, shows_that_fit, sleep_until)
 from llama.pipeline import choose_entries, make_providers, process_show
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
@@ -51,7 +51,7 @@ from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
 VALID_STAGES = {"search", "winnow", "select", "gather", "research", "vet", "brief", "package"}
 RUN_LEVEL_STAGES = {"search", "winnow"}
 
-_COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline",
+_COMMAND_ORDER = ["get", "artists", "status", "show", "pipeline", "pacing",
                   "triage", "fix", "redo", "deliver", "rm",
                   "suppress", "unsuppress", "run", "profile",
                   "history", "config"]
@@ -218,6 +218,33 @@ def _meter(config: Config, pace: PaceOptions):
     return read_usage()
 
 
+def _pacing_line(reading, state, pace: PaceOptions) -> str:
+    """The one-line meter summary printed at run start and by `llama pacing`.
+
+    Every part after the 5-hour meter is conditional, because each one is a
+    thing that may genuinely not be known yet: a reading can arrive without
+    the weekly meter, and `per_show_delta` is None until a boundary has been
+    observed. Rendering a placeholder for those would read as a measurement.
+
+    No `count` here: `llama pacing` has no run to size the forecast against,
+    so the consequence clause ("the remaining N pause until the reset") is
+    appended by `_execute`, which does. A formatter that rendered differently
+    per caller would be worse than one that does not.
+    """
+    if reading is None or reading.five_hour is None:
+        return "usage read unavailable — pacing on limit errors only"
+    parts = [f"5h {reading.five_hour.percent}%"]
+    if reading.seven_day is not None:
+        parts.append(f"weekly {reading.seven_day.percent}%")
+    if state.per_show_delta:
+        parts.append(f"est {state.per_show_delta:.1f}%/show")
+    fits = shows_that_fit(reading, state.per_show_delta, pace.five_hour_ceiling)
+    if fits is not None and reading.five_hour.resets_at is not None:
+        parts.append(f"~{fits} fit before "
+                     f"{reading.five_hour.resets_at.astimezone():%H:%M}")
+    return "pacing: " + " · ".join(parts)
+
+
 def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              count: int, auto: bool, human_gate: bool, force: bool = False,
              force_stage: str | None = None,
@@ -231,7 +258,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
     # one costs the whole stage on the resume. This is the cheapest place in a
     # run to stop, and the only gate that runs before any of them.
     state = pacing_state.read_state(config.root)
-    verdict = decide(_pacing._now(), _meter(config, pace),
+    # One read, bound and reused: the forecast below must describe the same
+    # reading this verdict was computed from, and a second `_meter` call
+    # would spend a second subprocess at run start to print a line that
+    # could disagree with the decision already taken.
+    reading = _meter(config, pace)
+    verdict = decide(_pacing._now(), reading,
                      Progress(state.per_show_delta), pace)
     if isinstance(verdict, PauseUntil):
         # `when=` because the verdict already carries a skewed instant; see
@@ -240,6 +272,16 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                           note="nothing has run yet; resume when the window "
                                "resets")
         return
+    # Proceeding: say what the run is proceeding on. `count` is what makes
+    # the consequence clause sayable here and not in `llama pacing`, which
+    # has no run to size. NOT used to reduce `count` -- that feeds
+    # choose_entries' artist and year caps, so cutting it would change
+    # *which* shows are picked, not just how many.
+    line = _pacing_line(reading, state, pace)
+    fits = shows_that_fit(reading, state.per_show_delta, pace.five_hour_ceiling)
+    if fits is not None and fits < count:
+        line += f"; the remaining {count - fits} pause until the reset"
+    typer.echo(line)
     # The one place raw-output capture is switched on: every provider
     # make_providers built shares this module-level destination.
     set_capture_dir(config.root / "llm-failures")
@@ -1322,6 +1364,28 @@ def pipeline():
                "manual escape hatch for any stage, including select/research):")
     for cause, stage in _PIPELINE_REDO_CHEATSHEET:
         typer.echo(f"  {cause.ljust(30)} -> redo --from {stage}")
+
+
+@app.command(rich_help_panel="Watch",
+             short_help="Print the usage meters, the learned per-show cost, "
+                        "and what fits.")
+def pacing() -> None:      # shadows nothing: cli.py imports the pacing module
+                           # as `_pacing`, deliberately
+    """Show the usage meters, the learned per-show cost, and what fits.
+
+    Read-only, in the shape of `llama pipeline`. Run it before launching to
+    decide whether a run fits in the current window.
+    """
+    config = load_config(_config_path)   # the callback's --config, not the default
+    pace = pace_options(config)
+    state = pacing_state.read_state(config.root)
+    reading = _meter(config, pace)
+    typer.echo(_pacing_line(reading, state, pace))
+    if reading is None:
+        return
+    verdict = decide(_pacing._now(), reading, Progress(state.per_show_delta), pace)
+    typer.echo("would proceed" if isinstance(verdict, Proceed)
+               else f"would pause: {verdict.reason}")
 
 
 def _confirm_plan(entries, action: str, yes: bool) -> bool:
