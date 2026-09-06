@@ -477,8 +477,9 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             #
             # Covers exactly the three run-level stages inside this try --
             # run_discover, run_search, run_winnow -- and NOT run_interpret,
-            # which runs outside `_execute` entirely, at two call sites now
-            # (`_get_query` and `run_resume`'s criteria-less branch). Both go
+            # which runs outside `_execute` entirely, at two IN-RUN call
+            # sites (`_get_query` and `run_resume`'s criteria-less branch);
+            # `profile_add` is a third, outside any run. Both in-run ones go
             # through `_interpret_with_pause`, which is that stage's own copy
             # of this catch; there is no gap here to close.
             #
@@ -737,10 +738,23 @@ def _interpret_with_pause(config, ws: RunWorkspace, req: dict,
     Sleeps AT MOST ONCE. Nothing completes between naps at a site where no
     work has run, so a second pause passes `stalled=True` -- without it a
     `when` already in the past makes `sleep_until` return immediately and
-    the pause becomes a hot spin, which HANGS the suite rather than
-    reddening it. No sleep-budget assertion can see that mutation; it is
-    caught only by running these tests under a hard timeout and reading the
-    exit code. Do not "simplify" `stalled=stalled` away.
+    the pause becomes a hot spin. No sleep-budget assertion can see it: the
+    spin never calls `_sleep` again.
+
+    What catches it HERE, measured rather than assumed:
+    `test_a_limit_during_interpret_sleeps_at_most_once` refuses through a
+    provider bounded at `times=99`, so `stalled=stalled` -> `stalled=False`
+    exhausts that bound and lands as a RED TEST in under a second -- no
+    timeout needed. That bound is deliberate. Unbounding it (`times=10**9`)
+    reproduces production instead: the same mutant then HANGS, exit 124
+    under `timeout 60`, while restoring the guard passes in 0.5s against
+    that same unbounded provider -- so it is the guard, not the bound, that
+    stops the spin. Do not "simplify" `stalled=stalled` away, and do not
+    unbound the test to "make the pin realistic": that trades a red test
+    for a hung suite and pins nothing extra.
+
+    (`_preflight_gate` says the hang version of this and is correct there --
+    its tests do not bound the refusal. Same invariant, different evidence.)
     """
     stalled = False
     while True:

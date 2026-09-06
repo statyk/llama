@@ -39,7 +39,7 @@ Three things are left undone, and they are the whole of phase 2:
   around available capacity by hand, with no answer to "will 13 shows fit before
   the reset?"
 
-### Known gap: `run_interpret` is not covered
+### Known gap: `run_interpret` is not covered — SUPERSEDED, it is (T6b, built)
 
 A `RateLimited` raised by `run_interpret` still exits 1 with no checkpoint, and
 phase 2 deliberately leaves it that way. `run_interpret` is called at

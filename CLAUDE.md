@@ -323,8 +323,12 @@ tier (pins never escalate).
   `runs/<id>/request.json` at run-claim time, before any LLM call, and
   `run resume` re-interprets from it whenever a session has a request but no
   criteria (`iter_sessions` reads that request too, so a run parked at
-  interpret still lists its query). `--no-pacing` re-raises here exactly as
-  it does at the other sites. Note `profile add`
+  interpret still lists its query). `--no-pacing` restores the pre-pacing
+  behaviour here as it does at every other site, though what that MEANS
+  differs per site and only two of them literally re-raise: this catch and
+  `_execute`'s run-level one do, the per-show loop records a per-show
+  failure instead, and the pre-flight gate simply never reads a meter (a
+  missing reading proceeds). Note `profile add`
   DOES call `run_interpret`, against a scratch workspace with no session to
   park — so **that one call site still exits 1**, and it is the only
   `run_interpret` call the pause guarantee does not reach; it is `llama get
