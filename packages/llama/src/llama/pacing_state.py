@@ -1,9 +1,11 @@
 """What a show costs, learned from the meter across show boundaries.
 
 A reading taken AFTER a show minus the one taken before it is exactly that
-show's cost (`cli.py:389` and `cli.py:426`). That is a cleaner attribution
-than any rate estimate over time, and it is available for free because the
-meter read costs nothing.
+show's cost. Both readings are taken in `cli._execute`'s show loop: the
+`reading_before` bound just above the show lock, and the second `_meter`
+call passed straight into `record` once `_process` has returned. That is a
+cleaner attribution than any rate estimate over time, and it is available
+for free because the meter read costs nothing.
 
 Before/after, not before-N/before-N+1: the gate's own meter read and this
 module's `record` write both happen BETWEEN shows, so a boundary measured
@@ -105,9 +107,15 @@ def record(root: Path, before, after) -> PacingState:
     """Observe one boundary and persist the result.
 
     Read-modify-write on a workspace that is explicitly parallel-safe, so it
-    takes the same advisory lock discipline as the ledger: two concurrent
-    runs would otherwise each fold the other's burn into the shared estimate
-    on a last-writer-wins race.
+    takes the same advisory lock discipline as the ledger. What the lock
+    prevents is a LOST UPDATE: unlocked, two concurrent runs read the same
+    state, and the later write wins with the earlier run's boundary folded
+    into nothing -- one sample silently discarded from an estimate whose
+    whole value is how many boundaries it has seen.
+
+    Not the same thing as the account-wide meter bias in the module
+    docstring: each run does see the other's burn in its own readings, but
+    that is a property of the meter and no lock can fix it.
     """
     root.mkdir(parents=True, exist_ok=True)
     with file_lock(root / (STATE_NAME + ".lock")):
