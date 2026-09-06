@@ -438,8 +438,18 @@ class CountingProvider:
 
 def test_resuming_a_packaged_run_costs_no_llm_calls(tmp_path: Path, monkeypatch):
     """`CLAUDE.md` promises operators that "resuming costs nothing for shows
-    already packaged" -- the property is `should_run`'s, and nothing tested
-    it. A pause is only cheap to recover from if this holds.
+    already packaged": a resume genuinely RE-ENTERS the show (`run_winnow`
+    runs again, the stages walk from the top) and every stage's own
+    `should_run` gate finds nothing to do, so zero LLM calls are spent. A
+    pause is only cheap to recover from if this holds -- and it is
+    `should_run`'s property specifically, not an artifact of the show never
+    being revisited at all: if the library/ledger dedup in `run_winnow`
+    dropped the candidate before re-entry (e.g. a broken `should_run` that
+    always re-ran everything, defeated by a *different* short-circuit further
+    up the pipeline), the call count would still hold at zero for the wrong
+    reason. The `"packaged:"` assertion below pins that the resumed run
+    actually walked back into the show and packaged it again, not that it
+    quietly gave up before getting there.
     """
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
@@ -459,5 +469,11 @@ def test_resuming_a_packaged_run_costs_no_llm_calls(tmp_path: Path, monkeypatch)
 
     resumed = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "cheap"])
     assert resumed.exit_code == 0, resumed.output
+    # Pins re-entry, not mere cheapness: a `should_run` bug that made every
+    # stage always re-run would still hit `spent` calls, but a *different*
+    # short-circuit (winnow's library/ledger dedup dropping the now-known
+    # show before any stage is reached) would spend zero for the wrong
+    # reason and exit with "No shows survived winnowing." instead of this.
+    assert "packaged:" in resumed.output, resumed.output
 
     assert sum(p.calls for p in providers.values()) == spent
