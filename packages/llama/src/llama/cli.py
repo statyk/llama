@@ -1079,16 +1079,22 @@ def run_resume(
         # it: the gate reads an account-wide meter that another session can
         # empty between the reading and the call. A resume that died here
         # would leave the session exactly as parked, having spent the call.
-        criteria = _interpret_with_pause(
-            config, ws, json.loads(ws.request.read_text()), pace)
+        req = json.loads(ws.request.read_text())
+        criteria = _interpret_with_pause(config, ws, req, pace)
         if criteria is None:
             return
+        # Honor the persisted `--plan` on this resume, but NOT the persisted
+        # `auto`: `run resume` has its own explicit `--auto/--interactive`
+        # flag, and a persisted value must never override an explicit one.
+        # `auto` stays in the request artifact as informational only.
+        plan = bool(req.get("plan"))
     else:
         criteria = read_model(ws.criteria, Criteria)
+        plan = False
     _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
              human_gate=False, force=False,
              force_stage=None,
-             full_rationale=full_rationale, pace=pace)
+             full_rationale=full_rationale, plan=plan, pace=pace)
 
 
 @run_app.command("rm")

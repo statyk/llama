@@ -690,6 +690,66 @@ def test_run_resume_does_not_stamp_an_unspecified_limit(tmp_path: Path, monkeypa
     assert criteria.count == 1
 
 
+# --- the persisted `--plan` flag is honored on a criteria-less resume ------
+
+
+def test_run_resume_honors_a_persisted_plan_and_parks_awaiting_approval(
+        tmp_path: Path, monkeypatch):
+    """A session parked before interpret ever finished, with `--plan` set on
+    the original request, must resume into the SAME shortlist-only stop --
+    not into full acquisition. Before this fix, `request.json`'s `plan` was
+    persisted but never read back on resume, so this resume ran the whole
+    pipeline instead of stopping at the shortlist."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "planned")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                           "artist_cap": None, "min_score": None,
+                                           "year_cap": None, "auto": True,
+                                           "plan": True}))
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "planned"])
+
+    assert result.exit_code == 0, result.output
+    # Discriminating assertions: a resume that silently drops `plan` still
+    # exits 0 and prints something, so pin the specific absence (nothing
+    # packaged) alongside the specific --plan hint, not just "it didn't
+    # crash".
+    assert "packaged:" not in result.output, result.output
+    assert "to approve & process:  llama run approve planned" in result.output
+    assert session_state(ws.dir) == STATE_AWAITING
+
+
+def test_run_resume_without_plan_still_processes_normally(
+        tmp_path: Path, monkeypatch):
+    """Guards the opposite failure mode: replaying `plan` unconditionally
+    (e.g. hardcoded True, or read from the wrong key) would make every
+    criteria-less resume stop short, even one that never asked for --plan."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "unplanned")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                           "artist_cap": None, "min_score": None,
+                                           "year_cap": None, "auto": True,
+                                           "plan": False}))
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "unplanned"])
+
+    assert result.exit_code == 0, result.output
+    assert "packaged:" in result.output, result.output
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+
+
 # --- T6b: the pre-flight gate runs before interpret is paid for --------------
 
 PF_NOW = datetime(2026, 9, 6, 8, 0, tzinfo=timezone.utc)
