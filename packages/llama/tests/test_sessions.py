@@ -893,6 +893,36 @@ def test_run_resume_never_replays_auto_over_the_explicit_flag(
     assert captured["auto"] is True
 
 
+
+def test_run_resume_tolerates_a_request_without_a_plan_key(
+        tmp_path: Path, monkeypatch):
+    """`request.json` is read for `plan` with `.get`, not `[...]`. Subscripting
+    passes the whole suite today -- every artifact the current writer emits
+    carries the key -- and blows up with a KeyError on any run dir whose
+    request.json predates `--plan`. Pins the tolerant read directly, since
+    nothing else in the suite exercises a request.json missing a key."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "noplankey")
+    ws.dir.mkdir(parents=True)
+    # Deliberately no "plan" key at all.
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                           "artist_cap": None, "min_score": None,
+                                           "year_cap": None, "auto": True}))
+    assert "plan" not in json.loads(ws.request.read_text())
+    mark_paused(ws, None, [], "2026-09-06T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "noplankey"])
+
+    assert result.exit_code == 0, result.output
+    # A missing key means no --plan was asked for: resume processes normally.
+    assert "packaged:" in result.output, result.output
+    assert session_state(ws.dir) == STATE_COMPLETE
+
+
 # --- T6b: the pre-flight gate runs before interpret is paid for --------------
 
 PF_NOW = datetime(2026, 9, 6, 8, 0, tzinfo=timezone.utc)
