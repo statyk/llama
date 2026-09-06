@@ -2,12 +2,24 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from herder import LLMSettings, TaskConfig
 from llama.errors import ConfigError
 
 DEFAULT_ROOT = Path.home() / ".llama"
+
+
+class _StrictModel(BaseModel):
+    """Unknown keys are an error, not a silent drop.
+
+    config.toml is the one file this design expects a human to hand-edit, so a
+    typo'd knob must fail loudly rather than leave the default in place. Set on
+    a shared base because pydantic does not propagate model_config to nested
+    models -- on Config alone, every section below it stays permissive.
+    """
+    model_config = ConfigDict(extra="forbid")
+
 
 Tier = Literal["low", "medium", "high"]
 
@@ -35,28 +47,28 @@ DEFAULT_TIERS = {
 }
 
 
-class LLMTaskConfig(TaskConfig):
+class LLMTaskConfig(_StrictModel, TaskConfig):
     # Narrows the shared type so a config-file tier typo fails at parse time.
     tier: Tier | None = None
 
 
-class SetlistFMConfig(BaseModel):
+class SetlistFMConfig(_StrictModel):
     api_key: str | None = None
 
 
-class JerrybaseConfig(BaseModel):
+class JerrybaseConfig(_StrictModel):
     # Vendored, offline, no key - so on by default (unlike setlist.fm). No
     # thresholds: anchoring either resolves every set closer or declines
     # entirely, and when it resolves it wins over the aligned breaks.
     enabled: bool = True
 
 
-class StructureConfig(BaseModel):
+class StructureConfig(_StrictModel):
     guard_min_minutes: int = 150
     align_coverage_threshold: float = 0.8
 
 
-class LineageEra(BaseModel):
+class LineageEra(_StrictModel):
     """Replace the global lineage base scores for one collection + date window."""
     collection: str
     date_from: str  # YYYY-MM-DD, inclusive
@@ -76,18 +88,18 @@ def _default_lineage_eras() -> list[LineageEra]:
                        scores={"matrix": 3.0, "aud": 2.0, "sbd": 1.0})]
 
 
-class SelectionConfig(BaseModel):
+class SelectionConfig(_StrictModel):
     tapers: dict[str, dict[str, float]] = Field(default_factory=_default_tapers)
     lineage_eras: list[LineageEra] = Field(default_factory=_default_lineage_eras)
 
 
-class WinnowConfig(BaseModel):
+class WinnowConfig(_StrictModel):
     # Review-fetch budget: when more candidates survive the mechanical gate,
     # winnow samples this many evenly across years instead of scoring all.
     max_metadata_fetch: int = 40
 
 
-class ArtistsConfig(BaseModel):
+class ArtistsConfig(_StrictModel):
     min_recordings: int = 25
     min_downloads: int = 50000
     # LLM artist-match budget for find/profile discovery; matches the
@@ -95,7 +107,7 @@ class ArtistsConfig(BaseModel):
     max_matched: int = 20
 
 
-class PacingConfig(BaseModel):
+class PacingConfig(_StrictModel):
     """Pacing a run against a usage window (see llama/pacing.py).
 
     Covers both halves: waiting out a window the backend has already
@@ -129,7 +141,7 @@ class PacingConfig(BaseModel):
         return v
 
 
-class Config(BaseModel):
+class Config(_StrictModel):
     root: Path = DEFAULT_ROOT
     delivery_path: Path | None = None
     audio_format: Literal["mp3", "flac"] = "mp3"
