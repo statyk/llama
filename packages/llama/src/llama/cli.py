@@ -266,7 +266,12 @@ def _pacing_line(reading, state, pace: PaceOptions) -> str:
     per caller would be worse than one that does not.
     """
     if reading is None or reading.five_hour is None:
-        return "usage read unavailable — pacing on limit errors only"
+        # Prefixed like every other line this function returns, so the
+        # run-start block has one identifiable owner per line. The CLAIM is
+        # untouched -- it is only ever printed where the reactive backstop
+        # really is live, which is what R19 protected; `_execute` and
+        # `llama pacing` both gate the other two None causes upstream.
+        return "pacing: usage read unavailable — pacing on limit errors only"
     parts = [f"5h {reading.five_hour.percent}%"]
     if reading.seven_day is not None:
         parts.append(f"weekly {reading.seven_day.percent}%")

@@ -1069,7 +1069,8 @@ def test_a_failed_read_on_a_paced_run_says_the_backstop_is_still_live(
     _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a"],
            pace=pacing.pace_options(Config()))
 
-    assert "usage read unavailable — pacing on limit errors only" \
+    # Prefixed like every other pacing line, and the claim itself unchanged.
+    assert "pacing: usage read unavailable — pacing on limit errors only" \
         in capsys.readouterr().out
 
 
