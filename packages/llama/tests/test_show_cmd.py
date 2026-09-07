@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 import typer.testing as typer_testing
 
-from conftest import cli_invoke
+from conftest import cli_invoke, output_without_paths
 from llama.workspace import ShowWorkspace, read_model, write_artifact
 
 from test_catalog import build
@@ -58,7 +58,7 @@ def test_single_recording_yields_no_considered_block(tmp_path: Path):
     r = cli_invoke(cfg, "show", "gratefuldead")
     assert r.exit_code == 0, r.output
     assert "https://archive.org/details/gd73" in r.output
-    assert "considered:" not in r.output
+    assert "considered:" not in output_without_paths(r, tmp_path)
 
 
 def test_no_selection_json_omits_url_block_entirely(tmp_path: Path):
@@ -66,8 +66,9 @@ def test_no_selection_json_omits_url_block_entirely(tmp_path: Path):
     build(tmp_path, "gratefuldead-1973-06-10", stages={"gather"})   # no "select"
     r = cli_invoke(cfg, "show", "gratefuldead")
     assert r.exit_code == 0, r.output
-    assert "archive.org" not in r.output
-    assert "considered:" not in r.output
+    clean = output_without_paths(r, tmp_path)
+    assert "archive.org" not in clean
+    assert "considered:" not in clean
 
 
 # --- read-only guarantee ---
@@ -78,8 +79,9 @@ def test_held_show_on_tty_never_prompts(tmp_path: Path, tty):
           needs_review=True)
     r = cli_invoke(cfg, "show", "gratefuldead")
     assert r.exit_code == 0, r.output
-    assert "[e]xclude" not in r.output
-    assert "[o]verrule" not in r.output
+    clean = output_without_paths(r, tmp_path)
+    assert "[e]xclude" not in clean
+    assert "[o]verrule" not in clean
     assert "state: held" in r.output
 
 
@@ -258,7 +260,7 @@ def test_bare_show_dir_with_no_selection_no_show_still_inspects(tmp_path: Path):
     r = cli_invoke(cfg, "show", "bare")
     assert r.exit_code == 0, r.output
     assert "slug: bare-1970-01-01" in r.output
-    assert "archive.org" not in r.output
+    assert "archive.org" not in output_without_paths(r, tmp_path)
 
 
 # --- fix --overrule hint ---
@@ -269,9 +271,11 @@ def test_overrule_hint_points_at_fix(tmp_path: Path):
           needs_review=True)
     r = cli_invoke(cfg, "show", "gratefuldead")
     assert r.exit_code == 0, r.output
-    assert "to overrule after inspecting: llama fix gratefuldead-1973-06-10 --overrule" \
-        in r.output
-    assert "--clear" not in r.output
+    hint = next(ln for ln in r.output.splitlines()
+                if ln.startswith("to overrule after inspecting:"))
+    assert hint == ("to overrule after inspecting: "
+                    "llama fix gratefuldead-1973-06-10 --overrule")
+    assert "--clear" not in hint
 
 
 # --- overrides.include: the excluded listing, the `+` marker, the dropped count ---

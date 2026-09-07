@@ -11,7 +11,7 @@ import pytest
 import typer.testing as typer_testing
 
 import llama.cli as cli
-from conftest import cli_invoke
+from conftest import cli_invoke, output_without_paths
 from herder import FakeProvider
 from llama.models import Provenance, RecordingSummary, Show
 from llama.stages.gather import run_gather
@@ -77,7 +77,7 @@ def test_default_selector_walks_held_only(tmp_path, tty, monkeypatch):
     r = cli_invoke(cfg, "triage", input="s\n")
     assert r.exit_code == 0, r.output
     assert "gratefuldead-1973-06-10" in r.output
-    assert "other-1974-01-01" not in r.output
+    assert "other-1974-01-01" not in output_without_paths(r, tmp_path)
 
 
 # --- broader selector: non-held prints and skips ---
@@ -242,7 +242,8 @@ def test_quit_action_stops_the_walk(tmp_path, tty, monkeypatch):
     r = cli_invoke(cfg, "triage", input="q\n")
     assert r.exit_code == 0, r.output
     assert "aheld-1973-06-10" in r.output
-    assert "zheld-1974-01-01" not in r.output   # stopped before the second show
+    # stopped before the second show
+    assert "zheld-1974-01-01" not in output_without_paths(r, tmp_path)
     assert calls == []
 
 
@@ -358,7 +359,8 @@ def test_suggest_titles_hint_hidden_without_the_unresolved_titles_flag(tmp_path,
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "triage", input="t\n")
     assert r.exit_code == 0, r.output
-    assert "suggest titles" not in r.output.lower()
+    prompt = next(ln for ln in r.output.splitlines() if "[e]xclude tracks" in ln)
+    assert "suggest titles" not in prompt.lower(), prompt
     assert "unrecognized" in r.output
     assert calls == []
 
