@@ -1278,7 +1278,11 @@ def _format_tracks(show) -> list[str]:
     if any(t.matched is None for t in show.tracks):
         lines.append("  - = not measured")
     if any(t.included for t in show.tracks):
-        lines.append("  + = re-admitted by operator (the junk filter had dropped it)")
+        # NOT "(the junk filter had dropped it)": Track.included means only
+        # that the operator NAMED this file in overrides.include. Naming a file
+        # the filter would have kept anyway is reachable and unwarned, so that
+        # phrasing asserted something untrue on such a row.
+        lines.append("  + = ruled in by the operator (overrides.include)")
     handles = _excluded_handles(show)
     if handles:
         width = max(len(e["filename"]) for _, e in handles)
@@ -1286,10 +1290,12 @@ def _format_tracks(show) -> list[str]:
         for handle, e in handles:
             # e.get, never e[...]: a show.json written before this feature has
             # no `duration_sec` key at all, and `show` must render it, not die.
-            lines.append(f"  {handle:>3s}  {e['filename']:<{width}s}  "
-                         f"{_fmt_dur(e.get('duration_sec')):>6s}  "
-                         f"{', '.join(e.get('reasons', []))}")
-        lines.append(f"  re-admit one with: llama fix <show> --include {handles[0][0]}")
+            # .rstrip(): `reasons` can be absent or empty (a pre-feature
+            # show.json, or an entry excluded with no recorded reason), which
+            # otherwise leaves the row ending in the two-space separator.
+            lines.append((f"  {handle:>3s}  {e['filename']:<{width}s}  "
+                          f"{_fmt_dur(e.get('duration_sec')):>6s}  "
+                          f"{', '.join(e.get('reasons', []))}").rstrip())
     return lines
 
 
@@ -1562,6 +1568,16 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
     if show_tracks:
         for line in _format_tracks(s):
             typer.echo(line)
+        # Emitted HERE, not inside _format_tracks: only this path has
+        # `entry.slug` (a Show carries no slug, so the shared helper could
+        # print a literal `<show>` at best), and the helper is also the
+        # interactive [e]xclude picker's renderer -- where naming a `llama fix`
+        # command to an operator sitting at a play-order-integers prompt is
+        # noise. The picker keeps the listing (spec section 4) and loses this.
+        handles = _excluded_handles(s)
+        if handles:
+            typer.echo(f"  re-admit one with: llama fix {entry.slug} "
+                       f"--include {handles[0][0]}")
 
 
 def _print_show_json(entry, show_tracks: bool = False) -> None:

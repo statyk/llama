@@ -321,7 +321,9 @@ def test_tracks_listing_shows_the_excluded_section(tmp_path: Path):
     assert tuning.split() == ["x2", "tuning.mp3", "0:12", "implausibly", "short"]
     # the filename column is padded to the widest name, so the durations line up
     assert spam.index("1:12") == tuning.index("0:12")
-    assert "llama fix <show> --include x1" in r.output
+    # the hint now lives in _print_show_entry, so it carries the real slug
+    assert "  re-admit one with: llama fix gratefuldead-1973-06-10 --include x1" \
+        in r.output.splitlines()
 
 
 def test_excluded_section_survives_a_show_json_written_before_duration_sec(tmp_path: Path):
@@ -340,6 +342,27 @@ def test_excluded_section_survives_a_show_json_written_before_duration_sec(tmp_p
         "x1", "old.mp3", "?", "spam"]
 
 
+def test_excluded_row_with_no_reasons_has_no_trailing_whitespace(tmp_path: Path):
+    """`reasons` can be absent (a pre-feature show.json) or empty. The row must
+    end cleanly rather than at the two-space separator before an empty join."""
+    from llama.models import Show
+
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    s = read_model(ws.show, Show)
+    s.excluded_files = [{"filename": "no-reason.mp3", "duration_sec": 72.0},
+                        {"filename": "empty.mp3", "reasons": [], "duration_sec": 72.0}]
+    write_artifact(ws.show, s)
+    r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
+    assert r.exit_code == 0, r.output
+    rows = [ln for ln in r.output.splitlines()
+            if "no-reason.mp3" in ln or "empty.mp3" in ln]
+    assert len(rows) == 2, rows
+    for ln in rows:
+        assert ln == ln.rstrip(), repr(ln)
+        assert ln.endswith("1:12"), repr(ln)
+
+
 def test_no_excluded_section_when_nothing_was_filtered(tmp_path: Path):
     cfg = _cfg(tmp_path)
     build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
@@ -351,7 +374,7 @@ def test_no_excluded_section_when_nothing_was_filtered(tmp_path: Path):
     # meaning if the test were renamed. Scope every negative to a line.
     assert "tracks:" in r.output          # the listing really rendered
     assert not any(ln.startswith("excluded (") for ln in r.output.splitlines())
-    assert "--include" not in r.output
+    assert not any("--include" in ln for ln in r.output.splitlines())
 
 
 def test_tracks_listing_marks_a_re_admitted_track(tmp_path: Path):
@@ -359,7 +382,7 @@ def test_tracks_listing_marks_a_re_admitted_track(tmp_path: Path):
     _show_with_excluded(tmp_path)
     r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
     assert r.exit_code == 0, r.output
-    assert "+ = re-admitted by operator" in r.output
+    assert "  + = ruled in by the operator (overrides.include)" in r.output.splitlines()
     intro = next(ln for ln in r.output.splitlines() if "intro.mp3" in ln)
     dew = next(ln for ln in r.output.splitlines() if "Morning Dew" in ln)
     # whole-prefix checks, not `"1.+" in intro`: the marker occupies its own
@@ -384,7 +407,9 @@ def test_dropped_count_shows_without_the_tracks_flag(tmp_path: Path):
     r = cli_invoke(cfg, "show", "gratefuldead")
     assert r.exit_code == 0, r.output
     assert "(2 tracks, 2 dropped)" in r.output
-    assert "excluded (2):" not in r.output
+    # line-scoped, like every other negative here: a whole-output check would
+    # be matching against the `path:` line's pytest tmp_path too.
+    assert not any(ln.startswith("excluded (") for ln in r.output.splitlines())
 
 
 def test_no_dropped_clause_when_nothing_was_dropped(tmp_path: Path):
