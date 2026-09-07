@@ -86,6 +86,14 @@ The position is load-bearing three times over:
   `filter_files` returns) would force a reimplementation of that ordering logic
   at the call site, where it can drift from the original.
 
+**Consequence of that last point, deliberate:** order is derived over the final
+kept set, so re-admitting a file that carries **no track tag** drops the whole
+recording out of `track-tags` ordering back to `filename` ordering — the
+`all(n is not None)` test at `junk.py:232` fails once the untagged file is in
+`kept`. That is the honest price of deriving order once over the final set
+instead of splicing a file into an order derived without it. It is pinned by
+test rather than worked around.
+
 **`readmit` names the winning format's files only.** `filter_files` picks the
 first format whose *kept* set is non-empty, and `excluded` covers only that
 format. A `include` entry naming a file in a losing format matches nothing and
