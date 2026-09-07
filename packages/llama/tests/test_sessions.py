@@ -332,6 +332,39 @@ def test_status_by_run_names_a_parked_profile_run_with_no_criteria(tmp_path: Pat
     assert "profile: prime-dead" in result.output
 
 
+def test_a_malformed_request_json_does_not_blind_either_sweep(tmp_path: Path):
+    """iter_sessions and _by_run_rollup both parsed a criteria-less run's
+    request.json unguarded, so one malformed file used to raise
+    JSONDecodeError and exit BOTH `llama run list` and `llama status
+    --by-run` with code 1 -- hiding every OTHER session from the operator's
+    triage view. Guarded via `sessions.read_request`, the same defensive
+    shape `_read_marker` already has for session.json a few lines away: an
+    unreadable request now reads as "no request", and the run still lists
+    (with an empty query) instead of taking the whole listing down.
+    `run_resume`'s own read of this file is deliberately NOT routed through
+    this helper -- see the guard comment there."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+
+    bad_ws = RunWorkspace(tmp_path, "malformed")
+    bad_ws.dir.mkdir(parents=True)
+    bad_ws.request.write_text("{not json")
+    mark_paused(bad_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    good_ws = RunWorkspace(tmp_path, "healthy")
+    good_ws.dir.mkdir(parents=True)
+    write_artifact(good_ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+    mark_paused(good_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    run_list_result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert run_list_result.exit_code == 0, run_list_result.output
+    assert "GD 1977 Cornell" in run_list_result.output
+
+    status_result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+    assert status_result.exit_code == 0, status_result.output
+    assert "GD 1977 Cornell" in status_result.output
+
+
 def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypatch):
     from llama.profiles import Profile, save_profile
 

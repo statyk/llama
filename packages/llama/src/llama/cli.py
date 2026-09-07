@@ -38,7 +38,8 @@ from llama.profiles import (
 )
 from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
                             attention_sessions, mark_awaiting, mark_complete,
-                            mark_incomplete, mark_paused, session_state)
+                            mark_incomplete, mark_paused, read_request,
+                            session_state)
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
@@ -2864,8 +2865,10 @@ def _by_run_rollup(config, ledger) -> list[dict]:
             # alone left a parked profile run blank here while `run list`
             # (which goes through iter_sessions) named it correctly. A
             # missing `mode` means an artifact written before modes
-            # existed, and those were all query runs.
-            req = json.loads(ws.request.read_text())
+            # existed, and those were all query runs. A malformed request
+            # reads as "no request" (`read_request`) so one bad file can't
+            # blind this sweep to every other session.
+            req = read_request(ws.request)
             if req.get("mode", "query") == "profile":
                 profile = req.get("profile")
             else:

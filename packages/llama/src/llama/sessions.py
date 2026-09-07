@@ -79,6 +79,26 @@ def _read_marker(run_dir: Path) -> dict:
     return marker if isinstance(marker, dict) else {}
 
 
+def read_request(path: Path) -> dict:
+    """A run's request.json as a dict, or {} when absent or unreadable.
+
+    For the two SWEEP paths only (this module's `iter_sessions` and
+    `cli._by_run_rollup`): a malformed request.json must not take down the
+    whole triage listing, so an unreadable request reads as "no request"
+    here, same as `_read_marker` a few lines up. `run_resume`'s own read of
+    this file is deliberately NOT routed through this helper -- there a
+    malformed request must fail loudly rather than silently resume with
+    plan=False, which is precisely the failure mode this guard exists to
+    remove everywhere else."""
+    if not path.exists():
+        return {}
+    try:
+        req = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return req if isinstance(req, dict) else {}
+
+
 def _state_of(marker: dict) -> str:
     state = marker.get("state")
     return state if state in (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
@@ -125,8 +145,10 @@ def iter_sessions(root: Path) -> list[SessionInfo]:
                 # Paused before criteria existed: the persisted request is the
                 # only copy of what this run was asked to do. A missing `mode`
                 # means an artifact written before modes existed, and those
-                # were all query runs.
-                req = json.loads(ws.request.read_text())
+                # were all query runs. A malformed request reads as "no
+                # request" (`read_request`) so one bad file can't blind this
+                # sweep to every other session.
+                req = read_request(ws.request)
                 if req.get("mode", "query") == "profile":
                     profile = req.get("profile")
                 else:
