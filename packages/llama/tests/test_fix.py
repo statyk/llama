@@ -546,6 +546,11 @@ def test_resolve_include_tokens_needs_show_json(tmp_path):
     ws = _show_with_excluded(tmp_path)
     ws.show.unlink()
     assert cli._resolve_include_tokens(ws, ["intro.mp3"]) == ["intro.mp3"]
+    # `x1foo.mp3` is the EARLY-RETURN site's own case: it is not a handle, so
+    # the guard must not fire and no show.json is needed. Under `match` there,
+    # this raises instead -- the only observable difference that site makes on
+    # its own, since `fix` guards on show.json before the resolver is reached.
+    assert cli._resolve_include_tokens(ws, ["x1foo.mp3"]) == ["x1foo.mp3"]
     with pytest.raises(LlamaError):
         cli._resolve_include_tokens(ws, ["x1"])
 
@@ -583,15 +588,30 @@ def test_include_reads_a_pre_feature_excluded_row(tmp_path, monkeypatch):
 
 
 def test_a_filename_that_merely_starts_like_a_handle_is_a_filename(tmp_path, monkeypatch):
-    """`_HANDLE` matches with fullmatch, not match. Under `match`, the ordinary
-    filename `x1foo.mp3` would resolve as handle `x1` and silently re-admit
-    `intro.mp3` -- the wrong file, with no error to say so."""
+    """`_HANDLE` matches with fullmatch, not match, at BOTH of its call sites.
+
+    Under `match` the ordinary filename `x1foo.mp3` is a handle, and the two
+    sites go wrong differently -- so this needs two cases, one per site.
+    Measured: flipping either site ALONE leaves the single-token case below
+    green, because the other site's `fullmatch` still routes the token
+    correctly. Only the second, mixed case reaches the lookup site on its own.
+    """
     cfg = _cfg(tmp_path)
     ws = _show_with_excluded(tmp_path)
     _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x1foo.mp3")
     assert r.exit_code == 0, r.output
     assert read_overrides(ws).include == ["x1foo.mp3"]
+
+    # Mixed group: the real handle `x1` makes the early-return guard fire on
+    # its own merits, so this reaches the LOOKUP site with a lookalike token.
+    # There, `match` finds "x1" but the dict is keyed on the whole token, so
+    # the file is rejected as an unknown handle instead of taken as a filename.
+    ws2 = _show_with_excluded(tmp_path / "second")
+    cfg2 = _cfg(tmp_path / "second")
+    r = cli_invoke(cfg2, "fix", "gratefuldead", "--include", "x1,x1foo.mp3")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws2).include == ["intro.mp3", "x1foo.mp3"]
 
 
 def test_include_is_repeatable(tmp_path, monkeypatch):
