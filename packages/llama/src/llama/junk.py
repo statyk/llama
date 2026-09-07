@@ -135,7 +135,8 @@ def _keep_and_exclude(
         elif secs < floor:
             reasons.append("implausibly short")
         if reasons:
-            excluded.append({"filename": f["name"], "reasons": reasons})
+            excluded.append({"filename": f["name"], "reasons": reasons,
+                             "duration_sec": secs})
         else:
             kept.append(f)
     kept.sort(key=lambda f: f["name"])
@@ -169,15 +170,18 @@ def _dedupe_duplicate_listings(kept: list[dict]) -> tuple[list[dict], list[dict]
         incumbent_title = str(incumbent.get("title") or "").strip()
         candidate_title = str(f.get("title") or "").strip()
         if not incumbent_title and candidate_title:
-            excluded.append({"filename": incumbent["name"], "reasons": ["duplicate-listing"]})
+            excluded.append({"filename": incumbent["name"], "reasons": ["duplicate-listing"],
+                             "duration_sec": length_seconds(incumbent.get("length"))})
             winners[key] = f
         else:
-            excluded.append({"filename": f["name"], "reasons": ["duplicate-listing"]})
+            excluded.append({"filename": f["name"], "reasons": ["duplicate-listing"],
+                             "duration_sec": length_seconds(f.get("length"))})
     return [winners[k] for k in order], excluded
 
 
 def filter_files(
-    files: list[dict], want_format: str | Sequence[str] = "VBR MP3"
+    files: list[dict], want_format: str | Sequence[str] = "VBR MP3",
+    *, readmit: frozenset[str] = frozenset(),
 ) -> tuple[list[dict], list[dict], dict]:
     """Returns (kept, excluded, ordering) with kept in canonical play order.
 
@@ -205,7 +209,12 @@ def filter_files(
     copy each; the dropped copy is appended to `excluded` with reason
     "duplicate-listing" - not a junk verdict about its content, just a
     second listing of a track already kept. See
-    `_dedupe_duplicate_listings`."""
+    `_dedupe_duplicate_listings`.
+
+    `readmit` is `overrides.include`: source filenames the operator has ruled
+    back in. They are returned to `kept` and removed from `excluded` after the
+    junk arms and after duplicate-listing dedupe, and before play order is
+    derived. No exclusion reason is refused."""
     wanted = (want_format,) if isinstance(want_format, str) else tuple(want_format)
     fallback: tuple[str, list[dict], list[dict]] | None = None
     chosen: tuple[str, list[dict], list[dict]] | None = None
@@ -224,14 +233,51 @@ def filter_files(
     kept, dup_excluded = _dedupe_duplicate_listings(kept)
     excluded = excluded + dup_excluded
 
+    # Operator re-admission (overrides.include). All three positions are
+    # load-bearing:
+    #   AFTER _keep_and_exclude - the duration floor is the median of files
+    #     passing every OTHER arm, so a re-admitted 37s track can never move
+    #     the threshold that decides what junk is (see the two-pass note in
+    #     _keep_and_exclude).
+    #   AFTER _dedupe_duplicate_listings - otherwise a re-admitted duplicate
+    #     listing would be immediately re-dropped, and no reason is refused.
+    #   BEFORE the ordering block below - play order is derived over the FINAL
+    #     kept set rather than splicing a file into an order derived without
+    #     it. Consequence: re-admitting a file with no track tag reverts the
+    #     whole recording to filename order.
+    # `readmit` names the WINNING format's files only; anything else matches
+    # nothing here and is warned about by the caller.
+    readmitted: set[str] = set()
+    if readmit:
+        # The format clause is BELT-AND-BRACES and provably inert: `back` only
+        # ever looks up names taken from `excluded`, which holds the winning
+        # format's files alone. Kept because it states the losing-format rule
+        # at the point that would otherwise silently break it, not because it
+        # does anything -- measured dead in the whole-branch review (M3).
+        by_name = {f["name"]: f for f in files if f.get("format") == matched}
+        back = [by_name[e["filename"]] for e in excluded
+                if e["filename"] in readmit and e["filename"] in by_name]
+        if back:
+            readmitted = {f["name"] for f in back}
+            kept = sorted(kept + back, key=lambda f: f["name"])
+            excluded = [e for e in excluded if e["filename"] not in readmitted]
+
     orig_tracks = {f["name"]: f.get("track") for f in files if f.get("source") == "original"}
     nums = [_track_number(f, orig_tracks) for f in kept]
-    ordering = {"order_source": "filename", "reordered": False, "format": matched}
+    # `readmitted` is the set this call ACTUALLY returned to `kept`, which is
+    # NOT the same as the caller's `readmit` request: a name that was never
+    # excluded (already kept, wrong format, or simply absent) re-admits
+    # nothing. Callers that give re-admitted files reduced standing must
+    # filter on THIS, never on `overrides.include` -- filtering on the request
+    # would strip an already-kept file of its vote in gather's recording-level
+    # gates, which is the exact defect those gates exist to prevent.
+    ordering = {"order_source": "filename", "reordered": False, "format": matched,
+                "readmitted": sorted(readmitted)}
     # Track-tag order only when complete and unique: per-disc numbering
     # restarts at 1, which makes duplicates ambiguous.
     if kept and all(n is not None for n in nums) and len(set(nums)) == len(nums):
         by_track = [f for _, f in sorted(zip(nums, kept), key=lambda p: p[0])]
         ordering = {"order_source": "track-tags", "reordered": by_track != kept,
-                    "format": matched}
+                    "format": matched, "readmitted": sorted(readmitted)}
         kept = by_track
     return kept, excluded, ordering

@@ -13,9 +13,10 @@ import typer.testing as typer_testing
 import llama.cli as cli
 from conftest import cli_invoke
 from herder import FakeProvider
-from llama.models import Provenance, RecordingSummary
+from llama.models import Provenance, RecordingSummary, Show
 from llama.stages.gather import run_gather
-from llama.workspace import ShowWorkspace, read_overrides, write_artifact
+from llama.workspace import (ShowWorkspace, read_model, read_overrides,
+                             write_artifact)
 
 from test_catalog import build
 from test_cli import (ANCHORED_GAPS, FIXTURES, MultiIA, _staged_anchored_ymsb_show,
@@ -136,6 +137,34 @@ def test_exclude_with_no_picks_skips_without_redo(tmp_path, tty, monkeypatch):
     assert calls == []
     assert "nothing selected; skipping" in r.output
     assert read_overrides(ws).exclude == []
+
+
+def test_exclude_picker_lists_the_dropped_files_but_not_the_re_admit_hint(
+        tmp_path, tty, monkeypatch):
+    """Spec section 4: the picker gains the excluded LISTING as context. True
+    today only because `_pick_excludes` shares `_format_tracks` with `show
+    --tracks`, so nothing but this test stops a future split from silently
+    dropping it.
+
+    It must NOT gain the re-admit hint: that names a `llama fix` command at an
+    operator who is sitting at a prompt accepting play-order integers only.
+    The hint lives in `_print_show_entry`'s `--tracks` block, and the
+    walkthrough calls `_print_show_entry` with show_tracks=False."""
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    s = read_model(ws.show, Show)
+    s.excluded_files = [{"filename": "spam.mp3", "duration_sec": 72.0,
+                         "reasons": ["filename convention mismatch"]}]
+    write_artifact(ws.show, s)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="e\n\n")
+    assert r.exit_code == 0, r.output
+    assert calls == []                       # picked nothing; no redo
+    assert "excluded (1):" in r.output.splitlines()
+    assert next(ln for ln in r.output.splitlines() if "spam.mp3" in ln).split() == [
+        "x1", "1:12", "spam.mp3", "filename", "convention", "mismatch"]
+    assert not any("--include" in ln for ln in r.output.splitlines())
+    assert not any("re-admit one with" in ln for ln in r.output.splitlines())
 
 
 # --- [v]ague ---

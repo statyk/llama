@@ -94,13 +94,13 @@ def test_unique_track_tags_reorder():
              _mp3("gd73d1t03.mp3", track="1")]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t03.mp3", "gd73d1t01.mp3", "gd73d1t02.mp3"]
-    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3"}
+    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3", "readmitted": []}
 
 
 def test_track_tags_agreeing_with_filenames_not_flagged():
     files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d1t02.mp3", track="2")]
     _, _, ordering = filter_files(files)
-    assert ordering == {"order_source": "track-tags", "reordered": False, "format": "VBR MP3"}
+    assert ordering == {"order_source": "track-tags", "reordered": False, "format": "VBR MP3", "readmitted": []}
 
 
 def test_duplicate_track_tags_fall_back_to_filename_order():
@@ -108,7 +108,7 @@ def test_duplicate_track_tags_fall_back_to_filename_order():
     files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d2t01.mp3", track="1")]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t01.mp3", "gd73d2t01.mp3"]
-    assert ordering == {"order_source": "filename", "reordered": False, "format": "VBR MP3"}
+    assert ordering == {"order_source": "filename", "reordered": False, "format": "VBR MP3", "readmitted": []}
 
 
 def test_missing_track_tag_falls_back_to_filename_order():
@@ -127,7 +127,7 @@ def test_derivative_inherits_original_track_number():
     ]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t02.mp3", "gd73d1t01.mp3"]
-    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3"}
+    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3", "readmitted": []}
 
 
 def audio(name: str, fmt: str, length: str = "05:00") -> dict:
@@ -287,3 +287,117 @@ def test_clean_item_byte_identical_through_filter_files():
     by_name = {f["name"]: f for f in files}
     for f in kept:
         assert f is by_name[f["name"]]
+
+
+# --- operator re-admission (overrides.include) ---
+
+def test_readmit_returns_an_excluded_file_to_kept():
+    """The gd73 fixture's spam file is dropped by two arms at once; naming it
+    in `readmit` puts it back and takes it out of `excluded` entirely."""
+    kept, excluded, _ = filter_files(
+        load_files(), readmit=frozenset({"FOLLOW-ME @BYPIKENO.mp3"}))
+    assert "FOLLOW-ME @BYPIKENO.mp3" in {f["name"] for f in kept}
+    assert all(e["filename"] != "FOLLOW-ME @BYPIKENO.mp3" for e in excluded)
+
+
+def test_readmit_of_an_unknown_filename_changes_nothing():
+    base_kept, base_excluded, base_order = filter_files(load_files())
+    kept, excluded, order = filter_files(load_files(), readmit=frozenset({"nope.mp3"}))
+    assert [f["name"] for f in kept] == [f["name"] for f in base_kept]
+    assert [e["filename"] for e in excluded] == [e["filename"] for e in base_excluded]
+    assert order == base_order
+
+
+def test_readmit_does_not_move_the_duration_floor():
+    """The two-pass invariant: the floor is the median of files passing every
+    OTHER arm, computed before any re-admission. Re-admitting files dropped by
+    a NON-duration arm must not let their durations join that median --
+    otherwise one operator override would quietly lower the junk threshold
+    for the whole tape.
+
+    Review round 1 finding: the original version of this test used only
+    duration-arm exclusions, whose durations are already in the median
+    sample before re-admission, so no placement of the re-admission step
+    could move the floor for that data -- the test passed against a mutant
+    that moved re-admission before the floor computation (measured floor
+    75.0 either way). This dataset excludes the re-admitted files by
+    PROVENANCE (`source="mystery"`) instead, so they start outside
+    `clean_secs` and only join it if re-admission runs too early."""
+    files = ([_mp3(f"band1t0{i}.mp3") for i in range(1, 6)]              # 5 x 300s, clean
+             + [_mp3(f"band1t1{i}.mp3", source="mystery", length="20.0") # 5 x 20s, dropped
+                for i in range(5)]                                       #   by provenance
+             + [_mp3("band1t20.mp3", length="50.0")])                    # the canary
+    readmit = frozenset(f"band1t1{i}.mp3" for i in range(5))
+    kept, excluded, _ = filter_files(files, readmit=readmit)
+    assert readmit <= {f["name"] for f in kept}
+    # The floor stays 0.25 * median([300]*5 + [50]) = 75, so the 50s canary is
+    # still junk. If re-admission moved ahead of the floor computation the five
+    # 20s files would join the sample, the median would fall to 50 and the
+    # canary would be licensed.
+    assert {e["filename"] for e in excluded
+            if "implausibly short" in e["reasons"]} == {"band1t20.mp3"}
+
+
+def test_readmit_lands_in_filename_play_order():
+    files = [_mp3("band1t01.mp3"), _mp3("band1t02.mp3", length="40.0"),
+             _mp3("band1t03.mp3"), _mp3("band1t04.mp3"), _mp3("band1t05.mp3"),
+             _mp3("band1t06.mp3")]
+    kept, _, _ = filter_files(files, readmit=frozenset({"band1t02.mp3"}))
+    assert [f["name"] for f in kept] == [f"band1t0{i}.mp3" for i in range(1, 7)]
+
+
+def test_readmitting_an_untagged_file_falls_back_to_filename_order():
+    """Play order is derived ONCE, over the final kept set. A re-admitted file
+    with no track tag therefore breaks the completeness test at junk.py's
+    ordering block and the whole recording reverts to filename order. This is
+    the accepted price of not splicing a file into an order derived without
+    it (spec section 2)."""
+    files = [_mp3("band1t01.mp3", track="5", length="310.0"),
+             _mp3("band1t02.mp3", track="4", length="288.0"),
+             _mp3("band1t03.mp3", track="3", length="340.0"),
+             _mp3("band1t04.mp3", track="2", length="295.0"),
+             _mp3("band1t05.mp3", track="1", length="302.0"),
+             _mp3("band1t06.mp3", length="40.0")]
+    _, _, base_order = filter_files(files)
+    assert base_order["order_source"] == "track-tags"
+    kept, _, order = filter_files(files, readmit=frozenset({"band1t06.mp3"}))
+    assert order["order_source"] == "filename"
+    assert [f["name"] for f in kept] == [f"band1t0{i}.mp3" for i in range(1, 7)]
+
+
+def test_readmit_of_a_duplicate_listing_ships_the_track_twice():
+    """Owner decision 2026-09-07: no reason is refused. Re-admitting a
+    duplicate listing therefore ships that recording twice, deliberately --
+    the excluded table names the reason next to the handle."""
+    files = [
+        _mp3("band1t01.mp3", length="300.0"),
+        {**_mp3("band99/band1t01.mp3", length="300.0"), "title": "Alpha"},
+    ]
+    kept, excluded, _ = filter_files(files, readmit=frozenset({"band1t01.mp3"}))
+    assert {f["name"] for f in kept} == {"band1t01.mp3", "band99/band1t01.mp3"}
+    assert excluded == []
+
+
+def test_excluded_entries_carry_a_duration():
+    """The operator has to judge a dropped file from the listing, so every
+    excluded entry records how long it was (None when the item had no length,
+    which is itself one of the exclusion reasons)."""
+    _, excluded, _ = filter_files(load_files())
+    spam = next(e for e in excluded if e["filename"] == "FOLLOW-ME @BYPIKENO.mp3")
+    assert isinstance(spam["duration_sec"], float)
+    assert all("duration_sec" in e for e in excluded)
+
+
+def test_duplicate_listing_entries_also_carry_a_duration():
+    """Whole-branch review M1. `_dedupe_duplicate_listings` is the OTHER
+    producer of excluded entries, and its rows reach the same `excluded (N):`
+    listing. Setting both of its duration_sec values to None left the whole
+    suite green, so the `?`-instead-of-a-known-duration symptom was pinned on
+    one producer only."""
+    files = [
+        _mp3("band1t01.mp3", length="300.0"),
+        {**_mp3("band99/band1t01.mp3", length="300.0"), "title": "Alpha"},
+    ]
+    _, excluded, _ = filter_files(files)
+    dropped = next(e for e in excluded if e["reasons"] == ["duplicate-listing"])
+    assert dropped["duration_sec"] == 300.0

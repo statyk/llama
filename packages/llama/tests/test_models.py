@@ -106,3 +106,16 @@ def test_criteria_profile_default_none_and_roundtrip():
     assert again == c
     stamped = Criteria(query="x", profile="sunday-dead-hour")
     assert Criteria.model_validate_json(stamped.model_dump_json()).profile == "sunday-dead-hour"
+
+
+def test_overrides_include_defaults_empty_and_survives_an_old_file():
+    from llama.models import Overrides
+    assert Overrides().include == []
+    # An overrides.json written before this feature has no `include` key.
+    assert Overrides.model_validate({"exclude": ["a.mp3"]}).include == []
+
+
+def test_track_included_defaults_false():
+    from llama.models import Track
+    t = Track(index=1, set="1", title="Dark Star", filename="a.mp3", title_source="tags")
+    assert t.included is False

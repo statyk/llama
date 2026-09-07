@@ -831,20 +831,69 @@ def run_gather(
     meta = md.get("metadata", {})
     artist = str(_creator(meta) or candidate.collection)
     want = FORMAT_BY_AUDIO[audio_format]
-    kept, excluded, ordering = filter_files(md.get("files", []), want_format=want)
+    # read_overrides is hoisted above filter_files (it only reads the show dir)
+    # so operator re-admission can be applied inside the filter, where play
+    # order is derived. The exclude block below still runs AFTER, so a file
+    # named in both lists ends up excluded.
+    overrides = read_overrides(show_ws)
+    kept, excluded, ordering = filter_files(
+        md.get("files", []), want_format=want,
+        readmit=frozenset(overrides.include))
+    for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
+        log.warning("overrides.include entry %r matched no file", missing)
     # Computed on the unexcluded set, deliberately: it is a filename-keyed map
     # and resolve_titles only looks up names still in `kept`, so covering files
     # the operator later drops is harmless, while moving it below the exclusion
     # would let one dropped file change whether recovery fires at all.
-    format_titles = _recover_format_titles(md.get("files", []), kept, ordering)
+    #
+    # The guarantee is now SYMMETRIC, and `recovery_basis` is what makes it so.
+    # `kept` is post-re-admission, but `_recover_format_titles` and
+    # `sibling_format_titles` judge the whole RECORDING rather than the
+    # individual file -- the mp3-side title_fraction gate, and the exact-count
+    # bijection against the lossless sibling's own kept set. Left on `kept`,
+    # one re-admitted file flipped title recovery for every track on the tape:
+    # a file with no lossless counterpart breaks the bijection and turns OFF
+    # recovery the other tracks would have had, and an untagged one pushes the
+    # mp3-side fraction below the gate and turns it ON. Measured on the gd73
+    # fixture, both directions (7-vs-6 bijection; 0.43 against a 0.50 gate).
+    #
+    # An operator saying "keep this one track" must not change where a
+    # DIFFERENT track's title came from, so recording-level decisions vote on
+    # the tape minus re-admissions. Note what that costs the re-admitted file
+    # HERE: `sibling_format_titles` keys its map off the basis, so the file is
+    # absent from it and falls through to the ordinary cascade -- no vote AND
+    # no recovered title. (The other gate differs: the enumerated-tape strip
+    # applies to every kept file, so there the re-admitted file loses only the
+    # vote.) This is the same rule as the exclusion guard above, in the other
+    # direction.
+    #
+    # TWO recording-level consumers are deliberately NOT carved out, both
+    # because the re-admission genuinely changes the question they ask:
+    # `fetch_siblings` below (a re-admitted untagged file really does mean the
+    # tape is no longer fully tagged, and its only adoption target is that
+    # file), and `build_canonical`'s `target_count=len(kept)` (the tape really
+    # does have one more track, though a +/-1 shift there can change which
+    # description wins `rank_parses` and so the whole tape's set labels).
+    # Filter on what filter_files ACTUALLY re-admitted, never on the raw
+    # `overrides.include` request. An entry naming a file that was never
+    # dropped re-admits nothing, but filtering on the request would still
+    # strip that already-kept file of its vote -- re-entering this very bug
+    # through the front door, and silently, since the "matched no file"
+    # warning above cannot fire for a name that IS in `kept`.
+    readmitted = set(ordering.get("readmitted", ()))
+    recovery_basis = [f for f in kept if f["name"] not in readmitted]
+    format_titles = _recover_format_titles(md.get("files", []), recovery_basis, ordering)
 
-    overrides = read_overrides(show_ws)
     if overrides.exclude:
         drop = set(overrides.exclude)
         matched = {f["name"] for f in kept if f["name"] in drop}
         for missing in sorted(drop - matched):
             log.warning("overrides.exclude entry %r matched no file", missing)
-        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"]}
+        for both in sorted(set(overrides.include) & drop):
+            log.warning("overrides: %r is in both include and exclude; "
+                        "exclude wins", both)
+        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
+                      "duration_sec": length_seconds(f.get("length"))}
                      for f in kept if f["name"] in drop]
         kept = [f for f in kept if f["name"] not in drop]
 
@@ -892,8 +941,25 @@ def run_gather(
     # own evidence (anchor agreement), not on how the canonical setlist lined
     # up, so gating the FETCH on that condition too was never doing anything
     # but adding false negatives.
+    # Deliberately NO gate_basis, unlike the resolve_titles call below: this is
+    # the fetch_siblings carve-out, and a re-admitted untagged file genuinely
+    # does mean the tape is no longer fully tagged. Same function, same tape,
+    # two different votes -- which is intended, not an oversight (whole-branch
+    # review M4). The flip is only ever 1.0 -> <1.0, and at 1.0 there are no
+    # unresolved tracks, so the fetch's only adoption target is the re-admitted
+    # file itself.
     fetch_siblings = bool(kept and title_fraction(clean_tag_titles(kept)) < 1.0)
-    tracks = resolve_titles(kept, canonical, format_titles=format_titles)
+    # The same one-file-must-not-decide-for-the-recording rule as
+    # `recovery_basis` above, applied to the OTHER recording-level gate:
+    # clean_tag_titles' enumerated-tape test, which decides whether a leading
+    # track number is stripped from EVERY title. Computed here rather than
+    # reusing `recovery_basis` -- that one is deliberately PRE-exclusion (see
+    # the guard above it), while this gate must vote over the tracks that
+    # actually ship. Reusing it let operator-excluded files vote, which is the
+    # defect test_readmission_does_not_stop_the_track_number_strip caught.
+    tag_gate_basis = [f for f in kept if f["name"] not in readmitted]
+    tracks = resolve_titles(kept, canonical, format_titles=format_titles,
+                            gate_basis=tag_gate_basis)
     for n, forced in overrides.titles.items():
         if not (1 <= n <= len(tracks)):
             raise LlamaError(f"overrides.titles: no track {n} "
@@ -1120,6 +1186,21 @@ def run_gather(
     date, date_source, item_date = candidate.date, "item", None
     if overrides.date is not None:
         date, date_source, item_date = overrides.date, "override", candidate.date
+
+    # Stamped here rather than in titles.resolve_titles so no intermediate
+    # rebuild of `tracks` between there and here can drop it.
+    #
+    # This reads the REQUEST (`overrides.include`) where the recording-level
+    # bases above deliberately read `ordering["readmitted"]` instead, and the
+    # difference is intended (whole-branch review M7). The bases answer "which
+    # files must lose their vote", where naming an already-kept file would
+    # wrongly disenfranchise it; this answers "which files did the operator
+    # ask for", which is exactly the request. A name that re-admitted nothing
+    # marks nothing, because it is not in `tracks` under either reading.
+    if overrides.include:
+        forced = set(overrides.include)
+        for t in tracks:
+            t.included = t.filename in forced
 
     show = Show(
         performance_id=candidate.performance_id,

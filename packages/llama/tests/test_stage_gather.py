@@ -898,6 +898,82 @@ def test_gather_recovery_survives_an_operator_exclusion(tmp_path: Path):
     assert all(t.title_source == "sibling-format" for t in show.tracks)
 
 
+def test_readmitting_a_lossless_orphan_does_not_suppress_recovery(tmp_path: Path):
+    """SYMMETRY FIX (2026-09-07). This test previously pinned the OPPOSITE
+    behaviour and is deliberately inverted; its old body is the measurement
+    that justified the change.
+
+    `sibling_format_titles` requires an exact bijection in file COUNT between
+    the delivered format and its lossless sibling, and FOLLOW-ME @BYPIKENO.mp3
+    -- the fixture's junk file -- has no Shorten counterpart at all. When
+    `_recover_format_titles` voted on the post-re-admission `kept`, re-admitting
+    that one orphan took the mp3 side to 7 against the Shorten side's 6, the
+    bijection declined, and `format_titles` came back None for the WHOLE tape:
+    all six tracks that would have recovered cleanly lost "sibling-format"
+    because of a file the operator asked to keep.
+
+    Recording-level decisions now vote on `recovery_basis` -- the tape minus
+    re-admissions -- so the six recover exactly as they do without the
+    override. The orphan itself is absent from the recovered map and falls
+    through the ordinary cascade: it gets no vote, and no free title."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    by_name = {t.filename: t for t in show.tracks}
+    assert "FOLLOW-ME @BYPIKENO.mp3" in by_name
+    recovered = [t.filename for t in show.tracks if t.title_source == "sibling-format"]
+    assert len(recovered) == 6, recovered
+    assert "FOLLOW-ME @BYPIKENO.mp3" not in recovered
+
+
+def test_including_a_file_that_was_never_dropped_keeps_its_vote(tmp_path: Path):
+    """An `overrides.include` entry naming a file the junk filter never dropped
+    re-admits nothing — but it must also take nothing away.
+
+    The recording-level gates give re-admitted files no vote, and they decide
+    that by asking `filter_files` what it ACTUALLY re-admitted, not by reading
+    `overrides.include`. Filtering on the request instead would drop this
+    already-kept file from `recovery_basis`, leaving 5 mp3s against 6 Shorten
+    entries — `sibling_format_titles` declines on the count mismatch and the
+    WHOLE tape loses recovery. That is the same defect the basis exists to
+    prevent, re-entered from the other side, and silently: gather's "matched
+    no file" warning cannot fire for a name that is in `kept`."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["gd73-06-10d1t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    recovered = [t.filename for t in show.tracks if t.title_source == "sibling-format"]
+    assert len(recovered) == 6, recovered
+
+
+def test_readmission_does_not_stop_the_track_number_strip(tmp_path: Path):
+    """The second recording-level gate, wired through `resolve_titles`'
+    `gate_basis`. `clean_tag_titles` strips a leading track number only when
+    the RECORDING looks enumerated (>=3 numbered files and >=80% coverage), so
+    on a small tape one untagged re-admission drops coverage under the gate and
+    would leave "01 " glued to every other track's title.
+
+    Three numbered tracks plus the re-admitted junk file is 3 of 4 = 0.75,
+    under _ENUMERATED_MIN_COVERAGE. Voting on the tape alone it is 3 of 3, so
+    the strip still fires. Without gate_basis this test sees "01 Morning Dew"."""
+    md = json.loads(FIXTURE.read_text())
+    names = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3"]
+    songs = {names[0]: "Morning Dew", names[1]: "China Cat Sunflower",
+             names[2]: "I Know You Rider"}
+    for f in md["files"]:
+        if f["name"] in songs:
+            f["title"] = f"0{names.index(f['name']) + 1} {songs[f['name']]}"
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(
+        include=["FOLLOW-ME @BYPIKENO.mp3"],
+        exclude=["gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    by_name = {t.filename: t.title for t in show.tracks}
+    assert [by_name[n] for n in names] == [
+        "Morning Dew", "China Cat Sunflower", "I Know You Rider"]
+
+
 from llama import jerrybase
 from llama.models import JerrybaseEvent, JerrybaseSet
 
@@ -2044,3 +2120,88 @@ def test_build_canonical_provider_none_never_reaches_the_llm_fallback(monkeypatc
     with pytest.raises(AssertionError, match="run_json_task must not be called"):
         build_canonical(None, cand, "only", meta, [], "Test Artist",
                         [], provider=object())
+
+
+# --- overrides.include (operator re-admission) ---
+
+def test_gather_readmits_an_operator_included_file(tmp_path: Path):
+    """gd73's spam file is the fixture's junk-filtered file. Naming it in
+    overrides.include puts it in the track list, marks it, and takes it out of
+    excluded_files."""
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"]))
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert "FOLLOW-ME @BYPIKENO.mp3" in [t.filename for t in show.tracks]
+    assert [t.filename for t in show.tracks if t.included] == ["FOLLOW-ME @BYPIKENO.mp3"]
+    assert all(e["filename"] != "FOLLOW-ME @BYPIKENO.mp3" for e in show.excluded_files)
+
+
+def test_gather_leaves_ordinary_tracks_unmarked(tmp_path: Path):
+    """Fix round 1, item 1: with an EMPTY overrides.include, the stamp block
+    at gather.py never runs and this assertion is satisfied by Track.included
+    defaulting to False, regardless of whether the stamp exists at all --
+    caught by a reviewer mutation that deleted the whole block and one that
+    forced `t.included = True` unconditionally, both of which stayed green
+    against the old version of this test. Writing a real include entry makes
+    the stamp block actually execute, and asserting every OTHER track is
+    False makes the test sensitive to a stamp that over-marks.
+
+    MEASURED SCOPE (whole-branch review M5), because the paragraph above
+    over-claimed: this test catches the forced-`True` mutant, and does NOT
+    catch deletion of the whole stamp block -- with the block gone, every
+    track keeps `included=False` and every assertion here still holds. Its
+    sibling `test_gather_readmits_an_operator_included_file` is what kills
+    the deletion, by asserting the re-admitted track IS marked. Neither test
+    covers both directions alone; the pair does."""
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"]))
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    others = [t for t in show.tracks if t.filename != "FOLLOW-ME @BYPIKENO.mp3"]
+    assert others  # guard: the ordinary tracks must actually be present
+    assert all(t.included is False for t in others)
+
+
+def test_exclude_wins_when_a_file_is_in_both_override_lists(tmp_path: Path, caplog):
+    """The CLI makes this state unreachable; gather still needs a defined
+    answer for a hand-mangled overrides.json. include re-admits, exclude then
+    drops -- so the file is out, with reason operator-excluded -- and (fix
+    round 1, item 4) a warning names the ambiguity and says exclude wins."""
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"],
+                                            exclude=["FOLLOW-ME @BYPIKENO.mp3"]))
+    with caplog.at_level("WARNING"):
+        show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert "FOLLOW-ME @BYPIKENO.mp3" not in [t.filename for t in show.tracks]
+    dropped = next(e for e in show.excluded_files
+                   if e["filename"] == "FOLLOW-ME @BYPIKENO.mp3")
+    assert dropped["reasons"] == ["operator-excluded"]
+    assert any("FOLLOW-ME @BYPIKENO.mp3" in r.message and "exclude wins" in r.message
+               for r in caplog.records)
+
+
+def test_gather_warns_when_an_include_entry_matches_no_file(tmp_path: Path, caplog):
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["not-on-this-tape.mp3"]))
+    with caplog.at_level("WARNING"):
+        run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    # caplog's handler formats each record on capture (Formatter.format sets
+    # `.message` to the already-%-substituted string), so re-applying
+    # `r.message % r.args` on a record that carries args raises TypeError --
+    # observed against exactly this warning (`log.warning("...%r...", missing)`).
+    # `.message` alone is already the fully rendered text.
+    assert any("not-on-this-tape.mp3" in r.message for r in caplog.records)
+
+
+def test_operator_excluded_entry_carries_duration_sec(tmp_path: Path):
+    """Show.excluded_files must be homogeneous with what filter_files now
+    produces: every entry, including operator-excluded ones, carries a
+    duration_sec so Task 3's rendering never falls back to '?' for a file
+    whose duration IS known from item metadata. gd73-06-10d1t01.mp3 is
+    ordinarily kept by the junk filter, so this exercises the
+    `operator-excluded` block, not junk filtering."""
+    sws = ShowWorkspace(tmp_path / "show")
+    excluded_name = "gd73-06-10d1t01.mp3"
+    write_artifact(sws.overrides, Overrides(exclude=[excluded_name]))
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    entry = next(e for e in show.excluded_files if e["filename"] == excluded_name)
+    assert isinstance(entry["duration_sec"], float)

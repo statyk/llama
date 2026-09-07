@@ -158,13 +158,15 @@ def _show_with(matched_flags):
 
 
 # Fixed column of the match-marker char in a _format_tracks row: 2 leading
-# spaces + 2-digit index + ". set " (6 chars) + the 6-wide `set` field + 1
-# space = 17. Verified directly against _format_tracks's own output, not
-# assumed -- a substring check ("?" in line) would also be satisfied by a
-# "?" elsewhere on the line (duration) or a "-" inside a filename, title, or
-# the literal title_source "sibling-format", so only a fixed-offset check is
-# load-bearing.
-_MARK_COL = 17
+# spaces + 2-digit index + "." (1) + the re-admission `+` column (1, a space
+# on a track the operator did not re-admit) + " set " (5 chars) + the 6-wide
+# `set` field + 1 space = 18. It was 17 before overrides.include added the
+# `+` column, which inserts exactly one character ahead of " set ". Verified
+# directly against _format_tracks's own output, not assumed -- a substring
+# check ("?" in line) would also be satisfied by a "?" elsewhere on the line
+# (duration) or a "-" inside a filename, title, or the literal title_source
+# "sibling-format", so only a fixed-offset check is load-bearing.
+_MARK_COL = 18
 
 
 def test_format_tracks_flags_an_unmatched_track():
@@ -1425,3 +1427,49 @@ def test_operator_band_donor_untitled_on_the_gaps_falls_through_to_the_dp(tmp_pa
     assert "proposal (duration-model)" in result.output or "proposal (sibling-duration)" in result.output
     ov = read_overrides(sws)
     assert ov.titles == ANCHORED_GAPS
+
+
+def test_suggest_titles_survives_an_effective_overrides_include(tmp_path, monkeypatch):
+    """Whole-branch review I1, found independently by BOTH reviewer seats.
+
+    `_propose_titles_for_show` recomputes `kept` from ia.metadata plus
+    `overrides.exclude` and declines when it disagrees with `show.tracks`. It
+    passed no `readmit=`, so on every correctly-gathered show carrying an
+    effective `overrides.include` the recomputation was one file short and C1's
+    staleness guard fired PERMANENTLY -- with a false diagnosis (`show.json` was
+    exactly what gather had just written) and a remedy that loops, since `redo
+    --from gather` re-derives the identical track list.
+
+    The interaction is what made it bite rather than merely annoy: a re-admitted
+    file is by construction `title_source="unresolved"`, which is the very flag
+    that offers `[t] suggest titles`. The feature routinely delivered shows into
+    the hold whose resolution it then disabled.
+
+    The ymsb tape has no junk-filtered files of its own, so one is manufactured
+    the honest way -- a real file given an implausible length, dropped by the
+    real duration arm, and re-admitted through the real override."""
+    from copy import deepcopy
+
+    from llama.junk import FORMAT_BY_AUDIO, filter_files
+    from llama.models import Overrides
+
+    md = deepcopy(json.loads((FIXTURES / "ymsb2005_metadata.json").read_text()))
+    kept, _, _ = filter_files(md["files"], want_format=FORMAT_BY_AUDIO["mp3"])
+    victim = kept[0]["name"]
+    for f in md["files"]:
+        if f["name"] == victim:
+            f["length"] = "1.0"
+    cand = _ymsb_candidate()
+    sws = ShowWorkspace(tmp_path / "shows" / "ymsb2005-12-31")
+    write_artifact(sws.provenance, Provenance(
+        performance_id=cand.performance_id, run="r1", dossier="great",
+        candidate=cand, processed_at="2026-08-31T00:00:00+00:00"))
+    write_artifact(sws.overrides, Overrides(include=[victim]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), cand,
+                      "ymsb2005-12-31.flac16.wav")
+    assert victim in [t.filename for t in show.tracks], "fixture must re-admit"
+    cfg = _cfg(tmp_path)
+    monkeypatch.setattr(cli, "IAClient", lambda *a, **k: StubIA(md))
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
+    result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
+    assert "show.json is stale relative to overrides.json" not in result.output, result.output

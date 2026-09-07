@@ -164,6 +164,13 @@ class Track(BaseModel):
     # forces their matched to None for that reason (see
     # structure.TAUTOLOGICAL_TITLE_SOURCES).
     matched: bool | None = None
+    # True when the operator named this file in overrides.include -- not
+    # necessarily that the junk filter would otherwise have dropped it; the
+    # stamp is `filename in overrides.include`, and filter_files' return
+    # shape does not expose which re-admitted names were actually junk.
+    # Recorded here and NOT in ManifestTrack: the manifest is the broadcast
+    # contract with emcee and stays lean; show.json is the operator's record.
+    included: bool = False
 
 
 class Show(BaseModel):
@@ -180,7 +187,7 @@ class Show(BaseModel):
     date_source: str = "item"  # "item" | "research" | "override"
     tracks: list[Track] = Field(default_factory=list)
     set_breaks: list[int] = Field(default_factory=list)  # play-order index after which a break falls
-    excluded_files: list[dict] = Field(default_factory=list)  # {"filename":..., "reasons":[...]}
+    excluded_files: list[dict] = Field(default_factory=list)  # {"filename":..., "reasons":[...], "duration_sec": float | None}
     order_source: str = "filename"  # "track-tags" | "filename" (canonical play order source)
     reordered: bool = False  # track tags disagreed with filename order
     lineage: str | None = None
@@ -192,10 +199,11 @@ class Show(BaseModel):
 
 class Overrides(BaseModel):
     """Hand-authored per-show operator input, durable across re-derivation.
-    Read by gather (exclude, venue, city, date, titles, set_breaks,
+    Read by gather (exclude, include, venue, city, date, titles, set_breaks,
     encore_after) and brief (narration); never auto-written by a stage.
     Absent file == this default."""
     exclude: list[str] = Field(default_factory=list)   # source filenames to drop
+    include: list[str] = Field(default_factory=list)   # filenames re-admitted past the junk filter
     narration: str = "full"                            # "full" | "vague"
     venue: str | None = None
     city: str | None = None

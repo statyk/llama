@@ -184,13 +184,25 @@ def title_fraction(titles: list[str]) -> float:
     return sum(1 for t in titles if is_real_title(t)) / len(titles) if titles else 0.0
 
 
-def clean_tag_titles(kept_files: list[dict]) -> list[str]:
+def clean_tag_titles(
+    kept_files: list[dict], *, gate_basis: list[dict] | None = None
+) -> list[str]:
     """Cleaned embedded-tag titles for one recording's kept files, in play
     order. Wraps clean_tag_title with the one decision that needs the whole
-    recording: whether to strip leading track numbers."""
+    recording: whether to strip leading track numbers.
+
+    `gate_basis` scopes that whole-recording vote to a subset while the strip
+    still applies to every file in `kept_files`. gather passes the tape minus
+    any `overrides.include` re-admissions, so one re-admitted file cannot
+    change how every OTHER track's title is cleaned -- the same one-file-must-
+    not-decide-for-the-recording rule the `_recover_format_titles` basis
+    enforces. Default (None) votes with `kept_files` itself, which is the
+    pre-override behaviour every other call site wants."""
     titles = [clean_tag_title(f.get("title")) for f in kept_files]
-    numbered = sum(1 for t in titles if _TRACK_NUM_PREFIX.match(t))
-    if numbered < _ENUMERATED_MIN_FILES or numbered < _ENUMERATED_MIN_COVERAGE * len(titles):
+    voters = (titles if gate_basis is None
+              else [clean_tag_title(f.get("title")) for f in gate_basis])
+    numbered = sum(1 for t in voters if _TRACK_NUM_PREFIX.match(t))
+    if numbered < _ENUMERATED_MIN_FILES or numbered < _ENUMERATED_MIN_COVERAGE * len(voters):
         return titles
     # Strip exactly one number, never loop: on an enumerated tape
     # "01 200 More Miles" must lose only the "01". count=1 is BELT-AND-BRACES
@@ -234,6 +246,7 @@ def resolve_titles(
     kept_files: list[dict],
     setlist: ParsedSetlist,
     format_titles: dict[str, str] | None = None,
+    gate_basis: list[dict] | None = None,
 ) -> list[Track]:
     """Resolve track titles (tags -> setlist -> unresolved).
 
@@ -280,7 +293,7 @@ def resolve_titles(
         tag_titles = [format_titles.get(f["name"], "") for f in files]
         tag_source = "sibling-format"
     else:
-        tag_titles = clean_tag_titles(files)
+        tag_titles = clean_tag_titles(files, gate_basis=gate_basis)
         tag_source = "tags"
 
     tracks: list[Track] = []
