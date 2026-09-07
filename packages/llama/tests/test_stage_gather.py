@@ -2144,8 +2144,15 @@ def test_gather_leaves_ordinary_tracks_unmarked(tmp_path: Path):
     forced `t.included = True` unconditionally, both of which stayed green
     against the old version of this test. Writing a real include entry makes
     the stamp block actually execute, and asserting every OTHER track is
-    False makes the test sensitive to a stamp that over-marks (e.g. the
-    forced-True mutation)."""
+    False makes the test sensitive to a stamp that over-marks.
+
+    MEASURED SCOPE (whole-branch review M5), because the paragraph above
+    over-claimed: this test catches the forced-`True` mutant, and does NOT
+    catch deletion of the whole stamp block -- with the block gone, every
+    track keeps `included=False` and every assertion here still holds. Its
+    sibling `test_gather_readmits_an_operator_included_file` is what kills
+    the deletion, by asserting the re-admitted track IS marked. Neither test
+    covers both directions alone; the pair does."""
     sws = ShowWorkspace(tmp_path / "show")
     write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"]))
     show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)

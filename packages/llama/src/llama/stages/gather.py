@@ -941,6 +941,13 @@ def run_gather(
     # own evidence (anchor agreement), not on how the canonical setlist lined
     # up, so gating the FETCH on that condition too was never doing anything
     # but adding false negatives.
+    # Deliberately NO gate_basis, unlike the resolve_titles call below: this is
+    # the fetch_siblings carve-out, and a re-admitted untagged file genuinely
+    # does mean the tape is no longer fully tagged. Same function, same tape,
+    # two different votes -- which is intended, not an oversight (whole-branch
+    # review M4). The flip is only ever 1.0 -> <1.0, and at 1.0 there are no
+    # unresolved tracks, so the fetch's only adoption target is the re-admitted
+    # file itself.
     fetch_siblings = bool(kept and title_fraction(clean_tag_titles(kept)) < 1.0)
     # The same one-file-must-not-decide-for-the-recording rule as
     # `recovery_basis` above, applied to the OTHER recording-level gate:
@@ -1182,6 +1189,14 @@ def run_gather(
 
     # Stamped here rather than in titles.resolve_titles so no intermediate
     # rebuild of `tracks` between there and here can drop it.
+    #
+    # This reads the REQUEST (`overrides.include`) where the recording-level
+    # bases above deliberately read `ordering["readmitted"]` instead, and the
+    # difference is intended (whole-branch review M7). The bases answer "which
+    # files must lose their vote", where naming an already-kept file would
+    # wrongly disenfranchise it; this answers "which files did the operator
+    # ask for", which is exactly the request. A name that re-admitted nothing
+    # marks nothing, because it is not in `tracks` under either reading.
     if overrides.include:
         forced = set(overrides.include)
         for t in tracks:

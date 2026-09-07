@@ -654,3 +654,19 @@ def test_unexclude_routing_says_what_it_did(tmp_path, monkeypatch):
                "junk-filtered -- removed from overrides.exclude rather than "
                "added to overrides.include")
         for ln in r.output.splitlines()), r.output
+
+
+
+def test_a_no_op_exclude_still_reports_the_override_list(tmp_path, monkeypatch):
+    """Whole-branch review M2. The `--include` work gated the exclude echo on
+    RESOLVED values so a lone `--include` would not print a spurious
+    `overrides.exclude = []` line -- but that also silenced a pre-existing
+    no-op: `--exclude ,` resolves to nothing, still redoes from gather, and on
+    main printed the list. Gate on what the operator TYPED, not on what it
+    resolved to."""
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", ",")
+    assert r.exit_code == 0, r.output
+    assert "overrides.exclude = " in r.output, r.output

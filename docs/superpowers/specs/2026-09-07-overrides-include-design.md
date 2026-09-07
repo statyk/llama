@@ -299,3 +299,25 @@ shipped, settled across four review rounds:
    track — but note this one is not free, since a ±1 shift can change which
    description wins and therefore the whole tape's set labels, segues and
    setlist-derived titles. It is a ruled carve-out, not an oversight.
+6. **Section 2's `filename` → `track-tags` ordering flip is IMPOSSIBLE, and
+   the direction is backwards.** The ordering gate (`junk.py`) requires that
+   every kept file carry a track tag AND that the tags be unique. Both
+   predicates are monotone-decreasing under insertion, and re-admission only
+   ever adds to `kept` — so adding a file can break a complete tag set but can
+   never complete one. The reachable flip is the opposite direction,
+   `track-tags` → `filename`, which is what
+   `test_readmitting_an_untagged_file_falls_back_to_filename_order` actually
+   pins and what the paragraph after it describes correctly. The spec sentence
+   was wrong, not the code; no test was ever written for the impossible
+   direction, and the spec's own §6 list quietly did not include one.
+
+7. **The `[e]xclude` picker renders `x`-handles it cannot act on.** §4's
+   scope cut — the excluded listing appears in the interactive picker as
+   context, but no `[i]nclude` verb was added — has a consequence the section
+   does not state: `_parse_ranks` silently drops a typed `xN`, so an operator
+   who tries one is told "nothing selected; skipping" rather than that the
+   handle is not available here. The re-admit hint is deliberately withheld in
+   that view (it belongs to the reader path), which removes the invitation but
+   not the possibility. Ruled acceptable for this branch and recorded rather
+   than fixed: adding `[i]` is the scope cut §4 already took, and suppressing
+   the listing in the picker would remove context that is useful there.

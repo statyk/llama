@@ -1222,10 +1222,25 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
     return data
 
 
+def _split_tokens(tokens) -> list[str]:
+    """Flatten repeated flags and comma groups into non-empty tokens.
+
+    The ONE line `_resolve_exclude_tokens` and `_resolve_include_tokens`
+    genuinely share. Extracted rather than left duplicated for two reasons:
+    the two resolvers must never diverge on how a comma group is read, and
+    while the line was byte-identical in both, a mutation anchor addressing
+    it matched twice and aborted rather than mutating either (whole-branch
+    review). The rest of the two functions stays separate on purpose --
+    different predicates, lookup tables, key types and operator-facing error
+    strings, which unifying would turn into four parameters and a callback.
+    """
+    return [p.strip() for tok in tokens for p in str(tok).split(",") if p.strip()]
+
+
 def _resolve_exclude_tokens(show_ws, tokens) -> list[str]:
     """Expand comma groups and map all-digit tokens to that track's filename
     (via show.json). Non-numeric tokens pass through as filenames."""
-    parts = [p.strip() for tok in tokens for p in str(tok).split(",") if p.strip()]
+    parts = _split_tokens(tokens)
     if not any(p.isdigit() for p in parts):
         return parts
     if not show_ws.show.exists():
@@ -1256,7 +1271,7 @@ def _resolve_include_tokens(show_ws, tokens) -> list[str]:
     `show.excluded_files[N-1]` is the whole point: one producer means the
     handle the operator reads and the handle this resolver means cannot
     drift apart."""
-    parts = [p.strip() for tok in tokens for p in str(tok).split(",") if p.strip()]
+    parts = _split_tokens(tokens)
     if not any(_HANDLE.fullmatch(p) for p in parts):
         return parts
     if not show_ws.show.exists():
@@ -2281,7 +2296,16 @@ def _propose_titles_for_show(ia, config, entry, show):
     cand = entry.provenance.candidate
     meta = ia.metadata(show.identifier).get("metadata", {})
     want = FORMAT_BY_AUDIO[config.audio_format]
-    kept, _, _ = filter_files(ia.metadata(show.identifier).get("files", []), want_format=want)
+    # `readmit=` is not optional here: gather applies overrides.include INSIDE
+    # filter_files, so a recomputation without it is one file short of every
+    # correctly-gathered show that has an effective include -- and the C1 guard
+    # below then declines forever, blaming a stale show.json that is in fact
+    # exactly what gather just wrote. Both reviewer seats found this
+    # independently on the whole-branch review; pinned by
+    # test_suggest_titles_survives_an_effective_overrides_include.
+    kept, _, _ = filter_files(ia.metadata(show.identifier).get("files", []),
+                              want_format=want,
+                              readmit=frozenset(entry.overrides.include))
     if entry.overrides.exclude:
         drop = set(entry.overrides.exclude)
         kept = [f for f in kept if f["name"] not in drop]
@@ -2562,7 +2586,13 @@ def fix(
             typer.echo(f"{entry.slug}: {', '.join(undo)} was operator-excluded, not "
                        "junk-filtered -- removed from overrides.exclude rather than "
                        "added to overrides.include")
-        if add or rm or undo:
+        # Gated on what the operator TYPED, not on what it resolved to: an
+        # exclude-side flag that resolves to nothing (`--exclude ,`) is still
+        # an exclude-side request, still redoes from gather, and printed the
+        # list before this feature existed. Gating on `add or rm` silenced it
+        # (whole-branch review M2). `undo` is here because `--include` on an
+        # operator-excluded row edits overrides.exclude.
+        if exclude or unexclude or undo:
             typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
                        "(the hold clears itself if a clean re-gather results)")
         if readmit:

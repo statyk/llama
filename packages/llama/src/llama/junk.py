@@ -249,6 +249,11 @@ def filter_files(
     # nothing here and is warned about by the caller.
     readmitted: set[str] = set()
     if readmit:
+        # The format clause is BELT-AND-BRACES and provably inert: `back` only
+        # ever looks up names taken from `excluded`, which holds the winning
+        # format's files alone. Kept because it states the losing-format rule
+        # at the point that would otherwise silently break it, not because it
+        # does anything -- measured dead in the whole-branch review (M3).
         by_name = {f["name"]: f for f in files if f.get("format") == matched}
         back = [by_name[e["filename"]] for e in excluded
                 if e["filename"] in readmit and e["filename"] in by_name]

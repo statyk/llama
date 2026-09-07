@@ -386,3 +386,18 @@ def test_excluded_entries_carry_a_duration():
     spam = next(e for e in excluded if e["filename"] == "FOLLOW-ME @BYPIKENO.mp3")
     assert isinstance(spam["duration_sec"], float)
     assert all("duration_sec" in e for e in excluded)
+
+
+def test_duplicate_listing_entries_also_carry_a_duration():
+    """Whole-branch review M1. `_dedupe_duplicate_listings` is the OTHER
+    producer of excluded entries, and its rows reach the same `excluded (N):`
+    listing. Setting both of its duration_sec values to None left the whole
+    suite green, so the `?`-instead-of-a-known-duration symptom was pinned on
+    one producer only."""
+    files = [
+        _mp3("band1t01.mp3", length="300.0"),
+        {**_mp3("band99/band1t01.mp3", length="300.0"), "title": "Alpha"},
+    ]
+    _, excluded, _ = filter_files(files)
+    dropped = next(e for e in excluded if e["reasons"] == ["duplicate-listing"])
+    assert dropped["duration_sec"] == 300.0
