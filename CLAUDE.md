@@ -55,7 +55,21 @@ implementation plan this was built from. The approved design spec is
   `run resume` finishes cleanly). Shows/sessions are addressed by name or unique
   substring; paths still work. `llama config init` seeds a commented config
   of the baked-in defaults (config values replace defaults; nothing
-  merges). No `voice`/`presenter` commands — that's emcee's job now.
+  merges). **An unknown key in `config.toml` is now an ERROR, not a silent
+  drop** (`extra="forbid"`, 2026-09-07): a typo'd knob used to parse to its
+  default and leave the operator's edit with no effect and no message. It is
+  set on a shared strict base because pydantic does NOT propagate
+  `model_config` to nested models — on `Config` alone every section below it
+  stays permissive, which is most of the value. Mapping KEYS stay free-form
+  (task names under `[llm.*]`, backend names under `[llm.tiers.*]`); only
+  their values are strict. `herder`'s `TaskConfig` is deliberately left
+  permissive (cross-package blast radius), and so are the PERSISTED state
+  artifacts — `Criteria`/`criteria.json`, `session.json`, `show.json`, the
+  manifest — where permissiveness is load-bearing forward compatibility:
+  strictness there would break `llama run resume` on run dirs written by a
+  different version, which is the thing T6b exists to protect. emcee has the
+  same treatment on its own six models via its own base (it must never import
+  llama). No `voice`/`presenter` commands — that's emcee's job now.
 - Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
   `[station] root` and voice every not-yet-broadcast-ready package),
   `emcee voice <package-path>` (script + voice + assemble one package;
@@ -323,7 +337,34 @@ tier (pins never escalate).
   `runs/<id>/request.json` at run-claim time, before any LLM call, and
   `run resume` re-interprets from it whenever a session has a request but no
   criteria (`iter_sessions` reads that request too, so a run parked at
-  interpret still lists its query). `--no-pacing` restores the pre-pacing
+  interpret still lists its query).
+  **`request.json` is a MODE-AGNOSTIC invocation record (2026-09-07), and
+  `--plan` survives a pause in both modes.** It carries an explicit
+  `mode: "query"|"profile"` — never inferred from which of `query`/`profile`
+  is set, since a reader that infers eventually meets a run where both or
+  neither is populated and picks silently — and a MISSING `mode` reads as
+  `"query"`, because every artifact written before the field existed was one
+  by construction. `_get_profile` writes the record too; without it a
+  `--plan` profile run parked by the run-level catch resumed with
+  `plan=False` and performed a full acquisition, from the recovery path the
+  CLI itself prints, and profiles are the unattended recurring path.
+  `run resume` replays the persisted `plan` as
+  `bool(req.get("plan")) and not ws.shortlist.exists()`: `--plan` means "stop
+  AT the shortlist", so the directive is SATISFIED once one exists — replaying
+  it unconditionally is worse than dropping it, because the artifact carries
+  `plan: true` for the life of the run and every later resume would re-park
+  the session forever, including the one `run approve` recommends.
+  **Four readers, not three** (`run_resume`, `_interpret_with_pause`,
+  `iter_sessions`, `_by_run_rollup`); the last was missed twice in two
+  consecutive features, so check it when adding a fifth. The two SWEEP
+  readers go through `sessions.read_request()`, which treats an unreadable or
+  non-object file as "no request" so one bad file cannot blind the whole
+  triage listing — **`run_resume`'s two reads deliberately do NOT**, because
+  there a malformed request must fail loudly rather than silently resume with
+  `plan=False`. That asymmetry is pinned by a test asserting the exception
+  TYPE (rerouting still exits non-zero, via a downstream `KeyError`), because
+  `read_request`'s docstring names the sweep call sites and "unify the
+  readers" is the signposted next cleanup. `--no-pacing` restores the pre-pacing
   behaviour here as it does at every other site, though what that MEANS
   differs per site and only two of them literally re-raise: this catch and
   `_execute`'s run-level one do, the per-show loop records a per-show
