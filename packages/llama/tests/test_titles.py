@@ -446,3 +446,23 @@ def test_sibling_format_titles_cleans_recovered_titles():
         "t01.mp3": "Bertha", "t02.mp3": "Sugaree",
         "t03.mp3": "Dire Wolf", "t04.mp3": "Loser",
     }
+
+
+def test_clean_tag_titles_gate_basis_scopes_the_enumeration_vote():
+    """The leading-track-number strip is a whole-RECORDING decision, so a file
+    the operator re-admitted must not get a vote in it. On a 3-track enumerated
+    tape one untagged re-admission drops coverage to 0.75, under
+    _ENUMERATED_MIN_COVERAGE, and would stop the strip for EVERY track.
+    `gate_basis` keeps the vote to the tape's own files; the strip still applies
+    to all of them, the re-admitted file included."""
+    tape = [{"title": f"0{i} Song {i}"} for i in (1, 2, 3)]
+    readmit = [{"title": "Introduction"}]
+    assert clean_tag_titles(tape + readmit) == [
+        "01 Song 1", "02 Song 2", "03 Song 3", "Introduction"]
+    assert clean_tag_titles(tape + readmit, gate_basis=tape) == [
+        "Song 1", "Song 2", "Song 3", "Introduction"]
+
+
+def test_clean_tag_titles_gate_basis_defaults_to_the_files_themselves():
+    tape = [{"title": f"0{i} Song {i}"} for i in (1, 2, 3)]
+    assert clean_tag_titles(tape) == clean_tag_titles(tape, gate_basis=tape)

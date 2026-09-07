@@ -1290,7 +1290,9 @@ def _fmt_dur(sec) -> str:
 
 
 def _excluded_handles(show) -> list[tuple[str, dict]]:
-    """`x`-handles for the junk-filtered files, in show.json order.
+    """`x`-handles for every file missing from the track list, in show.json
+    order — junk-filter drops and the operator's own `overrides.exclude`
+    entries alike, since gather appends both to `show.excluded_files`.
 
     ONE producer, consumed by both the `--tracks` listing and `fix --include`'s
     token resolver, so the handle an operator reads is always the handle the
@@ -2368,8 +2370,10 @@ def fix(
         None, "--unexclude", help="Remove filenames (or track numbers) from overrides.exclude"),
     include: list[str] = typer.Option(
         None, "--include",
-        help="Re-admit a file the junk filter dropped: an x-handle from "
-             "`llama show <show> --tracks` (e.g. x1) or the source filename"),
+        help="Re-admit a file missing from the track list: an x-handle from "
+             "`llama show <show> --tracks` (e.g. x1) or the source filename. "
+             "A junk-filter drop is added to overrides.include; a row you "
+             "excluded yourself is un-excluded instead."),
     set_venue: str = typer.Option(None, "--set-venue", help="Force overrides.venue"),
     set_city: str = typer.Option(None, "--set-city", help="Force overrides.city"),
     set_date: str = typer.Option(None, "--set-date", help="Force overrides.date (YYYY-MM-DD)"),

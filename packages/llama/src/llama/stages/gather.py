@@ -846,20 +846,26 @@ def run_gather(
     # the operator later drops is harmless, while moving it below the exclusion
     # would let one dropped file change whether recovery fires at all.
     #
-    # That guarantee is one-directional, not symmetric. `kept` here is already
-    # POST-re-admission -- a deliberate choice (spec section 2): a re-admitted
-    # file participates in title recovery like any other track. But
-    # `_recover_format_titles` and `sibling_format_titles` judge the whole
-    # RECORDING, not the individual file -- the mp3-side title_fraction gate,
-    # and the exact-count bijection against the lossless sibling's own kept
-    # set -- so one re-admitted file can flip title recovery for every track
-    # on the tape, not just itself. Concretely: a re-admitted file with no
-    # lossless counterpart breaks the bijection and can turn OFF recovery that
-    # would otherwise have fired for the other tracks; a re-admitted untagged
-    # file can equally push the mp3-side fraction below the gate and turn
-    # recovery ON. See test_readmitting_a_lossless_orphan_suppresses_sibling_
-    # format_recovery.
-    format_titles = _recover_format_titles(md.get("files", []), kept, ordering)
+    # The guarantee is now SYMMETRIC, and `recovery_basis` is what makes it so.
+    # `kept` is post-re-admission, but `_recover_format_titles` and
+    # `sibling_format_titles` judge the whole RECORDING rather than the
+    # individual file -- the mp3-side title_fraction gate, and the exact-count
+    # bijection against the lossless sibling's own kept set. Left on `kept`,
+    # one re-admitted file flipped title recovery for every track on the tape:
+    # a file with no lossless counterpart breaks the bijection and turns OFF
+    # recovery the other tracks would have had, and an untagged one pushes the
+    # mp3-side fraction below the gate and turns it ON. Measured on the gd73
+    # fixture, both directions (7-vs-6 bijection; 0.43 against a 0.50 gate).
+    #
+    # An operator saying "keep this one track" must not change where a
+    # DIFFERENT track's title came from, so recording-level decisions vote on
+    # the tape minus re-admissions. The re-admitted file still receives a
+    # recovered title if the map covers it; it simply gets no vote. This is
+    # the same rule as the exclusion guard above, in the other direction --
+    # deliberately NOT extended to `fetch_siblings` below, where a re-admitted
+    # untagged file genuinely does mean the tape is no longer fully tagged.
+    recovery_basis = [f for f in kept if f["name"] not in set(overrides.include)]
+    format_titles = _recover_format_titles(md.get("files", []), recovery_basis, ordering)
 
     if overrides.exclude:
         drop = set(overrides.exclude)
@@ -919,7 +925,17 @@ def run_gather(
     # up, so gating the FETCH on that condition too was never doing anything
     # but adding false negatives.
     fetch_siblings = bool(kept and title_fraction(clean_tag_titles(kept)) < 1.0)
-    tracks = resolve_titles(kept, canonical, format_titles=format_titles)
+    # The same one-file-must-not-decide-for-the-recording rule as
+    # `recovery_basis` above, applied to the OTHER recording-level gate:
+    # clean_tag_titles' enumerated-tape test, which decides whether a leading
+    # track number is stripped from EVERY title. Computed here rather than
+    # reusing `recovery_basis` -- that one is deliberately PRE-exclusion (see
+    # the guard above it), while this gate must vote over the tracks that
+    # actually ship. Reusing it let operator-excluded files vote, which is the
+    # defect test_readmission_does_not_stop_the_track_number_strip caught.
+    tag_gate_basis = [f for f in kept if f["name"] not in set(overrides.include)]
+    tracks = resolve_titles(kept, canonical, format_titles=format_titles,
+                            gate_basis=tag_gate_basis)
     for n, forced in overrides.titles.items():
         if not (1 <= n <= len(tracks)):
             raise LlamaError(f"overrides.titles: no track {n} "

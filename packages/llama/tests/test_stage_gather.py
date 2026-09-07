@@ -898,29 +898,60 @@ def test_gather_recovery_survives_an_operator_exclusion(tmp_path: Path):
     assert all(t.title_source == "sibling-format" for t in show.tracks)
 
 
-def test_readmitting_a_lossless_orphan_suppresses_sibling_format_recovery(tmp_path: Path):
-    """Fix round 1, item 2: `kept` is post-re-admission by the time it reaches
-    `_recover_format_titles`, and `sibling_format_titles` requires an exact
-    bijection in file COUNT between the delivered format and its lossless
-    sibling. FOLLOW-ME @BYPIKENO.mp3 -- the fixture's junk file -- has no
-    Shorten counterpart at all.
+def test_readmitting_a_lossless_orphan_does_not_suppress_recovery(tmp_path: Path):
+    """SYMMETRY FIX (2026-09-07). This test previously pinned the OPPOSITE
+    behaviour and is deliberately inverted; its old body is the measurement
+    that justified the change.
 
-    Without re-admission (test_gather_recovers_titles_from_the_lossless_
-    sibling, unchanged), the other six tracks recover cleanly from a
-    fully-tagged Shorten sibling: 6 kept mp3s bijecting against 6 Shorten
-    entries. Re-admitting the orphan raises `kept` to 7 while the Shorten
-    side stays at 6 -- `sibling_format_titles` declines on the length
-    mismatch, and format_titles comes back None for the WHOLE tape, not just
-    the newly re-admitted file. All seven tracks lose "sibling-format",
-    including the six that would have recovered cleanly on their own -- the
-    recording-level side effect the comment above `_recover_format_titles`
-    now documents."""
+    `sibling_format_titles` requires an exact bijection in file COUNT between
+    the delivered format and its lossless sibling, and FOLLOW-ME @BYPIKENO.mp3
+    -- the fixture's junk file -- has no Shorten counterpart at all. When
+    `_recover_format_titles` voted on the post-re-admission `kept`, re-admitting
+    that one orphan took the mp3 side to 7 against the Shorten side's 6, the
+    bijection declined, and `format_titles` came back None for the WHOLE tape:
+    all six tracks that would have recovered cleanly lost "sibling-format"
+    because of a file the operator asked to keep.
+
+    Recording-level decisions now vote on `recovery_basis` -- the tape minus
+    re-admissions -- so the six recover exactly as they do without the
+    override. The orphan itself is absent from the recovered map and falls
+    through the ordinary cascade: it gets no vote, and no free title."""
     md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
     sws = ShowWorkspace(tmp_path / "show")
     write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"]))
     show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
-    assert "FOLLOW-ME @BYPIKENO.mp3" in [t.filename for t in show.tracks]
-    assert all(t.title_source != "sibling-format" for t in show.tracks)
+    by_name = {t.filename: t for t in show.tracks}
+    assert "FOLLOW-ME @BYPIKENO.mp3" in by_name
+    recovered = [t.filename for t in show.tracks if t.title_source == "sibling-format"]
+    assert len(recovered) == 6, recovered
+    assert "FOLLOW-ME @BYPIKENO.mp3" not in recovered
+
+
+def test_readmission_does_not_stop_the_track_number_strip(tmp_path: Path):
+    """The second recording-level gate, wired through `resolve_titles`'
+    `gate_basis`. `clean_tag_titles` strips a leading track number only when
+    the RECORDING looks enumerated (>=3 numbered files and >=80% coverage), so
+    on a small tape one untagged re-admission drops coverage under the gate and
+    would leave "01 " glued to every other track's title.
+
+    Three numbered tracks plus the re-admitted junk file is 3 of 4 = 0.75,
+    under _ENUMERATED_MIN_COVERAGE. Voting on the tape alone it is 3 of 3, so
+    the strip still fires. Without gate_basis this test sees "01 Morning Dew"."""
+    md = json.loads(FIXTURE.read_text())
+    names = ["gd73-06-10d1t01.mp3", "gd73-06-10d1t02.mp3", "gd73-06-10d1t03.mp3"]
+    songs = {names[0]: "Morning Dew", names[1]: "China Cat Sunflower",
+             names[2]: "I Know You Rider"}
+    for f in md["files"]:
+        if f["name"] in songs:
+            f["title"] = f"0{names.index(f['name']) + 1} {songs[f['name']]}"
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(
+        include=["FOLLOW-ME @BYPIKENO.mp3"],
+        exclude=["gd73-06-10d2t01.mp3", "gd73-06-10d2t02.mp3", "gd73-06-10d3t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    by_name = {t.filename: t.title for t in show.tracks}
+    assert [by_name[n] for n in names] == [
+        "Morning Dew", "China Cat Sunflower", "I Know You Rider"]
 
 
 from llama import jerrybase
