@@ -539,15 +539,30 @@ URL) then prompts:
 [e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip / [q]uit
 ```
 
-On a hold flagged `unresolved track titles` specifically, the prompt gains
-a `[t] suggest titles` option in the same slot instead:
+Two options are CONDITIONAL, offered only when they have something to act on,
+so four prompt variants are reachable. On a hold flagged `unresolved track
+titles` the prompt gains `[t] suggest titles`; on a show whose `show.json`
+carries any `excluded_files` it gains `[i]nclude dropped`, next to
+`[e]xclude tracks` because the two are halves of one decision about the file
+list:
 
 ```
-[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [t] suggest titles / [s]kip / [q]uit
+[e]xclude tracks / [i]nclude dropped / [m]etadata / [v]ague / [o]verrule / [t] suggest titles / [s]kip / [q]uit
 ```
 
 - **`[e]xclude`** — numbered track list, pick indices to add to
-  `overrides.exclude`, redo from `gather`.
+  `overrides.exclude`, redo from `gather`. The listing ends with the
+  `excluded (N):` block, so play-order numbers and `xN` handles appear
+  together; typing a handle here is answered with a pointer to `[i]nclude`
+  rather than a silent "nothing selected".
+- **`[i]nclude dropped`** (only offered when files were dropped) — the same
+  listing, then pick `x`-handles or filenames to re-admit. Resolution goes
+  through the same producer `fix --include` uses, so a handle means the same
+  thing in both places, and a row whose reason is `operator-excluded` is
+  un-excluded rather than added to `overrides.include` — the identical routing
+  `fix --include` applies, shared rather than reimplemented. A bad handle
+  reports and returns to the prompt instead of abandoning the show. Redoes
+  from `gather`.
 - **`[m]etadata`** — a mini-editor over `venue`, `city`, `date
   (YYYY-MM-DD)`, `title overrides (N=Title, comma-separated)`, `set breaks
   after tracks (e.g. 9,17)` — each shows the current effective value, empty
