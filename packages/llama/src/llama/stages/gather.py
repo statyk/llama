@@ -845,6 +845,20 @@ def run_gather(
     # and resolve_titles only looks up names still in `kept`, so covering files
     # the operator later drops is harmless, while moving it below the exclusion
     # would let one dropped file change whether recovery fires at all.
+    #
+    # That guarantee is one-directional, not symmetric. `kept` here is already
+    # POST-re-admission -- a deliberate choice (spec section 2): a re-admitted
+    # file participates in title recovery like any other track. But
+    # `_recover_format_titles` and `sibling_format_titles` judge the whole
+    # RECORDING, not the individual file -- the mp3-side title_fraction gate,
+    # and the exact-count bijection against the lossless sibling's own kept
+    # set -- so one re-admitted file can flip title recovery for every track
+    # on the tape, not just itself. Concretely: a re-admitted file with no
+    # lossless counterpart breaks the bijection and can turn OFF recovery that
+    # would otherwise have fired for the other tracks; a re-admitted untagged
+    # file can equally push the mp3-side fraction below the gate and turn
+    # recovery ON. See test_readmitting_a_lossless_orphan_suppresses_sibling_
+    # format_recovery.
     format_titles = _recover_format_titles(md.get("files", []), kept, ordering)
 
     if overrides.exclude:
@@ -852,6 +866,9 @@ def run_gather(
         matched = {f["name"] for f in kept if f["name"] in drop}
         for missing in sorted(drop - matched):
             log.warning("overrides.exclude entry %r matched no file", missing)
+        for both in sorted(set(overrides.include) & drop):
+            log.warning("overrides: %r is in both include and exclude; "
+                        "exclude wins", both)
         excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
                       "duration_sec": length_seconds(f.get("length"))}
                      for f in kept if f["name"] in drop]

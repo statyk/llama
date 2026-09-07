@@ -164,7 +164,10 @@ class Track(BaseModel):
     # forces their matched to None for that reason (see
     # structure.TAUTOLOGICAL_TITLE_SOURCES).
     matched: bool | None = None
-    # True when overrides.include re-admitted this file past the junk filter.
+    # True when the operator named this file in overrides.include -- not
+    # necessarily that the junk filter would otherwise have dropped it; the
+    # stamp is `filename in overrides.include`, and filter_files' return
+    # shape does not expose which re-admitted names were actually junk.
     # Recorded here and NOT in ManifestTrack: the manifest is the broadcast
     # contract with emcee and stays lean; show.json is the operator's record.
     included: bool = False

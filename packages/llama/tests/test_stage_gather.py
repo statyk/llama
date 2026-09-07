@@ -898,6 +898,31 @@ def test_gather_recovery_survives_an_operator_exclusion(tmp_path: Path):
     assert all(t.title_source == "sibling-format" for t in show.tracks)
 
 
+def test_readmitting_a_lossless_orphan_suppresses_sibling_format_recovery(tmp_path: Path):
+    """Fix round 1, item 2: `kept` is post-re-admission by the time it reaches
+    `_recover_format_titles`, and `sibling_format_titles` requires an exact
+    bijection in file COUNT between the delivered format and its lossless
+    sibling. FOLLOW-ME @BYPIKENO.mp3 -- the fixture's junk file -- has no
+    Shorten counterpart at all.
+
+    Without re-admission (test_gather_recovers_titles_from_the_lossless_
+    sibling, unchanged), the other six tracks recover cleanly from a
+    fully-tagged Shorten sibling: 6 kept mp3s bijecting against 6 Shorten
+    entries. Re-admitting the orphan raises `kept` to 7 while the Shorten
+    side stays at 6 -- `sibling_format_titles` declines on the length
+    mismatch, and format_titles comes back None for the WHOLE tape, not just
+    the newly re-admitted file. All seven tracks lose "sibling-format",
+    including the six that would have recovered cleanly on their own -- the
+    recording-level side effect the comment above `_recover_format_titles`
+    now documents."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    assert "FOLLOW-ME @BYPIKENO.mp3" in [t.filename for t in show.tracks]
+    assert all(t.title_source != "sibling-format" for t in show.tracks)
+
+
 from llama import jerrybase
 from llama.models import JerrybaseEvent, JerrybaseSet
 
@@ -2061,23 +2086,39 @@ def test_gather_readmits_an_operator_included_file(tmp_path: Path):
 
 
 def test_gather_leaves_ordinary_tracks_unmarked(tmp_path: Path):
+    """Fix round 1, item 1: with an EMPTY overrides.include, the stamp block
+    at gather.py never runs and this assertion is satisfied by Track.included
+    defaulting to False, regardless of whether the stamp exists at all --
+    caught by a reviewer mutation that deleted the whole block and one that
+    forced `t.included = True` unconditionally, both of which stayed green
+    against the old version of this test. Writing a real include entry makes
+    the stamp block actually execute, and asserting every OTHER track is
+    False makes the test sensitive to a stamp that over-marks (e.g. the
+    forced-True mutation)."""
     sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"]))
     show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
-    assert all(t.included is False for t in show.tracks)
+    others = [t for t in show.tracks if t.filename != "FOLLOW-ME @BYPIKENO.mp3"]
+    assert others  # guard: the ordinary tracks must actually be present
+    assert all(t.included is False for t in others)
 
 
-def test_exclude_wins_when_a_file_is_in_both_override_lists(tmp_path: Path):
+def test_exclude_wins_when_a_file_is_in_both_override_lists(tmp_path: Path, caplog):
     """The CLI makes this state unreachable; gather still needs a defined
     answer for a hand-mangled overrides.json. include re-admits, exclude then
-    drops -- so the file is out, with reason operator-excluded."""
+    drops -- so the file is out, with reason operator-excluded -- and (fix
+    round 1, item 4) a warning names the ambiguity and says exclude wins."""
     sws = ShowWorkspace(tmp_path / "show")
     write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"],
                                             exclude=["FOLLOW-ME @BYPIKENO.mp3"]))
-    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    with caplog.at_level("WARNING"):
+        show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
     assert "FOLLOW-ME @BYPIKENO.mp3" not in [t.filename for t in show.tracks]
     dropped = next(e for e in show.excluded_files
                    if e["filename"] == "FOLLOW-ME @BYPIKENO.mp3")
     assert dropped["reasons"] == ["operator-excluded"]
+    assert any("FOLLOW-ME @BYPIKENO.mp3" in r.message and "exclude wins" in r.message
+               for r in caplog.records)
 
 
 def test_gather_warns_when_an_include_entry_matches_no_file(tmp_path: Path, caplog):
