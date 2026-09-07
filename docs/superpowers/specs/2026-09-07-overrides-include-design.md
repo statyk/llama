@@ -248,3 +248,32 @@ shipped, settled across four review rounds:
    that one track twice, not the recording. Docs (`README.md`,
    `docs/workflow.md`) describe it correctly, per this correction, as
    shipping the track twice.
+5. **Section 2's "a re-admitted file participates in title recovery like any
+   other track" was REVERSED after implementation, on the owner's ruling
+   (2026-09-07).** That sentence was written as a benefit and did not notice
+   what it granted: `_recover_format_titles` and `sibling_format_titles` judge
+   the whole RECORDING, not the individual file, and so does
+   `clean_tag_titles`' enumerated-tape test. Voting on a post-re-admission
+   `kept` therefore let one re-admitted file change where every OTHER track's
+   title came from. Measured on the gd73 fixture in both directions: a file
+   with no lossless counterpart takes the bijection to 7-against-6 and turns
+   recovery OFF for the six tracks that would have recovered cleanly; an
+   untagged one pushes the mp3-side fraction to 0.43 against the 0.50 gate and
+   turns it ON.
+
+   This also contradicted a guard already in `gather.py`, whose comment says
+   the recovery map is computed on the unexcluded set precisely so that one
+   DROPPED file cannot decide whether recovery fires. The shipped behaviour is
+   now symmetric: each recording-level gate votes on its own tape minus
+   `overrides.include`, via `recovery_basis` (pre-exclusion, matching the
+   existing guard) and `tag_gate_basis` (post-exclusion, the tracks that
+   actually ship). The two bases are deliberately separate — reusing one let
+   operator-excluded files vote, a defect caught by
+   `test_readmission_does_not_stop_the_track_number_strip`.
+
+   A re-admitted file still RECEIVES a recovered title when the map covers it;
+   it simply gets no vote in whether recovery happens. **Deliberately not
+   extended to `fetch_siblings`** (`gather.py`), where a re-admitted untagged
+   file genuinely does mean the tape is no longer fully tagged — that gate is
+   answering a question the re-admission really does change, and it costs a
+   network fetch rather than a title-provenance change.
