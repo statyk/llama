@@ -365,6 +365,61 @@ def test_a_malformed_request_json_does_not_blind_either_sweep(tmp_path: Path):
     assert "GD 1977 Cornell" in status_result.output
 
 
+def test_a_malformed_request_json_fails_run_resume_loudly(tmp_path: Path, monkeypatch):
+    """The deliberate asymmetry with the test above: `run_resume`'s own two
+    reads of `request.json` are NOT routed through `sessions.read_request`,
+    because there a malformed file must fail loudly rather than silently
+    resume with `plan=False` -- which would let a parked `--plan` run
+    download and package a show at exit 0, the exact failure this branch
+    exists to prevent. Routing either read through the guard leaves the
+    full suite green otherwise, so this pins the asymmetry directly rather
+    than relying on the docstring saying so.
+
+    Exercises BOTH direct-read call sites, since a single `run resume`
+    invocation only ever reaches one of them (they sit in the two arms of
+    `if not ws.criteria.exists():`): no-criteria.json (cli.py:1102, the T6b
+    parked-before-interpret shape) and criteria.json-present (cli.py:1114,
+    the run-level RateLimited-catch shape).
+
+    Each assertion checks the exception is specifically a `JSONDecodeError`,
+    not merely that SOMETHING failed loudly: routing either read through
+    `read_request` swallows the parse error and returns `{}`, and downstream
+    code can still fail non-zero on that empty dict (site 1: `req["query"]`
+    KeyErrors inside `_interpret_and_stamp`) -- a bare `exit_code != 0` check
+    passes just the same under that mutation and does not pin the guard
+    that's actually at stake here."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    # Site 1 (cli.py:1102): no criteria.json, request.json malformed.
+    no_criteria_ws = RunWorkspace(tmp_path, "malformed-no-criteria")
+    no_criteria_ws.dir.mkdir(parents=True)
+    no_criteria_ws.request.write_text("{not json")
+    mark_paused(no_criteria_ws, None, [], "2026-09-07T15:10:00+00:00",
+               "five_hour", "limit")
+
+    result1 = runner.invoke(cli.app, ["--config", cfg, "run", "resume",
+                                      "malformed-no-criteria"])
+    assert isinstance(result1.exception, json.JSONDecodeError), result1.exception
+    assert result1.exit_code != 0
+    assert "packaged:" not in result1.output
+    assert session_state(no_criteria_ws.dir) == STATE_PAUSED
+
+    # Site 2 (cli.py:1114): criteria.json present, request.json malformed.
+    with_criteria_ws = _parked_profile_run(tmp_path, "malformed-with-criteria",
+                                           plan=True)
+    with_criteria_ws.request.write_text("{not json")
+
+    result2 = runner.invoke(cli.app, ["--config", cfg, "run", "resume",
+                                      "malformed-with-criteria"])
+    assert isinstance(result2.exception, json.JSONDecodeError), result2.exception
+    assert result2.exit_code != 0
+    assert "packaged:" not in result2.output
+    assert session_state(with_criteria_ws.dir) == STATE_PAUSED
+
+
 def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypatch):
     from llama.profiles import Profile, save_profile
 
