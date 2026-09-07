@@ -261,6 +261,37 @@ def test_run_list_json_survives_a_session_with_no_criteria(tmp_path: Path):
     assert "GD 1977 Cornell" in table_result.output
 
 
+def test_run_list_names_a_parked_profile_run_with_no_criteria(tmp_path: Path):
+    """A criteria-less parked run renders from the request. For a profile run
+    that must be `profile: <name>`, not an empty pair of quotes -- the same
+    defect fixed for query runs, one mode over.
+
+    Both renderers are checked: `_print_sessions` and `_session_json` are
+    separate code paths over the same SessionInfo, and the query half of this
+    branch needed both pinned.
+    """
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    ws = RunWorkspace(tmp_path, "profparked")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
+                                           "profile": "prime-dead",
+                                           "auto": True, "plan": True}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    info = iter_sessions(tmp_path)[0]
+    assert info.profile == "prime-dead"
+    assert info.query == ""
+
+    plain = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert plain.exit_code == 0, plain.output
+    assert "profile: prime-dead" in plain.output
+
+    as_json = runner.invoke(cli.app, ["--config", cfg, "run", "list", "--json"])
+    assert as_json.exit_code == 0, as_json.output
+    assert json.loads(as_json.output)[0]["profile"] == "prime-dead"
+
+
 def test_status_by_run_shows_the_query_of_a_run_with_no_criteria(tmp_path: Path):
     """`llama status --by-run` renders through `_by_run_rollup`, which
     duplicates the criteria lookup instead of going through `iter_sessions`

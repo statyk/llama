@@ -122,9 +122,15 @@ def iter_sessions(root: Path) -> list[SessionInfo]:
                 criteria = read_model(ws.criteria, Criteria)
                 query, profile = criteria.query, criteria.profile
             elif ws.request.exists():
-                # Paused before interpret ever wrote criteria: the persisted
-                # request carries the only copy of the query.
-                query = json.loads(ws.request.read_text()).get("query") or ""
+                # Paused before criteria existed: the persisted request is the
+                # only copy of what this run was asked to do. A missing `mode`
+                # means an artifact written before modes existed, and those
+                # were all query runs.
+                req = json.loads(ws.request.read_text())
+                if req.get("mode", "query") == "profile":
+                    profile = req.get("profile")
+                else:
+                    query = req.get("query") or ""
             marker = _read_marker(run_dir)
             infos.append(SessionInfo(
                 id=run_dir.name,
