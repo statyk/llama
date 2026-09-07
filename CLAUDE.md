@@ -46,7 +46,7 @@ implementation plan this was built from. The approved design spec is
   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
   `--suggest-titles` is the same title-proposal resolution, one
   invocation, one confirmation, refuses to combine with
-  `--exclude`/`--unexclude`), `llama redo <name> --from <stage>`,
+  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>`,
   `llama deliver <name>`, `llama rm <name>`, `llama suppress`/
   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
   (session namespace; a run that lost shows to a failure ends
@@ -199,8 +199,17 @@ tier (pins never escalate).
   `--set-encore` (plus their `--clear-*` counterparts) all redo from
   `gather`, and a hold **self-clears** whenever the re-gather no longer
   reproduces the flag that caused it (gather recomputes
-  `needs_review`/`review_flags` from scratch every run). A hold flagged
-  "unresolved track titles" additionally gets **`--suggest-titles`**
+  `needs_review`/`review_flags` from scratch every run). `--exclude`/
+  `--unexclude` are joined by **`--include xN|FILE`** (`overrides.include`),
+  which re-admits a file the junk filter dropped — applied inside
+  `filter_files` after the junk arms and after duplicate-listing dedupe but
+  **before** play-order derivation, so the floor cannot move and order is
+  derived over the final set (a re-admitted file with no track tag reverts
+  the recording to filename order). A file in both lists is excluded; the
+  CLI keeps the lists mutually exclusive so that never happens through it.
+  `--include` on an `operator-excluded` row un-excludes instead. **Do not
+  loosen the junk constants instead** — this override is why they stay put.
+  A hold flagged "unresolved track titles" additionally gets **`--suggest-titles`**
   (`fix`) / **`[t] suggest titles`** (`triage`, same helper, offered only
   under that flag): both build a canonical setlist via
   `build_canonical(..., provider=None)` — deliberately **not** the same
@@ -239,8 +248,9 @@ tier (pins never escalate).
   and stays `(unresolved - hand-edit)`; a track that already carries a
   title is never overwritten), then redo from `gather` like every other
   metadata edit. `--suggest-titles` refuses to combine with
-  `--exclude`/`--unexclude` in the same `fix` invocation (an exclusion
-  renumbers tracks before the proposal's numbering would apply), and an
+  `--exclude`/`--unexclude`/`--include` in the same `fix` invocation (any
+  of the three renumbers tracks before the proposal's numbering would
+  apply), and an
   explicit `--set-title N="..."` on the same invocation always wins over
   the proposal for that track. On a multi-set show,
   `--set-encore` must be combined with `--set-breaks` to keep set labelling

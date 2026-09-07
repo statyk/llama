@@ -149,6 +149,8 @@ unsigned — verify them against `SHA256SUMS`. See
     llama show 1973-06-10 --tracks   # numbered track list (index, title, filename, duration)
     llama fix 1973-06-10 --exclude 9,10       # exclude by track number (filenames work too);
                                      # auto-runs the redo from gather
+    llama fix 1973-06-10 --include x1         # re-admit a file the junk filter dropped
+                                     # (x-handles come from `llama show ... --tracks`)
     llama fix 1973-06-10 --set-venue "Winterland" --set-city "San Francisco, CA" \
         --set-date 1973-06-10 --set-title 4="Dark Star" --set-breaks "9,17"
                                      # metadata corrections; redoes from gather, hold self-clears
@@ -185,7 +187,11 @@ the redo) or `llama triage` (interactive walkthrough):
   --tracks` lists the numbers), and `--set-venue`/`--set-city`/`--set-date`/
   `--set-title N="..."`/`--set-breaks "9,17"` fix wrong venue, date, a track
   title, or where a set break falls. Either way it redoes from `gather` and
-  the hold clears itself if that fixes it.
+  the hold clears itself if that fixes it. The reverse also works: `llama
+  show <s> --tracks` lists every file the junk filter dropped with an
+  `x`-handle, and `llama fix <s> --include x1` puts one back — the junk
+  thresholds are measured and stay put, so a wrongly-dropped track is fixed
+  per show, not by loosening the filter.
 - **Accept an unknowable setlist** — `llama fix <s> --narration vague` tells
   the briefing to stay general (no song names, no set-structure claims),
   clears the hold, and redoes from `brief` (which regenerates the briefing

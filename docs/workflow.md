@@ -278,7 +278,7 @@ every held show with an `[e]xclude / [m]etadata / [v]ague / [o]verrule /
 
 | Resolution | When | Do (`fix`) | Do (`triage`) | Clears the hold? |
 |---|---|---|---|---|
-| **Correct** | The flag is real and fixable — e.g. junk tracks slipped past the filter, a setlist source is missing, or the venue/date/a title/a set break is wrong | `llama fix <show> --exclude 9,10` (track numbers or filenames; `--unexclude` to undo one) or `--set-venue`/`--set-city`/`--set-date`/`--set-title N="..."`/`--set-breaks "9,17"` | `[e]xclude` or `[m]etadata` | No — a clean re-gather self-clears by producing structure with no flags |
+| **Correct** | The flag is real and fixable — e.g. junk tracks slipped past the filter, a setlist source is missing, or the venue/date/a title/a set break is wrong | `llama fix <show> --exclude 9,10` (track numbers or filenames; `--unexclude` to undo one; `--include xN` re-admits a file the junk filter dropped) or `--set-venue`/`--set-city`/`--set-date`/`--set-title N="..."`/`--set-breaks "9,17"` | `[e]xclude` or `[m]etadata` | No — a clean re-gather self-clears by producing structure with no flags |
 | **Suggest titles** | The hold is `unresolved track titles` specifically, and the setlist correspondence can propose titles for some of the unresolved tracks — it declines whenever the setlist cannot be pinned to the tape by tracks that already carry titles of their own, which is the common case, and a wholly untagged tape can never qualify | `llama fix <show> --suggest-titles` — renders the proposal table, then a single confirmation writes the proposed titles into `overrides.titles` at once | `[t] suggest titles` — same proposal/confirm, only offered under this flag | No — like **Correct**, a clean re-gather self-clears once every track has a resolved title and nothing else is flagged |
 | **Accept as vague** | The setlist genuinely can't be resolved, but the show is otherwise fine to air without naming songs | `llama fix <show> --narration vague` | `[v]ague` | Yes, immediately (narration mode also survives future redos) |
 | **Overrule** | The flag is a false alarm | `llama fix <show> --overrule` | `[o]verrule` | Yes, immediately |
@@ -594,6 +594,7 @@ non-held shows too — overrides are general inputs, not hold-only.
 |---|---|---|
 | `--exclude FILE\|N` (repeatable, comma groups) | add to `overrides.exclude` (filename or track number) | gather |
 | `--unexclude FILE\|N` | remove from `overrides.exclude` | gather |
+| `--include xN\|FILE` (repeatable, comma groups) | add to `overrides.include` — re-admit a file the junk filter dropped; on a row whose reason is `operator-excluded` it un-excludes instead | gather |
 | `--set-venue V` / `--set-city C` / `--set-date YYYY-MM-DD` | force the field | gather |
 | `--set-title N="Song"` / `--clear-title N` | force/drop a track title | gather |
 | `--set-breaks "9,17"` / `--clear-set-breaks` | force/drop set breaks (the track numbers a break falls *after*; numbered-sets-only) | gather |
@@ -610,15 +611,15 @@ silently weaker one. The DP behind the proposal is **proposal-only** — it
 is never auto-adopted, only ever offered for a human confirmation, and
 only for tracks it can propose for (a filler row stays `(unresolved -
 hand-edit)`, and a track that already has a title is never overwritten)
-— and it **refuses to combine** with `--exclude`/`--unexclude` in the same
-invocation (an exclusion in the same call renumbers tracks before the
-proposal's numbering would apply; run the exclusion first, as its own
-`fix` call that actually redoes — not staged with `--no-run` and left
-there — then `--suggest-titles` separately; `--suggest-titles` itself
-refuses to run at all against a `show.json` that is stale relative to a
-pending `overrides.exclude`, rather than risk numbering the proposal over
-the wrong track list). An explicit `--set-title
-N="..."` on the same invocation always wins over the proposal for that
+— and it **refuses to combine** with `--exclude`/`--unexclude`/`--include`
+in the same invocation (any of those three edits a file list in the same
+call and renumbers tracks before the proposal's numbering would apply; run
+the file edit first, as its own `fix` call that actually redoes — not
+staged with `--no-run` and left there — then `--suggest-titles`
+separately; `--suggest-titles` itself refuses to run at all against a
+`show.json` that is stale relative to a pending file-list override, rather
+than risk numbering the proposal over the wrong track list). An explicit
+`--set-title N="..."` on the same invocation always wins over the proposal for that
 track. Declining, or a proposal with nothing left to adopt, falls through
 to any other edit flag given in the same invocation rather than exiting
 early.
@@ -632,6 +633,30 @@ contradicts jerrybase can still raise a flag rather than self-clearing.
 `--overrule` on a non-held show is a no-op + note. Single-show only — bulk
 blind edits to per-show overrides are a foot-gun, so batch resolution is
 `triage`, not `fix`.
+
+#### Seeing what was dropped
+
+`llama show <show> --tracks` ends with an `excluded (N):` section — one line
+per file the junk filter removed, with an `x`-handle, its duration and the
+reasons, e.g.:
+
+```
+excluded (3):
+   x1    0:37  dm1969-08-08t13.mp3  implausibly short
+   x2    1:12  FOLLOW-ME @BYPIKENO.mp3  filename convention mismatch
+   x3    4:02  dm1969-08-08t07.mp3  duplicate-listing
+```
+
+Duration comes before the filename (same convention as the track rows
+above it), the filename is never padded or truncated — `--include` needs it
+verbatim — and a row with no recorded reason simply ends after the
+filename. A re-admitted track carries a `+` in the track table, with its
+own legend line. The count also appears on the always-visible `recording:`
+line (`(24 tracks, 3 dropped)`).
+
+No exclusion reason is refused: re-admitting a `duplicate-listing` row will
+ship that recording twice. The reason is printed next to the handle so the
+choice is made with it in view.
 
 ### `llama redo <show> | --run SESSION | SELECTOR --from STAGE [--redo-research] [--yes]`
 The single re-execution verb. `--from` is required. Three addressing forms

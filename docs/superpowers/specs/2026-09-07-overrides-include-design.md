@@ -214,3 +214,31 @@ still accepts play-order track numbers only.
 - An interactive `[i]nclude` verb in `llama triage`.
 - Recording operator re-admission in the delivered manifest.
 - Re-admitting a file that belongs to a *losing* audio format.
+
+## Corrections made during implementation (2026-09-07)
+
+This section is appended, not edited in place, so the text above stays the
+record of what was actually approved. Three places diverge from what
+shipped, settled across four review rounds:
+
+1. **Section 4's depicted excluded-table layout is superseded.** The
+   filename was padded to the widest in the set, which made every row as
+   long as the worst one — a measured 121 characters on a real-length LMA
+   filename. Shipped layout puts the duration before the filename, leaves
+   the filename unpadded, and never truncates it, because `--include`
+   accepts the filename verbatim so a truncated one is unusable for the
+   purpose the listing serves. It now matches the track row's own
+   documented "duration before filename" convention three lines above it.
+2. **Section 3's prose says an `xN` token maps to
+   `show.excluded_files[N-1]["filename"]`. The implementation deliberately
+   goes through `cli._excluded_handles` instead**, so the handle an
+   operator reads in `show --tracks` and the handle the resolver means
+   come from one producer and cannot drift.
+3. **Section 3 mentions an `rm_include=()` parameter on `_edit_overrides`;
+   it was deliberately omitted.** No caller needs it — `--exclude` on an
+   included file is expressed through `add_exclude`, which the include-list
+   filter already honours — and two independent reviewers ruled that
+   deriving the removal inside `_edit_overrides` is what "the two lists
+   stay mutually exclusive **by construction**" actually asks for, since a
+   parameter the caller must remember to pass is a caller obligation rather
+   than a construction.
