@@ -2044,3 +2044,65 @@ def test_build_canonical_provider_none_never_reaches_the_llm_fallback(monkeypatc
     with pytest.raises(AssertionError, match="run_json_task must not be called"):
         build_canonical(None, cand, "only", meta, [], "Test Artist",
                         [], provider=object())
+
+
+# --- overrides.include (operator re-admission) ---
+
+def test_gather_readmits_an_operator_included_file(tmp_path: Path):
+    """gd73's spam file is the fixture's junk-filtered file. Naming it in
+    overrides.include puts it in the track list, marks it, and takes it out of
+    excluded_files."""
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"]))
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert "FOLLOW-ME @BYPIKENO.mp3" in [t.filename for t in show.tracks]
+    assert [t.filename for t in show.tracks if t.included] == ["FOLLOW-ME @BYPIKENO.mp3"]
+    assert all(e["filename"] != "FOLLOW-ME @BYPIKENO.mp3" for e in show.excluded_files)
+
+
+def test_gather_leaves_ordinary_tracks_unmarked(tmp_path: Path):
+    sws = ShowWorkspace(tmp_path / "show")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert all(t.included is False for t in show.tracks)
+
+
+def test_exclude_wins_when_a_file_is_in_both_override_lists(tmp_path: Path):
+    """The CLI makes this state unreachable; gather still needs a defined
+    answer for a hand-mangled overrides.json. include re-admits, exclude then
+    drops -- so the file is out, with reason operator-excluded."""
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["FOLLOW-ME @BYPIKENO.mp3"],
+                                            exclude=["FOLLOW-ME @BYPIKENO.mp3"]))
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert "FOLLOW-ME @BYPIKENO.mp3" not in [t.filename for t in show.tracks]
+    dropped = next(e for e in show.excluded_files
+                   if e["filename"] == "FOLLOW-ME @BYPIKENO.mp3")
+    assert dropped["reasons"] == ["operator-excluded"]
+
+
+def test_gather_warns_when_an_include_entry_matches_no_file(tmp_path: Path, caplog):
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["not-on-this-tape.mp3"]))
+    with caplog.at_level("WARNING"):
+        run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    # caplog's handler formats each record on capture (Formatter.format sets
+    # `.message` to the already-%-substituted string), so re-applying
+    # `r.message % r.args` on a record that carries args raises TypeError --
+    # observed against exactly this warning (`log.warning("...%r...", missing)`).
+    # `.message` alone is already the fully rendered text.
+    assert any("not-on-this-tape.mp3" in r.message for r in caplog.records)
+
+
+def test_operator_excluded_entry_carries_duration_sec(tmp_path: Path):
+    """Show.excluded_files must be homogeneous with what filter_files now
+    produces: every entry, including operator-excluded ones, carries a
+    duration_sec so Task 3's rendering never falls back to '?' for a file
+    whose duration IS known from item metadata. gd73-06-10d1t01.mp3 is
+    ordinarily kept by the junk filter, so this exercises the
+    `operator-excluded` block, not junk filtering."""
+    sws = ShowWorkspace(tmp_path / "show")
+    excluded_name = "gd73-06-10d1t01.mp3"
+    write_artifact(sws.overrides, Overrides(exclude=[excluded_name]))
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    entry = next(e for e in show.excluded_files if e["filename"] == excluded_name)
+    assert isinstance(entry["duration_sec"], float)

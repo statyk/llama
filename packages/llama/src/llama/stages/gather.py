@@ -831,20 +831,29 @@ def run_gather(
     meta = md.get("metadata", {})
     artist = str(_creator(meta) or candidate.collection)
     want = FORMAT_BY_AUDIO[audio_format]
-    kept, excluded, ordering = filter_files(md.get("files", []), want_format=want)
+    # read_overrides is hoisted above filter_files (it only reads the show dir)
+    # so operator re-admission can be applied inside the filter, where play
+    # order is derived. The exclude block below still runs AFTER, so a file
+    # named in both lists ends up excluded.
+    overrides = read_overrides(show_ws)
+    kept, excluded, ordering = filter_files(
+        md.get("files", []), want_format=want,
+        readmit=frozenset(overrides.include))
+    for missing in sorted(set(overrides.include) - {f["name"] for f in kept}):
+        log.warning("overrides.include entry %r matched no file", missing)
     # Computed on the unexcluded set, deliberately: it is a filename-keyed map
     # and resolve_titles only looks up names still in `kept`, so covering files
     # the operator later drops is harmless, while moving it below the exclusion
     # would let one dropped file change whether recovery fires at all.
     format_titles = _recover_format_titles(md.get("files", []), kept, ordering)
 
-    overrides = read_overrides(show_ws)
     if overrides.exclude:
         drop = set(overrides.exclude)
         matched = {f["name"] for f in kept if f["name"] in drop}
         for missing in sorted(drop - matched):
             log.warning("overrides.exclude entry %r matched no file", missing)
-        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"]}
+        excluded += [{"filename": f["name"], "reasons": ["operator-excluded"],
+                      "duration_sec": length_seconds(f.get("length"))}
                      for f in kept if f["name"] in drop]
         kept = [f for f in kept if f["name"] not in drop]
 
@@ -1120,6 +1129,13 @@ def run_gather(
     date, date_source, item_date = candidate.date, "item", None
     if overrides.date is not None:
         date, date_source, item_date = overrides.date, "override", candidate.date
+
+    # Stamped here rather than in titles.resolve_titles so no intermediate
+    # rebuild of `tracks` between there and here can drop it.
+    if overrides.include:
+        forced = set(overrides.include)
+        for t in tracks:
+            t.included = t.filename in forced
 
     show = Show(
         performance_id=candidate.performance_id,
