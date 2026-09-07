@@ -162,7 +162,7 @@ def test_exclude_picker_lists_the_dropped_files_but_not_the_re_admit_hint(
     assert calls == []                       # picked nothing; no redo
     assert "excluded (1):" in r.output.splitlines()
     assert next(ln for ln in r.output.splitlines() if "spam.mp3" in ln).split() == [
-        "x1", "spam.mp3", "1:12", "filename", "convention", "mismatch"]
+        "x1", "1:12", "spam.mp3", "filename", "convention", "mismatch"]
     assert not any("--include" in ln for ln in r.output.splitlines())
     assert not any("re-admit one with" in ln for ln in r.output.splitlines())
 

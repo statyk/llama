@@ -317,10 +317,16 @@ def test_tracks_listing_shows_the_excluded_section(tmp_path: Path):
     assert "excluded (2):" in r.output
     spam = next(ln for ln in r.output.splitlines() if "spam.mp3" in ln)
     tuning = next(ln for ln in r.output.splitlines() if "tuning.mp3" in ln)
-    assert spam.split() == ["x1", "spam.mp3", "1:12", "filename", "convention", "mismatch"]
-    assert tuning.split() == ["x2", "tuning.mp3", "0:12", "implausibly", "short"]
-    # the filename column is padded to the widest name, so the durations line up
-    assert spam.index("1:12") == tuning.index("0:12")
+    assert spam.split() == ["x1", "1:12", "spam.mp3", "filename", "convention", "mismatch"]
+    assert tuning.split() == ["x2", "0:12", "tuning.mp3", "implausibly", "short"]
+    # The filename is UNPADDED, so "the durations line up" is no longer a
+    # consequence of padding -- it is a consequence of everything LEFT of the
+    # filename being fixed-width (handle >3, duration >6). That is the
+    # alignment guarantee the shape actually offers, so pin it directly: the
+    # duration field and the filename each start at the same column on both
+    # rows, whatever the filenames' lengths.
+    assert spam.index("1:12") + 4 == tuning.index("0:12") + 4 == 13
+    assert spam.index("spam.mp3") == tuning.index("tuning.mp3") == 15
     # the hint now lives in _print_show_entry, so it carries the real slug
     assert "  re-admit one with: llama fix gratefuldead-1973-06-10 --include x1" \
         in r.output.splitlines()
@@ -339,7 +345,49 @@ def test_excluded_section_survives_a_show_json_written_before_duration_sec(tmp_p
     r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
     assert r.exit_code == 0, r.output
     assert next(ln for ln in r.output.splitlines() if "old.mp3" in ln).split() == [
-        "x1", "old.mp3", "?", "spam"]
+        "x1", "?", "old.mp3", "spam"]
+
+
+def test_excluded_rows_align_regardless_of_filename_length(tmp_path: Path):
+    """The filename is unpadded and never truncated, so row LENGTH varies with
+    it -- but everything left of the filename is fixed-width, so the duration
+    field still ENDS at a fixed column and the filename still STARTS at one.
+
+    Measured at the real extremes: a 5-character name against a 47-character
+    LMA one (the kind that produced the 121-character padded row this shape
+    replaced). The two durations are deliberately different WIDTHS ("0:37" vs
+    "62:02") -- with equal widths the start column coincides too and the test
+    would pass against a duration field that had lost its `>6` right-alignment
+    entirely."""
+    from llama.models import Show
+
+    long_name = "gd73-06-10.sbd.hollister.174.sbeok.shnf.t07.mp3"
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    s = read_model(ws.show, Show)
+    s.excluded_files = [{"filename": "a.mp3", "reasons": ["spam"], "duration_sec": 37.0},
+                        {"filename": long_name, "reasons": ["duplicate-listing"],
+                         "duration_sec": 3722.0}]
+    write_artifact(ws.show, s)
+    r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
+    assert r.exit_code == 0, r.output
+    short_row = next(ln for ln in r.output.splitlines() if " a.mp3 " in ln)
+    long_row = next(ln for ln in r.output.splitlines() if long_name in ln)
+    # right-aligned in 6: the field ENDS at a fixed column, so a 4-character
+    # and a 5-character duration start one apart and finish together
+    assert short_row.index("0:37") + len("0:37") == 13
+    assert long_row.index("62:02") + len("62:02") == 13
+    assert short_row.index("0:37") != long_row.index("62:02")
+    assert short_row.index("a.mp3") == long_row.index(long_name) == 15
+    # Unpadded: the row is exactly as long as its own content needs.
+    # `len(short_row) < len(long_row)` does NOT pin this -- measured against a
+    # mutant that reinstated the padding, it stayed true, because the long
+    # row's longer REASONS keep it longer either way. The exact length does
+    # pin it, and so does the reasons column being ragged rather than columnar.
+    assert len(short_row) == 15 + len("a.mp3") + 2 + len("spam")
+    assert short_row.index("spam") != long_row.index("duplicate-listing")
+    # and never truncated -- `--include` takes this filename verbatim
+    assert long_name in long_row
 
 
 def test_excluded_row_with_no_reasons_has_no_trailing_whitespace(tmp_path: Path):
@@ -360,7 +408,9 @@ def test_excluded_row_with_no_reasons_has_no_trailing_whitespace(tmp_path: Path)
     assert len(rows) == 2, rows
     for ln in rows:
         assert ln == ln.rstrip(), repr(ln)
-        assert ln.endswith("1:12"), repr(ln)
+    # the filename is last now, so a reason-less row ends at the filename
+    assert rows[0].endswith("no-reason.mp3"), repr(rows[0])
+    assert rows[1].endswith("empty.mp3"), repr(rows[1])
 
 
 def test_no_excluded_section_when_nothing_was_filtered(tmp_path: Path):

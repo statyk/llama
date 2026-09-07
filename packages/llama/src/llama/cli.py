@@ -1285,16 +1285,25 @@ def _format_tracks(show) -> list[str]:
         lines.append("  + = ruled in by the operator (overrides.include)")
     handles = _excluded_handles(show)
     if handles:
-        width = max(len(e["filename"]) for _, e in handles)
         lines.append(f"excluded ({len(handles)}):")
         for handle, e in handles:
+            # Column order matches the track rows three lines above, for the
+            # reason their own comment gives: duration before filename, so a
+            # long filename prints IN FULL without misaligning the numeric
+            # column. The filename is deliberately UNPADDED -- padding to the
+            # widest name made every row as long as the worst one (measured at
+            # 121 characters on a real LMA filename), where unpadded only the
+            # genuinely long row is long. And it must never be TRUNCATED: this
+            # filename is the operator's handle for the dropped file and
+            # `--include` accepts it verbatim, so a shortened one is unusable
+            # for the exact purpose this listing exists to serve.
             # e.get, never e[...]: a show.json written before this feature has
             # no `duration_sec` key at all, and `show` must render it, not die.
             # .rstrip(): `reasons` can be absent or empty (a pre-feature
             # show.json, or an entry excluded with no recorded reason), which
             # otherwise leaves the row ending in the two-space separator.
-            lines.append((f"  {handle:>3s}  {e['filename']:<{width}s}  "
-                          f"{_fmt_dur(e.get('duration_sec')):>6s}  "
+            lines.append((f"  {handle:>3s}  {_fmt_dur(e.get('duration_sec')):>6s}  "
+                          f"{e['filename']}  "
                           f"{', '.join(e.get('reasons', []))}").rstrip())
     return lines
 
