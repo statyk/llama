@@ -310,6 +310,28 @@ def test_status_by_run_shows_the_query_of_a_run_with_no_criteria(tmp_path: Path)
     assert "GD 1977 Cornell" in result.output
 
 
+def test_status_by_run_names_a_parked_profile_run_with_no_criteria(tmp_path: Path):
+    """`_by_run_rollup` is a fourth reader of request.json, independent of
+    `iter_sessions`, and it was not updated when the mode-aware branch was
+    added there -- so for the same parked profile run, `llama run list`
+    named it `profile: prime-dead` while `llama status --by-run` rendered a
+    blank cell. Mirrors `test_run_list_names_a_parked_profile_run_with_no_criteria`,
+    one reader over."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    ws = RunWorkspace(tmp_path, "profparked2")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
+                                           "profile": "prime-dead",
+                                           "auto": True, "plan": True}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "profile: prime-dead" in result.output
+
+
 def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypatch):
     from llama.profiles import Profile, save_profile
 

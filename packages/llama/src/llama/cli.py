@@ -2839,7 +2839,7 @@ def _print_attention(sessions) -> None:
 
 def _by_run_rollup(config, ledger) -> list[dict]:
     """One row per session dir: id, per-state show counts (via provenance
-    grouping), query. Absorbs the deleted `runs` command."""
+    grouping), query/profile. Absorbs the deleted `runs` command."""
     from collections import Counter
 
     from llama.catalog import iter_shows
@@ -2853,16 +2853,26 @@ def _by_run_rollup(config, ledger) -> list[dict]:
     rows = []
     for d in run_dirs:
         ws = RunWorkspace(config.root, d.name)
-        query = ""
+        query, profile = "", None
         if ws.criteria.exists():
-            query = read_model(ws.criteria, Criteria).query
+            criteria = read_model(ws.criteria, Criteria)
+            query, profile = criteria.query, criteria.profile
         elif ws.request.exists():
-            # Paused before interpret ever wrote criteria: same fallback as
-            # iter_sessions (sessions.py) -- duplicated here rather than
-            # routed through it (deferred minor: unify the two lookups).
-            query = json.loads(ws.request.read_text()).get("query") or ""
+            # Paused before interpret ever wrote criteria: mirrors
+            # iter_sessions' mode-aware branch (sessions.py) -- a profile
+            # run's request.json carries no `query`, so reading that field
+            # alone left a parked profile run blank here while `run list`
+            # (which goes through iter_sessions) named it correctly. A
+            # missing `mode` means an artifact written before modes
+            # existed, and those were all query runs.
+            req = json.loads(ws.request.read_text())
+            if req.get("mode", "query") == "profile":
+                profile = req.get("profile")
+            else:
+                query = req.get("query") or ""
         counts = by_run.get(d.name, Counter())
-        rows.append({"id": d.name, "query": query, "states": dict(sorted(counts.items()))})
+        rows.append({"id": d.name, "query": query, "profile": profile,
+                    "states": dict(sorted(counts.items()))})
     return rows
 
 
@@ -2918,7 +2928,8 @@ def status(
             return
         for row in rollup:
             summary = "  ".join(f"{s} {n}" for s, n in row["states"].items()) or "no shows"
-            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {row['query']:40.40s}")
+            label = f"profile: {row['profile']}" if row["profile"] else row["query"]
+            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {label:40.40s}")
         return
 
     entries = apply_selector(iter_shows(config.root, ledger), sel)
