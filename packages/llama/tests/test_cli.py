@@ -1473,3 +1473,23 @@ def test_suggest_titles_survives_an_effective_overrides_include(tmp_path, monkey
     monkeypatch.setattr("typer.confirm", lambda *a, **k: False)
     result = cli_invoke(cfg, "fix", "ymsb2005-12-31", "--suggest-titles", "--no-run")
     assert "show.json is stale relative to overrides.json" not in result.output, result.output
+
+
+def test_resolve_prompt_variants_are_all_derived_from_resolve_prompt():
+    """Extends the `WITH_TITLES` derivation pin to the four-variant world.
+
+    `[t]` and `[i]` are independently conditional, so all four combinations are
+    reachable, and the moment any one of them becomes a hand-copied literal a
+    sentinel edit to `RESOLVE_PROMPT` stops propagating -- which is exactly the
+    failure M2 added the original test for. Asserted by construction: every
+    variant must contain RESOLVE_PROMPT's own head and tail verbatim."""
+    head, sep, tail = cli.RESOLVE_PROMPT.partition("[m]etadata")
+    assert sep, "RESOLVE_PROMPT must still contain the [m]etadata option"
+    for titles in (False, True):
+        for include in (False, True):
+            text = cli._resolve_prompt(titles=titles, include=include)
+            assert text.startswith(head), (titles, include, text)
+            assert text.endswith(tail), (titles, include, text)
+            assert ("[i]nclude dropped" in text) is include, (titles, include, text)
+            assert ("[t] suggest titles" in text) is titles, (titles, include, text)
+    assert cli.RESOLVE_PROMPT_WITH_TITLES == cli._resolve_prompt(titles=True)
