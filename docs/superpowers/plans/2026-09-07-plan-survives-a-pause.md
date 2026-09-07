@@ -172,7 +172,7 @@ git commit -m "feat(runs): mode on the invocation record, with a query default f
 `with_shortlist=True` branch below, which wrote an EMPTY shortlist
 (`write_artifact(ws.shortlist, [])`), is vacuous and was dropped from the
 shipped helper.** `_execute`'s own `if not shortlist: ... return`
-(`cli.py:499`) fires before the `if plan:` branch this helper exists to
+(`cli.py:500`) fires before the `if plan:` branch this helper exists to
 exercise ever runs, so a run parked over an empty shortlist short-circuits
 there regardless of whether `run_resume`'s `and not ws.shortlist.exists()`
 clause is present — that version of `test_a_parked_profile_plan_run_processes_once_a_shortlist_exists`
@@ -246,7 +246,7 @@ def test_a_parked_profile_plan_run_processes_once_a_shortlist_exists(
 
     The shortlist has to be REAL, built by a genuine `llama get --profile
     --plan` run, not a stub: `_execute`'s own `if not shortlist: ... return`
-    (cli.py:499) fires before the `if plan:` branch this test exists to
+    (cli.py:500) fires before the `if plan:` branch this test exists to
     exercise ever runs, so a run parked over an EMPTY shortlist short-circuits
     there regardless of whether `run_resume`'s `and not ws.shortlist.exists()`
     clause is present -- that version of this test passed identically with
