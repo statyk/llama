@@ -1175,9 +1175,16 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
     from llama.workspace import read_overrides
 
     ov = read_overrides(show_ws)
-    # The two lists are mutually exclusive by construction: adding to one
-    # removes from the other, so gather's "exclude wins" tiebreak (a defined
-    # answer for a hand-mangled file) is never reached through the CLI.
+    # Adding to one list removes the same name from the other, so no call that
+    # sets only one of them can leave a file in both -- which is what makes
+    # gather's "exclude wins" tiebreak (a defined answer for a hand-mangled
+    # overrides.json) unreachable through the CLI.
+    #
+    # This function does NOT enforce that invariant on its own, and must not be
+    # read as if it did: `add_exclude=["a"], add_include=["a"]` in ONE call
+    # returns "a" in both lists. The guard that rejects that combination is the
+    # caller's -- `fix`'s "--exclude and --include name the same file(s)" check,
+    # which runs before this is called and is the only way to reach the case.
     exclude = [f for f in ov.exclude if f not in set(rm_exclude) | set(add_include)]
     for f in add_exclude:
         if f not in exclude:
@@ -2449,12 +2456,18 @@ def fix(
             # names must actually finish the job in one pass: the exclusion
             # has to be followed by a real `gather` redo, not just staged,
             # before --suggest-titles can see a consistent track list.
+            # The remedy is the half an operator copies, so it names the flag
+            # they actually typed rather than a hardcoded --exclude: being told
+            # to re-run "--exclude ..." after typing --include is not a remedy.
+            typed = " ".join(f"{flag} ..." for flag, given in
+                             (("--exclude", exclude), ("--unexclude", unexclude),
+                              ("--include", include)) if given)
             typer.echo(
                 "--suggest-titles cannot be combined with "
                 "--exclude/--unexclude/--include: "
                 "a file edit in the same invocation renumbers tracks before the "
                 "proposal's numbering would apply. Run the file edit first and let "
-                f"it redo (`llama fix {entry.slug} --exclude ...` without --no-run, "
+                f"it redo (`llama fix {entry.slug} {typed}` without --no-run, "
                 f"or `--no-run` followed by `llama redo {entry.slug} --from gather`), "
                 "then --suggest-titles as a separate invocation.", err=True)
             raise typer.Exit(1)
@@ -2538,6 +2551,13 @@ def fix(
         readmit = [f for f in inc if f not in was_operator]
         ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
                              add_include=readmit)
+        if undo:
+            # The operator typed --include and would otherwise be told only that
+            # overrides.EXCLUDE changed -- true, but it does not answer "what did
+            # my flag do?". Name the folded-in --unexclude routing explicitly.
+            typer.echo(f"{entry.slug}: {', '.join(undo)} was operator-excluded, not "
+                       "junk-filtered -- removed from overrides.exclude rather than "
+                       "added to overrides.include")
         if add or rm or undo:
             typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
                        "(the hold clears itself if a clean re-gather results)")

@@ -382,8 +382,11 @@ def test_narration_bad_value_is_enum_error(tmp_path):
 # --- --include: re-admitting a junk-filtered file ---
 
 def _show_with_excluded(tmp_path: Path):
-    """A gathered show carrying three excluded files: two junk-filtered and one
-    the operator excluded earlier (already in overrides.exclude)."""
+    """A gathered show carrying four excluded files: two junk-filtered, one the
+    operator excluded earlier (already in overrides.exclude), and one written by
+    a PRE-FEATURE llama -- bare `filename`, no `reasons`, no `duration_sec`.
+
+    The legacy row is last, so it takes `x4` and renumbers nothing above it."""
     from llama.models import Overrides, Show
     from llama.workspace import read_model, write_artifact
 
@@ -394,6 +397,7 @@ def _show_with_excluded(tmp_path: Path):
         {"filename": "spam.mp3", "reasons": ["filename convention mismatch"],
          "duration_sec": 72.0},
         {"filename": "dropped.mp3", "reasons": ["operator-excluded"], "duration_sec": 300.0},
+        {"filename": "legacy.mp3"},
     ]
     write_artifact(ws.show, s)
     write_artifact(ws.overrides, Overrides(exclude=["dropped.mp3"]))
@@ -526,7 +530,9 @@ def test_out_of_range_handle_errors(tmp_path, monkeypatch):
     _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x9")
     assert r.exit_code != 0
-    assert "no excluded file x9" in r.output
+    # the whole message, count clause included: the count is what tells an
+    # operator whether they mistyped the handle or read a stale listing.
+    assert "no excluded file x9 (show has 4 excluded files)" in r.output
 
 
 def test_resolve_include_tokens_needs_show_json(tmp_path):
@@ -552,4 +558,79 @@ def test_include_refuses_to_combine_with_suggest_titles(tmp_path, monkeypatch):
     assert r.exit_code != 0
     assert ("--suggest-titles cannot be combined with "
             "--exclude/--unexclude/--include") in r.output
+    # The remedy is the half an operator copies. It must name the flag they
+    # typed -- being told to re-run `--exclude ...` after typing --include
+    # sends them to a command that does something else entirely.
+    assert "`llama fix gratefuldead-1973-06-10 --include ...` without --no-run" in r.output
     assert stages == []
+
+
+def test_include_reads_a_pre_feature_excluded_row(tmp_path, monkeypatch):
+    """A `show.json` written before this feature carries excluded rows with a
+    bare `filename` -- no `reasons`, no `duration_sec`. The operator-excluded
+    routing must read those defensively (`e.get("reasons", [])`), not index
+    them: `e["reasons"]` raises KeyError on exactly this row and takes the
+    whole command down."""
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    stages = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x4")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.include == ["legacy.mp3"]
+    assert ov.exclude == ["dropped.mp3"]
+    assert stages == ["gather"]
+
+
+def test_a_filename_that_merely_starts_like_a_handle_is_a_filename(tmp_path, monkeypatch):
+    """`_HANDLE` matches with fullmatch, not match. Under `match`, the ordinary
+    filename `x1foo.mp3` would resolve as handle `x1` and silently re-admit
+    `intro.mp3` -- the wrong file, with no error to say so."""
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x1foo.mp3")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).include == ["x1foo.mp3"]
+
+
+def test_include_is_repeatable(tmp_path, monkeypatch):
+    """Two separate --include flags in one invocation, not just a comma group."""
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead",
+                   "--include", "x1", "--include", "spam.mp3")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).include == ["intro.mp3", "spam.mp3"]
+
+
+def test_include_echoes_the_new_include_list(tmp_path, monkeypatch):
+    """The user-visible confirmation line for a re-admission. Scoped to one
+    parsed line, never a whole-output match: `fix` prints a `path:`-style line
+    carrying tmp_path, which embeds this test's own name."""
+    cfg = _cfg(tmp_path)
+    _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x1")
+    assert r.exit_code == 0, r.output
+    assert any(
+        ln == ("gratefuldead-1973-06-10: overrides.include = ['intro.mp3'] "
+               "(the hold clears itself if a clean re-gather results)")
+        for ln in r.output.splitlines()), r.output
+
+
+def test_unexclude_routing_says_what_it_did(tmp_path, monkeypatch):
+    """--include on an operator-excluded row edits overrides.EXCLUDE. Reporting
+    only that is true but unanswerable for the operator, who typed --include;
+    the routing itself has to be visible to the person who invoked it."""
+    cfg = _cfg(tmp_path)
+    _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x3")
+    assert r.exit_code == 0, r.output
+    assert any(
+        ln == ("gratefuldead-1973-06-10: dropped.mp3 was operator-excluded, not "
+               "junk-filtered -- removed from overrides.exclude rather than "
+               "added to overrides.include")
+        for ln in r.output.splitlines()), r.output
