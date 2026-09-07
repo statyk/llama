@@ -1222,6 +1222,32 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
     return data
 
 
+def _unexclude_routing_note(undo: list[str]) -> str:
+    """The one sentence both `--include` surfaces use to say a row was routed to
+    overrides.exclude instead. Two literals differing only by a slug prefix is
+    how the two messages drift apart."""
+    return (f"{', '.join(undo)} was operator-excluded, not junk-filtered -- "
+            "removed from overrides.exclude rather than added to overrides.include")
+
+
+def _split_include_targets(show_ws, resolved: list[str]) -> tuple[list[str], list[str]]:
+    """Route resolved `--include` targets: `(un-exclude, re-admit)`.
+
+    A row whose reason is `operator-excluded` was never junk-filtered, so
+    "re-admitting" it means removing it from `overrides.exclude` -- the
+    `--unexclude` case that `--include` folds in. Everything else appends to
+    `overrides.include`.
+
+    Shared by `fix --include` and triage's `[i]` deliberately: two surfaces
+    reimplementing this split would diverge on the next change to it, exactly
+    as `[t]` and `fix --suggest-titles` share `_propose_and_confirm_titles`
+    for the same reason. Order within each list follows `resolved`."""
+    was_operator = {e["filename"] for e in read_model(show_ws.show, Show).excluded_files
+                    if "operator-excluded" in e.get("reasons", [])}
+    return ([f for f in resolved if f in was_operator],
+            [f for f in resolved if f not in was_operator])
+
+
 def _split_tokens(tokens) -> list[str]:
     """Flatten repeated flags and comma groups into non-empty tokens.
 
@@ -1374,12 +1400,37 @@ def _format_tracks(show) -> list[str]:
     return lines
 
 
-def _pick_excludes(show) -> list[str]:
+def _pick_excludes(show) -> tuple[list[str], bool]:
+    """Returns `(filenames, wrong_mode)`. `wrong_mode` is True when the operator
+    typed an x-handle here, which `_parse_ranks` would otherwise drop silently.
+
+    The caller must return to the PROMPT on `wrong_mode`, not fall through to
+    "nothing selected; skipping" and exit the show: telling an operator to use
+    `[i]nclude` while ejecting them from the show they would use it on is worse
+    than the silence it replaced. A mixed input (`1,x2`) applies NOTHING for the
+    same reason -- half-applying it excludes track 1 and loses the `x2` with no
+    way to tell that happened."""
     for line in _format_tracks(show):
         typer.echo(line)
-    picks = _parse_ranks(typer.prompt("exclude which track numbers? (comma-separated, empty = none)",
-                                      default="", show_default=False))
-    return [t.filename for t in show.tracks if t.index in picks]
+    raw = typer.prompt("exclude which track numbers? (comma-separated, empty = none)",
+                       default="", show_default=False)
+    if any(_HANDLE.fullmatch(t) for t in _split_tokens([raw])):
+        typer.echo("x-handles name DROPPED files -- use [i]nclude to re-admit one; "
+                   "this prompt takes play-order track numbers")
+        return [], True
+    picks = _parse_ranks(raw)
+    return [t.filename for t in show.tracks if t.index in picks], False
+
+
+def _pick_includes(show_ws, show) -> list[str]:
+    """`[i]nclude`'s counterpart to `_pick_excludes`. Resolution goes through
+    `_resolve_include_tokens`, the same producer `fix --include` uses, so the
+    handle an operator reads in this listing is the handle both surfaces mean."""
+    for line in _format_tracks(show):
+        typer.echo(line)
+    raw = typer.prompt("re-admit which excluded files? (x-handles or filenames, "
+                       "comma-separated, empty = none)", default="", show_default=False)
+    return _resolve_include_tokens(show_ws, [raw]) if raw.strip() else []
 
 
 def _print_recording_info(ws) -> None:
@@ -1415,8 +1466,27 @@ RESOLVE_PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip 
 # literal meant a sentinel edit to `RESOLVE_PROMPT` passed every test
 # without the `WITH_TITLES` variant moving at all; see
 # test_resolve_prompt_with_titles_is_derived_from_resolve_prompt.
-RESOLVE_PROMPT_WITH_TITLES = RESOLVE_PROMPT.replace(
-    "[s]kip", "[t] suggest titles / [s]kip")
+def _resolve_prompt(*, titles: bool = False, include: bool = False) -> str:
+    """The resolve prompt with its two CONDITIONAL options inserted.
+
+    Both are derived from `RESOLVE_PROMPT` by replacement rather than
+    hand-copied, so it stays the single source of truth for the common tail --
+    the property M2 added a test for after a hand-copied literal let a sentinel
+    edit pass every test. `[t]` is offered only under the `unresolved track
+    titles` flag and `[i]` only when the show has junk-filtered files, so all
+    FOUR combinations are reachable and none may become its own literal.
+
+    `[i]nclude dropped` is placed next to `[e]xclude tracks` rather than before
+    `[s]kip`: they are the two halves of one decision about the file list, and
+    reading them apart invites the number-vs-handle confusion the picker's own
+    hint exists to catch."""
+    text = RESOLVE_PROMPT
+    if include:
+        text = text.replace("[e]xclude tracks", "[e]xclude tracks / [i]nclude dropped")
+    if titles:
+        text = text.replace("[s]kip", "[t] suggest titles / [s]kip")
+    return text
+
 
 # Must stay byte-for-byte in sync with the literal `gather.py` appends to
 # `review_flags` (`stages/gather.py`, ~line 819) -- there is no shared named
@@ -1500,7 +1570,14 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     # than looping back, so it can never go stale within one show's session
     # (see the M3 comment on the `t` branch below for the fuller invariant).
     suggest_titles_offered = UNRESOLVED_TITLES_FLAG in entry.flags
-    prompt_text = RESOLVE_PROMPT_WITH_TITLES if suggest_titles_offered else RESOLVE_PROMPT
+    # `[i]` is offered on the same terms as `[t]`: only when it has something to
+    # act on. Read once per show for the same reason -- the only branch that can
+    # change `excluded_files` (an `[i]` or `[e]` adoption) redoes and returns
+    # rather than looping back, so it cannot go stale within one show's session.
+    include_offered = bool(
+        entry.ws.show.exists() and read_model(entry.ws.show, Show).excluded_files)
+    prompt_text = _resolve_prompt(titles=suggest_titles_offered,
+                                  include=include_offered)
     while True:
         choice = typer.prompt(prompt_text, default="s", show_default=False).strip().lower()
         if choice in ("", "s"):
@@ -1508,11 +1585,31 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         if choice == "q":
             raise typer.Exit()
         if choice == "e":
-            files = _pick_excludes(read_model(entry.ws.show, Show))
+            files, wrong_mode = _pick_excludes(read_model(entry.ws.show, Show))
+            if wrong_mode:
+                continue   # back to the prompt, where [i]nclude is waiting
             if not files:
                 typer.echo("nothing selected; skipping")
                 return
             _edit_overrides(entry.ws, add_exclude=files)
+            stage = "gather"
+        elif choice == "i" and include_offered:
+            try:
+                targets = _pick_includes(entry.ws, read_model(entry.ws.show, Show))
+            except LlamaError as exc:
+                typer.echo(str(exc), err=True)
+                continue   # a bad handle is a typo, not a reason to leave the show
+            if not targets:
+                typer.echo("nothing selected; skipping")
+                return
+            # Routing shared with `fix --include` (`_split_include_targets`), not
+            # reimplemented: an operator-excluded row un-excludes rather than
+            # appending to overrides.include, and two surfaces deciding that
+            # separately would diverge on the next change to it.
+            undo, readmit = _split_include_targets(entry.ws, targets)
+            _edit_overrides(entry.ws, rm_exclude=undo, add_include=readmit)
+            if undo:
+                typer.echo(_unexclude_routing_note(undo))
             stage = "gather"
         elif choice == "m":
             if not _metadata_editor(entry):
@@ -2570,22 +2667,14 @@ def fix(
             typer.echo("--exclude and --include name the same file(s): "
                        f"{', '.join(clash)}", err=True)
             raise typer.Exit(1)
-        # A row whose reason is operator-excluded was never junk-filtered, so
-        # re-admitting it means editing overrides.exclude -- that is the
-        # --unexclude case, which --include folds in.
-        was_operator = {e["filename"] for e in read_model(sws.show, Show).excluded_files
-                        if "operator-excluded" in e.get("reasons", [])}
-        undo = [f for f in inc if f in was_operator]
-        readmit = [f for f in inc if f not in was_operator]
+        undo, readmit = _split_include_targets(sws, inc)
         ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
                              add_include=readmit)
         if undo:
             # The operator typed --include and would otherwise be told only that
             # overrides.EXCLUDE changed -- true, but it does not answer "what did
             # my flag do?". Name the folded-in --unexclude routing explicitly.
-            typer.echo(f"{entry.slug}: {', '.join(undo)} was operator-excluded, not "
-                       "junk-filtered -- removed from overrides.exclude rather than "
-                       "added to overrides.include")
+            typer.echo(f"{entry.slug}: {_unexclude_routing_note(undo)}")
         # Gated on what the operator TYPED, not on what it resolved to: an
         # exclude-side flag that resolves to nothing (`--exclude ,`) is still
         # an exclude-side request, still redoes from gather, and printed the

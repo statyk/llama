@@ -42,7 +42,10 @@ implementation plan this was built from. The approved design spec is
   `would pause: <reason>`), `llama triage` (interactive
   held-show walkthrough -- `[t] suggest titles`, offered only on a hold
   flagged "unresolved track titles", proposes a full set of titles from
-  the setlist correspondence and writes them all on confirmation), `llama
+  the setlist correspondence and writes them all on confirmation;
+  `[i]nclude dropped`, offered only when the show has `excluded_files`,
+  re-admits by x-handle or filename and shares `fix --include`'s
+  operator-excluded routing via `_split_include_targets`), `llama
   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
   `--suggest-titles` is the same title-proposal resolution, one
   invocation, one confirmation, refuses to combine with

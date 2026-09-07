@@ -11,7 +11,7 @@ import pytest
 import typer.testing as typer_testing
 
 import llama.cli as cli
-from conftest import cli_invoke
+from conftest import cli_invoke, output_without_paths
 from herder import FakeProvider
 from llama.models import Provenance, RecordingSummary, Show
 from llama.stages.gather import run_gather
@@ -77,7 +77,7 @@ def test_default_selector_walks_held_only(tmp_path, tty, monkeypatch):
     r = cli_invoke(cfg, "triage", input="s\n")
     assert r.exit_code == 0, r.output
     assert "gratefuldead-1973-06-10" in r.output
-    assert "other-1974-01-01" not in r.output
+    assert "other-1974-01-01" not in output_without_paths(r, tmp_path)
 
 
 # --- broader selector: non-held prints and skips ---
@@ -242,7 +242,8 @@ def test_quit_action_stops_the_walk(tmp_path, tty, monkeypatch):
     r = cli_invoke(cfg, "triage", input="q\n")
     assert r.exit_code == 0, r.output
     assert "aheld-1973-06-10" in r.output
-    assert "zheld-1974-01-01" not in r.output   # stopped before the second show
+    # stopped before the second show
+    assert "zheld-1974-01-01" not in output_without_paths(r, tmp_path)
     assert calls == []
 
 
@@ -358,7 +359,8 @@ def test_suggest_titles_hint_hidden_without_the_unresolved_titles_flag(tmp_path,
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "triage", input="t\n")
     assert r.exit_code == 0, r.output
-    assert "suggest titles" not in r.output.lower()
+    prompt = next(ln for ln in r.output.splitlines() if "[e]xclude tracks" in ln)
+    assert "suggest titles" not in prompt.lower(), prompt
     assert "unrecognized" in r.output
     assert calls == []
 
@@ -458,4 +460,145 @@ def test_nothing_to_adopt_returns_to_the_prompt(tmp_path, tty, monkeypatch):
     r = cli_invoke(cfg, "triage", "ymsb2005-12-31", input="t\ns\n")
     assert r.exit_code == 0, r.output
     assert "nothing to adopt: every track already has a title" in r.output
+    assert calls == []
+
+
+# --- [i]nclude: re-admitting a junk-filtered file from the walkthrough ---
+
+def _held_show_with_dropped(tmp_path, slug="gratefuldead-1973-06-10"):
+    """A held show whose show.json carries two junk-filtered rows and one the
+    operator excluded earlier (already in overrides.exclude), so the two
+    routings `[i]` has to distinguish are both reachable."""
+    from llama.models import Overrides
+
+    ws = _held_show(tmp_path, slug)
+    s = read_model(ws.show, Show)
+    s.excluded_files = [
+        {"filename": "intro.mp3", "reasons": ["implausibly short"], "duration_sec": 37.0},
+        {"filename": "spam.mp3", "reasons": ["filename convention mismatch"],
+         "duration_sec": 72.0},
+        {"filename": "mine.mp3", "reasons": ["operator-excluded"], "duration_sec": 300.0},
+    ]
+    write_artifact(ws.show, s)
+    write_artifact(ws.overrides, Overrides(exclude=["mine.mp3"]))
+    return ws
+
+
+def test_include_option_absent_when_nothing_was_dropped(tmp_path, tty, monkeypatch):
+    """Offered on the same terms as `[t]`: only when it has something to act
+    on. A show with no excluded_files must not advertise it."""
+    cfg = _cfg(tmp_path)
+    _held_show(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="s\n")
+    prompt = next(ln for ln in r.output.splitlines() if "[e]xclude tracks" in ln)
+    assert "[i]nclude dropped" not in prompt, prompt
+
+
+def test_include_option_offered_when_files_were_dropped(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    _held_show_with_dropped(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="s\n")
+    assert "[i]nclude dropped" in r.output, r.output
+
+
+def test_include_action_by_handle_writes_overrides_and_redoes_gather(
+        tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show_with_dropped(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="i\nx1\n")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).include == ["intro.mp3"]
+    assert calls == ["gather"]
+
+
+def test_include_action_accepts_a_comma_group_of_handles_and_filenames(
+        tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show_with_dropped(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="i\nx1,spam.mp3\n")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).include == ["intro.mp3", "spam.mp3"]
+
+
+def test_include_on_an_operator_excluded_row_un_excludes_instead(
+        tmp_path, tty, monkeypatch):
+    """The routing shared with `fix --include` via `_split_include_targets`:
+    a row the operator excluded themselves was never junk-filtered, so it
+    leaves overrides.exclude rather than joining overrides.include. If this
+    surface reimplemented the split the two would diverge."""
+    cfg = _cfg(tmp_path)
+    ws = _held_show_with_dropped(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="i\nx3\n")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.exclude == []
+    assert ov.include == []
+    assert "was operator-excluded" in r.output
+
+
+def test_include_with_no_picks_skips_without_redo(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show_with_dropped(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="i\n\n")
+    assert "nothing selected; skipping" in r.output
+    assert calls == []
+    assert read_overrides(ws).include == []
+
+
+def test_include_with_a_bad_handle_returns_to_the_prompt(tmp_path, tty, monkeypatch):
+    """A typo'd handle is a typo, not a reason to abandon the show: report it
+    and loop back, so the operator can retype rather than restart triage."""
+    cfg = _cfg(tmp_path)
+    ws = _held_show_with_dropped(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="i\nx9\ni\nx2\n")
+    assert "no excluded file x9" in r.output
+    assert read_overrides(ws).include == ["spam.mp3"], r.output
+    assert calls == ["gather"]
+
+
+def test_exclude_prompt_names_the_mode_on_an_x_handle(tmp_path, tty, monkeypatch):
+    """`_parse_ranks` keeps only all-digit tokens, so an x-handle typed at the
+    EXCLUDE prompt used to vanish into "nothing selected; skipping" -- a
+    message that never mentions handles, on a listing that shows play-order
+    numbers and xN handles together."""
+    cfg = _cfg(tmp_path)
+    ws = _held_show_with_dropped(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    # The follow-on `i\nx2` is the point: the hint must return to the PROMPT,
+    # not print advice and eject the operator from the show they would take it
+    # on. Reaching overrides.include proves the loop continued.
+    r = cli_invoke(cfg, "triage", input="e\nx1\ni\nx2\n")
+    assert "x-handles name DROPPED files" in r.output
+    assert "[i]nclude" in r.output
+    assert "nothing selected; skipping" not in r.output, r.output
+    ov = read_overrides(ws)
+    assert ov.exclude == ["mine.mp3"]          # the [e] input applied nothing
+    assert ov.include == ["spam.mp3"]          # ...and [i] was still reachable
+    assert calls == ["gather"]
+
+
+def test_exclude_prompt_applies_nothing_on_a_mixed_input(tmp_path, tty, monkeypatch):
+    """`1,x2` must apply NOTHING. Half-applying it excludes track 1 and loses
+    the x2 with no way to tell that happened, which is worse than refusing.
+
+    MEASURED SCOPE: the property is protected at TWO sites -- `_pick_excludes`
+    returns no picks on wrong_mode, and the caller discards them anyway by
+    looping back -- so no SINGLE mutation reaches it and this test stays green
+    against either one alone. It fires only when both are broken together
+    (verified). That makes it a last line of defence rather than the pin for
+    either site; `test_exclude_prompt_names_the_mode_on_an_x_handle` is what
+    pins the caller's `continue`."""
+    cfg = _cfg(tmp_path)
+    ws = _held_show_with_dropped(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="e\n1,x2\ns\n")
+    assert "x-handles name DROPPED files" in r.output
+    assert read_overrides(ws).exclude == ["mine.mp3"]   # track 1 NOT excluded
     assert calls == []
