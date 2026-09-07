@@ -1222,6 +1222,14 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
     return data
 
 
+def _unexclude_routing_note(undo: list[str]) -> str:
+    """The one sentence both `--include` surfaces use to say a row was routed to
+    overrides.exclude instead. Two literals differing only by a slug prefix is
+    how the two messages drift apart."""
+    return (f"{', '.join(undo)} was operator-excluded, not junk-filtered -- "
+            "removed from overrides.exclude rather than added to overrides.include")
+
+
 def _split_include_targets(show_ws, resolved: list[str]) -> tuple[list[str], list[str]]:
     """Route resolved `--include` targets: `(un-exclude, re-admit)`.
 
@@ -1392,20 +1400,26 @@ def _format_tracks(show) -> list[str]:
     return lines
 
 
-def _pick_excludes(show) -> list[str]:
+def _pick_excludes(show) -> tuple[list[str], bool]:
+    """Returns `(filenames, wrong_mode)`. `wrong_mode` is True when the operator
+    typed an x-handle here, which `_parse_ranks` would otherwise drop silently.
+
+    The caller must return to the PROMPT on `wrong_mode`, not fall through to
+    "nothing selected; skipping" and exit the show: telling an operator to use
+    `[i]nclude` while ejecting them from the show they would use it on is worse
+    than the silence it replaced. A mixed input (`1,x2`) applies NOTHING for the
+    same reason -- half-applying it excludes track 1 and loses the `x2` with no
+    way to tell that happened."""
     for line in _format_tracks(show):
         typer.echo(line)
     raw = typer.prompt("exclude which track numbers? (comma-separated, empty = none)",
                        default="", show_default=False)
-    # `_parse_ranks` keeps only all-digit tokens, so an x-handle typed here used
-    # to vanish into "nothing selected; skipping" -- a message that never
-    # mentions handles. The listing directly above shows play-order numbers AND
-    # xN handles, so naming the mode is the least this prompt can do.
     if any(_HANDLE.fullmatch(t) for t in _split_tokens([raw])):
         typer.echo("x-handles name DROPPED files -- use [i]nclude to re-admit one; "
                    "this prompt takes play-order track numbers")
+        return [], True
     picks = _parse_ranks(raw)
-    return [t.filename for t in show.tracks if t.index in picks]
+    return [t.filename for t in show.tracks if t.index in picks], False
 
 
 def _pick_includes(show_ws, show) -> list[str]:
@@ -1473,8 +1487,6 @@ def _resolve_prompt(*, titles: bool = False, include: bool = False) -> str:
         text = text.replace("[s]kip", "[t] suggest titles / [s]kip")
     return text
 
-
-RESOLVE_PROMPT_WITH_TITLES = _resolve_prompt(titles=True)
 
 # Must stay byte-for-byte in sync with the literal `gather.py` appends to
 # `review_flags` (`stages/gather.py`, ~line 819) -- there is no shared named
@@ -1573,7 +1585,9 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         if choice == "q":
             raise typer.Exit()
         if choice == "e":
-            files = _pick_excludes(read_model(entry.ws.show, Show))
+            files, wrong_mode = _pick_excludes(read_model(entry.ws.show, Show))
+            if wrong_mode:
+                continue   # back to the prompt, where [i]nclude is waiting
             if not files:
                 typer.echo("nothing selected; skipping")
                 return
@@ -1595,9 +1609,7 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             undo, readmit = _split_include_targets(entry.ws, targets)
             _edit_overrides(entry.ws, rm_exclude=undo, add_include=readmit)
             if undo:
-                typer.echo(f"{', '.join(undo)} was operator-excluded, not junk-filtered "
-                           "-- removed from overrides.exclude rather than added to "
-                           "overrides.include")
+                typer.echo(_unexclude_routing_note(undo))
             stage = "gather"
         elif choice == "m":
             if not _metadata_editor(entry):
@@ -2662,9 +2674,7 @@ def fix(
             # The operator typed --include and would otherwise be told only that
             # overrides.EXCLUDE changed -- true, but it does not answer "what did
             # my flag do?". Name the folded-in --unexclude routing explicitly.
-            typer.echo(f"{entry.slug}: {', '.join(undo)} was operator-excluded, not "
-                       "junk-filtered -- removed from overrides.exclude rather than "
-                       "added to overrides.include")
+            typer.echo(f"{entry.slug}: {_unexclude_routing_note(undo)}")
         # Gated on what the operator TYPED, not on what it resolved to: an
         # exclude-side flag that resolves to nothing (`--exclude ,`) is still
         # an exclude-side request, still redoes from gather, and printed the

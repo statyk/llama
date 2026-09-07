@@ -470,23 +470,6 @@ def test_the_untagged_tape_is_no_longer_proposable(tmp_path, monkeypatch):
     assert "proposal (" not in result.output
 
 
-def test_resolve_prompt_with_titles_is_derived_from_resolve_prompt():
-    """N2 (task-8 review round 2, task-8n): `RESOLVE_PROMPT_WITH_TITLES`'s
-    comment claims `RESOLVE_PROMPT` is the single source of truth for the
-    common tail, but it used to be a hand-copied literal that could drift
-    silently -- a sentinel edit to `RESOLVE_PROMPT` passed every test because
-    nothing re-derived the `WITH_TITLES` variant from it. This pins the
-    derivation directly: splitting `RESOLVE_PROMPT` on its `[s]kip` option
-    and checking both halves survive verbatim into `RESOLVE_PROMPT_WITH_TITLES`
-    is exactly what a sentinel edit to either half would break under the old
-    hand-copied literal and cannot break under the derived one."""
-    before, sep, after = cli.RESOLVE_PROMPT.partition("[s]kip")
-    assert sep, "RESOLVE_PROMPT must still contain the [s]kip option"
-    assert cli.RESOLVE_PROMPT_WITH_TITLES.startswith(before)
-    assert cli.RESOLVE_PROMPT_WITH_TITLES.endswith(sep + after)
-    assert "[t] suggest titles" in cli.RESOLVE_PROMPT_WITH_TITLES
-
-
 def test_declining_the_proposal_writes_nothing(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     sws = _staged_ymsb_show(tmp_path, monkeypatch)
@@ -1496,4 +1479,3 @@ def test_resolve_prompt_variants_are_all_derived_from_resolve_prompt():
             assert restored == cli.RESOLVE_PROMPT, (titles, include, text)
             assert ("[i]nclude dropped" in text) is include, (titles, include, text)
             assert ("[t] suggest titles" in text) is titles, (titles, include, text)
-    assert cli.RESOLVE_PROMPT_WITH_TITLES == cli._resolve_prompt(titles=True)

@@ -491,7 +491,8 @@ def test_include_option_absent_when_nothing_was_dropped(tmp_path, tty, monkeypat
     _held_show(tmp_path)
     _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "triage", input="s\n")
-    assert "[i]nclude dropped" not in r.output, r.output
+    prompt = next(ln for ln in r.output.splitlines() if "[e]xclude tracks" in ln)
+    assert "[i]nclude dropped" not in prompt, prompt
 
 
 def test_include_option_offered_when_files_were_dropped(tmp_path, tty, monkeypatch):
@@ -570,8 +571,34 @@ def test_exclude_prompt_names_the_mode_on_an_x_handle(tmp_path, tty, monkeypatch
     cfg = _cfg(tmp_path)
     ws = _held_show_with_dropped(tmp_path)
     calls = _stub_redo(monkeypatch)
-    r = cli_invoke(cfg, "triage", input="e\nx1\n")
+    # The follow-on `i\nx2` is the point: the hint must return to the PROMPT,
+    # not print advice and eject the operator from the show they would take it
+    # on. Reaching overrides.include proves the loop continued.
+    r = cli_invoke(cfg, "triage", input="e\nx1\ni\nx2\n")
     assert "x-handles name DROPPED files" in r.output
     assert "[i]nclude" in r.output
-    assert read_overrides(ws).exclude == ["mine.mp3"]   # unchanged
+    assert "nothing selected; skipping" not in r.output, r.output
+    ov = read_overrides(ws)
+    assert ov.exclude == ["mine.mp3"]          # the [e] input applied nothing
+    assert ov.include == ["spam.mp3"]          # ...and [i] was still reachable
+    assert calls == ["gather"]
+
+
+def test_exclude_prompt_applies_nothing_on_a_mixed_input(tmp_path, tty, monkeypatch):
+    """`1,x2` must apply NOTHING. Half-applying it excludes track 1 and loses
+    the x2 with no way to tell that happened, which is worse than refusing.
+
+    MEASURED SCOPE: the property is protected at TWO sites -- `_pick_excludes`
+    returns no picks on wrong_mode, and the caller discards them anyway by
+    looping back -- so no SINGLE mutation reaches it and this test stays green
+    against either one alone. It fires only when both are broken together
+    (verified). That makes it a last line of defence rather than the pin for
+    either site; `test_exclude_prompt_names_the_mode_on_an_x_handle` is what
+    pins the caller's `continue`."""
+    cfg = _cfg(tmp_path)
+    ws = _held_show_with_dropped(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="e\n1,x2\ns\n")
+    assert "x-handles name DROPPED files" in r.output
+    assert read_overrides(ws).exclude == ["mine.mp3"]   # track 1 NOT excluded
     assert calls == []

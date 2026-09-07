@@ -19,14 +19,19 @@ def output_without_paths(result, tmp_path) -> str:
     result.output` was matching its own path and grading itself. That one
     failed loudly by luck of naming; the silent form is one rename away.
 
-    `llama show` prints the workspace path on its `state:` line, which is the
-    whole injection vector, so removing lines that mention the root leaves a
-    view a negative can safely be asserted over. Prefer scoping a negative to
-    the ONE line it is really about; use this when the claim genuinely is
-    "nowhere in the output".
+    REDACTS the root rather than dropping the lines that mention it, and the
+    difference is not cosmetic: dropping whole lines removed more than the
+    vector, and made `test_default_selector_walks_held_only` VACUOUS -- for a
+    non-held show the slug appears ONLY on the `state: ... path: ...` line, so
+    the assertion could no longer fail. Caught by review, with the mutant that
+    proved it (triage's default selector also walking packaged shows) leaving
+    the converted test green. Redaction removes exactly the injected substring
+    and nothing else.
+
+    Prefer scoping a negative to the ONE line it is really about; use this when
+    the claim genuinely is "nowhere in the output".
     """
-    root = str(tmp_path)
-    return "\n".join(ln for ln in result.output.splitlines() if root not in ln)
+    return result.output.replace(str(tmp_path), "<ROOT>")
 
 
 @pytest.fixture(autouse=True)
