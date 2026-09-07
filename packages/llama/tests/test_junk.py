@@ -310,15 +310,32 @@ def test_readmit_of_an_unknown_filename_changes_nothing():
 
 def test_readmit_does_not_move_the_duration_floor():
     """The two-pass invariant: the floor is the median of files passing every
-    OTHER arm, computed before any re-admission. Re-admitting the 40s file must
-    NOT license the 50s one -- otherwise one operator override would quietly
-    lower the junk threshold for the whole tape."""
-    files = [_mp3(f"band1t0{i}.mp3") for i in range(1, 6)] + [
-        _mp3("band1t06.mp3", length="40.0"), _mp3("band1t07.mp3", length="50.0")]
-    kept, excluded, _ = filter_files(files, readmit=frozenset({"band1t06.mp3"}))
-    assert "band1t06.mp3" in {f["name"] for f in kept}
+    OTHER arm, computed before any re-admission. Re-admitting files dropped by
+    a NON-duration arm must not let their durations join that median --
+    otherwise one operator override would quietly lower the junk threshold
+    for the whole tape.
+
+    Review round 1 finding: the original version of this test used only
+    duration-arm exclusions, whose durations are already in the median
+    sample before re-admission, so no placement of the re-admission step
+    could move the floor for that data -- the test passed against a mutant
+    that moved re-admission before the floor computation (measured floor
+    75.0 either way). This dataset excludes the re-admitted files by
+    PROVENANCE (`source="mystery"`) instead, so they start outside
+    `clean_secs` and only join it if re-admission runs too early."""
+    files = ([_mp3(f"band1t0{i}.mp3") for i in range(1, 6)]              # 5 x 300s, clean
+             + [_mp3(f"band1t1{i}.mp3", source="mystery", length="20.0") # 5 x 20s, dropped
+                for i in range(5)]                                       #   by provenance
+             + [_mp3("band1t20.mp3", length="50.0")])                    # the canary
+    readmit = frozenset(f"band1t1{i}.mp3" for i in range(5))
+    kept, excluded, _ = filter_files(files, readmit=readmit)
+    assert readmit <= {f["name"] for f in kept}
+    # The floor stays 0.25 * median([300]*5 + [50]) = 75, so the 50s canary is
+    # still junk. If re-admission moved ahead of the floor computation the five
+    # 20s files would join the sample, the median would fall to 50 and the
+    # canary would be licensed.
     assert {e["filename"] for e in excluded
-            if "implausibly short" in e["reasons"]} == {"band1t07.mp3"}
+            if "implausibly short" in e["reasons"]} == {"band1t20.mp3"}
 
 
 def test_readmit_lands_in_filename_play_order():
