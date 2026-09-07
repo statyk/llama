@@ -1483,13 +1483,17 @@ def test_resolve_prompt_variants_are_all_derived_from_resolve_prompt():
     sentinel edit to `RESOLVE_PROMPT` stops propagating -- which is exactly the
     failure M2 added the original test for. Asserted by construction: every
     variant must contain RESOLVE_PROMPT's own head and tail verbatim."""
-    head, sep, tail = cli.RESOLVE_PROMPT.partition("[m]etadata")
-    assert sep, "RESOLVE_PROMPT must still contain the [m]etadata option"
     for titles in (False, True):
         for include in (False, True):
             text = cli._resolve_prompt(titles=titles, include=include)
-            assert text.startswith(head), (titles, include, text)
-            assert text.endswith(tail), (titles, include, text)
+            # Pure INSERTION: strip the two known fragments and RESOLVE_PROMPT
+            # must come back byte-for-byte. Stronger than head/tail prefix
+            # checks, which cannot see an edit inside the common middle -- and
+            # which do not even hold here, since `[t]` is inserted INTO the
+            # tail while `[i]` is inserted into the head.
+            restored = (text.replace("[i]nclude dropped / ", "")
+                            .replace("[t] suggest titles / ", ""))
+            assert restored == cli.RESOLVE_PROMPT, (titles, include, text)
             assert ("[i]nclude dropped" in text) is include, (titles, include, text)
             assert ("[t] suggest titles" in text) is titles, (titles, include, text)
     assert cli.RESOLVE_PROMPT_WITH_TITLES == cli._resolve_prompt(titles=True)
