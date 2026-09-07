@@ -992,8 +992,7 @@ def test_interpret_refuses_a_profile_request(tmp_path: Path, monkeypatch):
 
 # --- Task 2: `_get_profile` writes the invocation record ---------------------
 
-def _parked_profile_run(tmp_path: Path, name: str, *, plan: bool,
-                        with_shortlist: bool = False):
+def _parked_profile_run(tmp_path: Path, name: str, *, plan: bool):
     """A profile run parked exactly as the run-level RateLimited catch leaves
     one: criteria.json present (written before any stage ran), request.json
     present, session paused."""
@@ -1015,8 +1014,6 @@ def _parked_profile_run(tmp_path: Path, name: str, *, plan: bool,
     write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
                                            "profile": "prime-dead",
                                            "auto": True, "plan": plan}))
-    if with_shortlist:
-        write_artifact(ws.shortlist, [])
     mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
     return ws
 
@@ -1056,17 +1053,45 @@ def test_a_parked_profile_plan_run_processes_once_a_shortlist_exists(
         tmp_path: Path, monkeypatch):
     """`--plan` means "stop AT the shortlist", so the directive is satisfied
     once one exists. Without this, `request.json` carries plan:true forever
-    and every later resume re-parks the session -- permanently."""
+    and every later resume re-parks the session -- permanently.
+
+    The shortlist has to be REAL, built by a genuine `llama get --profile
+    --plan` run, not a stub: `_execute`'s own `if not shortlist: ... return`
+    (cli.py:499) fires before the `if plan:` branch this test exists to
+    exercise ever runs, so a run parked over an EMPTY shortlist short-circuits
+    there regardless of whether `run_resume`'s `and not ws.shortlist.exists()`
+    clause is present -- that version of this test passed identically with
+    the clause dropped. Mirrors the query-mode pin,
+    `test_run_resume_processes_once_a_shortlist_already_exists`, one mode
+    over."""
+    from llama.profiles import Profile, save_profile
+
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
     monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
     monkeypatch.setattr(cli, "IAClient", FakeIA)
-    _parked_profile_run(tmp_path, "profdone", plan=True, with_shortlist=True)
 
-    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profdone"])
+    planned = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
+                                      "prime-dead", "--auto", "--plan"])
+    assert planned.exit_code == 0, planned.output
+    assert "packaged:" not in planned.output, planned.output
+    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
+    ws = RunWorkspace(tmp_path, run_dir.name)
+    assert ws.shortlist.exists()                      # the real artifact, not a stub
+    assert json.loads(ws.request.read_text())["plan"] is True
+    assert session_state(ws.dir) == STATE_AWAITING
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", run_dir.name])
 
     assert result.exit_code == 0, result.output
-    assert iter_sessions(tmp_path)[0].state != STATE_AWAITING
+    assert "packaged:" in result.output, result.output
+    assert session_state(ws.dir) == STATE_COMPLETE
 
 
 def test_get_profile_writes_the_invocation_record(tmp_path: Path, monkeypatch):
