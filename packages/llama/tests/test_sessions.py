@@ -1,5 +1,6 @@
 import json
 import multiprocessing as mp
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -363,6 +364,67 @@ def test_a_malformed_request_json_does_not_blind_either_sweep(tmp_path: Path):
     status_result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
     assert status_result.exit_code == 0, status_result.output
     assert "GD 1977 Cornell" in status_result.output
+
+
+def test_a_non_object_request_json_does_not_blind_either_sweep(tmp_path: Path):
+    """`read_request`'s `isinstance(req, dict)` guard covers valid-JSON,
+    wrong-shape content: `request.json` containing `[]` or `"x"` parses fine
+    but is not a dict, so an unguarded `.get()` downstream would raise and
+    take the whole sweep down with it -- the same symptom as the malformed-
+    JSON case above, from valid JSON that just isn't an object."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+
+    bad_ws = RunWorkspace(tmp_path, "nonobject")
+    bad_ws.dir.mkdir(parents=True)
+    bad_ws.request.write_text("[]")
+    mark_paused(bad_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    good_ws = RunWorkspace(tmp_path, "healthy")
+    good_ws.dir.mkdir(parents=True)
+    write_artifact(good_ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+    mark_paused(good_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    run_list_result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert run_list_result.exit_code == 0, run_list_result.output
+    assert "GD 1977 Cornell" in run_list_result.output
+
+    status_result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+    assert status_result.exit_code == 0, status_result.output
+    assert "GD 1977 Cornell" in status_result.output
+
+
+def test_an_unreadable_request_json_does_not_blind_either_sweep(tmp_path: Path):
+    """`read_request`'s `except OSError` arm covers a present-but-unreadable
+    file -- a permissions error or (as reproduced here) a request.json
+    chmod'd unreadable. Without the arm, `path.read_text()` raises and takes
+    the whole sweep down, same as the malformed-JSON case above."""
+    if os.geteuid() == 0:
+        pytest.skip("root ignores file permissions; chmod 000 has no effect")
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+
+    bad_ws = RunWorkspace(tmp_path, "unreadable")
+    bad_ws.dir.mkdir(parents=True)
+    write_artifact(bad_ws.request, json.dumps({"query": "unreadable"}))
+    bad_ws.request.chmod(0o000)
+    mark_paused(bad_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+    try:
+        good_ws = RunWorkspace(tmp_path, "healthy")
+        good_ws.dir.mkdir(parents=True)
+        write_artifact(good_ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+        mark_paused(good_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+        run_list_result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+        assert run_list_result.exit_code == 0, run_list_result.output
+        assert "GD 1977 Cornell" in run_list_result.output
+
+        status_result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+        assert status_result.exit_code == 0, status_result.output
+        assert "GD 1977 Cornell" in status_result.output
+    finally:
+        bad_ws.request.chmod(0o644)
 
 
 def test_a_malformed_request_json_fails_run_resume_loudly(tmp_path: Path, monkeypatch):
