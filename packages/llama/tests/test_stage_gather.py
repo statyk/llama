@@ -927,6 +927,26 @@ def test_readmitting_a_lossless_orphan_does_not_suppress_recovery(tmp_path: Path
     assert "FOLLOW-ME @BYPIKENO.mp3" not in recovered
 
 
+def test_including_a_file_that_was_never_dropped_keeps_its_vote(tmp_path: Path):
+    """An `overrides.include` entry naming a file the junk filter never dropped
+    re-admits nothing — but it must also take nothing away.
+
+    The recording-level gates give re-admitted files no vote, and they decide
+    that by asking `filter_files` what it ACTUALLY re-admitted, not by reading
+    `overrides.include`. Filtering on the request instead would drop this
+    already-kept file from `recovery_basis`, leaving 5 mp3s against 6 Shorten
+    entries — `sibling_format_titles` declines on the count mismatch and the
+    WHOLE tape loses recovery. That is the same defect the basis exists to
+    prevent, re-entered from the other side, and silently: gather's "matched
+    no file" warning cannot fire for a name that is in `kept`."""
+    md = _with_tagged_lossless(json.loads(FIXTURE.read_text()))
+    sws = ShowWorkspace(tmp_path / "show")
+    write_artifact(sws.overrides, Overrides(include=["gd73-06-10d1t01.mp3"]))
+    show = run_gather(sws, StubIA(md), FakeProvider(), make_candidate(), IDENT)
+    recovered = [t.filename for t in show.tracks if t.title_source == "sibling-format"]
+    assert len(recovered) == 6, recovered
+
+
 def test_readmission_does_not_stop_the_track_number_strip(tmp_path: Path):
     """The second recording-level gate, wired through `resolve_titles`'
     `gate_basis`. `clean_tag_titles` strips a leading track number only when

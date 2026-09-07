@@ -271,9 +271,31 @@ shipped, settled across four review rounds:
    operator-excluded files vote, a defect caught by
    `test_readmission_does_not_stop_the_track_number_strip`.
 
-   A re-admitted file still RECEIVES a recovered title when the map covers it;
-   it simply gets no vote in whether recovery happens. **Deliberately not
-   extended to `fetch_siblings`** (`gather.py`), where a re-admitted untagged
-   file genuinely does mean the tape is no longer fully tagged — that gate is
-   answering a question the re-admission really does change, and it costs a
-   network fetch rather than a title-provenance change.
+   What the re-admitted file loses differs per gate, and an earlier draft of
+   this correction got it wrong. For **title recovery** it loses both:
+   `sibling_format_titles` keys its map off the basis, so the file is absent
+   from that map and falls through the ordinary cascade — no vote and no
+   recovered title, which is what
+   `test_readmitting_a_lossless_orphan_does_not_suppress_recovery` asserts by
+   name. For the **enumerated-tape strip** it loses only the vote, since the
+   strip applies to every kept file.
+
+   The bases filter on what `filter_files` ACTUALLY re-admitted
+   (`ordering["readmitted"]`), never on the raw `overrides.include` request.
+   An entry naming a file that was never dropped re-admits nothing, and
+   filtering on the request would still strip that already-kept file of its
+   vote — re-entering this very defect from the other side, silently, because
+   gather's "matched no file" warning cannot fire for a name that is in
+   `kept`. Pinned by
+   `test_including_a_file_that_was_never_dropped_keeps_its_vote`.
+
+   **Two recording-level consumers are deliberately NOT carved out**, both
+   because re-admission genuinely changes the question they ask.
+   `fetch_siblings` (`gather.py`): a re-admitted untagged file really does
+   mean the tape is no longer fully tagged, the only flip is 1.0 → <1.0, and
+   when the fraction was 1.0 the fetch's only possible adoption target is the
+   re-admitted file itself. `build_canonical`'s `target_count=len(kept)`
+   (`gather.py` → `structure.rank_parses`): the tape really does have one more
+   track — but note this one is not free, since a ±1 shift can change which
+   description wins and therefore the whole tape's set labels, segues and
+   setlist-derived titles. It is a ruled carve-out, not an oversight.

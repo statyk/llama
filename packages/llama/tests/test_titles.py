@@ -463,6 +463,10 @@ def test_clean_tag_titles_gate_basis_scopes_the_enumeration_vote():
         "Song 1", "Song 2", "Song 3", "Introduction"]
 
 
-def test_clean_tag_titles_gate_basis_defaults_to_the_files_themselves():
+def test_clean_tag_titles_gate_basis_none_votes_with_the_files_themselves():
+    """Pinned against a CONCRETE expected value, not against another call to
+    the same function: a call-vs-call equality passes whenever both sides break
+    identically, which is exactly what a mutant that ignores `gate_basis`
+    does."""
     tape = [{"title": f"0{i} Song {i}"} for i in (1, 2, 3)]
-    assert clean_tag_titles(tape) == clean_tag_titles(tape, gate_basis=tape)
+    assert clean_tag_titles(tape, gate_basis=None) == ["Song 1", "Song 2", "Song 3"]

@@ -94,13 +94,13 @@ def test_unique_track_tags_reorder():
              _mp3("gd73d1t03.mp3", track="1")]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t03.mp3", "gd73d1t01.mp3", "gd73d1t02.mp3"]
-    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3"}
+    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3", "readmitted": []}
 
 
 def test_track_tags_agreeing_with_filenames_not_flagged():
     files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d1t02.mp3", track="2")]
     _, _, ordering = filter_files(files)
-    assert ordering == {"order_source": "track-tags", "reordered": False, "format": "VBR MP3"}
+    assert ordering == {"order_source": "track-tags", "reordered": False, "format": "VBR MP3", "readmitted": []}
 
 
 def test_duplicate_track_tags_fall_back_to_filename_order():
@@ -108,7 +108,7 @@ def test_duplicate_track_tags_fall_back_to_filename_order():
     files = [_mp3("gd73d1t01.mp3", track="1"), _mp3("gd73d2t01.mp3", track="1")]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t01.mp3", "gd73d2t01.mp3"]
-    assert ordering == {"order_source": "filename", "reordered": False, "format": "VBR MP3"}
+    assert ordering == {"order_source": "filename", "reordered": False, "format": "VBR MP3", "readmitted": []}
 
 
 def test_missing_track_tag_falls_back_to_filename_order():
@@ -127,7 +127,7 @@ def test_derivative_inherits_original_track_number():
     ]
     kept, _, ordering = filter_files(files)
     assert [f["name"] for f in kept] == ["gd73d1t02.mp3", "gd73d1t01.mp3"]
-    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3"}
+    assert ordering == {"order_source": "track-tags", "reordered": True, "format": "VBR MP3", "readmitted": []}
 
 
 def audio(name: str, fmt: str, length: str = "05:00") -> dict:

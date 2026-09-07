@@ -247,6 +247,7 @@ def filter_files(
     #     whole recording to filename order.
     # `readmit` names the WINNING format's files only; anything else matches
     # nothing here and is warned about by the caller.
+    readmitted: set[str] = set()
     if readmit:
         by_name = {f["name"]: f for f in files if f.get("format") == matched}
         back = [by_name[e["filename"]] for e in excluded
@@ -258,12 +259,20 @@ def filter_files(
 
     orig_tracks = {f["name"]: f.get("track") for f in files if f.get("source") == "original"}
     nums = [_track_number(f, orig_tracks) for f in kept]
-    ordering = {"order_source": "filename", "reordered": False, "format": matched}
+    # `readmitted` is the set this call ACTUALLY returned to `kept`, which is
+    # NOT the same as the caller's `readmit` request: a name that was never
+    # excluded (already kept, wrong format, or simply absent) re-admits
+    # nothing. Callers that give re-admitted files reduced standing must
+    # filter on THIS, never on `overrides.include` -- filtering on the request
+    # would strip an already-kept file of its vote in gather's recording-level
+    # gates, which is the exact defect those gates exist to prevent.
+    ordering = {"order_source": "filename", "reordered": False, "format": matched,
+                "readmitted": sorted(readmitted)}
     # Track-tag order only when complete and unique: per-disc numbering
     # restarts at 1, which makes duplicates ambiguous.
     if kept and all(n is not None for n in nums) and len(set(nums)) == len(nums):
         by_track = [f for _, f in sorted(zip(nums, kept), key=lambda p: p[0])]
         ordering = {"order_source": "track-tags", "reordered": by_track != kept,
-                    "format": matched}
+                    "format": matched, "readmitted": sorted(readmitted)}
         kept = by_track
     return kept, excluded, ordering

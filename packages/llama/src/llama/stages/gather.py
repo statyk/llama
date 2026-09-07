@@ -859,12 +859,29 @@ def run_gather(
     #
     # An operator saying "keep this one track" must not change where a
     # DIFFERENT track's title came from, so recording-level decisions vote on
-    # the tape minus re-admissions. The re-admitted file still receives a
-    # recovered title if the map covers it; it simply gets no vote. This is
-    # the same rule as the exclusion guard above, in the other direction --
-    # deliberately NOT extended to `fetch_siblings` below, where a re-admitted
-    # untagged file genuinely does mean the tape is no longer fully tagged.
-    recovery_basis = [f for f in kept if f["name"] not in set(overrides.include)]
+    # the tape minus re-admissions. Note what that costs the re-admitted file
+    # HERE: `sibling_format_titles` keys its map off the basis, so the file is
+    # absent from it and falls through to the ordinary cascade -- no vote AND
+    # no recovered title. (The other gate differs: the enumerated-tape strip
+    # applies to every kept file, so there the re-admitted file loses only the
+    # vote.) This is the same rule as the exclusion guard above, in the other
+    # direction.
+    #
+    # TWO recording-level consumers are deliberately NOT carved out, both
+    # because the re-admission genuinely changes the question they ask:
+    # `fetch_siblings` below (a re-admitted untagged file really does mean the
+    # tape is no longer fully tagged, and its only adoption target is that
+    # file), and `build_canonical`'s `target_count=len(kept)` (the tape really
+    # does have one more track, though a +/-1 shift there can change which
+    # description wins `rank_parses` and so the whole tape's set labels).
+    # Filter on what filter_files ACTUALLY re-admitted, never on the raw
+    # `overrides.include` request. An entry naming a file that was never
+    # dropped re-admits nothing, but filtering on the request would still
+    # strip that already-kept file of its vote -- re-entering this very bug
+    # through the front door, and silently, since the "matched no file"
+    # warning above cannot fire for a name that IS in `kept`.
+    readmitted = set(ordering.get("readmitted", ()))
+    recovery_basis = [f for f in kept if f["name"] not in readmitted]
     format_titles = _recover_format_titles(md.get("files", []), recovery_basis, ordering)
 
     if overrides.exclude:
@@ -933,7 +950,7 @@ def run_gather(
     # the guard above it), while this gate must vote over the tracks that
     # actually ship. Reusing it let operator-excluded files vote, which is the
     # defect test_readmission_does_not_stop_the_track_number_strip caught.
-    tag_gate_basis = [f for f in kept if f["name"] not in set(overrides.include)]
+    tag_gate_basis = [f for f in kept if f["name"] not in readmitted]
     tracks = resolve_titles(kept, canonical, format_titles=format_titles,
                             gate_basis=tag_gate_basis)
     for n, forced in overrides.titles.items():
