@@ -460,10 +460,13 @@ git commit -m "fix(runs): name a parked profile run on the attention list"
   request.json` and `test(cli): repair the profile
   plan-satisfied-by-shortlist pin`, landed between Task 2 and Task 3 to fix
   issues this plan's own mutation testing surfaced — added one more test
-  net beyond what this document's task-by-task steps account for.)
+  net beyond what this document's task-by-task steps account for. These
+  corrected totals pin `1d60877` -- the commit Task 3's own Step 6 lands --
+  so a later reader can tell whether they still apply by diffing against
+  that commit rather than assuming they track the branch tip.)
 - [ ] `./.venv/bin/python -c "import llama; print(llama.__file__)"` resolves inside the worktree
 - [ ] `--collect-only` node-ID diff against `origin/main`: 9 added, 0 removed (was
-  stated as 8; see the note above)
+  stated as 8; see the note above -- also measured at `1d60877`)
 - [ ] Every mutation ran with its predicted red test named first, and the observed failure matched
 - [ ] `git log --oneline` shows one commit per task, tree clean
 
