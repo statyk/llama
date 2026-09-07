@@ -164,6 +164,10 @@ class Track(BaseModel):
     # forces their matched to None for that reason (see
     # structure.TAUTOLOGICAL_TITLE_SOURCES).
     matched: bool | None = None
+    # True when overrides.include re-admitted this file past the junk filter.
+    # Recorded here and NOT in ManifestTrack: the manifest is the broadcast
+    # contract with emcee and stays lean; show.json is the operator's record.
+    included: bool = False
 
 
 class Show(BaseModel):
@@ -192,10 +196,11 @@ class Show(BaseModel):
 
 class Overrides(BaseModel):
     """Hand-authored per-show operator input, durable across re-derivation.
-    Read by gather (exclude, venue, city, date, titles, set_breaks,
+    Read by gather (exclude, include, venue, city, date, titles, set_breaks,
     encore_after) and brief (narration); never auto-written by a stage.
     Absent file == this default."""
     exclude: list[str] = Field(default_factory=list)   # source filenames to drop
+    include: list[str] = Field(default_factory=list)   # filenames re-admitted past the junk filter
     narration: str = "full"                            # "full" | "vague"
     venue: str | None = None
     city: str | None = None
