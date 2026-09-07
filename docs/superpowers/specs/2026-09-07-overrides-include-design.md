@@ -242,3 +242,9 @@ shipped, settled across four review rounds:
    stay mutually exclusive **by construction**" actually asks for, since a
    parameter the caller must remember to pass is a caller obligation rather
    than a construction.
+4. **Decision 4's "re-admitting a `duplicate-listing` row ships that
+   recording twice" names the wrong unit.** A `duplicate-listing` row is one
+   file listed twice on the same archive.org item; re-admitting it ships
+   that one track twice, not the recording. Docs (`README.md`,
+   `docs/workflow.md`) describe it correctly, per this correction, as
+   shipping the track twice.

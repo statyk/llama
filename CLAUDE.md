@@ -201,7 +201,8 @@ tier (pins never escalate).
   reproduces the flag that caused it (gather recomputes
   `needs_review`/`review_flags` from scratch every run). `--exclude`/
   `--unexclude` are joined by **`--include xN|FILE`** (`overrides.include`),
-  which re-admits a file the junk filter dropped — applied inside
+  which re-admits a file the junk filter dropped and redoes from `gather`
+  like the other two — applied inside
   `filter_files` after the junk arms and after duplicate-listing dedupe but
   **before** play-order derivation, so the floor cannot move and order is
   derived over the final set (a re-admitted file with no track tag reverts

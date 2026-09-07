@@ -610,8 +610,8 @@ unrankable setlist here yields an infeasible proposal rather than a
 silently weaker one. The DP behind the proposal is **proposal-only** — it
 is never auto-adopted, only ever offered for a human confirmation, and
 only for tracks it can propose for (a filler row stays `(unresolved -
-hand-edit)`, and a track that already has a title is never overwritten)
-— and it **refuses to combine** with `--exclude`/`--unexclude`/`--include`
+hand-edit)`, and a track that already has a title is never overwritten) —
+and it **refuses to combine** with `--exclude`/`--unexclude`/`--include`
 in the same invocation (any of those three edits a file list in the same
 call and renumbers tracks before the proposal's numbering would apply; run
 the file edit first, as its own `fix` call that actually redoes — not
@@ -619,10 +619,10 @@ staged with `--no-run` and left there — then `--suggest-titles`
 separately; `--suggest-titles` itself refuses to run at all against a
 `show.json` that is stale relative to a pending file-list override, rather
 than risk numbering the proposal over the wrong track list). An explicit
-`--set-title N="..."` on the same invocation always wins over the proposal for that
-track. Declining, or a proposal with nothing left to adopt, falls through
-to any other edit flag given in the same invocation rather than exiting
-early.
+`--set-title N="..."` on the same invocation always wins over the proposal
+for that track. Declining, or a proposal with nothing left to adopt, falls
+through to any other edit flag given in the same invocation rather than
+exiting early.
 
 Excludes/metadata do **not** pre-clear a hold (the re-gather decides,
 self-clearing only if the derivation comes out clean); `--narration vague`
@@ -636,15 +636,20 @@ blind edits to per-show overrides are a foot-gun, so batch resolution is
 
 #### Seeing what was dropped
 
-`llama show <show> --tracks` ends with an `excluded (N):` section — one line
-per file the junk filter removed, with an `x`-handle, its duration and the
-reasons, e.g.:
+`llama show <show> --tracks` includes an `excluded (N):` section — one line
+per file missing from the track list, *whatever removed it*: most often
+the junk filter, but a file dropped earlier via `--exclude` shows up here
+too, tagged `operator-excluded` (that's the row `--include` folds into an
+un-exclude rather than an `overrides.include` addition). Each row carries
+an `x`-handle, its duration and the reasons, and the section is followed by
+a re-admit hint, e.g.:
 
 ```
 excluded (3):
    x1    0:37  dm1969-08-08t13.mp3  implausibly short
    x2    1:12  FOLLOW-ME @BYPIKENO.mp3  filename convention mismatch
    x3    4:02  dm1969-08-08t07.mp3  duplicate-listing
+  re-admit one with: llama fix <show> --include x1
 ```
 
 Duration comes before the filename (same convention as the track rows
@@ -652,10 +657,12 @@ above it), the filename is never padded or truncated — `--include` needs it
 verbatim — and a row with no recorded reason simply ends after the
 filename. A re-admitted track carries a `+` in the track table, with its
 own legend line. The count also appears on the always-visible `recording:`
-line (`(24 tracks, 3 dropped)`).
+line (`(24 tracks, 3 dropped)`) — again counting every missing file, not
+just junk-filter drops.
 
 No exclusion reason is refused: re-admitting a `duplicate-listing` row will
-ship that recording twice. The reason is printed next to the handle so the
+ship that track twice — it's one file listed twice on the archive.org item,
+not the whole recording. The reason is printed next to the handle so the
 choice is made with it in view.
 
 ### `llama redo <show> | --run SESSION | SELECTOR --from STAGE [--redo-research] [--yes]`
