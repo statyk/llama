@@ -990,6 +990,111 @@ def test_interpret_refuses_a_profile_request(tmp_path: Path, monkeypatch):
     assert called == []              # no LLM call attempted
 
 
+# --- Task 2: `_get_profile` writes the invocation record ---------------------
+
+def _parked_profile_run(tmp_path: Path, name: str, *, plan: bool,
+                        with_shortlist: bool = False):
+    """A profile run parked exactly as the run-level RateLimited catch leaves
+    one: criteria.json present (written before any stage ran), request.json
+    present, session paused."""
+    from llama.profiles import Profile, save_profile
+
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
+    ws = RunWorkspace(tmp_path, name)
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.criteria, Criteria(query="x", collection="GratefulDead",
+                                         artist="Grateful Dead",
+                                         date_from="1973-01-01",
+                                         date_to="1973-12-31", count=1,
+                                         profile="prime-dead"))
+    write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
+                                           "profile": "prime-dead",
+                                           "auto": True, "plan": plan}))
+    if with_shortlist:
+        write_artifact(ws.shortlist, [])
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+    return ws
+
+
+def test_a_parked_profile_plan_run_resumes_as_a_plan_run(tmp_path: Path, monkeypatch):
+    """The bug: the operator asked to see a shortlist, the run was interrupted,
+    and following the CLI's own `run resume` hint packaged shows instead."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    ws = _parked_profile_run(tmp_path, "profplan", plan=True)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profplan"])
+
+    assert result.exit_code == 0, result.output
+    assert "packaged:" not in result.output          # nothing was processed
+    assert "run approve profplan" in result.output
+    assert iter_sessions(tmp_path)[0].state == STATE_AWAITING
+
+
+def test_a_parked_profile_run_without_plan_still_processes(tmp_path: Path, monkeypatch):
+    """Guards against replaying plan unconditionally."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    _parked_profile_run(tmp_path, "profgo", plan=False)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profgo"])
+
+    assert result.exit_code == 0, result.output
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+
+
+def test_a_parked_profile_plan_run_processes_once_a_shortlist_exists(
+        tmp_path: Path, monkeypatch):
+    """`--plan` means "stop AT the shortlist", so the directive is satisfied
+    once one exists. Without this, `request.json` carries plan:true forever
+    and every later resume re-parks the session -- permanently."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    _parked_profile_run(tmp_path, "profdone", plan=True, with_shortlist=True)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profdone"])
+
+    assert result.exit_code == 0, result.output
+    assert iter_sessions(tmp_path)[0].state != STATE_AWAITING
+
+
+def test_get_profile_writes_the_invocation_record(tmp_path: Path, monkeypatch):
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
+                                     "prime-dead", "--auto", "--plan"])
+    assert result.exit_code == 0, result.output
+
+    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
+    req = json.loads((run_dir / "request.json").read_text())
+    assert req["mode"] == "profile"
+    assert req["profile"] == "prime-dead"
+    assert req["query"] is None
+    assert req["plan"] is True
+
+
 # --- T6b: the pre-flight gate runs before interpret is paid for --------------
 
 PF_NOW = datetime(2026, 9, 6, 8, 0, tzinfo=timezone.utc)

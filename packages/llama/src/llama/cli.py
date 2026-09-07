@@ -828,6 +828,16 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, claim_run_dir(config.root,
                                                  f"{date.today().isoformat()}-{name}"))
+    # The same invocation record `_get_query` writes. Without it a profile
+    # run parked by the run-level catch resumes with plan=False and performs
+    # a full acquisition -- from the recovery path the CLI itself prints.
+    # The query-mode selection flags are None here: a profile run takes those
+    # values from its stored criteria, not from argv.
+    write_artifact(ws.request, json.dumps({
+        "mode": "profile", "query": None, "profile": name,
+        "limit": None, "artist_cap": None,
+        "min_score": None, "year_cap": None,
+        "auto": auto, "plan": plan}, indent=2))
     # Stamp count into the run's criteria: a later `llama run` on this dir
     # must behave like the profile, not the defaults.
     criteria = profile.criteria.model_copy(update={"count": profile.count,
