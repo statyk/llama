@@ -158,13 +158,15 @@ def _show_with(matched_flags):
 
 
 # Fixed column of the match-marker char in a _format_tracks row: 2 leading
-# spaces + 2-digit index + ". set " (6 chars) + the 6-wide `set` field + 1
-# space = 17. Verified directly against _format_tracks's own output, not
-# assumed -- a substring check ("?" in line) would also be satisfied by a
-# "?" elsewhere on the line (duration) or a "-" inside a filename, title, or
-# the literal title_source "sibling-format", so only a fixed-offset check is
-# load-bearing.
-_MARK_COL = 17
+# spaces + 2-digit index + "." (1) + the re-admission `+` column (1, a space
+# on a track the operator did not re-admit) + " set " (5 chars) + the 6-wide
+# `set` field + 1 space = 18. It was 17 before overrides.include added the
+# `+` column, which inserts exactly one character ahead of " set ". Verified
+# directly against _format_tracks's own output, not assumed -- a substring
+# check ("?" in line) would also be satisfied by a "?" elsewhere on the line
+# (duration) or a "-" inside a filename, title, or the literal title_source
+# "sibling-format", so only a fixed-offset check is load-bearing.
+_MARK_COL = 18
 
 
 def test_format_tracks_flags_an_unmatched_track():

@@ -1240,13 +1240,24 @@ def _fmt_dur(sec) -> str:
     return f"{int(sec) // 60}:{int(sec) % 60:02d}"
 
 
+def _excluded_handles(show) -> list[tuple[str, dict]]:
+    """`x`-handles for the junk-filtered files, in show.json order.
+
+    ONE producer, consumed by both the `--tracks` listing and `fix --include`'s
+    token resolver, so the handle an operator reads is always the handle the
+    resolver means."""
+    return [(f"x{i}", e) for i, e in enumerate(show.excluded_files, start=1)]
+
+
 def _format_tracks(show) -> list[str]:
     # title_source says where a title CAME FROM, not whether it MATCHED. The
     # gd1990-03-29 encore read "tags" -- the most ordinary value there is --
     # while matching nothing, so the only symptom was a hold naming a
     # different song. The two are orthogonal; this column carries the second.
-    # the duration column's own "?" (_fmt_dur) can't co-occur: junk drops
-    # files with no length.
+    # the duration column's own "?" (_fmt_dur) means no length in the item
+    # metadata. Junk drops such files, so it appears only on a track the
+    # operator re-admitted via overrides.include; package.py re-probes the
+    # real duration from the downloaded file at package time.
     _MARK = {True: " ", False: "?", None: "-"}
     lines = ["tracks:"]
     for t in show.tracks:
@@ -1256,12 +1267,29 @@ def _format_tracks(show) -> list[str]:
         # 14 is the width of the longest title_source, "sibling-format" - at 10
         # it rendered as "sibling-fo". Nothing wider exists: tags 4, setlist 7,
         # sibling 7, override 8, unresolved 10.
-        lines.append(f"  {t.index:2d}. set {t.set:6.6s} {_MARK[t.matched]} {title:28.28s} "
+        # the `+` sits in its own one-character column rather than sharing the
+        # `_MARK` one: re-admission and setlist-match are orthogonal, and a
+        # re-admitted track has a match state like any other.
+        lines.append(f"  {t.index:2d}.{'+' if t.included else ' '} set {t.set:6.6s} "
+                     f"{_MARK[t.matched]} {title:28.28s} "
                      f"{t.title_source:14.14s} {_fmt_dur(t.duration_sec):>6s}  {t.filename}")
     if any(t.matched is False for t in show.tracks):
         lines.append("  ? = no setlist match")
     if any(t.matched is None for t in show.tracks):
         lines.append("  - = not measured")
+    if any(t.included for t in show.tracks):
+        lines.append("  + = re-admitted by operator (the junk filter had dropped it)")
+    handles = _excluded_handles(show)
+    if handles:
+        width = max(len(e["filename"]) for _, e in handles)
+        lines.append(f"excluded ({len(handles)}):")
+        for handle, e in handles:
+            # e.get, never e[...]: a show.json written before this feature has
+            # no `duration_sec` key at all, and `show` must render it, not die.
+            lines.append(f"  {handle:>3s}  {e['filename']:<{width}s}  "
+                         f"{_fmt_dur(e.get('duration_sec')):>6s}  "
+                         f"{', '.join(e.get('reasons', []))}")
+        lines.append(f"  re-admit one with: llama fix <show> --include {handles[0][0]}")
     return lines
 
 
@@ -1496,7 +1524,8 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
     if s.date_source == "research" and s.item_date:
         date_str = f"{s.date} (item date {s.item_date}, corrected via research)"
     typer.echo(f"{s.artist}  {date_str}  {place}".rstrip())
-    typer.echo(f"recording: {s.identifier}  ({len(s.tracks)} tracks)")
+    dropped = f", {len(s.excluded_files)} dropped" if s.excluded_files else ""
+    typer.echo(f"recording: {s.identifier}  ({len(s.tracks)} tracks{dropped})")
     _print_recording_info(sws)
     typer.echo(f"state: {entry.state}   path: {sws.dir}")
     from llama.workspace import read_overrides
@@ -1506,6 +1535,8 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
         parts.append(f"narration={ov.narration}")
     if ov.exclude:
         parts.append(f"exclude={ov.exclude}")
+    if ov.include:
+        parts.append(f"include={ov.include}")
     if ov.venue is not None:
         parts.append(f"venue={ov.venue!r}")
     if ov.city is not None:
@@ -1567,13 +1598,15 @@ def _print_show_json(entry, show_tracks: bool = False) -> None:
     if s is not None:
         ov = read_overrides(sws)
         data["overrides"] = {
-            "exclude": ov.exclude, "narration": ov.narration, "venue": ov.venue,
+            "exclude": ov.exclude, "include": ov.include,
+            "narration": ov.narration, "venue": ov.venue,
             "city": ov.city, "date": ov.date, "titles": ov.titles,
             "set_breaks": ov.set_breaks,
             "encore_after": ov.encore_after,
         }
     if show_tracks:
         data["tracks"] = [t.model_dump() for t in s.tracks] if s is not None else None
+        data["excluded"] = s.excluded_files if s is not None else None
     typer.echo(_json.dumps(data, indent=2))
 
 

@@ -13,7 +13,7 @@ import pytest
 import typer.testing as typer_testing
 
 from conftest import cli_invoke
-from llama.workspace import ShowWorkspace, write_artifact
+from llama.workspace import ShowWorkspace, read_model, write_artifact
 
 from test_catalog import build
 
@@ -109,7 +109,8 @@ def test_tracks_flag_prints_every_title_source_in_full():
     # trips the "- = not measured" legend line appended after every track
     # row -- slice to just the N track rows so that legend line (unrelated
     # to title_source truncation) doesn't join the per-row checks below.
-    lines = _format_tracks(SimpleNamespace(tracks=tracks))[1:1 + len(tracks)]
+    lines = _format_tracks(
+        SimpleNamespace(tracks=tracks, excluded_files=[]))[1:1 + len(tracks)]
     for source, line in zip(sources, lines):
         assert source in line, line
     # Every row's duration column starts at the same offset, or the table
@@ -168,7 +169,7 @@ def test_json_schema_spot_checks(tmp_path: Path):
     assert "broadcast_ready" not in data
     assert "broadcast_reasons" not in data
     assert data["overrides"] == {
-        "exclude": ["junk.mp3"], "narration": "vague", "venue": "My Hall",
+        "exclude": ["junk.mp3"], "include": [], "narration": "vague", "venue": "My Hall",
         "city": "Springfield", "date": "1973-06-10", "titles": {"1": "Bertha"},
         "set_breaks": [2, 4], "encore_after": None,
     }
@@ -271,3 +272,156 @@ def test_overrule_hint_points_at_fix(tmp_path: Path):
     assert "to overrule after inspecting: llama fix gratefuldead-1973-06-10 --overrule" \
         in r.output
     assert "--clear" not in r.output
+
+
+# --- overrides.include: the excluded listing, the `+` marker, the dropped count ---
+
+def _show_with_excluded(tmp_path: Path):
+    """A gathered show whose show.json carries two junk-filtered files and one
+    re-admitted track."""
+    from llama.models import Show, Track
+
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    s = read_model(ws.show, Show)
+    s.tracks = [
+        Track(index=1, set="1", title="Introduction", filename="intro.mp3",
+              title_source="override", duration_sec=37.0, included=True),
+        Track(index=2, set="1", title="Morning Dew", filename="a.mp3",
+              title_source="tags", duration_sec=300.0),
+    ]
+    s.excluded_files = [
+        {"filename": "spam.mp3", "reasons": ["filename convention mismatch"],
+         "duration_sec": 72.0},
+        {"filename": "tuning.mp3", "reasons": ["implausibly short"],
+         "duration_sec": 12.0},
+    ]
+    write_artifact(ws.show, s)
+    return ws
+
+
+def test_excluded_handles_number_from_one_in_show_json_order():
+    from llama.cli import _excluded_handles
+
+    class _S:
+        excluded_files = [{"filename": "a.mp3"}, {"filename": "b.mp3"}]
+
+    assert [(h, e["filename"]) for h, e in _excluded_handles(_S())] == [
+        ("x1", "a.mp3"), ("x2", "b.mp3")]
+
+
+def test_tracks_listing_shows_the_excluded_section(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    _show_with_excluded(tmp_path)
+    r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
+    assert r.exit_code == 0, r.output
+    assert "excluded (2):" in r.output
+    spam = next(ln for ln in r.output.splitlines() if "spam.mp3" in ln)
+    tuning = next(ln for ln in r.output.splitlines() if "tuning.mp3" in ln)
+    assert spam.split() == ["x1", "spam.mp3", "1:12", "filename", "convention", "mismatch"]
+    assert tuning.split() == ["x2", "tuning.mp3", "0:12", "implausibly", "short"]
+    # the filename column is padded to the widest name, so the durations line up
+    assert spam.index("1:12") == tuning.index("0:12")
+    assert "llama fix <show> --include x1" in r.output
+
+
+def test_excluded_section_survives_a_show_json_written_before_duration_sec(tmp_path: Path):
+    """Pre-feature show.json entries have no `duration_sec` key at all. The
+    listing must render them, not raise KeyError -- `e.get`, never `e[...]`."""
+    from llama.models import Show
+
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    s = read_model(ws.show, Show)
+    s.excluded_files = [{"filename": "old.mp3", "reasons": ["spam"]}]
+    write_artifact(ws.show, s)
+    r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
+    assert r.exit_code == 0, r.output
+    assert next(ln for ln in r.output.splitlines() if "old.mp3" in ln).split() == [
+        "x1", "old.mp3", "?", "spam"]
+
+
+def test_no_excluded_section_when_nothing_was_filtered(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
+    assert r.exit_code == 0, r.output
+    # NOT `"excluded" not in r.output`: `show` prints `path:`, and pytest's
+    # tmp_path embeds the test's own NAME -- so a whole-output substring check
+    # here is really asserting against the directory name, and would flip
+    # meaning if the test were renamed. Scope every negative to a line.
+    assert "tracks:" in r.output          # the listing really rendered
+    assert not any(ln.startswith("excluded (") for ln in r.output.splitlines())
+    assert "--include" not in r.output
+
+
+def test_tracks_listing_marks_a_re_admitted_track(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    _show_with_excluded(tmp_path)
+    r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
+    assert r.exit_code == 0, r.output
+    assert "+ = re-admitted by operator" in r.output
+    intro = next(ln for ln in r.output.splitlines() if "intro.mp3" in ln)
+    dew = next(ln for ln in r.output.splitlines() if "Morning Dew" in ln)
+    # whole-prefix checks, not `"1.+" in intro`: the marker occupies its own
+    # fixed column, so an un-marked row must carry a SPACE there. A bare
+    # substring pair would pass against a mutation that marks every row only
+    # by luck of the negative half's digit.
+    assert intro.startswith("   1.+ set "), intro
+    assert dew.startswith("   2.  set "), dew
+
+
+def test_no_re_admitted_legend_when_no_track_was_re_admitted(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    r = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
+    assert r.exit_code == 0, r.output
+    assert not any(ln.startswith("  + = ") for ln in r.output.splitlines())
+
+
+def test_dropped_count_shows_without_the_tracks_flag(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    _show_with_excluded(tmp_path)
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert r.exit_code == 0, r.output
+    assert "(2 tracks, 2 dropped)" in r.output
+    assert "excluded (2):" not in r.output
+
+
+def test_no_dropped_clause_when_nothing_was_dropped(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert r.exit_code == 0, r.output
+    # Pinned as the WHOLE recording line, not `"dropped" not in r.output`:
+    # the `path:` line carries pytest's tmp_path, which embeds this test's own
+    # name -- so the whole-output form asserts against the directory name. An
+    # exact line also catches the unconditional-clause mutation, which emits
+    # ", 0 dropped".
+    line = next(ln for ln in r.output.splitlines() if ln.startswith("recording:"))
+    assert line == "recording: gd73  (1 tracks)"
+
+
+def test_overrides_line_and_json_carry_include(tmp_path: Path):
+    from llama.models import Overrides
+
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    write_artifact(ws.overrides, Overrides(include=["intro.mp3"]))
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert r.exit_code == 0, r.output
+    assert "include=['intro.mp3']" in r.output
+    r = cli_invoke(cfg, "show", "gratefuldead", "--json", "--tracks")
+    assert r.exit_code == 0, r.output
+    data = json.loads(r.output)
+    assert data["overrides"]["include"] == ["intro.mp3"]
+    assert [e["filename"] for e in data["excluded"]] == ["spam.mp3", "tuning.mp3"]
+    assert data["tracks"][0]["included"] is True
+    assert data["tracks"][1]["included"] is False
+
+
+def test_json_omits_excluded_without_the_tracks_flag(tmp_path: Path):
+    cfg = _cfg(tmp_path)
+    _show_with_excluded(tmp_path)
+    r = cli_invoke(cfg, "show", "gratefuldead", "--json")
+    assert r.exit_code == 0, r.output
+    assert "excluded" not in json.loads(r.output)
