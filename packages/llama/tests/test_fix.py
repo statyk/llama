@@ -54,7 +54,11 @@ def test_bare_fix_errors(tmp_path):
 def test_old_show_flags_are_not_fix_flags(tmp_path):
     cfg = _cfg(tmp_path)
     _gathered_show(tmp_path)
-    for flag, value in [("--include", "x.mp3"), ("--title", "1=Song")]:
+    # `--include` is deliberately absent from this list: the UX redesign
+    # renamed the old show-level `--include` (an un-exclude) to `--unexclude`,
+    # and 2026-09-07 reintroduced `--include` on `fix` with its literal
+    # meaning -- re-admit a file the junk filter dropped.
+    for flag, value in [("--title", "1=Song")]:
         r = cli_invoke(cfg, "fix", "gratefuldead", flag, value)
         assert r.exit_code != 0, flag
         assert "no such option" in r.output.lower(), (flag, r.output)
@@ -373,3 +377,179 @@ def test_narration_bad_value_is_enum_error(tmp_path):
     r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "nonsense")
     assert r.exit_code != 0
     assert "vague" in r.output and "full" in r.output
+
+
+# --- --include: re-admitting a junk-filtered file ---
+
+def _show_with_excluded(tmp_path: Path):
+    """A gathered show carrying three excluded files: two junk-filtered and one
+    the operator excluded earlier (already in overrides.exclude)."""
+    from llama.models import Overrides, Show
+    from llama.workspace import read_model, write_artifact
+
+    ws = _gathered_show(tmp_path)
+    s = read_model(ws.show, Show)
+    s.excluded_files = [
+        {"filename": "intro.mp3", "reasons": ["implausibly short"], "duration_sec": 37.0},
+        {"filename": "spam.mp3", "reasons": ["filename convention mismatch"],
+         "duration_sec": 72.0},
+        {"filename": "dropped.mp3", "reasons": ["operator-excluded"], "duration_sec": 300.0},
+    ]
+    write_artifact(ws.show, s)
+    write_artifact(ws.overrides, Overrides(exclude=["dropped.mp3"]))
+    return ws
+
+
+def test_include_by_handle_writes_overrides_include(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    stages = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x1")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).include == ["intro.mp3"]
+    assert stages == ["gather"]
+
+
+def test_include_handle_is_the_one_show_tracks_printed(tmp_path, monkeypatch):
+    """The handle an operator READS and the handle the resolver MEANS come from
+    one producer (`_excluded_handles`). Resolve `spam.mp3`'s handle out of the
+    real `show --tracks` listing and feed it straight back to `fix --include`:
+    any divergence between the two call sites lands on a different file."""
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    listed = cli_invoke(cfg, "show", "gratefuldead", "--tracks")
+    assert listed.exit_code == 0, listed.output
+    rows = [ln.split() for ln in listed.output.splitlines()
+            if "spam.mp3" in ln.split()]
+    assert len(rows) == 1, listed.output
+    handle = rows[0][0]
+    assert handle.startswith("x"), listed.output
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", handle)
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).include == ["spam.mp3"]
+
+
+def test_include_by_filename_and_comma_group(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x1,spam.mp3")
+    assert r.exit_code == 0, r.output
+    assert read_overrides(ws).include == ["intro.mp3", "spam.mp3"]
+
+
+def test_include_of_an_operator_excluded_file_unexcludes_it(tmp_path, monkeypatch):
+    """Owner decision: --include is the single undo. On a row whose reason is
+    operator-excluded it edits overrides.exclude, NOT overrides.include -- the
+    two lists must never both name a file.
+
+    `ov.exclude == []` alone does NOT pin the routing: _edit_overrides drops
+    every `add_include` name from `exclude` anyway, so that half stays true
+    with the routing removed. `ov.include == []` is the assertion that bites.
+    """
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x3")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.exclude == []
+    assert ov.include == []
+
+
+def test_excluding_an_included_file_removes_it_from_include(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    cli_invoke(cfg, "fix", "gratefuldead", "--include", "x1")
+    assert read_overrides(ws).include == ["intro.mp3"]
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "intro.mp3")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.include == []
+    # "dropped.mp3" is the fixture's pre-existing exclusion and is untouched:
+    # the brief drafted this as `== ["intro.mp3"]`, which would have passed
+    # only if --exclude REPLACED the list instead of appending to it.
+    assert ov.exclude == ["dropped.mp3", "intro.mp3"]
+
+
+def test_including_a_staged_exclusion_leaves_the_lists_disjoint(tmp_path, monkeypatch):
+    """The reachable path into the state gather has to tiebreak: `--exclude f
+    --no-run` stages the exclusion WITHOUT re-gathering, so `f` is still an
+    ordinary track and carries no `operator-excluded` row. A later
+    `--include f` therefore routes to `overrides.include`, and only
+    _edit_overrides' own `add_include` clause keeps it out of `exclude`."""
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "a.mp3", "--no-run")
+    assert read_overrides(ws).exclude == ["dropped.mp3", "a.mp3"]
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "a.mp3")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.include == ["a.mp3"]
+    assert ov.exclude == ["dropped.mp3"]
+
+
+def test_same_file_in_both_flags_errors(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    stages = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead",
+                   "--include", "x1", "--exclude", "intro.mp3")
+    assert r.exit_code != 0
+    assert "name the same file" in r.output
+    assert stages == []
+    # nothing written: overrides.json is byte-identical to what it was
+    ov = read_overrides(ws)
+    assert ov.include == []
+    assert ov.exclude == ["dropped.mp3"]
+
+
+def test_exclude_and_include_of_different_files_both_apply(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _show_with_excluded(tmp_path)
+    stages = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead",
+                   "--include", "x1", "--exclude", "a.mp3")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.include == ["intro.mp3"]
+    assert ov.exclude == ["dropped.mp3", "a.mp3"]
+    assert stages == ["gather"]
+
+
+def test_out_of_range_handle_errors(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    _show_with_excluded(tmp_path)
+    _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x9")
+    assert r.exit_code != 0
+    assert "no excluded file x9" in r.output
+
+
+def test_resolve_include_tokens_needs_show_json(tmp_path):
+    """The handle branch is the only one that reads show.json; a plain filename
+    must resolve without it. (`fix` guards on show.json before it gets here, so
+    this arm is only reachable by calling the resolver directly.)"""
+    import pytest
+
+    from llama.errors import LlamaError
+
+    ws = _show_with_excluded(tmp_path)
+    ws.show.unlink()
+    assert cli._resolve_include_tokens(ws, ["intro.mp3"]) == ["intro.mp3"]
+    with pytest.raises(LlamaError):
+        cli._resolve_include_tokens(ws, ["x1"])
+
+
+def test_include_refuses_to_combine_with_suggest_titles(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    _show_with_excluded(tmp_path)
+    stages = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--include", "x1", "--suggest-titles")
+    assert r.exit_code != 0
+    assert ("--suggest-titles cannot be combined with "
+            "--exclude/--unexclude/--include") in r.output
+    assert stages == []

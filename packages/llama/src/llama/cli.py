@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -1166,17 +1167,25 @@ def _resolve_show(config, ledger, name: str):
 _UNSET = object()
 
 
-def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None,
+def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), add_include=(),
+                    narration=None,
                     venue=_UNSET, city=_UNSET, date=_UNSET, set_titles=None,
                     clear_titles=(), set_breaks=_UNSET, clear_set_breaks=False,
                     encore_after=_UNSET, clear_encore=False):
     from llama.workspace import read_overrides
 
     ov = read_overrides(show_ws)
-    exclude = [f for f in ov.exclude if f not in set(rm_exclude)]
+    # The two lists are mutually exclusive by construction: adding to one
+    # removes from the other, so gather's "exclude wins" tiebreak (a defined
+    # answer for a hand-mangled file) is never reached through the CLI.
+    exclude = [f for f in ov.exclude if f not in set(rm_exclude) | set(add_include)]
     for f in add_exclude:
         if f not in exclude:
             exclude.append(f)
+    include = [f for f in ov.include if f not in set(add_exclude)]
+    for f in add_include:
+        if f not in include:
+            include.append(f)
     titles = dict(ov.titles)
     for n in clear_titles:
         titles.pop(int(n), None)
@@ -1184,6 +1193,7 @@ def _edit_overrides(show_ws, *, add_exclude=(), rm_exclude=(), narration=None,
         titles[int(n)] = t
     data = ov.model_copy(update={
         "exclude": exclude,
+        "include": include,
         "narration": narration or ov.narration,
         "titles": titles,
     })
@@ -1222,6 +1232,38 @@ def _resolve_exclude_tokens(show_ws, tokens) -> list[str]:
             if n not in by_index:
                 raise LlamaError(f"no track {n} (show has {len(tracks)} tracks)")
             out.append(by_index[n])
+        else:
+            out.append(p)
+    return out
+
+
+_HANDLE = re.compile(r"x\d+")
+
+
+def _resolve_include_tokens(show_ws, tokens) -> list[str]:
+    """Expand comma groups and map `xN` handles to that excluded file's
+    filename, via the same `_excluded_handles` numbering `show --tracks`
+    prints. Non-handle tokens pass through as filenames.
+
+    Going through `_excluded_handles` rather than indexing
+    `show.excluded_files[N-1]` is the whole point: one producer means the
+    handle the operator reads and the handle this resolver means cannot
+    drift apart."""
+    parts = [p.strip() for tok in tokens for p in str(tok).split(",") if p.strip()]
+    if not any(_HANDLE.fullmatch(p) for p in parts):
+        return parts
+    if not show_ws.show.exists():
+        raise LlamaError("resolving an x-handle needs show.json; "
+                         "reference the file by name instead")
+    by_handle = {h: e["filename"]
+                 for h, e in _excluded_handles(read_model(show_ws.show, Show))}
+    out = []
+    for p in parts:
+        if _HANDLE.fullmatch(p):
+            if p not in by_handle:
+                raise LlamaError(
+                    f"no excluded file {p} (show has {len(by_handle)} excluded files)")
+            out.append(by_handle[p])
         else:
             out.append(p)
     return out
@@ -2317,6 +2359,10 @@ def fix(
         None, "--exclude", help="Add source filenames (or track numbers) to overrides.exclude"),
     unexclude: list[str] = typer.Option(
         None, "--unexclude", help="Remove filenames (or track numbers) from overrides.exclude"),
+    include: list[str] = typer.Option(
+        None, "--include",
+        help="Re-admit a file the junk filter dropped: an x-handle from "
+             "`llama show <show> --tracks` (e.g. x1) or the source filename"),
     set_venue: str = typer.Option(None, "--set-venue", help="Force overrides.venue"),
     set_city: str = typer.Option(None, "--set-city", help="Force overrides.city"),
     set_date: str = typer.Option(None, "--set-date", help="Force overrides.date (YYYY-MM-DD)"),
@@ -2392,7 +2438,7 @@ def fix(
         # the silent-wrong-title failure this whole feature exists to
         # prevent. Refuse the combination outright rather than trying to
         # re-derive the post-exclusion numbering here.
-        if exclude or unexclude:
+        if exclude or unexclude or include:
             # C1 (final review): naming only "run the exclusion first, then
             # --suggest-titles" used to be the attack path INTO C1 -- an
             # operator following it literally via `--exclude ... --no-run`
@@ -2404,9 +2450,10 @@ def fix(
             # has to be followed by a real `gather` redo, not just staged,
             # before --suggest-titles can see a consistent track list.
             typer.echo(
-                "--suggest-titles cannot be combined with --exclude/--unexclude: "
-                "an exclusion in the same invocation renumbers tracks before the "
-                "proposal's numbering would apply. Run the exclusion first and let "
+                "--suggest-titles cannot be combined with "
+                "--exclude/--unexclude/--include: "
+                "a file edit in the same invocation renumbers tracks before the "
+                "proposal's numbering would apply. Run the file edit first and let "
                 f"it redo (`llama fix {entry.slug} --exclude ...` without --no-run, "
                 f"or `--no-run` followed by `llama redo {entry.slug} --from gather`), "
                 "then --suggest-titles as a separate invocation.", err=True)
@@ -2430,8 +2477,9 @@ def fix(
         # declined proposal reads as exit 0 = "hold cleared" when it was
         # not). Only exit early when suggest-titles was the ONLY edit flag
         # given; otherwise warn and fall through to the remaining edits
-        # below. `exclude`/`unexclude` are omitted from this check -- the
-        # guard above already exits before this point whenever either is set.
+        # below. `exclude`/`unexclude`/`include` are omitted from this check
+        # -- the guard above already exits before this point whenever any of
+        # them is set.
         other_edit_requested = bool(
             set_venue or set_city or set_date or parsed_titles or clear_title_nums
             or set_breaks or clear_set_breaks or set_encore or clear_encore
@@ -2452,13 +2500,13 @@ def fix(
                 raise typer.Exit(0)
             typer.echo("proposal not adopted; continuing with the other edit flag(s) given")
 
-    did_exclude = bool(exclude or unexclude)
+    did_files = bool(exclude or unexclude or include)
     did_meta = bool(set_venue or set_city or set_date or parsed_titles
                     or clear_title_nums or set_breaks or clear_set_breaks
                     or set_encore or clear_encore)
     did_narration = narration is not None
 
-    if not (did_exclude or did_meta or did_narration or overrule):
+    if not (did_files or did_meta or did_narration or overrule):
         typer.echo("nothing to fix: give an edit flag (see --help), or inspect with: "
                    f"llama show {entry.slug}", err=True)
         raise typer.Exit(1)
@@ -2468,16 +2516,34 @@ def fix(
         raise typer.Exit(1)
 
     real_edit = False
-    if did_exclude:
+    if did_files:
         try:
             add = _resolve_exclude_tokens(sws, exclude or [])
             rm = _resolve_exclude_tokens(sws, unexclude or [])
+            inc = _resolve_include_tokens(sws, include or [])
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(1)
-        ov = _edit_overrides(sws, add_exclude=add, rm_exclude=rm)
-        typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
-                   "(the hold clears itself if a clean re-gather results)")
+        clash = sorted(set(add) & set(inc))
+        if clash:
+            typer.echo("--exclude and --include name the same file(s): "
+                       f"{', '.join(clash)}", err=True)
+            raise typer.Exit(1)
+        # A row whose reason is operator-excluded was never junk-filtered, so
+        # re-admitting it means editing overrides.exclude -- that is the
+        # --unexclude case, which --include folds in.
+        was_operator = {e["filename"] for e in read_model(sws.show, Show).excluded_files
+                        if "operator-excluded" in e.get("reasons", [])}
+        undo = [f for f in inc if f in was_operator]
+        readmit = [f for f in inc if f not in was_operator]
+        ov = _edit_overrides(sws, add_exclude=add, rm_exclude=list(rm) + undo,
+                             add_include=readmit)
+        if add or rm or undo:
+            typer.echo(f"{entry.slug}: overrides.exclude = {ov.exclude} "
+                       "(the hold clears itself if a clean re-gather results)")
+        if readmit:
+            typer.echo(f"{entry.slug}: overrides.include = {ov.include} "
+                       "(the hold clears itself if a clean re-gather results)")
         real_edit = True
     if narration == NarrationMode.vague:
         _edit_overrides(sws, narration="vague")
@@ -2512,7 +2578,7 @@ def fix(
     if not real_edit:
         return   # e.g. a lone --overrule on a show that was never held
 
-    stage = "gather" if (did_exclude or did_meta) else ("brief" if did_narration else "package")
+    stage = "gather" if (did_files or did_meta) else ("brief" if did_narration else "package")
     if no_run:
         typer.echo(f"staged; next: llama redo {entry.slug} --from {stage}")
         return
