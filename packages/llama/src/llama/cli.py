@@ -38,7 +38,8 @@ from llama.profiles import (
 )
 from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
                             attention_sessions, mark_awaiting, mark_complete,
-                            mark_incomplete, mark_paused, session_state)
+                            mark_incomplete, mark_paused, read_request,
+                            session_state)
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
@@ -756,6 +757,14 @@ def _interpret_with_pause(config, ws: RunWorkspace, req: dict,
     (`_preflight_gate` says the hang version of this and is correct there --
     its tests do not bound the refusal. Same invariant, different evidence.)
     """
+    # A profile run is never criteria-less -- `_get_profile` writes
+    # criteria.json before anything can fail -- so this branch is
+    # unreachable for one today. The guard is here so that if that ever
+    # changes it fails loudly rather than asking the LLM to interpret None.
+    if req.get("mode", "query") != "query":
+        typer.echo(f"cannot re-interpret a {req['mode']} run: "
+                   f"{ws.dir} has no criteria.json", err=True)
+        raise typer.Exit(1)
     stalled = False
     while True:
         try:
@@ -790,7 +799,8 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     # session whose query would otherwise live only in argv. This artifact is
     # what makes such a session resumable at all (T6b).
     write_artifact(ws.request, json.dumps({
-        "query": query, "limit": limit, "artist_cap": artist_cap,
+        "mode": "query", "query": query, "profile": None,
+        "limit": limit, "artist_cap": artist_cap,
         "min_score": min_score, "year_cap": year_cap,
         "auto": auto, "plan": plan}, indent=2))
     if pace is None:
@@ -803,7 +813,7 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     if not proceed:
         return
     criteria = _interpret_with_pause(config, ws, {
-        "query": query, "limit": limit, "artist_cap": artist_cap,
+        "mode": "query", "query": query, "limit": limit, "artist_cap": artist_cap,
         "min_score": min_score, "year_cap": year_cap}, pace)
     if criteria is None:
         return
@@ -819,6 +829,16 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, claim_run_dir(config.root,
                                                  f"{date.today().isoformat()}-{name}"))
+    # The same invocation record `_get_query` writes. Without it a profile
+    # run parked by the run-level catch resumes with plan=False and performs
+    # a full acquisition -- from the recovery path the CLI itself prints.
+    # The query-mode selection flags are None here: a profile run takes those
+    # values from its stored criteria, not from argv.
+    write_artifact(ws.request, json.dumps({
+        "mode": "profile", "query": None, "profile": name,
+        "limit": None, "artist_cap": None,
+        "min_score": None, "year_cap": None,
+        "auto": auto, "plan": plan}, indent=2))
     # Stamp count into the run's criteria: a later `llama run` on this dir
     # must behave like the profile, not the defaults.
     criteria = profile.criteria.model_copy(update={"count": profile.count,
@@ -2820,7 +2840,7 @@ def _print_attention(sessions) -> None:
 
 def _by_run_rollup(config, ledger) -> list[dict]:
     """One row per session dir: id, per-state show counts (via provenance
-    grouping), query. Absorbs the deleted `runs` command."""
+    grouping), query/profile. Absorbs the deleted `runs` command."""
     from collections import Counter
 
     from llama.catalog import iter_shows
@@ -2834,16 +2854,28 @@ def _by_run_rollup(config, ledger) -> list[dict]:
     rows = []
     for d in run_dirs:
         ws = RunWorkspace(config.root, d.name)
-        query = ""
+        query, profile = "", None
         if ws.criteria.exists():
-            query = read_model(ws.criteria, Criteria).query
+            criteria = read_model(ws.criteria, Criteria)
+            query, profile = criteria.query, criteria.profile
         elif ws.request.exists():
-            # Paused before interpret ever wrote criteria: same fallback as
-            # iter_sessions (sessions.py) -- duplicated here rather than
-            # routed through it (deferred minor: unify the two lookups).
-            query = json.loads(ws.request.read_text()).get("query") or ""
+            # Paused before interpret ever wrote criteria: mirrors
+            # iter_sessions' mode-aware branch (sessions.py) -- a profile
+            # run's request.json carries no `query`, so reading that field
+            # alone left a parked profile run blank here while `run list`
+            # (which goes through iter_sessions) named it correctly. A
+            # missing `mode` means an artifact written before modes
+            # existed, and those were all query runs. A malformed request
+            # reads as "no request" (`read_request`) so one bad file can't
+            # blind this sweep to every other session.
+            req = read_request(ws.request)
+            if req.get("mode", "query") == "profile":
+                profile = req.get("profile")
+            else:
+                query = req.get("query") or ""
         counts = by_run.get(d.name, Counter())
-        rows.append({"id": d.name, "query": query, "states": dict(sorted(counts.items()))})
+        rows.append({"id": d.name, "query": query, "profile": profile,
+                    "states": dict(sorted(counts.items()))})
     return rows
 
 
@@ -2899,7 +2931,8 @@ def status(
             return
         for row in rollup:
             summary = "  ".join(f"{s} {n}" for s, n in row["states"].items()) or "no shows"
-            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {row['query']:40.40s}")
+            label = f"profile: {row['profile']}" if row["profile"] else row["query"]
+            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {label:40.40s}")
         return
 
     entries = apply_selector(iter_shows(config.root, ledger), sel)

@@ -1,5 +1,6 @@
 import json
 import multiprocessing as mp
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -261,6 +262,37 @@ def test_run_list_json_survives_a_session_with_no_criteria(tmp_path: Path):
     assert "GD 1977 Cornell" in table_result.output
 
 
+def test_run_list_names_a_parked_profile_run_with_no_criteria(tmp_path: Path):
+    """A criteria-less parked run renders from the request. For a profile run
+    that must be `profile: <name>`, not an empty pair of quotes -- the same
+    defect fixed for query runs, one mode over.
+
+    Both renderers are checked: `_print_sessions` and `_session_json` are
+    separate code paths over the same SessionInfo, and the query half of this
+    branch needed both pinned.
+    """
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    ws = RunWorkspace(tmp_path, "profparked")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
+                                           "profile": "prime-dead",
+                                           "auto": True, "plan": True}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    info = iter_sessions(tmp_path)[0]
+    assert info.profile == "prime-dead"
+    assert info.query == ""
+
+    plain = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert plain.exit_code == 0, plain.output
+    assert "profile: prime-dead" in plain.output
+
+    as_json = runner.invoke(cli.app, ["--config", cfg, "run", "list", "--json"])
+    assert as_json.exit_code == 0, as_json.output
+    assert json.loads(as_json.output)[0]["profile"] == "prime-dead"
+
+
 def test_status_by_run_shows_the_query_of_a_run_with_no_criteria(tmp_path: Path):
     """`llama status --by-run` renders through `_by_run_rollup`, which
     duplicates the criteria lookup instead of going through `iter_sessions`
@@ -277,6 +309,177 @@ def test_status_by_run_shows_the_query_of_a_run_with_no_criteria(tmp_path: Path)
 
     assert result.exit_code == 0, result.output
     assert "GD 1977 Cornell" in result.output
+
+
+def test_status_by_run_names_a_parked_profile_run_with_no_criteria(tmp_path: Path):
+    """`_by_run_rollup` is a fourth reader of request.json, independent of
+    `iter_sessions`, and it was not updated when the mode-aware branch was
+    added there -- so for the same parked profile run, `llama run list`
+    named it `profile: prime-dead` while `llama status --by-run` rendered a
+    blank cell. Mirrors `test_run_list_names_a_parked_profile_run_with_no_criteria`,
+    one reader over."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    ws = RunWorkspace(tmp_path, "profparked2")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
+                                           "profile": "prime-dead",
+                                           "auto": True, "plan": True}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "profile: prime-dead" in result.output
+
+
+def test_a_malformed_request_json_does_not_blind_either_sweep(tmp_path: Path):
+    """iter_sessions and _by_run_rollup both parsed a criteria-less run's
+    request.json unguarded, so one malformed file used to raise
+    JSONDecodeError and exit BOTH `llama run list` and `llama status
+    --by-run` with code 1 -- hiding every OTHER session from the operator's
+    triage view. Guarded via `sessions.read_request`, the same defensive
+    shape `_read_marker` already has for session.json a few lines away: an
+    unreadable request now reads as "no request", and the run still lists
+    (with an empty query) instead of taking the whole listing down.
+    `run_resume`'s own read of this file is deliberately NOT routed through
+    this helper -- see the guard comment there."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+
+    bad_ws = RunWorkspace(tmp_path, "malformed")
+    bad_ws.dir.mkdir(parents=True)
+    bad_ws.request.write_text("{not json")
+    mark_paused(bad_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    good_ws = RunWorkspace(tmp_path, "healthy")
+    good_ws.dir.mkdir(parents=True)
+    write_artifact(good_ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+    mark_paused(good_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    run_list_result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert run_list_result.exit_code == 0, run_list_result.output
+    assert "GD 1977 Cornell" in run_list_result.output
+
+    status_result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+    assert status_result.exit_code == 0, status_result.output
+    assert "GD 1977 Cornell" in status_result.output
+
+
+def test_a_non_object_request_json_does_not_blind_either_sweep(tmp_path: Path):
+    """`read_request`'s `isinstance(req, dict)` guard covers valid-JSON,
+    wrong-shape content: `request.json` containing `[]` or `"x"` parses fine
+    but is not a dict, so an unguarded `.get()` downstream would raise and
+    take the whole sweep down with it -- the same symptom as the malformed-
+    JSON case above, from valid JSON that just isn't an object."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+
+    bad_ws = RunWorkspace(tmp_path, "nonobject")
+    bad_ws.dir.mkdir(parents=True)
+    bad_ws.request.write_text("[]")
+    mark_paused(bad_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    good_ws = RunWorkspace(tmp_path, "healthy")
+    good_ws.dir.mkdir(parents=True)
+    write_artifact(good_ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+    mark_paused(good_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    run_list_result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert run_list_result.exit_code == 0, run_list_result.output
+    assert "GD 1977 Cornell" in run_list_result.output
+
+    status_result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+    assert status_result.exit_code == 0, status_result.output
+    assert "GD 1977 Cornell" in status_result.output
+
+
+def test_an_unreadable_request_json_does_not_blind_either_sweep(tmp_path: Path):
+    """`read_request`'s `except OSError` arm covers a present-but-unreadable
+    file -- a permissions error or (as reproduced here) a request.json
+    chmod'd unreadable. Without the arm, `path.read_text()` raises and takes
+    the whole sweep down, same as the malformed-JSON case above."""
+    if os.geteuid() == 0:
+        pytest.skip("root ignores file permissions; chmod 000 has no effect")
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+
+    bad_ws = RunWorkspace(tmp_path, "unreadable")
+    bad_ws.dir.mkdir(parents=True)
+    write_artifact(bad_ws.request, json.dumps({"query": "unreadable"}))
+    bad_ws.request.chmod(0o000)
+    mark_paused(bad_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+    try:
+        good_ws = RunWorkspace(tmp_path, "healthy")
+        good_ws.dir.mkdir(parents=True)
+        write_artifact(good_ws.request, json.dumps({"query": "GD 1977 Cornell"}))
+        mark_paused(good_ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+        run_list_result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+        assert run_list_result.exit_code == 0, run_list_result.output
+        assert "GD 1977 Cornell" in run_list_result.output
+
+        status_result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
+        assert status_result.exit_code == 0, status_result.output
+        assert "GD 1977 Cornell" in status_result.output
+    finally:
+        bad_ws.request.chmod(0o644)
+
+
+def test_a_malformed_request_json_fails_run_resume_loudly(tmp_path: Path, monkeypatch):
+    """The deliberate asymmetry with the test above: `run_resume`'s own two
+    reads of `request.json` are NOT routed through `sessions.read_request`,
+    because there a malformed file must fail loudly rather than silently
+    resume with `plan=False` -- which would let a parked `--plan` run
+    download and package a show at exit 0, the exact failure this branch
+    exists to prevent. Routing either read through the guard leaves the
+    full suite green otherwise, so this pins the asymmetry directly rather
+    than relying on the docstring saying so.
+
+    Exercises BOTH direct-read call sites, since a single `run resume`
+    invocation only ever reaches one of them (they sit in the two arms of
+    `if not ws.criteria.exists():`): no-criteria.json (cli.py:1102, the T6b
+    parked-before-interpret shape) and criteria.json-present (cli.py:1114,
+    the run-level RateLimited-catch shape).
+
+    Each assertion checks the exception is specifically a `JSONDecodeError`,
+    not merely that SOMETHING failed loudly: routing either read through
+    `read_request` swallows the parse error and returns `{}`, and downstream
+    code can still fail non-zero on that empty dict (site 1: `req["query"]`
+    KeyErrors inside `_interpret_and_stamp`) -- a bare `exit_code != 0` check
+    passes just the same under that mutation and does not pin the guard
+    that's actually at stake here."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    # Site 1 (cli.py:1102): no criteria.json, request.json malformed.
+    no_criteria_ws = RunWorkspace(tmp_path, "malformed-no-criteria")
+    no_criteria_ws.dir.mkdir(parents=True)
+    no_criteria_ws.request.write_text("{not json")
+    mark_paused(no_criteria_ws, None, [], "2026-09-07T15:10:00+00:00",
+               "five_hour", "limit")
+
+    result1 = runner.invoke(cli.app, ["--config", cfg, "run", "resume",
+                                      "malformed-no-criteria"])
+    assert isinstance(result1.exception, json.JSONDecodeError), result1.exception
+    assert result1.exit_code != 0
+    assert "packaged:" not in result1.output
+    assert session_state(no_criteria_ws.dir) == STATE_PAUSED
+
+    # Site 2 (cli.py:1114): criteria.json present, request.json malformed.
+    with_criteria_ws = _parked_profile_run(tmp_path, "malformed-with-criteria",
+                                           plan=True)
+    with_criteria_ws.request.write_text("{not json")
+
+    result2 = runner.invoke(cli.app, ["--config", cfg, "run", "resume",
+                                      "malformed-with-criteria"])
+    assert isinstance(result2.exception, json.JSONDecodeError), result2.exception
+    assert result2.exit_code != 0
+    assert "packaged:" not in result2.output
+    assert session_state(with_criteria_ws.dir) == STATE_PAUSED
 
 
 def test_profile_run_stamps_profile_name_into_criteria(tmp_path: Path, monkeypatch):
@@ -921,6 +1124,264 @@ def test_run_resume_tolerates_a_request_without_a_plan_key(
     # A missing key means no --plan was asked for: resume processes normally.
     assert "packaged:" in result.output, result.output
     assert session_state(ws.dir) == STATE_COMPLETE
+
+
+def test_get_stamps_query_mode_on_the_request(tmp_path: Path, monkeypatch):
+    """`mode` is explicit rather than inferred from which of query/profile is
+    set: a reader that infers will one day meet a run where both or neither is
+    populated and pick silently."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                     "--auto", "--name", "modes"])
+    assert result.exit_code == 0, result.output
+
+    req = json.loads((tmp_path / "runs" / "modes" / "request.json").read_text())
+    assert req["mode"] == "query"
+    assert req["profile"] is None
+    assert req["query"] == "GD 1973"
+
+
+def test_a_request_without_mode_resumes_as_a_query_run(tmp_path: Path, monkeypatch):
+    """Runs parked by 67aa074 have no `mode` key, and they are all query runs
+    by construction -- `_get_profile` wrote no request at all. Reading a
+    missing mode as anything else strands them."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "oldreq")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                           "auto": True, "plan": False}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "oldreq"])
+
+    assert result.exit_code == 0, result.output
+    assert ws.criteria.exists()
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+
+
+def test_interpret_refuses_a_profile_request(tmp_path: Path, monkeypatch):
+    """Unreachable today -- `_get_profile` writes criteria.json before
+    anything can fail, so a profile run is never criteria-less. The guard
+    exists so that if it ever BECOMES reachable it fails loudly instead of
+    calling the LLM with query=None."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    called = []
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: called.append(1) or fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "profreq")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
+                                           "profile": "prime-dead",
+                                           "auto": True, "plan": False}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profreq"])
+
+    assert result.exit_code == 1
+    assert "profile" in result.output.lower()
+    assert called == []              # no LLM call attempted
+
+
+# --- Task 2: `_get_profile` writes the invocation record ---------------------
+
+def _parked_profile_run(tmp_path: Path, name: str, *, plan: bool):
+    """A profile run parked exactly as the run-level RateLimited catch leaves
+    one: criteria.json present (written before any stage ran), request.json
+    present, session paused."""
+    from llama.profiles import Profile, save_profile
+
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
+    ws = RunWorkspace(tmp_path, name)
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.criteria, Criteria(query="x", collection="GratefulDead",
+                                         artist="Grateful Dead",
+                                         date_from="1973-01-01",
+                                         date_to="1973-12-31", count=1,
+                                         profile="prime-dead"))
+    write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
+                                           "profile": "prime-dead",
+                                           "auto": True, "plan": plan}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+    return ws
+
+
+def test_a_parked_profile_plan_run_resumes_as_a_plan_run(tmp_path: Path, monkeypatch):
+    """The bug: the operator asked to see a shortlist, the run was interrupted,
+    and following the CLI's own `run resume` hint packaged shows instead."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    ws = _parked_profile_run(tmp_path, "profplan", plan=True)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profplan"])
+
+    assert result.exit_code == 0, result.output
+    assert "packaged:" not in result.output          # nothing was processed
+    assert "run approve profplan" in result.output
+    assert iter_sessions(tmp_path)[0].state == STATE_AWAITING
+
+
+def test_a_parked_profile_run_without_plan_still_processes(tmp_path: Path, monkeypatch):
+    """Guards against replaying plan unconditionally."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    _parked_profile_run(tmp_path, "profgo", plan=False)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profgo"])
+
+    assert result.exit_code == 0, result.output
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+
+
+def test_a_parked_profile_plan_run_processes_once_a_shortlist_exists(
+        tmp_path: Path, monkeypatch):
+    """`--plan` means "stop AT the shortlist", so the directive is satisfied
+    once one exists. Without this, `request.json` carries plan:true forever
+    and every later resume re-parks the session -- permanently.
+
+    The shortlist has to be REAL, built by a genuine `llama get --profile
+    --plan` run, not a stub: `_execute`'s own `if not shortlist: ... return`
+    (cli.py:500) fires before the `if plan:` branch this test exists to
+    exercise ever runs, so a run parked over an EMPTY shortlist short-circuits
+    there regardless of whether `run_resume`'s `and not ws.shortlist.exists()`
+    clause is present -- that version of this test passed identically with
+    the clause dropped. Mirrors the query-mode pin,
+    `test_run_resume_processes_once_a_shortlist_already_exists`, one mode
+    over."""
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    planned = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
+                                      "prime-dead", "--auto", "--plan"])
+    assert planned.exit_code == 0, planned.output
+    assert "packaged:" not in planned.output, planned.output
+    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
+    ws = RunWorkspace(tmp_path, run_dir.name)
+    assert ws.shortlist.exists()                      # the real artifact, not a stub
+    assert json.loads(ws.request.read_text())["plan"] is True
+    assert session_state(ws.dir) == STATE_AWAITING
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", run_dir.name])
+
+    assert result.exit_code == 0, result.output
+    assert "packaged:" in result.output, result.output
+    assert session_state(ws.dir) == STATE_COMPLETE
+
+
+def test_get_profile_writes_the_invocation_record(tmp_path: Path, monkeypatch):
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
+                                     "prime-dead", "--auto", "--plan"])
+    assert result.exit_code == 0, result.output
+
+    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
+    req = json.loads((run_dir / "request.json").read_text())
+    assert req["mode"] == "profile"
+    assert req["profile"] == "prime-dead"
+    assert req["query"] is None
+    assert req["plan"] is True
+
+
+def test_get_profile_writes_plan_false_without_the_flag(tmp_path: Path, monkeypatch):
+    """The `--plan` pin above only ever observes `plan: true` -- both tests
+    that exercise the real `_get_profile` writer pass `--plan`, and the only
+    `plan: false` coverage hand-builds `request.json` for a resume test. That
+    left `"plan": True` hardcodable in `_get_profile`'s `write_artifact` call
+    with the full suite green. This drives the real writer WITHOUT `--plan`
+    and reads the persisted record back, so a profile run that never asked
+    to be planned is provably not persisted as one -- which matters because
+    a stray `plan: true` there parks an unattended, cron-driven profile run
+    awaiting approval and processes nothing."""
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
+                                     "prime-dead", "--auto"])
+    assert result.exit_code == 0, result.output
+
+    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
+    req = json.loads((run_dir / "request.json").read_text())
+    assert req["mode"] == "profile"
+    assert req["profile"] == "prime-dead"
+    assert req["query"] is None
+    assert req["plan"] is False
+
+
+# --- 2B: the inline dict `_get_query` passes to `_interpret_with_pause` ------
+# must itself carry `mode` -- the `req.get("mode", "query")` default in
+# `_interpret_with_pause`'s guard exists to cover `request.json` artifacts
+# written before `mode` existed, not this call site (cli.py:814), which
+# mutation testing showed carries no `mode` key at all otherwise.
+
+def test_get_query_passes_mode_into_interpret_with_pause(tmp_path: Path, monkeypatch):
+    """Captures what the call site actually passes, rather than reading the
+    code: reading the code looked fine here before, and the mutation said
+    otherwise."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    captured = {}
+
+    def fake_interpret(config, ws, req, pace):
+        captured.update(req)
+        return None
+
+    monkeypatch.setattr(cli, "_interpret_with_pause", fake_interpret)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto"])
+
+    assert result.exit_code == 0, result.output
+    assert captured["mode"] == "query"
 
 
 # --- T6b: the pre-flight gate runs before interpret is paid for --------------

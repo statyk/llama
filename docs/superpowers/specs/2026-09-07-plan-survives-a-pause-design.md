@@ -156,9 +156,25 @@ Each names its expected red test **before** the mutant is applied; a different
 test failing is a failed prediction to record, not a pass.
 
 1. Drop `_get_profile`'s `request.json` write → test 1 goes red.
+   **Refuted, measured 2026-09-07 (worktree `llama-wt-pacing-loose-ends` @
+   `1d60877`, PYTHONPATH-shadowed against the shipped `packages/llama/tests`
+   without any other mutant applied): this actually reddens
+   `test_a_parked_profile_plan_run_processes_once_a_shortlist_exists` and
+   `test_get_profile_writes_the_invocation_record`, not "test 1"
+   (`test_a_parked_profile_plan_run_resumes_as_a_plan_run`), which is unaffected
+   because it hand-builds `request.json`/`criteria.json` via the
+   `_parked_profile_run` test helper rather than by calling the real
+   `_get_profile`.**
 2. Drop `and not ws.shortlist.exists()` → test 3 goes red (this guard is
    already pinned for query mode; test 3 extends the pin to profile mode).
 3. Make `_get_profile` write `mode="query"` → test 4 goes red.
+   **Refuted, same measurement pass: the actual catcher is
+   `test_get_profile_writes_the_invocation_record`. "Test 4"
+   (`test_run_list_names_a_parked_profile_run_with_no_criteria`) is unaffected
+   for the same reason as constraint 1 above — it hand-builds `request.json`
+   directly rather than going through `_get_profile`. Same refutation the
+   implementation plan records for this task's mutant 2; recorded here too
+   since this is the doc a mutator reads first.**
 4. Treat a missing `mode` as `"profile"` instead of `"query"` → test 5 goes red.
 5. Replay `auto` from the request in either mode → the existing
    `auto`-not-replayed test goes red. `run resume` keeps its own explicit
@@ -166,9 +182,17 @@ test failing is a failed prediction to record, not a pass.
 
 ## Risks
 
-- **A widened persisted artifact has three readers.** All three are named
-  above; a fourth appearing later is the thing to watch. The `mode` switch
-  makes a new reader's omission loud rather than silent.
+- **A widened persisted artifact has FOUR readers, not three.** `run_resume`,
+  `_interpret_with_pause`, and `sessions.iter_sessions` were named above;
+  `cli._by_run_rollup` (`llama status --by-run`'s own request.json lookup,
+  independent of `iter_sessions`) was missed at design time and shipped
+  un-updated — exactly the "fourth appearing later" this bullet warned about.
+  It rendered a parked profile run as a blank cell while `run list` named it
+  correctly, fixed in a follow-up commit
+  (`fix(cli): status --by-run names a parked profile run too`). The `mode`
+  switch still makes a new reader's omission loud rather than silent once
+  the reader is touched at all — it just doesn't make an *un*-touched reader
+  visible on its own.
 - **`_interpret_with_pause`'s guard covers an unreachable branch.** Deliberate:
   cheap, and the alternative is an LLM call on a `None` query if reachability
   ever changes.

@@ -168,9 +168,20 @@ git commit -m "feat(runs): mode on the invocation record, with a query default f
 
 - [ ] **Step 1: Write the failing tests**
 
+**Correction (recorded after Step 5's mutation pass, not re-derived): the
+`with_shortlist=True` branch below, which wrote an EMPTY shortlist
+(`write_artifact(ws.shortlist, [])`), is vacuous and was dropped from the
+shipped helper.** `_execute`'s own `if not shortlist: ... return`
+(`cli.py:500`) fires before the `if plan:` branch this helper exists to
+exercise ever runs, so a run parked over an empty shortlist short-circuits
+there regardless of whether `run_resume`'s `and not ws.shortlist.exists()`
+clause is present — that version of `test_a_parked_profile_plan_run_processes_once_a_shortlist_exists`
+passed identically with the clause dropped, which is not evidence the clause
+works. The shipped version instead builds a REAL shortlist via a genuine
+`llama get --profile --plan` invocation; see the corrected test below.
+
 ```python
-def _parked_profile_run(tmp_path: Path, name: str, *, plan: bool,
-                        with_shortlist: bool = False):
+def _parked_profile_run(tmp_path: Path, name: str, *, plan: bool):
     """A profile run parked exactly as the run-level RateLimited catch leaves
     one: criteria.json present (written before any stage ran), request.json
     present, session paused."""
@@ -192,8 +203,6 @@ def _parked_profile_run(tmp_path: Path, name: str, *, plan: bool,
     write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
                                            "profile": "prime-dead",
                                            "auto": True, "plan": plan}))
-    if with_shortlist:
-        write_artifact(ws.shortlist, [])
     mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
     return ws
 
@@ -233,17 +242,45 @@ def test_a_parked_profile_plan_run_processes_once_a_shortlist_exists(
         tmp_path: Path, monkeypatch):
     """`--plan` means "stop AT the shortlist", so the directive is satisfied
     once one exists. Without this, `request.json` carries plan:true forever
-    and every later resume re-parks the session -- permanently."""
+    and every later resume re-parks the session -- permanently.
+
+    The shortlist has to be REAL, built by a genuine `llama get --profile
+    --plan` run, not a stub: `_execute`'s own `if not shortlist: ... return`
+    (cli.py:500) fires before the `if plan:` branch this test exists to
+    exercise ever runs, so a run parked over an EMPTY shortlist short-circuits
+    there regardless of whether `run_resume`'s `and not ws.shortlist.exists()`
+    clause is present -- that version of this test passed identically with
+    the clause dropped. Mirrors the query-mode pin,
+    `test_run_resume_processes_once_a_shortlist_already_exists`, one mode
+    over."""
+    from llama.profiles import Profile, save_profile
+
     cfg = str(tmp_path / "config.toml")
     (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
     monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
     monkeypatch.setattr(cli, "IAClient", FakeIA)
-    _parked_profile_run(tmp_path, "profdone", plan=True, with_shortlist=True)
 
-    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profdone"])
+    planned = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
+                                      "prime-dead", "--auto", "--plan"])
+    assert planned.exit_code == 0, planned.output
+    assert "packaged:" not in planned.output, planned.output
+    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
+    ws = RunWorkspace(tmp_path, run_dir.name)
+    assert ws.shortlist.exists()                      # the real artifact, not a stub
+    assert json.loads(ws.request.read_text())["plan"] is True
+    assert session_state(ws.dir) == STATE_AWAITING
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", run_dir.name])
 
     assert result.exit_code == 0, result.output
-    assert iter_sessions(tmp_path)[0].state != STATE_AWAITING
+    assert "packaged:" in result.output, result.output
+    assert session_state(ws.dir) == STATE_COMPLETE
 
 
 def test_get_profile_writes_the_invocation_record(tmp_path: Path, monkeypatch):
@@ -394,7 +431,14 @@ The existing `test_run_list_shows_the_query_of_a_run_with_no_criteria` and `test
 Two mutants, each predicted first:
 
 1. Make the branch read `req.get("mode", "profile")` → reddens `test_run_list_shows_the_query_of_a_run_with_no_criteria`, because an old modeless request would render as a profile run with no name.
-2. Task 2's deferred mutant, now runnable: make `_get_profile` write `"mode": "query"` → reddens `test_run_list_names_a_parked_profile_run_with_no_criteria`. Record the result in this task.
+2. Task 2's deferred mutant, now runnable: make `_get_profile` write `"mode": "query"` → predicted red: `test_run_list_names_a_parked_profile_run_with_no_criteria`.
+   **Refuted, measured**: that test hand-builds `request.json` directly via
+   `write_artifact` — it never calls `_get_profile` — so mutating
+   `_get_profile`'s write has no effect on it and it stays green. The actual
+   catcher is `test_get_profile_writes_the_invocation_record`, the one test in
+   this plan that drives the real writer through `llama get --profile`.
+   Recording the correction rather than rewriting history to look right: the
+   plan's original prediction (here and in Task 2 Step 5's mutant 3) was wrong.
 
 Apply each, confirm, restore.
 
@@ -409,9 +453,20 @@ git commit -m "fix(runs): name a parked profile run on the attention list"
 
 ## Final verification
 
-- [ ] `./.venv/bin/python -m pytest -q` → 1913 passed, 7 deselected, exit 0
+- [ ] `./.venv/bin/python -m pytest -q` → 1914 passed, 7 deselected, exit 0
+  (stale as originally written: this plan's three tasks alone predicted 1913;
+  the true post-hoc figure is 1914 because two follow-up commits —
+  `fix(cli): stamp mode into the live interpret call, not just
+  request.json` and `test(cli): repair the profile
+  plan-satisfied-by-shortlist pin`, landed between Task 2 and Task 3 to fix
+  issues this plan's own mutation testing surfaced — added one more test
+  net beyond what this document's task-by-task steps account for. These
+  corrected totals pin `1d60877` -- the commit Task 3's own Step 6 lands --
+  so a later reader can tell whether they still apply by diffing against
+  that commit rather than assuming they track the branch tip.)
 - [ ] `./.venv/bin/python -c "import llama; print(llama.__file__)"` resolves inside the worktree
-- [ ] `--collect-only` node-ID diff against `origin/main`: 8 added, 0 removed
+- [ ] `--collect-only` node-ID diff against `origin/main`: 9 added, 0 removed (was
+  stated as 8; see the note above -- also measured at `1d60877`)
 - [ ] Every mutation ran with its predicted red test named first, and the observed failure matched
 - [ ] `git log --oneline` shows one commit per task, tree clean
 
