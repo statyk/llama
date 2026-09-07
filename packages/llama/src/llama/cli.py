@@ -756,6 +756,14 @@ def _interpret_with_pause(config, ws: RunWorkspace, req: dict,
     (`_preflight_gate` says the hang version of this and is correct there --
     its tests do not bound the refusal. Same invariant, different evidence.)
     """
+    # A profile run is never criteria-less -- `_get_profile` writes
+    # criteria.json before anything can fail -- so this branch is
+    # unreachable for one today. The guard is here so that if that ever
+    # changes it fails loudly rather than asking the LLM to interpret None.
+    if req.get("mode", "query") != "query":
+        typer.echo(f"cannot re-interpret a {req['mode']} run: "
+                   f"{ws.dir} has no criteria.json", err=True)
+        raise typer.Exit(1)
     stalled = False
     while True:
         try:
@@ -790,7 +798,8 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     # session whose query would otherwise live only in argv. This artifact is
     # what makes such a session resumable at all (T6b).
     write_artifact(ws.request, json.dumps({
-        "query": query, "limit": limit, "artist_cap": artist_cap,
+        "mode": "query", "query": query, "profile": None,
+        "limit": limit, "artist_cap": artist_cap,
         "min_score": min_score, "year_cap": year_cap,
         "auto": auto, "plan": plan}, indent=2))
     if pace is None:

@@ -923,6 +923,73 @@ def test_run_resume_tolerates_a_request_without_a_plan_key(
     assert session_state(ws.dir) == STATE_COMPLETE
 
 
+def test_get_stamps_query_mode_on_the_request(tmp_path: Path, monkeypatch):
+    """`mode` is explicit rather than inferred from which of query/profile is
+    set: a reader that infers will one day meet a run where both or neither is
+    populated and pick silently."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                     "--auto", "--name", "modes"])
+    assert result.exit_code == 0, result.output
+
+    req = json.loads((tmp_path / "runs" / "modes" / "request.json").read_text())
+    assert req["mode"] == "query"
+    assert req["profile"] is None
+    assert req["query"] == "GD 1973"
+
+
+def test_a_request_without_mode_resumes_as_a_query_run(tmp_path: Path, monkeypatch):
+    """Runs parked by 67aa074 have no `mode` key, and they are all query runs
+    by construction -- `_get_profile` wrote no request at all. Reading a
+    missing mode as anything else strands them."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "oldreq")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"query": "GD 1973", "limit": 1,
+                                           "auto": True, "plan": False}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "oldreq"])
+
+    assert result.exit_code == 0, result.output
+    assert ws.criteria.exists()
+    assert iter_sessions(tmp_path)[0].state == STATE_COMPLETE
+
+
+def test_interpret_refuses_a_profile_request(tmp_path: Path, monkeypatch):
+    """Unreachable today -- `_get_profile` writes criteria.json before
+    anything can fail, so a profile run is never criteria-less. The guard
+    exists so that if it ever BECOMES reachable it fails loudly instead of
+    calling the LLM with query=None."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    called = []
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: called.append(1) or fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    ws = RunWorkspace(tmp_path, "profreq")
+    ws.dir.mkdir(parents=True)
+    write_artifact(ws.request, json.dumps({"mode": "profile", "query": None,
+                                           "profile": "prime-dead",
+                                           "auto": True, "plan": False}))
+    mark_paused(ws, None, [], "2026-09-07T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "profreq"])
+
+    assert result.exit_code == 1
+    assert "profile" in result.output.lower()
+    assert called == []              # no LLM call attempted
+
+
 # --- T6b: the pre-flight gate runs before interpret is paid for --------------
 
 PF_NOW = datetime(2026, 9, 6, 8, 0, tzinfo=timezone.utc)
