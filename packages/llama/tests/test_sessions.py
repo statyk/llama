@@ -1095,6 +1095,32 @@ def test_get_profile_writes_the_invocation_record(tmp_path: Path, monkeypatch):
     assert req["plan"] is True
 
 
+# --- 2B: the inline dict `_get_query` passes to `_interpret_with_pause` ------
+# must itself carry `mode` -- the `req.get("mode", "query")` default in
+# `_interpret_with_pause`'s guard exists to cover `request.json` artifacts
+# written before `mode` existed, not this call site (cli.py:814), which
+# mutation testing showed carries no `mode` key at all otherwise.
+
+def test_get_query_passes_mode_into_interpret_with_pause(tmp_path: Path, monkeypatch):
+    """Captures what the call site actually passes, rather than reading the
+    code: reading the code looked fine here before, and the mutation said
+    otherwise."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    captured = {}
+
+    def fake_interpret(config, ws, req, pace):
+        captured.update(req)
+        return None
+
+    monkeypatch.setattr(cli, "_interpret_with_pause", fake_interpret)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973", "--auto"])
+
+    assert result.exit_code == 0, result.output
+    assert captured["mode"] == "query"
+
+
 # --- T6b: the pre-flight gate runs before interpret is paid for --------------
 
 PF_NOW = datetime(2026, 9, 6, 8, 0, tzinfo=timezone.utc)

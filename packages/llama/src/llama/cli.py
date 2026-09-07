@@ -812,7 +812,7 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
     if not proceed:
         return
     criteria = _interpret_with_pause(config, ws, {
-        "query": query, "limit": limit, "artist_cap": artist_cap,
+        "mode": "query", "query": query, "limit": limit, "artist_cap": artist_cap,
         "min_score": min_score, "year_cap": year_cap}, pace)
     if criteria is None:
         return
