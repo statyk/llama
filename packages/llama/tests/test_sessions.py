@@ -1151,6 +1151,41 @@ def test_get_profile_writes_the_invocation_record(tmp_path: Path, monkeypatch):
     assert req["plan"] is True
 
 
+def test_get_profile_writes_plan_false_without_the_flag(tmp_path: Path, monkeypatch):
+    """The `--plan` pin above only ever observes `plan: true` -- both tests
+    that exercise the real `_get_profile` writer pass `--plan`, and the only
+    `plan: false` coverage hand-builds `request.json` for a resume test. That
+    left `"plan": True` hardcodable in `_get_profile`'s `write_artifact` call
+    with the full suite green. This drives the real writer WITHOUT `--plan`
+    and reads the persisted record back, so a profile run that never asked
+    to be planned is provably not persisted as one -- which matters because
+    a stray `plan: true` there parks an unattended, cron-driven profile run
+    awaiting approval and processes nothing."""
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=False))
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
+                                     "prime-dead", "--auto"])
+    assert result.exit_code == 0, result.output
+
+    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
+    req = json.loads((run_dir / "request.json").read_text())
+    assert req["mode"] == "profile"
+    assert req["profile"] == "prime-dead"
+    assert req["query"] is None
+    assert req["plan"] is False
+
+
 # --- 2B: the inline dict `_get_query` passes to `_interpret_with_pause` ------
 # must itself carry `mode` -- the `req.get("mode", "query")` default in
 # `_interpret_with_pause`'s guard exists to cover `request.json` artifacts
