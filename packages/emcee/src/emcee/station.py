@@ -117,8 +117,8 @@ def scan(station_root: Path) -> list[PackageStatus]:
 
     statuses: list[PackageStatus] = []
     for entry in sorted(root.iterdir()):
-        if not entry.is_dir():
-            continue
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue   # dot dirs: llama's staged replace-voiced swap
         if not (entry / "manifest.json").exists():
             continue
         pkg = Package(entry)

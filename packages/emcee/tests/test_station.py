@@ -202,3 +202,13 @@ def test_scan_populates_voiced_by(tmp_path):
 
     assert by["v"].voiced_by == "casey"
     assert by["u"].voiced_by is None
+
+
+def test_scan_skips_dot_prefixed_dirs_even_with_a_manifest(tmp_path):
+    # llama's replace-voiced swap stages `.<slug>.deliver-<hex>` /
+    # `.<slug>.old-<hex>` siblings that contain a manifest.json.
+    build_package(tmp_path, slug="show-a", voiced=True)
+    build_package(tmp_path, slug=".show-a.deliver-abc123", voiced=False)
+    build_package(tmp_path, slug=".show-a.old-abc123", voiced=True)
+
+    assert {s.path.name for s in scan(tmp_path)} == {"show-a"}

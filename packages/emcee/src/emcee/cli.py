@@ -151,7 +151,8 @@ def _scan_broad(root: Path) -> list[PackageStatus]:
     """
     statuses: list[PackageStatus] = []
     for entry in sorted(Path(root).iterdir()):
-        if not entry.is_dir() or not (entry / "manifest.json").exists():
+        if (not entry.is_dir() or entry.name.startswith(".")  # llama's swap dirs
+                or not (entry / "manifest.json").exists()):
             continue
         pkg = Package(entry)
         try:

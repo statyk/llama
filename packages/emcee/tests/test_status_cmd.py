@@ -380,3 +380,14 @@ def test_status_json_house_voiced_and_house_assignment(tmp_path, monkeypatch):
     assert by["a1"]["voiced_by"] == "house"
     assert by["a1"]["assigned_presenter"] is None
     assert by["a1"]["assignment_source"] == "house"
+
+
+def test_status_broad_scan_skips_dot_prefixed_dirs(tmp_path, monkeypatch):
+    station = _setup_three_states(tmp_path, monkeypatch)
+    build_package(station, slug=".ready-show.deliver-abc123", voiced=False)
+
+    result = runner.invoke(app, ["status", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert {r["slug"] for r in json.loads(result.output)} == {
+        "ready-show", "pending-show", "unsupported-show"}
