@@ -81,8 +81,10 @@ implementation plan this was built from. The approved design spec is
   llama). No `voice`/`presenter` commands — that's emcee's job now.
 - Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
   `[station] root` and voice every not-yet-broadcast-ready package;
-  `--profile <name>` limits it to one llama profile's packages,
-  `--assigned` to packages with an `[assign]` match, `--dry-run` lists what
+  `--profile <name>` (repeatable) limits it to those llama
+  profiles' packages, `--assigned` to packages whose profile has its OWN
+  `[assign.profiles.<name>]` entry (not those falling to `[assign] default`
+  or the house voice), `--dry-run` lists what
   would be voiced and by whom — an explicit assignment prints `<id>`, the
   default `<id> (default)`, none `house`),
   `emcee voice <package-path>` (script + voice + assemble one package;

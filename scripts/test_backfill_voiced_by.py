@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import backfill_voiced_by as bf
-from emcee.presenters import Presenter
+from emcee.presenters import Presenter, save_presenter
 
 
 def P(id, name):
@@ -46,10 +46,18 @@ def test_single_match_applied_preserves_everything(tmp_path, capsys):
     assert after == before
 
 
-def test_dry_run_writes_nothing(tmp_path, capsys):
-    p = make(tmp_path, "s1", "this is K.C. here")
+def test_dry_run_writes_nothing(tmp_path, capsys, monkeypatch):
+    # Hermetic: main() loads config + presenters from EMCEE_ROOT, so point it
+    # at a private root (kept apart from the station dir swept for packages).
+    emcee_root = tmp_path / "emcee"
+    emcee_root.mkdir()
+    monkeypatch.setenv("EMCEE_ROOT", str(emcee_root))
+    save_presenter(emcee_root, P("kurt", "K.C."))
+    station = tmp_path / "station"
+    station.mkdir()
+    p = make(station, "s1", "this is K.C. here")
     raw = p.read_text()
-    assert bf.main(["--station-root", str(tmp_path)]) == 0
+    assert bf.main(["--station-root", str(station)]) == 0
     out = capsys.readouterr().out
     assert "s1: kurt" in out and "dry run: pass --apply to write" in out
     assert p.read_text() == raw
