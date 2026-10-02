@@ -26,6 +26,11 @@ implementation plan this was built from. The approved design spec is
   input and re-encodes otherwise, writing ID3 chapters per entry and pulling
   tags from a sibling `manifest.json` when there is one). `scripts` is in
   pytest `testpaths`, so its tests run under plain `pytest -q`.
+  `python scripts/backfill_voiced_by.py [--station-root P] [--apply]` is a
+  one-off (imports emcee): it fills `dj_audio.presenter` on packages voiced
+  before emcee recorded it, by whole-word matching each presenter's `name`
+  in the script text — exactly one match writes, zero or several leave `?`.
+  Dry run unless `--apply`.
 - Run (llama, acquisition): `llama get "..."`, `llama get --profile <name>`,
   `llama get` takes `--wait/--no-wait`, `--max-wait <dur>` and `--no-pacing`
   (also on `run approve`/`run resume`): when the claude_cli backend refuses
@@ -50,7 +55,8 @@ implementation plan this was built from. The approved design spec is
   `--suggest-titles` is the same title-proposal resolution, one
   invocation, one confirmation, refuses to combine with
   `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>`,
-  `llama deliver <name>`, `llama rm <name>`, `llama suppress`/
+  `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
+  unless `--replace-voiced`), `llama rm <name>`, `llama suppress`/
   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
   (session namespace; a run that lost shows to a failure ends
   `incomplete`, not `complete`, so it stays on `run list`'s attention list
@@ -74,14 +80,21 @@ implementation plan this was built from. The approved design spec is
   same treatment on its own six models via its own base (it must never import
   llama). No `voice`/`presenter` commands — that's emcee's job now.
 - Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
-  `[station] root` and voice every not-yet-broadcast-ready package),
+  `[station] root` and voice every not-yet-broadcast-ready package;
+  `--profile <name>` limits it to one llama profile's packages,
+  `--assigned` to packages with an `[assign]` match, `--dry-run` lists what
+  would be voiced and by whom — an explicit assignment prints `<id>`, the
+  default `<id> (default)`, none `house`),
   `emcee voice <package-path>` (script + voice + assemble one package;
   `--fresh <clip-stem>` deletes just that cached clip, but since emcee
   re-scripts on every call, a real LLM's regenerated text usually
   invalidates every clip's cache too — in practice `--fresh` normally
   re-renders every clip, not just the named one; `--force` re-synthesizes
-  all of them unconditionally), `emcee status` (table of every package's
-  state: ready/pending/unsupported), `emcee say <text-file>` (ad-hoc
+  all of them unconditionally), `emcee status` (default: a summary by profile; `--list`/`-l`
+  gives the per-package table of ready/pending/unsupported, `--profile`,
+  `--state` filter, `--json` for machines; the voicing presenter is the
+  recorded `dj_audio.presenter` — null is the house narrator, an absent key
+  means voiced before it was recorded and shows `?`), `emcee say <text-file>` (ad-hoc
   narration: text file in, MP3 out, no package/script/LLM — voice via
   `--clone`/`--voice`/`--presenter` else the house `[tts] voice`, bed via
   `--bed`/`--bed-gain`/`--no-bed` else the package rules, chunking ON by
