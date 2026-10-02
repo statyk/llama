@@ -429,3 +429,21 @@ def test_ad_hoc_bed_gain_override_replaces_the_station_gain():
 
 def test_ad_hoc_bed_is_none_when_nothing_configures_one():
     assert ad_hoc_bed(EmceeConfig(), None) is None
+
+
+def test_assignment_for_three_rules_and_labels():
+    from emcee.config import AssignConfig, Assignment, EmceeConfig
+    from emcee.process import AssignmentView, assignment_for, presenter_label
+
+    cfg = EmceeConfig(assign=AssignConfig(
+        default="dflt", profiles={"dead": Assignment(presenter="billyg", title="Host")}))
+    hit = assignment_for(cfg, "dead")
+    assert hit == AssignmentView("billyg", "Host", "profile")
+    assert presenter_label(hit) == "billyg"
+    miss = assignment_for(cfg, "phish")
+    assert miss == AssignmentView("dflt", None, "default")
+    assert presenter_label(miss) == "dflt (default)"
+    assert assignment_for(cfg, None).source == "default"
+    house = assignment_for(EmceeConfig(), "dead")
+    assert house == AssignmentView(None, None, "house")
+    assert presenter_label(house) == "house"

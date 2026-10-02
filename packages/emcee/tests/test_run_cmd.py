@@ -443,3 +443,202 @@ def test_run_success_survives_a_raising_speech_close(tmp_path, monkeypatch):
     assert f"voiced: {pkg_dir.name}" in result.output
     assert "1 package(s) voiced" in result.output
     assert "with errors" not in result.output
+
+
+# ---------------------------------------------------------------------------
+# run --profile / --assigned / --dry-run
+# ---------------------------------------------------------------------------
+
+
+def _selection_station(tmp_path, monkeypatch, assign_toml: str = ""):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    with (home / "config.toml").open("a") as f:
+        f.write("\n" + assign_toml + "\n")
+    _arm_fake_llm(monkeypatch)
+    return home, station
+
+
+_ASSIGN = """
+[assign]
+default = "dflt"
+
+[assign.profiles.dead]
+presenter = "billyg"
+title = "Host"
+"""
+
+
+def test_profile_option_selects_exact_matches_only(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch)
+    a = build_package(station, slug="a", profile="dead")
+    b = build_package(station, slug="b", profile="deadly")
+    c = build_package(station, slug="c", profile=None)
+
+    result = runner.invoke(app, ["run", "--profile", "dead"])
+
+    assert result.exit_code == 0, result.output
+    assert (a / "dj-notes.md").exists()
+    assert not (b / "dj-notes.md").exists()
+    assert not (c / "dj-notes.md").exists()
+    assert "1 package(s) voiced" in result.output
+
+
+def test_profile_option_is_repeatable(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        process_mod, "provider_for",
+        lambda settings, task: FakeProvider(completes=[_good_notes_json()] * 3),
+    )
+    a = build_package(station, slug="a", profile="dead")
+    b = build_package(station, slug="b", profile="phish")
+    c = build_package(station, slug="c", profile="other")
+
+    result = runner.invoke(app, ["run", "--profile", "dead", "--profile", "phish"])
+
+    assert result.exit_code == 0, result.output
+    assert (a / "dj-notes.md").exists() and (b / "dj-notes.md").exists()
+    assert not (c / "dj-notes.md").exists()
+
+
+def test_assigned_skips_default_and_house_packages(tmp_path, monkeypatch):
+    _, station = _selection_station(
+        tmp_path, monkeypatch, '[assign.profiles.dead]\npresenter = "x"\n')
+    a = build_package(station, slug="a", profile="dead")
+    b = build_package(station, slug="b", profile="unassigned")
+    c = build_package(station, slug="c", profile=None)
+
+    result = runner.invoke(app, ["run", "--assigned", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice: a" in result.output
+    assert "would voice: b" not in result.output
+    assert "would voice: c" not in result.output
+    assert "1 package(s) would be voiced" in result.output
+
+
+def test_assigned_excludes_profile_that_only_falls_to_default(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch, _ASSIGN)
+    build_package(station, slug="a", profile="dead")
+    build_package(station, slug="b", profile="phish")  # default-assigned
+
+    result = runner.invoke(app, ["run", "--assigned", "--dry-run"])
+
+    assert "would voice: a" in result.output
+    assert "would voice: b" not in result.output
+
+
+def test_profile_and_assigned_must_both_hold(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch, _ASSIGN)
+    build_package(station, slug="a", profile="dead")
+    build_package(station, slug="b", profile="phish")
+
+    result = runner.invoke(app, ["run", "--assigned", "--profile", "phish", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice" not in result.output.replace("0 package(s) would", "")
+    assert "0 package(s) would be voiced" in result.output
+
+
+def test_dry_run_lines_labels_and_missing_presenter_marker(tmp_path, monkeypatch):
+    home, station = _selection_station(tmp_path, monkeypatch, _ASSIGN)
+    (home / "presenters").mkdir()
+    # file name differs in case from the configured id: not "missing"
+    (home / "presenters" / "BILLYG.toml").write_text("")
+    build_package(station, slug="a", profile="dead")
+    build_package(station, slug="b", profile="phish")
+    build_package(station, slug="c", profile=None)
+    voiced = build_package(station, slug="d", profile="dead", voiced=True)
+
+    result = runner.invoke(app, ["run", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice: a  dead  billyg\n" in result.output
+    assert "would voice: b  phish  dflt (default)  [missing presenters/dflt.toml]" in result.output
+    assert "would voice: c  (none)  dflt (default)  [missing presenters/dflt.toml]" in result.output
+    assert "would voice: d" not in result.output
+    assert "3 package(s) would be voiced" in result.output
+    assert voiced.exists()
+
+
+def test_dry_run_house_label_and_no_side_effects(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch)
+    pkg = build_package(station, slug="a", profile="dead")
+    before = (pkg / "manifest.json").read_bytes()
+
+    def boom(*a, **k):
+        raise AssertionError("provider constructed during --dry-run")
+
+    monkeypatch.setattr(process_mod, "provider_for", boom)
+    monkeypatch.setattr("emcee.cli.speech_for", boom)
+    monkeypatch.setattr("emcee.cli.process_package", boom)
+
+    result = runner.invoke(app, ["run", "--dry-run", "--force"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice: a  dead  house" in result.output
+    assert (pkg / "manifest.json").read_bytes() == before
+    assert not (pkg / "dj-notes.md").exists()
+    assert not (pkg / "dj-audio").exists()
+
+
+def test_dry_run_still_reports_error_rows_and_exits_1(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch)
+    build_package(station, slug="a", profile="dead")
+    bad = station / "bad"
+    bad.mkdir()
+    (bad / "manifest.json").write_text(json.dumps({
+        "schema_version": 3, "source": {"profile": "dead"}, "tracks": [{}]}))
+
+    result = runner.invoke(app, ["run", "--dry-run"])
+
+    assert result.exit_code == 1
+    assert "would voice: a" in result.output
+    assert "error: bad:" in result.output
+
+
+def test_filter_notes_unreadable_manifests_and_keeps_known_profile_rows(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch)
+    build_package(station, slug="a", profile="dead")
+    # unsupported, profile unknown
+    v2 = station / "v2"
+    v2.mkdir()
+    (v2 / "manifest.json").write_text(json.dumps({"schema_version": 2}))
+    # unsupported, profile known + matching
+    v2p = station / "v2p"
+    v2p.mkdir()
+    (v2p / "manifest.json").write_text(json.dumps(
+        {"schema_version": 2, "source": {"profile": "dead"}}))
+    # unsupported, profile known, non-matching: silent
+    v2o = station / "v2o"
+    v2o.mkdir()
+    (v2o / "manifest.json").write_text(json.dumps(
+        {"schema_version": 2, "source": {"profile": "other"}}))
+    # unparseable JSON -> error row, profile None
+    junk = station / "junk"
+    junk.mkdir()
+    (junk / "manifest.json").write_text("{not json")
+
+    result = runner.invoke(app, ["run", "--profile", "dead", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice: a" in result.output
+    assert "skip v2p:" in result.output
+    assert "skip v2:" not in result.output
+    assert "v2o" not in result.output
+    assert "junk" not in result.output
+    assert "note: 2 package(s) skipped: manifest unreadable (see emcee status --list)" in result.output
+
+
+def test_no_options_still_reports_unreadable_rows_per_row_without_note(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch)
+    v2 = station / "v2"
+    v2.mkdir(parents=True)
+    (v2 / "manifest.json").write_text(json.dumps({"schema_version": 2}))
+
+    result = runner.invoke(app, ["run"])
+
+    assert "skip v2:" in result.output
+    assert "note:" not in result.output

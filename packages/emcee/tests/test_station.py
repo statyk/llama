@@ -154,3 +154,23 @@ def test_readiness_narration_vague_does_not_affect_readiness_legs(tmp_path):
     ok, reasons = readiness(Package(pkg_dir))
     assert ok is True
     assert reasons == []
+
+
+def test_scan_populates_profile_for_every_state(tmp_path):
+    import json
+    from tests.helpers import build_package
+    from emcee.station import scan
+
+    build_package(tmp_path, slug="a", profile="dead")
+    build_package(tmp_path, slug="b", profile=None)
+    v2 = tmp_path / "v2"
+    v2.mkdir()
+    (v2 / "manifest.json").write_text(json.dumps(
+        {"schema_version": 2, "source": {"profile": "old"}}))
+    v2n = tmp_path / "v2n"
+    v2n.mkdir()
+    (v2n / "manifest.json").write_text(json.dumps({"schema_version": 2}))
+
+    got = {s.path.name: s.profile for s in scan(tmp_path)}
+
+    assert got == {"a": "dead", "b": None, "v2": "old", "v2n": None}

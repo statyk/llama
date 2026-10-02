@@ -21,12 +21,12 @@ from emcee.presenters import (
     Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
 )
 from emcee.audio import render_speech_mp3
-from emcee.process import (ad_hoc_bed, ad_hoc_speech, process_package,
-                           resolve_assignment, speech_for)
+from emcee.process import (ad_hoc_bed, ad_hoc_speech, assignment_for, presenter_label,
+                           process_package, resolve_assignment, speech_for)
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
 from emcee.workspace import atomic_write_bytes
-from emcee.station import PackageStatus, readiness, scan
+from emcee.station import PackageStatus, manifest_profile, raw_profile, readiness, scan
 
 _COMMAND_ORDER = ["run", "voice", "status", "say", "presenter", "config"]
 
@@ -160,17 +160,21 @@ def _scan_broad(root: Path) -> list[PackageStatus]:
             statuses.append(PackageStatus(
                 path=entry, state="unsupported",
                 reasons=[f"unsupported (v{version} — re-deliver from llama)"],
+                profile=raw_profile(pkg.manifest_path),
             ))
             continue
         except Exception as exc:
-            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc)))
+            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc),
+                                          profile=raw_profile(pkg.manifest_path)))
             continue
         try:
             ok, reasons = readiness(pkg)
         except Exception as exc:
-            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc)))
+            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc),
+                                          profile=raw_profile(pkg.manifest_path)))
             continue
-        statuses.append(PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons))
+        statuses.append(PackageStatus(path=entry, state="ready" if ok else "pending",
+                                      reasons=reasons, profile=manifest_profile(pkg.manifest())))
     return statuses
 
 
@@ -238,6 +242,16 @@ def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
             pass
 
 
+def _presenter_file_exists(root: Path, presenter_id: str) -> bool:
+    """Whether `presenters/<id>.toml` exists, comparing the id
+    case-insensitively (the config may say `BillyG` for `billyg.toml`)."""
+    pdir = root / "presenters"
+    if (pdir / f"{presenter_id}.toml").exists():
+        return True
+    want = f"{presenter_id}.toml".lower()
+    return pdir.is_dir() and any(p.name.lower() == want for p in pdir.iterdir())
+
+
 @app.command()
 def run(
     force: bool = typer.Option(False, "--force",
@@ -245,6 +259,18 @@ def run(
     station_root: Path = typer.Option(
         None, "--station-root",
         help="Override \\[station] root for this invocation"),
+    profile: list[str] = typer.Option(
+        [], "--profile",
+        help="Only packages delivered for this llama profile (exact match); "
+             "repeatable"),
+    assigned: bool = typer.Option(
+        False, "--assigned",
+        help="Only packages whose profile has its own \\[assign.profiles] "
+             "entry (skip those that would fall to the default or house voice)"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run",
+        help="List what would be voiced, and with which presenter; no LLM, "
+             "TTS, or writes (--force is ignored)"),
 ):
     """Voice every pending package in the station.
 
@@ -261,15 +287,34 @@ def run(
     plus any indented detail lines (e.g. a scriptwrite guard failure's
     specific fact-check problems). Does not stop the rest of the batch.
     Exits 1 if any package failed.
+
+    `--profile NAME` (repeatable) restricts the run to packages stamped with
+    that llama profile; `--assigned` to those whose profile has its own
+    `\\[assign.profiles]` entry; both together must both hold. Under either,
+    a package whose manifest is unreadable (no profile can be known) is not
+    run and not reported per-row -- one `note:` line counts them. `--dry-run`
+    prints `would voice: <slug>  <profile>  <presenter>` for each selected
+    pending package and a count, doing no LLM, TTS, or file writes; error and
+    unsupported rows are reported as in a real run.
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
     statuses = _station_statuses(root)
 
+    filtering = bool(profile) or assigned
+    unreadable = 0
     failed = False
     processed = 0
     for status in statuses:
         slug = status.path.name
+        if filtering:
+            if status.profile is None and status.state in ("error", "unsupported"):
+                unreadable += 1
+                continue
+            if profile and status.profile not in profile:
+                continue
+            if assigned and assignment_for(config, status.profile).source != "profile":
+                continue
         if status.state == "unsupported":
             typer.echo(f"skip {slug}: {status.reasons[0]}")
             continue
@@ -280,6 +325,15 @@ def run(
             for line in status.reasons[1:]:
                 typer.echo(f"  {line}", err=True)
             failed = True
+            continue
+        if dry_run:
+            view = assignment_for(config, status.profile)
+            line = f"would voice: {slug}  {status.profile or '(none)'}  {presenter_label(view)}"
+            if view.presenter is not None and not _presenter_file_exists(
+                    config.root, view.presenter):
+                line += f"  [missing presenters/{view.presenter}.toml]"
+            typer.echo(line)
+            processed += 1
             continue
         try:
             _process_one(config, Package(status.path), force)
@@ -292,7 +346,14 @@ def run(
         processed += 1
         typer.echo(f"voiced: {slug}")
 
-    typer.echo(f"{processed} package(s) voiced" + (" (with errors)" if failed else ""))
+    if unreadable:
+        typer.echo(f"note: {unreadable} package(s) skipped: manifest unreadable "
+                   "(see emcee status --list)")
+    if dry_run:
+        typer.echo(f"{processed} package(s) would be voiced"
+                   + (" (with errors)" if failed else ""))
+    else:
+        typer.echo(f"{processed} package(s) voiced" + (" (with errors)" if failed else ""))
     if failed:
         raise typer.Exit(1)
 

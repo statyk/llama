@@ -14,6 +14,26 @@ class PackageStatus:
     path: Path
     state: str  # "ready" | "pending" | "unsupported"
     reasons: list[str] = field(default_factory=list)
+    profile: str | None = None  # manifest["source"]["profile"], when readable
+
+
+def manifest_profile(manifest: object) -> str | None:
+    """`manifest["source"]["profile"]` from a raw manifest dict; None for any
+    shape that does not carry a string there. Never raises."""
+    try:
+        profile = manifest["source"]["profile"]  # type: ignore[index]
+    except Exception:
+        return None
+    return profile if isinstance(profile, str) and profile else None
+
+
+def raw_profile(manifest_path: Path) -> str | None:
+    """Best-effort profile from the raw manifest JSON (for rows whose
+    manifest could not be loaded normally). Never raises."""
+    try:
+        return manifest_profile(json.loads(Path(manifest_path).read_text()))
+    except Exception:
+        return None
 
 
 def readiness(pkg: Package) -> tuple[bool, list[str]]:
@@ -95,11 +115,13 @@ def scan(station_root: Path) -> list[PackageStatus]:
                     path=entry,
                     state="unsupported",
                     reasons=[f"unsupported (v{version} — re-deliver from llama)"],
+                    profile=raw_profile(pkg.manifest_path),
                 )
             )
             continue
         ok, reasons = readiness(pkg)
         statuses.append(
-            PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons)
+            PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons,
+                          profile=manifest_profile(pkg.manifest()))
         )
     return statuses
