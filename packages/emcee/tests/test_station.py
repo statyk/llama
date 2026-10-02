@@ -154,3 +154,61 @@ def test_readiness_narration_vague_does_not_affect_readiness_legs(tmp_path):
     ok, reasons = readiness(Package(pkg_dir))
     assert ok is True
     assert reasons == []
+
+
+def test_scan_populates_profile_for_every_state(tmp_path):
+    import json
+    from tests.helpers import build_package
+    from emcee.station import scan
+
+    build_package(tmp_path, slug="a", profile="dead")
+    build_package(tmp_path, slug="b", profile=None)
+    v2 = tmp_path / "v2"
+    v2.mkdir()
+    (v2 / "manifest.json").write_text(json.dumps(
+        {"schema_version": 2, "source": {"profile": "old"}}))
+    v2n = tmp_path / "v2n"
+    v2n.mkdir()
+    (v2n / "manifest.json").write_text(json.dumps({"schema_version": 2}))
+
+    got = {s.path.name: s.profile for s in scan(tmp_path)}
+
+    assert got == {"a": "dead", "b": None, "v2": "old", "v2n": None}
+
+
+def test_manifest_voiced_by_four_states():
+    from emcee.station import manifest_voiced_by
+
+    assert manifest_voiced_by({"dj_audio": None}) is None
+    assert manifest_voiced_by({}) is None
+    assert manifest_voiced_by({"dj_audio": {"outro": "x"}}) == "?"
+    assert manifest_voiced_by({"dj_audio": {"presenter": None}}) == "house"
+    assert manifest_voiced_by({"dj_audio": {"presenter": "casey"}}) == "casey"
+    assert manifest_voiced_by("garbage") is None
+
+
+def test_scan_populates_voiced_by(tmp_path):
+    import json
+
+    from emcee.station import scan
+
+    pkg_dir = build_package(tmp_path, slug="v", voiced=True)
+    m = json.loads((pkg_dir / "manifest.json").read_text())
+    m["dj_audio"]["presenter"] = "casey"
+    (pkg_dir / "manifest.json").write_text(json.dumps(m))
+    build_package(tmp_path, slug="u", voiced=False)
+
+    by = {s.path.name: s for s in scan(tmp_path)}
+
+    assert by["v"].voiced_by == "casey"
+    assert by["u"].voiced_by is None
+
+
+def test_scan_skips_dot_prefixed_dirs_even_with_a_manifest(tmp_path):
+    # llama's replace-voiced swap stages `.<slug>.deliver-<hex>` /
+    # `.<slug>.old-<hex>` siblings that contain a manifest.json.
+    build_package(tmp_path, slug="show-a", voiced=True)
+    build_package(tmp_path, slug=".show-a.deliver-abc123", voiced=False)
+    build_package(tmp_path, slug=".show-a.old-abc123", voiced=True)
+
+    assert {s.path.name for s in scan(tmp_path)} == {"show-a"}

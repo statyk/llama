@@ -11,7 +11,9 @@ blocks -- in that order, with the manifest last (spec section 2: the
 manifest rewrite is the package's success marker).
 """
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from herder import provider_for
 
@@ -27,22 +29,46 @@ from emcee.tts.bed import Bed
 from emcee.workspace import atomic_write_text
 
 
-def resolve_assignment(config: EmceeConfig, manifest: dict) -> tuple[Presenter | None, str | None]:
-    """(presenter, title) for a delivered package, keyed off the llama
-    profile name stamped at `manifest["source"]["profile"]`:
+@dataclass(frozen=True)
+class AssignmentView:
+    """Which presenter a package resolves to, without loading any TOML."""
+    presenter: str | None
+    title: str | None
+    source: Literal["profile", "default", "house"]
+
+
+def assignment_for(config: EmceeConfig, profile: str | None) -> AssignmentView:
+    """The three assignment rules, pure (no presenter file is read):
 
     1. a matching `[assign.profiles.<profile>]` entry -> that presenter + its title
-    2. no match (or no profile stamped) -> `[assign] default` presenter, no title
-    3. no default either -> (None, None), the neutral house narrator
+    2. no match (or no profile) -> `[assign] default` presenter, no title
+    3. no default either -> the neutral house narrator (no presenter)
     """
-    profile = manifest.get("source", {}).get("profile")
     if profile:
         assignment = config.assign.profiles.get(profile)
         if assignment is not None:
-            return load_presenter(config.root, assignment.presenter), assignment.title
+            return AssignmentView(assignment.presenter, assignment.title, "profile")
     if config.assign.default:
-        return load_presenter(config.root, config.assign.default), None
-    return None, None
+        return AssignmentView(config.assign.default, None, "default")
+    return AssignmentView(None, None, "house")
+
+
+def presenter_label(view: AssignmentView) -> str:
+    """`<id>` for an explicit profile assignment, `<id> (default)` for the
+    station default, `house` for no presenter."""
+    if view.presenter is None:
+        return "house"
+    return f"{view.presenter} (default)" if view.source == "default" else view.presenter
+
+
+def resolve_assignment(config: EmceeConfig, manifest: dict) -> tuple[Presenter | None, str | None]:
+    """(presenter, title) for a delivered package, keyed off the llama
+    profile name stamped at `manifest["source"]["profile"]`; the rules live
+    in `assignment_for`."""
+    view = assignment_for(config, manifest.get("source", {}).get("profile"))
+    if view.presenter is None:
+        return None, None
+    return load_presenter(config.root, view.presenter), view.title
 
 
 def _resolve_bed(config: EmceeConfig, presenter: Presenter | None) -> Bed | None:
@@ -181,4 +207,5 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
     atomic_write_text(pkg.dir / "broadcast.m3u",
                       broadcast_m3u_text(manifest["tracks"], dj_audio))
 
+    dj_audio.presenter = presenter.id if presenter is not None else None
     rewrite_manifest(pkg, dj_notes=notes, dj_audio=dj_audio)

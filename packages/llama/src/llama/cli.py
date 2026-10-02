@@ -1929,10 +1929,15 @@ def pacing() -> None:      # shadows nothing: cli.py imports the pacing module
                else f"would pause: {verdict.reason}")
 
 
-def _confirm_plan(entries, action: str, yes: bool) -> bool:
+def _confirm_plan(entries, action: str, yes: bool, *,
+                  marks: dict[str, str] | None = None, note: str | None = None) -> bool:
+    """`marks` maps a slug to a suffix on its line; `note` prints before the
+    prompt. Both default to off, so other callers' output is unchanged."""
     typer.echo(f"{len(entries)} show(s) to {action}:")
     for e in entries:
-        typer.echo(f"  {e.slug}")
+        typer.echo(f"  {e.slug}{(marks or {}).get(e.slug, '')}")
+    if note:
+        typer.echo(note)
     if yes:
         return True
     return typer.confirm("Proceed?", default=False)
@@ -1947,12 +1952,63 @@ def _deliver_pointer(slug: str, reasons: list[str]) -> str:
     return f"  re-package: llama redo {slug} --from package"
 
 
-def _deliver_one(config, ledger, entry, dest) -> Path:
+def _destination_is_voiced(out: Path) -> bool:
+    """True when `out/manifest.json` is a JSON object whose `dj_audio` is
+    non-null -- emcee's mark that it voiced this delivered package. Read as
+    raw JSON (llama never imports emcee); anything unreadable or not an
+    object counts as not voiced."""
+    try:
+        m = json.loads((out / "manifest.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return isinstance(m, dict) and m.get("dj_audio") is not None
+
+
+def _replace_destination(pkg: Path, out: Path, target_dir: Path) -> None:
+    """Swap a fresh copy of `pkg` in for `out` wholesale: stage a sibling
+    temp copy, move the old destination aside, rename the copy into place,
+    then delete the old one. A failure before the swap removes the temp dir
+    and leaves `out` untouched. The dot-prefixed siblings are skipped by
+    emcee's scans."""
+    from uuid import uuid4
+
+    tmp = target_dir / f".{out.name}.deliver-{uuid4().hex}"
+    old = target_dir / f".{out.name}.old-{uuid4().hex}"
+    try:
+        shutil.copytree(pkg, tmp)
+        out.rename(old)
+    except BaseException:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    try:
+        tmp.rename(out)
+    except BaseException:
+        old.rename(out)           # put the original back
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    shutil.rmtree(old, ignore_errors=True)
+
+
+def _sweep_swap_leftovers(target_dir: Path, name: str) -> None:
+    """Under the show lock: delete stale `.{name}.deliver-*` siblings (pure
+    copies of llama's package, stale by construction), and warn about -- never
+    delete -- `.{name}.old-*` ones, which may hold the operator's voiced audio
+    from a killed replace."""
+    for stale in target_dir.glob(f".{name}.deliver-*"):
+        shutil.rmtree(stale, ignore_errors=True)
+    for old in sorted(target_dir.glob(f".{name}.old-*")):
+        typer.echo(f"warning: leftover {old} from an interrupted replace; it may hold "
+                   "voiced audio — remove it by hand once checked", err=True)
+
+
+def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     """Copy one resolved show's package to `dest` (or config.delivery_path)
     and record the delivery in the ledger; returns the destination path.
-    Raises LlamaError on refusal -- no destination, or a deliver-gate
+    Raises LlamaError on refusal -- no destination, a deliver-gate
     refusal from `catalog.deliver_refusals` (none of its three legs is
-    overridable)."""
+    overridable), or a destination emcee has already voiced (re-delivering
+    would silently un-voice it) unless `replace_voiced`, which replaces it
+    wholesale with a fresh, unvoiced copy."""
     import json as _json
 
     from llama.catalog import deliver_refusals
@@ -1970,7 +2026,16 @@ def _deliver_one(config, ledger, entry, dest) -> Path:
         pkg = show_dir / "package"
         manifest = _json.loads((pkg / "manifest.json").read_text())
         out = target_dir / show_dir.name
-        shutil.copytree(pkg, out, dirs_exist_ok=True)
+        _sweep_swap_leftovers(target_dir, show_dir.name)
+        if _destination_is_voiced(out):
+            if not replace_voiced:
+                raise LlamaError(
+                    f"refusing to deliver {entry.slug}: {out} is already voiced "
+                    "by emcee; re-delivering would un-voice it (pass "
+                    "--replace-voiced to replace it with a fresh, unvoiced copy)")
+            _replace_destination(pkg, out, target_dir)
+        else:
+            shutil.copytree(pkg, out, dirs_exist_ok=True)
         show = manifest["show"]
         run_name = entry.provenance.run if entry.provenance else "unknown"
         ledger.record(LedgerEntry(
@@ -1982,7 +2047,7 @@ def _deliver_one(config, ledger, entry, dest) -> Path:
     return out
 
 
-def _deliver_batch(config, ledger, sel, dest, yes) -> None:
+def _deliver_batch(config, ledger, sel, dest, yes, replace_voiced=False) -> None:
     from llama.catalog import iter_shows
     from llama.cli_select import HELD_NOTE, apply_selector, split_held
 
@@ -1993,11 +2058,21 @@ def _deliver_batch(config, ledger, sel, dest, yes) -> None:
     if not kept:
         typer.echo("no matching shows")
         return
-    if not _confirm_plan(kept, "deliver", yes):
+    marks: dict[str, str] = {}
+    note = None
+    target_dir = dest or config.delivery_path
+    if target_dir is not None:
+        voiced = [e.slug for e in kept if _destination_is_voiced(target_dir / e.ws.dir.name)]
+        if replace_voiced:
+            marks = {slug: "  (voiced: DJ script/audio will be discarded)" for slug in voiced}
+        elif voiced:
+            note = (f"note: {len(voiced)} destination(s) already voiced by emcee will be "
+                    "refused (pass --replace-voiced to replace them)")
+    if not _confirm_plan(kept, "deliver", yes, marks=marks, note=note):
         return
     for e in kept:
         try:
-            out = _deliver_one(config, ledger, e, dest)
+            out = _deliver_one(config, ledger, e, dest, replace_voiced)
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
         except OSError as exc:
@@ -2018,11 +2093,17 @@ def deliver(
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
+    replace_voiced: bool = typer.Option(
+        False, "--replace-voiced",
+        help="Replace a destination emcee has already voiced with a fresh, "
+             "unvoiced copy (discards its DJ script and audio)"),
 ):
     """Copy a show package to the station's watched folder and record delivery.
 
     Requires a clean package: packaged, file-complete, and not held for
-    review. None of these three legs is overridable.
+    review. None of these three legs is overridable. A destination emcee has
+    already voiced is refused (re-delivering would un-voice it) unless
+    --replace-voiced, which swaps in a fresh, unvoiced copy.
     """
     from llama.cli_select import build_selector
 
@@ -2039,7 +2120,7 @@ def deliver(
     if name is not None:
         entry = _resolve_show(config, ledger, name)
         try:
-            out = _deliver_one(config, ledger, entry, dest)
+            out = _deliver_one(config, ledger, entry, dest, replace_voiced)
         except LlamaError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(1)
@@ -2052,7 +2133,7 @@ def deliver(
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
-    _deliver_batch(config, ledger, sel, dest, yes)
+    _deliver_batch(config, ledger, sel, dest, yes, replace_voiced)
 
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,

@@ -21,12 +21,13 @@ from emcee.presenters import (
     Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
 )
 from emcee.audio import render_speech_mp3
-from emcee.process import (ad_hoc_bed, ad_hoc_speech, process_package,
-                           resolve_assignment, speech_for)
+from emcee.process import (ad_hoc_bed, ad_hoc_speech, assignment_for, presenter_label,
+                           process_package, resolve_assignment, speech_for)
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
 from emcee.workspace import atomic_write_bytes
-from emcee.station import PackageStatus, readiness, scan
+from emcee.station import (PackageStatus, manifest_profile, manifest_voiced_by, raw_profile,
+                           readiness, scan)
 
 _COMMAND_ORDER = ["run", "voice", "status", "say", "presenter", "config"]
 
@@ -150,27 +151,34 @@ def _scan_broad(root: Path) -> list[PackageStatus]:
     """
     statuses: list[PackageStatus] = []
     for entry in sorted(Path(root).iterdir()):
-        if not entry.is_dir() or not (entry / "manifest.json").exists():
+        if (not entry.is_dir() or entry.name.startswith(".")  # llama's swap dirs
+                or not (entry / "manifest.json").exists()):
             continue
         pkg = Package(entry)
         try:
-            pkg.manifest()
+            manifest = pkg.manifest()
         except UnsupportedPackage:
             version = json.loads(pkg.manifest_path.read_text()).get("schema_version", "?")
             statuses.append(PackageStatus(
                 path=entry, state="unsupported",
                 reasons=[f"unsupported (v{version} — re-deliver from llama)"],
+                profile=raw_profile(pkg.manifest_path),
             ))
             continue
         except Exception as exc:
-            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc)))
+            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc),
+                                          profile=raw_profile(pkg.manifest_path)))
             continue
         try:
             ok, reasons = readiness(pkg)
         except Exception as exc:
-            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc)))
+            statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc),
+                                          profile=manifest_profile(manifest),
+                                          voiced_by=manifest_voiced_by(manifest)))
             continue
-        statuses.append(PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons))
+        statuses.append(PackageStatus(path=entry, state="ready" if ok else "pending",
+                                      reasons=reasons, profile=manifest_profile(manifest),
+                                      voiced_by=manifest_voiced_by(manifest)))
     return statuses
 
 
@@ -238,6 +246,16 @@ def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
             pass
 
 
+def _presenter_file_exists(root: Path, presenter_id: str) -> bool:
+    """Whether `presenters/<id>.toml` exists, comparing the id
+    case-insensitively (the config may say `BillyG` for `billyg.toml`)."""
+    pdir = root / "presenters"
+    if (pdir / f"{presenter_id}.toml").exists():
+        return True
+    want = f"{presenter_id}.toml".lower()
+    return pdir.is_dir() and any(p.name.lower() == want for p in pdir.iterdir())
+
+
 @app.command()
 def run(
     force: bool = typer.Option(False, "--force",
@@ -245,6 +263,18 @@ def run(
     station_root: Path = typer.Option(
         None, "--station-root",
         help="Override \\[station] root for this invocation"),
+    profile: list[str] = typer.Option(
+        [], "--profile",
+        help="Only packages delivered for this llama profile (exact match); "
+             "repeatable"),
+    assigned: bool = typer.Option(
+        False, "--assigned",
+        help="Only packages whose profile has its own \\[assign.profiles] "
+             "entry (skip those that would fall to the default or house voice)"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run",
+        help="List what would be voiced, and with which presenter; no LLM, "
+             "TTS, or writes (--force is ignored)"),
 ):
     """Voice every pending package in the station.
 
@@ -261,15 +291,35 @@ def run(
     plus any indented detail lines (e.g. a scriptwrite guard failure's
     specific fact-check problems). Does not stop the rest of the batch.
     Exits 1 if any package failed.
+
+    `--profile NAME` (repeatable) restricts the run to packages stamped with
+    that llama profile; `--assigned` to those whose profile has its own
+    `\\[assign.profiles]` entry; both together must both hold. Under either,
+    a package whose manifest is unreadable (no profile can be known) is not
+    run and not reported per-row -- one `note:` line counts them. `--dry-run`
+    prints `would voice: <slug>  <profile>  <presenter>` for each selected
+    pending package and a count, doing no LLM, TTS, or file writes; error and
+    unsupported rows are reported as in a real run.
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
     statuses = _station_statuses(root)
 
+    _note_unmatched_profiles(statuses, profile)
+    filtering = bool(profile) or assigned
+    unreadable = 0
     failed = False
     processed = 0
     for status in statuses:
         slug = status.path.name
+        if filtering:
+            if status.profile is None and status.state in ("error", "unsupported"):
+                unreadable += 1
+                continue
+            if profile and status.profile not in profile:
+                continue
+            if assigned and assignment_for(config, status.profile).source != "profile":
+                continue
         if status.state == "unsupported":
             typer.echo(f"skip {slug}: {status.reasons[0]}")
             continue
@@ -280,6 +330,15 @@ def run(
             for line in status.reasons[1:]:
                 typer.echo(f"  {line}", err=True)
             failed = True
+            continue
+        if dry_run:
+            view = assignment_for(config, status.profile)
+            line = f"would voice: {slug}  {status.profile or '(none)'}  {presenter_label(view)}"
+            if view.presenter is not None and not _presenter_file_exists(
+                    config.root, view.presenter):
+                line += f"  [missing presenters/{view.presenter}.toml]"
+            typer.echo(line)
+            processed += 1
             continue
         try:
             _process_one(config, Package(status.path), force)
@@ -292,7 +351,14 @@ def run(
         processed += 1
         typer.echo(f"voiced: {slug}")
 
-    typer.echo(f"{processed} package(s) voiced" + (" (with errors)" if failed else ""))
+    if unreadable:
+        typer.echo(f"note: {unreadable} package(s) skipped: manifest unreadable "
+                   "(see emcee status --list)")
+    if dry_run:
+        typer.echo(f"{processed} package(s) would be voiced"
+                   + (" (with errors)" if failed else ""))
+    else:
+        typer.echo(f"{processed} package(s) voiced" + (" (with errors)" if failed else ""))
     if failed:
         raise typer.Exit(1)
 
@@ -452,14 +518,99 @@ def say_cmd(
     typer.echo(f"wrote {dest}")
 
 
+_STATUS_STATES = ("ready", "pending", "unsupported", "error")
+
+
+def _status_json_row(config: EmceeConfig, s: PackageStatus) -> dict:
+    view = assignment_for(config, s.profile)
+    presenter, source = view.presenter, view.source
+    if s.profile is None and s.state in ("error", "unsupported"):
+        presenter = source = None  # unreadable manifest: no profile, so no assignment
+    return {"slug": s.path.name, "state": s.state, "reasons": s.reasons,
+            "profile": s.profile, "voiced_by": s.voiced_by,
+            "assigned_presenter": presenter, "assignment_source": source}
+
+
+def _note_unmatched_profiles(statuses: list[PackageStatus], names) -> None:
+    """One stderr note per requested `--profile` that no package (any state)
+    carries -- a typo'd or wrong-case name must not look like an empty queue."""
+    known = {s.profile for s in statuses}
+    for name in names or []:
+        if name not in known:
+            typer.echo(f"note: no package has profile {name!r}", err=True)
+
+
+def _voiced_by_cell(config: EmceeConfig, s: PackageStatus) -> str:
+    """`-` when unvoiced; else who voiced it, annotated `(now: X)` when the
+    current assignment would pick a different presenter (ids compare
+    case-insensitively; `?` -- a legacy, unrecorded voicing -- never drifts)."""
+    if s.voiced_by is None:
+        return "-"
+    if s.voiced_by == "?":
+        return "?"
+    current = assignment_for(config, s.profile).presenter
+    if s.voiced_by.lower() != (current or "house").lower():
+        return f"{s.voiced_by} (now: {current or 'house'})"
+    return s.voiced_by
+
+
+def _echo_status_summary(config: EmceeConfig, statuses: list[PackageStatus]) -> None:
+    """One row per profile (sorted; `(none)` then `(unknown)` last, each only
+    when non-empty) with ready/pending/other counts, then a total line."""
+    groups: dict[str, list[PackageStatus]] = {}
+    for s in statuses:
+        if s.profile is not None:
+            key = s.profile
+        elif s.state in ("error", "unsupported"):
+            key = "(unknown)"  # no profile recoverable from an unreadable manifest
+        else:
+            key = "(none)"
+        groups.setdefault(key, []).append(s)
+    keys = sorted(k for k in groups if k not in ("(none)", "(unknown)"))
+    keys += [k for k in ("(none)", "(unknown)") if k in groups]
+
+    rows = [("profile", "presenter", "ready", "pending", "other")]
+    for key in keys:
+        members = groups[key]
+        presenter = ("" if key == "(unknown)"
+                     else presenter_label(assignment_for(config, members[0].profile)))
+        count = lambda *states: sum(1 for m in members if m.state in states)  # noqa: E731
+        rows.append((key, presenter, str(count("ready")), str(count("pending")),
+                     str(count("unsupported", "error"))))
+    total = lambda *states: sum(1 for s in statuses if s.state in states)  # noqa: E731
+    rows.append(("total", "", str(total("ready")), str(total("pending")),
+                 str(total("unsupported", "error"))))
+    widths = [max(len(r[c]) for r in rows) for c in range(5)]
+    for r in rows:
+        typer.echo("  ".join(f"{cell:<{w}}" for cell, w in zip(r, widths)).rstrip())
+
+
 @app.command("status")
 def status_cmd(
-    json_output: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit JSON (always per-show; filters apply)"),
+    list_view: bool = typer.Option(
+        False, "--list", "-l", help="Per-show table instead of the per-profile summary"),
+    profile: list[str] = typer.Option(
+        None, "--profile", help="Only this profile (exact match; repeatable); implies --list"),
+    state: list[str] = typer.Option(
+        None, "--state",
+        help="Only this state: ready|pending|unsupported|error (repeatable); implies --list"),
     station_root: Path = typer.Option(
         None, "--station-root",
         help="Override \\[station] root for this invocation"),
 ):
-    """Table of every package in the station: slug, state, reasons.
+    """Summary of the station by profile; `--list` for every package.
+
+    With no flags: one row per profile -- its assigned presenter and how
+    many packages are ready / pending / other (unsupported + error), plus a
+    total. `--list`/`-l`, `--profile NAME` or `--state STATE` switch to the
+    per-show table (slug, profile, state, voiced-by, reasons), filtered by
+    any given `--profile`/`--state`. Voiced-by shows who voiced a package
+    (`?` = voiced before emcee recorded it) and, when the current
+    `\\[assign]` config would now pick someone else, `(now: <presenter>)`.
+    `--json` is always per-show and adds `profile`, `voiced_by`,
+    `assigned_presenter` and `assignment_source`.
 
     States: "ready" (fully voiced and broadcast-assembled), "pending" (not
     yet, or not fully, processed), "unsupported" (pre-v3 manifest --
@@ -472,21 +623,38 @@ def status_cmd(
     root = _resolve_station_root(config, station_root)
     statuses = _station_statuses(root)
 
+    bad = [st for st in (state or []) if st not in _STATUS_STATES]
+    if bad:
+        raise typer.BadParameter(
+            f"unknown state {bad[0]!r}; expected one of {', '.join(_STATUS_STATES)}",
+            param_hint="--state")
+    filtered = bool(profile or state)
+    station_empty = not statuses
+    _note_unmatched_profiles(statuses, profile)
+    if profile:
+        statuses = [s for s in statuses if s.profile in profile]
+    if state:
+        statuses = [s for s in statuses if s.state in state]
+
     if json_output:
-        payload = [
-            {"slug": s.path.name, "state": s.state, "reasons": s.reasons}
-            for s in statuses
-        ]
-        typer.echo(json.dumps(payload, indent=2))
+        typer.echo(json.dumps([_status_json_row(config, s) for s in statuses], indent=2))
         return
 
     if not statuses:
-        typer.echo("no packages found")
+        typer.echo("no packages found" if station_empty or not filtered
+                   else "no packages match")
+        return
+    if not (list_view or filtered):
+        _echo_status_summary(config, statuses)
         return
     width = max(len(s.path.name) for s in statuses)
-    for s in statuses:
+    pwidth = max(len(s.profile or "(none)") for s in statuses)
+    cells = [_voiced_by_cell(config, s) for s in statuses]
+    vwidth = max(len(c) for c in cells)
+    for s, cell in zip(statuses, cells):
         reasons = "; ".join(s.reasons)
-        typer.echo(f"{s.path.name:<{width}}  {s.state:<12}  {reasons}")
+        typer.echo(f"{s.path.name:<{width}}  {s.profile or '(none)':<{pwidth}}  "
+                   f"{s.state:<12}  {cell:<{vwidth}}  {reasons}".rstrip())
 
 
 def _assignments_using_presenter(config: EmceeConfig, presenter_id: str) -> list[str]:

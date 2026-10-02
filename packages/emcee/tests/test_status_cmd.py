@@ -103,7 +103,7 @@ def _setup_three_states(tmp_path, monkeypatch):
 def test_status_table_renders_all_three_states_with_reasons(tmp_path, monkeypatch):
     _setup_three_states(tmp_path, monkeypatch)
 
-    result = runner.invoke(app, ["status"])
+    result = runner.invoke(app, ["status", "--list"])
 
     assert result.exit_code == 0, result.output
     out = result.output
@@ -175,7 +175,7 @@ def test_status_malformed_manifest_renders_as_error_row_and_table_continues(tmp_
         "set_durations_sec": {},
     }))
 
-    result = runner.invoke(app, ["status"])
+    result = runner.invoke(app, ["status", "--list"])
 
     assert result.exit_code == 0, result.output
     assert result.exception is None
@@ -190,3 +190,253 @@ def test_status_malformed_manifest_renders_as_error_row_and_table_continues(tmp_
     by_slug = {row["slug"]: row for row in payload}
     assert by_slug["badshow"]["state"] == "error"
     assert "filename" in by_slug["badshow"]["reasons"][0]
+
+
+# ---------------------------------------------------------------------------
+# Profile-aware views: summary (default), --list/--profile/--state, --json
+# ---------------------------------------------------------------------------
+
+
+def _write_assign_config(home: Path, station: Path, assign: str) -> None:
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "config.toml").write_text(
+        f'[station]\nroot = "{station}"\n\n[tts]\nbackend = "fake"\nvoice = "v"\n\n{assign}\n')
+
+
+def _set_voiced_by(pkg_dir: Path, **kw) -> None:
+    """Rewrite a voiced fixture's dj_audio block: `presenter=<x>` sets the
+    key; `legacy=True` drops it."""
+    path = pkg_dir / "manifest.json"
+    m = json.loads(path.read_text())
+    if kw.get("legacy"):
+        m["dj_audio"].pop("presenter", None)
+    else:
+        m["dj_audio"]["presenter"] = kw["presenter"]
+    path.write_text(json.dumps(m))
+
+
+def _mixed_station(tmp_path, monkeypatch, assign=""):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_assign_config(home, station, assign)
+    build_package(station, slug="b1", voiced=True, profile="beta")
+    build_package(station, slug="b2", voiced=False, profile="beta")
+    build_package(station, slug="a1", voiced=True, profile="alpha")
+    build_package(station, slug="n1", voiced=False)
+    v2 = station / "u1"
+    v2.mkdir(parents=True)
+    (v2 / "manifest.json").write_text("{\"schema_version\": 2}")
+    return station
+
+
+def test_status_summary_rows_counts_labels_and_order(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch, '[assign]\ndefault = "dflt"\n\n'
+                   '[assign.profiles.beta]\npresenter = "bob"\ntitle = "T"\n')
+
+    result = runner.invoke(app, ["status"])
+
+    assert result.exit_code == 0, result.output
+    lines = [ln.split() for ln in result.output.splitlines()]
+    assert lines[0] == ["profile", "presenter", "ready", "pending", "other"]
+    assert lines[1] == ["alpha", "dflt", "(default)", "1", "0", "0"]
+    assert lines[2] == ["beta", "bob", "1", "1", "0"]
+    assert lines[3] == ["(none)", "dflt", "(default)", "0", "1", "0"]
+    assert lines[4] == ["(unknown)", "0", "0", "1"]  # blank presenter
+    assert lines[5] == ["total", "2", "2", "1"]
+    assert len(lines) == 6
+    assert "slug" not in result.output
+
+
+def test_status_summary_omits_empty_none_and_unknown_rows(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_assign_config(home, station, "")
+    build_package(station, slug="a1", voiced=True, profile="alpha")
+
+    out = runner.invoke(app, ["status"]).output
+
+    assert "(none)" not in out and "(unknown)" not in out
+    assert "house" in out  # no assignment configured
+
+
+def test_status_summary_empty_station(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    station.mkdir(parents=True)
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_assign_config(home, station, "")
+
+    assert "no packages found" in runner.invoke(app, ["status"]).output
+
+
+def test_status_list_flag_and_short_flag_show_per_show_table(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    for flag in ("--list", "-l"):
+        out = runner.invoke(app, ["status", flag]).output
+        rows = {ln.split()[0]: ln for ln in out.splitlines()}
+        assert set(rows) == {"a1", "b1", "b2", "n1", "u1"}
+        assert "alpha" in rows["a1"] and "ready" in rows["a1"]
+        assert "(none)" in rows["n1"]
+        assert "re-deliver from llama" in rows["u1"]
+
+
+def test_status_profile_filter_implies_list_and_is_repeatable(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    out = runner.invoke(app, ["status", "--profile", "beta"]).output
+    assert {ln.split()[0] for ln in out.splitlines()} == {"b1", "b2"}
+
+    out = runner.invoke(app, ["status", "--profile", "beta", "--profile", "alpha"]).output
+    assert {ln.split()[0] for ln in out.splitlines()} == {"a1", "b1", "b2"}
+
+
+def test_status_state_filter_implies_list_and_combines_with_profile(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    out = runner.invoke(app, ["status", "--state", "pending"]).output
+    assert {ln.split()[0] for ln in out.splitlines()} == {"b2", "n1"}
+
+    out = runner.invoke(app, ["status", "--state", "pending", "--profile", "beta"]).output
+    assert {ln.split()[0] for ln in out.splitlines()} == {"b2"}
+
+    out = runner.invoke(app, ["status", "--state", "ready", "--state", "unsupported"]).output
+    assert {ln.split()[0] for ln in out.splitlines()} == {"a1", "b1", "u1"}
+
+
+def test_status_unknown_state_is_a_usage_error(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["status", "--state", "bogus"])
+
+    assert result.exit_code == 2
+
+
+def test_status_filter_matching_nothing_reports_no_packages(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["status", "--profile", "zzz"])
+
+    assert "no packages match" in result.output
+    assert "no packages found" not in result.output
+    assert "note: no package has profile 'zzz'" in result.output
+
+
+def test_status_state_filter_matching_nothing_says_no_match_without_note(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["status", "--state", "error"])
+
+    assert "no packages match" in result.output
+    assert "note:" not in result.output
+
+
+def test_status_wrong_case_profile_is_noted_alongside_matches(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["status", "--profile", "Beta", "--profile", "beta"])
+
+    assert "note: no package has profile 'Beta'" in result.output
+    assert "b1" in result.output
+
+
+def test_status_json_unreadable_rows_claim_no_assignment(tmp_path, monkeypatch):
+    station = _mixed_station(tmp_path, monkeypatch, '[assign]\ndefault = "dflt"\n')
+    bad = station / "bad1"
+    bad.mkdir()
+    (bad / "manifest.json").write_text("{not json")
+
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+
+    for slug in ("u1", "bad1"):
+        assert by[slug]["profile"] is None
+        assert by[slug]["assigned_presenter"] is None
+        assert by[slug]["assignment_source"] is None
+    # ready/pending rows with no profile genuinely resolve to the default
+    assert by["n1"]["assigned_presenter"] == "dflt"
+    assert by["n1"]["assignment_source"] == "default"
+
+
+def test_scan_broad_skips_dot_prefixed_dir_with_manifest(tmp_path):
+    from emcee.cli import _scan_broad
+
+    build_package(tmp_path, slug="real", voiced=False)
+    build_package(tmp_path, slug=".real.deliver-abc", voiced=False)
+    build_package(tmp_path, slug=".real.old-abc", voiced=True)
+
+    assert [s.path.name for s in _scan_broad(tmp_path)] == ["real"]
+
+
+def test_status_voiced_by_states_and_drift_annotation(tmp_path, monkeypatch):
+    station = _mixed_station(tmp_path, monkeypatch,
+                             '[assign.profiles.alpha]\npresenter = "BillyG"\n'
+                             '[assign.profiles.beta]\npresenter = "bob"\n')
+    # b1: voiced by someone else now -> drift; a1: same id, different case -> none
+    _set_voiced_by(station / "b1", presenter="carol")
+    _set_voiced_by(station / "a1", presenter="billyg")
+    build_package(station, slug="legacy", voiced=True, profile="alpha")  # no presenter key
+    build_package(station, slug="hse", voiced=True, profile="alpha")
+    _set_voiced_by(station / "hse", presenter=None)
+    build_package(station, slug="hse2", voiced=True, profile="gamma")  # gamma -> house now
+    _set_voiced_by(station / "hse2", presenter=None)
+    build_package(station, slug="gone", voiced=True, profile="gamma")
+    _set_voiced_by(station / "gone", presenter="dave")
+
+    out = runner.invoke(app, ["status", "--list"]).output
+    rows = {ln.split()[0]: ln for ln in out.splitlines()}
+
+    assert "(now: bob)" in rows["b1"] and "carol" in rows["b1"]
+    assert "billyg" in rows["a1"] and "(now:" not in rows["a1"]
+    assert "(now:" not in rows["legacy"] and rows["legacy"].split()[3] == "?"
+    assert "(now: BillyG)" in rows["hse"] and "house" in rows["hse"]
+    assert "house" in rows["hse2"] and "(now:" not in rows["hse2"]
+    assert "dave (now: house)" in rows["gone"]
+    assert "(now:" not in rows["b2"]  # unvoiced: "-"
+
+
+def test_status_json_adds_profile_voiced_by_and_assignment(tmp_path, monkeypatch):
+    station = _mixed_station(tmp_path, monkeypatch,
+                             '[assign]\ndefault = "dflt"\n\n'
+                             '[assign.profiles.beta]\npresenter = "bob"\n')
+    _set_voiced_by(station / "b1", presenter="bob")
+
+    payload = json.loads(runner.invoke(app, ["status", "--json"]).output)
+    by = {r["slug"]: r for r in payload}
+
+    assert by["b1"]["profile"] == "beta" and by["b1"]["voiced_by"] == "bob"
+    assert by["b1"]["assigned_presenter"] == "bob"
+    assert by["b1"]["assignment_source"] == "profile"
+    assert by["b2"]["voiced_by"] is None
+    assert by["a1"]["voiced_by"] == "?"  # legacy
+    assert by["a1"]["assigned_presenter"] == "dflt"
+    assert by["a1"]["assignment_source"] == "default"
+    assert by["n1"]["profile"] is None
+    assert by["u1"]["state"] == "unsupported"
+
+    # filters apply to --json, which stays per-show
+    only = json.loads(runner.invoke(app, ["status", "--json", "--profile", "beta"]).output)
+    assert {r["slug"] for r in only} == {"b1", "b2"}
+
+
+def test_status_json_house_voiced_and_house_assignment(tmp_path, monkeypatch):
+    station = _mixed_station(tmp_path, monkeypatch)
+    _set_voiced_by(station / "a1", presenter=None)
+
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+
+    assert by["a1"]["voiced_by"] == "house"
+    assert by["a1"]["assigned_presenter"] is None
+    assert by["a1"]["assignment_source"] == "house"
+
+
+def test_status_broad_scan_skips_dot_prefixed_dirs(tmp_path, monkeypatch):
+    station = _setup_three_states(tmp_path, monkeypatch)
+    build_package(station, slug=".ready-show.deliver-abc123", voiced=False)
+
+    result = runner.invoke(app, ["status", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert {r["slug"] for r in json.loads(result.output)} == {
+        "ready-show", "pending-show", "unsupported-show"}

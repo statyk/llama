@@ -273,6 +273,7 @@ def test_process_package_synthesizes_dj_audio_and_manifest_block(tmp_path):
     assert m["dj_audio"] == {
         "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         "outro": "dj-audio/99-outro.mp3",
+        "presenter": None,
     }
 
 

@@ -14,6 +14,44 @@ class PackageStatus:
     path: Path
     state: str  # "ready" | "pending" | "unsupported"
     reasons: list[str] = field(default_factory=list)
+    profile: str | None = None  # manifest["source"]["profile"], when readable
+    # Who voiced it: None = not voiced, "?" = voiced before emcee recorded the
+    # presenter (legacy), "house" = house narrator, else the presenter id.
+    voiced_by: str | None = None
+
+
+def manifest_profile(manifest: object) -> str | None:
+    """`manifest["source"]["profile"]` from a raw manifest dict; None for any
+    shape that does not carry a string there. Never raises."""
+    try:
+        profile = manifest["source"]["profile"]  # type: ignore[index]
+    except Exception:
+        return None
+    return profile if isinstance(profile, str) and profile else None
+
+
+def manifest_voiced_by(manifest: object) -> str | None:
+    """`voiced_by` from a raw manifest dict's `dj_audio` block (see
+    `PackageStatus.voiced_by`). Never raises."""
+    try:
+        dj_audio = manifest["dj_audio"]  # type: ignore[index]
+    except Exception:
+        return None
+    if not isinstance(dj_audio, dict):
+        return None
+    if "presenter" not in dj_audio:
+        return "?"
+    presenter = dj_audio["presenter"]
+    return presenter if isinstance(presenter, str) and presenter else "house"
+
+
+def raw_profile(manifest_path: Path) -> str | None:
+    """Best-effort profile from the raw manifest JSON (for rows whose
+    manifest could not be loaded normally). Never raises."""
+    try:
+        return manifest_profile(json.loads(Path(manifest_path).read_text()))
+    except Exception:
+        return None
 
 
 def readiness(pkg: Package) -> tuple[bool, list[str]]:
@@ -79,13 +117,13 @@ def scan(station_root: Path) -> list[PackageStatus]:
 
     statuses: list[PackageStatus] = []
     for entry in sorted(root.iterdir()):
-        if not entry.is_dir():
-            continue
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue   # dot dirs: llama's staged replace-voiced swap
         if not (entry / "manifest.json").exists():
             continue
         pkg = Package(entry)
         try:
-            pkg.manifest()
+            manifest = pkg.manifest()
         except UnsupportedPackage:
             version = json.loads(pkg.manifest_path.read_text()).get(
                 "schema_version", "?"
@@ -95,11 +133,14 @@ def scan(station_root: Path) -> list[PackageStatus]:
                     path=entry,
                     state="unsupported",
                     reasons=[f"unsupported (v{version} — re-deliver from llama)"],
+                    profile=raw_profile(pkg.manifest_path),
                 )
             )
             continue
         ok, reasons = readiness(pkg)
         statuses.append(
-            PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons)
+            PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons,
+                          profile=manifest_profile(manifest),
+                          voiced_by=manifest_voiced_by(manifest))
         )
     return statuses

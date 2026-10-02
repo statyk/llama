@@ -214,6 +214,7 @@ def test_process_package_writes_dj_notes_and_audio_and_manifest_last(tmp_path, m
     assert m["dj_audio"] == {
         "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         "outro": "dj-audio/99-outro.mp3",
+        "presenter": None,  # house narrator: key present, null
     }
 
 
@@ -270,6 +271,37 @@ def test_process_package_uses_resolved_presenter_for_the_script(tmp_path, monkey
 
     assert captured["presenter"].id == "casey"
     assert captured["title"] == "The Show"
+
+
+def _voice_and_read_presenter(tmp_path, monkeypatch, config_kwargs, profile):
+    monkeypatch.setattr(
+        "emcee.process.provider_for",
+        lambda settings, task: FakeProvider(completes=[_good_notes_json()]),
+    )
+    save_presenter(tmp_path / "home", _presenter(id="casey"))
+    pkg = Package(build_package(tmp_path / "station", voiced=False, profile=profile))
+    config = EmceeConfig(root=tmp_path / "home", **config_kwargs)
+    process_package(config, pkg, FakeSpeechProvider())
+    return json.loads(pkg.manifest_path.read_text())["dj_audio"]
+
+
+def test_process_package_records_assigned_presenter(tmp_path, monkeypatch):
+    dj_audio = _voice_and_read_presenter(
+        tmp_path, monkeypatch,
+        {"assign": {"profiles": {"prime-dead": Assignment(presenter="casey", title="T")}}},
+        "prime-dead")
+    assert dj_audio["presenter"] == "casey"
+
+
+def test_process_package_records_default_presenter(tmp_path, monkeypatch):
+    dj_audio = _voice_and_read_presenter(
+        tmp_path, monkeypatch, {"assign": {"default": "casey"}}, "unmatched")
+    assert dj_audio["presenter"] == "casey"
+
+
+def test_process_package_records_null_presenter_for_house(tmp_path, monkeypatch):
+    dj_audio = _voice_and_read_presenter(tmp_path, monkeypatch, {}, None)
+    assert "presenter" in dj_audio and dj_audio["presenter"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -429,3 +461,21 @@ def test_ad_hoc_bed_gain_override_replaces_the_station_gain():
 
 def test_ad_hoc_bed_is_none_when_nothing_configures_one():
     assert ad_hoc_bed(EmceeConfig(), None) is None
+
+
+def test_assignment_for_three_rules_and_labels():
+    from emcee.config import AssignConfig, Assignment, EmceeConfig
+    from emcee.process import AssignmentView, assignment_for, presenter_label
+
+    cfg = EmceeConfig(assign=AssignConfig(
+        default="dflt", profiles={"dead": Assignment(presenter="billyg", title="Host")}))
+    hit = assignment_for(cfg, "dead")
+    assert hit == AssignmentView("billyg", "Host", "profile")
+    assert presenter_label(hit) == "billyg"
+    miss = assignment_for(cfg, "phish")
+    assert miss == AssignmentView("dflt", None, "default")
+    assert presenter_label(miss) == "dflt (default)"
+    assert assignment_for(cfg, None).source == "default"
+    house = assignment_for(EmceeConfig(), "dead")
+    assert house == AssignmentView(None, None, "house")
+    assert presenter_label(house) == "house"
