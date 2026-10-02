@@ -1929,10 +1929,15 @@ def pacing() -> None:      # shadows nothing: cli.py imports the pacing module
                else f"would pause: {verdict.reason}")
 
 
-def _confirm_plan(entries, action: str, yes: bool) -> bool:
+def _confirm_plan(entries, action: str, yes: bool, *,
+                  marks: dict[str, str] | None = None, note: str | None = None) -> bool:
+    """`marks` maps a slug to a suffix on its line; `note` prints before the
+    prompt. Both default to off, so other callers' output is unchanged."""
     typer.echo(f"{len(entries)} show(s) to {action}:")
     for e in entries:
-        typer.echo(f"  {e.slug}")
+        typer.echo(f"  {e.slug}{(marks or {}).get(e.slug, '')}")
+    if note:
+        typer.echo(note)
     if yes:
         return True
     return typer.confirm("Proceed?", default=False)
@@ -1971,10 +1976,10 @@ def _replace_destination(pkg: Path, out: Path, target_dir: Path) -> None:
     old = target_dir / f".{out.name}.old-{uuid4().hex}"
     try:
         shutil.copytree(pkg, tmp)
+        out.rename(old)
     except BaseException:
         shutil.rmtree(tmp, ignore_errors=True)
         raise
-    out.rename(old)
     try:
         tmp.rename(out)
     except BaseException:
@@ -1982,6 +1987,18 @@ def _replace_destination(pkg: Path, out: Path, target_dir: Path) -> None:
         shutil.rmtree(tmp, ignore_errors=True)
         raise
     shutil.rmtree(old, ignore_errors=True)
+
+
+def _sweep_swap_leftovers(target_dir: Path, name: str) -> None:
+    """Under the show lock: delete stale `.{name}.deliver-*` siblings (pure
+    copies of llama's package, stale by construction), and warn about -- never
+    delete -- `.{name}.old-*` ones, which may hold the operator's voiced audio
+    from a killed replace."""
+    for stale in target_dir.glob(f".{name}.deliver-*"):
+        shutil.rmtree(stale, ignore_errors=True)
+    for old in sorted(target_dir.glob(f".{name}.old-*")):
+        typer.echo(f"warning: leftover {old} from an interrupted replace; it may hold "
+                   "voiced audio — remove it by hand once checked", err=True)
 
 
 def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
@@ -2009,6 +2026,7 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
         pkg = show_dir / "package"
         manifest = _json.loads((pkg / "manifest.json").read_text())
         out = target_dir / show_dir.name
+        _sweep_swap_leftovers(target_dir, show_dir.name)
         if _destination_is_voiced(out):
             if not replace_voiced:
                 raise LlamaError(
@@ -2040,7 +2058,17 @@ def _deliver_batch(config, ledger, sel, dest, yes, replace_voiced=False) -> None
     if not kept:
         typer.echo("no matching shows")
         return
-    if not _confirm_plan(kept, "deliver", yes):
+    marks: dict[str, str] = {}
+    note = None
+    target_dir = dest or config.delivery_path
+    if target_dir is not None:
+        voiced = [e.slug for e in kept if _destination_is_voiced(target_dir / e.ws.dir.name)]
+        if replace_voiced:
+            marks = {slug: "  (voiced: DJ script/audio will be discarded)" for slug in voiced}
+        elif voiced:
+            note = (f"note: {len(voiced)} destination(s) already voiced by emcee will be "
+                    "refused (pass --replace-voiced to replace them)")
+    if not _confirm_plan(kept, "deliver", yes, marks=marks, note=note):
         return
     for e in kept:
         try:

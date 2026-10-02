@@ -287,13 +287,111 @@ def test_replace_voiced_copy_failure_leaves_destination_and_no_temp(
         tmp_path: Path, monkeypatch):
     dest, out = _delivered_voiced(tmp_path)
     before = _tree(dest)
+    real = shutil.copytree
 
-    def boom(*a, **k):
-        raise OSError("disk full")
+    def boom(src, dst, *a, **k):
+        real(src, dst)                      # a partial temp copy exists...
+        (Path(dst) / "partial.bin").write_bytes(b"x")
+        raise OSError("disk full")          # ...then the copy dies
 
     monkeypatch.setattr(shutil, "copytree", boom)
     r = _deliver(tmp_path, dest, "--replace-voiced")
 
     assert r.exit_code != 0
     monkeypatch.undo()
+    assert not [p for p in dest.iterdir() if ".deliver-" in p.name]
     assert _tree(dest) == before
+
+
+def test_replace_voiced_rename_aside_failure_leaks_no_temp(tmp_path: Path, monkeypatch):
+    dest, out = _delivered_voiced(tmp_path)
+    before = _tree(dest)
+    real = Path.rename
+
+    def fake(self, target):
+        if self == out:
+            raise OSError("rename aside failed")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "rename", fake)
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+
+    assert r.exit_code != 0
+    monkeypatch.undo()
+    assert [p.name for p in dest.iterdir()] == [SLUG]
+    assert _tree(dest) == before
+
+
+def test_replace_voiced_rename_in_failure_restores_original(tmp_path: Path, monkeypatch):
+    dest, out = _delivered_voiced(tmp_path)
+    before = _tree(dest)
+    real = Path.rename
+
+    def fake(self, target):
+        if ".deliver-" in self.name and target == out:
+            raise OSError("rename in failed")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "rename", fake)
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+
+    assert r.exit_code != 0
+    monkeypatch.undo()
+    assert [p.name for p in dest.iterdir()] == [SLUG]
+    assert _tree(dest) == before
+
+
+def test_stale_deliver_sibling_is_swept_and_old_sibling_kept_with_warning(tmp_path: Path):
+    dest, out = _delivered_voiced(tmp_path)
+    stale = dest / f".{SLUG}.deliver-deadbeef"
+    stale.mkdir()
+    (stale / "manifest.json").write_text("{}")
+    old = dest / f".{SLUG}.old-cafe"
+    old.mkdir()
+    (old / "dj.mp3").write_bytes(b"voiced")
+
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+
+    assert r.exit_code == 0, r.output
+    assert not stale.exists()
+    assert (old / "dj.mp3").read_bytes() == b"voiced"
+    assert (f"warning: leftover {old} from an interrupted replace; it may hold "
+            "voiced audio") in " ".join(r.output.split())
+
+
+def _batch_voiced(tmp_path):
+    build_ready(tmp_path, "aready-1973-06-10")
+    build_ready(tmp_path, "bready-1973-06-11")
+    dest = tmp_path / "inbox"
+    cfg = _cfg(tmp_path)
+    assert runner.invoke(cli.app, ["--config", cfg, "deliver", "--packaged", "--yes",
+                                   "--dest", str(dest)]).exit_code == 0
+    _voice_destination(dest / "aready-1973-06-10")
+    return cfg, dest
+
+
+def test_batch_replace_voiced_marks_only_voiced_and_replaces_it(tmp_path: Path):
+    cfg, dest = _batch_voiced(tmp_path)
+
+    r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--state", "packaged",
+                                "--state", "delivered", "--replace-voiced", "--yes",
+                                "--dest", str(dest)])
+
+    assert r.exit_code == 0, r.output
+    marker = "(voiced: DJ script/audio will be discarded)"
+    lines = {ln.split()[0]: ln for ln in r.output.splitlines() if ln.startswith("  ")}
+    assert marker in lines["aready-1973-06-10"]
+    assert marker not in lines["bready-1973-06-11"]
+    assert not (dest / "aready-1973-06-10" / "dj-audio").exists()
+
+
+def test_batch_without_flag_notes_how_many_will_be_refused(tmp_path: Path):
+    cfg, dest = _batch_voiced(tmp_path)
+
+    r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--state", "packaged",
+                                "--state", "delivered", "--yes", "--dest", str(dest)])
+
+    assert ("note: 1 destination(s) already voiced by emcee will be refused "
+            "(pass --replace-voiced to replace them)") in r.output
+    assert "(voiced:" not in r.output
+    assert (dest / "aready-1973-06-10" / "dj-audio").exists()

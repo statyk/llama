@@ -642,3 +642,17 @@ def test_no_options_still_reports_unreadable_rows_per_row_without_note(tmp_path,
 
     assert "skip v2:" in result.output
     assert "note:" not in result.output
+
+
+def test_profile_with_no_matching_package_is_noted_in_run_and_dry_run(tmp_path, monkeypatch):
+    _, station = _selection_station(tmp_path, monkeypatch)
+    build_package(station, slug="d1", voiced=False, profile="dead")
+
+    for extra in ([], ["--dry-run"]):
+        result = runner.invoke(app, ["run", "--profile", "Dead", *extra])
+        assert "note: no package has profile 'Dead'" in result.output
+        assert "would voice" not in result.output
+
+    ok = runner.invoke(app, ["run", "--profile", "dead", "--dry-run"])
+    assert "note:" not in ok.output
+    assert "would voice: d1" in ok.output

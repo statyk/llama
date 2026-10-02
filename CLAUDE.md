@@ -56,7 +56,9 @@ implementation plan this was built from. The approved design spec is
   invocation, one confirmation, refuses to combine with
   `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>`,
   `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
-  unless `--replace-voiced`), `llama rm <name>`, `llama suppress`/
+  unless `--replace-voiced`, which replaces the destination wholesale and
+  discards its DJ script and audio; a batch confirmation marks or counts the
+  voiced destinations), `llama rm <name>`, `llama suppress`/
   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
   (session namespace; a run that lost shows to a failure ends
   `incomplete`, not `complete`, so it stays on `run list`'s attention list
@@ -93,8 +95,10 @@ implementation plan this was built from. The approved design spec is
   invalidates every clip's cache too — in practice `--fresh` normally
   re-renders every clip, not just the named one; `--force` re-synthesizes
   all of them unconditionally), `emcee status` (default: a summary by profile; `--list`/`-l`
-  gives the per-package table of ready/pending/unsupported, `--profile`,
-  `--state` filter, `--json` for machines; the voicing presenter is the
+  gives the per-package table of ready/pending/unsupported/`error`, `--profile`
+  and `--state` filter and switch to that table on their own, `--json` is
+  always per-show; a `--profile` no package carries prints a `note:` rather
+  than looking like an empty queue; the voicing presenter is the
   recorded `dj_audio.presenter` — null is the house narrator, an absent key
   means voiced before it was recorded and shows `?`), `emcee say <text-file>` (ad-hoc
   narration: text file in, MP3 out, no package/script/LLM — voice via
@@ -118,7 +122,8 @@ research + reviews digest, and a required neutral vetted `briefing` for
 scriptwriters) for an automated in-house radio station. `brief` is llama's
 sole text stage — llama does not write DJ scripts, has no presenters, no
 TTS, and no `[tts]`/presenter config. Its `deliver` gate is just: packaged,
-not held for review, and every manifest track's audio file present on disk.
+not held for review, and every manifest track's audio file present on disk
+— plus it refuses an emcee-voiced destination unless `--replace-voiced`.
 
 `emcee` (dist name `llama-emcee`, bare CLI `emcee`) is station-side and runs
 **after** `llama deliver` — it operates on the delivered-packages folder
@@ -480,7 +485,8 @@ tier (pins never escalate).
   is deterministic.
 - **emcee (station-side voicing), architecture:** `emcee run`/`emcee status`
   scan `[station] root` for delivered packages (`packages/emcee/src/emcee/
-  station.py`); `readiness()` computes the same "broadcast-ready" signal
+  station.py`; scans skip dot-prefixed dirs, which are llama's replace-swap
+  siblings); `readiness()` computes the same "broadcast-ready" signal
   llama used to (script present, DJ audio present, `broadcast.m3u` present,
   every manifest track's audio on disk) — but as emcee's own derived,
   never-stored state (`ready`/`pending`, plus `unsupported` for a pre-v3

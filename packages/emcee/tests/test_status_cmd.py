@@ -317,7 +317,56 @@ def test_status_unknown_state_is_a_usage_error(tmp_path, monkeypatch):
 def test_status_filter_matching_nothing_reports_no_packages(tmp_path, monkeypatch):
     _mixed_station(tmp_path, monkeypatch)
 
-    assert "no packages found" in runner.invoke(app, ["status", "--profile", "zzz"]).output
+    result = runner.invoke(app, ["status", "--profile", "zzz"])
+
+    assert "no packages match" in result.output
+    assert "no packages found" not in result.output
+    assert "note: no package has profile 'zzz'" in result.output
+
+
+def test_status_state_filter_matching_nothing_says_no_match_without_note(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["status", "--state", "error"])
+
+    assert "no packages match" in result.output
+    assert "note:" not in result.output
+
+
+def test_status_wrong_case_profile_is_noted_alongside_matches(tmp_path, monkeypatch):
+    _mixed_station(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["status", "--profile", "Beta", "--profile", "beta"])
+
+    assert "note: no package has profile 'Beta'" in result.output
+    assert "b1" in result.output
+
+
+def test_status_json_unreadable_rows_claim_no_assignment(tmp_path, monkeypatch):
+    station = _mixed_station(tmp_path, monkeypatch, '[assign]\ndefault = "dflt"\n')
+    bad = station / "bad1"
+    bad.mkdir()
+    (bad / "manifest.json").write_text("{not json")
+
+    by = {r["slug"]: r for r in json.loads(runner.invoke(app, ["status", "--json"]).output)}
+
+    for slug in ("u1", "bad1"):
+        assert by[slug]["profile"] is None
+        assert by[slug]["assigned_presenter"] is None
+        assert by[slug]["assignment_source"] is None
+    # ready/pending rows with no profile genuinely resolve to the default
+    assert by["n1"]["assigned_presenter"] == "dflt"
+    assert by["n1"]["assignment_source"] == "default"
+
+
+def test_scan_broad_skips_dot_prefixed_dir_with_manifest(tmp_path):
+    from emcee.cli import _scan_broad
+
+    build_package(tmp_path, slug="real", voiced=False)
+    build_package(tmp_path, slug=".real.deliver-abc", voiced=False)
+    build_package(tmp_path, slug=".real.old-abc", voiced=True)
+
+    assert [s.path.name for s in _scan_broad(tmp_path)] == ["real"]
 
 
 def test_status_voiced_by_states_and_drift_annotation(tmp_path, monkeypatch):

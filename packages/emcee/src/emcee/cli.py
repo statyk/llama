@@ -305,6 +305,7 @@ def run(
     root = _resolve_station_root(config, station_root)
     statuses = _station_statuses(root)
 
+    _note_unmatched_profiles(statuses, profile)
     filtering = bool(profile) or assigned
     unreadable = 0
     failed = False
@@ -522,9 +523,21 @@ _STATUS_STATES = ("ready", "pending", "unsupported", "error")
 
 def _status_json_row(config: EmceeConfig, s: PackageStatus) -> dict:
     view = assignment_for(config, s.profile)
+    presenter, source = view.presenter, view.source
+    if s.profile is None and s.state in ("error", "unsupported"):
+        presenter = source = None  # unreadable manifest: no profile, so no assignment
     return {"slug": s.path.name, "state": s.state, "reasons": s.reasons,
             "profile": s.profile, "voiced_by": s.voiced_by,
-            "assigned_presenter": view.presenter, "assignment_source": view.source}
+            "assigned_presenter": presenter, "assignment_source": source}
+
+
+def _note_unmatched_profiles(statuses: list[PackageStatus], names) -> None:
+    """One stderr note per requested `--profile` that no package (any state)
+    carries -- a typo'd or wrong-case name must not look like an empty queue."""
+    known = {s.profile for s in statuses}
+    for name in names or []:
+        if name not in known:
+            typer.echo(f"note: no package has profile {name!r}", err=True)
 
 
 def _voiced_by_cell(config: EmceeConfig, s: PackageStatus) -> str:
@@ -616,6 +629,8 @@ def status_cmd(
             f"unknown state {bad[0]!r}; expected one of {', '.join(_STATUS_STATES)}",
             param_hint="--state")
     filtered = bool(profile or state)
+    station_empty = not statuses
+    _note_unmatched_profiles(statuses, profile)
     if profile:
         statuses = [s for s in statuses if s.profile in profile]
     if state:
@@ -626,7 +641,8 @@ def status_cmd(
         return
 
     if not statuses:
-        typer.echo("no packages found")
+        typer.echo("no packages found" if station_empty or not filtered
+                   else "no packages match")
         return
     if not (list_view or filtered):
         _echo_status_summary(config, statuses)
