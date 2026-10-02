@@ -207,4 +207,5 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
     atomic_write_text(pkg.dir / "broadcast.m3u",
                       broadcast_m3u_text(manifest["tracks"], dj_audio))
 
+    dj_audio.presenter = presenter.id if presenter is not None else None
     rewrite_manifest(pkg, dj_notes=notes, dj_audio=dj_audio)

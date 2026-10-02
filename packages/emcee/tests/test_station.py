@@ -174,3 +174,31 @@ def test_scan_populates_profile_for_every_state(tmp_path):
     got = {s.path.name: s.profile for s in scan(tmp_path)}
 
     assert got == {"a": "dead", "b": None, "v2": "old", "v2n": None}
+
+
+def test_manifest_voiced_by_four_states():
+    from emcee.station import manifest_voiced_by
+
+    assert manifest_voiced_by({"dj_audio": None}) is None
+    assert manifest_voiced_by({}) is None
+    assert manifest_voiced_by({"dj_audio": {"outro": "x"}}) == "?"
+    assert manifest_voiced_by({"dj_audio": {"presenter": None}}) == "house"
+    assert manifest_voiced_by({"dj_audio": {"presenter": "casey"}}) == "casey"
+    assert manifest_voiced_by("garbage") is None
+
+
+def test_scan_populates_voiced_by(tmp_path):
+    import json
+
+    from emcee.station import scan
+
+    pkg_dir = build_package(tmp_path, slug="v", voiced=True)
+    m = json.loads((pkg_dir / "manifest.json").read_text())
+    m["dj_audio"]["presenter"] = "casey"
+    (pkg_dir / "manifest.json").write_text(json.dumps(m))
+    build_package(tmp_path, slug="u", voiced=False)
+
+    by = {s.path.name: s for s in scan(tmp_path)}
+
+    assert by["v"].voiced_by == "casey"
+    assert by["u"].voiced_by is None

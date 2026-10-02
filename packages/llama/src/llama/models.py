@@ -263,6 +263,7 @@ class DJAudio(BaseModel):
     """Per-segment spoken DJ clips, as package-relative paths (dj-audio/...)."""
     set_intros: dict[str, str]  # one lead-in per non-encore set: "1", "2"
     outro: str
+    presenter: str | None = None  # emcee-written: id of the voicing presenter; None = house
 
 
 class SetBreak(BaseModel):

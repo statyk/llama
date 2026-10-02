@@ -2,7 +2,7 @@
 
 emcee never imports llama, so it defines its own copies of the two manifest
 blocks it owns -- shape-identical to llama's `DJNotes`
-(packages/llama/src/llama/models.py:206) and `DJAudio` (:252). llama's
+and `DJAudio` (packages/llama/src/llama/models.py). llama's
 models.py keeps its own `DJNotes`/`DJAudio` too, solely as passthrough
 documentation of a block it no longer writes (see the split-architecture
 design spec, section 5); the two must be kept shape-compatible by hand if
@@ -29,3 +29,7 @@ class DJAudioBlock(BaseModel):
 
     set_intros: dict[str, str]  # one lead-in clip per non-encore set
     outro: str
+    # Id of the presenter that voiced this package; None = the house narrator.
+    # Always serialized, so a house-voiced manifest carries `"presenter": null`
+    # -- distinguishable from a legacy manifest that lacks the key entirely.
+    presenter: str | None = None

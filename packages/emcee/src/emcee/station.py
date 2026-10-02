@@ -15,6 +15,9 @@ class PackageStatus:
     state: str  # "ready" | "pending" | "unsupported"
     reasons: list[str] = field(default_factory=list)
     profile: str | None = None  # manifest["source"]["profile"], when readable
+    # Who voiced it: None = not voiced, "?" = voiced before emcee recorded the
+    # presenter (legacy), "house" = house narrator, else the presenter id.
+    voiced_by: str | None = None
 
 
 def manifest_profile(manifest: object) -> str | None:
@@ -25,6 +28,21 @@ def manifest_profile(manifest: object) -> str | None:
     except Exception:
         return None
     return profile if isinstance(profile, str) and profile else None
+
+
+def manifest_voiced_by(manifest: object) -> str | None:
+    """`voiced_by` from a raw manifest dict's `dj_audio` block (see
+    `PackageStatus.voiced_by`). Never raises."""
+    try:
+        dj_audio = manifest["dj_audio"]  # type: ignore[index]
+    except Exception:
+        return None
+    if not isinstance(dj_audio, dict):
+        return None
+    if "presenter" not in dj_audio:
+        return "?"
+    presenter = dj_audio["presenter"]
+    return presenter if isinstance(presenter, str) and presenter else "house"
 
 
 def raw_profile(manifest_path: Path) -> str | None:
@@ -105,7 +123,7 @@ def scan(station_root: Path) -> list[PackageStatus]:
             continue
         pkg = Package(entry)
         try:
-            pkg.manifest()
+            manifest = pkg.manifest()
         except UnsupportedPackage:
             version = json.loads(pkg.manifest_path.read_text()).get(
                 "schema_version", "?"
@@ -122,6 +140,7 @@ def scan(station_root: Path) -> list[PackageStatus]:
         ok, reasons = readiness(pkg)
         statuses.append(
             PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons,
-                          profile=manifest_profile(pkg.manifest()))
+                          profile=manifest_profile(manifest),
+                          voiced_by=manifest_voiced_by(manifest))
         )
     return statuses
