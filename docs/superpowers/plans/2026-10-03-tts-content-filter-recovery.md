@@ -30,7 +30,7 @@
 
 ## Review Focus
 
-1. **Two different segments blocked in one run** (e.g. set 2 and the outro) — each gets its own 2-attempt budget and the package still succeeds. Pinned in Task 4 (`test_two_blocked_segments_each_get_their_own_budget`).
+1. **Two different segments blocked in one run** (e.g. set 2 and the outro) — each gets its own 2-attempt budget (the test spends three attempts in total) and the package still succeeds. Pinned in Task 4 (`test_two_blocked_segments_each_get_their_own_budget`).
 2. **The rephrase LLM itself fails** (invalid JSON three times → `TaskFailed`) mid-repair — the error propagates and the manifest is byte-for-byte unchanged. Pinned in Task 4 (`test_rephrase_llm_failure_leaves_manifest_untouched`).
 3. **A guardrail body that names no violated category** — still a `SpeechBlocked`, message has no empty `()`. Pinned in Task 1 (`test_guardrail_without_violated_categories`).
 4. **Common-word track titles** (`Deal`, `Loser`) — the containment check matches whole words only and does not reject "a great deal" when the original already said it, nor flag "ideal". Pinned in Task 3 (`test_rephrase_problems_title_match_is_whole_word`).
@@ -54,7 +54,9 @@
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `packages/emcee/tests/test_voxtral.py` (it already imports `base64`, `json`, `httpx`, `pytest`, `SpeechError`, `VoxtralProvider`, and defines `_ok_audio`/`make_preset`):
+First, in `packages/emcee/tests/test_voxtral.py`, add `sleep=lambda s: None` to the `VoxtralProvider(...)` call inside the existing `make_preset` helper — the existing `test_error_status_raises` returns a 429, which is now retried and would otherwise really sleep 2 s.
+
+Then append to `packages/emcee/tests/test_voxtral.py` (it already imports `base64`, `json`, `httpx`, `pytest`, `SpeechError`, `VoxtralProvider`, and defines `_ok_audio`/`make_preset`):
 
 ```python
 from emcee.tts.provider import SpeechBlocked
@@ -467,7 +469,7 @@ def test_say_names_the_blocked_sentence(tmp_path, monkeypatch):
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `./.venv/bin/pytest packages/emcee/tests/test_audio.py packages/emcee/tests/test_say_cmd.py -q`
-Expected: FAIL — the locate tests see `.text == PASSAGE`; `rendered` is an unexpected keyword; the sidecar does not exist after the failure.
+Expected: FAIL — the locate tests see `.text == PASSAGE`; `rendered` is an unexpected keyword; the sidecar does not exist after the failure. (`test_render_non_block_error_is_not_located` and `test_synthesize_force_without_rendered_still_rerenders_everything` already pass: they are regression pins.)
 
 - [ ] **Step 3: Implement**
 
@@ -579,7 +581,9 @@ def test_rephrase_segment_returns_text_and_prompt_carries_inputs():
     assert out == "Revised segment."
     prompt = provider.calls[0][1]
     assert SEG in prompt
-    assert "The climax comes a little early tonight." in prompt
+    # The template quotes the blocked text; SEG contains it unquoted, so only
+    # the quoted form proves `blocked` (not the segment) filled the slot.
+    assert '"The climax comes a little early tonight."' in prompt
     assert "sexual" in prompt
     assert "previous attempt" not in prompt
 
@@ -647,12 +651,7 @@ and in `test_default_config_template_matches_defaults` replace the last two line
         assert parsed.llm_for(task) == default.llm_for(task)
 ```
 
-and add `"[llm.rephrase]"` to the marker tuple in `test_default_config_template_mentions_every_section`. Also add:
-
-```python
-def test_rephrase_defaults_to_medium():
-    assert resolve_model(EmceeConfig().llm_settings(), "rephrase") == ("claude_cli", "sonnet")
-```
+and add `"[llm.rephrase]"` to the marker tuple in `test_default_config_template_mentions_every_section`.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -786,8 +785,9 @@ git commit -m "feat(emcee): rephrase task and containment check for content-filt
 
 **Files:**
 - Modify: `packages/emcee/src/emcee/process.py`
-- Modify: `CLAUDE.md` (one sentence in the emcee architecture bullet)
+- Modify: `CLAUDE.md` (the worktree's repo-root copy: one passage in the emcee architecture bullet)
 - Test: `packages/emcee/tests/test_process.py`
+- Modify: `packages/emcee/tests/test_run_cmd.py` (one signature: its `fake_synth` stub)
 
 **Interfaces:**
 - Consumes: `SpeechBlocked` (Task 1); `_synthesize_dj_audio(..., rendered=)` and its `.segment` tagging (Task 2); `rephrase_segment`, `rephrase_problems` (Task 3); existing `script_guard(notes, manifest, narration)`, `render_notes_md`, `detail` (from `emcee.audio`), `provider_for`.
@@ -844,7 +844,7 @@ def test_blocked_sentence_is_rephrased_and_package_succeeds(tmp_path, monkeypatc
     assert "The peak arrives" in notes_md and "climax" not in notes_md
     assert speech.calls.count(SET1) == 1          # set 1 rendered once, then cached
     assert revised in speech.calls                # the revision is what was voiced
-    assert BLOCKED_S2 in rephrase.calls[0][1]     # located sentence reached the prompt
+    assert f'"{BLOCKED_S2}"' in rephrase.calls[0][1]  # the located sentence, quoted, filled `blocked`
 
 
 def test_force_still_renders_each_clip_once(tmp_path, monkeypatch):
@@ -911,12 +911,33 @@ def test_whole_passage_block_is_not_rephrased(tmp_path, monkeypatch):
     assert pkg.manifest_path.read_text() == before
 
 
+def test_containment_failing_rephrase_is_never_voiced(tmp_path, monkeypatch):
+    rejected = "Jack Straw arrives a little early tonight."
+    bad = f"{CLEAN_S1} {rejected}"   # names a track the segment did not; script_guard can't see it
+    good = f"{CLEAN_S1} The peak arrives a little early tonight."
+    rephrase, _ = _arm(monkeypatch, [bad, good])
+    pkg, config = _setup(tmp_path)
+    speech = FakeSpeechProvider(block="climax")
+
+    process_package(config, pkg, speech)
+
+    assert not any("Jack Straw" in c for c in speech.calls)
+    second_prompt = rephrase.calls[1][1]
+    assert "names a track the original did not: Jack Straw" in second_prompt
+    # Attempt 2 rephrases the ADOPTED text, never the rejected candidate.
+    assert SEG2 in second_prompt and rejected not in second_prompt
+    assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == good
+
+
 def test_two_blocked_segments_each_get_their_own_budget(tmp_path, monkeypatch):
     outro = "I Know You Rider sends us off. The climax of the night was early."
     notes = _good_notes_json(set_intros={"1": SET1, "2": SEG2}, outro=outro)
+    bad2 = f"{CLEAN_S1} All three sets peak early tonight."   # guard rejects: attempt 1
     rev2 = f"{CLEAN_S1} The peak arrives a little early tonight."
     rev_outro = "I Know You Rider sends us off. The peak of the night came early."
-    _arm(monkeypatch, [rev2, rev_outro], notes_json=notes)
+    # Three attempts in all (two for set 2, one for the outro): a single
+    # package-wide budget of 2 would raise on the outro.
+    _arm(monkeypatch, [bad2, rev2, rev_outro], notes_json=notes)
     pkg, config = _setup(tmp_path)
 
     process_package(config, pkg, FakeSpeechProvider(block="climax"))
@@ -943,7 +964,7 @@ def test_rephrase_llm_failure_leaves_manifest_untouched(tmp_path, monkeypatch):
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `./.venv/bin/pytest packages/emcee/tests/test_process.py -q`
-Expected: the new tests FAIL — `SpeechBlocked` propagates out of `process_package` unrepaired.
+Expected: the new tests FAIL — `SpeechBlocked` propagates out of `process_package` unrepaired — except `test_whole_passage_block_is_not_rephrased` and `test_rephrase_llm_failure_leaves_manifest_untouched`, which already pass (regression pins for the paths that must stay unrepaired / untouched).
 
 - [ ] **Step 3: Implement**
 
@@ -998,7 +1019,9 @@ def _repair(notes: ScriptNotes, blocked: SpeechBlocked, manifest: dict, provider
         revised = rephrase_segment(provider, current, blocked.text, blocked.categories,
                                    feedback=last.get(seg, ""))
         candidate = _with_segment(notes, seg, revised)
-        if not revised or revised == current.strip():
+        # Whitespace-only differences count as unchanged: voicing them would
+        # resend the identical refused sentence.
+        if not revised or " ".join(revised.split()) == " ".join(current.split()):
             problems = ["the rephrase returned the segment unchanged"]
         else:
             problems = (rephrase_problems(current, revised, manifest)
@@ -1052,9 +1075,11 @@ with
             atomic_write_text(pkg.dir / "dj-notes.md", render_notes_md(notes, manifest))
 ```
 
-and add to `process_package`'s docstring, after the "Order:" paragraph: "A TTS content-filter block (`SpeechBlocked`) is repaired in place by `_repair` -- see the 2026-10-03 content-filter spec; `rewrite_manifest` receives the final notes, so `dj_notes`, `dj-notes.md` and the voiced audio agree."
+In `packages/emcee/tests/test_run_cmd.py`, the `fake_synth` stub (around line 309) monkeypatches `process._synthesize_dj_audio` and must accept the new keyword: change its signature to `def fake_synth(pkg_dir, notes, speech, force, chunk=False, lexicon=None, bed=None, rendered=None):` (body unchanged).
 
-In `/Users/shawn/projects/llama/CLAUDE.md` (worktree copy), in the "**emcee (station-side voicing), architecture:**" bullet, after the sentence ending "`broadcast.m3u` → atomically rewrite the manifest's `dj_notes`/`dj_audio` blocks last, in place, in the package directory llama delivered (`package_io.py:rewrite_manifest`).", insert:
+Add to `process_package`'s docstring, after the "Order:" paragraph: "A TTS content-filter block (`SpeechBlocked`) is repaired in place by `_repair` -- see the 2026-10-03 content-filter spec; `rewrite_manifest` receives the final notes, so `dj_notes`, `dj-notes.md` and the voiced audio agree."
+
+In `/Users/shawn/projects/llama/.claude/worktrees/content-filter/CLAUDE.md` (the worktree's copy — NOT the main checkout's), in the "**emcee (station-side voicing), architecture:**" bullet, after the sentence ending "`broadcast.m3u` → atomically rewrite the manifest's `dj_notes`/`dj_audio` blocks last, in place, in the package directory llama delivered (`package_io.py:rewrite_manifest`).", insert:
 
 ```
 A Voxtral content-filter refusal (403 `guardrail_violation`) is `SpeechBlocked`:
@@ -1074,7 +1099,7 @@ Expected: all pass, including `test_no_llama_imports`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/emcee/src/emcee/process.py packages/emcee/tests/test_process.py CLAUDE.md
+git add packages/emcee/src/emcee/process.py packages/emcee/tests/test_process.py packages/emcee/tests/test_run_cmd.py CLAUDE.md
 git commit -m "feat(emcee): repair content-filter blocks in process_package by rephrasing the segment"
 ```
 
@@ -1093,18 +1118,21 @@ from pathlib import Path
 from herder import provider_for
 from emcee.audio import _split_sentences
 from emcee.config import load_config
+from emcee.package_io import Package
+from emcee.process import resolve_assignment, speech_for
 from emcee.scriptwrite import rephrase_segment
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.provider import SpeechBlocked
-from emcee.tts.voxtral import VoxtralProvider
 
 cfg = load_config()
-md = Path("/Users/shawn/Documents/llama/delivered/gratefuldead-1971-08-06/dj-notes.md").read_text()
+PKG = Path("/Users/shawn/Documents/llama/delivered/gratefuldead-1971-08-06")
+md = (PKG / "dj-notes.md").read_text()
 seg = md.split("## Set 2 lead-in\n", 1)[1].split("\n## ", 1)[0].strip()
 blocked = "Be warned that a tape flip on this source brings that climax around a little early."
 revised = rephrase_segment(provider_for(cfg.llm_settings(), "rephrase"), seg, blocked, ["sexual"])
 print("REVISED:", revised)
-p = VoxtralProvider(clone_ref=cfg.tts.voice_clone, api_key=cfg.tts.api_key)
+# The package's own voice (presenter or house), resolved as emcee does.
+p = speech_for(cfg, resolve_assignment(cfg, Package(PKG).manifest())[0])
 for s in _split_sentences(normalize_for_speech(revised, load_lexicon(cfg.root))):
     try:
         p.synthesize(s, fmt="wav"); print("ok      ", s)
@@ -1114,7 +1142,7 @@ for s in _split_sentences(normalize_for_speech(revised, load_lexicon(cfg.root)))
 
 Expected: every sentence `ok`. Record the outcome (and the revised wording) in the spec's "Premises checked" section, replacing the "Unverified — a medium-tier rephrase clears the moderator" bullet.
 
-- [ ] **Step 2: Re-voice the real package**
+- [ ] **Step 2: Re-voice the real package — only with the operator's go-ahead**
 
-Run: `./.venv/bin/emcee voice /Users/shawn/Documents/llama/delivered/gratefuldead-1971-08-06`
+This rewrites a real delivered package with the branch build; ask the user first. Then run: `./.venv/bin/emcee voice /Users/shawn/Documents/llama/delivered/gratefuldead-1971-08-06`
 Expected: `voiced` with all three clips; if the fresh script happens to trip the filter, the `rephrased` detail lines appear. Report the output to the user either way.

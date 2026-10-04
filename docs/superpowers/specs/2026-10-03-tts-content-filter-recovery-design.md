@@ -87,8 +87,10 @@ class SpeechBlocked(SpeechError):
   is blocked on its own.
 - The message is computed from these fields (`__str__`), not frozen at
   construction, so setting `.segment` later is reflected:
-  `voxtral content filter blocked a sentence in set2-intro (sexual)`, plus the
-  `whole_passage` remedy when set. The **full** blocked text is always the
+  `voxtral content filter blocked a sentence in set2-intro (sexual)`; with
+  `whole_passage` set it reads "blocked a passage" and appends the remedy
+  (re-run with chunking on: `[tts] chunk = true`, or for `emcee say`, without
+  `--no-chunk`). The **full** blocked text is always the
   first `details` line (`blocked: "<text>"`), which the CLI boundaries already
   print — the message itself never needs to carry or truncate it.
 
@@ -186,7 +188,8 @@ consumed, fed back):
   sentence verbatim"*). This bounds the edit to the neighbourhood of the
   blocked sentence.
 - **No newly named track:** a manifest track title appearing
-  (case-insensitive) in the revised segment but not the original is a problem.
+  (case-insensitive, whole words only — so `Deal` does not match "ideal") in
+  the revised segment but not the original is a problem.
 - **No new numbers:** a digit token in the revised segment absent from the
   original is a problem.
 
