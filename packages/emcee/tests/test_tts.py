@@ -212,3 +212,16 @@ def test_factory_unknown_backend_raises():
     cfg = EmceeConfig.model_validate({"tts": {"backend": "kokoro"}})
     with pytest.raises(SpeechError):
         speech_provider_for(cfg, "v")
+
+
+from emcee.tts.provider import SpeechBlocked
+
+
+def test_fake_blocks_text_containing_the_armed_phrase():
+    fake = FakeSpeechProvider(block="climax")
+    assert fake.synthesize("A clean sentence here.") == SILENT_MP3
+    with pytest.raises(SpeechBlocked) as ei:
+        fake.synthesize("The climax comes early.", fmt="wav")
+    assert ei.value.text == "The climax comes early."
+    assert ei.value.categories == ["sexual"]
+    assert fake.calls == ["A clean sentence here.", "The climax comes early."]

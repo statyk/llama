@@ -1,17 +1,50 @@
 import base64
 import hashlib
 import os
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
 
-from emcee.tts.provider import SpeechError
+from emcee.tts.provider import SpeechBlocked, SpeechError
 
 API_URL = "https://api.mistral.ai/v1/audio/speech"
 DEFAULT_MODEL = "voxtral-mini-tts-2603"
 # Mistral recommends <=~300 words / 2 min audio per request. Conservative
 # char guard; chunk-and-concatenate is deliberately out of scope (see spec).
 MAX_INPUT_CHARS = 2000
+# One retry for failures that are plausibly transient. A guardrail block is a
+# 403 and is deterministic (measured 7/7 on the same sentence), so it is never
+# retried; nor is any other 4xx but 429.
+RETRY_DELAY_S = 2.0
+
+
+def _is_transient(status: int) -> bool:
+    return status == 429 or status >= 500
+
+
+def _guardrail_block(resp: httpx.Response, text: str) -> SpeechBlocked | None:
+    """A SpeechBlocked for a guardrail-violation body, else None (the caller
+    raises its ordinary SpeechError). Observed shape (2026-10-03):
+    {"type": "guardrail_violation", "guardrails": [{"<moderator>":
+    {"categories": {"sexual": {"violated": true}, ...}}}]}."""
+    try:
+        body = resp.json()
+    except ValueError:
+        return None
+    if not isinstance(body, dict) or body.get("type") != "guardrail_violation":
+        return None
+    categories: list[str] = []
+    for entry in body.get("guardrails") or []:
+        if not isinstance(entry, dict):
+            continue
+        for moderator in entry.values():
+            cats = moderator.get("categories") if isinstance(moderator, dict) else None
+            for name, verdict in (cats or {}).items():
+                if isinstance(verdict, dict) and verdict.get("violated") and name not in categories:
+                    categories.append(name)
+    return SpeechBlocked("voxtral", text=text, categories=categories)
 
 
 class VoxtralProvider:
@@ -23,6 +56,8 @@ class VoxtralProvider:
         api_key: str | None = None,
         timeout_s: int = 120,
         transport: httpx.BaseTransport | None = None,
+        retry_delay_s: float = RETRY_DELAY_S,
+        sleep: Callable[[float], None] = time.sleep,
     ):
         if not voice and not clone_ref:
             raise SpeechError("Voxtral needs a preset voice or a clone reference: "
@@ -47,6 +82,8 @@ class VoxtralProvider:
             self._ref_b64 = None
             self._preset = voice
             self.voice = voice
+        self._retry_delay_s = retry_delay_s
+        self._sleep = sleep
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
 
     def _body(self, text: str, fmt: str) -> dict:
@@ -75,14 +112,27 @@ class VoxtralProvider:
         if len(text) > MAX_INPUT_CHARS:
             raise SpeechError(f"DJ segment too long for Voxtral "
                               f"({len(text)} > {MAX_INPUT_CHARS} chars)")
-        try:
-            resp = self._client.post(
-                API_URL, json=self._body(text, fmt),
-                headers={"Authorization": f"Bearer {self.api_key}"},
-            )
-        except httpx.HTTPError as e:
-            raise SpeechError(f"voxtral request failed: {e}") from e
+        for attempt in (1, 2):
+            try:
+                resp = self._client.post(
+                    API_URL, json=self._body(text, fmt),
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                )
+            except httpx.TransportError as e:  # includes timeouts
+                if attempt == 1:
+                    self._sleep(self._retry_delay_s)
+                    continue
+                raise SpeechError(f"voxtral request failed: {e}") from e
+            except httpx.HTTPError as e:
+                raise SpeechError(f"voxtral request failed: {e}") from e
+            if attempt == 1 and _is_transient(resp.status_code):
+                self._sleep(self._retry_delay_s)
+                continue
+            break
         if resp.status_code != 200:
+            blocked = _guardrail_block(resp, text)
+            if blocked is not None:
+                raise blocked
             raise SpeechError(f"voxtral returned {resp.status_code}: {resp.text[:500]}")
         try:
             audio_b64 = resp.json().get("audio_data")

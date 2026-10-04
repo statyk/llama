@@ -1,7 +1,7 @@
 import io
 import wave
 
-from emcee.tts.provider import SpeechError
+from emcee.tts.provider import SpeechBlocked, SpeechError
 
 # One silent 417-byte MPEG-1 Layer III frame (128 kbps, 44.1 kHz): a small but
 # structurally valid MP3, so packaged dj-audio files are real audio in tests.
@@ -30,13 +30,15 @@ class FakeSpeechProvider:
 
     voice/model are fixed placeholders (the factory ignores the resolved voice
     for the fake) so package-stage cache keys are deterministic in tests.
-    Arm with fail=True for the hard-fail tests.
+    Arm with fail=True for the hard-fail tests. Arm with block=<phrase> to have any text containing that
+    phrase refused like a content-filter block.
     """
 
-    def __init__(self, fail: bool = False):
+    def __init__(self, fail: bool = False, block: str | None = None):
         self.voice = "fake-voice"
         self.model = "fake-model"
         self.fail = fail
+        self.block = block
         self.calls: list[str] = []
         # Per-call (previous_text, next_text) context, parallel to self.calls,
         # so tests can assert the chunked path threads neighbor text through.
@@ -49,6 +51,8 @@ class FakeSpeechProvider:
         self.context.append((previous_text, next_text))
         if self.fail:
             raise SpeechError("FakeSpeechProvider armed to fail")
+        if self.block is not None and self.block in text:
+            raise SpeechBlocked("fake", text=text, categories=["sexual"])
         return SILENT_WAV if fmt == "wav" else SILENT_MP3
 
     def close(self) -> None:

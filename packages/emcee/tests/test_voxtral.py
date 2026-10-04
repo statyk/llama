@@ -17,7 +17,8 @@ def _ok_audio(payload=b"mp3bytes"):
 
 def make_preset(handler, *, voice="british-narrator", model=None, api_key="k1"):
     return VoxtralProvider(voice=voice, model=model, api_key=api_key,
-                           transport=httpx.MockTransport(handler))
+                           transport=httpx.MockTransport(handler),
+                           sleep=lambda s: None)
 
 
 def test_is_a_speech_provider():
@@ -146,3 +147,139 @@ def test_over_long_segment_raises():
     from emcee.tts.voxtral import MAX_INPUT_CHARS
     with pytest.raises(SpeechError):
         make_preset(_ok_audio()).synthesize("x" * (MAX_INPUT_CHARS + 1))
+
+
+from emcee.tts.provider import SpeechBlocked
+
+GUARDRAIL_BODY = {
+    "object": "error", "message": "Request blocked by guardrail policy",
+    "type": "guardrail_violation", "param": None, "code": "1920",
+    "raw_status_code": 403,
+    "guardrails": [{"moderation_llm_v2": {"action": "block", "categories": {
+        "sexual": {"violated": True},
+        "hate_and_discrimination": {"violated": False},
+        "selfharm": {"violated": False},
+        "jailbreaking": {"violated": False},
+    }}}],
+}
+
+
+def _sequence(*responses):
+    """Handler serving `responses` in order (an Exception is raised), and the
+    list of request bodies it saw."""
+    seen = []
+    queue = list(responses)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        item = queue.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+    return handler, seen
+
+
+def _ok():
+    return httpx.Response(200, json={"audio_data": base64.b64encode(b"MP3").decode()})
+
+
+def _make(handler):
+    return VoxtralProvider(voice="v", api_key="k", transport=httpx.MockTransport(handler),
+                           sleep=lambda s: None)
+
+
+def test_guardrail_403_raises_speech_blocked_with_text_and_categories():
+    handler, seen = _sequence(httpx.Response(403, json=GUARDRAIL_BODY))
+    text = "Be warned that a tape flip brings that climax around a little early."
+    with pytest.raises(SpeechBlocked) as ei:
+        _make(handler).synthesize(text, fmt="wav")
+    e = ei.value
+    assert isinstance(e, SpeechError)
+    assert e.text == text
+    assert e.categories == ["sexual"]
+    assert e.segment is None and e.whole_passage is False
+    assert str(e) == "voxtral content filter blocked a sentence (sexual)"
+    assert e.details == [f'blocked: "{text}"']
+    assert len(seen) == 1  # a block is never retried
+
+
+def test_guardrail_message_reflects_segment_set_later():
+    handler, _ = _sequence(httpx.Response(403, json=GUARDRAIL_BODY))
+    with pytest.raises(SpeechBlocked) as ei:
+        _make(handler).synthesize("x y z")
+    ei.value.segment = "set2-intro"
+    assert str(ei.value) == "voxtral content filter blocked a sentence in set2-intro (sexual)"
+
+
+def test_guardrail_without_violated_categories():
+    body = {**GUARDRAIL_BODY, "guardrails": [{"m": {"categories": {"sexual": {"violated": False}}}}]}
+    handler, _ = _sequence(httpx.Response(403, json=body))
+    with pytest.raises(SpeechBlocked) as ei:
+        _make(handler).synthesize("x y z")
+    assert ei.value.categories == []
+    assert str(ei.value) == "voxtral content filter blocked a sentence"
+
+
+def test_non_guardrail_403_is_plain_speech_error_not_retried():
+    handler, seen = _sequence(httpx.Response(403, json={"type": "forbidden", "message": "no"}))
+    with pytest.raises(SpeechError) as ei:
+        _make(handler).synthesize("hello there")
+    assert not isinstance(ei.value, SpeechBlocked)
+    assert "voxtral returned 403" in str(ei.value)
+    assert len(seen) == 1
+
+
+def test_non_json_403_is_plain_speech_error():
+    handler, _ = _sequence(httpx.Response(403, text="<html>nope</html>"))
+    with pytest.raises(SpeechError) as ei:
+        _make(handler).synthesize("hello there")
+    assert not isinstance(ei.value, SpeechBlocked)
+
+
+def test_5xx_then_ok_retries_once():
+    handler, seen = _sequence(httpx.Response(503, text="busy"), _ok())
+    assert _make(handler).synthesize("hello there") == b"MP3"
+    assert len(seen) == 2
+
+
+def test_5xx_twice_fails_after_two_requests():
+    handler, seen = _sequence(httpx.Response(500, text="a"), httpx.Response(502, text="b"))
+    with pytest.raises(SpeechError) as ei:
+        _make(handler).synthesize("hello there")
+    assert "voxtral returned 502" in str(ei.value)
+    assert len(seen) == 2
+
+
+def test_429_then_ok_retries_once():
+    handler, seen = _sequence(httpx.Response(429, text="slow down"), _ok())
+    assert _make(handler).synthesize("hello there") == b"MP3"
+    assert len(seen) == 2
+
+
+def test_transport_error_then_ok_retries_once():
+    handler, seen = _sequence(httpx.ConnectError("reset"), _ok())
+    assert _make(handler).synthesize("hello there") == b"MP3"
+    assert len(seen) == 2
+
+
+def test_transport_error_twice_fails():
+    handler, _ = _sequence(httpx.ReadTimeout("slow"), httpx.ReadTimeout("slow"))
+    with pytest.raises(SpeechError) as ei:
+        _make(handler).synthesize("hello there")
+    assert "voxtral request failed" in str(ei.value)
+
+
+def test_400_is_not_retried():
+    handler, seen = _sequence(httpx.Response(400, text="bad"))
+    with pytest.raises(SpeechError):
+        _make(handler).synthesize("hello there")
+    assert len(seen) == 1
+
+
+def test_retry_sleeps_the_configured_delay():
+    slept = []
+    handler, _ = _sequence(httpx.Response(500, text="x"), _ok())
+    p = VoxtralProvider(voice="v", api_key="k", transport=httpx.MockTransport(handler),
+                        retry_delay_s=0.5, sleep=slept.append)
+    p.synthesize("hello there")
+    assert slept == [0.5]
