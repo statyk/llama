@@ -29,7 +29,7 @@
 1. A sentence chunk shorter than one 50 ms measurement frame (a very short Voxtral return) — must measure as one frame and normalize, not crash. → Task 1 `test_input_shorter_than_one_frame_is_normalized`.
 2. A mostly-silent chunk carrying one quiet word — boost is clamped at +10 dB rather than pumping it up to target. → Task 1 `test_boost_is_clamped`.
 3. A chunk with a near-full-scale click — the ceiling binds; output peak never exceeds −1 dBFS even though the chunk lands short of target. → Task 1 `test_ceiling_binds_on_a_click`.
-4. Normalizing the joined clip once instead of each sentence would keep the swings (a −26/−20/−14 clip normalized as a whole lands at about −28/−22/−16). → Task 2 `test_chunked_pcm_normalizes_each_sentence_to_target` uses three different levels so it fails under that placement; `test_chunked_pcm_silence_gaps_stay_digital_zero` additionally pins that the gaps stay exact zeros.
+4. Normalizing the joined clip once instead of each sentence would keep the swings (a −26/−20/−14 clip normalized as a whole lands at about −28/−22/−16). → Task 2 `test_chunked_pcm_normalizes_each_sentence_to_target` uses three different levels so it fails under that placement.
 5. A backend returning non-16-bit audio on the unchunked bed path must still raise the existing clear `SpeechError`, not a numpy error from normalization running first. → Task 2 `test_segment_pcm_non_16bit_still_raises_speech_error`.
 
 ---
@@ -113,6 +113,20 @@ def test_boost_is_clamped():
     # -40 wants +20 dB; the clamp allows +10, so it lands at -30.
     out = _samples(normalize_speech(_pcm(_sine(-40.0)), RATE))
     assert abs(_rms_db(out) - (-40.0 + MAX_GAIN_DB)) < 0.1
+
+
+def test_cut_is_clamped():
+    # -8 wants -12 dB; the clamp allows -10, so it lands at -18 (peak -15, so
+    # the ceiling does not bind).
+    out = _samples(normalize_speech(_pcm(_sine(-8.0)), RATE))
+    assert abs(_rms_db(out) - (-8.0 - MAX_GAIN_DB)) < 0.1
+
+
+def test_active_level_is_power_averaged_not_db_averaged():
+    # 0.25 s at -20 then 0.25 s at -30 (both inside the gate): power mean is
+    # 10*log10((0.01 + 0.001) / 2) = -22.6; a dB average would give -25.
+    x = np.concatenate([_sine(-20.0, seconds=0.25), _sine(-30.0, seconds=0.25)])
+    assert abs(active_level_db(_pcm(x), RATE) - (-22.596)) < 0.1
 
 
 def test_ceiling_binds_on_a_click():
@@ -339,34 +353,31 @@ _THREE = ("The first sentence is right here. The second sentence follows it now.
           "The third sentence closes out the set.")
 
 
-def _regions(pcm: bytes, n_sentences: int) -> tuple[list[bytes], list[bytes]]:
-    """Split chunked PCM into (sentence regions, silence gaps)."""
+def _regions(pcm: bytes, n_sentences: int) -> list[bytes]:
+    """The sentence regions of chunked PCM (the silence gaps skipped)."""
     tone = int(_TONE_S * _TONE_RATE) * 2
     gap = int(_TONE_RATE * (_SILENCE_MS / 1000)) * 2
-    voiced, gaps, pos = [], [], 0
+    voiced, pos = [], 0
     for i in range(n_sentences):
         voiced.append(pcm[pos:pos + tone]); pos += tone
         if i < n_sentences - 1:
-            gaps.append(pcm[pos:pos + gap]); pos += gap
+            pos += gap
     assert pos == len(pcm)
-    return voiced, gaps
+    return voiced
 
 
 def test_chunked_pcm_normalizes_each_sentence_to_target():
     speech = _ToneSpeech([-26.0, -20.0, -14.0])
     pcm, rate, _ = _chunked_pcm(_THREE, speech)
     assert len(speech.calls) == 3
-    voiced, _ = _regions(pcm, 3)
+    voiced = _regions(pcm, 3)
     for region in voiced:
         assert abs(active_level_db(region, rate) - TARGET_DB) < 0.1
 
 
-def test_chunked_pcm_silence_gaps_stay_digital_zero():
-    pcm, _, _ = _chunked_pcm(_THREE, _ToneSpeech([-26.0, -14.0, -30.0]))
-    _, gaps = _regions(pcm, 3)
-    assert gaps and all(not any(g) for g in gaps)
-
-
+# The spec's bed-path check ("normalized before the mix") is tested at
+# _segment_pcm, which returns the voice _render hands to mix_bed: normalizing
+# after the mix instead would leave this voice at its input level and fail.
 def test_segment_pcm_unchunked_normalizes_the_whole_segment():
     pcm, rate, _ = _segment_pcm("One whole segment of speech.", _ToneSpeech([-27.0]),
                                 chunk=False)
@@ -396,16 +407,6 @@ class _Odd8BitSpeech:
 def test_segment_pcm_non_16bit_still_raises_speech_error():
     with pytest.raises(SpeechError, match="16-bit"):
         _segment_pcm("One sentence.", _Odd8BitSpeech(), chunk=False)
-
-
-def test_chunked_pcm_non_16bit_still_raises_speech_error():
-    with pytest.raises(SpeechError, match="16-bit"):
-        _chunked_pcm("One sentence.", _Odd8BitSpeech())
-
-
-def test_render_unchunked_no_bed_ships_provider_bytes_untouched():
-    speech = _ToneSpeech([-35.0])
-    assert render_speech_mp3("Just a line.", speech, chunk=False) == SILENT_MP3
 
 
 def _expected_key(text: str, chunk: bool, bed_key: str = "", loud: bool = False) -> str:
@@ -443,8 +444,8 @@ def test_cache_key_bed_carries_the_loudness_version(tmp_path):
 
 - [ ] **Step 2: Run tests to verify the right ones fail**
 
-Run: `./.venv/bin/pytest packages/emcee/tests/test_audio.py -q -k "normalizes or silence_gaps or non_16bit or untouched or cache_key_"`
-Expected: FAIL — `test_chunked_pcm_normalizes_each_sentence_to_target`, `test_segment_pcm_unchunked_normalizes_the_whole_segment`, `test_cache_key_chunked_carries_the_loudness_version`, `test_cache_key_bed_carries_the_loudness_version` (no normalization / no `loud=` term yet). PASS already (they pin existing behaviour): `test_chunked_pcm_silence_gaps_stay_digital_zero`, both `non_16bit` tests, `test_render_unchunked_no_bed_ships_provider_bytes_untouched`, `test_cache_key_unchunked_no_bed_is_the_pre_feature_formula`. If any of the expected-FAIL tests passes, stop and report — the test does not bite.
+Run: `./.venv/bin/pytest packages/emcee/tests/test_audio.py -q -k "normalizes or segment_pcm_non_16bit or test_cache_key_"`
+Expected: FAIL — `test_chunked_pcm_normalizes_each_sentence_to_target`, `test_segment_pcm_unchunked_normalizes_the_whole_segment`, `test_cache_key_chunked_carries_the_loudness_version`, `test_cache_key_bed_carries_the_loudness_version` (no normalization / no `loud=` term yet). PASS already (they pin existing behaviour): `test_segment_pcm_non_16bit_still_raises_speech_error`, `test_cache_key_unchunked_no_bed_is_the_pre_feature_formula`. If any of the expected-FAIL tests passes, stop and report — the test does not bite.
 
 - [ ] **Step 3: Implement**
 
@@ -503,7 +504,7 @@ and change the key line to
             f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}{bed_key}{loud_key}".encode()
 ```
 
-Add one paragraph to its docstring after the bed paragraph:
+In its docstring's first paragraph change `chunk [+ bed])` to `chunk [+ bed] [+ loud])`, and add one paragraph after the bed paragraph:
 
 ```
     Loudness: chunked and bed-active clips are loudness-normalized
@@ -511,7 +512,7 @@ Add one paragraph to its docstring after the bed paragraph:
     to the normalization re-renders them; the plain path's key is unchanged.
 ```
 
-(f) `CLAUDE.md` (repo root), in the emcee architecture bullet, after the sentence ending `instrumental-bed mixing llama used to have)` insert:
+(f) `CLAUDE.md` (repo root), in the emcee architecture bullet, after the sentence ending `` (`package_io.py:rewrite_manifest`). `` (it closes the `process_package` arrow chain) insert:
 
 ```
 Chunked and bed-active clips are loudness-normalized per sentence/segment
