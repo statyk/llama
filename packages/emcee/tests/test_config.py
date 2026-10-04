@@ -219,11 +219,11 @@ def test_llm_settings_adapter_carries_default_tiers():
 
 
 def test_default_tiers_vocabulary():
-    assert DEFAULT_TIERS == {"scriptwrite": "high"}
+    assert DEFAULT_TIERS == {"scriptwrite": "high", "rephrase": "medium"}
 
 
 def test_task_keys_vocabulary():
-    assert TASK_KEYS == ["scriptwrite"]
+    assert TASK_KEYS == ["scriptwrite", "rephrase"]
 
 
 def test_provider_for_uses_task_config():
@@ -251,13 +251,14 @@ def test_default_config_template_matches_defaults():
     default = EmceeConfig()
     assert parsed.model_dump(exclude={"llm"}) == default.model_dump(exclude={"llm"})
     # [llm.scriptwrite] is written out for editability; it must be exactly
-    # the built-in fallback, and the only llm entry present.
-    assert set(parsed.llm) == {"scriptwrite"}
-    assert parsed.llm_for("scriptwrite") == default.llm_for("scriptwrite")
+    # the built-in fallback; [llm.rephrase] is the only other entry present.
+    assert set(parsed.llm) == {"scriptwrite", "rephrase"}
+    for task in ("scriptwrite", "rephrase"):
+        assert parsed.llm_for(task) == default.llm_for(task)
 
 
 def test_default_config_template_mentions_every_section():
-    for marker in ("[station]", "[llm.scriptwrite]", "[llm.tiers.", "[tts]", "[assign]", "[assign.profiles."):
+    for marker in ("[station]", "[llm.scriptwrite]", "[llm.rephrase]", "[llm.tiers.", "[tts]", "[assign]", "[assign.profiles."):
         assert marker in DEFAULT_CONFIG_TOML, marker
 
 

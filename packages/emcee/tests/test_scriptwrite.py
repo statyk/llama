@@ -459,3 +459,127 @@ def test_write_script_passes_narration_note_from_manifest(tmp_path):
     write_script(pkg, fake, presenter=None, title=None)
     prompt = fake.calls[0][1]
     assert "do not name" in prompt.lower()
+
+
+from emcee.scriptwrite import rephrase_problems, rephrase_segment
+
+SEG = ("China Cat Sunflower leads set two. The climax comes a little early tonight. "
+       "Stay with us for the rest of the night.")
+MANIFEST = {"tracks": [{"title": "China Cat Sunflower"}, {"title": "Deal"},
+                       {"title": "Morning Dew"}]}
+
+
+def test_rephrase_segment_returns_text_and_prompt_carries_inputs():
+    provider = FakeProvider(completes=[json.dumps({"text": "  Revised segment.  "})])
+    out = rephrase_segment(provider, SEG, "The climax comes a little early tonight.",
+                           ["sexual"])
+    assert out == "Revised segment."
+    prompt = provider.calls[0][1]
+    assert SEG in prompt
+    # The template quotes the blocked text; SEG contains it unquoted, so only
+    # the quoted form proves `blocked` (not the segment) filled the slot.
+    assert '"The climax comes a little early tonight."' in prompt
+    assert "sexual" in prompt
+    assert "previous attempt" not in prompt
+
+
+def test_rephrase_segment_feedback_reaches_prompt():
+    provider = FakeProvider(completes=[json.dumps({"text": "x"})])
+    rephrase_segment(provider, SEG, "b", [], feedback="dj notes claim 3 sets")
+    prompt = provider.calls[0][1]
+    assert "previous attempt" in prompt and "dj notes claim 3 sets" in prompt
+    assert "unspecified" in prompt  # empty categories
+
+
+def test_rephrase_problems_single_sentence_edit_passes():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "A tape flip cuts into the peak tonight.")
+    assert rephrase_problems(SEG, revised, MANIFEST) == []
+
+
+def test_rephrase_problems_two_separated_edits():
+    # First and third sentences changed, the middle one kept: two separate edits.
+    revised = (SEG.replace("China Cat Sunflower leads", "China Cat Sunflower opens")
+                  .replace("Stay with us", "Do stay with us"))
+    assert any("more than one passage" in p for p in rephrase_problems(SEG, revised, MANIFEST))
+
+
+def test_rephrase_problems_newly_named_track():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "Morning Dew arrives a little early tonight.")
+    assert rephrase_problems(SEG, revised, MANIFEST) == [
+        "rephrase names a track the original did not: Morning Dew"]
+
+
+def test_rephrase_problems_new_number():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "The peak lands 3 minutes early tonight.")
+    assert rephrase_problems(SEG, revised, MANIFEST) == [
+        "rephrase adds numbers the original did not have: 3"]
+
+
+def test_rephrase_problems_title_match_is_whole_word():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "The ideal peak comes a little early tonight.")
+    assert rephrase_problems(SEG, revised, MANIFEST) == []  # "ideal" is not "Deal"
+    orig = SEG.replace("The climax", "A great deal of the climax")
+    rev = orig.replace("A great deal of the climax comes", "A great deal of the peak comes")
+    assert rephrase_problems(orig, rev, MANIFEST) == []  # "deal" was already there
+
+
+GENERIC_MANIFEST = {"tracks": [{"title": "Jam"}, {"title": "Drums"}, {"title": "Space"},
+                               {"title": "Morning Dew"}, {"title": "Truckin'"}]}
+
+
+def test_rephrase_problems_generic_titles_are_ordinary_words():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "The tape flip on this source cuts into the end of that jam.")
+    assert rephrase_problems(SEG, revised, GENERIC_MANIFEST) == []
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "There is less space before the drums tonight.")
+    assert rephrase_problems(SEG, revised, GENERIC_MANIFEST) == []
+
+
+def test_rephrase_problems_real_title_still_flagged_case_insensitive():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "morning dew arrives a little early tonight.")
+    assert rephrase_problems(SEG, revised, GENERIC_MANIFEST) == [
+        "rephrase names a track the original did not: Morning Dew"]
+
+
+def test_rephrase_problems_punctuation_ending_title_flagged():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "Truckin' leads off a little early tonight.")
+    assert rephrase_problems(SEG, revised, GENERIC_MANIFEST) == [
+        "rephrase names a track the original did not: Truckin'"]
+
+
+def test_rephrase_problems_curly_title_flagged_with_curly_revision():
+    manifest = {"tracks": [{"title": "Truckin\u2019"}]}
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "Truckin\u2019 leads off early.")
+    assert rephrase_problems(SEG, revised, manifest) == [
+        "rephrase names a track the original did not: Truckin\u2019"]
+
+
+def test_rephrase_problems_curly_title_flagged_with_straight_revision():
+    manifest = {"tracks": [{"title": "Truckin\u2019"}]}
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "Truckin' leads off early.")
+    assert rephrase_problems(SEG, revised, manifest) == [
+        "rephrase names a track the original did not: Truckin\u2019"]
+
+
+def test_rephrase_problems_typography_noise_is_not_an_edit():
+    # Every sentence >= 20 chars so _split_sentences keeps them apart and the
+    # multi-passage rule can fire if _fold fails to neutralize sentence 1.
+    orig = ("We're glad you're here tonight. The second sentence stays exactly as is. "
+            "The climax comes a little early tonight. Stay with us for the rest.")
+    rev = ("We\u2019re glad  you\u2019re here tonight. The second sentence stays exactly as is. "
+           "The big moment arrives a little sooner tonight. Stay with us for the rest.")
+    assert rephrase_problems(orig, rev, MANIFEST) == []
+
+
+def test_fold_normalizes_typography():
+    from emcee.scriptwrite import _fold
+    assert _fold("It’s  “fine” – ok\n") == 'It\'s "fine" - ok'

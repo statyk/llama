@@ -233,3 +233,18 @@ def test_say_rejects_a_bed_in_the_wrong_format(tmp_path, monkeypatch):
     assert result.exit_code != 0
     assert isinstance(result.exception, SpeechError)
     assert "24kHz mono 16-bit" in str(result.exception)
+
+
+from emcee.tts.provider import SpeechBlocked
+
+
+def test_say_names_the_blocked_sentence(tmp_path, monkeypatch):
+    speech, _ = _arm_speech(monkeypatch)
+    speech.block = "climax"
+    src = _text_file(tmp_path, "First sentence here, fine. The climax comes too early here.")
+
+    result = _run(["say", str(src), "--no-chunk"], tmp_path, monkeypatch)
+
+    assert result.exit_code != 0
+    assert isinstance(result.exception, SpeechBlocked)
+    assert result.exception.details == ['blocked: "The climax comes too early here."']

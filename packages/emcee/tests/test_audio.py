@@ -557,3 +557,93 @@ def test_render_speech_mp3_rejects_a_bed_whose_rate_differs_from_the_voice(tmp_p
     with pytest.raises(SpeechError, match="does not match the voice audio"):
         render_speech_mp3("A short read.", FakeSpeechProvider(), chunk=False,
                           bed_pcm=bed_pcm, bed_rate=48000, bed_gain_db=-20.0)
+
+
+import json as _json
+
+from emcee.audio import _synthesize_dj_audio, render_speech_mp3
+from emcee.tts.provider import SpeechBlocked
+
+PASSAGE = ("First sentence is fine here. The climax comes too early here. "
+           "Last sentence is fine too.")
+
+
+def test_render_unchunked_block_locates_the_sentence():
+    speech = FakeSpeechProvider(block="climax")
+    with pytest.raises(SpeechBlocked) as ei:
+        render_speech_mp3(PASSAGE, speech)
+    assert ei.value.text == "The climax comes too early here."
+    assert ei.value.whole_passage is False
+    assert speech.calls == [PASSAGE, "First sentence is fine here.",
+                            "The climax comes too early here."]
+
+
+def test_render_block_only_in_context_is_whole_passage():
+    # The armed phrase spans a sentence boundary: only the full passage has it.
+    speech = FakeSpeechProvider(block="here. The climax")
+    with pytest.raises(SpeechBlocked) as ei:
+        render_speech_mp3(PASSAGE, speech)
+    assert ei.value.whole_passage is True
+    assert ei.value.text == PASSAGE
+    assert "[tts] chunk = true" in str(ei.value)
+    assert len(speech.calls) == 4  # whole passage + three sentences
+
+
+def test_render_chunked_block_needs_no_locating():
+    speech = FakeSpeechProvider(block="climax")
+    with pytest.raises(SpeechBlocked) as ei:
+        render_speech_mp3(PASSAGE, speech, chunk=True)
+    assert ei.value.text == "The climax comes too early here."
+    assert speech.calls == ["First sentence is fine here.", "The climax comes too early here."]
+
+
+def test_render_single_sentence_block_is_not_resent():
+    speech = FakeSpeechProvider(block="climax")
+    with pytest.raises(SpeechBlocked) as ei:
+        render_speech_mp3("The climax comes too early here.", speech)
+    assert ei.value.text == "The climax comes too early here."
+    assert speech.calls == ["The climax comes too early here."]
+
+
+def test_render_non_block_error_is_not_located():
+    speech = FakeSpeechProvider(fail=True)
+    with pytest.raises(SpeechError) as ei:
+        render_speech_mp3(PASSAGE, speech)
+    assert not isinstance(ei.value, SpeechBlocked)
+    assert speech.calls == [PASSAGE]
+
+
+def test_synthesize_tags_segment_and_persists_cache_per_segment(tmp_path):
+    pkg = _pkg(tmp_path)
+    blocked = make_notes(set_intros={"1": "a", "2": "the climax"})
+    with pytest.raises(SpeechBlocked) as ei:
+        _synthesize_dj_audio(pkg.dir, blocked, FakeSpeechProvider(block="climax"), False)
+    assert ei.value.segment == "set2-intro"
+    assert "in set2-intro" in str(ei.value)
+    sidecar = _json.loads((pkg.dir / "dj-audio" / "segments.json").read_text())
+    assert "set1-intro.mp3" in sidecar
+
+    second = FakeSpeechProvider()
+    _synthesize_dj_audio(pkg.dir, make_notes(set_intros={"1": "a", "2": "b"}), second, False)
+    assert second.calls == ["b", "o"]  # set 1 came from the cache
+
+
+def test_synthesize_rendered_set_exempts_from_force(tmp_path):
+    pkg = _pkg(tmp_path)
+    rendered: set[str] = set()
+    first = FakeSpeechProvider()
+    _synthesize_dj_audio(pkg.dir, make_notes(), first, True, rendered=rendered)
+    assert len(first.calls) == 3
+    assert rendered == {"set1-intro.mp3", "set2-intro.mp3", "99-outro.mp3"}
+
+    second = FakeSpeechProvider()
+    _synthesize_dj_audio(pkg.dir, make_notes(outro="new outro"), second, True, rendered=rendered)
+    assert second.calls == ["new outro"]  # changed text still re-renders
+
+
+def test_synthesize_force_without_rendered_still_rerenders_everything(tmp_path):
+    pkg = _pkg(tmp_path)
+    _synthesize_dj_audio(pkg.dir, make_notes(), FakeSpeechProvider(), False)
+    again = FakeSpeechProvider()
+    _synthesize_dj_audio(pkg.dir, make_notes(), again, True)
+    assert len(again.calls) == 3

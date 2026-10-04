@@ -306,10 +306,12 @@ or `{"outro": revised}`) — `model_copy` is shallow, so mutating a copy's
   7/7 times (5× `wav`, 2× `mp3`) and a control sentence from the same segment
   passed 5/5 (3× `wav`, 2× `mp3`), measured 2026-10-03. This underwrites "no
   identical retry" and the `whole_passage` remedy.
-- **Unverified — a medium-tier rephrase clears the moderator within 2
-  attempts.** Only two hand-written rewordings have been measured. Settled by a
-  live smoke check at the end of implementation: run `rephrase_segment` on the
-  real blocked `set2-intro` and send the result to Voxtral.
+- **A medium-tier rephrase clears the moderator — measured 2026-10-04, once.**
+  `rephrase_segment` (claude_cli, medium) on the real blocked `set2-intro`
+  changed only the last sentence, to *"Be warned that a tape flip on this
+  source cuts in a little early, before the Lovelight reaches its peak."*;
+  `rephrase_problems` returned `[]`, and all 10 sentences then passed Voxtral
+  with the package's own voice. One sample, first attempt.
 - **Unverified — the guardrail body shape is stable across categories.** Only
   one (sexual) body has been observed; an unrecognised shape degrades to a
   plain `SpeechError`, i.e. today's behaviour.

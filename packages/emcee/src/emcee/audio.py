@@ -21,7 +21,7 @@ import typer
 from emcee.models import DJAudioBlock, ScriptNotes
 from emcee.speech_text import Lexicon, normalize_for_speech
 from emcee.tts.bed import Bed, load_bed_pcm, mix_bed
-from emcee.tts.provider import SpeechError
+from emcee.tts.provider import SpeechBlocked, SpeechError
 from emcee.workspace import atomic_write_bytes, atomic_write_text
 
 
@@ -181,6 +181,42 @@ def _segment_pcm(text: str, speech, chunk: bool) -> tuple[bytes, int, int]:
         return w.readframes(w.getnframes()), w.getframerate(), w.getnchannels()
 
 
+def _locate_block(text: str, speech, fmt: str, blocked: SpeechBlocked) -> SpeechBlocked:
+    """Narrow a whole-passage content-filter block to the sentence that trips
+    it, by synthesizing each sentence alone (audio discarded) until one is
+    refused. A single-sentence passage returns `blocked` untouched -- locating
+    would resend the identical refused request. When every sentence passes
+    alone, the trigger only exists in context: chunked synthesis avoids it,
+    and the returned exception says so (whole_passage=True)."""
+    sentences = _split_sentences(text)
+    if len(sentences) <= 1:
+        return blocked
+    for sentence in sentences:
+        try:
+            speech.synthesize(sentence, fmt=fmt)
+        except SpeechBlocked as located:
+            return located
+    return SpeechBlocked(blocked.backend, text=text, categories=blocked.categories,
+                         whole_passage=True)
+
+
+def _render(text: str, speech, chunk: bool, bed_pcm: bytes | None,
+            bed_rate: int | None, bed_gain_db: float) -> bytes:
+    if bed_pcm is not None:
+        pcm, rate, channels = _segment_pcm(text, speech, chunk)
+        if rate != bed_rate:
+            raise SpeechError(
+                f"bed music sample rate {bed_rate}Hz does not match the "
+                f"voice audio ({rate}Hz)")
+        if channels != 1:
+            raise SpeechError("bed mixing requires mono voice audio")
+        return _encode_mp3(mix_bed(pcm, bed_pcm, rate, gain_db=bed_gain_db),
+                           rate, channels)
+    if chunk:
+        return _synthesize_chunked(text, speech)
+    return speech.synthesize(text)
+
+
 def render_speech_mp3(text: str, speech, *, chunk: bool = False,
                       bed_pcm: bytes | None = None, bed_rate: int | None = None,
                       bed_gain_db: float = 0.0) -> bytes:
@@ -201,20 +237,20 @@ def render_speech_mp3(text: str, speech, *, chunk: bool = False,
     Callers normalize the text (`normalize_for_speech`) and load the bed
     (`load_bed_pcm`) themselves; this function does no I/O beyond the
     provider call.
+
+    A content-filter block on an unchunked call is narrowed to one sentence
+    (`_locate_block`) so the error names it; this is the one renderer
+    `emcee say` and DJ clips share, so both get it.
     """
-    if bed_pcm is not None:
-        pcm, rate, channels = _segment_pcm(text, speech, chunk)
-        if rate != bed_rate:
-            raise SpeechError(
-                f"bed music sample rate {bed_rate}Hz does not match the "
-                f"voice audio ({rate}Hz)")
-        if channels != 1:
-            raise SpeechError("bed mixing requires mono voice audio")
-        return _encode_mp3(mix_bed(pcm, bed_pcm, rate, gain_db=bed_gain_db),
-                           rate, channels)
-    if chunk:
-        return _synthesize_chunked(text, speech)
-    return speech.synthesize(text)
+    try:
+        return _render(text, speech, chunk, bed_pcm, bed_rate, bed_gain_db)
+    except SpeechBlocked as blocked:
+        if chunk:
+            raise  # each chunk is already its own request
+        located = _locate_block(text, speech, "wav" if bed_pcm is not None else "mp3", blocked)
+        if located is blocked:
+            raise
+        raise located from blocked
 
 
 def _segment_texts(notes: ScriptNotes) -> list[tuple[str, str]]:
@@ -227,7 +263,8 @@ def _segment_texts(notes: ScriptNotes) -> list[tuple[str, str]]:
 
 def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
                          chunk: bool = False, lexicon: Lexicon | None = None,
-                         bed: Bed | None = None) -> DJAudioBlock:
+                         bed: Bed | None = None,
+                         rendered: set[str] | None = None) -> DJAudioBlock:
     """One MP3 per ScriptNotes segment under package/dj-audio/.
 
     Segments are keyed by sha256(the speech-normalized text + voice + model +
@@ -235,7 +272,8 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     matching keys are skipped so a repackage never re-spends on unchanged
     text — and editing the pronunciation lexicon or symbol rules also
     invalidates just the affected clips. force re-renders
-    everything. Any provider failure propagates (SpeechError): the manifest
+    every clip once per call (a repair round reuses the clips it already made; see
+    `rendered` below). Any provider failure propagates (SpeechError): the manifest
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
 
@@ -253,7 +291,14 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     changing the bed file or its gain re-renders affected clips; a no-bed
     run's key is unaffected (see bed_key below), so existing no-bed caches
     stay valid.
+
+    `rendered` (filenames already rendered earlier in the same
+    `process_package` call) is exempt from `force`, so a repair round under
+    `--force` does not re-pay for clips it just made. The sidecar is
+    persisted after every rendered segment; the final write and orphan
+    pruning still happen only on full success.
     """
+    rendered = set() if rendered is None else rendered
     lexicon = lexicon or Lexicon.empty()
     audio_dir = pkg / "dj-audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
@@ -273,12 +318,20 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
             f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}{bed_key}".encode()
         ).hexdigest()
         keys[filename] = key
-        if force or not dest.exists() or cached.get(filename) != key:
+        if (force and filename not in rendered) or not dest.exists() or cached.get(filename) != key:
             detail(f"synthesizing {filename}")
-            data = render_speech_mp3(
-                spoken, speech, chunk=chunk, bed_pcm=bed_pcm, bed_rate=bed_rate,
-                bed_gain_db=bed.gain_db if bed is not None else 0.0)
+            try:
+                data = render_speech_mp3(
+                    spoken, speech, chunk=chunk, bed_pcm=bed_pcm, bed_rate=bed_rate,
+                    bed_gain_db=bed.gain_db if bed is not None else 0.0)
+            except SpeechBlocked as blocked:
+                blocked.segment = stem
+                raise
             atomic_write_bytes(dest, data)
+            rendered.add(filename)
+            # Persist as we go, so a retry after a later segment fails (the
+            # content-filter repair loop, or a re-run) reuses this clip.
+            atomic_write_text(sidecar, json.dumps({**cached, **keys}, indent=2))
     for existing in audio_dir.glob("*.mp3"):
         if existing.name not in keys:
             detail(f"pruning orphan {existing.name}")

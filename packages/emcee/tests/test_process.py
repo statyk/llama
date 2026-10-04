@@ -479,3 +479,183 @@ def test_assignment_for_three_rules_and_labels():
     house = assignment_for(EmceeConfig(), "dead")
     assert house == AssignmentView(None, None, "house")
     assert presenter_label(house) == "house"
+
+
+from herder import TaskFailed
+
+from emcee.tts.provider import SpeechBlocked
+
+CLEAN_S1 = "China Cat Sunflower leads set two."
+BLOCKED_S2 = "The climax comes a little early tonight."
+SEG2 = f"{CLEAN_S1} {BLOCKED_S2}"
+SET1 = "Tonight: the Dead at RFK. Opens with Morning Dew."
+
+
+def _arm(monkeypatch, rephrases, notes_json=None):
+    """Route provider_for: scriptwrite -> one script, rephrase -> `rephrases`
+    queue. Returns (rephrase FakeProvider, list of tasks requested)."""
+    script = FakeProvider(completes=[notes_json or _good_notes_json(
+        set_intros={"1": SET1, "2": SEG2})])
+    rephrase = FakeProvider(completes=[json.dumps({"text": t}) if isinstance(t, str) else t
+                                       for t in rephrases])
+    requested: list[str] = []
+
+    def fake_provider_for(settings, task):
+        requested.append(task)
+        return {"scriptwrite": script, "rephrase": rephrase}[task]
+
+    monkeypatch.setattr("emcee.process.provider_for", fake_provider_for)
+    return rephrase, requested
+
+
+def _setup(tmp_path):
+    pkg = Package(build_package(tmp_path / "station", voiced=False))
+    return pkg, EmceeConfig(root=tmp_path / "home")
+
+
+def test_blocked_sentence_is_rephrased_and_package_succeeds(tmp_path, monkeypatch):
+    revised = f"{CLEAN_S1} The peak arrives a little early tonight."
+    rephrase, _ = _arm(monkeypatch, [revised])
+    pkg, config = _setup(tmp_path)
+    speech = FakeSpeechProvider(block="climax")
+
+    process_package(config, pkg, speech)
+
+    m = pkg.manifest()
+    assert m["dj_notes"]["set_intros"]["2"] == revised
+    notes_md = (pkg.dir / "dj-notes.md").read_text()
+    assert "The peak arrives" in notes_md and "climax" not in notes_md
+    assert speech.calls.count(SET1) == 1          # set 1 rendered once, then cached
+    assert revised in speech.calls                # the revision is what was voiced
+    assert f'"{BLOCKED_S2}"' in rephrase.calls[0][1]  # the located sentence, quoted, filled `blocked`
+
+
+def test_force_still_renders_each_clip_once(tmp_path, monkeypatch):
+    _arm(monkeypatch, [f"{CLEAN_S1} The peak arrives a little early tonight."])
+    pkg, config = _setup(tmp_path)
+    speech = FakeSpeechProvider(block="climax")
+
+    process_package(config, pkg, speech, force=True)
+
+    assert speech.calls.count(SET1) == 1
+
+
+def test_reblocked_twice_raises_and_manifest_untouched(tmp_path, monkeypatch):
+    rephrase, _ = _arm(monkeypatch, [f"{CLEAN_S1} The climax lands early tonight.",
+                                     f"{CLEAN_S1} The climax hits early tonight."])
+    pkg, config = _setup(tmp_path)
+    before = pkg.manifest_path.read_text()
+
+    with pytest.raises(EmceeError) as ei:
+        process_package(config, pkg, FakeSpeechProvider(block="climax"))
+
+    assert "set2-intro" in str(ei.value) and "sexual" in str(ei.value)
+    assert any("also blocked" in d for d in ei.value.details)
+    assert "also blocked" in rephrase.calls[1][1]
+    assert pkg.manifest_path.read_text() == before
+
+
+def test_guard_failing_rephrase_is_never_voiced(tmp_path, monkeypatch):
+    bad = f"{CLEAN_S1} All three sets peak early tonight."   # guard: 3 sets vs 2
+    good = f"{CLEAN_S1} The peak arrives a little early tonight."
+    rephrase, _ = _arm(monkeypatch, [bad, good])
+    pkg, config = _setup(tmp_path)
+    speech = FakeSpeechProvider(block="climax")
+
+    process_package(config, pkg, speech)
+
+    assert not any("three sets" in c for c in speech.calls)
+    assert "claim 3 sets" in rephrase.calls[1][1]
+    assert "The peak arrives" in (pkg.dir / "dj-notes.md").read_text()
+    assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == good
+
+
+def test_unchanged_rephrase_consumes_an_attempt(tmp_path, monkeypatch):
+    good = f"{CLEAN_S1} The peak arrives a little early tonight."
+    rephrase, _ = _arm(monkeypatch, [SEG2, good])
+    pkg, config = _setup(tmp_path)
+
+    process_package(config, pkg, FakeSpeechProvider(block="climax"))
+
+    assert "unchanged" in rephrase.calls[1][1]
+    assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == good
+
+
+def test_whole_passage_block_is_not_rephrased(tmp_path, monkeypatch):
+    rephrase, requested = _arm(monkeypatch, [])
+    pkg, config = _setup(tmp_path)
+    before = pkg.manifest_path.read_text()
+
+    with pytest.raises(SpeechBlocked) as ei:
+        process_package(config, pkg, FakeSpeechProvider(block="two. The climax"))
+
+    assert ei.value.whole_passage is True and ei.value.segment == "set2-intro"
+    assert "rephrase" not in requested and rephrase.calls == []
+    assert pkg.manifest_path.read_text() == before
+
+
+def test_containment_failing_rephrase_is_never_voiced(tmp_path, monkeypatch):
+    rejected = "Jack Straw arrives a little early tonight."
+    bad = f"{CLEAN_S1} {rejected}"   # names a track the segment did not; script_guard can't see it
+    good = f"{CLEAN_S1} The peak arrives a little early tonight."
+    rephrase, _ = _arm(monkeypatch, [bad, good])
+    pkg, config = _setup(tmp_path)
+    speech = FakeSpeechProvider(block="climax")
+
+    process_package(config, pkg, speech)
+
+    assert not any("Jack Straw" in c for c in speech.calls)
+    second_prompt = rephrase.calls[1][1]
+    assert "names a track the original did not: Jack Straw" in second_prompt
+    # Attempt 2 rephrases the ADOPTED text, never the rejected candidate.
+    assert SEG2 in second_prompt and rejected not in second_prompt
+    assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == good
+
+
+def test_two_blocked_segments_each_get_their_own_budget(tmp_path, monkeypatch):
+    outro = "I Know You Rider sends us off. The climax of the night was early."
+    notes = _good_notes_json(set_intros={"1": SET1, "2": SEG2}, outro=outro)
+    bad2 = f"{CLEAN_S1} All three sets peak early tonight."   # guard rejects: attempt 1
+    rev2 = f"{CLEAN_S1} The peak arrives a little early tonight."
+    rev_outro = "I Know You Rider sends us off. The peak of the night came early."
+    # Three attempts in all (two for set 2, one for the outro): a single
+    # package-wide budget of 2 would raise on the outro.
+    _arm(monkeypatch, [bad2, rev2, rev_outro], notes_json=notes)
+    pkg, config = _setup(tmp_path)
+
+    process_package(config, pkg, FakeSpeechProvider(block="climax"))
+
+    m = pkg.manifest()
+    assert m["dj_notes"]["set_intros"]["2"] == rev2
+    assert m["dj_notes"]["outro"] == rev_outro
+
+
+def test_rephrase_llm_failure_leaves_manifest_untouched(tmp_path, monkeypatch):
+    script = FakeProvider(completes=[_good_notes_json(set_intros={"1": SET1, "2": SEG2})])
+    rephrase = FakeProvider(completes=["not json", "still not json", "nope"])
+    monkeypatch.setattr("emcee.process.provider_for",
+                        lambda settings, task: {"scriptwrite": script, "rephrase": rephrase}[task])
+    pkg, config = _setup(tmp_path)
+    before = pkg.manifest_path.read_text()
+
+    with pytest.raises(EmceeError) as ei:
+        process_package(config, pkg, FakeSpeechProvider(block="climax"))
+
+    assert "set2-intro" in str(ei.value) and "rephrase task failed" in str(ei.value)
+    assert isinstance(ei.value.__cause__, TaskFailed)
+    assert any(BLOCKED_S2 in d for d in ei.value.details)
+    assert pkg.manifest_path.read_text() == before
+
+
+def test_chunked_repair_through_process_package(tmp_path, monkeypatch, capsys):
+    revised = f"{CLEAN_S1} The peak arrives a little early tonight."
+    _, requested = _arm(monkeypatch, [revised])
+    pkg, _ = _setup(tmp_path)
+    config = EmceeConfig(root=tmp_path / "home", tts=TTSConfig(chunk=True))
+
+    process_package(config, pkg, FakeSpeechProvider(block="climax"), force=True)
+
+    out = capsys.readouterr().out
+    assert "rephrased" in out and "blocked:" in out and "revised:" in out
+    assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == revised
+    assert requested.count("rephrase") == 1

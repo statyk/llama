@@ -8,13 +8,15 @@ llama, so the shared logic is copied here as plain text, re-addressed to read
 from a package manifest dict instead of a `Show` model.
 """
 
+import difflib
 import json
 import re
 
 from herder import run_json_task
 
+from emcee.audio import _split_sentences
 from emcee.errors import EmceeError
-from emcee.models import ScriptNotes
+from emcee.models import RephrasedSegment, ScriptNotes
 from emcee.package_io import Package
 from emcee.presenters import Presenter
 from emcee.prompts import load_prompt
@@ -252,3 +254,73 @@ def write_script(
             + ". Fix every problem; write exactly one lead-in per set listed above."
         )
     raise EmceeError("scriptwrite failed fact-checking after retry", details=problems)
+
+
+# --- content-filter repair: the `rephrase` task and its containment check.
+
+def rephrase_segment(provider, segment_text: str, blocked_text: str,
+                     categories: list[str], feedback: str = "") -> str:
+    """Reword the sentence a TTS content filter refused, returning the whole
+    segment. `blocked_text` is the speech-normalized form that was sent, so
+    the model gets the whole script segment back rather than a sentence to
+    splice: mapping normalized text back onto script text is fragile."""
+    note = (f"\nIMPORTANT: your previous attempt was rejected: {feedback}. "
+            "Fix that too.\n" if feedback else "")
+    result = run_json_task(
+        provider, "rephrase", RephrasedSegment, template=load_prompt("rephrase"),
+        segment=segment_text, blocked=blocked_text,
+        categories=", ".join(categories) or "unspecified", feedback=note,
+    )
+    return result.text.strip()
+
+
+_DIGITS = re.compile(r"\d+")
+
+
+# These name parts of the show, not songs, and are the natural vocabulary for
+# rewording ("the end of that jam"), so they are exempt from the new-name rule.
+_GENERIC_TITLES = frozenset({"drums", "space", "jam", "tuning", "intro", "crowd", "banter"})
+
+_FOLD = str.maketrans({"\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',
+                       "\u2013": "-", "\u2014": "-"})
+
+
+def _fold(text: str) -> str:
+    """Typography/whitespace-insensitive form: one space between words,
+    straight quotes, plain hyphens."""
+    return " ".join(text.translate(_FOLD).split())
+
+
+def _names(title: str, text: str) -> bool:
+    # Whole-word, case-insensitive; lookarounds rather than \b so titles
+    # ending in punctuation ("Truckin'") still match.
+    return re.search(rf"(?<!\w){re.escape(title.lower())}(?!\w)", text.lower()) is not None
+
+
+def rephrase_problems(original: str, revised: str, manifest: dict) -> list[str]:
+    """Deterministic limits on a rephrase, beyond `script_guard` -- whose song
+    checks read only the self-reported `mentioned_songs`, which a rephrase
+    never updates. One contiguous edit; no newly named track; no new numbers.
+    Out-of-show songs and reworded facts inside the edited sentence remain
+    undetectable here; the prompt forbids them and the repair prints the
+    revised segment."""
+    problems: list[str] = []
+    a = [_fold(x) for x in _split_sentences(original)]
+    b = [_fold(x) for x in _split_sentences(revised)]
+    original, revised = _fold(original), _fold(revised)
+    edits = [op for op in difflib.SequenceMatcher(a=a, b=b, autojunk=False).get_opcodes()
+             if op[0] != "equal"]
+    if len(edits) > 1:
+        problems.append("rephrase changed more than one passage; "
+                        "keep every other sentence verbatim")
+    titles = sorted({t["title"] for t in manifest["tracks"] if t.get("title")})
+    for title in titles:
+        if title.strip().lower() in _GENERIC_TITLES:
+            continue
+        folded = _fold(title)
+        if _names(folded, revised) and not _names(folded, original):
+            problems.append(f"rephrase names a track the original did not: {title}")
+    new = sorted(set(_DIGITS.findall(revised)) - set(_DIGITS.findall(original)), key=int)
+    if new:
+        problems.append(f"rephrase adds numbers the original did not have: {', '.join(new)}")
+    return problems
