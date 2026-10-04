@@ -29,12 +29,14 @@ Tier = Literal["low", "medium", "high"]
 
 # emcee's task vocabulary is much narrower than llama's -- it only ever
 # scripts, never researches or curates.
-TASK_KEYS = ["scriptwrite"]
+TASK_KEYS = ["scriptwrite", "rephrase"]
 
 # Task -> tier defaults. scriptwrite quality is audible on air, so it
 # defaults to high (mirrors llama's config.py DEFAULT_TIERS pattern).
+# rephrase rewords one sentence a TTS content filter refused -- small, so medium.
 DEFAULT_TIERS = {
     "scriptwrite": "high",
+    "rephrase": "medium",
 }
 
 
@@ -153,6 +155,14 @@ backend = "claude_cli"
 # tier = "medium"
 # example: exact pin, bypasses tiers
 # model = "claude-opus-4-8"
+
+[llm.rephrase]
+# rewords a DJ-script sentence the TTS content filter refused (rare).
+# An unset task falls back to [llm.default], else claude_cli -- so if you
+# change scriptwrite's backend above, change this one too.
+backend = "claude_cli"
+# Default: medium.
+# tier = "low"
 
 
 # [llm.tiers.openrouter]

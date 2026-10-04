@@ -23,6 +23,13 @@ class ScriptNotes(BaseModel):
     mentioned_songs: list[str] = Field(default_factory=list)
 
 
+class RephrasedSegment(BaseModel):
+    """`rephrase` task output: one DJ segment with only the sentence a TTS
+    content filter refused reworded; every other sentence verbatim."""
+
+    text: str
+
+
 class DJAudioBlock(BaseModel):
     """Per-segment spoken DJ clips, as package-relative paths (dj-audio/...).
     Written to the package manifest's `dj_audio` block."""
