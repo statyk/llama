@@ -554,10 +554,29 @@ def test_rephrase_problems_punctuation_ending_title_flagged():
         "rephrase names a track the original did not: Truckin'"]
 
 
+def test_rephrase_problems_curly_title_flagged_with_curly_revision():
+    manifest = {"tracks": [{"title": "Truckin\u2019"}]}
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "Truckin\u2019 leads off early.")
+    assert rephrase_problems(SEG, revised, manifest) == [
+        "rephrase names a track the original did not: Truckin\u2019"]
+
+
+def test_rephrase_problems_curly_title_flagged_with_straight_revision():
+    manifest = {"tracks": [{"title": "Truckin\u2019"}]}
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "Truckin' leads off early.")
+    assert rephrase_problems(SEG, revised, manifest) == [
+        "rephrase names a track the original did not: Truckin\u2019"]
+
+
 def test_rephrase_problems_typography_noise_is_not_an_edit():
-    orig = "It's a fine night.  The climax comes early. Stay with us."
-    rev = "It’s a fine night. The climax comes soon. Stay—with us."
-    # untouched sentences 1 and 3 differ only by curly quote / dash / spacing
+    # Every sentence >= 20 chars so _split_sentences keeps them apart and the
+    # multi-passage rule can fire if _fold fails to neutralize sentence 1.
+    orig = ("We're glad you're here tonight. The second sentence stays exactly as is. "
+            "The climax comes a little early tonight. Stay with us for the rest.")
+    rev = ("We\u2019re glad  you\u2019re here tonight. The second sentence stays exactly as is. "
+           "The big moment arrives a little sooner tonight. Stay with us for the rest.")
     assert rephrase_problems(orig, rev, MANIFEST) == []
 
 

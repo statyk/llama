@@ -317,7 +317,8 @@ def rephrase_problems(original: str, revised: str, manifest: dict) -> list[str]:
     for title in titles:
         if title.strip().lower() in _GENERIC_TITLES:
             continue
-        if _names(title, revised) and not _names(title, original):
+        folded = _fold(title)
+        if _names(folded, revised) and not _names(folded, original):
             problems.append(f"rephrase names a track the original did not: {title}")
     new = sorted(set(_DIGITS.findall(revised)) - set(_DIGITS.findall(original)), key=int)
     if new:
