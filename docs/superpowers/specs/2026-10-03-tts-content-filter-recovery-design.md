@@ -73,8 +73,9 @@ fix is to reword the sentence.
 ```python
 class SpeechBlocked(SpeechError):
     """The speech backend's content filter refused this text."""
-    def __init__(self, message, *, text: str, categories: list[str],
-                 segment: str | None = None, whole_passage: bool = False): ...
+    def __init__(self, backend: str, *, text: str, categories: list[str],
+                 whole_passage: bool = False): ...
+    segment: str | None   # assignable after construction
 ```
 
 - `text`: the exact string that was sent and refused.
@@ -84,15 +85,20 @@ class SpeechBlocked(SpeechError):
   layer; `None` from the provider.
 - `whole_passage`: set by the locator (section 2) when no individual sentence
   is blocked on its own.
+- The message is computed from these fields (`__str__`), not frozen at
+  construction, so setting `.segment` later is reflected:
+  `voxtral content filter blocked a sentence in set2-intro (sexual)`, plus the
+  `whole_passage` remedy when set. The **full** blocked text is always the
+  first `details` line (`blocked: "<text>"`), which the CLI boundaries already
+  print — the message itself never needs to carry or truncate it.
 
 `VoxtralProvider.synthesize`:
 
 - A non-200 whose JSON body has `"type": "guardrail_violation"` raises
   `SpeechBlocked`. Categories are the keys with `"violated": true` across
-  every entry of `guardrails[*].<moderator>.categories`. Message:
-  `voxtral content filter blocked (sexual): "<text>"` (text truncated in the
-  message only, never in `.text`). A body that isn't parseable JSON, or any
-  other 4xx, stays a plain `SpeechError` exactly as today.
+  every entry of `guardrails[*].<moderator>.categories`. A body that isn't
+  parseable JSON, or any other 4xx, stays a plain `SpeechError` exactly as
+  today.
 - **Transient retry:** `httpx.TransportError` (incl. timeouts), 429, and 5xx
   are retried **once** after a short fixed sleep (2 s, injectable for tests).
   The second failure raises `SpeechError` as today. 4xx other than 429 —
@@ -111,7 +117,9 @@ In `audio.py`:
   `_split_sentences` and synthesizes each sentence in order (same `fmt` the
   path was using), discarding the audio, until one raises `SpeechBlocked`;
   that sentence's exception is raised. Other `SpeechError`s during locating
-  propagate unchanged.
+  propagate unchanged. If `_split_sentences` yields a single element, the
+  original exception is re-raised with no locating call (it would resend the
+  identical refused request).
 - **Every sentence passes alone:** the trigger only exists in context, and
   chunked synthesis would already have avoided it. The locator raises
   `SpeechBlocked(..., whole_passage=True)` whose message says so: *every
@@ -123,6 +131,12 @@ In `audio.py`:
   `emcee say` go through, so `say` gets the same sentence-level error.
 - `_synthesize_dj_audio` catches `SpeechBlocked` around each segment, sets
   `.segment = stem`, and re-raises.
+- **`--force` across repair rounds:** `_synthesize_dj_audio` gains a
+  `rendered: set[str]` parameter (filenames already rendered earlier in the
+  same `process_package` call; it adds each filename it renders). A filename in
+  `rendered` is exempt from `force` and served from the cache like any key
+  match, so `emcee voice --force` still re-renders every segment exactly once
+  per call, not once per repair round.
 
 **Per-segment cache persistence.** Today `segments.json` is written only after
 every segment succeeds, so a retry within the same process would re-render
@@ -137,8 +151,13 @@ success).
 - New prompt `emcee/prompts/rephrase.md`; new schema in `models.py`:
   `RephrasedSegment(text: str)`.
 - `config.TASK_KEYS` gains `"rephrase"`; `DEFAULT_TIERS["rephrase"] =
-  "medium"`; the `config init` template documents it alongside
-  `[llm.scriptwrite]`.
+  "medium"`; the `config init` template documents an `[llm.rephrase]` section
+  alongside `[llm.scriptwrite]`, noting that a station which changes
+  scriptwrite's `backend` must set rephrase's too (an unset task falls back to
+  `[llm.default]`, else `claude_cli`).
+- The provider is `provider_for(config.llm_settings(), "rephrase")`, built
+  lazily on the first block — a package that never hits one never constructs
+  it.
 - New function (in `scriptwrite.py`, beside `write_script`):
   `rephrase_segment(provider, segment_text, blocked_text, categories,
   feedback="") -> str`.
@@ -154,42 +173,76 @@ success).
   substitutions etc.) and mapping it back onto script text by string matching
   is fragile.
 
+**Containment check.** `script_guard`'s song checks read only the model's
+self-reported `mentioned_songs`, which a rephrase does not update, so the guard
+alone cannot see a song or fact the rephrase slips into the prose. A small
+deterministic `rephrase_problems(original, revised, manifest) -> list[str]`
+closes the gap; its problems are handled exactly like guard problems (attempt
+consumed, fed back):
+
+- **One contiguous edit:** split both texts with `_split_sentences` and diff
+  the sentence lists (`difflib.SequenceMatcher`); more than one non-equal
+  opcode is a problem (*"changed more than one passage; keep every other
+  sentence verbatim"*). This bounds the edit to the neighbourhood of the
+  blocked sentence.
+- **No newly named track:** a manifest track title appearing
+  (case-insensitive) in the revised segment but not the original is a problem.
+- **No new numbers:** a digit token in the revised segment absent from the
+  original is a problem.
+
+Out-of-show song names and reworded facts inside the edited sentence remain
+undetectable deterministically; the prompt forbids them and the `revised:`
+detail line (section 4) records them. That residual is accepted at these
+stakes.
+
 ### 4. Repair loop
 
 In `process.py:process_package`, synthesis becomes a loop:
 
 ```
-used = {}                                  # segment stem -> attempts used
+used = {}                 # segment stem -> attempts used
+last = {}                 # segment stem -> why the previous attempt failed
+rendered = set()          # filenames rendered this call (exempt from force)
+repaired = set()          # segments whose adopted text is already a rephrase
 while True:
     try:
-        dj_audio = _synthesize_dj_audio(...); break
+        dj_audio = _synthesize_dj_audio(..., rendered=rendered); break
     except SpeechBlocked as e:
         if e.whole_passage or e.segment is None: raise
-        feedback = ""
-        while True:                        # one iteration = one attempt
-            if used.get(e.segment, 0) >= MAX_REPHRASES:   # 2
-                raise <exhausted EmceeError>
-            used[e.segment] += 1
-            revised = rephrase_segment(..., feedback=feedback)
-            candidate = <notes with that segment replaced by revised>
-            problems = script_guard(candidate, manifest, narration)
-            if revised is empty or unchanged: feedback = "<returned unchanged>"
-            elif problems: feedback = "; ".join(problems)
-            else: break                    # accept
-        notes = candidate                  # only a guard-passing candidate
-        rewrite dj-notes.md; detail(before/after)
+        seg = e.segment
+        if seg in repaired: last[seg] = f"your previous rewording was also blocked: {e.text}"
+        while True:                                   # one iteration = one attempt
+            if used.get(seg, 0) >= MAX_REPHRASES:     # 2
+                raise <exhausted EmceeError, details include last[seg]>
+            used[seg] = used.get(seg, 0) + 1
+            current = <notes' text for seg>           # always the ADOPTED text
+            revised = rephrase_segment(..., current, e.text, e.categories,
+                                       feedback=last.get(seg, ""))
+            candidate = notes.model_copy(update={...})   # never mutate notes
+            problems = ("returned unchanged" if not revised.strip() or revised == current
+                        else rephrase_problems(current, revised, manifest)
+                             + script_guard(candidate, manifest, narration))
+            if not problems: break                    # accept
+            last[seg] = "; ".join(problems)
+        notes = candidate; repaired.add(seg)
+        rewrite dj-notes.md; detail(blocked/revised)
         # loop: re-synthesize; done segments come from the cache
 ```
 
 A rejected candidate is never adopted: `notes` only ever holds a script that
-passed `script_guard`.
+passed `script_guard` and `rephrase_problems`, and each attempt rephrases the
+adopted text, never a rejected candidate. Candidates are built with
+`model_copy(update=...)` (`{"set_intros": {**notes.set_intros, key: revised}}`
+or `{"outro": revised}`) — `model_copy` is shallow, so mutating a copy's
+`set_intros` would leak into `notes`.
 
 - Segment stem → `ScriptNotes` field: `set<key>-intro` → `set_intros[key]`,
   `99-outro` → `outro`.
 - **Budget:** 2 rephrase attempts per segment per `process_package` call. An
-  attempt is consumed by a guard failure, an empty/unchanged result, or the
-  revised text being blocked again. Guard problems from a failed attempt are
-  passed as `feedback` to the next one.
+  attempt is consumed by a guard or containment failure, an empty/unchanged
+  result, or the revised text being blocked again. The reason the previous
+  attempt failed — its problems, or "your previous rewording was also blocked:
+  <text>" — is passed as `feedback` to the next one.
 - **Success:** `dj-notes.md` is rewritten from the revised notes before
   re-synthesis; segments already rendered are served from the cache
   (section 2). A `detail()` line reports the repair:
@@ -197,8 +250,9 @@ passed `script_guard`.
   two indented lines: `blocked: <blocked text>` and `revised: <full revised
   segment>` — the operator must be able to see what will go on air.
 - **Exhausted:** raise `EmceeError` —
-  `content filter blocked a sentence in set2-intro (sexual) and 2 rephrase
-  attempts did not clear it` with details: the blocked text, and *re-run
+  `content filter blocked a sentence in set2-intro (sexual); 2 rephrase
+  attempts failed` with details: the blocked text, the last attempt's failure
+  reason (re-blocked, guard/containment problems, or unchanged), and *re-run
   `emcee voice <package>` for a fresh script*. `emcee run`'s existing
   per-package error handling reports it and moves on.
 - **`whole_passage`:** propagates unrepaired with the re-run-chunked message.
@@ -228,12 +282,34 @@ passed `script_guard`.
 - **Repair (process):** block a phrase that the fake `rephrase` response
   removes → package succeeds; `dj-notes.md`, the manifest `dj_notes` and the
   synthesized texts all carry the revised wording; the earlier segment was
-  synthesized once. Rephrase output still blocked twice → `EmceeError`
-  naming segment + category, manifest untouched. Rephrase output that fails
-  `script_guard` consumes an attempt and its problems reach the next
-  rephrase's prompt. Unchanged output consumes an attempt. `whole_passage`
-  → no rephrase call made.
+  synthesized once — and still once under `force=True`. Rephrase output still
+  blocked twice → `EmceeError` naming segment + category with the re-block in
+  `details`, manifest untouched, and the second rephrase prompt carries "also
+  blocked". Rephrase output that fails `script_guard` consumes an attempt, its
+  problems reach the next rephrase's prompt, **no entry of
+  `FakeSpeechProvider.calls` contains the rejected candidate's distinctive
+  text**, and the final `dj-notes.md` holds the accepted text. Unchanged
+  output consumes an attempt. `whole_passage` → no rephrase call made.
+- **Containment:** `rephrase_problems` flags two separated edited sentences,
+  a newly named manifest track, and a new digit token; a single-sentence edit
+  passes.
+- **Locator single sentence:** a one-sentence unchunked passage blocked →
+  exactly one provider call.
 - `test_no_llama_imports` continues to pass.
+
+## Premises checked
+
+- **Deterministic and format-independent:** the blocked sentence was refused
+  7/7 times (5× `wav`, 2× `mp3`) and a control sentence from the same segment
+  passed 5/5 (3× `wav`, 2× `mp3`), measured 2026-10-03. This underwrites "no
+  identical retry" and the `whole_passage` remedy.
+- **Unverified — a medium-tier rephrase clears the moderator within 2
+  attempts.** Only two hand-written rewordings have been measured. Settled by a
+  live smoke check at the end of implementation: run `rephrase_segment` on the
+  real blocked `set2-intro` and send the result to Voxtral.
+- **Unverified — the guardrail body shape is stable across categories.** Only
+  one (sexual) body has been observed; an unrecognised shape degrades to a
+  plain `SpeechError`, i.e. today's behaviour.
 
 ## Files touched
 
