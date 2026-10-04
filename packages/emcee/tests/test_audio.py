@@ -647,3 +647,139 @@ def test_synthesize_force_without_rendered_still_rerenders_everything(tmp_path):
     again = FakeSpeechProvider()
     _synthesize_dj_audio(pkg.dir, make_notes(), again, True)
     assert len(again.calls) == 3
+
+
+# --- loudness normalization (chunked + bed paths only) ----------------------
+
+import hashlib as _hashlib
+import math as _math
+
+from emcee.audio import _SILENCE_MS, _chunked_pcm, _segment_pcm
+from emcee.speech_text import Lexicon, normalize_for_speech
+from emcee.tts.loudness import TARGET_DB, active_level_db
+
+_TONE_RATE = 24000
+_TONE_S = 0.5
+
+
+def _tone_wav(rms_db: float) -> bytes:
+    amp = 10 ** (rms_db / 20) * _math.sqrt(2) * 32768
+    t = np.arange(int(_TONE_S * _TONE_RATE)) / _TONE_RATE
+    samples = np.rint(amp * np.sin(2 * _math.pi * 220 * t)).astype("<i2")
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(_TONE_RATE)
+        w.writeframes(samples.tobytes())
+    return buf.getvalue()
+
+
+class _ToneSpeech:
+    """Returns, per fmt="wav" call, a 0.5 s sine at the next level in
+    `levels_db` (cycling) -- a stand-in for Voxtral's per-call level swings."""
+    voice = "tone-voice"
+    model = "tone-model"
+
+    def __init__(self, levels_db: list[float]):
+        self.levels_db = levels_db
+        self.calls: list[str] = []
+
+    def synthesize(self, text: str, fmt: str = "mp3", *,
+                   previous_text: str | None = None,
+                   next_text: str | None = None) -> bytes:
+        self.calls.append(text)
+        if fmt != "wav":
+            return SILENT_MP3
+        return _tone_wav(self.levels_db[(len(self.calls) - 1) % len(self.levels_db)])
+
+
+_THREE = ("The first sentence is right here. The second sentence follows it now. "
+          "The third sentence closes out the set.")
+
+
+def _regions(pcm: bytes, n_sentences: int) -> list[bytes]:
+    """The sentence regions of chunked PCM (the silence gaps skipped)."""
+    tone = int(_TONE_S * _TONE_RATE) * 2
+    gap = int(_TONE_RATE * (_SILENCE_MS / 1000)) * 2
+    voiced, pos = [], 0
+    for i in range(n_sentences):
+        voiced.append(pcm[pos:pos + tone]); pos += tone
+        if i < n_sentences - 1:
+            pos += gap
+    assert pos == len(pcm)
+    return voiced
+
+
+def test_chunked_pcm_normalizes_each_sentence_to_target():
+    speech = _ToneSpeech([-26.0, -20.0, -14.0])
+    pcm, rate, _ = _chunked_pcm(_THREE, speech)
+    assert len(speech.calls) == 3
+    voiced = _regions(pcm, 3)
+    for region in voiced:
+        assert abs(active_level_db(region, rate) - TARGET_DB) < 0.1
+
+
+# The spec's bed-path check ("normalized before the mix") is tested at
+# _segment_pcm, which returns the voice _render hands to mix_bed: normalizing
+# after the mix instead would leave this voice at its input level and fail.
+def test_segment_pcm_unchunked_normalizes_the_whole_segment():
+    pcm, rate, _ = _segment_pcm("One whole segment of speech.", _ToneSpeech([-27.0]),
+                                chunk=False)
+    assert abs(active_level_db(pcm, rate) - TARGET_DB) < 0.1
+
+
+def _odd_8bit_wav() -> bytes:
+    # Non-silent 8-bit PCM with an odd byte count: reading it as int16 would
+    # raise a numpy ValueError, so this only passes if the width check runs first.
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(1); w.setframerate(24000)
+        w.writeframes(bytes([200, 50] * 500 + [200]))
+    return buf.getvalue()
+
+
+class _Odd8BitSpeech:
+    voice = "x"
+    model = "y"
+
+    def synthesize(self, text: str, fmt: str = "mp3", *,
+                   previous_text: str | None = None,
+                   next_text: str | None = None) -> bytes:
+        return _odd_8bit_wav()
+
+
+def test_segment_pcm_non_16bit_still_raises_speech_error():
+    with pytest.raises(SpeechError, match="16-bit"):
+        _segment_pcm("One sentence.", _Odd8BitSpeech(), chunk=False)
+
+
+def _expected_key(text: str, chunk: bool, bed_key: str = "", loud: bool = False) -> str:
+    spoken = normalize_for_speech(text, Lexicon.empty())
+    loud_key = "\nloud=v1" if loud else ""
+    return _hashlib.sha256(
+        f"{spoken}\nfake-voice\nfake-model\nchunk={chunk}{bed_key}{loud_key}".encode()
+    ).hexdigest()
+
+
+def _sidecar(tmp_path) -> dict:
+    return _json.loads((tmp_path / "dj-audio" / "segments.json").read_text())
+
+
+def test_cache_key_unchunked_no_bed_is_the_pre_feature_formula(tmp_path):
+    _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False, chunk=False)
+    assert _sidecar(tmp_path)["99-outro.mp3"] == _expected_key("o", chunk=False)
+
+
+def test_cache_key_chunked_carries_the_loudness_version(tmp_path):
+    _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False, chunk=True)
+    assert _sidecar(tmp_path)["99-outro.mp3"] == _expected_key("o", chunk=True, loud=True)
+
+
+def test_cache_key_bed_carries_the_loudness_version(tmp_path):
+    from emcee.tts.bed import Bed
+    bed_path = _bed_file(tmp_path)
+    bed_pcm, _, _, _ = load_bed_pcm(bed_path)
+    bed_key = f"\nbed={_hashlib.sha256(bed_pcm).hexdigest()[:16]}:-20.0"
+    _synthesize_dj_audio(tmp_path, make_notes(), FakeSpeechProvider(), False,
+                         chunk=False, bed=Bed(path=bed_path, gain_db=-20.0))
+    assert _sidecar(tmp_path)["99-outro.mp3"] == _expected_key(
+        "o", chunk=False, bed_key=bed_key, loud=True)

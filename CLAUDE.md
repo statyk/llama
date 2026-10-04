@@ -503,6 +503,11 @@ tier (pins never escalate).
   llama used to have) → assemble `broadcast.m3u` → atomically rewrite the
   manifest's `dj_notes`/`dj_audio` blocks last, in place, in the package
   directory llama delivered (`package_io.py:rewrite_manifest`).
+  Chunked and bed-active clips are loudness-normalized per sentence/segment
+  before the gap and the bed mix (`tts/loudness.py`: −20 dBFS speech-active,
+  −1 dBFS peak ceiling, ±10 dB clamp; module constants, no config), because
+  Voxtral returns every call at its own level; the unchunked no-bed path ships
+  the provider's MP3 untouched and is not normalized.
   Everything else in a package is llama-owned and read-only from emcee's side.
   A Voxtral content-filter refusal (403 `guardrail_violation`) is `SpeechBlocked`:
   emcee narrows it to the sentence, rewords just that segment with the small
