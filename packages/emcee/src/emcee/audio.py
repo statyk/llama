@@ -21,6 +21,7 @@ import typer
 from emcee.models import DJAudioBlock, ScriptNotes
 from emcee.speech_text import Lexicon, normalize_for_speech
 from emcee.tts.bed import Bed, load_bed_pcm, mix_bed
+from emcee.tts.loudness import LOUDNESS_VERSION, normalize_speech
 from emcee.tts.provider import SpeechBlocked, SpeechError
 from emcee.workspace import atomic_write_bytes, atomic_write_text
 
@@ -118,7 +119,8 @@ def _encode_mp3(pcm: bytes, framerate: int, channels: int) -> bytes:
 def _chunked_pcm(text: str, speech) -> tuple[bytes, int, int]:
     """Sentence-by-sentence synthesis + PCM concat (no encode). Returns
     (pcm, framerate, channels). See _synthesize_chunked for the rationale;
-    this is its PCM half, shared with the bed path."""
+    this is its PCM half, shared with the bed path. Each sentence's PCM is
+    loudness-normalized (normalize_speech) before the silence gap is appended."""
     sentences = _split_sentences(text)
     frames: list[bytes] = []
     framerate = channels = sampwidth = None
@@ -138,7 +140,9 @@ def _chunked_pcm(text: str, speech) -> tuple[bytes, int, int]:
                         f"chunked synthesis requires 16-bit PCM audio from the speech "
                         f"backend, got {sampwidth * 8}-bit (lameenc only accepts int16 "
                         "samples)")
-            frames.append(w.readframes(w.getnframes()))
+            # Each Voxtral call comes back at its own level; even them out
+            # here, per sentence and before the silence gap (see tts/loudness).
+            frames.append(normalize_speech(w.readframes(w.getnframes()), framerate))
         if i < len(sentences) - 1:
             silence_frames = int(framerate * (_SILENCE_MS / 1000))
             frames.append(bytes(silence_frames * channels * sampwidth))
@@ -169,7 +173,9 @@ def _synthesize_chunked(text: str, speech) -> bytes:
 def _segment_pcm(text: str, speech, chunk: bool) -> tuple[bytes, int, int]:
     """One DJ segment's voice as raw int16 PCM (pcm, framerate, channels),
     from either the chunked concat or a single whole-segment fmt='wav' call.
-    Used by the bed path, which needs PCM to mix before encoding."""
+    Used by the bed path, which needs PCM to mix before encoding.
+    The voice is loudness-normalized (normalize_speech) before it is returned,
+    so the bed is mixed under an evened voice."""
     if chunk:
         return _chunked_pcm(text, speech)
     wav_bytes = speech.synthesize(text, fmt="wav")
@@ -178,7 +184,8 @@ def _segment_pcm(text: str, speech, chunk: bool) -> tuple[bytes, int, int]:
             raise SpeechError(
                 f"bed mixing requires 16-bit PCM audio from the speech backend, "
                 f"got {w.getsampwidth() * 8}-bit")
-        return w.readframes(w.getnframes()), w.getframerate(), w.getnchannels()
+        rate = w.getframerate()
+        return normalize_speech(w.readframes(w.getnframes()), rate), rate, w.getnchannels()
 
 
 def _locate_block(text: str, speech, fmt: str, blocked: SpeechBlocked) -> SpeechBlocked:
@@ -229,10 +236,11 @@ def render_speech_mp3(text: str, speech, *, chunk: bool = False,
     - bed active (`bed_pcm` given): synthesize as PCM, mix the bed under it
       (`mix_bed`), and encode once via lameenc. Hard-fails when the bed's
       sample rate does not match the voice audio, or the voice is not mono.
+      The voice is loudness-normalized first (tts/loudness.normalize_speech).
     - `chunk`: sentence-by-sentence synthesis concatenated as PCM, one
-      encode at the end (`_synthesize_chunked`).
+      encode at the end (`_synthesize_chunked`); each sentence loudness-normalized.
     - neither: a single whole-passage call, shipping the provider's own MP3
-      untouched.
+      untouched (not loudness-normalized: this path never holds PCM).
 
     Callers normalize the text (`normalize_for_speech`) and load the bed
     (`load_bed_pcm`) themselves; this function does no I/O beyond the
@@ -268,7 +276,7 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     """One MP3 per ScriptNotes segment under package/dj-audio/.
 
     Segments are keyed by sha256(the speech-normalized text + voice + model +
-    chunk [+ bed]) in a sidecar map (segments.json) written with the audio;
+    chunk [+ bed] [+ loud]) in a sidecar map (segments.json) written with the audio;
     matching keys are skipped so a repackage never re-spends on unchanged
     text — and editing the pronunciation lexicon or symbol rules also
     invalidates just the affected clips. force re-renders
@@ -292,6 +300,10 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     run's key is unaffected (see bed_key below), so existing no-bed caches
     stay valid.
 
+    Loudness: chunked and bed-active clips are loudness-normalized
+    (tts/loudness), and their key carries `loud=<LOUDNESS_VERSION>` so a change
+    to the normalization re-renders them; the plain path's key is unchanged.
+
     `rendered` (filenames already rendered earlier in the same
     `process_package` call) is exempt from `force`, so a repair round under
     `--force` does not re-pay for clips it just made. The sidecar is
@@ -310,12 +322,15 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     if bed is not None:
         bed_pcm, bed_rate, _, _ = load_bed_pcm(bed.path)
         bed_key = f"\nbed={hashlib.sha256(bed_pcm).hexdigest()[:16]}:{bed.gain_db}"
+    # Paths that hold PCM are loudness-normalized; the plain path ships the
+    # provider's MP3 untouched, so its key (and cache) is unchanged.
+    loud_key = f"\nloud={LOUDNESS_VERSION}" if (chunk or bed is not None) else ""
     for stem, text in _segment_texts(notes):
         spoken = normalize_for_speech(text, lexicon)
         filename = f"{stem}.mp3"
         dest = audio_dir / filename
         key = hashlib.sha256(
-            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}{bed_key}".encode()
+            f"{spoken}\n{speech.voice}\n{speech.model}\nchunk={chunk}{bed_key}{loud_key}".encode()
         ).hexdigest()
         keys[filename] = key
         if (force and filename not in rendered) or not dest.exists() or cached.get(filename) != key:
