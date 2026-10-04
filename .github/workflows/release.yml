@@ -83,8 +83,11 @@ jobs:
       matrix:
         include:
           # Timeouts padded for building+signing TWO binaries per leg
-          # (llama + emcee) instead of one.
-          - { os: linux,   arch: x64,   runner: ubuntu-latest,      timeout: 40 }
+          # (llama + emcee) instead of one. Linux legs are pinned to 24.04, not
+          # ubuntu-latest: a PyInstaller binary links the build host's glibc and
+          # runs only on that version or newer, so building on a newer image
+          # would silently drop older distros.
+          - { os: linux,   arch: x64,   runner: ubuntu-24.04,       timeout: 40 }
           - { os: linux,   arch: arm64, runner: ubuntu-24.04-arm,   timeout: 40 }
           - { os: macos,   arch: arm64, runner: macos-latest,       timeout: 70 }
           - { os: windows, arch: x64,   runner: windows-latest,     timeout: 45 }

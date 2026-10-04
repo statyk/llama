@@ -49,10 +49,19 @@ per-tool entitlements or signing-metadata file.
 
 ## Runners
 
-All jobs run on GitHub-hosted runners — `ubuntu-latest`, `ubuntu-24.04-arm`
+All jobs run on GitHub-hosted runners — `ubuntu-24.04`, `ubuntu-24.04-arm`
 (free for public repos; **public repos only** — it fails on a private repo),
-`macos-latest` (arm64), and `windows-latest`. PyInstaller can't cross-compile,
-so each binary is built on native hardware. There are **no self-hosted
+`macos-latest` (arm64), and `windows-latest`; the small prep and release jobs,
+which build nothing, use `ubuntu-latest`. PyInstaller can't cross-compile,
+so each binary is built on native hardware.
+
+The Linux build legs are pinned to 24.04 on purpose. A PyInstaller binary
+links against the build host's glibc and runs only on that glibc or newer, so
+building on `ubuntu-latest` (which moved to Ubuntu 26 on 2026-10-19) would
+quietly stop the binaries running on older distros. Built on 24.04, they run
+on 24.04 and everything after it. Move the pin forward deliberately, when
+dropping support for older distros is acceptable, or when GitHub retires the
+24.04 image. There are **no self-hosted
 runners**; the earlier self-hosted fleet was decommissioned once
 `ubuntu-24.04-arm` made hosted Linux-arm64 available.
 
