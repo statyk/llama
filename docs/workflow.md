@@ -328,8 +328,8 @@ no separate queue file to fall out of sync:
   (and the same renderer the DJ clips go through), but every part of it is
   overridable per invocation: `--clone`/`--voice`/`--presenter` for the
   voice, `--bed`/`--bed-gain`/`--no-bed` for the bed, `--no-chunk` and
-  `--raw` for the text handling. Chunking defaults **on** here, unlike
-  `[tts] chunk`, because an arbitrary text file routinely exceeds the
+  `--raw` for the text handling. Chunking defaults **on** here, as
+  `[tts] chunk` does, because an arbitrary text file routinely exceeds the
   backend's per-request character cap.
 
 For each pending package, emcee writes a DJ script (its own scriptwrite LLM

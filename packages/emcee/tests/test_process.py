@@ -509,8 +509,11 @@ def _arm(monkeypatch, rephrases, notes_json=None):
 
 
 def _setup(tmp_path):
+    # Unchunked: these tests count whole-segment calls and exercise the
+    # whole-passage block, which only exists unchunked. The chunked repair
+    # path has its own test (test_chunked_repair_through_process_package).
     pkg = Package(build_package(tmp_path / "station", voiced=False))
-    return pkg, EmceeConfig(root=tmp_path / "home")
+    return pkg, EmceeConfig(root=tmp_path / "home", tts=TTSConfig(chunk=False))
 
 
 def test_blocked_sentence_is_rephrased_and_package_succeeds(tmp_path, monkeypatch):

@@ -20,6 +20,7 @@ from emcee.config import (
     Assignment,
     EmceeConfig,
     LLMTaskConfig,
+    TTSConfig,
     default_root,
     load_config,
 )
@@ -126,6 +127,10 @@ def test_llm_tiers_rejects_unknown_tier_key(tmp_path: Path):
         load_config(p)
 
 
+def test_tts_chunk_defaults_on():
+    assert TTSConfig().chunk is True
+
+
 def test_tiers_defaults_empty():
     assert EmceeConfig().tiers == {}
 
@@ -134,13 +139,13 @@ def test_tts_section_from_toml(tmp_path: Path):
     p = tmp_path / "config.toml"
     p.write_text(
         '[tts]\nbackend = "elevenlabs"\nvoice = "v-abc"\nmodel = "m"\n'
-        'chunk = true\nbed = "/beds/soul.wav"\nbed_gain_db = -15.0\n'
+        'chunk = false\nbed = "/beds/soul.wav"\nbed_gain_db = -15.0\n'
     )
     cfg = load_config(p)
     assert cfg.tts.backend == "elevenlabs"
     assert cfg.tts.voice == "v-abc"
     assert cfg.tts.model == "m"
-    assert cfg.tts.chunk is True
+    assert cfg.tts.chunk is False  # not the default, so this proves the key is read
     assert cfg.tts.bed == "/beds/soul.wav"
     assert cfg.tts.bed_gain_db == -15.0
 
