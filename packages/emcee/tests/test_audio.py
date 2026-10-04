@@ -408,7 +408,8 @@ def _bed_file(tmp_path: Path, seconds: float = 1.0) -> Path:
 def test_process_package_bed_active_produces_valid_mp3(tmp_path):
     pkg = _pkg(tmp_path)
     bed_path = _bed_file(tmp_path)
-    config = _config(tmp_path, bed=str(bed_path), bed_gain_db=-20.0)
+    # Unchunked; test_process_package_bed_works_with_chunk is the chunked pair.
+    config = _config(tmp_path, bed=str(bed_path), bed_gain_db=-20.0, chunk=False)
 
     _process(config, pkg, FakeSpeechProvider(), make_notes())
 
@@ -447,7 +448,7 @@ def test_process_package_no_bed_cache_key_unchanged(tmp_path):
     # A no-bed run's segment key must be byte-identical to pre-feature
     # behavior, so a no-bed repackage still skips unchanged clips.
     pkg = _pkg(tmp_path)
-    config = _config(tmp_path)
+    config = _config(tmp_path, chunk=False)
     _process(config, pkg, FakeSpeechProvider(), make_notes())
 
     second = FakeSpeechProvider()

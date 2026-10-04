@@ -285,7 +285,7 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
 
-    chunk ([tts] chunk, default on): synthesize each segment sentence-by-
+    chunk (from [tts] chunk, which defaults on): synthesize each segment sentence-by-
     sentence and concatenate instead of one call per segment (see
     _synthesize_chunked). chunk is part of the cache key - chunked and
     single-call audio are different renders of the same text, so flipping
