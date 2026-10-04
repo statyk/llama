@@ -525,3 +525,42 @@ def test_rephrase_problems_title_match_is_whole_word():
     orig = SEG.replace("The climax", "A great deal of the climax")
     rev = orig.replace("A great deal of the climax comes", "A great deal of the peak comes")
     assert rephrase_problems(orig, rev, MANIFEST) == []  # "deal" was already there
+
+
+GENERIC_MANIFEST = {"tracks": [{"title": "Jam"}, {"title": "Drums"}, {"title": "Space"},
+                               {"title": "Morning Dew"}, {"title": "Truckin'"}]}
+
+
+def test_rephrase_problems_generic_titles_are_ordinary_words():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "The tape flip on this source cuts into the end of that jam.")
+    assert rephrase_problems(SEG, revised, GENERIC_MANIFEST) == []
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "There is less space before the drums tonight.")
+    assert rephrase_problems(SEG, revised, GENERIC_MANIFEST) == []
+
+
+def test_rephrase_problems_real_title_still_flagged_case_insensitive():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "morning dew arrives a little early tonight.")
+    assert rephrase_problems(SEG, revised, GENERIC_MANIFEST) == [
+        "rephrase names a track the original did not: Morning Dew"]
+
+
+def test_rephrase_problems_punctuation_ending_title_flagged():
+    revised = SEG.replace("The climax comes a little early tonight.",
+                          "Truckin' leads off a little early tonight.")
+    assert rephrase_problems(SEG, revised, GENERIC_MANIFEST) == [
+        "rephrase names a track the original did not: Truckin'"]
+
+
+def test_rephrase_problems_typography_noise_is_not_an_edit():
+    orig = "It's a fine night.  The climax comes early. Stay with us."
+    rev = "It’s a fine night. The climax comes soon. Stay—with us."
+    # untouched sentences 1 and 3 differ only by curly quote / dash / spacing
+    assert rephrase_problems(orig, rev, MANIFEST) == []
+
+
+def test_fold_normalizes_typography():
+    from emcee.scriptwrite import _fold
+    assert _fold("It’s  “fine” – ok\n") == 'It\'s "fine" - ok'

@@ -272,7 +272,8 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     matching keys are skipped so a repackage never re-spends on unchanged
     text — and editing the pronunciation lexicon or symbol rules also
     invalidates just the affected clips. force re-renders
-    everything. Any provider failure propagates (SpeechError): the manifest
+    every clip once per call (a repaired block re-voices from the cache; see
+    `rendered` below). Any provider failure propagates (SpeechError): the manifest
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
 

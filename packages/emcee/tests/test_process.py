@@ -638,7 +638,24 @@ def test_rephrase_llm_failure_leaves_manifest_untouched(tmp_path, monkeypatch):
     pkg, config = _setup(tmp_path)
     before = pkg.manifest_path.read_text()
 
-    with pytest.raises(TaskFailed):
+    with pytest.raises(EmceeError) as ei:
         process_package(config, pkg, FakeSpeechProvider(block="climax"))
 
+    assert "set2-intro" in str(ei.value) and "rephrase task failed" in str(ei.value)
+    assert isinstance(ei.value.__cause__, TaskFailed)
+    assert any(BLOCKED_S2 in d for d in ei.value.details)
     assert pkg.manifest_path.read_text() == before
+
+
+def test_chunked_repair_through_process_package(tmp_path, monkeypatch, capsys):
+    revised = f"{CLEAN_S1} The peak arrives a little early tonight."
+    _, requested = _arm(monkeypatch, [revised])
+    pkg, _ = _setup(tmp_path)
+    config = EmceeConfig(root=tmp_path / "home", tts=TTSConfig(chunk=True))
+
+    process_package(config, pkg, FakeSpeechProvider(block="climax"), force=True)
+
+    out = capsys.readouterr().out
+    assert "rephrased" in out and "blocked:" in out and "revised:" in out
+    assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == revised
+    assert requested.count("rephrase") == 1

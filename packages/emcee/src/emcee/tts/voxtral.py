@@ -36,12 +36,15 @@ def _guardrail_block(resp: httpx.Response, text: str) -> SpeechBlocked | None:
     if not isinstance(body, dict) or body.get("type") != "guardrail_violation":
         return None
     categories: list[str] = []
-    for entry in body.get("guardrails") or []:
+    guardrails = body.get("guardrails")
+    for entry in guardrails if isinstance(guardrails, list) else []:
         if not isinstance(entry, dict):
             continue
         for moderator in entry.values():
             cats = moderator.get("categories") if isinstance(moderator, dict) else None
-            for name, verdict in (cats or {}).items():
+            if not isinstance(cats, dict):
+                continue
+            for name, verdict in cats.items():
                 if isinstance(verdict, dict) and verdict.get("violated") and name not in categories:
                     categories.append(name)
     return SpeechBlocked("voxtral", text=text, categories=categories)

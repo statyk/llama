@@ -10,7 +10,7 @@ meaning into it. Reword ONLY what is needed so that no reasonable reader could
 take it that way.
 
 Rules:
-- Change only the refused sentence (or the smallest stretch around it that you
+- Change only the refused passage (or the smallest stretch around it that you
   must). Copy every other sentence exactly, word for word.
 - Keep the meaning, every fact, and the speaker's voice and tone.
 - Introduce no song titles, people, places, dates, numbers or facts that the
@@ -22,5 +22,5 @@ The full segment:
 {{segment}}
 
 Respond with ONLY JSON in this shape:
-{"text": "<the whole segment, with only the refused sentence reworded>"}
+{"text": "<the whole segment, with only the refused passage reworded>"}
 Raw JSON only.

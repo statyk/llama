@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from herder import provider_for
+from herder import HerderError, provider_for
 
 from emcee.audio import _synthesize_dj_audio, broadcast_m3u_text, detail
 from emcee.config import EmceeConfig
@@ -23,7 +23,7 @@ from emcee.errors import EmceeError
 from emcee.models import ScriptNotes
 from emcee.package_io import Package, rewrite_manifest
 from emcee.presenters import Presenter, load_presenter
-from emcee.scriptwrite import (render_notes_md, rephrase_problems, rephrase_segment,
+from emcee.scriptwrite import (_fold, render_notes_md, rephrase_problems, rephrase_segment,
                                script_guard, write_script)
 from emcee.speech_text import load_lexicon
 from emcee.tts import speech_provider_for
@@ -201,12 +201,20 @@ def _repair(notes: ScriptNotes, blocked: SpeechBlocked, manifest: dict, provider
     current = _segment_text(notes, seg)
     while used.get(seg, 0) < MAX_REPHRASES:
         used[seg] = used.get(seg, 0) + 1
-        revised = rephrase_segment(provider, current, blocked.text, blocked.categories,
-                                   feedback=last.get(seg, ""))
+        try:
+            revised = rephrase_segment(provider, current, blocked.text, blocked.categories,
+                                       feedback=last.get(seg, ""))
+        except HerderError as e:
+            raise EmceeError(
+                f"content filter blocked a sentence in {seg}{cats}; "
+                f"the rephrase task failed: {e}",
+                details=[f'blocked: "{blocked.text}"',
+                         f"re-run `emcee voice {pkg_dir}` for a fresh script"],
+            ) from e
         candidate = _with_segment(notes, seg, revised)
-        # Whitespace-only differences count as unchanged: voicing them would
-        # resend the identical refused sentence.
-        if not revised or " ".join(revised.split()) == " ".join(current.split()):
+        # Whitespace/typography-only differences count as unchanged: voicing
+        # them would resend the identical refused sentence.
+        if not revised or _fold(revised) == _fold(current):
             problems = ["the rephrase returned the segment unchanged"]
         else:
             problems = (rephrase_problems(current, revised, manifest)

@@ -251,7 +251,7 @@ def test_default_config_template_matches_defaults():
     default = EmceeConfig()
     assert parsed.model_dump(exclude={"llm"}) == default.model_dump(exclude={"llm"})
     # [llm.scriptwrite] is written out for editability; it must be exactly
-    # the built-in fallback, and the only llm entry present.
+    # the built-in fallback; [llm.rephrase] is the only other entry present.
     assert set(parsed.llm) == {"scriptwrite", "rephrase"}
     for task in ("scriptwrite", "rephrase"):
         assert parsed.llm_for(task) == default.llm_for(task)

@@ -277,6 +277,20 @@ def rephrase_segment(provider, segment_text: str, blocked_text: str,
 _DIGITS = re.compile(r"\d+")
 
 
+# These name parts of the show, not songs, and are the natural vocabulary for
+# rewording ("the end of that jam"), so they are exempt from the new-name rule.
+_GENERIC_TITLES = frozenset({"drums", "space", "jam", "tuning", "intro", "crowd", "banter"})
+
+_FOLD = str.maketrans({"\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',
+                       "\u2013": "-", "\u2014": "-"})
+
+
+def _fold(text: str) -> str:
+    """Typography/whitespace-insensitive form: one space between words,
+    straight quotes, plain hyphens."""
+    return " ".join(text.translate(_FOLD).split())
+
+
 def _names(title: str, text: str) -> bool:
     # Whole-word, case-insensitive; lookarounds rather than \b so titles
     # ending in punctuation ("Truckin'") still match.
@@ -291,7 +305,9 @@ def rephrase_problems(original: str, revised: str, manifest: dict) -> list[str]:
     undetectable here; the prompt forbids them and the repair prints the
     revised segment."""
     problems: list[str] = []
-    a, b = _split_sentences(original), _split_sentences(revised)
+    a = [_fold(x) for x in _split_sentences(original)]
+    b = [_fold(x) for x in _split_sentences(revised)]
+    original, revised = _fold(original), _fold(revised)
     edits = [op for op in difflib.SequenceMatcher(a=a, b=b, autojunk=False).get_opcodes()
              if op[0] != "equal"]
     if len(edits) > 1:
@@ -299,6 +315,8 @@ def rephrase_problems(original: str, revised: str, manifest: dict) -> list[str]:
                         "keep every other sentence verbatim")
     titles = sorted({t["title"] for t in manifest["tracks"] if t.get("title")})
     for title in titles:
+        if title.strip().lower() in _GENERIC_TITLES:
+            continue
         if _names(title, revised) and not _names(title, original):
             problems.append(f"rephrase names a track the original did not: {title}")
     new = sorted(set(_DIGITS.findall(revised)) - set(_DIGITS.findall(original)), key=int)

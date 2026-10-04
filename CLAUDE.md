@@ -503,14 +503,14 @@ tier (pins never escalate).
   llama used to have) → assemble `broadcast.m3u` → atomically rewrite the
   manifest's `dj_notes`/`dj_audio` blocks last, in place, in the package
   directory llama delivered (`package_io.py:rewrite_manifest`).
+  Everything else in a package is llama-owned and read-only from emcee's side.
   A Voxtral content-filter refusal (403 `guardrail_violation`) is `SpeechBlocked`:
   emcee narrows it to the sentence, rewords just that segment with the small
   `rephrase` task (2 attempts, gated by `rephrase_problems` + `script_guard`),
-  and re-voices only that segment; a block that exists only across sentences
+  and re-voices only that segment (the task has its own `[llm.rephrase]` config key and does not inherit scriptwrite's backend); a block that exists only across sentences
   fails with "re-run with `[tts] chunk = true`". Blocks are deterministic
   (measured 7/7), so they are never retried identically; transport errors, 429
   and 5xx get one retry.
-  Everything else in a package is llama-owned and read-only from emcee's side.
   `presenters.py` manages `presenters/<id>.toml` (`emcee presenter
   add/list/show/remove`) — the same TOML shape llama's presenters used to
   have (`name`/`sex`/`character` + exactly one of `voice`/`voice_clone`,

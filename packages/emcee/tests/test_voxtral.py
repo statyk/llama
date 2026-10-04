@@ -220,6 +220,15 @@ def test_guardrail_without_violated_categories():
     assert str(ei.value) == "voxtral content filter blocked a sentence"
 
 
+@pytest.mark.parametrize("guardrails", [1, [{"m": {"categories": ["sexual"]}}]])
+def test_guardrail_unexpected_shapes_still_speech_blocked(guardrails):
+    body = {**GUARDRAIL_BODY, "guardrails": guardrails}
+    handler, _ = _sequence(httpx.Response(403, json=body))
+    with pytest.raises(SpeechBlocked) as ei:
+        _make(handler).synthesize("x y z")
+    assert ei.value.categories == []
+
+
 def test_non_guardrail_403_is_plain_speech_error_not_retried():
     handler, seen = _sequence(httpx.Response(403, json={"type": "forbidden", "message": "no"}))
     with pytest.raises(SpeechError) as ei:
