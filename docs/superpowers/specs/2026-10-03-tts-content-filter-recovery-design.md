@@ -219,7 +219,7 @@ while True:
             revised = rephrase_segment(..., current, e.text, e.categories,
                                        feedback=last.get(seg, ""))
             candidate = notes.model_copy(update={...})   # never mutate notes
-            problems = ("returned unchanged" if not revised.strip() or revised == current
+            problems = (["returned unchanged"] if not revised.strip() or revised == current
                         else rephrase_problems(current, revised, manifest)
                              + script_guard(candidate, manifest, narration))
             if not problems: break                    # accept
