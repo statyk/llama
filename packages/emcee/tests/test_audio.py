@@ -258,7 +258,7 @@ def _process(config: EmceeConfig, pkg: Package, speech, notes: ScriptNotes,
 
 def test_process_package_synthesizes_dj_audio_and_manifest_block(tmp_path):
     pkg = _pkg(tmp_path)
-    config = _config(tmp_path)
+    config = _config(tmp_path, chunk=False)  # asserts the provider's own MP3 ships
     speech = FakeSpeechProvider()
     notes = make_notes()
 

@@ -104,7 +104,8 @@ implementation plan this was built from. The approved design spec is
   narration: text file in, MP3 out, no package/script/LLM — voice via
   `--clone`/`--voice`/`--presenter` else the house `[tts] voice`, bed via
   `--bed`/`--bed-gain`/`--no-bed` else the package rules, chunking ON by
-  default unlike `[tts] chunk`), `emcee presenter add/list/show/remove`
+  default like `[tts] chunk`; `--no-chunk` without a bed is the one render
+  that is not loudness-normalized), `emcee presenter add/list/show/remove`
   (`presenters/<id>.toml`), `emcee config init`.
 
 ## What this is

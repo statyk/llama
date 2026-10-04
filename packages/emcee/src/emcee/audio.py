@@ -42,13 +42,13 @@ def detail(text: str) -> None:
     typer.echo(text)
 
 
-# --- Sentence-level chunked synthesis ([tts] chunk, default off) ---------
+# --- Sentence-level chunked synthesis ([tts] chunk, default on) ----------
 # Synthesizes each DJ-notes segment sentence-by-sentence instead of one call
 # for the whole segment, then concatenates the raw PCM and encodes a single
 # MP3. This noticeably improves prosody/pacing on longer patter (a single
 # long TTS call tends to rush or flatten out); the cost is more provider
-# round-trips per segment. Gated off by default; does not affect the
-# default (whole-segment) path at all.
+# round-trips per segment. On by default; `[tts] chunk = false` selects the
+# whole-segment path, which this code does not touch.
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 _ABBREVIATIONS = {"mr.", "mrs.", "ms.", "dr.", "st.", "vs.", "jr.", "sr.",
@@ -285,7 +285,7 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
     is written only after this returns, so a failed run leaves no manifest
     referencing half-rendered audio.
 
-    chunk ([tts] chunk, default off): synthesize each segment sentence-by-
+    chunk ([tts] chunk, default on): synthesize each segment sentence-by-
     sentence and concatenate instead of one call per segment (see
     _synthesize_chunked). chunk is part of the cache key - chunked and
     single-call audio are different renders of the same text, so flipping

@@ -487,10 +487,11 @@ def say_cmd(
     be a 24kHz mono 16-bit WAV matching the voice audio, and a bedded clip is
     re-encoded via lameenc rather than shipping the provider's own MP3.
 
-    CHUNKING defaults ON here, unlike `[tts] chunk` for DJ clips: an arbitrary
-    text file routinely exceeds the backend's per-request character cap, which
-    a single whole-passage call cannot survive. `--no-chunk` restores the
-    single call for short passages.
+    CHUNKING defaults ON, as `[tts] chunk` does for DJ clips: an arbitrary text
+    file routinely exceeds the backend's per-request character cap, which a
+    single whole-passage call cannot survive. `--no-chunk` restores the single
+    call for short passages. Chunked and bedded renders are loudness-normalized;
+    `--no-chunk` without a bed ships the provider's own MP3 un-normalized.
     """
     config = load_config()
 

@@ -65,9 +65,10 @@ class TTSConfig(_StrictModel):
     voice_clone: str | None = None      # path to a reference WAV; when set, voxtral clones it
     model: str | None = None            # per-backend default when unset
     api_key: str | None = None          # MISTRAL_API_KEY / ELEVENLABS_API_KEY env wins
-    chunk: bool = False                 # synthesize each DJ-notes segment sentence-by-
+    chunk: bool = True                  # synthesize each DJ-notes segment sentence-by-
                                          # sentence and concatenate, instead of one call
-                                         # per segment (better prosody; needs lameenc)
+                                         # per segment (better prosody, loudness-normalized;
+                                         # needs lameenc). false = one call per segment
     bed: str | None = None              # path to a 24kHz mono 16-bit WAV played
                                          # under the DJ voice; None = no bed
     bed_gain_db: float = -20.0          # bed loudness under the voice (station-level)
@@ -198,9 +199,10 @@ backend = "claude_cli"
 # synthesize each segment sentence-by-sentence and concatenate (single MP3
 # encode at the end) instead of one TTS call per whole segment; noticeably
 # better prosody/pacing on longer DJ patter at the cost of more provider
-# round-trips per segment. Requires the `lameenc` dependency (installed by
-# default). Default false.
-# chunk = true
+# round-trips per segment. Chunked clips are loudness-normalized per sentence;
+# unchunked clips without a bed ship the provider's own MP3 un-normalized.
+# Requires the `lameenc` dependency (installed by default). Default true.
+# chunk = false
 
 # bed music (instrumental) played UNDER the DJ voice on voiced shows; must be
 # a 24kHz mono 16-bit WAV. Per-presenter override via the presenter's `bed`.
