@@ -1833,7 +1833,7 @@ _PIPELINE_STAGE_DESC: dict[str, str] = {
     "vet": "grounding check of research's claims against the setlist/date -> vetting.json",
     "brief": "neutral vetted briefing for scriptwriters, factually guarded (always on) -> briefing.*",
     "package": "downloads/tags/verifies audio, writes manifest v3 + m3u -> package/",
-    "deliver": "copies package/ into the station's watched folder, records a delivered ledger entry",
+    "deliver": "copies package/ into the station's watched folder, records a delivered ledger entry, then purges the library's copy of the audio (redo re-fetches it)",
 }
 
 _PIPELINE_FLOW = (
@@ -2044,7 +2044,23 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
             status="delivered", run=run_name,
             recorded_at=datetime.now(timezone.utc).isoformat(),
         ))
+        _purge_after_delivery(show_ws, out, entry.slug)
     return out
+
+
+def _purge_after_delivery(show_ws, out: Path, slug: str) -> None:
+    """The station copy is now the one that airs; drop the library's duplicate
+    audio once `out` is verified to hold it. Never fails the delivery: a
+    skipped or partial purge only warns, and keeps what it kept."""
+    from llama import catalog
+
+    r = catalog.purge_package_audio(show_ws, out)
+    if r.warning:
+        typer.echo(f"warning: library audio for {slug} partly purged: {r.warning}", err=True)
+    elif r.skipped:
+        typer.echo(f"warning: kept library audio for {slug}: {r.skipped}", err=True)
+    else:
+        typer.echo(f"library audio purged ({catalog.human_bytes(r.freed)} freed)")
 
 
 def _deliver_batch(config, ledger, sel, dest, yes, replace_voiced=False) -> None:

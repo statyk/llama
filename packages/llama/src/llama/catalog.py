@@ -161,6 +161,14 @@ class PurgeResult:
     warning: str | None = None   # a delete that failed partway
 
 
+def human_bytes(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1000 or unit == "GB":
+            return f"{n} B" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1000
+    raise AssertionError("unreachable")
+
+
 def purge_package_audio(ws: ShowWorkspace, delivered: Path, *,
                         dry_run: bool = False) -> PurgeResult:
     """Delete every file in the show's `package/audio/` once `delivered` (the
