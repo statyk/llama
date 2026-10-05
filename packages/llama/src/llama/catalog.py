@@ -4,6 +4,7 @@ State is never stored; it is derived from which artifacts exist plus the
 ledger, so it cannot go stale. Scan-on-demand — at this scale (~10^2 shows)
 a walk is milliseconds.
 """
+import os
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -151,6 +152,56 @@ def deliver_refusals(ws: ShowWorkspace) -> list[str]:
     if missing:
         reasons.append(f"{len(missing)} of {len(tracks)} audio files missing")
     return reasons
+
+
+@dataclass
+class PurgeResult:
+    freed: int = 0               # bytes deleted (or that would be, on a dry run)
+    skipped: str | None = None   # why nothing was deleted; None = purged
+    warning: str | None = None   # a delete that failed partway
+
+
+def purge_package_audio(ws: ShowWorkspace, delivered: Path, *,
+                        dry_run: bool = False) -> PurgeResult:
+    """Delete every file in the show's `package/audio/` once `delivered` (the
+    station copy of this package) is verified to hold each manifest track at
+    the same size and as a different file. Any failed check deletes nothing.
+    The audio is re-fetched by any `redo` (run_package downloads what is
+    missing); nothing else in the show dir is touched. Never raises."""
+    audio = ws.package_dir / "audio"
+    manifest_path = ws.package_dir / "manifest.json"
+    if not manifest_path.exists():
+        return PurgeResult(skipped="not packaged")
+    try:
+        tracks = read_json(manifest_path).get("tracks", [])
+        names = [t["filename"] for t in tracks]
+    except (OSError, ValueError, AttributeError, KeyError, TypeError):
+        return PurgeResult(skipped="manifest unreadable")
+    files = [p for p in audio.iterdir() if p.is_file()] if audio.is_dir() else []
+    if not files:
+        return PurgeResult(skipped="already purged")
+    if not names:
+        return PurgeResult(skipped="manifest lists no tracks")
+    for name in names:
+        src, dst = audio / name, delivered / "audio" / name
+        if not dst.is_file():
+            return PurgeResult(skipped=f"{name} missing at destination")
+        if src.exists():
+            if os.path.samefile(src, dst):
+                return PurgeResult(skipped=f"{name} at destination is the library copy itself")
+            if src.stat().st_size != dst.stat().st_size:
+                return PurgeResult(skipped=f"{name} differs in size at destination")
+    result = PurgeResult()
+    for p in files:
+        size = p.stat().st_size
+        if not dry_run:
+            try:
+                p.unlink()
+            except OSError as e:
+                result.warning = f"could not delete {p.name}: {e}"
+                return result
+        result.freed += size
+    return result
 
 
 def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
