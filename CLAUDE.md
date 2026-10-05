@@ -68,7 +68,14 @@ implementation plan this was built from. The approved design spec is
   file (a hardlink or a `delivery_path` inside the library deletes nothing);
   a skipped or partial purge only warns. A purged show re-delivers via
   `llama redo <name> --from package`, which re-downloads what is missing —
-  the deliver gate's "audio files missing" refusal already points there),
+  the deliver gate's "audio files missing" refusal already points there; so
+  does any `fix`/`triage` edit of a delivered show, since its auto-redo runs
+  through `package` — a full re-download where it used to be an in-place
+  retag. The verification also requires the station manifest's `tracks` to
+  equal the library's (same-size files are not the same package: a retag
+  keeps sizes) and flushes each station file to disk (`F_FULLFSYNC`) before
+  the first delete. A voiced-destination refusal is checked BEFORE the gate,
+  so a purged show is not sent to re-download only to be refused anyway),
   `llama rm <name>`, `llama suppress`/
   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
   (session namespace; a run that lost shows to a failure ends

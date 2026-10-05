@@ -474,3 +474,32 @@ def test_batch_without_flag_notes_how_many_will_be_refused(tmp_path: Path):
             "(pass --replace-voiced to replace them)") in r.output
     assert "(voiced:" not in r.output
     assert (dest / "aready-1973-06-10" / "dj-audio").exists()
+
+
+def test_purged_show_with_voiced_destination_names_voicing_first(tmp_path: Path):
+    """Without --replace-voiced a re-delivery over a voiced copy is refused
+    anyway, so pointing the operator at a full re-download first would cost a
+    download only to be refused afterwards."""
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    _voice_destination(dest / SLUG)
+
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 1
+    assert "is already voiced by emcee" in " ".join(r.output.split())
+    assert "audio files missing" not in r.output
+
+
+def test_purged_show_with_replace_voiced_still_needs_its_audio(tmp_path: Path):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    _voice_destination(dest / SLUG)
+
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+
+    assert r.exit_code == 1
+    assert "1 of 1 audio files missing" in r.output
+    assert (dest / SLUG / "dj-audio").exists()

@@ -57,7 +57,7 @@ def test_dry_run_touches_nothing(tmp_path, capsys):
     out = capsys.readouterr().out
     assert _audio(ok) and _audio(gone) and _audio(undelivered)
     assert "ok-1973: would purge (3 B)" in out
-    assert f"gone-1974: kept ({AUDIO} missing at destination)" in out
+    assert "gone-1974: kept (no station copy)" in out
     assert "new-1975" not in out
     assert "would free 3 B across 1 show(s)" in out
     assert "dry run: pass --apply to delete" in out
@@ -91,3 +91,16 @@ def test_no_destination_is_an_error(tmp_path, capsys):
     cfg.write_text(f'root = "{root}"\n')
     assert pda.main(["--config", str(cfg)]) == 2
     assert "no destination" in capsys.readouterr().err
+
+
+def test_partial_purge_is_reported_and_counted(tmp_path, capsys, monkeypatch):
+    from llama.catalog import PurgeResult
+
+    root, dest, *_ = _setup(tmp_path)
+    monkeypatch.setattr(pda, "purge_package_audio",
+                        lambda ws, out, dry_run: PurgeResult(freed=2, warning="could not delete z"))
+    assert run(root, dest, "--apply") == 0
+    out = capsys.readouterr().out
+    assert "ok-1973: partly purged (could not delete z)" in out
+    assert "gone-1974: partly purged" in out
+    assert "freed 4 B across 2 show(s)" in out
