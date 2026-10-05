@@ -1833,7 +1833,7 @@ _PIPELINE_STAGE_DESC: dict[str, str] = {
     "vet": "grounding check of research's claims against the setlist/date -> vetting.json",
     "brief": "neutral vetted briefing for scriptwriters, factually guarded (always on) -> briefing.*",
     "package": "downloads/tags/verifies audio, writes manifest v3 + m3u -> package/",
-    "deliver": "copies package/ into the station's watched folder, records a delivered ledger entry",
+    "deliver": "copies package/ into the station's watched folder, records a delivered ledger entry, then purges the library's copy of the audio (redo re-fetches it)",
 }
 
 _PIPELINE_FLOW = (
@@ -2019,20 +2019,24 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
     if target_dir is None:
         raise LlamaError("no --dest given and no delivery_path in config")
     with file_lock(show_ws.lock):
+        out = target_dir / show_dir.name
+        voiced = _destination_is_voiced(out)
+        # Ahead of the gate: deliver purged this show's audio, so the gate's
+        # missing-audio pointer would send the operator to re-download a show
+        # that this refusal then turns away regardless.
+        if voiced and not replace_voiced:
+            raise LlamaError(
+                f"refusing to deliver {entry.slug}: {out} is already voiced "
+                "by emcee; re-delivering would un-voice it (pass "
+                "--replace-voiced to replace it with a fresh, unvoiced copy)")
         reasons = deliver_refusals(show_ws)
         if reasons:
             message = f"refusing to deliver {entry.slug}: {'; '.join(reasons)}"
             raise LlamaError(f"{message}\n{_deliver_pointer(entry.slug, reasons)}")
         pkg = show_dir / "package"
         manifest = _json.loads((pkg / "manifest.json").read_text())
-        out = target_dir / show_dir.name
         _sweep_swap_leftovers(target_dir, show_dir.name)
-        if _destination_is_voiced(out):
-            if not replace_voiced:
-                raise LlamaError(
-                    f"refusing to deliver {entry.slug}: {out} is already voiced "
-                    "by emcee; re-delivering would un-voice it (pass "
-                    "--replace-voiced to replace it with a fresh, unvoiced copy)")
+        if voiced:
             _replace_destination(pkg, out, target_dir)
         else:
             shutil.copytree(pkg, out, dirs_exist_ok=True)
@@ -2044,7 +2048,23 @@ def _deliver_one(config, ledger, entry, dest, replace_voiced=False) -> Path:
             status="delivered", run=run_name,
             recorded_at=datetime.now(timezone.utc).isoformat(),
         ))
+        _purge_after_delivery(show_ws, out, entry.slug)
     return out
+
+
+def _purge_after_delivery(show_ws, out: Path, slug: str) -> None:
+    """The station copy is now the one that airs; drop the library's duplicate
+    audio once `out` is verified to hold it. Never fails the delivery: a
+    skipped or partial purge only warns, and keeps what it kept."""
+    from llama import catalog
+
+    r = catalog.purge_package_audio(show_ws, out)
+    if r.warning:
+        typer.echo(f"warning: library audio for {slug} partly purged: {r.warning}", err=True)
+    elif r.skipped:
+        typer.echo(f"warning: kept library audio for {slug}: {r.skipped}", err=True)
+    else:
+        typer.echo(f"library audio purged ({catalog.human_bytes(r.freed)} freed)")
 
 
 def _deliver_batch(config, ledger, sel, dest, yes, replace_voiced=False) -> None:

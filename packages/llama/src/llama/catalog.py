@@ -4,6 +4,7 @@ State is never stored; it is derived from which artifacts exist plus the
 ledger, so it cannot go stale. Scan-on-demand — at this scale (~10^2 shows)
 a walk is milliseconds.
 """
+import os
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -151,6 +152,105 @@ def deliver_refusals(ws: ShowWorkspace) -> list[str]:
     if missing:
         reasons.append(f"{len(missing)} of {len(tracks)} audio files missing")
     return reasons
+
+
+@dataclass
+class PurgeResult:
+    freed: int = 0               # bytes deleted (or that would be, on a dry run)
+    skipped: str | None = None   # why nothing was deleted; None = purged
+    warning: str | None = None   # a delete that failed partway
+
+
+def human_bytes(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1000 or unit == "GB":
+            return f"{n} B" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1000
+    raise AssertionError("unreachable")
+
+
+def _flush_to_disk(path: Path) -> None:
+    """Force `path`'s data to stable storage before its only other copy is
+    deleted. macOS fsync only reaches the drive cache; F_FULLFSYNC goes
+    through it. Raises OSError."""
+    import fcntl
+
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        if hasattr(fcntl, "F_FULLFSYNC"):
+            fcntl.fcntl(fd, fcntl.F_FULLFSYNC)
+        else:
+            os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _tracks(manifest: Path) -> list | None:
+    try:
+        tracks = read_json(manifest)["tracks"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return tracks if isinstance(tracks, list) else None
+
+
+def purge_package_audio(ws: ShowWorkspace, delivered: Path, *,
+                        dry_run: bool = False) -> PurgeResult:
+    """Delete every file in the show's `package/audio/` once `delivered` (the
+    station copy of this package) is verified: its manifest lists the same
+    tracks, and it holds each one at the same size, as a different file,
+    flushed to disk. Any failed check deletes nothing. The audio is re-fetched
+    by any `redo` (run_package downloads what is missing); nothing else in the
+    show dir is touched. Never raises."""
+    audio = ws.package_dir / "audio"
+    manifest_path = ws.package_dir / "manifest.json"
+    if not manifest_path.exists():
+        return PurgeResult(skipped="not packaged")
+    tracks = _tracks(manifest_path)
+    try:
+        names = [t["filename"] for t in tracks]
+    except (KeyError, TypeError):
+        return PurgeResult(skipped="manifest unreadable")
+    try:
+        files = [p for p in audio.iterdir() if p.is_file()] if audio.is_dir() else []
+        if not files:
+            return PurgeResult(skipped="already purged")
+        if not names:
+            return PurgeResult(skipped="manifest lists no tracks")
+        if not delivered.is_dir():
+            return PurgeResult(skipped="no station copy")
+        station = _tracks(delivered / "manifest.json")
+        if station is None:
+            return PurgeResult(skipped="station manifest unreadable")
+        if station != tracks:
+            return PurgeResult(skipped="station copy is a different package version")
+        for name in names:
+            src, dst = audio / name, delivered / "audio" / name
+            if not dst.is_file():
+                return PurgeResult(skipped=f"{name} missing at destination")
+            if src.exists():
+                if os.path.samefile(src, dst):
+                    return PurgeResult(skipped=f"{name} at destination is the library copy itself")
+                if src.stat().st_size != dst.stat().st_size:
+                    return PurgeResult(skipped=f"{name} differs in size at destination")
+        sizes = {p: p.stat().st_size for p in files}
+    except OSError as e:
+        return PurgeResult(skipped=f"could not verify: {e}")
+    if not dry_run:
+        try:
+            for name in names:
+                _flush_to_disk(delivered / "audio" / name)
+        except OSError as e:
+            return PurgeResult(skipped=f"could not flush station copy: {e}")
+    result = PurgeResult()
+    for p, size in sizes.items():
+        if not dry_run:
+            try:
+                p.unlink()
+            except OSError as e:
+                result.warning = f"could not delete {p.name}: {e}"
+                return result
+        result.freed += size
+    return result
 
 
 def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:

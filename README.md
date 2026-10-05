@@ -158,6 +158,9 @@ unsigned — verify them against `SHA256SUMS`. See
     llama redo 1973-06-10 --from vet # re-run one show's pipeline from a stage
     llama deliver 1973-06-10         # copy package to the station inbox
     llama deliver --packaged         # deliver everything that's ready
+                                     # (deliver then drops the library's copy of the
+                                     # audio; `llama redo <show> --from package`
+                                     # re-downloads it if you need to re-deliver)
     llama rm old-show --suppress     # delete a show and never offer it again
     llama history list                # broadcast history / dedup
 

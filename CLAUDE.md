@@ -31,6 +31,10 @@ implementation plan this was built from. The approved design spec is
   before emcee recorded it, by whole-word matching each presenter's `name`
   in the script text — exactly one match writes, zero or several leave `?`.
   Dry run unless `--apply`.
+  `python scripts/purge_delivered_audio.py [--config P] [--dest P] [--apply]`
+  is a one-off (imports llama): it applies deliver's audio purge, same
+  verification, to shows delivered before deliver did it. Dry run unless
+  `--apply`.
 - Run (llama, acquisition): `llama get "..."`, `llama get --profile <name>`,
   `llama get` takes `--wait/--no-wait`, `--max-wait <dur>` and `--no-pacing`
   (also on `run approve`/`run resume`): when the claude_cli backend refuses
@@ -58,7 +62,21 @@ implementation plan this was built from. The approved design spec is
   `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
   unless `--replace-voiced`, which replaces the destination wholesale and
   discards its DJ script and audio; a batch confirmation marks or counts the
-  voiced destinations), `llama rm <name>`, `llama suppress`/
+  voiced destinations; after a successful copy it **purges the library's
+  `package/audio/*`** — only once `catalog.purge_package_audio` verifies the
+  station copy holds every manifest track at the same size and as a different
+  file (a hardlink or a `delivery_path` inside the library deletes nothing);
+  a skipped or partial purge only warns. A purged show re-delivers via
+  `llama redo <name> --from package`, which re-downloads what is missing —
+  the deliver gate's "audio files missing" refusal already points there; so
+  does any `fix`/`triage` edit of a delivered show, since its auto-redo runs
+  through `package` — a full re-download where it used to be an in-place
+  retag. The verification also requires the station manifest's `tracks` to
+  equal the library's (same-size files are not the same package: a retag
+  keeps sizes) and flushes each station file to disk (`F_FULLFSYNC`) before
+  the first delete. A voiced-destination refusal is checked BEFORE the gate,
+  so a purged show is not sent to re-download only to be refused anyway),
+  `llama rm <name>`, `llama suppress`/
   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
   (session namespace; a run that lost shows to a failure ends
   `incomplete`, not `complete`, so it stays on `run list`'s attention list
@@ -125,6 +143,9 @@ sole text stage — llama does not write DJ scripts, has no presenters, no
 TTS, and no `[tts]`/presenter config. Its `deliver` gate is just: packaged,
 not held for review, and every manifest track's audio file present on disk
 — plus it refuses an emcee-voiced destination unless `--replace-voiced`.
+After delivering it drops the library's own copy of the audio (the
+station copy is the one that airs; archive.org is the re-fetch source), so
+a delivered show in `~/.llama/shows/` normally has an empty `package/audio/`.
 
 `emcee` (dist name `llama-emcee`, bare CLI `emcee`) is station-side and runs
 **after** `llama deliver` — it operates on the delivered-packages folder

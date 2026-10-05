@@ -184,3 +184,17 @@ def test_package_hard_fails_without_briefing(tmp_path: Path):
     write_artifact(sws.show, show)
     with pytest.raises(LlamaError, match="no briefing"):
         run_package(sws, StubIA(), show, force=True)
+
+
+def test_purged_audio_is_refetched_on_repackage(tmp_path: Path):
+    """After deliver purges the library audio, `redo --from package` (which
+    drops only manifest.json) must re-download every track."""
+    sws, show = setup(tmp_path)
+    run_package(sws, StubIA(), show)
+    for p in (sws.package_dir / "audio").iterdir():
+        p.unlink()
+    (sws.package_dir / "manifest.json").unlink()
+    ia = StubIA()
+    run_package(sws, ia, show)
+    assert [f for f, _ in ia.downloads] == ["d1t01.mp3", "d2t01.mp3"]
+    assert (sws.package_dir / "audio" / "01 - Morning Dew.mp3").exists()

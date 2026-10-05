@@ -39,6 +39,64 @@ def test_ready_show_delivers_and_records_ledger_row(tmp_path: Path):
     assert entries[0].performance_id == "GratefulDead/1973-06-10"
 
 
+def test_deliver_purges_library_audio_and_keeps_the_rest(tmp_path: Path):
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 0, r.output
+    assert list((ws.package_dir / "audio").iterdir()) == []
+    assert (ws.package_dir / "manifest.json").exists()
+    assert ws.show.exists()
+    out = dest / "gratefuldead-1973-06-10"
+    assert (out / "audio" / "01 - Morning Dew.mp3").read_text() == "x"
+    assert "library audio purged (1 B freed)" in r.output
+    assert Ledger(tmp_path / "ledger.jsonl").entries()[0].status == "delivered"
+
+
+def test_purge_skip_keeps_library_audio_and_still_delivers(tmp_path: Path, monkeypatch):
+    import llama.catalog as catalog
+
+    ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
+    monkeypatch.setattr(catalog, "purge_package_audio",
+                        lambda ws, out: catalog.PurgeResult(skipped="nope"))
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 0, r.output
+    assert ("warning: kept library audio for gratefuldead-1973-06-10: nope"
+            in r.output)
+    assert (ws.package_dir / "audio" / "01 - Morning Dew.mp3").exists()
+    assert "delivered:" in r.output
+    assert Ledger(tmp_path / "ledger.jsonl").entries()[0].status == "delivered"
+
+
+def test_purge_partial_failure_warns_and_still_delivers(tmp_path: Path, monkeypatch):
+    import llama.catalog as catalog
+
+    build_ready(tmp_path, "gratefuldead-1973-06-10")
+    monkeypatch.setattr(catalog, "purge_package_audio",
+                        lambda ws, out: catalog.PurgeResult(freed=5, warning="could not delete z"))
+    dest = tmp_path / "station-inbox"
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver",
+                                "gratefuldead-1973-06-10", "--dest", str(dest)])
+    assert r.exit_code == 0, r.output
+    assert ("warning: library audio for gratefuldead-1973-06-10 partly purged: "
+            "could not delete z") in r.output
+
+
+def test_redelivering_a_purged_show_points_at_redo(tmp_path: Path):
+    build_ready(tmp_path, "gratefuldead-1973-06-10")
+    dest = tmp_path / "station-inbox"
+    args = ["--config", _cfg(tmp_path), "deliver", "gratefuldead-1973-06-10",
+            "--dest", str(dest)]
+    assert runner.invoke(cli.app, args).exit_code == 0
+    r = runner.invoke(cli.app, args)
+    assert r.exit_code == 1
+    assert "1 of 1 audio files missing" in r.output
+    assert "re-package: llama redo gratefuldead-1973-06-10 --from package" in r.output
+
+
 def test_deliver_by_name_records_provenance_run(tmp_path: Path):
     ws = build_ready(tmp_path, "gratefuldead-1973-06-10")
     write_artifact(ws.provenance, Provenance(
@@ -192,6 +250,14 @@ def _voice_destination(out: Path) -> None:
     (out / "broadcast.m3u").write_text("#EXTM3U\n")
 
 
+def _repackaged(tmp_path: Path, slug: str = SLUG) -> None:
+    """Deliver purges the library audio; re-delivering first needs a
+    `redo --from package` to re-fetch it. Stand in for that re-fetch."""
+    audio = tmp_path / "shows" / slug / "package" / "audio" / "01 - Morning Dew.mp3"
+    assert not audio.exists()
+    audio.write_text("x")
+
+
 def _tree(root: Path) -> dict:
     return {str(p.relative_to(root)): (p.read_bytes() if p.is_file() else None)
             for p in sorted(root.rglob("*"))}
@@ -207,6 +273,7 @@ def _delivered_voiced(tmp_path):
     dest = tmp_path / "inbox"
     assert _deliver(tmp_path, dest).exit_code == 0
     _voice_destination(dest / SLUG)
+    _repackaged(tmp_path)
     return dest, dest / SLUG
 
 
@@ -218,6 +285,7 @@ def test_redeliver_over_voiced_is_refused_and_changes_nothing(tmp_path: Path):
     r = _deliver(tmp_path, dest)
 
     assert r.exit_code == 1
+    assert "audio files missing" not in r.output
     assert (f"refusing to deliver {SLUG}: {out} is already voiced by emcee; "
             "re-delivering would un-voice it (pass --replace-voiced to replace "
             "it with a fresh, unvoiced copy)") in " ".join(r.output.split())
@@ -247,7 +315,9 @@ def test_unvoiced_existing_destination_still_overlays(tmp_path: Path):
     assert _deliver(tmp_path, dest).exit_code == 0
     (dest / SLUG / "extra.txt").write_text("keep me")
 
+    _repackaged(tmp_path)
     r = _deliver(tmp_path, dest)            # no flag
+    _repackaged(tmp_path)
     r2 = _deliver(tmp_path, dest, "--replace-voiced")   # flag, still unvoiced
 
     assert r.exit_code == 0 and r2.exit_code == 0
@@ -259,8 +329,10 @@ def test_unparseable_destination_manifest_is_not_voiced(tmp_path: Path):
     dest = tmp_path / "inbox"
     assert _deliver(tmp_path, dest).exit_code == 0
     (dest / SLUG / "manifest.json").write_text("[1, 2]")   # non-object
+    _repackaged(tmp_path)
     assert _deliver(tmp_path, dest).exit_code == 0
     (dest / SLUG / "manifest.json").write_text("{not json")
+    _repackaged(tmp_path)
     assert _deliver(tmp_path, dest).exit_code == 0
 
 
@@ -272,12 +344,14 @@ def test_batch_refusal_of_voiced_show_continues_with_the_rest(tmp_path: Path):
     assert runner.invoke(cli.app, ["--config", cfg, "deliver", "aready-1973-06-10",
                                    "--dest", str(dest)]).exit_code == 0
     _voice_destination(dest / "aready-1973-06-10")
+    _repackaged(tmp_path, "aready-1973-06-10")
 
     r = runner.invoke(cli.app, ["--config", cfg, "deliver", "--state", "packaged",
                                 "--state", "delivered", "--yes", "--dest", str(dest)])
 
     assert r.exit_code == 0, r.output
-    assert "already voiced by emcee" in r.output
+    assert "is already voiced by emcee" in r.output
+    assert "audio files missing" not in r.output
     assert "delivered:" in r.output and "bready-1973-06-11" in r.output
     assert (dest / "aready-1973-06-10" / "dj-audio").exists()   # untouched
     assert (dest / "bready-1973-06-11" / "manifest.json").exists()
@@ -298,6 +372,7 @@ def test_replace_voiced_copy_failure_leaves_destination_and_no_temp(
     r = _deliver(tmp_path, dest, "--replace-voiced")
 
     assert r.exit_code != 0
+    assert isinstance(r.exception, OSError), r.output   # the swap failed, not the gate
     monkeypatch.undo()
     assert not [p for p in dest.iterdir() if ".deliver-" in p.name]
     assert _tree(dest) == before
@@ -317,6 +392,7 @@ def test_replace_voiced_rename_aside_failure_leaks_no_temp(tmp_path: Path, monke
     r = _deliver(tmp_path, dest, "--replace-voiced")
 
     assert r.exit_code != 0
+    assert isinstance(r.exception, OSError), r.output   # the swap failed, not the gate
     monkeypatch.undo()
     assert [p.name for p in dest.iterdir()] == [SLUG]
     assert _tree(dest) == before
@@ -336,6 +412,7 @@ def test_replace_voiced_rename_in_failure_restores_original(tmp_path: Path, monk
     r = _deliver(tmp_path, dest, "--replace-voiced")
 
     assert r.exit_code != 0
+    assert isinstance(r.exception, OSError), r.output   # the swap failed, not the gate
     monkeypatch.undo()
     assert [p.name for p in dest.iterdir()] == [SLUG]
     assert _tree(dest) == before
@@ -367,6 +444,8 @@ def _batch_voiced(tmp_path):
     assert runner.invoke(cli.app, ["--config", cfg, "deliver", "--packaged", "--yes",
                                    "--dest", str(dest)]).exit_code == 0
     _voice_destination(dest / "aready-1973-06-10")
+    for slug in ("aready-1973-06-10", "bready-1973-06-11"):
+        _repackaged(tmp_path, slug)
     return cfg, dest
 
 
@@ -395,3 +474,32 @@ def test_batch_without_flag_notes_how_many_will_be_refused(tmp_path: Path):
             "(pass --replace-voiced to replace them)") in r.output
     assert "(voiced:" not in r.output
     assert (dest / "aready-1973-06-10" / "dj-audio").exists()
+
+
+def test_purged_show_with_voiced_destination_names_voicing_first(tmp_path: Path):
+    """Without --replace-voiced a re-delivery over a voiced copy is refused
+    anyway, so pointing the operator at a full re-download first would cost a
+    download only to be refused afterwards."""
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    _voice_destination(dest / SLUG)
+
+    r = _deliver(tmp_path, dest)
+
+    assert r.exit_code == 1
+    assert "is already voiced by emcee" in " ".join(r.output.split())
+    assert "audio files missing" not in r.output
+
+
+def test_purged_show_with_replace_voiced_still_needs_its_audio(tmp_path: Path):
+    build_ready(tmp_path, SLUG)
+    dest = tmp_path / "inbox"
+    assert _deliver(tmp_path, dest).exit_code == 0
+    _voice_destination(dest / SLUG)
+
+    r = _deliver(tmp_path, dest, "--replace-voiced")
+
+    assert r.exit_code == 1
+    assert "1 of 1 audio files missing" in r.output
+    assert (dest / SLUG / "dj-audio").exists()
