@@ -362,3 +362,132 @@ def test_voice_malformed_manifest_missing_briefing_key_reports_cleanly(tmp_path,
     # no raw traceback: the KeyError was caught and rendered, not propagated
     assert result.exception is None or not isinstance(result.exception, KeyError)
     assert "error: badbriefing: KeyError: 'briefing'" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# voice: a bare name (or unique substring) resolves under [station] root
+# ---------------------------------------------------------------------------
+
+
+def test_voice_resolves_a_bare_name_under_station_root(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    monkeypatch.chdir(tmp_path)  # the name must not resolve against cwd
+    _write_config(home, station_root=station)
+    _arm_fake_llm(monkeypatch)
+    pkg_dir = build_package(station, slug="gratefuldead-1973-06-10", voiced=False)
+    build_package(station, slug="gratefuldead-1977-05-08", voiced=False)
+
+    result = runner.invoke(app, ["voice", "gratefuldead-1973-06-10"])
+
+    assert result.exit_code == 0, result.output
+    assert (pkg_dir / "broadcast.m3u").exists()
+    assert not (station / "gratefuldead-1977-05-08" / "broadcast.m3u").exists()
+
+
+def test_voice_resolves_a_unique_substring(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    _arm_fake_llm(monkeypatch)
+    pkg_dir = build_package(station, slug="gratefuldead-1973-06-10", voiced=False)
+    build_package(station, slug="gratefuldead-1977-05-08", voiced=False)
+
+    result = runner.invoke(app, ["voice", "1973"])
+
+    assert result.exit_code == 0, result.output
+    assert (pkg_dir / "broadcast.m3u").exists()
+
+
+def test_voice_exact_name_wins_over_substring_ambiguity(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    monkeypatch.chdir(tmp_path)
+    _write_config(home, station_root=station)
+    _arm_fake_llm(monkeypatch)
+    pkg_dir = build_package(station, slug="showA", voiced=False)
+    build_package(station, slug="showA-late", voiced=False)
+
+    result = runner.invoke(app, ["voice", "showA"])
+
+    assert result.exit_code == 0, result.output
+    assert (pkg_dir / "broadcast.m3u").exists()
+    assert not (station / "showA-late" / "broadcast.m3u").exists()
+
+
+def test_voice_ambiguous_substring_lists_candidates_and_voices_nothing(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    _arm_fake_llm(monkeypatch)
+    build_package(station, slug="gratefuldead-1973-06-10", voiced=False)
+    build_package(station, slug="gratefuldead-1977-05-08", voiced=False)
+
+    result = runner.invoke(app, ["voice", "gratefuldead"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, EmceeError)
+    assert "ambiguous" in str(result.exception)
+    assert result.exception.details == ["gratefuldead-1973-06-10", "gratefuldead-1977-05-08"]
+    assert not list(station.glob("*/broadcast.m3u"))
+
+
+def test_voice_unknown_name_names_the_station_root(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    build_package(station, slug="showA", voiced=False)
+
+    result = runner.invoke(app, ["voice", "nope"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, EmceeError)
+    assert str(station) in str(result.exception)
+
+
+def test_voice_bare_name_skips_dot_dirs(tmp_path, monkeypatch):
+    # llama's replace-voiced swap stages a dot-prefixed sibling; it is never a target.
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=station)
+    _arm_fake_llm(monkeypatch)
+    pkg_dir = build_package(station, slug="showA", voiced=False)
+    build_package(station, slug=".showA.swap", voiced=False)
+
+    result = runner.invoke(app, ["voice", "show"])
+
+    assert result.exit_code == 0, result.output
+    assert (pkg_dir / "broadcast.m3u").exists()
+
+
+def test_voice_bare_name_without_station_root_says_how_to_fix(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    monkeypatch.chdir(tmp_path)
+    _write_config(home)
+
+    result = runner.invoke(app, ["voice", "showA"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, EmceeError)
+    assert "[station] root" in str(result.exception)
+
+
+def test_voice_station_root_option_overrides_config(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home, station_root=tmp_path / "elsewhere")
+    _arm_fake_llm(monkeypatch)
+    pkg_dir = build_package(station, slug="showA", voiced=False)
+
+    result = runner.invoke(app, ["voice", "showA", "--station-root", str(station)])
+
+    assert result.exit_code == 0, result.output
+    assert (pkg_dir / "broadcast.m3u").exists()

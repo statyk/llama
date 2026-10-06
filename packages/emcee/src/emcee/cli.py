@@ -101,6 +101,33 @@ def _resolve_station_root(config: EmceeConfig, override: Path | None) -> Path:
     return root
 
 
+def _resolve_package(config: EmceeConfig, name: str, station_root: Path | None) -> Path:
+    """The package directory `name` addresses: an existing directory path
+    as-is, else a package under `[station] root` (or `--station-root`) by
+    exact name or unique substring -- the same addressing llama gives shows.
+
+    Candidates are what `station.scan` would visit: non-dot subdirectories
+    holding a `manifest.json` (a dot dir is llama's replace-voiced swap
+    sibling, never a target). An exact name wins over substring hits, so
+    `showA` still reaches `showA` beside `showA-late`.
+    """
+    path = Path(name).expanduser()
+    if path.is_dir():
+        return path
+    root = _resolve_station_root(config, station_root)
+    names = sorted(d.name for d in root.iterdir()
+                   if d.is_dir() and not d.name.startswith(".")
+                   and (d / "manifest.json").exists())
+    if name in names:
+        return root / name
+    hits = [n for n in names if name in n]
+    if len(hits) == 1:
+        return root / hits[0]
+    if not hits:
+        raise EmceeError(f"no package matches {name!r} in {root}")
+    raise EmceeError(f"{name!r} is ambiguous in {root}", hits)
+
+
 def _typed_error(exc: Exception) -> str:
     """An exception's message, type-prefixed unless it's already a complete
     sentence.
@@ -365,7 +392,9 @@ def run(
 
 @app.command("voice")
 def voice_cmd(
-    package_path: Path = typer.Argument(..., help="Path to one delivered package directory"),
+    package: str = typer.Argument(
+        ..., help="A package directory, or a package's name (or unique substring) "
+                  "under \\[station] root"),
     fresh: list[str] = typer.Option(
         [], "--fresh",
         help="Re-roll (re-synthesize) just these DJ-clip stems, e.g. set1-intro "
@@ -385,11 +414,16 @@ def voice_cmd(
              "invalidates every clip's cache key."),
     force: bool = typer.Option(False, "--force",
                                help="Re-synthesize every DJ clip even if cached"),
+    station_root: Path = typer.Option(
+        None, "--station-root",
+        help="Override \\[station] root for resolving a package name"),
 ):
     """Script + voice + broadcast-assemble ONE delivered package.
 
-    `package_path` names one package directory directly -- use `emcee run`
-    to process a whole station. Re-processing an already-"ready" package
+    `package` is a package directory, or a package's name or unique
+    substring under `\\[station] root` (`--station-root` overrides it); an
+    existing directory path always wins -- use `emcee run` to process a
+    whole station. Re-processing an already-"ready" package
     clears its `dj_notes`/`dj_audio` manifest blocks (once presenter/voice
     resolution has already succeeded) before reprocessing, so a
     mid-pipeline failure degrades it to "pending" -- self-consistent with
@@ -408,7 +442,7 @@ def voice_cmd(
     matching `emcee run`, instead of a raw traceback. Exits 1 on failure.
     """
     config = load_config()
-    pkg = Package(package_path)
+    pkg = Package(_resolve_package(config, package, station_root))
     pkg.manifest()  # validates schema_version >= 3; UnsupportedPackage/EmceeError -> boundary
 
     if fresh:

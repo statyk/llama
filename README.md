@@ -330,9 +330,11 @@ emcee's own factual guard, not llama's.
 
     emcee run                          # scan [station] root, voice every not-yet-ready package
     emcee run --force                  # re-synthesize every DJ clip even if cached
-    emcee voice /station/inbox/gratefuldead-1973-06-10
-                                       # script + voice + assemble ONE package directly
-    emcee voice /station/inbox/gratefuldead-1973-06-10 --fresh set1-intro
+    emcee voice gratefuldead-1973-06-10
+                                       # script + voice + assemble ONE package directly;
+                                       # a name or unique substring under [station] root,
+                                       # or a path
+    emcee voice gratefuldead-1973-06-10 --fresh set1-intro
                                        # re-roll just this DJ clip (repeatable) --
                                        # in practice, with a real LLM, emcee
                                        # re-scripts on every call and the

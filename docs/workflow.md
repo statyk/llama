@@ -312,8 +312,9 @@ yet broadcast-ready — "not broadcast-ready" *is* the work predicate, there's
 no separate queue file to fall out of sync:
 
 - `emcee run` — voice every pending package in the station in one sweep.
-- `emcee voice <package-path>` — script + voice + assemble one package
-  directly (`--fresh <clip-stem>` deletes just one cached clip, e.g.
+- `emcee voice <package>` — script + voice + assemble one package
+  directly (`<package>` is a path, or a package name or unique substring
+  under `[station] root`; `--fresh <clip-stem>` deletes just one cached clip, e.g.
   `set1-intro` or `99-outro`, so *that* clip re-renders — but emcee
   re-scripts on every call, and with a real LLM the regenerated text
   usually changes every clip's cache key too, so in practice `--fresh`
@@ -714,7 +715,7 @@ performance-level call; vet's grounding check is the safety net if a
 structural fix leaves it slightly stale). Result per show: `packaged:
 <path>` or `still held: <slug>`. There is no `--script`/`--voice` here —
 re-voicing a *delivered* package (if you want a different DJ take) is
-`emcee voice <package-path>`, not a llama `redo`.
+`emcee voice <package>`, not a llama `redo`.
 
 ### `llama deliver <show> | SELECTOR [--dest DIR] [--yes]`
 Copies a show's `package/` into the station's watched folder
@@ -983,7 +984,7 @@ so the new research gets re-vetted.
 **I want to voice a delivered-but-silent package, or give it a new host.**
 None of this is llama's job anymore — once `llama deliver` hands a package
 off, voicing it is `emcee`'s: `emcee run` sweeps every not-yet-voiced
-package in the station; `emcee voice <package-path>` does one directly
+package in the station; `emcee voice <package>` does one directly
 (`--fresh <clip-stem>` re-rolls just one clip *in principle* — in
 practice emcee re-scripts every call, and a real LLM's regenerated text
 usually invalidates every clip's cache, so expect the whole show to

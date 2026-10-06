@@ -107,7 +107,9 @@ implementation plan this was built from. The approved design spec is
   or the house voice), `--dry-run` lists what
   would be voiced and by whom — an explicit assignment prints `<id>`, the
   default `<id> (default)`, none `house`),
-  `emcee voice <package-path>` (script + voice + assemble one package;
+  `emcee voice <package>` (script + voice + assemble one package —
+  a path, or a name/unique substring under `[station] root`, overridable
+  with `--station-root`, exact name beating substring hits;
   `--fresh <clip-stem>` deletes just that cached clip, but since emcee
   re-scripts on every call, a real LLM's regenerated text usually
   invalidates every clip's cache too — in practice `--fresh` normally
