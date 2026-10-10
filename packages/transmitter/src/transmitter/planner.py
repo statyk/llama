@@ -50,6 +50,8 @@ def extend(rows: Sequence[PlanRow], eligible: Sequence[Show], *, frames_of: Call
         chosen = choose_next(pool, last_seq, seed, previous)
         try:
             frames = frames_of(chosen)
+            if frames <= 0:
+                raise PlanError(f"{chosen.slug} measures {frames} frames")
         except TransmitterError as exc:
             on_skip(chosen, exc)
             pool = [s for s in pool if s.slug != chosen.slug]
@@ -115,9 +117,40 @@ def read_plan(path: Path) -> list[PlanRow]:
         text = Path(path).read_text()
     except FileNotFoundError:
         return []
-    rows = [PlanRow.from_json(json.loads(line)) for line in text.splitlines() if line.strip()]
+    rows: list[PlanRow] = []
+    for i, line in enumerate(text.splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            rows.append(_parse_row(json.loads(line)))
+        except (ValueError, TypeError) as exc:
+            # Never treat a corrupt plan as empty: that would start a fresh run
+            # over segment keys already published (and immutable).
+            raise PlanError(f"{path}: line {i}: {exc}") from exc
     validate_rows(rows)
     return rows
+
+
+_INT_FIELDS = ("seq", "start_frame", "frames")
+_STR_FIELDS = ("slug", "dir", "key")
+
+
+def _parse_row(data: object) -> PlanRow:
+    if not isinstance(data, dict):
+        raise TypeError(f"expected an object, got {type(data).__name__}")
+    row = PlanRow.from_json(data)
+    for name in _INT_FIELDS:
+        value = getattr(row, name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"{name} must be an integer, got {value!r}")
+    for name in _STR_FIELDS:
+        if not isinstance(getattr(row, name), str):
+            raise TypeError(f"{name} must be a string, got {getattr(row, name)!r}")
+    if not isinstance(row.run_start, bool):
+        raise TypeError(f"run_start must be a boolean, got {row.run_start!r}")
+    if row.cut_frame is not None and (not isinstance(row.cut_frame, int) or isinstance(row.cut_frame, bool)):
+        raise TypeError(f"cut_frame must be an integer or null, got {row.cut_frame!r}")
+    return row
 
 
 def write_plan(path: Path, rows: Sequence[PlanRow]) -> None:

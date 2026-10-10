@@ -5,6 +5,7 @@ import pytest
 from transmitter import planner
 from transmitter.errors import PlanError, RenderError
 from transmitter.grid import SEGMENT_FRAMES as F
+from transmitter.layout import validate_rows
 from transmitter.station import Show
 
 
@@ -124,3 +125,37 @@ def test_plan_file_round_trip(tmp_path):
     assert planner.read_plan(tmp_path / "plan.jsonl") == rows
     assert planner.read_plan(tmp_path / "missing.jsonl") == []
     assert [p.name for p in tmp_path.iterdir()] == ["plan.jsonl"]
+
+
+def test_a_show_with_no_frames_is_skipped_not_fatal():
+    skipped = []
+
+    def frames_of(s):
+        return 0 if s.slug == "bravo" else 1000
+
+    rows = ext([], frames_of=frames_of, until_frame=6_000,
+               on_skip=lambda s, e: skipped.append((s.slug, type(e))))
+    assert "bravo" not in {r.slug for r in rows} and skipped == [("bravo", PlanError)]
+
+
+def test_cut_for_recovery_drops_a_row_starting_exactly_at_the_boundary():
+    # gap chosen so row 1 starts on segment 13's first frame (5733 = 5410 + 323)
+    rows = ext([], start_frame=10 * F, gap_frames=13 * F - (10 * F + 1000), until_frame=10 * F + 5_000)
+    assert rows[1].start_frame == 13 * F
+    kept = planner.cut_for_recovery(rows, 12)
+    assert kept == rows[:1]
+    validate_rows(kept)
+
+
+@pytest.mark.parametrize("bad", [
+    "{not json",                                                   # invalid JSON
+    "[1, 2]",                                                      # valid JSON, wrong shape
+    '{"seq": 1, "slug": "x"}',                                     # missing fields
+    '{"seq": 1, "slug": "x", "dir": "x", "key": "k", "start_frame": 5000, "frames": "9"}',  # wrong type
+])
+def test_a_corrupt_plan_is_a_plan_error_naming_the_file_and_line(tmp_path, bad):
+    path = tmp_path / "plan.jsonl"
+    planner.write_plan(path, _rows_at(10)[:1])
+    path.write_text(path.read_text() + bad + "\n")
+    with pytest.raises(PlanError, match=rf"plan\.jsonl: line 2: "):
+        planner.read_plan(path)
