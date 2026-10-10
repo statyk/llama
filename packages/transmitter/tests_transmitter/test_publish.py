@@ -141,6 +141,21 @@ def test_the_horizon_never_moves_below_the_high_water_mark(tmp_path):
     assert publish.publish_batch(p, _now(p)).horizon == (100, 109)
 
 
+def test_a_lowered_batch_size_after_a_crash_still_reaches_the_high_water_mark(tmp_path):
+    bucket = _CrashAfterHorizon()
+    bucket.crash = True
+    p = make_publisher(tmp_path, bucket, batch=10)
+    _segs(p, range(100, 110))
+    with pytest.raises(_Crash):
+        publish.publish_batch(p, _now(p))
+    p.cfg.publish.batch_segments = 5                             # the operator lowers it meanwhile
+    report = publish.publish_batch(p, _now(p))                   # one batch re-sends up to the mark
+    assert report.uploaded == list(range(100, 110)) and report.horizon == (100, 109)
+    assert load_publish_state(p.ws).last == 109
+    _segs(p, range(110, 120))
+    assert publish.publish_batch(p, _now(p)).uploaded == list(range(110, 115))   # normal size again
+
+
 def test_publish_state_without_a_high_water_mark_still_loads(tmp_path):
     p = make_publisher(tmp_path, FakeBucket())
     p.ws.publish_state_path.write_text(json.dumps(
@@ -252,6 +267,19 @@ def test_tripped_guard_stops_publishing_and_is_read_at_most_every_15_minutes(tmp
     later = _now(p) + 16 * 60 * 1_000_000
     bucket.objects["state/guard.json"]["Body"] = b'{"tripped": false}'
     assert publish.publish_batch(p, later).uploaded == [100, 101]
+
+
+def test_a_clock_stepped_backwards_rereads_the_guard(tmp_path):
+    bucket = FakeBucket()
+    bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false}'}
+    p = make_publisher(tmp_path, bucket)
+    _segs(p, range(100, 101))
+    assert publish.publish_batch(p, _now(p)).uploaded == [100]
+    bucket.objects["state/guard.json"]["Body"] = b'{"tripped": true}'
+    _segs(p, range(101, 102))
+    earlier = _now(p) - 60 * 60 * 1_000_000                       # NTP stepped the clock back an hour
+    assert publish.publish_batch(p, earlier).stopped == "guard"
+    assert bucket.log.count(("get", "state/guard.json")) == 2
 
 
 def test_absent_guard_is_not_tripped(tmp_path):

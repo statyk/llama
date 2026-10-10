@@ -83,7 +83,10 @@ def read_package_notes(pkg_dir: Path) -> tuple[dict | None, str | None]:
     ref = manifest.get("briefing")
     if ref is not None and not isinstance(ref, dict):
         return manifest, None
-    name = Path((ref or {}).get("file") or "briefing.md").name
+    file_ref = (ref or {}).get("file") or "briefing.md"
+    if not isinstance(file_ref, str):                 # a malformed reference: no briefing text
+        return manifest, None
+    name = Path(file_ref).name
     try:
         briefing = (Path(pkg_dir) / name).read_text(encoding="utf-8")
     except (OSError, ValueError):       # unreadable or not UTF-8: no briefing text

@@ -132,8 +132,12 @@ def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[P
     now_n = st.epoch.index_at(now_us)
     fresh = (now_n + st.start_margin_segments) * SEGMENT_FRAMES
     nxt = publish_next(rows, pub.last)
+    # The first segment R2 cannot already list. Recovery is decided on it, not
+    # on `nxt`: while R2 may list past now, listeners are on audio already up,
+    # and a recovery would cut the show on air at the mark (or leave dead air).
+    due = publish_next(rows, listed)
     recovery = None
-    if nxt is None or nxt <= now_n:
+    if nxt is None or due <= now_n:
         # Published keys are immutable, so a new run never starts under one --
         # that would air a new show from its middle right after old-plan audio.
         if listed is not None:
@@ -141,11 +145,11 @@ def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[P
     if nxt is None:
         # No plan: a first start, or plan.jsonl was lost.
         start, run_start = fresh, True
-    elif nxt <= now_n:
+    elif due <= now_n:
         # The next segment to publish is already due: the outage outlasted the
         # lead and listeners are already off the live edge. Start a fresh run.
         rows = cut_for_recovery(rows, listed)
-        recovery = f"recovery: segment {nxt} was due at index {now_n}; new run at segment " \
+        recovery = f"recovery: segment {due} was due at index {now_n}; new run at segment " \
                    f"{fresh // SEGMENT_FRAMES}"
         start, run_start = fresh, True
     else:

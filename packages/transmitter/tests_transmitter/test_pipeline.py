@@ -493,16 +493,20 @@ def test_plan_step_recovery_cuts_at_the_high_water_mark(tmp_path):
     assert any("recovery" in m for m in logs)
 
 
-def test_plan_step_recovery_never_restarts_below_the_high_water_mark(tmp_path):
-    st, _ = make_station(tmp_path)
-    pipeline.plan_step(st, NOW)
+def test_plan_step_does_not_recover_while_r2_may_list_past_now(tmp_path):
+    # last + 1 is due, but R2 may list up to the high-water mark, which is still
+    # ahead of now: listeners are on old-plan audio that is already up. A
+    # recovery here would cut the show on air at the mark (or leave dead air).
+    st, logs = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
     written = pipeline.render_step(st, NOW).written
     last, high_water = written[0], written[-1]
-    later = st.epoch.start_us(last + 1)                      # last + 1 is due: recovery
+    later = st.epoch.start_us(last + 1)                      # last + 1 is due
     assert high_water > st.epoch.index_at(later) + st.start_margin_segments
     _crashed_after_horizon(st, written[0], last, high_water)
     before = _seg_files(st)
     new_rows = pipeline.plan_step(st, later)
-    run = [r for r in new_rows if r.run_start]
-    assert run[-1].start_frame == (high_water + 1) * F
-    assert _seg_files(st) == before                          # every listed segment kept, untouched
+    assert new_rows[:len(rows)] == rows                      # nothing cut, no new run
+    assert not any(r.run_start for r in new_rows[1:])
+    assert _seg_files(st) == before
+    assert not any("recovery" in m for m in logs)

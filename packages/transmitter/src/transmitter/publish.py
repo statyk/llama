@@ -124,7 +124,9 @@ class Uploader:
 
 def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, interval_s: float) -> bool:
     cached = read_json(ws.guard_cache_path)
-    if cached is not None and now_s - cached["checked_at"] < interval_s:
+    # A clock stepped backwards (negative age) must not let a cached
+    # `blocked: false` hold off the spend kill switch: re-read.
+    if cached is not None and 0 <= now_s - cached["checked_at"] < interval_s:
         return cached["blocked"]
     try:
         doc = uploader.get_json(GUARD_KEY)
@@ -249,8 +251,14 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
         if nxt is None:
             return report
         seg_dir = p.ws.seg_dir(p.epoch.epoch_id)
+        # After a crash between a horizon PUT and the local save, R2 lists up
+        # to the high-water mark: re-send up to it in one batch, whatever
+        # batch_segments is now, or a smaller batch would be held forever.
+        end = nxt + p.cfg.publish.batch_segments
+        if state.high_water is not None:
+            end = max(end, state.high_water + 1)
         batch: list[int] = []
-        for n in range(nxt, nxt + p.cfg.publish.batch_segments):
+        for n in range(nxt, end):
             if not (seg_dir / f"{n}.aac").exists():
                 break
             batch.append(n)

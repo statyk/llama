@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from tests_transmitter.helpers import build_package, make_root
 from transmitter import aacenc, grid, site
 from transmitter.analysis import FileAnalysis, ShowAnalysis
@@ -141,3 +143,13 @@ def test_recent_is_capped_at_ten_newest_first():
     now = EPOCH.epoch_us + grid.frame_to_us(12 * 1000)    # all twelve have ended
     tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=10_000, pause_samples=0)
     assert tl["recent"] == [f"show-k{i}" for i in range(11, 1, -1)]
+
+
+@pytest.mark.parametrize("file_ref", [5, ["briefing.md"], {"name": "briefing.md"}, True])
+def test_a_non_string_briefing_file_is_an_unreadable_briefing(tmp_path, file_ref):
+    pkg = build_package(make_root(tmp_path))
+    data = json.loads((pkg / "manifest.json").read_text())
+    data["briefing"]["file"] = file_ref
+    (pkg / "manifest.json").write_text(json.dumps(data))
+    manifest, briefing = site.read_package_notes(pkg)
+    assert manifest is not None and briefing is None
