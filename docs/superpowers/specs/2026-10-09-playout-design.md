@@ -307,8 +307,9 @@ fixed shuffled order, back to back with the inter-show gap.
   silence to a whole frame, and the inter-show gap is rounded up to whole frames.
   A restart resumes at any `N` with no glitch; encoder priming at a show start
   lands in the inter-show silence. A show's frame count is the encoder's output
-  including its flush frames; `timeline.json` offsets subtract the encoder's
-  declared priming delay. Rendering is idempotent and parallelisable.
+  including its flush frames; `timeline.json` offsets add the encoder's
+  declared priming delay to a show's frame position (content sample `s` airs at
+  stream sample `start + priming + s`). Rendering is idempotent and parallelisable.
 - **Joins:** track→track, zero inserted silence, gapless decode honouring LAME
   encoder delay/padding (segues stay seamless); DJ clip↔track, a configurable
   pause (default 0.75 s); show→show, the inter-show gap (default 2 s). "Show" is
@@ -352,7 +353,8 @@ fixed shuffled order, back to back with the inter-show gap.
 - Prunes once `E + N·d < now − prune_margin` (default 10 min, so lagging players
   don't 404): advances `horizon.first`, then deletes by computed key range.
 - **Recovery after an outage longer than the lead:** a fresh contiguous run
-  starts at the resume index (`horizon.first`) and begins a new show there;
+  starts a short margin after now (the old run is left to prune) and begins a new
+  show there;
   `aired.jsonl` gets rows only for shows published and past their air time.
 
 ### antenna (phase 1 minimal, phase 4 full)
