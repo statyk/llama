@@ -78,3 +78,41 @@ def test_missing_encode_is_a_layout_error(tmp_path):
     store = FrameStore(tmp_path, fake_frame("silence", 0))
     with pytest.raises(LayoutError, match="missing"):
         store.build_segment(0, [row(0, "zz", 0, 900)])
+
+
+def test_validate_rows_accepts_abutting_and_cut_then_aligned():
+    validate_rows([row(0, "a", 0, 100), row(1, "b", 100, 50)])
+    validate_rows([row(0, "a", 0, 1000, cut_frame=441), row(1, "b", 441, 10, run_start=True)])
+
+
+def test_validate_rows_rejects_empty_row_and_cut_outside_show():
+    with pytest.raises(LayoutError, match="no frames"):
+        validate_rows([row(0, "a", 0, 0)])
+    with pytest.raises(LayoutError, match="cut outside"):
+        validate_rows([row(0, "a", 10, 100, cut_frame=10)])
+    with pytest.raises(LayoutError, match="cut outside"):
+        validate_rows([row(0, "a", 10, 100, cut_frame=111)])
+
+
+def test_build_segment_plan_end_boundary(tmp_path):
+    write_fake_show(tmp_path / "a.aac", "a", 441)
+    store = FrameStore(tmp_path, fake_frame("silence", 0))
+    _, frames = segment.parse(store.build_segment(0, [row(0, "a", 0, 441)]))
+    assert len(frames) == F
+    write_fake_show(tmp_path / "b.aac", "b", 440)
+    with pytest.raises(LayoutError, match="past the end of the plan"):
+        store.build_segment(0, [row(0, "b", 0, 440)])
+
+
+def test_silent_frame_must_be_exactly_one_frame(tmp_path):
+    with pytest.raises(LayoutError, match="silent frame"):
+        FrameStore(tmp_path, fake_frame("s", 0) * 2)
+    with pytest.raises(LayoutError, match="silent frame"):
+        FrameStore(tmp_path, b"")
+
+
+def test_unreadable_encode_is_a_layout_error(tmp_path):
+    (tmp_path / "d.aac").mkdir()
+    store = FrameStore(tmp_path, fake_frame("silence", 0))
+    with pytest.raises(LayoutError, match="d.aac"):
+        store.frame_count("d")

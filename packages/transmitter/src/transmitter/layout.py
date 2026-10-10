@@ -102,6 +102,8 @@ class FrameStore:
 
     def __init__(self, shows_dir: Path, silent_frame: bytes, *, keep: int = 2):
         self.shows_dir = Path(shows_dir)
+        if len(adts.frame_offsets(silent_frame)) != 2:
+            raise LayoutError("silent frame must be exactly one ADTS frame")
         self.silent_frame = silent_frame
         self._keep = keep
         self._cache: OrderedDict[str, tuple[bytes, list[int]]] = OrderedDict()
@@ -121,6 +123,8 @@ class FrameStore:
             data = self.path(key).read_bytes()
         except FileNotFoundError as exc:
             raise LayoutError(f"show encode {key} is missing") from exc
+        except OSError as exc:
+            raise LayoutError(f"show encode {key} unreadable ({self.path(key)}): {exc}") from exc
         entry = (data, adts.frame_offsets(data))
         self._cache[key] = entry
         while len(self._cache) > self._keep:
