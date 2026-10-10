@@ -16,17 +16,20 @@ if (!bucket) {
   process.exit(2);
 }
 
+const shq = (a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : `'${a.replace(/'/g, "'\\''")}'`);
+
 const HTML = "text/html; charset=utf-8";
 const JS = "text/javascript; charset=utf-8";
 const CSS = "text/css; charset=utf-8";
 const HOUR = "public, max-age=3600";
 const ASSETS = [
-  ["index.html", "public/index.html", HTML, "public, max-age=60"],
   ["offair.html", "public/offair.html", HTML, HOUR],
   ["player.js", "public/player.js", JS, HOUR],
   ["nowplaying.js", "public/nowplaying.js", JS, HOUR],
   ["style.css", "public/style.css", CSS, HOUR],
   ["assets/hls.min.js", "node_modules/hls.js/dist/hls.min.js", JS, HOUR],
+  // last: short TTL, and it references everything above
+  ["index.html", "public/index.html", HTML, "public, max-age=60"],
 ];
 
 for (const [key, file, type, cache] of ASSETS) {
@@ -38,9 +41,10 @@ for (const [key, file, type, cache] of ASSETS) {
   const args = ["wrangler", "r2", "object", "put", `${bucket}/${key}`, "--file", path,
                 "--content-type", type, "--cache-control", cache, "--remote"];
   if (dryRun) {
-    console.log(["npx", ...args].join(" "));
+    console.log(["npx", ...args].map(shq).join(" "));
     continue;
   }
   const r = spawnSync("npx", args, { cwd: root, stdio: "inherit" });
+  if (r.error) console.error(`failed to run npx: ${r.error.message}`);
   if (r.status !== 0) process.exit(r.status ?? 1);
 }

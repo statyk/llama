@@ -1,4 +1,4 @@
-import { findNowPlaying, nowPlayingText, prefersNativeHls } from "./nowplaying.js";
+import { findNowPlaying, nowPlayingText, playBlockedNotice, prefersNativeHls } from "./nowplaying.js";
 
 const STREAM = "live.m3u8";
 const TIMELINE = "timeline.json";
@@ -67,13 +67,21 @@ function start() {
     offAir("This browser cannot play the stream here; open the stream URL in VLC.");
     return;
   }
-  audio.play().catch(() => offAir("Playback was blocked; press Try again."));
+  audio.play().catch((err) => {
+    const text = playBlockedNotice(err, playing);
+    if (text) offAir(text);
+  });
   refreshTimeline(true);
 }
 
 audio.addEventListener("ended", () => offAir("The station is off the air."));
 audio.addEventListener("error", () => {
   if (playing) offAir("The stream is unavailable right now.");
+});
+// Pause from OS/lock-screen controls: treat as stop (stop() sets playing=false
+// before its own pause, so this cannot recurse).
+audio.addEventListener("pause", () => {
+  if (playing) stop();
 });
 playButton.addEventListener("click", () => (playing ? stop() : start()));
 retryButton.addEventListener("click", start);

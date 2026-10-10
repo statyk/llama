@@ -10,6 +10,17 @@ export function prefersNativeHls(nav, canPlayNative) {
   return Boolean(canPlayNative) && vendor.startsWith("Apple");
 }
 
+/** Notice text for a rejected audio.play(), or null to ignore it. Only a
+ * NotAllowedError while still playing is a real "blocked"; an AbortError is
+ * play() being interrupted by our own stop()/offAir() and must not overwrite
+ * the off-air notice. */
+export function playBlockedNotice(err, stillPlaying) {
+  if (!stillPlaying || !err || err.name !== "NotAllowedError") return null;
+  return "Playback was blocked; press Try again.";
+}
+
+/** Timeline contract: shows[].files[] are sorted by start (the writer emits
+ * them in play order); the early `break` below relies on it. */
 export function findNowPlaying(timeline, atMs) {
   if (!timeline || !Array.isArray(timeline.shows)) return null;
   for (const show of timeline.shows) {

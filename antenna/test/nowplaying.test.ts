@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findNowPlaying, nowPlayingText, prefersNativeHls } from "../public/nowplaying.js";
+import { findNowPlaying, playBlockedNotice, nowPlayingText, prefersNativeHls } from "../public/nowplaying.js";
 
 const TIMELINE = {
   shows: [
@@ -46,5 +46,27 @@ describe("nowPlayingText", () => {
     expect(nowPlayingText(np, true)).toBe("Cracker — 2005-11-01, Knickerbockers, Lincoln, NE USA · One Fine Day");
     expect(nowPlayingText(null, true)).toBe("We'll be back shortly.");
     expect(nowPlayingText(null, false)).toBe("Tuning in…");
+  });
+});
+
+describe("show-boundary edges and file ordering", () => {
+  it("includes start, excludes end", () => {
+    expect(findNowPlaying(TIMELINE, t("2026-10-10T12:00:00.000Z"))).not.toBeNull();
+    expect(findNowPlaying(TIMELINE, t("2026-10-10T13:40:00.000Z"))).toBeNull();
+    expect(findNowPlaying(TIMELINE, t("2026-10-10T13:39:59.999Z"))!.file!.title).toBe("Guarded By Monkeys");
+  });
+  it("assumes files sorted by start: an out-of-order file after a later one is ignored", () => {
+    const unsorted = { shows: [{ ...TIMELINE.shows[0], files: [
+      { kind: "track", title: "B", start: "2026-10-10T12:10:00.000Z" },
+      { kind: "track", title: "A", start: "2026-10-10T12:03:00.000Z" } ] }] };
+    expect(findNowPlaying(unsorted, t("2026-10-10T12:20:00Z"))!.file).toBeNull();
+  });
+});
+
+describe("playBlockedNotice", () => {
+  it("only NotAllowedError while playing is a blocked notice; AbortError is ignored", () => {
+    expect(playBlockedNotice({ name: "NotAllowedError" }, true)).toMatch(/blocked/);
+    expect(playBlockedNotice({ name: "AbortError" }, true)).toBeNull();
+    expect(playBlockedNotice({ name: "NotAllowedError" }, false)).toBeNull();
   });
 });
