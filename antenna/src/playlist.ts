@@ -79,14 +79,20 @@ export function buildPlaylist(inp: PlaylistInputs, cfg: PlaylistConfig): string 
     (e, i) => (e.kind === "fallback" && e.n % len === 0) || (i > 0 && entries[i - 1].kind !== e.kind),
   );
   // Choose the sequence so fallback segment N always carries discontinuity
-  // number floor(N/len) (= floor(N/len) during pure fallback). A pure-live
-  // window restarts at 0: a live<->fallback transition may cost a listener one
-  // reload or glitch (spec-accepted).
+  // number floor(N/len) + 1. The +1 (a deliberate deviation from the spec's
+  // floor(N/len)) is what makes this hold at the start of an epoch: the first
+  // fallback entry carries at most one tag, so the sequence is
+  // floor(n/len) + 1 - tagsThrough >= 0 and never needs clamping. The old
+  // clamp at 0 renumbered segments between reloads whenever n < len (RFC 8216
+  // 6.2.2: the sequence must rise as tags leave the window, so every remaining
+  // segment keeps its number). A pure-live window restarts at 0: a
+  // live<->fallback transition may cost a listener one reload or glitch
+  // (spec-accepted).
   let discSeq = 0;
   const fi = entries.findIndex((e) => e.kind === "fallback");
   if (fi >= 0) {
     const tagsThrough = tagged.slice(0, fi + 1).filter(Boolean).length;
-    discSeq = Math.max(0, Math.floor(entries[fi].n / len) - tagsThrough);
+    discSeq = Math.floor(entries[fi].n / len) + 1 - tagsThrough;
   }
   const out = [
     "#EXTM3U",

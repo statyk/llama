@@ -60,12 +60,15 @@ describe("buildPlaylist", () => {
     expect(es.map((e) => e.uri)).toEqual([...live([99, 100]), ...loop([101, 102, 103, 104])]);
     const lines = pl.split("\n");
     expect(lines[lines.indexOf("fallback/v1/3.aac") - 3]).toBe("#EXT-X-DISCONTINUITY");
-    expect(es[2].disc).toBe(Math.floor(101 / 7));
+    expect(es[2].disc).toBe(Math.floor(101 / 7) + 1);
   });
 
   it("treats N < horizon.first as absent", () => {
     const pl = buildPlaylist({ nowMs: at(102), horizon: horizon(100, 200), fallback: FB, offair: false }, CFG)!;
     expect(entries(pl).map((e) => e.uri)).toEqual([...loop([97, 98, 99]), ...live([100, 101, 102])]);
+    // A discontinuity at the fallback->live switch too: fallback segment k carries timestamp k*d.
+    const lines = pl.split("\n");
+    expect(lines[lines.indexOf("seg/e1/100.aac") - 3]).toBe("#EXT-X-DISCONTINUITY");
   });
 
   it("an empty horizon (first = last + 1) lists fallback", () => {
@@ -77,7 +80,7 @@ describe("buildPlaylist", () => {
     }
   });
 
-  it("numbers every fallback segment floor(N/len), consistently across successive playlists", () => {
+  it("numbers every fallback segment floor(N/len) + 1, consistently across successive playlists", () => {
     const seen = new Map<number, number>();
     for (let cur = 1000; cur <= 1016; cur++) {
       const pl = buildPlaylist({ nowMs: at(cur), horizon: horizon(0, 10), fallback: FB, offair: false }, CFG)!;
@@ -86,12 +89,35 @@ describe("buildPlaylist", () => {
       es.forEach((e, i) => {
         const n = ms + i;
         expect(e.uri).toBe(`fallback/v1/${n % 7}.aac`);
-        expect(e.disc).toBe(Math.floor(n / 7));
+        expect(e.disc).toBe(Math.floor(n / 7) + 1);
         if (seen.has(n)) expect(seen.get(n)).toBe(e.disc);
         seen.set(n, e.disc);
       });
       const tags = pl.split("\n").filter((l) => l === "#EXT-X-DISCONTINUITY").length;
       expect(tags).toBe(es.filter((_, i) => (ms + i) % 7 === 0).length);
+    }
+  });
+
+  it("never renumbers a segment's discontinuity across reloads early in an epoch (RFC 8216 6.2.2)", () => {
+    // Pure fallback from the epoch (empty horizon), and a live->fallback
+    // dropout inside the first len segments: the floor(N/len) - tags clamp
+    // used to renumber both.
+    const cases: { name: string; h: Horizon; fb: FallbackIndex }[] = [
+      { name: "empty, len 7", h: horizon(0, -1), fb: FB },
+      { name: "empty, len 3", h: horizon(0, -1), fb: { len: 3, notice: "fallback/v1/notice.aac" } },
+      { name: "dropout at 20, len 50", h: horizon(0, 19), fb: { len: 50, notice: "fallback/v1/notice.aac" } },
+      { name: "dropout at 2, len 3", h: horizon(0, 1), fb: { len: 3, notice: "fallback/v1/notice.aac" } },
+    ];
+    for (const { name, h, fb } of cases) {
+      const seen = new Map<string, number>();
+      for (let cur = 0; cur <= 3 * fb.len + 10; cur++) {
+        const pl = buildPlaylist({ nowMs: at(cur), horizon: h, fallback: fb, offair: false }, CFG);
+        if (pl === null) continue; // the grace hold over an empty horizon at the epoch: nothing written
+        for (const e of entries(pl)) {
+          if (seen.has(e.uri + e.pdt)) expect(e.disc, `${name}: ${e.uri} @ cur=${cur}`).toBe(seen.get(e.uri + e.pdt));
+          seen.set(e.uri + e.pdt, e.disc);
+        }
+      }
     }
   });
 
