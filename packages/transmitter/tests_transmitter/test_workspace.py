@@ -71,3 +71,30 @@ def test_an_edited_d_is_refused(tmp_path):
     write_json(ws.epoch_path, {"epoch_id": "x", "epoch": "2026-10-10T12:00:00.000Z", "d": 6.0})
     with pytest.raises(ConfigError, match="epoch change"):
         load_epoch(ws)
+
+
+def test_epoch_creation_is_serialised_against_a_concurrent_creator(tmp_path):
+    """Two processes starting together must agree on one epoch: creation runs
+    under an exclusive lock and re-reads epoch.json once it holds it."""
+    import fcntl
+    import threading
+
+    ws = Workspace(tmp_path)
+    now = grid.iso_to_us("2026-10-10T12:00:00Z")
+    ws.root.mkdir(parents=True, exist_ok=True)
+    fd = os.open(ws.epoch_lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+    fcntl.flock(fd, fcntl.LOCK_EX)                          # the other process is mid-create
+    result = []
+    t = threading.Thread(target=lambda: result.append(load_or_create_epoch(ws, now + 5 * 10**6)),
+                         daemon=True)
+    try:
+        t.start()
+        t.join(timeout=0.5)
+        assert t.is_alive()                                 # waits for the lock
+        write_json(ws.epoch_path, {"epoch_id": "e20261010T120000Z", "epoch": "2026-10-10T12:00:00.000Z",
+                                   "d": 10.24})
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+    t.join(timeout=5)
+    assert result == [Epoch("e20261010T120000Z", now)]     # theirs, not a second epoch

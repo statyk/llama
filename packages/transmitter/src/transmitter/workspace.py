@@ -1,6 +1,7 @@
 """~/.transmitter layout, atomic writes, and the epoch (spec "transmitter --
 state and commands"; "The core contract")."""
 
+import fcntl
 import json
 import os
 import tempfile
@@ -81,6 +82,10 @@ class Workspace:
         return self.root / "epoch.json"
 
     @property
+    def epoch_lock_path(self) -> Path:
+        return self.root / "epoch.lock"
+
+    @property
     def publish_state_path(self) -> Path:
         return self.root / "publish.json"
 
@@ -134,8 +139,20 @@ def load_or_create_epoch(ws: Workspace, now_us: int) -> Epoch:
     existing = load_epoch(ws)
     if existing is not None:
         return existing
-    e_us = now_us - now_us % 1_000_000
-    stamp = datetime.fromtimestamp(e_us // 1_000_000, tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    epoch = Epoch(f"e{stamp}", e_us)
-    write_json(ws.epoch_path, {"epoch_id": epoch.epoch_id, "epoch": epoch.iso, "d": _D_SECONDS})
-    return epoch
+    # Two processes starting together (the service and a manual command) must
+    # not each create an epoch: the loser would render under an epoch nothing
+    # else agrees on. Create under an exclusive lock, re-reading once held.
+    ws.root.mkdir(parents=True, exist_ok=True)
+    fd = os.open(ws.epoch_lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        existing = load_epoch(ws)
+        if existing is not None:
+            return existing
+        e_us = now_us - now_us % 1_000_000
+        stamp = datetime.fromtimestamp(e_us // 1_000_000, tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        epoch = Epoch(f"e{stamp}", e_us)
+        write_json(ws.epoch_path, {"epoch_id": epoch.epoch_id, "epoch": epoch.iso, "d": _D_SECONDS})
+        return epoch
+    finally:
+        os.close(fd)
