@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import time
 
@@ -5,7 +6,7 @@ import pytest
 
 from tests_transmitter.helpers import NOW, FakeEngine, make_station, payloads, set_age
 from transmitter import grid, pipeline, segment
-from transmitter.errors import FrameCountDrift, LayoutError, StationRootError
+from transmitter.errors import FrameCountDrift, LayoutError, PlanError, StationRootError
 from transmitter.grid import SEGMENT_FRAMES as F
 from transmitter.layout import segment_pieces
 from transmitter.planner import read_plan
@@ -56,6 +57,8 @@ def test_plan_step_recovers_after_an_outage(tmp_path):
     seg_dir.mkdir(parents=True)
     stale = seg_dir / f"{last + 1}.aac"
     stale.write_bytes(b"x")
+    published = seg_dir / f"{last}.aac"
+    published.write_bytes(b"p")
     later = NOW + 3 * HOUR_US
     new_rows = pipeline.plan_step(st, later)
     boundary = (last + 1) * F
@@ -64,6 +67,7 @@ def test_plan_step_recovers_after_an_outage(tmp_path):
     assert run[-1].start_frame == (st.epoch.index_at(later) + 3) * F
     assert all(r.start_frame >= run[-1].start_frame for r in new_rows[1:])
     assert not stale.exists()
+    assert published.read_bytes() == b"p"                  # published keys are never dropped
     assert any("recovery" in m for m in logs)
 
 
@@ -125,17 +129,21 @@ def test_render_step_skips_a_show_that_fails_to_encode(tmp_path):
     st0, _ = make_station(tmp_path / "probe")
     victim = pipeline.plan_step(st0, NOW)[1].slug
     st, logs = make_station(tmp_path / "real", engine=FakeEngine(fail={victim}))
-    pipeline.plan_step(st, NOW)
+    rows = pipeline.plan_step(st, NOW)
+    assert rows[1].slug == victim
     report = pipeline.render_step(st, NOW)
     assert report.replanned == [victim]
+    new_rows = read_plan(st.ws.plan_path)
+    assert new_rows[1].start_frame == rows[1].start_frame and new_rows[1].slug != victim
     assert any("render failed" in m for m in logs)
 
 
 def test_frame_count_drift_is_fatal(tmp_path):
     st, _ = make_station(tmp_path, engine=FakeEngine(drift=1))
-    pipeline.plan_step(st, NOW)
+    rows = pipeline.plan_step(st, NOW)
     with pytest.raises(FrameCountDrift):
         pipeline.render_step(st, NOW)
+    assert not (st.ws.shows_dir / f"{rows[0].key}.aac").exists()   # a drifted encode is never frozen
 
 
 def test_render_step_refuses_to_replan_a_show_already_on_air(tmp_path):
@@ -165,3 +173,100 @@ def test_render_step_gcs_finished_encodes(tmp_path):
     assert not (shows / f"{rows[0].key}.aac").exists()     # fully segmented
     assert (shows / f"{rows[1].key}.aac").exists()         # still needed
     assert not old_tmp.exists() and new_tmp.exists()       # a crashed encode's temp; one in flight
+
+
+def _seg_files(st):
+    seg_dir = st.ws.seg_dir("etest")
+    return {p.name: p.read_bytes() for p in seg_dir.glob("*.aac")} if seg_dir.is_dir() else {}
+
+
+def _publish_up_to(st, first, last):
+    save_publish_state(st.ws, PublishState(epoch_id="etest", first=first, last=last, runs=[[first, last]]))
+
+
+def test_render_step_replans_when_planned_frames_change(tmp_path):
+    # An operator changes [render] clip_pause_seconds (or an ffmpeg upgrade
+    # changes extra_frames): rows planned under the old model are re-planned
+    # from the render frontier, never encoded and reported as drift.
+    st, logs = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    render_cfg = st.cfg.render.model_copy(update={"clip_pause_seconds": 1.0})
+    engine = FakeEngine(pause_seconds=1.0)
+    st2 = dataclasses.replace(st, cfg=st.cfg.model_copy(update={"render": render_cfg}), engine=engine)
+    assert st2.frames_of(st2.scan_now(NOW)[0]) != rows[0].frames
+    report = pipeline.render_step(st2, NOW)
+    assert report.replanned == [rows[0].slug]
+    assert rows[0].slug not in engine.encoded
+    new_rows = read_plan(st.ws.plan_path)
+    assert new_rows[0].run_start and new_rows[0].start_frame == rows[0].start_frame
+    assert new_rows[0].slug != rows[0].slug
+    first_n = rows[0].start_frame // F
+    assert report.written[0] == first_n
+    assert payloads(_seg(st, first_n)[1])[0] == f"{new_rows[0].key}:0"
+    assert any("plan-changed" in m and "frame count" in m for m in logs)
+
+
+def test_plan_step_recovery_with_nothing_eligible_touches_nothing(tmp_path):
+    st, _ = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    written = pipeline.render_step(st, NOW).written
+    _publish_up_to(st, written[0], written[-3])
+    before = _seg_files(st)
+    st.scan = lambda now_s: ([], [])                   # every package momentarily "changing"
+    with pytest.raises(PlanError):
+        pipeline.plan_step(st, NOW + 3 * HOUR_US)
+    assert read_plan(st.ws.plan_path) == rows
+    assert _seg_files(st) == before
+
+
+def test_render_step_writes_nothing_while_recovery_is_pending(tmp_path):
+    st, logs = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    written = pipeline.render_step(st, NOW).written
+    last = written[-3]
+    _publish_up_to(st, written[0], last)
+    for n in written:
+        if n > last:
+            (st.ws.seg_dir("etest") / f"{n}.aac").unlink()
+    before = _seg_files(st)
+    later = NOW + 3 * HOUR_US                          # last + 1 is long past due
+    report = pipeline.render_step(st, later)
+    assert report.written == [] and not report.covered
+    assert _seg_files(st) == before
+    assert read_plan(st.ws.plan_path) == rows
+    assert any("recovery pending" in m for m in logs)
+
+
+def test_plan_step_without_a_plan_resumes_after_published_keys(tmp_path):
+    st, _ = make_station(tmp_path)
+    pipeline.plan_step(st, NOW)
+    written = pipeline.render_step(st, NOW).written
+    fresh_n = st.epoch.index_at(NOW) + st.start_margin_segments
+    last = written[len(written) // 2]
+    assert last + 1 > fresh_n
+    _publish_up_to(st, written[0], last)
+    st.ws.plan_path.unlink()                           # the operator deleted plan.jsonl
+    new_rows = pipeline.plan_step(st, NOW)
+    assert new_rows[0].run_start and new_rows[0].start_frame == (last + 1) * F
+    left = {int(name.split(".")[0]) for name in _seg_files(st)}
+    assert left == {n for n in written if n <= last}   # unpublished old-plan segments dropped
+    report = pipeline.render_step(st, NOW)
+    assert report.written[0] == last + 1
+    assert payloads(_seg(st, last + 1)[1])[0] == f"{new_rows[0].key}:0"
+
+
+def test_plan_step_without_a_plan_after_old_published_keys_starts_fresh(tmp_path):
+    st, _ = make_station(tmp_path)
+    _publish_up_to(st, 10, 20)                         # long before now
+    rows = pipeline.plan_step(st, NOW)
+    assert rows[0].run_start and rows[0].start_frame == (st.epoch.index_at(NOW) + 3) * F
+
+
+def test_render_step_refuses_without_marker(tmp_path):
+    st, _ = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    (st.cfg.station.root / ".station-root").unlink()
+    with pytest.raises(StationRootError):
+        pipeline.render_step(st, NOW)
+    assert _seg_files(st) == {}
+    assert read_plan(st.ws.plan_path) == rows
