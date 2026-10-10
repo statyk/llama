@@ -17,7 +17,7 @@ from transmitter.audio import LoudnessMeter, iter_decode
 from transmitter.errors import EncodeError, PublishError
 from transmitter.grid import CHANNELS, FRAME_SAMPLES, SEGMENT_FRAMES
 from transmitter.publish import (AAC_TYPE, HORIZON_KEY, IMMUTABLE, STATE_CACHE, Publisher,
-                                 guard_blocks_publishing, horizon_doc, publish_lock, put_json)
+                                 check_epoch, guard_blocks_publishing, horizon_doc, publish_lock, put_json)
 from transmitter.state import load_publish_state, save_fallback_version
 from transmitter.workspace import Workspace, atomic_write_bytes, write_json
 
@@ -95,25 +95,31 @@ def write_local(ws: Workspace, build: FallbackBuild) -> Path:
     return d
 
 
-def upload_fallback(p: Publisher, build: FallbackBuild, now_us: int) -> None:
+def upload_fallback(p: Publisher, build: FallbackBuild, now_us: int) -> bool:
+    """Upload the fallback objects (segments, notice, then index.json last) and
+    record the version locally. Returns True if state/horizon.json was rewritten
+    with the new version, False if it was deferred (no horizon yet, or the
+    high-water rule) -- the next publish batch then carries the version."""
     v = build.version
     with publish_lock(p.ws):
         if guard_blocks_publishing(p.uploader, p.ws, now_us / 1e6, p.cfg.publish.guard_check_minutes * 60):
             raise PublishError("the cost guard is tripped (state/guard.json); not uploading")
+        state = load_publish_state(p.ws)
+        check_epoch(state, p.epoch)           # before ANY upload, like the other horizon writers
         for k, data in enumerate(build.segments):
             p.uploader.put(f"fallback/{v}/{k}.aac", data, AAC_TYPE, IMMUTABLE)
         p.uploader.put(f"fallback/{v}/notice.aac", build.notice, AAC_TYPE, IMMUTABLE)
         put_json(p.uploader, f"fallback/{v}/index.json", build.index(), IMMUTABLE)   # last: names the rest
         save_fallback_version(p.ws, v)
-        state = load_publish_state(p.ws)
         if state.first is None or state.last is None:
-            return
+            return False
         if state.high_water is not None and state.high_water > state.last:
             # R2's horizon may already list up to the high-water mark; rewriting
             # it at `last` would move it backwards. The next publish batch
             # carries the recorded version instead.
             p.log("horizon not rewritten: high-water mark is above last; next publish batch carries "
                   "the new fallback version")
-            return
+            return False
         put_json(p.uploader, HORIZON_KEY, horizon_doc(p.epoch, state.first, state.last, now_us, v),
                  STATE_CACHE)
+        return True

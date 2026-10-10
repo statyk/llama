@@ -70,11 +70,13 @@ def test_upload_order_and_horizon_refresh(tmp_path):
     bucket = FakeBucket()
     p = make_publisher(tmp_path, bucket)
     save_publish_state(p.ws, PublishState(epoch_id="etest", first=100, last=200, runs=[[100, 200]]))
-    fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150))
+    assert fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150)) is True
     assert bucket.puts() == ["fallback/abc123def456/0.aac", "fallback/abc123def456/1.aac",
                              "fallback/abc123def456/notice.aac", "fallback/abc123def456/index.json",
                              "state/horizon.json"]
-    assert bucket.objects["fallback/abc123def456/index.json"]["CacheControl"] == "public, max-age=31536000, immutable"
+    for key in ("0.aac", "1.aac", "notice.aac", "index.json"):
+        assert bucket.objects[f"fallback/abc123def456/{key}"]["CacheControl"] == "public, max-age=31536000, immutable"
+    assert bucket.objects["state/horizon.json"]["CacheControl"] == "no-store"
     assert bucket.json("state/horizon.json")["fallback_version"] == "abc123def456"
     assert (bucket.json("state/horizon.json")["first"], bucket.json("state/horizon.json")["last"]) == (100, 200)
     assert load_fallback_version(p.ws) == "abc123def456"
@@ -85,7 +87,7 @@ def test_upload_does_not_rewrite_horizon_below_high_water(tmp_path):
     p = make_publisher(tmp_path, bucket)
     save_publish_state(p.ws, PublishState(epoch_id="etest", first=100, last=200, runs=[[100, 260]],
                                           high_water=260))
-    fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150))
+    assert fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150)) is False
     assert "state/horizon.json" not in bucket.objects
     assert bucket.puts()[-1] == "fallback/abc123def456/index.json"
     assert load_fallback_version(p.ws) == "abc123def456"       # the next publish batch carries it
@@ -97,7 +99,7 @@ def test_upload_rewrites_horizon_when_high_water_is_not_above_last(tmp_path):
     p = make_publisher(tmp_path, bucket)
     save_publish_state(p.ws, PublishState(epoch_id="etest", first=100, last=200, runs=[[100, 200]],
                                           high_water=200))
-    fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150))
+    assert fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150)) is True
     assert bucket.puts()[-1] == "state/horizon.json"
     assert bucket.json("state/horizon.json")["last"] == 200
     assert load_publish_state(p.ws).high_water == 200
@@ -106,7 +108,7 @@ def test_upload_rewrites_horizon_when_high_water_is_not_above_last(tmp_path):
 def test_upload_without_a_horizon_only_records_the_version(tmp_path):
     bucket = FakeBucket()
     p = make_publisher(tmp_path, bucket)
-    fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150))
+    assert fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150)) is False
     assert "state/horizon.json" not in bucket.objects
     assert load_fallback_version(p.ws) == "abc123def456"
 
@@ -118,3 +120,13 @@ def test_upload_refuses_while_the_guard_is_tripped(tmp_path):
     with pytest.raises(PublishError, match="guard"):
         fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150))
     assert bucket.puts() == []
+
+
+def test_upload_refuses_state_from_another_epoch_before_any_put(tmp_path):
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket)
+    save_publish_state(p.ws, PublishState(epoch_id="eold", first=100, last=200, runs=[[100, 200]]))
+    with pytest.raises(PublishError, match="epoch"):
+        fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150))
+    assert bucket.puts() == []
+    assert load_fallback_version(p.ws) is None
