@@ -6,8 +6,10 @@ run after an outage); render_step writes segment files
 render/seg/<epoch_id>/<N>.aac in ascending N from the next unpublished
 segment to now + lead, encoding each show the first time a segment needs it.
 Before encoding, a show is re-validated against the current station scan;
-a changed or failing show is skipped at its boundary and the plan re-extended
-from there. Encoded shows are frozen: their segments are built from the
+a failing or no-longer-eligible show is skipped at its boundary and the plan
+re-extended from there; a re-voiced show, or one whose frame count changed
+with the config or encoder, is re-planned in place (excluded only if it
+mismatches again in the same call). Encoded shows are frozen: their segments are built from the
 encode regardless of later package changes.
 """
 
@@ -207,6 +209,9 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None) -> Render
     store = FrameStore(st.ws.shows_dir, st.engine.silent_frame())
     shows: dict[str, Show] | None = None
     excluded: set[str] = set()
+    # Slugs re-planned in place this call: a second mismatch excludes them, so
+    # a measurement that never settles cannot loop forever.
+    mismatched: set[str] = set()
     while n <= target and (limit is None or len(report.written) < limit):
         path = seg_dir / f"{n}.aac"
         if path.exists():
@@ -228,8 +233,12 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None) -> Render
                 shows = {s.slug: s for s in st.scan_now(now_us)}
             show = shows.get(r.slug)
             reason = None
-            if show is None or show.key != r.key:
-                reason = "package changed or is no longer eligible"
+            exclude = True
+            if show is None:
+                reason = "no longer eligible"
+            elif show.key != r.key:
+                reason = "package changed"
+                exclude = r.slug in mismatched
             else:
                 try:
                     analysis = st.engine.analyze(show)
@@ -240,6 +249,7 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None) -> Render
                         # against the stale count.
                         reason = (f"planned frame count changed: {planned} now, {r.frames} in the "
                                   "plan (config or encoder change)")
+                        exclude = r.slug in mismatched
                     else:
                         frames = st.engine.encode_show(show, analysis, store.path(r.key))
                         if frames != r.frames:
@@ -251,7 +261,13 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None) -> Render
                 except TransmitterError as exc:
                     reason = f"render failed: {exc}"
             if reason is not None:
-                excluded.add(r.slug)
+                # A re-voice or a frame-count model change re-plans the show in
+                # place (re-measured under the current key and model); excluding
+                # it would wedge a station with nothing else eligible.
+                if exclude:
+                    excluded.add(r.slug)
+                else:
+                    mismatched.add(r.slug)
                 kept, start, run_start = replan_from(rows, rows.index(r))
                 pool = [s for s in shows.values() if s.slug not in excluded]
                 rows = st.extend(kept, pool, now_us, start_frame=start, run_start=run_start)

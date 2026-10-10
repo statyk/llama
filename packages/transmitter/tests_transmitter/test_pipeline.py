@@ -117,12 +117,33 @@ def test_render_step_replans_a_changed_package(tmp_path):
     f = next((st.cfg.station.root / victim.dir / "audio").iterdir())
     f.write_bytes(f.read_bytes() + b"re-voiced")         # file set (and key) change
     set_age(st.cfg.station.root / victim.dir, 3600)
+    k2 = next(s.key for s in st.scan_now(NOW) if s.slug == victim.slug)
     report = pipeline.render_step(st, NOW)
-    assert victim.slug in report.replanned
+    assert report.replanned == [victim.slug]
     new_rows = read_plan(st.ws.plan_path)
-    assert new_rows[1].start_frame == victim.start_frame and new_rows[1].slug != victim.slug
+    assert new_rows[:1] == rows[:1]                       # rows before it are untouched
+    # Still eligible under its new key: re-planned in place, never encoded under K1.
+    assert new_rows[1].start_frame == victim.start_frame and new_rows[1].slug == victim.slug
+    assert new_rows[1].key == k2 != victim.key
+    assert (st.ws.seg_dir("etest") / f"{victim.start_frame // F + 1}.aac").exists()
+    assert victim.slug in engine.encoded
+    assert any("plan-changed" in m and "package changed" in m for m in logs)
+
+
+def test_render_step_excludes_a_package_no_longer_eligible(tmp_path):
+    engine = FakeEngine()
+    st, logs = make_station(tmp_path, engine=engine)
+    rows = pipeline.plan_step(st, NOW)
+    victim = rows[1]
+    (st.cfg.station.root / victim.dir / "broadcast.m3u").unlink()    # no longer broadcast-ready
+    assert victim.slug not in {s.slug for s in st.scan_now(NOW)}
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [victim.slug]
+    new_rows = read_plan(st.ws.plan_path)
+    assert new_rows[1].start_frame == victim.start_frame
+    assert victim.slug not in {r.slug for r in new_rows[1:]}
     assert victim.slug not in engine.encoded
-    assert any("plan-changed" in m for m in logs)
+    assert any("plan-changed" in m and "no longer eligible" in m for m in logs)
 
 
 def test_render_step_skips_a_show_that_fails_to_encode(tmp_path):
@@ -193,13 +214,15 @@ def test_render_step_replans_when_planned_frames_change(tmp_path):
     render_cfg = st.cfg.render.model_copy(update={"clip_pause_seconds": 1.0})
     engine = FakeEngine(pause_seconds=1.0)
     st2 = dataclasses.replace(st, cfg=st.cfg.model_copy(update={"render": render_cfg}), engine=engine)
-    assert st2.frames_of(st2.scan_now(NOW)[0]) != rows[0].frames
+    new_frames = st2.frames_of(next(s for s in st2.scan_now(NOW) if s.slug == rows[0].slug))
+    assert new_frames != rows[0].frames
     report = pipeline.render_step(st2, NOW)
     assert report.replanned == [rows[0].slug]
-    assert rows[0].slug not in engine.encoded
     new_rows = read_plan(st.ws.plan_path)
     assert new_rows[0].run_start and new_rows[0].start_frame == rows[0].start_frame
-    assert new_rows[0].slug != rows[0].slug
+    # Re-measured and re-planned in place under the current model, then encoded.
+    assert new_rows[0].slug == rows[0].slug and new_rows[0].frames == new_frames
+    assert engine.encoded[0] == rows[0].slug
     first_n = rows[0].start_frame // F
     assert report.written[0] == first_n
     assert payloads(_seg(st, first_n)[1])[0] == f"{new_rows[0].key}:0"
@@ -270,3 +293,90 @@ def test_render_step_refuses_without_marker(tmp_path):
         pipeline.render_step(st, NOW)
     assert _seg_files(st) == {}
     assert read_plan(st.ws.plan_path) == rows
+
+
+def _with_pause(st, seconds):
+    """The same station after an operator changed [render] clip_pause_seconds."""
+    render_cfg = st.cfg.render.model_copy(update={"clip_pause_seconds": seconds})
+    return dataclasses.replace(st, cfg=st.cfg.model_copy(update={"render": render_cfg}),
+                               engine=FakeEngine(pause_seconds=seconds))
+
+
+def test_one_package_station_replans_in_place_on_a_frame_count_change(tmp_path):
+    # With nothing else eligible, excluding the show would leave an empty pool:
+    # PlanError on every tick, forever. It is re-planned in place instead.
+    st, logs = make_station(tmp_path, n_packages=1)
+    rows = pipeline.plan_step(st, NOW)
+    st2 = _with_pause(st, 1.0)
+    new_frames = st2.frames_of(st2.scan_now(NOW)[0])
+    assert new_frames != rows[0].frames
+    report = pipeline.render_step(st2, NOW)
+    assert report.replanned == [rows[0].slug]
+    new_rows = read_plan(st.ws.plan_path)
+    assert new_rows[0].slug == rows[0].slug and new_rows[0].start_frame == rows[0].start_frame
+    assert all(r.frames == new_frames for r in new_rows)
+    first_n = rows[0].start_frame // F
+    assert report.written == list(range(first_n, st.epoch.index_at(NOW + st.lead_us) + 1))
+    assert payloads(_seg(st, first_n)[1])[0] == f"{new_rows[0].key}:0"
+    assert st2.engine.encoded == [rows[0].slug]
+    assert any("plan-changed" in m and "frame count" in m for m in logs)
+
+
+def test_one_package_station_replans_in_place_after_a_revoice(tmp_path):
+    st, logs = make_station(tmp_path, n_packages=1)
+    rows = pipeline.plan_step(st, NOW)
+    pkg = st.cfg.station.root / rows[0].dir
+    f = next((pkg / "audio").iterdir())
+    f.write_bytes(f.read_bytes() + b"re-voiced")         # key K1 -> K2, still eligible
+    set_age(pkg, 3600)
+    k2 = st.scan_now(NOW)[0].key
+    assert k2 != rows[0].key
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [rows[0].slug]
+    new_rows = read_plan(st.ws.plan_path)
+    assert new_rows[0].slug == rows[0].slug and new_rows[0].start_frame == rows[0].start_frame
+    assert all(r.key == k2 for r in new_rows)
+    first_n = rows[0].start_frame // F
+    assert report.written == list(range(first_n, st.epoch.index_at(NOW + st.lead_us) + 1))
+    assert payloads(_seg(st, first_n)[1])[0] == f"{k2}:0"
+    assert any("plan-changed" in m and "package changed" in m for m in logs)
+
+
+def _unstable(st, slug):
+    """Make `slug`'s planned frame count differ on every measurement."""
+    calls = {"n": 0}
+    real = st.planned_frames
+
+    def planned(analysis):
+        if analysis.slug != slug:
+            return real(analysis)
+        calls["n"] += 1
+        return real(analysis) + calls["n"]
+    st.planned_frames = planned
+    return calls
+
+
+def test_a_show_mismatching_twice_in_one_call_is_excluded(tmp_path):
+    st, logs = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    victim = rows[0].slug
+    _unstable(st, victim)
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [victim, victim]           # re-planned once in place, then excluded
+    new_rows = read_plan(st.ws.plan_path)
+    assert new_rows[0].start_frame == rows[0].start_frame and new_rows[0].slug != victim
+    assert victim not in st.engine.encoded
+    first_n = rows[0].start_frame // F
+    assert report.written[0] == first_n
+    assert payloads(_seg(st, first_n)[1])[0] == f"{new_rows[0].key}:0"
+
+
+def test_a_lone_show_mismatching_twice_in_one_call_is_a_plan_error(tmp_path):
+    st, logs = make_station(tmp_path, n_packages=1)
+    pipeline.plan_step(st, NOW)
+    _unstable(st, st.scan_now(NOW)[0].slug)
+    with pytest.raises(PlanError, match="no eligible packages"):
+        pipeline.render_step(st, NOW)
+    # One in-place re-plan, then the second mismatch excludes it: bounded.
+    assert sum("plan-changed" in m for m in logs) == 1
+    assert st.engine.encoded == []
