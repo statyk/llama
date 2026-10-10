@@ -146,11 +146,13 @@ def test_m3u_vanishing_between_exists_and_read_is_changing(tmp_path, monkeypatch
     _assert_changing(_eval(pkg))
 
 
-def test_m3u_with_invalid_utf8_is_changing(tmp_path):
+def test_m3u_with_invalid_utf8_is_unreadable(tmp_path):
     pkg = build_package(make_root(tmp_path))
     (pkg / "broadcast.m3u").write_bytes(b"audio/\xff\xfe.mp3\n")
     set_age(pkg, 3600)
-    _assert_changing(_eval(pkg))
+    result = _eval(pkg)
+    assert isinstance(result, Ineligible)
+    assert result.reasons[0].startswith("unreadable broadcast.m3u")
 
 
 def test_estale_on_exists_is_changing(tmp_path, monkeypatch):
@@ -208,3 +210,67 @@ def test_scan_survives_one_vanishing_package(tmp_path, monkeypatch):
     assert [s.slug for s in shows] == ["b-show"]
     assert [s.slug for s in skipped] == ["a-show"]
     assert skipped[0].reasons[0].startswith("changing")
+
+
+def test_scan_skips_a_package_whose_manifest_check_raises(tmp_path, monkeypatch):
+    import errno
+    root = make_root(tmp_path)
+    build_package(root, "a-show")
+    build_package(root, "b-show")
+    real_exists = Path.exists
+
+    def exists(self, *a, **k):
+        if self.parent.name == "a-show" and self.name == "manifest.json":
+            raise OSError(errno.ESTALE, "Stale file handle")
+        return real_exists(self, *a, **k)
+
+    monkeypatch.setattr(Path, "exists", exists)
+    shows, skipped = station.scan(root, now_s=time.time(), quiet_s=600)
+    assert [s.slug for s in shows] == ["b-show"]
+    assert [s.slug for s in skipped] == ["a-show"]
+    assert skipped[0].reasons[0].startswith("changing")
+
+
+def test_scan_skips_a_package_whose_is_dir_raises(tmp_path, monkeypatch):
+    import errno
+    root = make_root(tmp_path)
+    build_package(root, "a-show")
+    build_package(root, "b-show")
+    real_is_dir = Path.is_dir
+
+    def is_dir(self, *a, **k):
+        if self.name == "a-show":
+            raise OSError(errno.ESTALE, "Stale file handle")
+        return real_is_dir(self, *a, **k)
+
+    monkeypatch.setattr(Path, "is_dir", is_dir)
+    shows, skipped = station.scan(root, now_s=time.time(), quiet_s=600)
+    assert [s.slug for s in shows] == ["b-show"]
+    assert skipped[0].slug == "a-show" and skipped[0].reasons[0].startswith("changing")
+
+
+def test_scan_listing_failure_is_station_root_error(tmp_path, monkeypatch):
+    import errno
+    root = make_root(tmp_path)
+    real_iterdir = Path.iterdir
+
+    def iterdir(self):
+        if self == root:
+            raise OSError(errno.ESTALE, "Stale file handle")
+        return real_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+    with pytest.raises(StationRootError, match=str(root)):
+        station.scan(root, now_s=time.time(), quiet_s=0)
+
+
+def test_require_root_is_dir_oserror_is_station_root_error(tmp_path, monkeypatch):
+    import errno
+    root = make_root(tmp_path)
+
+    def is_dir(self, *a, **k):
+        raise OSError(errno.ESTALE, "Stale file handle")
+
+    monkeypatch.setattr(Path, "is_dir", is_dir)
+    with pytest.raises(StationRootError, match=str(root)):
+        station.require_root(root)

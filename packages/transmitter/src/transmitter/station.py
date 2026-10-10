@@ -12,6 +12,7 @@ that vanishes between listing and stat (emcee or llama mid-write) makes the
 package "changing" -- ineligible this scan, never an exception.
 """
 
+import errno
 import hashlib
 import json
 from dataclasses import dataclass, field
@@ -76,6 +77,8 @@ def _inside(pkg_dir: Path, rel: str) -> bool:
         (pkg_dir / p).resolve().relative_to(pkg_dir.resolve())
     except ValueError:
         return False
+    except RuntimeError as exc:      # symlink loop (3.11); 3.13+ raises OSError itself
+        raise OSError(errno.ELOOP, f"symlink loop resolving {rel}: {exc}") from exc
     return True
 
 
@@ -104,11 +107,11 @@ def _clips(dj_audio: dict) -> dict[str, str]:
 
 def evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligible:
     """Never raises for a package that is changing under us: an OSError (ESTALE,
-    EIO, EACCES, a vanished file), a RuntimeError (symlink loop on 3.11) or a
-    UnicodeDecodeError anywhere in the evaluation is `Ineligible("changing: ...")`."""
+    EIO, EACCES, a vanished file or a symlink loop, which `_inside` converts to
+    OSError) anywhere in the evaluation is `Ineligible("changing: ...")`."""
     try:
         return _evaluate(Path(pkg_dir), now_s=now_s, quiet_s=quiet_s)
-    except (OSError, RuntimeError, UnicodeDecodeError) as exc:
+    except OSError as exc:
         return Ineligible(Path(pkg_dir).name, (f"changing: {exc}",))
 
 
@@ -158,7 +161,10 @@ def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligib
     if not m3u.exists():
         reasons.append("no broadcast.m3u")
     else:
-        rels = read_m3u(m3u)
+        try:
+            rels = read_m3u(m3u)
+        except UnicodeDecodeError as exc:    # persistent corruption, not a race
+            return Ineligible(slug, (f"unreadable broadcast.m3u: {exc}",))
         if not rels:
             reasons.append("broadcast.m3u lists nothing")
         for rel in rels:
@@ -202,10 +208,18 @@ def scan(root: Path | None, *, now_s: float, quiet_s: float) -> tuple[list[Show]
     root = require_root(root)
     shows: list[Show] = []
     skipped: list[Ineligible] = []
-    for entry in sorted(root.iterdir()):
-        if entry.name.startswith(".") or not entry.is_dir():
+    try:
+        entries = sorted(root.iterdir())
+    except OSError as exc:
+        raise StationRootError(f"station root {root} cannot be listed: {exc}") from exc
+    for entry in entries:
+        if entry.name.startswith("."):
             continue
-        if not (entry / "manifest.json").exists():
+        try:
+            if not entry.is_dir() or not (entry / "manifest.json").exists():
+                continue
+        except OSError as exc:
+            skipped.append(Ineligible(entry.name, (f"changing: {exc}",)))
             continue
         result = evaluate(entry, now_s=now_s, quiet_s=quiet_s)
         (shows if isinstance(result, Show) else skipped).append(result)
