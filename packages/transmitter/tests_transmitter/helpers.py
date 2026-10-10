@@ -18,6 +18,13 @@ import numpy as np
 import pytest
 
 from transmitter import adts
+from transmitter import grid as _grid
+from transmitter.analysis import FileAnalysis, ShowAnalysis
+from transmitter.config import TransmitterConfig
+from transmitter.errors import RenderError
+from transmitter.pipeline import Station
+from transmitter.render import planned_frames
+from transmitter.workspace import Epoch, Workspace
 
 HAVE_FFMPEG = shutil.which("ffmpeg") is not None
 requires_ffmpeg = pytest.mark.skipif(not HAVE_FFMPEG, reason="ffmpeg not on PATH")
@@ -127,3 +134,62 @@ def write_fake_show(path: Path, key: str, n_frames: int) -> None:
 
 def payloads(frames: list[bytes]) -> list[str]:
     return [f[7:].decode() for f in frames]
+
+
+# An epoch on a whole second (2096-10-02). Test packages carry real-clock
+# mtimes while the quiet-period check runs at the simulated NOW, so E must sit
+# far enough in the future that NOW stays after every package's mtime for the
+# life of the suite (1_800_000_000 s, 2027-01-15, would expire within months).
+E = 4_000_000_000 * 1_000_000
+NOW = E + 1_000 * _grid.D_US
+
+
+class FakeEngine:
+    """An Engine without ffmpeg: a show's "encode" is fake ADTS frames whose
+    payload is '<key>:<i>', so segment contents can be read back."""
+
+    def __init__(self, samples_per_file: int = 60 * 44_100, extra: int = 1,
+                 fail: set[str] | None = None, drift: int = 0, pause_seconds: float = 0.75):
+        self.samples_per_file = samples_per_file
+        self.extra = extra
+        self.fail = fail or set()
+        self.drift = drift
+        self.pause_samples = _grid.samples_for_seconds(pause_seconds)
+        self.encoded: list[str] = []
+        self.analyzed: list[str] = []
+
+    def analyze(self, show):
+        # Computes like production's analyze, but never writes the analysis
+        # cache: tests that publish prove the timeline does not depend on it.
+        self.analyzed.append(show.slug)
+        files = tuple(FileAnalysis(e.path, e.kind, e.title, self.samples_per_file) for e in show.entries)
+        return ShowAnalysis(key=show.key, slug=show.slug, files=files, tracks_i_lufs=-20.0,
+                            tracks_tp_dbfs=-3.0, meta=dict(show.meta))
+
+    def extra_frames(self):
+        return self.extra
+
+    def silent_frame(self):
+        return fake_frame("silence", 0)
+
+    def encode_show(self, show, analysis, out_path):
+        if show.slug in self.fail:
+            raise RenderError(f"{show.slug}: simulated decode failure")
+        frames = planned_frames(analysis, self.pause_samples, self.extra) + self.drift
+        write_fake_show(out_path, show.key, frames)
+        self.encoded.append(show.slug)
+        return frames
+
+
+def make_station(tmp_path: Path, n_packages: int = 3, engine=None) -> tuple[Station, list[str]]:
+    root = make_root(tmp_path)
+    for i in range(n_packages):
+        build_package(root, f"band-2005-11-{i + 1:02d}")
+    cfg = TransmitterConfig(root=tmp_path / "tx",
+                            station={"root": root, "quiet_minutes": 0},
+                            planner={"start_delay_minutes": 0.5},
+                            render={"lead_hours": 0.1, "low_water_hours": 0.05})
+    logs: list[str] = []
+    st = Station(ws=Workspace(cfg.root), cfg=cfg, epoch=Epoch("etest", E),
+                 engine=engine or FakeEngine(), log=logs.append)
+    return st, logs
