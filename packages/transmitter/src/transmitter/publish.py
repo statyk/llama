@@ -323,3 +323,76 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
             (seg_dir / f"{n}.aac").unlink(missing_ok=True)
         report.uploaded, report.horizon = uploaded, (first, last)
         return report
+
+
+@dataclass
+class PruneReport:
+    deleted: int = 0
+    first: int | None = None
+    stopped: str | None = None       # "guard" | "put-budget" | "high-water"
+    error: str | None = None
+
+
+def prune(p: Publisher, now_us: int) -> PruneReport:
+    """Delete segments that started more than `prune_margin` ago (so lagging
+    players don't 404): advance horizon.first first, then delete by computed
+    key range (per-key DeleteObject; never List, never DeleteObjects), across
+    every recorded run. Never past horizon.last -- an outage must not move
+    `last`, which the clock's off-air rule is measured from. Batched: nothing
+    happens until `prune_min_segments` are prunable, since each prune costs a
+    horizon PUT."""
+    report = PruneReport()
+    with publish_lock(p.ws):
+        if guard_blocks_publishing(p.uploader, p.ws, now_us / 1e6, p.cfg.publish.guard_check_minutes * 60):
+            report.stopped = "guard"
+            return report
+        state = load_publish_state(p.ws)
+        check_epoch(state, p.epoch)
+        report.first = state.first
+        if state.last is None:
+            return report
+        if state.high_water is not None and state.high_water > state.last:
+            # R2 may list up to the high-water mark (a crash between a horizon
+            # PUT and the save advancing `last`); a horizon bounded by `last`
+            # would move R2's `last` backwards. publish_batch reconciles first.
+            report.stopped = "high-water"
+            return report
+        cutoff_us = now_us - int(p.cfg.publish.prune_margin_minutes * 60 * 1_000_000)
+        n_max = min(grid.first_segment_at_or_after(p.epoch.epoch_us, cutoff_us) - 1, state.last)
+        prunable = sum(max(0, min(hi, n_max) - lo + 1) for lo, hi in state.runs)
+        if prunable < p.cfg.publish.prune_min_segments:
+            return report                    # batch it: each prune costs a horizon PUT
+        if state.first is not None and n_max >= state.first:
+            # The horizon stops listing them BEFORE any is deleted.
+            try:
+                put_json(p.uploader, HORIZON_KEY,
+                         horizon_doc(p.epoch, n_max + 1, state.last, now_us, load_fallback_version(p.ws)),
+                         STATE_CACHE)
+            except PutBudgetExceeded as exc:
+                report.stopped, report.error = "put-budget", str(exc)
+                return report
+            except PublishError as exc:
+                report.error = f"horizon: {exc}"
+                return report
+            state.first = n_max + 1
+            save_publish_state(p.ws, state)
+            report.first = state.first
+        remaining: list[list[int]] = []
+        failed = False
+        for lo, hi in state.runs:
+            if failed:
+                remaining.append([lo, hi])
+                continue
+            n = lo
+            try:
+                while n <= min(hi, n_max):
+                    p.uploader.delete(segment_key(p.epoch.epoch_id, n))
+                    n += 1
+                    report.deleted += 1
+            except PublishError as exc:
+                report.error, failed = str(exc), True
+            if n <= hi:
+                remaining.append([n, hi])
+        state.runs = remaining
+        save_publish_state(p.ws, state)
+        return report
