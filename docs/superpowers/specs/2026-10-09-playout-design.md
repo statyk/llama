@@ -103,8 +103,9 @@ concurrent listeners.
   and rejected; a Liquidsoap VM (Hetzner ~$6.50/mo + R2 fan-out) is the fallback
   architecture if the serverless design fails phase 1.
 - **Browser HLS:** native in Safari/iOS; elsewhere hls.js. Chrome's 2025 native
-  HLS rollout shipped a playback bug — prefer hls.js whenever
-  `Hls.isSupported()`, native only as fallback.
+  HLS rollout shipped a playback bug, so non-Apple browsers use hls.js even where
+  native HLS exists; Apple WebKit keeps native HLS for AirPlay and lock-screen
+  playback.
 
 ## Architecture
 
@@ -114,14 +115,14 @@ concurrent listeners.
  llama deliver ──SMB──▶  /volume1/media/<station>/  ◀──NFS── transmitter
  emcee run     ──SMB──▶    <package>/…                        plan → render → publish
                                                               alerts ──▶ email + ntfy
-                                                                    │ S3 API: audio + data only
-                                                                    ▼ (seg/, horizon.json, timeline.json, notes/)
+                                                                    │ S3 API: audio, data, show pages
+                                                                    ▼ (seg/, timeline.json, notes/, show/, state/horizon.json)
  Cloudflare ──────────────────────────────────────────────────────────────────────────────
                                                               R2 bucket
  antenna clock Worker (cron only, no routes) ◀─R2 binding─▶    + live.m3u8, index.html,
-   playlist at every grid boundary                               show/<slug>.html, assets,
-   HTML at show boundaries                                       fallback/, state/
-   cost guard ──▶ GraphQL analytics, WAF kill switch                 │
+   cost guard first ──▶ GraphQL analytics, WAF kill switch       assets, fallback/, state/
+   playlist at every grid boundary                                   │
+   index.html at show boundaries                                     │
    alerts (spend, stall) ──▶ ntfy + email                           │ R2 custom domain
                                                                      ▼
                                                  zone cache — one hostname, static objects only
@@ -150,11 +151,15 @@ concurrent listeners.
   `transmitter`) runs on hugo as a systemd service. It imports neither llama nor
   emcee (enforced by a test, as emcee's `test_no_llama_imports.py`); its only
   input is the package directory. It may import `herder` only if it ever needs
-  an LLM — it does not in this design. It publishes only audio and data.
+  an LLM — it does not in this design. It publishes audio, data, and the show
+  notes pages rendered from antenna's template.
 - **antenna** (TypeScript, top-level `antenna/` directory in this repo) is one
-  cron-only Worker with an R2 binding and **no request routes**, plus the static
-  app assets its deploy script uploads to R2; deployed with `wrangler deploy`.
-  antenna owns presentation and the cloud-side clock, guard and alerts.
+  cron-only Worker with an R2 binding, **no request routes** and no public URL
+  (`workers_dev = false`, `preview_urls = false`: a routeless Worker otherwise
+  gets a public, billed `*.workers.dev` URL the zone's kill switch cannot reach),
+  plus the static app assets its deploy script uploads to R2 and the show-page
+  template; deployed with `wrangler deploy`. antenna owns presentation and the
+  cloud-side clock, guard and alerts.
 - **One public hostname**, the R2 bucket's custom domain, served entirely through
   Cloudflare's cache. Every object a listener or crawler fetches is a static R2
   object. A cache hit costs nothing and egress is free; a miss costs one Class B.
@@ -169,7 +174,7 @@ so nothing holds per-listener state.
 `d` is a whole number of AAC frames at 44.1 kHz:
 `d = 441 × 1024 / 44100 = 10.24 s` exactly (exact in µs, ms and 90 kHz ticks),
 immutable for the life of an epoch. An epoch is identified by `epoch_id`; `E`,
-`d` and `epoch_id` are published in `horizon.json`. Changing `E` or `d` is an
+`d` and `epoch_id` are recorded in `state/horizon.json`. Changing `E` or `d` is an
 **epoch change** (rare, deliberate, documented as a re-render-everything
 operation) under a new `epoch_id`.
 
@@ -178,22 +183,24 @@ operation) under a new `epoch_id`.
 | key | written by | cache | content |
 |---|---|---|---|
 | `seg/<epoch_id>/<N>.aac` | transmitter publish | immutable, 1 year | one segment of the grid (plus one init object per epoch if the container is fMP4) |
-| `fallback/<version>/<k>.aac` + `fallback/<version>/index.json` | `transmitter fallback render` | immutable | short station-ID loop, never pruned |
-| `horizon.json` | transmitter publish | ≤ 5 s | `{epoch_id, epoch, d, first, last, published_at, container}` — `last` is the highest `N` such that every segment `first..last` is present |
-| `timeline.json` | transmitter publish | ≤ 30 s | shows with UTC start/end, show metadata, per-file offsets from actual frame positions (DJ clip or track title), upcoming anchors, recently aired |
+| `fallback/<version>/<k>.aac`, `…/notice.aac`, `…/index.json` | `transmitter fallback render` | immutable | short station-ID loop (segment timestamps `k·d`) and the off-air notice segment; `index.json` carries `len` and the notice key; never pruned |
+| `timeline.json` | transmitter publish | ≤ 30 s | shows covering [now − 24 h, `horizon.last`] with UTC start/end, show metadata, per-file offsets from actual frame positions (DJ clip or track title); upcoming anchors; recently aired |
 | `notes/<slug>.json` | transmitter publish | ≤ 1 h | briefing text, archive.org URL, lineage, setlist, airtimes |
+| `show/<slug>.html` | transmitter publish, from antenna's template | ≤ 1 h | show notes page with per-show Open Graph tags |
 | `live.m3u8` | antenna clock | ≈ `d/2` | the live playlist |
-| `index.html` | antenna clock, each show boundary | ≤ 60 s | player page with Open Graph tags for the show on air |
-| `show/<slug>.html` | antenna clock, when first scheduled into the published horizon | ≤ 1 h | show notes page with per-show Open Graph tags |
+| `index.html` | antenna clock | ≤ 60 s | player page with Open Graph tags for the show on air; the off-air page while blocked |
 | `embed.html`, `offair.html`, app assets (JS/CSS incl. hls.js) | antenna deploy script | ≤ 1 h | static |
-| `state/guard.json` | antenna clock (guard) | not served | latest evaluation: time, actual, projected, budget, tripped, reason |
-| `state/offair.json` | guard, `transmitter offair` | not served | `{offair: bool, reason, since, until}` |
+| `state/horizon.json` | transmitter publish | not served | `{epoch_id, epoch, d, first, last, published_at, container, fallback_version}` — `last` is the highest `N` such that every segment `first..last` is present |
+| `state/guard.json` | antenna clock (guard) | not served | `tripped`, its reason (`spend`/`blind`), and the latest evaluation: time, actual, projected, budget |
+| `state/offair.json` | `transmitter offair` only | not served | the operator's flag: `{offair: bool, reason, since, until}` |
 | `state/budget.json` | `transmitter budget --raise-to` | not served | `{budget_usd, expires}` |
 | `state/alerts.json` | antenna clock | not served | alert dedupe state |
 
 **Ordering invariant (strict):** publish uploads segments in ascending `N` and
-rewrites `horizon.json` only after every segment it covers is confirmed present
-(the PUT's 200). The clock never lists `N > horizon.last`.
+rewrites `state/horizon.json` only after every segment it covers is confirmed
+present (the PUT's 200); a show's `notes/<slug>.json` and `show/<slug>.html` are
+uploaded before the `timeline.json` that first references the slug. The clock
+never lists `N > horizon.last`, and treats `N < horizon.first` as absent.
 
 ## Components
 
@@ -203,7 +210,9 @@ State in `~/.transmitter/` (local disk on hugo, never the NFS share):
 `config.toml`, `plan.jsonl` (scheduled shows), `aired.jsonl` (rotation history),
 `cache/` (per-show decoded sample counts and loudness, keyed by the show's file
 set — paths + sizes + mtimes), `render/` (encoded shows and segments awaiting
-upload), `alerts.json` (dedupe for hugo-side alerts).
+upload), `alerts.json` (dedupe for hugo-side alerts), the daily PUT count, and a
+flock serialising publish and prune (a manual `publish` while `run` publishes
+would otherwise race on `state/horizon.json`).
 
 Commands: `plan`, `render`, `publish`, `run` (the service loop running each on
 its cadence), `status`, `schedule` (show upcoming plan with window hits/misses),
@@ -227,7 +236,7 @@ reimplemented on files alone — manifest v3+ with non-null `dj_notes` and
 manifest rename is the real guarantee; the quiet period is belt-and-braces. The
 playable unit is the package's `broadcast.m3u`, in order.
 
-### Scheduler (phase 2)
+### Scheduler (phase 3)
 
 Config:
 
@@ -297,7 +306,9 @@ fixed shuffled order, back to back with the inter-show gap.
   points. Frame 0 is at `E`; each show's last partial frame is padded with
   silence to a whole frame, and the inter-show gap is rounded up to whole frames.
   A restart resumes at any `N` with no glitch; encoder priming at a show start
-  lands in the inter-show silence. Rendering is idempotent and parallelisable.
+  lands in the inter-show silence. A show's frame count is the encoder's output
+  including its flush frames; `timeline.json` offsets subtract the encoder's
+  declared priming delay. Rendering is idempotent and parallelisable.
 - **Joins:** track→track, zero inserted silence, gapless decode honouring LAME
   encoder delay/padding (segues stay seamless); DJ clip↔track, a configurable
   pause (default 0.75 s); show→show, the inter-show gap (default 2 s). "Show" is
@@ -310,7 +321,11 @@ fixed shuffled order, back to back with the inter-show gap.
   survive. DJ clips have their own configurable speech target.
 - **Phase-1 spike** must demonstrate: (a) frame-count segments play gaplessly in
   hls.js, Safari/iOS and VLC across segment and show boundaries; (b) each
-  segment's timestamp equals `E + N·d` and players accept it; (c) the container.
+  segment's embedded timestamp is `(N·d·90000) mod 2^33` in 90 kHz ticks for
+  packed audio (or `tfdt = N·d` for fMP4), the wall clock being carried by
+  `EXT-X-PROGRAM-DATE-TIME`, and players accept it, including across a 2^33 wrap
+  (`E` seeded so a wrap falls in the test window); (c) the container; (d) iOS
+  lock-screen playback for 10 min, and AirPlay.
 - **Lead:** keep `horizon.last` ≥ now + `lead` (default 24 h ≈ 1.4 GB at
   128 kbps, configurable); render when below a low-water mark. Steady state
   ≈ 24 h of audio rendered per day. The lead is both how long the station
@@ -326,14 +341,19 @@ fixed shuffled order, back to back with the inter-show gap.
 - Enforces the ordering invariant; presence is the PUT's 200 (no List calls in
   steady state); retries with backoff; a failed segment upload blocks the horizon
   from advancing past it (and the cloud's lead-floor alert catches a stall).
-- Rewrites `horizon.json` and `timeline.json` once per publish batch, not per
-  segment.
+- Rewrites `state/horizon.json` and `timeline.json` once per publish batch, not
+  per segment. Publish and prune hold the local flock.
+- Renders `show/<slug>.html` from antenna's template (in `antenna/`; transmitter
+  reads it) and uploads it with `notes/<slug>.json`, under the ordering invariant.
+- **Own-write caps:** a local daily PUT budget (default 2× the expected count);
+  exceeding it stops publishing and alerts. Publishing also stops while
+  `state/guard.json` says tripped (read via the S3 API at most every 15 min,
+  ~3k Class B/month).
 - Prunes once `E + N·d < now − prune_margin` (default 10 min, so lagging players
   don't 404): advances `horizon.first`, then deletes by computed key range.
-- **Recovery after an outage longer than the lead:** start a fresh contiguous run
-  (`horizon.first` = resume index), re-plan from the next show boundary after now,
-  and log `aired.jsonl` rows only for shows that were published and whose air
-  time passed.
+- **Recovery after an outage longer than the lead:** a fresh contiguous run
+  starts at the resume index (`horizon.first`) and begins a new show there;
+  `aired.jsonl` gets rows only for shows published and past their air time.
 
 ### antenna (phase 1 minimal, phase 4 full)
 
@@ -345,147 +365,195 @@ Listener-facing objects, all static R2 objects behind the cache:
   for VLC and apps.
 - `index.html` — the player page. The clock rewrites it at each show boundary
   from a bundled template, so Open Graph / Twitter-card tags carry the station
-  name and the show on air (~tens of writes/day).
+  name and the show on air (~tens of writes/day); while the station is blocked
+  it holds the off-air page.
 - `embed.html` — compact iframe widget (play/pause + now-playing line); the main
   page offers a copyable `<iframe>` snippet.
 - `show/<slug>.html` — show notes from llama's **briefing** (not emcee's DJ
   script — that is written for the ear), the archive.org link, taper lineage,
-  setlist, with per-show Open Graph tags; airtimes are rendered client-side from
-  `notes/<slug>.json`, so the static page never goes stale.
+  setlist, with per-show Open Graph tags; published by transmitter from antenna's
+  template. Airtimes are rendered client-side from `notes/<slug>.json`, so the
+  static page never goes stale.
 
-**The clock (scheduled Worker).** Cron `* * * * *`. Each invocation reads
-`horizon.json`, `timeline.json` and `state/` once via the R2 binding, loops for
-its minute (only CPU time is billed, so waiting is free), and at every grid
-boundary `E + N·d` writes `live.m3u8`. Overlapping invocations are harmless: the
-playlist is a pure function of the clock and its inputs. Playlist rules:
+**The clock (scheduled Worker).** Cron `* * * * *`. Each invocation first runs
+the cost guard step (below), which also reconciles the blocked state; then reads
+`state/horizon.json`, `timeline.json` and `state/` once via the R2 binding,
+writes the current playlist immediately, and loops until ~fire + 75 s (only CPU
+time is billed, so waiting is free), writing `live.m3u8` at every grid boundary
+`E + N·d` — at most `ceil(75/d) + 2` PUTs per invocation, skipping any whose
+bytes equal the last written — and rewriting `index.html` at a show boundary or
+a change of blocked state. Overlapping invocations are harmless: the playlist is
+a pure function of the clock and its inputs. Playlist rules:
 
 - the last `k` (default 6) segments ending at the current index;
   `EXT-X-MEDIA-SEQUENCE` = the first listed index; `EXT-X-PROGRAM-DATE-TIME` on
   every segment (= `E + N·d`); object `Cache-Control: max-age` ≈ `d/2`;
 - **grace:** while `0 < cur − horizon.last ≤ 3`, list up to `horizon.last` (a
   publish retry is not an outage);
-- beyond grace, the **fallback loop**: fallback segment `N mod len`, aligned to
-  the same grid, with `EXT-X-DISCONTINUITY` at the switch in each direction. The
-  stateless discontinuity sequence means a live↔fallback transition may cost
-  listeners one player reload or glitch;
-- `now > horizon.last + offair_after` (default 24 h), or `state/offair.json`
-  says off-air → **off-air**: one fallback-notice segment then `#EXT-X-ENDLIST`.
+- beyond grace, the **fallback loop** named by `fallback_version`: fallback
+  segment `N mod len`, aligned to the same grid, with `EXT-X-DISCONTINUITY`
+  before segment 0 of every loop iteration and at each switch in either
+  direction; during pure fallback the discontinuity sequence is `floor(N/len)`.
+  A live↔fallback transition may cost listeners one player reload or glitch;
+- blocked (see Cost guard), or `now > horizon.last + offair_after` (default
+  24 h) → **off-air**: the notice segment `fallback/<version>/notice.aac`, then
+  `#EXT-X-ENDLIST`.
 
 The clock also alerts when the published lead (`horizon.last` − now) falls below
 a floor — catching a hung hugo (e.g. a hard NFS mount hang) that cannot alert for
-itself — and runs the cost guard. If the clock stops entirely, the playlist goes stale, players stall, and
-requests become cache hits: the cloud side fails toward zero cost.
+itself. If the clock stops entirely, the playlist goes stale, players stall, and
+requests become cache hits: the cloud side fails toward zero cost, and
+transmitter alerts on the stale playlist (Alerts, below).
 
-**Player.** hls.js whenever supported, native HLS fallback (Safari/iOS);
-pause→play rejoins the live edge; Media Session API for lock-screen/OS controls.
-Now-playing is computed client-side: the player reads the program-date-time of
-its current playback position and looks it up in `timeline.json`, refetched only
-while playing, at most every few minutes, never while the tab is hidden or
-paused. When the playback time has no `timeline.json` entry (the fallback loop),
-the page says the station will be back shortly. The embed is a static page doing
-the same. On ENDLIST or a 403 the player
-stops, shows the off-air notice, and does not auto-reconnect (a manual retry
-button). No request stream bills per listener.
+**Player.** Native HLS on Safari and every iOS browser (all iOS browsers are
+WebKit; detected by platform/vendor, not by `canPlayType` alone, which is also true
+on Chrome with native HLS) — keeps AirPlay and lock-screen playback; hls.js
+elsewhere; pause→play rejoins the live edge; Media Session API
+for lock-screen/OS controls. Now-playing is computed client-side: the player
+reads the program-date-time of its current playback position and looks it up in
+`timeline.json`, refetched only while playing, at most every few minutes, never
+while the tab is hidden or paused. When the playback time has no `timeline.json`
+entry (the fallback loop), the page says the station will be back shortly. The
+embed is a static page doing the same. On ENDLIST or a 403 the player stops,
+shows the off-air notice, and does not auto-reconnect (a manual retry button).
+No request stream bills per listener.
 
-**Zone configuration (phase-1 setup docs).** Cache Rule on the hostname:
-eligible for cache, ignore query string, respect origin TTL; short edge TTL for
-404s (~60 s); Smart Tiered Cache on. A URL-rewrite Transform Rule maps `/` to
-`/index.html` (R2 custom domains serve no index document). A WAF custom rule allowlisting the known
-path shapes (everything else blocked). One per-IP rate-limiting rule (the free
+**Zone configuration (phase-1 setup docs).** Preconditions: a Cloudflare account
+dedicated to the station (the guard's account-scoped meters then mean what they
+say); no paid zone add-ons (Argo, Cache Reserve, Load Balancing — the guard
+cannot see them; the Budget alert is their only backstop); Workers
+observability/logs off or within the free allowance; Budget alerts at 50%/100%
+of `monthly_budget_usd − $5` (they exclude subscription fees). Cache Rule on the
+hostname: eligible for cache, ignore query string, respect origin TTL (404s keep
+the default 3-min edge TTL, not settable on Free); Browser Cache TTL = Respect
+Existing Headers (else browsers serve a stale `live.m3u8` from local cache);
+Smart Tiered Cache on. A URL-rewrite Transform Rule maps `/` to `/index.html`
+(R2 custom domains serve no index document). A WAF custom rule allowlists the
+served keys with `eq`/`in`/`starts_with`/`ends_with` (`wildcard` if phase 1
+confirms it on Free; `matches` is Business+) and blocks everything else,
+`state/` included. The kill-switch rule, pre-created and disabled, blocks
+everything except `/`, `/index.html`, `offair.html` and its assets (Free zones
+cannot customise block pages). One per-IP rate-limiting rule (the free
 allowance) at a generous threshold — default ~100 requests / 10 s, block — so
 dozens of listeners behind one NAT are fine (a playing stream makes ~2 req/10 s).
-`Access-Control-Allow-Origin: *` on stream and data objects, deliberately:
-browser-based aggregators and third-party web players must work; native apps are
-unaffected by CORS; third-party polling is cache hits and costs nothing.
+A Response Header Transform Rule sets a static `Access-Control-Allow-Origin: *`
+on the hostname (R2's own CORS policy answers only requests carrying `Origin`,
+so a cached non-CORS response would lack it), deliberately: browser-based
+aggregators and third-party web players must work; native apps are unaffected by
+CORS; third-party polling is cache hits and costs nothing.
 
 ### Spend budget
 
 Fixed ≈ $5/month (Workers Paid), independent of listeners: ~43k clock
-invocations/month; Class A ≈ segments (~8.4k/day) + playlist (~8.4k/day) + small
-JSON and HTML rewrites ≈ 520k/month of 1M free; storage ≈ lead × 57.6 MB/h
-(24 h ≈ 1.4 GB of 10 GB-month free); Class B ≈ clock reads + per-region cache
-refreshes of `live.m3u8`, well inside 10M. Marginal cost per listener ≈ 0. This
-is a computation from documented prices, verified by phase 1's week of real
-counts.
+invocations/month; Class A ≈ segments (~8.4k/day ≈ 255k/month) + playlist
+(boundaries plus each invocation's immediate write and overlap, ≤ ~12k/day
+≈ 360k/month) + small JSON and HTML rewrites ≈ 620k/month of 1M free; storage ≈ lead × 57.6 MB/h (24 h ≈ 1.4 GB of
+10 GB-month free); Class B ≈ clock reads + transmitter's guard-state reads (~3k)
++ per-region cache refreshes of `live.m3u8`, well inside 10M. Marginal cost per
+listener ≈ 0. This is a computation from documented prices, verified by phase 1's
+week of real counts.
 
-### Cost guard (phase 3)
+### Cost guard (phase 2)
 
-Runs in the clock Worker every 15 min, not on hugo, so hugo being down cannot
-blind it.
+Runs in the clock Worker, not on hugo, so hugo being down cannot blind it —
+first in every invocation, in its own try/finally. It evaluates (reads and prices
+usage) whenever `state/guard.json`'s evaluation is ≥ 15 min old, not on a minute
+modulo; any exception there counts as a failed reading. The blind rule and
+reconciliation run in the finally, every invocation; playlist and `index.html`
+work follow, never precede it.
 
 - Reads Cloudflare GraphQL analytics **account-scoped** (all Workers and
-  buckets): Workers requests and CPU-ms, R2 Class A/B ops, R2 storage
+  buckets): Workers requests, R2 Class A/B ops, R2 storage
   (`workersInvocationsAdaptive`, `r2OperationsAdaptiveGroups`,
   `r2StorageAdaptiveGroups`; sampled estimates), with an analytics-read-only token
-  held as a Worker secret.
+  held as a Worker secret. CPU is not metered: the dataset exposes it only as
+  percentiles, and the clock's CPU is bounded by design (capped writes).
 - Prices usage through the allowances with a price table in antenna's config
-  (including the $5 base and CPU-ms) for the current billing period (UTC
-  anniversary date, configured from the Billing page).
+  (including the $5 base) for the current billing period (UTC anniversary date,
+  configured from the Billing page).
 - Projects period-end spend **per meter from a recent window** (last 3 h rate)
   through the allowances, not as a linear month-to-date dollar average.
 - Alerts at actual or projected 50% / 80% of `monthly_budget_usd`.
-- **Trips** when actual ≥ 90% or projected ≥ 100%. **Fails closed:** no
-  successful analytics reading for `blind_after` (default 6 h) → trips with
-  reason "guard blind".
-- **Trip action, both at once:** (1) write `state/offair.json`, so the clock
-  publishes the ENDLIST playlist and players stop gracefully; (2) enable a
-  pre-created, disabled WAF custom rule that blocks every path on the hostname
-  except `offair.html` and its assets, via an API token scoped to that
-  zone's WAF rules. Blocked requests never reach R2 or a Worker. This is the
-  actual kill switch.
-- **Clearing** is never on a local date alone. At a new billing period the guard
-  re-evaluates and clears only if the new period's actual and projection are
-  under the thresholds. There is no bare manual clear: `transmitter budget
-  --raise-to <usd>` writes `state/budget.json {budget_usd, expires: period end}`,
-  which the guard reads, so it stays armed at the raised ceiling; at its next run
-  it re-evaluates against that ceiling and clears if under the thresholds.
-  Clearing deletes the off-air state and disables the WAF rule. Each run writes
-  its evaluation to `state/guard.json`. `transmitter offair on|off` is deliberate
-  manual control; `off` reads `state/guard.json` and is refused while the latest
-  evaluation is over a trip threshold.
-- **Backstops:** (1) structural — listener paths are cache-served static
-  objects, so traffic costs ~nothing; (2) the guard's kill switch with its
-  fail-closed blindness rule; (3) Cloudflare Budget alerts at 50%/100% (setup
-  docs; next-day, informational only, armed from the next cycle).
 
-### Alerts and operations (phase 3)
+**Blocking** rests on two independent flags:
 
-- **Cloud (clock Worker):** budget thresholds (actual/projected), trip and guard
-  blind, published lead below floor. Channels: ntfy (HTTP POST) and email via
-  Cloudflare Email Routing's send-email binding to a verified address; deduped
-  per condition in `state/alerts.json`.
+- **`tripped`** — a latch owned by the guard, in `state/guard.json` with its
+  reason. **Set** when actual ≥ 90% or projected ≥ 100% (reason `spend`), or
+  when no analytics reading has succeeded for `blind_after` (default 6 h; reason
+  `blind`). A successful reading over a threshold always leaves (or sets) the
+  latch with reason `spend`. **Cleared** only: for `blind`, by the first
+  successful reading under the thresholds; for `spend`, at a new billing period or after `transmitter
+  budget --raise-to <usd>` (which writes `state/budget.json {budget_usd, expires:
+  period end}`), in either case only if the guard's next evaluation is under the
+  thresholds. Nothing else clears it.
+- **`offair`** — owned by the operator alone: `transmitter offair on|off` writes
+  `state/offair.json`; the guard never writes or clears it, and `offair off`
+  clears only this flag.
+
+**Blocked = `tripped` OR `offair`**, reconciled every invocation: blocked means
+the ENDLIST off-air playlist, the off-air page in `index.html` and the
+kill-switch WAF rule enabled (an API token scoped to the zone's WAF rules;
+blocked requests never reach R2 or a Worker); not blocked, the opposite.
+Level-triggered: each run reads the rule's actual state and corrects it; a
+Rulesets API failure raises a deduped alert and is retried next run. So
+`offair on` blocks fully — the takedown path for an objection is not
+cooperative-only. Limitation: while the WAF API is unreachable a block is
+cooperative-only (ENDLIST + off-air page), the alert repeating, until a later
+run succeeds.
+
+**Backstops:** (1) structural — listener paths are cache-served static objects,
+so traffic costs ~nothing; (2) caps on the station's own writers, its only
+Class A sources; (3) the kill switch with its fail-closed blindness rule;
+(4) Cloudflare Budget alerts (phase-1 setup; next-day, informational only).
+
+### Alerts and operations (phase 2)
+
+- **Cloud (clock Worker):** budget thresholds (actual/projected), `tripped`
+  (spend or blind), Rulesets API failures, published lead below floor. Channels:
+  ntfy (HTTP POST) and email via Cloudflare Email Routing's send-email binding to
+  a verified address; deduped per condition in `state/alerts.json`.
 - **hugo (transmitter):** station-root marker missing, render or publish errors,
-  upcoming window misses; email (SMTP) and ntfy.
+  daily PUT budget exceeded, upcoming window misses; email (SMTP) and ntfy.
+- **Dead clock:** `transmitter run` fetches the public `live.m3u8` once a minute
+  (a cache hit) and alerts when its newest `EXT-X-PROGRAM-DATE-TIME` is older
+  than ~3·d, or `state/guard.json` is older than ~30 min (optional second
+  channel: Cloudflare's Worker-error notification).
 - systemd unit runs `transmitter run` (`Restart=always`, `WatchdogSec`, logs to
   journald); secrets (R2 keys, SMTP creds) in an env file readable only by the
   service user. The analytics and WAF tokens are Worker secrets.
 - `transmitter status`: on air now, lead, next anchors, misses, empty-anchor
-  warnings, off-air state, active alarms.
+  warnings, `tripped` (with reason) and `offair`, active alarms.
 
 ## Phases
 
 1. **Thin slice** — trivial in-order planner over ready packages; per-show
-   renderer + frame-count segmenter; publisher with the ordering invariant and
-   pruning; antenna clock Worker writing `live.m3u8` (incl. fallback and off-air
-   via a hand-written `state/offair.json`); static player page; fallback loop;
-   zone configuration and R2 custom-domain setup docs. **Phase-1 verification
-   list:** a cron invocation may loop ~60 s with only CPU billed; R2
+   renderer + frame-count segmenter; publisher with the ordering invariant,
+   pruning and own-write caps; antenna clock Worker writing `live.m3u8` (incl.
+   fallback and off-air via a hand-written `state/offair.json`); static player
+   page; fallback loop; zone configuration, R2 custom-domain setup docs and
+   Budget alerts. **Phase-1 verification list:** a cron invocation may loop ~75 s
+   with only CPU billed; scheduled-vs-actual cron fire times over a day; R2
    custom-domain cache hits incur no Class B; a 5 s origin max-age is honoured
-   for `live.m3u8`; the ignore-query-string Cache Rule works on this plan; hls.js,
-   Safari/iOS and VLC play the chosen container with PROGRAM-DATE-TIME and stop on
-   ENDLIST and on 403; the Email Routing send-email binding is available; GraphQL
+   for `live.m3u8` at the edge and, under Browser Cache TTL = Respect Existing
+   Headers, in browsers; the ignore-query-string Cache Rule works on this plan;
+   whether `wildcard` rule expressions are available on Free; the Worker's
+   `*.workers.dev` URL serves no Worker (curl); hls.js, Safari/iOS and VLC play
+   the chosen container with PROGRAM-DATE-TIME and stop on ENDLIST and on 403;
+   archive.org MP3 derivatives carry LAME/Xing gapless info (check one segued
+   pair); the Email Routing send-email binding is available; GraphQL
    account-scoped queries work with a read-only token and lag by minutes; llama's
    purge flush over SMB to the Synology; a week of real op counts at ~1 listener.
-   Not public until phase 3 ships.
-2. **Scheduler** — anchors, windows, pools (include/exclude), preferences
+2. **Guard + operations** — the guard, blocking and kill switch, and alerts in
+   the clock Worker; `budget` and `offair` commands; hugo alerts incl. the
+   dead-clock check, systemd unit, `status`. **Gate:** the station is not shared
+   publicly before this ships; once it has, the trivial planner can go public.
+3. **Scheduler** — anchors, windows, pools (include/exclude), preferences
    (`on_this_day`, `years`), fill search, variety guards, misses, rotation
    history, `schedule`/`library` commands. Built and measured against every
-   available manifest; going on air with the clock waits on the ready library.
-3. **Guard + operations** — the guard, kill switch and alerts in the clock
-   Worker; `budget` and `offair` commands; hugo alerts, systemd unit, `status`.
-   **Gate:** the station is not shared publicly before this ships.
-4. **Full antenna** — designed player page, embed, show notes pages, Open Graph,
-   schedule and history, Media Session, stream URL display.
+   available manifest; going on air with the clock waits on the ready library,
+   which is why it follows the guard.
+4. **Full antenna** — designed player page, embed, show notes pages and their
+   template, Open Graph, schedule and history, Media Session, stream URL display.
 
 ## Testing
 
@@ -494,12 +562,17 @@ blind it.
   libraries built from real manifest durations (incl. the 256-show
   distribution). Render tests use short synthetic audio: per-show encode +
   frame-count segmentation (gapless track joins, segue joins, DJ pauses, show
-  gap), grid timestamps, loudness targets. Publish tests use a fake bucket:
-  ordering invariant (horizon never ahead of segments), retry, pruning. Also:
-  re-validation skip, outage recovery, `test_no_llama_or_emcee_imports.py`.
+  gap, flush frames, priming offset), grid timestamps incl. the 2^33 wrap,
+  loudness targets. Publish tests use a fake bucket: ordering invariant (horizon
+  never ahead of segments; notes and show page before their timeline), retry,
+  pruning, flock, daily PUT budget, stop while tripped. Also: re-validation
+  skip, outage recovery, dead-clock alert, `test_no_llama_or_emcee_imports.py`.
 - **antenna:** vitest with Cloudflare's Workers pool: clock playlist math (grid
-  boundaries, grace, fallback, ENDLIST, epoch keys); guard pricing, projection,
-  trip, fail-closed, rollover and raise against canned GraphQL responses.
+  boundaries, grace, `N < horizon.first`, fallback discontinuities, ENDLIST,
+  epoch keys), PUT cap and identical-bytes skip; guard-first ordering and its
+  finally; pricing, projection, `tripped` set/clear per reason, `offair`
+  independence, WAF reconciliation and API-failure retry, rollover and raise,
+  against canned GraphQL responses.
   Playwright smoke test of the static player against a local R2 emulation.
 
 ## Non-goals (v1)
