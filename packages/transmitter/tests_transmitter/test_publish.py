@@ -141,6 +141,23 @@ def test_the_horizon_never_moves_below_the_high_water_mark(tmp_path):
     assert publish.publish_batch(p, _now(p)).horizon == (100, 109)
 
 
+def test_a_batch_stopping_below_the_high_water_mark_reports_the_horizon_held(tmp_path):
+    bucket = _CrashAfterHorizon()
+    bucket.crash = True
+    p = make_publisher(tmp_path, bucket)
+    _segs(p, range(100, 110))
+    with pytest.raises(_Crash):
+        publish.publish_batch(p, _now(p))
+    before = load_publish_state(p.ws)
+    (p.ws.seg_dir("etest") / "105.aac").unlink()                 # the batch now stops at 104 < 109
+    report = publish.publish_batch(p, _now(p))
+    assert report.held is True and "horizon held" in report.error
+    assert report.horizon is None and report.uploaded == []
+    assert bucket.puts().count("state/horizon.json") == 1        # only the crashed batch's PUT
+    after = load_publish_state(p.ws)
+    assert after.last == before.last and after.high_water == 109   # local state not advanced
+
+
 def test_a_lowered_batch_size_after_a_crash_still_reaches_the_high_water_mark(tmp_path):
     bucket = _CrashAfterHorizon()
     bucket.crash = True
