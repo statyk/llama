@@ -41,7 +41,7 @@ export function configFromEnv(env: ClockEnv): ClockConfig {
     grace: Math.floor(num(env.GRACE_SEGMENTS, 3)),
     offairAfterMs: num(env.OFFAIR_AFTER_SECONDS, 86_400) * 1000,
     loopMs: num(env.LOOP_SECONDS, 75) * 1000,
-    liveMaxAge: Math.floor(num(env.LIVE_MAX_AGE, 5)),
+    liveMaxAge: Math.max(1, Math.floor(num(env.LIVE_MAX_AGE, 5))),
   };
 }
 
@@ -61,9 +61,22 @@ export interface ClockResult {
    * nothing was written and the off-air lever did nothing (also logged once
    * per invocation as a structured console.error). */
   offairWithoutFallback: string | null;
+  /** Set when the horizon was refused (d is not the grid constant); nothing written. */
+  refused: string | null;
 }
 
 export const LIVE_KEY = "live.m3u8";
+
+// Spend is the strict surface (Cloudflare has no spending cap), so the PUT
+// bound is absolute and never derived from inputs alone: d comes from
+// state/horizon.json and loopMs from a wrangler var, and either could
+// otherwise turn the cap into thousands of Class-A writes per invocation.
+/** The grid constant transmitter always writes: 441 * 1024 / 44100 s. */
+export const GRID_D = 10.24;
+/** The spec's run length: write until scheduledTime + 75 s, never longer. */
+export const MAX_LOOP_MS = 75_000;
+/** ceil(75 / 10.24) + 2: the per-invocation PUT ceiling, whatever the inputs. */
+export const MAX_PUTS = 10;
 const BOUNDARY_SLACK_MS = 25;
 
 /**
@@ -103,7 +116,7 @@ export async function readInputs(bucket: BucketLike): Promise<ClockInputs> {
 }
 
 export function putCap(cfg: ClockConfig, dMs: number): number {
-  return Math.ceil(cfg.loopMs / dMs) + 2;
+  return Math.min(MAX_PUTS, Math.ceil(cfg.loopMs / dMs) + 2);
 }
 
 /** Why off-air is in force at nowMs and no usable fallback exists, or null. */
@@ -137,11 +150,26 @@ function offairWithoutFallback(inputs: ClockInputs, horizon: Horizon, nowMs: num
  */
 export async function runClock(deps: ClockDeps): Promise<ClockResult> {
   await (deps.guard ?? guardStep)(deps);
-  const { bucket, config } = deps;
+  const { bucket } = deps;
+  const config: ClockConfig = {
+    ...deps.config,
+    loopMs: Math.min(deps.config.loopMs, MAX_LOOP_MS),
+    liveMaxAge: Math.max(1, Math.floor(deps.config.liveMaxAge)),
+  };
+  if (config.loopMs !== deps.config.loopMs) {
+    console.error(JSON.stringify({ event: "loop-clamped", configuredMs: deps.config.loopMs, usedMs: config.loopMs,
+                                   scheduled: deps.scheduledTime }));
+  }
   const inputs = await readInputs(bucket);
-  const result: ClockResult = { puts: 0, skipped: 0, offairWithoutFallback: null };
+  const result: ClockResult = { puts: 0, skipped: 0, offairWithoutFallback: null, refused: null };
   const horizon = inputs.horizon;
   if (horizon === null) return result;
+  if (horizon.d !== GRID_D) {
+    result.refused = `state/horizon.json d is ${JSON.stringify(horizon.d)}, not the grid constant ${GRID_D}: live.m3u8 not written`;
+    console.error(JSON.stringify({ event: "horizon-refused", reason: result.refused, d: horizon.d,
+                                   epoch_id: horizon.epoch_id, scheduled: deps.scheduledTime }));
+    return result;
+  }
   const g = gridOf(horizon);
   const cap = putCap(config, g.dMs);
   let lastBody: string | null = null;

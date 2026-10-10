@@ -1,6 +1,6 @@
 import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type BucketLike, type ClockConfig, configFromEnv, putCap, r2Bucket, runClock } from "../src/clock";
+import { type BucketLike, type ClockConfig, configFromEnv, MAX_PUTS, putCap, r2Bucket, runClock } from "../src/clock";
 import worker from "../src/index";
 
 const E = Date.parse("2026-10-10T12:00:00.000Z");
@@ -162,6 +162,64 @@ describe("off-air without a usable fallback", () => {
   });
 });
 
+const structuredErrors = (spy: { mock: { calls: unknown[][] } }, event: string) =>
+  spy.mock.calls
+    .map((c) => { try { return JSON.parse(String(c[0])); } catch { return null; } })
+    .filter((o) => o?.event === event);
+
+describe("spend bounds hold regardless of inputs", () => {
+  it("caps PUTs at 10 absolutely, whatever d and loopMs say", () => {
+    expect(MAX_PUTS).toBe(10);
+    for (const [loopMs, dMs] of [[75_000, 10], [900_000, 10_240], [75_000, 1], [10_000_000, 1_000]]) {
+      expect(putCap({ ...CFG, loopMs }, dMs)).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("refuses a horizon whose d is not 10.24: zero PUTs, one structured error, returns promptly", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const d of [0.01, 1, 10.25, "10.24"]) {
+      spy.mockClear();
+      const bucket = new MemoryBucket();
+      station(bucket);
+      bucket.seed("state/horizon.json", { ...horizonDoc(E), d });
+      const start = E + 50 * D;
+      const clock = fakeTime(start);
+      const r = await runClock({ bucket, ...clock, scheduledTime: start, config: CFG });
+      expect(r.puts).toBe(0);
+      expect(playlistPuts(bucket)).toBe(0);
+      expect(clock.now()).toBe(start); // never slept
+      expect(r.refused).toMatch(/d/);
+      const logged = structuredErrors(spy, "horizon-refused");
+      expect(logged).toHaveLength(1);
+      expect(logged[0].d).toEqual(d);
+    }
+  });
+
+  it("clamps LOOP_SECONDS=900 to 75 s: at most 10 PUTs, ends by scheduledTime + 75 s, logged once", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    station(bucket);
+    const scheduledTime = E + 50 * D + 300;
+    const clock = fakeTime(scheduledTime + 40);
+    const r = await runClock({ bucket, ...clock, scheduledTime, config: configFromEnv({ LOOP_SECONDS: "900" }) });
+    expect(r.puts).toBeLessThanOrEqual(10);
+    expect(r.puts).toBe(8); // same as the 75 s default
+    expect(clock.now()).toBeLessThanOrEqual(scheduledTime + 75_000);
+    const logged = structuredErrors(spy, "loop-clamped");
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatchObject({ configuredMs: 900_000, usedMs: 75_000 });
+  });
+
+  it("never writes max-age=0: LIVE_MAX_AGE is at least 1", async () => {
+    expect(configFromEnv({ LIVE_MAX_AGE: "0" }).liveMaxAge).toBe(1);
+    const bucket = new MemoryBucket();
+    station(bucket);
+    await runClock({ bucket, ...fakeTime(E + 10 * D), scheduledTime: E + 10 * D,
+                     config: { ...CFG, loopMs: 0, liveMaxAge: 0 } });
+    expect(bucket.objects.get("live.m3u8")!.cacheControl).toBe("public, max-age=1");
+  });
+});
+
 describe("configFromEnv", () => {
   it("parses the vars with defaults", () => {
     expect(configFromEnv({})).toEqual({ window: 6, grace: 3, offairAfterMs: 86_400_000, loopMs: 75_000, liveMaxAge: 5 });
@@ -182,5 +240,18 @@ describe("scheduled handler", () => {
     const body = await (await env.BUCKET.get("live.m3u8"))!.text();
     expect(body).toContain("#EXTM3U");
     expect(body).toContain("seg/e1/");
+  });
+
+  it("emits the per-invocation clock line even when runClock throws", async () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await env.BUCKET.put("state/horizon.json", JSON.stringify({ ...horizonDoc(Date.now()), epoch: "nonsense" }));
+    const ctrl = createScheduledController({ scheduledTime: Date.now(), cron: "* * * * *" });
+    const ctx = createExecutionContext();
+    await expect(worker.scheduled!(ctrl, { ...env, LOOP_SECONDS: "0" } as unknown as Env, ctx)).rejects.toThrow(/epoch/);
+    await waitOnExecutionContext(ctx);
+    const lines = structuredErrors(spy, "clock");
+    expect(lines).toHaveLength(1);
+    expect(lines[0].error).toMatch(/epoch/);
+    expect(lines[0].lagMs).toEqual(expect.any(Number));
   });
 });
