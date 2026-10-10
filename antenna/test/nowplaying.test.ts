@@ -55,11 +55,11 @@ describe("show-boundary edges and file ordering", () => {
     expect(findNowPlaying(TIMELINE, t("2026-10-10T13:40:00.000Z"))).toBeNull();
     expect(findNowPlaying(TIMELINE, t("2026-10-10T13:39:59.999Z"))!.file!.title).toBe("Guarded By Monkeys");
   });
-  it("assumes files sorted by start: an out-of-order file after a later one is ignored", () => {
+  it("assumes files sorted by start: a started file after a not-yet-started one is not found (break)", () => {
     const unsorted = { shows: [{ ...TIMELINE.shows[0], files: [
       { kind: "track", title: "B", start: "2026-10-10T12:10:00.000Z" },
       { kind: "track", title: "A", start: "2026-10-10T12:03:00.000Z" } ] }] };
-    expect(findNowPlaying(unsorted, t("2026-10-10T12:20:00Z"))!.file).toBeNull();
+    expect(findNowPlaying(unsorted, t("2026-10-10T12:05:00Z"))!.file).toBeNull();
   });
 });
 
