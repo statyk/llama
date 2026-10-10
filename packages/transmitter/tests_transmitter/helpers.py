@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import time
 from collections.abc import Callable
-from pathlib import Path  # noqa: F401  (later tasks annotate helpers with Path)
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -89,3 +89,24 @@ def build_package(root: Path, slug: str = "band-2005-11-01", *, tracks: int = 3,
     (pkg / "manifest.json").write_text(json.dumps(manifest, indent=2))
     set_age(pkg, age_s)
     return pkg
+
+
+def stereo_sine(seconds: float, freq: float, amp: float, phase: float = 0.0,
+                rate: int = 44_100) -> np.ndarray:
+    n = round(seconds * rate)
+    t = np.arange(n, dtype=np.float64)
+    mono = amp * np.sin(phase + 2 * np.pi * freq * t / rate)
+    return np.repeat(mono.astype(np.float32)[:, None], 2, axis=1)
+
+
+def write_mp3(path: Path, pcm: np.ndarray, rate: int = 44_100) -> None:
+    """Encode float32 PCM (n, channels) to MP3 with libmp3lame, which writes
+    the Xing/LAME header carrying encoder delay and padding (the gapless info
+    archive.org derivatives carry)."""
+    channels = 1 if pcm.ndim == 1 else pcm.shape[1]
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-y", "-f", "f32le", "-ar", str(rate),
+         "-ac", str(channels), "-i", "pipe:0", "-c:a", "libmp3lame", "-b:a", "192k", str(path)],
+        input=np.ascontiguousarray(pcm, dtype=np.float32).tobytes(), check=True,
+    )
