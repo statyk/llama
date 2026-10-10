@@ -49,9 +49,14 @@ def require_root(root: Path | None) -> Path:
     if root is None:
         raise StationRootError("set [station] root in transmitter's config.toml")
     root = Path(root)
-    if not root.is_dir():
+    try:
+        is_dir = root.is_dir()
+        has_marker = is_dir and (root / MARKER).exists()
+    except OSError as exc:
+        raise StationRootError(f"station root {root} is unreadable: {exc}") from exc
+    if not is_dir:
         raise StationRootError(f"station root {root} is missing (is the NFS share mounted?)")
-    if not (root / MARKER).exists():
+    if not has_marker:
         raise StationRootError(
             f"station root {root} has no {MARKER} marker -- refusing to treat it as an empty "
             "library (on hugo a down NFS mount is an ordinary empty directory)")
@@ -98,7 +103,16 @@ def _clips(dj_audio: dict) -> dict[str, str]:
 
 
 def evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligible:
-    pkg_dir = Path(pkg_dir)
+    """Never raises for a package that is changing under us: an OSError (ESTALE,
+    EIO, EACCES, a vanished file), a RuntimeError (symlink loop on 3.11) or a
+    UnicodeDecodeError anywhere in the evaluation is `Ineligible("changing: ...")`."""
+    try:
+        return _evaluate(Path(pkg_dir), now_s=now_s, quiet_s=quiet_s)
+    except (OSError, RuntimeError, UnicodeDecodeError) as exc:
+        return Ineligible(Path(pkg_dir).name, (f"changing: {exc}",))
+
+
+def _evaluate(pkg_dir: Path, *, now_s: float, quiet_s: float) -> Show | Ineligible:
     slug = pkg_dir.name
     try:
         manifest = json.loads((pkg_dir / "manifest.json").read_text(encoding="utf-8"))

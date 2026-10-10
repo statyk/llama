@@ -129,3 +129,82 @@ def test_missing_or_unset_root_is_refused(tmp_path):
         station.require_root(tmp_path / "gone")
     with pytest.raises(StationRootError, match=r"\[station\] root"):
         station.require_root(None)
+
+
+def _assert_changing(result):
+    assert isinstance(result, Ineligible)
+    assert result.reasons[0].startswith("changing")
+
+
+def test_m3u_vanishing_between_exists_and_read_is_changing(tmp_path, monkeypatch):
+    pkg = build_package(make_root(tmp_path))
+
+    def gone(path):
+        raise FileNotFoundError(str(path))
+
+    monkeypatch.setattr(station, "read_m3u", gone)
+    _assert_changing(_eval(pkg))
+
+
+def test_m3u_with_invalid_utf8_is_changing(tmp_path):
+    pkg = build_package(make_root(tmp_path))
+    (pkg / "broadcast.m3u").write_bytes(b"audio/\xff\xfe.mp3\n")
+    set_age(pkg, 3600)
+    _assert_changing(_eval(pkg))
+
+
+def test_estale_on_exists_is_changing(tmp_path, monkeypatch):
+    import errno
+    pkg = build_package(make_root(tmp_path))
+    real_exists = Path.exists
+
+    def exists(self, *a, **k):
+        if self.name == "dj-notes.md":
+            raise OSError(errno.ESTALE, "Stale file handle")
+        return real_exists(self, *a, **k)
+
+    monkeypatch.setattr(Path, "exists", exists)
+    _assert_changing(_eval(pkg))
+
+
+def test_symlink_loop_runtimeerror_is_changing(tmp_path, monkeypatch):
+    pkg = build_package(make_root(tmp_path))
+
+    def boom(self, *a, **k):
+        raise RuntimeError("Symlink loop")
+
+    monkeypatch.setattr(Path, "resolve", boom)
+    _assert_changing(_eval(pkg))
+
+
+def test_require_root_maps_oserror_on_marker_to_station_root_error(tmp_path, monkeypatch):
+    import errno
+    root = make_root(tmp_path)
+    real_exists = Path.exists
+
+    def exists(self, *a, **k):
+        if self.name == station.MARKER:
+            raise OSError(errno.ESTALE, "Stale file handle")
+        return real_exists(self, *a, **k)
+
+    monkeypatch.setattr(Path, "exists", exists)
+    with pytest.raises(StationRootError, match=str(root)):
+        station.require_root(root)
+
+
+def test_scan_survives_one_vanishing_package(tmp_path, monkeypatch):
+    root = make_root(tmp_path)
+    build_package(root, "a-show")
+    build_package(root, "b-show")
+    real = station.read_m3u
+
+    def read(path):
+        if path.parent.name == "a-show":
+            raise FileNotFoundError(str(path))
+        return real(path)
+
+    monkeypatch.setattr(station, "read_m3u", read)
+    shows, skipped = station.scan(root, now_s=time.time(), quiet_s=600)
+    assert [s.slug for s in shows] == ["b-show"]
+    assert [s.slug for s in skipped] == ["a-show"]
+    assert skipped[0].reasons[0].startswith("changing")
