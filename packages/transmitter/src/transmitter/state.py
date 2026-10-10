@@ -2,7 +2,13 @@
 R2 -- horizon first/last, every run of segment keys uploaded (or attempted:
 a batch records its range before its first PUT) and not yet pruned (prune
 deletes by these computed ranges; no List calls), and the digest of each
-show's uploaded notes/page. Plus the current fallback version."""
+show's uploaded notes/page. Plus the current fallback version.
+
+`high_water` is the highest segment R2 may list: a batch persists its
+candidate `last` here BEFORE the horizon PUT, so a crash between that PUT and
+the save that advances `last` cannot leave local state believing segments
+above `last` are unlisted. They may be listed (immutable, CDN-cached for a
+year), so nothing at or below `listed_bound()` is ever dropped or re-planned."""
 
 from dataclasses import asdict, dataclass, field
 
@@ -16,6 +22,12 @@ class PublishState:
     last: int | None = None
     runs: list[list[int]] = field(default_factory=list)
     notes: dict[str, str] = field(default_factory=dict)
+    high_water: int | None = None
+
+    def listed_bound(self) -> int | None:
+        """The highest segment index R2 may list: max(last, high_water)."""
+        marks = [m for m in (self.last, self.high_water) if m is not None]
+        return max(marks) if marks else None
 
 
 def load_publish_state(ws: Workspace) -> PublishState:
@@ -24,7 +36,7 @@ def load_publish_state(ws: Workspace) -> PublishState:
         return PublishState()
     return PublishState(epoch_id=data.get("epoch_id"), first=data.get("first"),
                         last=data.get("last"), runs=[list(r) for r in data.get("runs", [])],
-                        notes=dict(data.get("notes", {})))
+                        notes=dict(data.get("notes", {})), high_water=data.get("high_water"))
 
 
 def save_publish_state(ws: Workspace, state: PublishState) -> None:

@@ -125,21 +125,26 @@ def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[P
     shows = st.scan_now(now_us)              # StationRootError: refuse, plan untouched
     rows = read_plan(st.ws.plan_path)
     pub = load_publish_state(st.ws)
+    # The highest segment R2 may list: local `last`, or above it when a crash
+    # fell between a horizon PUT and the save recording it. Keys at or below
+    # it are immutable and CDN-cached, so nothing there is dropped or re-planned.
+    listed = pub.listed_bound()
     now_n = st.epoch.index_at(now_us)
     fresh = (now_n + st.start_margin_segments) * SEGMENT_FRAMES
     nxt = publish_next(rows, pub.last)
     recovery = None
+    if nxt is None or nxt <= now_n:
+        # Published keys are immutable, so a new run never starts under one --
+        # that would air a new show from its middle right after old-plan audio.
+        if listed is not None:
+            fresh = max(fresh, (listed + 1) * SEGMENT_FRAMES)
     if nxt is None:
-        # No plan: a first start, or plan.jsonl was lost. Published keys are
-        # immutable, so the run never starts under one -- that would air a new
-        # show from its middle right after old-plan audio.
-        if pub.last is not None:
-            fresh = max(fresh, (pub.last + 1) * SEGMENT_FRAMES)
+        # No plan: a first start, or plan.jsonl was lost.
         start, run_start = fresh, True
     elif nxt <= now_n:
         # The next segment to publish is already due: the outage outlasted the
         # lead and listeners are already off the live edge. Start a fresh run.
-        rows = cut_for_recovery(rows, pub.last)
+        rows = cut_for_recovery(rows, listed)
         recovery = f"recovery: segment {nxt} was due at index {now_n}; new run at segment " \
                    f"{fresh // SEGMENT_FRAMES}"
         start, run_start = fresh, True
@@ -154,7 +159,7 @@ def plan_step(st: Station, now_us: int, *, max_new: int | None = None) -> list[P
         # A new run renumbers everything after the last published segment. Drop
         # the old plan's unpublished files BEFORE the new plan lands, so a crash
         # in between can never leave stale audio under the new run's indices.
-        _drop_unpublished_segments(st, pub.last)
+        _drop_unpublished_segments(st, listed)
     write_plan(st.ws.plan_path, rows)
     if recovery is not None:
         st.log(recovery)

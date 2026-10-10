@@ -448,3 +448,61 @@ def test_the_second_mismatch_rule_is_per_slug_for_package_changes(tmp_path):
     assert new_rows[1].key == real_key
     assert st.engine.encoded[:2] == [a.slug, b.slug]
     assert sum("plan-changed" in m for m in logs) == 2
+
+
+# A publish batch persists a high-water mark of its candidate `last` before the
+# horizon PUT. A crash between that PUT and the publish.json save leaves R2
+# listing segments up to the high-water mark while local `last` lags behind;
+# those keys are immutable and CDN-cached, so plan_step must treat everything
+# at or below the mark as possibly listed: never drop it, never re-plan it.
+
+def _crashed_after_horizon(st, first, last, high_water):
+    save_publish_state(st.ws, PublishState(epoch_id="etest", first=first, last=last,
+                                           runs=[[first, high_water]], high_water=high_water))
+
+
+def test_plan_step_without_a_plan_resumes_after_the_high_water_mark(tmp_path):
+    st, _ = make_station(tmp_path)
+    pipeline.plan_step(st, NOW)
+    written = pipeline.render_step(st, NOW).written
+    fresh_n = st.epoch.index_at(NOW) + st.start_margin_segments
+    high_water = written[len(written) // 2]
+    assert high_water + 1 > fresh_n
+    _crashed_after_horizon(st, written[0], None, high_water)     # the first batch's save never landed
+    st.ws.plan_path.unlink()
+    new_rows = pipeline.plan_step(st, NOW)
+    assert new_rows[0].run_start and new_rows[0].start_frame == (high_water + 1) * F
+    left = {int(name.split(".")[0]) for name in _seg_files(st)}
+    assert left == {n for n in written if n <= high_water}
+
+
+def test_plan_step_recovery_cuts_at_the_high_water_mark(tmp_path):
+    st, logs = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    written = pipeline.render_step(st, NOW).written
+    last, high_water = written[2], written[12]
+    _crashed_after_horizon(st, written[0], last, high_water)
+    before = _seg_files(st)
+    later = NOW + 3 * HOUR_US
+    new_rows = pipeline.plan_step(st, later)
+    boundary = (high_water + 1) * F
+    spanning = next(r for r in rows if r.start_frame < boundary < r.end_frame)
+    kept = new_rows[:new_rows.index(next(r for r in new_rows if r.run_start and r.start_frame >= boundary))]
+    assert kept[-1].slug == spanning.slug and kept[-1].cut_frame == boundary
+    assert {n: b for n, b in before.items() if int(n.split(".")[0]) <= high_water} == _seg_files(st)
+    assert any("recovery" in m for m in logs)
+
+
+def test_plan_step_recovery_never_restarts_below_the_high_water_mark(tmp_path):
+    st, _ = make_station(tmp_path)
+    pipeline.plan_step(st, NOW)
+    written = pipeline.render_step(st, NOW).written
+    last, high_water = written[0], written[-1]
+    later = st.epoch.start_us(last + 1)                      # last + 1 is due: recovery
+    assert high_water > st.epoch.index_at(later) + st.start_margin_segments
+    _crashed_after_horizon(st, written[0], last, high_water)
+    before = _seg_files(st)
+    new_rows = pipeline.plan_step(st, later)
+    run = [r for r in new_rows if r.run_start]
+    assert run[-1].start_frame == (high_water + 1) * F
+    assert _seg_files(st) == before                          # every listed segment kept, untouched

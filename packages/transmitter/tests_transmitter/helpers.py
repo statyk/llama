@@ -6,6 +6,7 @@ modules are top-level (`test_config`, `helpers`, …) and emcee's are the
 Import helpers as `from tests_transmitter.helpers import …`.
 """
 
+import io
 import json
 import os
 import shutil
@@ -16,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from botocore.exceptions import ClientError
 
 from transmitter import adts
 from transmitter import grid as _grid
@@ -193,3 +195,87 @@ def make_station(tmp_path: Path, n_packages: int = 3, engine=None) -> tuple[Stat
     st = Station(ws=Workspace(cfg.root), cfg=cfg, epoch=Epoch("etest", E),
                  engine=engine or FakeEngine(), log=logs.append)
     return st, logs
+
+
+class FakeBucket:
+    """An in-memory R2 bucket speaking the boto3 S3 calls transmitter uses.
+    Any other call (list_objects*, delete_objects, …) fails the test."""
+
+    def __init__(self):
+        self.objects: dict[str, dict] = {}
+        self.log: list[tuple[str, str]] = []
+        self.fail_puts: dict[str, int] = {}
+        self.fail_gets: set[str] = set()
+
+    def put_object(self, *, Bucket, Key, Body, ContentType, CacheControl):
+        self.log.append(("put", Key))
+        if self.fail_puts.get(Key, 0) > 0:
+            self.fail_puts[Key] -= 1
+            raise ClientError({"Error": {"Code": "InternalError", "Message": "boom"}}, "PutObject")
+        self.objects[Key] = {"Body": bytes(Body), "ContentType": ContentType, "CacheControl": CacheControl}
+        return {"ResponseMetadata": {"HTTPStatusCode": 200}}
+
+    def get_object(self, *, Bucket, Key):
+        self.log.append(("get", Key))
+        if Key in self.fail_gets:
+            raise ClientError({"Error": {"Code": "InternalError", "Message": "boom"}}, "GetObject")
+        if Key not in self.objects:
+            raise ClientError({"Error": {"Code": "NoSuchKey", "Message": "missing"}}, "GetObject")
+        return {"Body": io.BytesIO(self.objects[Key]["Body"])}
+
+    def delete_object(self, *, Bucket, Key):
+        self.log.append(("delete", Key))
+        self.objects.pop(Key, None)
+        return {"ResponseMetadata": {"HTTPStatusCode": 204}}
+
+    def __getattr__(self, name):
+        raise AssertionError(f"unexpected S3 call: {name}")
+
+    def json(self, key):
+        return json.loads(self.objects[key]["Body"])
+
+    def puts(self):
+        return [k for op, k in self.log if op == "put"]
+
+
+def write_seg(ws, epoch_id: str, n: int) -> None:
+    from transmitter import segment as _segment
+
+    path = ws.seg_dir(epoch_id) / f"{n}.aac"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(_segment.assemble(n, [fake_frame("seg", n)] * 441))
+
+
+TEMPLATE_PATH = Path(__file__).resolve().parents[3] / "antenna" / "templates" / "show.html"
+
+
+def make_publisher(tmp_path: Path, bucket: "FakeBucket", *, batch: int = 360, budget: int = 17_500,
+                   sleep=None, rows=None, run_start_n: int = 100, prune_min: int = 1,
+                   station_root: Path | None = None):
+    """A Publisher over a workspace holding one planned show (key "k1"),
+    starting a run at segment `run_start_n`. Its analyses are served from
+    memory by `analysis_for` (none is cached on disk); `p.analyses` holds them."""
+    from transmitter import planner, publish
+    from transmitter.layout import PlanRow
+
+    cfg = TransmitterConfig(root=tmp_path / "tx", station={"root": station_root},
+                            publish={"bucket": "b", "batch_segments": batch, "daily_put_budget": budget,
+                                     "prune_min_segments": prune_min})
+    ws = Workspace(cfg.root)
+    epoch = Epoch("etest", E)
+    rows = rows or [PlanRow(seq=0, slug="band-1", dir="band-1", key="k1",
+                            start_frame=run_start_n * 441, frames=441 * 50, run_start=True)]
+    planner.write_plan(ws.plan_path, rows)
+    files = (FileAnalysis("audio/01.mp3", "track", "Song 1", 441 * 1024 * 40),)
+    meta = {"artist": "Band", "date": "2005-11-01", "venue": "Club", "city": "Lincoln, NE",
+            "profile": "indie", "url": "https://archive.org/details/band1", "lineage": "AUD"}
+    analyses = {r.key: ShowAnalysis(r.key, r.slug, files, -18.0, -2.0, meta) for r in rows}
+    sleeps = []
+    uploader = publish.Uploader(bucket, "b", publish.PutBudget(ws.puts_path, budget, today=lambda: "2027-01-15"),
+                                sleep=sleep or sleeps.append)
+    p = publish.Publisher(ws=ws, cfg=cfg, epoch=epoch, uploader=uploader,
+                          template=TEMPLATE_PATH.read_text(),
+                          analysis_for=lambda row: analyses.get(row.key), log=lambda m: None)
+    p.sleeps = sleeps
+    p.analyses = analyses
+    return p
