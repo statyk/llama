@@ -14,7 +14,7 @@ from typing import Callable
 from transmitter import alerts, analysis, grid, pipeline, publish, r2, station
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
-from transmitter.errors import ConfigError, FrameCountDrift
+from transmitter.errors import ConfigError, FrameCountDrift, PublishLocked
 from transmitter.layout import PlanRow
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
@@ -81,9 +81,26 @@ def open_publisher(st: pipeline.Station) -> publish.Publisher:
 
 
 HELD_MARKER = "horizon held"
+HELD_ALERT_AFTER = 3     # consecutive publish_all calls with a held horizon before alerting
 
 
-def _report_stop(step: str, stopped: str | None, error: str | None) -> None:
+class HeldTracker:
+    """Counts consecutive publish_all calls that ended with a held horizon. A
+    hold that never clears re-PUTs the same partial batch every tick, which
+    spends the PUT budget, so a persistent one escalates from a warning."""
+
+    def __init__(self) -> None:
+        self.count = 0
+
+    def observe(self, held: bool) -> None:
+        self.count = self.count + 1 if held else 0
+        if self.count == HELD_ALERT_AFTER:
+            alerts.alert("horizon-held", f"the horizon has been held for {self.count} consecutive publish "
+                                         "passes (each re-sends the same batch, spending PUT budget); "
+                                         "check publish state vs R2's state/horizon.json")
+
+
+def _report_stop(step: str, stopped: str | None, error: str | None, held: bool = False) -> None:
     """Surface one publish/prune report. A put-budget stop is an alert (spend is
     the strict surface); a guard stop is routine; a high-water stop or a held
     horizon is a deliberate deferral (a recovering state), logged as a WARNING;
@@ -100,22 +117,27 @@ def _report_stop(step: str, stopped: str | None, error: str | None) -> None:
         return
     if not error:
         return
-    held = [part for part in error.split("; ") if part.startswith(HELD_MARKER)]
-    real = [part for part in error.split("; ") if not part.startswith(HELD_MARKER)]
-    for part in held:
-        log.warning("%s: %s", step, part)
-    if real and stopped != "put-budget":
-        alerts.alert(step, "; ".join(real))
+    parts = error.split("; ")
+    if held:
+        for part in parts:
+            if part.startswith(HELD_MARKER):
+                log.warning("%s: %s", step, part)
+        parts = [part for part in parts if not part.startswith(HELD_MARKER)]
+    if parts:
+        alerts.alert(step, "; ".join(parts))
 
 
-def publish_all(p: publish.Publisher, t_us: int) -> tuple[list[publish.PublishReport], publish.PruneReport]:
+def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None
+                ) -> tuple[list[publish.PublishReport], publish.PruneReport]:
     reports = []
     for _ in range(MAX_BATCHES):
         r = publish.publish_batch(p, t_us)
         reports.append(r)
-        _report_stop("publish", r.stopped, r.error)
+        _report_stop("publish", r.stopped, r.error, r.held)
         if not r.uploaded or r.stopped or r.error:
             break
+    if held is not None:
+        held.observe(any(r.held for r in reports))
     pr = publish.prune(p, t_us)
     _report_stop("prune", pr.stopped, pr.error)
     return reports, pr
@@ -126,6 +148,7 @@ class Runner:
                  sleep: Callable[[float], None] = time.sleep, tick_s: float = 60.0):
         self.st, self.p, self.clock, self.sleep, self.tick_s = st, p, clock, sleep, tick_s
         self.filling = False
+        self.held = HeldTracker()
         self.halted = False          # latched by a frame-count drift; cleared by a restart
 
     def lead_us(self, t_us: int) -> int | None:
@@ -143,6 +166,9 @@ class Runner:
             log.error("%s step: frame-count drift; filling halted", name, exc_info=True)
             alerts.alert("frame-count-drift", f"{exc}; filling halted (publishing continues) "
                                               "until transmitter is restarted")
+        except PublishLocked as exc:
+            # An operator's manual publish/fallback overlaps this tick; the next one retries.
+            log.warning("%s step skipped: %s", name, exc)
         except Exception as exc:
             log.exception("%s step failed", name)
             alerts.alert(name, f"{type(exc).__name__}: {exc}")
@@ -156,7 +182,7 @@ class Runner:
             self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1))
             self._step("render", lambda: pipeline.render_step(
                 self.st, t_us, limit=self.st.cfg.publish.batch_segments))
-        self._step("publish", lambda: publish_all(self.p, t_us))
+        self._step("publish", lambda: publish_all(self.p, t_us, self.held))
         lead = self.lead_us(t_us)
         if lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False

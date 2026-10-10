@@ -171,6 +171,7 @@ class PublishReport:
     horizon: tuple[int, int] | None = None
     stopped: str | None = None       # "guard" | "put-budget"
     error: str | None = None
+    held: bool = False               # horizon not rewritten: batch is below the high-water mark
 
 
 def horizon_doc(epoch: Epoch, first: int, last: int, now_us: int, fallback_version: str | None) -> dict:
@@ -293,6 +294,7 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
             # Rewriting the horizon now would move R2's `last` backwards.
             report.error = (f"{report.error}; " if report.error else "") + \
                 f"horizon held: segment {last} is below the high-water mark {state.high_water}"
+            report.held = True
             return report
         notes = state.notes
         try:

@@ -121,3 +121,40 @@ def test_fallback_render_reports_horizon_deferred(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "horizon deferred" in result.output and "state/horizon.json" not in bucket.objects
 
+
+
+def _publish_setup(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRANSMITTER_ROOT", str(tmp_path / "tx"))
+    bucket = FakeBucket()
+    monkeypatch.setattr(service, "make_engine", lambda ws, cfg: FakeEngine())
+    monkeypatch.setattr(service, "make_client", lambda cfg: bucket)
+    root = make_root(tmp_path)
+    build_package(root, "band-2005-11-01")
+    return _config(tmp_path, root), bucket
+
+
+def test_publish_exits_zero_when_clean_or_empty(tmp_path, monkeypatch):
+    cfgp, bucket = _publish_setup(tmp_path, monkeypatch)
+    result = CliRunner().invoke(app, ["publish", "--config", str(cfgp)])   # nothing rendered yet
+    assert result.exit_code == 0, result.output
+    assert CliRunner().invoke(app, ["render", "--config", str(cfgp)]).exit_code == 0
+    result = CliRunner().invoke(app, ["publish", "--config", str(cfgp)])
+    assert result.exit_code == 0, result.output
+    assert any(k.startswith("seg/") for k in bucket.objects)
+
+
+def test_publish_exits_nonzero_when_the_put_budget_stops_it(tmp_path, monkeypatch):
+    cfgp, bucket = _publish_setup(tmp_path, monkeypatch)
+    assert CliRunner().invoke(app, ["render", "--config", str(cfgp)]).exit_code == 0
+    cfgp.write_text(cfgp.read_text().replace('bucket = "b"', 'bucket = "b"\ndaily_put_budget = 2'))
+    result = CliRunner().invoke(app, ["publish", "--config", str(cfgp)])
+    assert result.exit_code == 1
+    assert "put-budget" in result.output      # stderr is mixed into output by CliRunner
+
+
+def test_publish_exits_nonzero_when_the_guard_is_tripped(tmp_path, monkeypatch):
+    cfgp, bucket = _publish_setup(tmp_path, monkeypatch)
+    assert CliRunner().invoke(app, ["render", "--config", str(cfgp)]).exit_code == 0
+    bucket.objects["state/guard.json"] = {"Body": b'{"tripped": true}', "ContentType": "x", "CacheControl": "x"}
+    result = CliRunner().invoke(app, ["publish", "--config", str(cfgp)])
+    assert result.exit_code == 1 and "guard" in result.output

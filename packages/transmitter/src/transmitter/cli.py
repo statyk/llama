@@ -92,6 +92,15 @@ def publish_cmd(config: Path = CONFIG_OPT):
     st = service.open_station(cfg, t)
     reports, pruned = service.publish_all(service.open_publisher(st), t)
     typer.echo(f"uploaded {sum(len(r.uploaded) for r in reports)} segment(s); pruned {pruned.deleted}")
+    problems = [f"publish: {r.stopped or ''}{': ' if r.stopped and r.error else ''}{r.error or ''}"
+                for r in reports if r.error or r.stopped in ("put-budget", "guard")]
+    if pruned.error or pruned.stopped in ("put-budget", "guard"):
+        problems.append(f"prune: {pruned.stopped or ''}{': ' if pruned.stopped and pruned.error else ''}"
+                        f"{pruned.error or ''}")
+    for line in problems:
+        typer.echo(line, err=True)
+    if problems:
+        raise typer.Exit(1)
 
 
 @app.command()

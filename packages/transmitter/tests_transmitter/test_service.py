@@ -4,7 +4,7 @@ import pytest
 
 from tests_transmitter.helpers import NOW, TEMPLATE_PATH, FakeBucket, FakeEngine, make_station, write_seg
 from transmitter import alerts, grid, pipeline, publish, service
-from transmitter.errors import FrameCountDrift, PlanError, StationRootError
+from transmitter.errors import FrameCountDrift, PlanError, PublishLocked, StationRootError
 from transmitter.planner import read_plan
 from transmitter.segment import segment_key
 
@@ -116,6 +116,7 @@ def test_status_lines(tmp_path):
     assert any(l.startswith("published  nothing yet") for l in lines)
     assert any("fallback   none" in l for l in lines)
 
+
 @pytest.mark.parametrize("exc", [PlanError("no show fits"), StationRootError("root gone")])
 def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
     st, _ = make_station(tmp_path)
@@ -188,7 +189,7 @@ def test_publish_all_warns_on_high_water_without_alerting(tmp_path, caplog, monk
 def test_publish_all_warns_on_a_held_horizon_without_alerting(tmp_path, caplog, monkeypatch):
     p = _publisher(make_station(tmp_path)[0], FakeBucket())
     err = "horizon held: segment 5 is below the high-water mark 9"
-    monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub(error=err))
+    monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub(error=err, held=True))
     monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport())
     with caplog.at_level(logging.INFO):
         service.publish_all(p, NOW)
@@ -210,3 +211,59 @@ def test_publish_all_alerts_errors_and_logs_guard(tmp_path, caplog, monkeypatch)
         service.publish_all(p, NOW)
     assert "ALERT" not in caplog.text and "guard" in caplog.text
 
+
+
+def test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets(tmp_path, caplog, monkeypatch):
+    p = _publisher(make_station(tmp_path)[0], FakeBucket())
+    err = "horizon held: segment 5 is below the high-water mark 9"
+    held = {"on": True}
+    monkeypatch.setattr(publish, "publish_batch",
+                        lambda p, t: _report_pub(error=err, held=True) if held["on"] else _report_pub())
+    monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport())
+    tracker = service.HeldTracker()
+    with caplog.at_level(logging.WARNING):
+        for _ in range(2):
+            service.publish_all(p, NOW, tracker)
+        assert "ALERT" not in caplog.text
+        assert sum("horizon held" in r.getMessage() for r in caplog.records) == 2
+        service.publish_all(p, NOW, tracker)
+        assert caplog.text.count("ALERT horizon-held") == 1
+        held["on"] = False
+        service.publish_all(p, NOW, tracker)               # a clean batch resets the streak
+        held["on"] = True
+        caplog.clear()
+        for _ in range(2):
+            service.publish_all(p, NOW, tracker)
+    assert "ALERT" not in caplog.text
+
+
+def test_runner_warns_without_traceback_or_alert_on_publish_locked(tmp_path, caplog, monkeypatch):
+    st, _ = make_station(tmp_path)
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+
+    def locked(*args, **kwargs):
+        raise PublishLocked("another publish holds the lock")
+
+    monkeypatch.setattr(publish, "publish_batch", locked)
+    with caplog.at_level(logging.WARNING):
+        runner.tick(NOW)
+    assert "ALERT" not in caplog.text and "Traceback" not in caplog.text
+    assert any(r.levelno == logging.WARNING and "lock" in r.getMessage() for r in caplog.records)
+
+
+def test_status_lines_populated(tmp_path):
+    st, _ = make_station(tmp_path)
+    bucket = FakeBucket()
+    runner = service.Runner(st, _publisher(st, bucket), sleep=lambda s: None)
+    for _ in range(5):
+        runner.tick(NOW)
+        if not runner.filling:
+            break
+    from transmitter.workspace import write_json
+    write_json(st.ws.epoch_path, {"epoch_id": "etest", "epoch": st.epoch.iso, "d": 10.24})
+    first_row = read_plan(st.ws.plan_path)[0]
+    t = st.epoch.epoch_us + (first_row.start_frame + 10) * grid.FRAME_SAMPLES * 1_000_000 // grid.SAMPLE_RATE
+    lines = service.status_lines(st.cfg, t)
+    assert any(l.startswith("plan       ") and "rows through" in l for l in lines)
+    assert f"on air     {first_row.slug}" in lines
+    assert any(l.startswith("published  segments ") and "lead" in l for l in lines)
