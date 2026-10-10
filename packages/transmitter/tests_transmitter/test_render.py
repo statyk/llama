@@ -5,10 +5,10 @@ import pytest
 
 from tests_transmitter.helpers import (build_package, decode_adts, make_root, requires_ffmpeg,
                                        stereo_sine, write_mp3)
-from transmitter import aacenc, analysis, render, station
+from transmitter import aacenc, adts, analysis, render, station
 from transmitter.analysis import FileAnalysis, ShowAnalysis
 from transmitter.config import RenderConfig
-from transmitter.errors import FrameCountDrift, RenderError
+from transmitter.errors import AdtsError, FrameCountDrift, RenderError, TransmitterError
 
 
 def _a(*files):
@@ -73,6 +73,7 @@ def test_render_show_frame_count_gain_and_gapless_segue(tmp_path):
     lay = render.show_layout(a, settings.clip_pause_samples)
     t1, t2 = lay.spans[1], lay.spans[2]
     assert t2.start_sample == t1.start_sample + t1.samples        # no inserted silence
+    assert t1.samples + t2.samples == 6 * 44_100                  # gapless decode: the segue loses nothing
     join = t2.start_sample
     rms = float(np.sqrt(np.mean(pcm[join - 2048:join + 2048, 0] ** 2)))
     expected_amp = 0.1 * render.file_gain(a.files[1], a, settings)     # file_gain is linear
@@ -112,3 +113,23 @@ def test_render_refuses_a_mismatched_analysis(tmp_path):
     with pytest.raises(RenderError, match="does not match"):
         render.render_show(show, _a(("audio/b.mp3", "track", 10)), tmp_path / "x.aac",
                            settings=render.RenderSettings("ffmpeg", -16, -16, 0), extra=1)
+
+
+@requires_ffmpeg
+def test_unverifiable_encode_is_removed(tmp_path, monkeypatch):
+    """close() has already renamed the encode into place when the frame count
+    is read; an unreadable output must not survive there, or FrameStore would
+    treat an unverified encode as rendered."""
+    show, _ = _segue_package(tmp_path)
+    a = analysis.analyze_show(show)
+    out = tmp_path / "x.aac"
+
+    def broken(buf):
+        raise AdtsError("malformed output")
+
+    monkeypatch.setattr(adts, "frame_offsets", broken)
+    with pytest.raises(AdtsError) as info:
+        render.render_show(show, a, out, settings=render.RenderSettings("ffmpeg", -16, -16, 0),
+                           extra=aacenc.extra_frames())
+    assert isinstance(info.value, TransmitterError)
+    assert not out.exists() and not any(out.parent.glob(".x.aac.*"))

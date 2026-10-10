@@ -103,10 +103,16 @@ def render_show(show: Show, analysis: ShowAnalysis, out_path: Path, *,
     except BaseException:
         enc.abort()
         raise
-    frames = len(adts.frame_offsets(Path(out_path).read_bytes())) - 1
-    if frames != expected:
+    # close() has already renamed the encode into place. Until its frame count
+    # is verified it must not survive any failure there, or FrameStore would
+    # treat an unverified encode as rendered and the station would wedge on it.
+    try:
+        frames = len(adts.frame_offsets(Path(out_path).read_bytes())) - 1
+        if frames != expected:
+            raise FrameCountDrift(f"{show.slug}: encoder produced {frames} frames, expected {expected} "
+                                  f"({layout.padded_samples} padded samples + {extra}); the frame-count "
+                                  "model does not hold on this ffmpeg")
+    except BaseException:
         Path(out_path).unlink(missing_ok=True)
-        raise FrameCountDrift(f"{show.slug}: encoder produced {frames} frames, expected {expected} "
-                              f"({layout.padded_samples} padded samples + {extra}); the frame-count "
-                              "model does not hold on this ffmpeg")
+        raise
     return frames
