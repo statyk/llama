@@ -9,7 +9,7 @@ exec docker run --rm -v "$repo:/src:ro" debian:12 sh -euc '
   ffmpeg -version | head -1
   python3 --version
   mkdir /work
-  tar -C /src --exclude=./.venv --exclude=./.git --exclude=./.claude \
+  tar -C /src --exclude="./.venv*" --exclude=./.superpowers --exclude=./.git --exclude=./.claude \
       --exclude="*/node_modules" --exclude="*/__pycache__" -cf - . | tar -C /work -xf -
   python3 -m venv /venv
   /venv/bin/pip install -q -e "/work/packages/transmitter[dev]"
