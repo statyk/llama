@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from transmitter.config import (DEFAULT_CONFIG_TOML, DEFAULT_ROOT, TransmitterConfig,
-                                default_root, load_config)
+from transmitter.config import (DEFAULT_CONFIG_TOML, DEFAULT_ROOT, PRUNE_MARGIN_FLOOR_MINUTES,
+                                TransmitterConfig, default_root, load_config)
 from transmitter.errors import ConfigError
 
 
@@ -59,3 +59,29 @@ def test_bad_toml_is_a_config_error(tmp_path):
 def test_template_parses_to_the_defaults():
     parsed = TransmitterConfig.model_validate(tomllib.loads(DEFAULT_CONFIG_TOML))
     assert parsed.model_dump(exclude={"root"}) == TransmitterConfig().model_dump(exclude={"root"})
+
+
+def test_prune_margin_floor_covers_the_live_window_and_player_lag():
+    # (k + grace) * d + live.m3u8 max-age + player lag = 92.16 + 5 + 120 s,
+    # rounded up to whole minutes.
+    assert PRUNE_MARGIN_FLOOR_MINUTES == 4.0
+    assert PRUNE_MARGIN_FLOOR_MINUTES * 60 >= (6 + 3) * 10.24 + 60
+    assert TransmitterConfig().publish.prune_margin_minutes >= PRUNE_MARGIN_FLOOR_MINUTES
+
+
+@pytest.mark.parametrize("value", [0, 1.5, 3.99])
+def test_a_prune_margin_below_the_floor_is_a_config_error(tmp_path, value):
+    path = tmp_path / "config.toml"
+    path.write_text(f"[publish]\nprune_margin_minutes = {value}\n")
+    with pytest.raises(ConfigError, match="prune_margin_minutes"):
+        load_config(path)
+
+
+def test_a_prune_margin_at_the_floor_is_accepted(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text("[publish]\nprune_margin_minutes = 4\n")
+    assert load_config(path).publish.prune_margin_minutes == 4.0
+
+
+def test_the_template_states_the_prune_margin_floor():
+    assert "at least 4" in DEFAULT_CONFIG_TOML
