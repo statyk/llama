@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from tests_transmitter.helpers import build_package, make_root
@@ -86,3 +87,57 @@ def test_show_page_escapes_and_fills_every_placeholder():
     assert '<meta property="og:title" content="Band — 2005-11-01">' in html
     assert "<p>Para two.</p>" in html
     assert "$" not in html.split("<script>")[0]            # no unfilled placeholder
+
+
+def test_a_non_utf8_briefing_is_an_unreadable_briefing(tmp_path):
+    pkg = build_package(make_root(tmp_path))
+    (pkg / "briefing.md").write_bytes(b"\xff\xfe not utf-8 \x80")
+    manifest, briefing = site.read_package_notes(pkg)
+    assert manifest is not None and briefing is None
+
+
+def test_a_non_dict_briefing_field_is_an_unreadable_briefing(tmp_path):
+    pkg = build_package(make_root(tmp_path))
+    data = json.loads((pkg / "manifest.json").read_text())
+    data["briefing"] = "briefing.md"
+    (pkg / "manifest.json").write_text(json.dumps(data))
+    manifest, briefing = site.read_package_notes(pkg)
+    assert manifest is not None and briefing is None
+
+
+def test_null_manifest_fields_fall_back_to_cached_meta():
+    manifest = {"show": {"artist": "Real", "venue": None, "city": None, "date": "2005-11-01"},
+                "source": {"url": None, "lineage": None, "profile": None}}
+    notes = site.build_notes("s", manifest, None, [], META)
+    assert notes["artist"] == "Real" and notes["venue"] == "Club" and notes["city"] == "Lincoln, NE"
+    assert notes["url"] == META["url"] and notes["lineage"] == "AUD" and notes["profile"] == "indie"
+
+
+def test_cut_frame_is_an_absolute_frame_number():
+    # Starts at frame 1000, cut at absolute frame 1040 (40 frames in). A relative
+    # reading would put the cut at 2040 and keep every file.
+    row = _row(0, "a", 1000, frames=1000, cut_frame=1040)
+    got = site.file_starts(row, _analysis("a"), 33_075, EPOCH)
+    assert [f["title"] for f in got] == ["DJ intro (set 1)"]
+    assert site.row_span_us(row, EPOCH)[1] == EPOCH.epoch_us + grid.frame_to_us(1040)
+
+
+def test_timeline_lower_bound_is_24_hours_before_now():
+    day_frames = site.DAY_US // grid.frame_to_us(1)      # frames in 24 h, floor
+    old = _row(0, "a", 0, frames=1000)                   # ends at frame 1000
+    now = EPOCH.epoch_us + grid.frame_to_us(1000) + site.DAY_US
+    rows = [old, _row(1, "b", 1000 + day_frames + 1000, frames=1000)]
+    analyses = {k: _analysis(k) for k in "ab"}
+    # "a" ends exactly 24 h before now: excluded; "b" is inside the window.
+    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=10_000, pause_samples=0)
+    assert [s["slug"] for s in tl["shows"]] == ["show-b"]
+    just_in = site.build_timeline(rows, analyses, EPOCH, now_us=now - 1, last_n=10_000, pause_samples=0)
+    assert [s["slug"] for s in just_in["shows"]] == ["show-a", "show-b"]
+
+
+def test_recent_is_capped_at_ten_newest_first():
+    rows = [_row(i, f"k{i}", i * 1000, frames=1000) for i in range(12)]
+    analyses = {f"k{i}": _analysis(f"k{i}") for i in range(12)}
+    now = EPOCH.epoch_us + grid.frame_to_us(12 * 1000)    # all twelve have ended
+    tl = site.build_timeline(rows, analyses, EPOCH, now_us=now, last_n=10_000, pause_samples=0)
+    assert tl["recent"] == [f"show-k{i}" for i in range(11, 1, -1)]

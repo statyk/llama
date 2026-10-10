@@ -80,10 +80,13 @@ def read_package_notes(pkg_dir: Path) -> tuple[dict | None, str | None]:
         return None, None
     if not isinstance(manifest, dict):
         return None, None
-    name = Path((manifest.get("briefing") or {}).get("file") or "briefing.md").name
+    ref = manifest.get("briefing")
+    if ref is not None and not isinstance(ref, dict):
+        return manifest, None
+    name = Path((ref or {}).get("file") or "briefing.md").name
     try:
         briefing = (Path(pkg_dir) / name).read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, ValueError):       # unreadable or not UTF-8: no briefing text
         briefing = None
     return manifest, briefing
 
@@ -94,15 +97,20 @@ def build_notes(slug: str, manifest: dict | None, briefing: str | None, airtimes
     show = manifest.get("show") or {}
     source = manifest.get("source") or {}
     tracks = manifest.get("tracks") or []
+
+    def pick(section: Mapping, key: str):
+        # Cached metadata fills a missing OR null field (llama writes null for unknown).
+        value = section.get(key)
+        return meta.get(key) if value is None else value
     return {
         "slug": slug,
-        "artist": show.get("artist", meta.get("artist")),
-        "date": show.get("date", meta.get("date")),
-        "venue": show.get("venue", meta.get("venue")),
-        "city": show.get("city", meta.get("city")),
-        "profile": source.get("profile", meta.get("profile")),
-        "url": source.get("url", meta.get("url")),
-        "lineage": source.get("lineage", meta.get("lineage")),
+        "artist": pick(show, "artist"),
+        "date": pick(show, "date"),
+        "venue": pick(show, "venue"),
+        "city": pick(show, "city"),
+        "profile": pick(source, "profile"),
+        "url": pick(source, "url"),
+        "lineage": pick(source, "lineage"),
         "briefing": briefing or "",
         "setlist": [{"set": t.get("set"), "title": t.get("title"), "segue": bool(t.get("segue"))}
                     for t in tracks if isinstance(t, dict)],

@@ -412,3 +412,39 @@ def test_the_second_mismatch_rule_is_per_slug(tmp_path):
     assert [r.slug for r in new_rows[:2]] == [a, b]
     assert st.engine.encoded[:2] == [a, b]
     assert sum("plan-changed" in m for m in logs) == 2
+
+
+def test_the_second_mismatch_rule_is_per_slug_for_package_changes(tmp_path):
+    # A frame-count mismatch on show A is already recorded when show B's package
+    # turns out to have changed: B is still re-planned in place under its own
+    # first mismatch, not excluded because A mismatched. (A re-plan normally
+    # re-reads every key, so B's stale key is injected into the first re-plan.)
+    st, logs = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    a, b = rows[0], rows[1]
+    real_planned, real_extend = st.planned_frames, st.extend
+    seen: set[str] = set()
+
+    def flaky_once(analysis):
+        if analysis.slug == a.slug and a.slug not in seen:
+            seen.add(a.slug)
+            return real_planned(analysis) + 1
+        return real_planned(analysis)
+
+    injected = []
+
+    def stale_extend(*args, **kw):
+        out = real_extend(*args, **kw)
+        if injected:
+            return out
+        injected.append(True)
+        return [dataclasses.replace(r, key="stale-key") if r.slug == b.slug else r for r in out]
+    st.planned_frames, st.extend = flaky_once, stale_extend
+    report = pipeline.render_step(st, NOW + 15 * 1_000_000)   # lead window reaches B
+    assert report.replanned == [a.slug, b.slug]
+    new_rows = read_plan(st.ws.plan_path)
+    real_key = next(s.key for s in st.scan_now(NOW) if s.slug == b.slug)
+    assert [(r.slug, r.start_frame) for r in new_rows[:2]] == [(a.slug, a.start_frame), (b.slug, b.start_frame)]
+    assert new_rows[1].key == real_key
+    assert st.engine.encoded[:2] == [a.slug, b.slug]
+    assert sum("plan-changed" in m for m in logs) == 2
