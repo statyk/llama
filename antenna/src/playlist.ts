@@ -59,6 +59,12 @@ export function offairPlaylist(fb: FallbackIndex, g: Grid, seqMs: number): strin
   ]);
 }
 
+/** The fallback the playlist may list, or null when none is published:
+ * horizon.fallback_version unset, its index.json missing/unreadable, or len < 1. */
+export function usableFallback(inp: Pick<PlaylistInputs, "horizon" | "fallback">): FallbackIndex | null {
+  return inp.fallback !== null && inp.horizon.fallback_version !== null && inp.fallback.len >= 1 ? inp.fallback : null;
+}
+
 /** The live playlist, or null when nothing can be listed safely (before the
  * epoch, or a fallback/notice is needed and none is published). A null means
  * "write nothing": players stall on a stale playlist rather than fetch a
@@ -66,7 +72,7 @@ export function offairPlaylist(fb: FallbackIndex, g: Grid, seqMs: number): strin
 export function buildPlaylist(inp: PlaylistInputs, cfg: PlaylistConfig): string | null {
   const h = inp.horizon;
   const g = gridOf(h);
-  const fb = inp.fallback !== null && h.fallback_version !== null && inp.fallback.len >= 1 ? inp.fallback : null;
+  const fb = usableFallback(inp);
   if (isOffair(inp, cfg)) return fb ? offairPlaylist(fb, g, inp.offairSeqMs ?? inp.nowMs) : null;
   const cur = indexAt(g, inp.nowMs);
   if (cur < 0) return null;
