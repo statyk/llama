@@ -17,6 +17,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from transmitter import adts
+
 HAVE_FFMPEG = shutil.which("ffmpeg") is not None
 requires_ffmpeg = pytest.mark.skipif(not HAVE_FFMPEG, reason="ffmpeg not on PATH")
 
@@ -110,3 +112,18 @@ def write_mp3(path: Path, pcm: np.ndarray, rate: int = 44_100) -> None:
          "-ac", str(channels), "-i", "pipe:0", "-c:a", "libmp3lame", "-b:a", "192k", str(path)],
         input=np.ascontiguousarray(pcm, dtype=np.float32).tobytes(), check=True,
     )
+
+
+def fake_frame(key: str, i: int) -> bytes:
+    """A valid ADTS frame whose payload names its show and index."""
+    return adts.build_frame(f"{key}:{i}".encode())
+
+
+def write_fake_show(path: Path, key: str, n_frames: int) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"".join(fake_frame(key, i) for i in range(n_frames)))
+
+
+def payloads(frames: list[bytes]) -> list[str]:
+    return [f[7:].decode() for f in frames]
