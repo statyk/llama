@@ -80,8 +80,10 @@ audio.addEventListener("error", () => {
 });
 // Pause from OS/lock-screen controls: treat as stop (stop() sets playing=false
 // before its own pause, so this cannot recurse).
+// A natural end fires pause then ended with audio.ended already true; stop()'s
+// load() would cancel that pending ended event and swallow the off-air notice.
 audio.addEventListener("pause", () => {
-  if (playing) stop();
+  if (playing && !audio.ended) stop();
 });
 playButton.addEventListener("click", () => (playing ? stop() : start()));
 retryButton.addEventListener("click", start);
