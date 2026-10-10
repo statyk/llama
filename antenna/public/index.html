@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>llama radio</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="llama radio">
+<meta property="og:description" content="Live concert recordings from the Live Music Archive, around the clock.">
+<link rel="stylesheet" href="style.css">
+<script src="assets/hls.min.js" defer></script>
+<script type="module" src="player.js"></script>
+</head>
+<body>
+<main class="player">
+  <h1>llama radio</h1>
+  <p id="now-playing" class="now-playing">Press play to tune in.</p>
+  <p><button id="play" type="button">Play</button></p>
+  <audio id="audio" preload="none"></audio>
+  <div id="notice" class="notice" hidden>
+    <p id="notice-text">The station is off the air.</p>
+    <p><button id="retry" type="button">Try again</button></p>
+  </div>
+  <p class="stream">Stream URL (VLC, apps): <code id="stream-url"></code></p>
+  <p class="credit">Recordings from the <a href="https://archive.org/details/etree">Live Music Archive</a>.
+     Non-commercial; no ads.</p>
+</main>
+</body>
+</html>
