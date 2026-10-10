@@ -342,8 +342,13 @@ def test_one_package_station_replans_in_place_after_a_revoice(tmp_path):
     assert any("plan-changed" in m and "package changed" in m for m in logs)
 
 
+UNSTABLE_MAX_CALLS = 10      # the guard needs 3-4; more means it stopped bounding the loop
+
+
 def _unstable(st, slug):
-    """Make `slug`'s planned frame count differ on every measurement."""
+    """Make `slug`'s planned frame count differ on every measurement. Past
+    UNSTABLE_MAX_CALLS it raises AssertionError, which render_step does not
+    catch, so a broken guard fails the test instead of hanging the suite."""
     calls = {"n": 0}
     real = st.planned_frames
 
@@ -351,6 +356,8 @@ def _unstable(st, slug):
         if analysis.slug != slug:
             return real(analysis)
         calls["n"] += 1
+        if calls["n"] > UNSTABLE_MAX_CALLS:
+            raise AssertionError(f"{slug} measured {calls['n']} times: the re-plan loop is unbounded")
         return real(analysis) + calls["n"]
     st.planned_frames = planned
     return calls
@@ -380,3 +387,28 @@ def test_a_lone_show_mismatching_twice_in_one_call_is_a_plan_error(tmp_path):
     # One in-place re-plan, then the second mismatch excludes it: bounded.
     assert sum("plan-changed" in m for m in logs) == 1
     assert st.engine.encoded == []
+
+
+def test_the_second_mismatch_rule_is_per_slug(tmp_path):
+    # Two different shows each mismatch ONCE in one call (a measurement that
+    # differs on its first read only): both are re-planned in place; neither
+    # is excluded because some OTHER show already mismatched.
+    st, logs = make_station(tmp_path)
+    rows = pipeline.plan_step(st, NOW)
+    a, b = rows[0].slug, rows[1].slug
+    assert a != b
+    real = st.planned_frames
+    seen: set[str] = set()
+
+    def flaky_once(analysis):
+        if analysis.slug in (a, b) and analysis.slug not in seen:
+            seen.add(analysis.slug)
+            return real(analysis) + 1
+        return real(analysis)
+    st.planned_frames = flaky_once
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == [a, b]
+    new_rows = read_plan(st.ws.plan_path)
+    assert [r.slug for r in new_rows[:2]] == [a, b]
+    assert st.engine.encoded[:2] == [a, b]
+    assert sum("plan-changed" in m for m in logs) == 2
