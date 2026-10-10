@@ -92,10 +92,19 @@ def analyze_show(show: Show, ffmpeg: str = "ffmpeg") -> ShowAnalysis:
 
 
 def load_cached(cache_dir: Path, key: str) -> ShowAnalysis | None:
-    data = read_json(Path(cache_dir) / f"{key}.json")
-    if not data or data.get("version") != ANALYSIS_VERSION or data.get("key") != key:
+    """The cached analysis, or None on a miss. A corrupt or wrong-shaped file
+    (truncated, not an object, missing or unexpected fields) is a miss, never
+    an error: callers only catch TransmitterError, so raising here would wedge
+    every plan/render tick until a human deleted the file. `load_or_analyze`
+    re-analyses and atomically overwrites it."""
+    try:
+        data = read_json(Path(cache_dir) / f"{key}.json")
+        if (not isinstance(data, dict) or data.get("version") != ANALYSIS_VERSION
+                or data.get("key") != key):
+            return None
+        return ShowAnalysis.from_json(data)
+    except (ValueError, TypeError, KeyError, AttributeError):   # JSONDecodeError is a ValueError
         return None
-    return ShowAnalysis.from_json(data)
 
 
 def load_or_analyze(cache_dir: Path, show: Show, ffmpeg: str = "ffmpeg") -> ShowAnalysis:

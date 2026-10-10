@@ -14,13 +14,18 @@ from transmitter.errors import ConfigError
 
 
 def atomic_write_bytes(path: Path, data: bytes) -> None:
-    """Unique temp file + rename: concurrent writers never interleave."""
+    """Unique temp file + rename: concurrent writers never interleave. The temp
+    file is fsynced before the rename, so a power loss cannot leave the name
+    pointing at a zero-length file (publish.json is the only record of what is
+    in R2; a truncated analysis cache entry would only cost a re-analysis)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, path)
     except BaseException:
         try:

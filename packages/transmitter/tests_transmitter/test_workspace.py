@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from transmitter import grid
@@ -12,6 +14,26 @@ def test_atomic_write_leaves_no_temp(tmp_path):
     atomic_write_bytes(target, b"two")
     assert target.read_bytes() == b"two"
     assert [p.name for p in target.parent.iterdir()] == ["b.bin"]
+
+
+def test_atomic_write_fsyncs_the_temp_file_before_the_rename(tmp_path, monkeypatch):
+    """A power loss after the rename must not leave a zero-length file: the
+    data is on disk before the new name points at it."""
+    calls = []
+    real_fsync, real_replace = os.fsync, os.replace
+
+    def fsync(fd):
+        calls.append(("fsync", os.fstat(fd).st_size))
+        real_fsync(fd)
+
+    def replace(src, dst):
+        calls.append(("replace", os.path.basename(dst)))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "fsync", fsync)
+    monkeypatch.setattr(os, "replace", replace)
+    atomic_write_bytes(tmp_path / "s.json", b"12345")
+    assert calls == [("fsync", 5), ("replace", "s.json")]
 
 
 def test_json_round_trip_and_default(tmp_path):

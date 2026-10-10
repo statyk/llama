@@ -1,6 +1,5 @@
 import time
 
-import numpy as np
 import pytest
 
 from tests_transmitter.helpers import build_package, make_root, requires_ffmpeg, stereo_sine, write_mp3
@@ -37,8 +36,12 @@ def test_show_analysis_json_round_trip():
 
 
 def _tone_writer(path, i):
-    if i in (0, 99):          # DJ clips: mono 24 kHz, like emcee's
-        write_mp3(path, stereo_sine(1.5, 300.0, 0.05, rate=24_000)[:, 0], rate=24_000)
+    # DJ clips: mono 24 kHz, like emcee's -- and LOUD, measuring ~-7.3 LUFS
+    # against the tracks' ~-14.8. Quiet clips would fall under ebur128's
+    # relative gate, so clip PCM leaking into the tracks meter would move the
+    # tracks reading by only ~0.3 dB; loud ones move it ~4.5 dB (to ~-10.3).
+    if i in (0, 99):
+        write_mp3(path, stereo_sine(1.5, 300.0, 0.7, rate=24_000)[:, 0], rate=24_000)
     else:
         write_mp3(path, stereo_sine(2.0, 440.0 + 110 * i, 0.2))
 
@@ -51,8 +54,12 @@ def test_analyze_show_counts_samples_and_measures_tracks_apart_from_clips(tmp_pa
     assert [f.path for f in a.files] == [e.path for e in show.entries]
     assert [f.samples for f in a.files if f.kind == "track"] == [88_200, 88_200]
     clips = [f for f in a.files if f.kind == "clip"]
-    assert all(f.i_lufs is not None and f.i_lufs < -25 for f in clips)
-    assert a.tracks_i_lufs == pytest.approx(20 * np.log10(0.2), abs=1.0)
+    assert len(clips) == 2
+    assert all(f.i_lufs is not None and f.i_lufs > a.tracks_i_lufs + 5 for f in clips)
+    # A stereo 550/660 Hz sine at amplitude 0.2 (-14.0 dBFS peak) measures
+    # -14.8 LUFS on ffmpeg 5.1 and 8.1 (BS.1770's -0.691 offset plus K-weighting
+    # below 1 kHz). Clip PCM in the tracks meter would read ~-10.3.
+    assert a.tracks_i_lufs == pytest.approx(-14.8, abs=0.5)
     assert a.meta["artist"] == "Band"
 
 
@@ -70,3 +77,32 @@ def test_load_or_analyze_caches_by_key(tmp_path, monkeypatch):
     assert analysis.load_or_analyze(tmp_path / "cache", show) == first
     assert analysis.load_cached(tmp_path / "cache", show.key) == first
     assert analysis.load_cached(tmp_path / "cache", "nope") is None
+
+
+@requires_ffmpeg
+@pytest.mark.parametrize("bad", [
+    lambda key: "",                                    # zero-length (power loss mid-write)
+    lambda key: "[]",                                  # valid JSON, not an object
+    lambda key: "[1]",                                 # ... and not falsy either
+    lambda key: '{"version": 1, "key": "%s", "slug": "s", "files": [{"bogus": 1}], '
+                '"tracks_i_lufs": null, "tracks_tp_dbfs": null, "meta": {}}' % key,
+], ids=["empty", "empty-list", "list", "wrong-shape"])
+def test_a_corrupt_cache_file_is_a_miss_and_is_rewritten(tmp_path, monkeypatch, bad):
+    pkg = build_package(make_root(tmp_path), tracks=1, audio=_tone_writer)
+    show = station.evaluate(pkg, now_s=time.time(), quiet_s=0)
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / f"{show.key}.json").write_text(bad(show.key))
+    assert analysis.load_cached(cache, show.key) is None
+
+    decoded = []
+    real = analysis.iter_decode
+
+    def counting(path, ffmpeg="ffmpeg"):
+        decoded.append(path)
+        return real(path, ffmpeg)
+
+    monkeypatch.setattr(analysis, "iter_decode", counting)
+    result = analysis.load_or_analyze(cache, show)
+    assert len(decoded) == len(show.entries)
+    assert analysis.load_cached(cache, show.key) == result
