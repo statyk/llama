@@ -298,8 +298,8 @@ fixed shuffled order, back to back with the inter-show gap.
 - **Output:** AAC-LC, 128 kbps CBR, stereo, 44.1 kHz. *(As built, 2026-10-10:
   ffmpeg's native `aac` encoder is ABR-like — silence encodes to small frames —
   so output is ~128 kbps on average, not strict CBR. Nothing depends on a
-  constant frame size: the grid counts frames, not bytes, and storage comes in
-  under the estimate below.)* Container candidates:
+  constant frame size: the grid counts frames, not bytes, and storage should come
+  in at or under the estimate below (not yet measured).)* Container candidates:
   packed audio (ADTS `.aac` with the ID3 timestamp per RFC 8216) first, fMP4
   second; the phase-1 spike chooses.
 - **Per-show encode, frame-count segmentation.** Each show — its whole

@@ -163,8 +163,9 @@ the station publicly until phase 2 (the cost guard) ships.**
    horizon if the workspace's `fallback.json` is lost later), so every
    `state/horizon.json` names a version. If that fallback is unusable in R2 anyway (its
    `index.json` deleted by hand, or with `len < 1`), off-air writes an **ENDLIST-only
-   playlist (no notice)**: no segments, just `#EXT-X-ENDLIST`, so players stop (the
-   player page shows its off-air notice). The clock still logs a structured
+   playlist (no notice)**: no segments, just `#EXT-X-ENDLIST`, so players stop (on
+   hls.js browsers the player page shows its off-air notice; native HLS players such as
+   Safari may instead show "The stream is unavailable right now."). The clock still logs a structured
    `offair-without-fallback` `console.error` once per invocation; fix it by re-running
    `fallback render`. The WAF kill switch (section 2 step 7) remains the hard stop.
 5. The clock's spend bounds (Cloudflare has no spending cap): at most **10 PUTs per
