@@ -157,7 +157,7 @@ show_gap_seconds = 2.0
 # endpoint_url is set. Keys come from the environment:
 # R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY.
 # account_id = "..."
-# bucket = "llama-radio"
+# bucket = "lma-radio"
 # endpoint_url = "https://..."
 # segments per publish batch (state/horizon.json advances once per batch)
 batch_segments = 360

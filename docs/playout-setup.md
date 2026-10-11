@@ -35,14 +35,14 @@ the station publicly until phase 2 (the cost guard) ships.**
    `CLOUDFLARE_ACCOUNT_ID=<the station account's ID>` (dashboard → the account's
    home page → *Account ID*), then check `npx wrangler whoami` from `antenna/`
    names the station account and `git status` does not list `.env`. Then
-   `npx wrangler r2 bucket create llama-radio`
+   `npx wrangler r2 bucket create lma-radio`
    (if you choose another name, change it in `antenna/wrangler.jsonc` and
    transmitter's `[publish] bucket`).
-2. Dashboard → R2 → `llama-radio` → Settings → **Custom Domains** → connect
+2. Dashboard → R2 → `lma-radio` → Settings → **Custom Domains** → connect
    `<host>` (a hostname on the station zone). Leave the `r2.dev` public URL
    **disabled** (r2.dev is uncached and would bill every request).
 3. R2 → **Manage API tokens** → create a token with *Object Read & Write* scoped to
-   `llama-radio` only. Put its key pair on hugo in the service's env file (mode 600,
+   `lma-radio` only. Put its key pair on hugo in the service's env file (mode 600,
    owned by the service user):
    ```
    R2_ACCESS_KEY_ID=...
@@ -161,13 +161,13 @@ the station publicly until phase 2 (the cost guard) ships.**
 2. `npx wrangler deploy --dry-run` first (bundling and config check; it was never
    executed during development), then `npx wrangler deploy` (cron `* * * * *`, R2
    binding, `workers_dev = false`, `preview_urls = false`, no routes).
-3. `ANTENNA_BUCKET=llama-radio npm run deploy:assets` (player page, off-air page,
+3. `ANTENNA_BUCKET=lma-radio npm run deploy:assets` (player page, off-air page,
    JS/CSS, hls.js; `node scripts/deploy-assets.mjs --dry-run` with `ANTENNA_BUCKET` set
    prints the `wrangler r2 object put` commands without running them).
 4. Off-air by hand (phase 1 has no `transmitter offair`): write
    `{"offair": true, "reason": "maintenance", "since": "<iso>", "until": null}` to
    `state/offair.json`:
-   `npx wrangler r2 object put llama-radio/state/offair.json --file offair.json --content-type application/json --remote`;
+   `npx wrangler r2 object put lma-radio/state/offair.json --file offair.json --content-type application/json --remote`;
    back on air: same with `"offair": false` (or delete the object). Within a minute
    `live.m3u8` becomes the notice + `#EXT-X-ENDLIST`, and back.
    **The notice needs a usable fallback.** transmitter never writes a horizon without

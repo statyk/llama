@@ -10,7 +10,7 @@
   "preview_urls": false,
   "triggers": { "crons": ["* * * * *"] },
   // The bucket name must match transmitter's [publish] bucket.
-  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "llama-radio" }],
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "lma-radio" }],
   "vars": {
     "PLAYLIST_WINDOW": "6",
     "GRACE_SEGMENTS": "3",
