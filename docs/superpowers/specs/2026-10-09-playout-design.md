@@ -295,7 +295,11 @@ fixed shuffled order, back to back with the inter-show gap.
 
 ### Renderer (phase 1)
 
-- **Output:** AAC-LC, 128 kbps CBR, stereo, 44.1 kHz. Container candidates:
+- **Output:** AAC-LC, 128 kbps CBR, stereo, 44.1 kHz. *(As built, 2026-10-10:
+  ffmpeg's native `aac` encoder is ABR-like — silence encodes to small frames —
+  so output is ~128 kbps on average, not strict CBR. Nothing depends on a
+  constant frame size: the grid counts frames, not bytes, and storage comes in
+  under the estimate below.)* Container candidates:
   packed audio (ADTS `.aac` with the ID3 timestamp per RFC 8216) first, fMP4
   second; the phase-1 spike chooses.
 - **Per-show encode, frame-count segmentation.** Each show — its whole
@@ -352,6 +356,16 @@ fixed shuffled order, back to back with the inter-show gap.
   ~3k Class B/month).
 - Prunes once `E + N·d < now − prune_margin` (default 10 min, so lagging players
   don't 404): advances `horizon.first`, then deletes by computed key range.
+  *(As built, 2026-10-10: `prune_margin_minutes` has a floor of 4 minutes,
+  `PRUNE_MARGIN_FLOOR_MINUTES`, derived from the live window + grace (9 × 10.24 s),
+  the playlist's max-age and a 120 s player-lag allowance; a value below it is a
+  `ConfigError`, not merely `≥ 0`.)*
+- *(As built, 2026-10-10: transmitter never writes a horizon without a recorded
+  fallback version. Publish uploads nothing — no segment, no horizon — until
+  `transmitter fallback render` has recorded one; prune stops (`no-fallback`,
+  before its horizon PUT and before any delete) if the record is lost later; and
+  `fallback render` writes the horizon only with its own version. So every
+  `state/horizon.json` names a `fallback_version`.)*
 - **Recovery after an outage longer than the lead:** a fresh contiguous run
   starts a short margin after now (the old run is left to prune) and begins a new
   show there;
@@ -383,7 +397,11 @@ the cost guard step (below), which also reconciles the blocked state; then reads
 writes the current playlist immediately, and loops until ~fire + 75 s (only CPU
 time is billed, so waiting is free), writing `live.m3u8` at every grid boundary
 `E + N·d` — at most `ceil(75/d) + 2` PUTs per invocation, skipping any whose
-bytes equal the last written — and rewriting `index.html` at a show boundary or
+bytes equal the last written — *(as built, 2026-10-10: the cap does not trust its
+inputs: it is `min(MAX_PUTS, ceil(loopMs/d) + 2)` with a hard `MAX_PUTS = 10`; a
+horizon whose `d` is not exactly 10.24 is refused (nothing written, logged
+`horizon-refused`); and a configured `LOOP_SECONDS` above 75 is clamped to 75 s,
+logged `loop-clamped`)* — and rewriting `index.html` at a show boundary or
 a change of blocked state. Overlapping invocations are harmless: the playlist is
 a pure function of the clock and its inputs. Playlist rules:
 
@@ -396,10 +414,21 @@ a pure function of the clock and its inputs. Playlist rules:
   segment `N mod len`, aligned to the same grid, with `EXT-X-DISCONTINUITY`
   before segment 0 of every loop iteration and at each switch in either
   direction; during pure fallback the discontinuity sequence is `floor(N/len)`.
+  *(As built, 2026-10-10: fallback segment `N` carries discontinuity number
+  `floor(N/len) + 1`, and `EXT-X-DISCONTINUITY-SEQUENCE` is chosen so that it
+  does. With `floor(N/len)` the sequence had to be clamped at 0 early in an
+  epoch (`N < len`), which renumbered segments between reloads — RFC 8216
+  §6.2.2 requires every remaining segment to keep its number.)*
   A live↔fallback transition may cost listeners one player reload or glitch;
 - blocked (see Cost guard), or `now > horizon.last + offair_after` (default
   24 h) → **off-air**: the notice segment `fallback/<version>/notice.aac`, then
-  `#EXT-X-ENDLIST`.
+  `#EXT-X-ENDLIST`. *(As built, 2026-10-10: when off-air applies but no usable
+  fallback exists — `fallback_version` null, its `index.json` missing or
+  unreadable, or `len < 1` — the clock writes an ENDLIST-only playlist: header,
+  `EXT-X-MEDIA-SEQUENCE` by the same rule as the notice playlist, and
+  `#EXT-X-ENDLIST`, with no segments. Players stop without the notice; the clock
+  logs `offair-without-fallback` once per invocation. Outside off-air, a window
+  that would need a missing fallback is still not written at all.)*
 
 The clock also alerts when the published lead (`horizon.last` − now) falls below
 a floor — catching a hung hugo (e.g. a hard NFS mount hang) that cannot alert for

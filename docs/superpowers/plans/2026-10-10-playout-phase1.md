@@ -4009,6 +4009,7 @@ git commit -m "feat(transmitter): per-show render with gapless joins, loudness g
   - `Station(ws, cfg, epoch, engine, scan=None, log=print)` with `scan_now(now_us) -> list[Show]`, `gap_frames`, `pause_samples`, `lead_us`, `until_frame(now_us)`, `start_margin_segments`, `frames_of(show) -> int`.
   - `plan_step(st, now_us, *, max_new=None) -> list[PlanRow]`.
   - `RenderReport(written: list[int], replanned: list[str], covered: bool)`; `render_step(st, now_us, *, limit=None) -> RenderReport` — raises `FrameCountDrift` on an encode/plan frame mismatch, and `LayoutError` when a row whose encode is missing has already started airing (`r.start_frame < n·441`): re-planning it would cut a show mid-air. Garbage-collects finished encodes and `render/shows/.*.tmp` files older than 1 h.
+    > **As built (final review, O3):** a row already on air whose encode is missing is **re-encoded** when its package is unchanged (same key, still eligible, same planned frame count); `LayoutError` is raised only when it cannot be re-made — package changed, no longer eligible, planned frame count changed, or the encode fails. A re-encode that comes out at a different frame count raises `FrameCountDrift`. See `pipeline.render_step`.
   - helpers: `FakeEngine(samples_per_file=60*44100, extra=1, fail=set(), drift=0)`, `make_station(tmp_path, n_packages=3, engine=None) -> tuple[Station, list[str]]`, constants `E`, `NOW`.
 
 - [ ] **Step 1: Write the failing tests**
