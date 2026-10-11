@@ -154,8 +154,38 @@ describe("buildPlaylist", () => {
   it("returns null rather than list a segment that does not exist", () => {
     expect(buildPlaylist({ nowMs: at(104), horizon: horizon(0, 100), fallback: null, offair: false }, CFG)).toBeNull();
     expect(buildPlaylist({ nowMs: at(104), horizon: horizon(0, 100, { fallback_version: null }), fallback: FB, offair: false }, CFG)).toBeNull();
-    expect(buildPlaylist({ nowMs: at(1000), horizon: horizon(0, 5000), fallback: null, offair: true }, CFG)).toBeNull();
     expect(buildPlaylist({ nowMs: at(50), horizon: horizon(0, 100), fallback: null, offair: false }, CFG)).not.toBeNull();
+  });
+
+  it("goes off-air with an ENDLIST-only playlist (no notice, no URI lines) when no fallback is usable", () => {
+    const cases = [
+      { horizon: horizon(0, 5000), fallback: null, offair: true }, // index.json missing
+      { horizon: horizon(0, 5000, { fallback_version: null }), fallback: FB, offair: true }, // never recorded
+      { horizon: horizon(0, 5000), fallback: { ...FB, len: 0 }, offair: true }, // empty loop
+    ];
+    for (const inp of cases) {
+      const pl = buildPlaylist({ ...inp, nowMs: at(1000) }, CFG)!;
+      expect(pl).not.toBeNull();
+      expect(entries(pl)).toEqual([]);
+      expect(pl.split("\n").filter((l) => l !== "" && !l.startsWith("#"))).toEqual([]);
+      expect(pl).not.toContain("#EXT-X-DISCONTINUITY");
+      expect(pl.trimEnd().endsWith("#EXT-X-ENDLIST")).toBe(true);
+      expect(mediaSequence(pl)).toBe(1000);
+    }
+    // Same MEDIA-SEQUENCE rule as the notice playlist: constant within an
+    // invocation (offairSeqMs), never below the live sequence.
+    const seqMs = at(1000) + 75_000;
+    const a = buildPlaylist({ ...cases[0], nowMs: at(1000), offairSeqMs: seqMs }, CFG)!;
+    const b = buildPlaylist({ ...cases[0], nowMs: at(1005), offairSeqMs: seqMs }, CFG)!;
+    expect(a).toBe(b);
+    const livePl = buildPlaylist({ ...cases[0], fallback: FB, offair: false, nowMs: at(1000) }, CFG)!;
+    expect(mediaSequence(a)).toBeGreaterThanOrEqual(mediaSequence(livePl));
+    // The staleness rule takes the same branch.
+    const end = E + 101 * D;
+    const stale = buildPlaylist({ horizon: horizon(0, 100), fallback: null, offair: false,
+                                  nowMs: end + CFG.offairAfterMs + 1 }, CFG)!;
+    expect(entries(stale)).toEqual([]);
+    expect(stale.trimEnd().endsWith("#EXT-X-ENDLIST")).toBe(true);
   });
 
   it("returns null before the epoch", () => {

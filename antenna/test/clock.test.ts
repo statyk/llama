@@ -117,16 +117,25 @@ describe("off-air without a usable fallback", () => {
       .map((c) => { try { return JSON.parse(String(c[0])); } catch { return null; } })
       .filter((o) => o?.event === "offair-without-fallback");
 
-  it("writes nothing but reports it loudly, once per invocation (state/offair.json)", async () => {
+  const uriLines = (body: string) => body.split("\n").filter((l) => l !== "" && !l.startsWith("#"));
+
+  it("writes the ENDLIST-only playlist once and reports it loudly, once per invocation (state/offair.json)", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const bucket = new MemoryBucket();
     bucket.seed("state/horizon.json", horizonDoc(E));
     bucket.seed("state/offair.json", { offair: true });
     const scheduledTime = E + 50 * D + 300;
     const r = await runClock({ bucket, ...fakeTime(scheduledTime + 40), scheduledTime, config: CFG });
-    expect(r.puts).toBe(0);
-    expect(playlistPuts(bucket)).toBe(0);
+    // One PUT per invocation: the body is constant (offairSeqMs), so every
+    // later boundary is an identical-bytes skip.
+    expect(r.puts).toBe(1);
+    expect(playlistPuts(bucket)).toBe(1);
+    expect(r.skipped).toBeGreaterThan(0);
+    const body = bucket.objects.get("live.m3u8")!.body;
+    expect(uriLines(body)).toEqual([]);
+    expect(body.trimEnd().endsWith("#EXT-X-ENDLIST")).toBe(true);
     expect(r.offairWithoutFallback).toMatch(/state\/offair\.json/);
+    expect(r.offairWithoutFallback).toMatch(/ENDLIST-only/);
     expect(r.offairWithoutFallback).toMatch(/fallback\/v1\/index\.json/);
     const logged = offairErrors(spy);
     expect(logged).toHaveLength(1);
@@ -139,7 +148,8 @@ describe("off-air without a usable fallback", () => {
     bucket.seed("state/horizon.json", { ...horizonDoc(E, 0, 100), fallback_version: null });
     const now = E + 101 * D + CFG.offairAfterMs + 1;
     const r = await runClock({ bucket, ...fakeTime(now), scheduledTime: now, config: CFG });
-    expect(r.puts).toBe(0);
+    expect(r.puts).toBe(1);
+    expect(uriLines(bucket.objects.get("live.m3u8")!.body)).toEqual([]);
     expect(r.offairWithoutFallback).toMatch(/stale/);
     expect(r.offairWithoutFallback).toMatch(/fallback_version/);
     expect(offairErrors(spy)).toHaveLength(1);

@@ -58,8 +58,8 @@ export interface ClockResult {
   puts: number;
   skipped: number;
   /** Set when off-air was in force but no usable fallback/notice exists, so
-   * nothing was written and the off-air lever did nothing (also logged once
-   * per invocation as a structured console.error). */
+   * the ENDLIST-only playlist (no notice) was written instead (also logged
+   * once per invocation as a structured console.error). */
   offairWithoutFallback: string | null;
   /** Set when the horizon was refused (d is not the grid constant); nothing written. */
   refused: string | null;
@@ -132,7 +132,7 @@ function offairWithoutFallback(inputs: ClockInputs, horizon: Horizon, nowMs: num
       : inputs.fallback === null
         ? `fallback/${horizon.fallback_version}/index.json is missing or unreadable`
         : `fallback/${horizon.fallback_version}/index.json has len < 1`;
-  return `off-air (${cause}) but no usable fallback (${missing}): live.m3u8 not written, so players keep the last playlist`;
+  return `off-air (${cause}) but no usable fallback (${missing}): live.m3u8 written as an ENDLIST-only playlist (no notice), so players stop`;
 }
 
 /**
@@ -177,19 +177,18 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     const nowMs = deps.now();
     const body = buildPlaylist({ nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair,
                                  offairSeqMs: deps.scheduledTime + config.loopMs }, config);
-    if (body === null) {
-      // Ruling: the off-air lever silently doing nothing must be loud. Once
-      // per invocation, not per attempt.
-      if (result.offairWithoutFallback === null) {
-        const reason = offairWithoutFallback(inputs, horizon, nowMs, config);
-        if (reason !== null) {
-          result.offairWithoutFallback = reason;
-          console.error(JSON.stringify({ event: "offair-without-fallback", reason, epoch_id: horizon.epoch_id,
-                                         fallback_version: horizon.fallback_version, scheduled: deps.scheduledTime }));
-        }
+    // Ruling: off-air without a usable fallback writes the ENDLIST-only
+    // playlist through the normal path below (cap and identical-bytes skip
+    // apply), but stays loud: the notice is missing. Once per invocation.
+    if (result.offairWithoutFallback === null) {
+      const reason = offairWithoutFallback(inputs, horizon, nowMs, config);
+      if (reason !== null) {
+        result.offairWithoutFallback = reason;
+        console.error(JSON.stringify({ event: "offair-without-fallback", reason, epoch_id: horizon.epoch_id,
+                                       fallback_version: horizon.fallback_version, scheduled: deps.scheduledTime }));
       }
-      return;
     }
+    if (body === null) return;
     if (!force && body === lastBody) {
       result.skipped++;
       return;

@@ -1,4 +1,4 @@
-import { findNowPlaying, nowPlayingText, playBlockedNotice, prefersNativeHls } from "./nowplaying.js";
+import { findNowPlaying, hlsErrorNotice, nowPlayingText, playBlockedNotice, prefersNativeHls } from "./nowplaying.js";
 
 const STREAM = "live.m3u8";
 const TIMELINE = "timeline.json";
@@ -57,9 +57,8 @@ function start() {
       if (data.details && data.details.live === false) offAir("The station is off the air.");
     });
     hls.on(window.Hls.Events.ERROR, (_event, data) => {
-      const code = data.response && data.response.code;
-      if (code === 403) offAir("The station is off the air.");
-      else if (data.fatal) offAir("The stream is unavailable right now.");
+      const text = hlsErrorNotice(data);
+      if (text) offAir(text);
     });
     hls.loadSource(STREAM);
     hls.attachMedia(audio);

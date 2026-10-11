@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findNowPlaying, playBlockedNotice, nowPlayingText, prefersNativeHls } from "../public/nowplaying.js";
+import { findNowPlaying, hlsErrorNotice, playBlockedNotice, nowPlayingText, prefersNativeHls } from "../public/nowplaying.js";
 
 const TIMELINE = {
   shows: [
@@ -68,5 +68,21 @@ describe("playBlockedNotice", () => {
     expect(playBlockedNotice({ name: "NotAllowedError" }, true)).toMatch(/blocked/);
     expect(playBlockedNotice({ name: "AbortError" }, true)).toBeNull();
     expect(playBlockedNotice({ name: "NotAllowedError" }, false)).toBeNull();
+  });
+});
+
+describe("hlsErrorNotice", () => {
+  it("treats the clock's ENDLIST-only playlist (levelEmptyError, non-fatal) as off-air", () => {
+    expect(hlsErrorNotice({ details: "levelEmptyError", fatal: false })).toBe("The station is off the air.");
+  });
+  it("treats a 403 as off-air and other fatal errors as unavailable", () => {
+    expect(hlsErrorNotice({ details: "levelLoadError", fatal: false, response: { code: 403 } }))
+      .toBe("The station is off the air.");
+    expect(hlsErrorNotice({ details: "fragLoadError", fatal: true, response: { code: 500 } }))
+      .toBe("The stream is unavailable right now.");
+  });
+  it("lets hls.js recover from any other non-fatal error", () => {
+    expect(hlsErrorNotice({ details: "fragLoadError", fatal: false, response: { code: 404 } })).toBeNull();
+    expect(hlsErrorNotice({ details: "bufferStalledError", fatal: false })).toBeNull();
   });
 });

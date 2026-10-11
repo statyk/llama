@@ -19,6 +19,17 @@ export function playBlockedNotice(err, stillPlaying) {
   return "Playback was blocked; press Try again.";
 }
 
+/** Notice text for an hls.js ERROR event, or null to let hls.js recover. A
+ * 403 is the kill switch; levelEmptyError is the clock's ENDLIST-only
+ * playlist (off-air with no notice), which hls.js reports as a non-fatal
+ * error rather than a LEVEL_LOADED it would otherwise keep reloading. */
+export function hlsErrorNotice(data) {
+  const code = data && data.response && data.response.code;
+  if (code === 403 || (data && data.details === "levelEmptyError")) return "The station is off the air.";
+  if (data && data.fatal) return "The stream is unavailable right now.";
+  return null;
+}
+
 /** Timeline contract: shows[].files[] are sorted by start (the writer emits
  * them in play order); the early `break` below relies on it. */
 export function findNowPlaying(timeline, atMs) {

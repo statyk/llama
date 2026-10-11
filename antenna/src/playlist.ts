@@ -59,6 +59,21 @@ export function offairPlaylist(fb: FallbackIndex, g: Grid, seqMs: number): strin
   ]);
 }
 
+/** Off-air with no usable fallback (ruling, 2026-10-10): a zero-segment
+ * playlist, header + MEDIA-SEQUENCE + ENDLIST and no URI lines, so players stop
+ * instead of stalling on a stale playlist. It lists nothing, so it can never
+ * name a segment that does not exist. Same MEDIA-SEQUENCE rule as
+ * offairPlaylist. */
+export function endlistOnly(g: Grid, seqMs: number): string {
+  return lines([
+    "#EXTM3U",
+    "#EXT-X-VERSION:3",
+    `#EXT-X-TARGETDURATION:${Math.ceil(g.dMs / 1000)}`,
+    `#EXT-X-MEDIA-SEQUENCE:${Math.max(0, indexAt(g, seqMs))}`,
+    "#EXT-X-ENDLIST",
+  ]);
+}
+
 /** The fallback the playlist may list, or null when none is published:
  * horizon.fallback_version unset, its index.json missing/unreadable, or len < 1. */
 export function usableFallback(inp: Pick<PlaylistInputs, "horizon" | "fallback">): FallbackIndex | null {
@@ -66,14 +81,18 @@ export function usableFallback(inp: Pick<PlaylistInputs, "horizon" | "fallback">
 }
 
 /** The live playlist, or null when nothing can be listed safely (before the
- * epoch, or a fallback/notice is needed and none is published). A null means
- * "write nothing": players stall on a stale playlist rather than fetch a
- * segment that does not exist. */
+ * epoch, or a fallback loop entry is needed and none is published). A null
+ * means "write nothing": players stall on a stale playlist rather than fetch a
+ * segment that does not exist. Off-air never returns null: without a usable
+ * fallback it is the ENDLIST-only playlist (no notice). */
 export function buildPlaylist(inp: PlaylistInputs, cfg: PlaylistConfig): string | null {
   const h = inp.horizon;
   const g = gridOf(h);
   const fb = usableFallback(inp);
-  if (isOffair(inp, cfg)) return fb ? offairPlaylist(fb, g, inp.offairSeqMs ?? inp.nowMs) : null;
+  if (isOffair(inp, cfg)) {
+    const seqMs = inp.offairSeqMs ?? inp.nowMs;
+    return fb ? offairPlaylist(fb, g, seqMs) : endlistOnly(g, seqMs);
+  }
   const cur = indexAt(g, inp.nowMs);
   if (cur < 0) return null;
   const entries = windowEntries(cur, h, cfg);
