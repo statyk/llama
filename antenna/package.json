@@ -1,0 +1,24 @@
+{
+  "name": "antenna",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types",
+    "deploy": "wrangler deploy",
+    "deploy:assets": "node scripts/deploy-assets.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.149.0"
+  },
+  "dependencies": {
+    "hls.js": "^1.7.3"
+  }
+}

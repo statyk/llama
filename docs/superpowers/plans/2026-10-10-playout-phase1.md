@@ -1822,7 +1822,7 @@ class PublishConfig(_StrictModel):
     # horizon rewrites (at most one per prune_min_segments, ~141/day at 60)
     # ~= 8.9k/day.
     daily_put_budget: int = Field(default=17_500, ge=1)
-    prune_margin_minutes: float = Field(default=10.0, ge=0)
+    prune_margin_minutes: float = Field(default=10.0, ge=0)   # as built: ge=PRUNE_MARGIN_FLOOR_MINUTES (4), Task 12
     # prune (one horizon PUT + free deletes) only once this many are prunable
     prune_min_segments: int = Field(default=60, ge=1)
     guard_check_minutes: float = Field(default=15.0, ge=0)
@@ -4009,6 +4009,7 @@ git commit -m "feat(transmitter): per-show render with gapless joins, loudness g
   - `Station(ws, cfg, epoch, engine, scan=None, log=print)` with `scan_now(now_us) -> list[Show]`, `gap_frames`, `pause_samples`, `lead_us`, `until_frame(now_us)`, `start_margin_segments`, `frames_of(show) -> int`.
   - `plan_step(st, now_us, *, max_new=None) -> list[PlanRow]`.
   - `RenderReport(written: list[int], replanned: list[str], covered: bool)`; `render_step(st, now_us, *, limit=None) -> RenderReport` — raises `FrameCountDrift` on an encode/plan frame mismatch, and `LayoutError` when a row whose encode is missing has already started airing (`r.start_frame < n·441`): re-planning it would cut a show mid-air. Garbage-collects finished encodes and `render/shows/.*.tmp` files older than 1 h.
+    > **As built (final review, O3):** a row already on air whose encode is missing is **re-encoded** when its package is unchanged (same key, still eligible, same planned frame count); `LayoutError` is raised only when it cannot be re-made — package changed, no longer eligible, planned frame count changed, or the encode fails. A re-encode that comes out at a different frame count raises `FrameCountDrift`. See `pipeline.render_step`.
   - helpers: `FakeEngine(samples_per_file=60*44100, extra=1, fail=set(), drift=0)`, `make_station(tmp_path, n_packages=3, engine=None) -> tuple[Station, list[str]]`, constants `E`, `NOW`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -6977,6 +6978,8 @@ git commit -m "feat(antenna): Worker scaffold and the wall-clock playlist builde
 ### Task 16: antenna clock loop and the Worker entry
 
 **Model hint:** opus
+
+> **As built (final review):** the PUT cap is not formula-only — `putCap` is `min(MAX_PUTS, ceil(loopMs/d) + 2)` with a hard `MAX_PUTS = 10`; a horizon whose `d` is not exactly 10.24 is refused (`horizon-refused`, nothing written); and `LOOP_SECONDS` is clamped to 75 s (`loop-clamped`). See `antenna/src/clock.ts`.
 
 **Files:**
 - Create: `antenna/src/clock.ts`

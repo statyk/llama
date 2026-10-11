@@ -9,16 +9,19 @@ against the `fake` LLM backend and real archive.org fixtures; see
 `docs/superpowers/plans/2026-07-14-llama.md` for the task-by-task
 implementation plan this was built from. The approved design spec is
 `docs/superpowers/specs/2026-07-14-llama-design.md`.
+The repo also holds `transmitter` (playout, phase 1; not a released/signed
+binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+(a Cloudflare Worker + static player).
 
 ## Commands
 
-- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e packages/herder -e "packages/llama[dev]" -e packages/emcee`
+- Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -e packages/herder -e "packages/llama[dev]" -e packages/emcee -e "packages/transmitter[dev]"`
 - Test: `pytest -q` (offline, deterministic). Single test: `pytest packages/llama/tests/test_setlist.py::test_parses_sets_segues_and_confidence -q`
   **In a git worktree, give the worktree its own `.venv` and run `./.venv/bin/pytest`.**
   The repo-root `.venv` installs llama editable against the *main* checkout, so a
   bare `pytest` from a worktree collects the worktree's tests but imports the main
   checkout's source — it silently tests the wrong code and still passes.
-  **And never run a `.venv/bin/*` console script from a COPY of the tree.** `pytest`, `pip`, `llama` and `emcee` are all shebanged with an absolute path to the original venv's interpreter, so from a copy they act on the original: `.venv/bin/pytest` tests the worktree instead of the copy (so a mutation you applied does nothing and the suite stays green), and `.venv/bin/pip install -e` reinstalls into the worktree's venv and repoints its `_editable_impl_*.pth` at your copy — poisoning every other process using that worktree, invisibly to `git status`. Use `python -m <tool>`, or shadow with `PYTHONPATH`. To check: `./.venv/bin/python -c "import llama; print(llama.__file__)"` must resolve inside the tree you meant to test.
+  **And never run a `.venv/bin/*` console script from a COPY of the tree.** `pytest`, `pip`, `llama`, `emcee` and `transmitter` are all shebanged with an absolute path to the original venv's interpreter, so from a copy they act on the original: `.venv/bin/pytest` tests the worktree instead of the copy (so a mutation you applied does nothing and the suite stays green), and `.venv/bin/pip install -e` reinstalls into the worktree's venv and repoints its `_editable_impl_*.pth` at your copy — poisoning every other process using that worktree, invisibly to `git status`. Use `python -m <tool>`, or shadow with `PYTHONPATH`. To check: `./.venv/bin/python -c "import llama; print(llama.__file__)"` must resolve inside the tree you meant to test.
 - Live tests (real archive.org, no LLM): `pytest -m live -q`
 - Refresh a fixture: `python scripts/capture_fixture.py <identifier>`
 - Stitch a playlist into one mp3: `python3 scripts/stitch_m3u.py <playlist.m3u>`
@@ -127,11 +130,30 @@ implementation plan this was built from. The approved design spec is
   default like `[tts] chunk`; `--no-chunk` without a bed is the one render
   that is not loudness-normalized), `emcee presenter add/list/show/remove`
   (`presenters/<id>.toml`), `emcee config init`.
+- Run (transmitter, playout on hugo — phase 1): `transmitter run` (service
+  loop: plan/render once the lead drops below `low_water_hours`, and keep
+  filling until it is back at `lead_hours`; publish + prune every minute;
+  `--once` runs one tick), `transmitter plan|render|publish|status`,
+  `transmitter fallback render <loop> [--notice <file>]`, `transmitter config
+  init`. State in `~/.transmitter/` (`TRANSMITTER_ROOT`); R2 keys from
+  `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`. Tests:
+  `packages/transmitter/tests_transmitter/` (a package, NOT `tests/`: llama's
+  test modules are top-level and emcee's are the `tests` package, so the name
+  would collide); ffmpeg-dependent tests skip without ffmpeg;
+  `packages/transmitter/scripts/test-in-debian12.sh` runs them on hugo's
+  Python 3.11 + ffmpeg 5.1 (needs docker). Container spike:
+  `python -m transmitter.spike build|serve <dir>`.
+- antenna (cron-only Cloudflare Worker + static player): `cd antenna && npm
+  ci && npm test` (vitest in the Workers runtime via
+  `@cloudflare/vitest-plugin`), `npx wrangler deploy` (run `--dry-run` first;
+  see the runbook), `ANTENNA_BUCKET=<bucket> npm run deploy:assets`.
+  Cloud setup and the phase-1 verification checklist: `docs/playout-setup.md`.
 
 ## What this is
 
 Two Python CLIs — `llama` and `emcee` — that together carry an archive.org
-Live Music Archive (LMA) recording all the way to air. They ship as separate
+Live Music Archive (LMA) recording all the way to air (the playout side,
+`transmitter` + `antenna/`, is described at the end of this section). They ship as separate
 signed binaries and know nothing of each other's internals; the only
 contract between them is the delivered package on disk. Usage tilts heavily
 toward Grateful Dead shows (two sets + encore).
@@ -187,6 +209,52 @@ vet_research,
 overridable per task via `[llm.<task>]` `tier`/`model` or per backend via
 `[llm.tiers.<backend>]`; a failed validation's final retry escalates one
 tier (pins never escalate).
+
+`transmitter` (dist `llama-transmitter`, CLI `transmitter`) is the playout
+side, reading the station root (over NFS on hugo) and never importing llama or
+emcee (enforced by `test_no_llama_or_emcee_imports.py`). The stream is a
+function of the wall clock: segment N is AAC frames [441N, 441N+441) of one
+frame line whose frame 0 sits at the epoch, d = 10.24 s exactly; each show is
+encoded once (ffmpeg native `aac`, ADTS) and cut by counting frames, never by
+ffmpeg cut points. Segments go to R2 in ascending N and `state/horizon.json`
+only advances past confirmed PUTs: before the horizon PUT a batch persists
+its candidate `last` as the local `publish.json` `high_water`
+(`state.PublishState`), so a crash between the PUT and the save cannot let
+`plan_step` re-plan keys R2 may already list; the horizon is never rewritten
+below that mark (a batch under it is a "horizon held" — and `fallback render`
+likewise defers its horizon rewrite, the next publish batch carrying the
+version). `service.HeldTracker` alerts `horizon-held` after
+`HELD_ALERT_AFTER = 3` consecutive `publish_all` passes ending held, since
+each pass re-sends the same batch and spends PUT budget. Publish, prune and
+`fallback render` share a non-waiting flock (`publish.publish_lock`): when it
+is held they raise `PublishLocked`: `run` holds it only during its
+once-a-minute publish/prune step, so a manual `transmitter publish` while the
+service runs normally succeeds (serialized, spending PUTs from the same
+budget) and exits 1 with `error: ...` only when it overlaps that step, while
+`run`'s own step just logs a warning and retries next tick. `antenna/` is a
+cron-only Worker (no routes, `workers_dev = false`) that rewrites `live.m3u8`
+at every grid boundary, plus the static player; listeners only ever fetch
+cache-served R2 objects. Its clock bounds its own spend
+(`antenna/src/clock.ts`): `MAX_PUTS = 10` per invocation, a horizon whose `d`
+is not 10.24 is refused (`horizon-refused`, nothing written), and
+`LOOP_SECONDS` is clamped to 75 (`loop-clamped`). Off-air (from
+`state/offair.json`, or a horizon more than 24 h stale) plays the notice from
+the fallback, so transmitter publishes NOTHING — no segment, no horizon — until
+`fallback render` has recorded a fallback version in the workspace: every
+publish pass alerts `no fallback rendered` instead (the gate sits before the
+first PUT, since segment files are dropped only after a horizon PUT and would
+otherwise be re-PUT every tick), and prune likewise refuses to rewrite the
+horizon (`stopped: no-fallback`, before any delete) if `fallback.json` is lost
+later. Every horizon therefore names a fallback (publish, prune and `fallback
+render` are its only writers). If the named fallback is unusable in R2 anyway
+(its `index.json` deleted by hand, or `len < 1`), off-air writes an
+ENDLIST-only playlist (no notice; players stop) and logs
+`offair-without-fallback` once per invocation; the WAF kill switch remains the
+hard stop (`docs/playout-setup.md` section 4 step 4).
+transmitter must stay Python 3.11-compatible (hugo is Debian 12: Python 3.11,
+ffmpeg 5.1); the Debian-12 script above is the gate for that. Design:
+`docs/superpowers/specs/2026-10-09-playout-design.md` (phase 1 built; the cost
+guard, scheduler and full player are phases 2–4).
 
 ## Architecture (from the spec — the short version)
 

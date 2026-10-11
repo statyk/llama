@@ -12,3 +12,6 @@ packages/emcee/src/emcee/_version.py
 .coverage
 .claude/
 .worktrees/
+*.aac
+antenna/node_modules/
+antenna/.wrangler/

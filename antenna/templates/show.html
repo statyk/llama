@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>$title · $station</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="$station">
+<meta property="og:title" content="$title">
+<meta property="og:description" content="$description">
+<meta property="og:url" content="$page_url">
+<meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="show">
+<p><a href="../">← $station</a></p>
+<h1>$title</h1>
+<p class="where">$venue$city_suffix</p>
+<section><h2>About this show</h2>
+$briefing_html
+</section>
+<section><h2>Setlist</h2>
+$setlist_html
+</section>
+<section><h2>Source</h2>
+<p><a href="$archive_url">$archive_url</a></p>
+<p class="lineage">$lineage</p>
+</section>
+<section><h2>Airtimes</h2>
+<ul id="airtimes" data-notes="../notes/$slug.json"><li>Loading…</li></ul>
+</section>
+</main>
+<script>
+(async () => {
+  const ul = document.getElementById("airtimes");
+  const item = (text) => Object.assign(document.createElement("li"), { textContent: text });
+  try {
+    const notes = await (await fetch(ul.dataset.notes)).json();
+    const fmt = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+    const times = (notes.airtimes || []).map((a) => item(fmt.format(new Date(a.start))));
+    ul.replaceChildren(...(times.length ? times : [item("Not currently scheduled.")]));
+  } catch (e) {
+    ul.replaceChildren(item("Airtimes unavailable."));
+  }
+})();
+</script>
+</body>
+</html>

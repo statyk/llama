@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "antenna",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  // Cron-only: no routes, no fetch handler, and no public URL. A routeless
+  // Worker otherwise gets a public, billed *.workers.dev URL that the zone's
+  // WAF kill switch cannot reach (spec "Architecture").
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": { "crons": ["* * * * *"] },
+  // The bucket name must match transmitter's [publish] bucket.
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "llama-radio" }],
+  "vars": {
+    "PLAYLIST_WINDOW": "6",
+    "GRACE_SEGMENTS": "3",
+    "OFFAIR_AFTER_SECONDS": "86400",
+    "LOOP_SECONDS": "75",
+    "LIVE_MAX_AGE": "5"
+  },
+  // One log line per invocation (~1,440/day) stays inside the free allowance.
+  "observability": { "enabled": true }
+}
