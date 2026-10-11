@@ -103,7 +103,7 @@ the station publicly until phase 2 (the cost guard) ships.**
    fallback once `state/horizon.json` names it. **Run this before step 5:** until a
    fallback version is recorded in the workspace, `run`/`publish` upload nothing at all
    (no segment, no horizon) and every publish pass logs an `ALERT publish: no fallback
-   rendered …` line — a horizon without a fallback would leave the off-air lever inert.
+   rendered …` line — a horizon without a fallback would leave off-air with no notice.
 5. Start: `transmitter run` with the env file loaded. In phase 1 it runs as the
    operator's own user (phase 2 ships a system unit, with `WatchdogSec` and journald).
    Once: `sudo loginctl enable-linger <user>`, so the user's services keep running
@@ -157,13 +157,16 @@ the station publicly until phase 2 (the cost guard) ships.**
    `npx wrangler r2 object put llama-radio/state/offair.json --file offair.json --content-type application/json --remote`;
    back on air: same with `"offair": false` (or delete the object). Within a minute
    `live.m3u8` becomes the notice + `#EXT-X-ENDLIST`, and back.
-   **Off-air needs a usable fallback.** transmitter never publishes a horizon without
-   one (section 3 step 4: it publishes nothing until `fallback render` has run), so
-   every `state/horizon.json` names a version. If that fallback is unusable in R2
-   anyway (its `index.json` deleted by hand, or with `len < 1`) the clock writes
-   nothing: it logs a structured `offair-without-fallback` `console.error` once per
-   invocation, and players keep the last `live.m3u8` they were given. In that state the
-   WAF kill switch (section 2 step 7) is the only hard stop.
+   **The notice needs a usable fallback.** transmitter never writes a horizon without
+   one (section 3 step 4: it publishes nothing until `fallback render` has run, and
+   prune stops with `ALERT prune: stopped: no-fallback …` rather than rewrite the
+   horizon if the workspace's `fallback.json` is lost later), so every
+   `state/horizon.json` names a version. If that fallback is unusable in R2 anyway (its
+   `index.json` deleted by hand, or with `len < 1`), off-air writes an **ENDLIST-only
+   playlist (no notice)**: no segments, just `#EXT-X-ENDLIST`, so players stop (the
+   player page shows its off-air notice). The clock still logs a structured
+   `offair-without-fallback` `console.error` once per invocation; fix it by re-running
+   `fallback render`. The WAF kill switch (section 2 step 7) remains the hard stop.
 5. The clock's spend bounds (Cloudflare has no spending cap): at most **10 PUTs per
    invocation** (`MAX_PUTS`), a horizon whose segment duration `d` is not 10.24 s is
    **refused** (nothing written; logged as `horizon-refused`), and the loop never runs

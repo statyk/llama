@@ -238,16 +238,19 @@ cache-served R2 objects. Its clock bounds its own spend
 (`antenna/src/clock.ts`): `MAX_PUTS = 10` per invocation, a horizon whose `d`
 is not 10.24 is refused (`horizon-refused`, nothing written), and
 `LOOP_SECONDS` is clamped to 75 (`loop-clamped`). Off-air (from
-`state/offair.json`, or a horizon more than 24 h stale) needs a usable
-fallback, so transmitter publishes NOTHING — no segment, no horizon — until
+`state/offair.json`, or a horizon more than 24 h stale) plays the notice from
+the fallback, so transmitter publishes NOTHING — no segment, no horizon — until
 `fallback render` has recorded a fallback version in the workspace: every
 publish pass alerts `no fallback rendered` instead (the gate sits before the
 first PUT, since segment files are dropped only after a horizon PUT and would
-otherwise be re-PUT every tick). Every horizon therefore names a fallback.
-If the named fallback is unusable in R2 anyway (its `index.json` deleted by
-hand, or `len < 1`) the clock writes nothing and logs
-`offair-without-fallback`, players keep the last playlist, and the WAF kill
-switch is the only hard stop (`docs/playout-setup.md` section 4 step 4).
+otherwise be re-PUT every tick), and prune likewise refuses to rewrite the
+horizon (`stopped: no-fallback`, before any delete) if `fallback.json` is lost
+later. Every horizon therefore names a fallback (publish, prune and `fallback
+render` are its only writers). If the named fallback is unusable in R2 anyway
+(its `index.json` deleted by hand, or `len < 1`), off-air writes an
+ENDLIST-only playlist (no notice; players stop) and logs
+`offair-without-fallback` once per invocation; the WAF kill switch remains the
+hard stop (`docs/playout-setup.md` section 4 step 4).
 transmitter must stay Python 3.11-compatible (hugo is Debian 12: Python 3.11,
 ffmpeg 5.1); the Debian-12 script above is the gate for that. Design:
 `docs/superpowers/specs/2026-10-09-playout-design.md` (phase 1 built; the cost
