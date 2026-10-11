@@ -22,7 +22,7 @@ the station publicly until phase 2 (the cost guard) ships.**
 
 ## 1. R2 bucket and custom domain
 
-1. `cd antenna && npx wrangler login`, then `npx wrangler r2 bucket create llama-radio`
+1. `cd antenna && npm ci` (installs the pinned wrangler), then `npx wrangler login`, then `npx wrangler r2 bucket create llama-radio`
    (if you choose another name, change it in `antenna/wrangler.jsonc` and
    transmitter's `[publish] bucket`).
 2. Dashboard → R2 → `llama-radio` → Settings → **Custom Domains** → connect
@@ -75,7 +75,7 @@ the station publicly until phase 2 (the cost guard) ships.**
    `http.host eq "<host>"`, **100 requests per 10 seconds per IP**, action Block for 10 s.
    (A playing stream makes ~2 requests per 10 s; dozens of listeners behind one NAT fit.)
 9. **Billing → Budget alerts**: two alerts at **50%** and **100%** of
-   (`monthly_budget_usd` − $5) — they exclude subscription fees, and are next-day and
+   (your monthly ceiling, phase 2's `monthly_budget_usd`, minus $5; it is not a transmitter config key, so do not add it to `config.toml`) — they exclude subscription fees, and are next-day and
    informational only.
 
 ## 3. transmitter on hugo
@@ -84,8 +84,8 @@ the station publicly until phase 2 (the cost guard) ships.**
 2. On the share, once: `touch /nfs/media/<station>/.station-root` (create it from the
    Mac side on the SMB path if hugo's mount is read-only). Without the marker, `plan`
    refuses — a down NFS mount is an empty directory on hugo.
-3. `transmitter config init`, then edit `~/.transmitter/config.toml`
-   (or `$TRANSMITTER_ROOT/config.toml` when that is set):
+3. `transmitter config init`, then edit the config file, always
+   `$TRANSMITTER_ROOT/config.toml` when that is set, else `~/.transmitter/config.toml`:
    `[station] root`, `[publish] account_id` and `bucket`, `[antenna] dir = "<repo>/antenna"`
    and `site_url = "https://<host>"`. Unknown keys are errors, not ignored.
    - The show-page template is read from `<[antenna] dir>/templates/show.html`; without
@@ -95,7 +95,8 @@ the station publicly until phase 2 (the cost guard) ships.**
      time a player may still request a segment (live window + grace + CDN max-age + lag
      allowance); do not go below it.
 4. Fallback loop and off-air notice (once; re-run only to change them):
-   `transmitter fallback render station-id.mp3 --notice offair-notice.mp3`.
+   `transmitter fallback render station-id.mp3 --notice offair-notice.mp3`, run with the
+   env file loaded (`set -a; . <env file>; set +a`) since it uploads to R2.
    It prints `horizon updated` when `state/horizon.json` now names the fallback, or
    `horizon deferred` when there is no horizon yet (or the high-water rule applies); in
    the deferred case the next publish batch carries the version. The antenna only sees the
@@ -112,19 +113,27 @@ the station publicly until phase 2 (the cost guard) ships.**
    and the fallback version.
 7. **The epoch is fixed at first start.** The first command that opens the station
    (`plan`, `render`, `publish`, `run`, `fallback render`) creates `epoch.json` in the
-   transmitter workspace (`~/.transmitter` or `$TRANSMITTER_ROOT`, i.e. the config's
-   top-level `root`) and every later run reuses it. There is no command to change it, and
+   workspace (`root` in config; default `~/.transmitter` or `$TRANSMITTER_ROOT`) and every later run reuses it. There is no command to change it, and
    publishing refuses (`published state belongs to epoch …`) if `publish.json` names a
    different one. **Avoid** accidental re-epoching: do not delete `epoch.json`, and do not
    point `root`/`TRANSMITTER_ROOT` at a fresh directory (that creates a new epoch there).
    A deliberate re-epoch is a manual re-render-everything operation (stop the service,
-   start a fresh workspace, render and publish again under `seg/<new epoch_id>/`).
+   start a fresh workspace, then **before the first publish** re-run
+   `transmitter fallback render …` (step 4) in it, render and publish again under
+   `seg/<new epoch_id>/`). The fallback version is recorded per workspace
+   (`<root>/fallback.json`); without that step the new `state/horizon.json` has
+   `fallback_version: null`, the off-air lever (and stale-horizon off-air) writes nothing,
+   and the start-delay window before the first new segment is dead air. If the new
+   workspace comes from moving `TRANSMITTER_ROOT`, copy `config.toml` there too (it is
+   read from that directory). The old epoch's `seg/<old epoch_id>/` objects are orphaned
+   (prune only deletes what the local `publish.json` records, ~1.4 GB at a 24 h lead):
+   delete them by hand (dashboard or an R2 lifecycle rule) once listeners have moved.
    Consequence for listeners: segment numbering restarts at 0, so `EXT-X-MEDIA-SEQUENCE`
    drops, and players must **reload the page** to follow it.
 
 ## 4. antenna
 
-1. `cd antenna && npm ci && npm test`
+1. `cd antenna && npm test` (after `npm ci`, section 1 step 1)
 2. `npx wrangler deploy --dry-run` first (bundling and config check; it was never
    executed during development), then `npx wrangler deploy` (cron `* * * * *`, R2
    binding, `workers_dev = false`, `preview_urls = false`, no routes).
