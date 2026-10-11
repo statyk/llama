@@ -112,6 +112,15 @@ the station publicly until phase 2 (the cost guard) ships.**
    --unit=transmitter --property=EnvironmentFile=<env file> --property=Restart=always
    --property=RestartSec=30 ~/.venvs/transmitter/bin/transmitter run` (restarted 30 s
    after any crash), and check `journalctl --user -u transmitter` for `ALERT` lines.
+   **First start:** the first show begins `[planner] start_delay_minutes` (default 10)
+   after `run` starts, but its analyse + encode on hugo (two full decodes over NFS plus
+   loudness measurement, then the first batch's uploads) can take longer than that; the
+   first minutes of the first show then never air (nothing is listed until its first
+   batch is up). If that matters, raise `start_delay_minutes` in `config.toml` for the
+   first start (e.g. 20–30) and put it back afterwards; it only affects fresh runs.
+   **While the service runs, do not run `transmitter plan` or `transmitter render` by
+   hand:** they take no lock against `run`'s own plan/render step, so both can rewrite
+   `plan.jsonl` at once. `transmitter publish` and `transmitter status` are safe.
 6. `transmitter status` shows the epoch, plan, the show on air, the published lead
    and the fallback version.
 7. **The epoch is fixed at first start.** The first command that opens the station
@@ -189,8 +198,28 @@ phase-1 ledger. Each needs the real account.
 - [ ] **hls.js, Safari/iOS and VLC play the chosen container with PROGRAM-DATE-TIME,
       and stop on ENDLIST and on 403:** play `https://<host>/` in Chrome, Safari (macOS,
       iOS) and `https://<host>/live.m3u8` in VLC; set `state/offair.json` → every player
-      stops with the notice; then temporarily enable the kill-switch rule → `live.m3u8`
-      returns 403 and the page shows the off-air notice with a manual retry; disable it.
+      stops with the notice; clear it, **start playback again first, and only then**
+      temporarily enable the kill-switch rule → `live.m3u8` returns 403 and the
+      already-loaded page shows the off-air notice with a manual retry; disable it. The
+      order matters: the kill-switch rule (section 2 step 7) blocks `player.js`,
+      `nowplaying.js` and `assets/hls.min.js`, so a page loaded *after* it is enabled
+      shows a dead Play button, not the notice — that is expected, not a failure.
+- [ ] **Players survive the fallback→live switch, where
+      `EXT-X-DISCONTINUITY-SEQUENCE` restarts at 0.** The trigger is a window that
+      mixes fallback and live and then becomes pure live, which happens at a fresh
+      run's start: on the **first start** (section 3 step 5) the first horizon is
+      normally published minutes before its first segment airs, and until then the
+      window is the fallback loop (a larger `start_delay_minutes`, as above, widens
+      that interval). Attach players (Chrome/hls.js, Safari, VLC) as soon as
+      `transmitter status` first shows `published segments …` while `on air` still
+      says not started, and keep them playing through the switch to live and for at least
+      70 s after (until the 6-segment window holds only live segments and the
+      discontinuity sequence drops to 0); confirm each player returns to live on its
+      own or needs exactly one reload, and record which. (Merely stopping
+      `transmitter run` does **not** exercise this: the published lead, 24 h by
+      default, keeps the clock serving live. The other trigger is a restart after an
+      outage longer than the lead, which reaches the same switch via the grace
+      window and a new run.)
 - [ ] **archive.org MP3 derivatives carry LAME/Xing gapless info (one segued pair):**
       for two consecutive segued tracks in a delivered package,
       `ffprobe -v debug "<track>.mp3" 2>&1 | grep -E '^\[mp3 .*\] pad '` prints

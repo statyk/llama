@@ -1822,7 +1822,7 @@ class PublishConfig(_StrictModel):
     # horizon rewrites (at most one per prune_min_segments, ~141/day at 60)
     # ~= 8.9k/day.
     daily_put_budget: int = Field(default=17_500, ge=1)
-    prune_margin_minutes: float = Field(default=10.0, ge=0)
+    prune_margin_minutes: float = Field(default=10.0, ge=0)   # as built: ge=PRUNE_MARGIN_FLOOR_MINUTES (4), Task 12
     # prune (one horizon PUT + free deletes) only once this many are prunable
     prune_min_segments: int = Field(default=60, ge=1)
     guard_check_minutes: float = Field(default=15.0, ge=0)
@@ -6977,6 +6977,8 @@ git commit -m "feat(antenna): Worker scaffold and the wall-clock playlist builde
 ### Task 16: antenna clock loop and the Worker entry
 
 **Model hint:** opus
+
+> **As built (final review):** the PUT cap is not formula-only — `putCap` is `min(MAX_PUTS, ceil(loopMs/d) + 2)` with a hard `MAX_PUTS = 10`; a horizon whose `d` is not exactly 10.24 is refused (`horizon-refused`, nothing written); and `LOOP_SECONDS` is clamped to 75 s (`loop-clamped`). See `antenna/src/clock.ts`.
 
 **Files:**
 - Create: `antenna/src/clock.ts`
