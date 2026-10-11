@@ -167,17 +167,65 @@ def test_frame_count_drift_is_fatal(tmp_path):
     assert not (st.ws.shows_dir / f"{rows[0].key}.aac").exists()   # a drifted encode is never frozen
 
 
-def test_render_step_refuses_to_replan_a_show_already_on_air(tmp_path):
-    st, _ = make_station(tmp_path)
+def _render_until_mid_show(st):
+    """Plan and render up to (not including) a segment one past rows[1]'s
+    start, so rows[1] is on air; return (rows, mid_n)."""
     rows = pipeline.plan_step(st, NOW)
     first_n = rows[0].start_frame // F
     mid_n = rows[1].start_frame // F + 1                    # starts after rows[1] does
     pipeline.render_step(st, NOW, limit=mid_n - first_n)     # stops just before mid_n
+    assert not (st.ws.seg_dir("etest") / f"{mid_n}.aac").exists()
+    return rows, mid_n
+
+
+def test_render_step_reencodes_a_lost_encode_of_an_unchanged_show_on_air(tmp_path):
+    # An operator cleaned render/shows (or restored ~/.transmitter without it)
+    # while a show is on air: the package is unchanged, so a fresh encode
+    # reproduces the planned frame count and the next segments are identical.
+    engine = FakeEngine()
+    st, _ = make_station(tmp_path, engine=engine)
+    rows = pipeline.plan_step(st, NOW)
+    pipeline.render_step(st, NOW)                            # the reference render
+    reference = _seg_files(st)
+    mid_n = rows[1].start_frame // F + 1
+    seg_dir = st.ws.seg_dir("etest")
+    for p in seg_dir.glob("*.aac"):
+        if int(p.stem) >= mid_n:
+            p.unlink()
     (st.ws.shows_dir / f"{rows[1].key}.aac").unlink()        # its encode is lost
+    encoded_before = engine.encoded.count(rows[1].slug)
+    report = pipeline.render_step(st, NOW)
+    assert report.replanned == []
+    assert report.written[0] == mid_n
+    assert engine.encoded.count(rows[1].slug) == encoded_before + 1
+    assert read_plan(st.ws.plan_path) == rows                # never re-planned
+    assert _seg_files(st) == reference                       # byte-identical segments
+
+
+@pytest.mark.parametrize("damage", ["changed", "ineligible", "render-fails", "frames-changed"])
+def test_render_step_refuses_to_replan_a_show_already_on_air(tmp_path, damage):
+    engine = FakeEngine()
+    st, logs = make_station(tmp_path, engine=engine)
+    rows, mid_n = _render_until_mid_show(st)
+    victim = rows[1]
+    (st.ws.shows_dir / f"{victim.key}.aac").unlink()         # its encode is lost
+    pkg = st.cfg.station.root / victim.dir
+    if damage == "changed":
+        f = next((pkg / "audio").iterdir())
+        f.write_bytes(f.read_bytes() + b"re-voiced")         # file set (and key) change
+        set_age(pkg, 3600)
+    elif damage == "ineligible":
+        (pkg / "broadcast.m3u").unlink()
+    elif damage == "render-fails":
+        engine.fail.add(victim.slug)
+    else:
+        engine.extra += 1                                     # an encoder change moved the frame-count model
     with pytest.raises(LayoutError, match="already on air"):
         pipeline.render_step(st, NOW)
     assert read_plan(st.ws.plan_path) == rows
     assert not (st.ws.seg_dir("etest") / f"{mid_n}.aac").exists()
+    assert not (st.ws.shows_dir / f"{victim.key}.aac").exists()
+    assert not any("plan-changed" in m for m in logs)
 
 
 def test_render_step_gcs_finished_encodes(tmp_path):

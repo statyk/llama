@@ -10,7 +10,9 @@ a failing or no-longer-eligible show is skipped at its boundary and the plan
 re-extended from there; a re-voiced show, or one whose frame count changed
 with the config or encoder, is re-planned in place (excluded only if it
 mismatches again in the same call). Encoded shows are frozen: their segments are built from the
-encode regardless of later package changes.
+encode regardless of later package changes. A show already on air whose
+encode was lost is re-encoded when its package is unchanged, and refused
+(LayoutError) otherwise -- never re-planned into a mid-show cut.
 """
 
 import math
@@ -233,11 +235,12 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None) -> Render
         for r in rows_overlapping(rows, n * SEGMENT_FRAMES, (n + 1) * SEGMENT_FRAMES):
             if store.has(r.key):
                 continue
-            if r.start_frame < n * SEGMENT_FRAMES:
-                # Its earlier segments are already rendered (frozen); a re-plan
-                # here would cut the show mid-air. Alert and let the operator act.
-                raise LayoutError(f"{r.slug} is already on air (from frame {r.start_frame}) but its "
-                                  f"encode {r.key} is missing; refusing to re-plan into a mid-show cut")
+            # Its earlier segments are already rendered (frozen): its encode was
+            # lost (render/shows cleaned or not restored). An unchanged package
+            # re-encodes to the planned frame count -- the FrameCountDrift check
+            # below proves it -- so the show carries on. Anything that would
+            # re-plan it instead cuts it mid-air: refuse (see `reason` below).
+            on_air = r.start_frame < n * SEGMENT_FRAMES
             if shows is None:
                 shows = {s.slug: s for s in st.scan_now(now_us)}
             show = shows.get(r.slug)
@@ -269,6 +272,10 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None) -> Render
                     raise
                 except TransmitterError as exc:
                     reason = f"render failed: {exc}"
+            if reason is not None and on_air:
+                raise LayoutError(f"{r.slug} is already on air (from frame {r.start_frame}) but its "
+                                  f"encode {r.key} is missing and cannot be re-made ({reason}); "
+                                  "refusing to re-plan into a mid-show cut")
             if reason is not None:
                 # A re-voice or a frame-count model change re-plans the show in
                 # place (re-measured under the current key and model); excluding
