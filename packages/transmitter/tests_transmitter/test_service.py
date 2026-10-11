@@ -288,3 +288,23 @@ def test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered(tmp_path,
         runner.tick(NOW + 120_000_000)
     assert "ALERT" not in caplog.text
     assert bucket.json("state/horizon.json")["fallback_version"] == "fb0123456789"
+
+
+@pytest.mark.parametrize("damage", [b'{"last": 1', b"[1, 2]"])
+def test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed(tmp_path, caplog, damage):
+    # publish.json is the local mirror of R2: without it neither the lead
+    # (filling) nor the publish/prune ranges are known. Alert, do nothing,
+    # and do not crash-loop the service.
+    engine = FakeEngine()
+    st, _ = make_station(tmp_path, engine=engine)
+    bucket = FakeBucket()
+    runner = service.Runner(st, _publisher(st, bucket), sleep=lambda s: None)
+    st.ws.publish_state_path.parent.mkdir(parents=True, exist_ok=True)
+    st.ws.publish_state_path.write_bytes(damage)
+    with caplog.at_level(logging.ERROR, logger="transmitter.alerts"):
+        runner.tick(NOW)
+    assert "ALERT publish-state:" in caplog.text
+    assert bucket.log == [] and engine.analyzed == [] and not st.ws.plan_path.exists()
+    st.ws.publish_state_path.unlink()                       # the operator repairs it
+    runner.tick(NOW)
+    assert "state/horizon.json" in bucket.objects

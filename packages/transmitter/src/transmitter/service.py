@@ -56,7 +56,14 @@ def load_template(cfg: TransmitterConfig) -> str:
 def row_analysis(st: pipeline.Station, row: PlanRow) -> ShowAnalysis | None:
     """A planned row's analysis for the timeline: the cache if it still holds
     the row's key, else the engine's analyze (which re-caches) on the package,
-    when the package still has the file set the row was planned from."""
+    when the package still has the file set the row was planned from.
+
+    The fallback evaluates the package against the real clock (`time.time()`,
+    not the tick's time) with `quiet_s=0`, and runs inside `_publish_site`, so
+    when `cache/<key>.json` is missing it can run a full ffmpeg analysis while
+    the publish flock is held, lengthening that one publish tick by minutes.
+    Acceptable: the cache is never garbage-collected, so this is reachable only
+    after an operator deleted `cache/` (or a decode mismatch dropped an entry)."""
     cached = analysis.load_cached(st.ws.cache_dir, row.key)
     if cached is not None:
         return cached
@@ -173,9 +180,25 @@ class Runner:
             log.exception("%s step failed", name)
             alerts.alert(name, f"{type(exc).__name__}: {exc}")
 
+    def _read_lead(self, t_us: int) -> tuple[bool, int | None]:
+        """(readable, lead). An unreadable publish.json is alerted, not raised:
+        raising here (outside `_step`) would crash-loop the service."""
+        try:
+            return True, self.lead_us(t_us)
+        except Exception as exc:
+            log.error("publish state unreadable", exc_info=True)
+            alerts.alert("publish-state", f"cannot read {self.st.ws.publish_state_path} "
+                                          f"({type(exc).__name__}: {exc}); this tick plans, renders and "
+                                          "publishes nothing until it is repaired")
+            return False, None
+
     def tick(self, t_us: int) -> None:
         low_water_us = int(self.st.cfg.render.low_water_hours * 3600 * 1_000_000)
-        lead = self.lead_us(t_us)
+        ok, lead = self._read_lead(t_us)
+        if not ok:
+            # Fail closed: publish.json mirrors what R2 lists; without it no step
+            # can know what is safe to plan, render, upload or prune.
+            return
         if not self.halted and (lead is None or lead < low_water_us):
             self.filling = True
         if self.filling:
@@ -183,8 +206,8 @@ class Runner:
             self._step("render", lambda: pipeline.render_step(
                 self.st, t_us, limit=self.st.cfg.publish.batch_segments))
         self._step("publish", lambda: publish_all(self.p, t_us, self.held))
-        lead = self.lead_us(t_us)
-        if lead is not None and lead >= self.st.lead_us - grid.D_US:
+        ok, lead = self._read_lead(t_us)
+        if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False
 
     def run(self, max_ticks: int | None = None) -> None:

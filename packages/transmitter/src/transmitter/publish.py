@@ -89,6 +89,10 @@ def _error_code(exc: Exception) -> str | None:
     return None
 
 
+# S3 error codes no retry can fix (wrong bucket, revoked or wrong key).
+NON_RETRYABLE = frozenset({"AccessDenied", "InvalidAccessKeyId", "NoSuchBucket", "SignatureDoesNotMatch"})
+
+
 class Uploader:
     def __init__(self, client: BucketClient, bucket: str, budget: PutBudget, *,
                  sleep: Callable[[float], None] = time.sleep, attempts: int = 4, base_delay_s: float = 1.0):
@@ -106,8 +110,12 @@ class Uploader:
                 if status == 200:
                     return
                 last = PublishError(f"PUT {key}: HTTP {status}")
-            except Exception as exc:                # botocore raises many types; all are retryable here
+            except Exception as exc:                # botocore raises many types; most are retryable
                 last = exc
+                if _error_code(exc) in NON_RETRYABLE:
+                    # Credentials or bucket are wrong: retrying cannot succeed and
+                    # only spends budget; fail on the first (already counted) attempt.
+                    raise PublishError(f"PUT {key} failed: {exc}") from exc
             if attempt + 1 < self.attempts:
                 self.sleep(self.base_delay_s * 2 ** attempt)
         raise PublishError(f"PUT {key} failed after {self.attempts} attempts: {last}") from last

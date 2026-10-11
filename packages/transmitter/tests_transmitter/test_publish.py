@@ -82,6 +82,25 @@ def test_retry_with_backoff_and_every_attempt_counts_against_the_budget(tmp_path
     assert json.loads(p.ws.puts_path.read_text()) == {"day": "2027-01-15", "count": 3}
 
 
+@pytest.mark.parametrize("code", ["AccessDenied", "InvalidAccessKeyId", "NoSuchBucket",
+                                  "SignatureDoesNotMatch"])
+def test_a_non_retryable_error_fails_fast_after_one_counted_attempt(tmp_path, code):
+    from botocore.exceptions import ClientError
+
+    class _Refusing(FakeBucket):
+        def put_object(self, **kw):
+            self.log.append(("put", kw["Key"]))
+            raise ClientError({"Error": {"Code": code, "Message": "no"}}, "PutObject")
+
+    bucket = _Refusing()
+    p = make_publisher(tmp_path, bucket)
+    key = segment_key("etest", 100)
+    with pytest.raises(publish.PublishError, match=code):
+        p.uploader.put(key, b"x", publish.AAC_TYPE, publish.IMMUTABLE)
+    assert bucket.puts() == [key] and p.sleeps == []
+    assert json.loads(p.ws.puts_path.read_text())["count"] == 1     # still taken before the attempt
+
+
 def test_horizon_failure_keeps_state_and_files_for_the_next_batch(tmp_path):
     bucket = FakeBucket()
     p = make_publisher(tmp_path, bucket)
