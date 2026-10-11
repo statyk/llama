@@ -246,22 +246,28 @@ def write_seg(ws, epoch_id: str, n: int) -> None:
     path.write_bytes(_segment.assemble(n, [fake_frame("seg", n)] * 441))
 
 
+FALLBACK_VERSION = "fb0123456789"
 TEMPLATE_PATH = Path(__file__).resolve().parents[3] / "antenna" / "templates" / "show.html"
 
 
 def make_publisher(tmp_path: Path, bucket: "FakeBucket", *, batch: int = 360, budget: int = 17_500,
                    sleep=None, rows=None, run_start_n: int = 100, prune_min: int = 1,
-                   station_root: Path | None = None):
+                   station_root: Path | None = None, fallback_version: str | None = FALLBACK_VERSION):
     """A Publisher over a workspace holding one planned show (key "k1"),
     starting a run at segment `run_start_n`. Its analyses are served from
-    memory by `analysis_for` (none is cached on disk); `p.analyses` holds them."""
+    memory by `analysis_for` (none is cached on disk); `p.analyses` holds them.
+    A fallback version is recorded locally (as `transmitter fallback render`
+    does) unless `fallback_version` is None: publishing refuses without one."""
     from transmitter import planner, publish
     from transmitter.layout import PlanRow
+    from transmitter.state import save_fallback_version
 
     cfg = TransmitterConfig(root=tmp_path / "tx", station={"root": station_root},
                             publish={"bucket": "b", "batch_segments": batch, "daily_put_budget": budget,
                                      "prune_min_segments": prune_min})
     ws = Workspace(cfg.root)
+    if fallback_version is not None:
+        save_fallback_version(ws, fallback_version)
     epoch = Epoch("etest", E)
     rows = rows or [PlanRow(seq=0, slug="band-1", dir="band-1", key="k1",
                             start_frame=run_start_n * 441, frames=441 * 50, run_start=True)]

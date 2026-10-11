@@ -7,9 +7,12 @@ from transmitter import alerts, grid, pipeline, publish, service
 from transmitter.errors import FrameCountDrift, PlanError, PublishLocked, StationRootError
 from transmitter.planner import read_plan
 from transmitter.segment import segment_key
+from transmitter.state import save_fallback_version
 
 
-def _publisher(st, bucket):
+def _publisher(st, bucket, *, fallback: bool = True):
+    if fallback:                                  # as `transmitter fallback render` records it
+        save_fallback_version(st.ws, "fb0123456789")
     uploader = publish.Uploader(bucket, "b", publish.PutBudget(st.ws.puts_path, 17_500, today=lambda: "d"),
                                 sleep=lambda s: None)
     return publish.Publisher(ws=st.ws, cfg=st.cfg, epoch=st.epoch, uploader=uploader,
@@ -267,3 +270,21 @@ def test_status_lines_populated(tmp_path):
     assert any(l.startswith("plan       ") and "rows through" in l for l in lines)
     assert f"on air     {first_row.slug}" in lines
     assert any(l.startswith("published  segments ") and "lead" in l for l in lines)
+
+
+def test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered(tmp_path, caplog):
+    st, _ = make_station(tmp_path)
+    bucket = FakeBucket()
+    runner = service.Runner(st, _publisher(st, bucket, fallback=False), sleep=lambda s: None)
+    with caplog.at_level(logging.ERROR, logger="transmitter.alerts"):
+        runner.tick(NOW)
+        runner.tick(NOW + 60_000_000)
+    assert caplog.text.count("ALERT publish:") == 2 and "transmitter fallback render" in caplog.text
+    assert bucket.puts() == []                              # nothing PUT, nothing re-PUT
+    assert any(st.ws.seg_dir("etest").iterdir())            # rendered and waiting
+    save_fallback_version(st.ws, "fb0123456789")
+    caplog.clear()
+    with caplog.at_level(logging.ERROR, logger="transmitter.alerts"):
+        runner.tick(NOW + 120_000_000)
+    assert "ALERT" not in caplog.text
+    assert bucket.json("state/horizon.json")["fallback_version"] == "fb0123456789"

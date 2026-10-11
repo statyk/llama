@@ -30,6 +30,8 @@ def test_config_init_stdout():
 
 from tests_transmitter.helpers import FakeBucket, FakeEngine, build_package, make_root
 from transmitter import aacenc, fallback, service
+from transmitter.state import save_fallback_version
+from transmitter.workspace import Workspace
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -71,6 +73,7 @@ def test_run_once_end_to_end(tmp_path, monkeypatch):
     root = make_root(tmp_path)
     for i in (1, 2):
         build_package(root, f"band-2005-11-0{i}")
+    save_fallback_version(Workspace(tmp_path / "tx"), "v0")    # `fallback render` ran first
     result = CliRunner().invoke(app, ["run", "--once", "--config", str(_config(tmp_path, root))])
     assert result.exit_code == 0, result.output
     keys = set(bucket.objects)
@@ -98,6 +101,7 @@ def _fallback_setup(tmp_path, monkeypatch, with_horizon):
     build_package(root, "band-2005-11-01")
     cfgp = _config(tmp_path, root)
     if with_horizon:
+        save_fallback_version(Workspace(tmp_path / "tx"), "v0")    # an earlier fallback render
         assert CliRunner().invoke(app, ["run", "--once", "--config", str(cfgp)]).exit_code == 0
     build = fallback.FallbackBuild("v1", (b"s0", b"s1"), b"nn")
     monkeypatch.setattr(fallback, "build_fallback", lambda *a, **k: build)
@@ -130,6 +134,7 @@ def _publish_setup(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "make_client", lambda cfg: bucket)
     root = make_root(tmp_path)
     build_package(root, "band-2005-11-01")
+    save_fallback_version(Workspace(tmp_path / "tx"), "v0")        # `fallback render` ran first
     return _config(tmp_path, root), bucket
 
 
@@ -158,3 +163,22 @@ def test_publish_exits_nonzero_when_the_guard_is_tripped(tmp_path, monkeypatch):
     bucket.objects["state/guard.json"] = {"Body": b'{"tripped": true}', "ContentType": "x", "CacheControl": "x"}
     result = CliRunner().invoke(app, ["publish", "--config", str(cfgp)])
     assert result.exit_code == 1 and "guard" in result.output
+
+
+def test_publish_exits_nonzero_until_a_fallback_is_rendered(tmp_path, monkeypatch):
+    cfgp, bucket = _publish_setup(tmp_path, monkeypatch)
+    (tmp_path / "tx" / "fallback.json").unlink()
+    assert CliRunner().invoke(app, ["render", "--config", str(cfgp)]).exit_code == 0
+    result = CliRunner().invoke(app, ["publish", "--config", str(cfgp)])
+    assert result.exit_code == 1 and "transmitter fallback render" in result.output
+    assert bucket.puts() == []
+
+
+def test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version(tmp_path, monkeypatch):
+    # The documented first start: `fallback render` before any horizon exists
+    # defers the horizon but records the version, so the first batch carries it.
+    cfgp, loop, bucket = _fallback_setup(tmp_path, monkeypatch, with_horizon=False)
+    assert CliRunner().invoke(app, ["fallback", "render", str(loop), "--config", str(cfgp)]).exit_code == 0
+    result = CliRunner().invoke(app, ["run", "--once", "--config", str(cfgp)])
+    assert result.exit_code == 0, result.output
+    assert bucket.json("state/horizon.json")["fallback_version"] == "v1"

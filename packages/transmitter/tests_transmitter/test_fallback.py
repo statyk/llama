@@ -124,7 +124,7 @@ def test_upload_refuses_while_the_guard_is_tripped(tmp_path):
 
 def test_upload_refuses_state_from_another_epoch_before_any_put(tmp_path):
     bucket = FakeBucket()
-    p = make_publisher(tmp_path, bucket)
+    p = make_publisher(tmp_path, bucket, fallback_version=None)
     save_publish_state(p.ws, PublishState(epoch_id="eold", first=100, last=200, runs=[[100, 200]]))
     with pytest.raises(PublishError, match="epoch"):
         fallback.upload_fallback(p, _fake_build(), p.epoch.start_us(150))

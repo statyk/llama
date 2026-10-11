@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from tests_transmitter.helpers import FakeBucket, make_publisher, write_seg
+from tests_transmitter.helpers import FALLBACK_VERSION, FakeBucket, make_publisher, write_seg
 from transmitter import publish
 from transmitter.errors import PublishLocked
 from transmitter.layout import PlanRow
@@ -30,7 +30,8 @@ def test_uploads_segments_then_site_then_horizon(tmp_path):
     assert puts[10:] == ["notes/band-1.json", "show/band-1.html", "timeline.json", "state/horizon.json"]
     h = bucket.json("state/horizon.json")
     assert h == {"epoch_id": "etest", "epoch": p.epoch.iso, "d": 10.24, "first": 100, "last": 109,
-                 "published_at": h["published_at"], "container": "adts", "fallback_version": None}
+                 "published_at": h["published_at"], "container": "adts",
+                 "fallback_version": FALLBACK_VERSION}
     assert not any(p.ws.seg_dir("etest").iterdir())
     assert load_publish_state(p.ws) == PublishState(epoch_id="etest", first=100, last=109, runs=[[100, 109]],
                                                     notes=load_publish_state(p.ws).notes, high_water=109)
@@ -358,3 +359,27 @@ def test_nothing_rendered_is_a_quiet_no_op(tmp_path):
     p = make_publisher(tmp_path, bucket)
     report = publish.publish_batch(p, _now(p))
     assert report.uploaded == [] and bucket.puts() == []
+
+
+def test_no_fallback_rendered_publishes_nothing_and_never_re_puts(tmp_path):
+    # Without a fallback version the horizon would carry `fallback_version:
+    # null`, which makes both off-air levers inert: refuse before ANY PUT.
+    # Segments are only dropped locally after a horizon PUT, so uploading them
+    # now would re-PUT the same batch on every tick until a fallback exists.
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket, fallback_version=None)
+    _segs(p, range(100, 105))
+    for _ in range(2):
+        report = publish.publish_batch(p, _now(p))
+        assert report.uploaded == [] and report.horizon is None and report.stopped is None
+        assert "transmitter fallback render" in report.error
+    assert bucket.puts() == []
+    assert not p.ws.puts_path.exists()                          # no PUT budget spent
+    assert load_publish_state(p.ws) == PublishState()
+    assert len(list(p.ws.seg_dir("etest").iterdir())) == 5      # kept for the first real batch
+    from transmitter.state import save_fallback_version
+    save_fallback_version(p.ws, "fbafter00000")                 # the operator runs fallback render
+    report = publish.publish_batch(p, _now(p))
+    assert report.horizon == (100, 104) and report.error is None
+    assert bucket.json("state/horizon.json")["fallback_version"] == "fbafter00000"
+    assert [k for k in bucket.puts() if k.startswith("seg/")] == [segment_key("etest", n) for n in range(100, 105)]

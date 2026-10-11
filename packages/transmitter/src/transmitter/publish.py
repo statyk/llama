@@ -14,6 +14,10 @@ Before the horizon PUT a batch persists its candidate `last` as the local
 high-water mark (state.PublishState.high_water): a crash between that PUT and
 the save advancing `last` must not let plan_step re-plan keys R2 may already
 list. The horizon is never rewritten below that mark.
+
+Nothing is published (no segment, no horizon) until a fallback version is
+recorded locally by `transmitter fallback render`: a horizon carrying
+`fallback_version: null` would leave the clock's off-air levers inert.
 """
 
 import dataclasses
@@ -49,6 +53,8 @@ HORIZON_KEY = "state/horizon.json"
 GUARD_KEY = "state/guard.json"
 TIMELINE_KEY = "timeline.json"
 CONTAINER = "adts"
+NO_FALLBACK = ("no fallback rendered: run `transmitter fallback render` first; nothing is "
+               "published until a fallback exists (a horizon without one leaves off-air inert)")
 
 
 class BucketClient(Protocol):
@@ -265,6 +271,15 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
             batch.append(n)
         if not batch:
             return report
+        fallback_version = load_fallback_version(p.ws)
+        if fallback_version is None:
+            # A horizon with `fallback_version: null` makes both off-air levers
+            # (state/offair.json, the stale-horizon rule) inert. Refuse BEFORE any
+            # PUT, not just before the horizon's: segment files are dropped only
+            # after a horizon PUT, so segments uploaded now would be re-PUT on
+            # every tick until a fallback exists.
+            report.error = NO_FALLBACK
+            return report
         # Record the range before the first PUT: if this batch stops part-way
         # (budget, horizon failure) and a recovery later abandons the range,
         # prune still deletes whatever of it reached R2.
@@ -312,7 +327,7 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
             save_publish_state(p.ws, state)
         try:
             put_json(p.uploader, HORIZON_KEY,
-                     horizon_doc(p.epoch, first, last, now_us, load_fallback_version(p.ws)), STATE_CACHE)
+                     horizon_doc(p.epoch, first, last, now_us, fallback_version), STATE_CACHE)
         except PutBudgetExceeded as exc:
             report.stopped, report.error = "put-budget", str(exc)
             return report

@@ -100,7 +100,10 @@ the station publicly until phase 2 (the cost guard) ships.**
    It prints `horizon updated` when `state/horizon.json` now names the fallback, or
    `horizon deferred` when there is no horizon yet (or the high-water rule applies); in
    the deferred case the next publish batch carries the version. The antenna only sees the
-   fallback once `state/horizon.json` names it.
+   fallback once `state/horizon.json` names it. **Run this before step 5:** until a
+   fallback version is recorded in the workspace, `run`/`publish` upload nothing at all
+   (no segment, no horizon) and every publish pass logs an `ALERT publish: no fallback
+   rendered …` line — a horizon without a fallback would leave the off-air lever inert.
 5. Start: `transmitter run` with the env file loaded. In phase 1 it runs as the
    operator's own user (phase 2 ships a system unit, with `WatchdogSec` and journald).
    Once: `sudo loginctl enable-linger <user>`, so the user's services keep running
@@ -121,10 +124,9 @@ the station publicly until phase 2 (the cost guard) ships.**
    start a fresh workspace, then **before the first publish** re-run
    `transmitter fallback render …` (step 4) in it, render and publish again under
    `seg/<new epoch_id>/`). The fallback version is recorded per workspace
-   (`<root>/fallback.json`); without that step the new `state/horizon.json` has
-   `fallback_version: null`, the off-air lever (and stale-horizon off-air) writes nothing,
-   and the start-delay window before the first new segment is dead air. If the new
-   workspace comes from moving `TRANSMITTER_ROOT`, copy `config.toml` there too (it is
+   (`<root>/fallback.json`); without that step the new workspace publishes nothing
+   (publish alerts `no fallback rendered`, step 4) and the old epoch's horizon stays
+   in R2 until it goes stale. If the new workspace comes from moving `TRANSMITTER_ROOT`, copy `config.toml` there too (it is
    read from that directory). The old epoch's `seg/<old epoch_id>/` objects are orphaned
    (prune only deletes what the local `publish.json` records, ~1.4 GB at a 24 h lead):
    delete them by hand (dashboard or an R2 lifecycle rule) once listeners have moved.
@@ -146,9 +148,10 @@ the station publicly until phase 2 (the cost guard) ships.**
    `npx wrangler r2 object put llama-radio/state/offair.json --file offair.json --content-type application/json --remote`;
    back on air: same with `"offair": false` (or delete the object). Within a minute
    `live.m3u8` becomes the notice + `#EXT-X-ENDLIST`, and back.
-   **Off-air only takes effect once a fallback has been published** (section 3 step 4,
-   and `state/horizon.json` names its version). With no usable fallback (no
-   `fallback_version`, or its `index.json` missing or with `len < 1`) the clock writes
+   **Off-air needs a usable fallback.** transmitter never publishes a horizon without
+   one (section 3 step 4: it publishes nothing until `fallback render` has run), so
+   every `state/horizon.json` names a version. If that fallback is unusable in R2
+   anyway (its `index.json` deleted by hand, or with `len < 1`) the clock writes
    nothing: it logs a structured `offair-without-fallback` `console.error` once per
    invocation, and players keep the last `live.m3u8` they were given. In that state the
    WAF kill switch (section 2 step 7) is the only hard stop.
