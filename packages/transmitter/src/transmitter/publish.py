@@ -16,8 +16,10 @@ the save advancing `last` must not let plan_step re-plan keys R2 may already
 list. The horizon is never rewritten below that mark.
 
 Nothing is published (no segment, no horizon) until a fallback version is
-recorded locally by `transmitter fallback render`: a horizon carrying
-`fallback_version: null` would leave the clock's off-air levers inert.
+recorded locally by `transmitter fallback render`, and prune never rewrites
+the horizon without one: a horizon carrying `fallback_version: null` leaves
+the clock's off-air levers with no notice (an ENDLIST-only playlist) and the
+listed window with no fallback loop to fill gaps.
 """
 
 import dataclasses
@@ -54,7 +56,7 @@ GUARD_KEY = "state/guard.json"
 TIMELINE_KEY = "timeline.json"
 CONTAINER = "adts"
 NO_FALLBACK = ("no fallback rendered: run `transmitter fallback render` first; nothing is "
-               "published until a fallback exists (a horizon without one leaves off-air inert)")
+               "published until a fallback exists (a horizon without one has no off-air notice)")
 
 
 class BucketClient(Protocol):
@@ -281,8 +283,8 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
             return report
         fallback_version = load_fallback_version(p.ws)
         if fallback_version is None:
-            # A horizon with `fallback_version: null` makes both off-air levers
-            # (state/offair.json, the stale-horizon rule) inert. Refuse BEFORE any
+            # A horizon with `fallback_version: null` leaves both off-air levers
+            # (state/offair.json, the stale-horizon rule) with no notice. Refuse BEFORE any
             # PUT, not just before the horizon's: segment files are dropped only
             # after a horizon PUT, so segments uploaded now would be re-PUT on
             # every tick until a fallback exists.
@@ -354,7 +356,7 @@ def publish_batch(p: Publisher, now_us: int) -> PublishReport:
 class PruneReport:
     deleted: int = 0
     first: int | None = None
-    stopped: str | None = None       # "guard" | "put-budget" | "high-water"
+    stopped: str | None = None       # "guard" | "put-budget" | "high-water" | "no-fallback"
     error: str | None = None
 
 
@@ -387,11 +389,20 @@ def prune(p: Publisher, now_us: int) -> PruneReport:
         prunable = sum(max(0, min(hi, n_max) - lo + 1) for lo, hi in state.runs)
         if prunable < p.cfg.publish.prune_min_segments:
             return report                    # batch it: each prune costs a horizon PUT
+        fallback_version = load_fallback_version(p.ws)
+        if fallback_version is None:
+            # Same rule as publish_batch: never write a horizon naming no
+            # fallback (it makes both off-air levers fall back to the
+            # ENDLIST-only playlist with no notice). Reachable only when
+            # fallback.json is lost after publishing. Deletes wait too: they
+            # must follow the horizon shrinking past them.
+            report.stopped, report.error = "no-fallback", NO_FALLBACK
+            return report
         if state.first is not None and n_max >= state.first:
             # The horizon stops listing them BEFORE any is deleted.
             try:
                 put_json(p.uploader, HORIZON_KEY,
-                         horizon_doc(p.epoch, n_max + 1, state.last, now_us, load_fallback_version(p.ws)),
+                         horizon_doc(p.epoch, n_max + 1, state.last, now_us, fallback_version),
                          STATE_CACHE)
             except PutBudgetExceeded as exc:
                 report.stopped, report.error = "put-budget", str(exc)

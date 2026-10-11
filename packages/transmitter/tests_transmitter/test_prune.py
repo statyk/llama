@@ -147,6 +147,29 @@ def test_a_spent_put_budget_stops_prune_before_any_delete(tmp_path):
     assert load_publish_state(p.ws).first == 100
 
 
+def test_prune_never_rewrites_the_horizon_without_a_recorded_fallback(tmp_path):
+    # fallback.json lost after publishing (deleted, or ~/.transmitter restored
+    # without it): a prune rewrite would PUT `fallback_version: null`. Stop
+    # before the horizon PUT, and before any delete (deletes must follow the
+    # horizon shrinking past them).
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket)
+    _seed(p, bucket, [(100, 400)], 100, 400)
+    p.ws.fallback_path.unlink()
+    before = load_publish_state(p.ws)
+    report = publish.prune(p, p.epoch.start_us(300) + 10 * MIN_US)
+    assert report.stopped == "no-fallback" and report.deleted == 0
+    assert "transmitter fallback render" in report.error
+    assert not [op for op in bucket.log if op[0] in ("put", "delete")]
+    assert not p.ws.puts_path.exists()                          # no PUT budget spent
+    assert load_publish_state(p.ws) == before
+    from transmitter.state import save_fallback_version
+    save_fallback_version(p.ws, "fbafter00000")                 # the operator re-runs fallback render
+    report = publish.prune(p, p.epoch.start_us(300) + 10 * MIN_US)
+    assert report.stopped is None and report.first == 300 and report.deleted == 200
+    assert bucket.json("state/horizon.json")["fallback_version"] == "fbafter00000"
+
+
 def test_prune_waits_while_r2_may_list_past_last(tmp_path):
     # A crash between a horizon PUT and the save advancing `last` leaves
     # high_water > last: R2 may list up to high_water, so a horizon rewrite

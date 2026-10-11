@@ -382,7 +382,7 @@ def test_nothing_rendered_is_a_quiet_no_op(tmp_path):
 
 def test_no_fallback_rendered_publishes_nothing_and_never_re_puts(tmp_path):
     # Without a fallback version the horizon would carry `fallback_version:
-    # null`, which makes both off-air levers inert: refuse before ANY PUT.
+    # null`, which leaves both off-air levers with no notice: refuse before ANY PUT.
     # Segments are only dropped locally after a horizon PUT, so uploading them
     # now would re-PUT the same batch on every tick until a fallback exists.
     bucket = FakeBucket()

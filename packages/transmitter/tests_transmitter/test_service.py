@@ -179,6 +179,16 @@ def test_publish_all_alerts_put_budget_from_prune(tmp_path, caplog, monkeypatch)
     assert "ALERT put-budget: over" in caplog.text
 
 
+def test_publish_all_alerts_a_prune_stopped_for_no_fallback(tmp_path, caplog, monkeypatch):
+    p = _publisher(make_station(tmp_path)[0], FakeBucket())
+    monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub())
+    monkeypatch.setattr(publish, "prune",
+                        lambda p, t: publish.PruneReport(stopped="no-fallback", error=publish.NO_FALLBACK))
+    with caplog.at_level(logging.WARNING):
+        service.publish_all(p, NOW)
+    assert "ALERT prune: stopped: no-fallback: no fallback rendered" in caplog.text
+
+
 def test_publish_all_warns_on_high_water_without_alerting(tmp_path, caplog, monkeypatch):
     p = _publisher(make_station(tmp_path)[0], FakeBucket())
     monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub())
