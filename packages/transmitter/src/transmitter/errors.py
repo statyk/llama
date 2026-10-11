@@ -49,6 +49,12 @@ class RenderError(TransmitterError):
     """A show could not be rendered (the show is skipped and re-planned)."""
 
 
+class AnalysisStale(RenderError):
+    """A file decoded to a different sample count than its cached analysis says
+    (the package changed, or the decoder did). The engine drops the cached
+    analysis so the next attempt re-measures."""
+
+
 class FrameCountDrift(RenderError):
     """The encoder produced a different frame count than planned. Fatal: it
     means the frame-count model is wrong on this ffmpeg, not that one show is bad."""

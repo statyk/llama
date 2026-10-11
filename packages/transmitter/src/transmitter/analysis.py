@@ -107,6 +107,13 @@ def load_cached(cache_dir: Path, key: str) -> ShowAnalysis | None:
         return None
 
 
+def drop_cached(cache_dir: Path, key: str) -> None:
+    """Forget a cached analysis (the next load_or_analyze re-measures). The
+    cache is keyed by the package's file set, not the decoder, so a decode
+    that disagrees with it must invalidate it rather than fail every tick."""
+    (Path(cache_dir) / f"{key}.json").unlink(missing_ok=True)
+
+
 def load_or_analyze(cache_dir: Path, show: Show, ffmpeg: str = "ffmpeg") -> ShowAnalysis:
     cached = load_cached(cache_dir, show.key)
     if cached is not None:

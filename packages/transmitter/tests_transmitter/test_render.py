@@ -133,3 +133,31 @@ def test_unverifiable_encode_is_removed(tmp_path, monkeypatch):
                            extra=aacenc.extra_frames())
     assert isinstance(info.value, TransmitterError)
     assert not out.exists() and not any(out.parent.glob(".x.aac.*"))
+
+
+@requires_ffmpeg
+def test_a_decode_mismatch_drops_the_cached_analysis(tmp_path):
+    # The cache is keyed by the package's file set, not the decoder: a decoder
+    # whose trimmed sample counts differ from the cached ones would otherwise
+    # fail this show on every tick until someone deleted cache/.
+    from transmitter.config import TransmitterConfig
+    from transmitter.pipeline import FfmpegEngine
+    from transmitter.workspace import Workspace, read_json, write_json
+
+    show, _ = _segue_package(tmp_path)
+    ws = Workspace(tmp_path / "tx")
+    engine = FfmpegEngine(ws, TransmitterConfig(root=ws.root))
+    good = engine.analyze(show)                                   # writes cache/<key>.json
+    cached = ws.cache_dir / f"{show.key}.json"
+    data = read_json(cached)
+    data["files"][1]["samples"] += 1                              # as analysed by another decoder
+    write_json(cached, data)
+    stale = engine.analyze(show)
+    assert stale.files[1].samples == good.files[1].samples + 1
+    out = ws.shows_dir / f"{show.key}.aac"
+    with pytest.raises(RenderError, match="decoded to"):
+        engine.encode_show(show, stale, out)
+    assert not cached.exists() and not out.exists()
+    assert engine.analyze(show) == good                           # the next tick re-analyses
+    assert engine.encode_show(show, good, out) == render.planned_frames(
+        good, engine.settings.clip_pause_samples, engine.extra_frames())

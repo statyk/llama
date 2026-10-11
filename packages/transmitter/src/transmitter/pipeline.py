@@ -24,7 +24,7 @@ from typing import Callable, Protocol
 from transmitter import aacenc, analysis as analysis_mod, grid, render, station
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
-from transmitter.errors import FrameCountDrift, LayoutError, TransmitterError
+from transmitter.errors import AnalysisStale, FrameCountDrift, LayoutError, TransmitterError
 from transmitter.grid import SEGMENT_FRAMES
 from transmitter.layout import FrameStore, PlanRow, rows_overlapping
 from transmitter.planner import (cut_for_recovery, extend, next_start, publish_next, read_plan,
@@ -56,8 +56,12 @@ class FfmpegEngine:
         return aacenc.silent_frame(self.settings.ffmpeg)
 
     def encode_show(self, show: Show, analysis: ShowAnalysis, out_path: Path) -> int:
-        return render.render_show(show, analysis, out_path, settings=self.settings,
-                                  extra=self.extra_frames())
+        try:
+            return render.render_show(show, analysis, out_path, settings=self.settings,
+                                      extra=self.extra_frames())
+        except AnalysisStale:
+            analysis_mod.drop_cached(self.ws.cache_dir, analysis.key)
+            raise
 
 
 Scanner = Callable[[float], tuple[list[Show], list[Ineligible]]]

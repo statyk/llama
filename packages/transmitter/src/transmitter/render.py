@@ -17,7 +17,7 @@ from transmitter import aacenc, adts
 from transmitter.analysis import FileAnalysis, ShowAnalysis, gain_db
 from transmitter.audio import iter_decode
 from transmitter.config import RenderConfig
-from transmitter.errors import FrameCountDrift, RenderError
+from transmitter.errors import AnalysisStale, FrameCountDrift, RenderError
 from transmitter.grid import samples_for_seconds
 from transmitter.station import Show
 
@@ -95,8 +95,9 @@ def render_show(show: Show, analysis: ShowAnalysis, out_path: Path, *,
                 enc.write(np.clip(pcm * gain, -1.0, 1.0))
                 n += len(pcm)
             if n != span.samples:
-                raise RenderError(f"{show.slug}: {span.path} decoded to {n} samples but was "
-                                  f"analysed at {span.samples} -- the package changed")
+                raise AnalysisStale(f"{show.slug}: {span.path} decoded to {n} samples but was "
+                                    f"analysed at {span.samples} -- the package changed (or the "
+                                    "decoder did); its cached analysis is dropped")
             pos = span.start_sample + n
         enc.write_silence(layout.padded_samples - pos)
         enc.close()
