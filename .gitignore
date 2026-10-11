@@ -15,3 +15,9 @@ packages/emcee/src/emcee/_version.py
 *.aac
 antenna/node_modules/
 antenna/.wrangler/
+# Cloudflare account details stay local (public repo): wrangler reads
+# CLOUDFLARE_ACCOUNT_ID from antenna/.env; never put it in wrangler.jsonc.
+.env
+.env.*
+.dev.vars
+.dev.vars.*

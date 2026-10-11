@@ -8,7 +8,15 @@ the station publicly until phase 2 (the cost guard) ships.**
 ## 0. Preconditions
 
 - A Cloudflare account **dedicated to the station** (phase 2's guard reads
-  account-scoped meters; other projects would pollute them).
+  account-scoped meters; other projects would pollute them). A second account
+  under your existing login (dashboard → account dropdown → *Create account*) is
+  fine: usage, allowances, billing and tokens are per account. If your login has
+  more than one account, every wrangler command must be pinned to the station's
+  (section 1 step 1).
+- **This repo is public: no account details are ever committed.** The account ID
+  lives only in the git-ignored `antenna/.env` and in transmitter's config on
+  hugo; R2 keys only in hugo's env file; API tokens only in Worker secrets. Do not
+  add `account_id` to `antenna/wrangler.jsonc`.
 - **Workers Paid** ($5/month) enabled on that account.
 - The station's domain is a **full** Cloudflare zone on that account (registrar NS
   records point at Cloudflare; partial/CNAME setup is Business-only).
@@ -22,7 +30,12 @@ the station publicly until phase 2 (the cost guard) ships.**
 
 ## 1. R2 bucket and custom domain
 
-1. `cd antenna && npm ci` (installs the pinned wrangler), then `npx wrangler login`, then `npx wrangler r2 bucket create llama-radio`
+1. `cd antenna && npm ci` (installs the pinned wrangler), then `npx wrangler login`.
+   Pin the station account: create the git-ignored `antenna/.env` containing
+   `CLOUDFLARE_ACCOUNT_ID=<the station account's ID>` (dashboard → the account's
+   home page → *Account ID*), then check `npx wrangler whoami` from `antenna/`
+   names the station account and `git status` does not list `.env`. Then
+   `npx wrangler r2 bucket create llama-radio`
    (if you choose another name, change it in `antenna/wrangler.jsonc` and
    transmitter's `[publish] bucket`).
 2. Dashboard → R2 → `llama-radio` → Settings → **Custom Domains** → connect
