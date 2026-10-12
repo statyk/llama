@@ -1,0 +1,27 @@
+# transmitter as a system service: `transmitter@<user>.service` runs
+# `transmitter run` as <user> (the account that owns ~/.transmitter and can
+# read the station root over NFS). Install: docs/playout-setup.md, section 6.
+[Unit]
+Description=llama station playout (transmitter run) as %i
+After=network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=%i
+# R2 keys, SMTP credentials, NTFY_TOKEN; owned by %i, mode 600.
+EnvironmentFile=/etc/transmitter/%i.env
+ExecStart=/home/%i/.venvs/transmitter/bin/transmitter run
+Restart=always
+RestartSec=30
+# transmitter pings after every step and every publish batch; the longest gap is one
+# show's encode (~10-20 min on hugo).
+WatchdogSec=45min
+TimeoutStartSec=2min
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=transmitter
+
+[Install]
+WantedBy=multi-user.target

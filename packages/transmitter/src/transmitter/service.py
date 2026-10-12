@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from transmitter import alerts, analysis, grid, pipeline, publish, r2, station
+from transmitter import alerts, analysis, grid, pipeline, publish, r2, sdnotify, station
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
 from transmitter.deadclock import DeadClockMonitor
@@ -136,12 +136,15 @@ def _report_stop(step: str, stopped: str | None, error: str | None, held: bool =
         alerts.alert(step, "; ".join(parts))
 
 
-def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None
+def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None,
+                notify: Callable[[str], object] | None = None
                 ) -> tuple[list[publish.PublishReport], publish.PruneReport]:
     reports = []
     for _ in range(MAX_BATCHES):
         r = publish.publish_batch(p, t_us)
         reports.append(r)
+        if notify is not None:
+            notify("WATCHDOG=1")    # a catch-up is many batches: one step must not outlast WatchdogSec
         _report_stop("publish", r.stopped, r.error, r.held)
         if not r.uploaded or r.stopped or r.error:
             break
@@ -168,9 +171,9 @@ def open_monitor(st: pipeline.Station) -> DeadClockMonitor | None:
 class Runner:
     def __init__(self, st: pipeline.Station, p: publish.Publisher, *, clock: Callable[[], int] = now_us,
                  sleep: Callable[[float], None] = time.sleep, tick_s: float = 60.0,
-                 monitor: DeadClockMonitor | None = None):
+                 monitor: DeadClockMonitor | None = None, notify: Callable[[str], bool] = sdnotify.notify):
         self.st, self.p, self.clock, self.sleep, self.tick_s = st, p, clock, sleep, tick_s
-        self.monitor = monitor
+        self.monitor, self.notify = monitor, notify
         self.filling = False
         self.held = HeldTracker()
         self.halted = False          # latched by a frame-count drift; cleared by a restart
@@ -181,7 +184,7 @@ class Runner:
 
     def _step(self, name: str, fn: Callable[[], object], *, resolves: tuple[str, ...] = ()) -> None:
         """Run one step; no error ends the loop (the next tick retries). A step
-        that succeeds resolves `resolves`."""
+        that succeeds resolves `resolves`; every step ends with a watchdog ping."""
         try:
             fn()
             for code in resolves:
@@ -202,6 +205,8 @@ class Runner:
         except Exception as exc:
             log.exception("%s step failed", name)
             alerts.alert(name, f"{type(exc).__name__}: {exc}")
+        finally:
+            self.notify("WATCHDOG=1")
 
     def _read_lead(self, t_us: int) -> tuple[bool, int | None]:
         """(readable, lead). An unreadable publish.json is alerted, not raised:
@@ -229,7 +234,7 @@ class Runner:
                        resolves=("plan", "station-root"))
             self._step("render", lambda: pipeline.render_step(
                 self.st, t_us, limit=self.st.cfg.publish.batch_segments), resolves=("render",))
-        self._step("publish", lambda: publish_all(self.p, t_us, self.held))
+        self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify))
         if self.monitor is not None:
             monitor = self.monitor
             self._step("dead-clock", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
@@ -238,14 +243,18 @@ class Runner:
             self.filling = False
 
     def run(self, max_ticks: int | None = None) -> None:
+        self.notify("READY=1")
         ticks = 0
-        while max_ticks is None or ticks < max_ticks:
-            started = time.monotonic()
-            self.tick(self.clock())
-            ticks += 1
-            if max_ticks is not None and ticks >= max_ticks:
-                break
-            self.sleep(max(0.0, self.tick_s - (time.monotonic() - started)))
+        try:
+            while max_ticks is None or ticks < max_ticks:
+                started = time.monotonic()
+                self.tick(self.clock())
+                ticks += 1
+                if max_ticks is not None and ticks >= max_ticks:
+                    break
+                self.sleep(max(0.0, self.tick_s - (time.monotonic() - started)))
+        finally:
+            self.notify("STOPPING=1")
 
 
 def status_lines(cfg: TransmitterConfig, t_us: int) -> list[str]:
