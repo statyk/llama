@@ -1,4 +1,4 @@
-# Playout setup (phase 1)
+# Playout setup (phases 1 and 2)
 
 How to stand up the station's cloud side (R2 + one cached hostname + the antenna
 clock Worker) and hugo's transmitter, then verify the phase-1 assumptions. The
@@ -143,7 +143,7 @@ developers.cloudflare.com are the authority if they drift again).
    fallback version is recorded in the workspace, `run`/`publish` upload nothing at all
    (no segment, no horizon) and every publish pass logs an `ALERT publish: no fallback
    rendered …` line — a horizon without a fallback would leave off-air with no notice.
-5. Phase 2 replaces this transient unit with the system unit in section 6 step 2; follow that instead on an existing install. Start: `transmitter run` with the env file loaded. In phase 1 it runs as the
+5. Phase 2 replaces this transient unit with the system unit in section 6.1 step 2; follow that instead on an existing install. Start: `transmitter run` with the env file loaded. In phase 1 it runs as the
    operator's own user (phase 2 ships a system unit, with `WatchdogSec` and journald).
    Once: `sudo loginctl enable-linger <user>`, so the user's services keep running
    after logout (a transient `systemd-run` unit does not survive a reboot: re-run
@@ -192,12 +192,12 @@ developers.cloudflare.com are the authority if they drift again).
    `npx wrangler deploy --dry-run` first (bundling and config check), then
    `npx wrangler deploy` (cron `* * * * *`, R2 binding, `workers_dev = false`,
    `preview_urls = false`, no routes); its output ends with `schedule: * * * * *`.
-3. `ANTENNA_BUCKET=lma-radio npm run deploy:assets` (JS/CSS and hls.js;
+3. `ANTENNA_BUCKET=lma-radio npm run deploy:assets` (the off-air page `offair.html`, JS/CSS and hls.js;
    `node scripts/deploy-assets.mjs --dry-run` with `ANTENNA_BUCKET` set
    prints the `wrangler r2 object put` commands without running them).
    `index.html` is not uploaded: the clock writes it, the player page normally and the off-air page while the station is blocked.
    On a **fresh bucket**, run `deploy:assets` before or alongside the Worker deploy: the clock's `index.html` references `player.js`, `style.css` and hls.js.
-4. Off-air: `transmitter offair on --reason "…"` / `transmitter offair off` (section 7). Within about a minute the clock serves the notice and ENDLIST, swaps `index.html` to the off-air page and enables the kill switch, and reverses all three after `off`. **If hugo is down**, write the flag from the Mac instead: from `antenna/`, put `{"offair": true, "reason": "…", "since": "<iso>", "until": null}` in `offair.json` and run `npx wrangler r2 object put lma-radio/state/offair.json --file offair.json --content-type application/json --remote` (`"offair": false` to come back). The guard honours the file within a minute, exactly as if `transmitter offair` had written it. Do **not** toggle the kill-switch rule in the dashboard: the guard reconciles it every minute, undoes the toggle and alerts `waf-corrected`. **If the clock Worker itself is broken** (nothing reconciles, so neither lever acts), first remove the Worker's cron trigger (dashboard: Workers & Pages → `antenna` → Settings → Trigger events; or `npx wrangler triggers deploy` from a config with no crons), then enable the kill-switch rule by hand. In that order: a Worker that is still running would undo the rule within a minute.
+4. Off-air: `transmitter offair on --reason "…"` / `transmitter offair off` (section 7). Within about a minute the clock serves the notice and ENDLIST, swaps `index.html` to the off-air page and enables the kill switch, and reverses all three after `off`. **If hugo is down**, write the flag from the Mac instead: from `antenna/`, put `{"offair": true, "reason": "…", "since": "<iso>", "until": null}` in `offair.json` and run `npx wrangler r2 object put lma-radio/state/offair.json --file offair.json --content-type application/json --remote` (`"offair": false` to come back). The guard honours the file within a minute, exactly as if `transmitter offair` had written it. Do **not** toggle the kill-switch rule in the dashboard: the guard reconciles it every minute, undoes the toggle and alerts `waf-corrected`. **If the clock Worker itself is broken** (nothing reconciles, so neither lever acts), first remove the Worker's cron trigger (dashboard: Workers & Pages → `antenna` → Settings → Trigger events; or `npx wrangler triggers deploy` from a config with `"triggers": { "crons": [] }`: merely deleting the `triggers` key does NOT remove the cron). **Confirm Workers & Pages → `antenna` → Settings → Trigger events lists no cron BEFORE enabling the rule**, then enable the kill-switch rule by hand. In that order: a Worker that is still running would undo the rule within a minute. **The way back:** if the station should stay dark, first write `offair on` (the Mac-side `state/offair.json` above); then redeploy the Worker. On redeploy the guard reconciles the hand-enabled rule: it disables it and alerts `waf-corrected`, unless the station is tripped or off the air. While the hand block stands, expect hugo's `dead-clock` 403 alert after about 17 checks. The `transmitter` commands here need the environment described at the top of section 7.
    **The notice needs a usable fallback.** transmitter never writes a horizon without
    one (section 3 step 4: it publishes nothing until `fallback render` has run, and
    prune stops with `ALERT prune: stopped: no-fallback …` rather than rewrite the
@@ -208,7 +208,7 @@ developers.cloudflare.com are the authority if they drift again).
    hls.js browsers the player page shows its off-air notice; native HLS players such as
    Safari may instead show "The stream is unavailable right now."). The clock still logs a structured
    `offair-without-fallback` `console.error` once per invocation; fix it by re-running
-   `fallback render`. The WAF kill switch (section 2 step 7) remains the hard stop.
+   `fallback render`. The WAF kill switch (section 2 step 7) remains the hard stop. (After phase 2 is deployed the guard reconciles that rule every minute, so a hand toggle is undone and alerted; use `offair` or the broken-Worker order in step 4 instead.)
 5. The clock's spend bounds (Cloudflare has no spending cap): at most **10 PUTs per
    invocation** (`MAX_PUTS`), a horizon whose segment duration `d` is not 10.24 s is
    **refused** (nothing written; logged as `horizon-refused`), and the loop never runs
@@ -250,6 +250,7 @@ the real account. The first run's results (2026-10-11) are in
       order matters: the kill-switch rule (section 2 step 7) blocks `player.js`,
       `nowplaying.js` and `assets/hls.min.js`, so a page loaded *after* it is enabled
       shows a dead Play button, not the notice — that is expected, not a failure.
+      (After phase 2 is deployed, the guard undoes a hand toggle of the rule within a minute and alerts `waf-corrected`: do this step before deploying phase 2, or use `transmitter offair on`.)
 - [ ] **Players survive the fallback→live switch, where
       `EXT-X-DISCONTINUITY-SEQUENCE` restarts at 0.** The trigger is a window that
       mixes fallback and live and then becomes pure live, which happens at a fresh
@@ -301,7 +302,7 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
    sudo install -d -m 755 /etc/transmitter
    sudo install -m 600 -o <user> -g <user> <env file> /etc/transmitter/<user>.env
    sudo cp <repo>/packages/transmitter/systemd/transmitter@.service /etc/systemd/system/
-   sudo systemd-analyze verify /etc/systemd/system/transmitter@.service
+   sudo systemd-analyze verify /etc/systemd/system/transmitter@.service   # if it rejects the bare template path: sudo systemd-analyze verify transmitter@<user>.service
    sudo systemctl daemon-reload
    sudo systemctl enable --now transmitter@<user>
    systemctl status transmitter@<user>                      # active (running)
@@ -345,8 +346,8 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
 2. **Analytics token.** The existing *Account Analytics: Read* token (phase 1).
 3. **Zone ID.** The zone's overview page → API → *Zone ID*.
 4. **Email.** Email Routing must be enabled on the zone, with the destination address verified (phase 1). The sender is `alerts@lma-radio.com`, on the zone's domain. The `send_email` binding `ALERT_EMAIL` in `wrangler.jsonc` is unrestricted: it can only reach the account's verified destinations, and the one the Worker uses is the `ALERT_EMAIL_TO` secret (6.3), so the destination never enters the repo.
-5. **`STATION_NAME`** (a Worker var in `wrangler.jsonc`) must be ASCII: it goes into the raw ntfy `Title` header.
-6. **Kill switch.** The custom rule *"station: kill switch"* (section 2 step 7) must exist **exactly once**, with action Block. The guard finds it by that description and refuses to touch it if it is missing, duplicated or not a Block rule.
+5. **Kill switch.** The custom rule *"station: kill switch"* (section 2 step 7) must exist **exactly once**, with action Block. The guard finds it by that description and refuses to touch it if it is missing, duplicated or not a Block rule. (Its description is the Worker var `KILL_SWITCH_DESCRIPTION`.)
+6. **`STATION_NAME`** (a Worker var in `wrangler.jsonc`) must be ASCII: it goes into the raw ntfy `Title` header.
 
 ### 6.3 antenna
 
@@ -375,6 +376,8 @@ From `antenna/`, with `.env` holding `CLOUDFLARE_ACCOUNT_ID`:
 
 ## 7. Operating
 
+Run the `transmitter` commands below as `<user>` on hugo with the env file loaded and the venv on the path: `set -a; . /etc/transmitter/<user>.env; set +a` (the file is owned by `<user>`, mode 600), then `~/.venvs/transmitter/bin/transmitter …` (or put that `bin` on `PATH`). They need `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`, which live only in that file after 6.1.
+
 - **Take the station off the air / back on:** `transmitter offair on --reason "…" [--until <iso>]` / `transmitter offair off`. These work while the guard is tripped and whatever the daily PUT budget says. With hugo down, write `state/offair.json` from the Mac; with the clock Worker broken, remove its cron trigger, then enable the kill switch by hand (both in section 4 step 4).
 - **The guard tripped for spend:** it clears only in the next billing period, or after `transmitter budget --raise-to <usd>`. Either way it clears only if the guard's next evaluation is under the thresholds. `transmitter budget` shows the guard's state. A raise must exceed the current budget and may not exceed $100. It expires at the period's end. Raise above the *projected* figure `transmitter budget` shows, or the next evaluation re-trips and consumes the raise. A `state/budget.json` that expires after the current billing period is ignored and alerted (`budget-file-invalid`); `transmitter budget --raise-to` always writes the period's end. The station's policy is to shut down on overrun, not to keep raising.
 - **Tripped "blind"** (no reading for 6 h): fix the cause (analytics token, `CF_ACCOUNT_ID`, a Cloudflare API outage; see `last_error` in `transmitter budget`). The first successful reading under the thresholds clears it.
@@ -386,8 +389,8 @@ From `antenna/`, with `.env` holding `CLOUDFLARE_ACCOUNT_ID`:
   - *VLC at a fallback→live switch.* At a fresh run — the first start, an outage longer than the published lead, or a re-epoch — `EXT-X-DISCONTINUITY-SEQUENCE` restarts at 0. hls.js and Safari follow it; VLC goes silent and needs stop/play once.
   - *Cloud alerts need R2.* While R2 itself is unreadable, the cloud cannot send alerts (their state lives in R2); an R2 outage that hits the read of `state/alerts.json` silences cloud alerts for that minute, and hugo's dead-clock check is the cover for that case. An invocation whose guard could not read its state (`blocked: null`) may still try to read `state/alerts.json`.
   - *`guard-unknown` is not only an unknown outcome.* It can also appear when the guard did return a known outcome (a race between overlapping invocations).
-  - *Overlapping cron runs.* When overlapping runs race, a one-minute unblocked window is possible after a trip. The trip is never lost: the next run re-blocks, and it is alerted.
-  - *ENDLIST may lag a trip.* With two invocations overlapping right after a trip, the ENDLIST playlist can lag by up to about a minute. That matters only while the WAF API is also failing (a cooperative-only block).
+  - *Overlapping cron runs.* When overlapping runs race, a one-minute unblocked window is possible after a trip. The trip is never lost: the next run re-blocks, and it is alerted. (See also the next bullet.)
+  - *ENDLIST may lag a trip.* The same race: with two invocations overlapping right after a trip, the ENDLIST playlist can lag by up to about a minute. That matters only while the WAF API is also failing (a cooperative-only block).
   - *`lead-low` on a fresh start.* A fresh run (first start, or a restart after an outage longer than the lead) builds its lead from zero, so `lead-low` fires and later resolves while the lead grows (about 10 minutes of encoding per show on hugo). That alert is expected after a fresh start and needs no action.
   - *A pre-upgrade `guard-cache.json`.* On hugo, a `guard-cache.json` written before the upgrade lacks the `guard_evaluated_at` key and is treated as unknown (no false `guard-stale`). Expected.
   - *A future-dated budget raise.* If `state/budget.json`'s `written_at` is ahead of the Worker's clock (hugo's clock skewed ahead), the guard re-evaluates every minute until that time passes. Those are GraphQL reads, which are not billed; NTP on hugo keeps the window to seconds.
@@ -427,13 +430,13 @@ From `antenna/`, with `.env` holding `CLOUDFLARE_ACCOUNT_ID`:
 
 ## 8. Phase-2 verification checklist
 
-Run with the station up and **not yet shared**. Record each result (date, observation) in `docs/superpowers/<date>-playout-phase2-verification.md`. Restore the normal deploy (`npx wrangler deploy`, with no `--var`) after each item that changes it.
+Run with the station up and **not yet shared**. Run the `transmitter` commands as described at the top of section 7. Record each result (date, observation) in `docs/superpowers/<date>-playout-phase2-verification.md`. Restore the normal deploy (`npx wrangler deploy`, with no `--var`) after each item that changes it.
 
-- [ ] **The guard reads and prices usage.** `guard.json` → `evaluation`: compare `period_to_date` with the dashboard's R2 and Workers metrics for the period (sampled; expect agreement within a few percent). `unknown_action_types` is `[]`; otherwise record the strings. Also confirm the **first** `state/guard.json` write succeeded on production R2: its create-only conditional put (`onlyIf: { etagDoesNotMatch: "*" }`) was verified only in miniflare, so check there is no `guard-write` alert and the document exists.
+- [ ] **The guard reads and prices usage.** `guard.json` → `evaluation`: compare `period_to_date` with the dashboard's R2 and Workers metrics for the period (sampled; expect agreement within a few percent). `unknown_action_types` is `[]`; otherwise record the strings. Also confirm the **first** `state/guard.json` write succeeded on production R2: there is no `guard-write` alert and the document exists. The create-only precondition itself (`onlyIf: { etagDoesNotMatch: "*" }`, verified only in miniflare) is not observable from outside: the Worker falls back to an unconditional put.
 - [ ] **Off-air blocks fully and comes back.** `transmitter offair on --reason test`. Within ~1 min:
-      - `curl -s https://<host>/live.m3u8` → 403 (kill switch);
+      - `curl -s -o /dev/null -w '%{http_code}\n' https://<host>/live.m3u8` → 403 (kill switch);
       - the dashboard shows the kill-switch rule enabled;
-      - `curl -s https://<host>/` → the off-air page;
+      - `curl -s https://<host>/` → the off-air page (`/` is cached up to 60 s, `max-age=60`, so at the edge and in a browser this can take about 2 minutes);
       - `transmitter status` → `offair ON`, `killswitch enabled`.
 
       Then `transmitter offair off`. Within ~1 min everything reverses and players can tune in again. Repeat once with the Mac-side write of `state/offair.json` (section 4 step 4) in place of `transmitter offair`.
@@ -446,22 +449,22 @@ Run with the station up and **not yet shared**. Record each result (date, observ
          - an urgent ntfy and email "Station blocked: spend";
          - the station blocked as above;
          - `transmitter budget` → `TRIPPED (spend)`.
-      2. `transmitter budget --raise-to 7`. Within ~1 min the raise triggers an evaluation; it is under the thresholds, so the station is unblocked and a "resolved" message arrives.
-      3. Restore: `npx wrangler deploy` (the budget is back to 15; the $7 raise is below it and ignored).
+      2. `transmitter budget --raise-to 7` (or any figure above the projected one that `transmitter budget` shows). Within ~1 min the raise triggers an evaluation; it is under the thresholds, so the station is unblocked within ~1 min, and the "resolved" message arrives about 15 minutes later (section 7's cooldown).
+      3. Restore: `npx wrangler deploy` (the budget is back to 15; the $7 raise is below it and ignored). Also delete the test raise: `npx wrangler r2 object delete lma-radio/state/budget.json --remote`; otherwise a re-run of this item in the same period never trips and `--raise-to 7` is refused. Extra once-only 50% and 80% alerts at $5.50 and $7 are expected (their key carries the budget).
 - [ ] **A blind trip.**
-      1. Set `CF_ANALYTICS_TOKEN` to a wrong value (`npx wrangler secret put CF_ANALYTICS_TOKEN`), then `npx wrangler deploy --var BLIND_AFTER_SECONDS:900 --var GUARD_EVAL_SECONDS:60`. About 15 min after the last success the station blocks with "Station blocked: guard blind", and `guard.json` `last_error` names the failure.
+      1. Have the real token value at hand (or be ready to roll the token in the dashboard): secrets cannot be read back. Set `CF_ANALYTICS_TOKEN` to a wrong value (`npx wrangler secret put CF_ANALYTICS_TOKEN`), then `npx wrangler deploy --var BLIND_AFTER_SECONDS:900 --var GUARD_EVAL_SECONDS:60`. About 15 min after the last success the station blocks with "Station blocked: guard blind", and `guard.json` `last_error` names the failure.
       2. Restore the real token. The next evaluation unblocks the station.
       3. Restore the deploy.
-- [ ] **A dashboard toggle is undone and alerted.** Enable the kill-switch rule in the dashboard while the station is on air. Within ~1 min it is disabled again and a "Kill switch toggled by hand" (`waf-corrected`) alert arrives.
-- [ ] **A Rulesets failure.** Set `CF_WAF_TOKEN` to a wrong value. Within ~1 min a "Kill switch not reconciled" alert arrives, and `guard.json` `waf.error` is set. With `offair on` at the same time, `live.m3u8` is the ENDLIST playlist and `/` is the off-air page (the block is cooperative). Restore the token: the rule is enabled within a minute, then `offair off`.
+- [ ] **A dashboard toggle is undone and alerted.** Enable the kill-switch rule in the dashboard while the station is on air. Within ~1 min it is disabled again and a "Kill switch corrected" (`waf-corrected`) alert arrives.
+- [ ] **A Rulesets failure.** Have the real `CF_WAF_TOKEN` value at hand (or be ready to roll the token): secrets cannot be read back. Set `CF_WAF_TOKEN` to a wrong value. Within ~1 min a "Kill switch not reconciled" alert arrives, and `guard.json` `waf.error` is set. With `offair on` at the same time, `live.m3u8` is the ENDLIST playlist and `/` is the off-air page (the block is cooperative). Restore the token: the rule is enabled within a minute, then `offair off`.
 - [ ] **Lead floor.** `npx wrangler deploy --var LEAD_FLOOR_HOURS:30`: a "Published lead below floor" alert arrives within a minute. Restore.
 - [ ] **`site_url` serves the playlist at its root.** `curl -s <site_url>/live.m3u8` returns the playlist: the dead-clock check fetches exactly that URL once a minute.
-- [ ] **Overlapping cron runs (known window; no action).** A race between overlapping cron runs can leave a one-minute unblocked window after a trip. The trip is never lost: the next run re-blocks, and an alert is sent. Record any occurrence (section 7, known limitations).
-- [ ] **A pre-upgrade `guard-cache.json`** (expected, no action). After the upgrade a `guard-cache.json` without the `guard_evaluated_at` key is treated as unknown; no false `guard-stale` should arrive. Note it.
 - [ ] **A dead clock.** Workers & Pages → `antenna` → Settings → Trigger events → delete the cron trigger. Within ~3 min hugo sends `dead-clock` (email + ntfy). Within about an hour it sends `guard-stale`. Restore with `npx wrangler deploy`; both send "resolved".
-- [ ] **The watchdog.** `sudo systemctl edit transmitter@<user>` → `[Service]` `WatchdogSec=2min`. Then `sudo systemctl kill -s STOP transmitter@<user>`. Within ~2 min the journal shows a watchdog timeout and the service restarts. Remove the override, restart the service, and reboot hugo once to see it come back by itself.
+- [ ] **The watchdog.** `sudo systemctl edit transmitter@<user>` → `[Service]` `WatchdogSec=2min`. Then `sudo systemctl kill -s STOP transmitter@<user>`. Within ~2 min the journal shows a watchdog timeout and the service restarts. Remove the override with `sudo systemctl revert transmitter@<user>`, restart the service, and reboot hugo once to see it come back by itself.
 - [ ] **Cron lag, 24 h** (carried from phase 1): median, p99, max, and the count over 25 s, from the phase-1 capture.
 - [ ] **Cron lag plus guard time, 24 h** (Task 18's input): from a day of phase-2 clock lines, the median, p99 and max of `lagMs` and of `lagMs + guardMs`, and the count with `lagMs + guardMs` over 25 s, together with the Task 18 decision.
 - [ ] **A week of op counts** (carried from phase 1, due 2026-10-18), now with the guard's own reads and writes: compare with `guard.json`'s `period_to_date`.
+
+**Notes (expected, not pass/fail).** (1) When overlapping cron runs race, a one-minute unblocked window is possible after a trip; the trip is never lost, the next run re-blocks, and it is alerted: record any occurrence (section 7, known limitations). (2) After the upgrade, a `guard-cache.json` without the `guard_evaluated_at` key is treated as unknown, so no false `guard-stale` should arrive.
 
 When every item passes, the station may be shared publicly (spec, Phases item 2).
