@@ -122,7 +122,10 @@ async function probe() {
   let status = 0;
   let body = "";
   try {
-    const res = await fetch(STREAM, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+    // AbortSignal.timeout is missing on older WebKit (iOS 15): without it the probe still runs, unbounded
+    const signal = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(8000) : undefined;
+    const res = await fetch(STREAM, { cache: "no-store", ...(signal ? { signal } : {}) });
     status = res.status;
     if (gen !== session) return;
     if (res.ok) body = await res.text();

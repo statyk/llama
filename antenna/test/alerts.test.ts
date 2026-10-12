@@ -482,6 +482,21 @@ describe("dispatchAlerts", () => {
       await dispatchAlerts(bucket, [ok], [], T0 + 33 * M, REPEAT);
       expect(got).toEqual(["alert:waf-api", "resolved:waf-api"]); // no resolved for the undelivered episode
     });
+
+    it("P10: a failed re-alert over an active never-delivered episode stays undelivered: dropped on re-clear, no resolved", async () => {
+      const { bucket, got, broken, ok } = setup();
+      await dispatchAlerts(bucket, [broken], [cond("tripped-spend")], T0, REPEAT);
+      await dispatchAlerts(bucket, [ok], [], T0 + M, REPEAT); // clearing, on a complete batch
+      for (let m = 2; m <= 20; m++) {
+        await dispatchAlerts(bucket, [ok], [], T0 + m * M, REPEAT, { complete: false, guardComplete: false });
+      }
+      expect(await dispatchAlerts(bucket, [broken], [cond("tripped-spend")], T0 + 21 * M, REPEAT))
+        .toEqual({ sent: 0, failed: 1 });
+      expect(bucket.json(ALERTS_KEY)["tripped-spend"]).toMatchObject({ active: true, delivered: false, last_sent_at: null });
+      for (let m = 22; m <= 37; m++) await dispatchAlerts(bucket, [ok], [], T0 + m * M, REPEAT);
+      expect(got).toEqual([]);
+      expect(bucket.json(ALERTS_KEY)).toEqual({});
+    });
   });
 
   it("an older entry without `delivered` counts as delivered when a send was recorded", () => {

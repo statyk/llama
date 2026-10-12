@@ -119,7 +119,10 @@ function periodOrNull(nowMs: number, cfg: GuardConfig): Period | null {
  * the race is dropped: theirs is as recent). A blind trip carries over only if
  * theirs has no newer successful reading -- a newer success would clear it.
  * A spend trip also replaces a blind one: spend is the stickier latch (only a
- * raise or a new period clears it), so letting blind stand would lose it. */
+ * raise or a new period clears it), so letting blind stand would lose it.
+ * A loser that merely carried prev's spend trip forward can re-impose it over a
+ * winner that cleared it with a raise: fail-closed, and it self-heals at the
+ * merged document's next evaluation (within 15 minutes). */
 export function mergeLostRace(ours: GuardDoc, theirs: GuardDoc): GuardDoc | null {
   if (!ours.tripped) return null;
   if (theirs.tripped && !(ours.reason === "spend" && theirs.reason === "blind")) return null;

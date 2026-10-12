@@ -501,6 +501,18 @@ describe("guardStep: races and failure paths beyond the plan's", () => {
     expect(bucket.json(GUARD_KEY)).toMatchObject({ tripped: false, last_success: null });
     expect(bucket.json(GUARD_KEY).last_error).toMatch(/MONTHLY_BUDGET_USD/);
   });
+
+  it("blind still trips 6 h after the last success while state/budget.json gets keep throwing", async () => {
+    const bucket = new MemoryBucket();
+    bucket.failGets.add(BUDGET_KEY);
+    const c = cloud();
+    const first = await step(bucket, c);
+    expect(first.conditions.map((x) => x.key)).toContain("budget-unreadable");
+    expect(bucket.json(GUARD_KEY)).toMatchObject({ tripped: false, evaluated_at: null });
+    const later = await step(bucket, c, T0 + 6 * 60 * M + M);
+    expect(later).toMatchObject({ blocked: true, tripped: true });
+    expect(bucket.json(GUARD_KEY)).toMatchObject({ tripped: true, reason: "blind" });
+  });
 });
 
 describe("mergeLostRace: spend over blind", () => {
