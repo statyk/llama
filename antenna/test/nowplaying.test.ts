@@ -152,5 +152,7 @@ describe("StallWatch", () => {
     expect(w.verdict("offair")).toBe(false);
     expect(w.tick(11, 46_000)).toBe(false); // playing again
     expect(w.stalled(47_000)).toBe(false);
+    expect(w.tick(11, 61_000)).toBe(true); // stalls again
+    expect(w.verdict("offair")).toBe(false); // progress reset the count: one verdict is not two
   });
 });

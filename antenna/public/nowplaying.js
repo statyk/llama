@@ -24,7 +24,8 @@ export function playBlockedNotice(err, stillPlaying) {
  * playlist (off-air with no notice), which hls.js reports as a non-fatal
  * error rather than a LEVEL_LOADED it would otherwise keep reloading. */
 export function hlsErrorNotice(data) {
-  const code = (data && data.response && data.response.code) || (data && data.networkDetails && data.networkDetails.status);
+  const code = (data && data.response && data.response.code) ||
+    (data && data.networkDetails && data.networkDetails.status);
   if (code === 403 || (data && data.details === "levelEmptyError")) return "The station is off the air.";
   if (data && data.fatal) return "The stream is unavailable right now.";
   return null;
