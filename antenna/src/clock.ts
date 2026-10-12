@@ -1,5 +1,8 @@
 import type { BucketLike } from "./bucket";
+import type { AlertCondition } from "./conditions";
 import { type Horizon, gridOf, indexAt, startMs } from "./grid";
+import type { GuardOutcome } from "./guard";
+import { reconcileIndex } from "./indexpage";
 import { buildPlaylist, type FallbackIndex, isOffair, type PlaylistConfig, usableFallback } from "./playlist";
 
 export { type BucketLike, r2Bucket, type StoredObject } from "./bucket";
@@ -7,6 +10,8 @@ export { type BucketLike, r2Bucket, type StoredObject } from "./bucket";
 export interface ClockConfig extends PlaylistConfig {
   loopMs: number;
   liveMaxAge: number;
+  /** Alert when the published lead (end of horizon.last - now) is below this. */
+  leadFloorMs: number;
 }
 
 export interface ClockEnv {
@@ -15,6 +20,7 @@ export interface ClockEnv {
   OFFAIR_AFTER_SECONDS?: string;
   LOOP_SECONDS?: string;
   LIVE_MAX_AGE?: string;
+  LEAD_FLOOR_HOURS?: string;
 }
 
 function num(v: string | undefined, fallback: number): number {
@@ -29,6 +35,7 @@ export function configFromEnv(env: ClockEnv): ClockConfig {
     offairAfterMs: num(env.OFFAIR_AFTER_SECONDS, 86_400) * 1000,
     loopMs: num(env.LOOP_SECONDS, 75) * 1000,
     liveMaxAge: Math.max(1, Math.floor(num(env.LIVE_MAX_AGE, 5))),
+    leadFloorMs: num(env.LEAD_FLOOR_HOURS, 16) * 3_600_000,
   };
 }
 
@@ -38,7 +45,10 @@ export interface ClockDeps {
   sleep: (ms: number) => Promise<void>;
   scheduledTime: number;
   config: ClockConfig;
-  guard?: (deps: ClockDeps) => Promise<void>;
+  /** The cost guard step (guard.ts), run first; it decides blocked. */
+  guard: () => Promise<GuardOutcome>;
+  /** Where this invocation's alert conditions go (alerts.ts); default: logged. */
+  alerts?: (conditions: AlertCondition[], nowMs: number) => Promise<void>;
 }
 
 export interface ClockResult {
@@ -50,6 +60,14 @@ export interface ClockResult {
   offairWithoutFallback: string | null;
   /** Set when the horizon was refused (d is not the grid constant); nothing written. */
   refused: string | null;
+  /** The guard's verdict: null = unknown, nothing written this invocation. */
+  blocked: boolean | null;
+  /** How long the guard step took. Logged on the clock line: amendment A4's
+   * trigger adds it to the cron lag. */
+  guardMs: number | null;
+  index: "written" | "unchanged" | "failed" | "skipped";
+  /** Keys of the alert conditions raised this invocation. */
+  alerts: string[];
 }
 
 export const LIVE_KEY = "live.m3u8";
@@ -66,19 +84,10 @@ export const MAX_LOOP_MS = 75_000;
 export const MAX_PUTS = 10;
 const BOUNDARY_SLACK_MS = 25;
 
-/**
- * Phase-2 seam. The cost guard runs here, first in every invocation and in
- * its own try/finally: it evaluates usage when state/guard.json is >= 15 min
- * old, applies the blind rule, and reconciles the blocked state (tripped OR
- * offair: ENDLIST playlist, off-air index.html, WAF kill switch) before any
- * playlist work. Phase 1 honours only a hand-written state/offair.json, which
- * readInputs reads; this is deliberately a no-op.
- */
-export async function guardStep(_deps: ClockDeps): Promise<void> {}
-
 export interface ClockInputs {
   horizon: Horizon | null;
   fallback: FallbackIndex | null;
+  /** Blocked (tripped OR offair), from the guard: the off-air playlist. */
   offair: boolean;
 }
 
@@ -92,14 +101,19 @@ async function readJson<T>(bucket: BucketLike, key: string): Promise<T | null> {
   }
 }
 
-/** state/ is read once per invocation, via the binding (never through the cache). */
-export async function readInputs(bucket: BucketLike): Promise<ClockInputs> {
+/** The horizon and its fallback, read once per invocation via the binding
+ * (never through the cache). The blocked state comes from the guard. */
+export async function readInputs(bucket: BucketLike, blocked: boolean): Promise<ClockInputs> {
   const horizon = await readJson<Horizon>(bucket, "state/horizon.json");
-  const offairDoc = await readJson<{ offair?: unknown }>(bucket, "state/offair.json");
   const fallback = horizon?.fallback_version
     ? await readJson<FallbackIndex>(bucket, `fallback/${horizon.fallback_version}/index.json`)
     : null;
-  return { horizon, fallback, offair: offairDoc?.offair === true };
+  return { horizon, fallback, offair: blocked };
+}
+
+/** Default alert sink until alerts.ts dispatches: one structured line each. */
+export async function logAlerts(conditions: AlertCondition[], _nowMs: number): Promise<void> {
+  for (const c of conditions) console.error(JSON.stringify({ event: "alert", key: c.key, title: c.title, message: c.message }));
 }
 
 export function putCap(cfg: ClockConfig, dMs: number): number {
@@ -111,7 +125,7 @@ function offairWithoutFallback(inputs: ClockInputs, horizon: Horizon, nowMs: num
   const inp = { nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair };
   if (!isOffair(inp, cfg) || usableFallback(inp) !== null) return null;
   const cause = inputs.offair
-    ? "state/offair.json has offair: true"
+    ? "the station is blocked (tripped or state/offair.json)"
     : `horizon is stale (now is more than ${cfg.offairAfterMs / 1000} s past the end of segment ${horizon.last})`;
   const missing =
     horizon.fallback_version === null || horizon.fallback_version === ""
@@ -123,10 +137,15 @@ function offairWithoutFallback(inputs: ClockInputs, horizon: Horizon, nowMs: num
 }
 
 /**
- * One cron invocation: write the current playlist immediately, then rewrite it
- * at every grid boundary E + N*d until scheduledTime + loopMs. Only CPU time is
- * billed, so the waiting is free. Overlapping invocations are harmless: the
- * playlist is a pure function of the clock and the inputs.
+ * One cron invocation. First the cost guard (guard.ts): it decides blocked =
+ * tripped OR offair and reconciles the kill switch; when it cannot tell, the
+ * invocation writes nothing at all. Then index.html follows the blocked state,
+ * and the playlist is written immediately and at every grid boundary
+ * E + N*d until scheduledTime + loopMs (the off-air playlist while blocked).
+ * Alerts go out after the last playlist write, so a slow channel never delays
+ * a boundary write. Only CPU time is billed, so the waiting is free.
+ * Overlapping invocations are harmless: the playlist is a pure function of the
+ * clock and the inputs.
  *
  * Epoch change: inputs are read once per invocation, so an epoch never changes
  * inside one. When state/horizon.json's epoch_id changes between invocations,
@@ -136,7 +155,6 @@ function offairWithoutFallback(inputs: ClockInputs, horizon: Horizon, nowMs: num
  * seg/<new epoch_id>/), and players must reload the stream to follow it.
  */
 export async function runClock(deps: ClockDeps): Promise<ClockResult> {
-  await (deps.guard ?? guardStep)(deps);
   const { bucket } = deps;
   const config: ClockConfig = {
     ...deps.config,
@@ -147,54 +165,114 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     console.error(JSON.stringify({ event: "loop-clamped", configuredMs: deps.config.loopMs, usedMs: config.loopMs,
                                    scheduled: deps.scheduledTime }));
   }
-  const inputs = await readInputs(bucket);
-  const result: ClockResult = { puts: 0, skipped: 0, offairWithoutFallback: null, refused: null };
-  const horizon = inputs.horizon;
-  if (horizon === null) return result;
-  if (horizon.d !== GRID_D) {
-    result.refused = `state/horizon.json d is ${JSON.stringify(horizon.d)}, not the grid constant ${GRID_D}: live.m3u8 not written`;
-    console.error(JSON.stringify({ event: "horizon-refused", reason: result.refused, d: horizon.d,
-                                   epoch_id: horizon.epoch_id, scheduled: deps.scheduledTime }));
-    return result;
-  }
-  const g = gridOf(horizon);
-  const cap = putCap(config, g.dMs);
-  let lastBody: string | null = null;
-  const write = async (force: boolean) => {
-    const nowMs = deps.now();
-    const body = buildPlaylist({ nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair,
-                                 offairSeqMs: deps.scheduledTime + config.loopMs }, config);
-    // Ruling: off-air without a usable fallback writes the ENDLIST-only
-    // playlist through the normal path below (cap and identical-bytes skip
-    // apply), but stays loud: the notice is missing. Once per invocation.
-    if (result.offairWithoutFallback === null) {
-      const reason = offairWithoutFallback(inputs, horizon, nowMs, config);
-      if (reason !== null) {
-        result.offairWithoutFallback = reason;
-        console.error(JSON.stringify({ event: "offair-without-fallback", reason, epoch_id: horizon.epoch_id,
-                                       fallback_version: horizon.fallback_version, scheduled: deps.scheduledTime }));
-      }
+  const result: ClockResult = { puts: 0, skipped: 0, offairWithoutFallback: null, refused: null, blocked: null,
+                                guardMs: null, index: "skipped", alerts: [] };
+  const conditions: AlertCondition[] = [];
+  let flushed = false;
+  const flush = async () => {
+    if (flushed) return;
+    flushed = true;
+    result.alerts = conditions.map((c) => c.key);
+    try {
+      await (deps.alerts ?? logAlerts)(conditions, deps.now());
+    } catch (e) {
+      console.error(JSON.stringify({ event: "alert-dispatch-failed", error: e instanceof Error ? e.message : String(e) }));
     }
-    if (body === null) return;
-    if (!force && body === lastBody) {
-      result.skipped++;
-      return;
-    }
-    if (result.puts >= cap) return;
-    await bucket.put(LIVE_KEY, body, {
-      httpMetadata: { contentType: "application/vnd.apple.mpegurl", cacheControl: `public, max-age=${config.liveMaxAge}` },
-    });
-    result.puts++;
-    lastBody = body;
   };
-  await write(true);
-  const deadline = deps.scheduledTime + config.loopMs;
-  while (result.puts < cap) {
-    const now = deps.now();
-    const next = startMs(g, indexAt(g, now) + 1);
-    if (next > deadline) break;
-    await deps.sleep(next - now + BOUNDARY_SLACK_MS);
-    await write(false);
+  try {
+    // 1. The guard, first: it decides blocked and reconciles the kill switch.
+    const startedMs = deps.now();
+    let outcome: GuardOutcome;
+    try {
+      outcome = await deps.guard();
+    } catch (e) {
+      outcome = { blocked: null, tripped: null, offair: null, doc: null, conditions: [{
+        key: "guard-crashed", priority: "urgent", resolvable: true, title: "Cost guard crashed",
+        message: `The guard step threw (${e instanceof Error ? e.message : String(e)}); the clock wrote nothing.` }] };
+    }
+    result.guardMs = deps.now() - startedMs;
+    conditions.push(...outcome.conditions);
+    result.blocked = outcome.blocked;
+    if (outcome.blocked === null) {
+      // Unknown: change nothing (players stall on a stale playlist, toward zero cost).
+      console.error(JSON.stringify({ event: "guard-unknown", scheduled: deps.scheduledTime }));
+      return result;
+    }
+    const blocked = outcome.blocked;
+    // 2. index.html follows the blocked state.
+    try {
+      result.index = await reconcileIndex(bucket, blocked);
+    } catch (e) {
+      result.index = "failed";
+      conditions.push({ key: "index-write", priority: "high", resolvable: true, title: "index.html not reconciled",
+                        message: `Writing index.html (${blocked ? "off-air" : "player"} page) failed: ${e instanceof Error ? e.message : String(e)}` });
+    }
+    // 3. The playlist.
+    const inputs = await readInputs(bucket, blocked);
+    const horizon = inputs.horizon;
+    if (horizon === null) {
+      conditions.push({ key: "horizon-missing", priority: "default", resolvable: true, title: "No horizon published",
+                        message: "state/horizon.json is absent: nothing is on air yet (transmitter has not published)." });
+      return result;
+    }
+    if (horizon.d !== GRID_D) {
+      result.refused = `state/horizon.json d is ${JSON.stringify(horizon.d)}, not the grid constant ${GRID_D}: live.m3u8 not written`;
+      console.error(JSON.stringify({ event: "horizon-refused", reason: result.refused, d: horizon.d,
+                                     epoch_id: horizon.epoch_id, scheduled: deps.scheduledTime }));
+      conditions.push({ key: "horizon-refused", priority: "urgent", resolvable: true, title: "Horizon refused",
+                        message: result.refused });
+      return result;
+    }
+    const g = gridOf(horizon);
+    const leadMs = startMs(g, horizon.last + 1) - deps.now();
+    // While tripped, transmitter stops publishing by design: the lead drains then.
+    if (!outcome.tripped && leadMs < config.leadFloorMs) {
+      conditions.push({ key: "lead-low", priority: "high", resolvable: true, title: "Published lead below floor",
+                        message: `The published lead is ${(leadMs / 3_600_000).toFixed(1)} h (floor ` +
+                                 `${(config.leadFloorMs / 3_600_000).toFixed(1)} h): is transmitter on hugo publishing?` });
+    }
+    const cap = putCap(config, g.dMs);
+    let lastBody: string | null = null;
+    const write = async (force: boolean) => {
+      const nowMs = deps.now();
+      const body = buildPlaylist({ nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair,
+                                   offairSeqMs: deps.scheduledTime + config.loopMs }, config);
+      // Ruling: off-air without a usable fallback writes the ENDLIST-only
+      // playlist through the normal path below (cap and identical-bytes skip
+      // apply), but stays loud: the notice is missing. Once per invocation.
+      if (result.offairWithoutFallback === null) {
+        const reason = offairWithoutFallback(inputs, horizon, nowMs, config);
+        if (reason !== null) {
+          result.offairWithoutFallback = reason;
+          console.error(JSON.stringify({ event: "offair-without-fallback", reason, epoch_id: horizon.epoch_id,
+                                         fallback_version: horizon.fallback_version, scheduled: deps.scheduledTime }));
+          conditions.push({ key: "offair-without-fallback", priority: "high", resolvable: true,
+                            title: "Off-air without a notice", message: reason });
+        }
+      }
+      if (body === null) return;
+      if (!force && body === lastBody) {
+        result.skipped++;
+        return;
+      }
+      if (result.puts >= cap) return;
+      await bucket.put(LIVE_KEY, body, {
+        httpMetadata: { contentType: "application/vnd.apple.mpegurl", cacheControl: `public, max-age=${config.liveMaxAge}` },
+      });
+      result.puts++;
+      lastBody = body;
+    };
+    await write(true);
+    const deadline = deps.scheduledTime + config.loopMs;
+    while (result.puts < cap) {
+      const now = deps.now();
+      const next = startMs(g, indexAt(g, now) + 1);
+      if (next > deadline) break;
+      await deps.sleep(next - now + BOUNDARY_SLACK_MS);
+      await write(false);
+    }
+    return result;
+  } finally {
+    await flush(); // after the last playlist write (or an early return), never before the guard
   }
-  return result;
 }
