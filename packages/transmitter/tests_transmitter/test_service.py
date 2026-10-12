@@ -55,7 +55,7 @@ def test_runner_alerts_and_keeps_publishing_when_planning_fails(tmp_path, caplog
     runner = service.Runner(st, _publisher(st, bucket), sleep=lambda s: None)
     with caplog.at_level(logging.ERROR, logger="transmitter.alerts"):
         runner.tick(NOW)
-    assert "ALERT plan" in caplog.text and ".station-root" in caplog.text
+    assert "ALERT station-root" in caplog.text and ".station-root" in caplog.text
     assert any(k.startswith("seg/") for k in bucket.puts())
     assert "state/horizon.json" in bucket.objects          # publishing really happened
 
@@ -139,7 +139,8 @@ def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch,
         runner.tick(NOW)
         assert not runner.halted
         runner.tick(NOW)
-    assert f"ALERT plan: {type(exc).__name__}: {exc}" in caplog.text
+    code = "station-root" if isinstance(exc, StationRootError) else "plan"
+    assert f"ALERT {code}: {type(exc).__name__}: {exc}" in caplog.text
     assert len(calls) == 2 and any(k.startswith("seg/") for k in bucket.puts())
 
 

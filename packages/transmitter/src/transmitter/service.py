@@ -14,7 +14,7 @@ from typing import Callable
 from transmitter import alerts, analysis, grid, pipeline, publish, r2, station
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
-from transmitter.errors import ConfigError, FrameCountDrift, PublishLocked
+from transmitter.errors import ConfigError, FrameCountDrift, PublishLocked, StationRootError
 from transmitter.layout import PlanRow
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
@@ -162,10 +162,16 @@ class Runner:
         last = load_publish_state(self.st.ws).last
         return None if last is None else self.st.epoch.start_us(last + 1) - t_us
 
-    def _step(self, name: str, fn: Callable[[], object]) -> None:
-        """Run one step; no error ends the loop (the next tick retries)."""
+    def _step(self, name: str, fn: Callable[[], object], *, resolves: tuple[str, ...] = ()) -> None:
+        """Run one step; no error ends the loop (the next tick retries). A step
+        that succeeds resolves `resolves`."""
         try:
             fn()
+            for code in resolves:
+                alerts.resolve(code)
+        except StationRootError as exc:
+            log.error("%s step: %s", name, exc)
+            alerts.alert("station-root", f"{type(exc).__name__}: {exc}")
         except FrameCountDrift as exc:
             # The encoder no longer matches the frame-count model: stop filling
             # rather than render more of a timeline that may be wrong.
@@ -202,9 +208,10 @@ class Runner:
         if not self.halted and (lead is None or lead < low_water_us):
             self.filling = True
         if self.filling:
-            self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1))
+            self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1),
+                       resolves=("plan", "station-root"))
             self._step("render", lambda: pipeline.render_step(
-                self.st, t_us, limit=self.st.cfg.publish.batch_segments))
+                self.st, t_us, limit=self.st.cfg.publish.batch_segments), resolves=("render",))
         self._step("publish", lambda: publish_all(self.p, t_us, self.held))
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:

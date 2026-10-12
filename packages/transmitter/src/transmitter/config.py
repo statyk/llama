@@ -87,6 +87,25 @@ class PublishConfig(_StrictModel):
     guard_check_minutes: float = Field(default=15.0, ge=0)
 
 
+class AlertsConfig(_StrictModel):
+    """hugo's alert channels (spec "Alerts and operations"). Secrets come from
+    the service's env file: SMTP_USERNAME, SMTP_PASSWORD, NTFY_TOKEN."""
+    email_to: str | None = None
+    email_from: str | None = None                  # default: SMTP_USERNAME
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    ntfy_url: str | None = None                    # https://ntfy.sh/<topic>
+    repeat_hours: float = Field(default=6.0, gt=0)
+    # Dead clock: the public live.m3u8's newest segment older than this, twice
+    # in a row. At least 3 d (spec); the default allows the measured cron lags.
+    dead_clock_seconds: float = Field(default=120.0, ge=31)
+    # Dead guard: state/guard.json last evaluated longer ago than this. hugo
+    # sees the evaluation time through a cache refreshed every [publish]
+    # guard_check_minutes, and the guard evaluates every 15 minutes plus the
+    # cron lag: at least guard_check_minutes + 16 (TransmitterConfig checks).
+    guard_stale_minutes: float = Field(default=45.0, gt=0)
+
+
 class AntennaConfig(_StrictModel):
     dir: Path | None = None            # the repo's antenna/ (templates/show.html)
     site_url: str | None = None        # public base URL, for Open Graph links
@@ -100,6 +119,15 @@ class TransmitterConfig(_StrictModel):
     render: RenderConfig = Field(default_factory=RenderConfig)
     publish: PublishConfig = Field(default_factory=PublishConfig)
     antenna: AntennaConfig = Field(default_factory=AntennaConfig)
+    alerts: AlertsConfig = Field(default_factory=AlertsConfig)
+
+    @model_validator(mode="after")
+    def _guard_stale_outlasts_the_cache(self):
+        floor = self.publish.guard_check_minutes + 16
+        if self.alerts.guard_stale_minutes < floor:
+            raise ValueError(f"alerts.guard_stale_minutes must be at least publish.guard_check_minutes + 16 ({floor:g}): "
+                             "anything shorter alarms while the guard is healthy")
+        return self
 
 
 def load_config(path: Path | None = None) -> TransmitterConfig:
@@ -174,7 +202,25 @@ guard_check_minutes = 15.0
 [antenna]
 # the repo's antenna/ directory (the show-page template is templates/show.html)
 # dir = "/home/station/llama/antenna"
-# public base URL, for Open Graph links on show pages
+# public base URL, for Open Graph links on show pages and the dead-clock
+# check (which fetches <site_url>/live.m3u8 once a minute; unset = no check)
 # site_url = "https://radio.example.org"
 station_name = "llama radio"
+
+[alerts]
+# Email over SMTP with STARTTLS (credentials from the env file: SMTP_USERNAME,
+# SMTP_PASSWORD -- for Gmail an App Password) and ntfy (NTFY_TOKEN, optional).
+# With neither, alerts only reach the log (journald).
+# email_to = "you@example.com"
+# email_from = "station@example.com"      # default: SMTP_USERNAME
+smtp_host = "smtp.gmail.com"
+smtp_port = 587
+# ntfy_url = "https://ntfy.sh/<your-topic>"
+# re-send a still-firing alert at most this often
+repeat_hours = 6.0
+# the public live.m3u8 older than this (twice in a row): the clock is dead
+dead_clock_seconds = 120.0
+# state/guard.json not evaluated for this long: the guard is dead
+# (at least [publish] guard_check_minutes + 16)
+guard_stale_minutes = 45.0
 """

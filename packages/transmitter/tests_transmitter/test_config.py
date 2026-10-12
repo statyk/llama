@@ -85,3 +85,21 @@ def test_a_prune_margin_at_the_floor_is_accepted(tmp_path):
 
 def test_the_template_states_the_prune_margin_floor():
     assert "at least 4" in DEFAULT_CONFIG_TOML
+
+
+def test_alerts_defaults_and_floors(tmp_path):
+    from transmitter.config import AlertsConfig
+
+    a = AlertsConfig()
+    assert (a.smtp_host, a.smtp_port, a.repeat_hours, a.dead_clock_seconds, a.guard_stale_minutes) == \
+        ("smtp.gmail.com", 587, 6.0, 120.0, 45.0)
+    assert a.email_to is None and a.ntfy_url is None
+    path = tmp_path / "c.toml"
+    for bad in ('[alerts]\ndead_clock_seconds = 30\n', '[alerts]\nguard_stale_minutes = 30\n',
+                '[publish]\nguard_check_minutes = 30\n',          # 30 + 16 is above the default 45
+                '[alerts]\nsmtp_password = "x"\n'):
+        path.write_text(bad)
+        with pytest.raises(ConfigError):
+            load_config(path)
+    path.write_text('[publish]\nguard_check_minutes = 5\n[alerts]\nguard_stale_minutes = 21\n')
+    assert load_config(path).alerts.guard_stale_minutes == 21
