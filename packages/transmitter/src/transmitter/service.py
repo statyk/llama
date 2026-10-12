@@ -7,6 +7,7 @@ logged with its traceback and alerted, and the loop goes on; a frame-count
 drift halts filling (publishing goes on) until transmitter is restarted."""
 
 import logging
+import math
 import time
 from pathlib import Path
 from typing import Callable
@@ -14,11 +15,12 @@ from typing import Callable
 from transmitter import alerts, analysis, grid, pipeline, publish, r2, station
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
+from transmitter.deadclock import DeadClockMonitor
 from transmitter.errors import ConfigError, FrameCountDrift, PublishLocked, StationRootError
 from transmitter.layout import PlanRow
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
-from transmitter.workspace import Workspace, load_epoch, load_or_create_epoch
+from transmitter.workspace import Workspace, load_epoch, load_or_create_epoch, read_json
 
 log = logging.getLogger("transmitter")
 MAX_BATCHES = 100
@@ -150,10 +152,25 @@ def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None
     return reports, pr
 
 
+def open_monitor(st: pipeline.Station) -> DeadClockMonitor | None:
+    """The dead-clock check, when [antenna] site_url says where live.m3u8 is."""
+    url = st.cfg.antenna.site_url
+    if not url:
+        log.warning("[antenna] site_url is not set: the dead-clock check is off")
+        return None
+    a = st.cfg.alerts
+    # An unexpected 403 must outlast the guard cache (refreshed every
+    # guard_check_minutes) before it alarms.
+    return DeadClockMonitor(url.rstrip("/") + "/live.m3u8", st.epoch.epoch_us, a.dead_clock_seconds,
+                            a.guard_stale_minutes * 60, math.ceil(st.cfg.publish.guard_check_minutes) + 2)
+
+
 class Runner:
     def __init__(self, st: pipeline.Station, p: publish.Publisher, *, clock: Callable[[], int] = now_us,
-                 sleep: Callable[[float], None] = time.sleep, tick_s: float = 60.0):
+                 sleep: Callable[[float], None] = time.sleep, tick_s: float = 60.0,
+                 monitor: DeadClockMonitor | None = None):
         self.st, self.p, self.clock, self.sleep, self.tick_s = st, p, clock, sleep, tick_s
+        self.monitor = monitor
         self.filling = False
         self.held = HeldTracker()
         self.halted = False          # latched by a frame-count drift; cleared by a restart
@@ -213,6 +230,9 @@ class Runner:
             self._step("render", lambda: pipeline.render_step(
                 self.st, t_us, limit=self.st.cfg.publish.batch_segments), resolves=("render",))
         self._step("publish", lambda: publish_all(self.p, t_us, self.held))
+        if self.monitor is not None:
+            monitor = self.monitor
+            self._step("dead-clock", lambda: monitor.check(t_us, read_json(self.st.ws.guard_cache_path)))
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False

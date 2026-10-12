@@ -221,7 +221,7 @@ def run(config: Path = CONFIG_OPT,
     st = service.open_station(cfg, t)
     alerts.configure(alerts.dispatcher_from_config(cfg, st.ws))
     try:
-        service.Runner(st, service.open_publisher(st)).run(max_ticks=1 if once else None)
+        service.Runner(st, service.open_publisher(st), monitor=service.open_monitor(st)).run(max_ticks=1 if once else None)
     finally:
         alerts.configure(None)
 

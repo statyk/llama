@@ -356,3 +356,27 @@ def test_a_successful_step_resolves_its_level_codes(tmp_path, monkeypatch, step,
         assert runner.p is not None and alerts._dispatcher.active() == []
     finally:
         alerts.configure(None)
+
+
+def test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache(tmp_path):
+    st, _ = make_station(tmp_path)
+    calls = []
+
+    class Monitor:
+        def check(self, now_us, guard_cache):
+            calls.append((now_us, guard_cache))
+
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor())
+    runner.tick(NOW)
+    runner.tick(NOW + 60_000_000)
+    assert [c[0] for c in calls] == [NOW, NOW + 60_000_000]
+    assert calls[0][1]["blocked"] is False and calls[0][1]["offair"] is False   # written by publish's guard read
+
+
+def test_open_monitor_needs_site_url(tmp_path):
+    st, _ = make_station(tmp_path)
+    assert service.open_monitor(st) is None
+    st.cfg.antenna.site_url = "https://radio.example.org/"
+    m = service.open_monitor(st)
+    assert m.url == "https://radio.example.org/live.m3u8" and m.dead_clock_s == 120.0 and m.guard_stale_s == 2700.0
+    assert m.forbidden_checks == 17                     # guard_check_minutes 15 + 2

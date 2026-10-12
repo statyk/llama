@@ -53,6 +53,7 @@ NOTES_CACHE = "public, max-age=3600"
 STATE_CACHE = "no-store"
 HORIZON_KEY = "state/horizon.json"
 GUARD_KEY = "state/guard.json"
+OFFAIR_KEY = "state/offair.json"
 TIMELINE_KEY = "timeline.json"
 CONTAINER = "adts"
 NO_FALLBACK = ("no fallback rendered: run `transmitter fallback render` first; nothing is "
@@ -144,12 +145,20 @@ def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, int
     # `blocked: false` hold off the spend kill switch: re-read.
     if cached is not None and 0 <= now_s - cached["checked_at"] < interval_s:
         return cached["blocked"]
+    evaluated_at = offair = None
     try:
         doc = uploader.get_json(GUARD_KEY)
         blocked, error = bool(doc and doc.get("tripped")), None
+        evaluated_at = doc.get("evaluated_at") if doc else None
     except Exception as exc:                        # cannot see the guard: do not spend
         blocked, error = True, str(exc)
-    write_json(ws.guard_cache_path, {"checked_at": now_s, "blocked": blocked, "error": error})
+    try:                                            # for the dead-clock check only: never gates publishing
+        flag = uploader.get_json(OFFAIR_KEY)
+        offair = bool(flag and flag.get("offair") is True)
+    except Exception:
+        offair = None
+    write_json(ws.guard_cache_path, {"checked_at": now_s, "blocked": blocked, "error": error,
+                                     "guard_evaluated_at": evaluated_at, "offair": offair})
     return blocked
 
 

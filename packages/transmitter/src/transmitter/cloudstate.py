@@ -20,10 +20,9 @@ from typing import Any, Callable
 
 from transmitter import grid
 from transmitter.errors import CloudStateError
-from transmitter.publish import GUARD_KEY, NON_RETRYABLE
+from transmitter.publish import GUARD_KEY, NON_RETRYABLE, OFFAIR_KEY
 from transmitter.publish import _error_code as _code
 
-OFFAIR_KEY = "state/offair.json"
 BUDGET_KEY = "state/budget.json"
 ALERTS_KEY = "state/alerts.json"
 JSON_TYPE = "application/json"
