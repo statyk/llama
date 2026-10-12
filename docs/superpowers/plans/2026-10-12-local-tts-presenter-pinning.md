@@ -178,8 +178,14 @@ def wav_facts(data: bytes) -> dict:
             frames = w.readframes(n)
             width, ch, rate = w.getsampwidth(), w.getnchannels(), w.getframerate()
         read = len(frames) // (width * ch)
+        # `wave` stops at the header's declared data size, so a header that
+        # UNDER-states the data would still "match" `read`. Count the frames
+        # physically present after the `data` chunk header as well; the
+        # nframes_header_matches row is "yes" only if all three agree.
+        at = data.find(b"data")
+        on_disk = (len(data) - at - 8) // (width * ch) if at >= 0 else -1
         return {"wave_ok": True, "channels": ch, "sampwidth": width, "rate": rate,
-                "nframes_header": n, "frames_read": read,
+                "nframes_header": n, "frames_read": read, "frames_on_disk": on_disk,
                 "seconds": round(read / rate, 3)}
     except Exception as e:  # recorded, not raised: this IS the measurement
         return {"wave_ok": False, "wave_error": f"{type(e).__name__}: {e}",
@@ -464,7 +470,7 @@ Worktree baseline suite: <N> passed.
 |---|---|---|
 | stt_model | <id> (recall phil_ex <r>, de_doelen <r>) | check `stt_chosen` |
 | wave_reads_server_wav | yes/no (<channels> ch, <sampwidth> B, <rate> Hz) | `speech_wav` |
-| nframes_header_matches | yes/no (header <n> vs read <m>) | `speech_wav` |
+| nframes_header_matches | yes/no — yes only if header <n> = read <m> = on-disk <k> | `speech_wav` |
 | max_tokens_truncates_silently | yes/no (<seconds> s at max_tokens 25, status <s>) | `truncation` |
 | midstream_exception | <class> | `corrupt_ref` and `midstream_kill` |
 | read_timeout_exception | <class> | `read_timeout` |
