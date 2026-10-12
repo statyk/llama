@@ -168,7 +168,9 @@ describe("parseGuardDoc rejects nested shapes this code never writes", () => {
     for (const bad of [{ ...d, waf: {} }, { ...d, waf: { enabled: "on", error: null } },
                        { ...d, waf: { enabled: true, error: 3 } }, { ...d, period: "P1" },
                        { ...d, period: { start: "2026-10-11T00:00:00.000Z" } }, { ...d, evaluation: 5 },
-                       { ...d, evaluation: { ...d.evaluation, budget_usd: "15" } }]) {
+                       { ...d, evaluation: { ...d.evaluation, budget_usd: "15" } },
+                       { ...d, evaluation: { ...d.evaluation, at: undefined } },
+                       { ...d, evaluation: { ...d.evaluation, at: 5 } }]) {
       expect(parseGuardDoc(bad)).toBeNull();
     }
     expect(parseGuardDoc({ ...d, evaluation: null, period: null })).not.toBeNull();

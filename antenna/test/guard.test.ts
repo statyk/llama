@@ -281,7 +281,6 @@ describe("guardStep: races and failure paths beyond the plan's", () => {
       }
       return realPut(key, value, options);
     };
-    return realPut;
   };
   const writeRaw = (bucket: MemoryBucket, doc: unknown) =>
     bucket.put(GUARD_KEY, typeof doc === "string" ? doc : JSON.stringify(doc),
@@ -341,13 +340,13 @@ describe("guardStep: races and failure paths beyond the plan's", () => {
     const bucket = new MemoryBucket();
     bucket.seed(GUARD_KEY, { ...freshGuardDoc(T0 - 60 * M), evaluated_at: new Date(T0 - 20 * M).toISOString() });
     const realPut = bucket.put.bind(bucket);
+    let n = 0;
+    const writeRaw2 = () => realPut(GUARD_KEY, JSON.stringify({ ...freshGuardDoc(T0 - 60 * M),
+      evaluated_at: new Date(T0 - n++).toISOString() }), { httpMetadata: { contentType: "application/json", cacheControl: "no-store" } });
     bucket.put = async (key, value, options) => {
       if (key === GUARD_KEY) await writeRaw2(); // someone always writes first
       return realPut(key, value, options);
     };
-    let n = 0;
-    const writeRaw2 = () => realPut(GUARD_KEY, JSON.stringify({ ...freshGuardDoc(T0 - 60 * M),
-      evaluated_at: new Date(T0 - n++).toISOString() }), { httpMetadata: { contentType: "application/json", cacheControl: "no-store" } });
     const out = await step(bucket, cloud({ usage: OVER }));
     expect(out).toMatchObject({ blocked: true, tripped: true });
     expect(out.conditions.find((x) => x.key === "guard-write")!.message).toMatch(/lost the write race 3 times/);
@@ -363,6 +362,126 @@ describe("guardStep: races and failure paths beyond the plan's", () => {
       expect(out.conditions.find((x) => x.key === "waf-api")!.message).toMatch(/cooperative-only/);
       expect(bucket.json(GUARD_KEY).waf.error).toBe(err.message);
     }
+  });
+
+  it("a document deleted between read and write is re-created create-only: a racer that creates it first stands", async () => {
+    const bucket = new MemoryBucket();
+    bucket.seed(GUARD_KEY, { ...freshGuardDoc(T0 - 60 * M), evaluated_at: new Date(T0 - 20 * M).toISOString() });
+    const theirs = { ...freshGuardDoc(T0), tripped: true, reason: "spend", tripped_at: new Date(T0).toISOString(),
+                     tripped_period_start: "2026-10-11T00:00:00.000Z", tripped_budget_usd: 15,
+                     evaluated_at: new Date(T0).toISOString(), last_success: new Date(T0).toISOString() };
+    const realPut = bucket.put.bind(bucket);
+    let n = 0;
+    bucket.put = async (key, value, options) => {
+      if (key === GUARD_KEY && n === 0) bucket.objects.delete(GUARD_KEY); // deleted before our etag write
+      if (key === GUARD_KEY && n === 1) { // re-created (tripped) before our retry
+        await realPut(GUARD_KEY, JSON.stringify(theirs), { httpMetadata: { contentType: "application/json", cacheControl: "no-store" } });
+      }
+      if (key === GUARD_KEY) n++;
+      return realPut(key, value, options);
+    };
+    const out = await step(bucket, cloud());
+    expect(bucket.json(GUARD_KEY)).toMatchObject({ tripped: true, reason: "spend" });
+    expect(out).toMatchObject({ blocked: true, tripped: true });
+  });
+
+  it("only a refused create-only write on a still-absent key falls back to an unconditional write", async () => {
+    const bucket = new MemoryBucket();
+    const realPut = bucket.put.bind(bucket);
+    bucket.put = async (key, value, options) =>
+      options.onlyIf && "etagDoesNotMatch" in options.onlyIf ? null : realPut(key, value, options); // a store refusing "*"
+    const out = await step(bucket, cloud());
+    expect(out.conditions.map((x) => x.key)).not.toContain("guard-write");
+    expect(bucket.json(GUARD_KEY)).toMatchObject({ evaluated_at: new Date(T0).toISOString() });
+  });
+
+  it("a non-evaluating run that turns the kill switch off folds in a racer's newer trip (blocked this minute)", async () => {
+    const bucket = new MemoryBucket();
+    const c = cloud();
+    await step(bucket, c); // evaluated at T0, untripped, switch off
+    c.state.enabled = true; // a racer has enabled it...
+    const racer = { ...bucket.json(GUARD_KEY), tripped: true, reason: "spend", tripped_at: new Date(T0 + M).toISOString(),
+                    tripped_period_start: "2026-10-11T00:00:00.000Z", tripped_budget_usd: 15, waf: { enabled: true, error: null } };
+    // ...and writes its tripped guard.json between our read and our reconcile.
+    const realGet = bucket.get.bind(bucket);
+    let reads = 0;
+    bucket.get = async (key) => {
+      const r = await realGet(key);
+      if (key === GUARD_KEY && reads++ === 0) await writeRaw(bucket, racer);
+      return r;
+    };
+    const out = await step(bucket, c, T0 + 2 * M);
+    expect(c.graphqlCalls()).toBe(1); // no evaluation this run
+    expect(c.state.enabled).toBe(false); // our reconcile acted on the older state...
+    expect(out).toMatchObject({ blocked: true, tripped: true }); // ...but the outcome holds the racer's trip
+    expect(out.conditions.map((x) => x.key)).toContain("tripped-spend");
+    expect(bucket.json(GUARD_KEY)).toMatchObject({ tripped: true, reason: "spend" });
+    // The next run re-enables it; the correction notice allows for an overlapping invocation.
+    bucket.get = realGet;
+    const next = await step(bucket, c, T0 + 3 * M);
+    expect(c.state.enabled).toBe(true);
+    expect(next.conditions.find((x) => x.key === "waf-corrected")!.message).toMatch(/by hand or by an overlapping invocation/);
+  });
+
+  it("an unblocking run with nothing newer in state does not fold anything in", async () => {
+    const bucket = new MemoryBucket();
+    const c = cloud();
+    await step(bucket, c);
+    c.state.enabled = true; // a genuine hand toggle
+    const out = await step(bucket, c, T0 + M);
+    expect(out).toMatchObject({ blocked: false, tripped: false });
+    expect(bucket.log.filter((l) => l === `head ${GUARD_KEY}`)).toHaveLength(1);
+  });
+
+  it("a throwing offair.json get is unknown: no fetch, no write", async () => {
+    const bucket = new MemoryBucket();
+    bucket.failGets.add(OFFAIR_KEY);
+    const c = cloud({ killEnabled: true });
+    const out = await step(bucket, c);
+    expect(out.blocked).toBeNull();
+    expect(out.conditions.map((x) => x.key)).toEqual(["guard-unknown"]);
+    expect(c.calls).toHaveLength(0);
+    expect(bucket.puts()).toBe(0);
+  });
+
+  it("a budget.json read that throws skips the evaluation and alerts; the next minute evaluates against the raise", async () => {
+    const bucket = new MemoryBucket();
+    bucket.seed(BUDGET_KEY, { budget_usd: 40, expires: "2026-11-11T00:00:00.000Z", written_at: new Date(T0 - 60 * M).toISOString() });
+    bucket.failGets.add(BUDGET_KEY);
+    const c = cloud({ usage: FLAT14 }); // over the $15 base, under the $40 raise
+    const out = await step(bucket, c);
+    expect(c.graphqlCalls()).toBe(0);
+    expect(out).toMatchObject({ blocked: false, tripped: false });
+    expect(out.conditions.find((x) => x.key === "budget-unreadable")).toMatchObject({ resolvable: true, priority: "high" });
+    expect(bucket.json(GUARD_KEY)).toMatchObject({ evaluated_at: null, tripped: false });
+    bucket.failGets.delete(BUDGET_KEY);
+    const next = await step(bucket, c, T0 + M);
+    expect(c.graphqlCalls()).toBe(1);
+    expect(next).toMatchObject({ blocked: false, tripped: false });
+    expect(next.conditions.map((x) => x.key)).not.toContain("budget-unreadable");
+    expect(bucket.json(GUARD_KEY).evaluation.budget_usd).toBe(40);
+  });
+
+  it("a corrupt budget.json evaluates against the base budget and alerts", async () => {
+    const bucket = new MemoryBucket();
+    bucket.seed(BUDGET_KEY, "{not json");
+    const out = await step(bucket, cloud({ usage: FLAT14 }));
+    expect(out).toMatchObject({ blocked: true, tripped: true });
+    expect(bucket.json(GUARD_KEY).evaluation.budget_usd).toBe(15);
+    expect(out.conditions.map((x) => x.key)).toContain("budget-unreadable");
+  });
+
+  it("a hand-edited guard.json the alert conditions cannot read is corrupt (a spend trip), not a throw", async () => {
+    const bucket = new MemoryBucket();
+    const first = cloud();
+    await step(bucket, first);
+    const edited = bucket.json(GUARD_KEY);
+    delete edited.evaluation.at;
+    bucket.seed(GUARD_KEY, { ...edited, period: null });
+    const out = await step(bucket, cloud(), T0 + M);
+    expect(out).toMatchObject({ blocked: true, tripped: true });
+    expect(out.conditions.map((x) => x.key)).toContain("guard-state-corrupt");
+    expect(bucket.json(GUARD_KEY).reason).toBe("spend");
   });
 
   it("blank secrets count as missing: no network call at all", async () => {

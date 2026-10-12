@@ -156,15 +156,25 @@ async function writeGuard(bucket: BucketLike, doc: GuardDoc, pre: Precondition):
 type Stored = { kind: "doc"; doc: GuardDoc } | { kind: "corrupt" };
 
 /** Persist conditionally; if another invocation wrote meanwhile, never let our
- * trip be lost (mergeLostRace), retrying the merge if we lose again. */
+ * trip be lost (mergeLostRace), retrying the merge if we lose again.
+ *
+ * Exhausting PERSIST_ATTEMPTS throws (alerted as `guard-write`) and leaves the
+ * last winner's document standing: a trip of ours is then absent from storage
+ * until the next invocation re-derives it -- a blind trip the next minute, a
+ * spend trip at the next evaluation (up to 15 min). This run still reports it
+ * (the caller's outcome keeps our decision), so this minute stays blocked. */
 async function persist(bucket: BucketLike, doc: GuardDoc, pre: Precondition): Promise<Stored> {
   let ours = doc;
-  for (let i = 0; i < PERSIST_ATTEMPTS; i++) {
+  for (let i = 0; ; i++) {
     if (await writeGuard(bucket, ours, pre)) return { kind: "doc", doc: ours };
+    if (i + 1 >= PERSIST_ATTEMPTS) break; // no re-read we would not use
     const latest = await readJsonDoc(bucket, GUARD_KEY);
     if (latest.kind === "absent") {
-      // Deleted between our read and our write: nothing of theirs to keep.
-      pre = null;
+      // Deleted between our read and our write: create-only, so a racer that
+      // creates it meanwhile is merged with, not clobbered. Only when a
+      // create-only write was itself refused and the key is still absent (a
+      // store that mishandles the precondition) is the write unconditional.
+      pre = pre === "absent" ? null : "absent";
       continue;
     }
     const theirs = latest.kind === "ok" ? parseGuardDoc(latest.value) : null;
@@ -191,12 +201,29 @@ export async function guardStep(deps: GuardDeps): Promise<GuardOutcome> {
                       message: `Reading state/ failed (${msg(e)}); the clock wrote nothing this minute and changed nothing.` });
     return { blocked: null, tripped: null, offair: null, doc: null, conditions };
   }
+  // A raise that cannot be read is never silent. A read that throws skips this
+  // minute's evaluation (evaluated_at is not advanced, so the next minute
+  // retries, and blind keeps counting from the last success): evaluating
+  // against the base instead would trip spend on a raise the guard merely
+  // failed to read, and hold the station off the air until the next
+  // evaluation. Unparseable bytes are a lasting state, not a blip: evaluate
+  // against the configured budget (stricter) and say so.
   let budgetRaw: unknown = null;
+  let budgetReadFailed = false;
+  const budgetUnreadable = (detail: string): AlertCondition =>
+    ({ key: "budget-unreadable", priority: "high", resolvable: true, title: "state/budget.json unreadable",
+       message: `${detail} Rewrite it with \`transmitter budget --raise-to <usd>\`, or remove it to use the configured budget.` });
   try {
     const b = await readJsonDoc(bucket, BUDGET_KEY);
-    budgetRaw = b.kind === "ok" ? b.value : null;
-  } catch {
-    budgetRaw = null; // unreadable raise: the configured budget (stricter) applies
+    if (b.kind === "ok") budgetRaw = b.value;
+    else if (b.kind === "corrupt") {
+      conditions.push(budgetUnreadable(`state/budget.json is not JSON (${b.error}); evaluating against the ` +
+                                       `configured budget ($${cfg.baseBudgetUsd}).`));
+    }
+  } catch (e) {
+    budgetReadFailed = true;
+    conditions.push(budgetUnreadable(`Reading state/budget.json failed (${msg(e)}); the spend evaluation is ` +
+                                     "skipped until it can be read (the blind rule keeps counting)."));
   }
 
   // The operator's flag. Unreadable bytes fail closed: off the air.
@@ -235,8 +262,10 @@ export async function guardStep(deps: GuardDeps): Promise<GuardOutcome> {
   let doc = prev;
   let blocked = true;
   let stored: GuardDoc | null = null; // what stands in guard.json after this run, when it differs from doc
+  let turnedOff = false; // the reconcile disabled the kill switch this run
+  let raceUnknown = false; // the post-unblock re-check could not read state
   try {
-    if (shouldEvaluate(prev, nowMs, cfg.evalIntervalMs, budget.writtenAtMs)) {
+    if (!budgetReadFailed && shouldEvaluate(prev, nowMs, cfg.evalIntervalMs, budget.writtenAtMs)) {
       try {
         // Ahead of everything else: no network call with an empty account or
         // token, and an invalid base budget never reaches a successful attempt.
@@ -259,11 +288,14 @@ export async function guardStep(deps: GuardDeps): Promise<GuardOutcome> {
       if (cfg.wafProblems.length > 0) throw new Error(cfg.wafProblems.join("; "));
       const r = await reconcileKillSwitch(deps.fetch, { zoneId: cfg.zoneId, token: cfg.wafToken,
                                                         description: cfg.killSwitchDescription }, blocked);
+      turnedOff = r.changed && !r.enabled;
       if (r.changed && prev.waf.enabled === r.enabled) {
-        // It was the opposite of what the guard last set or saw: a hand toggle, undone.
-        conditions.push({ key: "waf-corrected", priority: "high", resolvable: false, title: "Kill switch toggled by hand",
+        // It was the opposite of what the guard last set or saw: a hand toggle,
+        // or an overlapping invocation acting on newer state, undone.
+        conditions.push({ key: "waf-corrected", priority: "high", resolvable: false, title: "Kill switch corrected",
                           message: `The kill switch was ${r.enabled ? "off" : "on"}, set to ${r.enabled ? "on" : "off"} ` +
-                                   `to match blocked=${blocked}. The guard reconciles it every minute: use ` +
+                                   `to match blocked=${blocked}. It was changed by hand or by an overlapping ` +
+                                   "invocation since the guard last saw it. The guard reconciles it every minute: use " +
                                    "`transmitter offair on|off` instead of the dashboard." });
       }
       doc = { ...doc, waf: { enabled: r.enabled, error: null } };
@@ -286,11 +318,35 @@ export async function guardStep(deps: GuardDeps): Promise<GuardOutcome> {
       }
     }
   }
+  if (turnedOff && stored === null) {
+    // We unblocked without writing guard.json, so a race was never checked: an
+    // overlapping invocation may have tripped (and enabled the switch we just
+    // disabled) since our read. One HEAD finds out; on a newer document, fold
+    // its trip into this outcome so this minute stays blocked (the next run
+    // re-enables the switch).
+    try {
+      const head = await bucket.head(GUARD_KEY);
+      const readEtag = guardRead.kind === "absent" ? undefined : guardRead.etag;
+      if (head !== null && head.etag !== readEtag) {
+        const latest = await readJsonDoc(bucket, GUARD_KEY);
+        const theirs = latest.kind === "ok" ? parseGuardDoc(latest.value) : null;
+        if (latest.kind !== "absent" && (theirs === null || theirs.tripped)) {
+          stored = theirs ?? corruptGuardDoc(nowMs, period, budget.budgetUsd);
+        }
+      }
+    } catch (e) {
+      // Cannot tell whether a racer tripped: fail toward blocked for this minute.
+      raceUnknown = true;
+      conditions.push({ key: "guard-unknown", priority: "high", resolvable: true, title: "Cost guard cannot read its state",
+                        message: `Re-checking state/guard.json after turning the kill switch off failed (${msg(e)}); ` +
+                                 "this minute is treated as blocked." });
+    }
+  }
   // Never report less blocked than what was decided, or than what now stands in
   // state (another invocation's trip that won the race): the clock then writes
   // ENDLIST this minute, and the next run reconciles the kill switch to it.
   const final = stored ?? doc;
   const tripped = doc.tripped || final.tripped;
   conditions.push(...guardConditions(final, nowMs, cfg.blindAfterMs));
-  return { blocked: blocked || tripped, tripped, offair, doc: final, conditions };
+  return { blocked: blocked || tripped || raceUnknown, tripped, offair, doc: final, conditions };
 }

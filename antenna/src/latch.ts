@@ -94,8 +94,10 @@ export function parseGuardDoc(raw: unknown): GuardDoc | null {
     return null;
   }
   if (!(d.period === null || (isObj(d.period) && isStr(d.period.start) && isStr(d.period.end)))) return null;
+  // Everything the alert conditions read must hold, so a hand-edited document
+  // is corrupt (a spend trip) rather than a throw after it has been persisted.
   const ev = d.evaluation as unknown;
-  if (!(ev === null || (isObj(ev) && isNumOrNull(ev.actual_usd) && isNumOrNull(ev.projected_usd) &&
+  if (!(ev === null || (isObj(ev) && isStr(ev.at) && isNumOrNull(ev.actual_usd) && isNumOrNull(ev.projected_usd) &&
                         isNumOrNull(ev.budget_usd)))) {
     return null;
   }
