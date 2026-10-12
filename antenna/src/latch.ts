@@ -5,7 +5,12 @@
  * successful reading for blind_after (reason "blind").
  * Cleared, only: "blind" by the first successful reading under the thresholds;
  * "spend" by a successful reading under the thresholds in a new billing period
- * or with a budget raised above the one it last tripped at. Nothing else. */
+ * or with a budget raised above the one it last tripped at. Nothing else.
+ * A spend trip with no recorded period (a corrupt document read while the
+ * billing period was unknown) adopts the first successful reading's period
+ * rather than treating it as new; one with no recorded budget (an invalid
+ * configured budget at the time) counts an honoured raise above the base as
+ * the raise. */
 
 import type { Period } from "./period";
 import { type Evaluation, overThreshold, PRICES, type Usage } from "./pricing";
@@ -15,14 +20,19 @@ export const BUDGET_KEY = "state/budget.json";
 export const OFFAIR_KEY = "state/offair.json";
 /** No raise (state/budget.json) or configured budget is honoured above this. */
 export const MAX_BUDGET_USD = 100;
+/** A blindness baseline (last_success, else since) further than this ahead of
+ * the Worker's clock is treated as unreadable, so the blind rule trips rather
+ * than waiting for the clock to catch up. */
+export const BLIND_FUTURE_TOLERANCE_MS = 15 * 60_000;
 
 export type TripReason = "spend" | "blind";
 
 export interface StoredEvaluation {
   at: string;
-  actual_usd: number;
-  projected_usd: number;
-  budget_usd: number;
+  /** null on disk when the number was not finite (JSON has no NaN); parseGuardDoc accepts that. */
+  actual_usd: number | null;
+  projected_usd: number | null;
+  budget_usd: number | null;
   base_budget_usd: number;
   period_to_date: Usage;
   projected: Usage;
@@ -64,7 +74,8 @@ const isStrOrNull = (v: unknown) => v === null || typeof v === "string";
 const isNumOrNull = (v: unknown) => v === null || (typeof v === "number" && Number.isFinite(v));
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 /** A budget is recorded only when it is a finite number: a non-finite one (an
- * invalid MONTHLY_BUDGET_USD) is recorded as null, which no raise can clear. */
+ * invalid MONTHLY_BUDGET_USD) is recorded as null (see applyAttempt for what
+ * clears a trip with no recorded budget). */
 const finiteOrNull = (v: number) => (Number.isFinite(v) ? v : null);
 
 /** The document, or null when its shape is not one this code wrote. */
@@ -129,31 +140,41 @@ export function applyAttempt(prev: GuardDoc, a: Attempt): GuardDoc {
   const cleared: GuardDoc = { ...base, tripped: false, reason: null, tripped_at: null, tripped_period_start: null,
                               tripped_budget_usd: null };
   if (!prev.tripped || prev.reason === "blind") return cleared;
-  const newPeriod = prev.tripped_period_start !== periodStart;
-  const raised = prev.tripped_budget_usd !== null && e.budgetUsd > prev.tripped_budget_usd;
+  // No recorded period: adopt this one rather than call it new.
+  const newPeriod = prev.tripped_period_start !== null && prev.tripped_period_start !== periodStart;
+  // No recorded budget: any honoured raise (an effective budget above a valid base) is the raise.
+  const raised = prev.tripped_budget_usd !== null
+    ? e.budgetUsd > prev.tripped_budget_usd
+    : Number.isFinite(e.budgetUsd) && Number.isFinite(a.baseBudgetUsd) && e.budgetUsd > a.baseBudgetUsd;
   return newPeriod || raised ? cleared : { ...base, tripped: true, reason: "spend", tripped_at: prev.tripped_at,
-                                           tripped_period_start: prev.tripped_period_start,
+                                           tripped_period_start: prev.tripped_period_start ?? periodStart,
                                            tripped_budget_usd: prev.tripped_budget_usd };
 }
 
 /** Trip "blind" when no reading has succeeded for blindAfterMs (since the
- * document was first written, if none ever has). Never downgrades "spend". */
+ * document was first written, if none ever has). A baseline that does not
+ * parse, or lies more than BLIND_FUTURE_TOLERANCE_MS ahead of nowMs (a clock
+ * fault or a hand edit), trips too. Never downgrades "spend". */
 export function applyBlindRule(doc: GuardDoc, nowMs: number, blindAfterMs: number): GuardDoc {
   if (doc.tripped) return doc;
   const baseline = Date.parse(doc.last_success ?? doc.since);
-  if (Number.isFinite(baseline) && nowMs - baseline < blindAfterMs) return doc;
+  if (Number.isFinite(baseline) && baseline - nowMs <= BLIND_FUTURE_TOLERANCE_MS && nowMs - baseline < blindAfterMs) {
+    return doc;
+  }
   return { ...doc, tripped: true, reason: "blind", tripped_at: iso(nowMs), tripped_period_start: null,
            tripped_budget_usd: null };
 }
 
 /** Evaluate when the last attempt is intervalMs old (a negative age -- a clock
- * step back -- counts as old), or when a budget raise was written after it. */
+ * step back -- counts as old), or when a budget raise was written after it and
+ * before now. A written_at clamped to now (a writer whose clock is ahead) does
+ * not count: it would force an evaluation every minute until the clocks agree. */
 export function shouldEvaluate(doc: GuardDoc, nowMs: number, intervalMs: number, budgetWrittenAtMs: number | null): boolean {
   if (doc.evaluated_at === null) return true;
   const last = Date.parse(doc.evaluated_at);
   const age = nowMs - last;
   if (!Number.isFinite(age) || age < 0 || age >= intervalMs) return true;
-  return budgetWrittenAtMs !== null && budgetWrittenAtMs > last;
+  return budgetWrittenAtMs !== null && budgetWrittenAtMs > last && budgetWrittenAtMs < nowMs;
 }
 
 export interface EffectiveBudget {
