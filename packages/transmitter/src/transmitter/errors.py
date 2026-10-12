@@ -70,3 +70,8 @@ class PublishLocked(TransmitterError):
 
 class PutBudgetExceeded(TransmitterError):
     """The local daily PUT budget is spent; publishing stops until tomorrow (UTC)."""
+
+
+class CloudStateError(TransmitterError):
+    """An operator command could not read or write the station's cloud state
+    (state/offair.json, state/budget.json, state/guard.json)."""

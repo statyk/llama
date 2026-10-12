@@ -7,7 +7,7 @@ from pathlib import Path
 
 import typer
 
-from transmitter import aacenc, fallback, grid, pipeline, service
+from transmitter import aacenc, cloudstate, fallback, grid, pipeline, service
 from transmitter.config import DEFAULT_CONFIG_TOML, default_root, load_config
 from transmitter.errors import TransmitterError
 from transmitter.workspace import atomic_write_text
@@ -59,6 +59,72 @@ CONFIG_OPT = typer.Option(None, "--config", help="Config file (default: $TRANSMI
 
 fallback_app = typer.Typer(help="The fallback loop and off-air notice", pretty_exceptions_enable=False)
 app.add_typer(fallback_app, name="fallback")
+
+offair_app = typer.Typer(help="Take the station off the air (state/offair.json), or put it back",
+                         pretty_exceptions_enable=False, no_args_is_help=True)
+app.add_typer(offair_app, name="offair")
+
+
+def _cloud(config: Path | None):
+    """(client, bucket) for the operator commands: R2 keys from the environment."""
+    from transmitter.errors import ConfigError
+
+    cfg = load_config(config)
+    if not cfg.publish.bucket:
+        raise ConfigError("set [publish] bucket in transmitter's config.toml")
+    return service.make_client(cfg), cfg.publish.bucket
+
+
+@offair_app.command("on")
+def offair_on(
+    reason: str = typer.Option(..., "--reason", help="Why (shown in `transmitter status`)"),
+    until: str = typer.Option(None, "--until", help="Expected end, ISO-8601 UTC (informational only)"),
+    config: Path = CONFIG_OPT,
+):
+    """Off the air: within about a minute the clock lists the off-air notice and
+    ENDLIST, index.html becomes the off-air page and the WAF kill switch is on."""
+    client, bucket = _cloud(config)
+    doc = cloudstate.set_offair(client, bucket, True, reason, until, service.now_us())
+    typer.echo(f"state/offair.json: off the air since {doc['since']} ({doc['reason']}). The clock blocks the "
+               "station within about a minute: the off-air playlist and page, and the kill switch.")
+
+
+@offair_app.command("off")
+def offair_off(
+    reason: str = typer.Option("back on air", "--reason", help="Why (shown in `transmitter status`)"),
+    config: Path = CONFIG_OPT,
+):
+    """Back on the air (clears only the operator's flag; a tripped cost guard keeps the station blocked)."""
+    client, bucket = _cloud(config)
+    doc = cloudstate.set_offair(client, bucket, False, reason, None, service.now_us())
+    typer.echo(f"state/offair.json: on the air since {doc['since']}.")
+    guard = cloudstate.get_json(client, bucket, cloudstate.GUARD_KEY)
+    if guard and guard.get("tripped"):
+        typer.echo(f"note: the cost guard is tripped ({guard.get('reason')}); the station stays blocked until it "
+                   "clears (see `transmitter budget`).", err=True)
+
+
+@app.command()
+def budget(
+    raise_to: float = typer.Option(None, "--raise-to", help="Raise this billing period's budget to USD"),
+    config: Path = CONFIG_OPT,
+):
+    """Show the cost guard's state, or raise the budget for the rest of this billing period."""
+    client, bucket = _cloud(config)
+    if raise_to is not None:
+        doc = cloudstate.raise_budget(client, bucket, raise_to, service.now_us())
+        typer.echo(f"state/budget.json: ${doc['budget_usd']:.2f} until {doc['expires']}. The guard evaluates at its "
+                   "next run; a spend trip clears only if that evaluation is under the thresholds.")
+        return
+    for line in cloudstate.guard_summary(cloudstate.get_json(client, bucket, cloudstate.GUARD_KEY)):
+        typer.echo(line)
+    try:
+        raised = cloudstate.get_json(client, bucket, cloudstate.BUDGET_KEY)
+    except TransmitterError as exc:
+        typer.echo(f"raise      {exc}")
+        return
+    if raised:
+        typer.echo(f"raise      {cloudstate.usd_text(raised.get('budget_usd'))} until {raised.get('expires')}")
 
 
 @app.command()
