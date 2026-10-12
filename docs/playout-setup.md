@@ -38,9 +38,12 @@ the station publicly until phase 2 (the cost guard) ships.**
    `npx wrangler r2 bucket create lma-radio`
    (if you choose another name, change it in `antenna/wrangler.jsonc` and
    transmitter's `[publish] bucket`).
-2. Dashboard → R2 → `lma-radio` → Settings → **Custom Domains** → connect
-   `<host>` (a hostname on the station zone). Leave the `r2.dev` public URL
-   **disabled** (r2.dev is uncached and would bill every request).
+2. Dashboard → R2 object storage → `lma-radio` → Settings → **Custom Domains** →
+   **Add** → `<host>` (a hostname on the station zone) → Continue → **Connect
+   Domain**; Cloudflare creates the DNS record, and the domain goes Initializing →
+   Active. Keep **Public Development URL** (r2.dev) **disabled** (Settings → Public
+   Development URL → Disable → type `disallow`): r2.dev is uncached and would bill
+   every request.
 3. R2 → **Manage API tokens** → create a token with *Object Read & Write* scoped to
    `lma-radio` only. Put its key pair on hugo in the service's env file (mode 600,
    owned by the service user):
@@ -51,20 +54,36 @@ the station publicly until phase 2 (the cost guard) ships.**
 
 ## 2. Zone configuration (dashboard)
 
-1. **Caching → Cache Rules** → new rule *"station: cache everything"*:
-   when `http.host eq "<host>"` → **Eligible for cache**; Edge TTL **Use cache-control
-   header if present** (respect origin); Cache key → **Ignore query string**.
-   (404s keep the default 3-minute edge TTL; not settable on Free.)
-2. **Caching → Configuration → Browser Cache TTL = Respect Existing Headers**
-   (otherwise browsers serve a stale `live.m3u8` from their own cache).
-3. **Caching → Tiered Cache → Smart Tiered Cache: on.**
-4. **Rules → Transform Rules → URL Rewrite**: when `http.host eq "<host>" and
-   http.request.uri.path eq "/"` → rewrite path to static `/index.html`
-   (R2 custom domains serve no index document).
-5. **Rules → Transform Rules → Modify Response Header**: when `http.host eq "<host>"`
-   → **set static** `Access-Control-Allow-Origin` = `*` (R2's CORS policy answers only
-   requests carrying `Origin`, so a cached non-CORS response would lack it).
-6. **Security → WAF → Custom rules**, rule *"station: allowlist"*, action **Block**:
+Zone settings live under Domains → the station zone. Dashboard paths and labels
+below were checked on 2026-10-11 (Cloudflare moves them; the docs at
+developers.cloudflare.com are the authority if they drift again).
+
+1. **Caching → Cache Rules → Create rule** *"station: cache everything"*: custom
+   filter expression `http.host eq "<host>"`; Cache eligibility **Eligible for
+   cache**; Edge TTL **Use cache-control header if present, use default Cloudflare
+   caching behavior if not** (every object the station writes carries its own
+   `Cache-Control`; the fallback matters for 404s, which then keep the default
+   3-minute edge TTL instead of reaching R2 on every request); Browser TTL
+   **Respect origin**; Cache key → **Ignore query string** (available on Free:
+   measured 2026-10-11, random `?a=…` values all HIT one object).
+2. If the zone shows **Caching → Configuration → Browser Cache TTL**, set it to
+   **Respect Existing Headers** too (the Cache Rule's Browser TTL already covers
+   the station host; otherwise browsers serve a stale `live.m3u8` from their own
+   cache).
+3. **Caching → Tiered Cache** → on, topology **Smart** (one upper tier near the
+   bucket, so each segment is read from R2 about once however many locations serve
+   it).
+4. **Rules → Overview → Create rule → URL Rewrite Rule** *"station: index"*: when
+   `http.host eq "<host>" and http.request.uri.path eq "/"` → Path **Rewrite to →
+   Static** `/index.html`, Query **Preserve** (R2 custom domains serve no index
+   document; measured: the rewrite applies before the cache lookup).
+5. **Rules → Overview → Create rule → Response Header Transform Rule** *"station:
+   cors"*: when `http.host eq "<host>"` → **Set static** `Access-Control-Allow-Origin`
+   = `*` (R2's CORS policy answers only requests carrying `Origin`, so a cached
+   non-CORS response would lack it; measured: the header is present on cache hits).
+   Free allows 10 Transform Rules in total; steps 4–5 use 2.
+6. **Security → Security rules → Create rule → Custom rules**, rule *"station:
+   allowlist"*, action **Block**, expression via **Edit expression**, then **Deploy**:
    ```
    http.host eq "<host>" and not (
      http.request.uri.path in {"/" "/index.html" "/embed.html" "/offair.html" "/live.m3u8"
@@ -79,15 +98,22 @@ the station publicly until phase 2 (the cost guard) ships.**
    (`state/` is not allowlisted, so it is blocked. Use only `eq`/`in`/`starts_with`/
    `ends_with`; `matches` is Business+. Try `wildcard` in a scratch rule as part of the
    verification below.)
-7. Second custom rule *"station: kill switch"*, action **Block**, **created disabled**
-   (phase 2's guard toggles it):
+7. Second custom rule *"station: kill switch"*, action **Block** (phase 2's guard
+   toggles it). The dashboard offers only **Deploy** for custom rules (no draft), so
+   deploy it and **switch it off immediately** in the rules list; while it is on,
+   everything except the paths below returns 403. Free allows 5 custom rules; steps
+   6–7 use 2.
    ```
    http.host eq "<host>" and not (http.request.uri.path in {"/" "/index.html" "/offair.html" "/style.css"})
    ```
-8. **Security → WAF → Rate limiting rules** (the one free rule): when
-   `http.host eq "<host>"`, **100 requests per 10 seconds per IP**, action Block for 10 s.
-   (A playing stream makes ~2 requests per 10 s; dozens of listeners behind one NAT fit.)
-9. **Billing → Budget alerts**: two alerts at **50%** and **100%** of
+8. **Security → Security rules → Create rule → Rate limiting rules** (Free allows
+   exactly one): the Free plan matches on **URI Path** (and Verified Bot) only, not
+   host, so use *URI Path starts with* `/` (the whole zone; the station host is the
+   only one serving anything); characteristics IP (fixed on Free), **100 requests
+   per 10 seconds** (period fixed), action **Block** for **10 seconds** (fixed).
+   (A playing stream makes ~2 requests per 10 s; ~50 listeners behind one IP fit.)
+9. **Manage Account → Billing → Billable Usage → Create budget alert**: two alerts at
+   **50%** and **100%** of
    (your monthly ceiling, phase 2's `monthly_budget_usd`, minus $5; it is not a transmitter config key, so do not add it to `config.toml`) — they exclude subscription fees, and are next-day and
    informational only.
 
@@ -158,9 +184,14 @@ the station publicly until phase 2 (the cost guard) ships.**
 ## 4. antenna
 
 1. `cd antenna && npm test` (after `npm ci`, section 1 step 1)
-2. `npx wrangler deploy --dry-run` first (bundling and config check; it was never
-   executed during development), then `npx wrangler deploy` (cron `* * * * *`, R2
-   binding, `workers_dev = false`, `preview_urls = false`, no routes).
+2. **On a new account, open Workers & Pages in the dashboard once first.** Cron
+   schedules cannot be saved until the account has a `workers.dev` subdomain (wrangler
+   error 10063, "You need a workers.dev subdomain"), even though this Worker disables
+   `workers.dev`; opening that page creates the subdomain. A deploy that hits 10063
+   has uploaded the Worker but registered no cron: re-run it.
+   `npx wrangler deploy --dry-run` first (bundling and config check), then
+   `npx wrangler deploy` (cron `* * * * *`, R2 binding, `workers_dev = false`,
+   `preview_urls = false`, no routes); its output ends with `schedule: * * * * *`.
 3. `ANTENNA_BUCKET=lma-radio npm run deploy:assets` (player page, off-air page,
    JS/CSS, hls.js; `node scripts/deploy-assets.mjs --dry-run` with `ANTENNA_BUCKET` set
    prints the `wrangler r2 object put` commands without running them).
@@ -188,8 +219,9 @@ the station publicly until phase 2 (the cost guard) ships.**
 
 ## 5. Phase-1 verification checklist
 
-Run these with the station up; record each result (date, observation) in the
-phase-1 ledger. Each needs the real account.
+Run these with the station up; record each result (date, observation). Each needs
+the real account. The first run's results (2026-10-11) are in
+`docs/superpowers/2026-10-11-playout-phase1-verification.md`.
 
 - [ ] **A cron invocation may loop ~75 s with only CPU billed.** Workers → antenna →
       Metrics: wall time per invocation ≈ 75 s, CPU time a few ms; Billing → usage
