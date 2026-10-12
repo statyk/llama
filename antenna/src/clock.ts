@@ -1,21 +1,8 @@
+import type { BucketLike } from "./bucket";
 import { type Horizon, gridOf, indexAt, startMs } from "./grid";
 import { buildPlaylist, type FallbackIndex, isOffair, type PlaylistConfig, usableFallback } from "./playlist";
 
-export interface StoredObject {
-  text(): Promise<string>;
-}
-
-export interface BucketLike {
-  get(key: string): Promise<StoredObject | null>;
-  put(key: string, value: string, options: { httpMetadata: { contentType: string; cacheControl: string } }): Promise<unknown>;
-}
-
-export function r2Bucket(b: R2Bucket): BucketLike {
-  return {
-    get: (key) => b.get(key),
-    put: (key, value, options) => b.put(key, value, options),
-  };
-}
+export { type BucketLike, r2Bucket, type StoredObject } from "./bucket";
 
 export interface ClockConfig extends PlaylistConfig {
   loopMs: number;

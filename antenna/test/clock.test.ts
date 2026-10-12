@@ -1,29 +1,12 @@
 import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type BucketLike, type ClockConfig, configFromEnv, MAX_PUTS, putCap, r2Bucket, runClock } from "../src/clock";
+import { type ClockConfig, configFromEnv, MAX_PUTS, putCap, r2Bucket, runClock } from "../src/clock";
 import worker from "../src/index";
+import { fakeTime, MemoryBucket } from "./support";
 
 const E = Date.parse("2026-10-10T12:00:00.000Z");
 const D = 10_240;
 const CFG: ClockConfig = { window: 6, grace: 3, offairAfterMs: 86_400_000, loopMs: 75_000, liveMaxAge: 5 };
-
-class MemoryBucket implements BucketLike {
-  objects = new Map<string, { body: string; contentType?: string; cacheControl?: string }>();
-  log: string[] = [];
-  async get(key: string) {
-    this.log.push(`get ${key}`);
-    const o = this.objects.get(key);
-    return o ? { text: async () => o.body } : null;
-  }
-  async put(key: string, value: string, options: { httpMetadata: { contentType: string; cacheControl: string } }) {
-    this.log.push(`put ${key}`);
-    this.objects.set(key, { body: value, ...options.httpMetadata });
-    return null;
-  }
-  seed(key: string, value: unknown) {
-    this.objects.set(key, { body: JSON.stringify(value) });
-  }
-}
 
 function horizonDoc(epochMs: number, first = 0, last = 1_000_000) {
   const iso = new Date(epochMs).toISOString();
@@ -35,11 +18,6 @@ function station(bucket: MemoryBucket, offair = false) {
   bucket.seed("state/horizon.json", horizonDoc(E));
   bucket.seed("fallback/v1/index.json", FALLBACK);
   if (offair) bucket.seed("state/offair.json", { offair: true, reason: "test", since: null, until: null });
-}
-
-function fakeTime(start: number) {
-  let t = start;
-  return { now: () => t, sleep: async (ms: number) => { t += ms; } };
 }
 
 const playlistPuts = (b: MemoryBucket) => b.log.filter((l) => l === "put live.m3u8").length;
