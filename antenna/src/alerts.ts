@@ -68,6 +68,9 @@ export interface AlertEntry {
   title: string;
   first_at: string;
   last_sent_at: string | null;
+  /** A channel accepted a message of this episode (alert or repeat). Missing
+   * (older entries): true when last_sent_at is set -- see wasDelivered. */
+  delivered?: boolean;
   cleared_at: string | null;
   /** Absent since then (on batches allowed to resolve it), still active: it
    * clears once absent for COOLDOWN_MS. Missing or null: not clearing. */
@@ -86,6 +89,9 @@ export interface Outgoing {
 
 const iso = (ms: number) => new Date(ms).toISOString();
 const age = (nowMs: number, at: string | null) => (at === null ? Number.POSITIVE_INFINITY : nowMs - Date.parse(at));
+/** Missing `delivered` counts as delivered when a send was recorded: the
+ * conservative side, so a "resolved" may be sent but is never lost. */
+const wasDelivered = (e: AlertEntry | undefined): boolean => (e ? e.delivered ?? e.last_sent_at !== null : false);
 const notClearing = (e: AlertEntry): AlertEntry => {
   const { clearing_since: _, ...rest } = e;
   return rest;
@@ -111,11 +117,11 @@ export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs
       // New, or back after it cleared (an inactive entry was absent for
       // COOLDOWN_MS; so was one clearing that long with no batch between).
       next[c.key] = { active: true, resolvable: c.resolvable, title: c.title, first_at: iso(nowMs),
-                      last_sent_at: iso(nowMs), cleared_at: null };
+                      last_sent_at: iso(nowMs), cleared_at: null, delivered: true }; // dispatch corrects a failure
       send.push({ ...out, kind: "alert" });
     } else if (age(nowMs, e.last_sent_at) >= repeatMs) {
       next[c.key] = { ...notClearing(e), active: true, resolvable: c.resolvable, title: c.title, last_sent_at: iso(nowMs),
-                      cleared_at: null };
+                      cleared_at: null, delivered: true }; // dispatch restores it on a failure
       send.push({ ...out, kind: "repeat" });
     } else {
       // Continuing (a return inside the clearing window included): the repeat clock runs on.
@@ -131,7 +137,9 @@ export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs
       keep(key, e);
     } else if (!clearedIn(key, batch)) {
       // Not computed this invocation, so not known to be absent: unchanged
-      // (no "resolved", and the clearing window neither starts nor runs on).
+      // (no "resolved"; an incomplete batch neither starts nor resets the
+      // clearing window -- its elapsed time is wall-clock from the first
+      // allowed absence, so it may complete on the next allowed batch).
       next[key] = e;
     } else if (e.once) {
       next[key] = { ...e, active: false, cleared_at: iso(nowMs) };
@@ -139,7 +147,7 @@ export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs
       next[key] = { ...e, clearing_since: iso(nowMs) };
     } else if (age(nowMs, e.clearing_since) < COOLDOWN_MS) {
       next[key] = e;
-    } else if (e.last_sent_at === null) {
+    } else if (!wasDelivered(e)) {
       // Cleared before any channel ever delivered it: no "resolved" for an
       // alert the operator never got; forget it.
     } else {
@@ -330,7 +338,13 @@ export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], co
       failed++;
       if (o.kind === "resolved") next[o.key] = prev[o.key]; // still active: the next invocation resolves it again
       else if (next[o.key]?.once) delete next[o.key]; // never sent: the next invocation sends it as new
-      else if (next[o.key]) next[o.key] = { ...next[o.key], last_sent_at: null }; // due again at once
+      else if (next[o.key]) {
+        // Due again at once. A failed alert opens an undelivered episode; a
+        // failed repeat keeps whatever the episode already had (a delivered
+        // alert stays delivered, so its "resolved" is never dropped).
+        next[o.key] = { ...next[o.key], last_sent_at: null,
+                        delivered: o.kind === "alert" ? false : wasDelivered(prev[o.key]) };
+      }
     }
   }
   if (JSON.stringify(next) !== JSON.stringify(prev)) {

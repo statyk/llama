@@ -401,6 +401,43 @@ describe("dispatchAlerts", () => {
     expect(bucket.json(ALERTS_KEY)).toEqual({});
   });
 
+  it("a failed repeat of a delivered alert keeps it delivered: its resolved still goes out (P1)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const broken = { name: "x", send: async () => { throw new Error("down"); } };
+    const got: string[] = [];
+    const ok = { name: "ok", send: async (o: Outgoing) => { got.push(`${o.kind}:${o.key}`); } };
+    await dispatchAlerts(bucket, [ok], [cond("tripped-spend")], T0, REPEAT);
+    expect(await dispatchAlerts(bucket, [broken], [cond("tripped-spend")], T0 + REPEAT, REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(bucket.json(ALERTS_KEY)["tripped-spend"]).toMatchObject({ last_sent_at: null, delivered: true });
+    await dispatchAlerts(bucket, [ok], [], T0 + REPEAT + 60_000, REPEAT);
+    await dispatchAlerts(bucket, [ok], [], T0 + REPEAT + 60_000 + COOLDOWN_MS, REPEAT);
+    expect(got).toEqual(["alert:tripped-spend", "resolved:tripped-spend"]);
+    expect(bucket.json(ALERTS_KEY)["tripped-spend"].active).toBe(false);
+  });
+
+  it("an alert whose first send and retry both failed is still undelivered: dropped on clear, no resolved", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    const broken = { name: "x", send: async () => { throw new Error("down"); } };
+    const got: string[] = [];
+    const ok = { name: "ok", send: async (o: Outgoing) => { got.push(`${o.kind}:${o.key}`); } };
+    await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0, REPEAT);
+    expect(await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0 + 60_000, REPEAT)).toEqual({ sent: 0, failed: 1 });
+    expect(bucket.json(ALERTS_KEY)["waf-api"]).toMatchObject({ last_sent_at: null, delivered: false });
+    await dispatchAlerts(bucket, [ok], [], T0 + 120_000, REPEAT);
+    await dispatchAlerts(bucket, [ok], [], T0 + 120_000 + COOLDOWN_MS, REPEAT);
+    expect(got).toEqual([]);
+    expect(bucket.json(ALERTS_KEY)).toEqual({});
+  });
+
+  it("an older entry without `delivered` counts as delivered when a send was recorded", () => {
+    const legacy: AlertState = { "waf-api": { active: true, resolvable: true, title: "t", first_at: new Date(T0).toISOString(),
+                                              last_sent_at: new Date(T0).toISOString(), cleared_at: null } };
+    const r1 = planAlerts(legacy, [], T0 + 60_000, REPEAT);
+    expect(planAlerts(r1.next, [], T0 + 60_000 + COOLDOWN_MS, REPEAT).send.map((o) => o.kind)).toEqual(["resolved"]);
+  });
+
   it("drops non-object entries from alerts.json instead of wedging every alert", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     for (const stored of [{ stale: null, n: 3, a: [1], s: "x" }, [null], null, 7]) {
