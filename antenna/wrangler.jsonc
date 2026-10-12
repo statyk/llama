@@ -34,6 +34,10 @@
     "ALERT_REPEAT_HOURS": "6",
     "STATION_NAME": "llama radio"
   },
+  // Alert email (Email Routing). Unrestricted on purpose: a send_email binding
+  // can only reach the account's verified destination addresses, and the one
+  // used is the ALERT_EMAIL_TO secret. Never put an address in this file.
+  "send_email": [{ "name": "ALERT_EMAIL" }],
   // One log line per invocation (~1,440/day) stays inside the free allowance.
   "observability": { "enabled": true }
 }

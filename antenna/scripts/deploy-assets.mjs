@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Upload antenna's static assets to the station's R2 bucket (spec "R2 object
-// contract": index.html, offair.html and the app assets incl. hls.js are written
-// by the antenna deploy script; index.html is static in phase 1).
+// contract": offair.html and the app assets incl. hls.js). index.html is NOT
+// uploaded: the clock writes it (the player page, or the off-air page while the
+// station is blocked) from the copies bundled into the Worker (src/pages.ts).
 // Usage: ANTENNA_BUCKET=<bucket> node scripts/deploy-assets.mjs [--dry-run]
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -28,8 +29,6 @@ const ASSETS = [
   ["nowplaying.js", "public/nowplaying.js", JS, HOUR],
   ["style.css", "public/style.css", CSS, HOUR],
   ["assets/hls.min.js", "node_modules/hls.js/dist/hls.min.js", JS, HOUR],
-  // last: short TTL, and it references everything above
-  ["index.html", "public/index.html", HTML, "public, max-age=60"],
 ];
 
 for (const [key, file, type, cache] of ASSETS) {
