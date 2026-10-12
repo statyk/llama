@@ -159,23 +159,32 @@ def test_ntfy_channel_posts_with_headers(monkeypatch):
     NtfyChannel("https://ntfy.example/t", "tk_1").send("llama radio: dead-clock", "stale", 4)
     assert seen["url"] == "https://ntfy.example/t" and seen["method"] == "POST" and seen["body"] == b"stale"
     assert seen["headers"]["Title"] == "llama radio: dead-clock"
+    assert seen["timeout"] == 10.0
     assert seen["headers"]["Priority"] == "4" and seen["headers"]["Authorization"] == "Bearer tk_1"
 
 
-def test_a_corrupt_state_file_does_not_wedge_alerting(tmp_path):
+def test_a_corrupt_state_file_does_not_wedge_alerting(tmp_path, caplog):
+    path = tmp_path / "alerts.json"
     rec = Recorder()
     d, _ = _dispatcher(tmp_path, rec)
     alerts.configure(d)
-    (tmp_path / "alerts.json").write_text("{not json")
-    alerts.alert("publish", "x")
-    assert len(rec.sent) == 1 and read_json(tmp_path / "alerts.json")["publish"]["active"] is True
-    for bad in ('{"publish": null, "render": [1], "plan": {"last_sent_at": "x", "count": "y", "active": true}}', "[1]"):
-        (tmp_path / "alerts.json").write_text(bad)
-        for code in ("publish", "render", "plan"):
-            alerts.alert(code, "again")
-            alerts.resolve(code)
-        d.active()
-    assert len(rec.sent) >= 4
+    path.write_text("{not json")
+    with caplog.at_level(logging.WARNING, logger="transmitter.alerts"):
+        alerts.alert("publish", "x")
+        assert len(rec.sent) == 1 and read_json(path)["publish"]["active"] is True
+        sent = 1
+        for bad in ('{"publish": null, "render": [1], "plan": {"last_sent_at": "x", "count": "y", "active": true}}',
+                    "[1]"):
+            path.write_text(bad)
+            d, _ = _dispatcher(tmp_path, rec)               # a fresh dispatcher: nothing in memory
+            alerts.configure(d)
+            for code in ("publish", "render", "plan"):
+                alerts.alert(code, "again")
+                alerts.resolve(code)
+            d.active()
+            sent += 6                                       # each code: its first message, then "resolved"
+            assert len(rec.sent) == sent
+    assert "alert dispatch failed" not in caplog.text and "alert resolve failed" not in caplog.text
 
 
 def test_a_message_no_channel_accepted_is_not_recorded_as_sent(tmp_path):
@@ -197,4 +206,104 @@ def test_a_message_no_channel_accepted_is_not_recorded_as_sent(tmp_path):
 
 
 def test_channels_carry_a_timeout():
-    assert SmtpChannel("h", 587, "u", "p", "s", "t").timeout_s > 0 and NtfyChannel("https://x").timeout_s > 0
+    assert SmtpChannel("h", 587, "u", "p", "s", "t").timeout_s == 20.0 and NtfyChannel("https://x").timeout_s == 10.0
+
+
+def test_a_failed_channel_is_skipped_for_the_cooldown_then_retried(tmp_path):
+    broken = Recorder(fail=True)
+    calls = []
+    orig = broken.send
+
+    def counting(*a):
+        calls.append(1)
+        return orig(*a)
+
+    broken.send = counting
+    d, clock = _dispatcher(tmp_path, broken)
+    alerts.configure(d)
+    alerts.alert("render", "x")
+    alerts.alert("publish", "y")                    # inside the cool-down: not even tried
+    assert len(calls) == 1
+    clock["t"] += alerts.CHANNEL_COOLDOWN_S + 1
+    alerts.alert("render", "x")
+    assert len(calls) == 2
+    ok = Recorder()
+    d.channels = [broken, ok]
+    clock["t"] += alerts.CHANNEL_COOLDOWN_S + 1
+    alerts.alert("render", "x")                     # broken tried (fails), ok delivers
+    assert len(ok.sent) == 1 and len(calls) == 3
+
+
+def test_a_skipped_channel_counts_as_not_delivered(tmp_path):
+    broken = Recorder(fail=True)
+    d, clock = _dispatcher(tmp_path, broken)
+    alerts.configure(d)
+    alerts.alert("render", "x")
+    clock["t"] += 10
+    d.channels = [broken]                           # still cooling down
+    alerts.alert("render", "x")
+    assert read_json(tmp_path / "alerts.json")["render"]["last_sent_at"] is None
+
+
+def test_dedupe_survives_an_unwritable_alerts_file(tmp_path, monkeypatch):
+    rec = Recorder()
+    d, clock = _dispatcher(tmp_path, rec)
+    alerts.configure(d)
+
+    def boom(*a, **k):
+        raise OSError("ENOSPC")
+
+    monkeypatch.setattr(alerts, "write_json", boom)
+    for _ in range(5):
+        clock["t"] += 60
+        alerts.alert("publish", "x")
+    assert len(rec.sent) == 1 and d.active() == ["publish"]
+    clock["t"] += 6 * H
+    alerts.alert("publish", "x")
+    assert len(rec.sent) == 2 and "(4 more since the last message)" in rec.sent[1][1]
+    alerts.resolve("publish")
+    assert rec.sent[-1][0] == "llama radio: resolved: publish" and d.active() == []
+
+
+def test_a_late_delivery_reports_what_was_suppressed(tmp_path):
+    broken, ok = Recorder(fail=True), Recorder()
+    d, clock = _dispatcher(tmp_path, broken)
+    alerts.configure(d)
+    alerts.alert("render", "x")
+    clock["t"] += alerts.CHANNEL_COOLDOWN_S + 1
+    alerts.alert("render", "x")
+    d.channels = [ok]
+    clock["t"] += 60
+    alerts.alert("render", "x")
+    assert "(2 more since the first)" in ok.sent[0][1]
+
+
+def test_one_channel_accepting_records_the_message_as_sent(tmp_path):
+    broken, ok = Recorder(fail=True), Recorder()
+    d, clock = _dispatcher(tmp_path, broken, ok)
+    alerts.configure(d)
+    alerts.alert("render", "x")
+    assert read_json(tmp_path / "alerts.json")["render"]["last_sent_at"] == clock["t"]
+    clock["t"] += 60
+    alerts.alert("render", "x")
+    assert len(ok.sent) == 1 and broken.sent == []
+
+
+def test_ntfy_title_is_rfc2047_encoded_when_not_latin1(monkeypatch):
+    seen = {}
+
+    class Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(alerts.urllib.request, "urlopen",
+                        lambda req, timeout: seen.update(h=dict(req.header_items())) or Resp())
+    NtfyChannel("https://ntfy.example/t").send("radio \u2014 dead-clock", "stale", 4)
+    assert seen["h"]["Title"].startswith("=?utf-8?") and seen["h"]["Title"].isascii()
+    NtfyChannel("https://ntfy.example/t").send("caf\u00e9: x", "stale", 4)
+    assert seen["h"]["Title"] == "caf\u00e9: x"

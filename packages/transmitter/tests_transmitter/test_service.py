@@ -319,3 +319,40 @@ def test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed(tmp_path, 
     st.ws.publish_state_path.unlink()                       # the operator repairs it
     runner.tick(NOW)
     assert "state/horizon.json" in bucket.objects
+
+
+class _Rec:
+    name = "rec"
+
+    def __init__(self):
+        self.sent = []
+
+    def send(self, subject, body, priority):
+        self.sent.append(subject)
+
+
+@pytest.mark.parametrize("step, codes", [("plan_step", ("station-root", "plan")), ("render_step", ("render",))])
+def test_a_successful_step_resolves_its_level_codes(tmp_path, monkeypatch, step, codes):
+    st, _ = make_station(tmp_path)
+    rec = _Rec()
+    alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
+    try:
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+        real = getattr(pipeline, step)
+        fail = {"on": True}
+
+        def flaky(*a, **k):
+            if fail["on"]:
+                raise StationRootError("root gone") if step == "plan_step" else RuntimeError("encode failed")
+            return real(*a, **k)
+
+        monkeypatch.setattr(pipeline, step, flaky)
+        runner.tick(NOW)
+        fired = "station-root" if step == "plan_step" else "render"
+        assert rec.sent == [f"llama radio: {fired}"]
+        fail["on"] = False
+        runner.tick(NOW)
+        assert f"llama radio: resolved: {fired}" in rec.sent
+        assert runner.p is not None and alerts._dispatcher.active() == []
+    finally:
+        alerts.configure(None)
