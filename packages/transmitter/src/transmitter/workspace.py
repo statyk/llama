@@ -105,6 +105,10 @@ class Workspace:
     def lock_path(self) -> Path:
         return self.root / "publish.lock"
 
+    @property
+    def alerts_path(self) -> Path:
+        return self.root / "alerts.json"
+
 
 @dataclass(frozen=True)
 class Epoch:

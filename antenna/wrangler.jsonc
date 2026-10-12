@@ -16,8 +16,28 @@
     "GRACE_SEGMENTS": "3",
     "OFFAIR_AFTER_SECONDS": "86400",
     "LOOP_SECONDS": "75",
-    "LIVE_MAX_AGE": "5"
+    "LIVE_MAX_AGE": "5",
+    "LEAD_FLOOR_HOURS": "16",
+    // The cost guard (spec "Cost guard"). MONTHLY_BUDGET_USD includes the $5
+    // Workers Paid base; the billing period starts on BILLING_ANNIVERSARY_DAY
+    // at 00:00 UTC. Account details are Worker secrets, never here:
+    // CF_ACCOUNT_ID, CF_ZONE_ID, CF_ANALYTICS_TOKEN, CF_WAF_TOKEN
+    // (see docs/playout-setup.md).
+    "MONTHLY_BUDGET_USD": "15",
+    "BILLING_ANNIVERSARY_DAY": "11",
+    "GUARD_EVAL_SECONDS": "900",
+    "BLIND_AFTER_SECONDS": "21600",
+    "KILL_SWITCH_DESCRIPTION": "station: kill switch",
+    // Cloud alerts: ntfy (secrets NTFY_URL, optional NTFY_TOKEN) and email
+    // through the ALERT_EMAIL send_email binding, from ALERT_EMAIL_FROM to
+    // ALERT_EMAIL_TO (secrets). Never put an address in this file.
+    "ALERT_REPEAT_HOURS": "6",
+    "STATION_NAME": "llama radio"
   },
+  // Alert email (Email Routing). Unrestricted on purpose: a send_email binding
+  // can only reach the account's verified destination addresses, and the one
+  // used is the ALERT_EMAIL_TO secret. Never put an address in this file.
+  "send_email": [{ "name": "ALERT_EMAIL" }],
   // One log line per invocation (~1,440/day) stays inside the free allowance.
   "observability": { "enabled": true }
 }

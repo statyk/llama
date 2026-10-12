@@ -10,7 +10,7 @@
     "isolatedModules": true,
     "allowJs": true,
     "checkJs": false,
-    "types": ["@cloudflare/vitest-plugin/types"]
+    "types": ["@cloudflare/vitest-plugin/types", "vite/client"]
   },
   "include": ["src", "test", "public", "worker-configuration.d.ts"]
 }

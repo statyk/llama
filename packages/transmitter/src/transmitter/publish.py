@@ -53,6 +53,7 @@ NOTES_CACHE = "public, max-age=3600"
 STATE_CACHE = "no-store"
 HORIZON_KEY = "state/horizon.json"
 GUARD_KEY = "state/guard.json"
+OFFAIR_KEY = "state/offair.json"
 TIMELINE_KEY = "timeline.json"
 CONTAINER = "adts"
 NO_FALLBACK = ("no fallback rendered: run `transmitter fallback render` first; nothing is "
@@ -144,12 +145,23 @@ def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, int
     # `blocked: false` hold off the spend kill switch: re-read.
     if cached is not None and 0 <= now_s - cached["checked_at"] < interval_s:
         return cached["blocked"]
+    evaluated_at = offair = None
     try:
         doc = uploader.get_json(GUARD_KEY)
         blocked, error = bool(doc and doc.get("tripped")), None
+        evaluated_at = doc.get("evaluated_at") if doc else None
     except Exception as exc:                        # cannot see the guard: do not spend
         blocked, error = True, str(exc)
-    write_json(ws.guard_cache_path, {"checked_at": now_s, "blocked": blocked, "error": error})
+    try:                                            # for the dead-clock check only: never gates publishing
+        flag = uploader.get_json(OFFAIR_KEY)
+        # Mirror the Worker (guard.ts): absent -> on the air, a boolean -> that value, anything else present
+        # -> off the air.
+        value = flag.get("offair") if isinstance(flag, dict) else None
+        offair = False if flag is None else (value if isinstance(value, bool) else True)
+    except Exception:
+        offair = None
+    write_json(ws.guard_cache_path, {"checked_at": now_s, "blocked": blocked, "error": error,
+                                     "guard_evaluated_at": evaluated_at, "offair": offair})
     return blocked
 
 
@@ -360,14 +372,15 @@ class PruneReport:
     error: str | None = None
 
 
-def prune(p: Publisher, now_us: int) -> PruneReport:
+def prune(p: Publisher, now_us: int, notify: Callable[[str], object] | None = None) -> PruneReport:
     """Delete segments that started more than `prune_margin` ago (so lagging
     players don't 404): advance horizon.first first, then delete by computed
     key range (per-key DeleteObject; never List, never DeleteObjects), across
     every recorded run. Never past horizon.last -- an outage must not move
     `last`, which the clock's off-air rule is measured from. Batched: nothing
     happens until `prune_min_segments` are prunable, since each prune costs a
-    horizon PUT."""
+    horizon PUT. `notify` (the runner's watchdog) is pinged "WATCHDOG=1" every
+    `batch_segments` deletes: after a long stop that is thousands of DELETEs."""
     report = PruneReport()
     with publish_lock(p.ws):
         if guard_blocks_publishing(p.uploader, p.ws, now_us / 1e6, p.cfg.publish.guard_check_minutes * 60):
@@ -425,6 +438,8 @@ def prune(p: Publisher, now_us: int) -> PruneReport:
                     p.uploader.delete(segment_key(p.epoch.epoch_id, n))
                     n += 1
                     report.deleted += 1
+                    if notify is not None and report.deleted % p.cfg.publish.batch_segments == 0:
+                        notify("WATCHDOG=1")
             except PublishError as exc:
                 report.error, failed = str(exc), True
             if n <= hi:

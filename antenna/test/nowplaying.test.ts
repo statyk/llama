@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { findNowPlaying, hlsErrorNotice, playBlockedNotice, nowPlayingText, prefersNativeHls } from "../public/nowplaying.js";
+import { classifyProbe, findNowPlaying, hlsErrorNotice, playBlockedNotice, nowPlayingText, prefersNativeHls,
+         StallWatch } from "../public/nowplaying.js";
 
 const TIMELINE = {
   shows: [
@@ -84,5 +85,74 @@ describe("hlsErrorNotice", () => {
   it("lets hls.js recover from any other non-fatal error", () => {
     expect(hlsErrorNotice({ details: "fragLoadError", fatal: false, response: { code: 404 } })).toBeNull();
     expect(hlsErrorNotice({ details: "bufferStalledError", fatal: false })).toBeNull();
+  });
+});
+
+describe("hlsErrorNotice: the 403 can arrive on networkDetails", () => {
+  it("treats networkDetails.status 403 as off-air", () => {
+    expect(hlsErrorNotice({ fatal: false, networkDetails: { status: 403 } })).toBe("The station is off the air.");
+  });
+});
+
+describe("classifyProbe", () => {
+  it("only a 403 or an ENDLIST playlist is off-air", () => {
+    expect(classifyProbe(403, "")).toBe("offair");
+    expect(classifyProbe(200, "#EXTM3U\n#EXT-X-ENDLIST\n")).toBe("offair");
+    for (const [s, b] of [[0, ""], [200, "#EXTM3U\nseg/e1/1.aac\n"], [503, ""], [429, ""], [404, ""]] as const) {
+      expect(classifyProbe(s, b)).toBe("unknown");
+    }
+  });
+});
+
+describe("StallWatch", () => {
+  const playFor = (w: StallWatch, fromS: number, fromMs: number, seconds: number) => {
+    for (let i = 0; i <= seconds; i++) expect(w.tick(fromS + i, fromMs + i * 1000)).toBe(false);
+  };
+
+  it("never probes while playback advances", () => {
+    const w = new StallWatch();
+    w.reset(0);
+    playFor(w, 0, 0, 120);
+  });
+
+  it("probes after 15 s without progress, at most every 10 s, one at a time", () => {
+    const w = new StallWatch();
+    w.reset(0);
+    playFor(w, 0, 0, 10); // position 10 at t=10 s
+    const probes: number[] = [];
+    for (let t = 11_000; t <= 60_000; t += 1000) {
+      if (w.tick(10, t)) {
+        probes.push(t);
+        expect(w.tick(10, t + 500)).toBe(false); // still probing
+        w.verdict("unknown");
+      }
+    }
+    expect(probes).toEqual([25_000, 35_000, 45_000, 55_000]);
+  });
+
+  it("goes off-air on two consecutive off-air verdicts (the kill switch mid-play)", () => {
+    const w = new StallWatch();
+    w.reset(0);
+    playFor(w, 0, 0, 10);
+    expect(w.tick(10, 25_000)).toBe(true);
+    expect(w.verdict("offair")).toBe(false);
+    expect(w.tick(10, 35_000)).toBe(true);
+    expect(w.verdict("offair")).toBe(true);
+  });
+
+  it("a blip: network errors while stalled, then progress resumes -- never off-air", () => {
+    const w = new StallWatch();
+    w.reset(0);
+    playFor(w, 0, 0, 10);
+    expect(w.tick(10, 25_000)).toBe(true);
+    expect(w.verdict("offair")).toBe(false); // one stray 403 is not enough...
+    expect(w.tick(10, 35_000)).toBe(true);
+    expect(w.verdict("unknown")).toBe(false); // ...and a non-verdict resets the count
+    expect(w.tick(10, 45_000)).toBe(true);
+    expect(w.verdict("offair")).toBe(false);
+    expect(w.tick(11, 46_000)).toBe(false); // playing again
+    expect(w.stalled(47_000)).toBe(false);
+    expect(w.tick(11, 61_000)).toBe(true); // stalls again
+    expect(w.verdict("offair")).toBe(false); // progress reset the count: one verdict is not two
   });
 });

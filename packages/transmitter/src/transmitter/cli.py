@@ -7,9 +7,9 @@ from pathlib import Path
 
 import typer
 
-from transmitter import aacenc, fallback, grid, pipeline, service
+from transmitter import aacenc, cloudstate, fallback, grid, pipeline, service
 from transmitter.config import DEFAULT_CONFIG_TOML, default_root, load_config
-from transmitter.errors import TransmitterError
+from transmitter.errors import CloudStateError, ConfigError, TransmitterError
 from transmitter.workspace import atomic_write_text
 
 app = typer.Typer(help="Plan, render and publish the station's HLS stream",
@@ -60,6 +60,97 @@ CONFIG_OPT = typer.Option(None, "--config", help="Config file (default: $TRANSMI
 fallback_app = typer.Typer(help="The fallback loop and off-air notice", pretty_exceptions_enable=False)
 app.add_typer(fallback_app, name="fallback")
 
+offair_app = typer.Typer(help="Take the station off the air (state/offair.json), or put it back",
+                         pretty_exceptions_enable=False, no_args_is_help=True)
+app.add_typer(offair_app, name="offair")
+
+
+def _cloud(config: Path | None):
+    """(client, bucket) for the operator commands: R2 keys from the environment."""
+    cfg = load_config(config)
+    if not cfg.publish.bucket:
+        raise ConfigError("set [publish] bucket in transmitter's config.toml")
+    return service.make_client(cfg), cfg.publish.bucket
+
+
+@offair_app.command("on")
+def offair_on(
+    reason: str = typer.Option(..., "--reason", help="Why (shown in `transmitter status`)"),
+    until: str = typer.Option(None, "--until", help="Expected end, ISO-8601 UTC (informational only)"),
+    config: Path = CONFIG_OPT,
+):
+    """Off the air: within about a minute the clock lists the off-air notice and
+    ENDLIST, index.html becomes the off-air page and the WAF kill switch is on."""
+    client, bucket = _cloud(config)
+    doc = cloudstate.set_offair(client, bucket, True, reason, until, service.now_us())
+    typer.echo(f"state/offair.json: off the air since {doc['since']} ({doc['reason']}). The clock blocks the "
+               "station within about a minute: the off-air playlist and page, and the kill switch.")
+
+
+@offair_app.command("off")
+def offair_off(
+    reason: str = typer.Option("back on air", "--reason", help="Why (shown in `transmitter status`)"),
+    config: Path = CONFIG_OPT,
+):
+    """Back on the air (clears only the operator's flag; a tripped cost guard keeps the station blocked)."""
+    client, bucket = _cloud(config)
+    doc = cloudstate.set_offair(client, bucket, False, reason, None, service.now_us())
+    typer.echo(f"state/offair.json: on the air since {doc['since']}.")
+    # The flag is written: a failure from here on is a note, not an error.
+    try:
+        guard = cloudstate.get_json(client, bucket, cloudstate.GUARD_KEY)
+    except TransmitterError as exc:
+        typer.echo(f"note: could not read state/guard.json ({exc}); the station may stay blocked (a corrupt "
+                   "guard.json is a spend trip; see `transmitter budget`).", err=True)
+        return
+    problem = cloudstate.guard_doc_problem(guard) if guard is not None else None
+    if problem is not None:
+        typer.echo(f"note: state/guard.json is not a document the guard wrote ({problem}); the guard treats the "
+                   "station as tripped until it rewrites it (see `transmitter budget`).", err=True)
+    elif guard and guard.get("tripped"):
+        typer.echo(f"note: the cost guard is tripped ({guard.get('reason')}); the station stays blocked until it "
+                   "clears (see `transmitter budget`).", err=True)
+
+
+@app.command()
+def budget(
+    raise_to: float = typer.Option(None, "--raise-to", help="Raise this billing period's budget to USD"),
+    config: Path = CONFIG_OPT,
+):
+    """Show the cost guard's state, or raise the budget for the rest of this billing period."""
+    client, bucket = _cloud(config)
+    if raise_to is not None:
+        doc = cloudstate.raise_budget(client, bucket, raise_to, service.now_us())
+        typer.echo(f"state/budget.json: ${doc['budget_usd']:.2f} until {doc['expires']}. The guard evaluates at its "
+                   "next run; a spend trip clears only if that evaluation is under the thresholds.")
+        return
+    failed = False
+    guard = None
+    try:
+        guard = cloudstate.get_json(client, bucket, cloudstate.GUARD_KEY)
+    except TransmitterError as exc:
+        failed = True
+        typer.echo(f"guard      {exc}")
+    problem = cloudstate.guard_doc_problem(guard) if guard is not None else None
+    if problem is not None:
+        failed = True
+        typer.echo(f"guard      state/guard.json is not a document the guard wrote ({problem}); the guard "
+                   "treats it as a spend trip")
+        guard = None
+    elif not failed:
+        for line in cloudstate.guard_summary(guard):
+            typer.echo(line)
+    try:
+        raised = cloudstate.get_json(client, bucket, cloudstate.BUDGET_KEY)
+    except TransmitterError as exc:
+        failed = True
+        typer.echo(f"raise      {exc}")
+        raised = None
+    if raised:
+        typer.echo(cloudstate.raise_status_line(raised, guard, service.now_us()))
+    if failed:
+        raise typer.Exit(1)
+
 
 @app.command()
 def plan(config: Path = CONFIG_OPT):
@@ -107,16 +198,36 @@ def publish_cmd(config: Path = CONFIG_OPT):
 def run(config: Path = CONFIG_OPT,
         once: bool = typer.Option(False, "--once", help="Run one tick and exit")):
     """The service loop: plan/render below low water, publish and prune every minute."""
+    from transmitter import alerts
+
     cfg = load_config(config)
     t = service.now_us()
     st = service.open_station(cfg, t)
-    service.Runner(st, service.open_publisher(st)).run(max_ticks=1 if once else None)
+    alerts.configure(alerts.dispatcher_from_config(cfg, st.ws))
+    try:
+        service.Runner(st, service.open_publisher(st), monitor=service.open_monitor(st)).run(max_ticks=1 if once else None)
+    finally:
+        alerts.configure(None)
 
 
 @app.command()
 def status(config: Path = CONFIG_OPT):
-    """Epoch, plan, what is on air, published lead, fallback version."""
-    for line in service.status_lines(load_config(config), service.now_us()):
+    """Epoch, plan, on air, lead, fallback; the cost guard, off-air flag, kill switch and active alerts."""
+    cfg = load_config(config)
+    cloud, error = None, None
+    try:
+        client, bucket = _cloud(config)
+
+        def cloud(key: str):                       # a read-only view: any failure is a line, not a traceback
+            try:
+                return cloudstate.get_json(client, bucket, key)
+            except TransmitterError:
+                raise
+            except Exception as exc:
+                raise CloudStateError(f"cannot read {key}: {exc}") from exc
+    except Exception as exc:                       # no bucket, no R2 keys, a malformed endpoint: local half still prints
+        error = str(exc)
+    for line in service.status_lines(cfg, service.now_us(), cloud, error):
         typer.echo(line)
 
 

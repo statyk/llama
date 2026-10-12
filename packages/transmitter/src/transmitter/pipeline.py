@@ -204,7 +204,8 @@ def _gc_encodes(st: Station, rows: list[PlanRow], next_n: int) -> None:
             pass
 
 
-def render_step(st: Station, now_us: int, *, limit: int | None = None) -> RenderReport:
+def render_step(st: Station, now_us: int, *, limit: int | None = None,
+                notify: Callable[[str], object] | None = None) -> RenderReport:
     report = RenderReport()
     rows = read_plan(st.ws.plan_path)
     pub = load_publish_state(st.ws)
@@ -268,6 +269,8 @@ def render_step(st: Station, now_us: int, *, limit: int | None = None) -> Render
                         exclude = r.slug in mismatched
                     else:
                         frames = st.engine.encode_show(show, analysis, store.path(r.key))
+                        if notify is not None:
+                            notify("WATCHDOG=1")    # a step can encode several shows
                         if frames != r.frames:
                             store.path(r.key).unlink(missing_ok=True)
                             raise FrameCountDrift(f"{r.slug}: encoded {frames} frames, plan says "

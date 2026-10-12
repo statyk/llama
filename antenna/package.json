@@ -6,9 +6,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "node scripts/build-pages.mjs --check && vitest run",
     "typecheck": "tsc --noEmit",
     "types": "wrangler types",
+    "pages": "node scripts/build-pages.mjs",
     "deploy": "wrangler deploy",
     "deploy:assets": "node scripts/deploy-assets.mjs"
   },

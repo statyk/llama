@@ -7,18 +7,20 @@ logged with its traceback and alerted, and the loop goes on; a frame-count
 drift halts filling (publishing goes on) until transmitter is restarted."""
 
 import logging
+import math
 import time
 from pathlib import Path
 from typing import Callable
 
-from transmitter import alerts, analysis, grid, pipeline, publish, r2, station
+from transmitter import alerts, analysis, cloudstate, grid, pipeline, publish, r2, sdnotify, station
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
-from transmitter.errors import ConfigError, FrameCountDrift, PublishLocked
+from transmitter.deadclock import DeadClockMonitor
+from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift, PublishLocked, StationRootError, TransmitterError
 from transmitter.layout import PlanRow
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
-from transmitter.workspace import Workspace, load_epoch, load_or_create_epoch
+from transmitter.workspace import Workspace, load_epoch, load_or_create_epoch, read_json
 
 log = logging.getLogger("transmitter")
 MAX_BATCHES = 100
@@ -62,7 +64,8 @@ def row_analysis(st: pipeline.Station, row: PlanRow) -> ShowAnalysis | None:
     not the tick's time) with `quiet_s=0`, and runs inside `_publish_site`, so
     when `cache/<key>.json` is missing it can run a full ffmpeg analysis while
     the publish flock is held, lengthening that one publish tick by minutes.
-    Acceptable: the cache is never garbage-collected, so this is reachable only
+    A lost `cache/` can make this recompute long enough to meet WatchdogSec
+    (it is not followed by a watchdog ping). Acceptable: the cache is never garbage-collected, so this is reachable only
     after an operator deleted `cache/` (or a decode mismatch dropped an entry)."""
     cached = analysis.load_cached(st.ws.cache_dir, row.key)
     if cached is not None:
@@ -134,26 +137,44 @@ def _report_stop(step: str, stopped: str | None, error: str | None, held: bool =
         alerts.alert(step, "; ".join(parts))
 
 
-def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None
+def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None,
+                notify: Callable[[str], object] | None = None
                 ) -> tuple[list[publish.PublishReport], publish.PruneReport]:
     reports = []
     for _ in range(MAX_BATCHES):
         r = publish.publish_batch(p, t_us)
         reports.append(r)
+        if notify is not None:
+            notify("WATCHDOG=1")    # a catch-up is many batches: one step must not outlast WatchdogSec
         _report_stop("publish", r.stopped, r.error, r.held)
         if not r.uploaded or r.stopped or r.error:
             break
     if held is not None:
         held.observe(any(r.held for r in reports))
-    pr = publish.prune(p, t_us)
+    pr = publish.prune(p, t_us, notify)
     _report_stop("prune", pr.stopped, pr.error)
     return reports, pr
 
 
+def open_monitor(st: pipeline.Station) -> DeadClockMonitor | None:
+    """The dead-clock check, when [antenna] site_url says where live.m3u8 is."""
+    url = st.cfg.antenna.site_url
+    if not url:
+        log.warning("[antenna] site_url is not set: the dead-clock check is off")
+        return None
+    a = st.cfg.alerts
+    # An unexpected 403 must outlast the guard cache (refreshed every
+    # guard_check_minutes) before it alarms.
+    return DeadClockMonitor(url.rstrip("/") + "/live.m3u8", st.epoch.epoch_us, a.dead_clock_seconds,
+                            a.guard_stale_minutes * 60, math.ceil(st.cfg.publish.guard_check_minutes) + 2)
+
+
 class Runner:
     def __init__(self, st: pipeline.Station, p: publish.Publisher, *, clock: Callable[[], int] = now_us,
-                 sleep: Callable[[float], None] = time.sleep, tick_s: float = 60.0):
+                 sleep: Callable[[float], None] = time.sleep, tick_s: float = 60.0,
+                 monitor: DeadClockMonitor | None = None, notify: Callable[[str], object] = sdnotify.notify):
         self.st, self.p, self.clock, self.sleep, self.tick_s = st, p, clock, sleep, tick_s
+        self.monitor, self.notify = monitor, notify
         self.filling = False
         self.held = HeldTracker()
         self.halted = False          # latched by a frame-count drift; cleared by a restart
@@ -162,10 +183,16 @@ class Runner:
         last = load_publish_state(self.st.ws).last
         return None if last is None else self.st.epoch.start_us(last + 1) - t_us
 
-    def _step(self, name: str, fn: Callable[[], object]) -> None:
-        """Run one step; no error ends the loop (the next tick retries)."""
+    def _step(self, name: str, fn: Callable[[], object], *, resolves: tuple[str, ...] = ()) -> None:
+        """Run one step; no error ends the loop (the next tick retries). A step
+        that succeeds resolves `resolves`; every step ends with a watchdog ping."""
         try:
             fn()
+            for code in resolves:
+                alerts.resolve(code)
+        except StationRootError as exc:
+            log.error("%s step: %s", name, exc)
+            alerts.alert("station-root", f"{type(exc).__name__}: {exc}")
         except FrameCountDrift as exc:
             # The encoder no longer matches the frame-count model: stop filling
             # rather than render more of a timeline that may be wrong.
@@ -179,6 +206,8 @@ class Runner:
         except Exception as exc:
             log.exception("%s step failed", name)
             alerts.alert(name, f"{type(exc).__name__}: {exc}")
+        finally:
+            self.notify("WATCHDOG=1")
 
     def _read_lead(self, t_us: int) -> tuple[bool, int | None]:
         """(readable, lead). An unreadable publish.json is alerted, not raised:
@@ -197,35 +226,109 @@ class Runner:
         ok, lead = self._read_lead(t_us)
         if not ok:
             # Fail closed: publish.json mirrors what R2 lists; without it no step
-            # can know what is safe to plan, render, upload or prune.
+            # can know what is safe to plan, render, upload or prune. This is a
+            # designed, alerted state, not a hang: keep the watchdog fed.
+            self.notify("WATCHDOG=1")
             return
         if not self.halted and (lead is None or lead < low_water_us):
             self.filling = True
         if self.filling:
-            self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1))
+            self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1),
+                       resolves=("plan", "station-root"))
             self._step("render", lambda: pipeline.render_step(
-                self.st, t_us, limit=self.st.cfg.publish.batch_segments))
-        self._step("publish", lambda: publish_all(self.p, t_us, self.held))
+                self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify), resolves=("render",))
+        self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify))
+        if self.monitor is not None:
+            monitor = self.monitor
+            # "dead-clock-check", not "dead-clock": a monitor that RAISES must fire an event code, never the
+            # level code that means "the clock is dead" (only the monitor raises and resolves that one).
+            self._step("dead-clock-check", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False
 
     def run(self, max_ticks: int | None = None) -> None:
+        self.notify("READY=1")
         ticks = 0
-        while max_ticks is None or ticks < max_ticks:
-            started = time.monotonic()
-            self.tick(self.clock())
-            ticks += 1
-            if max_ticks is not None and ticks >= max_ticks:
-                break
-            self.sleep(max(0.0, self.tick_s - (time.monotonic() - started)))
+        try:
+            while max_ticks is None or ticks < max_ticks:
+                started = time.monotonic()
+                self.tick(self.clock())
+                ticks += 1
+                if max_ticks is not None and ticks >= max_ticks:
+                    break
+                self.sleep(max(0.0, self.tick_s - (time.monotonic() - started)))
+        finally:
+            self.notify("STOPPING=1")
 
 
-def status_lines(cfg: TransmitterConfig, t_us: int) -> list[str]:
+def cloud_lines(read: Callable[[str], dict | None], t_us: int | None = None) -> list[str]:
+    """`status`'s cloud half: the guard, the operator's flag, a raise, cloud
+    alerts. `read(key)` returns a state/ document or None (cloudstate.get_json).
+    Each document is read on its own: a corrupt one prints its own line and the
+    rest still print. An access or transport failure ends the half with one
+    `unavailable` line (the next read would fail the same way)."""
+    now = time.time_ns() // 1000 if t_us is None else t_us
+    lines: list[str] = []
+
+    def fetch(key: str, label: str, consequence: str = ""):
+        """(ok, doc): a corrupt document prints its own line; anything else raises."""
+        try:
+            return True, read(key)
+        except CloudDocumentError as exc:
+            lines.append(f"{label} unreadable: {exc}" + (f" -- {consequence}" if consequence else ""))
+            return False, None
+
+    try:
+        ok, guard = fetch(cloudstate.GUARD_KEY, "guard     ", "the clock treats it as a spend trip")
+        if ok:
+            problem = cloudstate.guard_doc_problem(guard) if guard is not None else None
+            try:
+                summary = cloudstate.guard_summary(guard)
+            except (TypeError, ValueError, AttributeError):
+                summary = []
+            if problem is not None:
+                lines.append(f"guard      CORRUPT ({problem}): the clock treats it as a spend trip")
+                lines += summary[1:]               # its own verdict line is replaced, as `budget` does
+                guard = None
+            else:
+                lines += summary
+        ok, offair = fetch(cloudstate.OFFAIR_KEY, "offair    ", "the clock treats the station as off the air")
+        if ok:
+            if offair is None:
+                lines.append("offair     off")
+            elif offair.get("offair") is True:
+                lines.append(f"offair     ON since {offair.get('since')} ({offair.get('reason')})"
+                             + (f", expected until {offair['until']}" if offair.get("until") else ""))
+            elif offair.get("offair") is False:
+                lines.append("offair     off")
+            else:
+                lines.append("offair     CORRUPT: the clock treats the station as off the air; "
+                             "rewrite with transmitter offair on|off")
+        ok, raised = fetch(cloudstate.BUDGET_KEY, "raise     ")
+        if ok and raised:
+            lines.append(cloudstate.raise_status_line(raised, guard, now))
+        ok, cloud_alerts = fetch(cloudstate.ALERTS_KEY, "alerts     cloud:")
+        if ok:
+            active = sorted(k for k, e in (cloud_alerts or {}).items() if isinstance(e, dict) and e.get("active"))
+            lines.append(f"alerts     cloud: {', '.join(active) if active else 'none'}")
+    except Exception as exc:                       # a read-only view: never a traceback
+        lines.append(f"cloud      unavailable: {exc}")
+    return lines
+
+
+def _cloud_tail(cloud, cloud_error: str | None, t_us: int) -> list[str]:
+    if cloud is not None:
+        return cloud_lines(cloud, t_us)
+    return [f"cloud      unavailable: {cloud_error}"] if cloud_error else []
+
+
+def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict | None] | None = None,
+                 cloud_error: str | None = None) -> list[str]:
     ws = Workspace(cfg.root)
     epoch = load_epoch(ws)
     if epoch is None:
-        return ["no epoch yet - run `transmitter plan` (or `transmitter run`) first"]
+        return ["no epoch yet - run `transmitter plan` (or `transmitter run`) first"] + _cloud_tail(cloud, cloud_error, t_us)
     rows = read_plan(ws.plan_path)
     pub = load_publish_state(ws)
     fb = load_fallback_version(ws)
@@ -244,4 +347,11 @@ def status_lines(cfg: TransmitterConfig, t_us: int) -> list[str]:
         lead_h = (epoch.start_us(pub.last + 1) - t_us) / 3_600_000_000
         lines.append(f"published  segments {pub.first}..{pub.last}; lead {lead_h:.1f} h")
     lines.append(f"fallback   {fb}" if fb else "fallback   none (run `transmitter fallback render`)")
-    return lines
+    lines.append("anchors    none (the scheduler and its window misses are phase 3)")
+    state = alerts.load_state(ws.alerts_path)
+    if state is None:
+        lines.append(f"alerts     hugo: unreadable ({ws.alerts_path})")
+    else:
+        hugo = alerts.active_codes(state, t_us / 1e6, cfg.alerts.repeat_hours * 3600)
+        lines.append(f"alerts     hugo: {', '.join(hugo) if hugo else 'none'}")
+    return lines + _cloud_tail(cloud, cloud_error, t_us)

@@ -300,7 +300,7 @@ def test_tripped_guard_stops_publishing_and_is_read_at_most_every_15_minutes(tmp
     _segs(p, range(100, 102))
     assert publish.publish_batch(p, _now(p)).stopped == "guard"
     assert publish.publish_batch(p, _now(p) + 60_000_000).stopped == "guard"
-    assert bucket.log == [("get", "state/guard.json")]
+    assert bucket.log == [("get", "state/guard.json"), ("get", "state/offair.json")]
     later = _now(p) + 16 * 60 * 1_000_000
     bucket.objects["state/guard.json"]["Body"] = b'{"tripped": false}'
     assert publish.publish_batch(p, later).uploaded == [100, 101]
@@ -333,6 +333,41 @@ def test_unreadable_guard_fails_closed(tmp_path):
     _segs(p, range(100, 101))
     assert publish.publish_batch(p, _now(p)).stopped == "guard"
     assert bucket.puts() == []
+
+
+def test_the_guard_cache_records_evaluation_time_and_offair_but_gating_stays_on_tripped_only(tmp_path):
+    bucket = FakeBucket()
+    bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false, "evaluated_at": "2026-10-10T12:00:00Z"}'}
+    bucket.objects["state/offair.json"] = {"Body": b'{"offair": true}'}
+    p = make_publisher(tmp_path, bucket)
+    assert publish.guard_blocks_publishing(p.uploader, p.ws, 1000.0, 900.0) is False   # off the air does not gate
+    cache = json.loads(p.ws.guard_cache_path.read_text())
+    assert cache["guard_evaluated_at"] == "2026-10-10T12:00:00Z" and cache["offair"] is True and cache["blocked"] is False
+    bucket.fail_gets.add("state/offair.json")                                          # an unreadable flag never gates
+    assert publish.guard_blocks_publishing(p.uploader, p.ws, 5000.0, 900.0) is False
+    assert json.loads(p.ws.guard_cache_path.read_text())["offair"] is None
+    bucket.fail_gets.add("state/guard.json")                                           # an unreadable guard still fails closed
+    assert publish.guard_blocks_publishing(p.uploader, p.ws, 9000.0, 900.0) is True
+    assert json.loads(p.ws.guard_cache_path.read_text())["error"]
+
+
+@pytest.mark.parametrize("body, expected", [
+    (None, False),                       # absent: on the air
+    (b'{"offair": false}', False),
+    (b'{"offair": true}', True),
+    (b'{"offair": "yes"}', True),        # present but not a boolean: the Worker reads it as off the air
+    (b'{"offair": 0}', True),
+    (b'{}', True),
+    (b'[1]', True),
+])
+def test_the_guard_cache_reads_offair_like_the_worker(tmp_path, body, expected):
+    bucket = FakeBucket()
+    bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false}'}
+    if body is not None:
+        bucket.objects["state/offair.json"] = {"Body": body}
+    p = make_publisher(tmp_path, bucket)
+    assert publish.guard_blocks_publishing(p.uploader, p.ws, 1000.0, 900.0) is False   # never gates
+    assert json.loads(p.ws.guard_cache_path.read_text())["offair"] is expected
 
 
 def test_lock_is_exclusive(tmp_path):

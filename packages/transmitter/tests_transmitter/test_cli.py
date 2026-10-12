@@ -182,3 +182,43 @@ def test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_versio
     result = CliRunner().invoke(app, ["run", "--once", "--config", str(cfgp)])
     assert result.exit_code == 0, result.output
     assert bucket.json("state/horizon.json")["fallback_version"] == "v1"
+
+
+def test_run_installs_the_alert_dispatcher_and_clears_it_afterwards(tmp_path, monkeypatch):
+    from transmitter import alerts
+
+    monkeypatch.setenv("TRANSMITTER_ROOT", str(tmp_path / "tx"))
+    monkeypatch.setattr(service, "make_engine", lambda ws, cfg: FakeEngine())
+    monkeypatch.setattr(service, "make_client", lambda cfg: FakeBucket())
+    root = make_root(tmp_path)
+    build_package(root, "band-2005-11-01")
+    save_fallback_version(Workspace(tmp_path / "tx"), "v0")
+    sentinel = object()
+    built, configured = [], []
+    monkeypatch.setattr(alerts, "dispatcher_from_config", lambda cfg, ws: built.append(ws) or sentinel)
+    monkeypatch.setattr(alerts, "configure", configured.append)
+    result = CliRunner().invoke(app, ["run", "--once", "--config", str(_config(tmp_path, root))])
+    assert result.exit_code == 0, result.output
+    assert len(built) == 1 and configured == [sentinel, None]
+
+
+def test_run_hands_the_runner_the_dead_clock_monitor(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRANSMITTER_ROOT", str(tmp_path / "tx"))
+    monkeypatch.setattr(service, "make_engine", lambda ws, cfg: FakeEngine())
+    monkeypatch.setattr(service, "make_client", lambda cfg: FakeBucket())
+    sentinel = object()
+    seen = {}
+
+    class FakeRunner:
+        def __init__(self, st, p, **kw):
+            seen.update(kw)
+
+        def run(self, max_ticks=None):
+            seen["ticks"] = max_ticks
+
+    monkeypatch.setattr(service, "open_monitor", lambda st: sentinel)
+    monkeypatch.setattr(service, "Runner", FakeRunner)
+    root = make_root(tmp_path)
+    result = CliRunner().invoke(app, ["run", "--once", "--config", str(_config(tmp_path, root))])
+    assert result.exit_code == 0, result.output
+    assert seen["monitor"] is sentinel and seen["ticks"] == 1
