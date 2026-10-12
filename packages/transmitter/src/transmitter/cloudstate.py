@@ -20,20 +20,16 @@ from typing import Any, Callable
 
 from transmitter import grid
 from transmitter.errors import CloudStateError
+from transmitter.publish import GUARD_KEY, NON_RETRYABLE
+from transmitter.publish import _error_code as _code
 
 OFFAIR_KEY = "state/offair.json"
 BUDGET_KEY = "state/budget.json"
-GUARD_KEY = "state/guard.json"
 ALERTS_KEY = "state/alerts.json"
 JSON_TYPE = "application/json"
 STATE_CACHE = "no-store"
 # antenna's MAX_BUDGET_USD: the clock never honours a raise above it.
 MAX_RAISE_USD = 100.0
-
-
-def _code(exc: Exception) -> str | None:
-    response = getattr(exc, "response", None)
-    return response.get("Error", {}).get("Code") if isinstance(response, dict) else None
 
 
 def get_json(client: Any, bucket: str, key: str, *, corrupt_as_absent: bool = False) -> dict | None:
@@ -71,6 +67,9 @@ def put_state(client: Any, bucket: str, key: str, doc: dict, *, attempts: int = 
                 return
             last = CloudStateError(f"PUT {key}: HTTP {resp.get('ResponseMetadata', {}).get('HTTPStatusCode')}")
         except Exception as exc:
+            if _code(exc) in NON_RETRYABLE:
+                # Credentials or bucket are wrong: no retry can succeed.
+                raise CloudStateError(f"could not write {key}: {exc}") from exc
             last = exc
         if attempt + 1 < attempts:
             sleep(2.0 ** attempt)
@@ -105,6 +104,59 @@ def _finite(value: Any) -> float | None:
     return float(value)
 
 
+def _iso_ok(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        grid.iso_to_us(value)
+    except ValueError:
+        return False
+    return True
+
+
+def guard_doc_problem(guard: Any) -> str | None:
+    """Why antenna's latch.ts `parseGuardDoc` would reject this document (and
+    the Worker treat it as corrupt: a spend trip latched at the budget then in
+    effect, which would swallow a raise written now), or None when it would
+    accept it. A mirror of its shape checks; the Worker writes ISO times with
+    toISOString, so `since` is checked with grid.iso_to_us."""
+    def str_or_null(v: Any) -> bool:
+        return v is None or isinstance(v, str)
+
+    def num_or_null(v: Any) -> bool:
+        return v is None or _finite(v) is not None
+
+    if not isinstance(guard, dict) or guard.get("schema") != 1 or isinstance(guard.get("schema"), bool):
+        return "schema is not 1"
+    if not isinstance(guard.get("tripped"), bool):
+        return "tripped is not a boolean"
+    if guard.get("reason", "missing") not in (None, "spend", "blind"):
+        return "reason is not null, spend or blind"
+    if guard["tripped"] != (guard["reason"] is not None):
+        return "tripped and reason disagree"
+    if not _iso_ok(guard.get("since")):
+        return "since is not a time"
+    for k in ("tripped_at", "tripped_period_start", "last_success", "evaluated_at", "last_error"):
+        if not str_or_null(guard.get(k, 0)):
+            return f"{k} is not a string or null"
+    if not num_or_null(guard.get("tripped_budget_usd", "missing")):
+        return "tripped_budget_usd is not a number or null"
+    waf = guard.get("waf")
+    if not isinstance(waf, dict) or not (waf.get("enabled", 0) is None or isinstance(waf.get("enabled"), bool)) \
+            or not str_or_null(waf.get("error", 0)):
+        return "waf is not {enabled, error}"
+    period = guard.get("period", "missing")
+    if not (period is None or (isinstance(period, dict) and isinstance(period.get("start"), str)
+                               and isinstance(period.get("end"), str))):
+        return "period is not null or {start, end}"
+    ev = guard.get("evaluation", "missing")
+    if not (ev is None or (isinstance(ev, dict) and isinstance(ev.get("at"), str)
+                           and all(num_or_null(ev.get(k, "missing"))
+                                   for k in ("actual_usd", "projected_usd", "budget_usd")))):
+        return "evaluation is not null or {at, actual_usd, projected_usd, budget_usd}"
+    return None
+
+
 def guard_period_end_us(guard: dict) -> int:
     try:
         return grid.iso_to_us(guard["period"]["end"])
@@ -128,21 +180,36 @@ def current_budget_usd(guard: dict) -> float:
     return value
 
 
-def _pending_raise_usd(raised: dict | None, now_us: int, period_end_us: int) -> float | None:
-    """A raise already in state/budget.json that the Worker would honour now
-    (latch.ts effectiveBudget: a finite budget_usd, unexpired, expiring no later
-    than the period's end, capped at MAX_BUDGET_USD) -- possibly written after
-    the guard's last evaluation, so not yet in `evaluation.budget_usd`."""
-    if raised is None:
-        return None
+def raise_verdict(raised: dict, now_us: int, period_end_us: int | None,
+                  base_usd: float | None = None) -> tuple[float | None, str]:
+    """(the budget the Worker honours from this state/budget.json, or None;
+    why), by latch.ts effectiveBudget's rules: a finite budget_usd above the
+    configured budget, unexpired, expiring no later than the period's end, and
+    capped at MAX_BUDGET_USD. An unknown period end or base skips that check."""
     usd = _finite(raised.get("budget_usd"))
+    if usd is None:
+        return None, "ignored: budget_usd is not a number"
     try:
         expires = grid.iso_to_us(raised["expires"])
     except (KeyError, TypeError, ValueError, AttributeError):
-        return None
-    if usd is None or not now_us < expires <= period_end_us:
-        return None
-    return min(usd, MAX_RAISE_USD)
+        return None, "ignored: expires is not a time"
+    if expires <= now_us:
+        return None, "expired"
+    if base_usd is not None and usd <= base_usd:
+        return None, f"ignored: not above the configured budget ({usd_text(base_usd)})"
+    if period_end_us is not None and expires > period_end_us:
+        return None, "ignored: expires after the billing period ends"
+    if usd > MAX_RAISE_USD:
+        return MAX_RAISE_USD, f"honoured, capped at ${MAX_RAISE_USD:.0f}"
+    return usd, "honoured"
+
+
+def _pending_raise_usd(raised: dict | None, now_us: int, period_end_us: int) -> float | None:
+    """A raise already in state/budget.json that the Worker would honour now
+    -- possibly written after the guard's last evaluation, so not yet in
+    `evaluation.budget_usd`. (The configured-budget check is skipped: such a
+    raise is below the evaluated budget anyway.)"""
+    return None if raised is None else raise_verdict(raised, now_us, period_end_us)[0]
 
 
 def raise_budget(client: Any, bucket: str, usd: float, now_us: int) -> dict:
@@ -157,6 +224,11 @@ def raise_budget(client: Any, bucket: str, usd: float, now_us: int) -> dict:
     guard = get_json(client, bucket, GUARD_KEY)
     if guard is None:
         raise CloudStateError("no state/guard.json: the cost guard has not run yet (is antenna deployed?)")
+    problem = guard_doc_problem(guard)
+    if problem is not None:
+        raise CloudStateError(f"state/guard.json is not a document the guard wrote ({problem}): the guard treats it "
+                              "as a spend trip and would swallow a raise written now. It rewrites the document "
+                              "within a minute; retry once `transmitter budget` shows an evaluation")
     end_us = guard_period_end_us(guard)
     if end_us <= now_us:
         raise CloudStateError(f"state/guard.json's billing period ended at {grid.us_to_iso(end_us)}; wait for "
@@ -173,11 +245,10 @@ def raise_budget(client: Any, bucket: str, usd: float, now_us: int) -> dict:
         floor, what = pending, "the raise already in state/budget.json"
     if not math.isfinite(usd) or round(usd, 2) <= floor:
         raise CloudStateError(f"--raise-to must be above {what} (${floor:.2f})")
-    usd = round(usd, 2)
-    if usd > MAX_RAISE_USD:
+    if usd > MAX_RAISE_USD or round(usd, 2) > MAX_RAISE_USD:
         raise CloudStateError(f"--raise-to is capped at ${MAX_RAISE_USD:.0f} (the clock ignores more); the "
                               "station's policy is to shut down, not to keep raising")
-    doc = {"budget_usd": usd, "expires": grid.us_to_iso(end_us), "written_at": grid.us_to_iso(now_us)}
+    doc = {"budget_usd": round(usd, 2), "expires": grid.us_to_iso(end_us), "written_at": grid.us_to_iso(now_us)}
     put_state(client, bucket, BUDGET_KEY, doc)
     return doc
 

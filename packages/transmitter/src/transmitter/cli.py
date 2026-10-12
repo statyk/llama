@@ -9,7 +9,7 @@ import typer
 
 from transmitter import aacenc, cloudstate, fallback, grid, pipeline, service
 from transmitter.config import DEFAULT_CONFIG_TOML, default_root, load_config
-from transmitter.errors import TransmitterError
+from transmitter.errors import ConfigError, TransmitterError
 from transmitter.workspace import atomic_write_text
 
 app = typer.Typer(help="Plan, render and publish the station's HLS stream",
@@ -67,8 +67,6 @@ app.add_typer(offair_app, name="offair")
 
 def _cloud(config: Path | None):
     """(client, bucket) for the operator commands: R2 keys from the environment."""
-    from transmitter.errors import ConfigError
-
     cfg = load_config(config)
     if not cfg.publish.bucket:
         raise ConfigError("set [publish] bucket in transmitter's config.toml")
@@ -98,8 +96,18 @@ def offair_off(
     client, bucket = _cloud(config)
     doc = cloudstate.set_offair(client, bucket, False, reason, None, service.now_us())
     typer.echo(f"state/offair.json: on the air since {doc['since']}.")
-    guard = cloudstate.get_json(client, bucket, cloudstate.GUARD_KEY)
-    if guard and guard.get("tripped"):
+    # The flag is written: a failure from here on is a note, not an error.
+    try:
+        guard = cloudstate.get_json(client, bucket, cloudstate.GUARD_KEY)
+    except TransmitterError as exc:
+        typer.echo(f"note: could not read state/guard.json ({exc}); the station may stay blocked (a corrupt "
+                   "guard.json is a spend trip; see `transmitter budget`).", err=True)
+        return
+    problem = cloudstate.guard_doc_problem(guard) if guard is not None else None
+    if problem is not None:
+        typer.echo(f"note: state/guard.json is not a document the guard wrote ({problem}); the guard treats the "
+                   "station as tripped until it rewrites it (see `transmitter budget`).", err=True)
+    elif guard and guard.get("tripped"):
         typer.echo(f"note: the cost guard is tripped ({guard.get('reason')}); the station stays blocked until it "
                    "clears (see `transmitter budget`).", err=True)
 
@@ -116,15 +124,48 @@ def budget(
         typer.echo(f"state/budget.json: ${doc['budget_usd']:.2f} until {doc['expires']}. The guard evaluates at its "
                    "next run; a spend trip clears only if that evaluation is under the thresholds.")
         return
-    for line in cloudstate.guard_summary(cloudstate.get_json(client, bucket, cloudstate.GUARD_KEY)):
-        typer.echo(line)
+    failed = False
+    guard = None
+    try:
+        guard = cloudstate.get_json(client, bucket, cloudstate.GUARD_KEY)
+    except TransmitterError as exc:
+        failed = True
+        typer.echo(f"guard      {exc}")
+    problem = cloudstate.guard_doc_problem(guard) if guard is not None else None
+    if problem is not None:
+        failed = True
+        typer.echo(f"guard      state/guard.json is not a document the guard wrote ({problem}); the guard "
+                   "treats it as a spend trip")
+        guard = None
+    elif not failed:
+        for line in cloudstate.guard_summary(guard):
+            typer.echo(line)
     try:
         raised = cloudstate.get_json(client, bucket, cloudstate.BUDGET_KEY)
     except TransmitterError as exc:
+        failed = True
         typer.echo(f"raise      {exc}")
-        return
+        raised = None
     if raised:
-        typer.echo(f"raise      {cloudstate.usd_text(raised.get('budget_usd'))} until {raised.get('expires')}")
+        typer.echo(f"raise      {cloudstate.usd_text(raised.get('budget_usd'))} until {raised.get('expires')} "
+                   f"({_raise_status(raised, guard)})")
+    if failed:
+        raise typer.Exit(1)
+
+
+def _raise_status(raised: dict, guard: dict | None) -> str:
+    """Whether the Worker honours state/budget.json, judged against guard.json's
+    period end and configured budget when they are known."""
+    end_us = base = None
+    if guard is not None:
+        try:
+            end_us = cloudstate.guard_period_end_us(guard)
+        except TransmitterError:
+            pass
+        ev = guard.get("evaluation")
+        if isinstance(ev, dict) and cloudstate.usd_text(ev.get("base_budget_usd")) != "unknown":
+            base = float(ev["base_budget_usd"])
+    return cloudstate.raise_verdict(raised, service.now_us(), end_us, base)[1]
 
 
 @app.command()
