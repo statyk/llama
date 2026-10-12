@@ -24,7 +24,11 @@
 - **Preflight, exactly:** sentence `"Good evening, and welcome to the show."` (`PREFLIGHT_TEXT`), `max_tokens = 200`, response must be a 16-bit mono 24000 Hz WAV.
 - **mlx identity:** `.voice = "clone:" + sha256(clip_bytes + b"\0" + transcript.strip().encode()).hexdigest()[:16]`; `.model` = the resolved model id.
 - **Measured constants:** `CALIBRATED_MODELS` (the runaway-guard table) is EMPTY until Task 12 measures its first entry, so no `mlx_audio` voice resolves in production on guessed constants; tests register a test-only entry (`tests/mlx_helpers.py`). The four verification thresholds in `emcee/tts/verify.py` start at interim values (Task 11) and are replaced by measured ones in Task 12; verification is off by default meanwhile.
-- **Live tasks** (1 and 12) run the server from `~/tts-bakeoff/venvs/mlx` (mlx-audio 0.5.8): `~/tts-bakeoff/venvs/mlx/bin/python -m mlx_audio.server --host 127.0.0.1 --port <free port> --log-dir <dir>`. Never `pip install` into that venv (it is the evaluated environment). Never modify anything under `~/.emcee/` or the station root; read only.
+- **Live tasks** (1 and 12) run the server from `~/tts-bakeoff/venvs/mlx` (mlx-audio 0.5.8). Never `pip install` into that venv (it is the evaluated environment). Never modify anything under `~/.emcee/` or the station root; read only. Every server is handled the same way (shell state does not persist between Bash calls, so each block sets its own variables):
+  - **start:** one Bash call with the tool's `run_in_background: true`: `(cd ~/tts-bakeoff && exec venvs/mlx/bin/python -m mlx_audio.server --host 127.0.0.1 --port <P> --log-dir <dir>) > <log> 2>&1 &`;
+  - **wait:** one foreground Bash call with the tool `timeout` set to 300000 ms: `timeout 270 sh -c 'until curl -sf http://127.0.0.1:<P>/ >/dev/null; do sleep 2; done'` — re-run it while it exits 124 (never an unbounded foreground `sleep` loop);
+  - **PID:** `lsof -tiTCP:<P> -sTCP:LISTEN > <pidfile>` once it answers (not `$!`);
+  - **stop:** `kill $(cat <pidfile>)`, then `timeout 60 sh -c 'while lsof -tiTCP:<P> -sTCP:LISTEN >/dev/null; do sleep 1; done'; ! lsof -tiTCP:<P> -sTCP:LISTEN` — the port must be free before the next start.
 - **Usage errors** in new CLI flag combinations print `error: <message>` to stderr and exit **2**.
 - **Commits:** one or more per task, on branch `local-tts`, never `git stash`, never `git clean -x/-X`. Every commit message ends with:
   ```
@@ -83,7 +87,7 @@ Spec: "Unverified premises" (last two bullets) and section 2 (Errors, Audio cont
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: the probe doc's **Result** table, which later tasks read by these exact row names: `stt_model` (the server-loadable STT model id), `wave_reads_server_wav` (yes/no), `nframes_header_matches` (yes/no), `max_tokens_truncates_silently` (yes/no), `midstream_exception` (fully-qualified httpx class name, or `200-empty-body`), `read_timeout_exception`, `connect_exception`, `unknown_model_status_online`, `unknown_model_status_offline`, `missing_ref_status`, `delete_model_status`, `default_filename_status`. Also: a working worktree `.venv`.
+- Produces: the probe doc's **Result** table, which later tasks read by these exact row names: `stt_model` (the server-loadable STT model id that passed the recall gate), `wave_reads_server_wav` (yes/no), `nframes_header_matches` (yes/no), `max_tokens_truncates_silently` (yes/no), `midstream_exception` (fully-qualified httpx class name, or `200-empty-body`), `read_timeout_exception`, `connect_exception`, `unknown_model_status_online`, `unknown_model_status_offline`, `missing_ref_status`, `delete_model_status`, `default_filename_status`. Also: a working worktree `.venv`.
 
 - [ ] **Step 1: Create the worktree venv and record the baseline**
 
@@ -126,18 +130,22 @@ import argparse
 import io
 import json
 import os
+import re
 import signal
 import socket
 import threading
 import time
 import wave
+from collections import Counter
 from pathlib import Path
 
 import httpx
 
 TTS_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
-# Tried in order; the first that loads and transcribes all three clips wins.
-# The last is the control: mlx_whisper format, expected NOT to load.
+# Tried in order; the first that transcribes all three clips (200, non-empty
+# text) AND recovers >= MIN_RECALL of the reference words on phil_ex and the
+# De Doelen sentence wins. The last is the control: mlx_whisper format,
+# expected NOT to load.
 STT_CANDIDATES = [
     "mlx-community/whisper-large-v3-turbo-asr-fp16",
     "mlx-community/parakeet-tdt-0.6b-v3",
@@ -148,6 +156,7 @@ DE_DOELEN = ("The tapes have always called the room the Rotterdam Civic Hall, "
              "but it was really the great hall of De Doelen.")
 PREFLIGHT = "Good evening, and welcome to the show."
 LONG = " ".join([DE_DOELEN] * 6)
+MIN_RECALL = 0.8
 ALL_CHECKS = ["root", "speech_wav", "truncation", "preflight", "stt", "default_filename",
               "delete_model", "unknown_model", "missing_ref", "corrupt_ref",
               "connect_error", "read_timeout", "midstream_kill"]
@@ -175,6 +184,16 @@ def wav_facts(data: bytes) -> dict:
     except Exception as e:  # recorded, not raised: this IS the measurement
         return {"wave_ok": False, "wave_error": f"{type(e).__name__}: {e}",
                 "head_hex": data[:16].hex(), "length": len(data)}
+
+
+def recall(reference: str, heard: str) -> float:
+    """The fraction of the reference's words (lower-cased, apostrophes and
+    punctuation dropped) that the transcript contains."""
+    def words(s: str) -> list[str]:
+        return re.findall(r"[a-z0-9]+", s.lower().replace("'", "").replace("’", ""))
+    want = words(reference)
+    found = sum((Counter(want) & Counter(words(heard))).values())
+    return round(found / max(len(want), 1), 3)
 
 
 def exc_facts(e: BaseException) -> dict:
@@ -253,6 +272,7 @@ def main() -> None:
     if "stt" in checks:
         clips = {"phil_ex": Path(ref).read_bytes(), "de_doelen": de_doelen_wav,
                  "stereo_48k": Path(a.stereo_clip).expanduser().read_bytes()}
+        references = {"phil_ex": ref_text, "de_doelen": DE_DOELEN}  # stereo_48k has none
         for model in STT_CANDIDATES:
             texts, ok = {}, True
             for name, data in clips.items():
@@ -271,9 +291,12 @@ def main() -> None:
                     except ValueError:
                         entry["text"] = None
                 ok = ok and r.status_code == 200 and bool((entry.get("text") or "").strip())
+                if name in references:
+                    entry["recall"] = recall(references[name], entry.get("text") or "")
+                    ok = ok and entry["recall"] >= MIN_RECALL
                 texts[name] = entry
-            record("stt", model=model, all_ok=ok, reference=ref_text, de_doelen=DE_DOELEN,
-                   results=texts)
+            record("stt", model=model, all_ok=ok, min_recall=MIN_RECALL, reference=ref_text,
+                   de_doelen=DE_DOELEN, results=texts)
             if ok and chosen is None:
                 chosen = model
         record("stt_chosen", model=chosen)
@@ -357,15 +380,29 @@ if __name__ == "__main__":
 
 - [ ] **Step 3: Start the server (online, so the STT candidates can download) and run the probe**
 
-Pick a free port (check `lsof -iTCP:8765 -sTCP:LISTEN` prints nothing; otherwise use another). Use the scratch dir `$S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/probe` for `--out-dir` and logs. Run the server in the background; poll until `curl -s http://127.0.0.1:8765/` answers (≤ 2 minutes):
+Pick a free port (check `lsof -iTCP:8765 -sTCP:LISTEN` prints nothing; otherwise use another). Use the scratch dir `S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/probe` for `--out-dir` and logs. Follow Global Constraints' server procedure.
+
+Start (one Bash call, `run_in_background: true`):
 
 ```bash
 S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/probe
 mkdir -p $S/logs
-cd ~/tts-bakeoff && nohup venvs/mlx/bin/python -m mlx_audio.server --host 127.0.0.1 --port 8765 \
-    --log-dir $S/logs > $S/server.log 2>&1 &
-echo $! > $S/server.pid
-until curl -s http://127.0.0.1:8765/ >/dev/null; do sleep 2; done
+(cd ~/tts-bakeoff && exec venvs/mlx/bin/python -m mlx_audio.server --host 127.0.0.1 --port 8765 \
+    --log-dir $S/logs) > $S/server.log 2>&1 &
+```
+
+Wait, then record the PID (one foreground Bash call, tool `timeout` 300000 ms; the bounded until-loop, not a Monitor; re-run while it exits 124, and if it has not answered after two runs read `$S/server.log` and stop):
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/probe
+timeout 270 sh -c 'until curl -sf http://127.0.0.1:8765/ >/dev/null; do sleep 2; done' \
+    && lsof -tiTCP:8765 -sTCP:LISTEN > $S/server.pid && cat $S/server.pid
+```
+
+Run the probe (one Bash call, `run_in_background: true`; poll `$S/probe-online.jsonl` in ≤ 270 s chunks — the STT downloads can take minutes):
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/probe
 cd /Users/shawn/projects/llama/.claude/worktrees/local-tts
 PROBE_SERVER_OFFLINE=0 ./.venv/bin/python scripts/mlx_audio_probe.py --url http://127.0.0.1:8765 \
     --ref ~/tts-bakeoff/refs/phil_ex.wav --ref-text-file ~/tts-bakeoff/refs/phil_ex.txt \
@@ -374,13 +411,32 @@ PROBE_SERVER_OFFLINE=0 ./.venv/bin/python scripts/mlx_audio_probe.py --url http:
     2>&1 | tee $S/probe-online.jsonl
 ```
 
-The STT downloads can take minutes: run the probe in the background teed into the log and poll in ≤ 270 s chunks. If no candidate loads (`stt_chosen` is null), try further mlx-audio-loadable STT repos you can find on Hugging Face (`mlx-community/*whisper*-asr*`, `mlx-community/parakeet-*`, `Qwen/Qwen3-ASR-*` / `mlx-community/Qwen3-ASR-*`) by editing `STT_CANDIDATES` and re-running with `--checks stt`; if still none loads, STOP and report BLOCKED — verification and `--transcribe` depend on it.
+A candidate wins only if every clip returns 200 with non-empty text AND its `recall` is ≥ 0.8 on both `phil_ex` (against `phil_ex.txt`) and `de_doelen` (against the De Doelen sentence), all with `language=en`. If no candidate passes (`stt_chosen` is null), try further mlx-audio-loadable STT repos you can find on Hugging Face (`mlx-community/*whisper*-asr*`, `mlx-community/parakeet-*`, `Qwen/Qwen3-ASR-*` / `mlx-community/Qwen3-ASR-*`) by editing `STT_CANDIDATES` and re-running with `--checks stt`; if still none passes, STOP and report BLOCKED — verification and `--transcribe` depend on it.
 
 - [ ] **Step 4: Re-run offline, then the mid-stream kill**
 
-Stop the server (`kill $(cat $S/server.pid)`), restart it exactly as above but with `HF_HUB_OFFLINE=1` in its environment, then:
+Stop the server and check the port is free:
 
 ```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/probe
+kill $(cat $S/server.pid)
+timeout 60 sh -c 'while lsof -tiTCP:8765 -sTCP:LISTEN >/dev/null; do sleep 1; done'
+! lsof -tiTCP:8765 -sTCP:LISTEN
+```
+
+Restart it offline (one Bash call, `run_in_background: true`), then wait and record the new PID exactly as in Step 3:
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/probe
+(cd ~/tts-bakeoff && export HF_HUB_OFFLINE=1 && exec venvs/mlx/bin/python -m mlx_audio.server \
+    --host 127.0.0.1 --port 8765 --log-dir $S/logs) > $S/server-offline.log 2>&1 &
+```
+
+Then (one foreground Bash call, tool `timeout` 600000 ms):
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/probe
+cd /Users/shawn/projects/llama/.claude/worktrees/local-tts
 PROBE_SERVER_OFFLINE=1 ./.venv/bin/python scripts/mlx_audio_probe.py --url http://127.0.0.1:8765 \
     --ref ~/tts-bakeoff/refs/phil_ex.wav --ref-text-file ~/tts-bakeoff/refs/phil_ex.txt \
     --stereo-clip ~/.emcee/samples/phil.wav --out-dir $S/offline \
@@ -388,7 +444,7 @@ PROBE_SERVER_OFFLINE=1 ./.venv/bin/python scripts/mlx_audio_probe.py --url http:
     2>&1 | tee $S/probe-offline.jsonl
 ```
 
-`midstream_kill` SIGKILLs the server; it is the last check. Confirm the server process is gone afterwards (`ps -p $(cat $S/server.pid)` reports nothing).
+`midstream_kill` SIGKILLs the server; it is the last check. Confirm the server process is gone and the port free afterwards (`ps -p $(cat $S/server.pid)` reports nothing; `! lsof -tiTCP:8765 -sTCP:LISTEN`).
 
 - [ ] **Step 5: Write the evidence doc**
 
@@ -406,7 +462,7 @@ Worktree baseline suite: <N> passed.
 
 | row | value | evidence |
 |---|---|---|
-| stt_model | <id> | check `stt_chosen` |
+| stt_model | <id> (recall phil_ex <r>, de_doelen <r>) | check `stt_chosen` |
 | wave_reads_server_wav | yes/no (<channels> ch, <sampwidth> B, <rate> Hz) | `speech_wav` |
 | nframes_header_matches | yes/no (header <n> vs read <m>) | `speech_wav` |
 | max_tokens_truncates_silently | yes/no (<seconds> s at max_tokens 25, status <s>) | `truncation` |
@@ -420,7 +476,7 @@ Worktree baseline suite: <N> passed.
 | default_filename_status | <status> <body excerpt> | `default_filename` |
 
 ## STT transcripts
-<for the chosen model: phil_ex vs its reference transcript, the De Doelen sentence, the 48 kHz stereo clip; plus each rejected candidate's failure>
+<a per-candidate table: model, status per clip, recall on phil_ex and on de_doelen (gate: >= 0.8 on both), pass/fail; then, for the chosen model, phil_ex vs its reference transcript, the De Doelen sentence and the 48 kHz stereo clip; plus each rejected candidate's failure>
 
 ## Consequences for the plan
 - Task 8: `_GENERATION_FAILURES` covers <classes>; <"no change" | "add <class>">.
@@ -1877,7 +1933,7 @@ Spec: section 1, the `emcee run --dry-run` paragraph; section 6 "`emcee run --dr
 - Consumes: `resolve_tts`, `TTSResolutionError` (Task 4); `load_presenter`, `PresenterError`.
 - Produces:
   - `emcee.cli._presenter_file(root: Path, presenter_id: str) -> Path | None` — the presenter file, matched case-insensitively, or `None` (replaces `_presenter_file_exists`).
-  - `emcee.cli._dry_run_marker(config: EmceeConfig, presenter_id: str) -> str` — `""` or one of `"  [missing presenters/<id>.toml]"`, `"  [invalid presenters/<id>.toml]"`, `"  [unresolved: <message>]"`, `"  [<backend> <model>]"` (the last only for a pinned presenter).
+  - `emcee.cli._dry_run_marker(config: EmceeConfig, presenter_id: str) -> str` — `""` or one of `"  [missing presenters/<id>.toml]"`, `"  [invalid presenters/<id>.toml]"` (also for an unreadable or non-UTF-8 file: `OSError`/`ValueError` from the load), `"  [unresolved: <message>]"`, `"  [<backend> <model>]"` (the last only for a pinned presenter).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1979,7 +2035,28 @@ def test_dry_run_marks_invalid_and_unresolved_presenters_and_completes(tmp_path,
     assert ("would voice: c  jazz  miles  [unresolved: presenter 'miles': mlx_audio model "
             "not calibrated for the runaway guard") in result.output
     assert "3 package(s) would be voiced" in result.output
+
+
+@pytest.mark.parametrize("bad", ["binary", "unreadable"])
+def test_dry_run_marks_an_unloadable_presenter_file_invalid(tmp_path, monkeypatch, bad):
+    home, station = _selection_station(tmp_path, monkeypatch, _PIN_ASSIGN)
+    _pin_presenters(home)
+    if bad == "binary":
+        (home / "presenters" / "phil.toml").write_bytes(b"\xff\xfe\x00name = \x89PNG\r\n")
+    else:  # a directory where the file should be: reading it raises OSError
+        (home / "presenters" / "phil.toml").unlink()
+        (home / "presenters" / "phil.toml").mkdir()
+    build_package(station, slug="a", profile="dead")
+    build_package(station, slug="b", profile="bluegrass")
+
+    result = runner.invoke(app, ["run", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice: a  dead  phil  [invalid presenters/phil.toml]\n" in result.output
+    assert "would voice: b  bluegrass  roy\n" in result.output
 ```
+
+Add `import pytest` to `test_run_cmd.py`'s imports if absent.
 
 - [ ] **Step 2: Run them to verify they fail**
 
@@ -2010,13 +2087,15 @@ def _dry_run_marker(config: EmceeConfig, presenter_id: str) -> str:
     """The row suffix `run --dry-run` prints for a presenter-assigned package:
     a missing or invalid file, a failed TTS resolution, or -- for a PINNED
     presenter only -- the backend and model it resolves to. Never raises, so
-    one bad presenter cannot abort the listing; never preflights."""
+    one bad presenter cannot abort the listing; never preflights. An
+    unreadable or non-UTF-8 file (OSError / UnicodeDecodeError, which
+    load_presenter does not wrap) is invalid too."""
     path = _presenter_file(config.root, presenter_id)
     if path is None:
         return f"  [missing presenters/{presenter_id}.toml]"
     try:
         presenter = load_presenter(config.root, path.stem)
-    except PresenterError:
+    except (PresenterError, OSError, ValueError):
         return f"  [invalid presenters/{presenter_id}.toml]"
     try:
         resolution = resolve_tts(config, presenter)
@@ -2349,7 +2428,7 @@ Claude-Session: https://claude.ai/code/session_01TNheuMFMvYwCHKaT9xJRS2"
 
 Spec: section 2 (Request, Identity, Audio contract, Errors, Preflight, Timeout); section 3 "Runaway guard"; section 6 "Provider against `httpx.MockTransport`" and "Runaway guard".
 
-**Before coding:** read `docs/superpowers/2026-10-12-mlx-audio-probe.md`'s Result table. If `midstream_exception` names an httpx class not in `(httpx.RemoteProtocolError, httpx.ReadError, httpx.ReadTimeout)`, add it to `_GENERATION_FAILURES` below and to the parametrized test `test_generation_failures_are_not_retried`; if it is `200-empty-body`, the empty-body test already covers it. If `wave_reads_server_wav` is `no`, STOP and report BLOCKED (the audio contract rests on it).
+**Before coding:** read `docs/superpowers/2026-10-12-mlx-audio-probe.md`'s Result table. If `midstream_exception` names an httpx class not in `(httpx.RemoteProtocolError, httpx.ReadError, httpx.ReadTimeout)`, add it to `_GENERATION_FAILURES` below and to the parametrized test `test_generation_failures_are_not_retried`; if it is `200-empty-body`, the empty-body test already covers it. If `wave_reads_server_wav` is `no`, STOP and report BLOCKED (the audio contract rests on it). If `nframes_header_matches` is `no`, STOP and report BLOCKED: `_read_wav` counts `readframes(getnframes())`, which trusts the header's frame count, and this plan keeps that rather than parsing the data chunk's byte length (the chosen option: the docstring below stays true only while the probe says the header matches). Also STOP and report if the `max_tokens_truncates_silently` row's seconds differ from 25 / 12.5 = 2.0 s by more than one frame (0.08 s): the cap-margin rule and `cap_seconds` depend on 12.5 tokens per second.
 
 **Files:**
 - Modify: `packages/emcee/src/emcee/tts/provider.py` (add `SpeechDefect`)
@@ -2363,7 +2442,7 @@ Spec: section 2 (Request, Identity, Audio contract, Errors, Preflight, Timeout);
 - Produces:
   - `emcee.tts.provider.SpeechDefect(SpeechError)`: `__init__(self, backend: str, *, text: str, reason: str, transcript: str | None = None)`; attributes `backend`, `text`, `reason`, `transcript`, `segment: str | None = None`; `details == [f'text: "{text}"']` plus `f'transcript: "{transcript}"'` when given; `str()` = `f"{backend} audio failed a quality check{' in ' + segment if segment else ''}: {reason}"`.
   - `emcee.tts.calibration.text_units(text: str) -> int`, `max_tokens_for(cal, text) -> int`, `cap_seconds(cal, max_tokens) -> float`, `guard_problem(cal, text, seconds, max_tokens) -> str | None` (reason substrings: `at the … token cap`, `implausibly long`, `implausibly short`).
-  - `emcee.tts.mlx_audio`: `SPEECH_PATH = "/v1/audio/speech"`, `SAMPLE_RATE = 24000`, `PREFLIGHT_TEXT = "Good evening, and welcome to the show."`, `PREFLIGHT_MAX_TOKENS = 200`, `CONNECT_RETRY_DELAY_S = 2.0`, `wav_to_mp3(wav: bytes) -> bytes`, and `MlxAudioProvider(*, url, model, clone_ref, clone_text, calibration, timeout_s=600.0, transport=None, retry_delay_s=CONNECT_RETRY_DELAY_S, sleep=time.sleep)` with `.url` (no trailing slash), `.model`, `.voice`, `synthesize`, `preflight`, `close`.
+  - `emcee.tts.mlx_audio`: `SPEECH_PATH = "/v1/audio/speech"`, `SAMPLE_RATE = 24000`, `PREFLIGHT_TEXT = "Good evening, and welcome to the show."`, `PREFLIGHT_MAX_TOKENS = 200`, `CONNECT_RETRY_DELAY_S = 2.0`, `wav_to_mp3(wav: bytes) -> bytes`, and `MlxAudioProvider(*, url, model, clone_ref, clone_text, calibration, timeout_s=600.0, transport=None, retry_delay_s=CONNECT_RETRY_DELAY_S, sleep=time.sleep)` with `.url` (no trailing slash), `.model`, `.voice`, `synthesize`, `preflight`, `preflight_wav() -> bytes` (the preflight sentence's checked take; `preflight()` is `preflight_wav()` discarding it, and the verified preflight in Task 11 transcribes it), `close`.
   - Error message substrings (exact): `mlx-audio server not reachable at <url> (is the launchd service running?)`; `see the mlx-audio server log`; `mlx-audio returned <status>: <text>`; `non-WAV body`; `empty body`; `emcee needs 16-bit PCM`; `emcee needs mono`; `emcee supports only 24 kHz mlx models`; `needs the reference clip's transcript`.
   - `tests/mlx_helpers.py` additions: `wav_bytes(seconds, *, rate=24000, channels=1, width=2) -> bytes`, `plausible_seconds(text) -> float`, `class MlxServer` (MockTransport handler: attributes `down`, `speech_bodies`, `transcriptions`, `deletes`, `connect_attempts`; method `transport()`).
 
@@ -2710,6 +2789,13 @@ def test_preflight_synthesizes_the_fixed_sentence(clip):
         PREFLIGHT_TEXT, 200, "wav")
 
 
+def test_preflight_wav_is_the_one_checked_take(clip):
+    data = wav_bytes(2.0)
+    handler, calls = replying(data)
+    assert make(handler, clip).preflight_wav() == data
+    assert len(calls) == 1
+
+
 def test_preflight_on_a_dead_server_fails(clip):
     handler, _ = raising(httpx.ConnectError)
     with pytest.raises(SpeechError, match="not reachable"):
@@ -2906,9 +2992,17 @@ class MlxAudioProvider:
         """One fixed sentence: a down server, an unknown or unloadable model,
         or a bad response fails here, before any LLM spend -- and the cold
         model load is absorbed, at no cost."""
-        if self._read_wav(self._post(PREFLIGHT_TEXT, PREFLIGHT_MAX_TOKENS)) <= 0:
+        self.preflight_wav()
+
+    def preflight_wav(self) -> bytes:
+        """The preflight sentence's take, after the 16-bit mono 24 kHz and
+        non-empty checks. The verified preflight (tts/quality.py) transcribes
+        this same take rather than synthesizing a second one."""
+        wav = self._post(PREFLIGHT_TEXT, PREFLIGHT_MAX_TOKENS)
+        if self._read_wav(wav) <= 0:
             raise SpeechError(f"mlx-audio preflight returned no audio for {self.model!r}; "
                               "see the mlx-audio server log")
+        return wav
 
     def close(self) -> None:
         self._client.close()
@@ -3028,16 +3122,17 @@ from herder import FakeProvider
 from typer.testing import CliRunner
 
 import emcee.process as process_mod
-import emcee.tts as tts_mod
 from emcee.cli import _process_one, app
 from emcee.config import EmceeConfig, load_config
 from emcee.package_io import Package
 from emcee.presenters import Presenter, save_presenter
 from emcee.process import speech_for
 from emcee.tts import speech_provider_for
+from emcee.tts.elevenlabs import ElevenLabsProvider
 from emcee.tts.mlx_audio import PREFLIGHT_TEXT, MlxAudioProvider
 from emcee.tts.provider import SpeechError
 from emcee.tts.resolve import resolve_tts
+from emcee.tts.voxtral import VoxtralProvider
 
 from tests.helpers import build_package
 from tests.mlx_helpers import TEST_MODEL, MlxServer, calibrate_test_model, install_mlx, wav_bytes
@@ -3106,16 +3201,18 @@ def _roy(home: Path) -> None:
 
 
 def _forbid_hosted(monkeypatch) -> list[str]:
+    """Fail any construction of a hosted provider, wherever it is imported
+    from: the classes' __init__ are patched, not a module's name for them."""
     constructed: list[str] = []
 
     def forbidden(name):
-        def make(*args, **kwargs):
+        def init(self, *args, **kwargs):
             constructed.append(name)
             raise AssertionError(f"{name} constructed for an mlx_audio voice")
-        return make
+        return init
 
-    monkeypatch.setattr(tts_mod, "VoxtralProvider", forbidden("voxtral"))
-    monkeypatch.setattr(tts_mod, "ElevenLabsProvider", forbidden("elevenlabs"))
+    monkeypatch.setattr(VoxtralProvider, "__init__", forbidden("voxtral"))
+    monkeypatch.setattr(ElevenLabsProvider, "__init__", forbidden("elevenlabs"))
     return constructed
 
 
@@ -3174,22 +3271,35 @@ def test_house_voice_on_mlx_through_speech_for_needs_its_transcript(tmp_path, mo
 # --- strict surface 1: never silently fall back -----------------------------------
 
 
+@pytest.mark.parametrize("house", ["voxtral house, mlx presenter", "mlx house"])
 @pytest.mark.parametrize("command", ["run", "voice", "say"])
-def test_no_fallback_when_the_mlx_server_is_down(tmp_path, monkeypatch, command):
-    """House backend voxtral with its key in the env, a presenter pinned to
-    mlx_audio, the server down: the command fails, and no provider but the
+def test_no_fallback_when_the_mlx_server_is_down(tmp_path, monkeypatch, command, house):
+    """A Voxtral key in the env and the server down -- with a presenter
+    pinned to mlx_audio under a voxtral house, or with the house voice itself
+    on mlx_audio (no presenter): the command fails, and no provider but the
     mlx one is constructed (so none is called)."""
     monkeypatch.setenv("MISTRAL_API_KEY", "k-env")
     calibrate_test_model(monkeypatch)
-    home, station = _home(tmp_path, monkeypatch, _VOXTRAL_HOUSE, _ASSIGN_DEAD)
-    _phil(home)
-    pkg = build_package(station, slug="showA", profile="dead")
+    if house == "mlx house":
+        house_clip = tmp_path / "house.wav"
+        house_clip.write_bytes(wav_bytes(1.0))
+        home, station = _home(tmp_path, monkeypatch,
+                              f'[tts]\nbackend = "mlx_audio"\nvoice_clone = "{house_clip}"\n'
+                              'voice_clone_text = "Hi there."\n', "")
+        pkg = build_package(station, slug="showA")  # no profile: the house voice
+    else:
+        home, station = _home(tmp_path, monkeypatch, _VOXTRAL_HOUSE, _ASSIGN_DEAD)
+        _phil(home)
+        pkg = build_package(station, slug="showA", profile="dead")
+    args = _cmd(command, pkg, tmp_path)
+    if house == "mlx house" and command == "say":
+        args = args[:2]  # no --presenter: the house voice
     server = MlxServer(down=True)
     install_mlx(monkeypatch, server)
     constructed = _forbid_hosted(monkeypatch)
     _arm_llm(monkeypatch)
 
-    result = runner.invoke(app, _cmd(command, pkg, tmp_path))
+    result = runner.invoke(app, args)
 
     assert result.exit_code == 1
     assert constructed == []
@@ -3432,7 +3542,7 @@ Spec: section 3 "Quality layer"; section 6 "Runaway guard … Quality layer: one
 **Interfaces:**
 - Consumes: `SpeechDefect` (Task 8), `MlxAudioProvider` (Task 8), `_mlx_provider` (Task 9).
 - Produces:
-  - `emcee.tts.quality.QualitySpeech(inner, *, backend: str, verifier=None)` with attributes `inner`, `backend`, `verifier`, `voice` (= `inner.voice`), `model` (= `inner.model`); methods `synthesize(text, fmt="mp3", *, previous_text=None, next_text=None) -> bytes`, `preflight() -> None`, `close() -> None`, and the private `_attempt(text, fmt, previous_text, next_text) -> bytes` (Task 11 extends it).
+  - `emcee.tts.quality.QualitySpeech(inner, *, backend: str, verifier=None)` with attributes `inner`, `backend`, `verifier`, `voice` (= `inner.voice`), `model` (= `inner.model`); methods `synthesize(text, fmt="mp3", *, previous_text=None, next_text=None) -> bytes`, `preflight() -> None`, `close() -> None`, and the private `_attempt(text, fmt, previous_text, next_text) -> bytes` (Task 11 extends it) and `_retrying(text: str, attempt: Callable[[], bytes]) -> bytes` (the two-attempt rule; Task 11's verified mlx preflight reuses it).
   - Double-failure reason suffix (exact): `" (failed twice)"`.
   - Retry notice line (stdout): `"<backend> quality check failed (<reason>); re-synthesizing once"`.
   - `speech_provider_for` returns `QualitySpeech(<MlxAudioProvider>, backend="mlx_audio", verifier=None)` for an `mlx_audio` resolution.
@@ -3648,6 +3758,8 @@ Keeps the inner `.voice`/`.model`, so cached clips are reused (never
 re-verified) and enabling verification does not invalidate the cache.
 SpeechBlocked and every other SpeechError pass straight through.
 """
+from collections.abc import Callable
+
 import typer
 
 from emcee.tts.provider import SpeechDefect
@@ -3664,13 +3776,18 @@ class QualitySpeech:
     def synthesize(self, text: str, fmt: str = "mp3", *,
                    previous_text: str | None = None,
                    next_text: str | None = None) -> bytes:
+        return self._retrying(text, lambda: self._attempt(text, fmt, previous_text, next_text))
+
+    def _retrying(self, text: str, attempt: Callable[[], bytes]) -> bytes:
+        """At most two attempts of `attempt` for `text`: a second quality
+        failure raises SpeechDefect."""
         try:
-            return self._attempt(text, fmt, previous_text, next_text)
+            return attempt()
         except SpeechDefect as first:
             typer.echo(f"{self.backend} quality check failed ({first.reason}); "
                        "re-synthesizing once")
         try:
-            return self._attempt(text, fmt, previous_text, next_text)
+            return attempt()
         except SpeechDefect as second:
             raise SpeechDefect(second.backend, text=text,
                                reason=f"{second.reason} (failed twice)",
@@ -3737,10 +3854,10 @@ Spec: section 3 "Transcript verification" (all bullets, including "Never silentl
 - Modify: `packages/emcee/src/emcee/tts/quality.py` (`_attempt`, `preflight`, `close`)
 - Modify: `packages/emcee/src/emcee/tts/__init__.py` (`_quality` wrapping for every backend)
 - Modify: `packages/emcee/tests/mlx_helpers.py` (replace `MlxServer`, extend `install_mlx`)
-- Test: `packages/emcee/tests/test_verify.py`
+- Test: `packages/emcee/tests/test_verify.py`; `packages/emcee/tests/test_mlx_wiring.py` (append the config-only failure matrix — the first task in which every failure kind it covers exists)
 
 **Interfaces:**
-- Consumes: `QualitySpeech` (Task 10), `PREFLIGHT_TEXT`, `wav_to_mp3` (Task 8), `[tts.verify]`/`[tts.mlx_audio]` config (Task 3).
+- Consumes: `QualitySpeech` and its `_retrying` (Task 10), `PREFLIGHT_TEXT`, `wav_to_mp3`, `MlxAudioProvider.preflight_wav` (Task 8), `[tts.verify]`/`[tts.mlx_audio]` config (Task 3), the `_forbid_hosted`/`_phil`/`_arm_llm` helpers of `test_mlx_wiring.py` (Task 9).
 - Produces (in `emcee.tts.verify`):
   - Constants `TRANSCRIBE_PATH = "/v1/audio/transcriptions"`, `MODELS_PATH = "/v1/models"`, `PREFLIGHT_CLIP = "preflight_en.wav"`, `NUMBER_WORDS: frozenset[str]`, and the thresholds `MISS_FLOOR = 2`, `MISS_FRACTION = 0.25`, `EXTRA_FLOOR = 4`, `EXTRA_FRACTION = 0.5` (INTERIM; Task 12 replaces them with measured values).
   - `comparable_words(text: str) -> list[str]`; `transcript_problem(script: str, transcript: str) -> str | None`.
@@ -3749,7 +3866,8 @@ Spec: section 3 "Transcript verification" (all bullets, including "Never silentl
   - `preflight_clip_wav() -> bytes` (the `emcee.data` resource; missing → `SpeechError` naming `emcee/data/preflight_en.wav`).
   - `emcee.tts._quality(config, resolution, inner)`; the factory refers to `SttClient` through the module global (tests patch `emcee.tts.SttClient`).
   - Error substrings: `mlx-audio server not reachable at <url> for transcription`; `mlx-audio transcription returned <status>`; `verification preflight failed`.
-  - `tests/mlx_helpers.MlxServer(*, down=False, stt_down=False, transcript=None, stt_status=200)`; `install_mlx` also patches `emcee.tts.SttClient`.
+  - `QualitySpeech.preflight()` with a verifier on `mlx_audio`: ONE `inner.preflight_wav()` take (max_tokens 200, the format/rate checks) is transcribed for the comparison, under `_retrying` (at most two takes); `inner.preflight()` is not called in that case.
+  - `tests/mlx_helpers.MlxServer(*, down=False, stt_down=False, transcript=None, stt_status=200, speech_status=200)`; `install_mlx` also patches `emcee.tts.SttClient`.
 
 - [ ] **Step 1: Replace the mock server and extend `install_mlx`**
 
@@ -3759,7 +3877,8 @@ In `packages/emcee/tests/mlx_helpers.py`, replace the `MlxServer` class and `ins
 class MlxServer:
     """An httpx MockTransport handler standing in for mlx_audio.server.
 
-    - speech: recorded in `speech_bodies`, answered with a plausible silent WAV;
+    - speech: recorded in `speech_bodies`, answered with a plausible silent WAV,
+      or `speech_status` when that is not 200 (an unknown/unloadable model);
     - transcription: recorded in `transcriptions`; answers `transcript(last)`
       where `last` is the last synthesized input (default: echo `last`), or
       `stt_status` when that is not 200;
@@ -3768,11 +3887,12 @@ class MlxServer:
     transcription only (both counted in `connect_attempts`)."""
 
     def __init__(self, *, down: bool = False, stt_down: bool = False, transcript=None,
-                 stt_status: int = 200):
+                 stt_status: int = 200, speech_status: int = 200):
         self.down = down
         self.stt_down = stt_down
         self.transcript = transcript
         self.stt_status = stt_status
+        self.speech_status = speech_status
         self.speech_bodies: list[dict] = []
         self.transcriptions: list[httpx.Request] = []
         self.deletes: list[dict] = []
@@ -3788,6 +3908,8 @@ class MlxServer:
             body = json.loads(request.content)
             self.speech_bodies.append(body)
             self._last_input = body["input"]
+            if self.speech_status != 200:
+                return httpx.Response(self.speech_status, text="Model could not be loaded")
             return httpx.Response(200, content=wav_bytes(plausible_seconds(body["input"])))
         if path == "/v1/audio/transcriptions":
             self.transcriptions.append(request)
@@ -3826,8 +3948,11 @@ Create `packages/emcee/tests/test_verify.py`:
 client, the layer's use of it, and preflight's end-to-end STT check."""
 from pathlib import Path
 
+import json
+
 import httpx
 import pytest
+from herder import FakeProvider
 from typer.testing import CliRunner
 
 import emcee.process as process_mod
@@ -3837,7 +3962,7 @@ from emcee.config import EmceeConfig, load_config
 from emcee.models import ScriptNotes
 from emcee.package_io import Package
 from emcee.presenters import Presenter, save_presenter
-from emcee.process import ad_hoc_speech
+from emcee.process import ad_hoc_speech, process_package
 from emcee.tts import speech_provider_for
 from emcee.tts.fake import FakeSpeechProvider
 from emcee.tts.mlx_audio import PREFLIGHT_TEXT
@@ -3848,7 +3973,8 @@ from emcee.tts.verify import (SttClient, Verifier, comparable_words, preflight_c
                               transcript_problem)
 
 from tests.helpers import build_package
-from tests.mlx_helpers import TEST_MODEL, MlxServer, calibrate_test_model, install_mlx, wav_bytes
+from tests.mlx_helpers import (TEST_MODEL, MlxServer, calibrate_test_model, install_mlx,
+                               plausible_seconds, wav_bytes)
 
 runner = CliRunner()
 STT = "stt/test-model"
@@ -4165,6 +4291,60 @@ def test_hosted_preflight_passes_on_a_good_transcription(tmp_path, monkeypatch):
     assert len(server.transcriptions) == 1 and server.speech_bodies == []  # no hosted spend
 
 
+def _verified_mlx_speech(tmp_path, monkeypatch, server):
+    """A verified, unchunked mlx provider routed through `server`, and its config."""
+    calibrate_test_model(monkeypatch)
+    clip = tmp_path / "c.wav"
+    clip.write_bytes(WAV)
+    cfg = _verify_cfg(["mlx_audio"], chunk=False).model_copy(update={"root": tmp_path / "home"})
+    phil = Presenter(id="phil", name="P", sex="male", voice_clone=str(clip),
+                     voice_clone_text="Hi there.", tts="mlx_audio", character="x")
+    install_mlx(monkeypatch, server)
+    return cfg, speech_provider_for(cfg, resolve_tts(cfg, phil), voice=None,
+                                    clone_ref=str(clip), clone_text="Hi there.")
+
+
+def test_verified_mlx_preflight_transcribes_its_one_take(tmp_path, monkeypatch):
+    server = MlxServer(transcript=lambda last: PREFLIGHT_TEXT)
+    _, speech = _verified_mlx_speech(tmp_path, monkeypatch, server)
+    speech.preflight()
+    assert [(b["input"], b["max_tokens"]) for b in server.speech_bodies] == [(PREFLIGHT_TEXT, 200)]
+    assert len(server.transcriptions) == 1
+    assert wav_bytes(plausible_seconds(PREFLIGHT_TEXT)) in server.transcriptions[0].content
+
+
+def test_verified_mlx_preflight_retries_once_on_a_mismatch(tmp_path, monkeypatch):
+    heard = iter(["nothing like it, the weather today", PREFLIGHT_TEXT])
+    server = MlxServer(transcript=lambda last: next(heard))
+    _, speech = _verified_mlx_speech(tmp_path, monkeypatch, server)
+    speech.preflight()
+    assert [(b["input"], b["max_tokens"]) for b in server.speech_bodies] == [(PREFLIGHT_TEXT, 200)] * 2
+    assert len(server.transcriptions) == 2
+
+
+def test_a_verified_package_whose_segment_fails_twice_is_not_voiced(tmp_path, monkeypatch):
+    garbage = "completely unrelated words about the weather today"
+    cfg, speech = _verified_mlx_speech(tmp_path, monkeypatch,
+                                       MlxServer(transcript=lambda last: garbage))
+    notes = {"context": "Spring '73 tour",
+             "set_intros": {"1": "Tonight: the Dead at RFK. Opens with Morning Dew.",
+                            "2": "China Cat Sunflower leads set two."},
+             "outro": "I Know You Rider sends us off. Thanks for listening.",
+             "mentioned_songs": ["Morning Dew", "China Cat Sunflower", "I Know You Rider"]}
+    monkeypatch.setattr(process_mod, "provider_for",
+                        lambda settings, task: FakeProvider(completes=[json.dumps(notes)]))
+    pkg = Package(build_package(tmp_path / "station", voiced=False))
+    before = pkg.manifest_path.read_bytes()
+
+    with pytest.raises(SpeechDefect) as exc:
+        process_package(cfg, pkg, speech)
+
+    assert exc.value.segment == "set1-intro"
+    assert "in set1-intro" in str(exc.value) and "(failed twice)" in str(exc.value)
+    assert pkg.manifest_path.read_bytes() == before
+    assert not (pkg.dir / "dj-audio" / "set1-intro.mp3").exists()
+
+
 def test_say_verifies_without_preflight(tmp_path, monkeypatch):
     calibrate_test_model(monkeypatch)
     home, _ = _station(tmp_path, monkeypatch, _MLX_VERIFIED)
@@ -4181,10 +4361,95 @@ def test_say_verifies_without_preflight(tmp_path, monkeypatch):
     assert server.speech_bodies and server.speech_bodies[0]["input"] != PREFLIGHT_TEXT
 ```
 
+Append to `packages/emcee/tests/test_mlx_wiring.py` (Task 9's file: its `_phil`, `_forbid_hosted`, `_arm_llm`, `_VOXTRAL_HOUSE` and `_ASSIGN_DEAD` are reused), and add `import re` and `from emcee.errors import EmceeError` to its imports:
+
+```python
+# --- strict surface 2: every configuration-only failure kind ----------------------
+# (Task 11: the first task in which every kind below exists.)
+
+_CONFIG_ONLY_FAILURES = [
+    "unpinned presenter under an mlx house", "missing mlx model", "uncalibrated model",
+    "unloadable model", "blank house transcript", "mlx house voice, server down",
+    "mlx-pinned presenter, server down", "verification listed, STT unreachable",
+]
+
+
+def _config_only_failure(tmp_path, monkeypatch, case: str) -> tuple[Path, MlxServer, str]:
+    """A broadcast-ready package (dj-audio/set1-intro.mp3 on disk) whose next
+    voicing fails on configuration alone. Returns the package dir, the mock
+    server to install and the expected error substring."""
+    calibrate_test_model(monkeypatch)
+    monkeypatch.setenv("MISTRAL_API_KEY", "k-env")  # a hosted fallback would have a key
+    house_clip = tmp_path / "house.wav"
+    house_clip.write_bytes(wav_bytes(1.0))
+
+    def mlx_house(transcript: str) -> str:
+        return (f'[tts]\nbackend = "mlx_audio"\nvoice_clone = "{house_clip}"\n'
+                f'voice_clone_text = "{transcript}"\n')
+
+    tts, mlx, verify = _VOXTRAL_HOUSE, f'model = "{TEST_MODEL}"\n', ""
+    profile, phil, server = "dead", {}, MlxServer()
+    if case == "unpinned presenter under an mlx house":
+        tts, phil, error = mlx_house("Hi there."), {"tts": None}, "pin tts explicitly"
+    elif case == "missing mlx model":
+        mlx, error = "", "no mlx_audio model"
+    elif case == "uncalibrated model":
+        mlx, error = 'model = "other/uncalibrated"\n', "not calibrated for the runaway guard"
+    elif case == "unloadable model":
+        server, error = MlxServer(speech_status=500), "mlx-audio returned 500"
+    elif case == "blank house transcript":
+        tts, profile, error = mlx_house("   "), None, "set [tts] voice_clone_text"
+    elif case == "mlx house voice, server down":
+        tts, profile, error = mlx_house("Hi there."), None, "not reachable"
+        server = MlxServer(down=True)
+    elif case == "mlx-pinned presenter, server down":
+        server, error = MlxServer(down=True), "not reachable"
+    elif case == "verification listed, STT unreachable":
+        mlx += 'stt_model = "stt/test-model"\n'
+        verify = '[tts.verify]\nbackends = ["mlx_audio"]\n'
+        server, error = MlxServer(stt_down=True), "for transcription"
+    else:
+        raise AssertionError(case)
+    home, station = tmp_path / "home", tmp_path / "station"
+    home.mkdir()
+    station.mkdir()
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    (home / "config.toml").write_text(f'[station]\nroot = "{station}"\n\n{tts}\n'
+                                      f'[tts.mlx_audio]\n{mlx}\n{verify}\n{_ASSIGN_DEAD}\n')
+    _phil(home, **phil)
+    return build_package(station, slug="showA", profile=profile, voiced=True), server, error
+
+
+@pytest.mark.parametrize("driver", ["_process_one", "voice --fresh"])
+@pytest.mark.parametrize("case", _CONFIG_ONLY_FAILURES)
+def test_a_config_only_failure_spends_nothing_and_keeps_the_package(tmp_path, monkeypatch,
+                                                                    case, driver):
+    pkg_dir, server, error = _config_only_failure(tmp_path, monkeypatch, case)
+    install_mlx(monkeypatch, server)
+    constructed = _forbid_hosted(monkeypatch)
+    tasks = _arm_llm(monkeypatch)
+    manifest = (pkg_dir / "manifest.json").read_bytes()
+    clip = pkg_dir / "dj-audio" / "set1-intro.mp3"
+    clip_bytes = clip.read_bytes()
+
+    if driver == "_process_one":
+        with pytest.raises(EmceeError, match=re.escape(error)):
+            _process_one(load_config(), Package(pkg_dir), False, fresh=["set1-intro"])
+    else:
+        result = runner.invoke(app, ["voice", str(pkg_dir), "--fresh", "set1-intro"])
+        assert result.exit_code == 1
+        assert error in result.stderr
+
+    assert tasks == []  # scriptwrite never called
+    assert constructed == []  # no hosted provider
+    assert (pkg_dir / "manifest.json").read_bytes() == manifest
+    assert clip.exists() and clip.read_bytes() == clip_bytes  # the --fresh clip survives
+```
+
 - [ ] **Step 3: Run them to verify they fail**
 
-Run: `./.venv/bin/pytest packages/emcee/tests/test_verify.py -q`
-Expected: FAIL — `ModuleNotFoundError: No module named 'emcee.tts.verify'`.
+Run: `./.venv/bin/pytest packages/emcee/tests/test_verify.py packages/emcee/tests/test_mlx_wiring.py -q`
+Expected: FAIL — `ModuleNotFoundError: No module named 'emcee.tts.verify'` (`install_mlx` now imports it, so the wiring file fails too).
 
 - [ ] **Step 4: Implement `verify.py`**
 
@@ -4361,15 +4626,22 @@ and replace `_attempt`, `preflight` and `close` with:
     def preflight(self) -> None:
         """Verification is never silently skipped: when it applies, the STT
         path is checked end to end here, before any LLM spend and before the
-        manifest clear. mlx: the preflight sentence must pass the full
-        comparison, with the single retry (synthesis is non-deterministic).
+        manifest clear. mlx: ONE take of the preflight sentence (max_tokens
+        200, the format/rate checks) is transcribed for the full comparison,
+        with the single retry (synthesis is non-deterministic) -- so the
+        inner preflight, which would synthesize a second take, is skipped.
         Hosted: the bundled clip must transcribe to a pass -- no hosted spend."""
-        self.inner.preflight()
         if self.verifier is None:
+            self.inner.preflight()
             return
         if self.backend == "mlx_audio":
-            self.synthesize(PREFLIGHT_TEXT, "wav")
+            def take() -> bytes:
+                wav = self.inner.preflight_wav()
+                self.verifier.check(wav, PREFLIGHT_TEXT, backend=self.backend)
+                return wav
+            self._retrying(PREFLIGHT_TEXT, take)
             return
+        self.inner.preflight()
         try:
             self.verifier.check(verify_mod.preflight_clip_wav(), PREFLIGHT_TEXT,
                                 backend=self.backend)
@@ -4431,7 +4703,7 @@ and route the three real branches through it:
 
 - [ ] **Step 7: Run the touched files, then the full suite**
 
-Run: `./.venv/bin/pytest packages/emcee/tests/test_verify.py packages/emcee/tests/test_quality.py packages/emcee/tests/test_mlx_wiring.py -q` → PASS.
+Run: `./.venv/bin/pytest packages/emcee/tests/test_verify.py packages/emcee/tests/test_quality.py packages/emcee/tests/test_mlx_wiring.py packages/emcee/tests/test_mlx_audio.py -q` → PASS.
 Run: `./.venv/bin/pytest -q` → all pass.
 
 - [ ] **Step 8: Commit**
@@ -4439,7 +4711,7 @@ Run: `./.venv/bin/pytest -q` → all pass.
 ```bash
 git add packages/emcee/src/emcee/tts/verify.py packages/emcee/src/emcee/tts/quality.py \
         packages/emcee/src/emcee/tts/__init__.py packages/emcee/tests/mlx_helpers.py \
-        packages/emcee/tests/test_verify.py
+        packages/emcee/tests/test_verify.py packages/emcee/tests/test_mlx_wiring.py
 git commit -m "feat(emcee): transcript verification on the mlx-audio server's STT model
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
@@ -4452,12 +4724,16 @@ Claude-Session: https://claude.ai/code/session_01TNheuMFMvYwCHKaT9xJRS2"
 **Implementer model:** Opus (live measurement and the judgement of which constants to adopt; the spec makes these the gate for Phil going live).
 **Live:** yes — needs the real `mlx_audio.server` (Qwen3-TTS 1.7B and the Task 1 STT model, both cached), a second server for Kokoro, network for the Kokoro download, and optionally the Mistral API (≈10 short Voxtral requests).
 
+**Checkpoint 1 — operator approval before this task starts (orchestrator).** Before dispatching Task 12, report to the operator (Shawn) and wait for an explicit go: it spends Voxtral credit (≈10 short sentences on the Mistral API), creates a new venv `~/tts-bakeoff/venvs/kokoro`, and downloads models (Kokoro and its `misaki` dependencies). Without the go, do not start; with a go that excludes Voxtral, run Step 2 without `--voxtral`.
+**Checkpoint 2 — after Step 3.** The flagged units and the recommended constants go to the operator, who listens, classifies and reviews the constants before anything is adopted (Step 3 says how).
+
 Spec: section 3 "Constants are measured, not guessed" (the measurement task), "Runaway guard" (calibration table, initially only Qwen3-TTS-12Hz 1.7B Base at 12.5 frames/s), "Never silently skipped" (the bundled ~2 s Apache-2.0 preset-voice WAV, provenance recorded); section 6 "One opt-in `live` test against a running server"; "Unverified premises" (memory headroom: `footprint`).
 
 **Files:**
 - Create: `scripts/mlx_audio_calibrate.py`
 - Create: `docs/superpowers/2026-10-12-mlx-audio-calibration.md`
 - Create: `docs/superpowers/2026-10-12-mlx-audio-calibration-data.json` (written by the script)
+- Create: `docs/superpowers/2026-10-12-mlx-audio-requirements.txt` (the evaluated venv's `pip freeze`; the Kokoro venv and the runbook install against it)
 - Create: `packages/emcee/src/emcee/data/preflight_en.wav`
 - Modify: `packages/emcee/src/emcee/tts/calibration.py` (the first `CALIBRATED_MODELS` entry)
 - Modify: `packages/emcee/src/emcee/tts/verify.py` (the four thresholds)
@@ -4465,13 +4741,14 @@ Spec: section 3 "Constants are measured, not guessed" (the measurement task), "R
 - Test: `packages/emcee/tests/test_calibration_measured.py`, `packages/emcee/tests/test_mlx_live.py`
 
 **Interfaces:**
-- Consumes: the probe doc's `stt_model` (Task 1); `MlxAudioProvider`, `text_units`, `max_tokens_for`, `cap_seconds`, `guard_problem` (Task 8); `SttClient`, `comparable_words`, `transcript_problem`, threshold constants, `PREFLIGHT_CLIP` (Task 11); `QualitySpeech`, `Verifier` (Tasks 10-11).
+- Consumes: the probe doc's `stt_model` (Task 1); `MlxAudioProvider` (the script calls its private `_post`/`_read_wav` so a take over the measurement cap is still saved), `text_units`, `max_tokens_for`, `cap_seconds`, `guard_problem` (Task 8); `SttClient`, `comparable_words`, `transcript_problem`, threshold constants, `PREFLIGHT_CLIP` (Task 11); `QualitySpeech`, `Verifier` (Tasks 10-11).
 - Produces:
   - `emcee.tts.calibration.QWEN3_TTS_1_7B_BASE = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"` and its `CALIBRATED_MODELS` entry (`frame_rate_hz=12.5`, the other seven fields measured).
   - Measured `MISS_FLOOR` (must stay `>= 2`), `MISS_FRACTION`, `EXTRA_FLOOR`, `EXTRA_FRACTION` in `emcee.tts.verify`.
   - `emcee/data/preflight_en.wav`: 16-bit mono 24000 Hz, 1.0–4.0 s, saying exactly `PREFLIGHT_TEXT`.
-  - The evidence doc (cited by both constant blocks) and its data file.
-  - A `-m live` test reading `EMCEE_MLX_URL` and `EMCEE_MLX_STT_MODEL`.
+  - The evidence doc (cited by both constant blocks), its data file (every unit with its saved WAV path under the scratch dir, `flagged`, `recommendation`), and `docs/superpowers/2026-10-12-mlx-audio-requirements.txt`.
+  - `scripts/mlx_audio_calibrate.py` flags: `--url`, `--stt-model`, `--out`, `--clips-dir`, `--voxtral`, `--server-pid`, `--station-root`, `--reuse`, `--defects`, `--artefacts`.
+  - A `-m live` test reading `EMCEE_MLX_URL`, `EMCEE_MLX_STT_MODEL`, and `EMCEE_MLX_REF`/`EMCEE_MLX_REF_TEXT` (default `~/tts-bakeoff/refs/phil_ex.wav`/`.txt`).
 
 - [ ] **Step 1: Write the calibration script**
 
@@ -4486,23 +4763,33 @@ docs/superpowers/2026-10-12-mlx-audio-calibration.md.
 
 Renders ~50 unseeded sentences in five presenters' cloned voices (Phil's
 evaluated excerpt among them) and a few whole segments (the unchunked path)
-through the real server, optionally ~10 Voxtral sentences, transcribes every
-unit with the server's STT model, measures the bake-off's two known runaways,
-and prints the constants the derivation rules in `recommend` produce.
+through the real server, optionally ~10 Voxtral sentences, saves every unit's
+WAV under --clips-dir, transcribes every unit with the server's STT model,
+writes the units to --out at once, then measures the bake-off's two known
+runaways, flags units for the operator's listen, and prints the flagged units
+and the constants the derivation rules in `recommend` produce.
 
     ./.venv/bin/python scripts/mlx_audio_calibrate.py --url http://127.0.0.1:8765 \\
-        --stt-model <probe doc stt_model> \\
+        --stt-model <probe doc stt_model> --clips-dir <scratch dir> \\
         --out docs/superpowers/2026-10-12-mlx-audio-calibration-data.json \\
         [--voxtral] [--server-pid PID] [--station-root /Volumes/media/lma-radio/delivered]
 
+Re-derive from the saved units after the operator's classification, without
+rendering anything:
+
+    ./.venv/bin/python scripts/mlx_audio_calibrate.py --url ... --stt-model ... \\
+        --out <the same data file> --reuse [--defects 3,17] [--artefacts 9]
+
 Read-only on ~/.emcee, the station root and ~/tts-bakeoff, except that it
-writes drafted reference transcripts to ~/tts-bakeoff/refs/<clip>.draft.txt.
+writes drafted reference transcripts to ~/tts-bakeoff/refs/<clip>.draft.txt;
+every unit's WAV goes under --clips-dir.
 """
 import argparse
 import io
 import json
 import math
 import os
+import statistics
 import subprocess
 import tempfile
 import time
@@ -4517,7 +4804,7 @@ from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.calibration import (ModelCalibration, cap_seconds, guard_problem, max_tokens_for,
                                    text_units)
 from emcee.tts.mlx_audio import MlxAudioProvider
-from emcee.tts.provider import SpeechDefect, SpeechError
+from emcee.tts.provider import SpeechError
 from emcee.tts.verify import SttClient, comparable_words, transcript_problem
 from emcee.tts.voxtral import VoxtralProvider
 
@@ -4536,6 +4823,10 @@ N_VOXTRAL = 10
 SEGMENT_MAX_CHARS = 1200
 BED_PREROLL_S = 1.5   # mix_bed's lead-in before the voice (tts/bed.py)
 GAP_S = 0.18          # audio._SILENCE_MS between chunked sentences
+FLAG_RECALL = 0.8     # flagged for the operator's listen below this transcript recall
+FLAG_SPC = (0.5, 1.5)  # ... or outside these multiples of the voice's median s/char
+DEFECT_RECALL = 0.5   # mechanical default: a defect below this recall,
+DEFECT_SPC = 2.0      # or above this multiple of the voice's median s/char
 
 
 def wav_seconds(data: bytes) -> float:
@@ -4597,26 +4888,78 @@ def score(rec: dict, text: str, wav: bytes, stt: SttClient) -> dict:
     want, got = comparable_words(text), comparable_words(heard)
     found = sum((Counter(want) & Counter(got)).values())
     rec.update(status="ok", transcript=heard, words=len(want), missing=len(want) - found,
-               extra=len(got) - len(want), loop=has_loop(got),
-               interim_problem=transcript_problem(text, heard))
+               extra=len(got) - len(want), recall=round(found / len(want), 3) if want else 1.0,
+               loop=has_loop(got), interim_problem=transcript_problem(text, heard))
     return rec
 
 
-def measure(kind: str, voice: str, provider, text: str, stt: SttClient) -> dict:
-    rec = {"kind": kind, "voice": voice, "text": text, "chars": text_units(text)}
+def synthesize_raw(provider, text: str) -> tuple[bytes, str | None]:
+    """The take and, for mlx, the measurement guard's verdict -- without
+    raising on it, so a capped take is still saved for the operator to hear."""
+    if isinstance(provider, MlxAudioProvider):
+        mt = max_tokens_for(MEASURE_CAL, text)
+        wav = provider._post(text, mt)
+        return wav, guard_problem(MEASURE_CAL, text, provider._read_wav(wav), mt)
+    return provider.synthesize(text, fmt="wav"), None
+
+
+def measure(kind: str, voice: str, provider, text: str, stt: SttClient, clip: Path) -> dict:
+    """Render one unit, save its WAV as `clip`, transcribe and score it."""
+    rec = {"kind": kind, "voice": voice, "text": text, "chars": text_units(text), "clip": None}
     t = time.time()
     try:
-        wav = provider.synthesize(text, fmt="wav")
-    except SpeechDefect as d:
-        rec.update(status="runaway-at-measurement-cap", reason=d.reason,
-                   wall_s=round(time.time() - t, 1))
-        return rec
+        wav, runaway = synthesize_raw(provider, text)
     except SpeechError as e:
-        rec.update(status="error", error=str(e))
+        rec.update(status="error", error=str(e), wall_s=round(time.time() - t, 1))
         return rec
-    rec.update(wall_s=round(time.time() - t, 1), seconds=round(wav_seconds(wav), 3))
+    clip.write_bytes(wav)
+    rec.update(clip=str(clip), wall_s=round(time.time() - t, 1),
+               seconds=round(wav_seconds(wav), 3))
     print(f"{kind:8} {voice:12} {rec['chars']:5}ch {rec['seconds']:7.2f}s", flush=True)
-    return score(rec, text, wav, stt)
+    try:
+        score(rec, text, wav, stt)
+    except SpeechError as e:
+        rec.update(status="error", error=f"transcription: {e}")
+        return rec
+    if runaway:
+        rec.update(status="runaway-at-measurement-cap", reason=runaway)
+    return rec
+
+
+def classify(units: list[dict], defects: set[int], artefacts: set[int]) -> list[dict]:
+    """Number the units, flag the ones the operator must listen to, and
+    classify each as a defect or not. Flagged: status not ok, a loop, recall
+    below FLAG_RECALL, or seconds per character outside FLAG_SPC times its
+    voice's median. Mechanical default the operator may accept: a defect when
+    recall < DEFECT_RECALL or seconds per character > DEFECT_SPC times the
+    voice's median. `defects`/`artefacts` (unit indices: the operator's
+    answer) override the default. Returns the flagged units."""
+    spc = {i: u["seconds"] / u["chars"] for i, u in enumerate(units)
+           if u.get("seconds") and u.get("chars")}
+    median = {v: statistics.median(x for i, x in spc.items() if units[i]["voice"] == v)
+              for v in {units[i]["voice"] for i in spc}}
+    flagged = []
+    for i, u in enumerate(units):
+        u["index"] = i
+        ratio = spc[i] / median[u["voice"]] if i in spc else None
+        recall = u.get("recall")
+        flags = []
+        if u.get("status") not in ("ok", "not-measured"):
+            flags.append(u.get("status"))
+        if u.get("loop"):
+            flags.append("loop")
+        if recall is not None and recall < FLAG_RECALL:
+            flags.append(f"recall {recall:.2f}")
+        if ratio is not None and not FLAG_SPC[0] <= ratio <= FLAG_SPC[1]:
+            flags.append(f"{ratio:.2f}x its voice's median s/char")
+        default = ((recall is not None and recall < DEFECT_RECALL)
+                   or (ratio is not None and ratio > DEFECT_SPC))
+        u["defect"] = i in defects or (default and i not in artefacts)
+        u["flags"] = flags
+        if flags:
+            flagged.append({k: u.get(k) for k in ("index", "kind", "voice", "text", "clip",
+                                                  "seconds", "recall", "flags", "defect")})
+    return flagged
 
 
 def known_runaways(stt: SttClient) -> list[dict]:
@@ -4664,7 +5007,8 @@ def floor_to(x: float, step: float) -> float:
 
 def recommend(units: list[dict], runaways: list[dict]) -> dict:
     """Derivation rules (the evidence doc restates them):
-    guard -- over clean mlx units (status ok, not a loop):
+    clean = status ok, not a loop, not classified a defect (`classify`).
+    guard -- over clean mlx units:
       max_floor_s = 2.0; max_s_per_char = smallest 0.005 step with every clean
         unit <= 0.8 x (max_floor_s + max_s_per_char x chars)   (25% headroom);
       min_slack_s = 0.5; min_s_per_char = largest 0.005 step with every clean
@@ -4676,9 +5020,10 @@ def recommend(units: list[dict], runaways: list[dict]) -> dict:
       MISS_FLOOR = max(2, 1 + worst short-unit missing);
       MISS_FRACTION = max(0.15, 1.5 x worst long-unit missing/words, 0.05 steps);
       EXTRA_FLOOR = max(4, 1 + worst short-unit extra);
-      EXTRA_FRACTION = max(0.25, 1.5 x worst long-unit extra/words, 0.05 steps)."""
+      EXTRA_FRACTION = max(0.25, 1.5 x worst long-unit extra/words, 0.05 steps).
+    Every defect must fail the derived guard or thresholds (`defects_passing`)."""
     mlx = [u for u in units if u["status"] == "ok" and u["kind"] in ("sentence", "segment")
-           and not u["loop"]]
+           and not u["loop"] and not u["defect"]]
     max_floor_s, min_slack_s = 2.0, 0.5
     max_spc = ceil_to(max((u["seconds"] / 0.8 - max_floor_s) / u["chars"] for u in mlx), 0.005)
     min_spc = max(0.0, floor_to(min((u["seconds"] / 1.25 + min_slack_s) / u["chars"]
@@ -4693,11 +5038,19 @@ def recommend(units: list[dict], runaways: list[dict]) -> dict:
         if r.get("status") != "ok":
             continue
         mt = max_tokens_for(cal, r["text"])
-        # The 0.6B runaway ran into its max_tokens: under this cap it would end
-        # at the cap's duration; Chatterbox's babble is a plain over-long clip.
-        seconds = cap_seconds(cal, mt) if r["slug"].startswith("qwen") else r["seconds"]
-        guard_checks[r["slug"]] = guard_problem(cal, r["text"], seconds, mt)
-    scored = [u for u in units if u["status"] == "ok" and not u["loop"]]
+        if r["slug"].startswith("qwen"):
+            # The 0.6B runaway ran into its max_tokens, so under this cap it
+            # would end AT the cap: the cap-margin check fails it by
+            # construction. Its measured duration (320 s) is checked against
+            # the non-cap long limit as well.
+            guard_checks[f"{r['slug']} cap-margin"] = guard_problem(
+                cal, r["text"], cap_seconds(cal, mt), mt)
+            longest = cal.max_floor_s + cal.max_s_per_char * r["chars"]
+            guard_checks[f"{r['slug']} measured-vs-long-limit"] = (
+                f"{r['seconds']}s > long limit {longest:.1f}s" if r["seconds"] > longest else None)
+        else:  # Chatterbox's babble is a plain over-long clip
+            guard_checks[r["slug"]] = guard_problem(cal, r["text"], r["seconds"], mt)
+    scored = [u for u in units if u["status"] == "ok" and not u["loop"] and not u["defect"]]
     short = [u for u in scored if u["words"] < 8]
     long_ = [u for u in scored if u["words"] >= 8]
     thresholds = {
@@ -4715,9 +5068,19 @@ def recommend(units: list[dict], runaways: list[dict]) -> dict:
         **{r["slug"]: transcript_problem(r["text"], r["transcript"])
            for r in runaways if r.get("transcript") is not None},
     }
+
+    def caught(u: dict) -> bool:
+        guarded = u["kind"] in ("sentence", "segment") and guard_problem(
+            cal, u["text"], u["seconds"], max_tokens_for(cal, u["text"]))
+        return bool(guarded or (u.get("transcript") is not None
+                                and transcript_problem(u["text"], u["transcript"])))
+
+    # Every unit classified as a defect must fail the derived constants.
+    defects_passing = [u["index"] for u in units
+                       if u.get("defect") and u.get("seconds") is not None and not caught(u)]
     return {"calibration": {f: getattr(cal, f) for f in cal.__dataclass_fields__},
             "guard_checks": guard_checks, "thresholds": thresholds,
-            "verify_checks": verify_checks}
+            "verify_checks": verify_checks, "defects_passing": defects_passing}
 
 
 def footprint(pid: int | None) -> str | None:
@@ -4744,36 +5107,65 @@ def main() -> None:
     ap.add_argument("--voxtral", action="store_true")
     ap.add_argument("--server-pid", type=int, default=None)
     ap.add_argument("--station-root", default="/Volumes/media/lma-radio/delivered")
+    ap.add_argument("--clips-dir", default=None, help="scratch dir for every unit's WAV")
+    ap.add_argument("--reuse", action="store_true",
+                    help="re-derive from --out's saved units; render nothing")
+    ap.add_argument("--defects", default="", help="unit indices the operator heard as defects")
+    ap.add_argument("--artefacts", default="", help="unit indices the operator heard as artefacts")
     a = ap.parse_args()
+    out = Path(a.out)
     stt = SttClient(url=a.url, model=a.stt_model)
-    sentences, segments = pick_units(script_texts(a.station_root))
-    vs = voices(stt)
-    providers = {v["name"]: MlxAudioProvider(url=a.url, model=QWEN, clone_ref=str(v["clip"]),
-                                             clone_text=v["text"], calibration=MEASURE_CAL)
-                 for v in vs}
-    units = []
-    others = [v["name"] for v in vs[1:]] or ["phil_ex"]
-    for i, text in enumerate(sentences):
-        name = "phil_ex" if i % 2 == 0 else others[(i // 2) % len(others)]
-        units.append(measure("sentence", name, providers[name], text, stt))
-    for text in segments:
-        units.append(measure("segment", "phil_ex", providers["phil_ex"], text, stt))
-    if a.voxtral:
-        key = voxtral_key()
-        if key:
-            vox = VoxtralProvider(clone_ref=str(SAMPLES / "troymcclure2.wav"), api_key=key)
-            for text in sentences[::max(1, len(sentences) // N_VOXTRAL)][:N_VOXTRAL]:
-                units.append(measure("voxtral", "voxtral-house", vox, text, stt))
-        else:
-            units.append({"kind": "voxtral", "status": "not-measured", "error": "no Mistral key"})
-    runaways = known_runaways(stt)
-    data = {"date": time.strftime("%Y-%m-%d"), "model": QWEN, "stt_model": a.stt_model,
-            "voices": [{k: str(v[k]) for k in ("name", "clip", "text", "transcript")} for v in vs],
-            "units": units, "runaways": runaways,
-            "footprint": footprint(a.server_pid),
-            "recommendation": recommend(units, runaways)}
-    Path(a.out).write_text(json.dumps(data, indent=1))
-    print(json.dumps(data["recommendation"], indent=1))
+    if a.reuse:
+        data = json.loads(out.read_text())
+    else:
+        if not a.clips_dir:
+            ap.error("--clips-dir is required unless --reuse")
+        clips = Path(a.clips_dir).expanduser()
+        clips.mkdir(parents=True, exist_ok=True)
+        sentences, segments = pick_units(script_texts(a.station_root))
+        vs = voices(stt)
+        providers = {v["name"]: MlxAudioProvider(url=a.url, model=QWEN, clone_ref=str(v["clip"]),
+                                                 clone_text=v["text"], calibration=MEASURE_CAL)
+                     for v in vs}
+        units: list[dict] = []
+
+        def run(kind: str, name: str, provider, text: str) -> None:
+            units.append(measure(kind, name, provider, text, stt,
+                                 clips / f"{len(units):03d}-{kind}-{name}.wav"))
+
+        others = [v["name"] for v in vs[1:]] or ["phil_ex"]
+        for i, text in enumerate(sentences):
+            name = "phil_ex" if i % 2 == 0 else others[(i // 2) % len(others)]
+            run("sentence", name, providers[name], text)
+        for text in segments:
+            run("segment", "phil_ex", providers["phil_ex"], text)
+        if a.voxtral:
+            key = voxtral_key()
+            if key:
+                vox = VoxtralProvider(clone_ref=str(SAMPLES / "troymcclure2.wav"), api_key=key)
+                for text in sentences[::max(1, len(sentences) // N_VOXTRAL)][:N_VOXTRAL]:
+                    run("voxtral", "voxtral-house", vox, text)
+            else:
+                units.append({"kind": "voxtral", "status": "not-measured",
+                              "error": "no Mistral key"})
+        data = {"date": time.strftime("%Y-%m-%d"), "model": QWEN, "stt_model": a.stt_model,
+                "voices": [{k: str(v[k]) for k in ("name", "clip", "text", "transcript")}
+                           for v in vs],
+                "units": units}
+        out.write_text(json.dumps(data, indent=1))  # before anything below can fail
+    if "runaways" not in data:
+        data["runaways"] = known_runaways(stt)
+        data["footprint"] = footprint(a.server_pid)
+        out.write_text(json.dumps(data, indent=1))
+
+    def indices(arg: str) -> set[int]:
+        return {int(x) for x in arg.split(",") if x.strip()}
+
+    data["flagged"] = classify(data["units"], indices(a.defects), indices(a.artefacts))
+    data["recommendation"] = recommend(data["units"], data["runaways"])
+    out.write_text(json.dumps(data, indent=1))
+    print(json.dumps({"flagged": data["flagged"], "recommendation": data["recommendation"]},
+                     indent=1))
 
 
 if __name__ == "__main__":
@@ -4782,34 +5174,83 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Start the server offline and run the calibration**
 
-The probe (Task 1) already downloaded the STT model; Qwen 1.7B is cached. Start the server exactly as in Task 1 Step 3 but with `HF_HUB_OFFLINE=1` (port 8765 or another free one; logs under `$S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/calibrate`). Then, in the background, teed into `$S/calibrate.log` and polled in ≤ 270 s chunks (expect ~30-45 minutes):
+The probe (Task 1) already downloaded the STT model; Qwen 1.7B is cached. Follow Global Constraints' server procedure (port 8765 or another free one; scratch dir `S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/calibrate`).
+
+Check the port is free first (`! lsof -tiTCP:8765 -sTCP:LISTEN` succeeds; otherwise pick another). Start (one Bash call, `run_in_background: true`):
 
 ```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/calibrate
+mkdir -p $S/logs $S/clips
+(cd ~/tts-bakeoff && export HF_HUB_OFFLINE=1 && exec venvs/mlx/bin/python -m mlx_audio.server \
+    --host 127.0.0.1 --port 8765 --log-dir $S/logs) > $S/server.log 2>&1 &
+```
+
+Wait and record the PID (one foreground Bash call, tool `timeout` 300000 ms; the bounded until-loop, not a Monitor; re-run while it exits 124):
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/calibrate
+timeout 270 sh -c 'until curl -sf http://127.0.0.1:8765/ >/dev/null; do sleep 2; done' \
+    && lsof -tiTCP:8765 -sTCP:LISTEN > $S/server.pid && cat $S/server.pid
+```
+
+Then run the calibration (one Bash call, `run_in_background: true`; poll `$S/calibrate.log` in ≤ 270 s chunks; expect ~30-45 minutes). `--server-pid` is the `lsof` PID, so the `footprint` reading is the server's:
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/calibrate
+cd /Users/shawn/projects/llama/.claude/worktrees/local-tts
 ./.venv/bin/python scripts/mlx_audio_calibrate.py --url http://127.0.0.1:8765 \
     --stt-model "<stt_model from the probe doc>" --voxtral --server-pid $(cat $S/server.pid) \
+    --clips-dir $S/clips \
     --out docs/superpowers/2026-10-12-mlx-audio-calibration-data.json 2>&1 | tee $S/calibrate.log
 ```
 
-`--voxtral` spends ≈10 short Mistral requests (the spec's "~10 Voxtral sentences"); drop the flag if no key is available, and record "voxtral not measured — do not list voxtral in [tts.verify] until it is" in the evidence doc. If `/Volumes/media/lma-radio/delivered` is not mounted, the script falls back to `~/tts-bakeoff/inputs/*.txt`; record which source was used. Stop the server afterwards.
+`--voxtral` spends ≈10 short Mistral requests (the spec's "~10 Voxtral sentences"); drop the flag if Checkpoint 1 excluded it or no key is available, and record "voxtral not measured — do not list voxtral in [tts.verify] until it is" in the evidence doc. If `/Volumes/media/lma-radio/delivered` is not mounted, the script falls back to `~/tts-bakeoff/inputs/*.txt`; record which source was used. The data file holds every unit (with its WAV path under `$S/clips`) as soon as rendering ends, before the runaway measurement and the recommendation; if the run dies after that, re-run with `--reuse` instead of re-rendering. Leave the server up for Step 4's transcriptions, or stop it (Global Constraints' stop, port check included) and restart it the same way when needed.
 
-- [ ] **Step 3: Judge the recommendation**
+- [ ] **Step 3: Report the flagged units and the recommendation; wait for the operator (Checkpoint 2)**
 
-Read the printed `recommendation`. Adopt it unless the data says otherwise, and write down every deviation with its reason:
-- `guard_checks.clean_failures` must be `[]`; `guard_checks["qwen3tts-0.6b-bf16"]` and `guard_checks["chatterbox-fp16"]` must both be non-null (the known runaways fail). If a runaway passes, tighten `max_s_per_char` (Chatterbox: 20 characters in ~10 s) rather than the floors, and re-check the clean set.
-- `verify_checks.clean_failures` must be `[]`; each runaway with a transcript must be non-null. `MISS_FLOOR` stays `>= 2` (the spec tolerates "a wrong word or two per sentence"); if keeping every clean unit passing would need `MISS_FRACTION > 0.4` or `EXTRA_FRACTION > 1.0`, STOP and report to the orchestrator with the offending units instead of adopting a threshold that no longer detects gross mismatch.
-- Any unit with `status` `error` or `runaway-at-measurement-cap`, or `loop: true`, is listened to (its text, voice and the clip are in the data) and classified in the doc as a real defect (excluded from "clean", and it must fail the adopted constants) or an artefact.
+Read the printed `flagged` list and `recommendation`, and check mechanically:
+- `guard_checks.clean_failures` must be `[]`; `guard_checks["chatterbox-fp16"]`, `guard_checks["qwen3tts-0.6b-bf16 cap-margin"]` and `guard_checks["qwen3tts-0.6b-bf16 measured-vs-long-limit"]` must all be non-null (the known runaways fail). The cap-margin row is satisfied by construction (the clip is placed AT the cap); the measured-vs-long-limit row is the real test of the 0.6B runaway's 320 s against the non-cap limit. If a runaway passes, propose tightening `max_s_per_char` (Chatterbox: 20 characters in ~10 s) rather than the floors, and re-check the clean set.
+- `verify_checks.clean_failures` must be `[]`; each runaway with a transcript must be non-null; `defects_passing` must be `[]`.
+- STOP and report to the orchestrator with the offending units, instead of proposing a threshold that no longer detects gross mismatch, if keeping every clean unit passing would need `MISS_FRACTION > 0.4`, `EXTRA_FRACTION > 1.0`, `MISS_FLOOR > 3` or `EXTRA_FLOOR > 6`. `MISS_FLOOR` stays `>= 2` (the spec tolerates "a wrong word or two per sentence").
+
+Then end the turn with a report to the orchestrator (status NEEDS OPERATOR), which relays it to the operator (Shawn): every flagged unit (`error`, `runaway-at-measurement-cap`, `loop: true`, recall below 0.8, or seconds per character outside 0.5×-1.5× its voice's median) with its index, kind, voice, text, flags, saved WAV path and its mechanical-default classification; the recommendation and every check above; and any deviation you propose, with its reason. The mechanical default the operator can accept as-is: a unit is a **defect** if its transcript recall is < 0.5 or its duration exceeds 2× the median seconds-per-character for its voice; otherwise an artefact. Do not classify by ear and do not adopt any constant before the answer. If the operator reclassifies units, re-derive without rendering (`--reuse --defects <i,j> --artefacts <k>`, same `--url`/`--stt-model`/`--out`) and report the new `flagged`/`recommendation` the same way. Adopt (Steps 6-7) only the constants the operator approved, and record in the evidence doc each flagged unit's classification and who made it (the operator, or "mechanical default accepted").
 
 - [ ] **Step 4: Render the bundled preflight clip with Kokoro**
 
-Kokoro (Apache-2.0) needs `misaki`, which the evaluated venv lacks; never install into `venvs/mlx`. Make a separate venv from the same interpreter and serve Kokoro on another free port:
+Kokoro (Apache-2.0) needs `misaki`, which the evaluated venv lacks; never install into `venvs/mlx`. Freeze the evaluated venv (it has no `pip`; `uv` reads it) into the committed requirements file, make a separate Python 3.12 venv with `uv`, and install mlx-audio 0.5.8 with its server/tts/stt extras, constrained to that freeze:
 
 ```bash
-~/tts-bakeoff/venvs/mlx/bin/python -m venv ~/tts-bakeoff/venvs/kokoro
-~/tts-bakeoff/venvs/kokoro/bin/pip install "mlx-audio==0.5.8" "misaki[en]"
-cd ~/tts-bakeoff && nohup venvs/kokoro/bin/python -m mlx_audio.server --host 127.0.0.1 --port 8766 \
-    --log-dir $S/kokoro-logs > $S/kokoro-server.log 2>&1 &
-echo $! > $S/kokoro.pid
-until curl -s http://127.0.0.1:8766/ >/dev/null; do sleep 2; done
+cd /Users/shawn/projects/llama/.claude/worktrees/local-tts
+uv pip freeze --python ~/tts-bakeoff/venvs/mlx/bin/python \
+    > docs/superpowers/2026-10-12-mlx-audio-requirements.txt
+grep -x 'mlx-audio==0.5.8' docs/superpowers/2026-10-12-mlx-audio-requirements.txt
+uv venv --python 3.12 ~/tts-bakeoff/venvs/kokoro
+uv pip install --python ~/tts-bakeoff/venvs/kokoro/bin/python \
+    "mlx-audio[server,tts,stt]==0.5.8" "misaki[en]" \
+    -c docs/superpowers/2026-10-12-mlx-audio-requirements.txt
+```
+
+If `misaki[en]` cannot be resolved under the constraints, report the conflict to the orchestrator rather than loosening the pins.
+
+Serve Kokoro on another free port (`! lsof -tiTCP:8766 -sTCP:LISTEN` must succeed) per Global Constraints' server procedure (online: Kokoro downloads on first use). Start (one Bash call, `run_in_background: true`):
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/calibrate
+mkdir -p $S/kokoro-logs
+(cd ~/tts-bakeoff && exec venvs/kokoro/bin/python -m mlx_audio.server --host 127.0.0.1 --port 8766 \
+    --log-dir $S/kokoro-logs) > $S/kokoro-server.log 2>&1 &
+```
+
+Wait and record the PID (one foreground Bash call, tool `timeout` 300000 ms; re-run while it exits 124), then render three takes (one foreground Bash call, tool `timeout` 600000 ms — the first request downloads the model):
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/calibrate
+timeout 270 sh -c 'until curl -sf http://127.0.0.1:8766/ >/dev/null; do sleep 2; done' \
+    && lsof -tiTCP:8766 -sTCP:LISTEN > $S/kokoro.pid && cat $S/kokoro.pid
+```
+
+```bash
+S=/private/tmp/claude-501/-Users-shawn-projects-llama/a9d60e99-1777-47b4-9067-97da18fe3e6f/scratchpad/calibrate
 for take in 1 2 3; do
   curl -s http://127.0.0.1:8766/v1/audio/speech -H 'Content-Type: application/json' \
     -d '{"model": "mlx-community/Kokoro-82M-bf16", "input": "Good evening, and welcome to the show.", "voice": "af_heart", "lang_code": "a", "response_format": "wav"}' \
@@ -4817,11 +5258,11 @@ for take in 1 2 3; do
 done
 ```
 
-If `mlx-community/Kokoro-82M-bf16` does not load, try `prince-canuma/Kokoro-82M`; if Kokoro cannot run at all, use another Apache-2.0 preset-voice model mlx-audio serves and record why. For each take check with `wave` that it is 16-bit, mono, 24000 Hz and 1.0–4.0 s, and transcribe it with the STT server (restart the Qwen server, or POST to it if still up) using `SttClient(...).transcribe`; keep the first take whose transcript passes `transcript_problem(PREFLIGHT_TEXT, transcript) is None` under the ADOPTED thresholds. Copy it to `packages/emcee/src/emcee/data/preflight_en.wav`. Record provenance in the evidence doc: model repo id, HF revision (`cat ~/.cache/huggingface/hub/models--<org>--<name>/refs/main`), license as stated on the model card, voice, `lang_code`, mlx-audio version, take number, duration, `shasum -a 256` of the file, and its transcript. Stop the Kokoro server. The PyInstaller spec already bundles every `emcee.data` file (`packaging/emcee.spec`: `collect_data_files("emcee.data")`), so no packaging change is needed.
+If `mlx-community/Kokoro-82M-bf16` does not load, try `prince-canuma/Kokoro-82M`; if Kokoro cannot run at all, use another Apache-2.0 preset-voice model mlx-audio serves and record why. For each take check with `wave` that it is 16-bit, mono, 24000 Hz and 1.0–4.0 s, and transcribe it with the STT server (restart the Qwen server, or POST to it if still up) using `SttClient(...).transcribe`; keep the first take whose transcript passes `transcript_problem(PREFLIGHT_TEXT, transcript) is None` under the ADOPTED thresholds. Copy it to `packages/emcee/src/emcee/data/preflight_en.wav`. Record provenance in the evidence doc: model repo id, HF revision (`cat ~/.cache/huggingface/hub/models--<org>--<name>/refs/main`), license as stated on the model card, voice, `lang_code`, mlx-audio version, take number, duration, `shasum -a 256` of the file, and its transcript. Stop the Kokoro server (`kill $(cat $S/kokoro.pid)`, then the port-free check on 8766) and, when done with it, the Qwen server (the same on 8765). The PyInstaller spec already bundles every `emcee.data` file (`packaging/emcee.spec`: `collect_data_files("emcee.data")`), so no packaging change is needed.
 
 - [ ] **Step 5: Write the evidence doc**
 
-Create `docs/superpowers/2026-10-12-mlx-audio-calibration.md` with: date, host (M4 mini 16 GB), mlx-audio version, TTS model, STT model, text source, voices (with which transcripts are STT drafts); the derivation rules (copy `recommend`'s docstring); a per-voice table (units, median and max seconds/char, min seconds/char); the clean-unit extremes; the known-runaway rows and how each fails; every listened-to unit and its classification; the adopted guard constants and thresholds with every deviation from the recommendation and its reason; the synthetic cap-margin check; the bundled clip's provenance; the `footprint` reading (and that it answers — or does not — the spec's "memory headroom" premise); and a "What this does not show" section (unseeded production rate is still sampled, not proven; presenters beyond these five are unmeasured; the go-live listen remains required).
+Create `docs/superpowers/2026-10-12-mlx-audio-calibration.md` with: date, host (M4 mini 16 GB), mlx-audio version, TTS model, STT model, text source, voices (with which transcripts are STT drafts); the derivation rules (copy `recommend`'s docstring); a per-voice table (units, median and max seconds/char, min seconds/char); the clean-unit extremes; the known-runaway rows and how each fails — the Qwen 0.6B row as two checks, labelled "cap-margin check (satisfied by construction: the clip is placed at the cap)" and "measured 320 s vs the non-cap long limit"; every flagged unit with its WAV path, its flags and its classification (by the operator, or "mechanical default accepted"); the adopted guard constants and thresholds with every deviation from the recommendation, its reason and the operator's approval; the synthetic cap-margin check; the bundled clip's provenance; the Kokoro venv's install (`docs/superpowers/2026-10-12-mlx-audio-requirements.txt` as constraints); the `footprint` reading (and that it answers — or does not — the spec's "memory headroom" premise); and a "What this does not show" section (unseeded production rate is still sampled, not proven; presenters beyond these five are unmeasured; the go-live listen remains required).
 
 - [ ] **Step 6: Write the failing tests for the measured constants**
 
@@ -4835,6 +5276,7 @@ Create `packages/emcee/tests/test_calibration_measured.py`. Fill the three liter
 the first calibrated mlx model and the verification thresholds, pinned on
 the edges of the calibration data and on the bake-off's known runaways."""
 import io
+import math
 import wave
 from importlib import resources
 
@@ -4861,6 +5303,7 @@ RUNAWAY_TRANSCRIPTS: list[tuple[str, str]] = [
 # The bake-off's known runaways (~/tts-bakeoff/out/*.metrics.json):
 CHATTERBOX_MORNING_DEW = ("Here is Morning Dew.", "<seconds from the data file's chatterbox row>")
 QWEN_06B_RUNAWAY_TEXT = "<text from the data file's qwen3tts-0.6b-bf16 row>"
+QWEN_06B_RUNAWAY_SECONDS = 320.0  # per_call[5][1] of qwen3tts-0.6b-bf16-set1-intro.metrics.json
 
 
 def text_of(chars: int) -> str:
@@ -4885,8 +5328,17 @@ def test_chatterbox_morning_dew_babble_fails_the_guard():
 
 
 def test_a_capped_runaway_fails_the_guard():
+    # The cap-margin check: satisfied by construction (the clip is placed AT the cap).
     mt = max_tokens_for(CAL, QWEN_06B_RUNAWAY_TEXT)
     assert "token cap" in guard_problem(CAL, QWEN_06B_RUNAWAY_TEXT, cap_seconds(CAL, mt), mt)
+
+
+def test_the_measured_qwen_0_6b_runaway_exceeds_the_long_limit():
+    # The runaway's measured duration against the non-cap limit: give it a
+    # cap above the clip, so only the "implausibly long" check can catch it.
+    mt = math.ceil((QWEN_06B_RUNAWAY_SECONDS + CAL.cap_margin_s + 1.0) * CAL.frame_rate_hz)
+    assert "implausibly long" in guard_problem(CAL, QWEN_06B_RUNAWAY_TEXT,
+                                               QWEN_06B_RUNAWAY_SECONDS, mt)
 
 
 def test_a_synthetic_cap_length_clip_fails_for_every_length():
@@ -4898,7 +5350,10 @@ def test_a_synthetic_cap_length_clip_fails_for_every_length():
 
 
 def test_measured_thresholds_tolerate_a_wrong_word_or_two():
-    assert verify.MISS_FLOOR >= 2
+    assert 2 <= verify.MISS_FLOOR <= 3
+    assert verify.EXTRA_FLOOR <= 6
+    # ... and still detect gross mismatch (Step 3's STOP ceilings).
+    assert verify.MISS_FRACTION <= 0.4 and verify.EXTRA_FRACTION <= 1.0
 
 
 @pytest.mark.parametrize("text, transcript", CLEAN_TRANSCRIPTS)
@@ -4919,7 +5374,7 @@ def test_the_bundled_preflight_clip():
     assert PREFLIGHT_TEXT == "Good evening, and welcome to the show."
 ```
 
-Replace the two `"<...>"` placeholders in this file with the data file's values before running it (they are measurement outputs, not code). Run: `./.venv/bin/pytest packages/emcee/tests/test_calibration_measured.py -q` → FAIL (`ImportError: cannot import name 'QWEN3_TTS_1_7B_BASE'`).
+Replace the two `"<...>"` placeholders in this file with the data file's values before running it (they are measurement outputs, not code), and confirm `QWEN_06B_RUNAWAY_SECONDS` equals the data file's `qwen3tts-0.6b-bf16` row `seconds`. Run: `./.venv/bin/pytest packages/emcee/tests/test_calibration_measured.py -q` → FAIL (`ImportError: cannot import name 'QWEN3_TTS_1_7B_BASE'`).
 
 - [ ] **Step 7: Adopt the constants**
 
@@ -4957,33 +5412,38 @@ Create `packages/emcee/tests/test_mlx_live.py`:
 """Opt-in: against a running mlx-audio server.
 
     EMCEE_MLX_URL=http://127.0.0.1:8000 EMCEE_MLX_STT_MODEL=<id> \\
+        [EMCEE_MLX_REF=<clip.wav> EMCEE_MLX_REF_TEXT=<transcript.txt>] \\
         ./.venv/bin/pytest -m live packages/emcee/tests/test_mlx_live.py -q
 
-Clones the bundled preflight clip (its transcript is PREFLIGHT_TEXT), so it
-needs no operator files."""
+Clones a real speaker's reference clip (default: Phil's evaluated excerpt,
+~/tts-bakeoff/refs/phil_ex.wav and its transcript phil_ex.txt); skipped when
+the clip or its transcript is absent."""
 import io
 import os
 import wave
+from pathlib import Path
 
 import pytest
 
 from emcee.tts.calibration import CALIBRATED_MODELS, QWEN3_TTS_1_7B_BASE
-from emcee.tts.mlx_audio import PREFLIGHT_TEXT, MlxAudioProvider
+from emcee.tts.mlx_audio import MlxAudioProvider
 from emcee.tts.quality import QualitySpeech
-from emcee.tts.verify import SttClient, Verifier, preflight_clip_wav
+from emcee.tts.verify import SttClient, Verifier
 
 pytestmark = pytest.mark.live
 URL = os.environ.get("EMCEE_MLX_URL")
 STT_MODEL = os.environ.get("EMCEE_MLX_STT_MODEL")
+REF = Path(os.environ.get("EMCEE_MLX_REF", "~/tts-bakeoff/refs/phil_ex.wav")).expanduser()
+REF_TEXT = Path(os.environ.get("EMCEE_MLX_REF_TEXT", "~/tts-bakeoff/refs/phil_ex.txt")).expanduser()
 
 
 @pytest.mark.skipif(not (URL and STT_MODEL),
                     reason="set EMCEE_MLX_URL and EMCEE_MLX_STT_MODEL to a running mlx-audio server")
-def test_live_preflight_synthesis_and_verification(tmp_path):
-    clip = tmp_path / "ref.wav"
-    clip.write_bytes(preflight_clip_wav())
-    inner = MlxAudioProvider(url=URL, model=QWEN3_TTS_1_7B_BASE, clone_ref=str(clip),
-                             clone_text=PREFLIGHT_TEXT,
+@pytest.mark.skipif(not (REF.is_file() and REF_TEXT.is_file()),
+                    reason="set EMCEE_MLX_REF/EMCEE_MLX_REF_TEXT to a reference clip and its transcript")
+def test_live_preflight_synthesis_and_verification():
+    inner = MlxAudioProvider(url=URL, model=QWEN3_TTS_1_7B_BASE, clone_ref=str(REF),
+                             clone_text=REF_TEXT.read_text(),
                              calibration=CALIBRATED_MODELS[QWEN3_TTS_1_7B_BASE])
     speech = QualitySpeech(inner, backend="mlx_audio",
                            verifier=Verifier(SttClient(url=URL, model=STT_MODEL)))
@@ -4999,13 +5459,14 @@ def test_live_preflight_synthesis_and_verification(tmp_path):
 - [ ] **Step 9: Run everything (offline), then the live test**
 
 Run: `./.venv/bin/pytest -q` → all pass. A Task 11 test that the adopted thresholds now fail means the measurement contradicts the spec's tolerance: do not edit that test — report it.
-Then start the Qwen server once more (offline) and run: `EMCEE_MLX_URL=http://127.0.0.1:8765 EMCEE_MLX_STT_MODEL="<stt_model>" ./.venv/bin/pytest -m live packages/emcee/tests/test_mlx_live.py -q` → PASS. Record the result in the evidence doc. Stop the server.
+Then start the Qwen server once more (offline, Global Constraints' procedure exactly as in Step 2) and run: `EMCEE_MLX_URL=http://127.0.0.1:8765 EMCEE_MLX_STT_MODEL="<stt_model>" ./.venv/bin/pytest -m live packages/emcee/tests/test_mlx_live.py -q` → PASS (it clones `~/tts-bakeoff/refs/phil_ex.wav` with `phil_ex.txt` unless `EMCEE_MLX_REF`/`EMCEE_MLX_REF_TEXT` say otherwise; a skip is not a pass). Record the result in the evidence doc. Stop the server and check the port is free.
 
 - [ ] **Step 10: Commit**
 
 ```bash
 git add scripts/mlx_audio_calibrate.py docs/superpowers/2026-10-12-mlx-audio-calibration.md \
         docs/superpowers/2026-10-12-mlx-audio-calibration-data.json \
+        docs/superpowers/2026-10-12-mlx-audio-requirements.txt \
         packages/emcee/src/emcee/data/preflight_en.wav packages/emcee/src/emcee/data/__init__.py \
         packages/emcee/src/emcee/tts/calibration.py packages/emcee/src/emcee/tts/verify.py \
         packages/emcee/tests/test_calibration_measured.py packages/emcee/tests/test_mlx_live.py
@@ -5874,11 +6335,11 @@ Spec: section 5 (every bullet); Stakes strict surface 4 (what changes for existi
 
 **Files:**
 - Modify: `README.md` (the "emcee: voicing delivered packages" section)
-- Modify: `CLAUDE.md` (Commands bullet for emcee; the "What this is" emcee paragraph; the emcee architecture bullet)
+- Modify: `CLAUDE.md` (Commands bullet for emcee; the "What this is" emcee paragraph; the emcee architecture bullet; Conventions)
 - Modify: `packages/emcee/src/emcee/config.py` (one template comment)
 
 **Interfaces:**
-- Consumes: the probe doc's `stt_model` (Task 1); the calibration evidence doc (Task 12); every command and key defined in Tasks 2-14.
+- Consumes: the probe doc's `stt_model` (Task 1); the calibration evidence doc and `docs/superpowers/2026-10-12-mlx-audio-requirements.txt` (Task 12); every command and key defined in Tasks 2-14.
 - Produces: documentation only.
 
 - [ ] **Step 1: Template comment**
@@ -5922,15 +6383,18 @@ and the rest of `emcee run` carries on.
 
 1. **Install the new emcee release before pinning any presenter.** An older
    binary does not know `tts`/`tts_model` and would voice the presenter on
-   Voxtral from the newly edited clip. (It now rejects them instead: presenter
-   files are strict.)
+   Voxtral from the newly edited clip. (Older binaries silently ignore these
+   keys; from this release an unknown key is a load error.)
 2. **A dedicated venv, pinned to the evaluated mlx-audio**, whose server-side
    sampling defaults (temperature, top_k, top_p) define the evaluated voice —
-   emcee does not send them:
+   emcee does not send them. From a checkout of this repo (the constraints
+   file is the evaluated environment's `pip freeze`):
 
        mkdir -p ~/.mlx-audio/logs
-       python3.12 -m venv ~/.mlx-audio/venv
-       ~/.mlx-audio/venv/bin/pip install "mlx-audio==0.5.8"
+       uv venv --python 3.12 ~/.mlx-audio/venv
+       uv pip install --python ~/.mlx-audio/venv/bin/python \
+           "mlx-audio[server,tts,stt]==0.5.8" \
+           -c docs/superpowers/2026-10-12-mlx-audio-requirements.txt
 
 3. **Download the models once, while online** (the service runs offline, so a
    mistyped model id fails fast instead of starting a download):
@@ -6002,6 +6466,16 @@ and the rest of `emcee run` carries on.
        emcee say notes.txt --presenter phil      # go-live listen, then one real package:
        emcee voice <a dead package> 
 
+   During that first real `emcee voice` (TTS, STT and `claude -p` all
+   resident), take a memory reading from another terminal —
+   `footprint -p $(lsof -tiTCP:8000 -sTCP:LISTEN)` and `vm_stat` — and record
+   it beside the calibration doc's `footprint` reading.
+
+   For any presenter other than Phil (whose voice was evaluated), listen
+   before relying on the pin: pin them, render one `emcee say notes.txt
+   --presenter <id>` and listen to it with no `emcee run` in between, and
+   unpin (`--clear-tts`) if it does not pass.
+
    For a NEW presenter, `--transcribe` drafts the transcript (`emcee
    presenter add … --voice-clone clip.wav --tts mlx_audio --transcribe`) and
    writes it only after you confirm it. Without a server-loadable STT model,
@@ -6062,6 +6536,7 @@ and the rest of `emcee run` carries on.
 ```
 
 4. In the same bullet, change "`presenters.py` manages `presenters/<id>.toml` (`emcee presenter add/list/show/remove`) — the same TOML shape llama's presenters used to have (`name`/`sex`/`character` + exactly one of `voice`/`voice_clone`, optional `bed` override)" to add "`add/edit/list/show/remove`" and ", plus the optional `tts`/`tts_model`/`voice_clone_text` pin; strict — an unknown key is a load error".
+5. In "Conventions", after "Audio files (`*.mp3`, `*.flac`, `*.shn`) are gitignored; never commit audio." add: "One exception: `packages/emcee/src/emcee/data/preflight_en.wav`, the ~2 s bundled check clip for the verification preflight (provenance in `docs/superpowers/2026-10-12-mlx-audio-calibration.md`)."
 
 - [ ] **Step 5: Check, then run the full suite**
 
@@ -6085,7 +6560,7 @@ Claude-Session: https://claude.ai/code/session_01TNheuMFMvYwCHKaT9xJRS2"
 | Spec requirement | Task |
 |---|---|
 | Stakes 1 — never silently fall back | 5 (keyword-only factory), 9 (`test_no_fallback_when_the_mlx_server_is_down`) |
-| Stakes 2 — config failures before LLM spend / manifest clear / `--fresh` unlink | 7 (order + fake-preflight tests), 9 (dead server), 11 (STT path) |
+| Stakes 2 — config failures before LLM spend / manifest clear / `--fresh` unlink | 7 (order + fake-preflight tests), 9 (dead server), 11 (STT path; the config-only failure matrix over `_process_one` and `voice --fresh`) |
 | Stakes 2 — verification never silently skipped; cache hits reused unverified | 11 |
 | Stakes 3 — double guard/verification failure fails the package | 10, 11 |
 | Stakes 4 — unchanged behaviour with no pins; `--fresh` keeps clips on failure; strict presenter files; absolute `voice_clone` in `add`; list/show/dry-run change only for pins | 2, 6, 7, 13, 14 |
