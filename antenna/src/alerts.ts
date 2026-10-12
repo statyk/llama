@@ -3,9 +3,12 @@
  * POST) and email (Email Routing's send_email binding, to the ALERT_EMAIL_TO
  * secret). Sent when a condition appears, repeated every ALERT_REPEAT_HOURS
  * while it lasts, "resolved" when a resolvable one clears; a `once` condition
- * is sent when it first appears and never again. A condition that clears and
- * returns within COOLDOWN_MS is treated as continuing (no new message), so a
- * flapping API does not page every minute.
+ * is sent when it first appears and never again. A condition must stay absent
+ * for COOLDOWN_MS before it counts as cleared (and "resolved" goes out): until
+ * then its entry stays active with `clearing_since` set, and a return is
+ * continuing (no new message, the repeat clock unchanged), so a flapping API
+ * neither pages every minute nor leaves "resolved" as the last word while it
+ * is back. An alert no channel ever delivered gets no "resolved" when it clears.
  *
  * A key absent from the batch has cleared only when the batch says so
  * (AlertBatch in clock.ts): an incomplete batch resolves nothing, except that
@@ -16,7 +19,7 @@
  * structured log lines keep the detail. */
 
 import { EmailMessage } from "cloudflare:email";
-import { type BucketLike, putJson, readJsonDoc } from "./bucket";
+import { type BucketLike, createJson, putJson, readJsonDoc } from "./bucket";
 import type { AlertBatch } from "./clock";
 import type { AlertCondition, Priority } from "./conditions";
 
@@ -66,6 +69,9 @@ export interface AlertEntry {
   first_at: string;
   last_sent_at: string | null;
   cleared_at: string | null;
+  /** Absent since then (on batches allowed to resolve it), still active: it
+   * clears once absent for COOLDOWN_MS. Missing or null: not clearing. */
+  clearing_since?: string | null;
   once?: boolean;
 }
 export type AlertState = Record<string, AlertEntry>;
@@ -80,6 +86,10 @@ export interface Outgoing {
 
 const iso = (ms: number) => new Date(ms).toISOString();
 const age = (nowMs: number, at: string | null) => (at === null ? Number.POSITIVE_INFINITY : nowMs - Date.parse(at));
+const notClearing = (e: AlertEntry): AlertEntry => {
+  const { clearing_since: _, ...rest } = e;
+  return rest;
+};
 
 export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs: number, repeatMs: number,
                            batch: AlertBatch = COMPLETE): { next: AlertState; send: Outgoing[] } {
@@ -97,32 +107,49 @@ export function planAlerts(prev: AlertState, conditions: AlertCondition[], nowMs
                       : { active: true, resolvable: false, once: true, title: c.title, first_at: iso(nowMs),
                           last_sent_at: iso(nowMs), cleared_at: null };
       if (!e) send.push({ ...out, kind: "alert" });
-    } else if (!e || (!e.active && age(nowMs, e.cleared_at) >= COOLDOWN_MS)) {
+    } else if (!e || !e.active || (e.clearing_since != null && age(nowMs, e.clearing_since) >= COOLDOWN_MS)) {
+      // New, or back after it cleared (an inactive entry was absent for
+      // COOLDOWN_MS; so was one clearing that long with no batch between).
       next[c.key] = { active: true, resolvable: c.resolvable, title: c.title, first_at: iso(nowMs),
                       last_sent_at: iso(nowMs), cleared_at: null };
       send.push({ ...out, kind: "alert" });
     } else if (age(nowMs, e.last_sent_at) >= repeatMs) {
-      next[c.key] = { ...e, active: true, resolvable: c.resolvable, title: c.title, last_sent_at: iso(nowMs), cleared_at: null };
+      next[c.key] = { ...notClearing(e), active: true, resolvable: c.resolvable, title: c.title, last_sent_at: iso(nowMs),
+                      cleared_at: null };
       send.push({ ...out, kind: "repeat" });
     } else {
-      next[c.key] = { ...e, active: true, resolvable: c.resolvable, title: c.title, cleared_at: null };
+      // Continuing (a return inside the clearing window included): the repeat clock runs on.
+      next[c.key] = { ...notClearing(e), active: true, resolvable: c.resolvable, title: c.title, cleared_at: null };
     }
   }
+  const keep = (key: string, e: AlertEntry) => {
+    if (age(nowMs, e.cleared_at) < (e.once ? ONCE_KEEP_MS : KEEP_INACTIVE_MS)) next[key] = e;
+  };
   for (const [key, e] of Object.entries(prev)) {
     if (seen.has(key)) continue;
-    if (e.active && !clearedIn(key, batch)) {
-      // Not computed this invocation, so not known to have cleared: unchanged
-      // (no "resolved", no cleared_at, so no cooldown starts).
+    if (!e.active) {
+      keep(key, e);
+    } else if (!clearedIn(key, batch)) {
+      // Not computed this invocation, so not known to be absent: unchanged
+      // (no "resolved", and the clearing window neither starts nor runs on).
       next[key] = e;
-    } else if (e.active) {
+    } else if (e.once) {
       next[key] = { ...e, active: false, cleared_at: iso(nowMs) };
+    } else if (e.clearing_since == null) {
+      next[key] = { ...e, clearing_since: iso(nowMs) };
+    } else if (age(nowMs, e.clearing_since) < COOLDOWN_MS) {
+      next[key] = e;
+    } else if (e.last_sent_at === null) {
+      // Cleared before any channel ever delivered it: no "resolved" for an
+      // alert the operator never got; forget it.
+    } else {
+      // Absent for COOLDOWN_MS: cleared, as of when it was first absent.
+      keep(key, { ...notClearing(e), active: false, cleared_at: e.clearing_since });
       if (e.resolvable) {
         const note = RESOLVED_NOTE[key];
         send.push({ key, kind: "resolved", priority: "default", title: e.title,
                     message: `Resolved: ${e.title} (active since ${e.first_at}).${note ? ` ${note}` : ""}` });
       }
-    } else if (age(nowMs, e.cleared_at) < (e.once ? ONCE_KEEP_MS : KEEP_INACTIVE_MS)) {
-      next[key] = e;
     }
   }
   return { next, send };
@@ -192,14 +219,28 @@ export interface EmailBinding {
   send(message: EmailMessage): Promise<unknown>;
 }
 
+/** `timeoutMs` bounds the binding's send like ntfy's fetch: a hung binding
+ * cannot hold the invocation open, and a timeout is a channel failure. */
 export function emailChannel(binding: EmailBinding, from: string, to: string, station: string, now: () => number,
-                             Message: typeof EmailMessage = EmailMessage, secrets: readonly string[] = []): Channel {
+                             Message: typeof EmailMessage = EmailMessage, secrets: readonly string[] = [],
+                             timeoutMs = TIMEOUT_MS): Channel {
   return {
     name: "email",
     async send(o) {
       const subject = redact(`${station}: ${o.kind === "resolved" ? "resolved: " : ""}${o.title}`, secrets);
       const text = `${redact(o.message, secrets)}\n\n-- antenna clock, ${iso(now())}\n`;
-      await binding.send(new Message(from, to, rawEmail(from, to, subject, text, now(), crypto.randomUUID())));
+      const message = new Message(from, to, rawEmail(from, to, subject, text, now(), crypto.randomUUID()));
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          binding.send(message),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`email: send timed out after ${timeoutMs} ms`)), timeoutMs);
+          }),
+        ]);
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
     },
   };
 }
@@ -240,13 +281,35 @@ export function repeatMsFromEnv(env: AlertEnv): number {
   return (Number.isFinite(h) && h >= 1 ? h : 6) * 3_600_000;
 }
 
+/** The stored state, keeping only object entries: a hand edit such as
+ * `{"stale": null}` (or a non-object document) must not wedge every alert. */
+function validState(value: unknown): AlertState {
+  const out: AlertState = {};
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return out;
+  for (const [k, v] of Object.entries(value)) {
+    if (v !== null && typeof v === "object" && !Array.isArray(v)) out[k] = v as AlertEntry;
+  }
+  return out;
+}
+
+/** The first write is create-only (If-None-Match: *), as the guard's is. A
+ * store that refuses the precondition outright gets an unconditional write
+ * rather than never creating the document (every alert would then resend). */
+async function createAlerts(bucket: BucketLike, state: AlertState): Promise<boolean> {
+  try {
+    return await createJson(bucket, ALERTS_KEY, state);
+  } catch {
+    return putJson(bucket, ALERTS_KEY, state);
+  }
+}
+
 /** Plan, send, persist. Every message is also logged. A message no channel
  * accepted is not recorded as sent, so the next invocation retries it. */
 export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], conditions: AlertCondition[],
                                      nowMs: number, repeatMs: number,
                                      batch: AlertBatch = COMPLETE): Promise<{ sent: number; failed: number }> {
-  const read = await readJsonDoc<AlertState>(bucket, ALERTS_KEY);
-  const prev: AlertState = read.kind === "ok" && read.value && typeof read.value === "object" ? read.value : {};
+  const read = await readJsonDoc<unknown>(bucket, ALERTS_KEY);
+  const prev = validState(read.kind === "ok" ? read.value : null);
   const { next, send } = planAlerts(prev, conditions, nowMs, repeatMs, batch);
   let sent = 0;
   let failed = 0;
@@ -271,8 +334,10 @@ export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], co
     }
   }
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
-    // A lost race means an overlapping invocation recorded the same sends.
-    await putJson(bucket, ALERTS_KEY, next, read.kind === "absent" ? undefined : read.etag);
+    // A lost race (false) means an overlapping invocation wrote meanwhile: its
+    // state stands and our sends are re-planned from it -- a duplicate, never a loss.
+    if (read.kind === "absent") await createAlerts(bucket, next);
+    else await putJson(bucket, ALERTS_KEY, next, read.etag);
   }
   return { sent, failed };
 }
