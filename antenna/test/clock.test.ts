@@ -280,13 +280,58 @@ describe("the alert batch's scope (complete)", () => {
     expect(playlistPuts(bucket)).toBe(0);
   });
 
+  it("guardComplete is true whenever the guard returned a known outcome, even on an incomplete batch", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const batches: AlertBatch[] = [];
+    const keep = async (_cs: AlertCondition[], _n: number, b: AlertBatch) => { batches.push(b); };
+    const full = new MemoryBucket();
+    station(full);
+    await runClock({ bucket: full, ...fakeTime(at), scheduledTime: at, config: { ...CFG, loopMs: 0 }, guard: onAir,
+                     alerts: keep });
+    await runClock({ bucket: new MemoryBucket(), ...fakeTime(at), scheduledTime: at, config: CFG, guard: onAir,
+                     alerts: keep }); // horizon-missing
+    for (const guard of [guardSays(null), async (): Promise<GuardOutcome> => { throw new Error("x"); }]) {
+      const bucket = new MemoryBucket();
+      station(bucket);
+      await runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: CFG, guard, alerts: keep });
+    }
+    expect(batches).toEqual([{ complete: true, guardComplete: true }, { complete: false, guardComplete: true },
+                             { complete: false, guardComplete: false }, { complete: false, guardComplete: false }]);
+  });
+
+  it("a failing playlist PUT raises the catch-all clock-failed (urgent, resolvable) in the flushed incomplete batch", async () => {
+    const bucket = new MemoryBucket();
+    station(bucket);
+    bucket.failPuts.add("live.m3u8");
+    const got: { cs: AlertCondition[]; b: AlertBatch }[] = [];
+    const err = await runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: CFG, guard: guardSays(true, true, [cond]),
+                                 alerts: async (cs, _n, b) => { got.push({ cs, b }); } }).then(() => null, (e: unknown) => e);
+    expect((err as Error).message).toMatch(/injected put failure/);
+    expect(got).toHaveLength(1);
+    expect(got[0].cs.map((c) => c.key)).toEqual(["tripped-spend", "clock-failed"]);
+    expect(got[0].cs[1]).toMatchObject({ priority: "urgent", resolvable: true });
+    expect(got[0].cs[1].message).toMatch(/injected put failure/);
+    expect(got[0].b).toEqual({ complete: false, guardComplete: true });
+    expect((err as { partial?: { alerts: string[] } }).partial!.alerts).toContain("clock-failed");
+  });
+
+  it("a failure already named by clock-inputs does not also raise clock-failed", async () => {
+    const bucket = new MemoryBucket();
+    station(bucket);
+    bucket.seed("state/horizon.json", { ...horizonDoc(E), epoch: "nonsense" });
+    const keys: string[][] = [];
+    await expect(runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: CFG, guard: onAir,
+                            alerts: async (cs) => { keys.push(cs.map((c) => c.key)); } })).rejects.toThrow(/epoch/);
+    expect(keys).toEqual([["clock-inputs"]]);
+  });
+
   it("the default sink logs the flag on every alert line", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const bucket = new MemoryBucket();
     await runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: CFG, guard: onAir });
     const alerts = structured(spy, "alert");
     expect(alerts).toHaveLength(1);
-    expect(alerts[0]).toMatchObject({ key: "horizon-missing", complete: false });
+    expect(alerts[0]).toMatchObject({ key: "horizon-missing", complete: false, guardComplete: true });
     expect(alerts[0].message).toMatch(/absent, or unreadable/);
   });
 });
@@ -419,7 +464,8 @@ describe("scheduled handler", () => {
   // would otherwise read usage and PATCH the production kill switch.
   const noSecrets = () =>
     ({ ...env, LOOP_SECONDS: "0", CF_ACCOUNT_ID: undefined, CF_ZONE_ID: undefined, CF_ANALYTICS_TOKEN: undefined,
-       CF_WAF_TOKEN: undefined }) as unknown as AntennaEnv;
+       CF_WAF_TOKEN: undefined, NTFY_URL: undefined, NTFY_TOKEN: undefined, ALERT_EMAIL: undefined,
+       ALERT_EMAIL_FROM: undefined, ALERT_EMAIL_TO: undefined }) as unknown as AntennaEnv;
   const noNetwork = () => vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("no network in tests"));
 
   it("runs the guard then one clock invocation against the bound bucket", async () => {

@@ -64,9 +64,16 @@ export interface ClockDeps {
  * cleared, or start any cooldown for -- a key that is absent from an
  * incomplete batch; it may still send and repeat the conditions present.
  * Otherwise one transient R2 failure while tripped would announce
- * "resolved: Station blocked: spend". */
+ * "resolved: Station blocked: spend".
+ *
+ * `guardComplete` is true whenever the guard returned a known outcome (not
+ * unknown, not crashed): every guard-family condition (guard.ts,
+ * conditions.ts) was then computed, so a sink may resolve an absent
+ * guard-family key even when `complete` is false. Clock-family keys (and any
+ * key it does not recognise) still resolve only on a complete batch. */
 export interface AlertBatch {
   complete: boolean;
+  guardComplete: boolean;
 }
 
 /** What runClock throws: the original failure's message, with the partial
@@ -138,12 +145,12 @@ export async function readInputs(bucket: BucketLike, blocked: boolean): Promise<
   return { horizon, fallback, offair: blocked };
 }
 
-/** Default alert sink until alerts.ts dispatches: one structured line each,
- * carrying whether the batch was complete (AlertBatch). */
+/** Default alert sink when none is given: one structured line each, carrying
+ * the batch's scope (AlertBatch). */
 export async function logAlerts(conditions: AlertCondition[], _nowMs: number, batch: AlertBatch): Promise<void> {
   for (const c of conditions) {
     console.error(JSON.stringify({ event: "alert", key: c.key, title: c.title, message: c.message,
-                                   complete: batch.complete }));
+                                   complete: batch.complete, guardComplete: batch.guardComplete }));
   }
 }
 
@@ -201,12 +208,14 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
   const conditions: AlertCondition[] = [];
   let flushed = false;
   let complete = false; // set only at the end of the normal path (AlertBatch)
+  let guardComplete = false; // set once the guard returned a known outcome (AlertBatch)
+  let failureNamed = false; // a condition naming this path's failure was pushed (no clock-failed then)
   const flush = async () => {
     if (flushed) return;
     flushed = true;
     result.alerts = conditions.map((c) => c.key);
     try {
-      await (deps.alerts ?? logAlerts)(conditions, deps.now(), { complete });
+      await (deps.alerts ?? logAlerts)(conditions, deps.now(), { complete, guardComplete });
     } catch (e) {
       console.error(JSON.stringify({ event: "alert-dispatch-failed", error: e instanceof Error ? e.message : String(e) }));
     }
@@ -230,6 +239,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
       console.error(JSON.stringify({ event: "guard-unknown", scheduled: deps.scheduledTime }));
       return result;
     }
+    guardComplete = true;
     const blocked = outcome.blocked;
     // 2. index.html follows the blocked state.
     try {
@@ -241,6 +251,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     }
     // 3. The playlist.
     const failedInputs = (e: unknown) => {
+      failureNamed = true;
       conditions.push({ key: "clock-inputs", priority: "urgent", resolvable: true, title: "Clock cannot read its inputs",
                         message: `Reading state/horizon.json or its fallback, or deriving the grid from it, failed ` +
                                  `(${e instanceof Error ? e.message : String(e)}); live.m3u8 was not written this minute.` });
@@ -323,6 +334,12 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     complete = true;
     return result;
   } catch (e) {
+    if (!failureNamed) {
+      // Catch-all, so no failure goes unalerted (a failed playlist PUT, say).
+      conditions.push({ key: "clock-failed", priority: "urgent", resolvable: true, title: "Clock invocation failed",
+                        message: `The clock invocation threw (${e instanceof Error ? e.message : String(e)}); ` +
+                                 "live.m3u8 may not have been written this minute." });
+    }
     throw new ClockError(e, result);
   } finally {
     await flush(); // after the last playlist write (or an early return), never before the guard

@@ -1,3 +1,4 @@
+import { alertSink } from "./alerts";
 import { r2Bucket } from "./bucket";
 import { ClockError, type ClockResult, configFromEnv, runClock } from "./clock";
 import type { AntennaEnv } from "./env";
@@ -19,6 +20,7 @@ export default {
         scheduledTime: controller.scheduledTime,
         config: configFromEnv(env),
         guard: () => guardStep({ bucket, now, fetch: fetchFn, config: guardConfigFromEnv(env) }),
+        alerts: alertSink(bucket, env, fetchFn, now),
       });
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);

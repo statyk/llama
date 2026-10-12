@@ -27,7 +27,12 @@
     "BILLING_ANNIVERSARY_DAY": "11",
     "GUARD_EVAL_SECONDS": "900",
     "BLIND_AFTER_SECONDS": "21600",
-    "KILL_SWITCH_DESCRIPTION": "station: kill switch"
+    "KILL_SWITCH_DESCRIPTION": "station: kill switch",
+    // Cloud alerts: ntfy (secrets NTFY_URL, optional NTFY_TOKEN) and email
+    // through the ALERT_EMAIL send_email binding, from ALERT_EMAIL_FROM to
+    // ALERT_EMAIL_TO (secrets). Never put an address in this file.
+    "ALERT_REPEAT_HOURS": "6",
+    "STATION_NAME": "llama radio"
   },
   // One log line per invocation (~1,440/day) stays inside the free allowance.
   "observability": { "enabled": true }
