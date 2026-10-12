@@ -1,4 +1,5 @@
-import { findNowPlaying, hlsErrorNotice, nowPlayingText, playBlockedNotice, prefersNativeHls } from "./nowplaying.js";
+import { classifyProbe, findNowPlaying, hlsErrorNotice, nowPlayingText, playBlockedNotice, prefersNativeHls,
+         StallWatch } from "./nowplaying.js";
 
 const STREAM = "live.m3u8";
 const TIMELINE = "timeline.json";
@@ -16,6 +17,7 @@ let hls = null;
 let playing = false;
 let timeline = null;
 let timelineFetchedAt = 0;
+const watch = new StallWatch();
 
 const useNative = () => prefersNativeHls(navigator, audio.canPlayType("application/vnd.apple.mpegurl") !== "");
 
@@ -48,6 +50,7 @@ function start() {
   stop();
   notice.hidden = true;
   playing = true;
+  watch.reset(Date.now());
   playButton.textContent = "Stop";
   if (useNative()) {
     audio.src = STREAM;
@@ -109,10 +112,33 @@ async function refreshTimeline(force) {
   }
 }
 
+// Stalled playback: ask live.m3u8 directly whether the station is off the air.
+// The answer is a cache hit (the edge refetches live.m3u8 from R2 at most every
+// 5 s, whoever asks) or the kill switch's 403: never billed per request.
+async function probe() {
+  let status = 0;
+  let body = "";
+  try {
+    const res = await fetch(STREAM, { cache: "no-store" });
+    status = res.status;
+    if (res.ok) body = await res.text();
+  } catch {
+    // a network error is not a verdict
+  }
+  if (!playing) return;
+  if (watch.verdict(classifyProbe(status, body))) offAir("The station is off the air.");
+}
+
 // All timeline-derived text goes to the DOM via textContent only.
 setInterval(() => {
   if (!playing) return;
+  const now = Date.now();
+  if (watch.tick(audio.currentTime, now)) probe();
   refreshTimeline(false);
+  if (watch.stalled(now)) {
+    nowPlaying.textContent = "Reconnecting…";
+    return;
+  }
   const at = playbackDateMs();
   if (at !== null) nowPlaying.textContent = nowPlayingText(findNowPlaying(timeline, at), timeline !== null);
 }, 1000);

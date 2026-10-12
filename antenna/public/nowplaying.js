@@ -24,7 +24,7 @@ export function playBlockedNotice(err, stillPlaying) {
  * playlist (off-air with no notice), which hls.js reports as a non-fatal
  * error rather than a LEVEL_LOADED it would otherwise keep reloading. */
 export function hlsErrorNotice(data) {
-  const code = data && data.response && data.response.code;
+  const code = (data && data.response && data.response.code) || (data && data.networkDetails && data.networkDetails.status);
   if (code === 403 || (data && data.details === "levelEmptyError")) return "The station is off the air.";
   if (data && data.fatal) return "The stream is unavailable right now.";
   return null;
@@ -53,4 +53,64 @@ export function nowPlayingText(np, timelineLoaded) {
   const where = [s.venue, s.city].filter(Boolean).join(", ");
   const head = [s.artist, [s.date, where].filter(Boolean).join(", ")].filter(Boolean).join(" — ");
   return np.file ? `${head} · ${np.file.title}` : head;
+}
+
+/** A probe of live.m3u8 made while playback is stalled. "offair" is
+ * definitive: the WAF kill switch answers 403, and the clock's off-air
+ * playlist ends with #EXT-X-ENDLIST. Anything else -- a network error
+ * (status 0), a 5xx, a 429, a live playlist -- is not a reason to stop. */
+export function classifyProbe(status, body) {
+  if (status === 403) return "offair";
+  if (status === 200 && typeof body === "string" && body.includes("#EXT-X-ENDLIST")) return "offair";
+  return "unknown";
+}
+
+/** Notices playback that stopped advancing without trusting the player's
+ * error events (an already-playing page went silent on the kill switch:
+ * phase-1 verification, 2026-10-11). Fed the playback position about once a
+ * second while playing. After stallMs without progress it asks for a probe
+ * (at most one every probeEveryMs, one at a time); `verdictsNeeded`
+ * consecutive "offair" verdicts stop the player. Any progress resets it, so a
+ * network blip that recovers never shows the off-air notice. */
+export class StallWatch {
+  constructor({ stallMs = 15000, probeEveryMs = 10000, verdictsNeeded = 2 } = {}) {
+    this.stallMs = stallMs;
+    this.probeEveryMs = probeEveryMs;
+    this.verdictsNeeded = verdictsNeeded;
+    this.reset(0);
+  }
+
+  reset(nowMs) {
+    this.lastPos = null;
+    this.lastProgressMs = nowMs;
+    this.lastProbeMs = null;
+    this.probing = false;
+    this.offairCount = 0;
+  }
+
+  /** True when the caller should probe now. */
+  tick(positionS, nowMs) {
+    if (this.lastPos === null || positionS > this.lastPos + 0.05) {
+      this.lastPos = positionS;
+      this.lastProgressMs = nowMs;
+      this.offairCount = 0;
+      return false;
+    }
+    if (!this.stalled(nowMs) || this.probing) return false;
+    if (this.lastProbeMs !== null && nowMs - this.lastProbeMs < this.probeEveryMs) return false;
+    this.lastProbeMs = nowMs;
+    this.probing = true;
+    return true;
+  }
+
+  /** Feed a classifyProbe verdict; true when the player should go off-air. */
+  verdict(v) {
+    this.probing = false;
+    this.offairCount = v === "offair" ? this.offairCount + 1 : 0;
+    return this.offairCount >= this.verdictsNeeded;
+  }
+
+  stalled(nowMs) {
+    return nowMs - this.lastProgressMs >= this.stallMs;
+  }
 }
