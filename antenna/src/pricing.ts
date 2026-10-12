@@ -107,7 +107,9 @@ export function evaluateSpend(r: Reading, period: Period, nowMs: number, budgetU
   };
 }
 
-/** Trip when actual >= 90% or projected >= 100% of the budget. */
+/** Trip when actual >= 90% or projected >= 100% of the budget. Written
+ * negated ("not safely under both") so a NaN anywhere trips: every comparison
+ * with NaN is false, and the plain `>=` form would fail open. */
 export function overThreshold(e: Pick<Evaluation, "actualUsd" | "projectedUsd" | "budgetUsd">): boolean {
-  return e.actualUsd >= TRIP_ACTUAL * e.budgetUsd || e.projectedUsd >= TRIP_PROJECTED * e.budgetUsd;
+  return !(e.actualUsd < TRIP_ACTUAL * e.budgetUsd && e.projectedUsd < TRIP_PROJECTED * e.budgetUsd);
 }
