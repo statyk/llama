@@ -89,3 +89,21 @@ export function fakeFetch(routes: Record<string, Route>) {
 
 export const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
+
+/** A canned account-scoped response, shaped as the API returns it. */
+export function usageResponse(o: { workers?: number; workersRecent?: number; ops?: Record<string, number>;
+                                   opsRecent?: Record<string, number>; buckets?: [number, number][] } = {}) {
+  const ops = (m: Record<string, number>) =>
+    Object.entries(m).map(([actionType, requests]) => ({ sum: { requests }, dimensions: { actionType } }));
+  return {
+    data: { viewer: { accounts: [{
+      workersToDate: [{ sum: { requests: o.workers ?? 40_000 } }],
+      workersRecent: [{ sum: { requests: o.workersRecent ?? 180 } }],
+      r2ToDate: ops(o.ops ?? { PutObject: 200_000, GetObject: 300_000, DeleteObject: 80_000 }),
+      r2Recent: ops(o.opsRecent ?? { PutObject: 3_000, GetObject: 4_000 }),
+      storage: (o.buckets ?? [[1.4e9, 2e6]]).map(([payloadSize, metadataSize], i) =>
+        ({ max: { payloadSize, metadataSize }, dimensions: { bucketName: `b${i}` } })),
+    }] } },
+    errors: null,
+  };
+}
