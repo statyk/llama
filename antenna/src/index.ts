@@ -1,5 +1,5 @@
 import { r2Bucket } from "./bucket";
-import { type ClockResult, configFromEnv, runClock } from "./clock";
+import { ClockError, type ClockResult, configFromEnv, runClock } from "./clock";
 import type { AntennaEnv } from "./env";
 import { guardConfigFromEnv, guardStep } from "./guard";
 
@@ -22,6 +22,8 @@ export default {
       });
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
+      // The partial result (guardMs, blocked, puts so far) still goes on the line.
+      if (e instanceof ClockError) result = e.partial;
       throw e; // still a failed invocation in observability
     } finally {
       // One line per invocation, ALWAYS (including when runClock throws); the

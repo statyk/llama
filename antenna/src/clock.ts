@@ -1,6 +1,6 @@
 import type { BucketLike } from "./bucket";
 import type { AlertCondition } from "./conditions";
-import { type Horizon, gridOf, indexAt, startMs } from "./grid";
+import { type Grid, type Horizon, gridOf, indexAt, startMs } from "./grid";
 import type { GuardOutcome } from "./guard";
 import { reconcileIndex } from "./indexpage";
 import { buildPlaylist, type FallbackIndex, isOffair, type PlaylistConfig, usableFallback } from "./playlist";
@@ -47,8 +47,35 @@ export interface ClockDeps {
   config: ClockConfig;
   /** The cost guard step (guard.ts), run first; it decides blocked. */
   guard: () => Promise<GuardOutcome>;
-  /** Where this invocation's alert conditions go (alerts.ts); default: logged. */
-  alerts?: (conditions: AlertCondition[], nowMs: number) => Promise<void>;
+  /** Where this invocation's alert conditions go (alerts.ts); default: logged.
+   * Called exactly once per invocation, after the last playlist write or at an
+   * early return or throw. See AlertBatch for what `complete` obliges. */
+  alerts?: (conditions: AlertCondition[], nowMs: number, batch: AlertBatch) => Promise<void>;
+}
+
+/** The scope of one invocation's condition set.
+ *
+ * `complete` is true only when runClock reached the end of its normal path, so
+ * every condition was computed and a key absent from the batch has genuinely
+ * cleared. It is false on an unknown guard outcome, a guard crash, the
+ * horizon-missing / horizon-refused early returns and any throw: the batch is
+ * then partial (the conditions it carries are real, but the ones that were
+ * never computed are simply missing). A sink MUST NOT resolve -- announce as
+ * cleared, or start any cooldown for -- a key that is absent from an
+ * incomplete batch; it may still send and repeat the conditions present.
+ * Otherwise one transient R2 failure while tripped would announce
+ * "resolved: Station blocked: spend". */
+export interface AlertBatch {
+  complete: boolean;
+}
+
+/** What runClock throws: the original failure's message, with the partial
+ * result so far (guardMs, blocked, puts ...) for the per-invocation clock line. */
+export class ClockError extends Error {
+  constructor(readonly cause: unknown, readonly partial: ClockResult) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "ClockError";
+  }
 }
 
 export interface ClockResult {
@@ -111,9 +138,13 @@ export async function readInputs(bucket: BucketLike, blocked: boolean): Promise<
   return { horizon, fallback, offair: blocked };
 }
 
-/** Default alert sink until alerts.ts dispatches: one structured line each. */
-export async function logAlerts(conditions: AlertCondition[], _nowMs: number): Promise<void> {
-  for (const c of conditions) console.error(JSON.stringify({ event: "alert", key: c.key, title: c.title, message: c.message }));
+/** Default alert sink until alerts.ts dispatches: one structured line each,
+ * carrying whether the batch was complete (AlertBatch). */
+export async function logAlerts(conditions: AlertCondition[], _nowMs: number, batch: AlertBatch): Promise<void> {
+  for (const c of conditions) {
+    console.error(JSON.stringify({ event: "alert", key: c.key, title: c.title, message: c.message,
+                                   complete: batch.complete }));
+  }
 }
 
 export function putCap(cfg: ClockConfig, dMs: number): number {
@@ -169,12 +200,13 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
                                 guardMs: null, index: "skipped", alerts: [] };
   const conditions: AlertCondition[] = [];
   let flushed = false;
+  let complete = false; // set only at the end of the normal path (AlertBatch)
   const flush = async () => {
     if (flushed) return;
     flushed = true;
     result.alerts = conditions.map((c) => c.key);
     try {
-      await (deps.alerts ?? logAlerts)(conditions, deps.now());
+      await (deps.alerts ?? logAlerts)(conditions, deps.now(), { complete });
     } catch (e) {
       console.error(JSON.stringify({ event: "alert-dispatch-failed", error: e instanceof Error ? e.message : String(e) }));
     }
@@ -208,11 +240,23 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
                         message: `Writing index.html (${blocked ? "off-air" : "player"} page) failed: ${e instanceof Error ? e.message : String(e)}` });
     }
     // 3. The playlist.
-    const inputs = await readInputs(bucket, blocked);
+    const failedInputs = (e: unknown) => {
+      conditions.push({ key: "clock-inputs", priority: "urgent", resolvable: true, title: "Clock cannot read its inputs",
+                        message: `Reading state/horizon.json or its fallback, or deriving the grid from it, failed ` +
+                                 `(${e instanceof Error ? e.message : String(e)}); live.m3u8 was not written this minute.` });
+      return e;
+    };
+    let inputs: ClockInputs;
+    try {
+      inputs = await readInputs(bucket, blocked);
+    } catch (e) {
+      throw failedInputs(e);
+    }
     const horizon = inputs.horizon;
     if (horizon === null) {
       conditions.push({ key: "horizon-missing", priority: "default", resolvable: true, title: "No horizon published",
-                        message: "state/horizon.json is absent: nothing is on air yet (transmitter has not published)." });
+                        message: "state/horizon.json is absent, or unreadable (not JSON): live.m3u8 was not written. " +
+                                 "Either nothing is on air yet (transmitter has not published) or the object is corrupt." });
       return result;
     }
     if (horizon.d !== GRID_D) {
@@ -223,7 +267,12 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
                         message: result.refused });
       return result;
     }
-    const g = gridOf(horizon);
+    let g: Grid;
+    try {
+      g = gridOf(horizon);
+    } catch (e) {
+      throw failedInputs(e);
+    }
     const leadMs = startMs(g, horizon.last + 1) - deps.now();
     // While tripped, transmitter stops publishing by design: the lead drains then.
     if (!outcome.tripped && leadMs < config.leadFloorMs) {
@@ -271,7 +320,10 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
       await deps.sleep(next - now + BOUNDARY_SLACK_MS);
       await write(false);
     }
+    complete = true;
     return result;
+  } catch (e) {
+    throw new ClockError(e, result);
   } finally {
     await flush(); // after the last playlist write (or an early return), never before the guard
   }

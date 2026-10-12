@@ -1,6 +1,6 @@
 import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type ClockConfig, configFromEnv, MAX_PUTS, putCap, r2Bucket, runClock } from "../src/clock";
+import { type AlertBatch, type ClockConfig, configFromEnv, MAX_PUTS, putCap, r2Bucket, runClock } from "../src/clock";
 import type { AlertCondition } from "../src/conditions";
 import type { AntennaEnv } from "../src/env";
 import type { GuardOutcome } from "../src/guard";
@@ -169,6 +169,11 @@ describe("runClock", () => {
     const t = await runClock({ bucket, ...fakeTime(now), scheduledTime: now, config: { ...CFG, loopMs: 0 },
                                guard: guardSays(true, true) });
     expect(t.alerts).not.toContain("lead-low");
+    // Off-air by the operator's flag but not tripped: transmitter keeps publishing, so a low lead still alerts.
+    const o = await runClock({ bucket, ...fakeTime(now), scheduledTime: now, config: { ...CFG, loopMs: 0 },
+                               guard: guardSays(true, false) });
+    expect(o.blocked).toBe(true);
+    expect(o.alerts).toContain("lead-low");
   });
 
   it("passes the guard's conditions to the alert sink once, after the last playlist write", async () => {
@@ -195,6 +200,94 @@ describe("runClock", () => {
     expect(obj!.httpMetadata!.contentType).toBe("application/vnd.apple.mpegurl");
     expect(obj!.httpMetadata!.cacheControl).toBe("public, max-age=5");
     expect(await obj!.text()).toContain("seg/e1/10.aac");
+  });
+});
+
+describe("the alert batch's scope (complete)", () => {
+  type Sent = { keys: string[]; complete: boolean };
+  const sink = (sent: Sent[]) => async (cs: AlertCondition[], _nowMs: number, batch: AlertBatch) => {
+    sent.push({ keys: cs.map((c) => c.key), complete: batch.complete });
+  };
+  const at = E + 10 * D;
+  const cond: AlertCondition = { key: "tripped-spend", priority: "urgent", resolvable: true, title: "t", message: "m" };
+
+  it("is complete only at the end of the normal path", async () => {
+    const bucket = new MemoryBucket();
+    station(bucket);
+    const sent: Sent[] = [];
+    await runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: { ...CFG, loopMs: 0 },
+                     guard: guardSays(true, true, [cond]), alerts: sink(sent) });
+    expect(sent).toEqual([{ keys: ["tripped-spend"], complete: true }]);
+  });
+
+  it("is incomplete when the guard's outcome is unknown, or it crashed", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const sent: Sent[] = [];
+    const unknown: AlertCondition = { ...cond, key: "guard-unknown" };
+    for (const guard of [guardSays(null, false, [unknown]), async (): Promise<GuardOutcome> => { throw new Error("x"); }]) {
+      const bucket = new MemoryBucket();
+      station(bucket);
+      await runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: CFG, guard, alerts: sink(sent) });
+    }
+    expect(sent).toEqual([{ keys: ["guard-unknown"], complete: false }, { keys: ["guard-crashed"], complete: false }]);
+  });
+
+  it("is incomplete at the horizon-missing and horizon-refused early returns", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const sent: Sent[] = [];
+    const missing = new MemoryBucket();
+    await runClock({ bucket: missing, ...fakeTime(at), scheduledTime: at, config: CFG, guard: guardSays(true, true, [cond]),
+                     alerts: sink(sent) });
+    const corrupt = new MemoryBucket();
+    corrupt.seed("state/horizon.json", "{not json");
+    await runClock({ bucket: corrupt, ...fakeTime(at), scheduledTime: at, config: CFG, guard: onAir, alerts: sink(sent) });
+    const refused = new MemoryBucket();
+    station(refused);
+    refused.seed("state/horizon.json", { ...horizonDoc(E), d: 1 });
+    await runClock({ bucket: refused, ...fakeTime(at), scheduledTime: at, config: CFG, guard: onAir, alerts: sink(sent) });
+    expect(sent).toEqual([{ keys: ["tripped-spend", "horizon-missing"], complete: false },
+                          { keys: ["horizon-missing"], complete: false },
+                          { keys: ["horizon-refused"], complete: false }]);
+  });
+
+  it("a throw reading the inputs still flushes the guard's conditions, incomplete, plus clock-inputs; then rejects", async () => {
+    const bucket = new MemoryBucket();
+    station(bucket);
+    bucket.failGets.add("state/horizon.json");
+    const sent: Sent[] = [];
+    await expect(runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: CFG, guard: guardSays(true, true, [cond]),
+                            alerts: sink(sent) })).rejects.toThrow(/injected get failure/);
+    expect(sent).toEqual([{ keys: ["tripped-spend", "clock-inputs"], complete: false }]);
+    expect(playlistPuts(bucket)).toBe(0);
+  });
+
+  it("a horizon the grid cannot be derived from raises clock-inputs (urgent), incomplete, and the partial result rides the error", async () => {
+    const bucket = new MemoryBucket();
+    station(bucket);
+    bucket.seed("state/horizon.json", { ...horizonDoc(E), epoch: "nonsense" });
+    const sent: AlertCondition[][] = [];
+    let complete: boolean | null = null;
+    const err = await runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: CFG, guard: onAir,
+                                 alerts: async (cs, _n, b) => { sent.push(cs); complete = b.complete; } })
+      .then(() => null, (e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toMatch(/epoch/);
+    expect((err as { partial?: unknown }).partial).toMatchObject({ blocked: false, guardMs: 0, puts: 0,
+                                                                  alerts: ["clock-inputs"] });
+    expect(sent).toHaveLength(1);
+    expect(sent[0][0]).toMatchObject({ key: "clock-inputs", priority: "urgent", resolvable: true });
+    expect(complete).toBe(false);
+    expect(playlistPuts(bucket)).toBe(0);
+  });
+
+  it("the default sink logs the flag on every alert line", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const bucket = new MemoryBucket();
+    await runClock({ bucket, ...fakeTime(at), scheduledTime: at, config: CFG, guard: onAir });
+    const alerts = structured(spy, "alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toMatchObject({ key: "horizon-missing", complete: false });
+    expect(alerts[0].message).toMatch(/absent, or unreadable/);
   });
 });
 
@@ -320,16 +413,25 @@ describe("configFromEnv", () => {
 describe("scheduled handler", () => {
   // env carries the wrangler vars but no secrets: the guard cannot read usage
   // or reach the WAF (no network in tests), records that, and is not blocked
-  // (blind trips only after BLIND_AFTER_SECONDS).
+  // (blind trips only after BLIND_AFTER_SECONDS). The secrets are forced unset
+  // and the global fetch made to reject, because wrangler loads antenna/.dev.vars
+  // (or .env) into the test env: with real CF_* values there, the real guard
+  // would otherwise read usage and PATCH the production kill switch.
+  const noSecrets = () =>
+    ({ ...env, LOOP_SECONDS: "0", CF_ACCOUNT_ID: undefined, CF_ZONE_ID: undefined, CF_ANALYTICS_TOKEN: undefined,
+       CF_WAF_TOKEN: undefined }) as unknown as AntennaEnv;
+  const noNetwork = () => vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("no network in tests"));
+
   it("runs the guard then one clock invocation against the bound bucket", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const net = noNetwork();
     const now = Date.now();
     await env.BUCKET.put("state/horizon.json", JSON.stringify(horizonDoc(now - 100 * D)));
     await env.BUCKET.put("fallback/v1/index.json", JSON.stringify(FALLBACK));
     const ctrl = createScheduledController({ scheduledTime: now, cron: "* * * * *" });
     const ctx = createExecutionContext();
-    await worker.scheduled!(ctrl, { ...env, LOOP_SECONDS: "0" } as unknown as AntennaEnv, ctx);
+    await worker.scheduled!(ctrl, noSecrets(), ctx);
     await waitOnExecutionContext(ctx);
     const body = await (await env.BUCKET.get("live.m3u8"))!.text();
     expect(body).toContain("#EXTM3U");
@@ -339,19 +441,26 @@ describe("scheduled handler", () => {
     expect(guard.last_error).toMatch(/CF_ACCOUNT_ID/);
     expect((await env.BUCKET.head("index.html"))!.customMetadata!.page).toBe("player");
     expect(structured(log, "clock")[0].guardMs).toEqual(expect.any(Number));
+    expect(net).not.toHaveBeenCalled();
   });
 
   it("emits the per-invocation clock line even when runClock throws", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const net = noNetwork();
     await env.BUCKET.put("state/horizon.json", JSON.stringify({ ...horizonDoc(Date.now()), epoch: "nonsense" }));
     const ctrl = createScheduledController({ scheduledTime: Date.now(), cron: "* * * * *" });
     const ctx = createExecutionContext();
-    await expect(worker.scheduled!(ctrl, { ...env, LOOP_SECONDS: "0" } as unknown as AntennaEnv, ctx)).rejects.toThrow(/epoch/);
+    await expect(worker.scheduled!(ctrl, noSecrets(), ctx)).rejects.toThrow(/epoch/);
     await waitOnExecutionContext(ctx);
     const lines = structured(spy, "clock");
     expect(lines).toHaveLength(1);
     expect(lines[0].error).toMatch(/epoch/);
     expect(lines[0].lagMs).toEqual(expect.any(Number));
+    // The partial result still reaches the line (M5): the guard ran and decided.
+    expect(lines[0].guardMs).toEqual(expect.any(Number));
+    expect(lines[0].blocked).toBe(false);
+    expect(lines[0].alerts).toContain("clock-inputs");
+    expect(net).not.toHaveBeenCalled();
   });
 });
