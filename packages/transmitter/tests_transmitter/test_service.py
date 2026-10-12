@@ -397,9 +397,11 @@ def test_status_shows_the_cloud_state_and_active_alerts(tmp_path):
     (st.ws.root / "alerts.json").write_text(_json.dumps({"dead-clock": {"active": True}, "render": {"active": False},
                                                          "publish": {"active": True, "last_fired_at": 0.0}}))
     docs = {
-        "state/guard.json": {"tripped": True, "reason": "blind", "tripped_at": "2026-10-20T06:00:00.000Z",
+        "state/guard.json": {"schema": 1, "tripped": True, "reason": "blind", "tripped_at": "2026-10-20T06:00:00.000Z",
                              "last_error": "analytics: HTTP 503", "last_success": "2026-10-20T00:00:00.000Z",
-                             "waf": {"enabled": True, "error": None}},
+                             "waf": {"enabled": True, "error": None}, "period": None, "evaluation": None,
+                             "since": "2026-10-20T06:00:00.000Z", "tripped_period_start": None,
+                             "tripped_budget_usd": None, "evaluated_at": None},
         "state/offair.json": {"offair": True, "reason": "objection", "since": "2026-10-20T05:00:00.000Z", "until": None},
         "state/alerts.json": {"tripped-blind": {"active": True}},
     }
@@ -542,3 +544,28 @@ def test_cli_status_with_a_malformed_endpoint_prints_the_local_half(tmp_path, mo
     r = CliRunner().invoke(app, ["status", "--config", str(cfgp)])
     assert r.exit_code == 0, r.output
     assert "no epoch yet" in r.output and "cloud      unavailable: Invalid endpoint: nope" in r.output
+
+
+@pytest.mark.parametrize("tripped", [False, True])
+def test_a_corrupt_guard_never_shows_its_own_verdict_line(tmp_path, tripped):
+    st = _with_epoch(make_station(tmp_path)[0])
+    lines = service.status_lines(st.cfg, NOW, cloud=_reader({"state/guard.json": {"tripped": tripped}}))
+    assert not any(line.startswith(("guard      not tripped", "guard      TRIPPED")) for line in lines)
+    assert sum(line.startswith("guard      ") for line in lines) == 1
+
+
+def test_unreadable_guard_and_offair_documents_state_the_consequence(tmp_path):
+    st = _with_epoch(make_station(tmp_path)[0])
+    lines = service.status_lines(st.cfg, NOW, cloud=_reader(
+        {"state/guard.json": b"nope", "state/offair.json": b"nope"}))
+    assert any(line.startswith("guard      unreadable:") and line.endswith("the clock treats it as a spend trip")
+               for line in lines)
+    assert any(line.startswith("offair     unreadable:")
+               and line.endswith("the clock treats the station as off the air") for line in lines)
+
+
+def test_a_raise_with_no_known_period_end_is_not_plainly_honoured(tmp_path):
+    st = _with_epoch(make_station(tmp_path)[0])
+    lines = service.status_lines(st.cfg, NOW, cloud=_reader(
+        {"state/budget.json": {"budget_usd": 20, "expires": "2999-01-01T00:00:00Z"}}))
+    assert any(line.endswith("(honoured (period end unknown))") for line in lines)

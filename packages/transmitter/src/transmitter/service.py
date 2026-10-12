@@ -269,16 +269,16 @@ def cloud_lines(read: Callable[[str], dict | None], t_us: int | None = None) -> 
     now = time.time_ns() // 1000 if t_us is None else t_us
     lines: list[str] = []
 
-    def fetch(key: str, label: str):
+    def fetch(key: str, label: str, consequence: str = ""):
         """(ok, doc): a corrupt document prints its own line; anything else raises."""
         try:
             return True, read(key)
         except CloudDocumentError as exc:
-            lines.append(f"{label} unreadable: {exc}")
+            lines.append(f"{label} unreadable: {exc}" + (f" -- {consequence}" if consequence else ""))
             return False, None
 
     try:
-        ok, guard = fetch(cloudstate.GUARD_KEY, "guard     ")
+        ok, guard = fetch(cloudstate.GUARD_KEY, "guard     ", "the clock treats it as a spend trip")
         if ok:
             problem = cloudstate.guard_doc_problem(guard) if guard is not None else None
             try:
@@ -287,11 +287,11 @@ def cloud_lines(read: Callable[[str], dict | None], t_us: int | None = None) -> 
                 summary = []
             if problem is not None:
                 lines.append(f"guard      CORRUPT ({problem}): the clock treats it as a spend trip")
-                lines += summary                   # what the document claims
+                lines += summary[1:]               # its own verdict line is replaced, as `budget` does
                 guard = None
             else:
                 lines += summary
-        ok, offair = fetch(cloudstate.OFFAIR_KEY, "offair    ")
+        ok, offair = fetch(cloudstate.OFFAIR_KEY, "offair    ", "the clock treats the station as off the air")
         if ok:
             if offair is None:
                 lines.append("offair     off")

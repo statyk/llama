@@ -182,6 +182,8 @@ def raise_status_line(raised: dict, guard: dict | None, now_us: int) -> str:
         if isinstance(ev, dict) and _finite(ev.get("base_budget_usd")) is not None:
             base = float(ev["base_budget_usd"])
     verdict = raise_verdict(raised, now_us, end_us, base)[1]
+    if end_us is None and verdict.startswith("honoured"):
+        verdict += " (period end unknown)"
     return f"raise      {usd_text(raised.get('budget_usd'))} until {raised.get('expires')} ({verdict})"
 
 

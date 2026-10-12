@@ -349,7 +349,7 @@ def test_cli_budget_view_reports_an_unreadable_guard_carries_on_and_exits_1(tmp_
     r = CliRunner().invoke(app, ["budget", "--config", str(cfgp)])
     assert r.exit_code == 1
     assert r.output.startswith("guard      ") and "state/guard.json" in r.output.splitlines()[0]
-    assert "raise      $20.00 until 2026-11-11T00:00:00.000Z (honoured)" in r.output
+    assert "raise      $20.00 until 2026-11-11T00:00:00.000Z (honoured (period end unknown))" in r.output
 
 
 def test_cli_budget_view_exits_1_when_the_raise_cannot_be_read(tmp_path, monkeypatch):
