@@ -7,24 +7,28 @@
 ## Stakes
 
 Hosted Voxtral spend is the station's main operating bottleneck; this work
-exists to move some presenters onto a free local model **without** any
-presenter's voice changing underneath it. Nothing here is irreversible:
+exists to move some presenters (or the house voice) onto a free local model
+**without** any voice changing underneath it. Nothing here is irreversible:
 presenter TOMLs are written atomically and are small, re-creatable files, and
 delivered packages are touched only by voicing them exactly as today.
-**Strict surfaces:** (1) **never silently fall back to another backend** — a
-presenter pinned to `mlx_audio` whose server is down must fail, not be voiced
-by Voxtral (that would spend money *and* break voice consistency at once);
-(2) an `mlx_audio` configuration failure (server down, model not loadable,
-missing or blank transcript) must be detected **before** any LLM spend,
-**before** `_process_one` clears a package's manifest blocks, and **before**
-`emcee voice --fresh` deletes the clips it was asked to re-roll, so it can
-never take a broadcast-ready package off air or discard its audio (a hosted
-pin's configuration errors, such as an invalid API key, keep today's timing);
-(3) with no pins set, existing configs and presenter files behave as today,
-except: a failed `emcee voice --fresh` keeps its clips; a presenter file with
-an unknown key fails to load (no live file has one); `presenter add` stores
-`voice_clone` as an absolute path. `presenter list`/`show` and dry-run output
-change only for pinned presenters.
+**Strict surfaces:** (1) **never silently fall back to another backend** — an
+`mlx_audio` voice (pinned presenter or house) whose server is down must fail,
+not be voiced by Voxtral (that would spend money *and* break voice consistency
+at once); (2) an `mlx_audio` configuration failure (server down, model not
+loadable, missing or blank transcript) and, when verification applies, an
+unreachable server or unloadable STT model must be detected **before** any LLM
+spend, **before** `_process_one` clears a package's manifest blocks, and
+**before** `emcee voice --fresh` deletes the clips it was asked to re-roll, so
+it can never take a broadcast-ready package off air or discard its audio;
+configured verification is **never silently skipped** (a hosted pin's
+configuration errors, such as an invalid API key, keep today's timing); (3) a
+clip that fails the runaway guard or verification twice fails its package and
+never airs; (4) with no pins, a hosted house backend and verification off,
+existing configs and presenter files behave as today, except: a failed `emcee
+voice --fresh` keeps its clips; a presenter file with an unknown key fails to
+load (no live file has one); `presenter add` stores `voice_clone` as an
+absolute path. `presenter list`/`show` and dry-run output change only for
+pinned presenters.
 
 ## Background and evidence
 
@@ -50,8 +54,8 @@ loudness-normalized), on the station's M4 Mac mini (16 GB):
 
 WER (from `~/tts-bakeoff/out/*.asr.json`) measures intelligibility, not
 naturalness: Qwen scores better than Voxtral and the operator still judged it
-a downgrade by ear. Every WER-scored take was unseeded (only extra 1.7B/0.6B
-takes used seed 42), and each configuration had only 1–3 takes on one
+a downgrade by ear. Every scored set2 take in the table was unseeded (the extra 1.7B takes and
+the set1 renders, including the 0.6B runaway, used seed 42), and each configuration had only 1–3 takes on one
 presenter. Phil's evaluated reference was a 12.9 s excerpt; the other
 presenters' clips are 21–30 s 48 kHz stereo.
 
@@ -63,7 +67,7 @@ Qwen-specific.
 
 ## Design
 
-### 1. Pinning
+### 1. Pinning and configuration
 
 **Presenter TOML** (`presenters.py:Presenter`) gains three optional fields:
 
@@ -92,53 +96,67 @@ Validation (model validator, at load and before every save):
 - The exactly-one-of `voice`/`voice_clone` rule is unchanged.
 
 **Config** (`config.py`): `[tts]` keeps its meaning — the house voice and
-every unpinned presenter — and gains one subtable:
+every unpinned presenter — and gains `voice_clone_text` and four subtables:
 
 ```toml
 [tts]
 backend = "voxtral"          # the house voice + every unpinned presenter
+voice_clone_text = "..."     # transcript of [tts] voice_clone
+
+[tts.voxtral]                # api_key, model (MISTRAL_API_KEY still wins over api_key)
+[tts.elevenlabs]             # api_key, model (ELEVENLABS_API_KEY still wins)
 
 [tts.mlx_audio]
 url = "http://127.0.0.1:8000"
 model = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
 timeout_s = 600
-stt_model = "mlx-community/whisper-large-v3-turbo"  # only for presenter --transcribe
+stt_model = "..."            # speech-to-text model on the same server
+
+[tts.verify]
+backends = []                # default off; e.g. ["mlx_audio"] or ["mlx_audio", "voxtral"]
 ```
 
-- `[tts.mlx_audio]` is a strict model (`_StrictModel`, `extra="forbid"`).
-  `url` defaults to `http://127.0.0.1:8000`; `model` has no default;
-  `timeout_s` defaults to 600; `stt_model` is optional.
-- **The house voice cannot use `mlx_audio`:** `[tts] backend = "mlx_audio"`
-  is a config error whose message says to pin presenters instead. The house
-  clip and `emcee say --clone` have no transcript source, and Qwen without
-  `ref_text` silently degrades. So `emcee say --clone`/`--voice` (no
-  presenter) always use the house hosted backend, as today.
-- `[tts] model`/`api_key` apply to the house backend only, so the live config
-  (`[tts] api_key` set, `backend` unset = voxtral) behaves as today.
+- Every subtable is strict (`_StrictModel`). `[tts.mlx_audio] url` defaults
+  to `http://127.0.0.1:8000`; `model` has no default; `timeout_s` defaults to
+  600; `stt_model` is optional (used by verification and `--transcribe`).
+- **House voice on `mlx_audio`:** `[tts] backend = "mlx_audio"` requires
+  `[tts] voice_clone` and a non-blank `voice_clone_text`; a `[tts] voice`
+  preset is a config error (mlx is clone-only). `voice_clone_text` is
+  otherwise allowed and ignored.
+- **Hosted keys and models:** a hosted backend's subtable applies wherever
+  that backend is used, as the house backend or as a pin. Legacy `[tts]
+  api_key`/`model` remain valid only while `[tts] backend` is a hosted
+  backend, and then mean that backend's `api_key`/`model` exactly as today, so
+  the live config keeps working unchanged. Setting the same key both in `[tts]`
+  and in the house backend's subtable is a config error naming both locations.
+  With `[tts] backend = "mlx_audio"`, `[tts] api_key`/`model` are a config
+  error whose message names `[tts.voxtral]`/`[tts.elevenlabs]` (for keys) and
+  `[tts.mlx_audio] model` (for the model).
 
-**Resolution:** a new pure function resolves `(backend, model)` for a
-presenter. The backend is `presenter.tts or config.tts.backend`. For
-`mlx_audio` the model is `presenter.tts_model`, else `[tts.mlx_audio] model`,
-else a configuration error. For the house backend it is `[tts] model`, else
-the provider default; for any other hosted backend, the provider default.
+**Resolution:** a new pure function resolves `(backend, model, api_key)` for
+a presenter or the house voice. The backend is `presenter.tts or
+config.tts.backend`. For `mlx_audio` the model is `presenter.tts_model`, else
+`[tts.mlx_audio] model`, else a configuration error. For a hosted backend the
+model is its subtable's `model`, else (only when it is `[tts] backend`) `[tts]
+model`, else the provider default; the key is its subtable's `api_key`, else
+(only when it is `[tts] backend`) `[tts] api_key`. The provider's env var
+(`MISTRAL_API_KEY` / `ELEVENLABS_API_KEY`) still wins over both, as today. A
+missing key is the existing "API key missing" error, which fires at provider
+construction, before any spend, and names the env var and the locations that
+apply.
 
-A presenter pinned to a hosted backend that is **not** the house backend takes
-its API key from that backend's env var only (`MISTRAL_API_KEY` /
-`ELEVENLABS_API_KEY`), never from `[tts] api_key`. A missing key is the
-existing "API key missing" error, which fires at provider construction, before
-any spend; for such a pin it names only the env var.
-
-`speech_provider_for` takes the resolved backend, model and transcript
-(`clone_text`: the presenter's `voice_clone_text`, or `None`) as **required**
-arguments with no defaults, instead of reading `config.tts.backend` itself, so
-an unmigrated call site fails loudly rather than falling back to `[tts]
-backend` or dropping the transcript. `speech_for` (runs/voice) and
-`ad_hoc_speech`'s `--presenter` branch (`emcee say --presenter`,
-`process.py:139-145`, which today calls `speech_provider_for` directly) both
-route through the resolver; the house voice resolves from `[tts]` as today.
-The factory's ElevenLabs-clone check applies to **any** clone that resolves to
-`elevenlabs`, pinned or inherited. The render cache keys on `speech.voice` and
-`speech.model`, so a re-pinned presenter never reuses another backend's clips.
+`speech_provider_for` takes the resolution and the transcript (`clone_text`)
+as **required** arguments with no defaults, instead of reading
+`config.tts.backend` itself, so an unmigrated call site fails loudly rather
+than falling back to `[tts] backend` or dropping the transcript. `clone_text`
+is `[tts] voice_clone_text` (house), the presenter's `voice_clone_text`
+(presenter), `say --clone-text` (`say --clone`), or `None`. `speech_for`
+(run/voice) and every `ad_hoc_speech` branch (`emcee say`,
+`process.py:139-147`, which today calls `speech_provider_for` directly) route
+through the resolver. The factory's ElevenLabs-clone check applies to **any**
+clone that resolves to `elevenlabs`, pinned or inherited. The render cache
+keys on `speech.voice` and `speech.model`, so a re-pinned presenter never
+reuses another backend's clips.
 
 `emcee run --dry-run` prints the resolved backend/model beside **pinned**
 presenters only, so pins can be audited before any spend. It loads presenter
@@ -150,12 +168,12 @@ listing. Dry-run does not preflight.
 ### 2. The `mlx_audio` provider (`tts/mlx_audio.py`)
 
 - **Request:** `POST {url}/v1/audio/speech`, JSON body `model`, `input`,
-  `response_format = "wav"`, `max_tokens = 4000`, `ref_audio` (the clip's
-  absolute path) and `ref_text`. `max_tokens` is sent explicitly because the
-  server's default of 1200 (≈ 96 s) silently truncates long unchunked
-  segments; 4000 is the value the bake-off sent. At construction the clip is
-  checked readable and a `ref_text` that is empty after `.strip()` is a
-  `SpeechError`, so a bad clone fails before synthesis.
+  `response_format = "wav"`, `max_tokens` (capped in proportion to the
+  text's length, section 3), `ref_audio` (the clip's absolute path) and
+  `ref_text`. `max_tokens` is always sent because the server's default of
+  1200 (≈ 96 s) silently truncates long unchunked segments. At construction
+  the clip is checked readable and a `ref_text` that is empty after
+  `.strip()` is a `SpeechError`, so a bad clone fails before synthesis.
 - **Identity:** `.voice = "clone:" + sha256(clip bytes + b"\0" +
   transcript)[:16]` (Voxtral's pattern; a corrected transcript invalidates
   cached clips); `.model` is the resolved model id.
@@ -182,6 +200,7 @@ listing. Dry-run does not preflight.
   `SpeechError`: a down server, an unknown or unloadable model or a bad
   response fails here, and the cold model load is absorbed, at no cost. House
   beds are always 24 kHz (`tts/bed.py`), so no bed-rate check is needed.
+  When verification applies, preflight also checks the STT model (section 3).
   In `_process_one` (`cli.py:226`) the existing `try/finally speech.close()`
   moves up to start right after `speech_for`, and preflight is its first call:
   before the `--fresh` unlink and before `rewrite_manifest(pkg, dj_notes=None,
@@ -195,7 +214,63 @@ listing. Dry-run does not preflight.
   configuration-only error discards the clips.
 - **Timeout:** `[tts.mlx_audio] timeout_s` (default 600) per sentence request.
 
-### 3. Operator commands
+### 3. Runaway guard and transcript verification
+
+**Runaway guard** (always on for `mlx_audio`, inside the provider). Each
+request's `max_tokens` is capped in proportion to the text's length, so one
+sentence cannot generate minutes of audio, and the returned audio's duration
+is checked against the text's length: a clip implausibly long or short for
+its text is a guard failure, handled by the retry rule below.
+Evidence: the bake-off's Qwen 0.6B turned one set1 sentence into 320 s of
+babble (clip 432 s instead of ~120 s, WER 52%).
+
+**Retry rule (one per sentence, whichever check failed).** A guard or
+verification failure re-synthesizes that sentence once (output is
+non-deterministic); any second failure of either check is a `SpeechError`
+naming the segment, the sentence and, for verification, both texts — so the
+package fails rather than airing it. At most two synthesis calls per
+sentence; for Voxtral the retry costs one extra call for the failed sentence
+only.
+
+**Transcript verification** (optional, any backend listed in `[tts.verify]
+backends`). The resolved provider is wrapped so that every `synthesize`
+result — per sentence on the chunked path, per segment otherwise — is
+transcribed via the server's `POST /v1/audio/transcriptions` (`model =
+stt_model`, `response_format=json`; the server decodes WAV and MP3,
+`mlx_audio/audio_io.py` `read`) and compared with the text that was sent.
+
+- The comparison normalizes both sides (case, punctuation, numbers and
+  ordinals in either form, since the script may spell out what Whisper writes
+  as digits) and fails only on **gross** mismatch: too few of the script's
+  words recovered, or a transcript far longer than the script. It tolerates a
+  wrong word or two per sentence: ASR misrenders proper nouns ("De Doelen"
+  fails on Voxtral too), and the lexicon's respellings (`Shugaree`) are sent
+  as spelled.
+- A transcription request that fails is a `SpeechError`, never a pass.
+- Config: a non-empty `backends` requires `[tts.mlx_audio] stt_model`; a
+  name other than `mlx_audio`, `voxtral`, `elevenlabs` is a config error.
+- **Never silently skipped:** when a package's resolved backend is listed,
+  preflight also transcribes one short in-memory clip (only a successful
+  response is required), so an unreachable server or unloadable STT model
+  fails the package before LLM spend and before the manifest clear. A Voxtral
+  presenter therefore depends on the local server whenever `"voxtral"` is
+  listed.
+- The wrapper keeps the inner provider's `.voice`/`.model`, so clips served
+  from the render cache are not re-verified, and turning verification on does
+  not invalidate the cache.
+- `emcee say` verifies when its backend is listed (no preflight; a dead
+  server fails its first check).
+
+**Constants are measured, not guessed.** The guard's cap and duration
+constants and the verification thresholds are set by a measurement task in
+the implementation plan: render ~50 unseeded sentences (several presenters'
+clips, Phil included) through the real server, record per-sentence duration,
+character count and transcript match, and pick constants that pass every
+clean sentence with margin and fail the bake-off's known runaway (Qwen 0.6B
+set1). The data and the chosen constants go in an in-repo evidence doc that
+the constants cite.
+
+### 4. Operator commands
 
 **`emcee presenter edit <id>`** — edits any subset of fields; unspecified
 fields keep their values:
@@ -210,14 +285,11 @@ fields keep their values:
   `voice` and also clears `voice_clone_text` unless a new one
   (`--voice-clone-text` or `--transcribe`) is given in the same command, so
   validation forces a fresh transcript for an `mlx_audio` pin;
-- **`--transcribe`** drafts `voice_clone_text` by posting the (resulting)
-  clip to the server's `/v1/audio/transcriptions` with
-  `response_format=json` (the server's default is ndjson), prints the draft,
+- **`--transcribe`** drafts `voice_clone_text` by transcribing the
+  (resulting) clip with verification's STT client and `[tts.mlx_audio]
+  stt_model` (required only when `--transcribe` is used), prints the draft,
   and writes it only on confirmation; mutually exclusive with
-  `--voice-clone-text`. The transcription model is `[tts.mlx_audio]
-  stt_model` (a Whisper model id; required only when `--transcribe` is used).
-  After transcribing it sends `DELETE /v1/models?model_name=<stt_model>` so
-  Whisper does not stay resident beside the TTS model.
+  `--voice-clone-text`.
 - `voice_clone` is stored as an absolute, resolved path (the server reads it
   from its own working directory).
 - The merged result is validated as a whole **before** an atomic save; any
@@ -234,11 +306,17 @@ it from `~/tts-bakeoff/refs/` first).
 `presenter list`/`show` display the pin, so every presenter field is
 CLI-editable (`[assign]` stays the only hand-edited emcee config).
 
+**`emcee say`:** with no voice flags it uses the house voice, including its
+transcript. `--clone PATH` gains `--clone-text TEXT`, required (non-blank)
+when the house backend is `mlx_audio` and ignored otherwise; `--clone-text`
+without `--clone` is a usage error. `--voice` with an `mlx_audio` house is a
+usage error. `--presenter` follows the presenter's pin.
+
 **Reference clips:** the server decodes, resamples and down-mixes reference
 clips itself (`mlx_audio/utils.py` `load_audio`), so 48 kHz stereo clips such
 as `phil.wav` are accepted; emcee does not convert them.
 
-### 4. Docs
+### 5. Docs
 
 - A runbook section:
   - **Install the new emcee release before pinning any presenter** — an older
@@ -251,25 +329,34 @@ as `phil.wav` are accepted; emcee does not convert them.
     that works under launchd, and `HF_HUB_OFFLINE=1` so a mistyped model id
     fails fast instead of starting a download; how to stop/start it.
   - Memory: the server keeps every model it has served resident until restart,
-    so presenters pinned to different mlx models hold all of them.
-  - Before moving Phil: copy `phil_ex.wav` (section 3) and pass the
-    ~50-sentence quality check (Unverified premises).
+    so presenters pinned to different mlx models hold all of them, and with
+    verification on it also holds the STT model.
+  - Drafting a transcript by hand: `mlx_whisper` on the CLI, when no
+    server-loadable `stt_model` is configured.
+  - Before moving Phil: copy `phil_ex.wav` (section 4); the calibration task
+    (section 3) must have set the constants; then a go-live listen.
   - Rollback: to unpin Phil, `emcee presenter edit phil --clear-tts
     --clear-tts-model --voice-clone ~/.emcee/samples/phil.wav` (his aired
     Voxtral reference); unpin before downgrading the binary.
-- `emcee config init`'s template gains `[tts.mlx_audio]`, commented.
-- CLAUDE.md: the emcee paragraph (backends, pinning, `presenter edit`, the
-  house voice staying hosted), and the "presenter voice clones are
-  Voxtral-only" statement, which becomes false.
+- `emcee config init`'s template gains `[tts] voice_clone_text`,
+  `[tts.voxtral]`, `[tts.elevenlabs]`, `[tts.mlx_audio]` and `[tts.verify]`,
+  commented.
+- The evidence doc for the measured constants (section 3).
+- CLAUDE.md: the emcee paragraph (backends, pinning, the house voice on
+  `mlx_audio`, per-backend key subtables, the runaway guard, verification,
+  `presenter edit`), and the "presenter voice clones are Voxtral-only"
+  statement, which becomes false.
 
-### 5. Testing (offline, deterministic)
+### 6. Testing (offline, deterministic)
 
 - Provider against `httpx.MockTransport`: request body (`ref_audio`,
-  `ref_text`, `response_format = "wav"`, `max_tokens = 4000`); a non-200
-  failing at once with the server's text; a `RemoteProtocolError` from the
-  transport as a `SpeechError`, not retried; one retry on `ConnectError`,
-  none on `ReadTimeout`; a blank `ref_text`, a non-16-bit or a stereo WAV
-  rejected; local mp3 encoding for `fmt="mp3"`.
+  `ref_text`, `response_format = "wav"`, `max_tokens` proportional to the
+  text); a non-200 failing at once with the server's text; a
+  `RemoteProtocolError` from the transport as a `SpeechError`, not retried;
+  one retry on `ConnectError`, none on `ReadTimeout`; a blank `ref_text`, a
+  non-16-bit or a stereo WAV rejected; local mp3 encoding for `fmt="mp3"`.
+- Runaway guard: an implausibly long (and short) clip retried once, then a
+  `SpeechError` naming segment and sentence; a pass on the retry succeeds.
 - Preflight: a no-op on the hosted and fake providers; a non-24 kHz WAV
   rejected. Strict surface 2, on an already-voiced package with a dead
   server: `_process_one` and `emcee voice --fresh` raise with no scriptwrite
@@ -278,16 +365,31 @@ as `phil.wav` are accepted; emcee does not convert them.
   backend `voxtral` (env key set, a transport that fails the test if called),
   an `mlx_audio` pin and a dead server, each raises and constructs or calls no
   provider but the mlx one (strict surface 1).
-- Config: `[tts] backend = "mlx_audio"` rejected; `[tts.mlx_audio]` strict
-  with its defaults; a missing mlx model an error; the live config loads.
+- Config: `[tts.mlx_audio]` with its defaults; a missing mlx model an error;
+  every subtable strict; the live config loads. House `mlx_audio`: requires
+  `voice_clone` and a non-blank `voice_clone_text`, rejects a `voice` preset,
+  and rejects `[tts] api_key`/`model` with a message naming the subtables.
+  Legacy `[tts] api_key`/`model` valid under a hosted house; the same key in
+  `[tts]` and the house subtable an error naming both. `[tts.verify]`: an
+  unknown backend name, and a non-empty list without `stt_model`, rejected.
 - Presenter validation matrix (the rules in section 1), including strictness
   (an unknown key is a load error), and rejection of empty-string
   `tts`/`tts_model`, a `fake` pin, `tts_model` on a hosted pin, a preset
   `voice` with an `mlx_audio` pin, and a whitespace-only transcript.
 - Resolution: presenter pin > house; mlx model pin > `[tts.mlx_audio] model`;
-  a hosted pin uses `[tts] model` only when it is the house backend; a
-  non-house hosted pin ignores `[tts] api_key`; an ElevenLabs clone is
-  rejected whether pinned or inherited.
+  a hosted model and key from the subtable, else from legacy `[tts]` only for
+  the house backend, else the default (model) or "API key missing" (key); env
+  wins over both; an ElevenLabs clone rejected whether pinned or inherited.
+- `say`: `--clone` without `--clone-text` rejected under an `mlx_audio`
+  house, `--clone-text` without `--clone` rejected, `--voice` rejected under
+  an `mlx_audio` house, and no voice flags sending the house transcript.
+- Verification: a pass, a fail-then-pass retry, and a double fail as a
+  `SpeechError` with both texts; numbers in digits vs words match; a wrong
+  word or two passes; an unreachable STT server fails the package at
+  preflight (no scriptwrite call, manifest bytes unchanged); a failed
+  transcription request is a `SpeechError`; cache hits not re-verified;
+  Voxtral output verified only when `"voxtral"` is listed; `say` verifies
+  when listed.
 - A two-presenter `emcee run` with different backends gets one provider per
   package and distinct cache keys.
 - `emcee run --dry-run`: unpinned output unchanged; a pin shows its
@@ -297,27 +399,33 @@ as `phil.wav` are accepted; emcee does not convert them.
 - `presenter edit`: each flag, set/clear conflicts, `--voice` with
   `--voice-clone` rejected, `--voice` clearing the clip and transcript, a
   changed clip clearing the transcript, `--transcribe` confirm/decline (with
-  `response_format=json` and the Whisper unload), absolute clip path stored,
-  and file-untouched-on-reject.
+  `response_format=json`), absolute clip path stored, and
+  file-untouched-on-reject.
 - One opt-in `live` test against a running server.
 
 ## Out of scope
 
 Managing the server process; resampling, and non-24 kHz mlx models; preset
-voices or the house voice on `mlx_audio` (needs `[tts] voice_clone_text` and
-`say --clone-text`); recording backend/model in the manifest's `dj_audio`
+voices on `mlx_audio`; recording backend/model in the manifest's `dj_audio`
 block (the presenter file already says, unless re-pinned later); concurrent
 mlx models; F5-TTS (not servable by mlx-audio); any llama change; cutting the
 release.
 
 ## Unverified premises
 
-- **Memory headroom** of a resident Qwen 1.7B on the 16 GB mini in a real run:
-  the bake-off's `peak_rss_gb` of 12.0 looks capped. Test: `footprint`.
+- **Memory headroom** of a resident Qwen 1.7B (plus the STT model with
+  verification on) on the 16 GB mini in a real run: the bake-off's
+  `peak_rss_gb` of 12.0 looks capped. Test: `footprint`.
 - **Unseeded production quality:** the babble/truncation rate is unknown.
-  Test, gating Phil going live: ~50 unseeded sentences, flagging
-  duration-per-character outliers.
-- **Presenters other than Phil:** unmeasured. Test: one `say` each.
+  Test, gating Phil going live: the calibration task (section 3), then a
+  go-live listen.
+- **Presenters other than Phil:** unmeasured beyond the calibration sample.
+  Test: one `say` each.
+- **A loadable `stt_model`:** `mlx-community/whisper-large-v3-turbo`
+  (mlx_whisper format) does not load in mlx-audio's server, whose Whisper
+  loader needs processor files; the server supports other STT families
+  (Whisper with processor files, Parakeet, Qwen3-ASR, …). Test: the plan's
+  first task confirms one by a live request.
 - **Live server responses:** stdlib `wave` was checked against mlx-audio's
   WAV writer (`audio_io.write`: 24000 Hz, mono, 16-bit), not a live response;
   a mistyped model id under `HF_HUB_OFFLINE=1` should be a non-200 before
