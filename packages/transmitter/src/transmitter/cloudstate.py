@@ -19,7 +19,7 @@ import time
 from typing import Any, Callable
 
 from transmitter import grid
-from transmitter.errors import CloudStateError
+from transmitter.errors import CloudDocumentError, CloudStateError
 from transmitter.publish import GUARD_KEY, NON_RETRYABLE, OFFAIR_KEY
 from transmitter.publish import _error_code as _code
 
@@ -42,15 +42,19 @@ def get_json(client: Any, bucket: str, key: str, *, corrupt_as_absent: bool = Fa
             return None
         raise CloudStateError(f"cannot read {key}: {exc}") from exc
     try:
-        doc = json.loads(resp["Body"].read())
+        raw = resp["Body"].read()
+    except Exception as exc:                   # a streaming or read-timeout error is a failed read too
+        raise CloudStateError(f"cannot read {key}: {exc}") from exc
+    try:
+        doc = json.loads(raw)
     except ValueError as exc:
         if corrupt_as_absent:
             return None
-        raise CloudStateError(f"{key} is not JSON: {exc}") from exc
+        raise CloudDocumentError(f"{key} is not JSON: {exc}") from exc
     if not isinstance(doc, dict):
         if corrupt_as_absent:
             return None
-        raise CloudStateError(f"{key} is not a JSON object")
+        raise CloudDocumentError(f"{key} is not a JSON object")
     return doc
 
 
@@ -162,6 +166,23 @@ def guard_period_end_us(guard: dict) -> int:
     except (KeyError, TypeError, ValueError, AttributeError) as exc:
         raise CloudStateError("state/guard.json has no billing period yet: wait for the guard's first "
                               "successful evaluation (within 15 minutes of deploying antenna)") from exc
+
+
+def raise_status_line(raised: dict, guard: dict | None, now_us: int) -> str:
+    """`budget` and `status`'s one `raise` line: the amount when finite, the
+    expiry, and the verdict (honoured / expired / ignored: ...), judged against
+    guard.json's period end and configured budget when they are known."""
+    end_us = base = None
+    if guard is not None:
+        try:
+            end_us = guard_period_end_us(guard)
+        except CloudStateError:
+            pass
+        ev = guard.get("evaluation")
+        if isinstance(ev, dict) and _finite(ev.get("base_budget_usd")) is not None:
+            base = float(ev["base_budget_usd"])
+    verdict = raise_verdict(raised, now_us, end_us, base)[1]
+    return f"raise      {usd_text(raised.get('budget_usd'))} until {raised.get('expires')} ({verdict})"
 
 
 def current_budget_usd(guard: dict) -> float:

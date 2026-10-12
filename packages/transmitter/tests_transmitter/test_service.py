@@ -424,3 +424,121 @@ def test_status_without_cloud_access_still_prints_the_local_half(tmp_path):
     assert service.status_lines(st.cfg, NOW, cloud=broken)[-1] == "cloud      unavailable: cannot read state/guard.json: boom"
     assert service.status_lines(st.cfg, NOW, cloud_error="set R2_ACCESS_KEY_ID")[-1] == \
         "cloud      unavailable: set R2_ACCESS_KEY_ID"
+
+
+# ---- status never trusts a state document (fix round 1: G1-G6) ----
+
+def _reader(docs):
+    """A cloud reader over raw bytes, through the real cloudstate.get_json."""
+    import json as _json
+    from transmitter import cloudstate
+
+    bucket = FakeBucket()
+    for key, doc in docs.items():
+        bucket.objects[key] = {"Body": doc if isinstance(doc, bytes) else _json.dumps(doc).encode(),
+                               "ContentType": "application/json", "CacheControl": "no-store"}
+    return lambda key: cloudstate.get_json(bucket, "b", key)
+
+
+@pytest.mark.parametrize("raw", [b"{not json", b"[1,2]"])
+def test_status_survives_a_corrupt_local_alerts_file(tmp_path, raw):
+    st = _with_epoch(make_station(tmp_path)[0])
+    (st.ws.root / "alerts.json").write_bytes(raw)
+    lines = service.status_lines(st.cfg, NOW, cloud=_reader({}))
+    assert f"alerts     hugo: unreadable ({st.ws.alerts_path})" in lines
+    assert any(line.startswith("fallback") for line in lines) and "alerts     cloud: none" in lines
+
+
+def test_status_renders_a_malformed_or_expired_raise_through_the_verdict(tmp_path):
+    st = _with_epoch(make_station(tmp_path)[0])
+    bad = service.status_lines(st.cfg, NOW, cloud=_reader({"state/budget.json": {"budget_usd": "abc"}}))
+    assert any(line.startswith("raise      unknown until") and "ignored: budget_usd is not a number" in line
+               for line in bad)
+    old = service.status_lines(st.cfg, NOW, cloud=_reader(
+        {"state/budget.json": {"budget_usd": 20, "expires": "2000-01-01T00:00:00Z"}}))
+    assert any(line.startswith("raise      $20.00 until 2000-01-01") and line.endswith("(expired)") for line in old)
+    assert "alerts     cloud: none" in old
+
+
+@pytest.mark.parametrize("doc", [{"offair": "true"}, {}])
+def test_status_flags_a_corrupt_offair_document(tmp_path, doc):
+    st = _with_epoch(make_station(tmp_path)[0])
+    lines = service.status_lines(st.cfg, NOW, cloud=_reader({"state/offair.json": doc}))
+    assert ("offair     CORRUPT: the clock treats the station as off the air; "
+            "rewrite with transmitter offair on|off") in lines
+
+
+def test_status_offair_absent_and_false_read_as_off(tmp_path):
+    st = _with_epoch(make_station(tmp_path)[0])
+    assert "offair     off" in service.status_lines(st.cfg, NOW, cloud=_reader({}))
+    assert "offair     off" in service.status_lines(st.cfg, NOW, cloud=_reader({"state/offair.json": {"offair": False}}))
+
+
+def test_status_flags_a_guard_document_the_guard_would_reject(tmp_path):
+    st = _with_epoch(make_station(tmp_path)[0])
+    lines = service.status_lines(st.cfg, NOW, cloud=_reader({"state/guard.json": {"tripped": False}}))
+    corrupt = [line for line in lines if line.startswith("guard      CORRUPT (")]
+    assert corrupt and corrupt[0].endswith("): the clock treats it as a spend trip")
+    assert "offair     off" in lines
+
+
+def test_one_unreadable_document_blanks_only_its_own_line(tmp_path):
+    st = _with_epoch(make_station(tmp_path)[0])
+    lines = service.status_lines(st.cfg, NOW, cloud=_reader(
+        {"state/offair.json": b"not json", "state/alerts.json": {"x": {"active": True}, "y": {"active": False}}}))
+    assert any(line.startswith("offair     unreadable: state/offair.json is not JSON") for line in lines)
+    assert "alerts     cloud: x" in lines            # the inactive entry is not listed
+    assert any(line.startswith("guard      no state/guard.json") for line in lines)
+    assert not any(line.startswith("cloud      unavailable") for line in lines)
+
+
+def test_get_json_turns_a_body_read_failure_into_a_cloud_state_error():
+    from transmitter import cloudstate
+    from transmitter.errors import CloudStateError
+
+    class Body:
+        def read(self):
+            raise ConnectionError("reset")
+
+    class Client:
+        def get_object(self, **kw):
+            return {"Body": Body()}
+
+    with pytest.raises(CloudStateError, match="cannot read state/guard.json: reset"):
+        cloudstate.get_json(Client(), "b", "state/guard.json")
+
+
+def test_status_turns_any_reader_exception_into_the_unavailable_line(tmp_path):
+    st = _with_epoch(make_station(tmp_path)[0])
+
+    def boom(key):
+        raise ValueError("odd")
+
+    lines = service.status_lines(st.cfg, NOW, cloud=boom)
+    assert lines[-1] == "cloud      unavailable: odd"
+    assert any(line.startswith("fallback") for line in lines)
+
+
+def test_status_without_an_epoch_still_shows_the_cloud_half(tmp_path):
+    st = make_station(tmp_path)[0]
+    lines = service.status_lines(st.cfg, NOW, cloud=_reader({}))
+    assert lines[0].startswith("no epoch yet") and "offair     off" in lines
+    assert service.status_lines(st.cfg, NOW, cloud_error="no keys")[-1] == "cloud      unavailable: no keys"
+
+
+def test_cli_status_with_a_malformed_endpoint_prints_the_local_half(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from transmitter.cli import app
+
+    monkeypatch.setenv("TRANSMITTER_ROOT", str(tmp_path / "tx"))
+
+    def bad_client(cfg):
+        raise ValueError("Invalid endpoint: nope")
+
+    monkeypatch.setattr(service, "make_client", bad_client)
+    cfgp = tmp_path / "c.toml"
+    cfgp.write_text('[publish]\nbucket = "b"\n')
+    r = CliRunner().invoke(app, ["status", "--config", str(cfgp)])
+    assert r.exit_code == 0, r.output
+    assert "no epoch yet" in r.output and "cloud      unavailable: Invalid endpoint: nope" in r.output

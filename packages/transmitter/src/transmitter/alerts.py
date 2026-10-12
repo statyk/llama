@@ -48,6 +48,16 @@ def _expired(code: str, entry: dict, now: float, repeat_s: float) -> bool:
     return code not in LEVEL_CODES and (not _is_num(last) or now - last > repeat_s)
 
 
+def load_state(path: Path) -> dict | None:
+    """alerts.json as a dict ({} when absent), or None when it cannot be read:
+    unreadable, not JSON, or not a JSON object."""
+    try:
+        data = read_json(path, {})
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def active_codes(state: dict, now: float, repeat_s: float) -> list[str]:
     """The codes still alarming (what `status` lists): a level code until it is
     resolved, an event code until `repeat_s` passes without a new fire."""
@@ -120,12 +130,11 @@ class Dispatcher:
 
     def _load(self) -> dict:
         # A corrupt or hand-edited file must not wedge alerting: start afresh.
-        try:
-            data = read_json(self.path, {})
-        except (OSError, ValueError):
+        state = load_state(self.path)
+        if state is None:
             log.warning("alerts state %s is unreadable; starting afresh", self.path)
             return {}
-        return data if isinstance(data, dict) else {}
+        return state
 
     def _state(self) -> dict:
         """alerts.json merged with this process's own record, the newer entry

@@ -9,7 +9,7 @@ import typer
 
 from transmitter import aacenc, cloudstate, fallback, grid, pipeline, service
 from transmitter.config import DEFAULT_CONFIG_TOML, default_root, load_config
-from transmitter.errors import ConfigError, TransmitterError
+from transmitter.errors import CloudStateError, ConfigError, TransmitterError
 from transmitter.workspace import atomic_write_text
 
 app = typer.Typer(help="Plan, render and publish the station's HLS stream",
@@ -147,25 +147,9 @@ def budget(
         typer.echo(f"raise      {exc}")
         raised = None
     if raised:
-        typer.echo(f"raise      {cloudstate.usd_text(raised.get('budget_usd'))} until {raised.get('expires')} "
-                   f"({_raise_status(raised, guard)})")
+        typer.echo(cloudstate.raise_status_line(raised, guard, service.now_us()))
     if failed:
         raise typer.Exit(1)
-
-
-def _raise_status(raised: dict, guard: dict | None) -> str:
-    """Whether the Worker honours state/budget.json, judged against guard.json's
-    period end and configured budget when they are known."""
-    end_us = base = None
-    if guard is not None:
-        try:
-            end_us = cloudstate.guard_period_end_us(guard)
-        except TransmitterError:
-            pass
-        ev = guard.get("evaluation")
-        if isinstance(ev, dict) and cloudstate.usd_text(ev.get("base_budget_usd")) != "unknown":
-            base = float(ev["base_budget_usd"])
-    return cloudstate.raise_verdict(raised, service.now_us(), end_us, base)[1]
 
 
 @app.command()
@@ -233,8 +217,15 @@ def status(config: Path = CONFIG_OPT):
     cloud, error = None, None
     try:
         client, bucket = _cloud(config)
-        cloud = lambda key: cloudstate.get_json(client, bucket, key)  # noqa: E731
-    except TransmitterError as exc:                # no bucket or no R2 keys: the local half still prints
+
+        def cloud(key: str):                       # a read-only view: any failure is a line, not a traceback
+            try:
+                return cloudstate.get_json(client, bucket, key)
+            except TransmitterError:
+                raise
+            except Exception as exc:
+                raise CloudStateError(f"cannot read {key}: {exc}") from exc
+    except Exception as exc:                       # no bucket, no R2 keys, a malformed endpoint: local half still prints
         error = str(exc)
     for line in service.status_lines(cfg, service.now_us(), cloud, error):
         typer.echo(line)

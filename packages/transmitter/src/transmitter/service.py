@@ -16,7 +16,7 @@ from transmitter import alerts, analysis, cloudstate, grid, pipeline, publish, r
 from transmitter.analysis import ShowAnalysis
 from transmitter.config import TransmitterConfig
 from transmitter.deadclock import DeadClockMonitor
-from transmitter.errors import ConfigError, FrameCountDrift, PublishLocked, StationRootError, TransmitterError
+from transmitter.errors import CloudDocumentError, ConfigError, FrameCountDrift, PublishLocked, StationRootError, TransmitterError
 from transmitter.layout import PlanRow
 from transmitter.planner import read_plan
 from transmitter.state import load_fallback_version, load_publish_state
@@ -260,27 +260,65 @@ class Runner:
             self.notify("STOPPING=1")
 
 
-def cloud_lines(read: Callable[[str], dict | None]) -> list[str]:
+def cloud_lines(read: Callable[[str], dict | None], t_us: int | None = None) -> list[str]:
     """`status`'s cloud half: the guard, the operator's flag, a raise, cloud
-    alerts. `read(key)` returns a state/ document or None (cloudstate.get_json)."""
+    alerts. `read(key)` returns a state/ document or None (cloudstate.get_json).
+    Each document is read on its own: a corrupt one prints its own line and the
+    rest still print. An access or transport failure ends the half with one
+    `unavailable` line (the next read would fail the same way)."""
+    now = time.time_ns() // 1000 if t_us is None else t_us
+    lines: list[str] = []
+
+    def fetch(key: str, label: str):
+        """(ok, doc): a corrupt document prints its own line; anything else raises."""
+        try:
+            return True, read(key)
+        except CloudDocumentError as exc:
+            lines.append(f"{label} unreadable: {exc}")
+            return False, None
+
     try:
-        guard = read(cloudstate.GUARD_KEY)
-        offair = read(cloudstate.OFFAIR_KEY)
-        raised = read(cloudstate.BUDGET_KEY)
-        cloud_alerts = read(cloudstate.ALERTS_KEY) or {}
-    except TransmitterError as exc:
-        return [f"cloud      unavailable: {exc}"]
-    lines = cloudstate.guard_summary(guard)
-    if offair and offair.get("offair") is True:
-        lines.append(f"offair     ON since {offair.get('since')} ({offair.get('reason')})"
-                     + (f", expected until {offair['until']}" if offair.get("until") else ""))
-    else:
-        lines.append("offair     off")
-    if raised:
-        lines.append(f"raise      ${float(raised.get('budget_usd', 0)):.2f} until {raised.get('expires')}")
-    active = sorted(k for k, e in cloud_alerts.items() if isinstance(e, dict) and e.get("active"))
-    lines.append(f"alerts     cloud: {', '.join(active) if active else 'none'}")
+        ok, guard = fetch(cloudstate.GUARD_KEY, "guard     ")
+        if ok:
+            problem = cloudstate.guard_doc_problem(guard) if guard is not None else None
+            try:
+                summary = cloudstate.guard_summary(guard)
+            except (TypeError, ValueError, AttributeError):
+                summary = []
+            if problem is not None:
+                lines.append(f"guard      CORRUPT ({problem}): the clock treats it as a spend trip")
+                lines += summary                   # what the document claims
+                guard = None
+            else:
+                lines += summary
+        ok, offair = fetch(cloudstate.OFFAIR_KEY, "offair    ")
+        if ok:
+            if offair is None:
+                lines.append("offair     off")
+            elif offair.get("offair") is True:
+                lines.append(f"offair     ON since {offair.get('since')} ({offair.get('reason')})"
+                             + (f", expected until {offair['until']}" if offair.get("until") else ""))
+            elif offair.get("offair") is False:
+                lines.append("offair     off")
+            else:
+                lines.append("offair     CORRUPT: the clock treats the station as off the air; "
+                             "rewrite with transmitter offair on|off")
+        ok, raised = fetch(cloudstate.BUDGET_KEY, "raise     ")
+        if ok and raised:
+            lines.append(cloudstate.raise_status_line(raised, guard, now))
+        ok, cloud_alerts = fetch(cloudstate.ALERTS_KEY, "alerts     cloud:")
+        if ok:
+            active = sorted(k for k, e in (cloud_alerts or {}).items() if isinstance(e, dict) and e.get("active"))
+            lines.append(f"alerts     cloud: {', '.join(active) if active else 'none'}")
+    except Exception as exc:                       # a read-only view: never a traceback
+        lines.append(f"cloud      unavailable: {exc}")
     return lines
+
+
+def _cloud_tail(cloud, cloud_error: str | None, t_us: int) -> list[str]:
+    if cloud is not None:
+        return cloud_lines(cloud, t_us)
+    return [f"cloud      unavailable: {cloud_error}"] if cloud_error else []
 
 
 def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict | None] | None = None,
@@ -288,7 +326,7 @@ def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict 
     ws = Workspace(cfg.root)
     epoch = load_epoch(ws)
     if epoch is None:
-        return ["no epoch yet - run `transmitter plan` (or `transmitter run`) first"]
+        return ["no epoch yet - run `transmitter plan` (or `transmitter run`) first"] + _cloud_tail(cloud, cloud_error, t_us)
     rows = read_plan(ws.plan_path)
     pub = load_publish_state(ws)
     fb = load_fallback_version(ws)
@@ -308,10 +346,10 @@ def status_lines(cfg: TransmitterConfig, t_us: int, cloud: Callable[[str], dict 
         lines.append(f"published  segments {pub.first}..{pub.last}; lead {lead_h:.1f} h")
     lines.append(f"fallback   {fb}" if fb else "fallback   none (run `transmitter fallback render`)")
     lines.append("anchors    none (the scheduler and its window misses are phase 3)")
-    hugo = alerts.active_codes(read_json(ws.alerts_path, {}) or {}, t_us / 1e6, cfg.alerts.repeat_hours * 3600)
-    lines.append(f"alerts     hugo: {', '.join(hugo) if hugo else 'none'}")
-    if cloud is not None:
-        lines += cloud_lines(cloud)
-    elif cloud_error:
-        lines.append(f"cloud      unavailable: {cloud_error}")
-    return lines
+    state = alerts.load_state(ws.alerts_path)
+    if state is None:
+        lines.append(f"alerts     hugo: unreadable ({ws.alerts_path})")
+    else:
+        hugo = alerts.active_codes(state, t_us / 1e6, cfg.alerts.repeat_hours * 3600)
+        lines.append(f"alerts     hugo: {', '.join(hugo) if hugo else 'none'}")
+    return lines + _cloud_tail(cloud, cloud_error, t_us)
