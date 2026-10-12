@@ -64,7 +64,8 @@ def row_analysis(st: pipeline.Station, row: PlanRow) -> ShowAnalysis | None:
     not the tick's time) with `quiet_s=0`, and runs inside `_publish_site`, so
     when `cache/<key>.json` is missing it can run a full ffmpeg analysis while
     the publish flock is held, lengthening that one publish tick by minutes.
-    Acceptable: the cache is never garbage-collected, so this is reachable only
+    A lost `cache/` can make this recompute long enough to meet WatchdogSec
+    (it is not followed by a watchdog ping). Acceptable: the cache is never garbage-collected, so this is reachable only
     after an operator deleted `cache/` (or a decode mismatch dropped an entry)."""
     cached = analysis.load_cached(st.ws.cache_dir, row.key)
     if cached is not None:
@@ -150,7 +151,7 @@ def publish_all(p: publish.Publisher, t_us: int, held: HeldTracker | None = None
             break
     if held is not None:
         held.observe(any(r.held for r in reports))
-    pr = publish.prune(p, t_us)
+    pr = publish.prune(p, t_us, notify)
     _report_stop("prune", pr.stopped, pr.error)
     return reports, pr
 
@@ -171,7 +172,7 @@ def open_monitor(st: pipeline.Station) -> DeadClockMonitor | None:
 class Runner:
     def __init__(self, st: pipeline.Station, p: publish.Publisher, *, clock: Callable[[], int] = now_us,
                  sleep: Callable[[float], None] = time.sleep, tick_s: float = 60.0,
-                 monitor: DeadClockMonitor | None = None, notify: Callable[[str], bool] = sdnotify.notify):
+                 monitor: DeadClockMonitor | None = None, notify: Callable[[str], object] = sdnotify.notify):
         self.st, self.p, self.clock, self.sleep, self.tick_s = st, p, clock, sleep, tick_s
         self.monitor, self.notify = monitor, notify
         self.filling = False
@@ -225,7 +226,9 @@ class Runner:
         ok, lead = self._read_lead(t_us)
         if not ok:
             # Fail closed: publish.json mirrors what R2 lists; without it no step
-            # can know what is safe to plan, render, upload or prune.
+            # can know what is safe to plan, render, upload or prune. This is a
+            # designed, alerted state, not a hang: keep the watchdog fed.
+            self.notify("WATCHDOG=1")
             return
         if not self.halted and (lead is None or lead < low_water_us):
             self.filling = True
@@ -233,7 +236,7 @@ class Runner:
             self._step("plan", lambda: pipeline.plan_step(self.st, t_us, max_new=1),
                        resolves=("plan", "station-root"))
             self._step("render", lambda: pipeline.render_step(
-                self.st, t_us, limit=self.st.cfg.publish.batch_segments), resolves=("render",))
+                self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify), resolves=("render",))
         self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify))
         if self.monitor is not None:
             monitor = self.monitor

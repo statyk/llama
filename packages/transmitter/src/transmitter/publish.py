@@ -369,14 +369,15 @@ class PruneReport:
     error: str | None = None
 
 
-def prune(p: Publisher, now_us: int) -> PruneReport:
+def prune(p: Publisher, now_us: int, notify: Callable[[str], object] | None = None) -> PruneReport:
     """Delete segments that started more than `prune_margin` ago (so lagging
     players don't 404): advance horizon.first first, then delete by computed
     key range (per-key DeleteObject; never List, never DeleteObjects), across
     every recorded run. Never past horizon.last -- an outage must not move
     `last`, which the clock's off-air rule is measured from. Batched: nothing
     happens until `prune_min_segments` are prunable, since each prune costs a
-    horizon PUT."""
+    horizon PUT. `notify` (the runner's watchdog) is pinged "WATCHDOG=1" every
+    `batch_segments` deletes: after a long stop that is thousands of DELETEs."""
     report = PruneReport()
     with publish_lock(p.ws):
         if guard_blocks_publishing(p.uploader, p.ws, now_us / 1e6, p.cfg.publish.guard_check_minutes * 60):
@@ -434,6 +435,8 @@ def prune(p: Publisher, now_us: int) -> PruneReport:
                     p.uploader.delete(segment_key(p.epoch.epoch_id, n))
                     n += 1
                     report.deleted += 1
+                    if notify is not None and report.deleted % p.cfg.publish.batch_segments == 0:
+                        notify("WATCHDOG=1")
             except PublishError as exc:
                 report.error, failed = str(exc), True
             if n <= hi:

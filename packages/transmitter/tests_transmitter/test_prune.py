@@ -200,3 +200,13 @@ def test_prune_respects_a_configured_margin(tmp_path):
     _seed(p, bucket, [(100, 400)], 100, 400)
     report = publish.prune(p, p.epoch.start_us(300) + 30 * MIN_US)
     assert report.first == 300 and report.deleted == 200
+
+
+def test_prune_feeds_the_watchdog_every_batch_of_deletes(tmp_path):
+    bucket = FakeBucket()
+    p = make_publisher(tmp_path, bucket, batch=10)
+    _seed(p, bucket, [(100, 400)], 100, 400)
+    sent: list[str] = []
+    report = publish.prune(p, p.epoch.start_us(300) + 10 * MIN_US, notify=lambda m: sent.append(m) or True)
+    assert report.deleted == 200
+    assert sent == ["WATCHDOG=1"] * 20                  # one per batch_segments (10) deletes

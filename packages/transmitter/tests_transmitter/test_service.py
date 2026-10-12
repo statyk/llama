@@ -165,7 +165,7 @@ def _report_pub(**kw):
 def test_publish_all_alerts_put_budget_from_publish(tmp_path, caplog, monkeypatch):
     p = _publisher(make_station(tmp_path)[0], FakeBucket())
     monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub(stopped="put-budget", error="over"))
-    monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport())
+    monkeypatch.setattr(publish, "prune", lambda p, t, notify=None: publish.PruneReport())
     with caplog.at_level(logging.WARNING):
         service.publish_all(p, NOW)
     assert "ALERT put-budget: over" in caplog.text
@@ -174,7 +174,7 @@ def test_publish_all_alerts_put_budget_from_publish(tmp_path, caplog, monkeypatc
 def test_publish_all_alerts_put_budget_from_prune(tmp_path, caplog, monkeypatch):
     p = _publisher(make_station(tmp_path)[0], FakeBucket())
     monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub())
-    monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport(stopped="put-budget", error="over"))
+    monkeypatch.setattr(publish, "prune", lambda p, t, notify=None: publish.PruneReport(stopped="put-budget", error="over"))
     with caplog.at_level(logging.WARNING):
         service.publish_all(p, NOW)
     assert "ALERT put-budget: over" in caplog.text
@@ -184,7 +184,7 @@ def test_publish_all_alerts_a_prune_stopped_for_no_fallback(tmp_path, caplog, mo
     p = _publisher(make_station(tmp_path)[0], FakeBucket())
     monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub())
     monkeypatch.setattr(publish, "prune",
-                        lambda p, t: publish.PruneReport(stopped="no-fallback", error=publish.NO_FALLBACK))
+                        lambda p, t, notify=None: publish.PruneReport(stopped="no-fallback", error=publish.NO_FALLBACK))
     with caplog.at_level(logging.WARNING):
         service.publish_all(p, NOW)
     assert "ALERT prune: stopped: no-fallback: no fallback rendered" in caplog.text
@@ -193,7 +193,7 @@ def test_publish_all_alerts_a_prune_stopped_for_no_fallback(tmp_path, caplog, mo
 def test_publish_all_warns_on_high_water_without_alerting(tmp_path, caplog, monkeypatch):
     p = _publisher(make_station(tmp_path)[0], FakeBucket())
     monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub())
-    monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport(stopped="high-water"))
+    monkeypatch.setattr(publish, "prune", lambda p, t, notify=None: publish.PruneReport(stopped="high-water"))
     with caplog.at_level(logging.INFO):
         service.publish_all(p, NOW)
     assert "high-water" in caplog.text and "ALERT" not in caplog.text
@@ -204,7 +204,7 @@ def test_publish_all_warns_on_a_held_horizon_without_alerting(tmp_path, caplog, 
     p = _publisher(make_station(tmp_path)[0], FakeBucket())
     err = "horizon held: segment 5 is below the high-water mark 9"
     monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub(error=err, held=True))
-    monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport())
+    monkeypatch.setattr(publish, "prune", lambda p, t, notify=None: publish.PruneReport())
     with caplog.at_level(logging.INFO):
         service.publish_all(p, NOW)
     assert "ALERT" not in caplog.text
@@ -214,13 +214,13 @@ def test_publish_all_warns_on_a_held_horizon_without_alerting(tmp_path, caplog, 
 def test_publish_all_alerts_errors_and_logs_guard(tmp_path, caplog, monkeypatch):
     p = _publisher(make_station(tmp_path)[0], FakeBucket())
     monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub(error="PUT x failed"))
-    monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport(error="DELETE y failed"))
+    monkeypatch.setattr(publish, "prune", lambda p, t, notify=None: publish.PruneReport(error="DELETE y failed"))
     with caplog.at_level(logging.INFO):
         service.publish_all(p, NOW)
     assert "ALERT publish: PUT x failed" in caplog.text and "ALERT prune: DELETE y failed" in caplog.text
     caplog.clear()
     monkeypatch.setattr(publish, "publish_batch", lambda p, t: _report_pub(stopped="guard"))
-    monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport(stopped="guard"))
+    monkeypatch.setattr(publish, "prune", lambda p, t, notify=None: publish.PruneReport(stopped="guard"))
     with caplog.at_level(logging.INFO):
         service.publish_all(p, NOW)
     assert "ALERT" not in caplog.text and "guard" in caplog.text
@@ -233,7 +233,7 @@ def test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets(tmp_pa
     held = {"on": True}
     monkeypatch.setattr(publish, "publish_batch",
                         lambda p, t: _report_pub(error=err, held=True) if held["on"] else _report_pub())
-    monkeypatch.setattr(publish, "prune", lambda p, t: publish.PruneReport())
+    monkeypatch.setattr(publish, "prune", lambda p, t, notify=None: publish.PruneReport())
     tracker = service.HeldTracker()
     with caplog.at_level(logging.WARNING):
         for _ in range(2):
