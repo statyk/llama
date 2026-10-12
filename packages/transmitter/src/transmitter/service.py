@@ -232,7 +232,7 @@ class Runner:
         self._step("publish", lambda: publish_all(self.p, t_us, self.held))
         if self.monitor is not None:
             monitor = self.monitor
-            self._step("dead-clock", lambda: monitor.check(t_us, read_json(self.st.ws.guard_cache_path)))
+            self._step("dead-clock", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False

@@ -366,10 +366,12 @@ def test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache(tm
         def check(self, now_us, guard_cache):
             calls.append((now_us, guard_cache))
 
-    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor())
+    times = iter([NOW + 7, NOW + 60_000_007])        # the wall clock at check time, not the tick's t_us
+    runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor(),
+                            clock=lambda: next(times))
     runner.tick(NOW)
     runner.tick(NOW + 60_000_000)
-    assert [c[0] for c in calls] == [NOW, NOW + 60_000_000]
+    assert [c[0] for c in calls] == [NOW + 7, NOW + 60_000_007]
     assert calls[0][1]["blocked"] is False and calls[0][1]["offair"] is False   # written by publish's guard read
 
 

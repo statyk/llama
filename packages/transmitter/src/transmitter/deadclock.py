@@ -12,6 +12,7 @@ checks, because the guard cache that says "blocked" can be one
 guard_check_minutes late. It also alerts when state/guard.json's last
 evaluation is older than `guard_stale_minutes` (the guard evaluates every 15)."""
 
+import http.client
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -49,10 +50,10 @@ def fetch_text(url: str, timeout_s: float = 10.0) -> tuple[int, str]:
     req = urllib.request.Request(url, headers={"User-Agent": "transmitter-dead-clock-check"})
     try:
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:
-            return resp.status, resp.read().decode("utf-8", "replace")
+            return resp.status, resp.read(1 << 20).decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
         return exc.code, ""
-    except (urllib.error.URLError, OSError):
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError):
         return 0, ""
 
 
@@ -67,6 +68,10 @@ class DeadClockMonitor:
     stale: int = 0
     unreachable: int = 0
     forbidden: int = 0
+    # NOTE: stale/unreachable/forbidden count CONSECUTIVE bad checks and reset
+    # only on a good read (a fresh 200, or an expected 403) -- intended: a
+    # different kind of bad read must not hide a persisting outage.
+    guard_error_since_us: int | None = None
 
     def check(self, now_us: int, guard_cache: dict | None) -> None:
         blocked = bool(guard_cache and (guard_cache.get("blocked") or guard_cache.get("offair")))
@@ -79,7 +84,7 @@ class DeadClockMonitor:
                 if self.stale >= STALE_CHECKS:
                     alerts.alert("dead-clock", f"{self.url} is stale ("
                                  + ("no segment in it" if age is None else f"newest segment {age:.0f} s old")
-                                 + "): the antenna clock Worker may have stopped (Workers dashboard, wrangler tail)")
+                                 + "): the antenna clock may have stopped or be writing nothing (Workers dashboard, wrangler tail)")
             else:
                 self.stale = 0
                 alerts.resolve("dead-clock")
@@ -101,14 +106,28 @@ class DeadClockMonitor:
         self._check_guard(now_us, guard_cache)
 
     def _check_guard(self, now_us: int, guard_cache: dict | None) -> None:
-        at = (guard_cache or {}).get("guard_evaluated_at")
+        if not guard_cache:
+            return
+        error = guard_cache.get("error")
+        if error is not None:
+            # guard.json unreadable: the cache fails closed and carries no
+            # evaluation time, so time how long the read has been failing.
+            if self.guard_error_since_us is None:
+                self.guard_error_since_us = now_us
+            if (now_us - self.guard_error_since_us) / 1e6 >= self.guard_stale_s:
+                alerts.alert("guard-stale", f"state/guard.json has been unreadable for "
+                                            f"{(now_us - self.guard_error_since_us) / 60e6:.0f} minutes: {error}")
+            return
+        self.guard_error_since_us = None
+        if "guard_evaluated_at" not in guard_cache:
+            return                                   # a pre-upgrade cache: unknown, say nothing
+        at = guard_cache["guard_evaluated_at"]
         try:
             age_s = (now_us - grid.iso_to_us(at)) / 1e6 if at else None
         except ValueError:
             age_s = None
         if age_s is None:
-            if guard_cache and guard_cache.get("error") is None:
-                alerts.alert("guard-stale", "state/guard.json has no evaluation time: is the antenna clock deployed?")
+            alerts.alert("guard-stale", "state/guard.json has no evaluation time: is the antenna clock deployed?")
         elif age_s > self.guard_stale_s:
             alerts.alert("guard-stale", f"the cost guard last evaluated {age_s / 60:.0f} minutes ago (at {at}); "
                                         "it should every 15: the antenna clock may have stopped")
