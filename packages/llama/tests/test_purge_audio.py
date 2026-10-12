@@ -5,6 +5,8 @@ import os
 import shutil
 from pathlib import Path
 
+import pytest
+
 import llama.catalog as catalog
 from llama.catalog import purge_package_audio
 
@@ -268,3 +270,124 @@ def test_delete_failure_is_a_warning_not_a_raise(tmp_path: Path, monkeypatch):
     assert r.skipped is None
     assert r.freed == 0
     assert r.warning == f"could not delete {AUDIO}: read-only"
+
+
+def _access_mode(fd: int) -> int:
+    import fcntl
+    return fcntl.fcntl(fd, fcntl.F_GETFL) & os.O_ACCMODE
+
+
+def test_flush_retries_write_only_when_smb_refuses_a_read_only_flush(tmp_path: Path, monkeypatch):
+    # SMB2 FLUSH needs a handle with write access: macOS's smbfs turns
+    # F_FULLFSYNC on a read-only fd into EACCES. The retry must open
+    # write-only without truncating or writing anything.
+    f = tmp_path / "f"
+    f.write_bytes(b"station copy")
+    modes = []
+
+    def sync(fd):
+        modes.append(_access_mode(fd))
+        if _access_mode(fd) == os.O_RDONLY:
+            raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(catalog, "_sync_fd", sync)
+    before = f.stat()
+    catalog._flush_to_disk(f)
+    after = f.stat()
+    assert modes == [os.O_RDONLY, os.O_WRONLY]
+    assert f.read_bytes() == b"station copy"
+    assert (after.st_size, after.st_mtime_ns) == (before.st_size, before.st_mtime_ns)
+
+
+def test_flush_retries_on_eperm_too(tmp_path: Path, monkeypatch):
+    f = tmp_path / "f"
+    f.write_bytes(b"z")
+    modes = []
+
+    def sync(fd):
+        modes.append(_access_mode(fd))
+        if _access_mode(fd) == os.O_RDONLY:
+            raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(catalog, "_sync_fd", sync)
+    catalog._flush_to_disk(f)
+    assert modes == [os.O_RDONLY, os.O_WRONLY]
+
+
+def test_flush_does_not_retry_a_refused_read_only_open(tmp_path: Path, monkeypatch):
+    # Only a refused flush on an open read-only fd is the measured SMB case;
+    # a file that cannot even be opened read-only fails closed as before.
+    f = tmp_path / "f"
+    f.write_bytes(b"z")
+    real_open = os.open
+    opened = []
+
+    def fake_open(path, flags, *a, **k):
+        opened.append(flags & os.O_ACCMODE)
+        if flags & os.O_ACCMODE == os.O_RDONLY:
+            raise PermissionError(13, "Permission denied")
+        return real_open(path, flags, *a, **k)
+
+    monkeypatch.setattr(catalog.os, "open", fake_open)
+    with pytest.raises(PermissionError):
+        catalog._flush_to_disk(f)
+    monkeypatch.undo()
+    assert opened == [os.O_RDONLY]
+
+
+def test_flush_raises_when_the_write_only_retry_is_refused_too(tmp_path: Path, monkeypatch):
+    f = tmp_path / "f"
+    f.write_bytes(b"z")
+
+    def sync(fd):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(catalog, "_sync_fd", sync)
+    with pytest.raises(PermissionError):
+        catalog._flush_to_disk(f)
+
+
+def test_flush_does_not_retry_other_errors(tmp_path: Path, monkeypatch):
+    f = tmp_path / "f"
+    f.write_bytes(b"z")
+    modes = []
+
+    def sync(fd):
+        modes.append(_access_mode(fd))
+        raise OSError(5, "Input/output error")
+
+    monkeypatch.setattr(catalog, "_sync_fd", sync)
+    with pytest.raises(OSError) as e:
+        catalog._flush_to_disk(f)
+    assert e.value.errno == 5
+    assert modes == [os.O_RDONLY]
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root opens a 0444 file for writing anyway")
+def test_flush_retry_on_an_unwritable_file_fails_closed(tmp_path: Path, monkeypatch):
+    f = tmp_path / "f"
+    f.write_bytes(b"z")
+    f.chmod(0o444)
+
+    def sync(fd):
+        if _access_mode(fd) == os.O_RDONLY:
+            raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(catalog, "_sync_fd", sync)
+    with pytest.raises(PermissionError):
+        catalog._flush_to_disk(f)
+    assert f.read_bytes() == b"z"
+
+
+def test_smb_refused_flush_still_lets_the_purge_proceed(tmp_path: Path, monkeypatch):
+    ws, out = _delivered(tmp_path)
+
+    def sync(fd):
+        if _access_mode(fd) == os.O_RDONLY:
+            raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(catalog, "_sync_fd", sync)
+    r = purge_package_audio(ws, out)
+    assert r.skipped is None
+    assert not (ws.package_dir / "audio" / AUDIO).exists()
+    assert (out / "audio" / AUDIO).exists()

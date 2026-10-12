@@ -169,18 +169,38 @@ def human_bytes(n: int) -> str:
     raise AssertionError("unreachable")
 
 
-def _flush_to_disk(path: Path) -> None:
-    """Force `path`'s data to stable storage before its only other copy is
-    deleted. macOS fsync only reaches the drive cache; F_FULLFSYNC goes
-    through it. Raises OSError."""
+def _sync_fd(fd: int) -> None:
+    """macOS fsync only reaches the drive cache; F_FULLFSYNC goes through it."""
     import fcntl
 
+    if hasattr(fcntl, "F_FULLFSYNC"):
+        fcntl.fcntl(fd, fcntl.F_FULLFSYNC)
+    else:
+        os.fsync(fd)
+
+
+def _flush_to_disk(path: Path) -> None:
+    """Force `path`'s data to stable storage before its only other copy is
+    deleted. Raises OSError.
+
+    Over SMB, F_FULLFSYNC becomes an SMB2 FLUSH, which the server refuses on
+    a handle without write access: macOS's smbfs reports EACCES for a
+    read-only fd (measured against the Synology share). So when the read-only
+    open succeeds but its flush is refused, the flush is retried once on a
+    write-only fd -- no O_CREAT, no O_TRUNC, nothing written. A refused open,
+    or a file that cannot be opened for writing, still raises, and the purge
+    deletes nothing."""
     fd = os.open(path, os.O_RDONLY)
     try:
-        if hasattr(fcntl, "F_FULLFSYNC"):
-            fcntl.fcntl(fd, fcntl.F_FULLFSYNC)
-        else:
-            os.fsync(fd)
+        _sync_fd(fd)
+        return
+    except PermissionError:
+        pass
+    finally:
+        os.close(fd)
+    fd = os.open(path, os.O_WRONLY)
+    try:
+        _sync_fd(fd)
     finally:
         os.close(fd)
 
