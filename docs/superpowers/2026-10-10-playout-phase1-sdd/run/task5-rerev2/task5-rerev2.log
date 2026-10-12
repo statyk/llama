@@ -1,0 +1,8 @@
+(3, 11) /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/c8bc/packages/transmitter/src/transmitter/station.py
+OK ([], [Ineligible(slug='c-locked', reasons=("changing: [Errno 13] Permission denied: '/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmplb2yqncu/c-locked/manifest.json'",))])
+SCAN RAISED StationRootError station root /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmp1ebk6yxa cannot be listed: [Errno 13] Permission denied: '/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmp1ebk6yxa'
+_inside RAISED OSError [Errno 62] symlink loop resolving a/x.mp3: Symlink loop from '/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpwdlryjbc/p/a/x.mp3'
+(3, 14) /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/c8bc/packages/transmitter/src/transmitter/station.py
+OK ([], [])
+SCAN RAISED StationRootError station root /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpzpyg14gv cannot be listed: [Errno 13] Permission denied: '/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpzpyg14gv'
+_inside True

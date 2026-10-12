@@ -1,0 +1,4 @@
+budget-min: 20
+role: implementer
+model: opus
+what: Task 8 minors: unverified encode cleanup, segue sum assert

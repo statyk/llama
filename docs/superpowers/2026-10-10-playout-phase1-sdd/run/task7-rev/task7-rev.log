@@ -1,0 +1,16 @@
+reading station/workspace/aacenc for named risks
+
+tests_transmitter/test_analysis.py:55: AssertionError
+=========================== short test summary info ============================
+FAILED tests_transmitter/test_analysis.py::test_analyze_show_counts_samples_and_measures_tracks_apart_from_clips
+1 failed, 7 deselected in 0.34s
+        assert [f.path for f in a.files] == [e.path for e in show.entries]
+        assert [f.samples for f in a.files if f.kind == "track"] == [88_200, 88_200]
+        assert all(f.i_lufs is not None and f.i_lufs < -25 for f in clips)
+>       assert a.tracks_i_lufs == pytest.approx(20 * np.log10(0.2), abs=1.0)
+E       assert -15.1 == -13.979400086720375 ± 1
+E         
+E         comparison failed
+E         Obtained: -15.1
+E         Expected: -13.979400086720375 ± 1
+mutant (clip pcm also fed to tracks meter): CAUGHT by analyze_show test, tracks_i_lufs -15.1 vs -13.98±1 (0.1 dB margin); prediction was 'survives' - wrong

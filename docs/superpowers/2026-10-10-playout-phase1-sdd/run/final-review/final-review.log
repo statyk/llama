@@ -1,0 +1,15 @@
+Sat Oct 10 20:13:58 EDT 2026 start final review
+Sat Oct 10 20:14:09 EDT 2026 pass 0: inputs (spec/plan/layout)
+Sat Oct 10 20:14:23 EDT 2026 pass 1: transmitter core (grid/segment/adts/id3/layout/config/workspace/state)
+Sat Oct 10 20:14:33 EDT 2026 pass 2: planner/station/pipeline/render/analysis/audio/aacenc
+Sat Oct 10 20:15:08 EDT 2026 pass 3: publish/fallback/site/service/cli
+Sat Oct 10 20:17:19 EDT 2026 pass 4: antenna src/public/wrangler
+Sat Oct 10 20:18:25 EDT 2026 pass 5: docs (runbook, CLAUDE.md diff)
+Sat Oct 10 20:18:45 EDT 2026 pass 6: tests (publish/pipeline/service/clock/playlist) + py311 grep
+Sat Oct 10 20:19:04 EDT 2026 pass 7: antenna tests + helpers + history
+Sat Oct 10 20:19:30 EDT 2026 pass 8: history, warnings run (bg), pyproject, misc greps
+warnings run done rc=0
+Sat Oct 10 20:23:53 EDT 2026 full suite (worktree) for warnings triage, background
+Sat Oct 10 20:24:15 EDT 2026 full suite worktree done rc=0
+Sat Oct 10 20:29:48 EDT 2026 pass 9: writing handback
+Sat Oct 10 20:32:26 EDT 2026 handback written; touching sentinel

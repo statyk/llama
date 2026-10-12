@@ -1,0 +1,1 @@
+DONE. RED (items 3,4): silent-frame and unreadable-encode tests failed before impl. Item 1 tests kill `<`->`<=` in overlap check and always-raise validate_rows; item 2 kills `>`->`>=` (and the off-by-one) at past-the-plan check (mutants reasoned, not run). Both venvs: 127 transmitter tests pass; full repo 2276 passed.

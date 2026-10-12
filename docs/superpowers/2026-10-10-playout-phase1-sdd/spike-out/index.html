@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transmitter container spike</title>
+<!-- local spike page only: the production player self-hosts hls.js (Task 17) -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js"></script>
+<style>body{font:16px system-ui;margin:2em;max-width:42em}button{font-size:1.1em;margin:.3em}
+pre{background:#eee;padding:.5em;white-space:pre-wrap;max-height:20em;overflow:auto}</style>
+</head><body>
+<h1>transmitter container spike</h1>
+<p><button id="live">Play live.m3u8</button><button id="vod">Play vod.m3u8</button>
+<button id="stop">Stop</button></p>
+<audio id="audio" controls></audio>
+<p id="mode"></p><p id="pos"></p>
+<pre id="log"></pre>
+<script>
+const audio = document.getElementById("audio"), log = document.getElementById("log");
+const native = (navigator.vendor || "").startsWith("Apple") &&
+  audio.canPlayType("application/vnd.apple.mpegurl") !== "";
+document.getElementById("mode").textContent = native
+  ? "player: native HLS (Apple WebKit)" : "player: hls.js " + (window.Hls ? Hls.version : "(not loaded)");
+let hls = null;
+function say(m) { log.textContent += new Date().toISOString() + "  " + m + "\n"; }
+function stop() { if (hls) { hls.destroy(); hls = null; } audio.removeAttribute("src"); audio.load(); }
+function play(url) {
+  stop(); say("loading " + url);
+  if (native) { audio.src = url; }
+  else {
+    hls = new Hls({ liveSyncDurationCount: 3 });
+    hls.on(Hls.Events.ERROR, (e, d) => say("hls.js " + (d.fatal ? "FATAL " : "") + d.type + " " + d.details));
+    hls.on(Hls.Events.LEVEL_LOADED, (e, d) => { if (!d.details.live) say("playlist has ENDLIST"); });
+    hls.loadSource(url); hls.attachMedia(audio);
+  }
+  audio.play().catch(err => say("play() rejected: " + err));
+}
+audio.addEventListener("ended", () => say("ended (ENDLIST reached)"));
+audio.addEventListener("error", () => say("media error " + (audio.error && audio.error.code)));
+audio.addEventListener("waiting", () => say("waiting (stall?) at " + audio.currentTime.toFixed(2)));
+document.getElementById("live").onclick = () => play("live.m3u8");
+document.getElementById("vod").onclick = () => play("vod.m3u8");
+document.getElementById("stop").onclick = stop;
+setInterval(() => {
+  let d = null;
+  if (hls && hls.playingDate) d = hls.playingDate;
+  else if (native && audio.getStartDate) {
+    const s = audio.getStartDate().getTime();
+    if (!isNaN(s)) d = new Date(s + audio.currentTime * 1000);
+  }
+  document.getElementById("pos").textContent =
+    "t=" + audio.currentTime.toFixed(2) + "s  program-date-time=" + (d ? d.toISOString() : "n/a");
+}, 500);
+</script></body></html>

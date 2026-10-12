@@ -1,0 +1,4 @@
+budget-min: 15
+role: impl
+model: sonnet
+what: Task 19 fix round 1 (off-air framing, PublishLocked wording, minors)

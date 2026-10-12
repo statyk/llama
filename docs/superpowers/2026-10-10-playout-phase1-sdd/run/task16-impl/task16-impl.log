@@ -1,0 +1,41 @@
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  19:36:28
+   Duration  543ms (worker 100%)
+
+
+> test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  24 passed (24)
+   Start at  19:37:08
+   Duration  636ms (transform 42%, tests 36%, import 12%, worker 10%)
+
+
+> typecheck
+> tsc --noEmit
+
+PREDICTIONS: (a) no-cap -> red: 'never exceeds ceil(75/d) + 2 PUTs'; (b) no-skip -> red: 'skips bytes identical...' + 'stays silent when off-air has a fallback...'
+== mutant a
+     × never exceeds ceil(75/d) + 2 PUTs, even with a skewed fire time 4ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/clock.test.ts > runClock > never exceeds ceil(75/d) + 2 PUTs, even with a skewed fire time
+AssertionError: expected 66 to be 10 // Object.is equality
+      Tests  1 failed | 23 passed (24)
+== mutant b
+     × skips bytes identical to the last write (off-air: one PUT per invocation) 4ms
+     × stays silent when off-air has a fallback, or the station is on air without one 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/clock.test.ts > runClock > skips bytes identical to the last write (off-air: one PUT per invocation)
+AssertionError: expected 8 to be 1 // Object.is equality
+ FAIL  test/clock.test.ts > off-air without a usable fallback > stays silent when off-air has a fallback, or the station is on air without one
+AssertionError: expected 8 to be 1 // Object.is equality
+      Tests  2 failed | 22 passed (24)

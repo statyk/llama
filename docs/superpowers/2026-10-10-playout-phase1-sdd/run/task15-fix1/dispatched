@@ -1,0 +1,4 @@
+budget-min: 25
+role: impl
+model: opus
+what: Task 15 fix round 1 (fallback→live tag test; disc seq +1)

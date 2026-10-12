@@ -1,0 +1,72 @@
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_a_spent_put_budget_stops_prune_before_any_delete
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_waits_while_r2_may_list_past_last
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_preserves_the_high_water_mark
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_respects_a_configured_margin
+14 failed in 0.33s
+......................................                                   [100%]
+38 passed in 0.20s
+full suite 3.14 start Sat Oct 10 18:56:44 EDT 2026
+........................................................................ [ 86%]
+..................................                                       [100%]
+250 passed in 6.32s
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+.......................                                                  [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=84243) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2399 passed, 7 deselected, 26 warnings in 13.85s
+debian12 gate start Sat Oct 10 18:57:19 EDT 2026 at efe266f
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+..................................                                       [100%]
+250 passed in 8.87s
+mutation run Sat Oct 10 18:57:55 EDT 2026
+== M0
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/runs/M0/packages/transmitter/src/transmitter/__init__.py M0
+251 passed in 7.28s
+== M1
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/runs/M1/packages/transmitter/src/transmitter/__init__.py M1
+FAILED packages/transmitter/tests_transmitter/test_config.py::test_a_prune_margin_below_the_floor_is_a_config_error[0]
+FAILED packages/transmitter/tests_transmitter/test_config.py::test_a_prune_margin_below_the_floor_is_a_config_error[1.5]
+FAILED packages/transmitter/tests_transmitter/test_config.py::test_a_prune_margin_below_the_floor_is_a_config_error[3.99]
+3 failed, 248 passed in 7.59s
+== M2
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/runs/M2/packages/transmitter/src/transmitter/__init__.py M2
+FAILED packages/transmitter/tests_transmitter/test_config.py::test_prune_margin_floor_covers_the_live_window_and_player_lag
+FAILED packages/transmitter/tests_transmitter/test_config.py::test_a_prune_margin_below_the_floor_is_a_config_error[3.99]
+2 failed, 249 passed in 7.18s
+== M3
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/runs/M3/packages/transmitter/src/transmitter/__init__.py M3
+__________________ test_a_failed_horizon_put_deletes_nothing ___________________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-201/test_a_failed_horizon_put_dele0')
+    def test_a_failed_horizon_put_deletes_nothing(tmp_path):
+E       AssertionError: assert ('horizon: PUT state/horizon.json failed after 4 attempts: An error occurred (InternalError) when calling the PutObject operation: boom' and True and 200 == 0)
+E        +  where 'horizon: PUT state/horizon.json failed after 4 attempts: An error occurred (InternalError) when calling the PutObject operation: boom' = PruneReport(deleted=200, first=100, stopped=None, error='horizon: PUT state/horizon.json failed after 4 attempts: An error occurred (InternalError) when calling the PutObject operation: boom').error
+E        +    where <built-in method startswith of str object at 0x108d2a4a0> = 'horizon: PUT state/horizon.json failed after 4 attempts: An error occurred (InternalError) when calling the PutObject operation: boom'.startswith
+E        +      where 'horizon: PUT state/horizon.json failed after 4 attempts: An error occurred (InternalError) when calling the PutObject operation: boom' = PruneReport(deleted=200, first=100, stopped=None, error='horizon: PUT state/horizon.json failed after 4 attempts: An error occurred (InternalError) when calling the PutObject operation: boom').error
+E        +  and   200 = PruneReport(deleted=200, first=100, stopped=None, error='horizon: PUT state/horizon.json failed after 4 attempts: An error occurred (InternalError) when calling the PutObject operation: boom').deleted
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_advances_first_before_deleting_and_keeps_the_margin
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_a_failed_horizon_put_deletes_nothing
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_a_spent_put_budget_stops_prune_before_any_delete
+3 failed, 248 passed in 6.89s
+== M4
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/runs/M4/packages/transmitter/src/transmitter/__init__.py M4
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_waits_while_r2_may_list_past_last
+1 failed, 250 passed in 7.12s
+== M5
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/runs/M5/packages/transmitter/src/transmitter/__init__.py M5
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_never_moves_past_last
+1 failed, 250 passed in 7.18s

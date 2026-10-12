@@ -1,0 +1,4 @@
+budget-min: 60
+role: implementer
+model: sonnet
+what: Task 3 config/workspace/epoch/state/config init

@@ -1,0 +1,10 @@
+2379 passed, 7 deselected, 26 warnings in 14.84s
+230 passed in 6.43s
+MUTANT I1 (batch range ignores high_water). PREDICTION: red = test_a_lowered_batch_size_after_a_crash_still_reaches_the_high_water_mark only
+sentinel ok /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/mutf1/tree/packages/transmitter/src/transmitter/__init__.py
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_a_lowered_batch_size_after_a_crash_still_reaches_the_high_water_mark
+1 failed, 229 passed in 6.65s
+MUTANT M1 (recovery trigger on pub.last: due = nxt). PREDICTION: red = test_plan_step_does_not_recover_while_r2_may_list_past_now only
+sentinel ok /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/mutf1/tree/packages/transmitter/src/transmitter/__init__.py
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_does_not_recover_while_r2_may_list_past_now
+1 failed, 229 passed in 7.09s

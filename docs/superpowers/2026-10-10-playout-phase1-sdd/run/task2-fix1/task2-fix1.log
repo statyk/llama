@@ -1,0 +1,10 @@
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+............................................                             [100%]
+44 passed in 1.38s
+extra_frames 1
+ENCODER_PRIMING_SAMPLES 1024
+debconf: delaying package configuration, since apt-utils is not installed
+extra_frames 1
+ENCODER_PRIMING_SAMPLES 1024

@@ -1,0 +1,4 @@
+budget-min: 40
+role: review
+model: opus
+what: scoped re-review of final fix wave 3a3e034..9fdc47a

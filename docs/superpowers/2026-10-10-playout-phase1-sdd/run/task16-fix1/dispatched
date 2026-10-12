@@ -1,0 +1,4 @@
+budget-min: 25
+role: impl
+model: opus
+what: Task 16 fix round 1 (hard PUT cap)

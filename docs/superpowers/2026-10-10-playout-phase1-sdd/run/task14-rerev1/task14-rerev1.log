@@ -1,0 +1,5 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/t14r/tree/packages/transmitter/src/transmitter/publish.py 1
+== mutant: held flag never set; predicted SURVIVES (no test drives real publish_batch into held)
+........................................................................ [ 75%]
+........................................................................ [100%]
+288 passed in 12.73s

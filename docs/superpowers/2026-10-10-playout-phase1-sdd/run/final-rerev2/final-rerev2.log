@@ -1,0 +1,42 @@
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2455 passed, 7 deselected, 26 warnings in 22.44s
+........................................................................ [ 94%]
+..................                                                       [100%]
+306 passed in 15.36s
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna
+
+
+ Test Files  3 passed (3)
+      Tests  41 passed (41)
+   Start at  21:24:17
+   Duration  806ms (transform 46%, tests 26%, import 15%, worker 12%, environment 1%)
+
+
+> typecheck
+> tsc --noEmit
+
+sentinels done
+MA1 rc 1 fails: 3
+    FAIL  test/clock.test.ts > off-air without a usable fallback > writes the ENDLIST-only playlist once and reports it loudly, once per invocation (state/offair.js
+    FAIL  test/clock.test.ts > off-air without a usable fallback > reports the staleness rule and a null fallback_version
+    FAIL  test/playlist.test.ts > buildPlaylist > goes off-air with an ENDLIST-only playlist (no notice, no URI lines) when no fallback is usable
+MA2 rc 1 fails: 3
+    FAIL  test/clock.test.ts > off-air without a usable fallback > writes the ENDLIST-only playlist once and reports it loudly, once per invocation (state/offair.js
+    FAIL  test/clock.test.ts > off-air without a usable fallback > reports the staleness rule and a null fallback_version
+    FAIL  test/playlist.test.ts > buildPlaylist > goes off-air with an ENDLIST-only playlist (no notice, no URI lines) when no fallback is usable
+MA3 rc 1 fails: 1
+    FAIL  test/nowplaying.test.ts > hlsErrorNotice > treats the clock's ENDLIST-only playlist (levelEmptyError, non-fatal) as off-air
+MA4 rc 1 fails: 4
+    FAIL  test/clock.test.ts > runClock > skips bytes identical to the last write (off-air: one PUT per invocation)
+    FAIL  test/clock.test.ts > off-air without a usable fallback > writes the ENDLIST-only playlist once and reports it loudly, once per invocation (state/offair.js
+    FAIL  test/clock.test.ts > off-air without a usable fallback > reports the staleness rule and a null fallback_version
+    FAIL  test/clock.test.ts > off-air without a usable fallback > stays silent when off-air has a fallback, or the station is on air without one
+MA5 rc 1 fails: 2
+    FAIL  test/clock.test.ts > off-air without a usable fallback > writes the ENDLIST-only playlist once and reports it loudly, once per invocation (state/offair.js
+    FAIL  test/clock.test.ts > off-air without a usable fallback > reports the staleness rule and a null fallback_version
+MB1 rc 1 fails: 1
+    FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_never_rewrites_the_horizon_without_a_recorded_fallback
+MB2 rc 1 fails: 1
+    FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_never_rewrites_the_horizon_without_a_recorded_fallback
+MB3 rc 0 fails: 0

@@ -1,0 +1,17 @@
+progress: mutants built
+== m3
+1 failed, 24 passed in 0.72s
+FAILED ../m3/packages/transmitter/tests_transmitter/test_pipeline.py::test_the_second_mismatch_rule_is_per_slug
+MUTANT_SENTINEL m3
+== m2
+2 failed, 23 passed in 1.30s
+>           raise AssertionError(f"{slug} measured {calls['n']} times: the re-plan loop is unbounded")
+E           AssertionError: band-2005-11-01 measured 11 times: the re-plan loop is unbounded
+E           AssertionError: band-2005-11-03 measured 11 times: the re-plan loop is unbounded
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_lone_show_mismatching_twice_in_one_call_is_a_plan_error
+FAILED ../m2/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_show_mismatching_twice_in_one_call_is_excluded
+MUTANT_SENTINEL m2
+== m4 (line 241 package-changed path; predicted: survives)
+188 passed in 5.15s
+MUTANT_SENTINEL m4
+progress: drafting report

@@ -1,0 +1,11 @@
+SCAN RAISED OSError [Errno 70] Stale file handle
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase1/packages/transmitter/src/transmitter/__init__.py
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/rr_probe2.py", line 3, in <module>
+    from tests_transmitter.helpers import build_package, make_root
+  File "/Users/shawn/projects/llama/.claude/worktrees/playout-phase1/packages/transmitter/tests_transmitter/helpers.py", line 17, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase1/packages/transmitter/src/transmitter/station.py
+OK ['a-show', 'b-show'] []
+SCAN RAISED PermissionError [Errno 13] Permission denied: '/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmpyu5rbmg2/c-locked/manifest.json'

@@ -1,0 +1,4 @@
+budget-min: 20
+role: implementer
+model: sonnet
+what: Task 4 minors: validate_rows positives, boundary pin, silent_frame check, OSError map

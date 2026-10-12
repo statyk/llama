@@ -1,0 +1,4 @@
+budget-min: 25
+role: implementer
+model: sonnet
+what: Task 5 fix round 2: scan per-package OSError

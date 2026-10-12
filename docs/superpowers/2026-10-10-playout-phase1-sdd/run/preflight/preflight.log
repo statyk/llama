@@ -1,0 +1,34 @@
+2026-10-10T15:28:01Z read tasks 1-9; continuing with 10+
+2026-10-10T15:31:17Z read all 19 tasks; reading spec
+........................................................................ [ 37%]
+........................................................................ [ 75%]
+................................................                         [100%]
+                  on_skip=lambda s, e: self.log(f"skipping {s.slug}: {e}"))
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/bomb/packages/transmitter/src/transmitter/planner.py", line 50, in extend
+    chosen = choose_next(pool, last_seq, seed, previous)
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/bomb/packages/transmitter/src/transmitter/planner.py", line 32, in choose_next
+    raise PlanError("no eligible packages to plan")
+transmitter.errors.PlanError: no eligible packages to plan
+ERROR    transmitter.alerts:alerts.py:11 ALERT plan: PlanError: no eligible packages to plan
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_starts_a_run_ahead_of_now
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_is_idempotent_when_covered
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_max_new
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_refuses_without_marker_and_keeps_plan
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovers_after_an_outage
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_writes_grid_segments_up_to_the_lead
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_fills_the_show_gap_with_silence
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_is_idempotent_and_honours_limit
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_replans_a_changed_package
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_skips_a_show_that_fails_to_encode
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_frame_count_drift_is_fatal
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_gcs_finished_encodes
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+16 failed, 4 passed in 0.38s
+........................................................................ [ 75%]
+................................................                         [100%]
+192 passed in 8.61s
+2026-10-10T15:36:31Z analysis done; writing handback

@@ -1,0 +1,7 @@
+probe: wedge re-run on 1d99568; expect wedge assertion to FAIL (horizon reached)
+SENT copy /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/t11rerev/tree/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/t11rerev/tree/packages/transmitter/tests_transmitter/helpers.py
+.tick 0 PublishReport(uploaded=[100, 101, 102, 103, 104, 105, 106, 107, 108, 109], horizon=(100, 109), stopped=None, error=None) 109 28
+tick 1 PublishReport(uploaded=[110, 111, 112, 113, 114], horizon=(100, 114), stopped=None, error=None) 114 35
+tick 2 PublishReport(uploaded=[], horizon=None, stopped=None, error=None) 114 35
+tick 3 PublishReport(uploaded=[], horizon=None, stopped=None, error=None) 114 35
+2 passed in 0.48s

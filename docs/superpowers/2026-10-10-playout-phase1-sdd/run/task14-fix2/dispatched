@@ -1,0 +1,4 @@
+budget-min: 15
+role: impl
+model: sonnet
+what: pin report.held in real publish_batch

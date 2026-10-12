@@ -1,0 +1,100 @@
+
+added 74 packages, and audited 75 packages in 6s
+
+20 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+antenna@ /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna
++-- @cloudflare/vitest-plugin@1.4.0
++-- @emnapi/runtime@1.11.3 extraneous
++-- @img/sharp-wasm32@0.35.5 extraneous
++-- tslib@2.8.1 extraneous
++-- typescript@5.9.3
++-- vitest@5.0.3
+`-- wrangler@4.149.0
+
+
+ ⛅️ wrangler 4.149.0
+────────────────────
+Generating project types...
+
+interface __BaseEnv_Env {
+	BUCKET: R2Bucket;
+	PLAYLIST_WINDOW: "6";
+	GRACE_SEGMENTS: "3";
+	OFFAIR_AFTER_SECONDS: "86400";
+	LOOP_SECONDS: "75";
+	LIVE_MAX_AGE: "5";
+}
+declare namespace Cloudflare {
+	interface GlobalProps {
+		mainModule: typeof import("./src/index");
+	}
+	interface Env extends __BaseEnv_Env {}
+}
+interface Env extends __BaseEnv_Env {}
+type StringifyValues<EnvType extends Record<string, unknown>> = {
+	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
+};
+declare namespace NodeJS {
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "PLAYLIST_WINDOW" | "GRACE_SEGMENTS" | "OFFAIR_AFTER_SECONDS" | "LOOP_SECONDS" | "LIVE_MAX_AGE">> {}
+}
+
+Generating runtime types...
+
+Runtime types generated.
+
+
+✨ Types written to worker-configuration.d.ts
+
+Action required Install @types/node
+Since your Worker has Node.js compatibility enabled, you should install Node.js types by running "npm i --save-dev @types/node".
+
+📖 Read about runtime types
+https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+📣 Remember to rerun 'wrangler types' after you change your wrangler.jsonc file.
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna
+
+ ❯ test/playlist.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/playlist.test.ts [ test/playlist.test.ts ]
+Error: Cannot find module '../src/playlist' imported from /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/test/playlist.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  19:25:22
+   Duration  515ms (worker 100%)
+
+
+> test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  19:25:44
+   Duration  514ms (transform 50%, import 18%, tests 18%, worker 15%)
+
+
+> typecheck
+> tsc --noEmit
+
+== python suite
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=61571) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2438 passed, 7 deselected, 26 warnings in 21.29s

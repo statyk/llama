@@ -1,0 +1,4 @@
+budget-min: 45
+role: impl
+model: opus
+what: Task 12 prune + Debian-12 gate

@@ -1,0 +1,9 @@
+progress: read inputs
+progress: running targeted I1/I2/M9/M12/M5 tests
+................                                                         [100%]
+16 passed in 1.52s
+publish (100, 139) fb0123456789
+prune 100 None horizon fallback_version = fb0123456789
+publish (100, 139) fb0123456789
+prune 140 None horizon fallback_version = None
+progress: analysis done, writing handback

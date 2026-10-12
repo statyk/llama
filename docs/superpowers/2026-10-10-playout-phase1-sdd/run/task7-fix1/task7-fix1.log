@@ -1,0 +1,63 @@
+honest tracks_i_lufs -14.8 clips [-30.3, -30.3]
+mutant (clips leak into tracks meter) -15.1
+clip amp 0.05
+honest tracks_i_lufs -14.8 clips [-30.3, -30.3]
+mutant (clips leak into tracks meter) -15.1
+clip amp 0.5
+honest tracks_i_lufs -14.8 clips [-10.3, -10.3]
+mutant (clips leak into tracks meter) -12.4
+clip amp 0.7
+honest tracks_i_lufs -14.8 clips [-7.3, -7.3]
+mutant (clips leak into tracks meter) -10.3
+        monkeypatch.setattr(os, "replace", replace)
+        atomic_write_bytes(tmp_path / "s.json", b"12345")
+>       assert calls == [("fsync", 5), ("replace", "s.json")]
+E       AssertionError: assert [('replace', 's.json')] == [('fsync', 5)...e', 's.json')]
+E         
+E         At index 0 diff: ('replace', 's.json') != ('fsync', 5)
+E         Right contains one more item: ('replace', 's.json')
+E         Use -v to get more diff
+
+packages/transmitter/tests_transmitter/test_workspace.py:36: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[empty]
+FAILED packages/transmitter/tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[wrong-shape]
+FAILED packages/transmitter/tests_transmitter/test_workspace.py::test_atomic_write_fsyncs_the_temp_file_before_the_rename
+3 failed, 15 passed in 1.46s
+E           json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+E       AttributeError: 'list' object has no attribute 'get'
+E   TypeError: FileAnalysis.__init__() got an unexpected keyword argument 'bogus'
+E       AssertionError: assert [('replace', 's.json')] == [('fsync', 5)...e', 's.json')]
+FAILED packages/transmitter/tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[empty]
+FAILED packages/transmitter/tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[list]
+FAILED packages/transmitter/tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[wrong-shape]
+FAILED packages/transmitter/tests_transmitter/test_workspace.py::test_atomic_write_fsyncs_the_temp_file_before_the_rename
+4 failed, 15 passed in 0.98s
+........................................                                 [100%]
+112 passed in 2.74s
+........................................                                 [100%]
+112 passed in 2.76s
+E       assert False
+E        +  where False = all(<generator object test_analyze_show_counts_samples_and_measures_tracks_apart_from_clips.<locals>.<genexpr> at 0x107fbfd80>)
+FAILED tests_transmitter/test_analysis.py::test_analyze_show_counts_samples_and_measures_tracks_apart_from_clips
+1 failed, 11 passed in 1.37s
+E       assert -10.3 == -14.8 ± 0.5
+E         
+E         comparison failed
+E         Obtained: -10.3
+E         Expected: -14.8 ± 0.5
+FAILED tests_transmitter/test_analysis.py::test_analyze_show_counts_samples_and_measures_tracks_apart_from_clips
+1 failed, 11 passed in 1.42s
+--- debian12 gate ---
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 64%]
+........................................                                 [100%]
+112 passed in 4.34s
+debian rc=0
+--- full suite ---
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2261 passed, 7 deselected, 26 warnings in 10.00s
+full rc=0

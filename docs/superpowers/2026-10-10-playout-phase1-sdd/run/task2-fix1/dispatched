@@ -1,0 +1,4 @@
+budget-min: 25
+role: implementer
+model: sonnet
+what: debian runner excludes + record extra_frames on ffmpeg 5.1

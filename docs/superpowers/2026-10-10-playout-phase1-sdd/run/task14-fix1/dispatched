@@ -1,0 +1,4 @@
+budget-min: 30
+role: impl
+model: sonnet
+what: Task 14 minors (held field, PublishLocked, status test, exit code)

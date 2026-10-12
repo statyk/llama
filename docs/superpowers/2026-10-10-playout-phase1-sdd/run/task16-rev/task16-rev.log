@@ -1,0 +1,33 @@
+progress: read diff; checking grid.ts d validation and wrangler vars
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+ ❯ test/probe.test.ts (4 tests | 4 failed) 18ms
+   ❯ probe (4)
+ FAIL  test/probe.test.ts > probe > d=0.01
+AssertionError: expected { probe: 'd=0.01', v: 2501 } to be null // Object.is equality
+- Expected:
++ Received:
+  "probe": "d=0.01",
+  "v": 2501,
+ ❯ test/probe.test.ts:17:100
+     16| describe("probe", () => {
+     18|   it("d=1", async () => { const x = await run(1, {}); expect({ probe: …
+ FAIL  test/probe.test.ts > probe > d=1
+AssertionError: expected { probe: 'd=1', v: 76 } to be null // Object.is equality
+- Expected:
++ Received:
+  "probe": "d=1",
+  "v": 76,
+ ❯ test/probe.test.ts:18:91
+     16| describe("probe", () => {
+     18|   it("d=1", async () => { const x = await run(1, {}); expect({ probe: …
+     20|   it("LIVE_MAX_AGE=0", () => { expect({ probe: "maxage0", v: configFro…
+ FAIL  test/probe.test.ts > probe > LOOP_SECONDS=900
+AssertionError: expected { probe: 'loop900', v: 89 } to be null // Object.is equality
+- Expected:
++ Received:
+  "probe": "loop900",
+  "v": 89,
+ ❯ test/probe.test.ts:19:133
+     18|   it("d=1", async () => { const x = await run(1, {}); expect({ probe: …
+     20|   it("LIVE_MAX_AGE=0", () => { expect({ probe: "maxage0", v: configFro…

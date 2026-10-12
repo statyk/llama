@@ -1,0 +1,4 @@
+budget-min: 40
+role: impl
+model: sonnet
+what: Task 17 player page + asset deploy script

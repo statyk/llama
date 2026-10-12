@@ -1,0 +1,24 @@
+### Finding Verdicts
+- Finding 1: ADDRESSED. `station.py:105-112`: `evaluate` now wraps `_evaluate` and catches `(OSError, RuntimeError, UnicodeDecodeError)`, so the unguarded `read_m3u(m3u)` at `station.py:161` now becomes `Ineligible(slug, ("changing: …",))`. Three tests pin it: `test_m3u_vanishing_between_exists_and_read_is_changing`, `test_m3u_with_invalid_utf8_is_changing`, and `test_scan_survives_one_vanishing_package` (which goes through `scan`). All three would fail without the fix.
+- Finding 2: NOT ADDRESSED (part (b) and the `evaluate` half of part (a) are done; the `scan` half of (a) is not).
+  - (b) is done. `station.py:52-56` maps an `OSError` from `root.is_dir()` or `(root/MARKER).exists()` to `StationRootError("station root <root> is unreadable: <exc>")`. The missing-root and no-marker branches are unchanged, so an unreadable root is not misclassified. Pinned by `test_require_root_maps_oserror_on_marker_to_station_root_error`.
+  - (a) is done inside `evaluate` (`station.py:109-112`). Pinned by the ESTALE and RuntimeError tests.
+  - (a) is still open in `scan`. The per-package discovery checks in `scan` are outside the new guard: `entry.is_dir()` at `station.py:206` and `(entry / "manifest.json").exists()` at `station.py:208`. On Python 3.11 these raise for EACCES, ESTALE and EIO, exactly as the ruling states.
+  - Measured on real python3.11, not a monkeypatch: a station root with its marker plus one `chmod 000` subdirectory makes `station.scan` raise `PermissionError: [Errno 13] Permission denied: '<root>/c-locked/manifest.json'` (probe in my log). The same probe on 3.14 returns normally, so the dev suite cannot see it.
+  - Effect on hugo: one unreadable package directory, or one ESTALE handle on a package dir that llama replace-swapped from another NFS client, kills every scan. In the unreadable case it does so permanently, not just for one tick. It also surfaces as a raw `OSError`, not `StationRootError`, which is what `plan_step`'s contract (`scan_now`: "raises StationRootError when the root is unusable") expects.
+  - Fix: wrap lines 206-208 in `try/except OSError as exc: skipped.append(Ineligible(entry.name, (f"changing: {exc}",))); continue`.
+  - Test: monkeypatch `Path.exists` to raise ESTALE for `a-show/manifest.json` and assert `scan` returns `b-show` eligible with `a-show` skipped as `changing`. That test fails at HEAD; I confirmed it with exactly that monkeypatch under 3.14.
+
+### New Issues in the Fix Diff
+- Minor, `station.py:111`: catching `RuntimeError` also swallows its subclasses `NotImplementedError` and `RecursionError`, so a programming error would be reported as `changing: …` and never crash. Narrow it if cheap, e.g. catch `RuntimeError` only around `_inside`'s `resolve()` (the only 3.11 symlink-loop site). Otherwise accept it as documented.
+- Minor, `station.py:111`: a `UnicodeDecodeError` from a corrupt `broadcast.m3u` is labelled `changing:`. That corruption is persistent, so `status` will show "changing" indefinitely. A label like `unreadable broadcast.m3u: …` would point the operator to the right place. This is cosmetic: the package is still correctly Ineligible.
+- Minor, tests: nothing pins the `is_dir()` arm of the new `require_root` try. Only the marker `.exists()` arm is tested.
+- No monkeypatch leakage: every patch goes through pytest's `monkeypatch` fixture and is reverted at teardown. All six tests would fail without the fix.
+
+### Out-of-Scope Observations
+- `sorted(root.iterdir())` at `station.py:205` runs after `require_root` and is unguarded. A mount that goes stale, or a root that is executable but not readable, raises a raw `OSError` from `scan` instead of `StationRootError`. Mapping it to `StationRootError` would match `scan_now`'s documented contract. This is not part of the ruling's letter ("checking the root or marker"), so I suggest folding it into the same fix rather than treating it as a blocker.
+- Original Minor #2 is still open: a non-dict `show`/`source` raises `AttributeError` at `station.py:192-195`. It was not ruled into this round.
+- A stale mount mid-scan now produces "every package changing", so `shows == []`. Downstream (plan Task 9) that becomes `PlanError("no eligible packages to plan")` before `write_plan`, so the plan is not damaged. However, in the plan's recovery branch, `_drop_unpublished_segments` runs before the `PlanError` is raised. Those are regenerable local files, so this is not a spend or safety issue. Worth a look when Task 9 is reviewed.
+
+### Verdict: findings remain open
+Finding 1 is addressed. Finding 2 is addressed in `evaluate` and `require_root` but not in `scan`'s per-package pre-checks (`station.py:206,208`), which still crash the whole scan on Python 3.11 for a single EACCES/ESTALE/EIO package directory. This was reproduced on real 3.11. The fix is a few lines plus one test.

@@ -1,0 +1,4 @@
+budget-min: 50
+role: impl
+model: opus
+what: Task 16 antenna clock loop + Worker entry

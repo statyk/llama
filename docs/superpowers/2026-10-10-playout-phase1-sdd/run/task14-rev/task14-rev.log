@@ -1,0 +1,79 @@
+progress: reading publish.py
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/t14/tree/packages/transmitter/src/transmitter/service.py 1 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/t14/tree/packages/transmitter/tests_transmitter/helpers.py
+=================================== FAILURES ===================================
+____________________________ test_status_populated _____________________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-213/test_status_populated0')
+
+    def test_status_populated(tmp_path):
+        st, _ = make_station(tmp_path)
+        runner = service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None)
+        for _ in range(3):
+            runner.tick(NOW)
+        lines = service.status_lines(st.cfg, NOW)
+        print("\n".join(lines))
+>       assert any(l.startswith("published  segments") for l in lines)
+E       assert False
+E        +  where False = any(<generator object test_status_populated.<locals>.<genexpr> at 0x10c3bd380>)
+
+tree/packages/transmitter/tests_transmitter/test_probe14.py:13: AssertionError
+=========================== short test summary info ============================
+FAILED tree/packages/transmitter/tests_transmitter/test_probe14.py::test_status_populated
+1 failed, 1 passed in 0.20s
+no epoch yet - run `transmitter plan` (or `transmitter run`) first
+F[('ERROR', 'publish step failed'), ('ERROR', 'ALERT publish: PublishLocked: another transmitter publish or prune holds the lock (is `transmitter r')]
+.
+=================================== FAILURES ===================================
+____________________________ test_status_populated _____________________________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-214/test_status_populated0')
+>       assert any(l.startswith("published  segments") for l in lines)
+E       assert False
+E        +  where False = any(<generator object test_status_populated.<locals>.<genexpr> at 0x10ab99540>)
+tree/packages/transmitter/tests_transmitter/test_probe14.py:13: AssertionError
+=========================== short test summary info ============================
+FAILED tree/packages/transmitter/tests_transmitter/test_probe14.py::test_status_populated
+1 failed, 1 passed in 0.83s
+epoch      etest (2096-10-02T07:06:40.000Z)
+plan       2 rows through 2096-10-02T10:07:55.808Z
+on air     (between shows, or not started)
+published  segments 1003..1035; lead 0.1 h
+fallback   none (run `transmitter fallback render`)
+epoch      etest (2096-10-02T07:06:40.000Z)
+plan       2 rows through 2096-10-02T10:07:55.808Z
+on air     band-2005-11-03
+published  segments 1003..1035; lead 0.1 h
+fallback   none (run `transmitter fallback render`)
+.
+1 passed, 1 deselected in 0.29s
+== M1
+E       AssertionError: assert 3 == 1
+tree/packages/transmitter/tests_transmitter/test_service.py:95: AssertionError
+FAILED tree/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+== M2
+tree/packages/transmitter/tests_transmitter/test_service.py:89: AssertionError
+FAILED tree/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+== M3
+E           TypeError: alert() takes 2 positional arguments but 3 were given
+tree/packages/transmitter/src/transmitter/service.py:97: TypeError
+FAILED tree/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+== M4
+E       AssertionError: assert 'ALERT' not in 'ERROR    tr...ter mark 9\n'
+tree/packages/transmitter/tests_transmitter/test_service.py:195: AssertionError
+FAILED tree/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+== M5
+E       AssertionError: assert 'ALERT put-budget: over' in ''
+tree/packages/transmitter/tests_transmitter/test_service.py:175: AssertionError
+FAILED tree/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+== M6
+== M7
+tree/packages/transmitter/tests_transmitter/test_service.py:107: AssertionError
+FAILED tree/packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+== M3 (rerun)
+ERROR    transmitter.alerts:alerts.py:11 ALERT prune: deferred: high-water
+=========================== short test summary info ============================
+FAILED tree/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+1 failed, 23 passed in 0.81s
+== M6 (rerun)
+........................                                                 [100%]
+24 passed in 0.78s
+progress: probes done, writing report

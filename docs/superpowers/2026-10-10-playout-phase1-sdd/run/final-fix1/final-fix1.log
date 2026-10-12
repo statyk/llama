@@ -1,0 +1,59 @@
+........................................................................ [ 99%]
+.                                                                        [100%]
+289 passed in 12.90s
+I1 committed 88fbad1
+I2 committed f3a2e74
+Minor5 committed 67fed1f
+Minors 9/12/13 committed f69a4b0
+=== debian12 gate @ f69a4b0 Sat Oct 10 20:41:54 EDT 2026
+=== 3.11 transmitter suite @ f69a4b0 Sat Oct 10 20:42:11 EDT 2026
+=== debian12 gate @ f69a4b0 Sat Oct 10 20:42:13 EDT 2026 (restarted)
+debconf: delaying package configuration, since apt-utils is not installed
+........................................................................ [ 71%]
+........................................................................ [ 94%]
+................                                                         [100%]
+304 passed in 14.61s
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 94%]
+................                                                         [100%]
+304 passed in 19.07s
+docs committed 9fdc47a
+=== full repo 3.14 suite @ 9fdc47a Sat Oct 10 20:43:39 EDT 2026
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=76533) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2453 passed, 7 deselected, 26 warnings in 22.21s
+=== mutation predictions (written before running)
+i1a (unconditional on-air refusal restored): RED test_render_step_reencodes_a_lost_encode_of_an_unchanged_show_on_air only
+i1b (on-air refusal removed; on-air rows re-planned): RED test_render_step_refuses_to_replan_a_show_already_on_air[changed,ineligible,render-fails,frames-changed]
+i2a (no fallback gate): RED test_no_fallback_rendered_publishes_nothing_and_never_re_puts, test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered, test_publish_exits_nonzero_until_a_fallback_is_rendered
+i2b (gate only before the horizon PUT, reviewer's literal placement): RED same three tests (segments PUT / re-PUT)
+--- mutant i1a
+FAILED ../i1a/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_reencodes_a_lost_encode_of_an_unchanged_show_on_air
+1 failed, 304 passed in 14.53s
+--- mutant i1b
+FAILED ../i1b/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air[changed]
+FAILED ../i1b/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air[ineligible]
+FAILED ../i1b/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air[render-fails]
+FAILED ../i1b/packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_refuses_to_replan_a_show_already_on_air[frames-changed]
+4 failed, 301 passed in 15.54s
+--- mutant i2a
+FAILED ../i2a/packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+FAILED ../i2a/packages/transmitter/tests_transmitter/test_publish.py::test_no_fallback_rendered_publishes_nothing_and_never_re_puts
+FAILED ../i2a/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+3 failed, 302 passed in 14.25s
+--- mutant i2b
+ERROR    transmitter.alerts:alerts.py:11 ALERT publish: no fallback rendered: run `transmitter fallback render` first; nothing is published until a fallback exists (a horizon without one leaves off-air inert)
+ERROR    transmitter.alerts:alerts.py:11 ALERT publish: no fallback rendered: run `transmitter fallback render` first; nothing is published until a fallback exists (a horizon without one leaves off-air inert)
+ERROR    transmitter.alerts:alerts.py:11 ALERT publish: no fallback rendered: run `transmitter fallback render` first; nothing is published until a fallback exists (a horizon without one leaves off-air inert)
+FAILED ../i2b/packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+FAILED ../i2b/packages/transmitter/tests_transmitter/test_publish.py::test_no_fallback_rendered_publishes_nothing_and_never_re_puts
+FAILED ../i2b/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+3 failed, 302 passed in 14.53s
+=== 3.11 transmitter suite @ 9fdc47a Sat Oct 10 20:45:24 EDT 2026
+304 passed in 14.11s

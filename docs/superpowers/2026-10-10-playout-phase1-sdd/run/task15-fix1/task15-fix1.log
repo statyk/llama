@@ -1,0 +1,38 @@
+     × switches to the fallback loop beyond grace, with a discontinuity at the switch 4ms
+     × numbers every fallback segment floor(N/len) + 1, consistently across successive playlists 0ms
+     × never renumbers a segment's discontinuity across reloads early in an epoch (RFC 8216 6.2.2) 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/playlist.test.ts > buildPlaylist > switches to the fallback loop beyond grace, with a discontinuity at the switch
+AssertionError: expected 14 to be 15 // Object.is equality
+ FAIL  test/playlist.test.ts > buildPlaylist > numbers every fallback segment floor(N/len) + 1, consistently across successive playlists
+AssertionError: expected 142 to be 143 // Object.is equality
+ FAIL  test/playlist.test.ts > buildPlaylist > never renumbers a segment's discontinuity across reloads early in an epoch (RFC 8216 6.2.2)
+      Tests  3 failed | 10 passed (13)
+     × switches to the fallback loop beyond grace, with a discontinuity at the switch 4ms
+     × numbers every fallback segment floor(N/len) + 1, consistently across successive playlists 0ms
+     × never renumbers a segment's discontinuity across reloads early in an epoch (RFC 8216 6.2.2) 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 14 to be 15 // Object.is equality
+AssertionError: expected 142 to be 143 // Object.is equality
+AssertionError: empty, len 7: fallback/v1/1.aac @ cur=6: expected +0 to be 1 // Object.is equality
+      Tests  3 failed | 10 passed (13)
+      Tests  13 passed (13)
+> typecheck
+> tsc --noEmit
+
+PREDICTION M1 (switch tag only live->fallback): red = 'treats N < horizon.first as absent' only
+== mutant m1
+     × treats N < horizon.first as absent 3ms
+      Tests  1 failed | 12 passed (13)
+PREDICTION M2 (restore Math.max(0, floor - tags)): red = switches-to-fallback, floor+1 numbering, never-renumbers
+== mutant m2
+     × switches to the fallback loop beyond grace, with a discontinuity at the switch 3ms
+     × numbers every fallback segment floor(N/len) + 1, consistently across successive playlists 0ms
+     × never renumbers a segment's discontinuity across reloads early in an epoch (RFC 8216 6.2.2) 1ms
+      Tests  3 failed | 10 passed (13)
+== baseline (unmutated copy)
+== mutant base
+      Tests  13 passed (13)
+PREDICTION M3 (clamp kept, +1 outside it): red = never-renumbers only
+     × never renumbers a segment's discontinuity across reloads early in an epoch (RFC 8216 6.2.2) 3ms
+      Tests  1 failed | 12 passed (13)

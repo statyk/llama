@@ -1,0 +1,4 @@
+budget-min: 40
+role: impl
+model: sonnet
+what: Task 13 fallback render+upload + debian12 gate

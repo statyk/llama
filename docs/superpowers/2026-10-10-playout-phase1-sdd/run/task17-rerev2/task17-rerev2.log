@@ -1,0 +1,6 @@
+predictions: B natural end with guard -> [playing,pause,ended]; B?ext external pause -> [playing,pause,stopped]; A off-air notice; C button Play + polling stops
+A {"hidden":false,"text":"The station is off the air.","btn":"Play"} m3u8 1
+C before {"paused":false,"btn":"Stop"} after {"btn":"Play","hidden":true} m3u8 atPause 1 after25s 1
+B ["playing","pause","ended"]
+B?ext ["playing","pause","stopped"]
+report + sentinel written

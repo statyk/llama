@@ -1,0 +1,74 @@
+plan-changed: skipped band-2005-11-03 at frame 442323 (planned frame count changed: 13008 now, 12986 in the plan (config or encoder change))
+Ffresh start seg 1020 published last 1019
+FF1-pkg render 0 raised PlanError no eligible packages to plan
+1-pkg render 1 raised PlanError no eligible packages to plan
+plan unchanged: True
+.plan-changed: skipped band-2005-11-02 at frame 455396 (planned frame count changed: 13008 now, 12986 in the plan (config or encoder change))
+frozen row kept: True replanned ['band-2005-11-02'] written 31
+.
+=================================== FAILURES ===================================
+__________________________ test_config_change_wedges ___________________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-139/test_config_change_wedges0')
+
+    def test_config_change_wedges(tmp_path):
+        st, _ = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        cfg2 = TransmitterConfig(root=st.cfg.root, station={"root": st.cfg.station.root, "quiet_minutes": 0},
+                                 planner={"start_delay_minutes": 0.5},
+                                 render={"lead_hours": 0.1, "low_water_hours": 0.05, "clip_pause_seconds": 1.0})
+        st2 = pipeline.Station(ws=st.ws, cfg=cfg2, epoch=st.epoch, engine=FakeEngine(pause_seconds=1.0),
+                               log=print)
+        for _ in range(2):   # every tick, after a "restart"
+>           with pytest.raises(FrameCountDrift):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE FrameCountDrift
+
+tree/packages/transmitter/tests_transmitter/test_probe_rev.py:23: Failed
+_______________ test_deleted_plan_restarts_under_published_keys ________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-139/test_deleted_plan_restarts_und0')
+
+    def test_deleted_plan_restarts_under_published_keys(tmp_path):
+        st, _ = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        rep = pipeline.render_step(st, NOW)
+        last = rep.written[len(rep.written) // 2]
+        save_publish_state(st.ws, PublishState(epoch_id="etest", first=rep.written[0], last=last,
+                                               runs=[[rep.written[0], last]]))
+        st.ws.plan_path.unlink()
+        new_rows = pipeline.plan_step(st, NOW)
+        print("fresh start seg", new_rows[0].start_frame // F, "published last", last)
+>       assert new_rows[0].start_frame // F <= last
+E       AssertionError: assert (449820 // 441) <= 1019
+E        +  where 449820 = PlanRow(seq=0, slug='band-2005-11-03', dir='band-2005-11-03', key='61dbcaeb86ad47ba0535', start_frame=449820, frames=12986, run_start=True, cut_frame=None).start_frame
+
+tree/packages/transmitter/tests_transmitter/test_probe_rev.py:38: AssertionError
+___________________ test_recovery_then_planerror_then_render ___________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-139/test_recovery_then_planerror_t0')
+
+    def test_recovery_then_planerror_then_render(tmp_path):
+        st, logs = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        rep = pipeline.render_step(st, NOW)
+        last = rep.written[-3]
+        save_publish_state(st.ws, PublishState(epoch_id="etest", first=rep.written[0], last=last,
+                                               runs=[[rep.written[0], last]]))
+        later = NOW + 3 * HOUR_US
+        st.scan = lambda now_s: ([], [])          # everything momentarily ineligible
+        with pytest.raises(PlanError):
+            pipeline.plan_step(st, later)
+        seg = st.ws.seg_dir("etest")
+        assert read_plan(st.ws.plan_path) == rows
+>       assert not any(int(p.stem) > last for p in seg.glob("*.aac"))
+E       assert not True
+E        +  where True = any(<generator object test_recovery_then_planerror_then_render.<locals>.<genexpr> at 0x107f7de00>)
+
+tree/packages/transmitter/tests_transmitter/test_probe_rev.py:57: AssertionError
+=========================== short test summary info ============================
+FAILED tree/packages/transmitter/tests_transmitter/test_probe_rev.py::test_config_change_wedges
+FAILED tree/packages/transmitter/tests_transmitter/test_probe_rev.py::test_deleted_plan_restarts_under_published_keys
+FAILED tree/packages/transmitter/tests_transmitter/test_probe_rev.py::test_recovery_then_planerror_then_render
+3 failed, 2 passed in 0.34s
+probes done; writing report

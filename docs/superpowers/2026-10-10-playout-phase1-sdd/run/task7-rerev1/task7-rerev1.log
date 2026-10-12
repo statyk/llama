@@ -1,0 +1,29 @@
+mutants planted: leak, leak_noclipassert, revert, noflush
+== leak
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/t7r1/leak/packages/transmitter/src/transmitter/__init__.py
+E       assert False
+FAILED tests_transmitter/test_analysis.py::test_analyze_show_counts_samples_and_measures_tracks_apart_from_clips
+1 failed, 11 deselected in 0.34s
+== leak_noclipassert
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/t7r1/leak_noclipassert/packages/transmitter/src/transmitter/__init__.py
+E       assert -10.3 == -14.8 ± 0.5
+E         comparison failed
+E         Obtained: -10.3
+E         Expected: -14.8 ± 0.5
+FAILED tests_transmitter/test_analysis.py::test_analyze_show_counts_samples_and_measures_tracks_apart_from_clips
+1 failed, 11 deselected in 0.32s
+== revert
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/t7r1/revert/packages/transmitter/src/transmitter/__init__.py
+PASSED tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[empty-list]
+FAILED tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[empty]
+FAILED tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[list]
+FAILED tests_transmitter/test_analysis.py::test_a_corrupt_cache_file_is_a_miss_and_is_rewritten[wrong-shape]
+3 failed, 1 passed, 8 deselected in 1.03s
+== noflush
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/t7r1/noflush/packages/transmitter/src/transmitter/__init__.py
+FAILED tests_transmitter/test_workspace.py::test_atomic_write_fsyncs_the_temp_file_before_the_rename
+1 failed, 6 deselected in 0.02s
+== leak
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/t7r1/leak/packages/transmitter/src/transmitter/__init__.py
+11 passed, 1 deselected in 1.07s
+report written, sentinel touched

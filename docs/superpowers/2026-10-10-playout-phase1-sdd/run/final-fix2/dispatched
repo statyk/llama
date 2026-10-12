@@ -1,0 +1,4 @@
+budget-min: 45
+role: impl
+model: opus
+what: operator rulings: ENDLIST-only off-air, prune fallback gate, spec as-built edits

@@ -1,0 +1,169 @@
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+....................................                                     [100%]
+180 passed in 4.95s
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+....................................                                     [100%]
+180 passed in 4.94s
+== M2
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/f3M2/tree/packages/transmitter/src/transmitter/pipeline.py M2 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/f3M2/tree/packages/transmitter/tests_transmitter/__init__.py
+......................FF.                                                [100%]
+=================================== FAILURES ===================================
+____________ test_a_show_mismatching_twice_in_one_call_is_excluded _____________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-152/test_a_show_mismatching_twice_0')
+
+    def test_a_show_mismatching_twice_in_one_call_is_excluded(tmp_path):
+        st, logs = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        victim = rows[0].slug
+        _unstable(st, victim)
+>       report = pipeline.render_step(st, NOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+../tree/packages/transmitter/tests_transmitter/test_pipeline.py:371: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../tree/packages/transmitter/src/transmitter/pipeline.py:245: in render_step
+    planned = st.planned_frames(analysis)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+analysis = ShowAnalysis(key='c6ac90f163af44e3cd6a', slug='band-2005-11-03', files=(FileAnalysis(path='dj-audio/set1-intro.mp3', k...ub', 'city': 'Lincoln, NE', 'profile': 'indie', 'url': 'https://archive.org/details/band2005', 'lineage': 'AUD > CDR'})
+
+    def planned(analysis):
+        if analysis.slug != slug:
+            return real(analysis)
+        calls["n"] += 1
+        if calls["n"] > UNSTABLE_MAX_CALLS:
+>           raise AssertionError(f"{slug} measured {calls['n']} times: the re-plan loop is unbounded")
+E           AssertionError: band-2005-11-03 measured 11 times: the re-plan loop is unbounded
+
+../tree/packages/transmitter/tests_transmitter/test_pipeline.py:360: AssertionError
+________ test_a_lone_show_mismatching_twice_in_one_call_is_a_plan_error ________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-152/test_a_lone_show_mismatching_t0')
+
+    def test_a_lone_show_mismatching_twice_in_one_call_is_a_plan_error(tmp_path):
+        st, logs = make_station(tmp_path, n_packages=1)
+        pipeline.plan_step(st, NOW)
+        _unstable(st, st.scan_now(NOW)[0].slug)
+        with pytest.raises(PlanError, match="no eligible packages"):
+>           pipeline.render_step(st, NOW)
+
+../tree/packages/transmitter/tests_transmitter/test_pipeline.py:386: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../tree/packages/transmitter/src/transmitter/pipeline.py:273: in render_step
+    rows = st.extend(kept, pool, now_us, start_frame=start, run_start=run_start)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../tree/packages/transmitter/src/transmitter/pipeline.py:108: in extend
+    return extend(rows, shows, frames_of=self.frames_of, seed=self.cfg.planner.seed,
+../tree/packages/transmitter/src/transmitter/planner.py:52: in extend
+    frames = frames_of(chosen)
+             ^^^^^^^^^^^^^^^^^
+../tree/packages/transmitter/src/transmitter/pipeline.py:100: in frames_of
+    return self.planned_frames(self.engine.analyze(show))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+analysis = ShowAnalysis(key='7eed562a92181a1f3f02', slug='band-2005-11-01', files=(FileAnalysis(path='dj-audio/set1-intro.mp3', k...ub', 'city': 'Lincoln, NE', 'profile': 'indie', 'url': 'https://archive.org/details/band2005', 'lineage': 'AUD > CDR'})
+
+    def planned(analysis):
+        if analysis.slug != slug:
+            return real(analysis)
+        calls["n"] += 1
+        if calls["n"] > UNSTABLE_MAX_CALLS:
+>           raise AssertionError(f"{slug} measured {calls['n']} times: the re-plan loop is unbounded")
+E           AssertionError: band-2005-11-01 measured 11 times: the re-plan loop is unbounded
+
+../tree/packages/transmitter/tests_transmitter/test_pipeline.py:360: AssertionError
+=========================== short test summary info ============================
+FAILED ../tree/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_show_mismatching_twice_in_one_call_is_excluded
+FAILED ../tree/packages/transmitter/tests_transmitter/test_pipeline.py::test_a_lone_show_mismatching_twice_in_one_call_is_a_plan_error
+2 failed, 23 passed in 0.73s
+== M3
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/f3M3/tree/packages/transmitter/src/transmitter/pipeline.py M3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/f3M3/tree/packages/transmitter/tests_transmitter/__init__.py
+........................F                                                [100%]
+=================================== FAILURES ===================================
+__________________ test_the_second_mismatch_rule_is_per_slug ___________________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-153/test_the_second_mismatch_rule_0')
+
+    def test_the_second_mismatch_rule_is_per_slug(tmp_path):
+        # Two different shows each mismatch ONCE in one call (a measurement that
+        # differs on its first read only): both are re-planned in place; neither
+        # is excluded because some OTHER show already mismatched.
+        st, logs = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        a, b = rows[0].slug, rows[1].slug
+        assert a != b
+        real = st.planned_frames
+        seen: set[str] = set()
+    
+        def flaky_once(analysis):
+            if analysis.slug in (a, b) and analysis.slug not in seen:
+                seen.add(analysis.slug)
+                return real(analysis) + 1
+            return real(analysis)
+        st.planned_frames = flaky_once
+        report = pipeline.render_step(st, NOW)
+        assert report.replanned == [a, b]
+        new_rows = read_plan(st.ws.plan_path)
+>       assert [r.slug for r in new_rows[:2]] == [a, b]
+E       AssertionError: assert ['band-2005-1...d-2005-11-01'] == ['band-2005-1...d-2005-11-02']
+E         
+E         At index 1 diff: 'band-2005-11-01' != 'band-2005-11-02'
+E         Use -v to get more diff
+
+../tree/packages/transmitter/tests_transmitter/test_pipeline.py:412: AssertionError
+=========================== short test summary info ============================
+FAILED ../tree/packages/transmitter/tests_transmitter/test_pipeline.py::test_the_second_mismatch_rule_is_per_slug
+1 failed, 24 passed in 0.83s
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 68%]
+........................................................................ [ 71%]
+........................................................................ [ 74%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 83%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 98%]
+.........................                                                [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=26319) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2329 passed, 7 deselected, 26 warnings in 12.36s
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+....................................                                     [100%]
+180 passed in 4.97s

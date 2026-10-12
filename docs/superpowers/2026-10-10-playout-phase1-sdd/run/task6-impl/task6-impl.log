@@ -1,0 +1,33 @@
+E   ImportError: cannot import name 'planner' from 'transmitter' (/Users/shawn/projects/llama/.claude/worktrees/playout-phase1/packages/transmitter/src/transmitter/__init__.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_planner.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.06s
+.............                                                            [100%]
+13 passed in 0.05s
+........................................................................ [ 51%]
+....................................................................     [100%]
+140 passed in 2.82s
+== full suite start Sat Oct 10 16:39:28 EDT 2026
+== debian12 start Sat Oct 10 16:39:34 EDT 2026
+........................................................................ [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 97%]
+.........................................................                [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=75375) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2289 passed, 7 deselected, 26 warnings in 11.43s
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 51%]
+....................................................................     [100%]
+140 passed in 4.02s

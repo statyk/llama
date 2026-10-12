@@ -1,0 +1,59 @@
+
+> test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna
+
+
+ Test Files  3 passed (3)
+      Tests  41 passed (41)
+   Start at  21:14:58
+   Duration  838ms (transform 48%, tests 26%, import 13%, worker 13%)
+
+
+> typecheck
+> tsc --noEmit
+
+........................................................................ [ 47%]
+........................................................................ [ 70%]
+........................................................................ [ 94%]
+..................                                                       [100%]
+306 passed in 14.70s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2455 passed, 7 deselected, 26 warnings in 22.85s
+..................                                                       [100%]
+306 passed in 14.31s
+/private/tmp/claude-501/-Users-shawn-projects-llama/4da97ce3-033f-41ac-8393-7961aaf833f2/scratchpad/mut/packages/transmitter/src/transmitter/__init__.py 1
+...............                                                          [100%]
+15 passed in 0.38s
+MUTANT B: prune gate removed; PREDICT red = test_prune_never_rewrites_the_horizon_without_a_recorded_fallback
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_never_rewrites_the_horizon_without_a_recorded_fallback
+1 failed, 305 passed in 15.08s
+      Tests  41 passed (41)
+/private/tmp/claude-501/-Users-shawn-projects-llama/4da97ce3-033f-41ac-8393-7961aaf833f2/scratchpad/mut/packages/transmitter/tests_transmitter/test_prune.py:161: AssertionError: assert (None == 'no-fallback')
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_never_rewrites_the_horizon_without_a_recorded_fallback
+1 failed, 14 deselected in 0.31s
+MUTANT A: buildPlaylist off-air null-fallback branch reverted to null; PREDICT red = playlist.test.ts 'goes off-air with an ENDLIST-only playlist ...' and clock.test.ts 'writes the ENDLIST-only playlist once ...' + 'reports the staleness rule ...'
+     × goes off-air with an ENDLIST-only playlist (no notice, no URI lines) when no fallback is usable 4ms
+     × writes the ENDLIST-only playlist once and reports it loudly, once per invocation (state/offair.json) 3ms
+     × reports the staleness rule and a null fallback_version 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/clock.test.ts > off-air without a usable fallback > writes the ENDLIST-only playlist once and reports it loudly, once per invocation (state/offair.json)
+ FAIL  test/clock.test.ts > off-air without a usable fallback > reports the staleness rule and a null fallback_version
+ FAIL  test/playlist.test.ts > buildPlaylist > goes off-air with an ENDLIST-only playlist (no notice, no URI lines) when no fallback is usable
+      Tests  3 failed | 38 passed (41)
+MUTANT A2: levelEmptyError clause dropped; PREDICT red = nowplaying.test.ts hlsErrorNotice 'treats the clock's ENDLIST-only playlist ...'
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/nowplaying.test.ts > hlsErrorNotice > treats the clock's ENDLIST-only playlist (levelEmptyError, non-fatal) as off-air
+      Tests  1 failed | 40 passed (41)
+      Tests  41 passed (41)
+FINAL VERIFY at f8b0177
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase1/packages/transmitter/src/transmitter/__init__.py
+2455 passed, 7 deselected, 26 warnings in 22.02s
+306 passed in 14.19s
+      Tests  41 passed (41)
+> tsc --noEmit
+

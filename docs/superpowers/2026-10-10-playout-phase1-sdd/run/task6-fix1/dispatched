@@ -1,0 +1,4 @@
+budget-min: 20
+role: implementer
+model: opus
+what: Task 6 minors: PlanError on corrupt plan, boundary pin, zero-frame skip

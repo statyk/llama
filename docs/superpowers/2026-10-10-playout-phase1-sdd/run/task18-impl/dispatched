@@ -1,0 +1,4 @@
+budget-min: 30
+role: impl
+model: sonnet
+what: Task 18 setup runbook docs/playout-setup.md

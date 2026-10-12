@@ -1,0 +1,31 @@
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/transmitter/tests_transmitter/test_render.py:8: in <module>
+    from transmitter import aacenc, analysis, render, station
+E   ImportError: cannot import name 'render' from 'transmitter' (/Users/shawn/projects/llama/.claude/worktrees/playout-phase1/packages/transmitter/src/transmitter/__init__.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_render.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.10s
+........                                                                 [100%]
+8 passed in 1.32s
+........                                                                 [100%]
+8 passed in 1.26s
+frames 411 rms 0.12204769998788834 expected 0.12574334296829354 ratio 0.9706096331371032 pause peak 0.0 files [('clip', 44100), ('track', 130001), ('track', 134599), ('clip', 44100)] I -21.0 TP -20.2
+== debian12 gate
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 46%]
+........................................................................ [ 93%]
+..........                                                               [100%]
+154 passed in 5.98s
+..........                                                               [100%]
+154 passed in 4.58s
+..........                                                               [100%]
+154 passed in 4.08s
+== full suite
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=94815) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2303 passed, 7 deselected, 26 warnings in 11.36s

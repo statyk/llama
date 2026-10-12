@@ -1,0 +1,11 @@
+PROBE empty len7 INCONSISTENT: none NEG: false
+PROBE empty len3 INCONSISTENT: none NEG: false
+PROBE empty len1 INCONSISTENT: none NEG: false
+PROBE dropout len7 INCONSISTENT: none NEG: false
+PROBE dropout len50 INCONSISTENT: none NEG: false
+PROBE late-start first=4 len7 INCONSISTENT: seg 4: 2->0 at cur 9; seg 5: 2->0 at cur 9; seg 6: 2->0 at cur 9; seg 7: 2->0 at cur 9; seg 8: 2->0 at cur 9; seg 39: 0->5 at cur 44; seg 40: 0->5 at cur 44 NEG: false
+PROBE steady len7 INCONSISTENT: none NEG: false
+MUTANT M1 fb->live tag dropped; predicted red: 'treats N < horizon.first as absent' only
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/playlist.test.ts > buildPlaylist > treats N < horizon.first as absent
+      Tests  1 failed | 12 passed (13)

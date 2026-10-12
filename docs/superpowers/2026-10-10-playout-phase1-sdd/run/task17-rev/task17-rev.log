@@ -1,0 +1,12 @@
+read brief/diff; checking PDT in clock, gitignore, hls.js version
+probe site built at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/site (off-air playlist)
+probe 1 (off-air, Chromium): notice text = 'Playback was blocked; press Try again.' -- prediction confirmed; 1 live.m3u8 fetch only
+probe 2: element paused externally -> button still 'Stop', live.m3u8 fetched 1->7 over 35s paused (static playlist => hls.js half-TD reload). Appended ENDLIST.
+probe 3: live->ENDLIST: notice 'The station is off the air.', live.m3u8 10 at +12s and 10 at +42s (polling stopped); timeline.json fetched once. Cleaned .playwright-mcp artifacts from worktree; server stopped.
+npx wrangler r2 object put llama-radio/index.html --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/index.html --content-type text/html; charset=utf-8 --cache-control public, max-age=60 --remote
+npx wrangler r2 object put llama-radio/offair.html --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/offair.html --content-type text/html; charset=utf-8 --cache-control public, max-age=3600 --remote
+npx wrangler r2 object put llama-radio/player.js --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/player.js --content-type text/javascript; charset=utf-8 --cache-control public, max-age=3600 --remote
+npx wrangler r2 object put llama-radio/nowplaying.js --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/nowplaying.js --content-type text/javascript; charset=utf-8 --cache-control public, max-age=3600 --remote
+npx wrangler r2 object put llama-radio/style.css --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/style.css --content-type text/css; charset=utf-8 --cache-control public, max-age=3600 --remote
+npx wrangler r2 object put llama-radio/assets/hls.min.js --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/node_modules/hls.js/dist/hls.min.js --content-type text/javascript; charset=utf-8 --cache-control public, max-age=3600 --remote
+report written, sentinel touched

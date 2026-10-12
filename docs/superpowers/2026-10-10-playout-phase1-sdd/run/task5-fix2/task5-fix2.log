@@ -1,0 +1,10 @@
+
+packages/transmitter/tests_transmitter/test_station.py:259: OSError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_station.py::test_m3u_with_invalid_utf8_is_unreadable
+FAILED packages/transmitter/tests_transmitter/test_station.py::test_scan_skips_a_package_whose_manifest_check_raises
+FAILED packages/transmitter/tests_transmitter/test_station.py::test_scan_skips_a_package_whose_is_dir_raises
+FAILED packages/transmitter/tests_transmitter/test_station.py::test_scan_listing_failure_is_station_root_error
+4 failed, 23 passed in 0.15s
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2239 passed, 7 deselected, 26 warnings in 8.26s

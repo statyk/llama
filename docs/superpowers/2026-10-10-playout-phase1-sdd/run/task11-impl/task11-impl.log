@@ -1,0 +1,22 @@
+Sat Oct 10 18:39:49 EDT 2026 start: read brief/constraints/code; writing tests
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=54886) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2373 passed, 7 deselected, 26 warnings in 13.12s
+........................................................................ [ 96%]
+........                                                                 [100%]
+224 passed in 6.06s
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/mut11/tree/packages/transmitter/src/transmitter/__init__.py copy /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/mut11/tree/packages/transmitter/tests_transmitter/helpers.py
+PREDICTION: red = test_plan_step_without_a_plan_resumes_after_the_high_water_mark, test_plan_step_recovery_cuts_at_the_high_water_mark, test_plan_step_recovery_never_restarts_below_the_high_water_mark; all else green
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_without_a_plan_resumes_after_the_high_water_mark
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovery_cuts_at_the_high_water_mark
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovery_never_restarts_below_the_high_water_mark
+3 failed, 221 passed in 6.99s
+MUTANT B (no pre-horizon high-water save). PREDICTION: red = test_the_high_water_mark_is_saved_before_the_horizon_put, test_the_horizon_never_moves_below_the_high_water_mark
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_high_water_mark_is_saved_before_the_horizon_put
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_horizon_never_moves_below_the_high_water_mark
+2 failed, 222 passed in 6.77s
+MUTANT C (no epoch flock). PREDICTION: red = test_epoch_creation_is_serialised_against_a_concurrent_creator
+FAILED packages/transmitter/tests_transmitter/test_workspace.py::test_epoch_creation_is_serialised_against_a_concurrent_creator
+1 failed, 223 passed in 6.65s

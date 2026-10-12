@@ -1,0 +1,3 @@
+progress: diff read, checking emcee cli/pyproject parity
+progress: probes done (KI->130 ok, TransmitterError->1 ok, id3 IndexError on oversize decl, adts ignores RDB count); writing report
+report written

@@ -1,0 +1,4 @@
+budget-min: 25
+role: review
+model: opus
+what: re-review task9-fix2 (775f0c1..98ae05a)

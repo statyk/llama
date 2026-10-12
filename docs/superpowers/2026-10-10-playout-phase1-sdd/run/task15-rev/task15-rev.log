@@ -1,0 +1,70 @@
+progress: read inputs, starting probes
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+empty len7 cur 0 null
+empty len7 cur 1 null
+empty len7 cur 2 null
+empty len7 cur 3 [[0,1],[1,1],[2,1],[3,1]]
+empty len7 cur 4 [[0,1],[1,1],[2,1],[3,1],[4,1]]
+empty len7 cur 5 [[0,1],[1,1],[2,1],[3,1],[4,1],[5,1]]
+empty len7 cur 6 [[1,0],[2,0],[3,0],[4,0],[5,0],[6,0]]
+empty len7 cur 7 [[2,0],[3,0],[4,0],[5,0],[6,0],[7,1]]
+empty len7 cur 8 [[3,0],[4,0],[5,0],[6,0],[7,1],[8,1]]
+empty len7 cur 9 [[4,0],[5,0],[6,0],[7,1],[8,1],[9,1]]
+empty len7 INCONSISTENT: seg 1: 1->0 at cur 6; seg 2: 1->0 at cur 6; seg 3: 1->0 at cur 6; seg 4: 1->0 at cur 6; seg 5: 1->0 at cur 6
+empty len3 cur 0 null
+empty len3 cur 1 null
+empty len3 cur 2 null
+empty len3 cur 3 [[0,1],[1,1],[2,1],[3,2]]
+empty len3 cur 4 [[0,1],[1,1],[2,1],[3,2],[4,2]]
+empty len3 cur 5 [[0,1],[1,1],[2,1],[3,2],[4,2],[5,2]]
+empty len3 cur 6 [[1,0],[2,0],[3,1],[4,1],[5,1],[6,2]]
+empty len3 cur 7 [[2,0],[3,1],[4,1],[5,1],[6,2],[7,2]]
+empty len3 cur 8 [[3,1],[4,1],[5,1],[6,2],[7,2],[8,2]]
+empty len3 cur 9 [[4,1],[5,1],[6,2],[7,2],[8,2],[9,3]]
+empty len3 INCONSISTENT: seg 1: 1->0 at cur 6; seg 2: 1->0 at cur 6; seg 3: 2->1 at cur 6; seg 4: 2->1 at cur 6; seg 5: 2->1 at cur 6
+dropout len7 cur 4 [[0,0],[1,0],[2,0]]
+dropout len7 cur 5 [[0,0],[1,0],[2,0]]
+dropout len7 cur 6 [[1,0],[2,0],[3,1],[4,1],[5,1],[6,1]]
+dropout len7 cur 7 [[2,0],[3,1],[4,1],[5,1],[6,1],[7,2]]
+dropout len7 cur 8 [[3,0],[4,0],[5,0],[6,0],[7,1],[8,1]]
+dropout len7 cur 9 [[4,0],[5,0],[6,0],[7,1],[8,1],[9,1]]
+dropout len7 cur 10 [[5,0],[6,0],[7,1],[8,1],[9,1],[10,1]]
+dropout len7 INCONSISTENT: seg 3: 1->0 at cur 8; seg 4: 1->0 at cur 8; seg 5: 1->0 at cur 8; seg 6: 1->0 at cur 8; seg 7: 2->1 at cur 8
+dropout len50 cur 22 [[15,0],[16,0],[17,0],[18,0],[19,0],[20,0]]
+dropout len50 cur 23 [[15,0],[16,0],[17,0],[18,0],[19,0],[20,0]]
+dropout len50 cur 24 [[19,0],[20,0],[21,1],[22,1],[23,1],[24,1]]
+dropout len50 cur 25 [[20,0],[21,1],[22,1],[23,1],[24,1],[25,1]]
+dropout len50 cur 26 [[21,0],[22,0],[23,0],[24,0],[25,0],[26,0]]
+dropout len50 cur 27 [[22,0],[23,0],[24,0],[25,0],[26,0],[27,0]]
+dropout len50 cur 28 [[23,0],[24,0],[25,0],[26,0],[27,0],[28,0]]
+dropout len50 INCONSISTENT: seg 21: 1->0 at cur 26; seg 22: 1->0 at cur 26; seg 23: 1->0 at cur 26; seg 24: 1->0 at cur 26; seg 25: 1->0 at cur 26
+steady len7 cur 1000 [[995,0],[996,0],[997,0],[998,0],[999,0],[1000,0]]
+steady len7 cur 1001 [[996,0],[997,0],[998,0],[999,0],[1000,0],[1001,0]]
+steady len7 cur 1002 [[997,0],[998,0],[999,0],[1000,0],[1001,0],[1002,0]]
+steady len7 INCONSISTENT: none
+empty len7 INCONSISTENT: none
+empty len3 INCONSISTENT: none
+dropout len7 INCONSISTENT: none
+dropout len50 INCONSISTENT: none
+steady len7 INCONSISTENT: none
+ ✓ test/probe.test.ts > probe 2ms
+ ✓ test/playlist.test.ts > buildPlaylist > lists the last six live segments ending at the current index 2ms
+ ✓ test/playlist.test.ts > buildPlaylist > holds at horizon.last for up to three segments (a publish retry is not an outage) 0ms
+ × test/playlist.test.ts > buildPlaylist > switches to the fallback loop beyond grace, with a discontinuity at the switch 3ms
+ ✓ test/playlist.test.ts > buildPlaylist > treats N < horizon.first as absent 0ms
+ ✓ test/playlist.test.ts > buildPlaylist > an empty horizon (first = last + 1) lists fallback 0ms
+ × test/playlist.test.ts > buildPlaylist > numbers every fallback segment floor(N/len), consistently across successive playlists 1ms
+ ✓ test/playlist.test.ts > buildPlaylist > goes off-air with the notice and ENDLIST when state/offair.json says so 0ms
+ ✓ test/playlist.test.ts > buildPlaylist > numbers the off-air playlist from offairSeqMs: constant within an invocation, never below live 1ms
+ ✓ test/playlist.test.ts > buildPlaylist > goes off-air offair_after past the end of the published horizon 0ms
+ ✓ test/playlist.test.ts > buildPlaylist > returns null rather than list a segment that does not exist 0ms
+ ✓ test/playlist.test.ts > buildPlaylist > returns null before the epoch 0ms
+ ✓ test/playlist.test.ts > buildPlaylist > namespaces live keys by epoch 0ms
+ FAIL  test/playlist.test.ts > buildPlaylist > switches to the fallback loop beyond grace, with a discontinuity at the switch
+ FAIL  test/playlist.test.ts > buildPlaylist > numbers every fallback segment floor(N/len), consistently across successive playlists
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 11 passed (13)
+MUTANT fb->live switch tag removed; predicted: NO red test (survivor)
+      Tests  12 passed (12)
+progress: probes done, writing report

@@ -1,0 +1,4 @@
+budget-min: 15
+role: impl
+model: sonnet
+what: Task 17 fix round 2 (pause handler vs ended)

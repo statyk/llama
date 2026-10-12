@@ -1,0 +1,27 @@
+rerev1: scratch site2 built from git archive 04b6df6 at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/site2
+predictions: A notice='The station is off the air.'; B(?stop) no 'ended' after pause->load; control has ended; C button Play + m3u8 polling stops after external pause
+browserType.launch: Executable doesn't exist at /Users/shawn/Library/Caches/ms-playwright/chromium_headless_shell-1247/chrome-headless-shell-mac-arm64/chrome-headless-shell
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     npx playwright install                                 ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+    at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/probe/probe.cjs:5:26
+    at Object.<anonymous> (/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/a73d284a-e238-4647-94e9-b15926c73d06/scratchpad/probe/probe.cjs:21:3) {
+  log: [],
+  name: 'Error'
+}
+A {"hidden":false,"text":"The station is off the air.","btn":"Play"} m3u8 1
+C before {"paused":false,"btn":"Stop"} after {"btn":"Play","hidden":true} m3u8 atPause 1 after25s 1
+B ["playing","pause","ended"]
+B?stop ["playing","pause"]
+npx wrangler r2 object put llama-radio/offair.html --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/offair.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put llama-radio/player.js --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/player.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put llama-radio/nowplaying.js --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/nowplaying.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put llama-radio/style.css --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/style.css --content-type 'text/css; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put llama-radio/assets/hls.min.js --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/node_modules/hls.js/dist/hls.min.js --content-type 'text/javascript; charset=utf-8' --cache-control 'public, max-age=3600' --remote
+npx wrangler r2 object put llama-radio/index.html --file /Users/shawn/projects/llama/.claude/worktrees/playout-phase1/antenna/public/index.html --content-type 'text/html; charset=utf-8' --cache-control 'public, max-age=60' --remote
+report + sentinel written

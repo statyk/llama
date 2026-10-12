@@ -1,0 +1,4 @@
+budget-min: 15
+role: impl
+model: opus
+what: guard tests fail not hang; per-slug guard pin

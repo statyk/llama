@@ -1,0 +1,23 @@
+     × caps PUTs at 10 absolutely, whatever d and loopMs say 3ms
+     × refuses a horizon whose d is not 10.24: zero PUTs, one structured error, returns promptly 11ms
+     × clamps LOOP_SECONDS=900 to 75 s: at most 10 PUTs, ends by scheduledTime + 75 s, logged once 0ms
+     × never writes max-age=0: LIVE_MAX_AGE is at least 1 0ms
+     × emits the per-invocation clock line even when runClock throws 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  5 failed | 24 passed (29)
+      Tests  29 passed (29)
+
+> typecheck
+> tsc --noEmit
+
+PREDICTIONS: (a) no MAX_PUTS in min -> red only 'caps PUTs at 10 absolutely'; (b) no d refusal -> red only 'refuses a horizon whose d is not 10.24'
+== mutant a
+     × caps PUTs at 10 absolutely, whatever d and loopMs say 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 7502 to be less than or equal to 10
+      Tests  1 failed | 28 passed (29)
+== mutant b
+     × refuses a horizon whose d is not 10.24: zero PUTs, one structured error, returns promptly 3ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 10 to be +0 // Object.is equality
+      Tests  1 failed | 28 passed (29)

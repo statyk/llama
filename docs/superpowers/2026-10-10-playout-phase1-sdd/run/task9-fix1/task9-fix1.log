@@ -1,0 +1,212 @@
+== RED
+.............FFFF..                                                      [100%]
+=================================== FAILURES ===================================
+_____________ test_render_step_replans_when_planned_frames_change ______________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-128/test_render_step_replans_when_0')
+
+    def test_render_step_replans_when_planned_frames_change(tmp_path):
+        # An operator changes [render] clip_pause_seconds (or an ffmpeg upgrade
+        # changes extra_frames): rows planned under the old model are re-planned
+        # from the render frontier, never encoded and reported as drift.
+        st, logs = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        render_cfg = st.cfg.render.model_copy(update={"clip_pause_seconds": 1.0})
+        engine = FakeEngine(pause_seconds=1.0)
+        st2 = dataclasses.replace(st, cfg=st.cfg.model_copy(update={"render": render_cfg}), engine=engine)
+        assert st2.frames_of(st2.scan_now(NOW)[0]) != rows[0].frames
+>       report = pipeline.render_step(st2, NOW)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+packages/transmitter/tests_transmitter/test_pipeline.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+st = Station(ws=Workspace(root=PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1...itter.helpers.FakeEngine object at 0x108442150>, scan=None, log=<built-in method append of list object at 0x1085fd080>)
+now_us = 4000010240000000, limit = None
+
+    def render_step(st: Station, now_us: int, *, limit: int | None = None) -> RenderReport:
+        report = RenderReport()
+        rows = read_plan(st.ws.plan_path)
+        pub = load_publish_state(st.ws)
+        n = publish_next(rows, pub.last)
+        if n is None:
+            return report
+        target = st.epoch.index_at(now_us + st.lead_us)
+        seg_dir = st.ws.seg_dir(st.epoch.epoch_id)
+        store = FrameStore(st.ws.shows_dir, st.engine.silent_frame())
+        shows: dict[str, Show] | None = None
+        excluded: set[str] = set()
+        while n <= target and (limit is None or len(report.written) < limit):
+            path = seg_dir / f"{n}.aac"
+            if path.exists():
+                n += 1
+                continue
+            if not rows or (n + 1) * SEGMENT_FRAMES > rows[-1].end_frame:
+                report.covered = False
+                break
+            replanned = False
+            for r in rows_overlapping(rows, n * SEGMENT_FRAMES, (n + 1) * SEGMENT_FRAMES):
+                if store.has(r.key):
+                    continue
+                if r.start_frame < n * SEGMENT_FRAMES:
+                    # Its earlier segments are already rendered (frozen); a re-plan
+                    # here would cut the show mid-air. Alert and let the operator act.
+                    raise LayoutError(f"{r.slug} is already on air (from frame {r.start_frame}) but its "
+                                      f"encode {r.key} is missing; refusing to re-plan into a mid-show cut")
+                if shows is None:
+                    shows = {s.slug: s for s in st.scan_now(now_us)}
+                show = shows.get(r.slug)
+                reason = None
+                if show is None or show.key != r.key:
+                    reason = "package changed or is no longer eligible"
+                else:
+                    try:
+                        frames = st.engine.encode_show(show, st.engine.analyze(show), store.path(r.key))
+                        if frames != r.frames:
+                            store.path(r.key).unlink(missing_ok=True)
+>                           raise FrameCountDrift(f"{r.slug}: encoded {frames} frames, plan says {r.frames}")
+E                           transmitter.errors.FrameCountDrift: band-2005-11-03: encoded 13008 frames, plan says 12986
+
+packages/transmitter/src/transmitter/pipeline.py:213: FrameCountDrift
+________ test_plan_step_recovery_with_nothing_eligible_touches_nothing _________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-128/test_plan_step_recovery_with_n0')
+
+    def test_plan_step_recovery_with_nothing_eligible_touches_nothing(tmp_path):
+        st, _ = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        written = pipeline.render_step(st, NOW).written
+        _publish_up_to(st, written[0], written[-3])
+        before = _seg_files(st)
+        st.scan = lambda now_s: ([], [])                   # every package momentarily "changing"
+        with pytest.raises(PlanError):
+            pipeline.plan_step(st, NOW + 3 * HOUR_US)
+        assert read_plan(st.ws.plan_path) == rows
+>       assert _seg_files(st) == before
+E       AssertionError: assert {'1023.aac': ...93:7937', ...} == {'1023.aac': ...93:7937', ...}
+E         
+E         Omitting 31 identical items, use -vv to show
+E         Right contains 2 more items:
+E         {'1034.aac': b'ID3\x04\x00\x00\x00\x00\x00?PRIV\x00\x00\x005\x00\x00com.appl'
+E                      b'e.streaming.transportStreamTimestamp\x00\x00\x00\x00'
+E                      b'\x008\xcc\xa0\x00\xff\xf1P\x80\x03\xff\xfcd9494ed906f4481cb34e'
+E                      b':598\xff\xf1P\x80\x03\xff\xfcd9494ed906f4481cb34e:599\xff'...
+E         
+E         ...Full output truncated (826 lines hidden), use '-vv' to show
+
+packages/transmitter/tests_transmitter/test_pipeline.py:219: AssertionError
+__________ test_render_step_writes_nothing_while_recovery_is_pending ___________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-128/test_render_step_writes_nothin0')
+
+    def test_render_step_writes_nothing_while_recovery_is_pending(tmp_path):
+        st, logs = make_station(tmp_path)
+        rows = pipeline.plan_step(st, NOW)
+        written = pipeline.render_step(st, NOW).written
+        last = written[-3]
+        _publish_up_to(st, written[0], last)
+        for n in written:
+            if n > last:
+                (st.ws.seg_dir("etest") / f"{n}.aac").unlink()
+        before = _seg_files(st)
+        later = NOW + 3 * HOUR_US                          # last + 1 is long past due
+        report = pipeline.render_step(st, later)
+>       assert report.written == [] and not report.covered
+E       assert ([1034, 1035, ...38, 1039, ...] == []
+E         
+E         Left contains 28 more items, first extra item: 1034
+E         Use -v to get more diff)
+
+packages/transmitter/tests_transmitter/test_pipeline.py:234: AssertionError
+__________ test_plan_step_without_a_plan_resumes_after_published_keys __________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-128/test_plan_step_without_a_plan_0')
+
+    def test_plan_step_without_a_plan_resumes_after_published_keys(tmp_path):
+        st, _ = make_station(tmp_path)
+        pipeline.plan_step(st, NOW)
+        written = pipeline.render_step(st, NOW).written
+        fresh_n = st.epoch.index_at(NOW) + st.start_margin_segments
+        last = written[len(written) // 2]
+        assert last + 1 > fresh_n
+        _publish_up_to(st, written[0], last)
+        st.ws.plan_path.unlink()                           # the operator deleted plan.jsonl
+        new_rows = pipeline.plan_step(st, NOW)
+>       assert new_rows[0].run_start and new_rows[0].start_frame == (last + 1) * F
+E       AssertionError: assert (True and 442323 == ((1019 + 1) * 441))
+E        +  where True = PlanRow(seq=0, slug='band-2005-11-03', dir='band-2005-11-03', key='3e5e61f5b73e5eb3ab76', start_frame=442323, frames=12986, run_start=True, cut_frame=None).run_start
+E        +  and   442323 = PlanRow(seq=0, slug='band-2005-11-03', dir='band-2005-11-03', key='3e5e61f5b73e5eb3ab76', start_frame=442323, frames=12986, run_start=True, cut_frame=None).start_frame
+
+packages/transmitter/tests_transmitter/test_pipeline.py:250: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_replans_when_planned_frames_change
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_recovery_with_nothing_eligible_touches_nothing
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_render_step_writes_nothing_while_recovery_is_pending
+FAILED packages/transmitter/tests_transmitter/test_pipeline.py::test_plan_step_without_a_plan_resumes_after_published_keys
+4 failed, 15 passed in 0.63s
+== GREEN
+...................                                                      [100%]
+19 passed in 1.22s
+== mutation: c,d,e,f,g,h all caught by the predicted tests
+== py3.14 transmitter
+........................................................................ [ 41%]
+........................................................................ [ 82%]
+..............................                                           [100%]
+174 passed in 4.90s
+== py3.11 transmitter
+........................................................................ [ 41%]
+........................................................................ [ 82%]
+..............................                                           [100%]
+174 passed in 4.82s
+== Debian 12 gate
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 41%]
+........................................................................ [ 82%]
+..............................                                           [100%]
+174 passed in 7.01s
+== full repo suite
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 71%]
+........................................................................ [ 74%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 83%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+...................                                                      [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=35462) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2323 passed, 7 deselected, 26 warnings in 12.22s

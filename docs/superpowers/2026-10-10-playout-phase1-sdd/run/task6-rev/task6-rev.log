@@ -1,0 +1,24 @@
+progress: read brief, diff, handbacks
+progress: reading Task 9 plan_step for call-site risk
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/mut/base/packages/transmitter/src/transmitter/__init__.py
+== m1
+<         if prev is not None and r.start_frame < prev.end_frame:
+>         if prev is not None and r.start_frame <= prev.end_frame:
+E               transmitter.errors.LayoutError: plan rows 0 and 1 overlap
+FAILED packages/transmitter/tests_transmitter/test_layout.py::test_validate_rows_accepts_abutting_and_cut_then_aligned
+1 failed, 27 passed in 0.10s
+== m2
+<         if not rows or (n + 1) * SEGMENT_FRAMES > rows[-1].end_frame:
+>         if not rows or (n + 1) * SEGMENT_FRAMES >= rows[-1].end_frame:
+E           transmitter.errors.LayoutError: segment 0 extends past the end of the plan
+FAILED packages/transmitter/tests_transmitter/test_layout.py::test_build_segment_plan_end_boundary
+1 failed, 27 passed in 0.10s
+== m3
+<         if r.start_frame >= boundary:
+>         if r.start_frame > boundary:
+28 passed in 0.59s
+== m4
+<         if r.end_frame > boundary:
+>         if r.end_frame >= boundary:
+28 passed in 0.06s
+progress: mutants done (m1,m2 caught; m3,m4 survive); checking seq usage

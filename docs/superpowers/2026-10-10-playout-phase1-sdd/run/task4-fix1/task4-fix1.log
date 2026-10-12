@@ -1,0 +1,6 @@
+
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: IsADirectoryError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_layout.py::test_silent_frame_must_be_exactly_one_frame
+FAILED packages/transmitter/tests_transmitter/test_layout.py::test_unreadable_encode_is_a_layout_error
+2 failed, 13 passed in 0.09s

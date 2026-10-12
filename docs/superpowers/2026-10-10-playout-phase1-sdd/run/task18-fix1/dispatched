@@ -1,0 +1,4 @@
+budget-min: 15
+role: impl
+model: sonnet
+what: Task 18 fix round 1 (re-epoch fallback re-render + 5 minors)

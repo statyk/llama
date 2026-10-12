@@ -1,0 +1,21 @@
+E               transmitter.errors.LayoutError: plan row 2 (bravo) has no frames
+E           json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+E       TypeError: transmitter.layout.PlanRow() argument after ** must be a mapping, not list
+E       TypeError: PlanRow.__init__() missing 4 required positional arguments: 'dir', 'key', 'start_frame', and 'frames'
+E           TypeError: '<=' not supported between instances of 'str' and 'int'
+FAILED packages/transmitter/tests_transmitter/test_planner.py::test_a_show_with_no_frames_is_skipped_not_fatal
+FAILED packages/transmitter/tests_transmitter/test_planner.py::test_a_corrupt_plan_is_a_plan_error_naming_the_file_and_line[{not json]
+FAILED packages/transmitter/tests_transmitter/test_planner.py::test_a_corrupt_plan_is_a_plan_error_naming_the_file_and_line[[1, 2]]
+FAILED packages/transmitter/tests_transmitter/test_planner.py::test_a_corrupt_plan_is_a_plan_error_naming_the_file_and_line[{"seq": 1, "slug": "x"}]
+FAILED packages/transmitter/tests_transmitter/test_planner.py::test_a_corrupt_plan_is_a_plan_error_naming_the_file_and_line[{"seq": 1, "slug": "x", "dir": "x", "key": "k", "start_frame": 5000, "frames": "9"}]
+5 failed, 14 passed in 0.08s
+..                                                                       [100%]
+146 passed in 2.89s
+..                                                                       [100%]
+146 passed in 2.82s
+FAILED tests_transmitter/test_planner.py::test_cut_for_recovery_drops_a_row_starting_exactly_at_the_boundary
+1 failed, 33 passed in 0.08s
+== full suite start Sat Oct 10 16:45:55 EDT 2026
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2295 passed, 7 deselected, 26 warnings in 10.25s

@@ -1,0 +1,8 @@
+read diff+brief; checking errors.py/grid names
+./
+./keep/
+./keep/e
+./packages/
+./packages/p/
+./packages/p/.venv-keep/
+./packages/p/.venv-keep/d

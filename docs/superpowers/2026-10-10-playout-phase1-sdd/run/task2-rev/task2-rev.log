@@ -1,0 +1,14 @@
+Sat Oct 10 11:47:05 EDT 2026 read brief/constraints/handback/diff; checking plan usage of AacFileEncoder
+extra 1
+silent frame bytes 13
+showA 36.0 1552 1552
+showA 61.3 2641 2641
+showB 2056 2056
+{'n0': 9300, 'count': 36, 'wrap_between': [9320, 9321], 'segue_at_s': 43.20764172335601, 'show_gap_at_s': 144.03337868480725, 'show_b_at_s': 146.05351473922903, 'wrap_at_s': 215.04}
+total decoded s 368.64 expected 368.64
+max|x| in gap interior 0.0
+last sound before gap at 149.0333560090703 first sound after at 149.03360544217688 silence len 0.00024943310657596373
+max diff near gap +-0.5s 0.015689746  max diff showB body 0.023528442
+last sound 144.0227664399093 first sound 146.06385487528345 silence 2.04108843537415
+max diff at segue +-0.1s 0.019776251
+Sat Oct 10 11:48:37 EDT 2026 handback written, sentinel touched

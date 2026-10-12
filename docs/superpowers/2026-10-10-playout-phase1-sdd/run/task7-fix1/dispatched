@@ -1,0 +1,4 @@
+budget-min: 30
+role: implementer
+model: opus
+what: Task 7 fix round 1: corrupt cache = miss; fsync atomic write

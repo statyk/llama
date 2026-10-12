@@ -1,0 +1,28 @@
+Installing collected packages: altgraph, typing-extensions, tomli-w, shellingham, setuptools, pygments, pluggy, packaging, numpy, mutagen, mdurl, macholib, lameenc, iniconfig, idna, h11, certifi, annotated-types, annotated-doc, typing-inspection, pytest, pyinstaller-hooks-contrib, pydantic-core, markdown-it-py, httpcore, anyio, rich, pyinstaller, pydantic, httpx, typer, llama-herder, llama-radio, llama-emcee
+
+Successfully installed altgraph-0.17.5 annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.15.1 certifi-2026.7.22 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.20 iniconfig-2.3.1 lameenc-1.8.4 llama-emcee-0.1.0 llama-herder-0.1.0 llama-radio-0.1.0 macholib-1.16.4 markdown-it-py-4.2.0 mdurl-0.1.2 mutagen-1.48.1 numpy-2.5.3 packaging-26.3 pluggy-1.6.0 pydantic-2.14.0 pydantic-core-2.50.0 pygments-2.21.0 pyinstaller-6.22.3 pyinstaller-hooks-contrib-2026.8 pytest-9.1.1 rich-15.0.0 setuptools-84.0.0 shellingham-1.5.4 tomli-w-1.2.0 typer-0.27.3 typing-extensions-4.16.0 typing-inspection-0.4.4
+
+Successfully installed boto3-1.43.111 botocore-1.43.111 jmespath-1.1.0 llama-transmitter-0.1.0 python-dateutil-2.9.0.post0 s3transfer-0.19.2 six-1.17.0 urllib3-2.8.0
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests_transmitter/test_segment.py:3: in <module>
+    from transmitter import adts, grid, segment
+E   ImportError: cannot import name 'adts' from 'transmitter' (/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase1/1e18c958-066d-4cae-ae48-e032d3e8aa40/scratchpad/red/src/transmitter/__init__.py)
+=========================== short test summary info ============================
+ERROR tests_transmitter/test_adts.py
+ERROR tests_transmitter/test_grid.py
+ERROR tests_transmitter/test_id3.py
+ERROR tests_transmitter/test_segment.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 4 errors during collection !!!!!!!!!!!!!!!!!!!!
+4 errors in 0.07s
+.............................                                            [100%]
+29 passed in 0.03s
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=70039) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2178 passed, 7 deselected, 26 warnings in 9.15s

@@ -1,0 +1,4 @@
+budget-min: 25
+role: review
+model: opus
+what: Task 10 spec+quality review (+task9-fix3)

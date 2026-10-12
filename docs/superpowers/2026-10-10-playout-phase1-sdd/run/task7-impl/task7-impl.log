@@ -1,0 +1,38 @@
+___ ERROR collecting packages/transmitter/tests_transmitter/test_analysis.py ___
+ImportError while importing test module '/Users/shawn/projects/llama/.claude/worktrees/playout-phase1/packages/transmitter/tests_transmitter/test_analysis.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/transmitter/tests_transmitter/test_analysis.py:7: in <module>
+    from transmitter import analysis, station
+E   ImportError: cannot import name 'analysis' from 'transmitter' (/Users/shawn/projects/llama/.claude/worktrees/playout-phase1/packages/transmitter/src/transmitter/__init__.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_audio.py
+ERROR packages/transmitter/tests_transmitter/test_analysis.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.10s
+.................                                                        [100%]
+17 passed in 0.83s
+........................................................................ [ 67%]
+...................................                                      [100%]
+107 passed in 2.12s
+........................................................................ [ 67%]
+...................................                                      [100%]
+107 passed in 2.86s
+sine0.1 Loudness(i_lufs=-20.0, tp_dbfs=-20.0)
+zeros Loudness(i_lufs=None, tp_dbfs=None)
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=80629) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2256 passed, 7 deselected, 26 warnings in 9.71s
+--- debian12 gate output (rc=0) ---
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 67%]
+...................................                                      [100%]
+107 passed in 2.58s
+--- full suite rc=0 ---

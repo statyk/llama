@@ -1,0 +1,4 @@
+budget-min: 60
+role: impl
+model: sonnet
+what: Task 14 CLI/run loop/status + debian12
