@@ -15,8 +15,9 @@ export interface ObjectInfo {
 export interface PutOptions {
   httpMetadata: { contentType: string; cacheControl: string };
   customMetadata?: Record<string, string>;
-  /** Write only if the stored object still has this etag. */
-  onlyIf?: { etagMatches: string };
+  /** Write only if the stored object still has this etag (`etagMatches`), or
+   * only if no object exists (`etagDoesNotMatch: "*"`, create-only). */
+  onlyIf?: { etagMatches: string } | { etagDoesNotMatch: "*" };
 }
 
 export interface BucketLike {
@@ -59,6 +60,17 @@ export async function putJson(bucket: BucketLike, key: string, value: unknown, e
   const result = await bucket.put(key, JSON.stringify(value) + "\n", {
     httpMetadata: STATE_HTTP,
     ...(etag ? { onlyIf: { etagMatches: etag } } : {}),
+  });
+  return result !== null;
+}
+
+/** PUT a state document only if the key does not exist yet (`etagDoesNotMatch:
+ * "*"`, R2's If-None-Match: *). False = the key exists (nothing was written).
+ * How a first creation avoids overwriting an overlapping invocation's. */
+export async function createJson(bucket: BucketLike, key: string, value: unknown): Promise<boolean> {
+  const result = await bucket.put(key, JSON.stringify(value) + "\n", {
+    httpMetadata: STATE_HTTP,
+    onlyIf: { etagDoesNotMatch: "*" },
   });
   return result !== null;
 }

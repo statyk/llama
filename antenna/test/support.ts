@@ -35,7 +35,10 @@ export class MemoryBucket implements BucketLike {
     this.log.push(`put ${key}`);
     if (this.failPuts.has(key)) throw new Error(`injected put failure: ${key}`);
     const cur = this.objects.get(key);
-    if (options.onlyIf && cur?.etag !== options.onlyIf.etagMatches) return null;
+    const cond = options.onlyIf;
+    if (cond && "etagMatches" in cond && cur?.etag !== cond.etagMatches) return null;
+    if (cond && "etagDoesNotMatch" in cond && cur !== undefined) return null; // only "*" exists
+
     const etag = `etag-${++this.n}`;
     this.objects.set(key, { body: value, etag, ...options.httpMetadata, customMetadata: options.customMetadata });
     return { etag };
