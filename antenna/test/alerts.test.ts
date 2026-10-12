@@ -431,6 +431,59 @@ describe("dispatchAlerts", () => {
     expect(bucket.json(ALERTS_KEY)).toEqual({});
   });
 
+  describe("a failed fresh alert over a still-active delivered episode keeps it delivered", () => {
+    const M = 60_000;
+    const setup = () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const got: string[] = [];
+      return {
+        bucket: new MemoryBucket(), got,
+        broken: { name: "x", send: async () => { throw new Error("down"); } },
+        ok: { name: "ok", send: async (o: Outgoing) => { got.push(`${o.kind}:${o.key}`); } },
+      };
+    };
+
+    it("P6: after a failed resolved, a failed return, then a re-clear: resolved still goes out", async () => {
+      const { bucket, got, broken, ok } = setup();
+      await dispatchAlerts(bucket, [ok], [cond("tripped-spend")], T0, REPEAT);
+      await dispatchAlerts(bucket, [broken], [], T0 + M, REPEAT); // clearing
+      expect(await dispatchAlerts(bucket, [broken], [], T0 + 16 * M, REPEAT)).toEqual({ sent: 0, failed: 1 }); // resolved fails
+      expect(await dispatchAlerts(bucket, [broken], [cond("tripped-spend")], T0 + 17 * M, REPEAT))
+        .toEqual({ sent: 0, failed: 1 }); // the fresh alert fails
+      expect(bucket.json(ALERTS_KEY)["tripped-spend"]).toMatchObject({ active: true, delivered: true, last_sent_at: null });
+      await dispatchAlerts(bucket, [broken], [], T0 + 18 * M, REPEAT); // clearing again
+      await dispatchAlerts(bucket, [ok], [], T0 + 33 * M, REPEAT);
+      expect(got).toEqual(["alert:tripped-spend", "resolved:tripped-spend"]);
+      expect(bucket.json(ALERTS_KEY)["tripped-spend"].active).toBe(false);
+    });
+
+    it("P7: a window elapsed across incomplete batches, a failed return, then a re-clear: resolved still goes out", async () => {
+      const { bucket, got, broken, ok } = setup();
+      await dispatchAlerts(bucket, [ok], [cond("tripped-spend")], T0, REPEAT);
+      await dispatchAlerts(bucket, [ok], [], T0 + M, REPEAT); // clearing, on a complete batch
+      for (let m = 2; m <= 20; m++) {
+        await dispatchAlerts(bucket, [ok], [], T0 + m * M, REPEAT, { complete: false, guardComplete: false });
+      }
+      expect(got).toEqual(["alert:tripped-spend"]);
+      expect(await dispatchAlerts(bucket, [broken], [cond("tripped-spend")], T0 + 21 * M, REPEAT))
+        .toEqual({ sent: 0, failed: 1 }); // the fresh alert fails
+      for (let m = 22; m <= 37; m++) await dispatchAlerts(bucket, [ok], [], T0 + m * M, REPEAT);
+      expect(got).toEqual(["alert:tripped-spend", "resolved:tripped-spend"]);
+    });
+
+    it("a failed return after a DELIVERED resolved still starts an undelivered episode", async () => {
+      const { bucket, got, broken, ok } = setup();
+      await dispatchAlerts(bucket, [ok], [cond("waf-api")], T0, REPEAT);
+      await dispatchAlerts(bucket, [ok], [], T0 + M, REPEAT);
+      await dispatchAlerts(bucket, [ok], [], T0 + 16 * M, REPEAT); // resolved, delivered
+      await dispatchAlerts(bucket, [broken], [cond("waf-api")], T0 + 17 * M, REPEAT); // new episode fails
+      expect(bucket.json(ALERTS_KEY)["waf-api"]).toMatchObject({ active: true, delivered: false });
+      await dispatchAlerts(bucket, [ok], [], T0 + 18 * M, REPEAT);
+      await dispatchAlerts(bucket, [ok], [], T0 + 33 * M, REPEAT);
+      expect(got).toEqual(["alert:waf-api", "resolved:waf-api"]); // no resolved for the undelivered episode
+    });
+  });
+
   it("an older entry without `delivered` counts as delivered when a send was recorded", () => {
     const legacy: AlertState = { "waf-api": { active: true, resolvable: true, title: "t", first_at: new Date(T0).toISOString(),
                                               last_sent_at: new Date(T0).toISOString(), cleared_at: null } };

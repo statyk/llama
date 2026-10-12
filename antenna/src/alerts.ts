@@ -339,11 +339,14 @@ export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], co
       if (o.kind === "resolved") next[o.key] = prev[o.key]; // still active: the next invocation resolves it again
       else if (next[o.key]?.once) delete next[o.key]; // never sent: the next invocation sends it as new
       else if (next[o.key]) {
-        // Due again at once. A failed alert opens an undelivered episode; a
-        // failed repeat keeps whatever the episode already had (a delivered
-        // alert stays delivered, so its "resolved" is never dropped).
+        // Due again at once. A failed alert over no episode, or over a cleared
+        // one, opens an undelivered episode; otherwise -- a failed repeat, or a
+        // failed alert over a still-active episode (clearing for COOLDOWN_MS
+        // after a failed "resolved", or across incomplete batches) -- the entry
+        // keeps what the episode already had, so a delivered episode's
+        // "resolved" is never dropped.
         next[o.key] = { ...next[o.key], last_sent_at: null,
-                        delivered: o.kind === "alert" ? false : wasDelivered(prev[o.key]) };
+                        delivered: o.kind === "alert" && !prev[o.key]?.active ? false : wasDelivered(prev[o.key]) };
       }
     }
   }
