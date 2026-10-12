@@ -382,3 +382,45 @@ def test_open_monitor_needs_site_url(tmp_path):
     m = service.open_monitor(st)
     assert m.url == "https://radio.example.org/live.m3u8" and m.dead_clock_s == 120.0 and m.guard_stale_s == 2700.0
     assert m.forbidden_checks == 17                     # guard_check_minutes 15 + 2
+
+
+def _with_epoch(st):
+    from transmitter.workspace import write_json
+    write_json(st.ws.epoch_path, {"epoch_id": "etest", "epoch": st.epoch.iso, "d": 10.24})
+    return st
+
+
+def test_status_shows_the_cloud_state_and_active_alerts(tmp_path):
+    import json as _json
+
+    st = _with_epoch(make_station(tmp_path)[0])
+    (st.ws.root / "alerts.json").write_text(_json.dumps({"dead-clock": {"active": True}, "render": {"active": False},
+                                                         "publish": {"active": True, "last_fired_at": 0.0}}))
+    docs = {
+        "state/guard.json": {"tripped": True, "reason": "blind", "tripped_at": "2026-10-20T06:00:00.000Z",
+                             "last_error": "analytics: HTTP 503", "last_success": "2026-10-20T00:00:00.000Z",
+                             "waf": {"enabled": True, "error": None}},
+        "state/offair.json": {"offair": True, "reason": "objection", "since": "2026-10-20T05:00:00.000Z", "until": None},
+        "state/alerts.json": {"tripped-blind": {"active": True}},
+    }
+    lines = service.status_lines(st.cfg, NOW, cloud=docs.get)
+    text = "\n".join(lines)
+    assert "alerts     hugo: dead-clock" in lines           # the 1970 publish event has gone stale
+    assert "guard      TRIPPED (blind)" in text and "reading    failing since 2026-10-20T00:00:00.000Z" in text
+    assert "killswitch enabled" in text
+    assert "offair     ON since 2026-10-20T05:00:00.000Z (objection)" in text
+    assert "alerts     cloud: tripped-blind" in text
+    assert "anchors    none" in text
+
+
+def test_status_without_cloud_access_still_prints_the_local_half(tmp_path):
+    from transmitter.errors import CloudStateError
+
+    st = _with_epoch(make_station(tmp_path)[0])
+
+    def broken(key):
+        raise CloudStateError("cannot read state/guard.json: boom")
+
+    assert service.status_lines(st.cfg, NOW, cloud=broken)[-1] == "cloud      unavailable: cannot read state/guard.json: boom"
+    assert service.status_lines(st.cfg, NOW, cloud_error="set R2_ACCESS_KEY_ID")[-1] == \
+        "cloud      unavailable: set R2_ACCESS_KEY_ID"

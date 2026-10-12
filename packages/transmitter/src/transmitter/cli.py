@@ -228,8 +228,15 @@ def run(config: Path = CONFIG_OPT,
 
 @app.command()
 def status(config: Path = CONFIG_OPT):
-    """Epoch, plan, what is on air, published lead, fallback version."""
-    for line in service.status_lines(load_config(config), service.now_us()):
+    """Epoch, plan, on air, lead, fallback; the cost guard, off-air flag, kill switch and active alerts."""
+    cfg = load_config(config)
+    cloud, error = None, None
+    try:
+        client, bucket = _cloud(config)
+        cloud = lambda key: cloudstate.get_json(client, bucket, key)  # noqa: E731
+    except TransmitterError as exc:                # no bucket or no R2 keys: the local half still prints
+        error = str(exc)
+    for line in service.status_lines(cfg, service.now_us(), cloud, error):
         typer.echo(line)
 
 
