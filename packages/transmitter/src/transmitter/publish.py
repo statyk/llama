@@ -154,7 +154,10 @@ def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, int
         blocked, error = True, str(exc)
     try:                                            # for the dead-clock check only: never gates publishing
         flag = uploader.get_json(OFFAIR_KEY)
-        offair = bool(flag and flag.get("offair") is True)
+        # Mirror the Worker (guard.ts): absent -> on the air, a boolean -> that value, anything else present
+        # -> off the air.
+        value = flag.get("offair") if isinstance(flag, dict) else None
+        offair = False if flag is None else (value if isinstance(value, bool) else True)
     except Exception:
         offair = None
     write_json(ws.guard_cache_path, {"checked_at": now_s, "blocked": blocked, "error": error,

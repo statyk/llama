@@ -375,6 +375,24 @@ def test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache(tm
     assert calls[0][1]["blocked"] is False and calls[0][1]["offair"] is False   # written by publish's guard read
 
 
+def test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code(tmp_path):
+    st, _ = make_station(tmp_path)
+
+    class Monitor:
+        def check(self, now_us, guard_cache):
+            raise RuntimeError("boom")
+
+    rec = _Rec()
+    alerts.configure(alerts.Dispatcher(tmp_path / "alerts.json", [rec], 6 * 3600.0))
+    try:
+        service.Runner(st, _publisher(st, FakeBucket()), sleep=lambda s: None, monitor=Monitor()).tick(NOW)
+        assert "llama radio: dead-clock-check" in rec.sent
+        assert "llama radio: dead-clock" not in rec.sent
+        assert "dead-clock" not in alerts._dispatcher.active()
+    finally:
+        alerts.configure(None)
+
+
 def test_open_monitor_needs_site_url(tmp_path):
     st, _ = make_station(tmp_path)
     assert service.open_monitor(st) is None

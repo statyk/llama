@@ -351,6 +351,25 @@ def test_the_guard_cache_records_evaluation_time_and_offair_but_gating_stays_on_
     assert json.loads(p.ws.guard_cache_path.read_text())["error"]
 
 
+@pytest.mark.parametrize("body, expected", [
+    (None, False),                       # absent: on the air
+    (b'{"offair": false}', False),
+    (b'{"offair": true}', True),
+    (b'{"offair": "yes"}', True),        # present but not a boolean: the Worker reads it as off the air
+    (b'{"offair": 0}', True),
+    (b'{}', True),
+    (b'[1]', True),
+])
+def test_the_guard_cache_reads_offair_like_the_worker(tmp_path, body, expected):
+    bucket = FakeBucket()
+    bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false}'}
+    if body is not None:
+        bucket.objects["state/offair.json"] = {"Body": body}
+    p = make_publisher(tmp_path, bucket)
+    assert publish.guard_blocks_publishing(p.uploader, p.ws, 1000.0, 900.0) is False   # never gates
+    assert json.loads(p.ws.guard_cache_path.read_text())["offair"] is expected
+
+
 def test_lock_is_exclusive(tmp_path):
     p = make_publisher(tmp_path, FakeBucket())
     with publish.publish_lock(p.ws):

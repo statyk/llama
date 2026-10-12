@@ -42,7 +42,7 @@ def test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stop
     runner.run(max_ticks=1)
     assert sent[0] == "READY=1" and sent[-1] == "STOPPING=1"
     # plan; render (one show encode, then the step FAILS: no clock is injected and helpers.E
-    # is far in the past -- fine, the step's ping sits in `finally`); publish and its one batch.
+    # is far in the future -- fine, the step's ping sits in `finally`); publish and its one batch.
     assert sent.count("WATCHDOG=1") == 5
 
 

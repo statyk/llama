@@ -240,7 +240,9 @@ class Runner:
         self._step("publish", lambda: publish_all(self.p, t_us, self.held, self.notify))
         if self.monitor is not None:
             monitor = self.monitor
-            self._step("dead-clock", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
+            # "dead-clock-check", not "dead-clock": a monitor that RAISES must fire an event code, never the
+            # level code that means "the clock is dead" (only the monitor raises and resolves that one).
+            self._step("dead-clock-check", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
         ok, lead = self._read_lead(t_us)
         if ok and lead is not None and lead >= self.st.lead_us - grid.D_US:
             self.filling = False

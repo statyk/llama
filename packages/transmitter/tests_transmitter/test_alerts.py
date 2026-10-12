@@ -1,3 +1,4 @@
+import email.header
 import logging
 
 import pytest
@@ -306,4 +307,10 @@ def test_ntfy_title_is_rfc2047_encoded_when_not_latin1(monkeypatch):
     NtfyChannel("https://ntfy.example/t").send("radio \u2014 dead-clock", "stale", 4)
     assert seen["h"]["Title"].startswith("=?utf-8?") and seen["h"]["Title"].isascii()
     NtfyChannel("https://ntfy.example/t").send("caf\u00e9: x", "stale", 4)
-    assert seen["h"]["Title"] == "caf\u00e9: x"
+    assert seen["h"]["Title"].isascii() and seen["h"]["Title"].startswith("=?utf-8?")
+    assert email.header.decode_header(seen["h"]["Title"]) == [("caf\u00e9: x".encode(), "utf-8")]
+    long = "llama radio: caf\u00e9 " + "\u00e9" * 80
+    NtfyChannel("https://ntfy.example/t").send(long, "stale", 4)
+    t = seen["h"]["Title"]
+    assert t.isascii() and "\n" not in t and "\r" not in t                      # no obs-fold
+    assert str(email.header.make_header(email.header.decode_header(t))) == long

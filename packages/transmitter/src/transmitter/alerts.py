@@ -100,11 +100,10 @@ class NtfyChannel:
     name: str = "ntfy"
 
     def send(self, subject: str, body: str, priority: int) -> None:
-        try:
-            subject.encode("latin-1")
+        if subject.isascii():
             title = subject
-        except UnicodeEncodeError:               # http.client sends headers as latin-1
-            title = Header(subject, "utf-8").encode()
+        else:                                    # ntfy decodes RFC 2047, not raw latin-1; no obs-fold
+            title = Header(subject, "utf-8").encode(maxlinelen=0)
         headers = {"Title": title, "Priority": str(priority), "Tags": "warning" if priority >= 4 else "white_check_mark"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
