@@ -1,0 +1,10 @@
+progress: reading bucket/latch/support
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/1e675379-4a60-4867-9819-08b2ea8e3082/scratchpad/t6rr/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  40 passed (40)
+   Start at  03:13:59
+   Duration  6.60s (transform 65%, import 23%, tests 9%, worker 3%)
+

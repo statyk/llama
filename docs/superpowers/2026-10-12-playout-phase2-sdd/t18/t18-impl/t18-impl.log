@@ -1,0 +1,109 @@
+== env setup
+== antenna baseline
+      Tests  217 passed (217)
+   Start at  23:23:12
+   Duration  4.69s (transform 78%, worker 11%, import 8%, tests 3%)
+
+  Transform  transforming modules took 6.47s · 78% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+TSC-OK
+== python baseline
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=58010) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2607 passed, 1 skipped, 7 deselected, 26 warnings in 66.81s (0:01:06)
+0
+== antenna after playlist/clock/wrangler
+      Tests  235 passed (235)
+TSC-OK
+== mutants
+-- M1-no-plus-one
+     × goes off-air with the notice and ENDLIST when state/offair.json says so
+     × numbers the off-air playlist from offairSeqMs: constant within an invocation, never below live
+     × goes off-air with an ENDLIST-only playlist (no notice, no URI lines) when no fallback is usable
+     × numbers the off-air notice above every live segment listed at or before the same clock time
+       × a late invocation numbers the notice above the live window it replaces (L=4)
+       × an on-time invocation numbers the notice above every live write of the same minute (L=4)
+       × a late invocation numbers the notice above the live window it replaces (L=12)
+       × an on-time invocation numbers the notice above every live write of the same minute (L=12)
+       × a late invocation numbers the notice above the live window it replaces (L=16)
+       × an on-time invocation numbers the notice above every live write of the same minute (L=16)
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  10 failed | 52 passed (62)
+-- M2-seqMs-only
+     × numbers the off-air playlist from offairSeqMs: constant within an invocation, never below live
+     × numbers the off-air notice above every live segment listed at or before the same clock time
+       × a late invocation numbers the notice above the live window it replaces (L=4)
+       × a late invocation numbers the notice above the live window it replaces (L=12)
+       × a late invocation numbers the notice above the live window it replaces (L=16)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  5 failed | 57 passed (62)
+-- M3-no-lookahead-in-offair
+     × numbers the off-air notice above every live segment listed at or before the same clock time
+       × a late invocation numbers the notice above the live window it replaces (L=4)
+       × an on-time invocation numbers the notice above every live write of the same minute (L=4)
+       × a late invocation numbers the notice above the live window it replaces (L=12)
+       × an on-time invocation numbers the notice above every live write of the same minute (L=12)
+       × a late invocation numbers the notice above the live window it replaces (L=16)
+       × an on-time invocation numbers the notice above every live write of the same minute (L=16)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  7 failed | 55 passed (62)
+-- M4-window-ignores-lookahead
+     × lookahead lists segments past the one airing, holding at last and falling back as before
+     × lookahead 12 in a window of 16 (the deployed values) lists cur-3 .. cur+12
+       × tells players to start holdBack segments before the listed end, in both tags, at VERSION 3
+       × never offsets past the listed window (at most entries - 1 segments)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 58 passed (62)
+-- M5-no-window-clamp
+       × never offsets past the listed window (at most entries - 1 segments)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 61 passed (62)
+-- M6-no-3TD-threshold
+       × emits nothing at holdBack 0, or below 3 target durations (RFC 8216bis)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 61 passed (62)
+== transmitter .venv
+................s........                                                [100%]
+456 passed, 1 skipped in 32.01s
+== transmitter .venv311
+................s........                                                [100%]
+456 passed, 1 skipped in 36.50s
+== python mutants
+-- M7-live-ignores-hold-back
+E             comparison failed
+E         comparison failed
+FAILED ../pymut/packages/transmitter/tests_transmitter/test_deadclock.py::test_age_of_a_lookahead_playlist_counts_from_the_held_back_start_not_its_newest_segment
+FAILED ../pymut/packages/transmitter/tests_transmitter/test_deadclock.py::test_a_malformed_or_positive_offset_is_ignored
+FAILED ../pymut/packages/transmitter/tests_transmitter/test_deadclock.py::test_a_dead_clock_with_lookahead_alerts_as_soon_as_without
+3 failed, 20 passed in 0.10s
+-- M8-offair-ignores-memory
+E         comparison failed
+FAILED ../pymut/packages/transmitter/tests_transmitter/test_deadclock.py::test_age_of_an_offair_playlist_subtracts_the_last_live_hold_back
+FAILED ../pymut/packages/transmitter/tests_transmitter/test_deadclock.py::test_a_dead_clock_while_off_air_uses_the_hold_back_last_seen_live
+2 failed, 21 passed in 0.09s
+-- M9-no-memory
+FAILED ../pymut/packages/transmitter/tests_transmitter/test_deadclock.py::test_a_dead_clock_while_off_air_uses_the_hold_back_last_seen_live
+1 failed, 22 passed in 0.07s
+-- M10-no-server-control-fallback
+E             comparison failed
+E         comparison failed
+FAILED ../pymut/packages/transmitter/tests_transmitter/test_deadclock.py::test_age_of_a_lookahead_playlist_counts_from_the_held_back_start_not_its_newest_segment
+FAILED ../pymut/packages/transmitter/tests_transmitter/test_deadclock.py::test_a_malformed_or_positive_offset_is_ignored
+2 failed, 21 passed in 0.08s
+== final python full
+== final antenna
+      Tests  235 passed (235)
+TSC-OK
+456 passed, 1 skipped in 34.15s
+== debian12 gate
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2612 passed, 1 skipped, 7 deselected, 26 warnings in 56.22s
+........................................................................ [ 78%]
+........................................................................ [ 94%]
+.........................                                                [100%]
+457 passed in 39.42s
+rc=0

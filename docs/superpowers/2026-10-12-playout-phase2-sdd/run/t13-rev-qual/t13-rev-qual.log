@@ -1,0 +1,14 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t13q/tree/packages/transmitter/src/transmitter/__init__.py
+M1 (drop resolves wiring) prediction: all green
+ERROR ../tree/packages/transmitter/tests_transmitter/test_site.py - FileNotFo...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 error in 3.13s
+........................................................................ [ 93%]
+........................                                                 [100%]
+384 passed in 55.74s
+M3 (cli run never configures dispatcher) prediction: all green
+...............................................                          [100%]
+47 passed in 6.38s
+M4 (drop last_sent_at type normalisation) prediction: test_a_corrupt_state_file_does_not_wedge_alerting stays green
+...........                                                              [100%]
+11 passed in 3.82s

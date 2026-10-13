@@ -1,0 +1,318 @@
+M1 predicted=test_stale_fresh_stale_fresh_never_alerts import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M1/packages/transmitter/src/transmitter/__init__.py
+  34 failed, 26 passed in 9.42s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_stale_fresh_stale_fresh_never_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_once_end_to_end
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_updated
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_deferred
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+M3 predicted=test_403_while_the_guard_says_blocked import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M3/packages/transmitter/src/transmitter/__init__.py
+  34 failed, 26 passed in 10.68s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_403_while_the_guard_says_blocked_never_alerts_even_past_the_threshold
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_once_end_to_end
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_updated
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_deferred
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+M5 predicted=test_an_unreadable_guard_alerts import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M5/packages/transmitter/src/transmitter/__init__.py
+  34 failed, 26 passed in 14.99s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_an_unreadable_guard_alerts_once_it_has_persisted_and_recovers
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_once_end_to_end
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_updated
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_deferred
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+M6 predicted=test_a_cache_without_the_evaluation_key import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M6/packages/transmitter/src/transmitter/__init__.py
+  34 failed, 26 passed in 9.36s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_a_cache_without_the_evaluation_key_is_unknown_but_a_null_one_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_once_end_to_end
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_updated
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_deferred
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+M7 predicted=test_the_runner_runs_the_dead_clock_check import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M7/packages/transmitter/src/transmitter/__init__.py
+  33 failed, 27 passed in 9.71s
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_once_end_to_end
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_updated
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_deferred
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+M8 predicted=test_fetch_text_turns_transport_errors / test_an_odd_transport_error import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M8/packages/transmitter/src/transmitter/__init__.py
+  37 failed, 23 passed in 9.60s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_fetch_text_turns_transport_errors_into_status_zero[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_fetch_text_turns_transport_errors_into_status_zero[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_fetch_text_turns_transport_errors_into_status_zero[exc2]
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_an_odd_transport_error_does_not_alert_on_the_first_call
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_once_end_to_end
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_updated
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_deferred
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+M9 predicted=test_run_hands_the_runner_the_dead_clock_monitor import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M9/packages/transmitter/src/transmitter/__init__.py
+  33 failed, 27 passed in 9.42s
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_once_end_to_end
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_updated
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_deferred
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+M10 predicted=test_an_unreadable_guard_alerts import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M10/packages/transmitter/src/transmitter/__init__.py
+  34 failed, 26 passed in 9.76s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_an_unreadable_guard_alerts_once_it_has_persisted_and_recovers
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_once_end_to_end
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_updated
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_reports_horizon_deferred
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_zero_when_clean_or_empty
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_put_budget_stops_it
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_when_the_guard_is_tripped
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_publish_exits_nonzero_until_a_fallback_is_rendered
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_fallback_render_on_a_fresh_workspace_then_run_publishes_with_its_version
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_installs_the_alert_dispatcher_and_clears_it_afterwards
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+............................................................             [100%]
+60 passed in 7.41s
+M1 predicted=test_stale_fresh_stale_fresh_never_alerts import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M1/packages/transmitter/src/transmitter/__init__.py
+  1 failed, 59 passed in 9.45s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_stale_fresh_stale_fresh_never_alerts
+M3 predicted=test_403_while_the_guard_says_blocked import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M3/packages/transmitter/src/transmitter/__init__.py
+  1 failed, 59 passed in 9.55s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_403_while_the_guard_says_blocked_never_alerts_even_past_the_threshold
+M5 predicted=test_an_unreadable_guard_alerts import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M5/packages/transmitter/src/transmitter/__init__.py
+  1 failed, 59 passed in 10.03s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_an_unreadable_guard_alerts_once_it_has_persisted_and_recovers
+M6 predicted=test_a_cache_without_the_evaluation_key import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M6/packages/transmitter/src/transmitter/__init__.py
+  1 failed, 59 passed in 9.45s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_a_cache_without_the_evaluation_key_is_unknown_but_a_null_one_alerts
+M7 predicted=test_the_runner_runs_the_dead_clock_check import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M7/packages/transmitter/src/transmitter/__init__.py
+  1 failed, 59 passed in 8.61s
+  FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+M8 predicted=test_fetch_text_turns_transport_errors / test_an_odd_transport_error import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M8/packages/transmitter/src/transmitter/__init__.py
+  4 failed, 56 passed in 5.99s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_fetch_text_turns_transport_errors_into_status_zero[exc0]
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_fetch_text_turns_transport_errors_into_status_zero[exc1]
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_fetch_text_turns_transport_errors_into_status_zero[exc2]
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_an_odd_transport_error_does_not_alert_on_the_first_call
+M9 predicted=test_run_hands_the_runner_the_dead_clock_monitor import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M9/packages/transmitter/src/transmitter/__init__.py
+  1 failed, 59 passed in 5.85s
+  FAILED packages/transmitter/tests_transmitter/test_cli.py::test_run_hands_the_runner_the_dead_clock_monitor
+M10 predicted=test_an_unreadable_guard_alerts import=/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t14m/M10/packages/transmitter/src/transmitter/__init__.py
+  1 failed, 59 passed in 5.87s
+  FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_an_unreadable_guard_alerts_once_it_has_persisted_and_recovers

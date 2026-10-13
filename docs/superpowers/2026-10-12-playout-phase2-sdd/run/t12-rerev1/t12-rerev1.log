@@ -1,0 +1,8 @@
+E       AssertionError: 
+E       assert 1 == 0
+E        +  where 1 = <Result PutBudgetExceeded('daily PUT budget of 17500 reached for 2026-10-12 (UTC)')>.exit_code
+
+../tree/packages/transmitter/tests_transmitter/test_cloudstate.py:141: AssertionError
+=========================== short test summary info ============================
+FAILED ../tree/packages/transmitter/tests_transmitter/test_cloudstate.py::test_cli_offair_on_requires_a_reason_and_works_while_tripped_and_over_the_put_budget
+1 failed, 6 passed, 59 deselected in 6.00s

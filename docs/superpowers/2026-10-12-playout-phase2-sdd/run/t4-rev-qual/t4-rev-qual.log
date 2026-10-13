@@ -1,0 +1,24 @@
+scratch ready
+== baseline scratch
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  02:27:54
+   Duration  4.83s (transform 80%, tests 7%, worker 7%, import 6%)
+
+== M1 (re-trip keeps old period)
+      Tests  19 passed (19)
+== probe under M1
+   × probe: an over reading in a new period re-anchors the latch to it 31ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected '2026-10-11T00:00:00.000Z' to be '2026-11-11T00:00:00.000Z' // Object.is equality
+      Tests  1 failed | 1 passed (2)
+== probe under original
+      Tests  2 passed (2)
+== M4 (re-trip resets tripped_at) latch.test
+      Tests  19 passed (19)
+== M2 (raise >=)
+     × does not clear spend on a later reading under the thresholds in the same period at the same budget 17ms
+     × clears spend after a raise, only if that evaluation is under; an over evaluation consumes the raise 0ms
+     × a corrupt document becomes a spend trip that only a raise or a new period clears 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 16 passed (19)

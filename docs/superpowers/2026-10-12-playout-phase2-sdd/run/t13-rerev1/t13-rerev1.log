@@ -1,0 +1,504 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t13rr/tree/packages/transmitter/src/transmitter/__init__.py
+== baseline
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_______ test_runner_survives_an_unexpected_error_and_the_next_tick_runs ________
+    def test_runner_survives_an_unexpected_error_and_the_next_tick_runs(tmp_path, caplog, monkeypatch):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_____________ test_plan_errors_alert_and_the_loop_continues[exc0] ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-366/test_plan_errors_alert_and_the0')
+    def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_____________ test_plan_errors_alert_and_the_loop_continues[exc1] ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-366/test_plan_errors_alert_and_the1')
+    def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+________________ test_publish_all_alerts_errors_and_logs_guard _________________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-366/test_publish_all_alerts_errors0')
+    def test_publish_all_alerts_errors_and_logs_guard(tmp_path, caplog, monkeypatch):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+22 failed, 19 passed in 6.59s
+== A-plan-dropped
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_______ test_runner_survives_an_unexpected_error_and_the_next_tick_runs ________
+    def test_runner_survives_an_unexpected_error_and_the_next_tick_runs(tmp_path, caplog, monkeypatch):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_____________ test_plan_errors_alert_and_the_loop_continues[exc0] ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-367/test_plan_errors_alert_and_the0')
+    def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_____________ test_plan_errors_alert_and_the_loop_continues[exc1] ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-367/test_plan_errors_alert_and_the1')
+    def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+________________ test_publish_all_alerts_errors_and_logs_guard _________________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-367/test_publish_all_alerts_errors0')
+    def test_publish_all_alerts_errors_and_logs_guard(tmp_path, caplog, monkeypatch):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+22 failed, 19 passed in 10.87s
+== B-render-empty
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_______ test_runner_survives_an_unexpected_error_and_the_next_tick_runs ________
+    def test_runner_survives_an_unexpected_error_and_the_next_tick_runs(tmp_path, caplog, monkeypatch):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_____________ test_plan_errors_alert_and_the_loop_continues[exc0] ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-368/test_plan_errors_alert_and_the0')
+    def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_____________ test_plan_errors_alert_and_the_loop_continues[exc1] ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-368/test_plan_errors_alert_and_the1')
+    def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+________________ test_publish_all_alerts_errors_and_logs_guard _________________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-368/test_publish_all_alerts_errors0')
+    def test_publish_all_alerts_errors_and_logs_guard(tmp_path, caplog, monkeypatch):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+22 failed, 19 passed in 6.90s
+== D-disk-wins
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_______ test_runner_survives_an_unexpected_error_and_the_next_tick_runs ________
+    def test_runner_survives_an_unexpected_error_and_the_next_tick_runs(tmp_path, caplog, monkeypatch):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_____________ test_plan_errors_alert_and_the_loop_continues[exc0] ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-369/test_plan_errors_alert_and_the0')
+    def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+_____________ test_plan_errors_alert_and_the_loop_continues[exc1] ______________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-369/test_plan_errors_alert_and_the1')
+    def test_plan_errors_alert_and_the_loop_continues(tmp_path, caplog, monkeypatch, exc):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+________________ test_publish_all_alerts_errors_and_logs_guard _________________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-369/test_publish_all_alerts_errors0')
+    def test_publish_all_alerts_errors_and_logs_guard(tmp_path, caplog, monkeypatch):
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+             errors=None, newline=None):
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+22 failed, 19 passed in 5.75s
+== baseline
+41 passed in 5.24s
+== A-plan-dropped
+41 passed in 5.73s
+== B-render-empty
+E           AssertionError: assert 'llama radio: resolved: render' in ['llama radio: render']
+E            +  where ['llama radio: render'] = <tests_transmitter.test_service._Rec object at 0x1088d74d0>.sent
+FAILED ../m/packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+1 failed, 40 passed in 5.35s
+== D-disk-wins
+41 passed in 5.91s

@@ -1,0 +1,26 @@
+    
+        st = _with_epoch(make_station(tmp_path)[0])
+    
+        def broken(key):
+            raise CloudStateError("cannot read state/guard.json: boom")
+    
+>       assert service.status_lines(st.cfg, NOW, cloud=broken)[-1] == "cloud      unavailable: cannot read state/guard.json: boom"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: status_lines() got an unexpected keyword argument 'cloud'
+
+packages/transmitter/tests_transmitter/test_service.py:424: TypeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_shows_the_cloud_state_and_active_alerts
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_without_cloud_access_still_prints_the_local_half
+2 failed, 26 passed in 6.79s
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+...........................................................s........     [100%]
+427 passed, 1 skipped in 59.80s
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+...........................................................s........     [100%]
+427 passed, 1 skipped in 57.29s
+........................................................................ [ 84%]
+....................................................................     [100%]
+428 passed in 30.01s

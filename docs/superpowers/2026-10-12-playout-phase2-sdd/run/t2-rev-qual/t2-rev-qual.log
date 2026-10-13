@@ -1,0 +1,23 @@
+progress: reading downstream briefs for NaN validation
+== baseline
+      Tests  7 passed (7)
+== sentinel baseUsd 6 (expect red: published prices / base tests)
+     × is the $5 base while every meter is inside its allowance 14ms
+     × prices only the usage beyond each allowance 1ms
+     × carries the published prices 1ms
+     × projects each meter from the recent rate through the allowances, not a dollar average 2ms
+     × has nothing left to project at the period's end 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > priceUsage > is the $5 base while every meter is inside its allowance
+ FAIL  test/pricing.test.ts > priceUsage > prices only the usage beyond each allowance
+== M1 workers projection uses ClassA rate (predict SURVIVES)
+      Tests  7 passed (7)
+== M2 drop remainingMs clamp (predict SURVIVES)
+      Tests  7 passed (7)
+== M3 actual > instead of >= (predict RED: trips at actual >= 90%)
+     × trips at actual >= 90% or projected >= 100% 7ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > overThreshold > trips at actual >= 90% or projected >= 100%
+      Tests  1 failed | 6 passed (7)
+== M4 classB not projected (predict SURVIVES)
+      Tests  7 passed (7)

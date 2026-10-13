@@ -1,0 +1,50 @@
+        r = CliRunner().invoke(app, ["status", "--config", str(cfgp)])
+>       assert r.exit_code == 0, r.output
+E       AssertionError: 
+E       assert 1 == 0
+E        +  where 1 = <Result ValueError('Invalid endpoint: nope')>.exit_code
+
+packages/transmitter/tests_transmitter/test_service.py:543: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_survives_a_corrupt_local_alerts_file[{not json]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_survives_a_corrupt_local_alerts_file[[1,2]]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_renders_a_malformed_or_expired_raise_through_the_verdict
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_corrupt_offair_document[doc0]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_corrupt_offair_document[doc1]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_guard_document_the_guard_would_reject
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_one_unreadable_document_blanks_only_its_own_line
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_get_json_turns_a_body_read_failure_into_a_cloud_state_error
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_turns_any_reader_exception_into_the_unavailable_line
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_without_an_epoch_still_shows_the_cloud_half
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_cli_status_with_a_malformed_endpoint_prints_the_local_half
+11 failed, 29 passed in 7.31s
+        st = _with_epoch(make_station(tmp_path)[0])
+        (st.ws.root / "alerts.json").write_text(_json.dumps({"dead-clock": {"active": True}, "render": {"active": False},
+                                                             "publish": {"active": True, "last_fired_at": 0.0}}))
+        docs = {
+            "state/guard.json": {"tripped": True, "reason": "blind", "tripped_at": "2026-10-20T06:00:00.000Z",
+                                 "last_error": "analytics: HTTP 503", "last_success": "2026-10-20T00:00:00.000Z",
+                                 "waf": {"enabled": True, "error": None}},
+            "state/offair.json": {"offair": True, "reason": "objection", "since": "2026-10-20T05:00:00.000Z", "until": None},
+            "state/alerts.json": {"tripped-blind": {"active": True}},
+        }
+        lines = service.status_lines(st.cfg, NOW, cloud=docs.get)
+        text = "\n".join(lines)
+        assert "alerts     hugo: dead-clock" in lines           # the 1970 publish event has gone stale
+>       assert "guard      TRIPPED (blind)" in text and "reading    failing since 2026-10-20T00:00:00.000Z" in text
+E       AssertionError: assert ('guard      TRIPPED (blind)' in 'epoch      etest (2096-10-02T07:06:40.000Z)\nplan       empty\npublished  nothing yet\nfallback   none (run `transmit...TTP 503\nkillswitch enabled\noffair     ON since 2026-10-20T05:00:00.000Z (objection)\nalerts     cloud: tripped-blind')
+
+packages/transmitter/tests_transmitter/test_service.py:409: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_shows_the_cloud_state_and_active_alerts
+1 failed, 39 passed in 5.75s
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_shows_the_cloud_state_and_active_alerts
+1 failed, 438 passed, 1 skipped in 59.68s
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_shows_the_cloud_state_and_active_alerts
+1 failed, 438 passed, 1 skipped in 54.12s
+........                                                                 [100%]
+439 passed, 1 skipped in 57.15s
+........                                                                 [100%]
+439 passed, 1 skipped in 58.32s
+........                                                                 [100%]
+440 passed in 31.62s

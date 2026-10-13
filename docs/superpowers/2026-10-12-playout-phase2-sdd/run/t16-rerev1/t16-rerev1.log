@@ -1,0 +1,55 @@
+progress: probing behaviour
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/__init__.py
+--- corrupt not-tripped guard
+guard      CORRUPT (schema is not 1): the clock treats it as a spend trip
+guard      not tripped
+killswitch disabled
+offair     off
+alerts     cloud: none
+--- brief doc
+guard      CORRUPT (schema is not 1): the clock treats it as a spend trip
+guard      TRIPPED (blind) since x
+killswitch enabled
+offair     off
+alerts     cloud: none
+--- offair null / list via get_json
+real boto3: ValueError Invalid endpoint: nope
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16rr/old/packages/transmitter/src/transmitter/__init__.py
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_lines_populated
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_survives_a_corrupt_local_alerts_file[{not json]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_survives_a_corrupt_local_alerts_file[[1,2]]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_renders_a_malformed_or_expired_raise_through_the_verdict
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_corrupt_offair_document[doc0]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_corrupt_offair_document[doc1]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_guard_document_the_guard_would_reject
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_one_unreadable_document_blanks_only_its_own_line
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_get_json_turns_a_body_read_failure_into_a_cloud_state_error
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_turns_any_reader_exception_into_the_unavailable_line
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_without_an_epoch_still_shows_the_cloud_half
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_cli_status_with_a_malformed_endpoint_prints_the_local_half
+34 failed, 6 passed in 5.41s
+
+packages/transmitter/tests_transmitter/test_service.py:543: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_survives_a_corrupt_local_alerts_file[{not json]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_survives_a_corrupt_local_alerts_file[[1,2]]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_renders_a_malformed_or_expired_raise_through_the_verdict
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_corrupt_offair_document[doc0]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_corrupt_offair_document[doc1]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_flags_a_guard_document_the_guard_would_reject
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_one_unreadable_document_blanks_only_its_own_line
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_get_json_turns_a_body_read_failure_into_a_cloud_state_error
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_turns_any_reader_exception_into_the_unavailable_line
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_without_an_epoch_still_shows_the_cloud_half
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_cli_status_with_a_malformed_endpoint_prints_the_local_half
+11 failed, 29 passed in 6.18s
+mutant M1: always CORRUPT (prediction: survives; no status test renders a schema-valid guard)
+........................................................                 [100%]
+56 passed in 5.79s

@@ -1,0 +1,55 @@
+
+packages/transmitter/tests_transmitter/test_service.py:571: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_corrupt_guard_never_shows_its_own_verdict_line[False]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_corrupt_guard_never_shows_its_own_verdict_line[True]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_unreadable_guard_and_offair_documents_state_the_consequence
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_raise_with_no_known_period_end_is_not_plainly_honoured
+4 failed, 40 passed in 4.86s
+E        +  where 'guard      state/guard.json is not a document the guard wrote (schema is not 1); the guard treats it as a spend trip\nraise      $20.00 until 2026-11-11T00:00:00.000Z (honoured (period end unknown))\n' = <Result SystemExit(1)>.output
+
+packages/transmitter/tests_transmitter/test_cloudstate.py:352: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cloudstate.py::test_cli_budget_view_reports_an_unreadable_guard_carries_on_and_exits_1[corrupt]
+FAILED packages/transmitter/tests_transmitter/test_cloudstate.py::test_cli_budget_view_reports_an_unreadable_guard_carries_on_and_exits_1[unreadable]
+FAILED packages/transmitter/tests_transmitter/test_cloudstate.py::test_cli_budget_view_reports_an_unreadable_guard_carries_on_and_exits_1[shape]
+3 failed, 107 passed in 5.29s
+FAILED packages/transmitter/tests_transmitter/test_cloudstate.py::test_cli_budget_view_reports_an_unreadable_guard_carries_on_and_exits_1[shape]
+3 failed, 440 passed, 1 skipped in 51.68s
+FAILED packages/transmitter/tests_transmitter/test_cloudstate.py::test_cli_budget_view_reports_an_unreadable_guard_carries_on_and_exits_1[shape]
+3 failed, 440 passed, 1 skipped in 55.72s
+...s........                                                             [100%]
+443 passed, 1 skipped in 58.83s
+...s........                                                             [100%]
+443 passed, 1 skipped in 57.90s
+4ff1126 fix(transmitter): a corrupt guard replaces its own verdict line; unreadable docs state the consequence; honoured raise with unknown period says so
+FAILED tests_transmitter/test_service.py::test_runner_fills_to_the_lead_then_idles_until_low_water
+FAILED tests_transmitter/test_service.py::test_runner_alerts_and_keeps_publishing_when_planning_fails
+FAILED tests_transmitter/test_service.py::test_runner_survives_an_unexpected_error_and_the_next_tick_runs
+FAILED tests_transmitter/test_service.py::test_frame_count_drift_halts_filling_but_keeps_publishing
+FAILED tests_transmitter/test_service.py::test_run_with_max_ticks_sleeps_between_ticks
+FAILED tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc0]
+FAILED tests_transmitter/test_service.py::test_plan_errors_alert_and_the_loop_continues[exc1]
+FAILED tests_transmitter/test_service.py::test_frame_count_drift_sets_halted_and_alerts
+FAILED tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_publish
+FAILED tests_transmitter/test_service.py::test_publish_all_alerts_put_budget_from_prune
+FAILED tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+FAILED tests_transmitter/test_service.py::test_publish_all_warns_on_high_water_without_alerting
+FAILED tests_transmitter/test_service.py::test_publish_all_warns_on_a_held_horizon_without_alerting
+FAILED tests_transmitter/test_service.py::test_publish_all_alerts_errors_and_logs_guard
+FAILED tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+FAILED tests_transmitter/test_service.py::test_runner_warns_without_traceback_or_alert_on_publish_locked
+FAILED tests_transmitter/test_service.py::test_status_lines_populated - FileN...
+FAILED tests_transmitter/test_service.py::test_runner_alerts_and_spends_nothing_until_a_fallback_is_rendered
+FAILED tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[{"last": 1]
+FAILED tests_transmitter/test_service.py::test_an_unreadable_publish_state_alerts_and_fails_the_tick_closed[[1, 2]]
+FAILED tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[plan_step-codes0]
+FAILED tests_transmitter/test_service.py::test_a_successful_step_resolves_its_level_codes[render_step-codes1]
+FAILED tests_transmitter/test_service.py::test_the_runner_runs_the_dead_clock_check_every_tick_with_the_guard_cache
+FAILED tests_transmitter/test_service.py::test_status_shows_the_cloud_state_and_active_alerts
+FAILED tests_transmitter/test_service.py::test_one_unreadable_document_blanks_only_its_own_line
+25 failed, 19 passed in 8.44s
+FAILED tests_transmitter/test_service.py::test_one_unreadable_document_blanks_only_its_own_line
+FAILED tests_transmitter/test_service.py::test_status_shows_the_cloud_state_and_active_alerts
+............                                                             [100%]
+444 passed in 31.71s

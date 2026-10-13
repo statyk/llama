@@ -1,0 +1,27 @@
+== baseline
+
+ Test Files  1 passed (1)
+      Tests  30 passed (30)
+   Start at  03:35:19
+   Duration  3.89s (transform 71%, tests 23%, import 4%, worker 2%)
+
+== mutant M5 (expect: handler throw test red)
+     × emits the per-invocation clock line even when runClock throws 10ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/clock.test.ts > scheduled handler > emits the per-invocation clock line even when runClock throws
+      Tests  1 failed | 29 passed (30)
+== mutant M2 (expect: lead-floor test red)
+     × alerts when the published lead is below the floor, except while tripped (publishing stops then) 11ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/clock.test.ts > runClock > alerts when the published lead is below the floor, except while tripped (publishing stops then)
+      Tests  1 failed | 29 passed (30)
+== mutant M4grid (expect: grid-derivation test + handler throw test red)
+     × a horizon the grid cannot be derived from raises clock-inputs (urgent), incomplete, and the partial result rides the error 4ms
+     × emits the per-invocation clock line even when runClock throws 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/clock.test.ts > the alert batch's scope (complete) > a horizon the grid cannot be derived from raises clock-inputs (urgent), incomplete, and the partial result rides the error
+ FAIL  test/clock.test.ts > scheduled handler > emits the per-invocation clock line even when runClock throws
+      Tests  2 failed | 28 passed (30)
+== mutant reset (expect: 30 pass)
+      Tests  30 passed (30)
+tsc-exit=0

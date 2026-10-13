@@ -1,0 +1,4 @@
+budget-min: 45
+role: impl
+model: opus
+what: Task 9 cloud alerts + AlertBatch.guardComplete + clock-failed + redaction

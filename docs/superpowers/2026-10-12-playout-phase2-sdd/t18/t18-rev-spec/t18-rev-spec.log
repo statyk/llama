@@ -1,0 +1,15 @@
+      Tests  235 passed (235)
+   Start at  23:38:20
+   Duration  4.20s (transform 62%, worker 24%, import 11%, tests 3%)
+
+  Transform  transforming modules took 4.62s · 62% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+TSC-OK
+........................................................................ [ 94%]
+................s........                                                [100%]
+456 passed, 1 skipped in 28.65s
+........................................................................ [ 94%]
+................s........                                                [100%]
+456 passed, 1 skipped in 37.57s

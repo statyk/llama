@@ -1,0 +1,47 @@
+== RED
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+ ❯ test/indexpage.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/indexpage.test.ts [ test/indexpage.test.ts ]
+Error: Cannot find module '../src/indexpage' imported from /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/test/indexpage.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  03:16:00
+   Duration  3.43s (worker 100%)
+
+== GREEN focused
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  03:16:24
+   Duration  3.55s (transform 65%, import 22%, tests 9%, worker 4%)
+
+== full suite + tsc
+   Start at  03:16:31
+   Duration  10.69s (transform 74%, worker 12%, import 10%, tests 3%)
+
+  Transform  transforming modules took 6.17s · 74% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+TSC-OK
+ Test Files  12 passed (12)
+      Tests  150 passed (150)
+== staleness check (scratch copy /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/1e675379-4a60-4867-9819-08b2ea8e3082/scratchpad/t7stale)
+CHECK-CLEAN-OK
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+src/pages.ts is stale: run `npm run pages`
+exit=1

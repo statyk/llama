@@ -1,0 +1,207 @@
+reading diff
+inspecting latch/waf/bucket/meter
+check: state/ public exposure + error messages carrying ids
+scratch copy at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/1e675379-4a60-4867-9819-08b2ea8e3082/scratchpad/t6q
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/1e675379-4a60-4867-9819-08b2ea8e3082/scratchpad/t6q/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  03:02:41
+   Duration  3.37s (transform 76%, import 13%, worker 6%, tests 5%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/1e675379-4a60-4867-9819-08b2ea8e3082/scratchpad/t6q/antenna
+
+ ❯ test/probe.test.ts (3 tests | 3 failed) 24ms
+   ❯ probe (3)
+     × P1: a non-evaluating run whose doc is unchanged undoes a racer's fresh trip and reports unblocked 19ms
+     × P2: an unreadable budget.json during an evaluation trips spend at the base budget, with no budget condition 1ms
+     × P3: offair.json get throws -> unknown 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/probe.test.ts > probe > P1: a non-evaluating run whose doc is unchanged undoes a racer's fresh trip and reports unblocked
+AssertionError: expected { Object (blocked, tripped, ...) } to deeply equal { blocked: 'X', tripped: 'X', …(2) }
+
+- Expected
++ Received
+
+  {
+-   "blocked": "X",
+-   "stored": "X",
+-   "sw": "X",
+-   "tripped": "X",
++   "blocked": false,
++   "stored": true,
++   "sw": false,
++   "tripped": false,
+  }
+
+ ❯ test/probe.test.ts:47:8
+     45|     const out = await step(bucket, c2, T0 + 14 * M + 59_000); // A: wi…
+     46|     expect({ blocked: out.blocked, tripped: out.tripped, sw: c2.state.…
+     47|       .toEqual({ blocked: "X", tripped: "X", sw: "X", stored: "X" });
+       |        ^
+     48|     const next = await step(bucket, c2, T0 + 16 * M);
+     49|     expect([next.blocked, c2.state.enabled, next.conditions.map((x) =>…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/probe.test.ts > probe > P2: an unreadable budget.json during an evaluation trips spend at the base budget, with no budget condition
+AssertionError: expected [ true, true, [ …(3) ] ] to deeply equal 'X'
+
+- Expected:
+"X"
+
++ Received:
+[
+  true,
+  true,
+  [
+    "budget-50:2026-10-11:15",
+    "budget-80:2026-10-11:15",
+    "tripped-spend",
+  ],
+]
+
+ ❯ test/probe.test.ts:57:74
+     55|     bucket.failGets.add(BUDGET_KEY);
+     56|     const out = await step(bucket, cloud(FLAT14), T0);
+     57|     expect([out.blocked, out.tripped, out.conditions.map((x) => x.key)…
+       |                                                                          ^
+     58|     bucket.failGets.delete(BUDGET_KEY);
+     59|     const later = await step(bucket, cloud(FLAT14), T0 + 14 * M);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/probe.test.ts > probe > P3: offair.json get throws -> unknown
+AssertionError: expected [ null, [ 'guard-unknown' ], +0, +0 ] to deeply equal 'X'
+
+- Expected:
+"X"
+
++ Received:
+[
+  null,
+  [
+    "guard-unknown",
+  ],
+  0,
+  0,
+]
+
+ ❯ test/probe.test.ts:68:92
+     66|     const c = cloud(UNDER);
+     67|     const out = await step(bucket, c, T0);
+     68|     expect([out.blocked, out.conditions.map((x) => x.key), c.calls.len…
+       |                                                                                            ^
+     69|   });
+     70| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  03:02:59
+   Duration  3.75s (transform 81%, worker 7%, import 7%, tests 5%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/1e675379-4a60-4867-9819-08b2ea8e3082/scratchpad/t6q/antenna
+
+ ❯ test/probe.test.ts (3 tests | 3 failed) 23ms
+   ❯ probe (3)
+     × P1: a non-evaluating run whose doc is unchanged undoes a racer's fresh trip and reports unblocked 17ms
+     × P2: an unreadable budget.json during an evaluation trips spend at the base budget, with no budget condition 2ms
+     × P3: offair.json get throws -> unknown 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/probe.test.ts > probe > P1: a non-evaluating run whose doc is unchanged undoes a racer's fresh trip and reports unblocked
+AssertionError: expected [ true, true, …(1) ] to deeply equal 'Y'
+
+- Expected:
+"Y"
+
++ Received:
+[
+  true,
+  true,
+  [
+    "waf-corrected",
+    "tripped-spend",
+  ],
+]
+
+ ❯ test/probe.test.ts:49:81
+     47|       .toEqual({ blocked: false, tripped: false, sw: false, stored: tr…
+     48|     const next = await step(bucket, c2, T0 + 16 * M);
+     49|     expect([next.blocked, c2.state.enabled, next.conditions.map((x) =>…
+       |                                                                                 ^
+     50|   });
+     51|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/probe.test.ts > probe > P2: an unreadable budget.json during an evaluation trips spend at the base budget, with no budget condition
+AssertionError: expected [ true, [ 'waf-corrected', …(3) ] ] to deeply equal 'Y'
+
+- Expected:
+"Y"
+
++ Received:
+[
+  true,
+  [
+    "waf-corrected",
+    "budget-50:2026-10-11:15",
+    "budget-80:2026-10-11:15",
+    "tripped-spend",
+  ],
+]
+
+ ❯ test/probe.test.ts:60:65
+     58|     bucket.failGets.delete(BUDGET_KEY);
+     59|     const later = await step(bucket, cloud(FLAT14), T0 + 14 * M);
+     60|     expect([later.blocked, later.conditions.map((x) => x.key)]).toEqua…
+       |                                                                 ^
+     61|   });
+     62|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/probe.test.ts > probe > P3: offair.json get throws -> unknown
+AssertionError: expected [ null, [ 'guard-unknown' ], +0, +0 ] to deeply equal 'X'
+
+- Expected:
+"X"
+
++ Received:
+[
+  null,
+  [
+    "guard-unknown",
+  ],
+  0,
+  0,
+]
+
+ ❯ test/probe.test.ts:68:92
+     66|     const c = cloud(UNDER);
+     67|     const out = await step(bucket, c, T0);
+     68|     expect([out.blocked, out.conditions.map((x) => x.key), c.calls.len…
+       |                                                                                            ^
+     69|   });
+     70| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  03:03:15
+   Duration  2.81s (transform 75%, import 18%, tests 5%, worker 2%)
+
+probes done; writing report

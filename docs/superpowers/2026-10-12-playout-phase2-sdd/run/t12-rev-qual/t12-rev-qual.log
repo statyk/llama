@@ -1,0 +1,10 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t12mut/packages/transmitter/src/transmitter/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t12mut/packages/transmitter/tests_transmitter/__init__.py
+MUTANT A (PutBudget.take in offair on, fixture as committed) predict: R7 test STAYS GREEN
+..........................                                               [100%]
+26 passed in 5.36s
+MUTANT A + fixture day = real UTC today, predict: R7 test RED
+
+packages/transmitter/tests_transmitter/test_cloudstate.py:136: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_cloudstate.py::test_cli_offair_on_requires_a_reason_and_works_while_tripped_and_over_the_put_budget
+1 failed, 25 passed in 1.41s

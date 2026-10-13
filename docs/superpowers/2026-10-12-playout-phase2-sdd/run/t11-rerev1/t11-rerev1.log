@@ -1,0 +1,10 @@
+== base
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+== mut
+ ❯ test/nowplaying.test.ts (17 tests | 1 failed) 19ms
+     × a blip: network errors while stalled, then progress resumes -- never off-air 11ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/nowplaying.test.ts > StallWatch > a blip: network errors while stalled, then progress resumes -- never off-air
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)

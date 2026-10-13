@@ -1,0 +1,116 @@
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-t18/antenna
+
+
+ Test Files  14 passed (14)
+      Tests  235 passed (235)
+   Start at  23:37:18
+   Duration  4.57s (transform 67%, import 15%, worker 14%, tests 4%)
+
+  Transform  transforming modules took 3.79s · 67% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+tsc=0
+........................................................................ [ 94%]
+................s........                                                [100%]
+456 passed, 1 skipped in 28.91s
+== M1 offair drop +1: CAUGHT (rc=1)
+   predicted: playlist: 'numbers the off-air notice above every live segment...'; clock late/on-time
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=1
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=1
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=4
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    FAIL  test/playlist.test.ts > buildPlaylist > goes off-air with an ENDLIST-only playlist (no notice, no URI lines) when no fallback is usable
+    FAIL  test/playlist.test.ts > buildPlaylist > goes off-air with the notice and ENDLIST when state/offair.json says so
+== P1 live drop hold-back: CAUGHT (rc=1)
+   predicted: test_age_of_a_lookahead..., test_a_dead_clock_with_lookahead...
+    FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_age_of_a_lookahead_playlist_counts_from_the_held_back_start_not_its_newest_segment
+    FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_a_malformed_or_positive_offset_is_ignored
+    FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_a_dead_clock_with_lookahead_alerts_as_soon_as_without
+== M2 offair seqMs only: CAUGHT (rc=1)
+   predicted: playlist 'from offairSeqMs' (1020) + 'above every' seqMs=now-200000; clock late
+    × test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=12) 1
+    × test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=16) 1
+    × test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=4) 6m
+== M3 offair drop lookahead: CAUGHT (rc=1)
+   predicted: playlist 'above every' L>0; clock L=4/12/16
+    × test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=12) 2
+== M4 grace hold on cur: CAUGHT (rc=1)
+   predicted: playlist 'lookahead lists ... holding at last'
+    × test/playlist.test.ts > buildPlaylist > lookahead lists segments past the one airing, holding at last and falling back as before 8ms
+== M5 threshold 4 TD: CAUGHT (rc=1)
+   predicted: playlist 'emits nothing ... below 3 TD' (holdBack 4 emits)
+    × test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > emits nothing at holdBack 0, or below 3 target durations (RFC 8216bis) 21ms
+== M6 no entries clamp: CAUGHT (rc=1)
+   predicted: playlist 'never offsets past the listed window'
+    × test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > never offsets past the listed window (at most entries - 1 segments) 11ms
+== M7 START only: CAUGHT (rc=1)
+   predicted: playlist 'tells players ... both tags'
+    × test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > emits nothing at holdBack 0, or below 3 target durations (RFC 8216bis) 1ms
+    × test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > tells players to start holdBack segments before the listed end, in both tags, at VERSION 3 6ms
+== M8 2 decimals: CAUGHT (rc=1)
+   predicted: playlist hold-back tests
+    × test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > emits nothing at holdBack 0, or below 3 target durations (RFC 8216bis) 3ms
+    × test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > never offsets past the listed window (at most entries - 1 segments) 0ms
+    × test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > tells players to start holdBack segments before the listed end, in both tags, at VERSION 3 8ms
+== M9 tags before VERSION: CAUGHT (rc=1)
+   predicted: playlist 'at VERSION 3'
+    × test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > tells players to start holdBack segments before the listed end, in both tags, at VERSION 3 4ms
+== M10 cfg lookahead uncapped: CAUGHT (rc=1)
+   predicted: clock 'parses the lookahead, capped'
+    × test/clock.test.ts > configFromEnv > parses the lookahead, capped at MAX_LOOKAHEAD = 16 4ms
+== M11 cfg holdBack unclamped: CAUGHT (rc=1)
+   predicted: clock 'parses the hold-back, clamped'
+    × test/clock.test.ts > configFromEnv > parses the hold-back, clamped to window - 1 (the start offset lies inside the listed window) 6ms
+== M12 clock no offairSeqMs: CAUGHT (rc=1)
+   predicted: clock on-time: offs toHaveLength(1)
+    × test/clock.test.ts > off-air without a usable fallback > reports the staleness rule and a null fallback_version 1ms
+== M13 window end past target: CAUGHT (rc=1)
+   predicted: playlist window tests
+== M14 holdBack <= 0 emits nothing removed (>=0): SURVIVED (rc=0)
+   predicted: equivalent? 0*d>=33 false -> predicted SURVIVE (equivalent)
+== M15 offair max(0) dropped: SURVIVED (rc=0)
+   predicted: pre-epoch only; predicted SURVIVE unless pre-epoch offair tested
+== P2 offair drop hold-back: CAUGHT (rc=1)
+   predicted: test_age_of_an_offair_playlist_subtracts..., test_a_dead_clock_while_off_air...
+== P3 never remember: CAUGHT (rc=1)
+   predicted: test_a_dead_clock_while_off_air...
+== P4 remember on every 200: CAUGHT (rc=1)
+   predicted: test_a_dead_clock_while_off_air...
+== P5 ignore START: CAUGHT (rc=1)
+   predicted: test_age_of_a_lookahead (server_control=False case)
+== P6 ignore SERVER-CONTROL: CAUGHT (rc=1)
+   predicted: test_age_of_a_lookahead (start_tag=False); test_a_malformed_or_positive (positive)
+== P7 abs(offset): SURVIVED (rc=0)
+   predicted: test_a_malformed_or_positive -- predicted SURVIVE (positive value == HOLD-BACK value)
+== P8 no isfinite: SURVIVED (rc=0)
+   predicted: none -- predicted SURVIVE
+== P9 START precedence lost (SC wins): SURVIVED (rc=0)
+   predicted: predicted SURVIVE (values equal)
+== M12 clock no offairSeqMs: CAUGHT (rc=1)
+   predicted: clock on-time: offs toHaveLength(1)
+    FAIL  test/clock.test.ts > off-air without a usable fallback > reports the staleness rule and a null fallback_version
+    FAIL  test/clock.test.ts > off-air without a usable fallback > stays silent when off-air has a fallback, or the station is on air without one
+    FAIL  test/clock.test.ts > off-air without a usable fallback > writes the ENDLIST-only playlist once and reports it loudly, once per invocation
+    FAIL  test/clock.test.ts > runClock > blocked: the off-air playlist, one PUT per invocation (identical bytes skipped)
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    × test/clock.test.ts > off-air without a usable fallback > reports the staleness rule and a null fallback_version 1ms
+== M13 window end past target: CAUGHT (rc=1)
+   predicted: playlist window tests
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=1
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=1
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > a late invocation numbers the notice above the live window it replaces (L=4
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    FAIL  test/clock.test.ts > runClock > the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead) > an on-time invocation numbers the notice above every live write of the same
+    FAIL  test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > never offsets past the listed window (at most entries - 1 segments)
+    FAIL  test/playlist.test.ts > buildPlaylist > hold-back (EXT-X-START + EXT-X-SERVER-CONTROL) > tells players to start holdBack segments before the listed end, in both tags, at VERSION 3
+................s........                                                [100%]
+456 passed, 1 skipped in 31.05s

@@ -1,0 +1,130 @@
+== RED bucket.test.ts (createJson)
+     28|     expect(await createJson(b, "k", { v: 1 })).toBe(true);
+       |                  ^
+     29|     expect(await createJson(b, "k", { v: 2 })).toBe(false);
+     30|     expect(b.json("k")).toEqual({ v: 1 });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/bucket.test.ts > readJsonDoc / putJson > the R2 binding honours the same contract (etag, conditional put, head metadata)
+TypeError: createJson is not a function
+ ❯ test/bucket.test.ts:61:18
+     59|     expect(await (await env.BUCKET.get("state/test.json"))!.json()).to…
+     60|     // Create-only (etagDoesNotMatch "*"): refused over an existing ke…
+     61|     expect(await createJson(b, "state/test.json", { v: 4 })).toBe(fals…
+       |                  ^
+     62|     expect(await (await env.BUCKET.get("state/test.json"))!.json()).to…
+     63|     expect(await createJson(b, "state/new.json", { v: 1 })).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 4 passed (6)
+   Start at  02:51:22
+   Duration  6.05s (transform 75%, tests 14%, import 7%, worker 4%)
+
+== GREEN bucket.test.ts
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  02:51:42
+   Duration  4.88s (transform 67%, worker 18%, tests 8%, import 7%)
+
+   Duration  9.59s (transform 57%, worker 24%, import 17%, tests 2%)
+
+  Transform  transforming modules took 4.39s · 57% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+== RED guard.test.ts
+ FAIL  test/guard.test.ts [ test/guard.test.ts ]
+Error: Cannot find module '../src/guard' imported from /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/test/guard.test.ts
+ Test Files  1 failed (1)
+      Tests  no tests
+== GREEN guard.test.ts (brief tests)
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+== added tests (guard extras, conditions)
+ Test Files  2 passed (2)
+      Tests  34 passed (34)
+== full suite before guard commit
+ Test Files  11 passed (11)
+      Tests  138 passed (138)
+TSC-OK
+== mutation run (scratch copy /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/1e675379-4a60-4867-9819-08b2ea8e3082/scratchpad/mut)
+M1 first create unconditional: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > first creation is create-only: an untripped first run never overwrites a racer
+M2 no spend-over-blind: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > mergeLostRace: spend over blind > a spend trip replaces a winner's blind trip; a blind trip never replaces a winner's spend trip
+M3 outcome ignores stored: CAUGHT (predicted) | failing: 2
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > first creation is create-only: an untripped first run never overwrites a racer
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a winner that wrote unreadable bytes is left for the next reader, and this run
+M4 deleted doc dropped: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a document deleted between read and write is rewritten, not dropped
+M5 no create fallback: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a create-only put the store refuses outright falls back to an unconditional wr
+M6 null amounts as zero (brief code): CAUGHT (predicted) | failing: 1
+    FAIL  test/conditions.test.ts > guardConditions > an unknown (null) amount or budget alerts every level rather than going quiet, and does not crash
+M7 wafProblems ignored: CAUGHT (predicted) | failing: 2
+    FAIL  test/guard.test.ts > guardStep > missing secrets fail every evaluation and the WAF reconcile, loudly
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > blank secrets count as missing: no network call at all
+M8 no retry after merge (single attempt): CAUGHT (predicted) | failing: 4
+    FAIL  test/guard.test.ts > guardStep > never loses a trip to an overlapping invocation's write
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > first creation: a tripped first run that loses the create merges its trip onto
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a document deleted between read and write is rewritten, not dropped
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > losing every retry is a guard-write alert, and our trip still decides this run
+M9 corrupt winner reported untripped: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a winner that wrote unreadable bytes is left for the next reader, and this run
+M10 waf catch narrowed to WafError: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a network failure or timeout from the Rulesets API is waf-api and leaves the d
+M11 offair ignored in blocked: CAUGHT (predicted) | failing: 5
+    FAIL  test/guard.test.ts > guardStep > alerts waf-corrected when it undoes a hand toggle, not when it carries out its own decision
+    FAIL  test/guard.test.ts > guardStep > offair blocks fully without touching the latch, and the guard never writes offair.json
+    FAIL  test/guard.test.ts > guardStep > an unreadable offair.json fails closed: blocked, with an alert
+    FAIL  test/guard.test.ts > guardStep > a WAF failure while blocked alerts and leaves the decision blocked (cooperative block)
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a network failure or timeout from the Rulesets API is waf-api and leaves the d
+M12 meterProblems ignored: CAUGHT (predicted) | failing: 3
+    FAIL  test/guard.test.ts > guardStep > missing secrets fail every evaluation and the WAF reconcile, loudly
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > blank secrets count as missing: no network call at all
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > an invalid MONTHLY_BUDGET_USD fails the evaluation before any usage read
+M13 corrupt overwritten unconditionally lost etag: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep > a corrupt guard.json becomes a spend trip that an evaluation under the same budget does not clear
+== fix round 1 start
+== fix1 focused tests
+     × a document deleted between read and write is re-created create-only: a racer that creates it first stands 51ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a document deleted between read and write is re-created create-only: a racer that creates it first stands
+TypeError: Cannot read properties of undefined (reading 'body')
+      Tests  1 failed | 66 passed (67)
+      Tests  67 passed (67)
+== fix1 full suite
+ Test Files  11 passed (11)
+      Tests  146 passed (146)
+TSC-OK
+== fix1 mutation run (scratch /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/1e675379-4a60-4867-9819-08b2ea8e3082/scratchpad/mut2, HEAD 053c5db)
+SENTINEL [predicted: first run: evaluates]: CAUGHT (predicted) | failing: 34
+    FAIL  test/guard.test.ts > guardStep > first run: evaluates, writes guard.json, leaves the kill switch off, not blocked
+    FAIL  test/guard.test.ts > guardStep > an evaluation over a threshold trips spend and enables the kill switch in the same run
+    FAIL  test/guard.test.ts > guardStep > does not re-evaluate within 15 minutes but reconciles the kill switch every run
+    FAIL  test/guard.test.ts > guardStep > alerts waf-corrected when it undoes a hand toggle, not when it carries out its own decision
+    FAIL  test/guard.test.ts > guardStep > offair blocks fully without touching the latch, and the guard never writes offair.json
+    FAIL  test/guard.test.ts > guardStep > an unreadable offair.json fails closed: blocked, with an alert
+F1a budget throw does not skip evaluation [predicted: a budget.json read that throws skips]: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a budget.json read that throws skips the evaluation and alerts; the next minute evaluate
+F1b corrupt budget silent [predicted: a corrupt budget.json evaluates against the base budget and alerts]: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a corrupt budget.json evaluates against the base budget and alerts
+F1c budget throw silent [predicted: a budget.json read that throws skips]: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a budget.json read that throws skips the evaluation and alerts; the next minute evaluate
+F2a no unblock re-check [predicted: a non-evaluating run that turns the kill switch off folds]: CAUGHT (predicted) | failing: 2
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a non-evaluating run that turns the kill switch off folds in a racer's newer trip (block
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > an unblocking run with nothing newer in state does not fold anything in
+F2b old waf-corrected wording [predicted: a non-evaluating run that turns the kill switch off folds]: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a non-evaluating run that turns the kill switch off folds in a racer's newer trip (block
+F5 offair get failure swallowed [predicted: a throwing offair.json get is unknown]: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a throwing offair.json get is unknown: no fetch, no write
+FM2 deleted doc re-created unconditionally [predicted: re-created create-only]: CAUGHT (predicted) | failing: 1
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a document deleted between read and write is re-created create-only: a racer that create
+FM5 evaluation.at unchecked [predicted: a hand-edited guard.json the alert conditions cannot read]: CAUGHT (predicted) | failing: 2
+    FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > a hand-edited guard.json the alert conditions cannot read is corrupt (a spend trip), not
+    FAIL  test/latch.test.ts > parseGuardDoc rejects nested shapes this code never writes > checks waf, period and evaluation

@@ -1,0 +1,192 @@
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/alerts.test.ts [ test/alerts.test.ts ]
+Error: Cannot find module '../src/alerts' imported from /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/test/alerts.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  03:49:00
+   Duration  3.33s (worker 100%)
+
+     × guardComplete is true whenever the guard returned a known outcome, even on an incomplete batch 10ms
+     × a failing playlist PUT raises the catch-all clock-failed (urgent, resolvable) in the flushed incomplete batch 1ms
+     × the default sink logs the flag on every alert line 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/clock.test.ts > the alert batch's scope (complete) > guardComplete is true whenever the guard returned a known outcome, even on an incomplete batch
+AssertionError: expected [ { complete: true }, …(3) ] to deeply equal [ { complete: true, …(1) }, …(3) ]
+ FAIL  test/clock.test.ts > the alert batch's scope (complete) > a failing playlist PUT raises the catch-all clock-failed (urgent, resolvable) in the flushed incomplete batch
+AssertionError: expected [ 'tripped-spend' ] to deeply equal [ 'tripped-spend', 'clock-failed' ]
+ FAIL  test/clock.test.ts > the alert batch's scope (complete) > the default sink logs the flag on every alert line
+AssertionError: expected { event: 'alert', …(4) } to match object { key: 'horizon-missing', …(2) }
+      Tests  3 failed | 30 passed (33)
+      Tests  57 passed (57)
+
+Action required Install @types/node
+Since your Worker has Node.js compatibility enabled, you should install Node.js types by running "npm i --save-dev @types/node".
+
+📖 Read about runtime types
+https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+📣 Remember to rerun 'wrangler types' after you change your wrangler.jsonc file.
+
+ Test Files  13 passed (13)
+      Tests  197 passed (197)
+ALL-GREEN
+== M1-clearedIn-always
+     × resolves nothing that is absent, and starts no cooldown for it, while still sending what is present
+     × guardComplete: guard-family keys resolve, clock-family keys do not
+     × a key in neither family is treated as clock-family: resolved only on a complete batch
+     × alertSink passes the batch through: an incomplete batch resolves nothing
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 53 passed (57)
+== M2-ntfy-body-unredacted
+     × a WafError carrying the zone, ruleset and rule ids reaches neither ntfy nor email
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 56 passed (57)
+== M3-email-body-unredacted
+     × a WafError carrying the zone, ruleset and rule ids reaches neither ntfy nor email
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 56 passed (57)
+== M4-failureNamed-never
+     × a throw reading the inputs still flushes the guard's conditions, incomplete, plus clock-inputs; then rejects
+     × a horizon the grid cannot be derived from raises clock-inputs (urgent), incomplete, and the partial result rides the error
+     × a failure already named by clock-inputs does not also raise clock-failed
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 54 passed (57)
+== M5-no-spend-pattern
+     × classifies every key the guard and the clock raise
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 56 passed (57)
+== M6-resolved-not-restored
+     × a resolved notice no channel accepted is retried the next minute
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 56 passed (57)
+== M7-brief-last-sent
+     × a failed alert for a condition back after the cooldown is retried the next minute, not a repeat period later
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 56 passed (57)
+== M8-no-note
+     × guard-state-corrupt's resolution does not imply the spend trip it caused has cleared
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 56 passed (57)
+== M9-guardComplete-never
+     × guardComplete is true whenever the guard returned a known outcome, even on an incomplete batch
+     × a failing playlist PUT raises the catch-all clock-failed (urgent, resolvable) in the flushed incomplete batch
+     × the default sink logs the flag on every alert line
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 54 passed (57)
+== M10-no-hex-redact
+     × redact: Rulesets/accounts paths, bare 32-hex ids and the configured values
+     × a WafError carrying the zone, ruleset and rule ids reaches neither ntfy nor email
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 55 passed (57)
+== M11-no-literal-redact
+     × redact: Rulesets/accounts paths, bare 32-hex ids and the configured values
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 56 passed (57)
+fix1 start Mon Oct 12 04:02:20 EDT 2026
+ Test Files  13 passed (13)
+      Tests  207 passed (207)
+ALL-GREEN
+== F1-resolve-2nd-absent-minute
+PREDICTED RED: absent for COOLDOWN_MS sends resolved exactly once; flap inside the window; after a delivered resolved; incomplete batches window
+     × a flap inside the window sends no resolved and no new alert; the next repeat goes out on schedule
+     × a key absent for COOLDOWN_MS sends resolved exactly once
+     × after a delivered resolved, a return is a new alert at once
+     × on incomplete batches the clearing window neither starts nor runs on
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 30 passed (34)
+== F2-return-keeps-clearing
+PREDICTED RED: a flap inside the window sends no resolved and no new alert
+     × a flap inside the window sends no resolved and no new alert; the next repeat goes out on schedule
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== F3-incomplete-starts-clearing
+PREDICTED RED: resolves nothing that is absent; guardComplete family; neither family; incomplete batches window; alertSink
+     × on incomplete batches the clearing window neither starts nor runs on
+     × resolves nothing that is absent, and starts no cooldown for it, while still sending what is present
+     × guardComplete: guard-family keys resolve, clock-family keys do not
+     × a key in neither family is treated as clock-family: resolved only on a complete batch
+     × alertSink passes the batch through: an incomplete batch resolves nothing
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  5 failed | 29 passed (34)
+== F4-undelivered-resolved
+PREDICTED RED: an alert no channel ever delivered ... dropped; an undelivered alert that clears is dropped, through dispatch
+     × an alert no channel ever delivered gets no resolved when it clears: the entry is dropped
+     × an undelivered alert that clears is dropped, never resolved, through dispatch
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 32 passed (34)
+== F5-no-fresh-after-long-clearing
+PREDICTED RED: a condition that returns within the cooldown is continuing, not new (brief test 3)
+     × a condition that returns within the cooldown is continuing, not new
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== F6-no-email-timeout
+PREDICTED RED: a hung email binding times out (hangs to the test timeout)
+     × a hung email binding times out and counts as a channel failure
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== F7-first-write-unconditional
+PREDICTED RED: the first write of alerts.json is create-only
+     × the first write of alerts.json is create-only; a refused create loses nothing and does not throw
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== F8-no-entry-filter
+PREDICTED RED: drops non-object entries from alerts.json
+     × drops non-object entries from alerts.json instead of wedging every alert
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== M11 literal redaction removed; PREDICTED RED: redact unit test AND the WafError integration test
+     × redact: Rulesets/accounts paths, bare 32-hex ids and the configured values
+     × a WafError carrying the zone, ruleset and rule ids reaches neither ntfy nor email
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 32 passed (34)
+fix2 start Mon Oct 12 04:15:51 EDT 2026
+ Test Files  13 passed (13)
+      Tests  210 passed (210)
+ALL-GREEN
+== G1-drop-on-null-last-sent
+PREDICTED RED: a failed repeat of a delivered alert keeps it delivered (P1)
+     × a failed repeat of a delivered alert keeps it delivered: its resolved still goes out (P1)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 36 passed (37)
+== G2-failed-repeat-undelivers
+PREDICTED RED: a failed repeat of a delivered alert keeps it delivered (P1)
+     × a failed repeat of a delivered alert keeps it delivered: its resolved still goes out (P1)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 36 passed (37)
+== G3-legacy-undelivered
+PREDICTED RED: an older entry without `delivered` counts as delivered when a send was recorded
+     × an older entry without `delivered` counts as delivered when a send was recorded
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 36 passed (37)
+== G4-failed-alert-stays-delivered
+PREDICTED RED: first send and retry both failed ... dropped; undelivered alert dropped through dispatch
+     × an undelivered alert that clears is dropped, never resolved, through dispatch
+     × an alert whose first send and retry both failed is still undelivered: dropped on clear, no resolved
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 35 passed (37)
+fix3 start Mon Oct 12 04:23:19 EDT 2026
+       × P6: after a failed resolved, a failed return, then a re-clear: resolved still goes out
+       × P7: a window elapsed across incomplete batches, a failed return, then a re-clear: resolved still goes out
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 38 passed (40)
+ Test Files  13 passed (13)
+      Tests  213 passed (213)
+ALL-GREEN
+== H1: drop the active-prev inheritance (back to kind==='alert' ? false). PREDICTED RED: P6 and P7 only
+       × P6: after a failed resolved, a failed return, then a re-clear: resolved still goes out
+       × P7: a window elapsed across incomplete batches, a failed return, then a re-clear: resolved still goes out
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 38 passed (40)
+== H2: a failed alert always inherits (ignores the inactive prev). PREDICTED RED: 'a failed return after a DELIVERED resolved still starts an undelivered episode'
+      Tests  no tests
+== H2 (corrected; first attempt was a syntax error, not a result): a failed alert always inherits wasDelivered(prev). PREDICTED RED: only 'a failed return after a DELIVERED resolved still starts an undelivered episode'
+       × a failed return after a DELIVERED resolved still starts an undelivered episode
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected { Object (active, resolvable, ...) } to match object { active: true, delivered: false }
+      Tests  1 failed | 39 passed (40)

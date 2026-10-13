@@ -1,0 +1,36 @@
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/__init__.py
+problem: None
+False {'tripped': False} ['guard      CORRUPT (schema is not 1): the clock treats it as a spend trip', 'killswitch unknown', 'offair     off', 'alerts     cloud: none']
+False {'schema': 1, 'tripped': False, 'reason': None} ['guard      CORRUPT (since is not a time): the clock treats it as a spend trip', 'killswitch unknown', 'offair     off', 'alerts     cloud: none']
+False [1] ['guard      CORRUPT (schema is not 1): the clock treats it as a spend trip', 'offair     off', 'alerts     cloud: none']
+False x ['guard      CORRUPT (schema is not 1): the clock treats it as a spend trip', 'offair     off', 'alerts     cloud: none']
+True {'tripped': True} ['guard      CORRUPT (schema is not 1): the clock treats it as a spend trip', 'killswitch unknown', 'offair     off', 'alerts     cloud: none']
+True {'schema': 1, 'tripped': True, 'reason': None} ['guard      CORRUPT (tripped and reason disagree): the clock treats it as a spend trip', 'killswitch unknown', 'offair     off', 'alerts     cloud: none']
+True [1] ['guard      CORRUPT (schema is not 1): the clock treats it as a spend trip', 'offair     off', 'alerts     cloud: none']
+True x ['guard      CORRUPT (schema is not 1): the clock treats it as a spend trip', 'offair     off', 'alerts     cloud: none']
+packages/transmitter/tests_transmitter/test_service.py:571:    assert any(line.endswith("(honoured (period end unknown))") for line in lines)
+packages/transmitter/tests_transmitter/test_cloudstate.py:352:    assert "raise      $20.00 until 2026-11-11T00:00:00.000Z (honoured (period end unknown))" in r.output
+packages/transmitter/tests_transmitter/test_cloudstate.py:374:    ({"budget_usd": 20, "expires": "2026-11-11T00:00:00.000Z"}, "(honoured)"),
+packages/transmitter/tests_transmitter/test_cloudstate.py:375:    ({"budget_usd": 150, "expires": "2026-11-11T00:00:00.000Z"}, "(honoured, capped at $100)"),
+expected red under mutant: test_status_shows_the_cloud_state_and_active_alerts
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/__init__.py
+
+
+no tests ran in 0.00s
+ERROR: file or directory not found: packages/transmitter/tests_transmitter/test_service.py
+
+
+no tests ran in 0.00s
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16rr2/packages/transmitter/src/transmitter/__init__.py
+...                                                                      [100%]
+3 passed, 41 deselected in 1.38s
+288:            if True:
+        assert "alerts     hugo: dead-clock" in lines           # the 1970 publish event has gone stale
+>       assert "guard      TRIPPED (blind)" in text and "reading    failing since 2026-10-20T00:00:00.000Z" in text
+E       AssertionError: assert ('guard      TRIPPED (blind)' in 'epoch      etest (2096-10-02T07:06:40.000Z)\nplan       empty\npublished  nothing yet\nfallback   none (run `transmit...TTP 503\nkillswitch enabled\noffair     ON since 2026-10-20T05:00:00.000Z (objection)\nalerts     cloud: tripped-blind')
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_status_shows_the_cloud_state_and_active_alerts
+1 failed, 2 passed, 41 deselected in 2.02s
+mutant2 summary[1:]->summary, expected red: test_a_corrupt_guard_never_shows_its_own_verdict_line[False,True]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_corrupt_guard_never_shows_its_own_verdict_line[False]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_corrupt_guard_never_shows_its_own_verdict_line[True]
+2 failed, 1 passed, 41 deselected in 1.79s

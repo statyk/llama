@@ -1,0 +1,28 @@
+LOG ERROR render step failed
+Traceback (most recent call last):
+  File "/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/service.py", line 190, in _step
+    fn()
+    ~~^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/service.py", line 238, in <lambda>
+    self._step("render", lambda: pipeline.render_step(
+                                 ~~~~~~~~~~~~~~~~~~~~^
+        self.st, t_us, limit=self.st.cfg.publish.batch_segments, notify=self.notify), resolves=("render",))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/pipeline.py", line 304, in render_step
+    atomic_write_bytes(path, store.build_segment(n, rows))
+                             ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/layout.py", line 158, in build_segment
+    return segment.assemble(n, parts)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/segment.py", line 13, in assemble
+    return id3.timestamp_tag(grid.segment_timestamp(ts_index)) + b"".join(frames)
+                             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/grid.py", line 32, in segment_timestamp
+    raise ValueError(f"segment index must be >= 0, got {n}")
+ValueError: segment index must be >= 0, got -215644705
+LOG ERROR ALERT render: ValueError: segment index must be >= 0, got -215644705
+transmitter from /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/__init__.py
+['READY=1', 'STEP plan', 'WATCHDOG=1', 'STEP render', 'ENCODE', 'WATCHDOG=1', 'WATCHDOG=1', 'STEP publish', 'WATCHDOG=1', 'WATCHDOG=1', 'STOPPING=1']
+['ENCODE', 'WATCHDOG=1', 'ENCODE', 'WATCHDOG=1'] 33
+.........s................                                               [100%]
+25 passed, 1 skipped in 1.46s

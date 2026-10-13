@@ -1,0 +1,15 @@
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/rr3/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  44 passed (44)
+   Start at  04:27:04
+   Duration  4.28s (transform 85%, import 7%, tests 5%, worker 3%)
+
+ ❯ test/probe.test.ts (4 tests | 1 failed) 19ms
+     × P10: active NEVER-delivered prev, aged clearing over incomplete batches, failed re-alert stays undelivered; no resolved 13ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/probe.test.ts > probes > P10: active NEVER-delivered prev, aged clearing over incomplete batches, failed re-alert stays undelivered; no resolved
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 43 passed (44)

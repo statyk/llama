@@ -1,0 +1,76 @@
+constructed 1.7.3 130 30 undefined 3 -1 {"maxBufferLength":130,"backBufferLength":30}
+file:///private/tmp/claude-501/-Users-shawn-projects-llama/86bfbf0d-6471-4243-8d10-a0782ac3250e/scratchpad/hlsctor.mjs:7
+lc.levelDetails = { holdBack: 122.88, partHoldBack: 0, targetduration: 11 };
+                ^
+
+TypeError: Cannot set property levelDetails of #<LatencyController> which has only a getter
+    at file:///private/tmp/claude-501/-Users-shawn-projects-llama/86bfbf0d-6471-4243-8d10-a0782ac3250e/scratchpad/hlsctor.mjs:7:17
+
+Node.js v26.0.0
+constructed 1.7.3 130 30 undefined 3 -1 {"maxBufferLength":130,"backBufferLength":30}
+targetLatency with HOLD-BACK 122.88: 122.88
+targetLatency without tag (TARGETDURATION 11): 33
+contrast: user liveSyncDuration overrides HOLD-BACK 40: 122.88
+=== GATE npm test (live)
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-t18/antenna
+
+
+ Test Files  14 passed (14)
+      Tests  236 passed (236)
+   Start at  23:52:56
+   Duration  3.76s (transform 68%, worker 17%, import 11%, tests 4%)
+
+  Transform  transforming modules took 4.46s · 68% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+=== GATE tsc (live)
+tsc exit 0
+=== GATE transmitter pytest .venv (live)
+........................................................................ [ 78%]
+........................................................................ [ 94%]
+.................s........                                               [100%]
+457 passed, 1 skipped in 26.29s
+=== .venv311
+........................................................................ [ 78%]
+........................................................................ [ 94%]
+.................s........                                               [100%]
+457 passed, 1 skipped in 27.43s
+=== sentinel
+/private/tmp/claude-501/t18-rerev1-scratch/packages/transmitter/src/transmitter/deadclock.py scratch
+=== M1_abs
+applied M1_abs
+E         comparison failed
+FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_a_malformed_or_positive_offset_is_ignored
+1 failed, 456 passed, 1 skipped in 26.95s
+=== M2_sc_wins
+applied M2_sc_wins
+E         comparison failed
+FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_start_wins_over_server_control_when_both_differ
+1 failed, 456 passed, 1 skipped in 26.85s
+=== M3_no_isfinite
+applied M3_no_isfinite
+E         comparison failed
+FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_a_malformed_or_positive_offset_is_ignored
+1 failed, 456 passed, 1 skipped in 27.23s
+=== M1_abs (line)
+applied M1_abs
+E   assert 122.88 == 40.96 ± 4.1e-05
+/private/tmp/claude-501/t18-rerev1-scratch/packages/transmitter/tests_transmitter/test_deadclock.py:66: assert 122.88 == 40.96 ± 4.1e-05
+=== M3_no_isfinite (line)
+applied M3_no_isfinite
+E   assert inf == 40.96 ± 4.1e-05
+/private/tmp/claude-501/t18-rerev1-scratch/packages/transmitter/tests_transmitter/test_deadclock.py:69: assert inf == 40.96 ± 4.1e-05
+=== scratch baseline vitest
+ Test Files  14 passed (14)
+      Tests  236 passed (236)
+=== F8 mutant: drop Math.max(0, …) in offairSequence (expect red: 'numbers an off-air playlist built before the epoch from 0, never negative')
+80:  return indexAt(g, Math.max(seqMs, nowMs)) + lookahead + 1;
+     × numbers an off-air playlist built before the epoch from 0, never negative 3ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/playlist.test.ts > buildPlaylist > numbers an off-air playlist built before the epoch from 0, never negative
+ Test Files  1 failed | 13 passed (14)
+      Tests  1 failed | 235 passed (236)

@@ -1,0 +1,24 @@
+      Tests  236 passed (236)
+   Start at  23:46:44
+   Duration  4.16s (transform 70%, worker 16%, import 10%, tests 4%)
+
+  Transform  transforming modules took 4.42s · 70% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+tsc=0
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_start_wins_over_server_control_when_both_differ
+1 failed, 2612 passed, 1 skipped, 7 deselected, 26 warnings in 45.61s
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_deadclock.py::test_start_wins_over_server_control_when_both_differ
+1 failed, 456 passed, 1 skipped in 30.98s
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2613 passed, 1 skipped, 7 deselected, 26 warnings in 40.57s
+.................s........                                               [100%]
+457 passed, 1 skipped in 28.15s
+constructed 130 30 undefined
+........................................................................ [ 78%]
+........................................................................ [ 94%]
+..........................                                               [100%]
+458 passed in 40.21s

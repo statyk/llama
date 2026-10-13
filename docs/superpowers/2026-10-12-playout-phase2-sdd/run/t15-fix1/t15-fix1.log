@@ -1,0 +1,62 @@
+    
+        st, _ = make_station(tmp_path)
+        pipeline.plan_step(st, NOW)
+        encodes: list[str] = []
+        real = st.engine.encode_show
+        st.engine.encode_show = lambda *a, **k: encodes.append("e") or real(*a, **k)
+        sent: list[str] = []
+>       pipeline.render_step(st, NOW, notify=lambda m: sent.append(m) or True)
+E       TypeError: render_step() got an unexpected keyword argument 'notify'
+
+packages/transmitter/tests_transmitter/test_systemd.py:111: TypeError
+_____________ test_prune_feeds_the_watchdog_every_batch_of_deletes _____________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-432/test_prune_feeds_the_watchdog_0')
+
+    def test_prune_feeds_the_watchdog_every_batch_of_deletes(tmp_path):
+        bucket = FakeBucket()
+        p = make_publisher(tmp_path, bucket, batch=10)
+        _seed(p, bucket, [(100, 400)], 100, 400)
+        sent: list[str] = []
+>       report = publish.prune(p, p.epoch.start_us(300) + 10 * MIN_US, notify=lambda m: sent.append(m) or True)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: prune() got an unexpected keyword argument 'notify'
+
+packages/transmitter/tests_transmitter/test_prune.py:210: TypeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_a_tick_that_fails_closed_on_an_unreadable_publish_state_still_pings
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_render_step_pings_after_each_show_encode
+FAILED packages/transmitter/tests_transmitter/test_prune.py::test_prune_feeds_the_watchdog_every_batch_of_deletes
+3 failed, 22 passed, 1 skipped in 1.59s
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_publish_all_feeds_the_watchdog_after_every_batch
+9 failed, 416 passed, 1 skipped in 57.61s
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_persistent_held_horizon_escalates_on_the_third_pass_and_resets
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_publish_all_feeds_the_watchdog_after_every_batch
+9 failed, 416 passed, 1 skipped in 58.10s
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping
+2 failed, 423 passed, 1 skipped in 57.47s
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_publish_all_alerts_a_prune_stopped_for_no_fallback
+FAILED packages/transmitter/tests_transmitter/test_systemd.py::test_the_runner_says_ready_pings_the_watchdog_after_every_step_and_says_stopping
+2 failed, 423 passed, 1 skipped in 57.96s
+........................................................................ [ 84%]
+.........................................................s........       [100%]
+425 passed, 1 skipped in 59.23s
+........................................................................ [ 84%]
+.........................................................s........       [100%]
+425 passed, 1 skipped in 57.46s
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+..................................................................       [100%]
+426 passed in 28.00s

@@ -1,0 +1,331 @@
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  14 passed (14)
+      Tests  217 passed (217)
+   Start at  06:48:39
+   Duration  8.30s (transform 75%, import 14%, worker 9%, tests 2%)
+
+  Transform  transforming modules took 9.90s · 75% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+mutants A + M1' expected red: guard 'blind still trips', alerts P10
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/mut/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  81 passed (81)
+   Start at  06:49:07
+   Duration  3.49s (transform 66%, worker 18%, import 11%, tests 5%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/mut/antenna
+
+ ❯ test/guard.test.ts (40 tests | 1 failed) 20ms
+   ❯ guardStep: races and failure paths beyond the plan's (18)
+     × blind still trips 6 h after the last success while state/budget.json gets keep throwing 6ms
+ ❯ test/alerts.test.ts (41 tests | 1 failed) 52ms
+   ❯ dispatchAlerts (18)
+     ❯ a failed fresh alert over a still-active delivered episode keeps it delivered (4)
+       × P10: a failed re-alert over an active never-delivered episode stays undelivered: dropped on re-clear, no resolved 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/alerts.test.ts > dispatchAlerts > a failed fresh alert over a still-active delivered episode keeps it delivered > P10: a failed re-alert over an active never-delivered episode stays undelivered: dropped on re-clear, no resolved
+AssertionError: expected { Object (active, resolvable, ...) } to match object { Object (active, delivered, ...) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "active": true,
+-   "delivered": false,
++   "delivered": true,
+    "last_sent_at": null,
+  }
+
+ ❯ test/alerts.test.ts:495:56
+    493|       expect(await dispatchAlerts(bucket, [broken], [cond("tripped-spe…
+    494|         .toEqual({ sent: 0, failed: 1 });
+    495|       expect(bucket.json(ALERTS_KEY)["tripped-spend"]).toMatchObject({…
+       |                                                        ^
+    496|       for (let m = 22; m <= 37; m++) await dispatchAlerts(bucket, [ok]…
+    497|       expect(got).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > blind still trips 6 h after the last success while state/budget.json gets keep throwing
+AssertionError: expected { Object (blocked, tripped, ...) } to match object { blocked: true, tripped: true }
+(16 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "blocked": true,
+-   "tripped": true,
++   "blocked": false,
++   "tripped": false,
+  }
+
+ ❯ test/guard.test.ts:513:19
+    511|     expect(bucket.json(GUARD_KEY)).toMatchObject({ tripped: false, eva…
+    512|     const later = await step(bucket, c, T0 + 6 * 60 * M + M);
+    513|     expect(later).toMatchObject({ blocked: true, tripped: true });
+       |                   ^
+    514|     expect(bucket.json(GUARD_KEY)).toMatchObject({ tripped: true, reas…
+    515|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 79 passed (81)
+   Start at  06:49:20
+   Duration  4.10s (transform 70%, import 19%, tests 7%, worker 3%)
+
+..F...FFFFF                                                              [100%]
+=================================== FAILURES ===================================
+______________ test_ntfy_title_is_rfc2047_encoded_when_not_latin1 ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108389e00>
+
+    def test_ntfy_title_is_rfc2047_encoded_when_not_latin1(monkeypatch):
+        seen = {}
+    
+        class Resp:
+            status = 200
+    
+            def __enter__(self):
+                return self
+    
+            def __exit__(self, *a):
+                return False
+    
+        monkeypatch.setattr(alerts.urllib.request, "urlopen",
+                            lambda req, timeout: seen.update(h=dict(req.header_items())) or Resp())
+        NtfyChannel("https://ntfy.example/t").send("radio \u2014 dead-clock", "stale", 4)
+        assert seen["h"]["Title"].startswith("=?utf-8?") and seen["h"]["Title"].isascii()
+        NtfyChannel("https://ntfy.example/t").send("caf\u00e9: x", "stale", 4)
+>       assert seen["h"]["Title"].isascii() and seen["h"]["Title"].startswith("=?utf-8?")
+E       AssertionError: assert (False)
+E        +  where False = <built-in method isascii of str object at 0x107b7b500>()
+E        +    where <built-in method isascii of str object at 0x107b7b500> = 'café: x'.isascii
+
+packages/transmitter/tests_transmitter/test_alerts.py:310: AssertionError
+__ test_the_guard_cache_reads_offair_like_the_worker[{"offair": "yes"}-True] ___
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-472/test_the_guard_cache_reads_off3')
+body = b'{"offair": "yes"}', expected = True
+
+    @pytest.mark.parametrize("body, expected", [
+        (None, False),                       # absent: on the air
+        (b'{"offair": false}', False),
+        (b'{"offair": true}', True),
+        (b'{"offair": "yes"}', True),        # present but not a boolean: the Worker reads it as off the air
+        (b'{"offair": 0}', True),
+        (b'{}', True),
+        (b'[1]', True),
+    ])
+    def test_the_guard_cache_reads_offair_like_the_worker(tmp_path, body, expected):
+        bucket = FakeBucket()
+        bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false}'}
+        if body is not None:
+            bucket.objects["state/offair.json"] = {"Body": body}
+        p = make_publisher(tmp_path, bucket)
+        assert publish.guard_blocks_publishing(p.uploader, p.ws, 1000.0, 900.0) is False   # never gates
+>       assert json.loads(p.ws.guard_cache_path.read_text())["offair"] is expected
+E       assert False is True
+
+packages/transmitter/tests_transmitter/test_publish.py:370: AssertionError
+____ test_the_guard_cache_reads_offair_like_the_worker[{"offair": 0}-True] _____
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-472/test_the_guard_cache_reads_off4')
+body = b'{"offair": 0}', expected = True
+
+    @pytest.mark.parametrize("body, expected", [
+        (None, False),                       # absent: on the air
+        (b'{"offair": false}', False),
+        (b'{"offair": true}', True),
+        (b'{"offair": "yes"}', True),        # present but not a boolean: the Worker reads it as off the air
+        (b'{"offair": 0}', True),
+        (b'{}', True),
+        (b'[1]', True),
+    ])
+    def test_the_guard_cache_reads_offair_like_the_worker(tmp_path, body, expected):
+        bucket = FakeBucket()
+        bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false}'}
+        if body is not None:
+            bucket.objects["state/offair.json"] = {"Body": body}
+        p = make_publisher(tmp_path, bucket)
+        assert publish.guard_blocks_publishing(p.uploader, p.ws, 1000.0, 900.0) is False   # never gates
+>       assert json.loads(p.ws.guard_cache_path.read_text())["offair"] is expected
+E       assert False is True
+
+packages/transmitter/tests_transmitter/test_publish.py:370: AssertionError
+__________ test_the_guard_cache_reads_offair_like_the_worker[{}-True] __________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-472/test_the_guard_cache_reads_off5')
+body = b'{}', expected = True
+
+    @pytest.mark.parametrize("body, expected", [
+        (None, False),                       # absent: on the air
+        (b'{"offair": false}', False),
+        (b'{"offair": true}', True),
+        (b'{"offair": "yes"}', True),        # present but not a boolean: the Worker reads it as off the air
+        (b'{"offair": 0}', True),
+        (b'{}', True),
+        (b'[1]', True),
+    ])
+    def test_the_guard_cache_reads_offair_like_the_worker(tmp_path, body, expected):
+        bucket = FakeBucket()
+        bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false}'}
+        if body is not None:
+            bucket.objects["state/offair.json"] = {"Body": body}
+        p = make_publisher(tmp_path, bucket)
+        assert publish.guard_blocks_publishing(p.uploader, p.ws, 1000.0, 900.0) is False   # never gates
+>       assert json.loads(p.ws.guard_cache_path.read_text())["offair"] is expected
+E       assert False is True
+
+packages/transmitter/tests_transmitter/test_publish.py:370: AssertionError
+_________ test_the_guard_cache_reads_offair_like_the_worker[[1]-True] __________
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-472/test_the_guard_cache_reads_off6')
+body = b'[1]', expected = True
+
+    @pytest.mark.parametrize("body, expected", [
+        (None, False),                       # absent: on the air
+        (b'{"offair": false}', False),
+        (b'{"offair": true}', True),
+        (b'{"offair": "yes"}', True),        # present but not a boolean: the Worker reads it as off the air
+        (b'{"offair": 0}', True),
+        (b'{}', True),
+        (b'[1]', True),
+    ])
+    def test_the_guard_cache_reads_offair_like_the_worker(tmp_path, body, expected):
+        bucket = FakeBucket()
+        bucket.objects["state/guard.json"] = {"Body": b'{"tripped": false}'}
+        if body is not None:
+            bucket.objects["state/offair.json"] = {"Body": body}
+        p = make_publisher(tmp_path, bucket)
+        assert publish.guard_blocks_publishing(p.uploader, p.ws, 1000.0, 900.0) is False   # never gates
+>       assert json.loads(p.ws.guard_cache_path.read_text())["offair"] is expected
+E       assert None is True
+
+packages/transmitter/tests_transmitter/test_publish.py:370: AssertionError
+_____ test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code ______
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-472/test_a_monitor_that_raises_ale0')
+
+    def test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code(tmp_path):
+        st, _ = make_station(tmp_path)
+    
+        class Monitor:
+            def check(self, now_us, guard_cache):
+                raise RuntimeError("boom")
+    
+        rec = _Rec()
+>       alerts.configure(alerts.Dispatcher(st.ws.root / "alerts.json", [rec], repeat_hours=6))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Dispatcher.__init__() got an unexpected keyword argument 'repeat_hours'
+
+packages/transmitter/tests_transmitter/test_service.py:386: TypeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_alerts.py::test_ntfy_title_is_rfc2047_encoded_when_not_latin1
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_guard_cache_reads_offair_like_the_worker[{"offair": "yes"}-True]
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_guard_cache_reads_offair_like_the_worker[{"offair": 0}-True]
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_guard_cache_reads_offair_like_the_worker[{}-True]
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_guard_cache_reads_offair_like_the_worker[[1]-True]
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code
+6 failed, 5 passed, 441 deselected in 1.51s
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 47%]
+........................................................................ [ 63%]
+........................................................................ [ 79%]
+...F.................................................................... [ 95%]
+...........s........                                                     [100%]
+=================================== FAILURES ===================================
+_____ test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code ______
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-473/test_a_monitor_that_raises_ale0')
+
+    def test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code(tmp_path):
+        st, _ = make_station(tmp_path)
+    
+        class Monitor:
+            def check(self, now_us, guard_cache):
+                raise RuntimeError("boom")
+    
+        rec = _Rec()
+>       alerts.configure(alerts.Dispatcher(st.ws.root / "alerts.json", [rec], repeat_hours=6))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Dispatcher.__init__() got an unexpected keyword argument 'repeat_hours'
+
+packages/transmitter/tests_transmitter/test_service.py:386: TypeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code
+1 failed, 450 passed, 1 skipped in 57.65s
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 47%]
+........................................................................ [ 63%]
+........................................................................ [ 79%]
+...F.................................................................... [ 95%]
+...........s........                                                     [100%]
+=================================== FAILURES ===================================
+_____ test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code ______
+
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-474/test_a_monitor_that_raises_ale0')
+
+    def test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code(tmp_path):
+        st, _ = make_station(tmp_path)
+    
+        class Monitor:
+            def check(self, now_us, guard_cache):
+                raise RuntimeError("boom")
+    
+        rec = _Rec()
+>       alerts.configure(alerts.Dispatcher(st.ws.root / "alerts.json", [rec], repeat_hours=6))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Dispatcher.__init__() got an unexpected keyword argument 'repeat_hours'
+
+packages/transmitter/tests_transmitter/test_service.py:386: TypeError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code
+1 failed, 450 passed, 1 skipped in 56.24s
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 47%]
+........................................................................ [ 63%]
+........................................................................ [ 79%]
+........................................................................ [ 95%]
+...........s........                                                     [100%]
+451 passed, 1 skipped in 56.44s
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 47%]
+........................................................................ [ 63%]
+........................................................................ [ 79%]
+........................................................................ [ 95%]
+...........s........                                                     [100%]
+451 passed, 1 skipped in 52.68s
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 47%]
+........................................................................ [ 63%]
+........................................................................ [ 79%]
+........................................................................ [ 95%]
+....................                                                     [100%]
+452 passed in 30.39s

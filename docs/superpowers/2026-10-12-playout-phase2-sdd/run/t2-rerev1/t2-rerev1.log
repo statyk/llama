@@ -1,0 +1,31 @@
+budget+Inf false budget-Inf true actual+Inf true actual-Inf false proj-Inf false
+201700000 5540000 100800000 115.628 115.62799999999999
+== BASELINE (expect red: none)
+      Tests  10 passed (10)
+96c96
+<     r2ClassB: periodToDate.r2ClassB + rate("r2ClassB") * remainingMs,
+---
+>     r2ClassB: periodToDate.r2ClassB + rate("workersRequests") * remainingMs,
+== ClassB uses Workers rate (expect red: projects every op meter)
+     × projects every op meter from its own recent rate 7ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > evaluateSpend > projects every op meter from its own recent rate
+      Tests  1 failed | 9 passed (10)
+94c94
+<     workersRequests: periodToDate.workersRequests + rate("workersRequests") * remainingMs,
+---
+>     workersRequests: periodToDate.workersRequests,
+== Workers term dropped (expect red: projects every op meter)
+     × projects every op meter from its own recent rate 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > evaluateSpend > projects every op meter from its own recent rate
+      Tests  1 failed | 9 passed (10)
+114c114
+<   return !(e.actualUsd < TRIP_ACTUAL * e.budgetUsd && e.projectedUsd < TRIP_PROJECTED * e.budgetUsd);
+---
+>   return e.actualUsd >= TRIP_ACTUAL * e.budgetUsd || !(e.projectedUsd < TRIP_PROJECTED * e.budgetUsd);
+== actual half reverted to >= (expect red: fails closed: any NaN trips)
+     × fails closed: any NaN trips 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > overThreshold > fails closed: any NaN trips
+      Tests  1 failed | 9 passed (10)

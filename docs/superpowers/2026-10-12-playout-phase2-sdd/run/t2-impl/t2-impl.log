@@ -1,0 +1,105 @@
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/pricing.test.ts [ test/pricing.test.ts ]
+Error: Cannot find module '../src/pricing' imported from /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/test/pricing.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  02:04:32
+   Duration  4.74s (worker 100%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  02:04:59
+   Duration  3.31s (transform 64%, import 16%, worker 15%, tests 5%)
+
+TSC-CLEAN
+      Tests  58 passed (58)
+   Start at  02:05:09
+   Duration  5.88s (transform 54%, import 39%, worker 4%, tests 3%)
+
+  Transform  transforming modules took 2.16s · 54% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+fix round 1 start
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  02:10:09
+   Duration  3.17s (transform 52%, import 23%, worker 23%, tests 2%)
+
+setup done
+=== BASELINE | predicted red: none
+      Tests  10 passed (10)
+=== SENTINEL | predicted red: most tests (proves scratch is under test)
+18c18
+<   baseUsd: 5,
+---
+>   baseUsd: 6,
+     × is the $5 base while every meter is inside its allowance 9ms
+     × prices only the usage beyond each allowance 0ms
+     × carries the published prices 0ms
+     × projects each meter from the recent rate through the allowances, not a dollar average 0ms
+     × projects every op meter from its own recent rate 1ms
+     × never projects below period-to-date once the period is over 1ms
+     × has nothing left to project at the period's end 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > priceUsage > is the $5 base while every meter is inside its allowance
+ FAIL  test/pricing.test.ts > priceUsage > prices only the usage beyond each allowance
+ FAIL  test/pricing.test.ts > priceUsage > carries the published prices
+ FAIL  test/pricing.test.ts > evaluateSpend > projects each meter from the recent rate through the allowances, not a dollar average
+ FAIL  test/pricing.test.ts > evaluateSpend > projects every op meter from its own recent rate
+ FAIL  test/pricing.test.ts > evaluateSpend > never projects below period-to-date once the period is over
+ FAIL  test/pricing.test.ts > evaluateSpend > has nothing left to project at the period's end
+      Tests  7 failed | 3 passed (10)
+=== M-B | predicted red: projects every op meter from its own recent rate
+96c96
+<     r2ClassB: periodToDate.r2ClassB + rate("r2ClassB") * remainingMs,
+---
+>     r2ClassB: periodToDate.r2ClassB,
+     × projects every op meter from its own recent rate 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > evaluateSpend > projects every op meter from its own recent rate
+      Tests  1 failed | 9 passed (10)
+=== M-W | predicted red: projects every op meter from its own recent rate
+94c94
+<     workersRequests: periodToDate.workersRequests + rate("workersRequests") * remainingMs,
+---
+>     workersRequests: periodToDate.workersRequests + rate("r2ClassA") * remainingMs,
+     × projects every op meter from its own recent rate 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > evaluateSpend > projects every op meter from its own recent rate
+      Tests  1 failed | 9 passed (10)
+=== M-C | predicted red: never projects below period-to-date once the period is over
+84c84
+<   const remainingMs = Math.max(0, period.endMs - nowMs);
+---
+>   const remainingMs = period.endMs - nowMs;
+     × never projects below period-to-date once the period is over 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > evaluateSpend > never projects below period-to-date once the period is over
+      Tests  1 failed | 9 passed (10)
+=== M-T | predicted red: fails closed: any NaN trips
+114c114
+<   return !(e.actualUsd < TRIP_ACTUAL * e.budgetUsd && e.projectedUsd < TRIP_PROJECTED * e.budgetUsd);
+---
+>   return e.actualUsd >= TRIP_ACTUAL * e.budgetUsd || e.projectedUsd >= TRIP_PROJECTED * e.budgetUsd;
+     × fails closed: any NaN trips 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pricing.test.ts > overThreshold > fails closed: any NaN trips
+      Tests  1 failed | 9 passed (10)
+ Test Files  6 passed (6)
+      Tests  61 passed (61)
+TSC-CLEAN

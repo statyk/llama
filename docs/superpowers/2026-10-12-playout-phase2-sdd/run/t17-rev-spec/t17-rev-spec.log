@@ -1,0 +1,25 @@
+progress: verbatim comparison + code checks
+== step2 name grep count
+      21
+CF_ACCOUNT_ID doc=2 code=antenna/src/guard.ts antenna/wrangler.jsonc antenna/src/meter.ts antenna/src/alerts.ts 
+CF_ZONE_ID doc=1 code=antenna/src/guard.ts antenna/wrangler.jsonc antenna/src/alerts.ts 
+CF_ANALYTICS_TOKEN doc=2 code=antenna/src/guard.ts antenna/wrangler.jsonc antenna/src/alerts.ts 
+CF_WAF_TOKEN doc=2 code=antenna/src/guard.ts antenna/wrangler.jsonc antenna/src/alerts.ts 
+BILLING_ANNIVERSARY_DAY doc=1 code=antenna/src/guard.ts antenna/wrangler.jsonc 
+NTFY_URL doc=1 code=antenna/wrangler.jsonc antenna/src/alerts.ts 
+ALERT_EMAIL_FROM doc=1 code=antenna/src/alerts.ts antenna/wrangler.jsonc 
+ALERT_EMAIL_TO doc=2 code=antenna/wrangler.jsonc antenna/src/alerts.ts 
+MONTHLY_BUDGET_USD doc=1 code=antenna/src/guard.ts antenna/src/latch.ts antenna/wrangler.jsonc packages/transmitter/src/transmitter/cloudstate.py 
+BLIND_AFTER_SECONDS doc=1 code=antenna/src/guard.ts antenna/wrangler.jsonc 
+GUARD_EVAL_SECONDS doc=1 code=antenna/src/guard.ts antenna/wrangler.jsonc 
+LEAD_FLOOR_HOURS doc=1 code=antenna/src/clock.ts antenna/wrangler.jsonc 
+transmitter@ doc=7 code=packages/transmitter/systemd/transmitter@.service 
+KILL_SWITCH_DESCRIPTION doc=0 code=antenna/src/guard.ts antenna/wrangler.jsonc 
+ALERT_REPEAT_HOURS doc=0 code=antenna/wrangler.jsonc antenna/src/alerts.ts 
+STATION_NAME doc=1 code=antenna/wrangler.jsonc antenna/src/alerts.ts 
+== email grep
+== hex/token scan
+== diff-only hex
+done
+progress: checking alert key table vs code
+progress: writing report

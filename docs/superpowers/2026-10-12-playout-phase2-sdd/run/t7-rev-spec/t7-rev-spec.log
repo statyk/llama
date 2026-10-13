@@ -1,0 +1,5 @@
+antenna/test/indexpage.test.ts IDENTICAL
+antenna/scripts/build-pages.mjs IDENTICAL
+antenna/src/indexpage.ts IDENTICAL
+scripts block present verbatim: True
+check-exit=0

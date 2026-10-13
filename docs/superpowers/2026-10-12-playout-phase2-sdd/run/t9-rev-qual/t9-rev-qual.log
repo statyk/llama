@@ -1,0 +1,26 @@
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t9q/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  03:59:11
+   Duration  2.49s (transform 70%, import 16%, tests 7%, worker 6%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t9q/antenna
+
+stdout | test/probe.test.ts > probe > resolved aloud, then a return within the cooldown is silent for hours
+["alert@0","resolved@1"]
+
+stdout | test/probe.test.ts > probe > a malformed entry wedges dispatch
+RESULT TypeError: Cannot read properties of null (reading 'active') []
+
+ ✓ test/probe.test.ts > probe > resolved aloud, then a return within the cooldown is silent for hours 2ms
+ ✓ test/probe.test.ts > probe > a malformed entry wedges dispatch 1ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  03:59:22
+   Duration  1.75s (transform 86%, import 7%, worker 5%, tests 2%)
+

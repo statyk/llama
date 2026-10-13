@@ -1,0 +1,85 @@
+== RED: npx vitest run test/meter.test.ts
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+ ❯ test/meter.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/meter.test.ts [ test/meter.test.ts ]
+Error: Cannot find module '../src/meter' imported from /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/test/meter.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  02:15:28
+   Duration  2.46s (worker 100%)
+
+== GREEN (brief tests): npx vitest run test/meter.test.ts
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  02:16:04
+   Duration  3.32s (worker 50%, transform 23%, import 22%, tests 6%)
+
+== focused after added tests
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  02:16:22
+   Duration  3.03s (transform 37%, import 24%, worker 23%, tests 17%)
+
+== mutation checks in scratch copy
+sentinel-HeadObject:      × sums Workers requests, classes R2 operations and sums per-bucket peak storage 12ms
+sentinel-HeadObject: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+sentinel-HeadObject:  FAIL  test/meter.test.ts > parseUsage > sums Workers requests, classes R2 operations and sums per-bucket peak storage
+sentinel-HeadObject:       Tests  1 failed | 7 passed (8)
+M1-brief-errors-check:      × treats a malformed (non-list) errors field as a failed reading, not as no errors 6ms
+M1-brief-errors-check: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M1-brief-errors-check:  FAIL  test/meter.test.ts > parseUsage > treats a malformed (non-list) errors field as a failed reading, not as no errors
+M1-brief-errors-check:       Tests  1 failed | 7 passed (8)
+M2-no-negative:      × rejects a missing, negative or non-finite value in every field that reaches the Reading 9ms
+M2-no-negative: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M2-no-negative:  FAIL  test/meter.test.ts > parseUsage > rejects a missing, negative or non-finite value in every field that reaches the Reading
+M2-no-negative:       Tests  1 failed | 7 passed (8)
+M3-no-finite:      × rejects a missing, negative or non-finite value in every field that reaches the Reading 8ms
+M3-no-finite: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M3-no-finite:  FAIL  test/meter.test.ts > parseUsage > rejects a missing, negative or non-finite value in every field that reaches the Reading
+M3-no-finite:       Tests  1 failed | 7 passed (8)
+M4-metadata-unchecked:      × rejects a missing, negative or non-finite value in every field that reaches the Reading 9ms
+M4-metadata-unchecked: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M4-metadata-unchecked:  FAIL  test/meter.test.ts > parseUsage > rejects a missing, negative or non-finite value in every field that reaches the Reading
+M4-metadata-unchecked:       Tests  1 failed | 7 passed (8)
+M5-truncation-gt:      × throws on GraphQL errors, a missing account, a missing dataset, a bad count or a truncated result 15ms
+M5-truncation-gt: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M5-truncation-gt:  FAIL  test/meter.test.ts > parseUsage > throws on GraphQL errors, a missing account, a missing dataset, a bad count or a truncated result
+M5-truncation-gt:       Tests  1 failed | 7 passed (8)
+== full suite + tsc
+
+> test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  7 passed (7)
+      Tests  69 passed (69)
+   Start at  02:17:47
+   Duration  7.04s (transform 60%, worker 19%, import 18%, tests 4%)
+
+  Transform  transforming modules took 3.36s · 60% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+TSC-CLEAN

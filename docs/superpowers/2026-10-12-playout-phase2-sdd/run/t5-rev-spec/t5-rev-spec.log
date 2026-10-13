@@ -1,0 +1,1 @@
+checks done: brief-vs-commit diff (waf.ts identical; test = brief 5 verbatim + 3 additions)

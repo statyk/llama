@@ -1,0 +1,91 @@
+== RED
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+ ❯ test/waf.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/waf.test.ts [ test/waf.test.ts ]
+Error: Cannot find module '../src/waf' imported from /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/test/waf.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  02:41:32
+   Duration  4.47s (worker 100%)
+
+== GREEN
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  02:41:58
+   Duration  4.78s (transform 79%, import 10%, worker 5%, tests 4%)
+
+TSC_OK
+MUTANT action-check (predict red: not a block rule):
+     × refuses when the rule is missing, ambiguous or not a block rule 10ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/waf.test.ts > reconcileKillSwitch > refuses when the rule is missing, ambiguous or not a block rule
+      Tests  1 failed | 5 passed (6)
+MUTANT first-match (predict red: ambiguous (found 2)):
+     × refuses when the rule is missing, ambiguous or not a block rule 10ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/waf.test.ts > reconcileKillSwitch > refuses when the rule is missing, ambiguous or not a block rule
+      Tests  1 failed | 5 passed (6)
+MUTANT no-verify (predict red: did not take):
+     × raises a WafError on an API failure or an update that did not take 7ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/waf.test.ts > reconcileKillSwitch > raises a WafError on an API failure or an update that did not take
+      Tests  1 failed | 5 passed (6)
+MUTANT no-signal (predict red: abort signal):
+     × gives every API call an abort signal (the 5 s timeout) 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/waf.test.ts > reconcileKillSwitch > gives every API call an abort signal (the 5 s timeout)
+      Tests  1 failed | 5 passed (6)
+MUTANT absent-enabled-false (predict red: missing enabled field):
+     × treats a missing enabled field as enabled, and disables it when not blocked 10ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/waf.test.ts > reconcileKillSwitch > treats a missing enabled field as enabled, and disables it when not blocked
+      Tests  1 failed | 5 passed (6)
+MUTANT drop-ref (predict red: resending the whole rule):
+     × enables it when blocked, resending the whole rule with only enabled changed 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/waf.test.ts > reconcileKillSwitch > enables it when blocked, resending the whole rule with only enabled changed
+      Tests  1 failed | 5 passed (6)
+MUTANT success-ignored (predict red: API failure):
+      Tests  6 passed (6)
+== mutants round 2
+      Tests  8 passed (8)
+MUTANT success-ignored-all (predict red: trusts neither):
+     × trusts neither an HTTP error nor success: false, even with a result 10ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 7 passed (8)
+MUTANT no-res-ok (predict red: trusts neither (HTTP 500)):
+     × trusts neither an HTTP error nor success: false, even with a result 8ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 7 passed (8)
+MUTANT no-success (predict red: trusts neither (success false)):
+     × trusts neither an HTTP error nor success: false, even with a result 9ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 7 passed (8)
+MUTANT drop-params (predict red: resends action_parameters):
+     × resends action_parameters when the rule has them 13ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 7 passed (8)
+== FULL
+   Start at  02:44:48
+   Duration  14.78s (transform 68%, worker 19%, import 10%, tests 2%)
+
+  Transform  transforming modules took 12.68s · 68% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+TSC_OK

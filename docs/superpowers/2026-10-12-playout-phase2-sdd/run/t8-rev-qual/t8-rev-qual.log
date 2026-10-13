@@ -1,0 +1,10 @@
+progress: reading code for named risks
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  03:28:07
+   Duration  1.63s (transform 59%, worker 16%, tests 15%, import 10%)
+

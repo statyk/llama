@@ -1,0 +1,4 @@
+budget-min: 30
+role: impl
+model: sonnet
+what: Task 10 send_email binding + deploy-assets

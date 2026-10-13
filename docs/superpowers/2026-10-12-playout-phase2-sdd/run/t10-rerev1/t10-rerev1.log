@@ -1,0 +1,37 @@
+== baseline (expect pass)
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t10rr/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  04:37:01
+   Duration  3.81s (transform 86%, import 8%, worker 5%, tests 1%)
+
+== A nested env.production.account_id (non-hex value) -- expect red: carries no account details, key regex
+     × carries no account details and no email address 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/wrangler-config.test.ts > wrangler.jsonc (this repo is public) > carries no account details and no email address
+AssertionError: expected '{\n  "$schema": "node_modules/wrangle…' not to match /"(account_id|zone_id)"\s*:/
+- Expected:
++ Received:
+      Tests  1 failed | 1 passed (2)
+== B 32-hex as a var value -- expect red: carries no account details, 32-hex regex
+     × carries no account details and no email address 7ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/wrangler-config.test.ts > wrangler.jsonc (this repo is public) > carries no account details and no email address
+AssertionError: expected '{\n  "$schema": "node_modules/wrangle…' not to match /\b[0-9a-f]{32}\b/i
+- Expected:
++ Received:
+      Tests  1 failed | 1 passed (2)
+== C top-level routes, no zone_id -- expect red: carries no account details, routes
+     × carries no account details and no email address 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/wrangler-config.test.ts > wrangler.jsonc (this repo is public) > carries no account details and no email address
+AssertionError: expected { …(12) } to not have property "routes"
+- Expected:
++ Received:
+      Tests  1 failed | 1 passed (2)
+== D trailing comma -- expect module-load error carrying the hint
+ FAIL  test/wrangler-config.test.ts [ test/wrangler-config.test.ts ]
+Error: wrangler.jsonc: only whole-line // comments and no trailing commas are supported by this test (SyntaxError: Expected double-quoted property name in JSON at position 839 (line 27 column 1))
+      Tests  no tests

@@ -1,0 +1,4 @@
+budget-min: 40
+role: implementer
+model: sonnet
+what: T18 fix round 1 (minors F1-F8)

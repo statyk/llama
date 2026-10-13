@@ -1,0 +1,31 @@
+2026-10-12 06:34:25 final-review: log opened
+2026-10-12 06:34:34 reading rulings + spec
+2026-10-12 06:34:48 pass 1/5: antenna guard/latch/waf/clock/bucket/meter/pricing/period — start
+2026-10-12 06:36:08 pass 1: checking MUST-FIX 1/3/4 test pins
+2026-10-12 06:36:40 scratch antenna at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/ant; baseline guard+alerts tests
+
+ Test Files  2 passed (2)
+      Tests  79 passed (79)
+   Start at  06:36:44
+   Duration  3.97s (transform 79%, import 9%, tests 6%, worker 6%)
+
+2026-10-12 06:37:02 mutant A (blind rule gated on !budgetReadFailed): prediction all green
+      Tests  39 passed (39)
+2026-10-12 06:37:10 mutant M1 (failed alert over active prev forced delivered:true): prediction all green
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/alerts.test.ts > dispatchAlerts > an alert whose first send and retry both failed is still undelivered: dropped on clear, no resolved
+      Tests  1 failed | 39 passed (40)
+2026-10-12 06:37:46 probes written; baseline run (prediction: both green on committed code)
+      Tests  2 passed (2)
+2026-10-12 06:38:05 mutants A + M1' applied; run committed guard+alerts + probes
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/probe-final.test.ts > probe: P10 > P10: a failed re-alert over an active never-delivered episode stays delivered:false; no resolved on re-clear
+ FAIL  test/probe-final.test.ts > probe: blind while budget.json keeps throwing > blind still trips 6 h after the last success while state/budget.json gets keep throwing
+      Tests  2 failed | 79 passed (81)
+2026-10-12 06:38:24 pass 1 cont: meter/pricing/support/wrangler
+2026-10-12 06:38:40 pass 2/5: antenna player + test support — start
+2026-10-12 06:39:03 pass 3/5: transmitter cloudstate/deadclock/sdnotify/service/cli/alerts — start
+2026-10-12 06:40:41 pass 4/5: runbook — start
+2026-10-12 06:41:23 pass 5/5: public-repo sweep + triage greps
+2026-10-12 06:43:41 all passes done; writing handback
+2026-10-12 06:46:27 handback written; sentinel touched

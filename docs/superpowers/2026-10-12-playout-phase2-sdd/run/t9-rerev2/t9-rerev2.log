@@ -1,0 +1,181 @@
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t9rr2/antenna
+
+stdout | test/probe.test.ts > probes > P6 failed resolved, return whose alert fails, re-clear: resolved must still go out
+after failed re-alert {"tripped-spend":{"active":true,"resolvable":true,"title":"t","first_at":"2026-10-20T12:17:00.000Z","last_sent_at":null,"cleared_at":null,"delivered":false}}
+
+stdout | test/probe.test.ts > probes > P6 failed resolved, return whose alert fails, re-clear: resolved must still go out
+P6 got ["alert:tripped-spend"] {}
+
+stdout | test/probe.test.ts > probes > P7 clearing, guard-unknown past the window, return whose alert fails, re-clear
+P7 got ["alert:tripped-spend"] {}
+
+ ❯ test/probe.test.ts (4 tests | 2 failed) 14ms
+   ❯ probes (4)
+     × P6 failed resolved, return whose alert fails, re-clear: resolved must still go out 10ms
+     × P7 clearing, guard-unknown past the window, return whose alert fails, re-clear 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/probe.test.ts > probes > P6 failed resolved, return whose alert fails, re-clear: resolved must still go out
+AssertionError: expected [ 'alert:tripped-spend' ] to include 'resolved:tripped-spend'
+ ❯ test/probe.test.ts:36:17
+     34|     await dispatchAlerts(bucket, [ok], [], T0 + 4 * M + 2 * COOLDOWN_M…
+     35|     console.log("P6 got", JSON.stringify(got), JSON.stringify(bucket.j…
+     36|     expect(got).toContain("resolved:tripped-spend");
+       |                 ^
+     37|   });
+     38|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/probe.test.ts > probes > P7 clearing, guard-unknown past the window, return whose alert fails, re-clear
+AssertionError: expected [ 'alert:tripped-spend' ] to include 'resolved:tripped-spend'
+ ❯ test/probe.test.ts:49:17
+     47|     await dispatchAlerts(bucket, [ok], [], T0 + 22 * M + COOLDOWN_MS, …
+     48|     console.log("P7 got", JSON.stringify(got), JSON.stringify(bucket.j…
+     49|     expect(got).toContain("resolved:tripped-spend");
+       |                 ^
+     50|   });
+     51|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  04:20:25
+   Duration  3.38s (transform 85%, tests 6%, import 6%, worker 3%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t9rr2-base/antenna
+
+stdout | test/probe.test.ts > probes > P6 failed resolved, return whose alert fails, re-clear: resolved must still go out
+after failed re-alert {"tripped-spend":{"active":true,"resolvable":true,"title":"t","first_at":"2026-10-20T12:17:00.000Z","last_sent_at":null,"cleared_at":null}}
+
+stdout | test/probe.test.ts > probes > P6 failed resolved, return whose alert fails, re-clear: resolved must still go out
+P6 got ["alert:tripped-spend"] {}
+
+stdout | test/probe.test.ts > probes > P7 clearing, guard-unknown past the window, return whose alert fails, re-clear
+P7 got ["alert:tripped-spend"] {}
+
+ ❯ test/probe.test.ts (2 tests | 2 failed) 13ms
+   ❯ probes (2)
+     × P6 failed resolved, return whose alert fails, re-clear: resolved must still go out 11ms
+     × P7 clearing, guard-unknown past the window, return whose alert fails, re-clear 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/probe.test.ts > probes > P6 failed resolved, return whose alert fails, re-clear: resolved must still go out
+AssertionError: expected [ 'alert:tripped-spend' ] to include 'resolved:tripped-spend'
+ ❯ test/probe.test.ts:36:17
+     34|     await dispatchAlerts(bucket, [ok], [], T0 + 4 * M + 2 * COOLDOWN_M…
+     35|     console.log("P6 got", JSON.stringify(got), JSON.stringify(bucket.j…
+     36|     expect(got).toContain("resolved:tripped-spend");
+       |                 ^
+     37|   });
+     38|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/probe.test.ts > probes > P7 clearing, guard-unknown past the window, return whose alert fails, re-clear
+AssertionError: expected [ 'alert:tripped-spend' ] to include 'resolved:tripped-spend'
+ ❯ test/probe.test.ts:49:17
+     47|     await dispatchAlerts(bucket, [ok], [], T0 + 22 * M + COOLDOWN_MS, …
+     48|     console.log("P7 got", JSON.stringify(got), JSON.stringify(bucket.j…
+     49|     expect(got).toContain("resolved:tripped-spend");
+       |                 ^
+     50|   });
+     51|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  04:20:48
+   Duration  3.55s (transform 83%, worker 7%, tests 6%, import 4%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t9rr2/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  41 passed (41)
+   Start at  04:20:56
+   Duration  3.78s (transform 54%, import 37%, tests 5%, worker 4%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t9rr2-mut/antenna
+
+ ❯ test/alerts.test.ts (37 tests | 1 failed) 95ms
+   ❯ dispatchAlerts (14)
+     × a failed repeat of a delivered alert keeps it delivered: its resolved still goes out (P1) 41ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/alerts.test.ts > dispatchAlerts > a failed repeat of a delivered alert keeps it delivered: its resolved still goes out (P1)
+AssertionError: expected [ 'alert:tripped-spend' ] to deeply equal [ 'alert:tripped-spend', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "alert:tripped-spend",
+-   "resolved:tripped-spend",
+  ]
+
+ ❯ test/alerts.test.ts:415:17
+    413|     await dispatchAlerts(bucket, [ok], [], T0 + REPEAT + 60_000, REPEA…
+    414|     await dispatchAlerts(bucket, [ok], [], T0 + REPEAT + 60_000 + COOL…
+    415|     expect(got).toEqual(["alert:tripped-spend", "resolved:tripped-spen…
+       |                 ^
+    416|     expect(bucket.json(ALERTS_KEY)["tripped-spend"].active).toBe(false…
+    417|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 36 passed (37)
+   Start at  04:21:16
+   Duration  3.59s (transform 74%, tests 19%, import 4%, worker 2%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/t9rr2-mut/antenna
+
+ ❯ test/alerts.test.ts (37 tests | 1 failed) 61ms
+   ❯ dispatchAlerts (14)
+     × a failed repeat of a delivered alert keeps it delivered: its resolved still goes out (P1) 21ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/alerts.test.ts > dispatchAlerts > a failed repeat of a delivered alert keeps it delivered: its resolved still goes out (P1)
+AssertionError: expected { Object (active, resolvable, ...) } to match object { last_sent_at: null, delivered: true }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "delivered": true,
++   "delivered": false,
+    "last_sent_at": null,
+  }
+
+ ❯ test/alerts.test.ts:412:54
+    410|     await dispatchAlerts(bucket, [ok], [cond("tripped-spend")], T0, RE…
+    411|     expect(await dispatchAlerts(bucket, [broken], [cond("tripped-spend…
+    412|     expect(bucket.json(ALERTS_KEY)["tripped-spend"]).toMatchObject({ l…
+       |                                                      ^
+    413|     await dispatchAlerts(bucket, [ok], [], T0 + REPEAT + 60_000, REPEA…
+    414|     await dispatchAlerts(bucket, [ok], [], T0 + REPEAT + 60_000 + COOL…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 36 passed (37)
+   Start at  04:21:24
+   Duration  3.32s (transform 74%, tests 12%, import 9%, worker 4%)
+

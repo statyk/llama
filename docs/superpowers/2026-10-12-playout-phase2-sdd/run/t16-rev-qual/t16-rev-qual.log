@@ -1,0 +1,77 @@
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <botocore.endpoint.EndpointCreator object at 0x10d7996a0>
+service_model = ServiceModel(s3), region_name = 'auto'
+endpoint_url = 'not a url', verify = None
+response_parser_factory = <botocore.parsers.ResponseParserFactory object at 0x10ced4050>
+timeout = (10, 60), max_pool_connections = 10
+http_session_cls = <class 'botocore.httpsession.URLLib3Session'>, proxies = None
+socket_options = [(6, 1, 1)], client_cert = None, proxies_config = None
+
+    def create_endpoint(
+        self,
+        service_model,
+        region_name,
+        endpoint_url,
+        verify=None,
+        response_parser_factory=None,
+        timeout=DEFAULT_TIMEOUT,
+        max_pool_connections=MAX_POOL_CONNECTIONS,
+        http_session_cls=URLLib3Session,
+        proxies=None,
+        socket_options=None,
+        client_cert=None,
+        proxies_config=None,
+    ):
+        if not is_valid_endpoint_url(
+            endpoint_url
+        ) and not is_valid_ipv6_endpoint_url(endpoint_url):
+>           raise ValueError(f"Invalid endpoint: {endpoint_url}")
+E           ValueError: Invalid endpoint: not a url
+
+../../.venv/lib/python3.14/site-packages/botocore/endpoint.py:410: ValueError
+==================================== PASSES ====================================
+____________________________ test_guard_odd_shapes _____________________________
+----------------------------- Captured stdout call -----------------------------
+epoch      etest (2096-10-02T07:06:40.000Z)
+plan       empty
+published  nothing yet
+fallback   none (run `transmitter fallback render`)
+anchors    none (the scheduler and its window misses are phase 3)
+alerts     hugo: none
+guard      TRIPPED (None) since None
+spend      actual unknown, projected unknown of unknown (evaluated None)
+period     None .. None
+reading    failing since None: 5
+killswitch unknown
+offair     ON since None (None), expected until 5
+alerts     cloud: b
+=========================== short test summary info ============================
+PASSED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_guard_odd_shapes
+PASSED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_missing_keys_is_transmitter_error
+FAILED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_local_alerts_corrupt[{not json]
+FAILED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_local_alerts_corrupt[[1,2]]
+FAILED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_budget_usd_odd[abc]
+FAILED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_budget_usd_odd[None]
+FAILED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_budget_usd_odd[val2]
+FAILED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_budget_usd_odd[val3]
+FAILED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_body_read_error
+FAILED ../../../../../../../../../private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py::test_bad_endpoint
+8 failed, 2 passed in 2.60s
+E   json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:361: json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+E   AttributeError: 'list' object has no attribute 'items'
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/alerts.py:54: AttributeError: 'list' object has no attribute 'items'
+E   ValueError: could not convert string to float: 'abc'
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/service.py:280: ValueError: could not convert string to float: 'abc'
+E   TypeError: float() argument must be a string or a real number, not 'NoneType'
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/service.py:280: TypeError: float() argument must be a string or a real number, not 'NoneType'
+E   TypeError: float() argument must be a string or a real number, not 'list'
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/service.py:280: TypeError: float() argument must be a string or a real number, not 'list'
+E   TypeError: float() argument must be a string or a real number, not 'dict'
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/service.py:280: TypeError: float() argument must be a string or a real number, not 'dict'
+E   ConnectionError: reset mid-body
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/t16q/test_probe_t16.py:34: ConnectionError: reset mid-body
+E   ValueError: Invalid endpoint: not a url
+/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/.venv/lib/python3.14/site-packages/botocore/endpoint.py:410: ValueError: Invalid endpoint: not a url
+writing report

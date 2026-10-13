@@ -1,0 +1,4 @@
+budget-min: 45
+role: impl
+model: sonnet
+what: Task 13 hugo alerts SMTP+ntfy dedupe

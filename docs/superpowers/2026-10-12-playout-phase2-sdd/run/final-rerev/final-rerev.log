@@ -1,0 +1,57 @@
+== baseline HEAD guard+alerts tests
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/rerev/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  81 passed (81)
+   Start at  06:57:24
+   Duration  3.05s (transform 81%, import 8%, tests 8%, worker 3%)
+
+== mutant A; PREDICT red: guard.test.ts 'blind still trips 6 h after the last success while state/budget.json gets keep throwing' only
+285c285
+<     doc = applyBlindRule(doc, nowMs, cfg.blindAfterMs);
+---
+>     if (!budgetReadFailed) doc = applyBlindRule(doc, nowMs, cfg.blindAfterMs);
+     × blind still trips 6 h after the last success while state/budget.json gets keep throwing 13ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/guard.test.ts > guardStep: races and failure paths beyond the plan's > blind still trips 6 h after the last success while state/budget.json gets keep throwing
+      Tests  1 failed | 80 passed (81)
+== mutant M1'; PREDICT red: alerts.test.ts 'P10: a failed re-alert over an active never-delivered episode stays undelivered...' only
+349c349
+<                         delivered: o.kind === "alert" && !prev[o.key]?.active ? false : wasDelivered(prev[o.key]) };
+---
+>                         delivered: o.kind === "alert" ? !!prev[o.key]?.active : wasDelivered(prev[o.key]) };
+       × P10: a failed re-alert over an active never-delivered episode stays undelivered: dropped on re-clear, no resolved 12ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/alerts.test.ts > dispatchAlerts > a failed fresh alert over a still-active delivered episode keeps it delivered > P10: a failed re-alert over an active never-delivered episode stays undelivered: dropped on re-clear, no resolved
+AssertionError: expected { Object (active, resolvable, ...) } to match object { Object (active, delivered, ...) }
+      Tests  1 failed | 80 passed (81)
+restored
+== shadowing proof
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/rerev/packages/transmitter/src/transmitter/__init__.py
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/631e3fb3-24da-46bb-b218-74e21a3ef091/scratchpad/rerev/packages/transmitter/tests_transmitter/__init__.py
+== F9 probe: what hugo's cache records for non-JSON / empty / null / false bodies (Worker: all off-air)
+BODY b'{not json' -> offair None
+.BODY b'' -> offair None
+.BODY b'null' -> offair False
+.BODY b'false' -> offair True
+4 passed in 1.18s
+245c245
+<             self._step("dead-clock-check", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
+---
+>             self._step("dead-clock", lambda: monitor.check(self.clock(), read_json(self.st.ws.guard_cache_path)))
+== F8 mutant (step name reverted); PREDICT red: test_service.py::test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code only
+ERROR    transmitter:service.py:207 dead-clock step failed
+FAILED packages/transmitter/tests_transmitter/test_service.py::test_a_monitor_that_raises_alerts_the_event_code_not_the_level_code
+1 failed, 71 passed, 1 skipped in 9.29s
+== restored scratch: service/publish/alerts/systemd green
+109 passed, 1 skipped in 9.74s
+== F10 mutant (latin-1 predicate back); PREDICT red: test_alerts.py::test_ntfy_title_is_rfc2047_encoded_when_not_latin1
+FAILED packages/transmitter/tests_transmitter/test_alerts.py::test_ntfy_title_is_rfc2047_encoded_when_not_latin1
+1 failed, 16 passed in 0.83s
+== F10 mutant 2 (default maxlinelen: obs-fold); PREDICT red: same test (long-title no-CRLF assertion)
+FAILED packages/transmitter/tests_transmitter/test_alerts.py::test_ntfy_title_is_rfc2047_encoded_when_not_latin1
+1 failed, 16 passed in 1.46s
+scratch removed; live worktree unchanged
+handback written; sentinel touched
+F1 wording corrected; sentinel re-touched last

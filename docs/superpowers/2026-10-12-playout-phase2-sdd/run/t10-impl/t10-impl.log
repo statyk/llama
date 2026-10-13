@@ -1,0 +1,23 @@
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  14 passed (14)
+      Tests  215 passed (215)
+   Start at  04:29:05
+   Duration  7.24s (transform 65%, import 19%, worker 14%, tests 2%)
+
+  Transform  transforming modules took 8.42s · 65% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+0
+ M scripts/deploy-assets.mjs
+ M tsconfig.json
+ M worker-configuration.d.ts
+ M wrangler.jsonc
+?? test/wrangler-config.test.ts

@@ -1,0 +1,4 @@
+budget-min: 45
+role: impl
+model: sonnet
+what: Task 14 dead-clock and guard-stale monitor

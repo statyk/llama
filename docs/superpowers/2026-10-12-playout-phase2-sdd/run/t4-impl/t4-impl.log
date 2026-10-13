@@ -1,0 +1,389 @@
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+ ❯ test/latch.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/latch.test.ts [ test/latch.test.ts ]
+Error: Cannot find module '../src/latch' imported from /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/test/latch.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  02:22:07
+   Duration  3.39s (worker 100%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  02:22:17
+   Duration  2.15s (transform 72%, worker 11%, import 10%, tests 7%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+ ❯ test/latch.test.ts (19 tests | 3 failed) 18ms
+   ❯ non-finite budgets fail closed (3)
+     × a NaN budget trips spend, records no tripped budget, and no raise can clear it 8ms
+     × a corrupt document under a non-finite budget records none, so only a new period clears it 1ms
+   ❯ parseGuardDoc rejects nested shapes this code never writes (1)
+     × checks waf, period and evaluation 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/latch.test.ts > non-finite budgets fail closed > a NaN budget trips spend, records no tripped budget, and no raise can clear it
+AssertionError: expected { schema: 1, tripped: true, …(11) } to match object { Object (tripped, reason, ...) }
+(22 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "reason": "spend",
+    "tripped": true,
+-   "tripped_budget_usd": null,
++   "tripped_budget_usd": NaN,
+  }
+
+ ❯ test/latch.test.ts:144:15
+    142|   it("a NaN budget trips spend, records no tripped budget, and no rais…
+    143|     const d = applyAttempt(freshGuardDoc(T0), ok(T0, ...UNDER, Number.…
+    144|     expect(d).toMatchObject({ tripped: true, reason: "spend", tripped_…
+       |               ^
+    145|     expect(applyAttempt(d, ok(T0 + H, 5.2, 6, 50)).tripped).toBe(true);
+    146|     expect(applyAttempt(d, ok(P2.startMs + H, 5, 6, 15, P2)).tripped).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/latch.test.ts > non-finite budgets fail closed > a corrupt document under a non-finite budget records none, so only a new period clears it
+AssertionError: expected NaN to be null
+
+- Expected:
+null
+
++ Received:
+NaN
+
+ ❯ test/latch.test.ts:152:36
+    150|     for (const b of [Number.NaN, Number.POSITIVE_INFINITY]) {
+    151|       const d = corruptGuardDoc(T0, P1, b);
+    152|       expect(d.tripped_budget_usd).toBeNull();
+       |                                    ^
+    153|       expect(applyAttempt(d, ok(T0 + H, 5.2, 6, 50)).tripped).toBe(tru…
+    154|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/latch.test.ts > parseGuardDoc rejects nested shapes this code never writes > checks waf, period and evaluation
+AssertionError: expected { schema: 1, tripped: true, …(11) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "evaluated_at": "2026-10-20T00:00:00.000Z",
+  "evaluation": {
+    "actual_usd": 5.2,
+    "at": "2026-10-20T00:00:00.000Z",
+    "base_budget_usd": 15,
+    "budget_usd": 15,
+    "period_to_date": {
+      "r2ClassA": 0,
+      "r2ClassB": 0,
+      "r2StorageGbMonth": 0,
+      "workersRequests": 0,
+    },
+    "projected": {
+      "r2ClassA": 0,
+      "r2ClassB": 0,
+      "r2StorageGbMonth": 0,
+      "workersRequests": 0,
+    },
+    "projected_usd": 15,
+    "unknown_action_types": [],
+  },
+  "last_error": null,
+  "last_success": "2026-10-20T00:00:00.000Z",
+  "period": {
+    "end": "2026-11-11T00:00:00.000Z",
+    "start": "2026-10-11T00:00:00.000Z",
+  },
+  "reason": "spend",
+  "schema": 1,
+  "since": "2026-10-20T00:00:00.000Z",
+  "tripped": true,
+  "tripped_at": "2026-10-20T00:00:00.000Z",
+  "tripped_budget_usd": 15,
+  "tripped_period_start": "2026-10-11T00:00:00.000Z",
+  "waf": {},
+}
+
+ ❯ test/latch.test.ts:171:34
+    169|                        { ...d, period: { start: "2026-10-11T00:00:00.0…
+    170|                        { ...d, evaluation: { ...d.evaluation, budget_u…
+    171|       expect(parseGuardDoc(bad)).toBeNull();
+       |                                  ^
+    172|     }
+    173|     expect(parseGuardDoc({ ...d, evaluation: null, period: null })).no…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 16 passed (19)
+   Start at  02:23:43
+   Duration  4.72s (transform 65%, import 16%, worker 10%, tests 9%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  02:24:03
+   Duration  5.24s (transform 67%, import 16%, tests 8%, worker 8%)
+
+
+> test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  8 passed (8)
+      Tests  88 passed (88)
+   Start at  02:24:27
+   Duration  9.64s (transform 54%, worker 33%, import 12%, tests 2%)
+
+  Transform  transforming modules took 4.19s · 54% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+--- fix1 RED
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+ ❯ test/latch.test.ts (25 tests | 4 failed) 20ms
+   ❯ fix round 1: re-trips, null latch fields, cadence and clock faults (6)
+     × a spend trip with no recorded period adopts the current one and stays tripped 10ms
+     × a spend trip with no recorded budget clears only with an honoured raise above the base 1ms
+     × a written_at clamped to now never forces an evaluation inside the interval; a past raise still does 1ms
+     × trips blind when the blindness baseline is more than the tolerance ahead of the clock, not a few seconds 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/latch.test.ts > fix round 1: re-trips, null latch fields, cadence and clock faults > a spend trip with no recorded period adopts the current one and stays tripped
+AssertionError: expected { schema: 1, tripped: false, …(11) } to match object { Object (tripped, reason, ...) }
+(22 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "reason": "spend",
+-   "tripped": true,
+-   "tripped_period_start": "2026-10-11T00:00:00.000Z",
++   "reason": null,
++   "tripped": false,
++   "tripped_period_start": null,
+  }
+
+ ❯ test/latch.test.ts:197:18
+    195|     const d = corruptGuardDoc(T0, null, 15);
+    196|     const next = applyAttempt(d, ok(T0 + H, ...UNDER));
+    197|     expect(next).toMatchObject({ tripped: true, reason: "spend", tripp…
+       |                  ^
+    198|     expect(applyAttempt(next, ok(T0 + 2 * H, ...UNDER)).tripped).toBe(…
+    199|     expect(applyAttempt(next, ok(P2.startMs + H, 5, 6, 15, P2)).trippe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  test/latch.test.ts > fix round 1: re-trips, null latch fields, cadence and clock faults > a spend trip with no recorded budget clears only with an honoured raise above the base
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/latch.test.ts:206:61
+    204|     expect(d.tripped_budget_usd).toBeNull();
+    205|     expect(applyAttempt(d, ok(T0 + H, ...UNDER)).tripped).toBe(true); …
+    206|     expect(applyAttempt(d, ok(T0 + H, 5.2, 6, 20)).tripped).toBe(false…
+       |                                                             ^
+    207|     expect(applyAttempt(d, ok(T0 + H, 5.2, 21, 20))).toMatchObject({ t…
+    208|     const badBase: Attempt = { ...(ok(T0 + H, 5.2, 6, 20) as Extract<A…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  test/latch.test.ts > fix round 1: re-trips, null latch fields, cadence and clock faults > a written_at clamped to now never forces an evaluation inside the interval; a past raise still does
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/latch.test.ts:221:52
+    219|                                             written_at: "2027-01-01T00…
+    220|       expect(written).toBe(now);
+    221|       expect(shouldEvaluate(d, now, m15, written)).toBe(false);
+       |                                                    ^
+    222|       d = at(T0); // nothing evaluated, so evaluated_at stays
+    223|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  test/latch.test.ts > fix round 1: re-trips, null latch fields, cadence and clock faults > trips blind when the blindness baseline is more than the tolerance ahead of the clock, not a few seconds
+RangeError: Invalid time value
+ ❯ ahead test/latch.test.ts:229:92
+    227|   it("trips blind when the blindness baseline is more than the toleran…
+    228|     const six = 6 * H;
+    229|     const ahead = (ms: number) => ({ ...freshGuardDoc(T0), last_succes…
+       |                                                                                            ^
+    230|     expect(applyBlindRule(ahead(5_000), T0, six).tripped).toBe(false);
+    231|     expect(applyBlindRule(ahead(BLIND_FUTURE_TOLERANCE_MS), T0, six).t…
+ ❯ test/latch.test.ts:231:27
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 21 passed (25)
+   Start at  02:31:41
+   Duration  4.47s (transform 62%, import 28%, tests 5%, worker 5%)
+
+--- fix1 GREEN
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+ ❯ test/latch.test.ts (25 tests | 2 failed) 18ms
+   ❯ non-finite budgets fail closed (3)
+     × a NaN budget trips spend, records no tripped budget, and no raise can clear it 7ms
+     × a corrupt document under a non-finite budget records none, so only a new period clears it 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/latch.test.ts > non-finite budgets fail closed > a NaN budget trips spend, records no tripped budget, and no raise can clear it
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/latch.test.ts:145:61
+    143|     const d = applyAttempt(freshGuardDoc(T0), ok(T0, ...UNDER, Number.…
+    144|     expect(d).toMatchObject({ tripped: true, reason: "spend", tripped_…
+    145|     expect(applyAttempt(d, ok(T0 + H, 5.2, 6, 50)).tripped).toBe(true);
+       |                                                             ^
+    146|     expect(applyAttempt(d, ok(P2.startMs + H, 5, 6, 15, P2)).tripped).…
+    147|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/latch.test.ts > non-finite budgets fail closed > a corrupt document under a non-finite budget records none, so only a new period clears it
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/latch.test.ts:153:63
+    151|       const d = corruptGuardDoc(T0, P1, b);
+    152|       expect(d.tripped_budget_usd).toBeNull();
+    153|       expect(applyAttempt(d, ok(T0 + H, 5.2, 6, 50)).tripped).toBe(tru…
+       |                                                               ^
+    154|     }
+    155|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 23 passed (25)
+   Start at  02:32:08
+   Duration  4.01s (transform 76%, tests 10%, import 8%, worker 6%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+   Start at  02:32:33
+   Duration  4.08s (transform 84%, import 8%, worker 4%, tests 4%)
+
+M1 re-trip keeps old period
+  predicted red: ['re-anchors a spend trip to the new period']
+  actual red: ['re-anchors a spend trip to the new period when that period reads over too, so its under readings stay tripped']
+  1 ⎯⎯⎯⎯⎯⎯⎯
+  verdict: CAUGHT as predicted
+M2a null period counts as new
+  predicted red: ['a spend trip with no recorded period adopts']
+  actual red: ['a spend trip with no recorded period adopts the current one and stays tripped']
+  1 ⎯⎯⎯⎯⎯⎯⎯
+  verdict: CAUGHT as predicted
+M2b null period not adopted
+  predicted red: ['a spend trip with no recorded period adopts']
+  actual red: ['a spend trip with no recorded period adopts the current one and stays tripped']
+  1 ⎯⎯⎯⎯⎯⎯⎯
+  verdict: CAUGHT as predicted
+M3 null budget never raised
+  predicted red: ['a NaN budget trips spend', 'a spend trip with no recorded budget clears only']
+  actual red: ['a NaN budget trips spend and records no tripped budget; only a raise above the base or a new period clears it', 'a spend trip with no recorded budget clears only with an honoured raise above the base']
+  2 ⎯⎯⎯⎯⎯⎯⎯
+  verdict: CAUGHT as predicted
+M4 drop written_at < now
+  predicted red: ['a written_at clamped to now never forces']
+  actual red: ['a written_at clamped to now never forces an evaluation inside the interval; a past raise still does']
+  1 ⎯⎯⎯⎯⎯⎯⎯
+  verdict: CAUGHT as predicted
+M5a drop future tolerance
+  predicted red: ['trips blind when the blindness baseline is more than the tolerance']
+  actual red: ['trips blind when the blindness baseline is more than the tolerance ahead of the clock, not a few seconds']
+  1 ⎯⎯⎯⎯⎯⎯⎯
+  verdict: CAUGHT as predicted
+M5b tolerance boundary < 
+  predicted red: ['trips blind when the blindness baseline is more than the tolerance']
+  actual red: ['trips blind when the blindness baseline is more than the tolerance ahead of the clock, not a few seconds']
+  1 ⎯⎯⎯⎯⎯⎯⎯
+  verdict: CAUGHT as predicted
+M6 re-trip resets tripped_at
+  predicted red: ['keeps the first tripped_at']
+  actual red: ['keeps the first tripped_at across consecutive over readings']
+  1 ⎯⎯⎯⎯⎯⎯⎯
+  verdict: CAUGHT as predicted
+restored baseline: ['25 passed (25)']
+
+> test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  8 passed (8)
+      Tests  94 passed (94)
+   Start at  02:34:54
+   Duration  10.23s (transform 57%, worker 24%, import 16%, tests 3%)
+
+  Transform  transforming modules took 5.54s · 57% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

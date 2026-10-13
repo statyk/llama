@@ -1,0 +1,72 @@
+progress: wrote brief test file
+E   ImportError: cannot import name 'cloudstate' from 'transmitter' (/Users/shawn/projects/llama/.claude/worktrees/playout-phase2/packages/transmitter/src/transmitter/__init__.py)
+=========================== short test summary info ============================
+ERROR packages/transmitter/tests_transmitter/test_cloudstate.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.74s
+..........................                                               [100%]
+26 passed in 1.09s
+........................................................................ [ 65%]
+........................................................................ [ 86%]
+............................................                             [100%]
+332 passed in 53.84s
+........................................................................ [ 65%]
+........................................................................ [ 86%]
+............................................                             [100%]
+332 passed in 53.27s
+=== debian12 gate start Mon Oct 12 04:01:49 EDT 2026
+=== llama full suite start Mon Oct 12 04:01:49 EDT 2026
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 21%]
+.......................M1 tripped floor: CAUGHT as predicted; failed=['test_a_spend_trip_needs_a_raise_above_the_budget_it_tripped_at']
+M2 pending floor: CAUGHT as predicted; failed=['test_a_raise_not_yet_evaluated_counts_as_the_budget_in_use']
+M3 unrounded compare: CAUGHT as predicted; failed=['test_the_raise_is_compared_after_rounding_to_cents']
+M4 corrupt budget fatal: CAUGHT as predicted; failed=['test_a_corrupt_budget_file_is_overwritten_but_an_unreadable_one_refuses']
+M5 null usd_text: CAUGHT as predicted; failed=['test_null_amounts_never_crash_the_summary', 'test_cli_budget_tolerates_an_odd_raise_file']
+M6 blind sets floor: CAUGHT as predicted; failed=['test_a_blind_trip_does_not_set_the_floor']
+M7 period bound: CAUGHT as predicted; failed=['test_a_raise_the_worker_ignores_does_not_set_the_floor[pending1]']
+M8 null budget accepted: CAUGHT as predicted; failed=['test_a_raise_is_refused_when_the_current_budget_is_unknown']
+................................................. [ 43%]
+........................................................................ [ 65%]
+........................................................................ [ 86%]
+............................................                             [100%]
+332 passed in 26.17s
+=== debian12 exit 0 Mon Oct 12 04:02:57 EDT 2026
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=29657) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2488 passed, 7 deselected, 26 warnings in 99.99s (0:01:39)
+=== llama suite exit 0 Mon Oct 12 04:03:32 EDT 2026
+=== fix round 1 start Mon Oct 12 04:09:59 EDT 2026
+=== fix1 suites Mon Oct 12 04:12:11 EDT 2026
+............                                                             [100%]
+372 passed in 56.42s
+............                                                             [100%]
+372 passed in 55.14s
+=== fix1 debian12 gate start Mon Oct 12 04:14:21 EDT 2026
+=== fix1 llama suite start Mon Oct 12 04:14:21 EDT 2026
+debconf: delaying package configuration, since apt-utils is not installed
+ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.2
+........................................................................ [ 19%]
+................................................................MA offair-on-takes-PUT-budget: predicted test_cli_offair_on_requires_a_reason_and_works_while_tripped_and_over_the_put_budget -> CAUGHT as predicted; red=['test_cli_offair_on_requires_a_reason_and_works_while_tripped_and_over_the_put_budget']; 1 failed, 65 passed in 2.79s
+MB raise-takes-PUT-budget: predicted test_cli_raise_works_while_tripped_and_over_the_put_budget -> CAUGHT as predicted; red=['test_cli_raise_works_while_tripped_and_over_the_put_budget']; 1 failed, 65 passed in 3.57s
+MC no-shape-mirror: predicted test_a_raise_refuses_a_guard_document_the_worker_would_call_corrupt -> CAUGHT as predicted; red=['test_a_raise_refuses_a_guard_document_missing_a_field', 'test_a_raise_refuses_a_guard_document_the_worker_would_call_corrupt']; 22 failed, 44 passed in 2.91s
+MD cap-rounded-only: predicted test_the_cap_applies_before_rounding_too -> CAUGHT as predicted; red=['test_the_cap_applies_before_rounding_too']; 1 failed, 65 passed in 2.33s
+ME retries-non-retryable: predicted test_put_state_fails_at_once_on_an_error_no_retry_can_fix -> CAUGHT as predicted; red=['test_put_state_fails_at_once_on_an_error_no_retry_can_fix']; 1 failed, 65 passed in 2.13s
+MF offair-off-guard-read-fatal: predicted test_cli_offair_off_notes_an_unreadable_guard_and_still_succeeds -> CAUGHT as predicted; red=['test_cli_offair_off_notes_an_unreadable_guard_and_still_succeeds']; 2 failed, 64 passed in 2.33s
+MG view-exits-0: predicted test_cli_budget_view_exits_1_when_the_raise_cannot_be_read -> CAUGHT as predicted; red=['test_cli_budget_view_exits_1_when_the_raise_cannot_be_read', 'test_cli_budget_view_reports_an_unreadable_guard_carries_on_and_exits_1']; 4 failed, 62 passed in 2.12s
+........ [ 38%]
+........................................................................ [ 58%]
+........................................................................ [ 77%]
+........................................................................ [ 96%]
+............                                                             [100%]
+372 passed in 27.18s
+=== fix1 debian12 exit 0 Mon Oct 12 04:15:29 EDT 2026
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2528 passed, 7 deselected, 26 warnings in 115.37s (0:01:55)
+=== fix1 llama suite exit 0 Mon Oct 12 04:16:21 EDT 2026

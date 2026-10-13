@@ -1,0 +1,10 @@
+progress: reading task-6 brief for latch call sites
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  02:28:03
+   Duration  5.19s (transform 47%, tests 24%, import 18%, worker 11%)
+

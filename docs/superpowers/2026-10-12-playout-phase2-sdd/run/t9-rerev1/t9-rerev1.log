@@ -1,0 +1,45 @@
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-playout-phase2/9d1f2929-5203-43a8-bee6-76d3b1bfec42/scratchpad/rr/antenna
+
+stdout | test/probe.test.ts > probe > P1: delivered alert, failed repeat, then clears: resolved must still go out
+P1 state {}
+
+ ❯ test/probe.test.ts (4 tests | 1 failed) 13ms
+   ❯ probe (4)
+     × P1: delivered alert, failed repeat, then clears: resolved must still go out 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/probe.test.ts > probe > P1: delivered alert, failed repeat, then clears: resolved must still go out
+AssertionError: expected [ 'alert:tripped-spend' ] to deeply equal [ 'alert:tripped-spend', …(1) ]
+
+- Expected
++ Received
+
+  [
+    "alert:tripped-spend",
+-   "resolved:tripped-spend",
+  ]
+
+ ❯ test/probe.test.ts:24:17
+     22|     await dispatchAlerts(b, [ch], [], T0 + REPEAT + MIN + COOLDOWN_MS,…
+     23|     console.log("P1 state", JSON.stringify(b.json(ALERTS_KEY)));
+     24|     expect(got).toEqual(["alert:tripped-spend", "resolved:tripped-spen…
+       |                 ^
+     25|   });
+     26|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  04:13:04
+   Duration  3.41s (transform 54%, worker 16%, tests 15%, import 14%)
+
+     × redact: Rulesets/accounts paths, bare 32-hex ids and the configured values 7ms
+     × a WafError carrying the zone, ruleset and rule ids reaches neither ntfy nor email 7ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/alerts.test.ts > redaction of account details from off-account text > redact: Rulesets/accounts paths, bare 32-hex ids and the configured values
+ FAIL  test/alerts.test.ts > redaction of account details from off-account text > a WafError carrying the zone, ruleset and rule ids reaches neither ntfy nor email
+      Tests  2 failed | 32 passed (34)

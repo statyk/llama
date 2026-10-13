@@ -1,0 +1,439 @@
+== RED run
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+ ❯ test/clock.test.ts (23 tests | 15 failed) 88ms
+   ❯ runClock (13)
+     × blocked: the off-air playlist, one PUT per invocation (identical bytes skipped) 6ms
+     × runs the guard before reading or writing anything 2ms
+     × records how long the guard took (guardMs, on the clock line) 1ms
+     × writes nothing at all when the guard cannot tell whether the station is blocked 3ms
+     × a guard that throws is treated as unknown: nothing written, an urgent alert 2ms
+     × index.html follows the blocked state 0ms
+     × a failed index.html write still writes the playlist, and alerts 22ms
+     × writes no playlist without a horizon, and says so 1ms
+     × alerts when the published lead is below the floor, except while tripped (publishing stops then) 7ms
+     × passes the guard's conditions to the alert sink once, after the last playlist write 1ms
+   ❯ off-air without a usable fallback (3)
+     × writes the ENDLIST-only playlist once and reports it loudly, once per invocation 0ms
+     × stays silent when off-air has a fallback, or the station is on air without one 1ms
+   ❯ spend bounds hold regardless of inputs (4)
+     × refuses a horizon whose d is not 10.24: zero playlist PUTs, one structured error, an alert, returns promptly 1ms
+   ❯ configFromEnv (1)
+     × parses the vars with defaults 0ms
+   ❯ scheduled handler (2)
+     × runs the guard then one clock invocation against the bound bucket 11ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/clock.test.ts > runClock > blocked: the off-air playlist, one PUT per invocation (identical bytes skipped)
+AssertionError: expected 8 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 8
+
+ ❯ test/clock.test.ts:71:20
+     69|     const scheduledTime = E + 50 * D + 300;
+     70|     const r = await runClock({ bucket, ...fakeTime(scheduledTime + 40)…
+     71|     expect(r.puts).toBe(1);
+       |                    ^
+     72|     expect(r.skipped).toBe(7);
+     73|     expect(bucket.objects.get("live.m3u8")!.body).toContain("#EXT-X-EN…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > runs the guard before reading or writing anything
+AssertionError: expected [ 'get state/horizon.json', …(1) ] to deeply equal [ 'head index.html', 'put index.html' ]
+
+- Expected
++ Received
+
+  [
+-   "head index.html",
+-   "put index.html",
++   "get state/horizon.json",
++   "get state/offair.json",
+  ]
+
+ ❯ test/clock.test.ts:83:36
+     81|                      guard: async () => { seen.push("guard", ...bucket…
+     82|     expect(seen).toEqual(["guard"]);
+     83|     expect(bucket.log.slice(0, 2)).toEqual([`head ${INDEX_KEY}`, `put …
+       |                                    ^
+     84|   });
+     85|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > records how long the guard took (guardMs, on the clock line)
+AssertionError: expected undefined to be 1234 // Object.is equality
+
+- Expected:
+1234
+
++ Received:
+undefined
+
+ ❯ test/clock.test.ts:92:23
+     90|     const r = await runClock({ bucket, ...clock, scheduledTime: E + 10…
+     91|                                guard: async () => { await clock.sleep(…
+     92|     expect(r.guardMs).toBe(1_234);
+       |                       ^
+     93|   });
+     94|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > writes nothing at all when the guard cannot tell whether the station is blocked
+AssertionError: expected { puts: 8, skipped: +0, …(2) } to match object { puts: +0, blocked: null, …(1) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "blocked": null,
+-   "index": "skipped",
+-   "puts": 0,
++   "puts": 8,
+  }
+
+ ❯ test/clock.test.ts:100:15
+     98|     station(bucket);
+     99|     const r = await runClock({ bucket, ...fakeTime(E + 10 * D), schedu…
+    100|     expect(r).toMatchObject({ puts: 0, blocked: null, index: "skipped"…
+       |               ^
+    101|     expect(bucket.puts()).toBe(0);
+    102|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > a guard that throws is treated as unknown: nothing written, an urgent alert
+Error: kaboom
+ ❯ guard test/clock.test.ts:110:59
+    108|     const sent: AlertCondition[] = [];
+    109|     const r = await runClock({ bucket, ...fakeTime(E + 10 * D), schedu…
+    110|                                guard: async () => { throw new Error("k…
+       |                                                           ^
+    111|                                alerts: async (cs) => { sent.push(...cs…
+    112|     expect(r.puts).toBe(0);
+ ❯ runClock src/clock.ts:139:33
+ ❯ test/clock.test.ts:109:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > index.html follows the blocked state
+AssertionError: expected undefined to be 'written' // Object.is equality
+
+- Expected:
+"written"
+
++ Received:
+undefined
+
+ ❯ test/clock.test.ts:122:38
+    120|     const run = (guard: () => Promise<GuardOutcome>) =>
+    121|       runClock({ bucket, ...fakeTime(E + 10 * D), scheduledTime: E + 1…
+    122|     expect((await run(onAir)).index).toBe("written");
+       |                                      ^
+    123|     expect(bucket.objects.get(INDEX_KEY)!.body).toBe(PLAYER_PAGE);
+    124|     expect((await run(onAir)).index).toBe("unchanged");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > a failed index.html write still writes the playlist, and alerts
+AssertionError: expected undefined to be 'failed' // Object.is equality
+
+- Expected:
+"failed"
+
++ Received:
+undefined
+
+ ❯ test/clock.test.ts:136:21
+    134|     const r = await runClock({ bucket, ...fakeTime(E + 10 * D), schedu…
+    135|                                guard: onAir, alerts: async (cs) => { s…
+    136|     expect(r.index).toBe("failed");
+       |                     ^
+    137|     expect(r.puts).toBe(1);
+    138|     expect(sent).toEqual(["index-write"]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > writes no playlist without a horizon, and says so
+AssertionError: expected undefined to deeply equal [ 'horizon-missing' ]
+
+- Expected:
+[
+  "horizon-missing",
+]
+
++ Received:
+undefined
+
+ ❯ test/clock.test.ts:146:22
+    144|     expect(r.puts).toBe(0);
+    145|     expect(playlistPuts(bucket)).toBe(0);
+    146|     expect(r.alerts).toEqual(["horizon-missing"]);
+       |                      ^
+    147|   });
+    148|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > alerts when the published lead is below the floor, except while tripped (publishing stops then)
+AssertionError: the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ test/clock.test.ts:155:22
+    153|     const now = E + 1001 * D - 3_600_000; // the lead is 1 h
+    154|     const r = await runClock({ bucket, ...fakeTime(now), scheduledTime…
+    155|     expect(r.alerts).toContain("lead-low");
+       |                      ^
+    156|     const t = await runClock({ bucket, ...fakeTime(now), scheduledTime…
+    157|                                guard: guardSays(true, true) });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/15]⎯
+
+ FAIL  test/clock.test.ts > runClock > passes the guard's conditions to the alert sink once, after the last playlist write
+AssertionError: expected [] to deeply equal [ 'alerts budget-50' ]
+
+- Expected
++ Received
+
+- [
+-   "alerts budget-50",
+- ]
++ []
+
+ ❯ test/clock.test.ts:171:57
+    169|                      guard: guardSays(false, false, [cond]),
+    170|                      alerts: async (cs) => { order.push(`alerts ${cs.m…
+    171|     expect(order.filter((o) => o.startsWith("alerts"))).toEqual(["aler…
+       |                                                         ^
+    172|     expect(order.filter((o) => o === "put live.m3u8").length).toBeGrea…
+    173|     expect(order.at(-1)).toBe("alerts budget-50"); // after every boun…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/15]⎯
+
+ FAIL  test/clock.test.ts > off-air without a usable fallback > writes the ENDLIST-only playlist once and reports it loudly, once per invocation
+AssertionError: expected 8 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 8
+
+ ❯ test/clock.test.ts:197:20
+    195|     const scheduledTime = E + 50 * D + 300;
+    196|     const r = await runClock({ bucket, ...fakeTime(scheduledTime + 40)…
+    197|     expect(r.puts).toBe(1);
+       |                    ^
+    198|     expect(playlistPuts(bucket)).toBe(1);
+    199|     expect(r.skipped).toBeGreaterThan(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/15]⎯
+
+ FAIL  test/clock.test.ts > off-air without a usable fallback > stays silent when off-air has a fallback, or the station is on air without one
+AssertionError: expected 8 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 8
+
+ ❯ test/clock.test.ts:231:21
+    229|     const r1 = await runClock({ bucket: offairOk, ...fakeTime(E + 10 *…
+    230|                                 guard: guardSays(true) });
+    231|     expect(r1.puts).toBe(1);
+       |                     ^
+    232|     expect(r1.offairWithoutFallback).toBeNull();
+    233|     const onAirNoFallback = new MemoryBucket();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/15]⎯
+
+ FAIL  test/clock.test.ts > spend bounds hold regardless of inputs > refuses a horizon whose d is not 10.24: zero playlist PUTs, one structured error, an alert, returns promptly
+AssertionError: the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ test/clock.test.ts:265:24
+    263|       expect(clock.now()).toBe(start); // never slept
+    264|       expect(r.refused).toMatch(/d/);
+    265|       expect(r.alerts).toContain("horizon-refused");
+       |                        ^
+    266|       const logged = structured(spy, "horizon-refused");
+    267|       expect(logged).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/15]⎯
+
+ FAIL  test/clock.test.ts > configFromEnv > parses the vars with defaults
+AssertionError: expected { window: 6, grace: 3, …(3) } to deeply equal { window: 6, grace: 3, …(4) }
+
+- Expected
++ Received
+
+  {
+    "grace": 3,
+-   "leadFloorMs": 57600000,
+    "liveMaxAge": 5,
+    "loopMs": 75000,
+    "offairAfterMs": 86400000,
+    "window": 6,
+  }
+
+ ❯ test/clock.test.ts:299:31
+    297| describe("configFromEnv", () => {
+    298|   it("parses the vars with defaults", () => {
+    299|     expect(configFromEnv({})).toEqual({ window: 6, grace: 3, offairAft…
+       |                               ^
+    300|                                         leadFloorMs: 16 * 3_600_000 });
+    301|     expect(configFromEnv({ LOOP_SECONDS: "0", PLAYLIST_WINDOW: "8" }))…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/15]⎯
+
+ FAIL  test/clock.test.ts > scheduled handler > runs the guard then one clock invocation against the bound bucket
+TypeError: Cannot read properties of null (reading 'json')
+ ❯ test/clock.test.ts:324:69
+    322|     expect(body).toContain("#EXTM3U");
+    323|     expect(body).toContain("seg/e1/");
+    324|     const guard = await (await env.BUCKET.get("state/guard.json"))!.js…
+       |                                                                     ^
+    325|     expect(guard.tripped).toBe(false);
+    326|     expect(guard.last_error).toMatch(/CF_ACCOUNT_ID/);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/15]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  15 failed | 8 passed (23)
+   Start at  03:20:40
+   Duration  3.66s (transform 44%, tests 25%, import 17%, worker 14%)
+
+== GREEN focused
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  23 passed (23)
+   Start at  03:20:55
+   Duration  3.43s (transform 70%, tests 12%, worker 10%, import 7%)
+
+== full suite + tsc
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  12 passed (12)
+      Tests  157 passed (157)
+   Start at  03:21:05
+   Duration  8.15s (transform 66%, worker 18%, import 14%, tests 2%)
+
+  Transform  transforming modules took 7.49s · 66% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+TSC-CLEAN
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  03:22:11
+   Duration  3.73s (transform 79%, tests 13%, import 6%, worker 2%)
+
+== final full suite + tsc
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  12 passed (12)
+      Tests  158 passed (158)
+   Start at  03:23:23
+   Duration  7.33s (transform 62%, worker 22%, import 14%, tests 2%)
+
+  Transform  transforming modules took 6.49s · 62% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+TSC-CLEAN
+== fix round 1 start
+== fix1 focused
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  30 passed (30)
+   Start at  03:31:42
+   Duration  3.34s (transform 81%, tests 11%, import 6%, worker 2%)
+
+== fix1 full suite + tsc
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-phase2/antenna
+
+
+ Test Files  12 passed (12)
+      Tests  164 passed (164)
+   Start at  03:32:03
+   Duration  6.66s (transform 65%, worker 20%, import 13%, tests 2%)
+
+  Transform  transforming modules took 7.03s · 65% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+TSC-CLEAN
+== A guard calls WAF fetch despite missing secrets (predict: both handler tests red)
+AssertionError: expected "fetch" to not be called at all, but actually been called 1 times
+FAIL  test/clock.test.ts > scheduled handler > emits the per-invocation clock line even when runClock throws
+FAIL  test/clock.test.ts > scheduled handler > runs the guard then one clock invocation against the bound bucket
+Tests  2 failed | 28 passed (30)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+== B1 .dev.vars CF_ACCOUNT_ID=dummy, fixed tests (predict: GREEN)
+Tests  30 passed (30)
+== B2 .dev.vars dummy, PRE-FIX tests (predict: 'runs the guard then one clock invocation' red)
+AssertionError: expected 'secret CF_ANALYTICS_TOKEN is not set' to match /CF_ACCOUNT_ID/
+FAIL  test/clock.test.ts > scheduled handler > runs the guard then one clock invocation against the bound bucket
+Tests  1 failed | 23 passed (24)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+== C complete always true (predict: 5 incomplete-path tests red)
+AssertionError: expected [ { keys: [ …(2) ], complete: true } ] to deeply equal [ { keys: [ …(2) ], complete: false } ]
+AssertionError: expected [ { …(2) }, { …(2) } ] to deeply equal [ { …(2) }, { …(2) } ]
+AssertionError: expected [ …(3) ] to deeply equal [ { keys: [ …(2) ], …(1) }, …(2) ]
+AssertionError: expected true to be false // Object.is equality
+AssertionError: expected { event: 'alert', …(4) } to match object { key: 'horizon-missing', …(1) }
+FAIL  test/clock.test.ts > the alert batch's scope (complete) > a horizon the grid cannot be derived from raises clock-inputs (urgent), incomplete, and the partial result rides the error
+FAIL  test/clock.test.ts > the alert batch's scope (complete) > a throw reading the inputs still flushes the guard's conditions, incomplete, plus clock-inputs; then rejects
+FAIL  test/clock.test.ts > the alert batch's scope (complete) > is incomplete at the horizon-missing and horizon-refused early returns
+FAIL  test/clock.test.ts > the alert batch's scope (complete) > is incomplete when the guard's outcome is unknown, or it crashed
+FAIL  test/clock.test.ts > the alert batch's scope (complete) > the default sink logs the flag on every alert line
+Tests  5 failed | 25 passed (30)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+== D complete never true (predict: 'is complete only at the end of the normal path' red)
+AssertionError: expected [ { keys: [ 'tripped-spend' ], …(1) } ] to deeply equal [ { keys: [ 'tripped-spend' ], …(1) } ]
+FAIL  test/clock.test.ts > the alert batch's scope (complete) > is complete only at the end of the normal path
+Tests  1 failed | 29 passed (30)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+== E no flush on throw (predict: 'a throw reading the inputs...', 'grid cannot be derived...', handler throw test red)
+AssertionError: expected [] to deeply equal [ { keys: [ …(2) ], complete: false } ]
+AssertionError: expected [] to include 'clock-inputs'
+AssertionError: expected { puts: +0, skipped: +0, …(6) } to match object { blocked: false, guardMs: +0, …(2) }
+FAIL  test/clock.test.ts > scheduled handler > emits the per-invocation clock line even when runClock throws
+FAIL  test/clock.test.ts > the alert batch's scope (complete) > a horizon the grid cannot be derived from raises clock-inputs (urgent), incomplete, and the partial result rides the error
+FAIL  test/clock.test.ts > the alert batch's scope (complete) > a throw reading the inputs still flushes the guard's conditions, incomplete, plus clock-inputs; then rejects
+Tests  3 failed | 27 passed (30)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
