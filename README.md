@@ -543,6 +543,14 @@ and the rest of `emcee run` carries on.
    `[tts] voice_clone_text`. Presenter pins to voxtral/elevenlabs (e.g.
    roydemure) are harmless: the old binary ignores them.
 
+   Also: (a) unpin EVERY presenter pinned to mlx_audio, not only Phil, back to
+   a Voxtral-suitable `--voice-clone` before downgrading. (b) When moving the
+   hosted key back to `[tts] api_key`, move a `[tts.voxtral]`/`[tts.elevenlabs]`
+   `model` back to `[tts] model` too, if one is set. (c) A pin left in place
+   does not break LOADING the config, but the old binary ignores it and voices
+   that presenter on the house backend, so an `elevenlabs` pin under a voxtral
+   house would be voiced on Voxtral: clear such pins.
+
    A re-pinned presenter never reuses the other backend's clips (the render
    cache keys on backend voice and model), so his next packages re-render.
 
