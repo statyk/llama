@@ -62,6 +62,10 @@ class RenderConfig(_StrictModel):
 # behind the live edge and may stall or rebuffer before fetching what it was
 # handed -- allow 120 s for that and for clock skew between hugo and the
 # clock worker. 92.16 + 5 + 120 = 217.16 s, rounded up to whole minutes = 4.
+# With a lookahead L (amendment A4, amended 2026-10-12) the window ends at
+# cur + L, so a segment stays listed (window - L + grace) * d after it starts:
+# the deployed 16 / 12 / 3 give 7 * d = 71.68 s, inside the 9 * d above
+# (pinned by antenna's test/wrangler-config.test.ts), so the floor holds.
 _LIVE_WINDOW_SEGMENTS = 6
 _LIVE_GRACE_SEGMENTS = 3
 _LIVE_PLAYLIST_MAX_AGE_S = 5
@@ -96,8 +100,9 @@ class AlertsConfig(_StrictModel):
     smtp_port: int = Field(default=587, ge=1, le=65535)
     ntfy_url: str | None = None                    # https://ntfy.sh/<topic>
     repeat_hours: float = Field(default=6.0, gt=0)
-    # Dead clock: the public live.m3u8's newest segment older than this, twice
-    # in a row. At least 3 d (spec); the default allows the measured cron lags.
+    # Dead clock: the public live.m3u8, dated by its newest segment's start
+    # minus its own hold-back (the segment airing when it was written), older
+    # than this, twice in a row. At least 3 d (spec); the default allows the measured cron lags.
     dead_clock_seconds: float = Field(default=120.0, ge=31)
     # Dead guard: state/guard.json last evaluated longer ago than this. hugo
     # sees the evaluation time through a cache refreshed every [publish]

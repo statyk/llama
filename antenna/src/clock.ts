@@ -16,6 +16,8 @@ export interface ClockConfig extends PlaylistConfig {
 
 export interface ClockEnv {
   PLAYLIST_WINDOW?: string;
+  PLAYLIST_LOOKAHEAD?: string;
+  PLAYLIST_HOLD_BACK?: string;
   GRACE_SEGMENTS?: string;
   OFFAIR_AFTER_SECONDS?: string;
   LOOP_SECONDS?: string;
@@ -28,9 +30,16 @@ function num(v: string | undefined, fallback: number): number {
   return Number.isFinite(x) && x >= 0 ? x : fallback;
 }
 
+/** The lookahead never exceeds this (amendment A4, amended 2026-10-12). */
+export const MAX_LOOKAHEAD = 16;
+
 export function configFromEnv(env: ClockEnv): ClockConfig {
+  const windowSegments = Math.max(1, Math.floor(num(env.PLAYLIST_WINDOW, 6)));
   return {
-    window: Math.max(1, Math.floor(num(env.PLAYLIST_WINDOW, 6))),
+    window: windowSegments,
+    lookahead: Math.min(MAX_LOOKAHEAD, Math.floor(num(env.PLAYLIST_LOOKAHEAD, 0))),
+    // The start offset must lie inside the listed window.
+    holdBack: Math.min(windowSegments - 1, Math.floor(num(env.PLAYLIST_HOLD_BACK, 0))),
     grace: Math.floor(num(env.GRACE_SEGMENTS, 3)),
     offairAfterMs: num(env.OFFAIR_AFTER_SECONDS, 86_400) * 1000,
     loopMs: num(env.LOOP_SECONDS, 75) * 1000,
@@ -295,6 +304,10 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     let lastBody: string | null = null;
     const write = async (force: boolean) => {
       const nowMs = deps.now();
+      // The off-air number comes from max(scheduledTime + loopMs, nowMs) plus
+      // lookahead + 1 (playlist.offairSequence): constant within an on-time
+      // invocation, and above every live segment listed so far even when this
+      // invocation runs later than its own loop.
       const body = buildPlaylist({ nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair,
                                    offairSeqMs: deps.scheduledTime + config.loopMs }, config);
       // Ruling: off-air without a usable fallback writes the ENDLIST-only

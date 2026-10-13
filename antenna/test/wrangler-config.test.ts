@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { configFromEnv, GRID_D } from "../src/clock";
 import wranglerText from "../wrangler.jsonc?raw";
 
 /** wrangler.jsonc uses whole-line // comments only. */
@@ -26,5 +27,29 @@ describe("wrangler.jsonc (this repo is public)", () => {
     expect(config.send_email).toEqual([{ name: "ALERT_EMAIL" }]);
     const bound = (env as unknown as { ALERT_EMAIL?: { send?: unknown } }).ALERT_EMAIL;
     expect(typeof bound?.send).toBe("function");
+  });
+});
+
+describe("wrangler.jsonc playlist vars (amendment A4, amended 2026-10-12)", () => {
+  const cfg = configFromEnv(config.vars);
+
+  it("lists 16 segments, 12 past the one airing, and starts players 12 before the listed end", () => {
+    expect(config.vars).toMatchObject({ PLAYLIST_WINDOW: "16", PLAYLIST_LOOKAHEAD: "12", PLAYLIST_HOLD_BACK: "12" });
+    expect(cfg).toMatchObject({ window: 16, lookahead: 12, holdBack: 12 });
+  });
+
+  it("keeps the deployment rule hold-back = lookahead (hugo's dead-clock check dates the playlist by it)", () => {
+    expect(cfg.holdBack).toBe(cfg.lookahead);
+    // ... and the hold-back is actually emitted: >= 3 target durations.
+    expect(cfg.holdBack! * GRID_D).toBeGreaterThanOrEqual(3 * Math.ceil(GRID_D));
+  });
+
+  it("lists no segment longer after it starts than transmitter's prune floor allows for", () => {
+    // A segment n stays listed while n >= end - window + 1, and the end is at
+    // most cur + lookahead, or horizon.last while held for up to `grace` past
+    // it: so at most (window - lookahead + grace) * d after it starts.
+    // transmitter's PRUNE_MARGIN_FLOOR_MINUTES (config.py) is derived from
+    // (6 + 3) * d of listing; the deployed window must not exceed that.
+    expect((cfg.window - cfg.lookahead! + cfg.grace) * GRID_D).toBeLessThanOrEqual((6 + 3) * GRID_D);
   });
 });

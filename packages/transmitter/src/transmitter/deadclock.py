@@ -4,15 +4,22 @@ zero cost -- but silently, so `transmitter run` watches it: once a minute it
 fetches the public live.m3u8 (a cache hit: the edge refetches it from R2 at
 most every 5 s, whoever asks) and alerts when its newest segment is older than
 `dead_clock_seconds` on two checks in a row (the measured cron lag reaches
-~60 s, so one stale read is not a death). An off-air playlist has no
+~117 s, so one stale read is not a death). A live playlist lists
+PLAYLIST_LOOKAHEAD segments past the one airing, so its newest segment starts
+in the future; it is dated instead by its newest PROGRAM-DATE-TIME minus its
+own hold-back (#EXT-X-START:TIME-OFFSET, else #EXT-X-SERVER-CONTROL:HOLD-BACK),
+which the antenna deploys equal to the lookahead (wrangler.jsonc, pinned by
+antenna's test/wrangler-config.test.ts). An off-air playlist has no
 PROGRAM-DATE-TIME; its MEDIA-SEQUENCE (a grid index the clock computes per
-invocation) dates it instead. A 403 is the kill switch: expected while the
+invocation, lookahead + 1 past the write) dates it instead, less the hold-back
+last seen on a live playlist. A 403 is the kill switch: expected while the
 guard says blocked, alarming otherwise -- but only after `forbidden_checks`
 checks, because the guard cache that says "blocked" can be one
 guard_check_minutes late. It also alerts when state/guard.json's last
 evaluation is older than `guard_stale_minutes` (the guard evaluates every 15)."""
 
 import http.client
+import math
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -22,26 +29,69 @@ from transmitter import alerts, grid
 
 PROGRAM_DATE_TIME = "#EXT-X-PROGRAM-DATE-TIME:"
 MEDIA_SEQUENCE = "#EXT-X-MEDIA-SEQUENCE:"
+START = "#EXT-X-START:"
+SERVER_CONTROL = "#EXT-X-SERVER-CONTROL:"
 STALE_CHECKS = 2           # consecutive stale reads before alerting
 TROUBLE_CHECKS = 10        # consecutive unreachable reads before alerting
 
 
-def playlist_age_s(text: str, now_us: int, epoch_us: int) -> float | None:
-    """Seconds since the playlist's newest segment started, or None if it names none."""
+def _attribute(line: str, tag: str, name: str) -> float | None:
+    """A decimal attribute of a playlist tag line, or None when absent or malformed."""
+    for attr in line[len(tag):].split(","):
+        key, _, value = attr.partition("=")
+        if key.strip() == name:
+            try:
+                x = float(value.strip())
+            except ValueError:
+                return None
+            return x if math.isfinite(x) else None
+    return None
+
+
+def playlist_hold_back_s(text: str) -> float:
+    """Where the playlist tells players to start, in seconds before its listed
+    end: EXT-X-START's negative TIME-OFFSET, else SERVER-CONTROL's HOLD-BACK,
+    else 0 (none, or malformed: dated by the newest segment as in phase 1)."""
+    hold_back = 0.0
+    for line in text.splitlines():
+        if line.startswith(START):
+            offset = _attribute(line, START, "TIME-OFFSET")
+            if offset is not None and offset < 0:
+                return -offset
+        elif line.startswith(SERVER_CONTROL):
+            value = _attribute(line, SERVER_CONTROL, "HOLD-BACK")
+            if value is not None and value > 0:
+                hold_back = value
+    return hold_back
+
+
+def playlist_age_s(text: str, now_us: int, epoch_us: int, live_hold_back_s: float = 0.0) -> float | None:
+    """Seconds since the playlist was written, or None if it names no segment.
+
+    Live: since its newest segment started, less its own hold-back -- with
+    hold-back = lookahead, that is the segment airing when it was written, so
+    a dead clock is noticed as soon as without a lookahead. Off-air: since its
+    MEDIA-SEQUENCE started, less `live_hold_back_s` (the hold-back last seen live):
+    the clock numbers the notice lookahead + 1 past its write, so this
+    under-reads by at least one segment and never false-alarms. For an on-time
+    invocation it under-reads by about loopMs (75 s) plus one segment, so a dead
+    clock while off-air alerts ~85 s later than dead_clock_seconds (more after a
+    hugo restart, when no live hold-back has been seen yet)."""
     dates = [line[len(PROGRAM_DATE_TIME):].strip() for line in text.splitlines()
              if line.startswith(PROGRAM_DATE_TIME)]
     if dates:
         try:
-            return (now_us - max(grid.iso_to_us(d) for d in dates)) / 1e6
+            newest_us = max(grid.iso_to_us(d) for d in dates)
         except ValueError:
             return None
+        return (now_us - newest_us) / 1e6 + playlist_hold_back_s(text)
     for line in text.splitlines():
         if line.startswith(MEDIA_SEQUENCE):
             try:
                 n = int(line[len(MEDIA_SEQUENCE):].strip())
             except ValueError:
                 return None
-            return (now_us - grid.segment_start_us(epoch_us, n)) / 1e6
+            return (now_us - grid.segment_start_us(epoch_us, n)) / 1e6 + live_hold_back_s
     return None
 
 
@@ -72,13 +122,19 @@ class DeadClockMonitor:
     # only on a good read (a fresh 200, or an expected 403) -- intended: a
     # different kind of bad read must not hide a persisting outage.
     guard_error_since_us: int | None = None
+    # The hold-back of the last live playlist read, which dates an off-air one
+    # (it carries none). 0 until a live read: after a restart while off-air the
+    # check is late by up to the lookahead, never early.
+    live_hold_back_s: float = 0.0
 
     def check(self, now_us: int, guard_cache: dict | None) -> None:
         blocked = bool(guard_cache and (guard_cache.get("blocked") or guard_cache.get("offair")))
         status, text = self.fetch(self.url)
         if status == 200:
             self.unreachable = self.forbidden = 0
-            age = playlist_age_s(text, now_us, self.epoch_us)
+            if PROGRAM_DATE_TIME in text:
+                self.live_hold_back_s = playlist_hold_back_s(text)
+            age = playlist_age_s(text, now_us, self.epoch_us, self.live_hold_back_s)
             if age is None or age > self.dead_clock_s:
                 self.stale += 1
                 if self.stale >= STALE_CHECKS:

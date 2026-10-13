@@ -12,7 +12,15 @@
   // The bucket name must match transmitter's [publish] bucket.
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "lma-radio" }],
   "vars": {
-    "PLAYLIST_WINDOW": "6",
+    // Players start PLAYLIST_HOLD_BACK segments before the listed end, and the
+    // window lists PLAYLIST_LOOKAHEAD past the one airing: equal, players sit
+    // at the wall clock with ~123 s of listed runway against a late cron fire
+    // (measured lag up to 117 s). Keep them equal: hugo's dead-clock check
+    // dates live.m3u8 by its newest segment minus the hold-back. Amendment A4
+    // (amended 2026-10-12); docs/playout-setup.md.
+    "PLAYLIST_WINDOW": "16",
+    "PLAYLIST_LOOKAHEAD": "12",
+    "PLAYLIST_HOLD_BACK": "12",
     "GRACE_SEGMENTS": "3",
     "OFFAIR_AFTER_SECONDS": "86400",
     "LOOP_SECONDS": "75",

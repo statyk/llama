@@ -1,6 +1,7 @@
 import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type AlertBatch, type ClockConfig, configFromEnv, MAX_PUTS, putCap, r2Bucket, runClock } from "../src/clock";
+import { type AlertBatch, type ClockConfig, configFromEnv, MAX_LOOKAHEAD, MAX_PUTS, putCap, r2Bucket,
+         runClock } from "../src/clock";
 import type { AlertCondition } from "../src/conditions";
 import type { AntennaEnv } from "../src/env";
 import type { GuardOutcome } from "../src/guard";
@@ -71,6 +72,50 @@ describe("runClock", () => {
     expect(r.puts).toBe(1);
     expect(r.skipped).toBe(7);
     expect(bucket.objects.get("live.m3u8")!.body).toContain("#EXT-X-ENDLIST");
+  });
+
+  describe("the off-air MEDIA-SEQUENCE stays above every live segment already listed (lookahead)", () => {
+    const seqOf = (body: string) => Number(/#EXT-X-MEDIA-SEQUENCE:(\d+)/.exec(body)![1]);
+    const lastListed = (body: string) =>
+      seqOf(body) + body.split("\n").filter((l) => l !== "" && !l.startsWith("#")).length - 1;
+    /** Every playlist body one invocation PUTs, in order. */
+    const invoke = async (cfg: ClockConfig, scheduledTime: number, startMs: number,
+                          guard: () => Promise<GuardOutcome>) => {
+      const bucket = new MemoryBucket();
+      station(bucket);
+      const bodies: string[] = [];
+      const put = bucket.put.bind(bucket);
+      bucket.put = async (key, body, opts) => {
+        if (key === "live.m3u8") bodies.push(String(body));
+        return put(key, body, opts);
+      };
+      await runClock({ bucket, ...fakeTime(startMs), scheduledTime, config: cfg, guard });
+      return bodies;
+    };
+
+    for (const lookahead of [4, 12, MAX_LOOKAHEAD]) {
+      const cfg = { ...CFG, window: 16, lookahead, holdBack: Math.min(lookahead, 15) };
+
+      it(`a late invocation numbers the notice above the live window it replaces (L=${lookahead})`, async () => {
+        const scheduledTime = E + 50 * D;
+        const late = scheduledTime + 100_000; // cron lag plus guard time beyond the 75 s loop
+        const [off] = await invoke(cfg, scheduledTime, late, guardSays(true));
+        const lives = await invoke(cfg, scheduledTime, late, onAir);
+        for (const body of lives) expect(seqOf(off)).toBeGreaterThan(lastListed(body));
+      });
+
+      it(`an on-time invocation numbers the notice above every live write of the same minute (L=${lookahead})`, async () => {
+        const scheduledTime = E + 50 * D + 300;
+        const offs = await invoke(cfg, scheduledTime, scheduledTime + 40, guardSays(true));
+        expect(offs).toHaveLength(1); // constant within the invocation: one PUT
+        const lives = await invoke(cfg, scheduledTime, scheduledTime + 40, onAir);
+        expect(lives.length).toBeGreaterThan(1);
+        for (const body of lives) expect(seqOf(offs[0])).toBeGreaterThan(lastListed(body));
+        // ... and above the previous minute's invocation, which ran no later.
+        const previous = await invoke(cfg, scheduledTime - 60_000, scheduledTime - 60_000 + 40, onAir);
+        for (const body of previous) expect(seqOf(offs[0])).toBeGreaterThan(lastListed(body));
+      });
+    }
   });
 
   it("runs the guard before reading or writing anything", async () => {
@@ -448,10 +493,27 @@ describe("spend bounds hold regardless of inputs", () => {
 describe("configFromEnv", () => {
   it("parses the vars with defaults", () => {
     expect(configFromEnv({})).toEqual({ window: 6, grace: 3, offairAfterMs: 86_400_000, loopMs: 75_000, liveMaxAge: 5,
-                                        leadFloorMs: 16 * 3_600_000 });
+                                        leadFloorMs: 16 * 3_600_000, lookahead: 0, holdBack: 0 });
     expect(configFromEnv({ LOOP_SECONDS: "0", PLAYLIST_WINDOW: "8" })).toMatchObject({ loopMs: 0, window: 8 });
     expect(configFromEnv({ GRACE_SEGMENTS: "nonsense" }).grace).toBe(3);
     expect(configFromEnv({ LEAD_FLOOR_HOURS: "6" }).leadFloorMs).toBe(6 * 3_600_000);
+  });
+
+  it("parses the lookahead, capped at MAX_LOOKAHEAD = 16", () => {
+    expect(MAX_LOOKAHEAD).toBe(16);
+    expect(configFromEnv({ PLAYLIST_LOOKAHEAD: "12" }).lookahead).toBe(12);
+    expect(configFromEnv({ PLAYLIST_LOOKAHEAD: "50" }).lookahead).toBe(16);
+    expect(configFromEnv({ PLAYLIST_LOOKAHEAD: "2.7" }).lookahead).toBe(2);
+    expect(configFromEnv({ PLAYLIST_LOOKAHEAD: "-3" }).lookahead).toBe(0);
+  });
+
+  it("parses the hold-back, clamped to window - 1 (the start offset lies inside the listed window)", () => {
+    const vars = { PLAYLIST_WINDOW: "16", PLAYLIST_HOLD_BACK: "12" };
+    expect(configFromEnv(vars).holdBack).toBe(12);
+    expect(configFromEnv({ ...vars, PLAYLIST_HOLD_BACK: "40" }).holdBack).toBe(15);
+    expect(configFromEnv({ PLAYLIST_HOLD_BACK: "12" }).holdBack).toBe(5); // default window 6
+    expect(configFromEnv({ PLAYLIST_WINDOW: "1", PLAYLIST_HOLD_BACK: "12" }).holdBack).toBe(0);
+    expect(configFromEnv({ ...vars, PLAYLIST_HOLD_BACK: "nonsense" }).holdBack).toBe(0);
   });
 });
 

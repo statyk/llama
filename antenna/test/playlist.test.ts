@@ -125,7 +125,7 @@ describe("buildPlaylist", () => {
     const pl = buildPlaylist({ nowMs: at(1000), horizon: horizon(0, 5000), fallback: FB, offair: true }, CFG)!;
     expect(entries(pl).map((e) => e.uri)).toEqual(["fallback/v1/notice.aac"]);
     expect(pl.trimEnd().endsWith("#EXT-X-ENDLIST")).toBe(true);
-    expect(mediaSequence(pl)).toBe(1000);
+    expect(mediaSequence(pl)).toBe(1001); // strictly above the live window ending at 1000
   });
 
   it("numbers the off-air playlist from offairSeqMs: constant within an invocation, never below live", () => {
@@ -133,13 +133,15 @@ describe("buildPlaylist", () => {
     const off = (nowMs: number) =>
       buildPlaylist({ nowMs, horizon: horizon(0, 5000), fallback: FB, offair: true, offairSeqMs: seqMs }, CFG)!;
     expect(off(at(1001))).toBe(off(at(1000))); // identical bytes: the clock's skip makes it one PUT
-    expect(mediaSequence(off(at(1000)))).toBe(1007);
+    expect(mediaSequence(off(at(1000)))).toBe(1008); // indexAt(seqMs) = 1007, + 1
+    // Monotonic within an invocation: a write later than seqMs numbers from now.
+    expect(mediaSequence(off(at(1000) + 200_000))).toBe(1020);
     for (const cur of [10, 1000, 4999]) {
       const nowMs = at(cur);
       const livePl = buildPlaylist({ nowMs, horizon: horizon(0, 5000), fallback: FB, offair: false }, CFG)!;
       for (const offairSeqMs of [undefined, nowMs + 75_000]) {
         const offPl = buildPlaylist({ nowMs, horizon: horizon(0, 5000), fallback: FB, offair: true, offairSeqMs }, CFG)!;
-        expect(mediaSequence(offPl)).toBeGreaterThanOrEqual(mediaSequence(livePl));
+        expect(mediaSequence(offPl)).toBeGreaterThan(mediaSequence(livePl) + entries(livePl).length - 1);
       }
     }
   });
@@ -170,7 +172,7 @@ describe("buildPlaylist", () => {
       expect(pl.split("\n").filter((l) => l !== "" && !l.startsWith("#"))).toEqual([]);
       expect(pl).not.toContain("#EXT-X-DISCONTINUITY");
       expect(pl.trimEnd().endsWith("#EXT-X-ENDLIST")).toBe(true);
-      expect(mediaSequence(pl)).toBe(1000);
+      expect(mediaSequence(pl)).toBe(1001);
     }
     // Same MEDIA-SEQUENCE rule as the notice playlist: constant within an
     // invocation (offairSeqMs), never below the live sequence.
@@ -179,13 +181,116 @@ describe("buildPlaylist", () => {
     const b = buildPlaylist({ ...cases[0], nowMs: at(1005), offairSeqMs: seqMs }, CFG)!;
     expect(a).toBe(b);
     const livePl = buildPlaylist({ ...cases[0], fallback: FB, offair: false, nowMs: at(1000) }, CFG)!;
-    expect(mediaSequence(a)).toBeGreaterThanOrEqual(mediaSequence(livePl));
+    expect(mediaSequence(a)).toBeGreaterThan(mediaSequence(livePl) + entries(livePl).length - 1);
     // The staleness rule takes the same branch.
     const end = E + 101 * D;
     const stale = buildPlaylist({ horizon: horizon(0, 100), fallback: null, offair: false,
                                   nowMs: end + CFG.offairAfterMs + 1 }, CFG)!;
     expect(entries(stale)).toEqual([]);
     expect(stale.trimEnd().endsWith("#EXT-X-ENDLIST")).toBe(true);
+  });
+
+  it("lookahead lists segments past the one airing, holding at last and falling back as before", () => {
+    const la = { ...CFG, lookahead: 3 };
+    const pl = buildPlaylist({ nowMs: at(1000), horizon: horizon(0, 5000), fallback: FB, offair: false }, la)!;
+    expect(entries(pl).map((e) => e.uri)).toEqual(live([998, 999, 1000, 1001, 1002, 1003]));
+    expect(mediaSequence(pl)).toBe(998);
+    // The lead nearly gone: the grace hold and the fallback switch apply to the
+    // target cur + lookahead, not to the segment airing.
+    const hold = buildPlaylist({ nowMs: at(99), horizon: horizon(0, 100), fallback: FB, offair: false }, la)!;
+    expect(entries(hold).at(-1)!.uri).toBe("seg/e1/100.aac"); // target 102: held at last
+    const fb = buildPlaylist({ nowMs: at(101), horizon: horizon(0, 100), fallback: FB, offair: false }, la)!;
+    expect(entries(fb).at(-1)!.uri).toBe(loop([104])[0]); // target 104, 4 past last: the loop
+  });
+
+  it("lookahead 12 in a window of 16 (the deployed values) lists cur-3 .. cur+12", () => {
+    const cfg = { ...CFG, window: 16, lookahead: 12 };
+    const pl = buildPlaylist({ nowMs: at(1000), horizon: horizon(0, 5000), fallback: FB, offair: false }, cfg)!;
+    expect(entries(pl).map((e) => e.uri)).toEqual(live(Array.from({ length: 16 }, (_, i) => 997 + i)));
+  });
+
+  describe("hold-back (EXT-X-START + EXT-X-SERVER-CONTROL)", () => {
+    const cfg = { ...CFG, window: 16, lookahead: 12, holdBack: 12 };
+    const livePl = (c: PlaylistConfig, cur = 1000) =>
+      buildPlaylist({ nowMs: at(cur), horizon: horizon(0, 5000), fallback: FB, offair: false }, c)!;
+
+    it("tells players to start holdBack segments before the listed end, in both tags, at VERSION 3", () => {
+      const pl = livePl(cfg);
+      expect(pl).toContain("#EXT-X-START:TIME-OFFSET=-122.880\n");
+      expect(pl).toContain("#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880\n");
+      expect(pl).toContain("#EXT-X-VERSION:3\n");
+      // Playlist-level tags: both before the first segment.
+      const lines = pl.split("\n");
+      const firstSegment = lines.findIndex((l) => l.startsWith("#EXT-X-PROGRAM-DATE-TIME:"));
+      expect(lines.indexOf("#EXT-X-START:TIME-OFFSET=-122.880")).toBeLessThan(firstSegment);
+      expect(lines.indexOf("#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880")).toBeLessThan(firstSegment);
+      // With lookahead = holdBack, the start point (the listed end, i.e. the
+      // end of cur + 12, minus 12 * d) is the start of cur + 1: within one
+      // segment of the wall clock at the moment of the write.
+      const es = entries(pl);
+      expect(es[es.length - 12].uri).toBe("seg/e1/1001.aac");
+    });
+
+    it("emits nothing at holdBack 0, or below 3 target durations (RFC 8216bis)", () => {
+      for (const holdBack of [0, 3, undefined]) {
+        const pl = livePl({ ...cfg, holdBack });
+        expect(pl).not.toContain("#EXT-X-START");
+        expect(pl).not.toContain("#EXT-X-SERVER-CONTROL");
+      }
+      // 4 * 10.24 = 40.96 s >= 3 * TARGETDURATION (33 s): the smallest emitted.
+      expect(livePl({ ...cfg, holdBack: 4 })).toContain("#EXT-X-SERVER-CONTROL:HOLD-BACK=40.960\n");
+    });
+
+    it("never offsets past the listed window (at most entries - 1 segments)", () => {
+      // A hold-back larger than the window is clamped to window - 1.
+      expect(livePl({ ...cfg, window: 6, holdBack: 12 })).toContain("#EXT-X-START:TIME-OFFSET=-51.200\n");
+      // Early in an epoch the window is short: clamped to what is listed.
+      const early = livePl(cfg, 0); // lists 0..12: 13 entries
+      expect(entries(early)).toHaveLength(13);
+      expect(early).toContain("#EXT-X-START:TIME-OFFSET=-122.880\n");
+      const earlier = buildPlaylist({ nowMs: at(0), horizon: horizon(0, 5000), fallback: FB, offair: false },
+                                    { ...cfg, lookahead: 5 })!; // lists 0..5: 6 entries, offset 5 * d
+      expect(earlier).toContain("#EXT-X-START:TIME-OFFSET=-51.200\n");
+    });
+
+    it("is never on an off-air playlist (no live window to hold back in)", () => {
+      for (const fallback of [FB, null]) {
+        const pl = buildPlaylist({ nowMs: at(1000), horizon: horizon(0, 5000), fallback, offair: true }, cfg)!;
+        expect(pl).not.toContain("#EXT-X-START");
+        expect(pl).not.toContain("#EXT-X-SERVER-CONTROL");
+      }
+    });
+  });
+
+  it("numbers the off-air notice above every live segment listed at or before the same clock time", () => {
+    // Live windows list up to cur + lookahead (or less when held at last), so
+    // a player may already hold every number through indexAt(t) + lookahead
+    // for any write at t <= now. The notice must be numbered strictly above
+    // that, or a player that has the live segment of the same number skips
+    // the notice and stops on ENDLIST without it.
+    for (const lookahead of [0, 3, 12, 16]) {
+      const cfg = { ...CFG, window: 16, lookahead };
+      for (const cur of [0, 5, 1000, 4990]) {
+        for (const nowMs of [at(cur), E + (cur + 1) * D - 1]) {
+          const livePl = buildPlaylist({ nowMs, horizon: horizon(0, 5000), fallback: FB, offair: false }, cfg)!;
+          const maxListed = mediaSequence(livePl) + entries(livePl).length - 1;
+          // offairSeqMs: the default (now), the clock's scheduledTime + loopMs
+          // (ahead), and an invocation running later than that (behind now).
+          for (const offairSeqMs of [undefined, nowMs + 75_000, nowMs - 200_000]) {
+            for (const fallback of [FB, null]) {
+              const offPl = buildPlaylist({ nowMs, horizon: horizon(0, 5000), fallback, offair: true, offairSeqMs }, cfg)!;
+              expect(mediaSequence(offPl), `L=${lookahead} cur=${cur} seqMs=${offairSeqMs}`).toBeGreaterThan(maxListed);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("numbers an off-air playlist built before the epoch from 0, never negative", () => {
+    const cfg = { ...CFG, lookahead: 2 };
+    const pl = buildPlaylist({ nowMs: E - 5 * D, horizon: horizon(0, 10), fallback: FB, offair: true }, cfg)!;
+    expect(mediaSequence(pl)).toBe(3); // max(0, indexAt) + lookahead + 1; unclamped it would be -2
   });
 
   it("returns null before the epoch", () => {
