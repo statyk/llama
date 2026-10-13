@@ -128,6 +128,48 @@ def test_one_word_heard_of_a_short_script_still_passes():
     assert transcript_problem("Thanks, everyone.", "Thanks, everybody.") is None
 
 
+def test_a_repeated_word_pairs_only_with_two_unmatched_copies():
+    # The exact match takes one "bye"; the lone remaining copy cannot pair
+    # with itself, so found never exceeds the script's word count.
+    assert found("Bye bye.", "Bye byebye.") == 1
+    assert found("Bye byebye.", "Bye bye.") == 1
+
+
+def test_only_adjacent_script_words_fold():
+    assert found("L b a.", "La.") == 0
+
+
+def test_an_unrelated_heard_word_is_not_credited():
+    assert match_words(["show"], ["snow"])[0] == 0
+    assert found("Here is the show.", "Here's the snow.") == 3
+
+
+def test_a_long_script_heard_as_a_few_contractions_still_fails():
+    script = "Here is what you are going to hear tonight from the band on the stage."
+    assert transcript_problem(script, "Here's you're.") is not None
+
+
+# The lexicon spells a dropped g with an apostrophe ("Goin' Down The Road
+# Feelin' Bad"); the transcriber writes "going"/"feeling" (calibration unit 21).
+
+
+def test_a_dropped_g_matches_the_ing_form_both_ways():
+    assert comparable_words("Goin' Down The Road Feelin' Bad") == [
+        "going", "down", "the", "road", "feeling", "bad"]
+    assert found("Goin' Down The Road Feelin' Bad.", "Going down the road feeling bad.") == 6
+    assert found("Going down the road feeling bad.", "Goin' down the road feelin’ bad.") == 6
+
+
+def test_a_dropped_g_heard_as_two_words_still_matches():
+    assert found("Throwin' Stones.", "Throw in stones.") == 2
+
+
+def test_words_that_merely_end_in_in_are_not_g_dropped():
+    assert comparable_words("Begin in within, then 'within' and in'.") == [
+        "begin", "in", "within", "then", "within", "and", "in"]
+    assert found("Begin within.", "Beginning withing.") == 0
+
+
 # --- the STT client ---------------------------------------------------------------
 
 

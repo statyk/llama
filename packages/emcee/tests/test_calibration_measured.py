@@ -19,20 +19,16 @@ CAL = CALIBRATED_MODELS[QWEN3_TTS_1_7B_BASE]
 # From the calibration data file (selection rules in the plan, Task 12 Step 6).
 CLEAN_EDGES: list[tuple[int, float]] = [
     # (chars, seconds), copied verbatim
-    (20, 1.68),     # unit 0, phil_ex: the shortest text
-    (130, 9.76),    # unit 26, phil_ex: highest seconds per character
-    (142, 9.84),    # unit 30, phil_ex
+    (20, 1.68),     # unit 0, phil_ex: the shortest text and the highest seconds per character
+    (130, 9.76),    # unit 26, phil_ex: second-highest seconds per character
+    (142, 9.84),    # unit 30, phil_ex: third-highest
     (34, 1.52),     # unit 1, monroe1: lowest seconds per character
     (126, 5.68),    # unit 25, monroe1
     (81, 3.76),     # unit 11, kurt1
     (1200, 66.88),  # unit 52, phil_ex: the longest text (an unchunked segment)
 ]
 CLEAN_TRANSCRIPTS: list[tuple[str, str]] = [
-    # (text, transcript), copied verbatim (Whisper)
-    ("From there the band runs continuously through Wharfrat and Goin' Down The Road Feelin' "
-     "Bad into Around and Around.",
-     "From there, the band runs continuously through Warfrat and going down the road feeling "
-     "bad into Around and Around."),
+    # (text, transcript), copied verbatim (Whisper, re-scored with the dropped-g fold)
     ("After Drumz and the Jam, the band charged through The Other One, Jerry sang Wharf Rat for "
      "all he was worth, and Bob Weir hollered the set home with Turn On Your Lovelight.",
      "After drums and the jam, the band charged through the other one. Jerry sang Warfrat for "
@@ -41,6 +37,10 @@ CLEAN_TRANSCRIPTS: list[tuple[str, str]] = [
      "road manager Rex Jackson, and still unreleased at the time.",
      "There is Sunrise, Don Agacho's only song for the band, written in memory of their road "
      "manager Rex Jackson and still unreleased at the time."),
+    ("From there the band runs continuously through Wharfrat and Goin' Down The Road Feelin' "
+     "Bad into Around and Around.",
+     "From there, the band runs continuously through Warfrat and going down the road feeling "
+     "bad into Around and Around."),
     ("Throwin' Stones and Not Fade Away brought it all home.",
      "Throw in stones and not fade away brought it all home."),
     ("Throwin' Stones and Not Fade Away brought it all home.",

@@ -1505,20 +1505,16 @@
     "mlx-community/whisper-large-v3-turbo-asr-fp16": {
      "transcript": "From there, the band runs continuously through Warfrat and going down the road feeling bad into Around and Around.",
      "words": 19,
-     "found": 16,
-     "missing": 3,
+     "found": 18,
+     "missing": 1,
      "extra": 0,
-     "recall": 0.842,
+     "recall": 0.947,
      "loop": false,
      "interim_problem": null,
      "missing_words": [
-      "feelin",
-      "goin",
       "wharfrat"
      ],
      "extra_words": [
-      "feeling",
-      "going",
       "warfrat"
      ],
      "wall_s": 1.14
@@ -1526,20 +1522,16 @@
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "From there the band runs continuously through Warfrat and going down the road feeling bad into around and around.",
      "words": 19,
-     "found": 16,
-     "missing": 3,
+     "found": 18,
+     "missing": 1,
      "extra": 0,
-     "recall": 0.842,
+     "recall": 0.947,
      "loop": false,
      "interim_problem": null,
      "missing_words": [
-      "feelin",
-      "goin",
       "wharfrat"
      ],
      "extra_words": [
-      "feeling",
-      "going",
       "warfrat"
      ],
      "wall_s": 0.29
@@ -1550,9 +1542,9 @@
    "render_status": "ok",
    "transcript": "From there, the band runs continuously through Warfrat and going down the road feeling bad into Around and Around.",
    "words": 19,
-   "missing": 3,
+   "missing": 1,
    "extra": 0,
-   "recall": 0.842,
+   "recall": 0.947,
    "interim_problem": null,
    "loop": false,
    "status": "ok",
@@ -1688,35 +1680,27 @@
     "mlx-community/whisper-large-v3-turbo-asr-fp16": {
      "transcript": "After that comes promised land and then not fade away into going down the road feeling bad, slinky rather than bludgeoning.",
      "words": 21,
-     "found": 20,
-     "missing": 1,
+     "found": 21,
+     "missing": 0,
      "extra": 0,
-     "recall": 0.952,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "goin"
-     ],
-     "extra_words": [
-      "going"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 1.18
     },
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "After that comes promised land and then not fade away into going down the road feeling bad, slinky rather than bludgeoning.",
      "words": 21,
-     "found": 20,
-     "missing": 1,
+     "found": 21,
+     "missing": 0,
      "extra": 0,
-     "recall": 0.952,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "goin"
-     ],
-     "extra_words": [
-      "going"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.54
     }
    },
@@ -1725,9 +1709,9 @@
    "render_status": "ok",
    "transcript": "After that comes promised land and then not fade away into going down the road feeling bad, slinky rather than bludgeoning.",
    "words": 21,
-   "missing": 1,
+   "missing": 0,
    "extra": 0,
-   "recall": 0.952,
+   "recall": 1.0,
    "interim_problem": null,
    "loop": false,
    "status": "ok",
@@ -4127,13 +4111,13 @@
   },
   "thresholds": {
    "MISS_FLOOR": 2,
-   "MISS_FRACTION": 0.25,
+   "MISS_FRACTION": 0.15,
    "EXTRA_FLOOR": 4,
    "EXTRA_FRACTION": 0.25
   },
   "verify_checks": {
    "clean_failures": [],
-   "qwen3tts-0.6b-bf16": "heard 57 words for a 23-word script",
+   "qwen3tts-0.6b-bf16": "only 19 of the script's 23 words were heard",
    "chatterbox-fp16": "only 1 of the script's 4 words were heard"
   },
   "defects_passing": [],
@@ -4141,20 +4125,20 @@
    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
     "thresholds": {
      "MISS_FLOOR": 2,
-     "MISS_FRACTION": 0.25,
+     "MISS_FRACTION": 0.15,
      "EXTRA_FLOOR": 4,
      "EXTRA_FRACTION": 0.25
     },
     "derivations": {
      "all": {
       "MISS_FLOOR": 2,
-      "MISS_FRACTION": 0.25,
+      "MISS_FRACTION": 0.15,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
      },
      "mlx": {
       "MISS_FLOOR": 2,
-      "MISS_FRACTION": 0.25,
+      "MISS_FRACTION": 0.15,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
      },
@@ -4177,7 +4161,7 @@
     },
     "verify_checks": {
      "clean_failures": [],
-     "qwen3tts-0.6b-bf16": "heard 57 words for a 23-word script",
+     "qwen3tts-0.6b-bf16": "only 19 of the script's 23 words were heard",
      "chatterbox-fp16": "only 1 of the script's 4 words were heard"
     },
     "defects_passing": []
@@ -4185,20 +4169,20 @@
    "mlx-community/parakeet-tdt-0.6b-v3": {
     "thresholds": {
      "MISS_FLOOR": 2,
-     "MISS_FRACTION": 0.25,
+     "MISS_FRACTION": 0.15,
      "EXTRA_FLOOR": 4,
      "EXTRA_FRACTION": 0.25
     },
     "derivations": {
      "all": {
       "MISS_FLOOR": 2,
-      "MISS_FRACTION": 0.25,
+      "MISS_FRACTION": 0.15,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
      },
      "mlx": {
       "MISS_FLOOR": 2,
-      "MISS_FRACTION": 0.25,
+      "MISS_FRACTION": 0.15,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
      },
@@ -4221,7 +4205,7 @@
     },
     "verify_checks": {
      "clean_failures": [],
-     "qwen3tts-0.6b-bf16": null,
+     "qwen3tts-0.6b-bf16": "only 19 of the script's 23 words were heard",
      "chatterbox-fp16": "none of the script's 4 words were heard"
     },
     "defects_passing": []
@@ -4256,14 +4240,14 @@
       "missing": {
        "n": 53,
        "median": 0,
-       "p90": 2,
+       "p90": 1,
        "max": 3
       },
       "missing_per_word": {
        "n": 53,
        "median": 0.0,
-       "p90": 0.048,
-       "max": 0.158
+       "p90": 0.04,
+       "max": 0.094
       },
       "extra": {
        "n": 53,
@@ -4278,10 +4262,10 @@
        "max": 0.1
       },
       "missing_histogram": {
-       "0": 37,
+       "0": 38,
        "1": 10,
        "2": 2,
-       "3": 4
+       "3": 3
       },
       "extra_histogram": {
        "-1": 5,
@@ -4327,20 +4311,16 @@
     "false_alarms": {
      "mlx": {
       "loo_all_derivation": {
-       "failed": 1,
+       "failed": 0,
        "of": 53,
-       "rate": 0.019,
-       "units": [
-        21
-       ]
+       "rate": 0.0,
+       "units": []
       },
       "loo_own_backend_derivation": {
-       "failed": 1,
+       "failed": 0,
        "of": 53,
-       "rate": 0.019,
-       "units": [
-        21
-       ]
+       "rate": 0.0,
+       "units": []
       },
       "interim": {
        "failed": 0,
@@ -4355,12 +4335,10 @@
        "units": []
       },
       "voxtral_derived_thresholds": {
-       "failed": 1,
+       "failed": 0,
        "of": 53,
-       "rate": 0.019,
-       "units": [
-        21
-       ]
+       "rate": 0.0,
+       "units": []
       }
      },
      "voxtral": {
@@ -4438,8 +4416,8 @@
       "missing_per_word": {
        "n": 53,
        "median": 0.0,
-       "p90": 0.04,
-       "max": 0.158
+       "p90": 0.038,
+       "max": 0.053
       },
       "extra": {
        "n": 53,
@@ -4454,10 +4432,9 @@
        "max": 0.1
       },
       "missing_histogram": {
-       "0": 41,
+       "0": 42,
        "1": 7,
        "2": 2,
-       "3": 1,
        "4": 2
       },
       "extra_histogram": {
@@ -4505,20 +4482,16 @@
     "false_alarms": {
      "mlx": {
       "loo_all_derivation": {
-       "failed": 1,
+       "failed": 0,
        "of": 53,
-       "rate": 0.019,
-       "units": [
-        21
-       ]
+       "rate": 0.0,
+       "units": []
       },
       "loo_own_backend_derivation": {
-       "failed": 1,
+       "failed": 0,
        "of": 53,
-       "rate": 0.019,
-       "units": [
-        21
-       ]
+       "rate": 0.0,
+       "units": []
       },
       "interim": {
        "failed": 0,
@@ -4533,12 +4506,10 @@
        "units": []
       },
       "voxtral_derived_thresholds": {
-       "failed": 1,
+       "failed": 0,
        "of": 53,
-       "rate": 0.019,
-       "units": [
-        21
-       ]
+       "rate": 0.0,
+       "units": []
       }
      },
      "voxtral": {

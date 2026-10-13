@@ -29,7 +29,7 @@ PREFLIGHT_CLIP = "preflight_en.wav"
 # int(MISS_FRACTION * n)) of them, and the transcript may run up to
 # max(EXTRA_FLOOR, int(EXTRA_FRACTION * n)) words longer.
 MISS_FLOOR = 2
-MISS_FRACTION = 0.25
+MISS_FRACTION = 0.15
 EXTRA_FLOOR = 4
 EXTRA_FRACTION = 0.25
 
@@ -44,12 +44,19 @@ NUMBER_WORDS = frozenset("""
 """.split())
 _APOSTROPHES = str.maketrans("", "", "'’‘`")
 _WORD = re.compile(r"[^\W_]+")
+# A dropped g spelled with an apostrophe ("goin'", "feelin'"), read as its
+# "-ing" form. The apostrophe must close a word of at least one letter
+# before "in" that does not itself open with a quote, so "in'" and a
+# quoted 'within' stay as they are; a word merely ending in "in" ("begin")
+# has no apostrophe and is never touched.
+_DROPPED_G = re.compile(r"(?<![\w'‘’`])([^\W\d_]+in)['’](?!\w)")
 
 
 def comparable_words(text: str) -> list[str]:
     """Lower-cased words with apostrophes and punctuation removed, minus every
-    number-bearing token (digits or a spelled-out number word)."""
-    words = _WORD.findall(text.lower().translate(_APOSTROPHES))
+    number-bearing token (digits or a spelled-out number word). A dropped g
+    ("goin'") reads as "going"."""
+    words = _WORD.findall(_DROPPED_G.sub(r"\1g", text.lower()).translate(_APOSTROPHES))
     return [w for w in words if w not in NUMBER_WORDS and not any(c.isdigit() for c in w)]
 
 
@@ -91,8 +98,10 @@ _CONTRACTED = {"is": "s", "has": "s", "us": "s", "are": "re", "am": "m", "have":
 
 
 def _joined(a: str, b: str) -> tuple[str, ...]:
-    """The single words a bigram may be heard (or written) as."""
-    return tuple(dict.fromkeys((a + b, a + _CONTRACTED.get(b, b))))
+    """The single words a bigram may be heard (or written) as; "throw in"
+    is also "throwing", the dropped-g form comparable_words normalizes."""
+    forms = (a + b, a + _CONTRACTED.get(b, b)) + ((a + "ing",) if b == "in" else ())
+    return tuple(dict.fromkeys(forms))
 
 
 def transcript_problem(script: str, transcript: str) -> str | None:
