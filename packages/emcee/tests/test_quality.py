@@ -69,8 +69,18 @@ def test_one_failure_resynthesizes_once_and_the_retry_wins(capsys):
     inner = Scripted(defect(), WAV)
     assert layer(inner).synthesize(TEXT, "wav") == WAV
     assert len(inner.calls) == 2
-    assert ("mlx_audio quality check failed (clip is 13.0s, implausibly long); "
-            "re-synthesizing once") in capsys.readouterr().out
+    assert (f'mlx_audio quality check failed on "{TEXT}" '
+            "(clip is 13.0s, implausibly long); re-synthesizing once"
+            ) in capsys.readouterr().out
+
+
+def test_the_retry_notice_shortens_a_long_sentence(capsys):
+    long_text = "Here is the second set, from Pittsburgh, " * 4
+    inner = Scripted(defect(), WAV)
+    layer(inner).synthesize(long_text, "wav")
+    out = capsys.readouterr().out
+    assert f'failed on "{long_text[:77]}..." (' in out
+    assert long_text not in out
 
 
 def test_two_failures_raise_a_speech_defect_naming_the_text():

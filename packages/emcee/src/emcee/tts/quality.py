@@ -22,6 +22,18 @@ from emcee.tts.mlx_audio import PREFLIGHT_TEXT, wav_to_mp3
 from emcee.tts.provider import SpeechDefect, SpeechError
 
 
+_NOTICE_CHARS = 80
+
+
+def _quoted(text: str) -> str:
+    """`text` for the retry notice: whole up to `_NOTICE_CHARS`, else cut
+    short with "..." so a long segment stays one readable line."""
+    text = " ".join(text.split())
+    if len(text) <= _NOTICE_CHARS:
+        return text
+    return text[:_NOTICE_CHARS - 3] + "..."
+
+
 class QualitySpeech:
     def __init__(self, inner, *, backend: str, verifier=None):
         self.inner = inner
@@ -41,8 +53,8 @@ class QualitySpeech:
         try:
             return attempt()
         except SpeechDefect as first:
-            typer.echo(f"{self.backend} quality check failed ({first.reason}); "
-                       "re-synthesizing once")
+            typer.echo(f"{self.backend} quality check failed on \"{_quoted(text)}\" "
+                       f"({first.reason}); re-synthesizing once")
         try:
             return attempt()
         except SpeechDefect as second:
