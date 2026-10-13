@@ -4,6 +4,7 @@ from emcee.tts.elevenlabs import ElevenLabsProvider
 from emcee.tts.fake import FakeSpeechProvider
 from emcee.tts.mlx_audio import MlxAudioProvider
 from emcee.tts.provider import SpeechError, SpeechProvider
+from emcee.tts.quality import QualitySpeech
 from emcee.tts.resolve import TTSResolution
 from emcee.tts.voxtral import VoxtralProvider
 
@@ -77,6 +78,7 @@ def speech_provider_for(config: EmceeConfig, resolution: TTSResolution, *,
         return ElevenLabsProvider(voice=voice, model=resolution.model,
                                   api_key=resolution.api_key, key_hint=key_hint)
     if backend == "mlx_audio":
-        return _mlx_provider(config, resolution, voice=voice, clone_ref=clone_ref,
-                             clone_text=clone_text)
+        return QualitySpeech(_mlx_provider(config, resolution, voice=voice, clone_ref=clone_ref,
+                                           clone_text=clone_text),
+                             backend="mlx_audio", verifier=None)
     raise SpeechError(f"unknown TTS backend {backend!r}")
