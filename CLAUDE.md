@@ -109,7 +109,10 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `[assign.profiles.<name>]` entry (not those falling to `[assign] default`
   or the house voice), `--dry-run` lists what
   would be voiced and by whom — an explicit assignment prints `<id>`, the
-  default `<id> (default)`, none `house`; a pinned presenter's row also shows `[<backend> <model>]`, an unloadable presenter file `[invalid presenters/<id>.toml]`, a failed TTS resolution `[unresolved: …]`),
+  default `<id> (default)`, none `house`; a pinned presenter's row also shows
+  `[<backend> <model>]`, an unloadable presenter file
+  `[invalid presenters/<id>.toml]`, a failed TTS resolution
+  `[unresolved: …]`),
   `emcee voice <package>` (script + voice + assemble one package —
   a path, or a name/unique substring under `[station] root`, overridable
   with `--station-root`, exact name beating substring hits;
@@ -129,7 +132,10 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `--bed`/`--bed-gain`/`--no-bed` else the package rules, chunking ON by
   default like `[tts] chunk`; `--no-chunk` without a bed is the one render
   that is not loudness-normalized), `emcee presenter add/edit/list/show/remove`
-  (`presenters/<id>.toml`; `edit` changes any field with set/`--clear-*` flags, `--transcribe` drafts `voice_clone_text` on the mlx-audio server's STT model and writes it only on confirmation; `voice_clone` is stored as an absolute path), `emcee config init`.
+  (`presenters/<id>.toml`; `edit` changes any field with set/`--clear-*`
+  flags, `--transcribe` drafts `voice_clone_text` on the mlx-audio server's
+  STT model and writes it only on confirmation; `voice_clone` is stored as an
+  absolute path), `emcee config init`.
 - Run (transmitter, playout on hugo — phase 1): `transmitter run` (service
   loop: plan/render once the lead drops below `low_water_hours`, and keep
   filling until it is back at `lead_hours`; publish + prune every minute;
@@ -183,7 +189,10 @@ renderer as the DJ clips.
 emcee owns presenters (`presenters/<id>.toml`: name/sex/character +
 `voice` XOR `voice_clone`), the script LLM task and its own factual guard,
 `speech_text` normalization, TTS (hosted Mistral Voxtral by default,
-ElevenLabs as an opt-in alternative, and a free local `mlx_audio` backend over mlx-audio's server; a presenter may pin any of the three with `tts`, and clones are voiced on voxtral or mlx_audio, never elevenlabs), instrumental beds, the per-segment render cache, and
+ElevenLabs as an opt-in alternative, and a free local `mlx_audio` backend
+over mlx-audio's server; a presenter may pin any of the three with `tts`, and
+clones are voiced on voxtral or mlx_audio, never elevenlabs), instrumental
+beds, the per-segment render cache, and
 assembling `dj-audio/`/`broadcast.m3u`. Its `[assign]` config maps a llama
 profile name to a presenter + on-air title, keyed off
 `manifest["source"]["profile"]`, which llama stamps on every package it
@@ -798,7 +807,9 @@ guard, scheduler and full player are phases 2–4).
 ## Conventions
 
 - Audio files (`*.mp3`, `*.flac`, `*.shn`) are gitignored; never commit audio.
-  One exception: `packages/emcee/src/emcee/data/preflight_en.wav`, the ~2 s bundled check clip for the verification preflight (provenance in `docs/superpowers/2026-10-12-mlx-audio-calibration.md`).
+  One exception: `packages/emcee/src/emcee/data/preflight_en.wav`, the ~2.6 s
+  bundled check clip for the verification preflight (provenance in
+  `docs/superpowers/2026-10-12-mlx-audio-calibration.md`).
 - Test fixtures are captured real archive.org API responses (gd73-06-10 is the
   canonical one). Pipeline tests use the `fake` LLM backend and run offline;
   the only live end-to-end test is manual/opt-in.

@@ -326,7 +326,7 @@ Presenters live under emcee's **own** workspace root (`~/.emcee/presenters/`
 by default, or `EMCEE_ROOT`/`root` in config — distinct from `[station]
 root`, the delivered-packages folder). The TOML shape is the same one
 llama's presenters used to have: `name`/`sex`/`character` + exactly one of
-`voice`/`voice_clone`, plus an optional `bed` override. Three optional keys pin a presenter's TTS: `tts` (`voxtral`, `elevenlabs` or `mlx_audio`; absent = `[tts] backend`), `tts_model` (mlx_audio only) and `voice_clone_text` (the clip's transcript, required by mlx_audio). The file is strict: an unknown key is a load error. `emcee run --dry-run` shows each pinned presenter's backend and model. The character
+`voice`/`voice_clone`, plus an optional `bed` override. Three optional keys pin a presenter's TTS: `tts` (`voxtral`, `elevenlabs` or `mlx_audio`; absent = `[tts] backend`, except never mlx_audio: pin it explicitly), `tts_model` (mlx_audio only) and `voice_clone_text` (the clip's transcript, required by mlx_audio). The file is strict: an unknown key is a load error. `emcee run --dry-run` shows each pinned presenter's backend and model. The character
 loosens grounding (opinions and paraphrased review sentiment are the
 host's own; concert facts stay grounded in the manifest) — enforced by
 emcee's own factual guard, not llama's.
@@ -455,7 +455,7 @@ and the rest of `emcee run` carries on.
    restart with `launchctl kickstart -k gui/$(id -u)/com.lma-radio.mlx-audio`,
    stop with `launchctl bootout gui/$(id -u)/com.lma-radio.mlx-audio`.
    `curl -s http://127.0.0.1:8000/` answers when it is up. A generation
-   failure's details are in `~/.mlx-audio/server.log` — emcee's error says so.
+   failure's details are in `~/.mlx-audio/server.log` — emcee's error points you there.
 5. **emcee config:**
 
        [tts.mlx_audio]
@@ -471,8 +471,8 @@ and the rest of `emcee run` carries on.
    `mlx_audio` when a Qwen presenter (Phil) goes live, and to keep `voxtral`
    off for now: 10 Voxtral takes are too few, the disfluency effect on the
    thresholds is unmeasured, and enabling it makes hosted voicing depend on
-   this server. The measured thresholds are in `emcee/tts/verify.py`;
-   `MISS_FRACTION` 0.15 is pending the operator's review (see the evidence
+   this server (see Memory, item 6). The measured thresholds are in
+   `emcee/tts/verify.py`; `MISS_FRACTION` 0.15 is pending the operator's review (see the evidence
    doc).
 
    Hosted keys can move into `[tts.voxtral] api_key` / `[tts.elevenlabs]
@@ -492,14 +492,14 @@ and the rest of `emcee run` carries on.
    with Qwen resident and Whisper unloaded. For a voicing run, close browser
    tabs and other apps; verification costs the Whisper resident set.
 7. **Moving Phil** (his evaluated 12.9 s, 24 kHz mono excerpt and its
-   transcript), after the calibration doc exists:
+   transcript):
 
        cp ~/tts-bakeoff/refs/phil_ex.wav ~/tts-bakeoff/refs/phil_ex.txt ~/.emcee/samples/
        emcee presenter edit phil --tts mlx_audio --voice-clone ~/.emcee/samples/phil_ex.wav \
            --voice-clone-text "$(cat ~/.emcee/samples/phil_ex.txt)"
        emcee run --dry-run                       # phil's rows now end [mlx_audio <model>]
        emcee say notes.txt --presenter phil      # go-live listen, then one real package:
-       emcee voice <a dead package> 
+       emcee voice <a dead package>
 
    During that first real `emcee voice` (TTS, STT and `claude -p` all
    resident), take a memory reading from another terminal —
@@ -534,6 +534,14 @@ and the rest of `emcee run` carries on.
    BEFORE downgrading the emcee binary:
 
        emcee presenter edit phil --clear-tts --clear-tts-model --voice-clone ~/.emcee/samples/phil.wav
+
+   Also BEFORE downgrading, edit `~/.emcee/config.toml`: the old binary's
+   `[tts]` is strict and refuses any key it does not know. Remove
+   `[tts.mlx_audio]`, `[tts.verify]` and `[tts.voxtral]`/`[tts.elevenlabs]`;
+   move a hosted key back to `[tts] api_key` (or rely on the env var); and if
+   the house voice was moved (item 8), restore `[tts] backend` and drop
+   `[tts] voice_clone_text`. Presenter pins to voxtral/elevenlabs (e.g.
+   roydemure) are harmless: the old binary ignores them.
 
    A re-pinned presenter never reuses the other backend's clips (the render
    cache keys on backend voice and model), so his next packages re-render.
