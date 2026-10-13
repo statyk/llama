@@ -10,6 +10,7 @@ resolving to a model outside it is a configuration error
 Lengths are measured in characters of whitespace-collapsed text (see
 `text_units`, added with the guard math).
 """
+import math
 from dataclasses import dataclass, fields
 
 
@@ -42,3 +43,38 @@ class ModelCalibration:
 # plan Task 12) measures the first entry: nothing voices on mlx_audio with
 # guessed constants. Tests register a test-only entry (tests/mlx_helpers.py).
 CALIBRATED_MODELS: dict[str, ModelCalibration] = {}
+
+
+def text_units(text: str) -> int:
+    """The length the guard scales with: characters of whitespace-collapsed text."""
+    return len(" ".join(text.split()))
+
+
+def max_tokens_for(cal: ModelCalibration, text: str) -> int:
+    """The request's max_tokens: the cap's duration in codec frames. Always
+    sent -- the server's default of 1200 (~96 s) silently truncates long
+    unchunked segments."""
+    return math.ceil((cal.cap_floor_s + cal.cap_s_per_char * text_units(text)) * cal.frame_rate_hz)
+
+
+def cap_seconds(cal: ModelCalibration, max_tokens: int) -> float:
+    return max_tokens / cal.frame_rate_hz
+
+
+def guard_problem(cal: ModelCalibration, text: str, seconds: float,
+                  max_tokens: int) -> str | None:
+    """Why `seconds` of audio is implausible for `text`, or None. The cap
+    check comes first: a runaway that ran into max_tokens would otherwise
+    read as merely long (or, with a cap close to the limit, pass)."""
+    n = text_units(text)
+    cap = cap_seconds(cal, max_tokens)
+    if seconds >= cap - cal.cap_margin_s:
+        return f"clip is {seconds:.1f}s, at the {cap:.1f}s token cap (a capped runaway)"
+    longest = cal.max_floor_s + cal.max_s_per_char * n
+    if seconds > longest:
+        return f"clip is {seconds:.1f}s, implausibly long for {n} characters (limit {longest:.1f}s)"
+    shortest = max(0.0, cal.min_s_per_char * n - cal.min_slack_s)
+    if seconds < shortest:
+        return (f"clip is {seconds:.1f}s, implausibly short for {n} characters "
+                f"(minimum {shortest:.1f}s)")
+    return None

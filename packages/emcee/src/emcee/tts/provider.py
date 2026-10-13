@@ -41,6 +41,33 @@ class SpeechBlocked(SpeechError):
         return msg
 
 
+class SpeechDefect(SpeechError):
+    """Synthesized audio failed a quality check: the mlx_audio runaway guard
+    (implausible duration for the text) or transcript verification.
+
+    The provider that detects it never retries; the quality layer
+    (tts/quality.py) re-synthesizes once and raises a second failure, which
+    fails the package rather than airing the clip. `segment` (the DJ clip
+    stem) is filled in by the audio layer after the fact, as for
+    SpeechBlocked, so the message is computed in `__str__`."""
+
+    def __init__(self, backend: str, *, text: str, reason: str,
+                 transcript: str | None = None):
+        details = [f'text: "{text}"']
+        if transcript is not None:
+            details.append(f'transcript: "{transcript}"')
+        super().__init__(f"{backend} audio failed a quality check: {reason}", details=details)
+        self.backend = backend
+        self.text = text
+        self.reason = reason
+        self.transcript = transcript
+        self.segment: str | None = None
+
+    def __str__(self) -> str:
+        where = f" in {self.segment}" if self.segment else ""
+        return f"{self.backend} audio failed a quality check{where}: {self.reason}"
+
+
 @runtime_checkable
 class SpeechProvider(Protocol):
     def synthesize(self, text: str, fmt: str = "mp3", *,
