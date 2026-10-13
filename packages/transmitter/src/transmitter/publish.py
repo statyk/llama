@@ -158,6 +158,10 @@ def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, int
         # -> off the air.
         value = flag.get("offair") if isinstance(flag, dict) else None
         offair = False if flag is None else (value if isinstance(value, bool) else True)
+    except ValueError:
+        # Present but unparsable (JSONDecodeError and UnicodeDecodeError are ValueErrors): the Worker
+        # (guard.ts) reads such bytes as off the air. Botocore read errors are not ValueErrors.
+        offair = True
     except Exception:
         offair = None
     write_json(ws.guard_cache_path, {"checked_at": now_s, "blocked": blocked, "error": error,
