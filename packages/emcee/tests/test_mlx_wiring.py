@@ -250,14 +250,30 @@ def test_run_continues_other_presenters_when_mlx_is_down(tmp_path, monkeypatch):
     b = build_package(station, slug="b", profile="bluegrass")
     a_before = (a / "manifest.json").read_bytes()
     install_mlx(monkeypatch, MlxServer(down=True))
-    monkeypatch.setattr(process_mod, "provider_for",
-                        lambda settings, task: FakeProvider(completes=[_notes_json()]))
+    # Track which package each LLM call is made for: the mlx package must
+    # fail before its first spend, so the only scriptwrite call is b's.
+    current: list[str] = []
+    real_process = process_mod.process_package
+
+    def tracked_process(config, pkg, *args, **kwargs):
+        current.append(pkg.dir.name)
+        return real_process(config, pkg, *args, **kwargs)
+
+    llm_calls: list[tuple[str, str]] = []
+
+    def fake_provider_for(settings, task):
+        llm_calls.append((current[-1] if current else "<none>", task))
+        return FakeProvider(completes=[_notes_json()])
+
+    monkeypatch.setattr("emcee.cli.process_package", tracked_process)
+    monkeypatch.setattr(process_mod, "provider_for", fake_provider_for)
 
     result = runner.invoke(app, ["run"])
 
     assert result.exit_code == 1
     assert "error: a: mlx-audio server not reachable" in result.stderr
     assert "voiced: b" in result.output
+    assert llm_calls == [("b", "scriptwrite")]
     assert (a / "manifest.json").read_bytes() == a_before
     assert json.loads((b / "manifest.json").read_text())["dj_audio"] is not None
 
