@@ -403,19 +403,14 @@
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "Listen for West LA.",
      "words": 5,
-     "found": 3,
-     "missing": 2,
+     "found": 5,
+     "missing": 0,
      "extra": -1,
-     "recall": 0.6,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "a",
-      "l"
-     ],
-     "extra_words": [
-      "la"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 1.88
     }
    },
@@ -435,9 +430,7 @@
    "default_defect": false,
    "defect": false,
    "classified_by": "mechanical default",
-   "flags": [
-    "recall 0.60 (parakeet-tdt-0.6b-v3)"
-   ],
+   "flags": [],
    "notes": []
   },
   {
@@ -503,37 +496,27 @@
     "mlx-community/whisper-large-v3-turbo-asr-fp16": {
      "transcript": "Here's the second set from Pittsburgh.",
      "words": 6,
-     "found": 4,
-     "missing": 2,
+     "found": 6,
+     "missing": 0,
      "extra": -1,
-     "recall": 0.667,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "here",
-      "is"
-     ],
-     "extra_words": [
-      "heres"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.89
     },
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "Here's the second set from Pittsburgh.",
      "words": 6,
-     "found": 4,
-     "missing": 2,
+     "found": 6,
+     "missing": 0,
      "extra": -1,
-     "recall": 0.667,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "here",
-      "is"
-     ],
-     "extra_words": [
-      "heres"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.19
     }
    },
@@ -542,9 +525,9 @@
    "render_status": "ok",
    "transcript": "Here's the second set from Pittsburgh.",
    "words": 6,
-   "missing": 2,
+   "missing": 0,
    "extra": -1,
-   "recall": 0.667,
+   "recall": 1.0,
    "interim_problem": null,
    "loop": false,
    "status": "ok",
@@ -552,11 +535,8 @@
    "spc_ratio": 1.024,
    "default_defect": false,
    "defect": false,
-   "classified_by": "mechanical default",
-   "flags": [
-    "recall 0.67 (whisper-large-v3-turbo-asr-fp16)",
-    "recall 0.67 (parakeet-tdt-0.6b-v3)"
-   ],
+   "classified_by": "operator",
+   "flags": [],
    "notes": []
   },
   {
@@ -569,37 +549,27 @@
     "mlx-community/whisper-large-v3-turbo-asr-fp16": {
      "transcript": "Here's the Grateful Dead. Live at Red Rocks.",
      "words": 9,
-     "found": 7,
-     "missing": 2,
+     "found": 9,
+     "missing": 0,
      "extra": -1,
-     "recall": 0.778,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "here",
-      "is"
-     ],
-     "extra_words": [
-      "heres"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.95
     },
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "Here's the Grateful Dead, live at Red Rocks.",
      "words": 9,
-     "found": 7,
-     "missing": 2,
+     "found": 9,
+     "missing": 0,
      "extra": -1,
-     "recall": 0.778,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "here",
-      "is"
-     ],
-     "extra_words": [
-      "heres"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.14
     }
    },
@@ -608,9 +578,9 @@
    "render_status": "ok",
    "transcript": "Here's the Grateful Dead. Live at Red Rocks.",
    "words": 9,
-   "missing": 2,
+   "missing": 0,
    "extra": -1,
-   "recall": 0.778,
+   "recall": 1.0,
    "interim_problem": null,
    "loop": false,
    "status": "ok",
@@ -618,11 +588,8 @@
    "spc_ratio": 1.146,
    "default_defect": false,
    "defect": false,
-   "classified_by": "mechanical default",
-   "flags": [
-    "recall 0.78 (whisper-large-v3-turbo-asr-fp16)",
-    "recall 0.78 (parakeet-tdt-0.6b-v3)"
-   ],
+   "classified_by": "operator",
+   "flags": [],
    "notes": []
   },
   {
@@ -688,37 +655,27 @@
     "mlx-community/whisper-large-v3-turbo-asr-fp16": {
      "transcript": "Throw in stones and not fade away brought it all home.",
      "words": 10,
-     "found": 9,
-     "missing": 1,
+     "found": 10,
+     "missing": 0,
      "extra": 1,
-     "recall": 0.9,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "throwin"
-     ],
-     "extra_words": [
-      "in",
-      "throw"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.95
     },
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "Throw in stones and not fade away brought it all home.",
      "words": 10,
-     "found": 9,
-     "missing": 1,
+     "found": 10,
+     "missing": 0,
      "extra": 1,
-     "recall": 0.9,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "throwin"
-     ],
-     "extra_words": [
-      "in",
-      "throw"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.17
     }
    },
@@ -727,9 +684,9 @@
    "render_status": "ok",
    "transcript": "Throw in stones and not fade away brought it all home.",
    "words": 10,
-   "missing": 1,
+   "missing": 0,
    "extra": 1,
-   "recall": 0.9,
+   "recall": 1.0,
    "interim_problem": null,
    "loop": false,
    "status": "ok",
@@ -2572,22 +2529,19 @@
     "mlx-community/whisper-large-v3-turbo-asr-fp16": {
      "transcript": "After drums and the jam, the band charged through the other one. Jerry sang Warfrat for all he was worth. And Bob Weir hollered the set home with Turn On Your Love Light.",
      "words": 32,
-     "found": 28,
-     "missing": 4,
+     "found": 29,
+     "missing": 3,
      "extra": 0,
-     "recall": 0.875,
+     "recall": 0.906,
      "loop": false,
      "interim_problem": null,
      "missing_words": [
       "drumz",
-      "lovelight",
       "rat",
       "wharf"
      ],
      "extra_words": [
       "drums",
-      "light",
-      "love",
       "warfrat"
      ],
      "wall_s": 1.49
@@ -2595,23 +2549,17 @@
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "After drums and the jam the band charged through the other one, Jerry sang Wharfrat for all he was worth and Bob Weir hollered the set home with Turn on Your Love Light.",
      "words": 32,
-     "found": 28,
-     "missing": 4,
+     "found": 31,
+     "missing": 1,
      "extra": 0,
-     "recall": 0.875,
+     "recall": 0.969,
      "loop": false,
      "interim_problem": null,
      "missing_words": [
-      "drumz",
-      "lovelight",
-      "rat",
-      "wharf"
+      "drumz"
      ],
      "extra_words": [
-      "drums",
-      "light",
-      "love",
-      "wharfrat"
+      "drums"
      ],
      "wall_s": 0.28
     }
@@ -2621,9 +2569,9 @@
    "render_status": "ok",
    "transcript": "After drums and the jam, the band charged through the other one. Jerry sang Warfrat for all he was worth. And Bob Weir hollered the set home with Turn On Your Love Light.",
    "words": 32,
-   "missing": 4,
+   "missing": 3,
    "extra": 0,
-   "recall": 0.875,
+   "recall": 0.906,
    "interim_problem": null,
    "loop": false,
    "status": "ok",
@@ -2766,19 +2714,14 @@
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "When the dew finally arrives to night, it feels to me less like a song and more like a comet passing overhead, and I'd suggest you put down whatever is in your hands and simply listen.",
      "words": 35,
-     "found": 34,
-     "missing": 1,
+     "found": 35,
+     "missing": 0,
      "extra": 1,
-     "recall": 0.971,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "tonight"
-     ],
-     "extra_words": [
-      "night",
-      "to"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.32
     }
    },
@@ -3090,39 +3033,31 @@
     "mlx-community/whisper-large-v3-turbo-asr-fp16": {
      "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at the Springfield Civic Center Arena, March 28, 1973, wrapping up with China Cat Sunflower into I Know You, Ryder.",
      "words": 35,
-     "found": 32,
-     "missing": 3,
+     "found": 34,
+     "missing": 1,
      "extra": -1,
-     "recall": 0.914,
+     "recall": 0.971,
      "loop": false,
      "interim_problem": null,
      "missing_words": [
-      "are",
-      "rider",
-      "you"
+      "rider"
      ],
      "extra_words": [
-      "ryder",
-      "youre"
+      "ryder"
      ],
      "wall_s": 1.7
     },
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at the Springfield Civic Center Arena, march twenty eighth, nineteen seventy three, wrapping up with China Cat Sunflower into I Know You Rider.",
      "words": 35,
-     "found": 33,
-     "missing": 2,
+     "found": 35,
+     "missing": 0,
      "extra": -1,
-     "recall": 0.943,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "are",
-      "you"
-     ],
-     "extra_words": [
-      "youre"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.48
     }
    },
@@ -3131,9 +3066,9 @@
    "render_status": "ok",
    "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at the Springfield Civic Center Arena, March 28, 1973, wrapping up with China Cat Sunflower into I Know You, Ryder.",
    "words": 35,
-   "missing": 3,
+   "missing": 1,
    "extra": -1,
-   "recall": 0.914,
+   "recall": 0.971,
    "interim_problem": null,
    "loop": false,
    "status": "ok",
@@ -3425,19 +3360,14 @@
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "Listen for West LA.",
      "words": 5,
-     "found": 3,
-     "missing": 2,
+     "found": 5,
+     "missing": 0,
      "extra": -1,
-     "recall": 0.6,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "a",
-      "l"
-     ],
-     "extra_words": [
-      "la"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.17
     }
    },
@@ -3456,9 +3386,8 @@
    "spc_ratio": 1.828,
    "default_defect": false,
    "defect": false,
-   "classified_by": "mechanical default",
+   "classified_by": "operator",
    "flags": [
-    "recall 0.60 (parakeet-tdt-0.6b-v3)",
     "1.83x its voice's median s/char"
    ],
    "notes": []
@@ -3473,37 +3402,27 @@
     "mlx-community/whisper-large-v3-turbo-asr-fp16": {
      "transcript": "Throw in stones and not fade away. Brought it all home.",
      "words": 10,
-     "found": 9,
-     "missing": 1,
+     "found": 10,
+     "missing": 0,
      "extra": 1,
-     "recall": 0.9,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "throwin"
-     ],
-     "extra_words": [
-      "in",
-      "throw"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 1.06
     },
     "mlx-community/parakeet-tdt-0.6b-v3": {
      "transcript": "Throw in stones, and not fade away, brought it all home.",
      "words": 10,
-     "found": 9,
-     "missing": 1,
+     "found": 10,
+     "missing": 0,
      "extra": 1,
-     "recall": 0.9,
+     "recall": 1.0,
      "loop": false,
      "interim_problem": null,
-     "missing_words": [
-      "throwin"
-     ],
-     "extra_words": [
-      "in",
-      "throw"
-     ],
+     "missing_words": [],
+     "extra_words": [],
      "wall_s": 0.16
     }
    },
@@ -3512,9 +3431,9 @@
    "render_status": "ok",
    "transcript": "Throw in stones and not fade away. Brought it all home.",
    "words": 10,
-   "missing": 1,
+   "missing": 0,
    "extra": 1,
-   "recall": 0.9,
+   "recall": 1.0,
    "interim_problem": null,
    "loop": false,
    "status": "ok",
@@ -4119,7 +4038,7 @@
      "extra": 8,
      "recall": 0.0,
      "loop": false,
-     "interim_problem": "only 0 of the script's 4 words were heard",
+     "interim_problem": "none of the script's 4 words were heard",
      "missing_words": [
       "dew",
       "here",
@@ -4163,86 +4082,6 @@
  },
  "flagged": [
   {
-   "index": 0,
-   "kind": "sentence",
-   "voice": "phil_ex",
-   "text": "Listen for West L.A.",
-   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/000-sentence-phil_ex.wav",
-   "seconds": 1.68,
-   "chars": 20,
-   "spc_ratio": 1.483,
-   "recall": 1.0,
-   "flags": [
-    "recall 0.60 (parakeet-tdt-0.6b-v3)"
-   ],
-   "notes": [],
-   "default_defect": false,
-   "defect": false,
-   "classified_by": "mechanical default",
-   "transcripts": {
-    "mlx-community/whisper-large-v3-turbo-asr-fp16": "Listen for West L.A.",
-    "mlx-community/parakeet-tdt-0.6b-v3": "Listen for West LA."
-   },
-   "recalls": {
-    "mlx-community/whisper-large-v3-turbo-asr-fp16": 1.0,
-    "mlx-community/parakeet-tdt-0.6b-v3": 0.6
-   }
-  },
-  {
-   "index": 2,
-   "kind": "sentence",
-   "voice": "phil_ex",
-   "text": "Here is the second set, from Pittsburgh.",
-   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/002-sentence-phil_ex.wav",
-   "seconds": 2.32,
-   "chars": 40,
-   "spc_ratio": 1.024,
-   "recall": 0.667,
-   "flags": [
-    "recall 0.67 (whisper-large-v3-turbo-asr-fp16)",
-    "recall 0.67 (parakeet-tdt-0.6b-v3)"
-   ],
-   "notes": [],
-   "default_defect": false,
-   "defect": false,
-   "classified_by": "mechanical default",
-   "transcripts": {
-    "mlx-community/whisper-large-v3-turbo-asr-fp16": "Here's the second set from Pittsburgh.",
-    "mlx-community/parakeet-tdt-0.6b-v3": "Here's the second set from Pittsburgh."
-   },
-   "recalls": {
-    "mlx-community/whisper-large-v3-turbo-asr-fp16": 0.667,
-    "mlx-community/parakeet-tdt-0.6b-v3": 0.667
-   }
-  },
-  {
-   "index": 3,
-   "kind": "sentence",
-   "voice": "kurt1",
-   "text": "Here is the Grateful Dead, live at Red Rocks.",
-   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/003-sentence-kurt1.wav",
-   "seconds": 2.8,
-   "chars": 45,
-   "spc_ratio": 1.146,
-   "recall": 0.778,
-   "flags": [
-    "recall 0.78 (whisper-large-v3-turbo-asr-fp16)",
-    "recall 0.78 (parakeet-tdt-0.6b-v3)"
-   ],
-   "notes": [],
-   "default_defect": false,
-   "defect": false,
-   "classified_by": "mechanical default",
-   "transcripts": {
-    "mlx-community/whisper-large-v3-turbo-asr-fp16": "Here's the Grateful Dead. Live at Red Rocks.",
-    "mlx-community/parakeet-tdt-0.6b-v3": "Here's the Grateful Dead, live at Red Rocks."
-   },
-   "recalls": {
-    "mlx-community/whisper-large-v3-turbo-asr-fp16": 0.778,
-    "mlx-community/parakeet-tdt-0.6b-v3": 0.778
-   }
-  },
-  {
    "index": 53,
    "kind": "voxtral",
    "voice": "voxtral-house",
@@ -4253,20 +4092,19 @@
    "spc_ratio": 1.828,
    "recall": 1.0,
    "flags": [
-    "recall 0.60 (parakeet-tdt-0.6b-v3)",
     "1.83x its voice's median s/char"
    ],
    "notes": [],
    "default_defect": false,
    "defect": false,
-   "classified_by": "mechanical default",
+   "classified_by": "operator",
    "transcripts": {
     "mlx-community/whisper-large-v3-turbo-asr-fp16": "Listen for West L.A.",
     "mlx-community/parakeet-tdt-0.6b-v3": "Listen for West LA."
    },
    "recalls": {
     "mlx-community/whisper-large-v3-turbo-asr-fp16": 1.0,
-    "mlx-community/parakeet-tdt-0.6b-v3": 0.6
+    "mlx-community/parakeet-tdt-0.6b-v3": 1.0
    }
   }
  ],
@@ -4288,35 +4126,35 @@
    "chatterbox-fp16": "clip is 10.1s, at the 6.6s token cap (a capped runaway)"
   },
   "thresholds": {
-   "MISS_FLOOR": 3,
-   "MISS_FRACTION": 0.35,
+   "MISS_FLOOR": 2,
+   "MISS_FRACTION": 0.25,
    "EXTRA_FLOOR": 4,
    "EXTRA_FRACTION": 0.25
   },
   "verify_checks": {
    "clean_failures": [],
    "qwen3tts-0.6b-bf16": "heard 57 words for a 23-word script",
-   "chatterbox-fp16": "heard 15 words for a 4-word script"
+   "chatterbox-fp16": "only 1 of the script's 4 words were heard"
   },
   "defects_passing": [],
   "per_stt": {
    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
     "thresholds": {
-     "MISS_FLOOR": 3,
-     "MISS_FRACTION": 0.35,
+     "MISS_FLOOR": 2,
+     "MISS_FRACTION": 0.25,
      "EXTRA_FLOOR": 4,
      "EXTRA_FRACTION": 0.25
     },
     "derivations": {
      "all": {
-      "MISS_FLOOR": 3,
-      "MISS_FRACTION": 0.35,
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.25,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
      },
      "mlx": {
-      "MISS_FLOOR": 3,
-      "MISS_FRACTION": 0.35,
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.25,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
      },
@@ -4340,32 +4178,32 @@
     "verify_checks": {
      "clean_failures": [],
      "qwen3tts-0.6b-bf16": "heard 57 words for a 23-word script",
-     "chatterbox-fp16": "heard 15 words for a 4-word script"
+     "chatterbox-fp16": "only 1 of the script's 4 words were heard"
     },
     "defects_passing": []
    },
    "mlx-community/parakeet-tdt-0.6b-v3": {
     "thresholds": {
-     "MISS_FLOOR": 3,
-     "MISS_FRACTION": 0.35,
+     "MISS_FLOOR": 2,
+     "MISS_FRACTION": 0.25,
      "EXTRA_FLOOR": 4,
      "EXTRA_FRACTION": 0.25
     },
     "derivations": {
      "all": {
-      "MISS_FLOOR": 3,
-      "MISS_FRACTION": 0.35,
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.25,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
      },
      "mlx": {
-      "MISS_FLOOR": 3,
-      "MISS_FRACTION": 0.35,
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.25,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
      },
      "voxtral": {
-      "MISS_FLOOR": 3,
+      "MISS_FLOOR": 2,
       "MISS_FRACTION": 0.15,
       "EXTRA_FLOOR": 4,
       "EXTRA_FRACTION": 0.25
@@ -4384,10 +4222,30 @@
     "verify_checks": {
      "clean_failures": [],
      "qwen3tts-0.6b-bf16": null,
-     "chatterbox-fp16": "only 0 of the script's 4 words were heard"
+     "chatterbox-fp16": "none of the script's 4 words were heard"
     },
     "defects_passing": []
    }
+  },
+  "adopted_guard": {
+   "deviation": "max_s_per_char = cap_s_per_char = 0.09 (derived 0.08)",
+   "calibration": {
+    "frame_rate_hz": 12.5,
+    "cap_floor_s": 5.0,
+    "cap_s_per_char": 0.09,
+    "max_floor_s": 2.0,
+    "max_s_per_char": 0.09,
+    "min_s_per_char": 0.04,
+    "min_slack_s": 0.5,
+    "cap_margin_s": 1.0
+   },
+   "guard_checks": {
+    "clean_failures": [],
+    "qwen3tts-0.6b-bf16 cap-margin": "clip is 18.2s, at the 18.2s token cap (a capped runaway)",
+    "qwen3tts-0.6b-bf16 measured-vs-long-limit": "320.0s > long limit 15.2s",
+    "chatterbox-fp16": "clip is 10.1s, at the 6.8s token cap (a capped runaway)"
+   },
+   "clean_long_limit_ratio_max": 0.712
   }
  },
  "analysis": {
@@ -4399,13 +4257,13 @@
        "n": 53,
        "median": 0,
        "p90": 2,
-       "max": 4
+       "max": 3
       },
       "missing_per_word": {
        "n": 53,
        "median": 0.0,
-       "p90": 0.086,
-       "max": 0.333
+       "p90": 0.048,
+       "max": 0.158
       },
       "extra": {
        "n": 53,
@@ -4420,11 +4278,10 @@
        "max": 0.1
       },
       "missing_histogram": {
-       "0": 34,
+       "0": 37,
        "1": 10,
-       "2": 4,
-       "3": 4,
-       "4": 1
+       "2": 2,
+       "3": 4
       },
       "extra_histogram": {
        "-1": 5,
@@ -4436,14 +4293,14 @@
       "missing": {
        "n": 10,
        "median": 0.0,
-       "p90": 1,
+       "p90": 0,
        "max": 1
       },
       "missing_per_word": {
        "n": 10,
        "median": 0.0,
-       "p90": 0.038,
-       "max": 0.1
+       "p90": 0.0,
+       "max": 0.038
       },
       "extra": {
        "n": 10,
@@ -4458,8 +4315,8 @@
        "max": 0.1
       },
       "missing_histogram": {
-       "0": 8,
-       "1": 2
+       "0": 9,
+       "1": 1
       },
       "extra_histogram": {
        "0": 8,
@@ -4470,16 +4327,20 @@
     "false_alarms": {
      "mlx": {
       "loo_all_derivation": {
-       "failed": 0,
+       "failed": 1,
        "of": 53,
-       "rate": 0.0,
-       "units": []
+       "rate": 0.019,
+       "units": [
+        21
+       ]
       },
       "loo_own_backend_derivation": {
-       "failed": 0,
+       "failed": 1,
        "of": 53,
-       "rate": 0.0,
-       "units": []
+       "rate": 0.019,
+       "units": [
+        21
+       ]
       },
       "interim": {
        "failed": 0,
@@ -4571,14 +4432,14 @@
       "missing": {
        "n": 53,
        "median": 0,
-       "p90": 2,
+       "p90": 1,
        "max": 4
       },
       "missing_per_word": {
        "n": 53,
        "median": 0.0,
-       "p90": 0.1,
-       "max": 0.4
+       "p90": 0.04,
+       "max": 0.158
       },
       "extra": {
        "n": 53,
@@ -4593,11 +4454,11 @@
        "max": 0.1
       },
       "missing_histogram": {
-       "0": 35,
-       "1": 8,
-       "2": 6,
+       "0": 41,
+       "1": 7,
+       "2": 2,
        "3": 1,
-       "4": 3
+       "4": 2
       },
       "extra_histogram": {
        "-1": 7,
@@ -4610,13 +4471,13 @@
        "n": 10,
        "median": 0.0,
        "p90": 1,
-       "max": 2
+       "max": 1
       },
       "missing_per_word": {
        "n": 10,
        "median": 0.0,
-       "p90": 0.1,
-       "max": 0.4
+       "p90": 0.038,
+       "max": 0.048
       },
       "extra": {
        "n": 10,
@@ -4631,9 +4492,8 @@
        "max": 0.1
       },
       "missing_histogram": {
-       "0": 6,
-       "1": 3,
-       "2": 1
+       "0": 8,
+       "1": 2
       },
       "extra_histogram": {
        "-1": 1,
@@ -4645,16 +4505,20 @@
     "false_alarms": {
      "mlx": {
       "loo_all_derivation": {
-       "failed": 0,
+       "failed": 1,
        "of": 53,
-       "rate": 0.0,
-       "units": []
+       "rate": 0.019,
+       "units": [
+        21
+       ]
       },
       "loo_own_backend_derivation": {
-       "failed": 0,
+       "failed": 1,
        "of": 53,
-       "rate": 0.0,
-       "units": []
+       "rate": 0.019,
+       "units": [
+        21
+       ]
       },
       "interim": {
        "failed": 0,
@@ -4669,10 +4533,12 @@
        "units": []
       },
       "voxtral_derived_thresholds": {
-       "failed": 0,
+       "failed": 1,
        "of": 53,
-       "rate": 0.0,
-       "units": []
+       "rate": 0.019,
+       "units": [
+        21
+       ]
       }
      },
      "voxtral": {

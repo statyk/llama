@@ -24,15 +24,14 @@ MODELS_PATH = "/v1/models"
 # preset-voice model (provenance: docs/superpowers/2026-10-12-mlx-audio-calibration.md).
 PREFLIGHT_CLIP = "preflight_en.wav"
 
-# Gross-mismatch thresholds. INTERIM values, replaced by the measured ones
-# from the calibration run (implementation plan Task 12). A script of n
-# comparable words may lose up to max(MISS_FLOOR, int(MISS_FRACTION * n))
-# of them, and the transcript may run up to max(EXTRA_FLOOR,
-# int(EXTRA_FRACTION * n)) words longer.
+# Gross-mismatch thresholds. Measured: docs/superpowers/2026-10-12-mlx-audio-calibration.md.
+# A script of n comparable words may lose up to max(MISS_FLOOR,
+# int(MISS_FRACTION * n)) of them, and the transcript may run up to
+# max(EXTRA_FLOOR, int(EXTRA_FRACTION * n)) words longer.
 MISS_FLOOR = 2
 MISS_FRACTION = 0.25
 EXTRA_FLOOR = 4
-EXTRA_FRACTION = 0.5
+EXTRA_FRACTION = 0.25
 
 NUMBER_WORDS = frozenset("""
     zero one two three four five six seven eight nine ten eleven twelve thirteen

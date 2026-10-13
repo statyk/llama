@@ -39,10 +39,23 @@ class ModelCalibration:
             raise ValueError("cap_floor_s - cap_margin_s must exceed max_floor_s")
 
 
-# Model id -> calibration. EMPTY until the calibration run (implementation
-# plan Task 12) measures the first entry: nothing voices on mlx_audio with
-# guessed constants. Tests register a test-only entry (tests/mlx_helpers.py).
-CALIBRATED_MODELS: dict[str, ModelCalibration] = {}
+QWEN3_TTS_1_7B_BASE = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
+
+# Model id -> calibration. Every entry is MEASURED; adding a model means a
+# calibration run (scripts/mlx_audio_calibrate.py). Evidence and derivation:
+# docs/superpowers/2026-10-12-mlx-audio-calibration.md.
+CALIBRATED_MODELS: dict[str, ModelCalibration] = {
+    QWEN3_TTS_1_7B_BASE: ModelCalibration(
+        frame_rate_hz=12.5,          # qwen3_tts/config.py
+        cap_floor_s=5.0,
+        cap_s_per_char=0.09,         # = max_s_per_char
+        max_floor_s=2.0,
+        max_s_per_char=0.09,         # derived 0.08; 0.09 approved by the operator (take spread)
+        min_s_per_char=0.04,
+        min_slack_s=0.5,
+        cap_margin_s=1.0,
+    ),
+}
 
 
 def text_units(text: str) -> int:

@@ -37,6 +37,7 @@ every unit's WAV goes under --clips-dir.
 """
 import argparse
 import contextlib
+import dataclasses
 import io
 import json
 import math
@@ -58,7 +59,7 @@ from emcee.tts.calibration import (ModelCalibration, cap_seconds, guard_problem,
                                    text_units)
 from emcee.tts.mlx_audio import MlxAudioProvider
 from emcee.tts.provider import SpeechError
-from emcee.tts.verify import SttClient, comparable_words, transcript_problem
+from emcee.tts.verify import SttClient, comparable_words, match_words, transcript_problem
 from emcee.tts.voxtral import VoxtralProvider
 
 QWEN = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
@@ -82,7 +83,8 @@ DEFECT_RECALL = 0.5   # mechanical default: a defect below this recall under EVE
 DEFECT_SPC = 2.0      # or above this multiple of the voice's median s/char
 SHORT_WORDS = 8       # the verification derivation splits units at this many comparable words
 THRESHOLD_NAMES = ("MISS_FLOOR", "MISS_FRACTION", "EXTRA_FLOOR", "EXTRA_FRACTION")
-INTERIM = {name: getattr(verify_mod, name) for name in THRESHOLD_NAMES}
+# Task 11's interim thresholds (verify.py carries the measured ones since).
+INTERIM = {"MISS_FLOOR": 2, "MISS_FRACTION": 0.25, "EXTRA_FLOOR": 4, "EXTRA_FRACTION": 0.5}
 MLX_KINDS = ("sentence", "segment")
 # A name the STT models are known to mishear while Qwen says it right (the
 # operator listened; probe doc): misses confined to it are an STT artefact.
@@ -339,13 +341,24 @@ def problem_under(values: dict, text: str, transcript: str) -> str | None:
 
 def score(text: str, heard: str) -> dict:
     want, got = comparable_words(text), comparable_words(heard)
-    common = Counter(want) & Counter(got)
-    found = sum(common.values())
+    found, missing, extra = match_words(want, got)
     return {"transcript": heard, "words": len(want), "found": found, "missing": len(want) - found,
             "extra": len(got) - len(want), "recall": round(found / len(want), 3) if want else 1.0,
             "loop": has_loop(got), "interim_problem": problem_under(INTERIM, text, heard),
-            "missing_words": sorted((Counter(want) - common).elements()),
-            "extra_words": sorted((Counter(got) - common).elements())}
+            "missing_words": sorted(missing.elements()),
+            "extra_words": sorted(extra.elements())}
+
+
+def rescore(data: dict) -> int:
+    """Re-score every saved transcript (every STT model's) with the current
+    matching, without loading any model; returns how many were re-scored."""
+    n = 0
+    for r in data["units"] + data["runaways"]:
+        for model, s in r.get("stt", {}).items():
+            if "transcript" in s:
+                r["stt"][model] = {**s, **score(r["text"], s["transcript"])}
+                n += 1
+    return n
 
 
 def transcribe_pass(data: dict, out: Path, url: str, model: str, server_pid: int | None) -> None:
@@ -511,7 +524,30 @@ def guarded(cal: ModelCalibration, u: dict) -> str | None:
     return guard_problem(cal, u["text"], u["seconds"], max_tokens_for(cal, u["text"]))
 
 
-def recommend(units: list[dict], runaways: list[dict], models: list[str]) -> dict:
+def guard_checks_for(cal: ModelCalibration, mlx: list[dict], runaways: list[dict]) -> dict:
+    """Step 3's guard checks: no clean mlx unit may fail; both runaways must."""
+    guard_checks = {"clean_failures": [u["text"] for u in mlx if guarded(cal, u)]}
+    for r in runaways:
+        if r.get("status") != "ok":
+            continue
+        mt = max_tokens_for(cal, r["text"])
+        if r["slug"].startswith("qwen"):
+            # The 0.6B runaway ran into its max_tokens, so under this cap it
+            # would end AT the cap: the cap-margin check fails it by
+            # construction. Its measured duration (320 s) is checked against
+            # the non-cap long limit as well.
+            guard_checks[f"{r['slug']} cap-margin"] = guard_problem(
+                cal, r["text"], cap_seconds(cal, mt), mt)
+            longest = cal.max_floor_s + cal.max_s_per_char * r["chars"]
+            guard_checks[f"{r['slug']} measured-vs-long-limit"] = (
+                f"{r['seconds']}s > long limit {longest:.1f}s" if r["seconds"] > longest else None)
+        else:  # Chatterbox's babble is a plain over-long clip
+            guard_checks[r["slug"]] = guard_problem(cal, r["text"], r["seconds"], mt)
+    return guard_checks
+
+
+def recommend(units: list[dict], runaways: list[dict], models: list[str],
+              max_spc_override: float | None = None) -> dict:
     """Derivation rules (the evidence doc restates them):
     clean = status ok, not a loop (under any STT model), not classified a
       defect (`classify`).
@@ -541,23 +577,20 @@ def recommend(units: list[dict], runaways: list[dict], models: list[str]) -> dic
                            cap_s_per_char=max_spc, max_floor_s=max_floor_s,
                            max_s_per_char=max_spc, min_s_per_char=min_spc,
                            min_slack_s=min_slack_s, cap_margin_s=1.0)
-    guard_checks = {"clean_failures": [u["text"] for u in mlx if guarded(cal, u)]}
-    for r in runaways:
-        if r.get("status") != "ok":
-            continue
-        mt = max_tokens_for(cal, r["text"])
-        if r["slug"].startswith("qwen"):
-            # The 0.6B runaway ran into its max_tokens, so under this cap it
-            # would end AT the cap: the cap-margin check fails it by
-            # construction. Its measured duration (320 s) is checked against
-            # the non-cap long limit as well.
-            guard_checks[f"{r['slug']} cap-margin"] = guard_problem(
-                cal, r["text"], cap_seconds(cal, mt), mt)
-            longest = cal.max_floor_s + cal.max_s_per_char * r["chars"]
-            guard_checks[f"{r['slug']} measured-vs-long-limit"] = (
-                f"{r['seconds']}s > long limit {longest:.1f}s" if r["seconds"] > longest else None)
-        else:  # Chatterbox's babble is a plain over-long clip
-            guard_checks[r["slug"]] = guard_problem(cal, r["text"], r["seconds"], mt)
+    guard_checks = guard_checks_for(cal, mlx, runaways)
+    adopted = None
+    if max_spc_override is not None:
+        # An operator-approved deviation: the adopted max_s_per_char, with
+        # cap_s_per_char kept equal to it as the derivation rule has it.
+        acal = dataclasses.replace(cal, max_s_per_char=max_spc_override,
+                                   cap_s_per_char=max_spc_override)
+        adopted = {"deviation": f"max_s_per_char = cap_s_per_char = {max_spc_override} "
+                                f"(derived {max_spc})",
+                   "calibration": {f: getattr(acal, f) for f in acal.__dataclass_fields__},
+                   "guard_checks": guard_checks_for(acal, mlx, runaways),
+                   "clean_long_limit_ratio_max": round(max(
+                       u["seconds"] / (acal.max_floor_s + acal.max_s_per_char * u["chars"])
+                       for u in mlx), 3)}
 
     per_stt = {}
     for model in models:
@@ -591,7 +624,8 @@ def recommend(units: list[dict], runaways: list[dict], models: list[str]) -> dic
     return {"calibration": {f: getattr(cal, f) for f in cal.__dataclass_fields__},
             "guard_checks": guard_checks, "thresholds": primary.get("thresholds"),
             "verify_checks": primary.get("verify_checks"),
-            "defects_passing": primary.get("defects_passing"), "per_stt": per_stt}
+            "defects_passing": primary.get("defects_passing"), "per_stt": per_stt,
+            "adopted_guard": adopted}
 
 
 # ------------------------------------------------------------------ analysis
@@ -757,6 +791,10 @@ def main() -> None:
                     help="resume from --out's saved units; render only what is missing")
     ap.add_argument("--defects", default="", help="unit indices the operator heard as defects")
     ap.add_argument("--artefacts", default="", help="unit indices the operator heard as artefacts")
+    ap.add_argument("--rescore", action="store_true",
+                    help="with --reuse: re-score every saved transcript with the current matching")
+    ap.add_argument("--max-s-per-char", type=float, default=None,
+                    help="an adopted max_s_per_char (= cap_s_per_char) to re-check the guard at")
     a = ap.parse_args()
     out = Path(a.out)
     models = list(dict.fromkeys(a.stt_model))
@@ -800,13 +838,16 @@ def main() -> None:
         save(out, data)
     for model in models:
         transcribe_pass(data, out, a.url, model, a.server_pid)
+    if a.rescore:
+        log(f"re-scored {rescore(data)} saved transcripts")
     finalize(data, primary)
 
     def indices(arg: str) -> set[int]:
         return {int(x) for x in arg.split(",") if x.strip()}
 
     data["flagged"] = classify(data["units"], indices(a.defects), indices(a.artefacts))
-    data["recommendation"] = recommend(data["units"], data["runaways"], models)
+    data["recommendation"] = recommend(data["units"], data["runaways"], models,
+                                       a.max_s_per_char)
     data["analysis"] = analyse(data["units"], data["runaways"], data["recommendation"], models)
     save(out, data)
     print(json.dumps({"flagged": data["flagged"], "recommendation": data["recommendation"]},
