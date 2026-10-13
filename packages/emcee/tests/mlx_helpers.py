@@ -46,37 +46,63 @@ def plausible_seconds(text: str) -> float:
 class MlxServer:
     """An httpx MockTransport handler standing in for mlx_audio.server.
 
-    Speech requests are recorded in `speech_bodies` and answered with a
-    plausible silent WAV; `down=True` raises ConnectError for every request
-    (counted in `connect_attempts`)."""
+    - speech: recorded in `speech_bodies`, answered with a plausible silent WAV,
+      or `speech_status` when that is not 200 (an unknown/unloadable model);
+    - transcription: recorded in `transcriptions`; answers `transcript(last)`
+      where `last` is the last synthesized input (default: echo `last`), or
+      `stt_status` when that is not 200;
+    - DELETE /v1/models: recorded in `deletes`, 204.
+    `down=True` raises ConnectError for every request, `stt_down=True` for
+    transcription only (both counted in `connect_attempts`)."""
 
-    def __init__(self, *, down: bool = False):
+    def __init__(self, *, down: bool = False, stt_down: bool = False, transcript=None,
+                 stt_status: int = 200, speech_status: int = 200):
         self.down = down
+        self.stt_down = stt_down
+        self.transcript = transcript
+        self.stt_status = stt_status
+        self.speech_status = speech_status
         self.speech_bodies: list[dict] = []
         self.transcriptions: list[httpx.Request] = []
         self.deletes: list[dict] = []
         self.connect_attempts = 0
+        self._last_input = ""
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
-        if self.down:
+        path = request.url.path
+        if self.down or (self.stt_down and path == "/v1/audio/transcriptions"):
             self.connect_attempts += 1
             raise httpx.ConnectError("connection refused", request=request)
-        if request.url.path == "/v1/audio/speech":
+        if path == "/v1/audio/speech":
             body = json.loads(request.content)
             self.speech_bodies.append(body)
+            self._last_input = body["input"]
+            if self.speech_status != 200:
+                return httpx.Response(self.speech_status, text="Model could not be loaded")
             return httpx.Response(200, content=wav_bytes(plausible_seconds(body["input"])))
-        return httpx.Response(404, text=f"no route {request.method} {request.url.path}")
+        if path == "/v1/audio/transcriptions":
+            self.transcriptions.append(request)
+            if self.stt_status != 200:
+                return httpx.Response(self.stt_status, text="transcription failed")
+            heard = self.transcript(self._last_input) if self.transcript else self._last_input
+            return httpx.Response(200, json={"text": heard})
+        if path == "/v1/models" and request.method == "DELETE":
+            self.deletes.append(dict(request.url.params))
+            return httpx.Response(204)
+        return httpx.Response(404, text=f"no route {request.method} {path}")
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self)
 
 
 def install_mlx(monkeypatch, server: MlxServer) -> None:
-    """Route the factory's MlxAudioProvider through `server`: no real HTTP,
-    no retry sleep."""
+    """Route the factory's MlxAudioProvider and SttClient through `server`:
+    no real HTTP, no retry sleep."""
     from functools import partial
 
     from emcee.tts.mlx_audio import MlxAudioProvider
+    from emcee.tts.verify import SttClient
     monkeypatch.setattr("emcee.tts.MlxAudioProvider",
                         partial(MlxAudioProvider, transport=server.transport(),
                                 sleep=lambda s: None))
+    monkeypatch.setattr("emcee.tts.SttClient", partial(SttClient, transport=server.transport()))

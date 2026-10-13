@@ -2,6 +2,7 @@
 (spec Stakes 1 and 2) end to end through `emcee run`, `emcee voice` and
 `emcee say --presenter`."""
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from typer.testing import CliRunner
 import emcee.process as process_mod
 from emcee.cli import _process_one, app
 from emcee.config import EmceeConfig, load_config
+from emcee.errors import EmceeError
 from emcee.package_io import Package
 from emcee.presenters import Presenter, save_presenter
 from emcee.process import speech_for
@@ -357,3 +359,85 @@ def test_repinning_a_presenter_changes_the_cache_key(tmp_path, monkeypatch):
 
     assert set(fake_keys.values()).isdisjoint(mlx_keys.values())
     assert json.loads(sidecar.read_text()) == fake_keys
+
+
+# --- strict surface 2: every configuration-only failure kind ----------------------
+# (Task 11: the first task in which every kind below exists.)
+
+_CONFIG_ONLY_FAILURES = [
+    "unpinned presenter under an mlx house", "missing mlx model", "uncalibrated model",
+    "unloadable model", "blank house transcript", "mlx house voice, server down",
+    "mlx-pinned presenter, server down", "verification listed, STT unreachable",
+]
+
+
+def _config_only_failure(tmp_path, monkeypatch, case: str) -> tuple[Path, MlxServer, str]:
+    """A broadcast-ready package (dj-audio/set1-intro.mp3 on disk) whose next
+    voicing fails on configuration alone. Returns the package dir, the mock
+    server to install and the expected error substring."""
+    calibrate_test_model(monkeypatch)
+    monkeypatch.setenv("MISTRAL_API_KEY", "k-env")  # a hosted fallback would have a key
+    house_clip = tmp_path / "house.wav"
+    house_clip.write_bytes(wav_bytes(1.0))
+
+    def mlx_house(transcript: str) -> str:
+        return (f'[tts]\nbackend = "mlx_audio"\nvoice_clone = "{house_clip}"\n'
+                f'voice_clone_text = "{transcript}"\n')
+
+    tts, mlx, verify = _VOXTRAL_HOUSE, f'model = "{TEST_MODEL}"\n', ""
+    profile, phil, server = "dead", {}, MlxServer()
+    if case == "unpinned presenter under an mlx house":
+        tts, phil, error = mlx_house("Hi there."), {"tts": None}, "pin tts explicitly"
+    elif case == "missing mlx model":
+        mlx, error = "", "no mlx_audio model"
+    elif case == "uncalibrated model":
+        mlx, error = 'model = "other/uncalibrated"\n', "not calibrated for the runaway guard"
+    elif case == "unloadable model":
+        server, error = MlxServer(speech_status=500), "mlx-audio returned 500"
+    elif case == "blank house transcript":
+        tts, profile, error = mlx_house("   "), None, "set [tts] voice_clone_text"
+    elif case == "mlx house voice, server down":
+        tts, profile, error = mlx_house("Hi there."), None, "not reachable"
+        server = MlxServer(down=True)
+    elif case == "mlx-pinned presenter, server down":
+        server, error = MlxServer(down=True), "not reachable"
+    elif case == "verification listed, STT unreachable":
+        mlx += 'stt_model = "stt/test-model"\n'
+        verify = '[tts.verify]\nbackends = ["mlx_audio"]\n'
+        server, error = MlxServer(stt_down=True), "for transcription"
+    else:
+        raise AssertionError(case)
+    home, station = tmp_path / "home", tmp_path / "station"
+    home.mkdir()
+    station.mkdir()
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    (home / "config.toml").write_text(f'[station]\nroot = "{station}"\n\n{tts}\n'
+                                      f'[tts.mlx_audio]\n{mlx}\n{verify}\n{_ASSIGN_DEAD}\n')
+    _phil(home, **phil)
+    return build_package(station, slug="showA", profile=profile, voiced=True), server, error
+
+
+@pytest.mark.parametrize("driver", ["_process_one", "voice --fresh"])
+@pytest.mark.parametrize("case", _CONFIG_ONLY_FAILURES)
+def test_a_config_only_failure_spends_nothing_and_keeps_the_package(tmp_path, monkeypatch,
+                                                                    case, driver):
+    pkg_dir, server, error = _config_only_failure(tmp_path, monkeypatch, case)
+    install_mlx(monkeypatch, server)
+    constructed = _forbid_hosted(monkeypatch)
+    tasks = _arm_llm(monkeypatch)
+    manifest = (pkg_dir / "manifest.json").read_bytes()
+    clip = pkg_dir / "dj-audio" / "set1-intro.mp3"
+    clip_bytes = clip.read_bytes()
+
+    if driver == "_process_one":
+        with pytest.raises(EmceeError, match=re.escape(error)):
+            _process_one(load_config(), Package(pkg_dir), False, fresh=["set1-intro"])
+    else:
+        result = runner.invoke(app, ["voice", str(pkg_dir), "--fresh", "set1-intro"])
+        assert result.exit_code == 1
+        assert error in result.stderr
+
+    assert tasks == []  # scriptwrite never called
+    assert constructed == []  # no hosted provider
+    assert (pkg_dir / "manifest.json").read_bytes() == manifest
+    assert clip.exists() and clip.read_bytes() == clip_bytes  # the --fresh clip survives

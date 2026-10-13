@@ -6,6 +6,7 @@ from emcee.tts.mlx_audio import MlxAudioProvider
 from emcee.tts.provider import SpeechError, SpeechProvider
 from emcee.tts.quality import QualitySpeech
 from emcee.tts.resolve import TTSResolution
+from emcee.tts.verify import SttClient, Verifier
 from emcee.tts.voxtral import VoxtralProvider
 
 
@@ -42,6 +43,20 @@ def _mlx_provider(config: EmceeConfig, resolution: TTSResolution, *, voice: str 
                             timeout_s=mlx.timeout_s)
 
 
+def _quality(config: EmceeConfig, resolution: TTSResolution, inner) -> SpeechProvider:
+    """Every mlx_audio provider gets the quality layer (the guard's retry);
+    every provider whose backend is listed in [tts.verify] backends also gets
+    a verifier on [tts.mlx_audio] stt_model (config guarantees one is set)."""
+    listed = resolution.backend in config.tts.verify.backends
+    if resolution.backend != "mlx_audio" and not listed:
+        return inner
+    verifier = None
+    if listed:
+        mlx = config.tts.mlx_audio
+        verifier = Verifier(SttClient(url=mlx.url, model=mlx.stt_model, timeout_s=mlx.timeout_s))
+    return QualitySpeech(inner, backend=resolution.backend, verifier=verifier)
+
+
 def speech_provider_for(config: EmceeConfig, resolution: TTSResolution, *,
                         voice: str | None, clone_ref: str | None,
                         clone_text: str | None) -> SpeechProvider:
@@ -65,8 +80,9 @@ def speech_provider_for(config: EmceeConfig, resolution: TTSResolution, *,
         if not (voice or clone_ref):
             raise SpeechError("no Voxtral voice configured: set [tts] voice "
                               "(preset) or [tts] voice_clone (reference clip)")
-        return VoxtralProvider(voice=voice, clone_ref=clone_ref, model=resolution.model,
-                               api_key=resolution.api_key, key_hint=key_hint)
+        return _quality(config, resolution, VoxtralProvider(
+            voice=voice, clone_ref=clone_ref, model=resolution.model,
+            api_key=resolution.api_key, key_hint=key_hint))
     if backend == "elevenlabs":
         if clone_ref:
             raise SpeechError(f"{_who(resolution)}: voice cloning is not available on "
@@ -75,10 +91,9 @@ def speech_provider_for(config: EmceeConfig, resolution: TTSResolution, *,
         if not voice:
             raise SpeechError("no TTS voice configured: "
                               "set [tts] voice or give the profile a presenter")
-        return ElevenLabsProvider(voice=voice, model=resolution.model,
-                                  api_key=resolution.api_key, key_hint=key_hint)
+        return _quality(config, resolution, ElevenLabsProvider(
+            voice=voice, model=resolution.model, api_key=resolution.api_key, key_hint=key_hint))
     if backend == "mlx_audio":
-        return QualitySpeech(_mlx_provider(config, resolution, voice=voice, clone_ref=clone_ref,
-                                           clone_text=clone_text),
-                             backend="mlx_audio", verifier=None)
+        return _quality(config, resolution, _mlx_provider(
+            config, resolution, voice=voice, clone_ref=clone_ref, clone_text=clone_text))
     raise SpeechError(f"unknown TTS backend {backend!r}")

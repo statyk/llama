@@ -113,6 +113,16 @@ def test_preflight_and_close_are_delegated_and_the_inner_identity_kept():
     assert (q.voice, q.model) == ("inner-voice", "inner-model")
 
 
+def _assert_nothing_written_for(pkg_dir, stem):
+    """A failed segment leaves no clip and no render-cache sidecar entry, so
+    a later reorder of write-vs-raise in `_synthesize_dj_audio` fails here."""
+    audio_dir = pkg_dir / "dj-audio"
+    assert not (audio_dir / f"{stem}.mp3").exists()
+    sidecar = audio_dir / "segments.json"
+    if sidecar.exists():
+        assert f"{stem}.mp3" not in json.loads(sidecar.read_text())
+
+
 def test_a_double_failure_in_a_dj_clip_carries_its_segment(tmp_path):
     pkg_dir = build_package(tmp_path / "station", voiced=False)
     notes = ScriptNotes(set_intros={"1": TEXT, "2": "Set two."}, outro="Thanks.")
@@ -120,6 +130,7 @@ def test_a_double_failure_in_a_dj_clip_carries_its_segment(tmp_path):
         _synthesize_dj_audio(pkg_dir, notes, layer(Scripted(defect(), defect())), False)
     assert exc.value.segment == "set1-intro"
     assert "in set1-intro" in str(exc.value)
+    _assert_nothing_written_for(pkg_dir, "set1-intro")
 
 
 def test_a_double_failure_fails_the_package_and_leaves_the_manifest(tmp_path, monkeypatch):
@@ -138,6 +149,7 @@ def test_a_double_failure_fails_the_package_and_leaves_the_manifest(tmp_path, mo
         process_package(config, pkg, layer(Scripted(defect(), defect())))
 
     assert pkg.manifest_path.read_bytes() == before
+    _assert_nothing_written_for(pkg.dir, "set1-intro")
 
 
 def test_a_runaway_then_a_good_take_through_the_real_provider(tmp_path):
