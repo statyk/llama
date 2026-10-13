@@ -29,6 +29,7 @@ from emcee.speech_text import load_lexicon
 from emcee.tts import speech_provider_for
 from emcee.tts.bed import Bed
 from emcee.tts.provider import SpeechBlocked
+from emcee.tts.resolve import resolve_tts
 from emcee.workspace import atomic_write_text
 
 
@@ -93,41 +94,47 @@ def speech_for(config: EmceeConfig, presenter: Presenter | None):
     `[tts] enabled` gate, since emcee has no station-wide voice toggle (it
     always voices what it processes).
 
-    A presenter fully owns its voice: `presenter.voice or
-    presenter.voice_clone` is resolved, and `presenter.voice_clone` is
-    passed as `clone_ref` -- the station `[tts] voice_clone` never bleeds
-    into a presenter's run. With no presenter, falls back to the house
-    `config.tts.voice or config.tts.voice_clone`, `clone_ref=
-    config.tts.voice_clone`. Raises `EmceeError` if no voice can be
+    A presenter fully owns its voice: `presenter.voice` is passed as
+    `voice` and `presenter.voice_clone` as `clone_ref` -- the station
+    `[tts] voice_clone` never bleeds into a presenter's run. With no
+    presenter, the house `config.tts.voice` and `config.tts.voice_clone`
+    are passed the same way. Raises `EmceeError` if no voice can be
     resolved at all -- there is no profile to fault here (unlike llama),
     so the message instead points at `[tts] voice`/`[tts] voice_clone`/the
     presenter's own fields.
+
+    Resolution (`resolve_tts`) runs first and is pure: an unpinned
+    presenter under an mlx_audio house, or a missing/uncalibrated mlx model,
+    raises here -- before any spend and before `_process_one` clears the
+    manifest. The presenter's (or [tts]'s) `voice_clone_text` travels with
+    its clip as `clone_text`.
     """
+    resolution = resolve_tts(config, presenter)
     if presenter is not None:
-        voice = presenter.voice_id  # presenter.voice or presenter.voice_clone
-        clone = presenter.voice_clone
+        voice, clone, text = presenter.voice, presenter.voice_clone, presenter.voice_clone_text
     else:
-        voice = config.tts.voice or config.tts.voice_clone
-        clone = config.tts.voice_clone
-    if not voice:
+        voice, clone, text = config.tts.voice, config.tts.voice_clone, config.tts.voice_clone_text
+    if not (voice or clone):
         raise EmceeError(
             "voice is active but none is configured: set [tts] voice, "
             "[tts] voice_clone, or give the profile a presenter"
         )
-    speech = speech_provider_for(config, voice, clone_ref=clone)
+    speech = speech_provider_for(config, resolution, voice=voice, clone_ref=clone,
+                                 clone_text=text)
     return speech, _resolve_bed(config, presenter)
 
 
 def ad_hoc_speech(config: EmceeConfig, *, clone_ref: str | None = None,
-                  voice: str | None = None, presenter: Presenter | None = None):
+                  clone_text: str | None = None, voice: str | None = None,
+                  presenter: Presenter | None = None):
     """The speech provider for one ad-hoc `emcee say` run.
 
     At most one voice source may be named: a reference clip to clone
-    (`--clone`), a preset voice (`--voice`), or an existing presenter
-    (`--presenter`, which brings its own voice or voice clone exactly as a
-    voiced package would). With none of them, falls back to the house
-    `[tts] voice`/`voice_clone` via `speech_for`, whose error message
-    already points at the right config keys when nothing is set.
+    (`--clone`, with its transcript `--clone-text`), a preset voice
+    (`--voice`), or an existing presenter (`--presenter`, resolved exactly
+    as a voiced package's presenter is: its pin, its clip, its transcript).
+    With none of them, the house voice via `speech_for`. `--clone`/`--voice`
+    voice on the HOUSE backend.
 
     Unlike `speech_for` this returns the provider alone -- `say` resolves
     its bed separately through `ad_hoc_bed`, which layers the command
@@ -137,12 +144,14 @@ def ad_hoc_speech(config: EmceeConfig, *, clone_ref: str | None = None,
     if len(named) > 1:
         raise EmceeError("--clone, --voice and --presenter are mutually exclusive")
     if presenter is not None:
-        return speech_provider_for(config, presenter.voice_id,
-                                   clone_ref=presenter.voice_clone)
+        speech, _ = speech_for(config, presenter)
+        return speech
     if clone_ref:
-        return speech_provider_for(config, None, clone_ref=clone_ref)
+        return speech_provider_for(config, resolve_tts(config, None), voice=None,
+                                   clone_ref=clone_ref, clone_text=clone_text)
     if voice:
-        return speech_provider_for(config, voice)
+        return speech_provider_for(config, resolve_tts(config, None), voice=voice,
+                                   clone_ref=None, clone_text=None)
     speech, _ = speech_for(config, None)
     return speech
 

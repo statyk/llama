@@ -316,7 +316,8 @@ def _hoist_probe_setup(tmp_path, monkeypatch):
 
     monkeypatch.setattr(process_mod, "_synthesize_dj_audio", fake_synth)
     monkeypatch.setattr(process_mod, "speech_provider_for",
-                        lambda config, voice, clone_ref=None: TaggedProvider(voice))
+                        lambda config, resolution, *, voice, clone_ref, clone_text:
+                        TaggedProvider(voice))
     return calls
 
 
@@ -428,7 +429,8 @@ def test_run_success_survives_a_raising_speech_close(tmp_path, monkeypatch):
             raise RuntimeError("close blew up")
 
     monkeypatch.setattr(process_mod, "speech_provider_for",
-                        lambda config, voice, clone_ref=None: CloseBlowsUpProvider())
+                        lambda config, resolution, *, voice, clone_ref, clone_text:
+                        CloseBlowsUpProvider())
 
     pkg_dir = build_package(station, slug="closer", voiced=False)
 

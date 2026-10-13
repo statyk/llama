@@ -115,6 +115,14 @@ def test_unpinned_presenter_under_an_mlx_house_is_an_error(monkeypatch):
         resolve_tts(cfg(backend="mlx_audio", mlx_audio={"model": TEST_MODEL}), host())
 
 
+def test_pinned_presenter_under_an_mlx_house_resolves_to_its_pin(monkeypatch):
+    calibrate_test_model(monkeypatch)
+    r = resolve_tts(cfg(backend="mlx_audio", mlx_audio={"model": TEST_MODEL}),
+                    host(tts="voxtral"))
+    assert (r.backend, r.model, r.presenter, r.pinned) == ("voxtral", VOX_DEFAULT, "phil", True)
+    assert r.key_sources == ("[tts.voxtral] api_key",)
+
+
 def test_presenter_pin_beats_the_house_backend():
     r = resolve_tts(cfg(backend="voxtral"), host(voice="v", voice_clone=None, tts="elevenlabs"))
     assert (r.backend, r.pinned) == ("elevenlabs", True)

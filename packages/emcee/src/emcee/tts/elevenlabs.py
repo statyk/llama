@@ -26,14 +26,14 @@ class ElevenLabsProvider:
         api_key: str | None = None,
         timeout_s: int = 120,
         transport: httpx.BaseTransport | None = None,
+        key_hint: str = "[tts] api_key",
     ):
         self.voice = voice
         self.model = model or DEFAULT_MODEL
         # Env wins over the config key, matching SETLISTFM_API_KEY handling.
         self.api_key = os.environ.get("ELEVENLABS_API_KEY") or api_key
         if not self.api_key:
-            raise SpeechError("ElevenLabs API key missing: "
-                              "set ELEVENLABS_API_KEY or [tts] api_key")
+            raise SpeechError(f"ElevenLabs API key missing: set ELEVENLABS_API_KEY or {key_hint}")
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
 
     def synthesize(self, text: str, fmt: str = "mp3", *,
