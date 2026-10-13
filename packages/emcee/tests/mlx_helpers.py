@@ -69,3 +69,14 @@ class MlxServer:
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self)
+
+
+def install_mlx(monkeypatch, server: MlxServer) -> None:
+    """Route the factory's MlxAudioProvider through `server`: no real HTTP,
+    no retry sleep."""
+    from functools import partial
+
+    from emcee.tts.mlx_audio import MlxAudioProvider
+    monkeypatch.setattr("emcee.tts.MlxAudioProvider",
+                        partial(MlxAudioProvider, transport=server.transport(),
+                                sleep=lambda s: None))
