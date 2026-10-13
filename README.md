@@ -287,6 +287,7 @@ print instead) and point `[station] root` at the same folder llama's
 
     [tts]
     backend = "voxtral"        # hosted Mistral Voxtral (default); or "elevenlabs"
+                               # or "mlx_audio": local, on this Mac (see "Local TTS" below)
     voice = "..."              # HOUSE voxtral preset name (or elevenlabs voice_id),
                                # used when a show has no presenter assignment
     # voice_clone = "..."      # 3-25s reference WAV; clones a house voice instead
@@ -315,13 +316,22 @@ authored character — managed entirely by emcee:
                                      # writes presenters/casey.toml; hand-editing it still works
     emcee presenter list               # every presenter, one line each
     emcee presenter show casey         # one presenter's full fields
+    emcee presenter edit casey --tts voxtral
+                                     # change any field; --clear-tts/--clear-tts-model/
+                                     # --clear-bed/--clear-voice-clone-text; --transcribe
+                                     # drafts voice_clone_text on the mlx-audio server
     emcee presenter remove casey       # refuses if any [assign] entry still names it
 
 Presenters live under emcee's **own** workspace root (`~/.emcee/presenters/`
 by default, or `EMCEE_ROOT`/`root` in config — distinct from `[station]
 root`, the delivered-packages folder). The TOML shape is the same one
 llama's presenters used to have: `name`/`sex`/`character` + exactly one of
-`voice`/`voice_clone`, plus an optional `bed` override. The character
+`voice`/`voice_clone`, plus an optional `bed` override. Three optional keys
+pin a presenter's TTS: `tts` (`voxtral`, `elevenlabs` or `mlx_audio`; absent
+= `[tts] backend`, except never mlx_audio: pin it explicitly), `tts_model`
+(mlx_audio only) and `voice_clone_text` (the clip's transcript, required by
+mlx_audio). The file is strict: an unknown key is a load error. `emcee run
+--dry-run` shows each pinned presenter's backend and model. The character
 loosens grounding (opinions and paraphrased review sentiment are the
 host's own; concert facts stay grounded in the manifest) — enforced by
 emcee's own factual guard, not llama's.
@@ -350,7 +360,9 @@ configured at all:
 
     emcee say notes.txt                # -> notes.mp3, in the house [tts] voice
     emcee say notes.txt --clone ref.wav -o read.mp3
-                                       # clone a 3-25s reference clip (Voxtral only)
+                                       # clone a 3-25s reference clip (voxtral or
+                                       # mlx_audio; under an mlx_audio house add
+                                       # --clone-text "<transcript>")
     emcee say notes.txt --presenter casey
                                        # read it in a presenter's voice (and bed)
     emcee say notes.txt --no-bed       # dry read; --bed FILE / --bed-gain DB override
@@ -385,6 +397,182 @@ run A's `dj-notes.md` can end up beside run B's manifest `dj_notes` block
 and B's clips, leaving the package internally inconsistent — and it still
 **doubles LLM/TTS spend** for no benefit. Run it from one place — a single
 cron entry, one operator — not fanned out.
+
+**Local TTS on this Mac (`mlx_audio`).** A presenter (or the house voice) can
+be voiced by a free local model served by [mlx-audio](https://github.com/Blaizzy/mlx-audio)'s
+`mlx_audio.server`, instead of hosted Voxtral. Only calibrated models resolve
+(today: `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16`; evidence in
+`docs/superpowers/2026-10-12-mlx-audio-calibration.md`), and an `mlx_audio`
+voice never falls back to another backend: if the server is down, its
+packages fail (before any LLM spend, and without touching a voiced package)
+and the rest of `emcee run` carries on.
+
+1. **Install the new emcee release before pinning any presenter.** An older
+   binary does not know `tts`/`tts_model` and would voice the presenter on
+   Voxtral from the newly edited clip. (Older binaries silently ignore these
+   keys; from this release an unknown key is a load error.)
+2. **A dedicated venv, pinned to the evaluated mlx-audio**, whose server-side
+   sampling defaults (temperature, top_k, top_p) define the evaluated voice —
+   emcee does not send them. From a checkout of this repo (the constraints
+   file is the evaluated environment's `pip freeze`):
+
+       mkdir -p ~/.mlx-audio/logs
+       uv venv --python 3.12 ~/.mlx-audio/venv
+       uv pip install --python ~/.mlx-audio/venv/bin/python \
+           "mlx-audio[server,tts,stt]==0.5.8" \
+           -c docs/superpowers/2026-10-12-mlx-audio-requirements.txt
+
+3. **Download the models once, while online** (the service runs offline, so a
+   mistyped model id fails fast instead of starting a download):
+
+       ~/.mlx-audio/venv/bin/python -c "
+       from huggingface_hub import snapshot_download as d
+       d('mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16')
+       d('mlx-community/whisper-large-v3-turbo-asr-fp16')"
+
+4. **A launchd agent**, bound to 127.0.0.1, with a working directory and log
+   directory that exist (launchd starts jobs in `/`, where the server's
+   default relative `logs` directory cannot be created). Save as
+   `~/Library/LaunchAgents/com.lma-radio.mlx-audio.plist`:
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key><string>com.lma-radio.mlx-audio</string>
+     <key>ProgramArguments</key>
+     <array>
+       <string>/Users/<YOU>/.mlx-audio/venv/bin/python</string>
+       <string>-m</string><string>mlx_audio.server</string>
+       <string>--host</string><string>127.0.0.1</string>
+       <string>--port</string><string>8000</string>
+       <string>--log-dir</string><string>/Users/<YOU>/.mlx-audio/logs</string>
+     </array>
+     <key>WorkingDirectory</key><string>/Users/<YOU>/.mlx-audio</string>
+     <key>EnvironmentVariables</key>
+     <dict><key>HF_HUB_OFFLINE</key><string>1</string></dict>
+     <key>RunAtLoad</key><true/>
+     <key>KeepAlive</key><true/>
+     <key>StandardOutPath</key><string>/Users/<YOU>/.mlx-audio/server.log</string>
+     <key>StandardErrorPath</key><string>/Users/<YOU>/.mlx-audio/server.log</string>
+   </dict>
+   </plist>
+   ```
+
+   Start, restart and stop it with:
+
+       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lma-radio.mlx-audio.plist
+       launchctl kickstart -k gui/$(id -u)/com.lma-radio.mlx-audio
+       launchctl bootout gui/$(id -u)/com.lma-radio.mlx-audio
+
+   `curl -s http://127.0.0.1:8000/` answers when it is up. A generation
+   failure's details are in `~/.mlx-audio/server.log` — emcee's error points
+   you there.
+5. **emcee config:**
+
+       [tts.mlx_audio]
+       model = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
+       # for verification and --transcribe:
+       stt_model = "mlx-community/whisper-large-v3-turbo-asr-fp16"
+       # url = "http://127.0.0.1:8000"   timeout_s = 600 (defaults)
+
+       # optional: transcribe every new clip, re-synthesize once on a gross
+       # mismatch. Adding "voxtral" makes Voxtral presenters depend on this
+       # server too.
+       # [tts.verify]
+       # backends = ["mlx_audio"]
+
+   Verification is OFF by default. The recommendation is to enable it for
+   `mlx_audio` when the first presenter is pinned to it, and to keep
+   `voxtral` off for now: 10 Voxtral takes are too few, the disfluency effect
+   on the thresholds is unmeasured, and enabling it makes hosted voicing
+   depend on this server (see Memory, item 6). The measured thresholds are in
+   `emcee/tts/verify.py` and the evidence doc.
+
+   Hosted keys can move into `[tts.voxtral] api_key` / `[tts.elevenlabs]
+   api_key` (they apply wherever that backend voices); your existing `[tts]
+   api_key` keeps working while `[tts] backend` is hosted. Don't set the same
+   key in both places.
+6. **Memory.** The server keeps every model it has served resident until it
+   restarts: presenters pinned to different mlx models hold all of them, and
+   with verification on it also holds the STT model (`--transcribe` unloads
+   the STT model again when verification is off). Measured on the 16 GB mini
+   (evidence doc, "Memory headroom"): with Qwen 1.7B plus Whisper resident and
+   verification on, chunk-rendering a 1200-character segment kept the server at
+   6.6-7.0 GB between sentences with spikes of 10-12 GB during generation
+   (`phys_footprint_peak` 12 GB), and swap grew from 1.4 GB to 5.5 GB used on
+   the cold run under a light desktop; the host is at its memory limit.
+   Whisper alone (Qwen unloaded) left the server at 2786 MB, against 5068 MB
+   with Qwen resident and Whisper unloaded. For a voicing run, close browser
+   tabs and other apps; verification costs the Whisper resident set.
+7. **Moving a presenter** (`<id>`) to mlx_audio, with its reference clip and
+   that clip's exact transcript saved beside it (for the four drafted clones,
+   the corrected `~/tts-bakeoff/refs/<stem>.draft.txt`):
+
+       emcee presenter edit <id> --tts mlx_audio \
+           --voice-clone ~/.emcee/samples/<clip>.wav \
+           --voice-clone-text "$(cat ~/.emcee/samples/<clip>.txt)"
+       emcee run --dry-run                 # <id>'s rows end [mlx_audio <model>]
+       emcee say notes.txt --presenter <id>    # the go-live listen
+       emcee voice <one of its packages>       # then one real package
+
+   **Go-live prerequisites:**
+   - **The transcript must be right.** It is sent with the clip on every
+     request. Calibration used five clones: Phil's (`phil_ex`) transcript was
+     checked by ear; the four Whisper drafted
+     (`~/tts-bakeoff/refs/{monroe1,kurt1,troymcclure2,billgraham2}.draft.txt`)
+     likely contain mishearings and must be corrected first.
+   - **Listen before relying on the pin.** Render one `emcee say` and listen
+     with no `emcee run` in between; unpin (`--clear-tts`) if it does not
+     pass. A clone outside those five is unmeasured, so this listen is the
+     only check it gets.
+   - **Take a memory reading** during the first real `emcee voice` (TTS, STT
+     and `claude -p` all resident), from another terminal —
+     `footprint -p $(lsof -tiTCP:8000 -sTCP:LISTEN)` and `vm_stat` — and
+     record it beside the calibration doc's `footprint` reading.
+
+   For a NEW presenter, `--transcribe` drafts the transcript (`emcee
+   presenter add … --voice-clone clip.wav --tts mlx_audio --transcribe`) and
+   writes it only after you confirm it. Without a server-loadable STT model,
+   draft it by hand with `mlx_whisper clip.wav --model
+   mlx-community/whisper-large-v3-turbo --language en` (from `pip install
+   mlx-whisper`) and pass it as `--voice-clone-text`. Reference clips may be
+   any rate or channel count (the server resamples and down-mixes them).
+8. **Moving the house voice to mlx_audio** (`[tts] backend = "mlx_audio"`,
+   plus `[tts] voice_clone` and `voice_clone_text`; drop `[tts] api_key`/`model`
+   into the hosted tables): pin every presenter first, e.g. `emcee presenter
+   edit roydemure --tts voxtral` — an unpinned presenter under an mlx_audio
+   house is an error, never a silent move. With `[assign] default =
+   "roydemure"` every package has a presenter, so moving "the default voice"
+   means pinning Roy, not changing the house.
+9. **Rollback.** Do all of this BEFORE downgrading the emcee binary:
+
+   - **Unpin every presenter pinned to mlx_audio** back to a Voxtral-suitable
+     reference clip (the one it aired with before), e.g.
+
+         emcee presenter edit <id> --clear-tts --clear-tts-model \
+             --voice-clone ~/.emcee/samples/<aired clip>.wav
+
+   - **Re-voice every presenter pinned to elevenlabs** for the house backend.
+     The old binary ignores pins and voices every presenter on the house
+     backend, so an ElevenLabs `voice` id would be sent to Voxtral and fail
+     the package. Clear the pin and give it a Voxtral voice in one command:
+
+         emcee presenter edit <id> --clear-tts --voice <voxtral voice>
+         # or: --clear-tts --voice-clone ~/.emcee/samples/<clip>.wav
+
+     Only a pin to the house backend itself (e.g. roydemure's `voxtral` pin
+     under a voxtral house) is harmless to leave.
+   - **Edit `~/.emcee/config.toml`.** The old binary's `[tts]` is strict and
+     refuses any key it does not know. Remove `[tts.mlx_audio]`,
+     `[tts.verify]` and `[tts.voxtral]`/`[tts.elevenlabs]`; move a hosted key
+     back to `[tts] api_key` (or rely on the env var), and a hosted `model`
+     back to `[tts] model` if one is set; and if the house voice was moved
+     (item 8), restore `[tts] backend` and drop `[tts] voice_clone_text`.
+
+   A re-pinned presenter never reuses the other backend's clips (the render
+   cache keys on backend voice and model), so its next packages re-render.
 
 **Upgrading from a pre-split llama.** If you ran llama before scripting/
 presenters/TTS moved to emcee ("the cut"), three settings in your existing

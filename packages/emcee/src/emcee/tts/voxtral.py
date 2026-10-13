@@ -61,6 +61,7 @@ class VoxtralProvider:
         transport: httpx.BaseTransport | None = None,
         retry_delay_s: float = RETRY_DELAY_S,
         sleep: Callable[[float], None] = time.sleep,
+        key_hint: str = "[tts] api_key",
     ):
         if not voice and not clone_ref:
             raise SpeechError("Voxtral needs a preset voice or a clone reference: "
@@ -69,8 +70,7 @@ class VoxtralProvider:
         # Env wins over the config key, matching ELEVENLABS_API_KEY handling.
         self.api_key = os.environ.get("MISTRAL_API_KEY") or api_key
         if not self.api_key:
-            raise SpeechError("Mistral API key missing: "
-                              "set MISTRAL_API_KEY or [tts] api_key")
+            raise SpeechError(f"Mistral API key missing: set MISTRAL_API_KEY or {key_hint}")
         if clone_ref:
             try:
                 ref_bytes = Path(clone_ref).read_bytes()
@@ -144,6 +144,10 @@ class VoxtralProvider:
         if not audio_b64:
             raise SpeechError("voxtral returned no audio_data")
         return base64.b64decode(audio_b64)
+
+    def preflight(self) -> None:
+        """No-op: a hosted backend's configuration errors (an invalid key)
+        keep today's timing -- they surface at the first synthesis."""
 
     def close(self) -> None:
         self._client.close()

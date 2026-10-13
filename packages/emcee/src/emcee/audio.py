@@ -22,7 +22,7 @@ from emcee.models import DJAudioBlock, ScriptNotes
 from emcee.speech_text import Lexicon, normalize_for_speech
 from emcee.tts.bed import Bed, load_bed_pcm, mix_bed
 from emcee.tts.loudness import LOUDNESS_VERSION, normalize_speech
-from emcee.tts.provider import SpeechBlocked, SpeechError
+from emcee.tts.provider import SpeechBlocked, SpeechDefect, SpeechError
 from emcee.workspace import atomic_write_bytes, atomic_write_text
 
 
@@ -339,8 +339,8 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
                 data = render_speech_mp3(
                     spoken, speech, chunk=chunk, bed_pcm=bed_pcm, bed_rate=bed_rate,
                     bed_gain_db=bed.gain_db if bed is not None else 0.0)
-            except SpeechBlocked as blocked:
-                blocked.segment = stem
+            except (SpeechBlocked, SpeechDefect) as failed:
+                failed.segment = stem
                 raise
             atomic_write_bytes(dest, data)
             rendered.add(filename)

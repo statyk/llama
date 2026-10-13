@@ -11,6 +11,8 @@ injection seam (see test_process.py).
 import json
 from pathlib import Path
 
+import pytest
+
 from typer.testing import CliRunner
 
 import emcee.process as process_mod
@@ -303,6 +305,9 @@ def _hoist_probe_setup(tmp_path, monkeypatch):
         def synthesize(self, *a, **k):
             raise AssertionError("synthesize should not run; _synthesize_dj_audio is faked")
 
+        def preflight(self):
+            pass
+
         def close(self):
             pass
 
@@ -316,7 +321,8 @@ def _hoist_probe_setup(tmp_path, monkeypatch):
 
     monkeypatch.setattr(process_mod, "_synthesize_dj_audio", fake_synth)
     monkeypatch.setattr(process_mod, "speech_provider_for",
-                        lambda config, voice, clone_ref=None: TaggedProvider(voice))
+                        lambda config, resolution, *, voice, clone_ref, clone_text:
+                        TaggedProvider(voice))
     return calls
 
 
@@ -428,7 +434,8 @@ def test_run_success_survives_a_raising_speech_close(tmp_path, monkeypatch):
             raise RuntimeError("close blew up")
 
     monkeypatch.setattr(process_mod, "speech_provider_for",
-                        lambda config, voice, clone_ref=None: CloseBlowsUpProvider())
+                        lambda config, resolution, *, voice, clone_ref, clone_text:
+                        CloseBlowsUpProvider())
 
     pkg_dir = build_package(station, slug="closer", voiced=False)
 
@@ -546,7 +553,8 @@ def test_dry_run_lines_labels_and_missing_presenter_marker(tmp_path, monkeypatch
     home, station = _selection_station(tmp_path, monkeypatch, _ASSIGN)
     (home / "presenters").mkdir()
     # file name differs in case from the configured id: not "missing"
-    (home / "presenters" / "BILLYG.toml").write_text("")
+    (home / "presenters" / "BILLYG.toml").write_text(
+        'name = "Billy G"\nsex = "male"\nvoice = "billy-preset"\ncharacter = "Gruff."\n')
     build_package(station, slug="a", profile="dead")
     build_package(station, slug="b", profile="phish")
     build_package(station, slug="c", profile=None)
@@ -656,3 +664,130 @@ def test_profile_with_no_matching_package_is_noted_in_run_and_dry_run(tmp_path, 
     ok = runner.invoke(app, ["run", "--profile", "dead", "--dry-run"])
     assert "note:" not in ok.output
     assert "would voice: d1" in ok.output
+
+
+from emcee.presenters import Presenter, save_presenter
+from emcee.tts.voxtral import DEFAULT_MODEL as VOX_DEFAULT
+
+from tests.mlx_helpers import TEST_MODEL, calibrate_test_model
+
+_PIN_ASSIGN = """
+[assign.profiles.dead]
+presenter = "phil"
+
+[assign.profiles.bluegrass]
+presenter = "roy"
+
+[assign.profiles.indie]
+presenter = "vox"
+"""
+
+
+def _pin_presenters(home: Path) -> None:
+    clip = home / "phil.wav"
+    clip.parent.mkdir(parents=True, exist_ok=True)
+    clip.write_bytes(b"RIFF")
+    save_presenter(home, Presenter(id="phil", name="Phil", sex="male", voice_clone=str(clip),
+                                   voice_clone_text="It's the chemistry.", tts="mlx_audio",
+                                   tts_model=TEST_MODEL, character="x"))
+    save_presenter(home, Presenter(id="roy", name="Roy", sex="male", voice="roy-preset",
+                                   character="x"))
+    save_presenter(home, Presenter(id="vox", name="Vox", sex="male", voice="vox-preset",
+                                   tts="voxtral", character="x"))
+
+
+def test_dry_run_shows_backend_and_model_for_pinned_presenters_only(tmp_path, monkeypatch):
+    calibrate_test_model(monkeypatch)
+    home, station = _selection_station(tmp_path, monkeypatch, _PIN_ASSIGN)
+    _pin_presenters(home)
+    build_package(station, slug="a", profile="dead")
+    build_package(station, slug="b", profile="bluegrass")
+    build_package(station, slug="c", profile="indie")
+
+    result = runner.invoke(app, ["run", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert f"would voice: a  dead  phil  [mlx_audio {TEST_MODEL}]\n" in result.output
+    assert "would voice: b  bluegrass  roy\n" in result.output  # unpinned: unchanged
+    assert f"would voice: c  indie  vox  [voxtral {VOX_DEFAULT}]\n" in result.output
+
+
+def test_dry_run_marks_invalid_and_unresolved_presenters_and_completes(tmp_path, monkeypatch):
+    calibrate_test_model(monkeypatch)
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    home.mkdir(parents=True)
+    station.mkdir()
+    (home / "config.toml").write_text(
+        f'[station]\nroot = "{station}"\n\n'
+        '[tts]\nbackend = "mlx_audio"\nvoice_clone = "/h.wav"\nvoice_clone_text = "Hi."\n\n'
+        f'[tts.mlx_audio]\nmodel = "{TEST_MODEL}"\n\n'
+        '[assign.profiles.dead]\npresenter = "roy"\n\n'
+        '[assign.profiles.indie]\npresenter = "kurt"\n\n'
+        '[assign.profiles.jazz]\npresenter = "miles"\n')
+    save_presenter(home, Presenter(id="roy", name="Roy", sex="male", voice="roy-preset",
+                                   character="x"))  # unpinned under an mlx house
+    (home / "presenters" / "kurt.toml").write_text(
+        'name = "K"\nsex = "male"\nvoice = "k"\ncharacter = "x"\ntts_modle = "typo"\n')
+    save_presenter(home, Presenter(id="miles", name="M", sex="male", voice_clone="/m.wav",
+                                   voice_clone_text="So what.", tts="mlx_audio",
+                                   tts_model="other/uncalibrated", character="x"))
+    build_package(station, slug="a", profile="dead")
+    build_package(station, slug="b", profile="indie")
+    build_package(station, slug="c", profile="jazz")
+    monkeypatch.setattr("emcee.cli.speech_for", lambda *a, **k: (_ for _ in ()).throw(
+        AssertionError("dry-run must not build a provider")))
+
+    result = runner.invoke(app, ["run", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert ("would voice: a  dead  roy  [unresolved: presenter 'roy': pin tts explicitly: "
+            "the house backend is mlx_audio") in result.output
+    assert "would voice: b  indie  kurt  [invalid presenters/kurt.toml]\n" in result.output
+    assert ("would voice: c  jazz  miles  [unresolved: presenter 'miles': mlx_audio model "
+            "not calibrated for the runaway guard") in result.output
+    assert "3 package(s) would be voiced" in result.output
+
+
+@pytest.mark.parametrize("bad", ["binary", "unreadable"])
+def test_dry_run_marks_an_unloadable_presenter_file_invalid(tmp_path, monkeypatch, bad):
+    home, station = _selection_station(tmp_path, monkeypatch, _PIN_ASSIGN)
+    _pin_presenters(home)
+    if bad == "binary":
+        (home / "presenters" / "phil.toml").write_bytes(b"\xff\xfe\x00name = \x89PNG\r\n")
+    else:  # a directory where the file should be: reading it raises OSError
+        (home / "presenters" / "phil.toml").unlink()
+        (home / "presenters" / "phil.toml").mkdir()
+    build_package(station, slug="a", profile="dead")
+    build_package(station, slug="b", profile="bluegrass")
+
+    result = runner.invoke(app, ["run", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice: a  dead  phil  [invalid presenters/phil.toml]\n" in result.output
+    assert "would voice: b  bluegrass  roy\n" in result.output
+
+
+def test_dry_run_hosted_house_marks_only_pinned_presenters(tmp_path, monkeypatch):
+    """Under a hosted house backend an unpinned presenter still resolves to a
+    model; only a PIN earns the `[backend model]` suffix."""
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    home.mkdir(parents=True)
+    station.mkdir()
+    (home / "config.toml").write_text(
+        f'[station]\nroot = "{station}"\n\n'
+        '[tts]\nbackend = "voxtral"\nvoice = "house-voice"\napi_key = "k"\n\n'
+        '[assign.profiles.bluegrass]\npresenter = "roy"\n\n'
+        '[assign.profiles.indie]\npresenter = "vox"\n')
+    _pin_presenters(home)
+    build_package(station, slug="b", profile="bluegrass")
+    build_package(station, slug="c", profile="indie")
+
+    result = runner.invoke(app, ["run", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice: b  bluegrass  roy\n" in result.output  # unpinned: no suffix
+    assert f"would voice: c  indie  vox  [voxtral {VOX_DEFAULT}]\n" in result.output

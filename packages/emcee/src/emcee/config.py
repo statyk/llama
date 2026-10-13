@@ -58,13 +58,49 @@ class StationConfig(_StrictModel):
     root: Path | None = None   # the delivered-packages folder; required by run/status
 
 
+# Hosted TTS backends: each has an API key and a model, configured in its own
+# [tts.<backend>] table wherever it voices (house or pin).
+HOSTED_BACKENDS = ("voxtral", "elevenlabs")
+
+
+class HostedTTSConfig(_StrictModel):
+    """[tts.voxtral] / [tts.elevenlabs]: applies wherever that backend voices
+    (as [tts] backend or as a presenter pin). The provider's env var
+    (MISTRAL_API_KEY / ELEVENLABS_API_KEY) still wins over api_key."""
+    api_key: str | None = None
+    model: str | None = None
+
+
+class MlxAudioConfig(_StrictModel):
+    """[tts.mlx_audio]: the local mlx-audio server. `model` has no default; it
+    is required only when something resolves to mlx_audio (checked at
+    resolution), so a table holding only stt_model is valid."""
+    url: str = "http://127.0.0.1:8000"
+    model: str | None = None
+    timeout_s: float = 600                 # per sentence request
+    stt_model: str | None = None           # speech-to-text model on the same server
+
+
+VerifyBackend = Literal["mlx_audio", "voxtral", "elevenlabs"]
+
+
+class VerifyConfig(_StrictModel):
+    """[tts.verify]: transcript verification of newly synthesized audio."""
+    backends: list[VerifyBackend] = Field(default_factory=list)   # default off
+
+
 class TTSConfig(_StrictModel):
-    """Spoken DJ patter (text-to-speech of the DJ script)."""
-    backend: str = "voxtral"            # or "elevenlabs" / "fake"
+    """Spoken DJ patter (text-to-speech of the DJ script).
+
+    `backend` is the HOUSE voice and every unpinned presenter's backend --
+    except that an unpinned presenter never inherits mlx_audio (resolution
+    rejects it), so changing the house voice never moves a presenter."""
+    backend: str = "voxtral"            # or "elevenlabs" / "mlx_audio" / "fake"
     voice: str | None = None            # voxtral preset name / elevenlabs voice_id
-    voice_clone: str | None = None      # path to a reference WAV; when set, voxtral clones it
-    model: str | None = None            # per-backend default when unset
-    api_key: str | None = None          # MISTRAL_API_KEY / ELEVENLABS_API_KEY env wins
+    voice_clone: str | None = None      # path to a reference clip; when set, the house voice clones it
+    voice_clone_text: str | None = None  # transcript of voice_clone (required on mlx_audio)
+    model: str | None = None            # legacy: the HOUSE hosted backend's model
+    api_key: str | None = None          # legacy: the HOUSE hosted backend's key (env wins)
     chunk: bool = True                  # synthesize each DJ-notes segment sentence-by-
                                          # sentence and concatenate, instead of one call
                                          # per segment (better prosody, loudness-normalized;
@@ -72,6 +108,33 @@ class TTSConfig(_StrictModel):
     bed: str | None = None              # path to a 24kHz mono 16-bit WAV played
                                          # under the DJ voice; None = no bed
     bed_gain_db: float = -20.0          # bed loudness under the voice (station-level)
+    voxtral: HostedTTSConfig = Field(default_factory=HostedTTSConfig)
+    elevenlabs: HostedTTSConfig = Field(default_factory=HostedTTSConfig)
+    mlx_audio: MlxAudioConfig = Field(default_factory=MlxAudioConfig)
+    verify: VerifyConfig = Field(default_factory=VerifyConfig)
+
+    @model_validator(mode="after")
+    def _check_keys_and_verify(self):
+        if self.backend == "mlx_audio":
+            if self.api_key is not None:
+                raise ValueError(
+                    "[tts] api_key is not valid when [tts] backend is mlx_audio (it needs "
+                    "no key); put a hosted backend's key in [tts.voxtral] or "
+                    "[tts.elevenlabs] api_key")
+            if self.model is not None:
+                raise ValueError("[tts] model is not valid when [tts] backend is mlx_audio; "
+                                 "set [tts.mlx_audio] model")
+        elif self.backend in HOSTED_BACKENDS:
+            sub = getattr(self, self.backend)
+            for key in ("api_key", "model"):
+                if getattr(self, key) is not None and getattr(sub, key) is not None:
+                    raise ValueError(
+                        f"[tts] {key} and [tts.{self.backend}] {key} are both set; they "
+                        "mean the same setting, keep one")
+        if self.verify.backends and not self.mlx_audio.stt_model:
+            raise ValueError("[tts.verify] backends needs [tts.mlx_audio] stt_model (the "
+                             "speech-to-text model verification transcribes with)")
+        return self
 
 
 class Assignment(_StrictModel):
@@ -175,23 +238,55 @@ backend = "claude_cli"
 # package/dj-audio/ (one set<key>-intro per non-encore set, then 99-outro),
 # tied together by the manifest's dj_audio block.
 # [tts]
-# hosted Mistral Voxtral TTS (default); or "elevenlabs"; or "fake" for tests
+# hosted Mistral Voxtral TTS (default); or "elevenlabs"; or "mlx_audio" (local,
+# see [tts.mlx_audio] below); or "fake" for tests
 # backend = "voxtral"
 
 # the HOUSE voice: voxtral preset name (or elevenlabs voice_id), used when
 # a profile has no presenter assignment
 # voice = "..."
 
-# path to a 3-25s reference WAV; when set, voxtral clones that voice
+# path to a 3-25s reference WAV; when set, the house voice clones it
 # (ignores `voice`)
 # voice_clone = "..."
 
-# per-backend default when unset
+# word-for-word transcript of voice_clone; required when the house voice is
+# on mlx_audio, ignored by voxtral
+# voice_clone_text = "..."
+
+# legacy spellings of the HOUSE hosted backend's model and key (valid only
+# while backend is voxtral/elevenlabs; the same key in [tts.<backend>] too is
+# an error). Per-backend default model when unset
 # (voxtral-mini-tts-2603 / eleven_multilingual_v2)
 # model = "..."
 
 # MISTRAL_API_KEY / ELEVENLABS_API_KEY env (env wins)
 # api_key = "..."
+
+# Per-backend tables. A hosted backend's table applies wherever it voices:
+# as [tts] backend or as a presenter's `tts` pin.
+# [tts.voxtral]
+# api_key = "..."            # MISTRAL_API_KEY env wins
+# model = "voxtral-mini-tts-2603"
+
+# [tts.elevenlabs]
+# api_key = "..."            # ELEVENLABS_API_KEY env wins
+# model = "eleven_multilingual_v2"
+
+# Local TTS through mlx-audio's server on this Mac (see the README runbook).
+# A presenter opts in with tts = "mlx_audio"; the house voice only with
+# [tts] backend = "mlx_audio" -- and then every presenter must pin `tts`.
+# [tts.mlx_audio]
+# url = "http://127.0.0.1:8000"
+# model = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
+# timeout_s = 600            # seconds per sentence request
+# stt_model = "mlx-community/whisper-large-v3-turbo-asr-fp16"  # speech-to-text model on the same server
+
+# Transcript verification: transcribe each newly synthesized clip on the
+# mlx-audio server and re-synthesize once on a gross mismatch; a second
+# failure fails the package. Needs [tts.mlx_audio] stt_model. Default off.
+# [tts.verify]
+# backends = ["mlx_audio"]
 
 # Assignment is keyed by the llama profile name stamped in the manifest as
 # source.profile (see [assign] below) -- not by anything in this section.

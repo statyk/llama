@@ -1,0 +1,33 @@
+### Spec Compliance
+- ✅ Spec compliant. `packages/emcee/src/emcee/tts/quality.py:1-59` matches the brief's Step 3 code exactly: the `QualitySpeech(inner, *, backend, verifier=None)` signature; the `inner/backend/verifier/voice/model` attributes (:23-28); `synthesize` (:30-33); `_retrying` (:35-48), which allows two attempts at most, prints the notice `"<backend> quality check failed (<reason>); re-synthesizing once"` to stdout via `typer.echo` (:41-42), and re-raises with the exact suffix `" (failed twice)"` (:46); `_attempt` (:50-53); and `preflight`/`close`, which are delegated (:55-59). The factory wraps mlx in `QualitySpeech(..., backend="mlx_audio", verifier=None)` (`tts/__init__.py:81-83`), and hosted backends are not wrapped (`tts/__init__.py:71-80`, unchanged). The `audio.py:25` import and the `audio.py:342-344` handler (`except (SpeechBlocked, SpeechDefect) as failed: failed.segment = stem; raise`) are as written in the brief. `tests/test_quality.py` matches the brief's Step 1 (12 tests).
+- The retry semantics hold. Only a `SpeechDefect` is caught (`quality.py:40,45`). A `SpeechBlocked`, a transport/generation `SpeechError`, or any other exception, on either attempt, propagates without a further call. A defect followed by a transport error on the retry also passes straight through, so a timed-out mlx request is never re-sent.
+- The controller ruling from the Task 9 review is applied: `test_mlx_wiring.py:253-283` records `(package, task)` for every `provider_for` call and asserts `llm_calls == [("b", "scriptwrite")]`. The patch does take effect: `cli.py:25` imports `process_package` by name (`from emcee.process import ...`), so `monkeypatch.setattr("emcee.cli.process_package", ...)` intercepts it. If it did not, `current` would stay empty and the assert would see `"<none>"` and fail.
+- Commit trailers follow the controller ruling (not a finding).
+- ⚠️ Cannot verify from the diff: whether the inner `MlxAudioProvider.synthesize` honours `fmt="mp3"` on the unchunked whole-segment path (`audio.py:236`, `speech.synthesize(text)`). That belongs to Task 8/9 and was not changed here.
+
+### Strengths
+- The layer is small and has one job. `_retrying` takes the attempt as a callable, which gives Task 11 a clean seam. The cache identity is kept (`voice`/`model` copied from the inner provider, `quality.py:27-28`), so wrapping does not change the cache key at `audio.py:332-334`.
+- The re-raised defect keeps `transcript` and chains `from second` (`quality.py:45-48`). Its `text` is the text that was actually synthesized, so a chunked failure names the sentence.
+- The tests check real behaviour. The test at `test_quality.py:149-162` drives the real `MlxAudioProvider` runaway guard through a `MockTransport` and asserts exactly 2 HTTP calls. Separate tests cover pass-through of `SpeechBlocked` and of a transport `SpeechError` (1 call each), forwarding of `fmt` and the context arguments, and an unchanged manifest after a double failure through `process_package`.
+- The implementer's mutation checks were run from a scratch copy, each with a predicted red test, and cover the four load-bearing behaviours.
+
+### Named-risk checks (one focused check each)
+1. **A defect must never be cached as a good clip.** I checked `audio.py:337-347` (diff context). `render_speech_mp3` raises inside the `try`, and the handler re-raises before `atomic_write_bytes(dest, data)` and before the sidecar write. No clip and no cache key is written for the failing segment. Earlier segments' clips and their persisted keys are written only after those segments succeeded, which is correct. In chunked mode a sentence-level defect leaves `_segment_pcm` (`audio.py:126-133`) before anything is assembled, so a partial segment is never written either.
+2. **Interaction with the `SpeechBlocked` rephrase path.** I checked `tts/provider.py:10,44`: `SpeechDefect` subclasses `SpeechError`, not `SpeechBlocked`. So it reaches neither `render_speech_mp3`'s `_locate_block` arm (`audio.py:255`) nor `process.py:304`'s `except SpeechBlocked` repair loop. A defect fails the package instead of triggering an LLM rephrase, which is correct. The `_locate_block` probes (`audio.py:202`) go through the wrapper, but mlx never raises `SpeechBlocked`, so this is not a concern now.
+3. **A chunked defect carries its segment.** The `.segment` assignment wraps the whole `render_speech_mp3` call (`audio.py:340-344`), so it covers chunked, bedded and unchunked modes alike. `SpeechDefect.__str__` renders `in <segment>` (`provider.py:66-68`). The test at `test_quality.py:118-124` pins this.
+4. **CLI surfacing.** I checked `cli.py:865`: `SpeechDefect` is an `EmceeError`, so it reaches the user as `error: ...` with its `text:`/`transcript:` details and is not reported as a traceback.
+5. **Attribute access on the raw provider type.** A grep of emcee's src found no `isinstance(..., MlxAudioProvider)` and no access to provider-internal attributes on `speech`, so wrapping breaks no call site.
+
+### Issues
+#### Critical (Must Fix)
+None.
+#### Important (Should Fix)
+None.
+#### Minor (Nice to Have)
+1. `test_quality.py:118-124`: the "a defect is never cached" property (named risk 1) rests only on code structure. Neither double-failure test asserts that `dj-audio/set1-intro.mp3` is absent or that the render-cache sidecar has no `set1-intro` key afterwards. One more assert in the DJ-clip test would pin it against a future reorder of the write and the raise.
+2. `test_quality.py`: no test covers a quality retry inside chunked synthesis, where one sentence fails once and the retry succeeds and the clip is completed and written. The module docstring (`quality.py:7-9`) claims "the sentence when chunked" is the retried unit, but `test_quality.py:131` runs with `chunk=False` and the DJ-clip test only covers the double failure. This is coverage breadth, not a defect: the behaviour follows from `audio.py:132` calling `speech.synthesize` once per sentence.
+3. `quality.py:41-42`: the retry notice does not name the sentence or segment. The preceding `synthesizing <file>` detail line (`audio.py:338`) gives the segment, so an operator can work it out, but a chunked retry does not say which sentence failed. This is polish; the notice format is plan-mandated exactly.
+
+### Assessment
+**Task quality:** Approved
+**Reasoning:** The code matches the brief exactly, and the retry rule is correct: exactly one re-synthesis, only on `SpeechDefect`, with every other error passing straight through. The named risks around the cache, the rephrase path and segment tagging all check out against the surrounding code. The remaining items are test-coverage polish.

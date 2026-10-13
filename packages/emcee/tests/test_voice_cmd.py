@@ -491,3 +491,130 @@ def test_voice_station_root_option_overrides_config(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert (pkg_dir / "broadcast.m3u").exists()
+
+
+# ---------------------------------------------------------------------------
+# preflight runs before the --fresh unlink, the manifest clear and any LLM
+# spend (spec section 2; strict surface 2).
+# ---------------------------------------------------------------------------
+
+import pytest
+
+from emcee.cli import _process_one
+from emcee.package_io import Package
+from emcee.tts.fake import FakeSpeechProvider
+
+
+def _arm_failing_preflight(monkeypatch):
+    monkeypatch.setattr(process_mod, "speech_provider_for",
+                        lambda config, resolution, *, voice, clone_ref, clone_text:
+                        FakeSpeechProvider(preflight_fail=True))
+
+
+def _forbid_scriptwrite(monkeypatch) -> list:
+    scripted: list = []
+
+    def no_llm(settings, task):
+        scripted.append(task)
+        raise AssertionError("scriptwrite LLM called before preflight passed")
+
+    monkeypatch.setattr(process_mod, "provider_for", no_llm)
+    return scripted
+
+
+def test_failed_preflight_keeps_the_manifest_and_the_fresh_clip(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
+    manifest_before = (pkg_dir / "manifest.json").read_bytes()
+    clip_before = (pkg_dir / "dj-audio" / "set1-intro.mp3").read_bytes()
+    scripted = _forbid_scriptwrite(monkeypatch)
+    _arm_failing_preflight(monkeypatch)
+
+    result = runner.invoke(app, ["voice", str(pkg_dir), "--fresh", "set1-intro"])
+
+    assert result.exit_code == 1
+    assert "armed to fail preflight" in result.stderr
+    assert scripted == []
+    assert (pkg_dir / "manifest.json").read_bytes() == manifest_before
+    assert (pkg_dir / "dj-audio" / "set1-intro.mp3").read_bytes() == clip_before
+    assert "re-rolling" not in result.output
+
+
+def test_process_one_failed_preflight_spends_nothing_and_keeps_the_manifest(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
+    manifest_before = (pkg_dir / "manifest.json").read_bytes()
+    scripted = _forbid_scriptwrite(monkeypatch)
+    _arm_failing_preflight(monkeypatch)
+    from emcee.config import load_config
+    from emcee.tts.provider import SpeechError
+
+    with pytest.raises(SpeechError, match="armed to fail preflight"):
+        _process_one(load_config(), Package(pkg_dir), False)
+
+    assert scripted == []
+    assert (pkg_dir / "manifest.json").read_bytes() == manifest_before
+
+
+def test_preflight_runs_before_the_unlink_and_the_manifest_clear(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
+    events: list[str] = []
+    clip = pkg_dir / "dj-audio" / "set1-intro.mp3"
+
+    class Spy(FakeSpeechProvider):
+        def preflight(self):
+            events.append("preflight:clip-present" if clip.exists() else "preflight:clip-gone")
+
+    import emcee.cli as cli_mod
+    real_rewrite = cli_mod.rewrite_manifest
+
+    def spy_rewrite(pkg, **kw):
+        events.append("clear")
+        return real_rewrite(pkg, **kw)
+
+    monkeypatch.setattr(process_mod, "speech_provider_for",
+                        lambda config, resolution, *, voice, clone_ref, clone_text: Spy())
+    monkeypatch.setattr(cli_mod, "rewrite_manifest", spy_rewrite)
+    _arm_fake_llm(monkeypatch)
+
+    result = runner.invoke(app, ["voice", str(pkg_dir), "--fresh", "set1-intro"])
+
+    assert result.exit_code == 0, result.output
+    assert events[:2] == ["preflight:clip-present", "clear"]
+    assert "re-rolling set1-intro" in result.output
+
+
+def test_failed_preflight_still_closes_the_speech_provider(tmp_path, monkeypatch):
+    """preflight sits INSIDE the try/finally: a provider whose preflight
+    fails is still closed (moving preflight above the try would leak it)."""
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
+    closed: list[bool] = []
+
+    class Closing(FakeSpeechProvider):
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(process_mod, "speech_provider_for",
+                        lambda config, resolution, *, voice, clone_ref, clone_text:
+                        Closing(preflight_fail=True))
+    _forbid_scriptwrite(monkeypatch)
+    from emcee.config import load_config
+    from emcee.tts.provider import SpeechError
+
+    with pytest.raises(SpeechError, match="armed to fail preflight"):
+        _process_one(load_config(), Package(pkg_dir), False)
+    assert closed == [True]

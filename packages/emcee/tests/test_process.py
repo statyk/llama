@@ -113,46 +113,58 @@ def test_resolve_assignment_neutral_when_nothing_configured(tmp_path):
 # ---------------------------------------------------------------------------
 
 
+def _recorder(calls):
+    def fake_factory(config, resolution, *, voice, clone_ref, clone_text):
+        calls.append((resolution.backend, resolution.presenter, voice, clone_ref, clone_text))
+        return "sentinel"
+    return fake_factory
+
+
 def test_speech_for_presenter_voice_wins_and_house_clone_never_bleeds_in(monkeypatch, tmp_path):
     calls = []
-    monkeypatch.setattr(
-        "emcee.process.speech_provider_for",
-        lambda config, voice, clone_ref=None: calls.append((voice, clone_ref)) or "sentinel",
-    )
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder(calls))
     presenter = _presenter(voice="presenter-preset")  # voice set, voice_clone None
-    config = EmceeConfig(tts=TTSConfig(voice="house-voice", voice_clone="house-clone.wav"))
+    config = EmceeConfig(tts=TTSConfig(voice="house-voice", voice_clone="house-clone.wav",
+                                       voice_clone_text="house words"))
 
     speech, bed = speech_for(config, presenter)
 
     assert speech == "sentinel"
-    assert calls == [("presenter-preset", None)]  # house voice_clone did NOT bleed in
+    # house voice_clone and its transcript did NOT bleed in
+    assert calls == [("voxtral", "waldo", "presenter-preset", None, None)]
     assert bed is None
 
 
-def test_speech_for_presenter_voice_clone_used_as_voice_and_clone_ref(monkeypatch, tmp_path):
+def test_speech_for_presenter_voice_clone_and_transcript(monkeypatch, tmp_path):
     calls = []
-    monkeypatch.setattr(
-        "emcee.process.speech_provider_for",
-        lambda config, voice, clone_ref=None: calls.append((voice, clone_ref)) or "sentinel",
-    )
-    presenter = _presenter(voice=None, voice_clone="/refs/casey.wav")
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder(calls))
+    presenter = _presenter(voice=None, voice_clone="/refs/casey.wav",
+                           voice_clone_text="Casey's words.")
 
     speech_for(EmceeConfig(root=tmp_path), presenter)
 
-    assert calls == [("/refs/casey.wav", "/refs/casey.wav")]
+    assert calls == [("voxtral", "waldo", None, "/refs/casey.wav", "Casey's words.")]
 
 
-def test_speech_for_no_presenter_falls_back_to_house_voice(monkeypatch):
+def test_speech_for_no_presenter_uses_the_house_voice_and_transcript(monkeypatch):
     calls = []
-    monkeypatch.setattr(
-        "emcee.process.speech_provider_for",
-        lambda config, voice, clone_ref=None: calls.append((voice, clone_ref)) or "sentinel",
-    )
-    config = EmceeConfig(tts=TTSConfig(voice="house-voice", voice_clone="house-clone.wav"))
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder(calls))
+    config = EmceeConfig(tts=TTSConfig(voice="house-voice", voice_clone="house-clone.wav",
+                                       voice_clone_text="house words"))
 
     speech_for(config, None)
 
-    assert calls == [("house-voice", "house-clone.wav")]
+    assert calls == [("voxtral", None, "house-voice", "house-clone.wav", "house words")]
+
+
+def test_speech_for_honors_a_presenter_pin(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder(calls))
+    config = EmceeConfig(tts=TTSConfig(backend="fake", voice="house-voice"))
+
+    speech_for(config, _presenter(tts="voxtral"))
+
+    assert calls[0][0] == "voxtral"
 
 
 def test_speech_for_raises_when_no_voice_resolvable_at_all(tmp_path):
@@ -160,9 +172,7 @@ def test_speech_for_raises_when_no_voice_resolvable_at_all(tmp_path):
     # "[tts] voice" -- speech_provider_for's voxtral branch also raises a
     # SpeechError (an EmceeError subclass) containing "[tts] voice" when no
     # voice is configured, so a looser match/guard-removal mutation would
-    # slip past undetected if speech_for's own `if not voice:` guard were
-    # ever deleted (control would reach speech_provider_for instead and
-    # still raise *an* EmceeError matching the loose pattern).
+    # slip past undetected if speech_for's own guard were ever deleted.
     with pytest.raises(EmceeError, match="give the profile a presenter") as exc_info:
         speech_for(EmceeConfig(root=tmp_path), None)
     assert type(exc_info.value) is EmceeError
@@ -413,6 +423,35 @@ def test_ad_hoc_speech_rejects_more_than_one_voice_source(tmp_path):
 
     with pytest.raises(EmceeError, match="mutually exclusive"):
         ad_hoc_speech(config, voice="a-preset", presenter=_presenter())
+
+
+def test_ad_hoc_speech_presenter_routes_through_the_resolver(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder(calls))
+    config = EmceeConfig(tts=TTSConfig(backend="fake", voice="house"))
+
+    ad_hoc_speech(config, presenter=_presenter(voice=None, voice_clone="/r.wav",
+                                               voice_clone_text="words", tts="voxtral"))
+
+    assert calls == [("voxtral", "waldo", None, "/r.wav", "words")]
+
+
+def test_ad_hoc_speech_clone_passes_its_transcript_on_the_house_backend(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder(calls))
+
+    ad_hoc_speech(EmceeConfig(), clone_ref="/x.wav", clone_text="spoken words")
+
+    assert calls == [("voxtral", None, None, "/x.wav", "spoken words")]
+
+
+def test_ad_hoc_speech_preset_has_no_clone(monkeypatch):
+    calls = []
+    monkeypatch.setattr("emcee.process.speech_provider_for", _recorder(calls))
+
+    ad_hoc_speech(EmceeConfig(), voice="preset-x")
+
+    assert calls == [("voxtral", None, "preset-x", None, None)]
 
 
 def test_ad_hoc_bed_defaults_to_the_station_bed():

@@ -1,0 +1,29 @@
+# Plan review decisions (apply to the plan; keep task structure; no new tasks except where stated)
+
+## Live tasks (1 and 12)
+
+1. **Server PID.** Every server launch: `(cd ~/tts-bakeoff && exec venvs/mlx/bin/python -m mlx_audio.server --host 127.0.0.1 --port <P> ...) > <log> 2>&1 &`, started via the Bash tool's `run_in_background`, then take the PID from `lsof -tiTCP:<P> -sTCP:LISTEN` (not `$!`). After every stop, assert the port is free (`! lsof -tiTCP:<P> -sTCP:LISTEN`) before the next start. Apply to Task 1 Step 3/4, Task 12 Step 2 (incl. `footprint --server-pid`) and Step 4 (Kokoro).
+2. **No foreground sleep.** Replace `until curl ...; do sleep 2; done` with a bounded wait the harness allows: a background until-loop polled in ≤270 s chunks (`timeout 270 sh -c 'until curl -sf http://127.0.0.1:<P>/ >/dev/null; do sleep 2; done'` as one Bash call with the tool `timeout` set to 300000 ms), or a Monitor. State which.
+3. **STT model choice by accuracy.** Task 1 Step 2: a candidate wins only if it returns 200 + non-empty text AND recovers ≥80% of reference words on `phil_ex` (vs `phil_ex.txt`) and on the De Doelen sentence (`language=en`). Record per-candidate recall in the evidence doc.
+4. **Probe gates in Task 8 "Before coding":** STOP and report if `nframes_header_matches` is "no" — or, if the plan prefers, measure duration from the data chunk's real byte length and fix the `_read_wav` docstring (choose one and state it). Also STOP if the `max_tokens` truncation clip's seconds differ from 25/12.5 by more than one frame (the cap-margin rule depends on 12.5 tokens/s).
+5. **Calibration saves clips and writes data early.** Task 12 `measure()` writes each unit's WAV into the scratch dir and records its path in the data file; `main()` dumps `units` to the data file BEFORE `known_runaways()`/`recommend()`.
+6. **Replace "is listened to" with an operator checkpoint.** Task 12 Step 3: units flagged (`error`, `runaway-at-measurement-cap`, `loop: true`, or any duration/recall outlier) are listed with their WAV paths in a report to the orchestrator, which relays to the operator (Shawn) to listen and classify defect vs artefact; the implementer does not classify by ear and does not adopt constants before that answer. Give the mechanical default the operator can accept: a unit is a defect if its transcript recall < 0.5 or its duration exceeds 2× the median seconds-per-char for its voice.
+7. **Checkpoint before Task 12.** Add an explicit report-and-wait at the top of Task 12: it spends Voxtral credit (~10 sentences), creates `~/tts-bakeoff/venvs/kokoro` and downloads models — the orchestrator must get operator approval before starting it. And a second checkpoint after the Step 3 recommendation (constants reviewed by the operator before adoption).
+8. **Floor ceilings.** Task 12 Step 3 STOP rules also bound `MISS_FLOOR > 3` and `EXTRA_FLOOR > 6`; pin the ceilings in `test_measured_thresholds_tolerate_a_wrong_word_or_two`.
+9. **0.6B gate wording.** The Qwen 0.6B runaway check is satisfied by construction at the cap; label it in the evidence doc as the cap-margin check, and additionally test the measured 0.6B duration (320 s) against the non-cap long limit.
+10. **Kokoro venv + runbook venv:** use `uv venv --python 3.12 <path>` and install `mlx-audio[server,tts,stt]==0.5.8` pinned from a `pip freeze` of `~/tts-bakeoff/venvs/mlx` (commit the freeze as `docs/.../mlx-audio-requirements.txt` alongside the evidence doc). Apply to Task 12 Step 4 and Task 15 Step 3.
+11. **Live test reference clip:** Task 12 Step 8 uses `EMCEE_MLX_REF`/`EMCEE_MLX_REF_TEXT` env vars (default `~/tts-bakeoff/refs/phil_ex.wav`/`.txt`), skipping if absent; not the ~2 s Kokoro clip.
+
+## Strict-surface test coverage
+
+12. **Parametrized config-only failure test** (Task 9, or the task that owns `_process_one` once all failure kinds exist — choose the latest task by which all are implementable, likely Task 11): drive `_process_one` and `voice --fresh` over: unpinned presenter under an mlx house; missing mlx model; uncalibrated model; unloadable model (server returns non-200 at preflight); blank house transcript; mlx house voice with server down; mlx-pinned presenter with server down; verification listed and STT unreachable. Each asserts: raises, scriptwrite never called, manifest bytes unchanged, the `--fresh` clip still on disk, no hosted provider constructed. Add an mlx-house case to the no-fallback test.
+13. **Forbid hosted providers at the class**, not the module name: patch `VoxtralProvider.__init__` and `ElevenLabsProvider.__init__` to fail the test (Task 9 `_forbid_hosted`).
+14. **Package-level verification double-failure test** (Task 11): a verified package whose segment double-fails raises `SpeechDefect` naming the segment, the manifest is untouched, and the failing segment's clip is not written to `dj-audio/`.
+
+## Smaller
+
+15. **Verified mlx preflight synthesizes once:** when a verifier is present, preflight synthesizes the preflight sentence once (max_tokens 200, format/rate checks) and transcribes THAT WAV for the comparison, with the single retry; drop the separate `inner.preflight()` call in that case.
+16. `_dry_run_marker` also catches `OSError` and `ValueError` (incl. `UnicodeDecodeError`) → `[invalid presenters/<id>.toml]`; add a test with an unreadable/binary file.
+17. Runbook step 1 parenthetical → "Older binaries silently ignore these keys; from this release an unknown key is a load error."
+18. CLAUDE.md Conventions: add a one-line exception for the bundled preflight check clip (`emcee/data/preflight_en.wav`) to "never commit audio".
+19. Runbook: before pinning any presenter other than Phil, listen to one `emcee say --presenter <id>` render; at Phil's go-live step, take a `footprint`/`vm_stat` reading during the first real `emcee voice` (TTS + STT + `claude -p` resident) and record it.

@@ -1,0 +1,4620 @@
+{
+ "date": "2026-10-13",
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+ "stt_model": "mlx-community/whisper-large-v3-turbo-asr-fp16",
+ "stt_models": [
+  "mlx-community/whisper-large-v3-turbo-asr-fp16",
+  "mlx-community/parakeet-tdt-0.6b-v3"
+ ],
+ "url": "http://127.0.0.1:8781",
+ "clips_dir": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips",
+ "text_source": {
+  "station_root": "/Volumes/media/lma-radio/delivered",
+  "manifests": 258,
+  "with_dj_notes": 129,
+  "without_dj_notes": 129,
+  "skipped": [],
+  "used": "station-root dj_notes (set_intros + outro)",
+  "skipped_count": 0,
+  "texts": 376,
+  "sentences_total": 3904,
+  "sentences_le_2_comparable_words": {
+   "count": 1,
+   "examples": [
+    "Some background first."
+   ]
+  }
+ },
+ "voices": [
+  {
+   "name": "phil_ex",
+   "clip": "/Users/shawn/tts-bakeoff/refs/phil_ex.wav",
+   "text": "It's the chemistry, basically. And the poetry that these guys bring to their music. It's like, we'll be playing along.",
+   "transcript": "evaluated"
+  },
+  {
+   "name": "monroe1",
+   "clip": "/Users/shawn/.emcee/samples/monroe1.wav",
+   "text": "I started in Asheville, North Carolina on WWNC and went from there to WFBC in Greenville, South Carolina, then moved to the Grand Ole Opry. To get to be on the Grand Ole Opry was great, man. To know that I could be on a station where everybody could hear it, you know, and know where I was at and they could hear it every Saturday night.",
+   "transcript": "stt-draft",
+   "draft": "/Users/shawn/tts-bakeoff/refs/monroe1.draft.txt"
+  },
+  {
+   "name": "kurt1",
+   "clip": "/Users/shawn/.emcee/samples/kurt1.wav",
+   "text": "When I was about fourth grade, I was living with my father in Montecino. And one of his friends, he was a bachelor. He was a freshman. He had just recently gotten divorced, and he was a bachelor. So one of his bachelor friends told him to get one of those subscriptions. And he didn't even open them up. He didn't even open up half the records that came. They were just sitting there, you know, in the plastic steel. And one day I opened them all up.",
+   "transcript": "stt-draft",
+   "draft": "/Users/shawn/tts-bakeoff/refs/kurt1.draft.txt"
+  },
+  {
+   "name": "troymcclure2",
+   "clip": "/Users/shawn/.emcee/samples/troymcclure2.wav",
+   "text": "The Simpsons began as the brainchild of cartoonist Matt Groening, the already famous creator of such comics as Damnation, Johnny Reb, and True Murder Stories. In 1987, Groening teamed up with award-winning producers James L. Brooks and Sam Simon. And what better place to premiere their creation than on the Tracy Ullman Show, the nation's showcase for psychiatrist jokes and musical comedy numbers.",
+   "transcript": "stt-draft",
+   "draft": "/Users/shawn/tts-bakeoff/refs/troymcclure2.draft.txt"
+  },
+  {
+   "name": "billgraham2",
+   "clip": "/Users/shawn/.emcee/samples/billgraham2.wav",
+   "text": "Now, did I sometimes do it on the second time or the third time instead of the 73rd? Yeah, because just before the window broke, somebody else tried to crash in, a musician is late and whatnot. So I'm not sitting here in defense of my puritanical instincts. But you're in this business day in and day out for this amount of time. You get to know lines, you get to know shtick, you get to know what works with the bikers coming or the group being late or a group being so much like that. You got to talk the second act into opening the show, being mad at the opening act.",
+   "transcript": "stt-draft",
+   "draft": "/Users/shawn/tts-bakeoff/refs/billgraham2.draft.txt"
+  }
+ ],
+ "skipped_voices": [],
+ "plan": [
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Listen for West L.A."
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "And that's the whole night, folks."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Here is the second set, from Pittsburgh."
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "Here is the Grateful Dead, live at Red Rocks."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Blues, a cool little rocker to close a hot night."
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "Throwin' Stones and Not Fade Away brought it all home."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "In this first set, I'd ask you to listen for a few things."
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "I would rank it among the finest versions this band ever played."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "After Greatest Story Ever Told comes the stretch we're all here for."
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "This was the closing night of a late autumn swing through the Southeast."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Here are the Grateful Dead at the Strand Lyceum, opening with Promised Land."
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "I'm Professor Chapman, and thank you for spending the afternoon with me at Frost."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "And stay for the set closer, a Deal that is ferocious from the first bar to the last."
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "Listen for Brown Eyed Women, which many listeners count among the night's real treasures."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Later comes a He's Gone of some seventeen minutes with a long and rather eerie vocal ending."
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "After a set that kept fighting a stubborn vocal mic, I'd call that transition a well earned reward."
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "Late in the night, Black Peter reminded us how kind that old room's acoustics were to Jerry's ballads."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "They had debuted it only two weeks earlier, and the band played it just four times in its entire history."
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "Most listeners believe the second set is where this night really lives, and it opens with Gimme Some Lovin'."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it."
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "From there the band runs continuously through Wharfrat and Goin' Down The Road Feelin' Bad into Around and Around."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Think back over that second set, which barely showed a seam from Crazy Fingers all the way through to Sugar Magnolia."
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "In this first set, listen for a Shugaree that stretches to nearly fifteen minutes and grows into something of a monster."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "After that comes Promised Land, and then Not Fade Away into Goin' Down The Road Feeling Bad, slinky rather than bludgeoning."
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "The encore was Touch Of Grey, played hot and high-spirited, a full two years before it turned up on the album In the Dark in 1987."
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "I'm Professor Chapman, this has been One More from the Archive, and I'll be back next time with another night pulled from the vaults."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "If you're just finding us, this is the Smashing Pumpkins at the Shepherds Bush Empire in London, on June nineteenth, two thousand seven."
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "And so the Feedback fades, and with it the Grateful Dead at the Avalon Ballroom in San Francisco, on October twelfth, nineteen sixty-eight."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Passenger carries music by the bass player, Phil Lesh, but his voice was ailing that year, so Bob Weir and Donna Jean Godchaux take the vocal."
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "There is Sunrise, Donna Godchaux's only song for the band, written in memory of their road manager Rex Jackson, and still unreleased at the time."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "That was Playing In The Band closing the first set of the Grateful Dead at Kezar Stadium in San Francisco, May twenty-sixth, nineteen seventy-three."
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "The band's publicist, Dennis McNally, is said to have called this tour the last great Grateful Dead, and I confess I find that very hard to argue with."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Critics tend to call this show a hinge rather than a summit, the point where the band of 1976 turns toward the precision of the spring tour that followed."
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "To my ears it's one of the best sounding Elliott Smith recordings floating around out there, and it's closer to a real live album than to some muddy bootleg."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "The band was about seven months into its life with Brent Midland on keyboards, and songs headed for the Go to Heaven album were starting to drift into the sets."
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "When the band's own archivists chose a single show to represent nineteen eighty-seven in the Thirty Trips Around the Sun box set, they reached for this very night."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "The spring of that year is broadly regarded as the band's live summit, a season of tighter arrangements and fresh material, and this concert was its closing statement."
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "After Drumz and the Jam, the band charged through The Other One, Jerry sang Wharf Rat for all he was worth, and Bob Weir hollered the set home with Turn On Your Lovelight."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "After that comes the centerpiece, roughly twenty-five minutes of Scarlet Begonias into Fire On The Mountain, with Jerry and Bruce trading phrases like two old correspondents."
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "They played three upstate nights in a row, first Hamilton, then Rochester, and finally Binghamton, and a good many listeners hold that the last of the three is the marquee night."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "When the Dew finally arrives tonight, it feels to me less like a song and more like a comet passing overhead, and I'd suggest you put down whatever is in your hands and simply listen."
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "For the encore they gave us Revolution, the Beatles tune, which had entered the repertoire only days earlier on this very tour and which the band would play only about a dozen times ever."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Jerry's voice is worn and his guitar is aching, and one person in the crowd remembers clouds rolling in from the west while he played, which seems exactly right for a song about time running out."
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "The Dead themselves were still riding the long wave of their comeback, road-testing songs for an album called Built To Last, and Brent Midland was singing with a confidence he had not always possessed."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Then Where Boys Fear to Tread, Rhinoceros and a long Porcelina of the Vast Oceans, with a little tease of Rocket tucked into the outro, are where a stiff, well-dressed arena crowd finally starts to loosen up."
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "And at the end of this set, listen for something genuinely rare, Scarlet Begonias rolling into Fire on the Mountain as a first-set closer, the first time the band had put the pair there since May of nineteen seventy-seven."
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "You are listening to One More from the Archive, and that was the first set from the Grateful Dead at the Springfield Civic Center Arena, March twenty-eighth, nineteen seventy-three, wrapping up with China Cat Sunflower into I Know You Rider."
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "Comes A Time swelled and broke and came back triumphant, Lost Sailor wandered off into Drums before Saint Of Circumstance finally found the shore, and one fan who was there remembers Mickey Hart heading for his back drums again and again, getting fooled each time by the song choice, and finally just shrugging and laughing when Lost Sailor began."
+  },
+  {
+   "kind": "segment",
+   "voice": "phil_ex",
+   "text": "This is Professor Chapman, and you are aboard the Grateful Dead at Hampton Coliseum in Hampton, Virginia, on May the first, 1981. That first set is the reason we came, with an unhurried Friend of the Devil, real heat from Garcia in Althea, and a Let It Grow into Deal that I would place among the finest of the era. Opinion divides on the second set, and I'll admit that freely, since some listeners find it pedestrian once the drummers take over. But the opening Feel Like a Stranger into Franklin's Tower simply refuses to stop, and later, when He's Gone dissolves into The Other One, the whole room tilts toward the psychedelic. I would urge you not to wander off during that particular passage."
+  },
+  {
+   "kind": "segment",
+   "voice": "phil_ex",
+   "text": "That was the first set from the Grateful Dead at the Richmond Coliseum in Richmond, Virginia, November first, nineteen eighty-five, and you're listening to One More from the Archive. We heard that rare opening pair, a cowboy double of Me And My Uncle and Big River, a lively Brown Eyed Women, and then Jack Straw carrying us home into Don't Ease Me In. Now we come to one of the strangest second sets of the whole decade. After Samson And Delilah, the band settles into five slow, searching songs in a row: High Time, He's Gone, Spoonful, Comes A Time, and Lost Sailor. It feels less like a rock show and more like the mellowest night of the Jerry Garcia Band, as though the entire Coliseum had drifted out past the orbit of Neptune for the better part of an hour. Then a long Drums separates Lost Sailor from Saint Of Circumstance, the only time that pairing was ever split by another piece of music. Stay with me for a Dylan rarity in She Belongs To Me, and a raucous Gloria to bring the set home."
+  },
+  {
+   "kind": "segment",
+   "voice": "phil_ex",
+   "text": "You're listening to One More from the Archive, and that was the first set from the Grateful Dead at Freedom Hall in Louisville, Kentucky, on June the eighteenth, nineteen seventy-four. I hope you caught Keith Godchaux taking the first solo in Eyes Of The World, then adding that triumphant harmony to the seven-eight outro, before the band drifted down into a lovely China Doll, and then closed the set with a positively ferocious ending. The second set is where this evening earns its reputation. After a bouncy, funky Loose Lucy, a speedy El Paso, and a Row Jimmy with pristine slide work, comes a sequence that runs nearly an hour. It moves from Weather Report Suite into Let It Grow, and then into The Other One, where Phil Lesh unveils his new quad bass. Out of that rises an instrumental jam on It's A Sin, the old Eddy Arnold country hit, which the band played on this night and never again, before the music opens into Stella Blue. If the cosmos keeps a waiting room, I imagine it sounds like those few minutes. Big River, Tennessee Jed and Sugar Magnolia bring the set home, and I'd suggest you not wander off when it ends. Once more, this is the Grateful Dead at Freedom Hall in Louisville."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Listen for West L.A."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Throwin' Stones and Not Fade Away brought it all home."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Here are the Grateful Dead at the Strand Lyceum, opening with Promised Land."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Passenger carries music by the bass player, Phil Lesh, but his voice was ailing that year, so Bob Weir and Donna Jean Godchaux take the vocal."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "To my ears it's one of the best sounding Elliott Smith recordings floating around out there, and it's closer to a real live album than to some muddy bootleg."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "After that comes the centerpiece, roughly twenty-five minutes of Scarlet Begonias into Fire On The Mountain, with Jerry and Bruce trading phrases like two old correspondents."
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "The Dead themselves were still riding the long wave of their comeback, road-testing songs for an album called Built To Last, and Brent Midland was singing with a confidence he had not always possessed."
+  }
+ ],
+ "units": [
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Listen for West L.A.",
+   "chars": 20,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/000-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Listen for West L.A.",
+     "words": 5,
+     "found": 5,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 2.36
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Listen for West LA.",
+     "words": 5,
+     "found": 5,
+     "missing": 0,
+     "extra": -1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.88
+    }
+   },
+   "wall_s": 8.3,
+   "seconds": 1.68,
+   "render_status": "ok",
+   "transcript": "Listen for West L.A.",
+   "words": 5,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 0,
+   "spc_ratio": 1.483,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "And that's the whole night, folks.",
+   "chars": 34,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/001-sentence-monroe1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "And that's the whole night, folks.",
+     "words": 6,
+     "found": 6,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.07
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "And that's the whole night, folks.",
+     "words": 6,
+     "found": 6,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.15
+    }
+   },
+   "wall_s": 6.3,
+   "seconds": 1.52,
+   "render_status": "ok",
+   "transcript": "And that's the whole night, folks.",
+   "words": 6,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 1,
+   "spc_ratio": 0.866,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Here is the second set, from Pittsburgh.",
+   "chars": 40,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/002-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Here's the second set from Pittsburgh.",
+     "words": 6,
+     "found": 6,
+     "missing": 0,
+     "extra": -1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.89
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Here's the second set from Pittsburgh.",
+     "words": 6,
+     "found": 6,
+     "missing": 0,
+     "extra": -1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.19
+    }
+   },
+   "wall_s": 5.0,
+   "seconds": 2.32,
+   "render_status": "ok",
+   "transcript": "Here's the second set from Pittsburgh.",
+   "words": 6,
+   "missing": 0,
+   "extra": -1,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 2,
+   "spc_ratio": 1.024,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "operator",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "Here is the Grateful Dead, live at Red Rocks.",
+   "chars": 45,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/003-sentence-kurt1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Here's the Grateful Dead. Live at Red Rocks.",
+     "words": 9,
+     "found": 9,
+     "missing": 0,
+     "extra": -1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.95
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Here's the Grateful Dead, live at Red Rocks.",
+     "words": 9,
+     "found": 9,
+     "missing": 0,
+     "extra": -1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.14
+    }
+   },
+   "wall_s": 7.1,
+   "seconds": 2.8,
+   "render_status": "ok",
+   "transcript": "Here's the Grateful Dead. Live at Red Rocks.",
+   "words": 9,
+   "missing": 0,
+   "extra": -1,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 3,
+   "spc_ratio": 1.146,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "operator",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Blues, a cool little rocker to close a hot night.",
+   "chars": 49,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/004-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Blues, a cool little rocker to close a hot night.",
+     "words": 10,
+     "found": 10,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.96
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Blues a cool little rocker to close a hot night.",
+     "words": 10,
+     "found": 10,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.17
+    }
+   },
+   "wall_s": 6.4,
+   "seconds": 2.96,
+   "render_status": "ok",
+   "transcript": "Blues, a cool little rocker to close a hot night.",
+   "words": 10,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 4,
+   "spc_ratio": 1.067,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "Throwin' Stones and Not Fade Away brought it all home.",
+   "chars": 54,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/005-sentence-troymcclure2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Throw in stones and not fade away brought it all home.",
+     "words": 10,
+     "found": 10,
+     "missing": 0,
+     "extra": 1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.95
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Throw in stones and not fade away brought it all home.",
+     "words": 10,
+     "found": 10,
+     "missing": 0,
+     "extra": 1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.17
+    }
+   },
+   "wall_s": 8.2,
+   "seconds": 3.12,
+   "render_status": "ok",
+   "transcript": "Throw in stones and not fade away brought it all home.",
+   "words": 10,
+   "missing": 0,
+   "extra": 1,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 5,
+   "spc_ratio": 1.031,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "In this first set, I'd ask you to listen for a few things.",
+   "chars": 58,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/006-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "in this first set, I'd ask you to listen for a few things.",
+     "words": 12,
+     "found": 12,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.0
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "In this first set, I'd ask you to listen for a few things.",
+     "words": 12,
+     "found": 12,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.24
+    }
+   },
+   "wall_s": 6.6,
+   "seconds": 2.8,
+   "render_status": "ok",
+   "transcript": "in this first set, I'd ask you to listen for a few things.",
+   "words": 12,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 6,
+   "spc_ratio": 0.853,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "I would rank it among the finest versions this band ever played.",
+   "chars": 64,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/007-sentence-billgraham2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "I would rank it among the finest versions this band ever played.",
+     "words": 12,
+     "found": 12,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.0
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "I would rank it among the finest versions this band ever played.",
+     "words": 12,
+     "found": 12,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.16
+    }
+   },
+   "wall_s": 8.7,
+   "seconds": 3.36,
+   "render_status": "ok",
+   "transcript": "I would rank it among the finest versions this band ever played.",
+   "words": 12,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 7,
+   "spc_ratio": 1.045,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "After Greatest Story Ever Told comes the stretch we're all here for.",
+   "chars": 68,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/008-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "After greatest story ever told comes the stretch we're all here for.",
+     "words": 12,
+     "found": 12,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.01
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "After greatest story ever told comes the stretch we're all here for.",
+     "words": 12,
+     "found": 12,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.23
+    }
+   },
+   "wall_s": 7.8,
+   "seconds": 3.76,
+   "render_status": "ok",
+   "transcript": "After greatest story ever told comes the stretch we're all here for.",
+   "words": 12,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 8,
+   "spc_ratio": 0.976,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "This was the closing night of a late autumn swing through the Southeast.",
+   "chars": 72,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/009-sentence-monroe1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "This was the closing night of a late autumn swing through the southeast.",
+     "words": 13,
+     "found": 13,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.97
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "This was the closing night of a a late autumn swing through the southeast.",
+     "words": 13,
+     "found": 13,
+     "missing": 0,
+     "extra": 1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [
+      "a"
+     ],
+     "wall_s": 0.15
+    }
+   },
+   "wall_s": 7.9,
+   "seconds": 3.52,
+   "render_status": "ok",
+   "transcript": "This was the closing night of a late autumn swing through the southeast.",
+   "words": 13,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 9,
+   "spc_ratio": 0.947,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Here are the Grateful Dead at the Strand Lyceum, opening with Promised Land.",
+   "chars": 76,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/010-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Here are the Grateful Dead at the Strand Lyceum, opening with promised land.",
+     "words": 13,
+     "found": 13,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.06
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Here are the grateful dead at the Strand Lyceum, opening with promised land.",
+     "words": 13,
+     "found": 13,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.2
+    }
+   },
+   "wall_s": 8.4,
+   "seconds": 4.64,
+   "render_status": "ok",
+   "transcript": "Here are the Grateful Dead at the Strand Lyceum, opening with promised land.",
+   "words": 13,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 10,
+   "spc_ratio": 1.078,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "I'm Professor Chapman, and thank you for spending the afternoon with me at Frost.",
+   "chars": 81,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/011-sentence-kurt1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "I'm Professor Chapman and thank you for spending the afternoon with me at Frost.",
+     "words": 14,
+     "found": 14,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.0
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "I'm Professor Chapman and thank you for spending the afternoon with me at Frost.",
+     "words": 14,
+     "found": 14,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.16
+    }
+   },
+   "wall_s": 9.1,
+   "seconds": 3.76,
+   "render_status": "ok",
+   "transcript": "I'm Professor Chapman and thank you for spending the afternoon with me at Frost.",
+   "words": 14,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 11,
+   "spc_ratio": 0.855,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "And stay for the set closer, a Deal that is ferocious from the first bar to the last.",
+   "chars": 85,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/012-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "and stay for the set closer, a deal that is ferocious from the first bar to the last.",
+     "words": 17,
+     "found": 17,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.19
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "And stay for the set closer, a deal that is ferocious from the first bar to the last.",
+     "words": 17,
+     "found": 17,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.34
+    }
+   },
+   "wall_s": 10.3,
+   "seconds": 5.76,
+   "render_status": "ok",
+   "transcript": "and stay for the set closer, a deal that is ferocious from the first bar to the last.",
+   "words": 17,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 12,
+   "spc_ratio": 1.197,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "Listen for Brown Eyed Women, which many listeners count among the night's real treasures.",
+   "chars": 89,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/013-sentence-troymcclure2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Listen for Brown-Eyed Women, which many listeners count among the night's real treasures.",
+     "words": 14,
+     "found": 14,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.53
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Listen for brown eyed women, which many listeners count among the night's real treasures.",
+     "words": 14,
+     "found": 14,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.27
+    }
+   },
+   "wall_s": 10.7,
+   "seconds": 4.56,
+   "render_status": "ok",
+   "transcript": "Listen for Brown-Eyed Women, which many listeners count among the night's real treasures.",
+   "words": 14,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 13,
+   "spc_ratio": 0.914,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Later comes a He's Gone of some seventeen minutes with a long and rather eerie vocal ending.",
+   "chars": 92,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/014-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "later comes a he's gone of some 17 minutes with a long and rather eerie vocal ending",
+     "words": 16,
+     "found": 16,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.12
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Later comes a he's gone of some seventeen minutes with a long and rather eerie vocal ending.",
+     "words": 16,
+     "found": 16,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.31
+    }
+   },
+   "wall_s": 11.7,
+   "seconds": 5.92,
+   "render_status": "ok",
+   "transcript": "later comes a he's gone of some 17 minutes with a long and rather eerie vocal ending",
+   "words": 16,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 14,
+   "spc_ratio": 1.136,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went.",
+   "chars": 95,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/015-sentence-billgraham2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went.",
+     "words": 17,
+     "found": 17,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.07
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went.",
+     "words": 17,
+     "found": 17,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.2
+    }
+   },
+   "wall_s": 10.7,
+   "seconds": 4.96,
+   "render_status": "ok",
+   "transcript": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went.",
+   "words": 17,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 15,
+   "spc_ratio": 1.039,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "After a set that kept fighting a stubborn vocal mic, I'd call that transition a well earned reward.",
+   "chars": 99,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/016-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "After a set that kept fighting a stubborn vocal mic, I'd call that transition a well-earned reward.",
+     "words": 18,
+     "found": 18,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.16
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "After a set that kept fighting a stubborn vocal mic, I'd call that transition a well earned reward.",
+     "words": 18,
+     "found": 18,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.31
+    }
+   },
+   "wall_s": 12.7,
+   "seconds": 6.4,
+   "render_status": "ok",
+   "transcript": "After a set that kept fighting a stubborn vocal mic, I'd call that transition a well-earned reward.",
+   "words": 18,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 16,
+   "spc_ratio": 1.142,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "Late in the night, Black Peter reminded us how kind that old room's acoustics were to Jerry's ballads.",
+   "chars": 102,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/017-sentence-monroe1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Late in the night, Black Peter reminded us how kind that old room's acoustics were to Jerry's ballads.",
+     "words": 18,
+     "found": 18,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.15
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Late in the night Black Peter reminded us how kind that Old Room's acoustics were to Jerry's ballads.",
+     "words": 18,
+     "found": 18,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.26
+    }
+   },
+   "wall_s": 14.6,
+   "seconds": 5.28,
+   "render_status": "ok",
+   "transcript": "Late in the night, Black Peter reminded us how kind that old room's acoustics were to Jerry's ballads.",
+   "words": 18,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 17,
+   "spc_ratio": 1.002,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "They had debuted it only two weeks earlier, and the band played it just four times in its entire history.",
+   "chars": 105,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/018-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "They had debuted it only two weeks earlier, and the band played it just four times in its entire history.",
+     "words": 18,
+     "found": 18,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.22
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "They had debuted it only two weeks earlier and the band played it just four times in its entire history.",
+     "words": 18,
+     "found": 18,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.4
+    }
+   },
+   "wall_s": 11.8,
+   "seconds": 5.92,
+   "render_status": "ok",
+   "transcript": "They had debuted it only two weeks earlier, and the band played it just four times in its entire history.",
+   "words": 18,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 18,
+   "spc_ratio": 0.996,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "Most listeners believe the second set is where this night really lives, and it opens with Gimme Some Lovin'.",
+   "chars": 108,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/019-sentence-kurt1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Most listeners believe the second set is where this night really lives, and it opens with Gimme Some Lovin'.",
+     "words": 18,
+     "found": 18,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.23
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Most listeners believe the second set is where this night really lives and it opens with Gimme Some Lovin'.",
+     "words": 18,
+     "found": 18,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.26
+    }
+   },
+   "wall_s": 12.8,
+   "seconds": 6.48,
+   "render_status": "ok",
+   "transcript": "Most listeners believe the second set is where this night really lives, and it opens with Gimme Some Lovin'.",
+   "words": 18,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 19,
+   "spc_ratio": 1.105,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it.",
+   "chars": 111,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/020-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it.",
+     "words": 21,
+     "found": 21,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.2
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it.",
+     "words": 21,
+     "found": 21,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.2
+    }
+   },
+   "wall_s": 10.1,
+   "seconds": 5.52,
+   "render_status": "ok",
+   "transcript": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it.",
+   "words": 21,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 20,
+   "spc_ratio": 0.878,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "From there the band runs continuously through Wharfrat and Goin' Down The Road Feelin' Bad into Around and Around.",
+   "chars": 114,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/021-sentence-troymcclure2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "From there, the band runs continuously through Warfrat and going down the road feeling bad into Around and Around.",
+     "words": 19,
+     "found": 18,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.947,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "wharfrat"
+     ],
+     "extra_words": [
+      "warfrat"
+     ],
+     "wall_s": 1.14
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "From there the band runs continuously through Warfrat and going down the road feeling bad into around and around.",
+     "words": 19,
+     "found": 18,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.947,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "wharfrat"
+     ],
+     "extra_words": [
+      "warfrat"
+     ],
+     "wall_s": 0.29
+    }
+   },
+   "wall_s": 12.7,
+   "seconds": 6.56,
+   "render_status": "ok",
+   "transcript": "From there, the band runs continuously through Warfrat and going down the road feeling bad into Around and Around.",
+   "words": 19,
+   "missing": 1,
+   "extra": 0,
+   "recall": 0.947,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 21,
+   "spc_ratio": 1.027,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Think back over that second set, which barely showed a seam from Crazy Fingers all the way through to Sugar Magnolia.",
+   "chars": 117,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/022-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Think back over that second set which barely showed a seam from Crazy Fingers all the way through to Sugar Magnolia.",
+     "words": 20,
+     "found": 20,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.19
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Think back over that second set which barely showed a seam from crazy fingers all the way through to sugar magnolia.",
+     "words": 20,
+     "found": 20,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.21
+    }
+   },
+   "wall_s": 13.1,
+   "seconds": 6.24,
+   "render_status": "ok",
+   "transcript": "Think back over that second set which barely showed a seam from Crazy Fingers all the way through to Sugar Magnolia.",
+   "words": 20,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 22,
+   "spc_ratio": 0.942,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "In this first set, listen for a Shugaree that stretches to nearly fifteen minutes and grows into something of a monster.",
+   "chars": 120,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/023-sentence-billgraham2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "In this first set, listen for a sugary that stretches to nearly 15 minutes and grows into something of a monster.",
+     "words": 19,
+     "found": 18,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.947,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "shugaree"
+     ],
+     "extra_words": [
+      "sugary"
+     ],
+     "wall_s": 1.1
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "In this first set listen for a sugary that stretches to nearly fifteen minutes and grows into something of a monster.",
+     "words": 19,
+     "found": 18,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.947,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "shugaree"
+     ],
+     "extra_words": [
+      "sugary"
+     ],
+     "wall_s": 0.29
+    }
+   },
+   "wall_s": 12.2,
+   "seconds": 5.6,
+   "render_status": "ok",
+   "transcript": "In this first set, listen for a sugary that stretches to nearly 15 minutes and grows into something of a monster.",
+   "words": 19,
+   "missing": 1,
+   "extra": 0,
+   "recall": 0.947,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 23,
+   "spc_ratio": 0.929,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "After that comes Promised Land, and then Not Fade Away into Goin' Down The Road Feeling Bad, slinky rather than bludgeoning.",
+   "chars": 124,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/024-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "After that comes promised land and then not fade away into going down the road feeling bad, slinky rather than bludgeoning.",
+     "words": 21,
+     "found": 21,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.18
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "After that comes promised land and then not fade away into going down the road feeling bad, slinky rather than bludgeoning.",
+     "words": 21,
+     "found": 21,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.54
+    }
+   },
+   "wall_s": 14.2,
+   "seconds": 7.6,
+   "render_status": "ok",
+   "transcript": "After that comes promised land and then not fade away into going down the road feeling bad, slinky rather than bludgeoning.",
+   "words": 21,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 24,
+   "spc_ratio": 1.082,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work.",
+   "chars": 126,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/025-sentence-monroe1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work.",
+     "words": 22,
+     "found": 22,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.14
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work.",
+     "words": 22,
+     "found": 22,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.21
+    }
+   },
+   "wall_s": 11.1,
+   "seconds": 5.68,
+   "render_status": "ok",
+   "transcript": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work.",
+   "words": 22,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 25,
+   "spc_ratio": 0.873,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "The encore was Touch Of Grey, played hot and high-spirited, a full two years before it turned up on the album In the Dark in 1987.",
+   "chars": 130,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/026-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "the encore was touch of gray played hot and high-spirited a full two years before it turned up on the album in the dark in nineteen eighty seven",
+     "words": 25,
+     "found": 24,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.96,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "grey"
+     ],
+     "extra_words": [
+      "gray"
+     ],
+     "wall_s": 1.33
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "The encore was Touch of Grey, played hot and high spirited, a full two years before it turned up on the album In the Dark in nineteen eighty seven.",
+     "words": 25,
+     "found": 25,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.39
+    }
+   },
+   "wall_s": 14.1,
+   "seconds": 9.76,
+   "render_status": "ok",
+   "transcript": "the encore was touch of gray played hot and high-spirited a full two years before it turned up on the album in the dark in nineteen eighty seven",
+   "words": 25,
+   "missing": 1,
+   "extra": 0,
+   "recall": 0.96,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 26,
+   "spc_ratio": 1.326,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "I'm Professor Chapman, this has been One More from the Archive, and I'll be back next time with another night pulled from the vaults.",
+   "chars": 133,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/027-sentence-kurt1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "I'm Professor Chapman. This has been One More from the Archive, and I'll be back next time with another night pulled from the vaults.",
+     "words": 23,
+     "found": 23,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.3
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "I'm Professor Chapman. This has been One More from the Archive and I'll be back next time with another night pulled from the vaults.",
+     "words": 23,
+     "found": 23,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.23
+    }
+   },
+   "wall_s": 11.2,
+   "seconds": 6.4,
+   "render_status": "ok",
+   "transcript": "I'm Professor Chapman. This has been One More from the Archive, and I'll be back next time with another night pulled from the vaults.",
+   "words": 23,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 27,
+   "spc_ratio": 0.886,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "If you're just finding us, this is the Smashing Pumpkins at the Shepherds Bush Empire in London, on June nineteenth, two thousand seven.",
+   "chars": 136,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/028-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "If you're just finding us, this is the Smashing Pumpkins at the Shepherds Bush Empire in London on June 19, 2007.",
+     "words": 19,
+     "found": 19,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.15
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "If you're just finding us, this is the smashing pumpkins at the Shepherd's Bush Empire in London on june nineteenth, two thousand seven.",
+     "words": 19,
+     "found": 19,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.34
+    }
+   },
+   "wall_s": 13.8,
+   "seconds": 7.04,
+   "render_status": "ok",
+   "transcript": "If you're just finding us, this is the Smashing Pumpkins at the Shepherds Bush Empire in London on June 19, 2007.",
+   "words": 19,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 28,
+   "spc_ratio": 0.914,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "And so the Feedback fades, and with it the Grateful Dead at the Avalon Ballroom in San Francisco, on October twelfth, nineteen sixty-eight.",
+   "chars": 139,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/029-sentence-troymcclure2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "And so the feedback fades, and with it, the Grateful Dead at the Avalon Ballroom in San Francisco on October 12, 1968.",
+     "words": 20,
+     "found": 20,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.3
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "And so the feedback fades, and with it the grateful dead at the Avalon Ballroom in San Francisco on October twelfth, nineteen sixty eight.",
+     "words": 20,
+     "found": 20,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.35
+    }
+   },
+   "wall_s": 15.3,
+   "seconds": 8.72,
+   "render_status": "ok",
+   "transcript": "And so the feedback fades, and with it, the Grateful Dead at the Avalon Ballroom in San Francisco on October 12, 1968.",
+   "words": 20,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 29,
+   "spc_ratio": 1.12,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Passenger carries music by the bass player, Phil Lesh, but his voice was ailing that year, so Bob Weir and Donna Jean Godchaux take the vocal.",
+   "chars": 142,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/030-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Passenger carries music by the bass player Phil Lesh but his voice was ailing that year so Bob Weir and Donna Jean Godshow take the vocal",
+     "words": 26,
+     "found": 25,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.962,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "godchaux"
+     ],
+     "extra_words": [
+      "godshow"
+     ],
+     "wall_s": 1.42
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Passenger carries music by the bass player, Phil Lesh, but his voice was ailing that year, so Bob Weir and Donna Jean Godshow take the vocal",
+     "words": 26,
+     "found": 25,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.962,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "godchaux"
+     ],
+     "extra_words": [
+      "godshow"
+     ],
+     "wall_s": 0.28
+    }
+   },
+   "wall_s": 16.3,
+   "seconds": 9.84,
+   "render_status": "ok",
+   "transcript": "Passenger carries music by the bass player Phil Lesh but his voice was ailing that year so Bob Weir and Donna Jean Godshow take the vocal",
+   "words": 26,
+   "missing": 1,
+   "extra": 0,
+   "recall": 0.962,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 30,
+   "spc_ratio": 1.224,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "There is Sunrise, Donna Godchaux's only song for the band, written in memory of their road manager Rex Jackson, and still unreleased at the time.",
+   "chars": 145,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/031-sentence-billgraham2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "There is Sunrise, Don Agacho's only song for the band, written in memory of their road manager Rex Jackson and still unreleased at the time.",
+     "words": 25,
+     "found": 23,
+     "missing": 2,
+     "extra": 0,
+     "recall": 0.92,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "donna",
+      "godchauxs"
+     ],
+     "extra_words": [
+      "agachos",
+      "don"
+     ],
+     "wall_s": 1.22
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "There is Sunrise Donna Gacho's only song for the band, written in memory of their road manager Rex Jackson, and still unreleased at the time.",
+     "words": 25,
+     "found": 24,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.96,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "godchauxs"
+     ],
+     "extra_words": [
+      "gachos"
+     ],
+     "wall_s": 0.25
+    }
+   },
+   "wall_s": 13.2,
+   "seconds": 6.8,
+   "render_status": "ok",
+   "transcript": "There is Sunrise, Don Agacho's only song for the band, written in memory of their road manager Rex Jackson and still unreleased at the time.",
+   "words": 25,
+   "missing": 2,
+   "extra": 0,
+   "recall": 0.92,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 31,
+   "spc_ratio": 0.933,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "That was Playing In The Band closing the first set of the Grateful Dead at Kezar Stadium in San Francisco, May twenty-sixth, nineteen seventy-three.",
+   "chars": 148,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/032-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "That was playing in the band closing the first set of The Grateful Dead at Kizar Stadium in San Francisco, May 26, 1973.",
+     "words": 20,
+     "found": 19,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.95,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "kezar"
+     ],
+     "extra_words": [
+      "kizar"
+     ],
+     "wall_s": 1.18
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "That was playing in the band closing the first set of The Grateful Dead at Kizar Stadium in San Francisco, May twenty sixth, nineteen seventy-three.",
+     "words": 20,
+     "found": 19,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.95,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "kezar"
+     ],
+     "extra_words": [
+      "kizar"
+     ],
+     "wall_s": 0.46
+    }
+   },
+   "wall_s": 14.6,
+   "seconds": 8.4,
+   "render_status": "ok",
+   "transcript": "That was playing in the band closing the first set of The Grateful Dead at Kizar Stadium in San Francisco, May 26, 1973.",
+   "words": 20,
+   "missing": 1,
+   "extra": 0,
+   "recall": 0.95,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 32,
+   "spc_ratio": 1.002,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "The band's publicist, Dennis McNally, is said to have called this tour the last great Grateful Dead, and I confess I find that very hard to argue with.",
+   "chars": 151,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/033-sentence-monroe1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "The band's publicist, Dennis McNally, is said to have called this tour the last Grateful Dead. And I confess, I find that very hard to argue with.",
+     "words": 28,
+     "found": 27,
+     "missing": 1,
+     "extra": -1,
+     "recall": 0.964,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "great"
+     ],
+     "extra_words": [],
+     "wall_s": 1.37
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "The band's publicist Dennis McNally is said to have called this tour The Last Grateful Dead, and I confess I find that very hard to argue with.",
+     "words": 28,
+     "found": 27,
+     "missing": 1,
+     "extra": -1,
+     "recall": 0.964,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "great"
+     ],
+     "extra_words": [],
+     "wall_s": 0.37
+    }
+   },
+   "wall_s": 16.2,
+   "seconds": 8.8,
+   "render_status": "ok",
+   "transcript": "The band's publicist, Dennis McNally, is said to have called this tour the last Grateful Dead. And I confess, I find that very hard to argue with.",
+   "words": 28,
+   "missing": 1,
+   "extra": -1,
+   "recall": 0.964,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 33,
+   "spc_ratio": 1.128,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Critics tend to call this show a hinge rather than a summit, the point where the band of 1976 turns toward the precision of the spring tour that followed.",
+   "chars": 154,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/034-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Critics tend to call this show a hinge rather than a summit, the point where the band of 1976 turns toward the precision of the spring tour that followed.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.42
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Critics tend to call this show a hinge rather than a summit. The point where the band of nineteen seventy-six turns toward the precision of the spring tour that followed.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.3
+    }
+   },
+   "wall_s": 18.5,
+   "seconds": 9.92,
+   "render_status": "ok",
+   "transcript": "Critics tend to call this show a hinge rather than a summit, the point where the band of 1976 turns toward the precision of the spring tour that followed.",
+   "words": 28,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 34,
+   "spc_ratio": 1.138,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "To my ears it's one of the best sounding Elliott Smith recordings floating around out there, and it's closer to a real live album than to some muddy bootleg.",
+   "chars": 157,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/035-sentence-kurt1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "To my ears, it's one of the best sounding Elliott Smith recordings floating around out there. And it's closer to a real live album than to some muddy bootleg.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.5
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "To my ears, it's one of the best sounding Elliott Smith recordings floating around out there and it's closer to a real live album than to some muddy bootleg.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.41
+    }
+   },
+   "wall_s": 21.3,
+   "seconds": 8.72,
+   "render_status": "ok",
+   "transcript": "To my ears, it's one of the best sounding Elliott Smith recordings floating around out there. And it's closer to a real live album than to some muddy bootleg.",
+   "words": 28,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 35,
+   "spc_ratio": 1.023,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "The band was about seven months into its life with Brent Midland on keyboards, and songs headed for the Go to Heaven album were starting to drift into the sets.",
+   "chars": 160,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/036-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "The band was about seven months into its life with Brent Midland on keyboards, and songs headed for the Go to Heaven album were starting to drift into the sets.",
+     "words": 29,
+     "found": 29,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.4
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "The band was about seven months into its life with Brent Midland on keyboards, and songs headed for the Go To Heaven album were starting to drift into the sets.",
+     "words": 29,
+     "found": 29,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.4
+    }
+   },
+   "wall_s": 24.2,
+   "seconds": 9.04,
+   "render_status": "ok",
+   "transcript": "The band was about seven months into its life with Brent Midland on keyboards, and songs headed for the Go to Heaven album were starting to drift into the sets.",
+   "words": 29,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 36,
+   "spc_ratio": 0.998,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "When the band's own archivists chose a single show to represent nineteen eighty-seven in the Thirty Trips Around the Sun box set, they reached for this very night.",
+   "chars": 163,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/037-sentence-troymcclure2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "When the band's own archivist chose a single show to represent 1987 in the 30 trips around the Sun box set, they reached for this very night.",
+     "words": 25,
+     "found": 24,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.96,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "archivists"
+     ],
+     "extra_words": [
+      "archivist"
+     ],
+     "wall_s": 1.31
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "When the band's own archivists chose a single show to represent 1987 in the 30 Trips Around the Sun Box set, they reached for this very night.",
+     "words": 25,
+     "found": 25,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.4
+    }
+   },
+   "wall_s": 23.2,
+   "seconds": 8.56,
+   "render_status": "ok",
+   "transcript": "When the band's own archivist chose a single show to represent 1987 in the 30 trips around the Sun box set, they reached for this very night.",
+   "words": 25,
+   "missing": 1,
+   "extra": 0,
+   "recall": 0.96,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 37,
+   "spc_ratio": 0.937,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "The spring of that year is broadly regarded as the band's live summit, a season of tighter arrangements and fresh material, and this concert was its closing statement.",
+   "chars": 167,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/038-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "The spring of that year is broadly regarded as the band's live summit, a season of tighter arrangements and fresh material, and this concert was its closing statement.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.35
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "The spring of that year is broadly regarded as the band's live summit, a season of tighter arrangements and fresh material, and this concert was its closing statement.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.32
+    }
+   },
+   "wall_s": 21.3,
+   "seconds": 10.0,
+   "render_status": "ok",
+   "transcript": "The spring of that year is broadly regarded as the band's live summit, a season of tighter arrangements and fresh material, and this concert was its closing statement.",
+   "words": 28,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 38,
+   "spc_ratio": 1.057,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "After Drumz and the Jam, the band charged through The Other One, Jerry sang Wharf Rat for all he was worth, and Bob Weir hollered the set home with Turn On Your Lovelight.",
+   "chars": 171,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/039-sentence-billgraham2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "After drums and the jam, the band charged through the other one. Jerry sang Warfrat for all he was worth. And Bob Weir hollered the set home with Turn On Your Love Light.",
+     "words": 32,
+     "found": 29,
+     "missing": 3,
+     "extra": 0,
+     "recall": 0.906,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "drumz",
+      "rat",
+      "wharf"
+     ],
+     "extra_words": [
+      "drums",
+      "warfrat"
+     ],
+     "wall_s": 1.49
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "After drums and the jam the band charged through the other one, Jerry sang Wharfrat for all he was worth and Bob Weir hollered the set home with Turn on Your Love Light.",
+     "words": 32,
+     "found": 31,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.969,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "drumz"
+     ],
+     "extra_words": [
+      "drums"
+     ],
+     "wall_s": 0.28
+    }
+   },
+   "wall_s": 20.1,
+   "seconds": 9.36,
+   "render_status": "ok",
+   "transcript": "After drums and the jam, the band charged through the other one. Jerry sang Warfrat for all he was worth. And Bob Weir hollered the set home with Turn On Your Love Light.",
+   "words": 32,
+   "missing": 3,
+   "extra": 0,
+   "recall": 0.906,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 39,
+   "spc_ratio": 1.089,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "After that comes the centerpiece, roughly twenty-five minutes of Scarlet Begonias into Fire On The Mountain, with Jerry and Bruce trading phrases like two old correspondents.",
+   "chars": 174,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/040-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "After that comes the centerpiece, roughly 25 minutes of Scarlet Begonias into Fire on the Mountain, with Jerry and Bruce trading phrases like two old correspondents.",
+     "words": 24,
+     "found": 24,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.38
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "After that comes the centerpiece, roughly twenty five minutes of Scarlet Begonia's Into Fire on the Mountain, with Jerry and Bruce trading phrases like two old correspondents.",
+     "words": 24,
+     "found": 24,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.35
+    }
+   },
+   "wall_s": 18.6,
+   "seconds": 9.6,
+   "render_status": "ok",
+   "transcript": "After that comes the centerpiece, roughly 25 minutes of Scarlet Begonias into Fire on the Mountain, with Jerry and Bruce trading phrases like two old correspondents.",
+   "words": 24,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 40,
+   "spc_ratio": 0.974,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "They played three upstate nights in a row, first Hamilton, then Rochester, and finally Binghamton, and a good many listeners hold that the last of the three is the marquee night.",
+   "chars": 178,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/041-sentence-monroe1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "They played three upstate nights in a row. First Hamilton, then Rochester, and finally Binghamton. And a good many listeners hold that the last of the three is the marquee night.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.58
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "They played three upstate nights in a row, first Hamilton, then Rochester, and finally Binghamton, and uh a good many listeners hold that the last of the three is the Marquee night.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [
+      "uh"
+     ],
+     "wall_s": 0.44
+    }
+   },
+   "wall_s": 22.2,
+   "seconds": 9.84,
+   "render_status": "ok",
+   "transcript": "They played three upstate nights in a row. First Hamilton, then Rochester, and finally Binghamton. And a good many listeners hold that the last of the three is the marquee night.",
+   "words": 28,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 41,
+   "spc_ratio": 1.07,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "When the Dew finally arrives tonight, it feels to me less like a song and more like a comet passing overhead, and I'd suggest you put down whatever is in your hands and simply listen.",
+   "chars": 183,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/042-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "When the dew finally arrives tonight, it feels to me less like a song and more like a comet passing overhead, and I'd suggest you put down whatever is in your hands and simply listen.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.6
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "When the dew finally arrives to night, it feels to me less like a song and more like a comet passing overhead, and I'd suggest you put down whatever is in your hands and simply listen.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": 1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.32
+    }
+   },
+   "wall_s": 28.2,
+   "seconds": 9.84,
+   "render_status": "ok",
+   "transcript": "When the dew finally arrives tonight, it feels to me less like a song and more like a comet passing overhead, and I'd suggest you put down whatever is in your hands and simply listen.",
+   "words": 35,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 42,
+   "spc_ratio": 0.95,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "kurt1",
+   "text": "For the encore they gave us Revolution, the Beatles tune, which had entered the repertoire only days earlier on this very tour and which the band would play only about a dozen times ever.",
+   "chars": 187,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/043-sentence-kurt1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "For the encore they gave us Revolution, the Beatles tune, which had entered the repertoire only days earlier on this very tour, and which the band would play only about a dozen times ever.",
+     "words": 34,
+     "found": 34,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.35
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "For the encore they gave us Revolution, the Beatles tune which had entered the repertoire only days earlier on this very tour and which the band would play only about a dozen times ever.",
+     "words": 34,
+     "found": 34,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.56
+    }
+   },
+   "wall_s": 28.8,
+   "seconds": 9.92,
+   "render_status": "ok",
+   "transcript": "For the encore they gave us Revolution, the Beatles tune, which had entered the repertoire only days earlier on this very tour, and which the band would play only about a dozen times ever.",
+   "words": 34,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 43,
+   "spc_ratio": 0.977,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Jerry's voice is worn and his guitar is aching, and one person in the crowd remembers clouds rolling in from the west while he played, which seems exactly right for a song about time running out.",
+   "chars": 195,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/044-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Jerry's voice is worn and his guitar is aching and one person in the crowd remembers clouds rolling in from the west while he played, which seems exactly right for a song about time running out.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.35
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Jerry's voice is worn and his guitar is aching and one person in the crowd remembers clouds rolling in from the west while he played, which seems exactly right for a song about time running out.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.54
+    }
+   },
+   "wall_s": 26.0,
+   "seconds": 10.16,
+   "render_status": "ok",
+   "transcript": "Jerry's voice is worn and his guitar is aching and one person in the crowd remembers clouds rolling in from the west while he played, which seems exactly right for a song about time running out.",
+   "words": 35,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 44,
+   "spc_ratio": 0.92,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "troymcclure2",
+   "text": "The Dead themselves were still riding the long wave of their comeback, road-testing songs for an album called Built To Last, and Brent Midland was singing with a confidence he had not always possessed.",
+   "chars": 201,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/045-sentence-troymcclure2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "The dead themselves were still riding the long wave of their comeback, road testing songs for an album called Built to Last, and Brent Midland was singing with a confidence he had not always possessed.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.47
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "The dead themselves were still riding the long wave of their comeback, road testing songs for an album called Built to Last, and Brent Midland was singing with a confidence he had not always possessed.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.43
+    }
+   },
+   "wall_s": 28.4,
+   "seconds": 10.96,
+   "render_status": "ok",
+   "transcript": "The dead themselves were still riding the long wave of their comeback, road testing songs for an album called Built to Last, and Brent Midland was singing with a confidence he had not always possessed.",
+   "words": 35,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 45,
+   "spc_ratio": 0.973,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "Then Where Boys Fear to Tread, Rhinoceros and a long Porcelina of the Vast Oceans, with a little tease of Rocket tucked into the outro, are where a stiff, well-dressed arena crowd finally starts to loosen up.",
+   "chars": 208,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/046-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Then where boys fear to tread, rhinoceros, and a long porcelain of the vast oceans, with a little tease of rocket tucked into the outro, are where a stiff, well-dressed arena crowd finally starts to loosen up.",
+     "words": 38,
+     "found": 37,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.974,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "porcelina"
+     ],
+     "extra_words": [
+      "porcelain"
+     ],
+     "wall_s": 1.69
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "than where boys fear to tread, rhinoceros and a long porcelaina of the vast oceans, with a little tease of rocket tucked into the outro, are where a stiff, well dressed arena crowd finally starts to loosen up.",
+     "words": 38,
+     "found": 36,
+     "missing": 2,
+     "extra": 0,
+     "recall": 0.947,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "porcelina",
+      "then"
+     ],
+     "extra_words": [
+      "porcelaina",
+      "than"
+     ],
+     "wall_s": 0.71
+    }
+   },
+   "wall_s": 33.8,
+   "seconds": 13.52,
+   "render_status": "ok",
+   "transcript": "Then where boys fear to tread, rhinoceros, and a long porcelain of the vast oceans, with a little tease of rocket tucked into the outro, are where a stiff, well-dressed arena crowd finally starts to loosen up.",
+   "words": 38,
+   "missing": 1,
+   "extra": 0,
+   "recall": 0.974,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 46,
+   "spc_ratio": 1.148,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "billgraham2",
+   "text": "And at the end of this set, listen for something genuinely rare, Scarlet Begonias rolling into Fire on the Mountain as a first-set closer, the first time the band had put the pair there since May of nineteen seventy-seven.",
+   "chars": 222,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/047-sentence-billgraham2.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "And at the end of this set, listen for something genuinely rare. Scarlet Begonias, Rolling into Fire on the Mountain, is a first set closer. The first time the band had put the pair there since May of 1977.",
+     "words": 36,
+     "found": 35,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.972,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "as"
+     ],
+     "extra_words": [
+      "is"
+     ],
+     "wall_s": 1.79
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "And at the end of this set listen for something genuinely rare. Scarlet Begonias rolling into fire on the mountain as a first set closer. The first time the band had put the pair there since May of nineteen seventy seven.",
+     "words": 36,
+     "found": 36,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.34
+    }
+   },
+   "wall_s": 24.9,
+   "seconds": 10.72,
+   "render_status": "ok",
+   "transcript": "And at the end of this set, listen for something genuinely rare. Scarlet Begonias, Rolling into Fire on the Mountain, is a first set closer. The first time the band had put the pair there since May of 1977.",
+   "words": 36,
+   "missing": 1,
+   "extra": 0,
+   "recall": 0.972,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 47,
+   "spc_ratio": 0.961,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "phil_ex",
+   "text": "You are listening to One More from the Archive, and that was the first set from the Grateful Dead at the Springfield Civic Center Arena, March twenty-eighth, nineteen seventy-three, wrapping up with China Cat Sunflower into I Know You Rider.",
+   "chars": 241,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/048-sentence-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at the Springfield Civic Center Arena, March 28, 1973, wrapping up with China Cat Sunflower into I Know You, Ryder.",
+     "words": 35,
+     "found": 34,
+     "missing": 1,
+     "extra": -1,
+     "recall": 0.971,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "rider"
+     ],
+     "extra_words": [
+      "ryder"
+     ],
+     "wall_s": 1.7
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at the Springfield Civic Center Arena, march twenty eighth, nineteen seventy three, wrapping up with China Cat Sunflower into I Know You Rider.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": -1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.48
+    }
+   },
+   "wall_s": 28.7,
+   "seconds": 12.64,
+   "render_status": "ok",
+   "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at the Springfield Civic Center Arena, March 28, 1973, wrapping up with China Cat Sunflower into I Know You, Ryder.",
+   "words": 35,
+   "missing": 1,
+   "extra": -1,
+   "recall": 0.971,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 48,
+   "spc_ratio": 0.926,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "sentence",
+   "voice": "monroe1",
+   "text": "Comes A Time swelled and broke and came back triumphant, Lost Sailor wandered off into Drums before Saint Of Circumstance finally found the shore, and one fan who was there remembers Mickey Hart heading for his back drums again and again, getting fooled each time by the song choice, and finally just shrugging and laughing when Lost Sailor began.",
+   "chars": 347,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/049-sentence-monroe1.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Comes a time swelled and broke and came back triumphant. Lost Sailor wandered off into drums before Santa Circumstance finally found the shore. And one fan who was there remembers Mickey Hart heading for his back drums again and again, getting fooled each time by the song choice, and finally just shrugging and laughing when Lost Sailor began.",
+     "words": 58,
+     "found": 56,
+     "missing": 2,
+     "extra": -1,
+     "recall": 0.966,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "of",
+      "saint"
+     ],
+     "extra_words": [
+      "santa"
+     ],
+     "wall_s": 1.98
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Comes a time swelled and broke and came back triumphant. Lost Sailor wandered off into drums before Santa Circumstance finally found the shore and one fan who was there remembers Mickey Hart heading for his back drums again and again getting fooled each time by the song choice and finally just shrugging and laughing when Lost Sailor began.",
+     "words": 58,
+     "found": 56,
+     "missing": 2,
+     "extra": -1,
+     "recall": 0.966,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "of",
+      "saint"
+     ],
+     "extra_words": [
+      "santa"
+     ],
+     "wall_s": 0.66
+    }
+   },
+   "wall_s": 41.5,
+   "seconds": 17.92,
+   "render_status": "ok",
+   "transcript": "Comes a time swelled and broke and came back triumphant. Lost Sailor wandered off into drums before Santa Circumstance finally found the shore. And one fan who was there remembers Mickey Hart heading for his back drums again and again, getting fooled each time by the song choice, and finally just shrugging and laughing when Lost Sailor began.",
+   "words": 58,
+   "missing": 2,
+   "extra": -1,
+   "recall": 0.966,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 49,
+   "spc_ratio": 1.0,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "segment",
+   "voice": "phil_ex",
+   "text": "This is Professor Chapman, and you are aboard the Grateful Dead at Hampton Coliseum in Hampton, Virginia, on May the first, 1981. That first set is the reason we came, with an unhurried Friend of the Devil, real heat from Garcia in Althea, and a Let It Grow into Deal that I would place among the finest of the era. Opinion divides on the second set, and I'll admit that freely, since some listeners find it pedestrian once the drummers take over. But the opening Feel Like a Stranger into Franklin's Tower simply refuses to stop, and later, when He's Gone dissolves into The Other One, the whole room tilts toward the psychedelic. I would urge you not to wander off during that particular passage.",
+   "chars": 698,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/050-segment-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "This is Professor Chapman, and you are aboard the Grateful Dead at Hampton Coliseum in Hampton, Virginia, on May the 1st, 1981. That first set is the reason we came, with an unhurried friend of the devil, real heat from Garcia in Althea, and a let-it-grow-into-deal that I would place among the finest of the era, opinion divides on the second set, and I'll admit that freely since some listeners find it pedestrian once the drummers take over. But the opening, feel like a stranger into Franklin's Tower, simply refuses to stop, and later, when he's gone, dissolves into the other one, the whole room tilts toward the psychedelic. I would urge you not to wander off during that particular passage.",
+     "words": 120,
+     "found": 120,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 4.22
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "This is Professor Chapman and you are aboard the Grateful Dead at Hampton Coliseum in Hampton, Virginia on May the first, nineteen eighty-one. That first set is the reason we came with an unhurried friend of the devil, real heat from Garcia in Althea, and a let it grow into deal that I would place among the finest of the era, opinion divides on the second set, and I'll admit that freely since some listeners find it pedestrian once the drummers take over. But the opening feel like a stranger into Franklin's Tower simply refuses to stop, and later, when he's gone dissolves into the other one, the whole room tilts toward the psychedelic. I would urge you not to wander off during that particular passage.",
+     "words": 120,
+     "found": 120,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 2.13
+    }
+   },
+   "wall_s": 55.3,
+   "seconds": 37.44,
+   "render_status": "ok",
+   "transcript": "This is Professor Chapman, and you are aboard the Grateful Dead at Hampton Coliseum in Hampton, Virginia, on May the 1st, 1981. That first set is the reason we came, with an unhurried friend of the devil, real heat from Garcia in Althea, and a let-it-grow-into-deal that I would place among the finest of the era, opinion divides on the second set, and I'll admit that freely since some listeners find it pedestrian once the drummers take over. But the opening, feel like a stranger into Franklin's Tower, simply refuses to stop, and later, when he's gone, dissolves into the other one, the whole room tilts toward the psychedelic. I would urge you not to wander off during that particular passage.",
+   "words": 120,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 50,
+   "spc_ratio": 0.947,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "segment",
+   "voice": "phil_ex",
+   "text": "That was the first set from the Grateful Dead at the Richmond Coliseum in Richmond, Virginia, November first, nineteen eighty-five, and you're listening to One More from the Archive. We heard that rare opening pair, a cowboy double of Me And My Uncle and Big River, a lively Brown Eyed Women, and then Jack Straw carrying us home into Don't Ease Me In. Now we come to one of the strangest second sets of the whole decade. After Samson And Delilah, the band settles into five slow, searching songs in a row: High Time, He's Gone, Spoonful, Comes A Time, and Lost Sailor. It feels less like a rock show and more like the mellowest night of the Jerry Garcia Band, as though the entire Coliseum had drifted out past the orbit of Neptune for the better part of an hour. Then a long Drums separates Lost Sailor from Saint Of Circumstance, the only time that pairing was ever split by another piece of music. Stay with me for a Dylan rarity in She Belongs To Me, and a raucous Gloria to bring the set home.",
+   "chars": 999,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/051-segment-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "That was the first set from the Grateful Dead at the Richmond Coliseum in Richmond, Virginia, November 1st, 1985, and you're listening to one more from the archive. We heard that rare opening pair, a cowboy double of me and my uncle and Big River, a lively brown-eyed woman, and then Jack Straw carrying us home into Don't Ease Me In. Now we come to one of the strangest second sets of the whole decade after Samson and Delilah, the band, settles into five slow-searching songs in a row, high time he's gone, spoonful comes a time, and lost sailor. It feels less like a rock show and more like the mellowest night of the Jerry Garcia band, as though the entire Coliseum had drifted out past the orbit of Neptune for the better part of an hour. Then a long drum separates lost sailor from saint of circumstance, the only time that pairing was ever split by another piece of music. Stay with me for a Dylan Rarity and She Belongs to Me, and a raucous Gloria to bring the set home.",
+     "words": 178,
+     "found": 175,
+     "missing": 3,
+     "extra": 0,
+     "recall": 0.983,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "drums",
+      "in",
+      "women"
+     ],
+     "extra_words": [
+      "and",
+      "drum",
+      "woman"
+     ],
+     "wall_s": 5.54
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "That was the first set from The Grateful Dead at the Richmond Coliseum in Richmond, Virginia, november first, nineteen eighty five, and you're listening to one more from the archive. We heard that rare opening pair, a cowboy double of me and my uncle and Big River, a lively brown eyed woman, and then Jack Straw carrying us home into Don't Ease Me In. Now we come to one of the strangest second sets of the whole decade. After Samson and Delilah, the band settles into five slow searching songs in a row, high time he's gone, spoonful comes a time and Lost Sailor. It feels less like a rock show and more like the mellowest night of the Jerry Garcia band, as though the entire Colosseum had drifted out past the orbit of Neptune for the better part of an hour. Then a long drum separates Lost Sailor from Saint of Circumstance, the only time that pairing was ever split by another piece of music. Stay with me for a Dylan Rarity and She Belongs to me and a raucous Gloria to bring the set home.",
+     "words": 178,
+     "found": 174,
+     "missing": 4,
+     "extra": 0,
+     "recall": 0.978,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "coliseum",
+      "drums",
+      "in",
+      "women"
+     ],
+     "extra_words": [
+      "and",
+      "colosseum",
+      "drum",
+      "woman"
+     ],
+     "wall_s": 2.21
+    }
+   },
+   "wall_s": 83.4,
+   "seconds": 55.68,
+   "render_status": "ok",
+   "transcript": "That was the first set from the Grateful Dead at the Richmond Coliseum in Richmond, Virginia, November 1st, 1985, and you're listening to one more from the archive. We heard that rare opening pair, a cowboy double of me and my uncle and Big River, a lively brown-eyed woman, and then Jack Straw carrying us home into Don't Ease Me In. Now we come to one of the strangest second sets of the whole decade after Samson and Delilah, the band, settles into five slow-searching songs in a row, high time he's gone, spoonful comes a time, and lost sailor. It feels less like a rock show and more like the mellowest night of the Jerry Garcia band, as though the entire Coliseum had drifted out past the orbit of Neptune for the better part of an hour. Then a long drum separates lost sailor from saint of circumstance, the only time that pairing was ever split by another piece of music. Stay with me for a Dylan Rarity and She Belongs to Me, and a raucous Gloria to bring the set home.",
+   "words": 178,
+   "missing": 3,
+   "extra": 0,
+   "recall": 0.983,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 51,
+   "spc_ratio": 0.984,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "segment",
+   "voice": "phil_ex",
+   "text": "You're listening to One More from the Archive, and that was the first set from the Grateful Dead at Freedom Hall in Louisville, Kentucky, on June the eighteenth, nineteen seventy-four. I hope you caught Keith Godchaux taking the first solo in Eyes Of The World, then adding that triumphant harmony to the seven-eight outro, before the band drifted down into a lovely China Doll, and then closed the set with a positively ferocious ending. The second set is where this evening earns its reputation. After a bouncy, funky Loose Lucy, a speedy El Paso, and a Row Jimmy with pristine slide work, comes a sequence that runs nearly an hour. It moves from Weather Report Suite into Let It Grow, and then into The Other One, where Phil Lesh unveils his new quad bass. Out of that rises an instrumental jam on It's A Sin, the old Eddy Arnold country hit, which the band played on this night and never again, before the music opens into Stella Blue. If the cosmos keeps a waiting room, I imagine it sounds like those few minutes. Big River, Tennessee Jed and Sugar Magnolia bring the set home, and I'd suggest you not wander off when it ends. Once more, this is the Grateful Dead at Freedom Hall in Louisville.",
+   "chars": 1200,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/052-segment-phil_ex.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at Freedom Hall in Louisville, Kentucky, on June the 18th, 1974. I hope you caught Keith Godshow taking the first solo in Eyes of the World, then adding that triumphant harmony to the 7-8 outro before the band drifted down into a lovely china doll and then closed the set with a positively ferocious ending. The second set is where this evening earns its reputation. After a bouncy, funky, loose Lucy, a speedy El Paso, and a road jimmy with pristine slide work, comes a sequence that runs nearly an hour. It moves from Weather Report Suite into Let It Grow and then into the other one, where Phil Lesh unveils his new quad bass. Out of that rises an instrumental jam on It's a Sin, the old Eddie Arnold country hit, which the band played on This Night and Never Again, before the music opens into Stella Blue. If the cosmos keeps a waiting room, I imagine it sounds like those few minutes. Big River, Tennessee, Jed, and Sugar Magnolia bring the set home, and I'd suggest you not wander off when it ends. Once more, this is the Grateful Dead at Freedom Hall in Louisville.",
+     "words": 207,
+     "found": 204,
+     "missing": 3,
+     "extra": 0,
+     "recall": 0.986,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "eddy",
+      "godchaux",
+      "row"
+     ],
+     "extra_words": [
+      "eddie",
+      "godshow",
+      "road"
+     ],
+     "wall_s": 6.87
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at Freedom Hall in Louisville, Kentucky on june eighteenth, nineteen seventy four. I hope you caught Keith Godshow taking the first solo in Eyes of the World, then adding that triumphant harmony to the seven eight outro before the band drifted down into a lovely China doll, and then closed the set with a positively ferocious ending. The second set is where this evening earns its reputation. After a bouncy, funky loose loosey, a speedy El Paso, and a row Jimmy with pristine slide work comes a sequence that runs nearly an hour. It moves from Weather Report Suite into Let It Grow and then into the Other One, where Phil Lesh unveils his new quad bass. Out of that rises an instrumental jam on It's a Sin, the old Eddie Arnold country hit, which the band played on This Night and Never Again, before the music opens into Stella Blue. If the Cosmos keeps a waiting room, I imagine it sounds like those few minutes. Big River, Tennessee Jed and Sugar Magnolia bring the set home, and I'd suggest you not wander off when it ends. Once more, this is the Grateful Dead at Freedom Hall in Louisville.",
+     "words": 207,
+     "found": 203,
+     "missing": 4,
+     "extra": -1,
+     "recall": 0.981,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "eddy",
+      "godchaux",
+      "lucy",
+      "the"
+     ],
+     "extra_words": [
+      "eddie",
+      "godshow",
+      "loosey"
+     ],
+     "wall_s": 2.59
+    }
+   },
+   "wall_s": 103.2,
+   "seconds": 66.88,
+   "render_status": "ok",
+   "transcript": "You're listening to one more from the archive, and that was the first set from The Grateful Dead at Freedom Hall in Louisville, Kentucky, on June the 18th, 1974. I hope you caught Keith Godshow taking the first solo in Eyes of the World, then adding that triumphant harmony to the 7-8 outro before the band drifted down into a lovely china doll and then closed the set with a positively ferocious ending. The second set is where this evening earns its reputation. After a bouncy, funky, loose Lucy, a speedy El Paso, and a road jimmy with pristine slide work, comes a sequence that runs nearly an hour. It moves from Weather Report Suite into Let It Grow and then into the other one, where Phil Lesh unveils his new quad bass. Out of that rises an instrumental jam on It's a Sin, the old Eddie Arnold country hit, which the band played on This Night and Never Again, before the music opens into Stella Blue. If the cosmos keeps a waiting room, I imagine it sounds like those few minutes. Big River, Tennessee, Jed, and Sugar Magnolia bring the set home, and I'd suggest you not wander off when it ends. Once more, this is the Grateful Dead at Freedom Hall in Louisville.",
+   "words": 207,
+   "missing": 3,
+   "extra": 0,
+   "recall": 0.986,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 52,
+   "spc_ratio": 0.984,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Listen for West L.A.",
+   "chars": 20,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/053-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Listen for West L.A.",
+     "words": 5,
+     "found": 5,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.96
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Listen for West LA.",
+     "words": 5,
+     "found": 5,
+     "missing": 0,
+     "extra": -1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.17
+    }
+   },
+   "wall_s": 3.0,
+   "seconds": 2.08,
+   "render_status": "ok",
+   "transcript": "Listen for West L.A.",
+   "words": 5,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 53,
+   "spc_ratio": 1.828,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "operator",
+   "flags": [
+    "1.83x its voice's median s/char"
+   ],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Throwin' Stones and Not Fade Away brought it all home.",
+   "chars": 54,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/054-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Throw in stones and not fade away. Brought it all home.",
+     "words": 10,
+     "found": 10,
+     "missing": 0,
+     "extra": 1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.06
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Throw in stones, and not fade away, brought it all home.",
+     "words": 10,
+     "found": 10,
+     "missing": 0,
+     "extra": 1,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.16
+    }
+   },
+   "wall_s": 2.5,
+   "seconds": 3.04,
+   "render_status": "ok",
+   "transcript": "Throw in stones and not fade away. Brought it all home.",
+   "words": 10,
+   "missing": 0,
+   "extra": 1,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 54,
+   "spc_ratio": 0.99,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Here are the Grateful Dead at the Strand Lyceum, opening with Promised Land.",
+   "chars": 76,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/055-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Here are the Grateful Dead at the Strand Lyceum, opening with Promised Land.",
+     "words": 13,
+     "found": 13,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.04
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Here are the grateful dead at the Strand Lyceum, opening with Promised Land.",
+     "words": 13,
+     "found": 13,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.19
+    }
+   },
+   "wall_s": 1.8,
+   "seconds": 5.92,
+   "render_status": "ok",
+   "transcript": "Here are the Grateful Dead at the Strand Lyceum, opening with Promised Land.",
+   "words": 13,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 55,
+   "spc_ratio": 1.369,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went.",
+   "chars": 95,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/056-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went.",
+     "words": 17,
+     "found": 17,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.17
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "I'm Professor Chapman, and tonight we travel about as far north as the grateful dead ever went.",
+     "words": 17,
+     "found": 17,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.24
+    }
+   },
+   "wall_s": 3.5,
+   "seconds": 5.76,
+   "render_status": "ok",
+   "transcript": "I'm Professor Chapman, and tonight we travel about as far north as the Grateful Dead ever went.",
+   "words": 17,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 56,
+   "spc_ratio": 1.066,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it.",
+   "chars": 111,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/057-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it.",
+     "words": 21,
+     "found": 21,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.1
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "The archive is still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it.",
+     "words": 21,
+     "found": 20,
+     "missing": 1,
+     "extra": 1,
+     "recall": 0.952,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "archivists"
+     ],
+     "extra_words": [
+      "archive",
+      "is"
+     ],
+     "wall_s": 0.24
+    }
+   },
+   "wall_s": 2.4,
+   "seconds": 5.84,
+   "render_status": "ok",
+   "transcript": "The archivists still quarrel over the exact order of this set, so we'll take the sequence as the tape gives it.",
+   "words": 21,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 57,
+   "spc_ratio": 0.925,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work.",
+   "chars": 126,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/058-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work.",
+     "words": 22,
+     "found": 22,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.11
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work.",
+     "words": 22,
+     "found": 22,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.36
+    }
+   },
+   "wall_s": 3.7,
+   "seconds": 6.32,
+   "render_status": "ok",
+   "transcript": "So whoever rolled tape that night, thank you, because that's people sharing music on their own, the way it's supposed to work.",
+   "words": 22,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 58,
+   "spc_ratio": 0.882,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Passenger carries music by the bass player, Phil Lesh, but his voice was ailing that year, so Bob Weir and Donna Jean Godchaux take the vocal.",
+   "chars": 142,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/059-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "Passenger carries music by the bass player Phil Lesh, but his voice was ailing that year, so Bob Weir and Donna Jean Dodd show take the vocal.",
+     "words": 26,
+     "found": 25,
+     "missing": 1,
+     "extra": 1,
+     "recall": 0.962,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "godchaux"
+     ],
+     "extra_words": [
+      "dodd",
+      "show"
+     ],
+     "wall_s": 1.22
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Passenger carries music by the bass player Phil Lesh, but his voice was ailing that year, so Bob Weir and Donna Jean Doddshow take the vocal.",
+     "words": 26,
+     "found": 25,
+     "missing": 1,
+     "extra": 0,
+     "recall": 0.962,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "godchaux"
+     ],
+     "extra_words": [
+      "doddshow"
+     ],
+     "wall_s": 0.28
+    }
+   },
+   "wall_s": 2.4,
+   "seconds": 8.16,
+   "render_status": "ok",
+   "transcript": "Passenger carries music by the bass player Phil Lesh, but his voice was ailing that year, so Bob Weir and Donna Jean Dodd show take the vocal.",
+   "words": 26,
+   "missing": 1,
+   "extra": 1,
+   "recall": 0.962,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 59,
+   "spc_ratio": 1.01,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "To my ears it's one of the best sounding Elliott Smith recordings floating around out there, and it's closer to a real live album than to some muddy bootleg.",
+   "chars": 157,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/060-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "To my ears, it's one of the best-sounding Elliott Smith recordings floating around out there. And it's closer to a real live album than to some muddy bootleg.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.24
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "To my ears, it's one of the best sounding Elliott Smith recordings floating around out there, and it's closer to a real live album than to some muddy bootleg.",
+     "words": 28,
+     "found": 28,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.32
+    }
+   },
+   "wall_s": 2.4,
+   "seconds": 7.92,
+   "render_status": "ok",
+   "transcript": "To my ears, it's one of the best-sounding Elliott Smith recordings floating around out there. And it's closer to a real live album than to some muddy bootleg.",
+   "words": 28,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 60,
+   "spc_ratio": 0.887,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "After that comes the centerpiece, roughly twenty-five minutes of Scarlet Begonias into Fire On The Mountain, with Jerry and Bruce trading phrases like two old correspondents.",
+   "chars": 174,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/061-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "After that comes the centerpiece. Roughly 25 minutes of scarlet begonias into fire on the mountain. With Jerry and Bruce trading phrases like two old correspondents.",
+     "words": 24,
+     "found": 24,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.34
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "After that comes the centerpiece, roughly twenty five minutes of Scarlet Begonias into Fire on the Mountain, with Jerry and Bruce trading phrases like two old correspondents.",
+     "words": 24,
+     "found": 24,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.34
+    }
+   },
+   "wall_s": 2.8,
+   "seconds": 11.12,
+   "render_status": "ok",
+   "transcript": "After that comes the centerpiece. Roughly 25 minutes of scarlet begonias into fire on the mountain. With Jerry and Bruce trading phrases like two old correspondents.",
+   "words": 24,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 61,
+   "spc_ratio": 1.124,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  },
+  {
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "The Dead themselves were still riding the long wave of their comeback, road-testing songs for an album called Built To Last, and Brent Midland was singing with a confidence he had not always possessed.",
+   "chars": 201,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/062-voxtral-voxtral-house.wav",
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "The dead themselves were still riding the long wave of their comeback, road-testing songs for an album called Built to Last, and Brent Midland was singing with a confidence he had not always possessed.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 1.53
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "The dead themselves were still riding the long wave of their comeback, road testing songs for an album called Built to Last, and Brent Midland was singing with a confidence he had not always possessed.",
+     "words": 35,
+     "found": 35,
+     "missing": 0,
+     "extra": 0,
+     "recall": 1.0,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [],
+     "extra_words": [],
+     "wall_s": 0.34
+    }
+   },
+   "wall_s": 2.5,
+   "seconds": 11.12,
+   "render_status": "ok",
+   "transcript": "The dead themselves were still riding the long wave of their comeback, road-testing songs for an album called Built to Last, and Brent Midland was singing with a confidence he had not always possessed.",
+   "words": 35,
+   "missing": 0,
+   "extra": 0,
+   "recall": 1.0,
+   "interim_problem": null,
+   "loop": false,
+   "status": "ok",
+   "index": 62,
+   "spc_ratio": 0.973,
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "mechanical default",
+   "flags": [],
+   "notes": []
+  }
+ ],
+ "render_complete": true,
+ "interim_thresholds": {
+  "MISS_FLOOR": 2,
+  "MISS_FRACTION": 0.25,
+  "EXTRA_FLOOR": 4,
+  "EXTRA_FRACTION": 0.5
+ },
+ "footprint": "python [14870]: 64-bit    Footprint: 5068 MB (16384 bytes per page)\n    phys_footprint: 5068 MB\n    phys_footprint_peak: 14 GB",
+ "runaways": [
+  {
+   "slug": "qwen3tts-0.6b-bf16",
+   "segment": "set1-intro",
+   "sentence_count": 16,
+   "call_count": 16,
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "This was the 15th show of the Europe, 72 Tour, and the band played it the night after their concert. However, the beds that have included the wings of, the\u00e1d worshnova gal. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God.",
+     "words": 23,
+     "found": 19,
+     "missing": 4,
+     "extra": 34,
+     "recall": 0.826,
+     "loop": true,
+     "interim_problem": "heard 57 words for a 23-word script",
+     "missing_words": [
+      "amsterdam",
+      "at",
+      "concertgebouw",
+      "in"
+     ],
+     "extra_words": [
+      "beds",
+      "gal",
+      "god",
+      "god",
+      "god",
+      "god",
+      "god",
+      "god",
+      "god",
+      "god",
+      "god",
+      "have",
+      "however",
+      "included",
+      "my",
+      "my",
+      "my",
+      "my",
+      "my",
+      "my",
+      "my",
+      "my",
+      "my",
+      "of",
+      "oh",
+      "oh",
+      "oh",
+      "oh",
+      "oh",
+      "oh",
+      "oh",
+      "oh",
+      "oh",
+      "that",
+      "the",
+      "the\u00e1d",
+      "wings",
+      "worshnova"
+     ],
+     "wall_s": 23.45
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "This was the fifteenth show of the Europe seventy two tour and the band played it the night after their concert uh uh the the",
+     "words": 23,
+     "found": 19,
+     "missing": 4,
+     "extra": -1,
+     "recall": 0.826,
+     "loop": false,
+     "interim_problem": null,
+     "missing_words": [
+      "amsterdam",
+      "at",
+      "concertgebouw",
+      "in"
+     ],
+     "extra_words": [
+      "the",
+      "uh",
+      "uh"
+     ],
+     "wall_s": 8.15
+    }
+   },
+   "status": "ok",
+   "index": 5,
+   "text": "This was the fifteenth show of the Europe seventy-two tour, and the band played it the night after their concert at the Concertgebouw in Amsterdam.",
+   "chars": 147,
+   "seconds": 320.0,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/runaway-qwen3tts-0.6b-bf16-set1-intro.wav",
+   "transcript": "This was the 15th show of the Europe, 72 Tour, and the band played it the night after their concert. However, the beds that have included the wings of, the\u00e1d worshnova gal. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God. Oh, my God.",
+   "words": 23,
+   "missing": 4,
+   "extra": 34,
+   "recall": 0.826,
+   "interim_problem": "heard 57 words for a 23-word script"
+  },
+  {
+   "slug": "chatterbox-fp16",
+   "segment": "set2-intro",
+   "sentence_count": 10,
+   "call_count": 10,
+   "stt": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+     "transcript": "This morning due. Tourists are full of body press with Siri a full away depressus.",
+     "words": 4,
+     "found": 1,
+     "missing": 3,
+     "extra": 11,
+     "recall": 0.25,
+     "loop": false,
+     "interim_problem": "only 1 of the script's 4 words were heard",
+     "missing_words": [
+      "dew",
+      "here",
+      "is"
+     ],
+     "extra_words": [
+      "a",
+      "are",
+      "away",
+      "body",
+      "depressus",
+      "due",
+      "full",
+      "full",
+      "of",
+      "press",
+      "siri",
+      "this",
+      "tourists",
+      "with"
+     ],
+     "wall_s": 1.13
+    },
+    "mlx-community/parakeet-tdt-0.6b-v3": {
+     "transcript": "Tourists of follow-body press with a series of fall away depresses.",
+     "words": 4,
+     "found": 0,
+     "missing": 4,
+     "extra": 8,
+     "recall": 0.0,
+     "loop": false,
+     "interim_problem": "none of the script's 4 words were heard",
+     "missing_words": [
+      "dew",
+      "here",
+      "is",
+      "morning"
+     ],
+     "extra_words": [
+      "a",
+      "away",
+      "body",
+      "depresses",
+      "fall",
+      "follow",
+      "of",
+      "of",
+      "press",
+      "series",
+      "tourists",
+      "with"
+     ],
+     "wall_s": 0.46
+    }
+   },
+   "status": "ok",
+   "index": 9,
+   "text": "Here is Morning Dew.",
+   "chars": 20,
+   "seconds": 10.1,
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/runaway-chatterbox-fp16-set2-intro.wav",
+   "transcript": "This morning due. Tourists are full of body press with Siri a full away depressus.",
+   "words": 4,
+   "missing": 3,
+   "extra": 11,
+   "recall": 0.25,
+   "interim_problem": "only 1 of the script's 4 words were heard"
+  }
+ ],
+ "footprint_stt": {
+  "mlx-community/whisper-large-v3-turbo-asr-fp16": "python [14870]: 64-bit    Footprint: 2786 MB (16384 bytes per page)\n  44 MB        0 B          0 B         22    Owned physical footprint (unmapped) (graphics)\n    phys_footprint: 2786 MB\n    phys_footprint_peak: 14 GB",
+  "mlx-community/parakeet-tdt-0.6b-v3": "python [14870]: 64-bit    Footprint: 3454 MB (16384 bytes per page)\n  44 MB        0 B          0 B         22    Owned physical footprint (unmapped) (graphics)\n    phys_footprint: 3454 MB\n    phys_footprint_peak: 14 GB"
+ },
+ "flagged": [
+  {
+   "index": 53,
+   "kind": "voxtral",
+   "voice": "voxtral-house",
+   "text": "Listen for West L.A.",
+   "clip": "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/calibrate/clips/053-voxtral-voxtral-house.wav",
+   "seconds": 2.08,
+   "chars": 20,
+   "spc_ratio": 1.828,
+   "recall": 1.0,
+   "flags": [
+    "1.83x its voice's median s/char"
+   ],
+   "notes": [],
+   "default_defect": false,
+   "defect": false,
+   "classified_by": "operator",
+   "transcripts": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": "Listen for West L.A.",
+    "mlx-community/parakeet-tdt-0.6b-v3": "Listen for West LA."
+   },
+   "recalls": {
+    "mlx-community/whisper-large-v3-turbo-asr-fp16": 1.0,
+    "mlx-community/parakeet-tdt-0.6b-v3": 1.0
+   }
+  }
+ ],
+ "recommendation": {
+  "calibration": {
+   "frame_rate_hz": 12.5,
+   "cap_floor_s": 5.0,
+   "cap_s_per_char": 0.08,
+   "max_floor_s": 2.0,
+   "max_s_per_char": 0.08,
+   "min_s_per_char": 0.04,
+   "min_slack_s": 0.5,
+   "cap_margin_s": 1.0
+  },
+  "guard_checks": {
+   "clean_failures": [],
+   "qwen3tts-0.6b-bf16 cap-margin": "clip is 16.8s, at the 16.8s token cap (a capped runaway)",
+   "qwen3tts-0.6b-bf16 measured-vs-long-limit": "320.0s > long limit 13.8s",
+   "chatterbox-fp16": "clip is 10.1s, at the 6.6s token cap (a capped runaway)"
+  },
+  "thresholds": {
+   "MISS_FLOOR": 2,
+   "MISS_FRACTION": 0.15,
+   "EXTRA_FLOOR": 4,
+   "EXTRA_FRACTION": 0.25
+  },
+  "verify_checks": {
+   "clean_failures": [],
+   "qwen3tts-0.6b-bf16": "only 19 of the script's 23 words were heard",
+   "chatterbox-fp16": "only 1 of the script's 4 words were heard"
+  },
+  "defects_passing": [],
+  "per_stt": {
+   "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+    "thresholds": {
+     "MISS_FLOOR": 2,
+     "MISS_FRACTION": 0.15,
+     "EXTRA_FLOOR": 4,
+     "EXTRA_FRACTION": 0.25
+    },
+    "derivations": {
+     "all": {
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.15,
+      "EXTRA_FLOOR": 4,
+      "EXTRA_FRACTION": 0.25
+     },
+     "mlx": {
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.15,
+      "EXTRA_FLOOR": 4,
+      "EXTRA_FRACTION": 0.25
+     },
+     "voxtral": {
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.15,
+      "EXTRA_FLOOR": 4,
+      "EXTRA_FRACTION": 0.25
+     }
+    },
+    "units_per_derivation": {
+     "all": 63,
+     "mlx": 53,
+     "voxtral": 10
+    },
+    "ceilings_exceeded": {
+     "all": [],
+     "mlx": [],
+     "voxtral": []
+    },
+    "verify_checks": {
+     "clean_failures": [],
+     "qwen3tts-0.6b-bf16": "only 19 of the script's 23 words were heard",
+     "chatterbox-fp16": "only 1 of the script's 4 words were heard"
+    },
+    "defects_passing": []
+   },
+   "mlx-community/parakeet-tdt-0.6b-v3": {
+    "thresholds": {
+     "MISS_FLOOR": 2,
+     "MISS_FRACTION": 0.15,
+     "EXTRA_FLOOR": 4,
+     "EXTRA_FRACTION": 0.25
+    },
+    "derivations": {
+     "all": {
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.15,
+      "EXTRA_FLOOR": 4,
+      "EXTRA_FRACTION": 0.25
+     },
+     "mlx": {
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.15,
+      "EXTRA_FLOOR": 4,
+      "EXTRA_FRACTION": 0.25
+     },
+     "voxtral": {
+      "MISS_FLOOR": 2,
+      "MISS_FRACTION": 0.15,
+      "EXTRA_FLOOR": 4,
+      "EXTRA_FRACTION": 0.25
+     }
+    },
+    "units_per_derivation": {
+     "all": 63,
+     "mlx": 53,
+     "voxtral": 10
+    },
+    "ceilings_exceeded": {
+     "all": [],
+     "mlx": [],
+     "voxtral": []
+    },
+    "verify_checks": {
+     "clean_failures": [],
+     "qwen3tts-0.6b-bf16": "only 19 of the script's 23 words were heard",
+     "chatterbox-fp16": "none of the script's 4 words were heard"
+    },
+    "defects_passing": []
+   }
+  },
+  "adopted_guard": {
+   "deviation": "max_s_per_char = cap_s_per_char = 0.09 (derived 0.08)",
+   "calibration": {
+    "frame_rate_hz": 12.5,
+    "cap_floor_s": 5.0,
+    "cap_s_per_char": 0.09,
+    "max_floor_s": 2.0,
+    "max_s_per_char": 0.09,
+    "min_s_per_char": 0.04,
+    "min_slack_s": 0.5,
+    "cap_margin_s": 1.0
+   },
+   "guard_checks": {
+    "clean_failures": [],
+    "qwen3tts-0.6b-bf16 cap-margin": "clip is 18.2s, at the 18.2s token cap (a capped runaway)",
+    "qwen3tts-0.6b-bf16 measured-vs-long-limit": "320.0s > long limit 15.2s",
+    "chatterbox-fp16": "clip is 10.1s, at the 6.8s token cap (a capped runaway)"
+   },
+   "clean_long_limit_ratio_max": 0.712
+  }
+ },
+ "analysis": {
+  "per_stt": {
+   "mlx-community/whisper-large-v3-turbo-asr-fp16": {
+    "distributions": {
+     "mlx": {
+      "missing": {
+       "n": 53,
+       "median": 0,
+       "p90": 1,
+       "max": 3
+      },
+      "missing_per_word": {
+       "n": 53,
+       "median": 0.0,
+       "p90": 0.04,
+       "max": 0.094
+      },
+      "extra": {
+       "n": 53,
+       "median": 0,
+       "p90": 0,
+       "max": 1
+      },
+      "extra_per_word": {
+       "n": 53,
+       "median": 0.0,
+       "p90": 0.0,
+       "max": 0.1
+      },
+      "missing_histogram": {
+       "0": 38,
+       "1": 10,
+       "2": 2,
+       "3": 3
+      },
+      "extra_histogram": {
+       "-1": 5,
+       "0": 47,
+       "1": 1
+      }
+     },
+     "voxtral": {
+      "missing": {
+       "n": 10,
+       "median": 0.0,
+       "p90": 0,
+       "max": 1
+      },
+      "missing_per_word": {
+       "n": 10,
+       "median": 0.0,
+       "p90": 0.0,
+       "max": 0.038
+      },
+      "extra": {
+       "n": 10,
+       "median": 0.0,
+       "p90": 1,
+       "max": 1
+      },
+      "extra_per_word": {
+       "n": 10,
+       "median": 0.0,
+       "p90": 0.038,
+       "max": 0.1
+      },
+      "missing_histogram": {
+       "0": 9,
+       "1": 1
+      },
+      "extra_histogram": {
+       "0": 8,
+       "1": 2
+      }
+     }
+    },
+    "false_alarms": {
+     "mlx": {
+      "loo_all_derivation": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      },
+      "loo_own_backend_derivation": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      },
+      "interim": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      },
+      "recommended_all": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      },
+      "voxtral_derived_thresholds": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      }
+     },
+     "voxtral": {
+      "loo_all_derivation": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      },
+      "loo_own_backend_derivation": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      },
+      "interim": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      },
+      "recommended_all": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      },
+      "mlx_derived_thresholds": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      }
+     }
+    },
+    "caught_not_guarded": {
+     "recommended": [],
+     "interim": []
+    },
+    "short_sentences": {
+     "units_le_2_words": [],
+     "found_zero_rule": {
+      "clean_failing": [],
+      "clean_failing_by_backend": {
+       "mlx": {
+        "failed": 0,
+        "of": 53,
+        "rate": 0.0,
+        "units": []
+       },
+       "voxtral": {
+        "failed": 0,
+        "of": 10,
+        "rate": 0.0,
+        "units": []
+       }
+      },
+      "nonclean_caught": [],
+      "runaways_caught": []
+     },
+     "le_2_any_miss_rule": {
+      "clean_failing": []
+     }
+    }
+   },
+   "mlx-community/parakeet-tdt-0.6b-v3": {
+    "distributions": {
+     "mlx": {
+      "missing": {
+       "n": 53,
+       "median": 0,
+       "p90": 1,
+       "max": 4
+      },
+      "missing_per_word": {
+       "n": 53,
+       "median": 0.0,
+       "p90": 0.038,
+       "max": 0.053
+      },
+      "extra": {
+       "n": 53,
+       "median": 0,
+       "p90": 0,
+       "max": 1
+      },
+      "extra_per_word": {
+       "n": 53,
+       "median": 0.0,
+       "p90": 0.0,
+       "max": 0.1
+      },
+      "missing_histogram": {
+       "0": 42,
+       "1": 7,
+       "2": 2,
+       "4": 2
+      },
+      "extra_histogram": {
+       "-1": 7,
+       "0": 42,
+       "1": 4
+      }
+     },
+     "voxtral": {
+      "missing": {
+       "n": 10,
+       "median": 0.0,
+       "p90": 1,
+       "max": 1
+      },
+      "missing_per_word": {
+       "n": 10,
+       "median": 0.0,
+       "p90": 0.038,
+       "max": 0.048
+      },
+      "extra": {
+       "n": 10,
+       "median": 0.0,
+       "p90": 1,
+       "max": 1
+      },
+      "extra_per_word": {
+       "n": 10,
+       "median": 0.0,
+       "p90": 0.048,
+       "max": 0.1
+      },
+      "missing_histogram": {
+       "0": 8,
+       "1": 2
+      },
+      "extra_histogram": {
+       "-1": 1,
+       "0": 7,
+       "1": 2
+      }
+     }
+    },
+    "false_alarms": {
+     "mlx": {
+      "loo_all_derivation": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      },
+      "loo_own_backend_derivation": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      },
+      "interim": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      },
+      "recommended_all": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      },
+      "voxtral_derived_thresholds": {
+       "failed": 0,
+       "of": 53,
+       "rate": 0.0,
+       "units": []
+      }
+     },
+     "voxtral": {
+      "loo_all_derivation": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      },
+      "loo_own_backend_derivation": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      },
+      "interim": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      },
+      "recommended_all": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      },
+      "mlx_derived_thresholds": {
+       "failed": 0,
+       "of": 10,
+       "rate": 0.0,
+       "units": []
+      }
+     }
+    },
+    "caught_not_guarded": {
+     "recommended": [],
+     "interim": []
+    },
+    "short_sentences": {
+     "units_le_2_words": [],
+     "found_zero_rule": {
+      "clean_failing": [],
+      "clean_failing_by_backend": {
+       "mlx": {
+        "failed": 0,
+        "of": 53,
+        "rate": 0.0,
+        "units": []
+       },
+       "voxtral": {
+        "failed": 0,
+        "of": 10,
+        "rate": 0.0,
+        "units": []
+       }
+      },
+      "nonclean_caught": [],
+      "runaways_caught": [
+       "chatterbox-fp16"
+      ]
+     },
+     "le_2_any_miss_rule": {
+      "clean_failing": []
+     }
+    }
+   }
+  },
+  "per_voice": {
+   "billgraham2": {
+    "units": 6,
+    "median_spc": 0.0502,
+    "max_spc": 0.0547,
+    "min_spc": 0.0467
+   },
+   "kurt1": {
+    "units": 6,
+    "median_spc": 0.0543,
+    "max_spc": 0.0622,
+    "min_spc": 0.0464
+   },
+   "monroe1": {
+    "units": 7,
+    "median_spc": 0.0516,
+    "max_spc": 0.0583,
+    "min_spc": 0.0447
+   },
+   "phil_ex": {
+    "units": 28,
+    "median_spc": 0.0566,
+    "max_spc": 0.084,
+    "min_spc": 0.0483
+   },
+   "troymcclure2": {
+    "units": 6,
+    "median_spc": 0.056,
+    "max_spc": 0.0627,
+    "min_spc": 0.0512
+   },
+   "voxtral-house": {
+    "units": 10,
+    "median_spc": 0.0569,
+    "max_spc": 0.104,
+    "min_spc": 0.0502
+   }
+  }
+ }
+}

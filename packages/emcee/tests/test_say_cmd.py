@@ -164,7 +164,7 @@ def test_say_forwards_a_clone_reference(tmp_path, monkeypatch):
 
     _run(["say", str(src), "--clone", str(ref)], tmp_path, monkeypatch)
 
-    assert seen == {"clone_ref": str(ref), "voice": None, "presenter": None}
+    assert seen == {"clone_ref": str(ref), "clone_text": None, "voice": None, "presenter": None}
 
 
 def test_say_forwards_a_preset_voice(tmp_path, monkeypatch):
@@ -248,3 +248,76 @@ def test_say_names_the_blocked_sentence(tmp_path, monkeypatch):
     assert result.exit_code != 0
     assert isinstance(result.exception, SpeechBlocked)
     assert result.exception.details == ['blocked: "The climax comes too early here."']
+
+
+# ---------------------------------------------------------------------------
+# --clone-text and the mlx_audio house (spec section 4)
+# ---------------------------------------------------------------------------
+
+from tests.mlx_helpers import TEST_MODEL, MlxServer, calibrate_test_model, install_mlx, wav_bytes
+
+HOUSE_TEXT = "House words, spoken for the record."
+
+
+def _mlx_house(tmp_path: Path, monkeypatch) -> Path:
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    clip = home / "house.wav"
+    clip.write_bytes(wav_bytes(1.0))
+    (home / "config.toml").write_text(
+        f'[tts]\nbackend = "mlx_audio"\nvoice_clone = "{clip}"\n'
+        f'voice_clone_text = "{HOUSE_TEXT}"\n\n[tts.mlx_audio]\nmodel = "{TEST_MODEL}"\n')
+    return clip
+
+
+def test_say_clone_text_without_clone_is_a_usage_error(tmp_path, monkeypatch):
+    _arm_speech(monkeypatch)
+    result = _run(["say", str(_text_file(tmp_path)), "--clone-text", "words"], tmp_path, monkeypatch)
+    assert result.exit_code == 2 and "--clone-text needs --clone" in result.output
+
+
+def test_say_ignores_clone_text_under_a_hosted_house(tmp_path, monkeypatch):
+    _, seen = _arm_speech(monkeypatch)
+    ref = tmp_path / "ref.wav"
+    ref.write_bytes(b"REF")
+    result = _run(["say", str(_text_file(tmp_path)), "--clone", str(ref), "--clone-text", "words"],
+                  tmp_path, monkeypatch)
+    assert result.exit_code == 0, result.output
+    assert seen["clone_text"] is None
+
+
+def test_say_forwards_clone_text_under_an_mlx_house(tmp_path, monkeypatch):
+    _, seen = _arm_speech(monkeypatch)
+    _mlx_house(tmp_path, monkeypatch)
+    ref = tmp_path / "ref.wav"
+    ref.write_bytes(b"REF")
+    result = runner.invoke(app, ["say", str(_text_file(tmp_path)), "--clone", str(ref),
+                                 "--clone-text", "Their words."])
+    assert result.exit_code == 0, result.output
+    assert (seen["clone_ref"], seen["clone_text"]) == (str(ref), "Their words.")
+
+
+@pytest.mark.parametrize("args, message", [
+    (["--clone", "REF"], "--clone needs --clone-text (the clip's transcript) when the house backend is mlx_audio"),
+    (["--clone", "REF", "--clone-text", "   "], "--clone needs --clone-text"),
+    (["--voice", "preset"], "--voice is a preset, but the house backend is mlx_audio, which is clone-only"),
+])
+def test_say_usage_errors_under_an_mlx_house(tmp_path, monkeypatch, args, message):
+    _arm_speech(monkeypatch)
+    _mlx_house(tmp_path, monkeypatch)
+    ref = tmp_path / "ref.wav"
+    ref.write_bytes(b"REF")
+    args = [str(ref) if a == "REF" else a for a in args]
+    result = runner.invoke(app, ["say", str(_text_file(tmp_path)), *args])
+    assert result.exit_code == 2 and message in result.output
+
+
+def test_say_with_no_voice_flags_sends_the_house_transcript(tmp_path, monkeypatch):
+    calibrate_test_model(monkeypatch)
+    _mlx_house(tmp_path, monkeypatch)
+    server = MlxServer()
+    install_mlx(monkeypatch, server)
+    result = runner.invoke(app, ["say", str(_text_file(tmp_path, "Good evening to all of you out there."))])
+    assert result.exit_code == 0, result.output
+    assert server.speech_bodies and all(b["ref_text"] == HOUSE_TEXT for b in server.speech_bodies)

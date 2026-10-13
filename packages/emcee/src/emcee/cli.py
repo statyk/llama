@@ -7,7 +7,9 @@ mirroring llama's `cli.py:57-65` pattern.
 import json
 import sys
 import traceback
+from collections.abc import Sequence
 from pathlib import Path
+from typing import NoReturn
 
 import typer
 from typer.core import TyperGroup
@@ -25,6 +27,9 @@ from emcee.process import (ad_hoc_bed, ad_hoc_speech, assignment_for, presenter_
                            process_package, resolve_assignment, speech_for)
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
+from emcee.tts.provider import SpeechError
+from emcee.tts.verify import SttClient
+from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
 from emcee.station import (PackageStatus, manifest_profile, manifest_voiced_by, raw_profile,
                            readiness, scan)
@@ -223,7 +228,8 @@ def _station_statuses(root: Path) -> list[PackageStatus]:
         return _scan_broad(root)
 
 
-def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
+def _process_one(config: EmceeConfig, pkg: Package, force: bool,
+                 fresh: Sequence[str] = ()) -> None:
     """Script + voice + broadcast-assemble one package. Shared by `run`'s
     per-pending-package loop and `voice`.
 
@@ -231,56 +237,84 @@ def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
     resolved fresh here, every call -- never hoisted above a per-package
     loop -- so each package's presenter-derived voice is never accidentally
     reused for a different package.
+
+    Order (spec section 2, strict surface 2): resolution and provider
+    construction, then `speech.preflight()`, THEN the `--fresh` unlink
+    (`fresh` holds already-validated, de-duplicated clip stems), THEN the
+    manifest clear, THEN `process_package` (the first LLM spend). So no
+    configuration-only failure -- an unpinned presenter under an mlx_audio
+    house, a down mlx-audio server, a missing model -- can discard a clip or
+    take a broadcast-ready package off air.
     """
     manifest = pkg.manifest()
     presenter, title = resolve_assignment(config, manifest)
     speech, bed = speech_for(config, presenter)
-
-    # JUDGMENT CALL: clears the manifest's dj_notes/dj_audio blocks before
-    # reprocessing -- but only now, after resolve_assignment/speech_for have
-    # already succeeded. `process_package` overwrites `dj-notes.md` well
-    # before the manifest write that marks its success, so a mid-pipeline
-    # failure on an already-*ready* package would otherwise leave
-    # `dj-notes.md` holding the new (unrecorded) script while the manifest
-    # -- and therefore `station.readiness` -- still reports the *old*
-    # blocks as present, reading "ready" despite the drift. Clearing first
-    # means a failure here instead degrades the package to "pending"
-    # (self-consistent with llama's `redo --from package`, which unlinks
-    # the manifest first). Deliberately placed after resolve_assignment/
-    # speech_for, not before: both can fail on configuration alone (a
-    # `[assign] default` naming a presenter with no TOML file, no `[tts]
-    # voice` configured) with no manifest write ever attempted -- clearing
-    # before that point would take a genuinely broadcast-ready package off
-    # air over nothing but a config typo, and force every clip to
-    # re-synthesize (real TTS spend) on the retry even though nothing was
-    # ever going to be overwritten. Harmless on the happy path:
-    # `process_package` overwrites both blocks again moments later as its
-    # own success marker. It also never touches `dj-audio/segments.json` --
-    # the per-clip hash cache that actually drives what `voice --fresh`
-    # re-renders -- so it has no effect on `--fresh`'s re-roll behavior.
-    rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
     try:
+        speech.preflight()
+        if fresh:
+            audio_dir = pkg.dir / "dj-audio"
+            for stem in fresh:
+                (audio_dir / f"{stem}.mp3").unlink()
+            typer.echo(f"re-rolling {', '.join(fresh)} "
+                       "(previous take(s) discarded — TTS is non-deterministic)")
+        # JUDGMENT CALL: clears the manifest's dj_notes/dj_audio blocks before
+        # reprocessing -- but only now, after resolution, provider
+        # construction and preflight have all succeeded. `process_package`
+        # overwrites `dj-notes.md` well before the manifest write that marks
+        # its success, so a mid-pipeline failure on an already-*ready* package
+        # would otherwise leave `dj-notes.md` holding the new (unrecorded)
+        # script while the manifest -- and therefore `station.readiness` --
+        # still reports the *old* blocks as present. Clearing first means a
+        # failure here instead degrades the package to "pending". It never
+        # touches `dj-audio/segments.json` (the per-clip cache `--fresh`
+        # relies on).
+        rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
         process_package(config, pkg, speech, force)
     finally:
         # A raising close() must never mask a successful process_package --
-        # or, worse, turn a genuinely-completed package into a reported
-        # failure (`run` would otherwise print `error: <slug>: ...` and
-        # count a `ready` package as failed even though the manifest was
-        # already written). Best-effort cleanup only.
+        # or turn a completed package into a reported failure. Best-effort.
         try:
             speech.close()
         except Exception:
             pass
 
 
-def _presenter_file_exists(root: Path, presenter_id: str) -> bool:
-    """Whether `presenters/<id>.toml` exists, comparing the id
-    case-insensitively (the config may say `BillyG` for `billyg.toml`)."""
+def _presenter_file(root: Path, presenter_id: str) -> Path | None:
+    """`presenters/<id>.toml`, comparing the id case-insensitively (the
+    config may say `BillyG` for `billyg.toml`); None when there is none."""
     pdir = root / "presenters"
-    if (pdir / f"{presenter_id}.toml").exists():
-        return True
+    exact = pdir / f"{presenter_id}.toml"
+    if exact.exists():
+        return exact
     want = f"{presenter_id}.toml".lower()
-    return pdir.is_dir() and any(p.name.lower() == want for p in pdir.iterdir())
+    if pdir.is_dir():
+        for p in pdir.iterdir():
+            if p.name.lower() == want:
+                return p
+    return None
+
+
+def _dry_run_marker(config: EmceeConfig, presenter_id: str) -> str:
+    """The row suffix `run --dry-run` prints for a presenter-assigned package:
+    a missing or invalid file, a failed TTS resolution, or -- for a PINNED
+    presenter only -- the backend and model it resolves to. Never raises, so
+    one bad presenter cannot abort the listing; never preflights. An
+    unreadable or non-UTF-8 file (OSError / UnicodeDecodeError, which
+    load_presenter does not wrap) is invalid too."""
+    path = _presenter_file(config.root, presenter_id)
+    if path is None:
+        return f"  [missing presenters/{presenter_id}.toml]"
+    try:
+        presenter = load_presenter(config.root, path.stem)
+    except (PresenterError, OSError, ValueError):
+        return f"  [invalid presenters/{presenter_id}.toml]"
+    try:
+        resolution = resolve_tts(config, presenter)
+    except TTSResolutionError as exc:
+        return f"  [unresolved: {exc}]"
+    if resolution.pinned:
+        return f"  [{resolution.backend} {resolution.model}]"
+    return ""
 
 
 @app.command()
@@ -326,7 +360,10 @@ def run(
     run and not reported per-row -- one `note:` line counts them. `--dry-run`
     prints `would voice: <slug>  <profile>  <presenter>` for each selected
     pending package and a count, doing no LLM, TTS, or file writes; error and
-    unsupported rows are reported as in a real run.
+    unsupported rows are reported as in a real run. A pinned presenter's row
+    also shows `\\[<backend> <model>]`, an unloadable presenter file
+    `\\[invalid presenters/<id>.toml]` and a failed TTS resolution
+    `\\[unresolved: <message>]`.
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
@@ -361,9 +398,8 @@ def run(
         if dry_run:
             view = assignment_for(config, status.profile)
             line = f"would voice: {slug}  {status.profile or '(none)'}  {presenter_label(view)}"
-            if view.presenter is not None and not _presenter_file_exists(
-                    config.root, view.presenter):
-                line += f"  [missing presenters/{view.presenter}.toml]"
+            if view.presenter is not None:
+                line += _dry_run_marker(config, view.presenter)
             typer.echo(line)
             processed += 1
             continue
@@ -398,7 +434,7 @@ def voice_cmd(
     fresh: list[str] = typer.Option(
         [], "--fresh",
         help="Re-roll (re-synthesize) just these DJ-clip stems, e.g. set1-intro "
-             "or 99-outro; repeatable. Deletes the cached clip first so "
+             "or 99-outro; repeatable. Deletes the cached clip (after the TTS preflight passes) so "
              "reprocessing re-renders only it -- other clips keep their "
              "cached audio, PROVIDED the DJ script comes back unchanged. "
              "CAVEATS (both unlike llama, which stamps and replays a "
@@ -425,7 +461,7 @@ def voice_cmd(
     existing directory path always wins -- use `emcee run` to process a
     whole station. Re-processing an already-"ready" package
     clears its `dj_notes`/`dj_audio` manifest blocks (once presenter/voice
-    resolution has already succeeded) before reprocessing, so a
+    resolution AND the TTS preflight have succeeded) before reprocessing, so a
     mid-pipeline failure degrades it to "pending" -- self-consistent with
     `station.readiness` -- instead of leaving it stale-"ready" while
     `dj-notes.md` already holds an unrecorded new script; a clean run
@@ -445,6 +481,7 @@ def voice_cmd(
     pkg = Package(_resolve_package(config, package, station_root))
     pkg.manifest()  # validates schema_version >= 3; UnsupportedPackage/EmceeError -> boundary
 
+    stems: list[str] = []
     if fresh:
         audio_dir = pkg.dir / "dj-audio"
         available = sorted(p.stem for p in audio_dir.glob("*.mp3")) if audio_dir.is_dir() else []
@@ -456,13 +493,9 @@ def voice_cmd(
                 f"no clip {unknown[0]!r} in {pkg.dir.name}; clips: {', '.join(available)}"
             )
         stems = list(dict.fromkeys(fresh))  # dedupe: a repeated stem must not double-unlink
-        for stem in stems:
-            (audio_dir / f"{stem}.mp3").unlink()
-        typer.echo(f"re-rolling {', '.join(stems)} "
-                   "(previous take(s) discarded — TTS is non-deterministic)")
 
     try:
-        _process_one(config, pkg, force)
+        _process_one(config, pkg, force, fresh=stems)
     except Exception as exc:
         typer.echo(f"error: {pkg.dir.name}: {_typed_error(exc)}", err=True)
         for line in getattr(exc, "details", []):
@@ -479,8 +512,12 @@ def say_cmd(
         help="Where to write the MP3; default <text file>.mp3 beside the input"),
     clone: Path = typer.Option(
         None, "--clone",
-        help="Reference clip to clone (3-25s WAV, Voxtral only), instead of a "
+        help="Reference clip to clone (3-25s; voxtral or mlx_audio), instead of a "
              "preset voice"),
+    clone_text: str = typer.Option(
+        None, "--clone-text",
+        help="Transcript of the --clone clip; required when the house backend is "
+             "mlx_audio, ignored otherwise"),
     voice: str = typer.Option(
         None, "--voice", help="Preset voice name, instead of the house [tts] voice"),
     presenter: str = typer.Option(
@@ -513,7 +550,11 @@ def say_cmd(
     absent or unconfigured.
 
     VOICE: at most one of `--clone`, `--voice` and `--presenter`; with none of
-    them the house `[tts] voice`/`voice_clone` reads it.
+    them the house `[tts] voice`/`voice_clone` reads it, including its
+    `[tts] voice_clone_text`. `--clone-text` is the `--clone` clip's
+    transcript, required when the house backend is mlx_audio (which is
+    clone-only, so `--voice` is refused there); `--presenter` resolves exactly
+    as in `emcee run`, pin included.
 
     BED: resolved exactly as a voiced package's is (the presenter's own bed,
     else `[tts] bed`), with `--bed` overriding the file, `--bed-gain` the
@@ -528,6 +569,15 @@ def say_cmd(
     `--no-chunk` without a bed ships the provider's own MP3 un-normalized.
     """
     config = load_config()
+    if clone_text is not None and clone is None:
+        _usage("--clone-text needs --clone")
+    house_mlx = config.tts.backend == "mlx_audio"
+    if house_mlx and voice:
+        _usage("--voice is a preset, but the house backend is mlx_audio, which is clone-only "
+               "(use --clone with --clone-text, or --presenter)")
+    if house_mlx and clone is not None and not (clone_text or "").strip():
+        _usage("--clone needs --clone-text (the clip's transcript) when the house backend "
+               "is mlx_audio")
 
     text = text_file.read_text().strip()
     if not text:
@@ -535,6 +585,7 @@ def say_cmd(
 
     host = load_presenter(config.root, presenter) if presenter else None
     speech = ad_hoc_speech(config, clone_ref=str(clone) if clone else None,
+                           clone_text=clone_text if house_mlx else None,
                            voice=voice, presenter=host)
     resolved_bed = ad_hoc_bed(config, host, bed_path=bed, no_bed=no_bed,
                               gain_db=bed_gain)
@@ -704,42 +755,225 @@ def _assignments_using_presenter(config: EmceeConfig, presenter_id: str) -> list
     return users
 
 
+def _usage(message: str) -> NoReturn:
+    typer.echo(f"error: {message}", err=True)
+    raise typer.Exit(2)
+
+
+def _abs_clip(path: str) -> str:
+    """voice_clone is stored absolute and resolved: the mlx-audio server
+    reads the clip from its own working directory."""
+    return str(Path(path).expanduser().resolve())
+
+
+def _draft_transcript(config: EmceeConfig, clip: str) -> str:
+    """`--transcribe`: draft voice_clone_text by transcribing `clip` with
+    verification's STT client and [tts.mlx_audio] stt_model, print it, and
+    return it only on confirmation. With [tts.verify] backends empty the STT
+    model is unloaded afterwards (the server keeps every model resident)."""
+    mlx = config.tts.mlx_audio
+    if not mlx.stt_model:
+        _usage("--transcribe needs [tts.mlx_audio] stt_model (a speech-to-text model on "
+               "the mlx-audio server)")
+    try:
+        audio = Path(clip).expanduser().read_bytes()
+    except OSError as exc:
+        raise EmceeError(f"cannot read the voice clone {clip}: {exc}") from exc
+    stt = SttClient(url=mlx.url, model=mlx.stt_model, timeout_s=mlx.timeout_s)
+    try:
+        try:
+            text = stt.transcribe(audio)
+        finally:
+            # Memory on the host is tight: free the STT model even when the
+            # transcription failed (unless verification keeps it in use).
+            if not config.tts.verify.backends:
+                try:
+                    stt.unload()
+                except SpeechError as exc:
+                    typer.echo(f"note: {exc}", err=True)
+    finally:
+        stt.close()
+    if not text:
+        raise EmceeError("the transcription came back empty; give --voice-clone-text by hand")
+    typer.echo("transcript draft:")
+    typer.echo(text)
+    if not typer.confirm("use this transcript?", default=False):
+        typer.echo("transcript not written; presenter unchanged", err=True)
+        raise typer.Exit(1)
+    return text
+
+
+def _pin_label(p: Presenter) -> str:
+    return f"tts={p.tts}" + (f" tts_model={p.tts_model}" if p.tts_model else "")
+
+
+def _read_character_file(path: Path) -> str:
+    """The --character-file read shared by `presenter add` and `edit`."""
+    try:
+        return path.read_text().strip()
+    except OSError as exc:
+        typer.echo(f"cannot read --character-file {path}: {exc}", err=True)
+        raise typer.Exit(1)
+
+
+def _build_presenter(fields: dict) -> Presenter:
+    """Validate `fields` whole into a Presenter (never model_copy, which skips
+    validators); any rejection prints `invalid presenter: ...` and exits 1."""
+    try:
+        return Presenter.model_validate(fields)
+    except Exception as exc:
+        typer.echo(f"invalid presenter: {exc}", err=True)
+        raise typer.Exit(1)
+
+
 @presenter_app.command("add")
 def presenter_add(
     id: str = typer.Argument(...),
     name: str = typer.Option(..., "--name"),
     sex: str = typer.Option(..., "--sex"),
     voice: str = typer.Option(None, "--voice"),
-    voice_clone: str = typer.Option(None, "--voice-clone"),
+    voice_clone: str = typer.Option(None, "--voice-clone",
+                                    help="Reference clip, stored as an absolute path"),
+    voice_clone_text: str = typer.Option(None, "--voice-clone-text",
+                                         help="Transcript of the voice clone"),
     character: str = typer.Option(None, "--character"),
     character_file: Path = typer.Option(None, "--character-file"),
     bed: str = typer.Option(None, "--bed"),
+    tts: str = typer.Option(None, "--tts",
+                            help="Pin a TTS backend: voxtral, elevenlabs or mlx_audio"),
+    tts_model: str = typer.Option(None, "--tts-model", help="mlx_audio model for this presenter"),
+    transcribe: bool = typer.Option(
+        False, "--transcribe",
+        help="Draft voice_clone_text by transcribing the clip on the mlx-audio server; "
+             "written only on confirmation"),
     force: bool = typer.Option(False, "--force"),
 ):
     """Create a presenter (on-air host)."""
-    root = load_config().root
+    config = load_config()
+    root = config.root
     if bool(character) == bool(character_file):
         typer.echo("give exactly one of --character / --character-file", err=True)
         raise typer.Exit(1)
-    if character:
-        text = character
-    else:
-        try:
-            text = character_file.read_text().strip()
-        except OSError as exc:
-            typer.echo(f"cannot read --character-file {character_file}: {exc}", err=True)
-            raise typer.Exit(1)
+    if transcribe and voice_clone_text is not None:
+        _usage("--transcribe and --voice-clone-text are mutually exclusive")
+    if transcribe and not voice_clone:
+        _usage("--transcribe needs --voice-clone")
+    text = character if character else _read_character_file(character_file)
     dest = root / "presenters" / f"{id}.toml"
     if dest.exists() and not force:
         typer.echo(f"presenter {id!r} exists: {dest} (use --force to overwrite)", err=True)
         raise typer.Exit(1)
-    try:
-        p = Presenter(id=id, name=name, sex=sex, voice=voice,
-                      voice_clone=voice_clone, character=text, bed=bed)
-    except Exception as exc:
-        typer.echo(f"invalid presenter: {exc}", err=True)
-        raise typer.Exit(1)
+    fields = dict(id=id, name=name, sex=sex, voice=voice,
+                  voice_clone=_abs_clip(voice_clone) if voice_clone else None,
+                  character=text, bed=bed, tts=tts, tts_model=tts_model,
+                  voice_clone_text=voice_clone_text)
+    if transcribe:
+        _build_presenter({**fields, "voice_clone_text": "draft"})  # every other rule first
+        fields["voice_clone_text"] = _draft_transcript(config, fields["voice_clone"])
+    p = _build_presenter(fields)
     typer.echo(f"saved: {save_presenter(root, p)}")
+
+
+@presenter_app.command("edit")
+def presenter_edit(
+    id: str = typer.Argument(...),
+    name: str = typer.Option(None, "--name"),
+    sex: str = typer.Option(None, "--sex"),
+    character: str = typer.Option(None, "--character"),
+    character_file: Path = typer.Option(None, "--character-file"),
+    voice: str = typer.Option(None, "--voice",
+                              help="Preset voice; clears voice_clone and voice_clone_text"),
+    voice_clone: str = typer.Option(
+        None, "--voice-clone",
+        help="Reference clip, stored as an absolute path; clears voice, and clears "
+             "voice_clone_text unless --voice-clone-text or --transcribe gives a new one"),
+    voice_clone_text: str = typer.Option(None, "--voice-clone-text",
+                                         help="Transcript of the voice clone"),
+    bed: str = typer.Option(None, "--bed"),
+    tts: str = typer.Option(None, "--tts",
+                            help="Pin a TTS backend: voxtral, elevenlabs or mlx_audio"),
+    tts_model: str = typer.Option(None, "--tts-model", help="mlx_audio model for this presenter"),
+    clear_tts: bool = typer.Option(False, "--clear-tts"),
+    clear_tts_model: bool = typer.Option(False, "--clear-tts-model"),
+    clear_bed: bool = typer.Option(False, "--clear-bed"),
+    clear_voice_clone_text: bool = typer.Option(False, "--clear-voice-clone-text"),
+    transcribe: bool = typer.Option(
+        False, "--transcribe",
+        help="Draft voice_clone_text by transcribing the (resulting) clip on the mlx-audio "
+             "server; written only on confirmation"),
+):
+    """Edit a presenter; unspecified fields keep their values.
+
+    The edit is validated whole (exactly the rules `presenters/<id>.toml` is
+    loaded with) before an atomic save; any rejection -- validation, a
+    declined transcript, an unreachable server -- leaves the file untouched.
+    """
+    config = load_config()
+    old = load_presenter(config.root, id)  # PresenterError -> main_cli boundary
+    for value, clear, set_flag, clear_flag in (
+            (tts, clear_tts, "--tts", "--clear-tts"),
+            (tts_model, clear_tts_model, "--tts-model", "--clear-tts-model"),
+            (bed, clear_bed, "--bed", "--clear-bed"),
+            (voice_clone_text, clear_voice_clone_text, "--voice-clone-text",
+             "--clear-voice-clone-text")):
+        if value is not None and clear:
+            _usage(f"{set_flag} and {clear_flag} are mutually exclusive")
+    if voice is not None and voice_clone is not None:
+        _usage("--voice and --voice-clone are mutually exclusive")
+    if character is not None and character_file is not None:
+        _usage("give at most one of --character / --character-file")
+    if transcribe and voice_clone_text is not None:
+        _usage("--transcribe and --voice-clone-text are mutually exclusive")
+    if transcribe and clear_voice_clone_text:
+        _usage("--transcribe and --clear-voice-clone-text are mutually exclusive")
+
+    changes: dict = {}
+    if name is not None:
+        changes["name"] = name
+    if sex is not None:
+        changes["sex"] = sex
+    if character is not None:
+        changes["character"] = character
+    if character_file is not None:
+        changes["character"] = _read_character_file(character_file)
+    if voice is not None:
+        changes.update(voice=voice, voice_clone=None, voice_clone_text=None)
+    if voice_clone is not None:
+        changes.update(voice_clone=_abs_clip(voice_clone), voice=None)
+        if voice_clone_text is None and not transcribe:
+            changes["voice_clone_text"] = None  # forces a fresh transcript for an mlx pin
+    if voice_clone_text is not None:
+        changes["voice_clone_text"] = voice_clone_text
+    if clear_voice_clone_text:
+        changes["voice_clone_text"] = None
+    if bed is not None:
+        changes["bed"] = bed
+    if clear_bed:
+        changes["bed"] = None
+    if tts is not None:
+        changes["tts"] = tts
+    if clear_tts:
+        changes["tts"] = None
+    if tts_model is not None:
+        changes["tts_model"] = tts_model
+    if clear_tts_model:
+        changes["tts_model"] = None
+    if not changes and not transcribe:
+        _usage("nothing to edit: give at least one field option")
+
+    def merged(extra: dict | None = None) -> Presenter:
+        # model_validate on the whole merge, never model_copy(update=...),
+        # which skips validators.
+        return _build_presenter({**old.model_dump(), **changes, **(extra or {})})
+
+    if transcribe:
+        clip = changes.get("voice_clone", old.voice_clone)
+        if not clip:
+            _usage("--transcribe needs a voice clone (this presenter has a preset voice)")
+        merged({"voice_clone_text": "draft"})  # every other rule, before transcribing
+        changes["voice_clone_text"] = _draft_transcript(config, clip)
+    new = merged()
+    typer.echo(f"saved: {save_presenter(config.root, new)}")
 
 
 @presenter_app.command("list")
@@ -755,7 +989,8 @@ def presenter_list():
             typer.echo(f"{pid:16.16s} (invalid: {p})")
         else:
             v = p.voice or f"clone:{p.voice_clone}"
-            typer.echo(f"{pid:16.16s} {p.name:20.20s} {p.sex:8.8s} {v}")
+            pin = f"  {_pin_label(p)}" if p.tts else ""
+            typer.echo(f"{pid:16.16s} {p.name:20.20s} {p.sex:8.8s} {v}{pin}")
 
 
 @presenter_app.command("show")
@@ -764,9 +999,13 @@ def presenter_show(id: str = typer.Argument(...)):
     root = load_config().root
     p = load_presenter(root, id)     # PresenterError -> main_cli boundary
     v = p.voice or f"clone:{p.voice_clone}"
-    typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else ""))
+    typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else "")
+               + (f"  {_pin_label(p)}" if p.tts else ""))
     typer.echo("character:")
     typer.echo(p.character)
+    if p.tts and p.voice_clone_text:
+        typer.echo("transcript:")
+        typer.echo(p.voice_clone_text)
 
 
 @presenter_app.command("remove")
