@@ -94,12 +94,13 @@ Both are cut from the bake-off's bed-mixed MP3s, so music sits under the voice.
 
 | row | text | measured | adopted guard (0.09) | Whisper transcript check |
 |---|---|---|---|---|
-| `qwen3tts-0.6b-bf16` (set1-intro, sentence 5) | "This was the fifteenth show of the Europe seventy-two tour, …Concertgebouw in Amsterdam." (147 chars) | 320.0 s | **cap-margin check** (satisfied by construction: the clip is placed at the cap): "clip is 18.2s, at the 18.2s token cap"<br>**measured 320 s vs the non-cap long limit**: "320.0s > long limit 15.2s" | "heard 57 words for a 23-word script" |
+| `qwen3tts-0.6b-bf16` (set1-intro, sentence 5) | "This was the fifteenth show of the Europe seventy-two tour, …Concertgebouw in Amsterdam." (147 chars) | 320.0 s | **cap-margin check** (satisfied by construction: the clip is placed at the cap): "clip is 18.2s, at the 18.2s token cap"<br>**measured 320 s vs the non-cap long limit**: "320.0s > long limit 15.2s" | "only 19 of the script's 23 words were heard" (at MISS_FRACTION 0.25 it failed as "heard 57 words for a 23-word script") |
 | `chatterbox-fp16` (set2-intro, sentence 9) | "Here is Morning Dew." (20 chars) | 10.1 s | "clip is 10.1s, at the 6.8s token cap (a capped runaway)" | "only 1 of the script's 4 words were heard" |
 
 Whisper's 0.6B transcript ends in "Oh, my God." nine times. Parakeet's transcript of the
-same 320 s clip stops after the first clause ("…concert uh uh the the") and **passes**
-the transcript check. That is one reason Parakeet was rejected (see below).
+same 320 s clip stops after the first clause ("…concert uh uh the the"). It **passed**
+the transcript check at MISS_FRACTION 0.25, which is one reason Parakeet was rejected
+(see below). At the adopted 0.15 it fails on misses (19 of 23 heard), for both models.
 
 ## Flagged units and their classification
 
@@ -131,7 +132,19 @@ Each heard word is used at most once.
 Because `comparable_words` drops the apostrophe, "here's" is "heres", which is not
 "here"+"is". So the join also recognises contractions through a fixed table:
 is/has/us→s, are→re, am→m, have→ve, will→ll, would/had→d, not→nt. This is what makes
-the operator's here+is ↔ heres example hold.
+the operator's here+is ↔ heres example hold. The table also folds a few homophones,
+which is accepted because they sound the same: "band is" ↔ "bands" and "we are" ↔
+"were".
+
+**The dropped-g fold.** This is a **llama-9b decision while Shawn away, pending his review**. It was
+added in fix round 1 for unit #21. `comparable_words` reads an apostrophe-spelled
+dropped g as its "-ing" form on both sides, so "goin'" becomes "going" and "feelin'"
+becomes "feeling", whether in the script or in a transcript.
+- **What it never touches:** a quoted word ('within'), a bare "in'", and words that
+  merely end in "in" ("begin", "in", "within"). These have no closing apostrophe, and
+  tests pin them.
+- **Split form:** a heard "throw in" still matches "Throwin'". The bigram join also
+  recognises X + "in" as "Xing".
 
 **Operator decision: the nothing-heard rule.** A script with at least one comparable
 word fails when none of them was heard. Below `MISS_FLOOR` a total mishearing used to
@@ -139,52 +152,74 @@ pass. No "n ≤ 2, any miss" variant was adopted.
 
 Re-derivation from the saved transcripts (130 re-scored, no model loaded):
 
-| model | derivation | MISS_FLOOR | MISS_FRACTION | EXTRA_FLOOR | EXTRA_FRACTION | STOP ceilings |
-|---|---|---|---|---|---|---|
-| Whisper | **all (adopted)** | **2** | **0.25** | **4** | **0.25** | none exceeded |
-| Whisper | mlx only | 2 | 0.25 | 4 | 0.25 | none |
-| Whisper | Voxtral only | 2 | 0.15 | 4 | 0.25 | none |
-| Parakeet (comparison) | all / mlx / Voxtral | 2 / 2 / 2 | 0.25 / 0.25 / 0.15 | 4 | 0.25 | none |
+Re-derivations from the saved transcripts. Each re-scored all 130 transcripts and loaded no model.
 
-**Adopted in verify.py: 2 / 0.25 / 4 / 0.25.** These equal the values the operator
-approved in advance. Compared with the interim values (2 / 0.25 / 4 / 0.5), only
-`EXTRA_FRACTION` changed, from 0.5 to 0.25, which is tighter.
+| matching | model | derivation | MISS_FLOOR | MISS_FRACTION | EXTRA_FLOOR | EXTRA_FRACTION | STOP ceilings |
+|---|---|---|---|---|---|---|---|
+| joined words (option B) | Whisper | all | 2 | 0.25 | 4 | 0.25 | none exceeded |
+| + dropped-g fold | Whisper | **all (adopted)** | **2** | **0.15** | **4** | **0.25** | none exceeded |
+| + dropped-g fold | Whisper | mlx only / Voxtral only | 2 / 2 | 0.15 / 0.15 | 4 / 4 | 0.25 / 0.25 | none |
+| + dropped-g fold | Parakeet (comparison) | all / mlx / Voxtral | 2 / 2 / 2 | 0.15 / 0.15 / 0.15 | 4 | 0.25 | none |
+
+**Adopted in verify.py: 2 / 0.15 / 4 / 0.25.** This is a **llama-9b decision while Shawn away, pending his review**. The operator
+pre-approved whatever the Whisper re-derivation produced within the STOP ceilings.
+
+- **History:** with option B alone, the values were 2 / 0.25 / 4 / 0.25, which the
+  operator approved. The dropped-g fold then lowered `MISS_FRACTION` from 0.25 to 0.15.
+- **Why:** #21's misses fell from 3 to 1 (only "Wharfrat" heard as "Warfrat"). The
+  worst long-unit miss fraction is now #39 at 3/32 = 0.094: "After Drumz and the Jam,
+  … Jerry sang Wharf Rat …", heard as "After drums and the jam, … Jerry sang Warfrat …".
+  1.5 × 0.094 rounds up to 0.15, which is also the rule's floor.
+- **The other three values are unchanged.** `MISS_FLOOR` 2 is driven by short units
+  missing at most 1 word. `EXTRA_FLOOR` 4 and `EXTRA_FRACTION` 0.25 are at their floors
+  (the worst long extra fraction is 0.1, ×1.5 = 0.15).
+- **Against the interim values** (2 / 0.25 / 4 / 0.5), `MISS_FRACTION` and
+  `EXTRA_FRACTION` are both tighter.
 
 Step 3 checks under the adopted thresholds, Whisper:
 - `verify_checks.clean_failures` = [].
-- qwen3tts-0.6b-bf16 → "heard 57 words for a 23-word script".
+- qwen3tts-0.6b-bf16 → "only 19 of the script's 23 words were heard".
 - chatterbox-fp16 → "only 1 of the script's 4 words were heard".
 - `defects_passing` = [].
 
-Under Parakeet, the 0.6B runaway passes (null). That Step 3 check fails for Parakeet.
+At 0.15, Parakeet now also fails both runaways. At 0.25 its 0.6B check passed (null).
 
-Missing and extra counts on clean units after the change (Whisper):
+Missing and extra counts on clean units after both changes (Whisper):
 
 | backend | missing n / median / p90 / max | missing per word p90 / max | histogram | extra median / p90 / max | extra histogram |
 |---|---|---|---|---|---|
-| mlx | 53 / 0 / 2 / 3 | 0.048 / 0.158 | {0:37, 1:10, 2:2, 3:4} | 0 / 0 / 1 | {-1:5, 0:47, 1:1} |
+| mlx | 53 / 0 / 1 / 3 | 0.04 / 0.094 | {0:38, 1:10, 2:2, 3:3} | 0 / 0 / 1 | {-1:5, 0:47, 1:1} |
 | Voxtral | 10 / 0 / 0 / 1 | 0.0 / 0.038 | {0:9, 1:1} | 0 / 1 / 1 | {0:8, 1:2} |
 
-Every remaining miss on a clean unit is an STT spelling, not a TTS fault:
+Every remaining miss on a clean unit is an STT spelling, not a TTS fault.
 
-- the lexicon's spellings: goin', feelin', Shugaree, Drumz, Wharfrat
-- proper nouns: Godchaux, Kezar, Porcelina, "Saint" heard as "Santa"
-- variants: grey/gray, Eddy/Eddie
+**Known limit.** Lexicon spellings that the transcriber writes differently still cost
+a word every time, and the matching does not chase them word by word:
+
+- Wharfrat / Wharf Rat, heard as "Warfrat" (#21, #39)
+- Shugaree, heard as "sugary" (#23)
+- Drumz, heard as "drums" (#39)
+
+By contrast, "Lovelight" heard as "Love Light" does fold: the two heard words join into the script word.
+
+Proper nouns are misheard too: Godchaux as "Godshow" or "Dodd show", Kezar, Porcelina,
+"Saint" as "Santa". So are spelling variants: grey/gray, Eddy/Eddie. A sentence dense
+in these is where a spurious re-render would come from.
 
 **False alarms** (the share of clean takes the adopted thresholds would re-render):
 
-- Leave-one-out, mlx: 1/53, unit #21. Without #21, `MISS_FRACTION` derives at 0.15, and #21's 3 misses in 19 words ("Wharfrat and Goin' Down The Road Feelin' Bad") would fail.
+- Leave-one-out, mlx: **0/53**. #21 now passes leave-one-out (it failed at 1/53 before the dropped-g fold).
 - Leave-one-out, Voxtral: 0/10.
 - Interim thresholds: 0/53 and 0/10.
-- Cross-backend: Voxtral-derived thresholds on mlx units fail 1/53 (#21); mlx-derived thresholds on Voxtral units fail 0/10.
-- **Interpretation:** about 2 % of takes are one lexicon-heavy sentence away from a spurious re-render. The 95 % upper bound on 53 clean takes is about 5.7 %.
+- Cross-backend: 0/53 and 0/10.
+- **Interpretation:** the 95 % upper bound on 53 clean takes is about 5.7 %.
 
 **What verification caught that the guard did not:** nothing. No calibration take had
 a content defect, under either model or threshold set.
 
 **Short sentences:**
 - 0 of 63 units have ≤ 2 comparable words.
-- In the 3904-sentence corpus, 1 does ("Some background first." — "first" is a number word), and 6 have exactly 3. The sentence splitter folds fragments under 20 chars into a neighbour.
+- In the 3904-sentence corpus, 1 does ("Some background first." — "first" is a number word; `text_source.sentences_le_2_comparable_words`). The sentence splitter folds fragments under 20 chars into a neighbour.
 - The nothing-heard rule fails 0 of 63 clean units under both models.
 
 ## STT model comparison (Parakeet kept as evidence)
@@ -192,9 +227,10 @@ a content defect, under either model or threshold set.
 | | Whisper large-v3-turbo asr-fp16 | Parakeet TDT 0.6B v3 |
 |---|---|---|
 | median / max transcription wall per clip | 1.22 s / 6.87 s | 0.31 s / 2.59 s |
-| catches the 0.6B babble runaway by transcript | yes | **no** (its transcript stopped after one clause) |
+| catches the 0.6B babble runaway by transcript | yes | **no** at 0.25 (its transcript stopped after one clause); yes at 0.15 (19 of 23 heard) |
 | catches Chatterbox | yes | yes (0 of 4 heard) |
-| derived thresholds (after the change) | 2 / 0.25 / 4 / 0.25 | 2 / 0.25 / 4 / 0.25 |
+| derived thresholds (option B) | 2 / 0.25 / 4 / 0.25 | 2 / 0.25 / 4 / 0.25 |
+| derived thresholds (+ dropped-g fold) | 2 / 0.15 / 4 / 0.25 | 2 / 0.15 / 4 / 0.25 |
 | disfluencies | smooths them (probe) | verbatim (probe) |
 
 **Operator decision:** Whisper. Parakeet is rejected and its cache deleted. No STT
@@ -232,13 +268,13 @@ a clip at the cap, or one `cap_margin_s` below it, fails with "token cap" at 5, 
 | voice file | `af_heart`, fetched by mlx-audio's Kokoro pipeline from `prince-canuma/Kokoro-82M`, revision `e02c9eada7ce7416798af36b190a8a2dd2ecd566` (`voices/af_heart.safetensors`) |
 | license | Apache-2.0, as stated on the model cards (both repos; upstream `hexgrad/Kokoro-82M` also Apache-2.0) |
 | lang_code | `a` |
-| mlx-audio | 0.5.8 (mlx 0.32.3, misaki 0.9.4), `~/tts-bakeoff/venvs/kokoro`, served online on `127.0.0.1:8782` |
+| mlx-audio | 0.5.8 (mlx 0.32.3, misaki 0.9.4), `~/tts-bakeoff/venvs/kokoro`, served online on `127.0.0.1:8782` (port 8766 → 8782: the brief's 8766 is reserved for an unrelated operator process) |
 | request | `POST /v1/audio/speech` `{"model": "mlx-community/Kokoro-82M-bf16", "input": "Good evening, and welcome to the show.", "voice": "af_heart", "lang_code": "a", "response_format": "wav"}` |
 | take | 1 of 3. All three passed; the first was kept. |
 | format | 16-bit, mono, 24000 Hz, 2.625 s |
 | sha256 | `74721f2126863262363cde20407fbf53c4d4915419894f23bbc2efba92f8f1ed` |
 | transcript (Whisper) | "Good evening and welcome to the show." |
-| check | `transcript_problem(PREFLIGHT_TEXT, transcript) is None` under the adopted thresholds. It was checked with them set during Step 4 and re-checked after verify.py was written. |
+| check | `transcript_problem(PREFLIGHT_TEXT, transcript) is None` under the adopted thresholds. It was checked with them set during Step 4, re-checked after verify.py was written, and re-checked at MISS_FRACTION 0.15 (the transcript matches word for word). |
 
 **The Kokoro venv.** It was installed with:
 
@@ -292,6 +328,15 @@ into swap. Rendering still completed with no errors, and transcription stayed fa
 the memory-headroom premise is **not** comfortably met: the host is running at its
 memory limit.
 
+**Resolution: option (a).** This is a **llama-9b decision while Shawn away, pending his review**.
+- **Why it became a gate:** decision 8 said memory is "not a gate unless swap grows",
+  and swap grew.
+- **What option (a) means:** no code change. Shawn closes browser tabs and other apps
+  for voicing runs, and verification stays off by default
+  (`[tts.verify] backends = []`).
+- **Follow-up:** the runbook guidance is Task 15's job. "Memory headroom on the 16 GB
+  mini: measured, tight" stays open (see "What this does not show").
+
 ## Operator decisions and recommendations
 
 1. **STT model:** `mlx-community/whisper-large-v3-turbo-asr-fp16`. Parakeet v3 is rejected.
@@ -303,7 +348,7 @@ memory limit.
      - the troymcclure2 clone is an announcer voice and produced no disfluencies (the operator listened to 053–062 and heard no ums or repeats), so the **disfluency effect on the thresholds is unmeasured**;
      - verification would make hosted voicing depend on the local mlx server.
    - Weigh the memory finding above before enabling it: Whisper resident is part of the shape that swapped.
-3. **Matching change** (option B) and the **nothing-heard rule**: adopted, see above.
+3. **Matching change** (option B) and the **nothing-heard rule**: adopted, see above. The **dropped-g fold** and the resulting `MISS_FRACTION` 0.15 are a **llama-9b decision while Shawn away, pending his review**.
 4. **Flagged units:** all artefacts, as classified in the table above.
 5. **Guard:** the derived calibration with `max_s_per_char` = `cap_s_per_char` = 0.09.
 
@@ -339,5 +384,5 @@ and ports 8781 and 8782 were confirmed free.
 - **Untested presenters.** Presenters beyond these five voices are unmeasured, and four of the five clones used STT-drafted reference transcripts.
 - **Voxtral disfluencies** were not exercised (announcer-voice clone).
 - **The runaway evidence is limited.** It consists of two clips from other models (Qwen 0.6B, Chatterbox), cut from bed-mixed mixes. No 1.7B runaway was observed.
-- **Memory** was measured on one host, under one desktop load, on one segment.
+- **Memory** was measured on one host, under one desktop load, on one segment. **Open item: memory headroom on the 16 GB mini — measured, tight** (swap grew; resolved for now by option (a), above).
 - **The go-live listen remains required.**
