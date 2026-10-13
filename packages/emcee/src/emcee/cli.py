@@ -25,6 +25,7 @@ from emcee.process import (ad_hoc_bed, ad_hoc_speech, assignment_for, presenter_
                            process_package, resolve_assignment, speech_for)
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
+from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
 from emcee.station import (PackageStatus, manifest_profile, manifest_voiced_by, raw_profile,
                            readiness, scan)
@@ -273,14 +274,42 @@ def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
             pass
 
 
-def _presenter_file_exists(root: Path, presenter_id: str) -> bool:
-    """Whether `presenters/<id>.toml` exists, comparing the id
-    case-insensitively (the config may say `BillyG` for `billyg.toml`)."""
+def _presenter_file(root: Path, presenter_id: str) -> Path | None:
+    """`presenters/<id>.toml`, comparing the id case-insensitively (the
+    config may say `BillyG` for `billyg.toml`); None when there is none."""
     pdir = root / "presenters"
-    if (pdir / f"{presenter_id}.toml").exists():
-        return True
+    exact = pdir / f"{presenter_id}.toml"
+    if exact.exists():
+        return exact
     want = f"{presenter_id}.toml".lower()
-    return pdir.is_dir() and any(p.name.lower() == want for p in pdir.iterdir())
+    if pdir.is_dir():
+        for p in pdir.iterdir():
+            if p.name.lower() == want:
+                return p
+    return None
+
+
+def _dry_run_marker(config: EmceeConfig, presenter_id: str) -> str:
+    """The row suffix `run --dry-run` prints for a presenter-assigned package:
+    a missing or invalid file, a failed TTS resolution, or -- for a PINNED
+    presenter only -- the backend and model it resolves to. Never raises, so
+    one bad presenter cannot abort the listing; never preflights. An
+    unreadable or non-UTF-8 file (OSError / UnicodeDecodeError, which
+    load_presenter does not wrap) is invalid too."""
+    path = _presenter_file(config.root, presenter_id)
+    if path is None:
+        return f"  [missing presenters/{presenter_id}.toml]"
+    try:
+        presenter = load_presenter(config.root, path.stem)
+    except (PresenterError, OSError, ValueError):
+        return f"  [invalid presenters/{presenter_id}.toml]"
+    try:
+        resolution = resolve_tts(config, presenter)
+    except TTSResolutionError as exc:
+        return f"  [unresolved: {exc}]"
+    if resolution.pinned:
+        return f"  [{resolution.backend} {resolution.model}]"
+    return ""
 
 
 @app.command()
@@ -326,7 +355,10 @@ def run(
     run and not reported per-row -- one `note:` line counts them. `--dry-run`
     prints `would voice: <slug>  <profile>  <presenter>` for each selected
     pending package and a count, doing no LLM, TTS, or file writes; error and
-    unsupported rows are reported as in a real run.
+    unsupported rows are reported as in a real run. A pinned presenter's row
+    also shows `\\[<backend> <model>]`, an unloadable presenter file
+    `\\[invalid presenters/<id>.toml]` and a failed TTS resolution
+    `\\[unresolved: <message>]`.
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
@@ -361,9 +393,8 @@ def run(
         if dry_run:
             view = assignment_for(config, status.profile)
             line = f"would voice: {slug}  {status.profile or '(none)'}  {presenter_label(view)}"
-            if view.presenter is not None and not _presenter_file_exists(
-                    config.root, view.presenter):
-                line += f"  [missing presenters/{view.presenter}.toml]"
+            if view.presenter is not None:
+                line += _dry_run_marker(config, view.presenter)
             typer.echo(line)
             processed += 1
             continue
