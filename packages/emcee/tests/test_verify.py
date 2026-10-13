@@ -183,9 +183,39 @@ def test_a_closing_quote_after_in_is_not_a_dropped_g():
                               "Then Fire on the Mountain closed it.") is None
 
 
-def test_dropped_gs_inside_a_quoted_title_still_fold():
+def test_dropped_gs_inside_a_quoted_title_fold_after_its_first_word():
+    # A quoted word ending in in' reads as a one-word quoted title ('Win'):
+    # folding it could only ever give false credit, so it stays.
     assert comparable_words("They opened with 'Goin' Down The Road Feelin' Bad'.") == [
-        "they", "opened", "with", "going", "down", "the", "road", "feeling", "bad"]
+        "they", "opened", "with", "goin", "down", "the", "road", "feeling", "bad"]
+
+
+def test_a_one_word_quoted_title_is_never_folded():
+    assert comparable_words("'Win' and the drummers' solo, 'Mountain' and James' guitar") == [
+        "win", "and", "the", "drummers", "solo", "mountain", "and", "james", "guitar"]
+
+
+def test_a_title_closed_on_in_does_not_shield_later_dropped_gs():
+    assert comparable_words("'Fire on the Mountain' > Goin' Down The Road Feelin' Bad.") == [
+        "fire", "on", "the", "mountain", "going", "down", "the", "road", "feeling", "bad"]
+    assert comparable_words(
+        "He's playin' 'Jack Straw' and 'Fire on the Mountain' and singin' loud.") == [
+        "hes", "playing", "jack", "straw", "and", "fire", "on", "the", "mountain",
+        "and", "singing", "loud"]
+
+
+def test_punctuation_inside_the_closing_quote_still_closes_it():
+    assert comparable_words("'Scarlet Begonias,' then Truckin'.") == [
+        "scarlet", "begonias", "then", "trucking"]
+    assert comparable_words("'Fire on the Mountain.' Truckin'") == [
+        "fire", "on", "the", "mountain", "trucking"]
+
+
+def test_a_later_ambiguous_mark_does_not_prove_a_close():
+    # Goin' after the title could be a dropped g OR a close; only an
+    # unambiguous mark proves the quote closed, so Mountain' stays a close.
+    assert comparable_words("'Fire on the Mountain', then Goin'.") == [
+        "fire", "on", "the", "mountain", "then", "going"]
 
 
 def test_a_quote_closed_earlier_does_not_shield_a_later_dropped_g():
@@ -193,10 +223,12 @@ def test_a_quote_closed_earlier_does_not_shield_a_later_dropped_g():
         "mountain", "jam", "then", "going", "home"]
 
 
-
 def test_a_leading_elision_is_not_an_opening_quote():
     assert comparable_words("'Cause we're goin' home, rock 'n' rollin' on.") == [
         "cause", "were", "going", "home", "rock", "n", "rolling", "on"]
+    assert comparable_words("'Cuz 'nuff said, we're goin' home.") == [
+        "cuz", "nuff", "said", "were", "going", "home"]
+
 
 # --- the STT client ---------------------------------------------------------------
 

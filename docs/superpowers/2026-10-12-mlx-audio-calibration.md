@@ -143,12 +143,19 @@ becomes "feeling", whether in the script or in a transcript.
 - **What it never touches:** a bare "in'", and words that merely end in "in"
   ("begin", "in", "within"), which have no apostrophe. Tests pin them.
 - **Closing quotes (added 2026-10-13, at Shawn's request).** The mark that closes a
-  single-quoted title ending in "in" ('Fire on the Mountain', 'within') is not a
-  dropped g, so "mountain" stays "mountain". A mark counts as that close when a quote
-  opened before it is still open and no later unambiguous close follows, so inside
-  'Goin' Down The Road Feelin' Bad' both words still fold. Leading elisions ('cause,
-  'em, 'til, 'n') are not opening quotes. Before this, the title cost one false miss
-  per sentence (1 quoted span in 129 delivered scripts); it never gave false credit.
+  single-quoted title ending in "in" ('Fire on the Mountain') is not a dropped g, so
+  "mountain" stays "mountain", and that close closes the quote for what follows: in
+  "'Fire on the Mountain' > Goin' Down The Road Feelin' Bad" both later words fold.
+  A close is also recognised after punctuation ('Scarlet Begonias,'). A word that
+  itself opens the quote ('Win', and the first word of 'Goin' Down …') is read as a
+  one-word quoted title and never folded, since folding could only give false credit
+  (win/wing). Leading elisions ('cause, 'cuz, 'em, 'til, 'nuff, 'n', …) are not
+  opening quotes. Remaining false misses, all rare: the first word of a quoted title
+  that is itself a dropped g, a dropped g directly before a closing quote
+  ('Feelin''), and an unlisted leading elision. Before this, the title cost one false
+  miss per sentence (1 quoted span in 129 delivered scripts); it never gave false
+  credit, and neither does the new rule. Re-scoring the calibration's 200
+  script/transcript pairs changes no word list.
 - **Split form:** a heard "throw in" still matches "Throwin'". The bigram join also
   recognises X + "in" as "Xing".
 

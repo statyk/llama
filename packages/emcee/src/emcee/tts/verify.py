@@ -47,24 +47,31 @@ _WORD = re.compile(r"[^\W_]+")
 # A dropped g spelled with an apostrophe ("goin'", "feelin'"), read as its
 # "-ing" form. The apostrophe must close a word of at least one letter
 # before "in", so "in'" stays as it is; a word merely ending in "in"
-# ("begin") has no apostrophe and is never touched. The same mark also
-# closes a single-quoted title ending in "in" ('Fire on the Mountain',
-# 'within'): see _fold_dropped_g.
+# ("begin") has no apostrophe and is never touched. The same mark can
+# instead close a single-quoted title ending in "in" ('Fire on the
+# Mountain'): see _fold_dropped_g.
 _DROPPED_G = re.compile(r"([^\W\d_]+in)['’](?!\w)")
 # An opening quote, but not a leading elision ('cause, 'em, 'til, ...).
 _OPEN_QUOTE = re.compile(r"(?:^|(?<=[\s(\[{\"“]))['‘]"
-                         r"(?!(?:cause|cos|em|til|round|bout|n|tis|twas)\b)(?=[^\W\d_])")
-# A mark after a word ending in "in" is ambiguous (a dropped g, or a
-# close), so only an unambiguous one proves a quote was closed.
-_CLOSE_QUOTE = re.compile(r"(?<=[^\W\d_])(?<!in)['’](?!\w)")
+                         r"(?!(?:cause|cuz|cos|em|til|round|bout|nuff|fore|cept|neath"
+                         r"|ol|n|tis|twas)\b)(?=[^\W\d_])")
+# An unambiguous closing quote: after a letter that does not end "in" (a
+# mark after "in" may be a dropped g instead), or after punctuation
+# ('Scarlet Begonias,').
+_CLOSE_QUOTE = re.compile(r"(?:(?<=[^\W\d_])(?<!in)|(?<=[.,!?;:]))['’](?!\w)")
 
 
 def _fold_dropped_g(text: str) -> str:
     """`text` with each dropped g folded to "-ing", except a mark that
-    closes an open single quote: one opened before it and not closed
-    since, with no later unambiguous closing mark before the next opening
-    one. Inside 'Goin' Down The Road Feelin' Bad' both words fold (Bad'
-    closes); 'Fire on the Mountain' keeps "mountain"."""
+    closes a single quote:
+    - a word that itself opens the quote ('Win', 'Goin' ...) is read as a
+      one-word quoted title and never folded -- folding could only give
+      false credit (win/wing);
+    - otherwise the mark closes the quote when one opened before it is
+      still open and no unambiguous close follows before the next opening
+      quote ('Fire on the Mountain').
+    A mark read as a close closes the quote for the marks after it, so
+    "'Fire on the Mountain' > Goin' Down The Road Feelin' Bad" folds both."""
     opens = [m.start() for m in _OPEN_QUOTE.finditer(text)]
     closes = [m.start() for m in _CLOSE_QUOTE.finditer(text)]
 
@@ -73,7 +80,8 @@ def _fold_dropped_g(text: str) -> str:
         opened = max((o for o in opens if o < m.start()), default=None)
         if opened is not None and not any(opened < c < mark for c in closes):
             next_open = min((o for o in opens if o > mark), default=len(text))
-            if not any(mark < c < next_open for c in closes):
+            if opened == m.start() - 1 or not any(mark < c < next_open for c in closes):
+                closes.append(mark)
                 return m.group(0)
         return m.group(1) + "g"
 
