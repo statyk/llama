@@ -1,6 +1,7 @@
 """The measured constants (docs/superpowers/2026-10-12-mlx-audio-calibration.md):
 the first calibrated mlx model and the verification thresholds, pinned on
 the edges of the calibration data and on the bake-off's known runaways."""
+import dataclasses
 import io
 import math
 import wave
@@ -140,3 +141,24 @@ def test_the_bundled_preflight_clip():
         assert (w.getsampwidth(), w.getnchannels(), w.getframerate()) == (2, 1, 24000)
         assert 1.0 <= w.getnframes() / w.getframerate() <= 4.0
     assert PREFLIGHT_TEXT == "Good evening, and welcome to the show."
+
+
+# --- exact pins of the adopted values ------------------------------------------------
+# The tests above pin from below (a loosening stays green); these pin the
+# adopted values exactly. Evidence: docs/superpowers/2026-10-12-mlx-audio-calibration.md.
+# Changing any value means changing its pin in the same commit.
+def test_verify_thresholds_are_pinned_exactly():
+    # MISS_FRACTION 0.15 is operator-ratification pending; the rest are derived
+    # in the calibration doc.
+    assert (verify.MISS_FLOOR, verify.MISS_FRACTION,
+            verify.EXTRA_FLOOR, verify.EXTRA_FRACTION) == (2, 0.15, 4, 0.25)
+
+
+def test_qwen_1_7b_calibration_is_pinned_exactly():
+    # cap_s_per_char and max_s_per_char 0.09: operator-approved deviation from
+    # the derived 0.08 (take spread). Same doc as above.
+    assert dataclasses.asdict(CAL) == {
+        "frame_rate_hz": 12.5, "cap_floor_s": 5.0, "cap_s_per_char": 0.09,
+        "max_floor_s": 2.0, "max_s_per_char": 0.09, "min_s_per_char": 0.04,
+        "min_slack_s": 0.5, "cap_margin_s": 1.0,
+    }

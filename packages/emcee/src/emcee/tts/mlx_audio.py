@@ -34,8 +34,13 @@ _GENERATION_FAILURES = (httpx.RemoteProtocolError, httpx.ReadError, httpx.ReadTi
 def wav_to_mp3(wav: bytes) -> bytes:
     """Encode a 16-bit PCM WAV to MP3 with emcee's own encoder."""
     from emcee.audio import _encode_mp3  # lazy: emcee.audio imports emcee.tts
-    with wave.open(io.BytesIO(wav), "rb") as w:
-        return _encode_mp3(w.readframes(w.getnframes()), w.getframerate(), w.getnchannels())
+    try:
+        with wave.open(io.BytesIO(wav), "rb") as w:
+            if w.getsampwidth() != 2:
+                raise SpeechError(f"expected 16-bit PCM WAV, got {8 * w.getsampwidth()}-bit")
+            return _encode_mp3(w.readframes(w.getnframes()), w.getframerate(), w.getnchannels())
+    except (wave.Error, EOFError) as e:
+        raise SpeechError(f"malformed WAV from the provider: {e}") from e
 
 
 class MlxAudioProvider:

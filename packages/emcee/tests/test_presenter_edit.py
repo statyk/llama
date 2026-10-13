@@ -351,3 +351,18 @@ def test_transcribe_prints_a_note_when_the_unload_fails_but_still_proceeds(tmp_p
     assert r.exit_code == 0, r.output
     assert "note: could not unload 'stt/test-model' from mlx-audio: boom" in r.output
     assert load_presenter(home, "phil").voice_clone_text == DRAFT
+
+
+def test_draft_transcript_expands_a_tilde_clip_path(tmp_path, monkeypatch):
+    from emcee.cli import _draft_transcript
+    from emcee.config import load_config
+    home = _home(tmp_path, monkeypatch, STT_CONFIG)
+    fake_home = tmp_path / "fakehome"
+    fake_home.mkdir()
+    (fake_home / "clip.wav").write_bytes(wav_bytes(1.0))
+    monkeypatch.setenv("HOME", str(fake_home))
+    server = MlxServer(transcript=lambda last: DRAFT)
+    _stt(monkeypatch, server)
+    config = load_config()
+    monkeypatch.setattr("typer.confirm", lambda *a, **k: True)
+    assert _draft_transcript(config, "~/clip.wav") == DRAFT

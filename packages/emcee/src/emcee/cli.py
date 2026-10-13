@@ -776,7 +776,7 @@ def _draft_transcript(config: EmceeConfig, clip: str) -> str:
         _usage("--transcribe needs [tts.mlx_audio] stt_model (a speech-to-text model on "
                "the mlx-audio server)")
     try:
-        audio = Path(clip).read_bytes()
+        audio = Path(clip).expanduser().read_bytes()
     except OSError as exc:
         raise EmceeError(f"cannot read the voice clone {clip}: {exc}") from exc
     stt = SttClient(url=mlx.url, model=mlx.stt_model, timeout_s=mlx.timeout_s)

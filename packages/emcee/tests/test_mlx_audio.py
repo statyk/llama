@@ -332,3 +332,22 @@ def test_close_closes_the_client(clip):
     p = make(MlxServer(), clip)
     p.close()
     assert p._client.is_closed
+
+
+# --- wav_to_mp3 input validation ---------------------------------------------------
+@pytest.mark.parametrize("width", [1, 3])
+def test_wav_to_mp3_rejects_non_16_bit_wav(width):
+    from emcee.tts.mlx_audio import wav_to_mp3
+    with pytest.raises(SpeechError, match=f"{8 * width}-bit"):
+        wav_to_mp3(wav_bytes(0.1, width=width))
+
+
+def test_wav_to_mp3_wraps_malformed_wav():
+    from emcee.tts.mlx_audio import wav_to_mp3
+    with pytest.raises(SpeechError, match="malformed WAV"):
+        wav_to_mp3(b"not a wav at all")
+
+
+def test_wav_to_mp3_encodes_16_bit_wav():
+    from emcee.tts.mlx_audio import wav_to_mp3
+    assert wav_to_mp3(wav_bytes(0.5))
