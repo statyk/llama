@@ -592,3 +592,29 @@ def test_preflight_runs_before_the_unlink_and_the_manifest_clear(tmp_path, monke
     assert result.exit_code == 0, result.output
     assert events[:2] == ["preflight:clip-present", "clear"]
     assert "re-rolling set1-intro" in result.output
+
+
+def test_failed_preflight_still_closes_the_speech_provider(tmp_path, monkeypatch):
+    """preflight sits INSIDE the try/finally: a provider whose preflight
+    fails is still closed (moving preflight above the try would leak it)."""
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    _write_config(home)
+    pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
+    closed: list[bool] = []
+
+    class Closing(FakeSpeechProvider):
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(process_mod, "speech_provider_for",
+                        lambda config, resolution, *, voice, clone_ref, clone_text:
+                        Closing(preflight_fail=True))
+    _forbid_scriptwrite(monkeypatch)
+    from emcee.config import load_config
+    from emcee.tts.provider import SpeechError
+
+    with pytest.raises(SpeechError, match="armed to fail preflight"):
+        _process_one(load_config(), Package(pkg_dir), False)
+    assert closed == [True]

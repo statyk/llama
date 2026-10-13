@@ -458,7 +458,7 @@ def voice_cmd(
     existing directory path always wins -- use `emcee run` to process a
     whole station. Re-processing an already-"ready" package
     clears its `dj_notes`/`dj_audio` manifest blocks (once presenter/voice
-    resolution has already succeeded) before reprocessing, so a
+    resolution AND the TTS preflight have succeeded) before reprocessing, so a
     mid-pipeline failure degrades it to "pending" -- self-consistent with
     `station.readiness` -- instead of leaving it stale-"ready" while
     `dj-notes.md` already holds an unrecorded new script; a clean run

@@ -65,7 +65,11 @@ def guard_problem(cal: ModelCalibration, text: str, seconds: float,
                   max_tokens: int) -> str | None:
     """Why `seconds` of audio is implausible for `text`, or None. The cap
     check comes first: a runaway that ran into max_tokens would otherwise
-    read as merely long (or, with a cap close to the limit, pass)."""
+    read as merely long (or, with a cap close to the limit, pass). An empty
+    clip is checked before everything: a short text's lower bound floors at
+    0 s, so the short check alone would accept it."""
+    if seconds <= 0:
+        return f"clip is empty ({seconds:.1f}s of audio)"
     n = text_units(text)
     cap = cap_seconds(cal, max_tokens)
     if seconds >= cap - cal.cap_margin_s:

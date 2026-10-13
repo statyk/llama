@@ -80,6 +80,15 @@ def test_guard_rejects_long_short_and_cap_length():
     assert "token cap" in guard_problem(TEST_CAL, SENTENCE, cap_seconds(TEST_CAL, mt) - 0.5, mt)
 
 
+def test_guard_rejects_a_zero_length_clip_for_short_text():
+    # A short sentence's lower bound floors at 0 s; an empty clip must still fail.
+    short = "Here is Morning Dew."
+    mt = max_tokens_for(TEST_CAL, short)
+    assert "clip is empty" in guard_problem(TEST_CAL, short, 0.0, mt)
+    assert "clip is empty" in guard_problem(TEST_CAL, short, -1.0, mt)
+    assert guard_problem(TEST_CAL, short, 0.5, mt) is None
+
+
 # --- request ------------------------------------------------------------------
 
 
@@ -107,6 +116,21 @@ def test_ref_audio_is_sent_as_an_absolute_path(tmp_path, monkeypatch):
                          calibration=TEST_CAL, transport=server.transport())
     p.synthesize(SENTENCE, fmt="wav")
     assert server.speech_bodies[0]["ref_audio"] == str((tmp_path / "samples" / "phil_ex.wav").resolve())
+
+
+def test_tilde_ref_audio_is_sent_expanded_and_absolute(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / "samples").mkdir(parents=True)
+    (home / "samples" / "phil_ex.wav").write_bytes(wav_bytes(1.0))
+    monkeypatch.setenv("HOME", str(home))
+    server = MlxServer()
+    p = MlxAudioProvider(url="http://127.0.0.1:8000", model=TEST_MODEL,
+                         clone_ref="~/samples/phil_ex.wav", clone_text=TRANSCRIPT,
+                         calibration=TEST_CAL, transport=server.transport())
+    p.synthesize(SENTENCE, fmt="wav")
+    sent = server.speech_bodies[0]["ref_audio"]
+    assert sent == str((home / "samples" / "phil_ex.wav").resolve())
+    assert "~" not in sent
 
 
 def test_context_arguments_are_accepted_and_not_sent(clip):
