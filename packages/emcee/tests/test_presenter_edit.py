@@ -130,6 +130,8 @@ def test_edit_voice_clone_text_set_and_clear(tmp_path, monkeypatch):
     (["--voice", "a", "--voice-clone", "/b.wav"], "--voice and --voice-clone are mutually exclusive"),
     (["--character", "a", "--character-file", "/c.txt"], "give at most one of --character / --character-file"),
     (["--transcribe", "--voice-clone-text", "x"], "--transcribe and --voice-clone-text are mutually exclusive"),
+    (["--transcribe", "--clear-voice-clone-text"],
+     "--transcribe and --clear-voice-clone-text are mutually exclusive"),
     ([], "nothing to edit: give at least one field option"),
 ])
 def test_usage_errors_exit_2_and_touch_nothing(tmp_path, monkeypatch, args, message):
@@ -299,3 +301,51 @@ def test_an_invalid_edit_fails_before_transcribing(tmp_path, monkeypatch):
     r = _edit("--tts", "elevenlabs", "--transcribe", input="y\n")  # elevenlabs cannot clone
     assert r.exit_code == 1 and "invalid presenter" in r.output
     assert server.transcriptions == []
+
+
+def test_transcribe_failure_with_verification_off_still_unloads_the_stt_model(tmp_path, monkeypatch):
+    home = _home(tmp_path, monkeypatch, STT_CONFIG)
+    _clone(home, tmp_path)
+    before = _file(home).read_bytes()
+    server = MlxServer(stt_status=500)
+    _stt(monkeypatch, server)
+    r = _edit("--transcribe", input="y\n")
+    assert r.exit_code == 1 and isinstance(r.exception, SpeechError)
+    assert server.deletes == [{"model_name": "stt/test-model"}]
+    assert _file(home).read_bytes() == before
+
+
+def test_transcribe_failure_with_verification_on_does_not_unload(tmp_path, monkeypatch):
+    home = _home(tmp_path, monkeypatch, STT_VERIFY_CONFIG)
+    _clone(home, tmp_path)
+    server = MlxServer(stt_status=500)
+    _stt(monkeypatch, server)
+    assert _edit("--transcribe", input="y\n").exit_code == 1
+    assert server.deletes == []
+
+
+def test_transcribe_empty_transcription_is_an_error_and_writes_nothing(tmp_path, monkeypatch):
+    home = _home(tmp_path, monkeypatch, STT_CONFIG)
+    _clone(home, tmp_path)
+    before = _file(home).read_bytes()
+    _stt(monkeypatch, MlxServer(transcript=lambda last: "  "))
+    r = _edit("--transcribe", input="y\n")
+    assert r.exit_code == 1
+    assert "the transcription came back empty; give --voice-clone-text by hand" in str(r.exception)
+    assert "use this transcript?" not in r.output
+    assert _file(home).read_bytes() == before
+
+
+def test_transcribe_prints_a_note_when_the_unload_fails_but_still_proceeds(tmp_path, monkeypatch):
+    home = _home(tmp_path, monkeypatch, STT_CONFIG)
+    _clone(home, tmp_path)
+
+    def boom(self):
+        raise SpeechError("could not unload 'stt/test-model' from mlx-audio: boom")
+
+    monkeypatch.setattr(SttClient, "unload", boom)
+    _stt(monkeypatch, MlxServer(transcript=lambda last: DRAFT))
+    r = _edit("--transcribe", input="y\n")
+    assert r.exit_code == 0, r.output
+    assert "note: could not unload 'stt/test-model' from mlx-audio: boom" in r.output
+    assert load_presenter(home, "phil").voice_clone_text == DRAFT

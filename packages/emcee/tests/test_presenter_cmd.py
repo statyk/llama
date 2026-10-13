@@ -6,13 +6,18 @@ workspace root resolved via the `EMCEE_ROOT` env var (`emcee.config.default_root
 which also backs `EmceeConfig.root`'s default) instead of a `--config` file.
 """
 
+from functools import partial
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from emcee.cli import _assignments_using_presenter, app
 from emcee.config import AssignConfig, Assignment, EmceeConfig
-from emcee.presenters import PresenterError
+from emcee.presenters import PresenterError, load_presenter
+from emcee.tts.verify import SttClient
+
+from tests.mlx_helpers import MlxServer, wav_bytes
 
 runner = CliRunner()
 
@@ -48,7 +53,7 @@ def test_presenter_add_rejects_both_or_neither_character(tmp_path: Path, monkeyp
     monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
     neither = runner.invoke(app, ["presenter", "add", "x", "--name", "X", "--sex", "male",
                                   "--voice", "a"])
-    assert neither.exit_code != 0
+    assert neither.exit_code == 1
     assert "give exactly one of --character / --character-file" in neither.output
 
     cf = tmp_path / "c.txt"
@@ -56,7 +61,7 @@ def test_presenter_add_rejects_both_or_neither_character(tmp_path: Path, monkeyp
     both = runner.invoke(app, ["presenter", "add", "x", "--name", "X", "--sex", "male",
                                "--voice", "a", "--character", "y",
                                "--character-file", str(cf)])
-    assert both.exit_code != 0
+    assert both.exit_code == 1
     assert "give exactly one of --character / --character-file" in both.output
 
 
@@ -64,12 +69,12 @@ def test_presenter_add_rejects_both_or_neither_voice(tmp_path: Path, monkeypatch
     monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
     neither = runner.invoke(app, ["presenter", "add", "x", "--name", "X", "--sex", "male",
                                   "--character", "y"])
-    assert neither.exit_code != 0
+    assert neither.exit_code == 1
     assert "invalid presenter" in neither.output
 
     both = runner.invoke(app, ["presenter", "add", "x", "--name", "X", "--sex", "male",
                                "--voice", "a", "--voice-clone", "/r.wav", "--character", "y"])
-    assert both.exit_code != 0
+    assert both.exit_code == 1
     assert "invalid presenter" in both.output
 
 
@@ -79,7 +84,7 @@ def test_presenter_add_refuses_overwrite_without_force(tmp_path: Path, monkeypat
             "--voice", "american-dj", "--character", "x"]
     assert runner.invoke(app, args).exit_code == 0
     again = runner.invoke(app, args)
-    assert again.exit_code != 0
+    assert again.exit_code == 1
     assert "exists" in again.output
     assert "use --force to overwrite" in again.output
 
@@ -91,7 +96,7 @@ def test_presenter_add_missing_character_file_errors_cleanly(tmp_path: Path, mon
     monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
     r = runner.invoke(app, ["presenter", "add", "x", "--name", "X", "--sex", "male",
                             "--voice", "a", "--character-file", str(tmp_path / "nope.txt")])
-    assert r.exit_code != 0
+    assert r.exit_code == 1
     assert "cannot read --character-file" in r.output
     assert not isinstance(r.exception, OSError)
 
@@ -228,3 +233,78 @@ def test_presenter_remove_refused_end_to_end_against_real_config_on_disk(tmp_pat
     forced = runner.invoke(app, ["presenter", "remove", "waldo", "--force"], input="y\n")
     assert forced.exit_code == 0, forced.output
     assert not (tmp_path / "presenters" / "waldo.toml").exists()
+
+
+# --- pins (spec section 4) ----------------------------------------------------------
+
+
+def _pinned_add_args(clip: str, *extra: str) -> list[str]:
+    return ["presenter", "add", "phil", "--name", "Phil", "--sex", "male",
+            "--voice-clone", clip, "--character", "Professorial.", *extra]
+
+
+def test_presenter_add_with_a_pin_stores_an_absolute_clip(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path / "home"))
+    (tmp_path / "samples").mkdir()
+    clip = tmp_path / "samples" / "phil_ex.wav"
+    clip.write_bytes(wav_bytes(1.0))
+    monkeypatch.chdir(tmp_path)
+    r = runner.invoke(app, _pinned_add_args("samples/phil_ex.wav", "--tts", "mlx_audio",
+                                            "--tts-model", "m/x",
+                                            "--voice-clone-text", "It's the chemistry."))
+    assert r.exit_code == 0, r.output
+    p = load_presenter(tmp_path / "home", "phil")
+    assert (p.voice_clone, p.tts, p.tts_model, p.voice_clone_text) == (
+        str(clip.resolve()), "mlx_audio", "m/x", "It's the chemistry.")
+
+
+def test_presenter_add_rejects_an_invalid_pin(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
+    r = runner.invoke(app, ["presenter", "add", "x", "--name", "X", "--sex", "male",
+                            "--voice", "preset", "--character", "y", "--tts", "mlx_audio"])
+    assert r.exit_code == 1 and "invalid presenter" in r.output and "clone-only" in r.output
+    assert not (tmp_path / "presenters" / "x.toml").exists()
+
+
+@pytest.mark.parametrize("answer, saved", [("y\n", True), ("n\n", False)])
+def test_presenter_add_transcribe(tmp_path: Path, monkeypatch, answer, saved):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    (home / "config.toml").write_text('[tts.mlx_audio]\nstt_model = "stt/test-model"\n')
+    clip = tmp_path / "phil_ex.wav"
+    clip.write_bytes(wav_bytes(1.0))
+    server = MlxServer(transcript=lambda last: "It's the chemistry.")
+    monkeypatch.setattr("emcee.cli.SttClient", partial(SttClient, transport=server.transport()))
+    r = runner.invoke(app, _pinned_add_args(str(clip), "--tts", "mlx_audio", "--transcribe"),
+                      input=answer)
+    assert (r.exit_code == 0) is saved
+    path = home / "presenters" / "phil.toml"
+    assert path.exists() is saved
+    if saved:
+        assert load_presenter(home, "phil").voice_clone_text == "It's the chemistry."
+
+
+def test_presenter_add_transcribe_needs_a_clone(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
+    r = runner.invoke(app, ["presenter", "add", "x", "--name", "X", "--sex", "male",
+                            "--voice", "preset", "--character", "y", "--transcribe"])
+    assert r.exit_code == 2 and "--transcribe needs --voice-clone" in r.output
+
+
+def test_presenter_list_and_show_display_the_pin_only_when_pinned(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("EMCEE_ROOT", str(tmp_path))
+    runner.invoke(app, ["presenter", "add", "phil", "--name", "Phil", "--sex", "male",
+                        "--voice-clone", "/r/phil.wav", "--character", "x", "--tts", "mlx_audio",
+                        "--tts-model", "m/x", "--voice-clone-text", "It's the chemistry."])
+    runner.invoke(app, ["presenter", "add", "roy", "--name", "Roy", "--sex", "male",
+                        "--voice", "roy-preset", "--character", "x"])
+    listed = runner.invoke(app, ["presenter", "list"]).output
+    assert f"{'phil':16.16s} {'Phil':20.20s} {'male':8.8s} clone:/r/phil.wav  tts=mlx_audio tts_model=m/x" in listed
+    roy_line = next(line for line in listed.splitlines() if line.startswith("roy"))
+    assert roy_line == f"{'roy':16.16s} {'Roy':20.20s} {'male':8.8s} roy-preset"
+    shown = runner.invoke(app, ["presenter", "show", "phil"]).output
+    assert shown.splitlines()[0] == "Phil  (male)  voice=clone:/r/phil.wav  tts=mlx_audio tts_model=m/x"
+    assert "transcript:\nIt's the chemistry." in shown
+    roy = runner.invoke(app, ["presenter", "show", "roy"]).output
+    assert "tts=" not in roy and "transcript:" not in roy

@@ -512,8 +512,12 @@ def say_cmd(
         help="Where to write the MP3; default <text file>.mp3 beside the input"),
     clone: Path = typer.Option(
         None, "--clone",
-        help="Reference clip to clone (3-25s WAV, Voxtral only), instead of a "
+        help="Reference clip to clone (3-25s; voxtral or mlx_audio), instead of a "
              "preset voice"),
+    clone_text: str = typer.Option(
+        None, "--clone-text",
+        help="Transcript of the --clone clip; required when the house backend is "
+             "mlx_audio, ignored otherwise"),
     voice: str = typer.Option(
         None, "--voice", help="Preset voice name, instead of the house [tts] voice"),
     presenter: str = typer.Option(
@@ -546,7 +550,11 @@ def say_cmd(
     absent or unconfigured.
 
     VOICE: at most one of `--clone`, `--voice` and `--presenter`; with none of
-    them the house `[tts] voice`/`voice_clone` reads it.
+    them the house `[tts] voice`/`voice_clone` reads it, including its
+    `[tts] voice_clone_text`. `--clone-text` is the `--clone` clip's
+    transcript, required when the house backend is mlx_audio (which is
+    clone-only, so `--voice` is refused there); `--presenter` resolves exactly
+    as in `emcee run`, pin included.
 
     BED: resolved exactly as a voiced package's is (the presenter's own bed,
     else `[tts] bed`), with `--bed` overriding the file, `--bed-gain` the
@@ -561,6 +569,15 @@ def say_cmd(
     `--no-chunk` without a bed ships the provider's own MP3 un-normalized.
     """
     config = load_config()
+    if clone_text is not None and clone is None:
+        _usage("--clone-text needs --clone")
+    house_mlx = config.tts.backend == "mlx_audio"
+    if house_mlx and voice:
+        _usage("--voice is a preset, but the house backend is mlx_audio, which is clone-only "
+               "(use --clone with --clone-text, or --presenter)")
+    if house_mlx and clone is not None and not (clone_text or "").strip():
+        _usage("--clone needs --clone-text (the clip's transcript) when the house backend "
+               "is mlx_audio")
 
     text = text_file.read_text().strip()
     if not text:
@@ -568,6 +585,7 @@ def say_cmd(
 
     host = load_presenter(config.root, presenter) if presenter else None
     speech = ad_hoc_speech(config, clone_ref=str(clone) if clone else None,
+                           clone_text=clone_text if house_mlx else None,
                            voice=voice, presenter=host)
     resolved_bed = ad_hoc_bed(config, host, bed_path=bed, no_bed=no_bed,
                               gain_db=bed_gain)
@@ -763,12 +781,16 @@ def _draft_transcript(config: EmceeConfig, clip: str) -> str:
         raise EmceeError(f"cannot read the voice clone {clip}: {exc}") from exc
     stt = SttClient(url=mlx.url, model=mlx.stt_model, timeout_s=mlx.timeout_s)
     try:
-        text = stt.transcribe(audio)
-        if not config.tts.verify.backends:
-            try:
-                stt.unload()
-            except SpeechError as exc:
-                typer.echo(f"note: {exc}", err=True)
+        try:
+            text = stt.transcribe(audio)
+        finally:
+            # Memory on the host is tight: free the STT model even when the
+            # transcription failed (unless verification keeps it in use).
+            if not config.tts.verify.backends:
+                try:
+                    stt.unload()
+                except SpeechError as exc:
+                    typer.echo(f"note: {exc}", err=True)
     finally:
         stt.close()
     if not text:
@@ -779,6 +801,10 @@ def _draft_transcript(config: EmceeConfig, clip: str) -> str:
         typer.echo("transcript not written; presenter unchanged", err=True)
         raise typer.Exit(1)
     return text
+
+
+def _pin_label(p: Presenter) -> str:
+    return f"tts={p.tts}" + (f" tts_model={p.tts_model}" if p.tts_model else "")
 
 
 def _read_character_file(path: Path) -> str:
@@ -806,24 +832,45 @@ def presenter_add(
     name: str = typer.Option(..., "--name"),
     sex: str = typer.Option(..., "--sex"),
     voice: str = typer.Option(None, "--voice"),
-    voice_clone: str = typer.Option(None, "--voice-clone"),
+    voice_clone: str = typer.Option(None, "--voice-clone",
+                                    help="Reference clip, stored as an absolute path"),
+    voice_clone_text: str = typer.Option(None, "--voice-clone-text",
+                                         help="Transcript of the voice clone"),
     character: str = typer.Option(None, "--character"),
     character_file: Path = typer.Option(None, "--character-file"),
     bed: str = typer.Option(None, "--bed"),
+    tts: str = typer.Option(None, "--tts",
+                            help="Pin a TTS backend: voxtral, elevenlabs or mlx_audio"),
+    tts_model: str = typer.Option(None, "--tts-model", help="mlx_audio model for this presenter"),
+    transcribe: bool = typer.Option(
+        False, "--transcribe",
+        help="Draft voice_clone_text by transcribing the clip on the mlx-audio server; "
+             "written only on confirmation"),
     force: bool = typer.Option(False, "--force"),
 ):
     """Create a presenter (on-air host)."""
-    root = load_config().root
+    config = load_config()
+    root = config.root
     if bool(character) == bool(character_file):
         typer.echo("give exactly one of --character / --character-file", err=True)
         raise typer.Exit(1)
+    if transcribe and voice_clone_text is not None:
+        _usage("--transcribe and --voice-clone-text are mutually exclusive")
+    if transcribe and not voice_clone:
+        _usage("--transcribe needs --voice-clone")
     text = character if character else _read_character_file(character_file)
     dest = root / "presenters" / f"{id}.toml"
     if dest.exists() and not force:
         typer.echo(f"presenter {id!r} exists: {dest} (use --force to overwrite)", err=True)
         raise typer.Exit(1)
-    p = _build_presenter(dict(id=id, name=name, sex=sex, voice=voice,
-                              voice_clone=voice_clone, character=text, bed=bed))
+    fields = dict(id=id, name=name, sex=sex, voice=voice,
+                  voice_clone=_abs_clip(voice_clone) if voice_clone else None,
+                  character=text, bed=bed, tts=tts, tts_model=tts_model,
+                  voice_clone_text=voice_clone_text)
+    if transcribe:
+        _build_presenter({**fields, "voice_clone_text": "draft"})  # every other rule first
+        fields["voice_clone_text"] = _draft_transcript(config, fields["voice_clone"])
+    p = _build_presenter(fields)
     typer.echo(f"saved: {save_presenter(root, p)}")
 
 
@@ -942,7 +989,8 @@ def presenter_list():
             typer.echo(f"{pid:16.16s} (invalid: {p})")
         else:
             v = p.voice or f"clone:{p.voice_clone}"
-            typer.echo(f"{pid:16.16s} {p.name:20.20s} {p.sex:8.8s} {v}")
+            pin = f"  {_pin_label(p)}" if p.tts else ""
+            typer.echo(f"{pid:16.16s} {p.name:20.20s} {p.sex:8.8s} {v}{pin}")
 
 
 @presenter_app.command("show")
@@ -951,9 +999,13 @@ def presenter_show(id: str = typer.Argument(...)):
     root = load_config().root
     p = load_presenter(root, id)     # PresenterError -> main_cli boundary
     v = p.voice or f"clone:{p.voice_clone}"
-    typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else ""))
+    typer.echo(f"{p.name}  ({p.sex})  voice={v}" + (f"  bed={p.bed}" if p.bed else "")
+               + (f"  {_pin_label(p)}" if p.tts else ""))
     typer.echo("character:")
     typer.echo(p.character)
+    if p.tts and p.voice_clone_text:
+        typer.echo("transcript:")
+        typer.echo(p.voice_clone_text)
 
 
 @presenter_app.command("remove")
