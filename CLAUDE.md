@@ -9,7 +9,7 @@ against the `fake` LLM backend and real archive.org fixtures; see
 `docs/superpowers/plans/2026-07-14-llama.md` for the task-by-task
 implementation plan this was built from. The approved design spec is
 `docs/superpowers/specs/2026-07-14-llama-design.md`.
-The repo also holds `transmitter` (playout, phase 1; not a released/signed
+The repo also holds `transmitter` (playout, phases 1-2; not a released/signed
 binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
 (a Cloudflare Worker + static player).
 
@@ -130,12 +130,21 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   default like `[tts] chunk`; `--no-chunk` without a bed is the one render
   that is not loudness-normalized), `emcee presenter add/list/show/remove`
   (`presenters/<id>.toml`), `emcee config init`.
-- Run (transmitter, playout on hugo — phase 1): `transmitter run` (service
+- Run (transmitter, playout on hugo — phases 1-2): `transmitter run` (service
   loop: plan/render once the lead drops below `low_water_hours`, and keep
   filling until it is back at `lead_hours`; publish + prune every minute;
   `--once` runs one tick), `transmitter plan|render|publish|status`,
   `transmitter fallback render <loop> [--notice <file>]`, `transmitter config
-  init`. State in `~/.transmitter/` (`TRANSMITTER_ROOT`); R2 keys from
+  init`, `transmitter offair on --reason … | off` and `transmitter budget
+  [--raise-to <usd>]` (`offair` and `budget --raise-to` write `state/` directly,
+  bypassing the publish lock, the guard and the PUT budget); `transmitter status` also shows the cost guard, kill switch,
+  off-air flag and active alerts. Production runs the SYSTEM unit
+  `packages/transmitter/systemd/transmitter@.service` (`Type=notify`,
+  `WatchdogSec=45min`, env file `/etc/transmitter/<user>.env`), so it is
+  `sudo systemctl … transmitter@<user>` with no `--user`. hugo's alerts:
+  `[alerts]` in config.toml; `SMTP_USERNAME`/`SMTP_PASSWORD`/`NTFY_TOKEN` in the
+  env file; dedupe in `~/.transmitter/alerts.json`; the dead-clock check fetches
+  `<site_url>/live.m3u8`. State in `~/.transmitter/` (`TRANSMITTER_ROOT`); R2 keys from
   `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`. Tests:
   `packages/transmitter/tests_transmitter/` (a package, NOT `tests/`: llama's
   test modules are top-level and emcee's are the `tests` package, so the name
@@ -145,9 +154,17 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `python -m transmitter.spike build|serve <dir>`.
 - antenna (cron-only Cloudflare Worker + static player): `cd antenna && npm
   ci && npm test` (vitest in the Workers runtime via
-  `@cloudflare/vitest-plugin`), `npx wrangler deploy` (run `--dry-run` first;
-  see the runbook), `ANTENNA_BUCKET=<bucket> npm run deploy:assets`.
-  Cloud setup and the phase-1 verification checklist: `docs/playout-setup.md`.
+  `@cloudflare/vitest-plugin`; `npm test` first checks `src/pages.ts` is fresh,
+  `npm run pages` regenerates it), `npx wrangler deploy` (run `--dry-run`
+  first; `--var` overrides for the verification items; see the runbook),
+  `ANTENNA_BUCKET=<bucket> npm run deploy:assets`. Secrets go in with
+  `wrangler secret put`: `CF_ACCOUNT_ID`, `CF_ZONE_ID`, `CF_ANALYTICS_TOKEN`,
+  `CF_WAF_TOKEN`, `NTFY_URL`, `NTFY_TOKEN` (optional), `ALERT_EMAIL_FROM`,
+  `ALERT_EMAIL_TO`; `BILLING_ANNIVERSARY_DAY` is a committed var. The committed
+  `send_email` binding `ALERT_EMAIL` is unrestricted, the destination exists
+  only as the `ALERT_EMAIL_TO` secret: never put `account_id` or an address in
+  `wrangler.jsonc` (a test enforces this). Cloud setup and the phase-1/2
+  verification checklists: `docs/playout-setup.md`.
 
 ## What this is
 
@@ -251,10 +268,30 @@ render` are its only writers). If the named fallback is unusable in R2 anyway
 ENDLIST-only playlist (no notice; players stop) and logs
 `offair-without-fallback` once per invocation; the WAF kill switch remains the
 hard stop (`docs/playout-setup.md` section 4 step 4).
+**Cost guard (phase 2).** It runs first in every antenna invocation
+(`antenna/src/guard.ts`), evaluating when its last attempt is 15 min old (or at once after a raise) through
+the account-scoped GraphQL API, pricing through the allowances plus the $5
+base and projecting each meter from the last 3 h. The `tripped` latch sets at
+actual >= 90% or projected >= 100% of `MONTHLY_BUDGET_USD`, and also when blind
+(no reading for 6 h). `blocked = tripped OR offair` is reconciled every
+invocation (ENDLIST playlist, off-air `index.html`, the kill-switch WAF rule
+found by its description) with etag-conditional PUTs so a trip is never lost;
+an unreadable state means the invocation writes nothing. Alerts go out after
+the last playlist write, and the clock line logs `guardMs`. VLC needs
+stop/play at a fallback-to-live switch of a fresh run
+(`EXT-X-DISCONTINUITY-SEQUENCE` restarts at 0): a documented limitation. The
+spend bounds above (`MAX_PUTS = 10` etc.) are unchanged. **Playlist
+hold-back:** live playlists list `PLAYLIST_WINDOW` 16 segments, ending
+`PLAYLIST_LOOKAHEAD` 12 past the one airing, with `EXT-X-START` and
+`EXT-X-SERVER-CONTROL:HOLD-BACK` at 122.88 s (`PLAYLIST_HOLD_BACK` 12), so
+players sit at the wall clock with ~123 s of runway against a late cron fire.
+Keep lookahead = hold-back (hugo's dead-clock check dates the playlist by its
+own hold-back); a lookahead alone adds no runway. Phase-2 SDD record:
+`docs/superpowers/2026-10-12-playout-phase2-sdd/`.
 transmitter must stay Python 3.11-compatible (hugo is Debian 12: Python 3.11,
 ffmpeg 5.1); the Debian-12 script above is the gate for that. Design:
-`docs/superpowers/specs/2026-10-09-playout-design.md` (phase 1 built; the cost
-guard, scheduler and full player are phases 2–4).
+`docs/superpowers/specs/2026-10-09-playout-design.md` (phases 1–2 built; the
+scheduler and the full player are phases 3–4).
 
 ## Architecture (from the spec — the short version)
 

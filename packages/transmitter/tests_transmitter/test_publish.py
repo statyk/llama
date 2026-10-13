@@ -359,6 +359,8 @@ def test_the_guard_cache_records_evaluation_time_and_offair_but_gating_stays_on_
     (b'{"offair": 0}', True),
     (b'{}', True),
     (b'[1]', True),
+    (b'{not json', True),                # present but unparsable: the Worker reads it as off the air
+    (b'', True),
 ])
 def test_the_guard_cache_reads_offair_like_the_worker(tmp_path, body, expected):
     bucket = FakeBucket()

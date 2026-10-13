@@ -430,6 +430,34 @@ a pure function of the clock and its inputs. Playlist rules:
   logs `offair-without-fallback` once per invocation. Outside off-air, a window
   that would need a missing fallback is still not written at all.)*
 
+*(As built, 2026-10-12, amendment A4: the cron measurably lags. A 13.6 h
+`wrangler tail` capture (846 invocations, 2026-10-11/12) gave lag median 15 s,
+p99 77 s, max 117 s, with every daytime :00/:30 fire over 25 s, so the 6-segment
+window above let players stall. A lookahead alone adds no runway (it moves the
+listed end and a player's start point together); runway comes from where players
+start relative to the listed end. The live playlist therefore lists
+`PLAYLIST_WINDOW` 16 segments, ending `PLAYLIST_LOOKAHEAD` 12 past the one
+airing (cap 16), with the grace hold and the fallback switch applied to that end
+(cur + lookahead), and carries `#EXT-X-START:TIME-OFFSET=-122.880` and
+`#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880` (`PLAYLIST_HOLD_BACK` 12 segments;
+emitted only when hold-back·d >= 3·TARGETDURATION, clamped to the listed
+entries − 1). Players that honour them start ~123 s from the listed end (113–120 s measured on iOS), i.e.
+near the wall clock (0-10 s ahead); players that ignore the tags (VLC) sit ~90 s
+ahead with ~30 s of runway. Keep lookahead = hold-back: hugo's dead-clock check
+dates the playlist by its newest segment minus its own hold-back. Measured on a
+real iPhone: playlist freezes up to 60 s play through, 75-90 s freezes give a
+1-3 s self-healing drop. The off-air notice is numbered
+`indexAt(max(scheduledTime + loopMs, now)) + lookahead + 1`, strictly above any
+live segment an earlier write could list. An already-playing native-Safari page
+therefore shows the off-air/kill-switch state only after its ~120 s buffer plays
+out (~2.5 min, against the plan's ~45 s estimate for A2; spend is unaffected). hls.js takes its
+latency from the playlist's HOLD-BACK (`maxBufferLength` 130).)*
+
+*(As built, 2026-10-12, amendment A1, a documented limitation with no code: at a
+fallback→live switch of a fresh run — the first start, an outage longer than the
+published lead, or a re-epoch — `EXT-X-DISCONTINUITY-SEQUENCE` restarts at 0.
+hls.js and Safari follow it; VLC goes silent and needs stop/play once.)*
+
 The clock also alerts when the published lead (`horizon.last` − now) falls below
 a floor — catching a hung hugo (e.g. a hard NFS mount hang) that cannot alert for
 itself. If the clock stops entirely, the playlist goes stale, players stall, and
@@ -448,6 +476,14 @@ entry (the fallback loop), the page says the station will be back shortly. The
 embed is a static page doing the same. On ENDLIST or a 403 the player stops,
 shows the off-air notice, and does not auto-reconnect (a manual retry button).
 No request stream bills per listener.
+*(As built, 2026-10-12, amendment A2: the player also watches playback progress
+itself. After 15 s without progress it probes `live.m3u8` with
+`cache: "no-store"` (a cache hit or the WAF's 403, at most every 10 s, one at a
+time); two consecutive definitive verdicts — a 403, or a playlist ending in
+`#EXT-X-ENDLIST` — show the off-air notice. Network errors, 5xx, 429 or a live
+playlist are not verdicts, and any progress resets the watch. While stalled the
+now-playing line reads "Reconnecting…", and an hls.js error with
+`networkDetails.status` 403 maps to off-air.)*
 
 **Zone configuration (phase-1 setup docs).** Preconditions: a Cloudflare account
 dedicated to the station (the guard's account-scoped meters then mean what they
@@ -505,6 +541,15 @@ work follow, never precede it.
 - Projects period-end spend **per meter from a recent window** (last 3 h rate)
   through the allowances, not as a linear month-to-date dollar average.
 - Alerts at actual or projected 50% / 80% of `monthly_budget_usd`.
+- *(As built, 2026-10-12, amendment A5, free-plan facts: a free zone has at most
+  5 custom rules and 2 are already used, so the guard creates no rules and only
+  toggles the existing kill switch, found by its exact description (zero or
+  several matches, or an action other than `block`, is an error). GraphQL
+  operations lag 1-2 minutes and storage about 45 minutes, so the 3 h rate window
+  ends 5 minutes before now. Storage is priced at the period's peak bytes, an
+  upper bound on R2's average-of-daily-peaks. An R2 action type the code does not
+  know is priced as Class A and listed in `guard.json`. The player's probe and
+  hugo's dead-clock check are cache hits on `live.m3u8`.)*
 
 **Blocking** rests on two independent flags:
 
@@ -543,12 +588,21 @@ Class A sources; (3) the kill switch with its fail-closed blindness rule;
   (spend or blind), Rulesets API failures, published lead below floor. Channels:
   ntfy (HTTP POST) and email via Cloudflare Email Routing's send-email binding to
   a verified address; deduped per condition in `state/alerts.json`.
+  *(As built, 2026-10-12, amendment A3: `antenna/wrangler.jsonc` commits an
+  unrestricted `send_email` binding `ALERT_EMAIL`, which can only reach the
+  account's verified addresses. The destination exists only as the Worker secret
+  `ALERT_EMAIL_TO` and the sender as `ALERT_EMAIL_FROM`; `wrangler.jsonc` holds no
+  address and no `account_id`, and a test enforces both. Mail is a minimal
+  RFC 5322 `text/plain` sent with `EmailMessage` from `cloudflare:email`.)*
 - **hugo (transmitter):** station-root marker missing, render or publish errors,
   daily PUT budget exceeded, upcoming window misses; email (SMTP) and ntfy.
 - **Dead clock:** `transmitter run` fetches the public `live.m3u8` once a minute
   (a cache hit) and alerts when its newest `EXT-X-PROGRAM-DATE-TIME` is older
   than ~3·d, or `state/guard.json` is older than ~30 min (optional second
-  channel: Cloudflare's Worker-error notification).
+  channel: Cloudflare's Worker-error notification). *(As built, 2026-10-12:
+  `dead_clock_seconds` defaults to 120 s on two consecutive checks (minimum 31),
+  because of the measured cron lag, and the playlist is dated by its newest
+  segment's start minus its own hold-back; `guard_stale_minutes` defaults to 45.)*
 - systemd unit runs `transmitter run` (`Restart=always`, `WatchdogSec`, logs to
   journald); secrets (R2 keys, SMTP creds) in an env file readable only by the
   service user. The analytics and WAF tokens are Worker secrets.
