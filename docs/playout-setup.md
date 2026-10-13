@@ -223,7 +223,7 @@ developers.cloudflare.com are the authority if they drift again).
    refilling; freezes of 75-90 s (fires ~90-105 s late) gave a 1-3 s drop that
    auto-healed on iOS, also with the screen locked. Players that ignore
    EXT-X-START/HOLD-BACK (e.g. VLC) still start ~3 target durations from the listed
-   end, i.e. ~92 s ahead of the schedule with only ~31 s of runway. A lookahead alone adds no runway: it moves the listed end and the start
+   end (~33 s), i.e. ~90 s ahead of the schedule with only ~30 s of runway. A lookahead alone adds no runway: it moves the listed end and the start
    point together. **Keep `PLAYLIST_LOOKAHEAD` equal to `PLAYLIST_HOLD_BACK`**: hugo's
    dead-clock check dates the playlist by its newest segment minus that hold-back (a
    test pins the equality; a hold-back above the lookahead reads the playlist as older
@@ -353,7 +353,7 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
    | `[alerts] smtp_port` | `587` | SMTP port (1-65535) |
    | `[alerts] ntfy_url` | unset | `https://ntfy.sh/<your-topic>`; unset = no ntfy |
    | `[alerts] repeat_hours` | `6.0` | re-send a still-firing alert at most this often |
-   | `[alerts] dead_clock_seconds` | `120.0` (minimum 31) | the public `live.m3u8` older than this, on two consecutive checks, means the clock is dead. Its age is dated by its newest segment's start minus its own hold-back (`#EXT-X-START`, section 4 step 6), i.e. the segment airing when it was written; an off-air playlist is dated by its MEDIA-SEQUENCE less the hold-back last seen live |
+   | `[alerts] dead_clock_seconds` | `120.0` (minimum 31) | the public `live.m3u8` older than this, on two consecutive checks, means the clock is dead. It is dated by its newest segment's start minus its own hold-back (`#EXT-X-START`, section 4 step 6), i.e. the segment airing when it was written; an off-air playlist is dated by its MEDIA-SEQUENCE less the hold-back last seen live |
    | `[alerts] guard_stale_minutes` | `45.0` | `state/guard.json` not evaluated for this long means the guard is dead. It must be at least `[publish] guard_check_minutes + 16` (the cache refresh plus the guard's 15-minute cadence and the cron lag), or the config is refused |
    | `[publish] guard_check_minutes` | `15.0` | how often hugo refreshes its cache of the guard's state; an unexpected 403 alerts only after `guard_check_minutes + 2` consecutive checks |
    | `[antenna] site_url` | unset | public base URL: Open Graph links and the dead-clock check (unset = no check) |
