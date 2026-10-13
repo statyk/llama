@@ -238,7 +238,8 @@ backend = "claude_cli"
 # package/dj-audio/ (one set<key>-intro per non-encore set, then 99-outro),
 # tied together by the manifest's dj_audio block.
 # [tts]
-# hosted Mistral Voxtral TTS (default); or "elevenlabs"; or "fake" for tests
+# hosted Mistral Voxtral TTS (default); or "elevenlabs"; or "mlx_audio" (local,
+# see [tts.mlx_audio] below); or "fake" for tests
 # backend = "voxtral"
 
 # the HOUSE voice: voxtral preset name (or elevenlabs voice_id), used when
@@ -279,7 +280,7 @@ backend = "claude_cli"
 # url = "http://127.0.0.1:8000"
 # model = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
 # timeout_s = 600            # seconds per sentence request
-# stt_model = "..."          # speech-to-text model on the same server
+# stt_model = "mlx-community/whisper-large-v3-turbo-asr-fp16"  # speech-to-text model on the same server
 
 # Transcript verification: transcribe each newly synthesized clip on the
 # mlx-audio server and re-synthesize once on a gross mismatch; a second
