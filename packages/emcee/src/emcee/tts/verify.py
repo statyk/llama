@@ -46,17 +46,45 @@ _APOSTROPHES = str.maketrans("", "", "'’‘`")
 _WORD = re.compile(r"[^\W_]+")
 # A dropped g spelled with an apostrophe ("goin'", "feelin'"), read as its
 # "-ing" form. The apostrophe must close a word of at least one letter
-# before "in" that does not itself open with a quote, so "in'" and a
-# quoted 'within' stay as they are; a word merely ending in "in" ("begin")
-# has no apostrophe and is never touched.
-_DROPPED_G = re.compile(r"(?<![\w'‘’`])([^\W\d_]+in)['’](?!\w)")
+# before "in", so "in'" stays as it is; a word merely ending in "in"
+# ("begin") has no apostrophe and is never touched. The same mark also
+# closes a single-quoted title ending in "in" ('Fire on the Mountain',
+# 'within'): see _fold_dropped_g.
+_DROPPED_G = re.compile(r"([^\W\d_]+in)['’](?!\w)")
+# An opening quote, but not a leading elision ('cause, 'em, 'til, ...).
+_OPEN_QUOTE = re.compile(r"(?:^|(?<=[\s(\[{\"“]))['‘]"
+                         r"(?!(?:cause|cos|em|til|round|bout|n|tis|twas)\b)(?=[^\W\d_])")
+# A mark after a word ending in "in" is ambiguous (a dropped g, or a
+# close), so only an unambiguous one proves a quote was closed.
+_CLOSE_QUOTE = re.compile(r"(?<=[^\W\d_])(?<!in)['’](?!\w)")
+
+
+def _fold_dropped_g(text: str) -> str:
+    """`text` with each dropped g folded to "-ing", except a mark that
+    closes an open single quote: one opened before it and not closed
+    since, with no later unambiguous closing mark before the next opening
+    one. Inside 'Goin' Down The Road Feelin' Bad' both words fold (Bad'
+    closes); 'Fire on the Mountain' keeps "mountain"."""
+    opens = [m.start() for m in _OPEN_QUOTE.finditer(text)]
+    closes = [m.start() for m in _CLOSE_QUOTE.finditer(text)]
+
+    def fold(m: re.Match) -> str:
+        mark = m.end() - 1
+        opened = max((o for o in opens if o < m.start()), default=None)
+        if opened is not None and not any(opened < c < mark for c in closes):
+            next_open = min((o for o in opens if o > mark), default=len(text))
+            if not any(mark < c < next_open for c in closes):
+                return m.group(0)
+        return m.group(1) + "g"
+
+    return _DROPPED_G.sub(fold, text)
 
 
 def comparable_words(text: str) -> list[str]:
     """Lower-cased words with apostrophes and punctuation removed, minus every
     number-bearing token (digits or a spelled-out number word). A dropped g
     ("goin'") reads as "going"."""
-    words = _WORD.findall(_DROPPED_G.sub(r"\1g", text.lower()).translate(_APOSTROPHES))
+    words = _WORD.findall(_fold_dropped_g(text.lower()).translate(_APOSTROPHES))
     return [w for w in words if w not in NUMBER_WORDS and not any(c.isdigit() for c in w)]
 
 

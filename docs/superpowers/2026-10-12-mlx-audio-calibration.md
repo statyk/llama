@@ -140,9 +140,15 @@ which is accepted because they sound the same: "band is" ↔ "bands" and "we are
 added in fix round 1 for unit #21. `comparable_words` reads an apostrophe-spelled
 dropped g as its "-ing" form on both sides, so "goin'" becomes "going" and "feelin'"
 becomes "feeling", whether in the script or in a transcript.
-- **What it never touches:** a quoted word ('within'), a bare "in'", and words that
-  merely end in "in" ("begin", "in", "within"). These have no closing apostrophe, and
-  tests pin them.
+- **What it never touches:** a bare "in'", and words that merely end in "in"
+  ("begin", "in", "within"), which have no apostrophe. Tests pin them.
+- **Closing quotes (added 2026-10-13, at Shawn's request).** The mark that closes a
+  single-quoted title ending in "in" ('Fire on the Mountain', 'within') is not a
+  dropped g, so "mountain" stays "mountain". A mark counts as that close when a quote
+  opened before it is still open and no later unambiguous close follows, so inside
+  'Goin' Down The Road Feelin' Bad' both words still fold. Leading elisions ('cause,
+  'em, 'til, 'n') are not opening quotes. Before this, the title cost one false miss
+  per sentence (1 quoted span in 129 delivered scripts); it never gave false credit.
 - **Split form:** a heard "throw in" still matches "Throwin'". The bigram join also
   recognises X + "in" as "Xing".
 

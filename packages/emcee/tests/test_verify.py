@@ -170,6 +170,34 @@ def test_words_that_merely_end_in_in_are_not_g_dropped():
     assert found("Begin within.", "Beginning withing.") == 0
 
 
+# A single-quoted title ending in "in" closes its quote on that word; the
+# closing quote is not a dropped g (final review: 'Fire on the Mountain').
+
+
+def test_a_closing_quote_after_in_is_not_a_dropped_g():
+    assert comparable_words("Then 'Fire on the Mountain' closed it.") == [
+        "then", "fire", "on", "the", "mountain", "closed", "it"]
+    assert found("Then 'Fire on the Mountain' closed it.",
+                 "Then Fire on the Mountain closed it.") == 7
+    assert transcript_problem("Then ‘Fire on the Mountain’ closed it.",
+                              "Then Fire on the Mountain closed it.") is None
+
+
+def test_dropped_gs_inside_a_quoted_title_still_fold():
+    assert comparable_words("They opened with 'Goin' Down The Road Feelin' Bad'.") == [
+        "they", "opened", "with", "going", "down", "the", "road", "feeling", "bad"]
+
+
+def test_a_quote_closed_earlier_does_not_shield_a_later_dropped_g():
+    assert comparable_words("'Mountain Jam', then goin' home.") == [
+        "mountain", "jam", "then", "going", "home"]
+
+
+
+def test_a_leading_elision_is_not_an_opening_quote():
+    assert comparable_words("'Cause we're goin' home, rock 'n' rollin' on.") == [
+        "cause", "were", "going", "home", "rock", "n", "rolling", "on"]
+
 # --- the STT client ---------------------------------------------------------------
 
 
