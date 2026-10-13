@@ -287,6 +287,12 @@ describe("buildPlaylist", () => {
     }
   });
 
+  it("numbers an off-air playlist built before the epoch from 0, never negative", () => {
+    const cfg = { ...CFG, lookahead: 2 };
+    const pl = buildPlaylist({ nowMs: E - 5 * D, horizon: horizon(0, 10), fallback: FB, offair: true }, cfg)!;
+    expect(mediaSequence(pl)).toBe(3); // max(0, indexAt) + lookahead + 1; unclamped it would be -2
+  });
+
   it("returns null before the epoch", () => {
     expect(buildPlaylist({ nowMs: E - 1, horizon: horizon(0, 10), fallback: FB, offair: false }, CFG)).toBeNull();
   });

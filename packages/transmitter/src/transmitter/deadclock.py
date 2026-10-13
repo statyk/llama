@@ -73,7 +73,10 @@ def playlist_age_s(text: str, now_us: int, epoch_us: int, live_hold_back_s: floa
     a dead clock is noticed as soon as without a lookahead. Off-air: since its
     MEDIA-SEQUENCE started, less `live_hold_back_s` (the hold-back last seen live):
     the clock numbers the notice lookahead + 1 past its write, so this
-    under-reads by at least one segment and never false-alarms."""
+    under-reads by at least one segment and never false-alarms. For an on-time
+    invocation it under-reads by about loopMs (75 s) plus one segment, so a dead
+    clock while off-air alerts ~85 s later than dead_clock_seconds (more after a
+    hugo restart, when no live hold-back has been seen yet)."""
     dates = [line[len(PROGRAM_DATE_TIME):].strip() for line in text.splitlines()
              if line.startswith(PROGRAM_DATE_TIME)]
     if dates:

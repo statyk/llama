@@ -100,8 +100,9 @@ class AlertsConfig(_StrictModel):
     smtp_port: int = Field(default=587, ge=1, le=65535)
     ntfy_url: str | None = None                    # https://ntfy.sh/<topic>
     repeat_hours: float = Field(default=6.0, gt=0)
-    # Dead clock: the public live.m3u8's newest segment older than this, twice
-    # in a row. At least 3 d (spec); the default allows the measured cron lags.
+    # Dead clock: the public live.m3u8, dated by its newest segment's start
+    # minus its own hold-back (the segment airing when it was written), older
+    # than this, twice in a row. At least 3 d (spec); the default allows the measured cron lags.
     dead_clock_seconds: float = Field(default=120.0, ge=31)
     # Dead guard: state/guard.json last evaluated longer ago than this. hugo
     # sees the evaluation time through a cache refreshed every [publish]

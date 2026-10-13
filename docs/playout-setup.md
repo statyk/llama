@@ -218,11 +218,19 @@ developers.cloudflare.com are the authority if they drift again).
    to start `PLAYLIST_HOLD_BACK` (12) segments before the listed end
    (`#EXT-X-START:TIME-OFFSET=-122.880` and `#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880`).
    With lookahead = hold-back, players start at the wall clock with ~123 s of listed
-   runway, so a cron fire up to ~100 s late (measured: p99 77 s, max 117 s) does not
-   stall them. A lookahead alone adds no runway: it moves the listed end and the start
+   runway. Measured on a real iPhone (cron lag p99 77 s, max 117 s): playlist freezes up
+   to 60 s (a cron fire up to ~75 s late, less guard time) play through with the buffer
+   refilling; freezes of 75-90 s (fires ~90-105 s late) gave a 1-3 s drop that
+   auto-healed on iOS, also with the screen locked. Players that ignore
+   EXT-X-START/HOLD-BACK (e.g. VLC) still start ~3 target durations from the listed
+   end, i.e. ~92 s ahead of the schedule with only ~31 s of runway. A lookahead alone adds no runway: it moves the listed end and the start
    point together. **Keep `PLAYLIST_LOOKAHEAD` equal to `PLAYLIST_HOLD_BACK`**: hugo's
    dead-clock check dates the playlist by its newest segment minus that hold-back (a
-   test pins the equality). The lookahead is capped at 16 and the hold-back at window − 1;
+   test pins the equality; a hold-back above the lookahead reads the playlist as older
+   and raises false dead-clock alerts, a lower one detects a dead clock late). Do not
+   lower the lookahead casually: the off-air notice numbering assumes the configured
+   lookahead, so a lower one while an older live playlist is still current can number
+   the notice too low for up to a minute. The lookahead is capped at 16 and the hold-back at window − 1;
    the tags are omitted below 3 target durations (hold-back < 4). Every listed segment
    exists (the published lead is ~24 h; `lead-low` alerts at 16 h), and the PUT count is
    unchanged.
@@ -345,7 +353,7 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
    | `[alerts] smtp_port` | `587` | SMTP port (1-65535) |
    | `[alerts] ntfy_url` | unset | `https://ntfy.sh/<your-topic>`; unset = no ntfy |
    | `[alerts] repeat_hours` | `6.0` | re-send a still-firing alert at most this often |
-   | `[alerts] dead_clock_seconds` | `120.0` (minimum 31) | the public `live.m3u8` older than this, on two consecutive checks, means the clock is dead. Its age is its newest segment's start minus its own hold-back (`#EXT-X-START`, section 4 step 6), i.e. the segment airing when it was written; an off-air playlist is dated by its MEDIA-SEQUENCE less the hold-back last seen live |
+   | `[alerts] dead_clock_seconds` | `120.0` (minimum 31) | the public `live.m3u8` older than this, on two consecutive checks, means the clock is dead. Its age is dated by its newest segment's start minus its own hold-back (`#EXT-X-START`, section 4 step 6), i.e. the segment airing when it was written; an off-air playlist is dated by its MEDIA-SEQUENCE less the hold-back last seen live |
    | `[alerts] guard_stale_minutes` | `45.0` | `state/guard.json` not evaluated for this long means the guard is dead. It must be at least `[publish] guard_check_minutes + 16` (the cache refresh plus the guard's 15-minute cadence and the cron lag), or the config is refused |
    | `[publish] guard_check_minutes` | `15.0` | how often hugo refreshes its cache of the guard's state; an unexpected 403 alerts only after `guard_check_minutes + 2` consecutive checks |
    | `[antenna] site_url` | unset | public base URL: Open Graph links and the dead-clock check (unset = no check) |

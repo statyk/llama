@@ -59,14 +59,16 @@ function start() {
   } else if (window.Hls && window.Hls.isSupported()) {
     // Amendment A4 (amended 2026-10-12); option semantics checked against the
     // vendored hls.js 1.7.3. hls.js joins at the playlist's #EXT-X-START
-    // (12 segments before the listed end, at the wall clock); liveSyncDuration
-    // keeps its re-syncs at that same 122.88 s (PLAYLIST_HOLD_BACK * d). Not
-    // liveSyncDurationCount: hls.js multiplies it by TARGETDURATION (11 s, not
-    // d), so 12 would be 132 s. maxBufferLength lets the whole ~123 s runway
-    // fill (default 30 s; maxMaxBufferLength, default 600, caps it). A finite
+    // (12 segments before the listed end, at the wall clock). No liveSyncDuration:
+    // hls.js 1.7.3 takes its target latency from the playlist's own
+    // #EXT-X-SERVER-CONTROL HOLD-BACK (without the tag it falls back to the
+    // default count of 3), so the playlist is the one source of truth.
+    // maxBufferLength must exceed the hold-back (PLAYLIST_HOLD_BACK * 10.24 s
+    // = 122.88 s) so the whole runway can fill (default 30 s;
+    // maxMaxBufferLength, default 600, caps it). A finite
     // backBufferLength (default Infinity) keeps a long listen from filling the
     // SourceBuffer, whose quota error makes hls.js shrink its buffer target.
-    hls = new window.Hls({ liveSyncDuration: 12 * 10.24, maxBufferLength: 130, backBufferLength: 30 });
+    hls = new window.Hls({ maxBufferLength: 130, backBufferLength: 30 });
     hls.on(window.Hls.Events.LEVEL_LOADED, (_event, data) => {
       if (data.details && data.details.live === false) offAir("The station is off the air.");
     });

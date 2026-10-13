@@ -60,8 +60,22 @@ def test_a_malformed_or_positive_offset_is_ignored():
     text = live_playlist(100, lookahead=12, hold_back=12, window=16)
     bad = text.replace("TIME-OFFSET=-122.880", "TIME-OFFSET=nonsense").replace("HOLD-BACK=122.880", "HOLD-BACK=x")
     assert playlist_age_s(bad, E + 112 * D, E) == pytest.approx(0.0)    # dated by its newest segment
-    positive = text.replace("TIME-OFFSET=-122.880", "TIME-OFFSET=122.880")
-    assert playlist_age_s(positive, E + 100 * D, E) == pytest.approx(0.0)  # HOLD-BACK still read
+    positive = (text.replace("TIME-OFFSET=-122.880", "TIME-OFFSET=122.880")
+                .replace("HOLD-BACK=122.880", "HOLD-BACK=40.960"))
+    # Positive START ignored; HOLD-BACK (40.96 s) is read: newest segment 112 starts at now - 40.96 s + age.
+    assert playlist_age_s(positive, E + 112 * D, E) == pytest.approx(40.96)
+    neg_inf = text.replace("TIME-OFFSET=-122.880", "TIME-OFFSET=-inf").replace("HOLD-BACK=122.880", "HOLD-BACK=40.960")
+    # -inf is not finite: START ignored, falls through to HOLD-BACK.
+    assert playlist_age_s(neg_inf, E + 112 * D, E) == pytest.approx(40.96)
+    only_inf = text.replace("TIME-OFFSET=-122.880", "TIME-OFFSET=-inf").replace("HOLD-BACK=122.880", "HOLD-BACK=x")
+    assert playlist_age_s(only_inf, E + 112 * D, E) == pytest.approx(0.0)
+
+
+def test_start_wins_over_server_control_when_both_differ():
+    text = live_playlist(100, lookahead=12, hold_back=12, window=16)
+    text = text.replace("HOLD-BACK=122.880", "HOLD-BACK=40.960")
+    # START (122.88 s) wins: age 0 when now = segment 100 start (HOLD-BACK would give -81.92).
+    assert playlist_age_s(text, E + 100 * D, E) == pytest.approx(0.0)
 
 
 def test_age_of_an_offair_playlist_subtracts_the_last_live_hold_back():

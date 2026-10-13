@@ -34,12 +34,12 @@ function num(v: string | undefined, fallback: number): number {
 export const MAX_LOOKAHEAD = 16;
 
 export function configFromEnv(env: ClockEnv): ClockConfig {
-  const window = Math.max(1, Math.floor(num(env.PLAYLIST_WINDOW, 6)));
+  const windowSegments = Math.max(1, Math.floor(num(env.PLAYLIST_WINDOW, 6)));
   return {
-    window,
+    window: windowSegments,
     lookahead: Math.min(MAX_LOOKAHEAD, Math.floor(num(env.PLAYLIST_LOOKAHEAD, 0))),
     // The start offset must lie inside the listed window.
-    holdBack: Math.min(window - 1, Math.floor(num(env.PLAYLIST_HOLD_BACK, 0))),
+    holdBack: Math.min(windowSegments - 1, Math.floor(num(env.PLAYLIST_HOLD_BACK, 0))),
     grace: Math.floor(num(env.GRACE_SEGMENTS, 3)),
     offairAfterMs: num(env.OFFAIR_AFTER_SECONDS, 86_400) * 1000,
     loopMs: num(env.LOOP_SECONDS, 75) * 1000,
