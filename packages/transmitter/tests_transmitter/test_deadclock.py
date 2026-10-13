@@ -11,10 +11,20 @@ E = grid.iso_to_us("2026-10-10T12:00:00Z")
 D = grid.D_US
 
 
-def live_playlist(cur: int) -> str:
-    lines = ["#EXTM3U", "#EXT-X-VERSION:3", "#EXT-X-TARGETDURATION:11", f"#EXT-X-MEDIA-SEQUENCE:{cur - 5}",
+def live_playlist(cur: int, lookahead: int = 0, hold_back: int | None = None, window: int = 6,
+                  start_tag: bool = True, server_control: bool = True) -> str:
+    """The antenna clock's live playlist written while segment `cur` airs:
+    `window` segments ending at cur + lookahead, with the hold-back tags."""
+    end = cur + lookahead
+    lines = ["#EXTM3U", "#EXT-X-VERSION:3", "#EXT-X-TARGETDURATION:11", f"#EXT-X-MEDIA-SEQUENCE:{end - window + 1}",
              "#EXT-X-DISCONTINUITY-SEQUENCE:0"]
-    for n in range(cur - 5, cur + 1):
+    if hold_back is not None:
+        offset = f"{hold_back * 10.24:.3f}"
+        if start_tag:
+            lines.append(f"#EXT-X-START:TIME-OFFSET=-{offset}")
+        if server_control:
+            lines.append(f"#EXT-X-SERVER-CONTROL:HOLD-BACK={offset}")
+    for n in range(end - window + 1, end + 1):
         lines += [f"#EXT-X-PROGRAM-DATE-TIME:{grid.us_to_iso(E + n * D)}", "#EXTINF:10.240,", f"seg/e1/{n}.aac"]
     return "\n".join(lines) + "\n"
 
@@ -33,6 +43,34 @@ def test_age_of_an_offair_playlist_from_its_media_sequence():
     # The clock numbers it indexAt(scheduledTime + 75 s): ahead of now, so negative while fresh.
     assert playlist_age_s(offair_playlist(107), E + 100 * D, E) < 0
     assert playlist_age_s(offair_playlist(100), E + 120 * D, E) == pytest.approx(20 * 10.24)
+
+
+def test_age_of_a_lookahead_playlist_counts_from_the_held_back_start_not_its_newest_segment():
+    # Lookahead 12 = hold-back 12 (the deployment rule): the newest segment
+    # starts ~123 s in the future, but the playlist is as old as the segment
+    # airing when it was written.
+    for kw in ({}, {"server_control": False}, {"start_tag": False}):
+        text = live_playlist(100, lookahead=12, hold_back=12, window=16, **kw)
+        assert playlist_age_s(text, E + 100 * D + 4_000_000, E) == pytest.approx(4.0)
+    # No tag (lookahead 0, the phase-1 playlist): the newest segment, as before.
+    assert playlist_age_s(live_playlist(100), E + 100 * D + 4_000_000, E) == pytest.approx(4.0)
+
+
+def test_a_malformed_or_positive_offset_is_ignored():
+    text = live_playlist(100, lookahead=12, hold_back=12, window=16)
+    bad = text.replace("TIME-OFFSET=-122.880", "TIME-OFFSET=nonsense").replace("HOLD-BACK=122.880", "HOLD-BACK=x")
+    assert playlist_age_s(bad, E + 112 * D, E) == pytest.approx(0.0)    # dated by its newest segment
+    positive = text.replace("TIME-OFFSET=-122.880", "TIME-OFFSET=122.880")
+    assert playlist_age_s(positive, E + 100 * D, E) == pytest.approx(0.0)  # HOLD-BACK still read
+
+
+def test_age_of_an_offair_playlist_subtracts_the_last_live_hold_back():
+    # A late invocation numbers the notice indexAt(write) + lookahead + 1.
+    written = E + 985 * D
+    text = offair_playlist(985 + 13)
+    assert playlist_age_s(text, E + 1000 * D, E) == pytest.approx(2 * 10.24)
+    assert playlist_age_s(text, E + 1000 * D, E, live_hold_back_s=122.88) == pytest.approx(14 * 10.24)
+    assert playlist_age_s(text, E + 1000 * D, E, live_hold_back_s=122.88) <= (E + 1000 * D - written) / 1e6
 
 
 def test_age_is_none_without_dates_or_sequence():
@@ -76,6 +114,26 @@ def test_two_stale_reads_in_a_row_alert(fired):
     m.check(now, _guard(now))
     assert not [e for e in fired if e[0] == "alert"]
     m.check(now, _guard(now))
+    assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
+
+
+def test_a_dead_clock_with_lookahead_alerts_as_soon_as_without(fired):
+    # Written while segment 985 aired, read at 1000: 153.6 s stale. Dated by
+    # its newest PROGRAM-DATE-TIME alone it would read 30.7 s and never alert.
+    now = E + 1000 * D
+    m = _monitor([(200, live_playlist(985, lookahead=12, hold_back=12, window=16))] * 2)
+    m.check(now, _guard(now))
+    m.check(now, _guard(now))
+    assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
+
+
+def test_a_dead_clock_while_off_air_uses_the_hold_back_last_seen_live(fired):
+    now = E + 1000 * D
+    m = _monitor([(200, live_playlist(980, lookahead=12, hold_back=12, window=16))]
+                 + [(200, offair_playlist(985 + 13))] * 2)
+    m.check(E + 980 * D, _guard(now))   # fresh live read: remembers the 122.88 s hold-back
+    m.check(now, _guard(now))
+    m.check(now, _guard(now))           # the notice was written 153.6 s ago
     assert [e[1] for e in fired if e[0] == "alert"] == ["dead-clock"]
 
 
