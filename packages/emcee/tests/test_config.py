@@ -16,11 +16,15 @@ from emcee.config import (
     DEFAULT_CONFIG_TOML,
     DEFAULT_ROOT,
     DEFAULT_TIERS,
+    HOSTED_BACKENDS,
     TASK_KEYS,
     Assignment,
     EmceeConfig,
+    HostedTTSConfig,
     LLMTaskConfig,
+    MlxAudioConfig,
     TTSConfig,
+    VerifyConfig,
     default_root,
     load_config,
 )
@@ -263,7 +267,8 @@ def test_default_config_template_matches_defaults():
 
 
 def test_default_config_template_mentions_every_section():
-    for marker in ("[station]", "[llm.scriptwrite]", "[llm.rephrase]", "[llm.tiers.", "[tts]", "[assign]", "[assign.profiles."):
+    for marker in ("[station]", "[llm.scriptwrite]", "[llm.rephrase]", "[llm.tiers.", "[tts]", "[assign]", "[assign.profiles.",
+                   "voice_clone_text", "[tts.voxtral]", "[tts.elevenlabs]", "[tts.mlx_audio]", "[tts.verify]"):
         assert marker in DEFAULT_CONFIG_TOML, marker
 
 
@@ -351,3 +356,140 @@ def test_config_init_respects_explicit_config_path(tmp_path, monkeypatch):
     assert r.exit_code == 0, r.output
     assert target.exists()
     assert target.read_text() == DEFAULT_CONFIG_TOML
+
+
+# --- [tts] subtables (spec section 1) -------------------------------------
+
+
+def _load(tmp_path: Path, text: str):
+    p = tmp_path / "config.toml"
+    p.write_text(text)
+    return load_config(p)
+
+
+def test_hosted_backends_constant():
+    assert HOSTED_BACKENDS == ("voxtral", "elevenlabs")
+
+
+def test_tts_subtable_defaults():
+    t = TTSConfig()
+    assert t.voice_clone_text is None
+    assert t.mlx_audio == MlxAudioConfig()
+    assert t.mlx_audio.url == "http://127.0.0.1:8000"
+    assert t.mlx_audio.timeout_s == 600
+    assert t.mlx_audio.model is None and t.mlx_audio.stt_model is None
+    assert t.voxtral == HostedTTSConfig() and t.elevenlabs == HostedTTSConfig()
+    assert t.voxtral.api_key is None and t.voxtral.model is None
+    assert t.verify == VerifyConfig() and t.verify.backends == []
+
+
+def test_mlx_audio_table_with_defaults_and_values(tmp_path: Path):
+    cfg = _load(tmp_path, '[tts.mlx_audio]\nmodel = "m/x"\nurl = "http://127.0.0.1:9000"\n'
+                          'timeout_s = 120\nstt_model = "s/y"\n')
+    assert cfg.tts.mlx_audio == MlxAudioConfig(url="http://127.0.0.1:9000", model="m/x",
+                                               timeout_s=120, stt_model="s/y")
+
+
+def test_mlx_audio_table_holding_only_stt_model_is_valid(tmp_path: Path):
+    cfg = _load(tmp_path, '[tts.mlx_audio]\nstt_model = "s/y"\n')
+    assert cfg.tts.mlx_audio.model is None and cfg.tts.mlx_audio.stt_model == "s/y"
+
+
+@pytest.mark.parametrize("table", ["voxtral", "elevenlabs", "mlx_audio", "verify"])
+def test_every_tts_subtable_is_strict(tmp_path: Path, table):
+    with pytest.raises(ConfigError):
+        _load(tmp_path, f"[tts.{table}]\nbogus_knob = 1\n")
+
+
+def test_voice_clone_text_parses(tmp_path: Path):
+    cfg = _load(tmp_path, '[tts]\nvoice_clone = "/r.wav"\nvoice_clone_text = "Hi there."\n')
+    assert cfg.tts.voice_clone_text == "Hi there."
+
+
+# The live ~/.emcee/config.toml's shape on 2026-10-12 (key redacted): a hosted
+# house backend with legacy [tts] api_key, chunk and bed_gain_db.
+LIVE_CONFIG = """
+[station]
+root = "/Volumes/media/lma-radio/delivered/"
+
+[llm.scriptwrite]
+backend = "claude_cli"
+
+[tts]
+voice_clone = "/Users/shawn/.emcee/samples/troymcclure2.wav"
+api_key = "redacted"
+chunk = true
+bed_gain_db = -20.0
+
+[assign]
+default = "roydemure"
+
+[assign.profiles.bluegrass]
+presenter = "monroe"
+title = "Bluegrass Valley"
+
+[assign.profiles.dead]
+presenter = "phil"
+title = "One More from the Archive"
+
+[assign.profiles.indie]
+presenter = "kurt"
+title = "Live from the Basement"
+"""
+
+
+def test_live_config_loads(tmp_path: Path):
+    cfg = _load(tmp_path, LIVE_CONFIG)
+    assert cfg.tts.backend == "voxtral" and cfg.tts.api_key == "redacted"
+    assert cfg.tts.voxtral.api_key is None
+
+
+def test_house_mlx_rejects_legacy_api_key_naming_the_subtables(tmp_path: Path):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, '[tts]\nbackend = "mlx_audio"\napi_key = "k"\n')
+    msg = str(exc.value)
+    assert "[tts] api_key is not valid when [tts] backend is mlx_audio" in msg
+    assert "[tts.voxtral] or [tts.elevenlabs] api_key" in msg
+
+
+def test_house_mlx_rejects_legacy_model_naming_mlx_model(tmp_path: Path):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, '[tts]\nbackend = "mlx_audio"\nmodel = "m"\n')
+    assert ("[tts] model is not valid when [tts] backend is mlx_audio; "
+            "set [tts.mlx_audio] model") in str(exc.value)
+
+
+@pytest.mark.parametrize("backend", ["voxtral", "elevenlabs"])
+def test_legacy_key_and_model_valid_under_a_hosted_house(tmp_path: Path, backend):
+    cfg = _load(tmp_path, f'[tts]\nbackend = "{backend}"\napi_key = "k"\nmodel = "m"\n')
+    assert (cfg.tts.api_key, cfg.tts.model) == ("k", "m")
+
+
+@pytest.mark.parametrize("key", ["api_key", "model"])
+def test_same_key_in_tts_and_house_subtable_names_both(tmp_path: Path, key):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, f'[tts]\n{key} = "a"\n\n[tts.voxtral]\n{key} = "b"\n')
+    assert f"[tts] {key} and [tts.voxtral] {key} are both set" in str(exc.value)
+
+
+def test_same_key_in_tts_and_a_non_house_subtable_is_fine(tmp_path: Path):
+    cfg = _load(tmp_path, '[tts]\napi_key = "mistral"\n\n[tts.elevenlabs]\napi_key = "el"\n')
+    assert (cfg.tts.api_key, cfg.tts.elevenlabs.api_key) == ("mistral", "el")
+
+
+@pytest.mark.parametrize("name", ["fake", "kokoro", "MLX_AUDIO"])
+def test_verify_rejects_unknown_backend_names(tmp_path: Path, name):
+    with pytest.raises(ConfigError):
+        _load(tmp_path, f'[tts.mlx_audio]\nstt_model = "s"\n\n[tts.verify]\nbackends = ["{name}"]\n')
+
+
+def test_verify_nonempty_requires_stt_model(tmp_path: Path):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, '[tts.verify]\nbackends = ["mlx_audio"]\n')
+    assert "[tts.verify] backends needs [tts.mlx_audio] stt_model" in str(exc.value)
+
+
+def test_verify_with_stt_model_is_valid(tmp_path: Path):
+    cfg = _load(tmp_path, '[tts.mlx_audio]\nstt_model = "s"\n\n'
+                          '[tts.verify]\nbackends = ["mlx_audio", "voxtral"]\n')
+    assert cfg.tts.verify.backends == ["mlx_audio", "voxtral"]
