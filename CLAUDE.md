@@ -136,8 +136,8 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `--once` runs one tick), `transmitter plan|render|publish|status`,
   `transmitter fallback render <loop> [--notice <file>]`, `transmitter config
   init`, `transmitter offair on --reason … | off` and `transmitter budget
-  [--raise-to <usd>]` (both write `state/` directly, bypassing the guard and the
-  PUT budget); `transmitter status` also shows the cost guard, kill switch,
+  [--raise-to <usd>]` (`offair` and `budget --raise-to` write `state/` directly,
+  bypassing the publish lock, the guard and the PUT budget); `transmitter status` also shows the cost guard, kill switch,
   off-air flag and active alerts. Production runs the SYSTEM unit
   `packages/transmitter/systemd/transmitter@.service` (`Type=notify`,
   `WatchdogSec=45min`, env file `/etc/transmitter/<user>.env`), so it is
@@ -269,7 +269,7 @@ ENDLIST-only playlist (no notice; players stop) and logs
 `offair-without-fallback` once per invocation; the WAF kill switch remains the
 hard stop (`docs/playout-setup.md` section 4 step 4).
 **Cost guard (phase 2).** It runs first in every antenna invocation
-(`antenna/src/guard.ts`), evaluating when `guard.json` is 15 min old through
+(`antenna/src/guard.ts`), evaluating when its last attempt is 15 min old (or at once after a raise) through
 the account-scoped GraphQL API, pricing through the allowances plus the $5
 base and projecting each meter from the last 3 h. The `tripped` latch sets at
 actual >= 90% or projected >= 100% of `MONTHLY_BUDGET_USD`, and also when blind

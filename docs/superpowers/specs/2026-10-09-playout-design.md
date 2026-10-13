@@ -437,10 +437,11 @@ window above let players stall. A lookahead alone adds no runway (it moves the
 listed end and a player's start point together); runway comes from where players
 start relative to the listed end. The live playlist therefore lists
 `PLAYLIST_WINDOW` 16 segments, ending `PLAYLIST_LOOKAHEAD` 12 past the one
-airing (cap 16), and carries `#EXT-X-START:TIME-OFFSET=-122.880` and
+airing (cap 16), with the grace hold and the fallback switch applied to that end
+(cur + lookahead), and carries `#EXT-X-START:TIME-OFFSET=-122.880` and
 `#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880` (`PLAYLIST_HOLD_BACK` 12 segments;
 emitted only when hold-back·d >= 3·TARGETDURATION, clamped to the listed
-entries − 1). Players that honour them start ~123 s from the listed end, i.e.
+entries − 1). Players that honour them start ~123 s from the listed end (113–120 s measured on iOS), i.e.
 near the wall clock (0-10 s ahead); players that ignore the tags (VLC) sit ~90 s
 ahead with ~30 s of runway. Keep lookahead = hold-back: hugo's dead-clock check
 dates the playlist by its newest segment minus its own hold-back. Measured on a
@@ -449,7 +450,7 @@ real iPhone: playlist freezes up to 60 s play through, 75-90 s freezes give a
 `indexAt(max(scheduledTime + loopMs, now)) + lookahead + 1`, strictly above any
 live segment an earlier write could list. An already-playing native-Safari page
 therefore shows the off-air/kill-switch state only after its ~120 s buffer plays
-out (~2.5 min, superseding A2's ~45 s; spend is unaffected). hls.js takes its
+out (~2.5 min, against the plan's ~45 s estimate for A2; spend is unaffected). hls.js takes its
 latency from the playlist's HOLD-BACK (`maxBufferLength` 130).)*
 
 *(As built, 2026-10-12, amendment A1, a documented limitation with no code: at a

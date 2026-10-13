@@ -158,9 +158,9 @@ def guard_blocks_publishing(uploader: Uploader, ws: Workspace, now_s: float, int
         # -> off the air.
         value = flag.get("offair") if isinstance(flag, dict) else None
         offair = False if flag is None else (value if isinstance(value, bool) else True)
-    except ValueError:
-        # Present but unparsable (JSONDecodeError and UnicodeDecodeError are ValueErrors): the Worker
-        # (guard.ts) reads such bytes as off the air. Botocore read errors are not ValueErrors.
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # Present but unparsable: the Worker (guard.ts) reads such bytes as off the air. A failed read
+        # is not caught here (-> None below).
         offair = True
     except Exception:
         offair = None
