@@ -222,6 +222,32 @@ a content defect, under either model or threshold set.
 - In the 3904-sentence corpus, 1 does ("Some background first." — "first" is a number word; `text_source.sentences_le_2_comparable_words`). The sentence splitter folds fragments under 20 chars into a neighbour.
 - The nothing-heard rule fails 0 of 63 clean units under both models.
 
+### Lexicon-respelling misses over the station corpus (llama-9b request, pending Shawn's review)
+
+**Method.** The corpus is the same 3904 distinct sentences (confirmed: 3904, and identical to the set `pick_units` builds), taken from the `dj_notes` of the 129 delivered manifests under `/Volumes/media/lma-radio/delivered` (376 texts), normalized with `load_lexicon(~/.emcee)` and split with `emcee.audio._split_sentences`. For each sentence the simulated "best case" Whisper transcript is the normalized sentence word for word, except that each respelled token is written in its original form (the known-limit mishearings Wharfrat to "Warfrat", Shugaree to "sugary" and Drumz to "drums" were also wired in), and every other word is assumed heard perfectly. That makes the result a **lower bound** on misses. Each pair was scored with the real `emcee.tts.verify.transcript_problem` (thresholds set on the module attributes and restored). Script: `/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/lexmiss/lexmiss.py` (not committed), sha256 `facce83cf208a01d791ff722c0287814e5d1bf67168f891ec1eb022aa590580b`.
+
+**Finding: the lexicon in use is tiny.** With no workspace overlay in `~/.emcee`, the lexicon is the baked-in seed, which holds **2 entries**: `Mydland` to `Midland` and `Sugaree` to `Shugaree`. "Drumz" and "Wharf Rat" (the respellings used as examples in the request) are **not** in it, so they cost nothing here. An operator overlay adding such entries would change the picture; this measures the station as it stands.
+
+| | (i) adopted 2 / 0.15 / 4 / 0.25 | (ii) comparison 2 / 0.25 / 4 / 0.25 |
+|---|---|---|
+| sentences failing | **0 / 3904 (0.00 %)** | **0 / 3904 (0.00 %)** |
+| sentences with at least one respelled token | 95 | 95 |
+| misses per failing sentence | none fail | none fail |
+| delivered scripts with at least one failing sentence | **0 / 129** | **0 / 129** |
+
+Misses per sentence among the 95 respelled sentences: 94 miss 1 word and 1 misses 2. The allowance is `max(2, int(0.15 n))`, which is at least 2 for any n under 20 and grows beyond that, so the tightest sentence still has 1 word of headroom (no sentence is at its limit). There are therefore no failing examples to list. The only way a sentence could fail is 3 or more respelled words in one sentence, and the longest such run in the corpus is 2.
+
+**Top entries by misses** (a miss is a respelled word left unmatched, counted over the distinct sentences):
+
+| entry | misses | occurrences |
+|---|---|---|
+| Sugaree to Shugaree | 45 | 45 |
+| Mydland to Midland | 51 | 51 |
+
+Only 2 of the corpus's lexicon entries appear in it at all, so a top-15 list does not exist; those are all. Every Mydland sentence misses exactly 1 word, and every Sugaree sentence 1; the 95 respelled sentences hold 96 misses because one sentence has both.
+
+**Verdict.** On the current station corpus and seed lexicon there is no lexicon-driven failure at either threshold, so no package fails because of respelling. The "lexicon-aware matching" follow-up is **not** added because the count is zero; it becomes relevant only if the lexicon grows to entries that are dense in a single sentence (for example song-list sentences with several respelled titles).
+
 ## STT model comparison (Parakeet kept as evidence)
 
 | | Whisper large-v3-turbo asr-fp16 | Parakeet TDT 0.6B v3 |
