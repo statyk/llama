@@ -57,3 +57,10 @@ class SpeechProvider(Protocol):
     # (ElevenLabs) condition on them for prosodic continuity across chunk
     # boundaries; backends that don't (Voxtral's endpoint has no such field)
     # ignore them. Both are None on the whole-segment path.
+
+    def preflight(self) -> None: ...
+    # Called once per package, unconditionally, before the `--fresh` unlink,
+    # the manifest clear and any LLM spend (cli._process_one). A no-op on
+    # hosted and fake providers (their configuration errors keep today's
+    # timing); the mlx_audio provider synthesizes one fixed sentence so a
+    # down server, an unknown model or a bad response fails here, for free.

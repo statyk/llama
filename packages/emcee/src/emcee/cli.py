@@ -7,6 +7,7 @@ mirroring llama's `cli.py:57-65` pattern.
 import json
 import sys
 import traceback
+from collections.abc import Sequence
 from pathlib import Path
 
 import typer
@@ -224,7 +225,8 @@ def _station_statuses(root: Path) -> list[PackageStatus]:
         return _scan_broad(root)
 
 
-def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
+def _process_one(config: EmceeConfig, pkg: Package, force: bool,
+                 fresh: Sequence[str] = ()) -> None:
     """Script + voice + broadcast-assemble one package. Shared by `run`'s
     per-pending-package loop and `voice`.
 
@@ -232,42 +234,42 @@ def _process_one(config: EmceeConfig, pkg: Package, force: bool) -> None:
     resolved fresh here, every call -- never hoisted above a per-package
     loop -- so each package's presenter-derived voice is never accidentally
     reused for a different package.
+
+    Order (spec section 2, strict surface 2): resolution and provider
+    construction, then `speech.preflight()`, THEN the `--fresh` unlink
+    (`fresh` holds already-validated, de-duplicated clip stems), THEN the
+    manifest clear, THEN `process_package` (the first LLM spend). So no
+    configuration-only failure -- an unpinned presenter under an mlx_audio
+    house, a down mlx-audio server, a missing model -- can discard a clip or
+    take a broadcast-ready package off air.
     """
     manifest = pkg.manifest()
     presenter, title = resolve_assignment(config, manifest)
     speech, bed = speech_for(config, presenter)
-
-    # JUDGMENT CALL: clears the manifest's dj_notes/dj_audio blocks before
-    # reprocessing -- but only now, after resolve_assignment/speech_for have
-    # already succeeded. `process_package` overwrites `dj-notes.md` well
-    # before the manifest write that marks its success, so a mid-pipeline
-    # failure on an already-*ready* package would otherwise leave
-    # `dj-notes.md` holding the new (unrecorded) script while the manifest
-    # -- and therefore `station.readiness` -- still reports the *old*
-    # blocks as present, reading "ready" despite the drift. Clearing first
-    # means a failure here instead degrades the package to "pending"
-    # (self-consistent with llama's `redo --from package`, which unlinks
-    # the manifest first). Deliberately placed after resolve_assignment/
-    # speech_for, not before: both can fail on configuration alone (a
-    # `[assign] default` naming a presenter with no TOML file, no `[tts]
-    # voice` configured) with no manifest write ever attempted -- clearing
-    # before that point would take a genuinely broadcast-ready package off
-    # air over nothing but a config typo, and force every clip to
-    # re-synthesize (real TTS spend) on the retry even though nothing was
-    # ever going to be overwritten. Harmless on the happy path:
-    # `process_package` overwrites both blocks again moments later as its
-    # own success marker. It also never touches `dj-audio/segments.json` --
-    # the per-clip hash cache that actually drives what `voice --fresh`
-    # re-renders -- so it has no effect on `--fresh`'s re-roll behavior.
-    rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
     try:
+        speech.preflight()
+        if fresh:
+            audio_dir = pkg.dir / "dj-audio"
+            for stem in fresh:
+                (audio_dir / f"{stem}.mp3").unlink()
+            typer.echo(f"re-rolling {', '.join(fresh)} "
+                       "(previous take(s) discarded — TTS is non-deterministic)")
+        # JUDGMENT CALL: clears the manifest's dj_notes/dj_audio blocks before
+        # reprocessing -- but only now, after resolution, provider
+        # construction and preflight have all succeeded. `process_package`
+        # overwrites `dj-notes.md` well before the manifest write that marks
+        # its success, so a mid-pipeline failure on an already-*ready* package
+        # would otherwise leave `dj-notes.md` holding the new (unrecorded)
+        # script while the manifest -- and therefore `station.readiness` --
+        # still reports the *old* blocks as present. Clearing first means a
+        # failure here instead degrades the package to "pending". It never
+        # touches `dj-audio/segments.json` (the per-clip cache `--fresh`
+        # relies on).
+        rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
         process_package(config, pkg, speech, force)
     finally:
         # A raising close() must never mask a successful process_package --
-        # or, worse, turn a genuinely-completed package into a reported
-        # failure (`run` would otherwise print `error: <slug>: ...` and
-        # count a `ready` package as failed even though the manifest was
-        # already written). Best-effort cleanup only.
+        # or turn a completed package into a reported failure. Best-effort.
         try:
             speech.close()
         except Exception:
@@ -429,7 +431,7 @@ def voice_cmd(
     fresh: list[str] = typer.Option(
         [], "--fresh",
         help="Re-roll (re-synthesize) just these DJ-clip stems, e.g. set1-intro "
-             "or 99-outro; repeatable. Deletes the cached clip first so "
+             "or 99-outro; repeatable. Deletes the cached clip (after the TTS preflight passes) so "
              "reprocessing re-renders only it -- other clips keep their "
              "cached audio, PROVIDED the DJ script comes back unchanged. "
              "CAVEATS (both unlike llama, which stamps and replays a "
@@ -476,6 +478,7 @@ def voice_cmd(
     pkg = Package(_resolve_package(config, package, station_root))
     pkg.manifest()  # validates schema_version >= 3; UnsupportedPackage/EmceeError -> boundary
 
+    stems: list[str] = []
     if fresh:
         audio_dir = pkg.dir / "dj-audio"
         available = sorted(p.stem for p in audio_dir.glob("*.mp3")) if audio_dir.is_dir() else []
@@ -487,13 +490,9 @@ def voice_cmd(
                 f"no clip {unknown[0]!r} in {pkg.dir.name}; clips: {', '.join(available)}"
             )
         stems = list(dict.fromkeys(fresh))  # dedupe: a repeated stem must not double-unlink
-        for stem in stems:
-            (audio_dir / f"{stem}.mp3").unlink()
-        typer.echo(f"re-rolling {', '.join(stems)} "
-                   "(previous take(s) discarded — TTS is non-deterministic)")
 
     try:
-        _process_one(config, pkg, force)
+        _process_one(config, pkg, force, fresh=stems)
     except Exception as exc:
         typer.echo(f"error: {pkg.dir.name}: {_typed_error(exc)}", err=True)
         for line in getattr(exc, "details", []):

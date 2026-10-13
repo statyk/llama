@@ -279,3 +279,17 @@ def test_fake_blocks_text_containing_the_armed_phrase():
     assert ei.value.text == "The climax comes early."
     assert ei.value.categories == ["sexual"]
     assert fake.calls == ["A clean sentence here.", "The climax comes early."]
+
+
+def test_every_builtin_provider_has_a_noop_preflight():
+    from emcee.tts.voxtral import VoxtralProvider
+    fake = FakeSpeechProvider()
+    fake.preflight()
+    assert fake.preflight_calls == 1 and fake.calls == []  # no synthesis
+    assert VoxtralProvider(voice="v", api_key="k").preflight() is None
+    assert ElevenLabsProvider(voice="v", api_key="k").preflight() is None
+
+
+def test_fake_preflight_can_be_armed_to_fail():
+    with pytest.raises(SpeechError, match="armed to fail preflight"):
+        FakeSpeechProvider(preflight_fail=True).preflight()

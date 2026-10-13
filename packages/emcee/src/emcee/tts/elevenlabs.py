@@ -83,6 +83,10 @@ class ElevenLabsProvider:
             return buf.getvalue()
         return resp.content
 
+    def preflight(self) -> None:
+        """No-op: a hosted backend's configuration errors (an invalid key)
+        keep today's timing -- they surface at the first synthesis."""
+
     def close(self) -> None:
         self._client.close()
 

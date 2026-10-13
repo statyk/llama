@@ -145,6 +145,10 @@ class VoxtralProvider:
             raise SpeechError("voxtral returned no audio_data")
         return base64.b64decode(audio_b64)
 
+    def preflight(self) -> None:
+        """No-op: a hosted backend's configuration errors (an invalid key)
+        keep today's timing -- they surface at the first synthesis."""
+
     def close(self) -> None:
         self._client.close()
 

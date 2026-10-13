@@ -305,6 +305,9 @@ def _hoist_probe_setup(tmp_path, monkeypatch):
         def synthesize(self, *a, **k):
             raise AssertionError("synthesize should not run; _synthesize_dj_audio is faked")
 
+        def preflight(self):
+            pass
+
         def close(self):
             pass
 
@@ -764,3 +767,27 @@ def test_dry_run_marks_an_unloadable_presenter_file_invalid(tmp_path, monkeypatc
     assert result.exit_code == 0, result.output
     assert "would voice: a  dead  phil  [invalid presenters/phil.toml]\n" in result.output
     assert "would voice: b  bluegrass  roy\n" in result.output
+
+
+def test_dry_run_hosted_house_marks_only_pinned_presenters(tmp_path, monkeypatch):
+    """Under a hosted house backend an unpinned presenter still resolves to a
+    model; only a PIN earns the `[backend model]` suffix."""
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    home.mkdir(parents=True)
+    station.mkdir()
+    (home / "config.toml").write_text(
+        f'[station]\nroot = "{station}"\n\n'
+        '[tts]\nbackend = "voxtral"\nvoice = "house-voice"\napi_key = "k"\n\n'
+        '[assign.profiles.bluegrass]\npresenter = "roy"\n\n'
+        '[assign.profiles.indie]\npresenter = "vox"\n')
+    _pin_presenters(home)
+    build_package(station, slug="b", profile="bluegrass")
+    build_package(station, slug="c", profile="indie")
+
+    result = runner.invoke(app, ["run", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "would voice: b  bluegrass  roy\n" in result.output  # unpinned: no suffix
+    assert f"would voice: c  indie  vox  [voxtral {VOX_DEFAULT}]\n" in result.output

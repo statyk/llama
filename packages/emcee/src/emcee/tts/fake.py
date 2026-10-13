@@ -31,14 +31,18 @@ class FakeSpeechProvider:
     voice/model are fixed placeholders (the factory ignores the resolved voice
     for the fake) so package-stage cache keys are deterministic in tests.
     Arm with fail=True for the hard-fail tests. Arm with block=<phrase> to have any text containing that
-    phrase refused like a content-filter block.
+    phrase refused like a content-filter block. Arm with preflight_fail=True to
+    have preflight() raise.
     """
 
-    def __init__(self, fail: bool = False, block: str | None = None):
+    def __init__(self, fail: bool = False, block: str | None = None,
+                 preflight_fail: bool = False):
         self.voice = "fake-voice"
         self.model = "fake-model"
         self.fail = fail
         self.block = block
+        self.preflight_fail = preflight_fail
+        self.preflight_calls = 0
         self.calls: list[str] = []
         # Per-call (previous_text, next_text) context, parallel to self.calls,
         # so tests can assert the chunked path threads neighbor text through.
@@ -54,6 +58,11 @@ class FakeSpeechProvider:
         if self.block is not None and self.block in text:
             raise SpeechBlocked("fake", text=text, categories=["sexual"])
         return SILENT_WAV if fmt == "wav" else SILENT_MP3
+
+    def preflight(self) -> None:
+        self.preflight_calls += 1
+        if self.preflight_fail:
+            raise SpeechError("FakeSpeechProvider armed to fail preflight")
 
     def close(self) -> None:
         """No-op: lets callers close ANY speech provider uniformly."""
