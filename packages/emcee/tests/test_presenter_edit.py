@@ -239,8 +239,10 @@ def test_transcribe_declined_leaves_the_file_untouched(tmp_path, monkeypatch):
     home = _home(tmp_path, monkeypatch, STT_CONFIG)
     _clone(home, tmp_path)
     before = _file(home).read_bytes()
-    _stt(monkeypatch, MlxServer(transcript=lambda last: DRAFT))
+    server = MlxServer(transcript=lambda last: DRAFT)
+    _stt(monkeypatch, server)
     r = _edit("--transcribe", input="n\n")
+    assert server.deletes == [{"model_name": "stt/test-model"}]  # unloaded before the prompt
     assert r.exit_code == 1
     assert "transcript not written; presenter unchanged" in r.output
     assert _file(home).read_bytes() == before

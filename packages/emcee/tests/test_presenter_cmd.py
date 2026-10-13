@@ -307,4 +307,4 @@ def test_presenter_list_and_show_display_the_pin_only_when_pinned(tmp_path: Path
     assert shown.splitlines()[0] == "Phil  (male)  voice=clone:/r/phil.wav  tts=mlx_audio tts_model=m/x"
     assert "transcript:\nIt's the chemistry." in shown
     roy = runner.invoke(app, ["presenter", "show", "roy"]).output
-    assert "tts=" not in roy and "transcript:" not in roy
+    assert roy == "Roy  (male)  voice=roy-preset\ncharacter:\nx\n"

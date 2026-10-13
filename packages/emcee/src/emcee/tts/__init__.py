@@ -86,8 +86,8 @@ def speech_provider_for(config: EmceeConfig, resolution: TTSResolution, *,
     if backend == "elevenlabs":
         if clone_ref:
             raise SpeechError(f"{_who(resolution)}: voice cloning is not available on "
-                              "elevenlabs: this clone reference (a presenter's voice_clone, or "
-                              "say --clone) resolves to the elevenlabs backend "
+                              "elevenlabs: a clone reference (the house [tts] voice_clone, a "
+                              "presenter's voice_clone, or say --clone) resolves to the elevenlabs backend "
                               "(clone on voxtral or mlx_audio, or use a preset voice)")
         if not voice:
             raise SpeechError("no TTS voice configured: "

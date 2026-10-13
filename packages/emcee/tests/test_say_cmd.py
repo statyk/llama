@@ -281,8 +281,9 @@ def test_say_ignores_clone_text_under_a_hosted_house(tmp_path, monkeypatch):
     _, seen = _arm_speech(monkeypatch)
     ref = tmp_path / "ref.wav"
     ref.write_bytes(b"REF")
-    _run(["say", str(_text_file(tmp_path)), "--clone", str(ref), "--clone-text", "words"],
-         tmp_path, monkeypatch)
+    result = _run(["say", str(_text_file(tmp_path)), "--clone", str(ref), "--clone-text", "words"],
+                  tmp_path, monkeypatch)
+    assert result.exit_code == 0, result.output
     assert seen["clone_text"] is None
 
 

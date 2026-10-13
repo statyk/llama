@@ -238,6 +238,17 @@ def test_factory_elevenlabs_rejects_an_inherited_clone(monkeypatch):
         _make(cfg, clone_ref="/refs/x.wav", presenter=unpinned)
 
 
+def test_factory_elevenlabs_clone_error_names_the_house_voice_clone(monkeypatch):
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+    cfg = EmceeConfig.model_validate({"tts": {"backend": "elevenlabs",
+                                              "voice_clone": "/refs/house.wav"}})
+    with pytest.raises(SpeechError) as exc:
+        _make(cfg, clone_ref="/refs/house.wav")
+    msg = str(exc.value)
+    assert "the house voice" in msg and "[tts] voice_clone" in msg
+    assert "voice cloning is not available on elevenlabs" in msg
+
+
 def test_factory_elevenlabs_rejects_a_pinned_clone(monkeypatch):
     # Presenter validation already refuses tts="elevenlabs" + voice_clone; the
     # factory still refuses any clone that reaches elevenlabs.
