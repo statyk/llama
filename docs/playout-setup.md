@@ -213,6 +213,19 @@ developers.cloudflare.com are the authority if they drift again).
    invocation** (`MAX_PUTS`), a horizon whose segment duration `d` is not 10.24 s is
    **refused** (nothing written; logged as `horizon-refused`), and the loop never runs
    longer than **75 s** (`LOOP_SECONDS` above 75 is clamped and logged as `loop-clamped`).
+6. The playlist (amendment A4, amended 2026-10-12). `live.m3u8` lists `PLAYLIST_WINDOW`
+   (16) segments ending `PLAYLIST_LOOKAHEAD` (12) past the one airing, and tells players
+   to start `PLAYLIST_HOLD_BACK` (12) segments before the listed end
+   (`#EXT-X-START:TIME-OFFSET=-122.880` and `#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880`).
+   With lookahead = hold-back, players start at the wall clock with ~123 s of listed
+   runway, so a cron fire up to ~100 s late (measured: p99 77 s, max 117 s) does not
+   stall them. A lookahead alone adds no runway: it moves the listed end and the start
+   point together. **Keep `PLAYLIST_LOOKAHEAD` equal to `PLAYLIST_HOLD_BACK`**: hugo's
+   dead-clock check dates the playlist by its newest segment minus that hold-back (a
+   test pins the equality). The lookahead is capped at 16 and the hold-back at window − 1;
+   the tags are omitted below 3 target durations (hold-back < 4). Every listed segment
+   exists (the published lead is ~24 h; `lead-low` alerts at 16 h), and the PUT count is
+   unchanged.
 
 ## 5. Phase-1 verification checklist
 
@@ -332,7 +345,7 @@ The billing period starts on day 11 of each month, 00:00 UTC (the committed var 
    | `[alerts] smtp_port` | `587` | SMTP port (1-65535) |
    | `[alerts] ntfy_url` | unset | `https://ntfy.sh/<your-topic>`; unset = no ntfy |
    | `[alerts] repeat_hours` | `6.0` | re-send a still-firing alert at most this often |
-   | `[alerts] dead_clock_seconds` | `120.0` (minimum 31) | the public `live.m3u8`'s newest segment older than this, on two consecutive checks, means the clock is dead |
+   | `[alerts] dead_clock_seconds` | `120.0` (minimum 31) | the public `live.m3u8` older than this, on two consecutive checks, means the clock is dead. Its age is its newest segment's start minus its own hold-back (`#EXT-X-START`, section 4 step 6), i.e. the segment airing when it was written; an off-air playlist is dated by its MEDIA-SEQUENCE less the hold-back last seen live |
    | `[alerts] guard_stale_minutes` | `45.0` | `state/guard.json` not evaluated for this long means the guard is dead. It must be at least `[publish] guard_check_minutes + 16` (the cache refresh plus the guard's 15-minute cadence and the cron lag), or the config is refused |
    | `[publish] guard_check_minutes` | `15.0` | how often hugo refreshes its cache of the guard's state; an unexpected 403 alerts only after `guard_check_minutes + 2` consecutive checks |
    | `[antenna] site_url` | unset | public base URL: Open Graph links and the dead-clock check (unset = no check) |
@@ -442,7 +455,8 @@ Run with the station up and **not yet shared**. Run the `transmitter` commands a
       Then `transmitter offair off`. Within ~1 min everything reverses and players can tune in again. Repeat once with the Mac-side write of `state/offair.json` (section 4 step 4) in place of `transmitter offair`.
       - Also confirm the WAF block answers **403** on the R2 custom domain; any other status counts as "unreachable" to hugo and alarms after 10 checks.
       - After an off-air on/off, confirm the kill-switch PATCH kept the rule whole: its expression, action and description in the dashboard are unchanged, and only `enabled` toggled.
-- [ ] **An already-playing page shows the notice** (amendment A2). Play in Chrome and in Safari, then `transmitter offair on`. Each page shows "The station is off the air." with *Try again* within about a minute (the buffer drains, then two probes 10 s apart). VLC stops on ENDLIST. Then `offair off`. End-to-end latency on an already-playing page is about the player buffer (~30 s) plus the 25 s stall watch, so it can exceed "~45 s": record the measured time.
+- [ ] **An already-playing page shows the notice** (amendment A2). Play in Chrome and in Safari, then `transmitter offair on`. Chrome (hls.js) shows "The station is off the air." with *Try again* at its next playlist reload (the 403 or the ENDLIST playlist), within about a minute. Safari keeps playing what it has buffered first: with the hold-back that is up to ~120 s (section 4 step 6), then the 15 s stall watch and two probes 10 s apart, so expect up to about 2.5 minutes. VLC stops on ENDLIST. Then `offair off`. Record the measured times.
+- [ ] **Joining on iPhone and Chrome starts near the wall clock (now-playing matches the schedule).** Press *Play* on an iPhone (Safari) and in Chrome on the Mac. Within a few seconds of starting, the now-playing line names what `timeline.json` (or `transmitter status`) schedules for the current wall-clock time, not the item from about two minutes earlier; `curl -s https://<host>/live.m3u8` shows `#EXT-X-START:TIME-OFFSET=-122.880`, `#EXT-X-SERVER-CONTROL:HOLD-BACK=122.880` and its last `PROGRAM-DATE-TIME` about 2 minutes ahead of the wall clock. Record each player's offset from the schedule.
 - [ ] **A network blip shows no notice.** While playing in Chrome, toggle the Mac's Wi-Fi off for ~20 s, then on. The page says "Reconnecting…" while stalled, never the off-air notice, and resumes (or needs one *Play*).
 - [ ] **A spend trip and a raise.**
       1. `npx wrangler deploy --var MONTHLY_BUDGET_USD:5.5`. Within 15 min (the next evaluation), the actual $5+ is ≥ 90% of $5.50, so you see:

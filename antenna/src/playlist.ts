@@ -31,7 +31,7 @@ export interface PlaylistInputs {
   horizon: Horizon;
   fallback: FallbackIndex | null;
   offair: boolean; // state/offair.json {offair: true}
-  offairSeqMs?: number; // the off-air MEDIA-SEQUENCE is indexAt(offairSeqMs); default nowMs
+  offairSeqMs?: number; // the clock's scheduledTime + loopMs; default nowMs (see offairSequence)
 }
 
 export type Entry = { n: number; kind: "live" | "fallback" };
