@@ -199,3 +199,14 @@ def test_hosted_providers_are_not_wrapped_when_verification_is_off(monkeypatch):
     p = speech_provider_for(cfg, resolve_tts(cfg, None), voice="v", clone_ref=None,
                             clone_text=None)
     assert not isinstance(p, QualitySpeech)
+
+
+def test_the_retry_notice_keeps_an_80_character_sentence_whole(capsys):
+    text = "x" * 79 + "."
+    layer(Scripted(defect(), WAV)).synthesize(text, "wav")
+    assert f'failed on "{text}" (' in capsys.readouterr().out
+
+
+def test_the_retry_notice_collapses_whitespace(capsys):
+    layer(Scripted(defect(), WAV)).synthesize("Here is\n  the  set.", "wav")
+    assert 'failed on "Here is the set." (' in capsys.readouterr().out

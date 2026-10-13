@@ -222,7 +222,7 @@ a content defect, under either model or threshold set.
 - In the 3904-sentence corpus, 1 does ("Some background first." — "first" is a number word; `text_source.sentences_le_2_comparable_words`). The sentence splitter folds fragments under 20 chars into a neighbour.
 - The nothing-heard rule fails 0 of 63 clean units under both models.
 
-### Lexicon-respelling misses over the station corpus (llama-9b request; reviewed by Shawn 2026-10-13)
+### Lexicon-respelling misses over the station corpus (llama-9b request; evidence for the ratified MISS_FRACTION)
 
 **Method.** The corpus is the same 3904 distinct sentences (confirmed: 3904, and identical to the set `pick_units` builds), taken from the `dj_notes` of the 129 delivered manifests under `/Volumes/media/lma-radio/delivered` (376 texts), normalized with `load_lexicon(~/.emcee)` and split with `emcee.audio._split_sentences`. For each sentence the simulated "best case" Whisper transcript is the normalized sentence word for word, except that each respelled token is written in its original form (the known-limit mishearings Wharfrat to "Warfrat", Shugaree to "sugary" and Drumz to "drums" were also wired in), and every other word is assumed heard perfectly. That makes the result a **lower bound** on misses. Each pair was scored with the real `emcee.tts.verify.transcript_problem` (thresholds set on the module attributes and restored). Script: `/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/lexmiss/lexmiss.py` (not committed), sha256 `facce83cf208a01d791ff722c0287814e5d1bf67168f891ec1eb022aa590580b`.
 

@@ -507,7 +507,8 @@ and the rest of `emcee run` carries on.
    with Qwen resident and Whisper unloaded. For a voicing run, close browser
    tabs and other apps; verification costs the Whisper resident set.
 7. **Moving a presenter** (`<id>`) to mlx_audio, with its reference clip and
-   that clip's exact transcript:
+   that clip's exact transcript saved beside it (for the four drafted clones,
+   the corrected `~/tts-bakeoff/refs/<stem>.draft.txt`):
 
        emcee presenter edit <id> --tts mlx_audio \
            --voice-clone ~/.emcee/samples/<clip>.wav \
@@ -556,9 +557,13 @@ and the rest of `emcee run` carries on.
    - **Re-voice every presenter pinned to elevenlabs** for the house backend.
      The old binary ignores pins and voices every presenter on the house
      backend, so an ElevenLabs `voice` id would be sent to Voxtral and fail
-     the package. Give it a Voxtral `--voice` or `--voice-clone`, then
-     `--clear-tts`. Only a pin to the house backend itself (e.g. roydemure's
-     `voxtral` pin under a voxtral house) is harmless to leave.
+     the package. Clear the pin and give it a Voxtral voice in one command:
+
+         emcee presenter edit <id> --clear-tts --voice <voxtral voice>
+         # or: --clear-tts --voice-clone ~/.emcee/samples/<clip>.wav
+
+     Only a pin to the house backend itself (e.g. roydemure's `voxtral` pin
+     under a voxtral house) is harmless to leave.
    - **Edit `~/.emcee/config.toml`.** The old binary's `[tts]` is strict and
      refuses any key it does not know. Remove `[tts.mlx_audio]`,
      `[tts.verify]` and `[tts.voxtral]`/`[tts.elevenlabs]`; move a hosted key
@@ -567,7 +572,7 @@ and the rest of `emcee run` carries on.
      (item 8), restore `[tts] backend` and drop `[tts] voice_clone_text`.
 
    A re-pinned presenter never reuses the other backend's clips (the render
-   cache keys on backend voice and model), so his next packages re-render.
+   cache keys on backend voice and model), so its next packages re-render.
 
 **Upgrading from a pre-split llama.** If you ran llama before scripting/
 presenters/TTS moved to emcee ("the cut"), three settings in your existing
