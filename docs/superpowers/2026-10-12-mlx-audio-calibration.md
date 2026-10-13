@@ -136,7 +136,7 @@ the operator's here+is ↔ heres example hold. The table also folds a few homoph
 which is accepted because they sound the same: "band is" ↔ "bands" and "we are" ↔
 "were".
 
-**The dropped-g fold.** This is a **llama-9b decision while Shawn away, pending his review**. It was
+**The dropped-g fold.** This is a **llama-9b decision while Shawn away, ratified by Shawn 2026-10-13**. It was
 added in fix round 1 for unit #21. `comparable_words` reads an apostrophe-spelled
 dropped g as its "-ing" form on both sides, so "goin'" becomes "going" and "feelin'"
 becomes "feeling", whether in the script or in a transcript.
@@ -161,7 +161,7 @@ Re-derivations from the saved transcripts. Each re-scored all 130 transcripts an
 | + dropped-g fold | Whisper | mlx only / Voxtral only | 2 / 2 | 0.15 / 0.15 | 4 / 4 | 0.25 / 0.25 | none |
 | + dropped-g fold | Parakeet (comparison) | all / mlx / Voxtral | 2 / 2 / 2 | 0.15 / 0.15 / 0.15 | 4 | 0.25 | none |
 
-**Adopted in verify.py: 2 / 0.15 / 4 / 0.25.** This is a **llama-9b decision while Shawn away, pending his review**. The operator
+**Adopted in verify.py: 2 / 0.15 / 4 / 0.25.** This is a **llama-9b decision while Shawn away, ratified by Shawn 2026-10-13**. The operator
 pre-approved whatever the Whisper re-derivation produced within the STOP ceilings.
 
 - **History:** with option B alone, the values were 2 / 0.25 / 4 / 0.25, which the
@@ -222,7 +222,7 @@ a content defect, under either model or threshold set.
 - In the 3904-sentence corpus, 1 does ("Some background first." — "first" is a number word; `text_source.sentences_le_2_comparable_words`). The sentence splitter folds fragments under 20 chars into a neighbour.
 - The nothing-heard rule fails 0 of 63 clean units under both models.
 
-### Lexicon-respelling misses over the station corpus (llama-9b request, pending Shawn's review)
+### Lexicon-respelling misses over the station corpus (llama-9b request; reviewed by Shawn 2026-10-13)
 
 **Method.** The corpus is the same 3904 distinct sentences (confirmed: 3904, and identical to the set `pick_units` builds), taken from the `dj_notes` of the 129 delivered manifests under `/Volumes/media/lma-radio/delivered` (376 texts), normalized with `load_lexicon(~/.emcee)` and split with `emcee.audio._split_sentences`. For each sentence the simulated "best case" Whisper transcript is the normalized sentence word for word, except that each respelled token is written in its original form (the known-limit mishearings Wharfrat to "Warfrat", Shugaree to "sugary" and Drumz to "drums" were also wired in), and every other word is assumed heard perfectly. That makes the result a **lower bound** on misses. Each pair was scored with the real `emcee.tts.verify.transcript_problem` (thresholds set on the module attributes and restored). Script: `/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-local-tts/99c83788-8478-441d-8793-405d9af30862/scratchpad/lexmiss/lexmiss.py` (not committed), sha256 `facce83cf208a01d791ff722c0287814e5d1bf67168f891ec1eb022aa590580b`.
 
@@ -354,7 +354,7 @@ into swap. Rendering still completed with no errors, and transcription stayed fa
 the memory-headroom premise is **not** comfortably met: the host is running at its
 memory limit.
 
-**Resolution: option (a).** This is a **llama-9b decision while Shawn away, pending his review**.
+**Resolution: option (a).** This is a **llama-9b decision while Shawn away, ratified by Shawn 2026-10-13**.
 - **Why it became a gate:** decision 8 said memory is "not a gate unless swap grows",
   and swap grew.
 - **What option (a) means:** no code change. Shawn closes browser tabs and other apps
@@ -368,13 +368,13 @@ memory limit.
 1. **STT model:** `mlx-community/whisper-large-v3-turbo-asr-fp16`. Parakeet v3 is rejected.
 2. **Verification:** the thresholds above are adopted. The default stays **off**
    (`[tts.verify] backends = []`).
-   - **Recommendation:** enable it for `mlx_audio` when a Qwen presenter (Phil) goes live.
+   - **Recommendation:** enable it for `mlx_audio` when the first presenter is pinned to it.
    - Keep `voxtral` off for now, for three reasons:
      - there are only 10 Voxtral takes;
      - the troymcclure2 clone is an announcer voice and produced no disfluencies (the operator listened to 053–062 and heard no ums or repeats), so the **disfluency effect on the thresholds is unmeasured**;
      - verification would make hosted voicing depend on the local mlx server.
    - Weigh the memory finding above before enabling it: Whisper resident is part of the shape that swapped.
-3. **Matching change** (option B) and the **nothing-heard rule**: adopted, see above. The **dropped-g fold** and the resulting `MISS_FRACTION` 0.15 are a **llama-9b decision while Shawn away, pending his review**.
+3. **Matching change** (option B) and the **nothing-heard rule**: adopted, see above. The **dropped-g fold** and the resulting `MISS_FRACTION` 0.15 are a **llama-9b decision while Shawn away, ratified by Shawn 2026-10-13**.
 4. **Flagged units:** all artefacts, as classified in the table above.
 5. **Guard:** the derived calibration with `max_s_per_char` = `cap_s_per_char` = 0.09.
 

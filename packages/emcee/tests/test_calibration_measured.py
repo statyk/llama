@@ -148,7 +148,7 @@ def test_the_bundled_preflight_clip():
 # adopted values exactly. Evidence: docs/superpowers/2026-10-12-mlx-audio-calibration.md.
 # Changing any value means changing its pin in the same commit.
 def test_verify_thresholds_are_pinned_exactly():
-    # MISS_FRACTION 0.15 is operator-ratification pending; the rest are derived
+    # MISS_FRACTION 0.15 ratified by the operator 2026-10-13; the rest are derived
     # in the calibration doc.
     assert (verify.MISS_FLOOR, verify.MISS_FRACTION,
             verify.EXTRA_FLOOR, verify.EXTRA_FRACTION) == (2, 0.15, 4, 0.25)
