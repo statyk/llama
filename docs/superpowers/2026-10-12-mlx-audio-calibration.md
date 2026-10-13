@@ -146,9 +146,9 @@ becomes "feeling", whether in the script or in a transcript.
   single-quoted title ending in "in" ('Fire on the Mountain') is not a dropped g, so
   "mountain" stays "mountain", and that close closes the quote for what follows: in
   "'Fire on the Mountain' > Goin' Down The Road Feelin' Bad" both later words fold.
-  A close is also recognised after punctuation ('Scarlet Begonias,'). A word that
-  itself opens the quote ('Win', and the first word of 'Goin' Down …') is read as a
-  one-word quoted title and never folded, since folding could only give false credit
+  A close is also recognised after punctuation ('Scarlet Begonias,'). A word directly
+  after any quote mark ('Win', `Win', and the first word of 'Goin' Down …') is read
+  as a one-word quoted title and never folded, since folding could only give false credit
   (win/wing). Leading elisions ('cause, 'cuz, 'em, 'til, 'nuff, 'n', …) are not
   opening quotes. Remaining false misses, all rare: the first word of a quoted title
   that is itself a dropped g, a dropped g directly before a closing quote

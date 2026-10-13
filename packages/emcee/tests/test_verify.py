@@ -193,6 +193,9 @@ def test_dropped_gs_inside_a_quoted_title_fold_after_its_first_word():
 def test_a_one_word_quoted_title_is_never_folded():
     assert comparable_words("'Win' and the drummers' solo, 'Mountain' and James' guitar") == [
         "win", "and", "the", "drummers", "solo", "mountain", "and", "james", "guitar"]
+    # ... whatever precedes its quote mark, recognised as an opening quote or not
+    assert comparable_words("Then\u2014'Win' was next, `Win' and \u2019Win\u2019 too.") == [
+        "then", "win", "was", "next", "win", "and", "win", "too"]
 
 
 def test_a_title_closed_on_in_does_not_shield_later_dropped_gs():

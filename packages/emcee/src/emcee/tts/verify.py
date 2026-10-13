@@ -64,9 +64,9 @@ _CLOSE_QUOTE = re.compile(r"(?:(?<=[^\W\d_])(?<!in)|(?<=[.,!?;:]))['’](?!\w)")
 def _fold_dropped_g(text: str) -> str:
     """`text` with each dropped g folded to "-ing", except a mark that
     closes a single quote:
-    - a word that itself opens the quote ('Win', 'Goin' ...) is read as a
-      one-word quoted title and never folded -- folding could only give
-      false credit (win/wing);
+    - a word directly after any quote mark ('Win', 'Goin' ..., `Win') is
+      read as a one-word quoted title and never folded -- folding could
+      only give false credit (win/wing);
     - otherwise the mark closes the quote when one opened before it is
       still open and no unambiguous close follows before the next opening
       quote ('Fire on the Mountain').
@@ -77,10 +77,13 @@ def _fold_dropped_g(text: str) -> str:
 
     def fold(m: re.Match) -> str:
         mark = m.end() - 1
+        if m.start() and text[m.start() - 1] in "'‘’`":
+            closes.append(mark)
+            return m.group(0)
         opened = max((o for o in opens if o < m.start()), default=None)
         if opened is not None and not any(opened < c < mark for c in closes):
             next_open = min((o for o in opens if o > mark), default=len(text))
-            if opened == m.start() - 1 or not any(mark < c < next_open for c in closes):
+            if not any(mark < c < next_open for c in closes):
                 closes.append(mark)
                 return m.group(0)
         return m.group(1) + "g"
