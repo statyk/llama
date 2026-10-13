@@ -23,8 +23,8 @@ from emcee.tts.mlx_audio import PREFLIGHT_TEXT
 from emcee.tts.provider import SpeechDefect, SpeechError
 from emcee.tts.quality import QualitySpeech
 from emcee.tts.resolve import resolve_tts
-from emcee.tts.verify import (SttClient, Verifier, comparable_words, preflight_clip_wav,
-                              transcript_problem)
+from emcee.tts.verify import (SttClient, Verifier, comparable_words, match_words,
+                              preflight_clip_wav, transcript_problem)
 
 from tests.helpers import build_package
 from tests.mlx_helpers import (TEST_MODEL, MlxServer, calibrate_test_model, install_mlx,
@@ -78,6 +78,54 @@ def test_a_transcript_far_longer_than_the_script_fails():
 
 def test_an_empty_transcript_fails_a_real_sentence():
     assert transcript_problem(LINE, "") is not None
+
+
+# Calibration (docs/superpowers/2026-10-12-mlx-audio-calibration.md): every
+# clean miss that drove the thresholds up was a joined or split word -- "Here
+# is" heard as "Here's", "L.A." as "LA", "Wharf Rat" as "Wharfrat".
+
+
+def found(script: str, transcript: str) -> int:
+    return match_words(comparable_words(script), comparable_words(transcript))[0]
+
+
+def test_a_script_bigram_heard_joined_counts_as_found():
+    assert found("Here is the second set, from Pittsburgh.",
+                 "Here's the second set from Pittsburgh.") == 6
+    assert found("Listen for West L.A.", "Listen for West LA.") == 5
+    assert found("Jerry sang Wharf Rat.", "Jerry sang Wharfrat.") == 4
+
+
+def test_a_heard_bigram_matching_a_script_token_counts_as_found():
+    assert found("Throwin' Stones and Lovelight.", "Throw in stones and love light.") == 4
+    assert found("Here's the set.", "Here is the set.") == 3
+
+
+def test_folding_never_counts_a_heard_token_twice():
+    assert found("Here is, here is.", "Here's.") == 2
+    assert found("Love light.", "Lovelight lovelight.") == 2
+
+
+def test_match_words_returns_the_unmatched_words_on_each_side():
+    n, missing, extra = match_words(comparable_words("Here is Kezar Stadium."),
+                                    comparable_words("Here's Kizar Stadium."))
+    assert (n, sorted(missing.elements()), sorted(extra.elements())) == (3, ["kezar"], ["kizar"])
+
+
+def test_joined_words_do_not_fail_a_sentence():
+    script = "Here is L.A., and you are in Wharf Rat country."
+    assert transcript_problem(script, "Here's LA, and you're in Wharfrat country.") is None
+
+
+def test_nothing_of_a_short_script_heard_fails():
+    # Below the miss floor a total mishearing used to pass.
+    problem = transcript_problem("Thanks, everyone.", "Goodbye.")
+    assert problem is not None and "none of the script's 2 words" in problem
+    assert transcript_problem("Thanks.", "") is not None
+
+
+def test_one_word_heard_of_a_short_script_still_passes():
+    assert transcript_problem("Thanks, everyone.", "Thanks, everybody.") is None
 
 
 # --- the STT client ---------------------------------------------------------------

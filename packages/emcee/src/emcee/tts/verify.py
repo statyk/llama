@@ -54,11 +54,57 @@ def comparable_words(text: str) -> list[str]:
     return [w for w in words if w not in NUMBER_WORDS and not any(c.isdigit() for c in w)]
 
 
+def match_words(want: list[str], heard: list[str]) -> tuple[int, Counter, Counter]:
+    """How many script words (`want`) were heard, and the words left
+    unmatched on each side. Words match as a bag, and a word joined or split
+    by the transcriber still counts: a script bigram whose concatenation --
+    or contraction, see `_joined` -- is one heard word ("l a" / "la",
+    "here is" / "heres") counts both script words as found, and a heard
+    bigram whose concatenation is one script word ("throw in" / "throwin")
+    counts that script word. Every heard word is used at most once."""
+    w, h = Counter(want), Counter(heard)
+    exact = w & h
+    found = sum(exact.values())
+    w, h = w - exact, h - exact
+    for a, b in zip(want, want[1:]):
+        if w[a] and w[b] and (a != b or w[a] >= 2):
+            joined = next((j for j in _joined(a, b) if h[j]), None)
+            if joined:
+                w[a] -= 1
+                w[b] -= 1
+                h[joined] -= 1
+                found += 2
+    for a, b in zip(heard, heard[1:]):
+        if h[a] and h[b] and (a != b or h[a] >= 2):
+            joined = next((j for j in _joined(a, b) if w[j]), None)
+            if joined:
+                h[a] -= 1
+                h[b] -= 1
+                w[joined] -= 1
+                found += 1
+    return found, +w, +h
+
+
+# A contraction is a join too, once comparable_words has dropped the
+# apostrophe: "here is" / "heres", "you are" / "youre", "do not" / "dont".
+_CONTRACTED = {"is": "s", "has": "s", "us": "s", "are": "re", "am": "m", "have": "ve",
+               "will": "ll", "would": "d", "had": "d", "not": "nt"}
+
+
+def _joined(a: str, b: str) -> tuple[str, ...]:
+    """The single words a bigram may be heard (or written) as."""
+    return tuple(dict.fromkeys((a + b, a + _CONTRACTED.get(b, b))))
+
+
 def transcript_problem(script: str, transcript: str) -> str | None:
-    """Why `transcript` grossly mismatches `script`, or None."""
+    """Why `transcript` grossly mismatches `script`, or None. Besides the
+    thresholds, a script with any comparable word fails when none of them
+    was heard: below MISS_FLOOR a total mishearing would otherwise pass."""
     want, heard = comparable_words(script), comparable_words(transcript)
     n = len(want)
-    found = sum((Counter(want) & Counter(heard)).values())
+    found = match_words(want, heard)[0]
+    if n and not found:
+        return f"none of the script's {n} words were heard"
     if n - found > max(MISS_FLOOR, int(MISS_FRACTION * n)):
         return f"only {found} of the script's {n} words were heard"
     if len(heard) - n > max(EXTRA_FLOOR, int(EXTRA_FRACTION * n)):
