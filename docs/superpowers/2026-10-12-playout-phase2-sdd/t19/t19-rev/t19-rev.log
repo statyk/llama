@@ -1,0 +1,39 @@
+== pytest transmitter
+Expected red: test_the_guard_cache_reads_offair_like_the_worker[{not json-True] and [b''-True] (None is not True); all else green
+/private/tmp/claude-501/t19-rev-scratch/packages/transmitter/src/transmitter/publish.py scratch
+>       assert json.loads(p.ws.guard_cache_path.read_text())["offair"] is expected
+E       assert None is True
+
+packages/transmitter/tests_transmitter/test_publish.py:372: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_guard_cache_reads_offair_like_the_worker[{not json-True]
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_guard_cache_reads_offair_like_the_worker[-True]
+2 failed, 38 passed in 2.82s
+== mutant 2 (all read errors -> True). Expected red: test_the_guard_cache_records_evaluation_time_and_offair_but_gating_stays_on_tripped_only only
+151:    evaluated_at = offair = None
+165:        offair = True
+packages/transmitter/tests_transmitter/test_publish.py:348: AssertionError
+=========================== short test summary info ============================
+FAILED packages/transmitter/tests_transmitter/test_publish.py::test_the_guard_cache_records_evaluation_time_and_offair_but_gating_stays_on_tripped_only
+1 failed, 39 passed in 2.60s
+........................................................................ [ 62%]
+........................................................................ [ 78%]
+........................................................................ [ 93%]
+...................s........                                             [100%]
+459 passed, 1 skipped in 34.56s
+== npm test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/playout-t19/antenna
+
+
+ Test Files  14 passed (14)
+      Tests  236 passed (236)
+   Start at  01:31:30
+   Duration  4.64s (transform 77%, import 11%, worker 10%, tests 3%)
+
+  Transform  transforming modules took 5.98s · 77% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

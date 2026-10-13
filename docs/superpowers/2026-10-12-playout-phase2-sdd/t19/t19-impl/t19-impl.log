@@ -1,0 +1,18 @@
+Using CPython 3.11.15
+Creating virtual environment at: .venv311
+Activate with: source .venv311/bin/activate
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2615 passed, 1 skipped, 7 deselected, 26 warnings in 58.49s
+........................................................................ [ 93%]
+...................s........                                             [100%]
+459 passed, 1 skipped in 33.67s
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2615 passed, 1 skipped, 7 deselected, 26 warnings in 46.10s
+   Duration  4.50s (transform 70%, import 14%, worker 13%, tests 3%)
+
+  Transform  transforming modules took 4.34s · 70% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+

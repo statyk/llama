@@ -22,6 +22,8 @@ branches were merged to `main` at `0834d08` (Tasks 0–17 plus the final wave) a
 
   The parent session ran it inline, after the iPhone measurements recorded in the
   plan's amendment A4.
+- **`t19/`** is the phase-2 wrap: Task 19's docs and the F9 offair-parse fix. It holds
+  the brief, the implementer's handback and the Opus review. It was merged at `8a2e4e9`.
 - **The verdicts the merges were ratified on** have these SHA-256 hashes:
 
   | Verdict | SHA-256 |
