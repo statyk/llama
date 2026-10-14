@@ -46,7 +46,8 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   refusal names, or checkpointing the session as `paused` when the wait
   exceeds `--max-wait` (default 6h). Resuming costs nothing for shows already
   packaged: stage-level `should_run` skips them.
-  `llama artists "..."`, `llama status` (global triage view, `--by-run` for
+  `llama artists "..."`, `llama status` (shows only, one row per show so it pipes — sessions
+  needing attention are `llama run list`'s; `--by-run` for
   session rollups), `llama show <name>` (read-only), `llama pipeline`
   (static stage/state teaching command), `llama pacing` (read-only:
   the usage meters, the learned per-show cost, how many shows fit

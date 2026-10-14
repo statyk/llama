@@ -60,7 +60,27 @@ def test_run_list_header_is_verbatim(tmp_path: Path):
     result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
     assert result.exit_code == 0, result.output
     lines = result.output.splitlines()
-    assert lines[0] == "SESSION                              STATE               AGE   CRITERIA"
+    assert lines[0] == ("SESSION                              STATE               AGE  "
+                        "NEXT         CRITERIA")
+
+
+def test_run_list_next_column_names_the_command(tmp_path: Path):
+    """awaiting -> `run approve`; incomplete and paused -> `run resume`,
+    read from the NEXT column itself (the id sits in column one)."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    _session(tmp_path, "s-awaiting", state=STATE_AWAITING)
+    _session(tmp_path, "s-incomplete")   # no marker
+    ws = _session(tmp_path, "s-onhold")
+    mark_paused(ws, None, [], "2026-09-04T15:10:00+00:00", "five_hour", "limit")
+
+    result = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert result.exit_code == 0, result.output
+    header, *rows = result.output.splitlines()
+    col = header.index("NEXT")
+    nxt = {r.split()[0]: r[col:col + 12].strip() for r in rows if not r.startswith(" ")}
+    assert nxt == {"s-awaiting": "run approve", "s-incomplete": "run resume",
+                   "s-onhold": "run resume"}
 
 
 def test_run_list_shows_awaiting_and_incomplete_hides_complete(tmp_path: Path):
@@ -167,13 +187,12 @@ def test_run_list_resume_suffix_requires_paused_state(tmp_path: Path):
     assert "resumes" not in line
 
 
-def test_attention_dicts_carry_a_paused_entry():
-    # `.get(state, state)` / `.get(state, "llama run resume {id}")` both
-    # happen to fall back to the exact text STATE_PAUSED's entry holds, so a
-    # CLI-output assertion cannot distinguish "entry present" from "entry
-    # deleted, default coincides". Index the dicts directly instead.
+def test_attention_labels_carry_a_paused_entry():
+    # `.get(state, state)` happens to fall back to the exact text
+    # STATE_PAUSED's entry holds, so a CLI-output assertion cannot
+    # distinguish "entry present" from "entry deleted, default coincides".
+    # Index the dict directly instead.
     assert cli._ATTENTION_LABELS[STATE_PAUSED] == "paused"
-    assert cli._ATTENTION_HINTS[STATE_PAUSED] == "llama run resume {id}"
 
 
 # ---------------------------------------------------------------------------

@@ -125,6 +125,35 @@ def _setup() -> tuple[Config, IAClient, Ledger]:
     return config, ia, ledger
 
 
+def _profile_names(root: Path) -> list[str]:
+    """Names of the standing profiles on disk, sorted -- file stems only,
+    so a malformed profile still counts as existing."""
+    d = root / "profiles"
+    return sorted(p.stem for p in d.glob("*.toml")) if d.is_dir() else []
+
+
+def _note_unknown_profiles(config, names) -> None:
+    """A `--profile` typo otherwise reads exactly like "nothing matched".
+    A note on stderr, never an error: a profile removed after it ran still
+    owns its shows and sessions, and stdout stays pipe-clean."""
+    known = _profile_names(config.root)
+    for name in dict.fromkeys(names):
+        if name not in known:
+            typer.echo(f"note: no profile named {name!r} "
+                       f"(profiles: {', '.join(known) or 'none'})", err=True)
+
+
+def _complete_profile(ctx: typer.Context, incomplete: str) -> list[str]:
+    """Shell completion for `--profile`: profile names under the root of the
+    `--config` given earlier on the line. Completion must never traceback
+    into the shell, so any failure completes nothing."""
+    try:
+        root = load_config(ctx.find_root().params.get("config")).root
+        return [n for n in _profile_names(root) if n.startswith(incomplete)]
+    except Exception:
+        return []
+
+
 _STATE_RANK = {"held": 0, "packaged": 1, "briefed": 2, "vetted": 3,
                "researched": 4, "gathered": 5, "selected": 6, "delivered": 7}
 RECENT_DELIVERED = 5
@@ -955,7 +984,12 @@ def artists(
     _print_artists(matches)
 
 
-_RUN_LIST_HEADER = "SESSION                              STATE               AGE   CRITERIA"
+# Same widths as the row f-string in _print_sessions, so the header cannot
+# drift off its columns (the hand-typed one sat one character right).
+_RUN_LIST_HEADER = f"{'SESSION':<36} {'STATE':<18} {'AGE':>4}  {'NEXT':<12} CRITERIA"
+# The command that clears each attention state; the session id is column one.
+_NEXT_STEP = {STATE_AWAITING: "run approve", STATE_INCOMPLETE: "run resume",
+              STATE_PAUSED: "run resume"}
 
 
 def _humanize_age(updated_at: str) -> str:
@@ -989,7 +1023,8 @@ def _print_sessions(sessions) -> None:
     for s in sessions:
         label = _ATTENTION_LABELS.get(s.state, s.state)
         age = _humanize_age(s.updated_at)
-        line = f"{s.id:<36} {label:<18} {age:>4}  {_session_criteria_str(s)}"
+        nxt = _NEXT_STEP.get(s.state, "-")
+        line = f"{s.id:<36} {label:<18} {age:>4}  {nxt:<12} {_session_criteria_str(s)}"
         if s.outcome:
             line += f"   {s.outcome}"
         if s.state == STATE_PAUSED and s.resume_after:
@@ -1002,6 +1037,9 @@ def _print_sessions(sessions) -> None:
 
 @run_app.command("list")
 def run_list(
+    profile: list[str] = typer.Option(
+        [], "--profile", autocompletion=_complete_profile,
+        help="Only sessions run from this standing profile (exact name; repeatable)"),
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
     """List sessions awaiting approval, incomplete, or paused (the
@@ -1010,6 +1048,9 @@ def run_list(
 
     config, _, _ = _setup()
     sessions = attention_sessions(config.root)
+    if profile:
+        _note_unknown_profiles(config, profile)
+        sessions = [s for s in sessions if s.profile in profile]
     if as_json:
         typer.echo(_json.dumps([_session_json(s) for s in sessions], indent=2))
         return
@@ -2112,8 +2153,9 @@ def deliver(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
-    profile: str = typer.Option(
-        None, "--profile", help="Selector: shows acquired by this standing profile (exact name)"),
+    profile: list[str] = typer.Option(
+        [], "--profile", autocompletion=_complete_profile,
+        help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     replace_voiced: bool = typer.Option(
         False, "--replace-voiced",
@@ -2151,10 +2193,11 @@ def deliver(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             artist=artist, run=run, profile=profile)
+                             artist=artist, run=run, profiles=profile)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
+    _note_unknown_profiles(config, profile)
     _deliver_batch(config, ledger, sel, dest, yes, replace_voiced)
 
 
@@ -2843,6 +2886,9 @@ def triage(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    profile: list[str] = typer.Option(
+        [], "--profile", autocompletion=_complete_profile,
+        help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
 ):
     """Interactively walk shows for resolution (default: held shows) —
     exclude tracks, edit metadata, accept vague narration, overrule the
@@ -2858,7 +2904,7 @@ def triage(
 
     try:
         sel = build_selector(held=held, packaged=packaged,
-                             states=state, artist=artist, run=run)
+                             states=state, artist=artist, run=run, profiles=profile)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -2871,6 +2917,7 @@ def triage(
     else:
         if not selector_active(sel):
             sel = build_selector(held=True)   # triage's default: held (spec §2 exception)
+        _note_unknown_profiles(config, profile)
         entries = apply_selector(iter_shows(config.root, ledger), sel)
     if not entries:
         typer.echo("no matching shows")
@@ -2950,13 +2997,16 @@ def redo(
     state: list[ShowState] = typer.Option(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    profile: list[str] = typer.Option(
+        [], "--profile", autocompletion=_complete_profile,
+        help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
 ):
     """Re-run one show (--from STAGE), a selector batch, or a whole
     --run session -- the single re-execution verb (spec §7.1)."""
     from llama.cli_select import build_selector
 
-    other_selector = any([held, packaged, state, artist])
+    other_selector = any([held, packaged, state, artist, profile])
     # Three-form grammar: positional show | --run SESSION | selectors -- exactly one.
     if name is not None and (run is not None or other_selector):
         typer.echo("give a show OR selectors, not both", err=True)
@@ -3002,10 +3052,12 @@ def redo(
         raise typer.Exit(1)
     config, ia, ledger = _setup()
     try:
-        sel = build_selector(held=held, packaged=packaged, states=state, artist=artist)
+        sel = build_selector(held=held, packaged=packaged, states=state, artist=artist,
+                             profiles=profile)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
+    _note_unknown_profiles(config, profile)
     _redo_batch(config, ia, ledger, sel, from_stage, redo_research=redo_research,
                yes=yes)
 
@@ -3060,6 +3112,9 @@ def rm(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    profile: list[str] = typer.Option(
+        [], "--profile", autocompletion=_complete_profile,
+        help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt"),
 ):
     """Delete a show's directory -- the one irreversible local operation, so
@@ -3073,7 +3128,7 @@ def rm(
     """
     from llama.cli_select import build_selector
 
-    other_selector = any([held, packaged, state, artist, run])
+    other_selector = any([held, packaged, state, artist, run, profile])
     if name is not None and other_selector:
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
@@ -3098,10 +3153,11 @@ def rm(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             artist=artist, run=run)
+                             artist=artist, run=run, profiles=profile)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
+    _note_unknown_profiles(config, profile)
     _rm_batch(config, ledger, sel, forget=forget, suppress=suppress, yes=yes)
 
 
@@ -3180,8 +3236,6 @@ def unsuppress(name: str = typer.Argument(
 
 _ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete",
                      STATE_PAUSED: "paused"}
-_ATTENTION_HINTS = {STATE_AWAITING: "llama run approve {id}", STATE_INCOMPLETE: "llama run resume {id}",
-                    STATE_PAUSED: "llama run resume {id}"}
 
 
 def _session_json(s) -> dict:
@@ -3195,17 +3249,10 @@ def _session_json(s) -> dict:
     return {"id": s.id, "state": s.state, "updated_at": s.updated_at,
             "query": s.query, "profile": s.profile,
             "outcome": s.outcome, "failures": s.failures,
-            "resume_after": s.resume_after, "pause_reason": s.pause_reason}
-
-
-def _print_attention(sessions) -> None:
-    if not sessions:
-        return
-    typer.echo("sessions needing attention:")
-    for s in sessions:
-        label = _ATTENTION_LABELS.get(s.state, s.state)
-        hint = _ATTENTION_HINTS.get(s.state, "llama run resume {id}").format(id=s.id)
-        typer.echo(f"  {s.id:<36} {label:<18} {hint}")
+            "resume_after": s.resume_after, "pause_reason": s.pause_reason,
+            # NEXT as a runnable command: the table's column drops `llama`
+            # and the id only because both are already on the row.
+            "next": f"llama {_NEXT_STEP.get(s.state, 'run resume')} {s.id}"}
 
 
 def _by_run_rollup(config, ledger) -> list[dict]:
@@ -3250,7 +3297,7 @@ def _by_run_rollup(config, ledger) -> list[dict]:
 
 
 @app.command(rich_help_panel="Watch",
-             short_help="Global triage: session attention-list + every show's state.")
+             short_help="Every show and its state, held-for-review first (sessions: run list).")
 def status(
     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
@@ -3258,14 +3305,22 @@ def status(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
+    profile: list[str] = typer.Option(
+        [], "--profile", autocompletion=_complete_profile,
+        help="Selector: shows acquired by this standing profile (exact name; repeatable)"),
     all_shows: bool = typer.Option(False, "--all", help="Include all delivered shows"),
+    show_flags: bool = typer.Option(
+        True, "--flags/--no-flags",
+        help="Print each held show's review flags beneath its row (--no-flags: one line per show)"),
     by_run: bool = typer.Option(False, "--by-run",
                                help="Per-session show-count rollup instead of the show table "
                                     "(exclusive of selectors/--all)"),
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
-    """Global triage view: session attention-list, then every show and its
-    state, held-for-review first. Read-only — never prompts, never writes."""
+    """Every show and its state, held-for-review first. Read-only — never
+    prompts, never writes. Shows only, one row per show on stdout, so it
+    pipes (`llama status --packaged --profile funk | awk '{print $1}'`);
+    sessions needing attention are `llama run list`'s."""
     import json as _json
 
     from llama.catalog import iter_shows
@@ -3273,7 +3328,7 @@ def status(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             artist=artist, run=run)
+                             artist=artist, run=run, profiles=profile)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -3283,21 +3338,15 @@ def status(
         raise typer.Exit(1)
 
     config, _, ledger = _setup()
-    sessions = attention_sessions(config.root)
-
-    if not as_json:
-        _print_attention(sessions)
+    _note_unknown_profiles(config, profile)
 
     if by_run:
         rollup = _by_run_rollup(config, ledger)
         if as_json:
-            typer.echo(_json.dumps({
-                "sessions": [_session_json(s) for s in sessions],
-                "runs": rollup,
-            }, indent=2))
+            typer.echo(_json.dumps({"runs": rollup}, indent=2))
             return
         if not rollup:
-            typer.echo("no runs")
+            typer.echo("no runs", err=True)
             return
         for row in rollup:
             summary = "  ".join(f"{s} {n}" for s, n in row["states"].items()) or "no shows"
@@ -3320,7 +3369,6 @@ def status(
         entries = [e for e in entries if e.state != "delivered" or e.slug in keep]
     if as_json:
         typer.echo(_json.dumps({
-            "sessions": [_session_json(s) for s in sessions],
             "shows": [{
                 "slug": e.slug, "state": e.state, "artist": e.artist, "date": e.date,
                 "run": e.provenance.run if e.provenance else None,
@@ -3330,7 +3378,7 @@ def status(
         }, indent=2))
         return
     if not entries:
-        typer.echo("no shows")
+        typer.echo("no shows", err=True)
         return
     for e in entries:
         run_name = e.provenance.run if e.provenance else "?"
@@ -3341,7 +3389,7 @@ def status(
             marks.append(f"{len(e.overrides.exclude)}x-excl")
         suffix = f"  [{', '.join(marks)}]" if marks else ""
         typer.echo(f"{e.slug:42.42s} {e.state:10s} {e.artist:20.20s} {e.date:10s} {run_name}{suffix}")
-        for f in e.flags:
+        for f in e.flags if show_flags else ():
             typer.echo(f"      - {f}")
 
 

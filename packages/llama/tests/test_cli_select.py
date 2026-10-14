@@ -149,5 +149,6 @@ def test_selector_is_frozen_dataclass():
 
 def test_build_selector_profile_is_active():
     from llama.cli_select import build_selector, selector_active
-    sel = build_selector(profile="funk")
-    assert sel.profile == "funk" and selector_active(sel)
+    sel = build_selector(profiles=["funk", "jam"])
+    assert sel.profiles == frozenset({"funk", "jam"}) and selector_active(sel)
+    assert not selector_active(build_selector(profiles=[]))

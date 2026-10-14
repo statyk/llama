@@ -87,7 +87,7 @@ Everything lives under `~/.llama/` (configurable as `root` in
 │   │                            # complete | incomplete, plus the run's
 │   │                            # outcome and one {show, error} per show it
 │   │                            # lost (missing/unreadable = incomplete) —
-│   │                            # read by `llama run list`/`status`'s
+│   │                            # read by `llama run list`'s
 │   │                            # attention-list
 │   └── artists.json             # artist-less queries only: matched artists
 └── shows/<slug>/                # canonical shows library: one dir per
@@ -227,13 +227,13 @@ This is the single most confusing part of the system, so here it is plainly:
 | **Lives in** | `runs/<session>/shortlist.json` (`approved: true/false/null`) | `shows/<slug>/show.json` (`needs_review` + `review_flags`) |
 | **Set by** | You (interactive prompt, or `llama run approve`) | The pipeline (gather/vet/brief/package flags) |
 | **Cleared by** | `llama run approve <session>` | `llama fix`/`llama triage` (after you inspect) |
-| **Surfaced by** | `llama run list` (the attention-list), also fronting `llama status` | `llama status --held` |
+| **Surfaced by** | `llama run list` (the attention-list) | `llama status --held` |
 | **What it blocks** | Processing starting at all | Packaging (or delivery, if flagged during packaging) |
 
 **Gate 1** appears interactively during `llama get` ("Process which
 ranks?"), or — with `--plan`, or a `--human-gate` profile run with `--auto`
-— as a parked session showing up in `llama run list`/`llama status`'s
-attention-list with a `llama run approve <session-id>` hint. `llama run
+— as a parked session showing up in `llama run list`'s attention-list as
+`awaiting approval`; approve it with `llama run approve <session-id>`. `llama run
 approve` records your picks and then offers to process them on the spot;
 decline and it prints the resume command (`llama run resume <session-id>`)
 instead.
@@ -405,9 +405,16 @@ filter flags, reconciled by one implementation (`llama.cli_select`):
                        briefed|packaged|delivered)
 --artist SUBSTR        selector: case-insensitive substring on artist
 --run NAME             selector: shows processed by this session
+--profile NAME         selector: shows acquired by this standing profile
+                       (exact name, from provenance.json; one-off
+                       `llama get "..."` shows never match; repeatable)
 ```
 
-All filters AND together; repeated `--state` values OR together. A
+All filters AND together; repeated `--state` or `--profile` values OR
+together. A `--profile` that names no file under `profiles/` prints
+`note: no profile named '…' (profiles: …)` on stderr and still filters —
+a profile removed after it ran still owns its shows. `--profile` tab-
+completes profile names once `llama --install-completion` is set up. A
 positional show name and any selector flag are mutually exclusive ("give a
 show OR selectors, not both"). Neither given is an error naming an example
 selector, except `status` (defaults to every show) and `triage` (defaults
@@ -475,21 +482,16 @@ a run would search. The matcher is still an LLM — two calls can rank
 differently — so when you've settled on a roster, pin it (`profile
 artists --set`) and runs stop consulting the matcher at all.
 
-### `llama status [SELECTOR] [--all] [--by-run] [--json]`
-Global triage view: the session **attention-list** first, then the show
-table. Read-only — never prompts, never writes.
+### `llama status [SELECTOR] [--all] [--no-flags] [--by-run] [--json]`
+The show table. Read-only — never prompts, never writes. **Shows only**:
+sessions needing attention are `llama run list`'s, so stdout is one row per
+show and pipes cleanly — `llama status --packaged --profile funk | awk
+'{print $1}'` lists slugs. A held show also prints its review flags as
+indented lines beneath its row; `--no-flags` drops them, for a strict one
+line per show (`--json` always carries them).
+`no shows`/`no runs` go to stderr, so an empty match pipes as empty.
+`--json` is `{"shows": [...]}` (or `{"runs": [...]}` with `--by-run`).
 
-- **Attention-list:** whenever any session is awaiting approval or
-  incomplete, prints before the show table:
-
-  ```
-  sessions needing attention:
-    2026-07-27-sunday-dead-hour-2       awaiting approval   llama run approve sunday-dead-hour-2
-    2026-07-27-china-rider              incomplete          llama run resume china-rider
-  ```
-
-  Complete sessions never appear. In `--json` this becomes the `sessions`
-  key alongside `shows` (or `runs` with `--by-run`).
 - **Selectors:** the shared vocabulary above (read-only class — no held
   opt-in needed; every show is shown). `--all` includes every delivered
   show instead of the recent-5 tail.
@@ -783,12 +785,17 @@ seeded file does for you. (This is the one `--config` that means *target
 file to write*, not *config to load* — the app-wide `llama --config PATH
 <command>` spelling is unaffected.)
 
-### `llama run list [--json]`
+### `llama run list [--profile NAME ...] [--json]`
 The session **attention-list**: sessions awaiting approval or incomplete,
 newest first (complete sessions never show here — their dirs remain on
 disk harmlessly). Columns: session id, state, age (from the
-`session.json` marker, else dir mtime), criteria (`profile: <name>` or the
+`session.json` marker, else dir mtime), next step (`run approve` or
+`run resume`, to run with the session id), criteria (`profile: <name>` or the
 truncated query), and the run's outcome when it recorded one.
+`--profile NAME` keeps only that standing profile's sessions (exact name;
+repeatable). `--json` rows carry `next` as the full command
+(`llama run resume <id>`).
+`llama run rm <id>` discards a session instead.
 
 **A run that lost shows ends `incomplete`, not `complete`**, so it stays on
 this list until a `llama run resume` finishes cleanly. Per-show failures
@@ -910,9 +917,9 @@ search|winnow` re-winnow. Gone from *both* the library and the ledger (the
 ## Recipes
 
 **What's the state of everything? / What came in overnight?**
-`llama status` — the attention-list first (sessions awaiting approval or
-incomplete), then held shows with their flags, then packaged (ready to
-deliver), then in-flight. `llama status --packaged` is the ship-it
+`llama status` — held shows with their flags, then packaged (ready to
+deliver), then in-flight; `llama run list` for sessions awaiting approval
+or incomplete. `llama status --packaged` is the ship-it
 worklist; `llama deliver <show>` each one (or `llama deliver --packaged` to
 ship the whole worklist at once).
 
@@ -964,8 +971,8 @@ set structure, but is otherwise normal. Any script emcee later writes from
 it inherits the same constraint.
 
 **I ran `get --plan` (or a human-gate profile) — now what?**
-`llama run list` (or `llama status`) shows it in the attention-list with a
-`llama run approve <session-id>` hint. Approve, say yes when it offers to
+`llama run list` shows it in the attention-list as `awaiting approval`;
+`llama run approve <session-id>` it. Approve, say yes when it offers to
 process, or `llama run resume <session-id>` later if you decline.
 
 **A stage failed with an LLM error.**
@@ -1023,7 +1030,7 @@ discards the session directory (shows it already processed live on in
 | You see | It means | Do |
 |---|---|---|
 | `shortlist ready — nothing processed.` (`get --plan`) | Session parked awaiting approval | `llama run approve <session-id>`, or `llama run rm <session-id>` to discard |
-| `sessions needing attention:` (on `status`/`run list`) | A session is awaiting approval or incomplete | Follow the printed `llama run approve`/`llama run resume` hint |
+| `awaiting approval` / `incomplete` / `paused` (on `run list`) | A session is awaiting approval, lost shows, or is waiting out a usage limit | `llama run approve <id>` for the first, `llama run resume <id>` for the others |
 | `needs-review, skipped: <show>` | Gate 2: a flag was set during first-time processing | `llama show <show>` to read the flags; `llama fix <show> --overrule` if a false alarm, or the matching `fix` flag if real, or `llama triage` interactively |
 | `still held: <slug>` (from `redo`/`fix`/`triage`) | Gate 2: the show came back held after a re-run | Same as above |
 | `skipping <show>: needs review (…)` (log line) | Same as above, with the flags inline | Same |

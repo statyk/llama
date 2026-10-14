@@ -298,7 +298,7 @@ def iter_shows(root: Path, ledger: Ledger) -> list[CatalogEntry]:
 def select_shows(entries: list[CatalogEntry], *, states: set[str] | None = None,
                  artist: str | None = None,
                  run: str | None = None,
-                 profile: str | None = None) -> list[CatalogEntry]:
+                 profiles: set[str] | frozenset[str] | None = None) -> list[CatalogEntry]:
     out = list(entries)
     if states:
         out = [e for e in out if e.state in states]
@@ -306,9 +306,10 @@ def select_shows(entries: list[CatalogEntry], *, states: set[str] | None = None,
         out = [e for e in out if artist.lower() in e.artist.lower()]
     if run:
         out = [e for e in out if e.provenance and e.provenance.run == run]
-    if profile:
+    if profiles:
         # Exact, like `run`: a substring would let `funk` pick up `funky`.
-        out = [e for e in out if e.provenance and e.provenance.profile == profile]
+        # Several names OR together, like `states`.
+        out = [e for e in out if e.provenance and e.provenance.profile in profiles]
     return out
 
 

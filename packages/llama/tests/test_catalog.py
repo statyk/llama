@@ -176,4 +176,6 @@ def test_select_shows_profile_dimension():
                             provenance=p)
     es = [entry("a", "funk"), entry("b", "funky"), entry("c", None),
           entry("d", None, prov=False)]
-    assert {e.slug for e in select_shows(es, profile="funk")} == {"a"}
+    assert {e.slug for e in select_shows(es, profiles={"funk"})} == {"a"}
+    # repeatable: values OR together, like --state
+    assert {e.slug for e in select_shows(es, profiles={"funk", "funky"})} == {"a", "b"}

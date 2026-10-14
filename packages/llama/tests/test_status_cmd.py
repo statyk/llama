@@ -1,7 +1,8 @@
-"""`llama status`: shared cli_select selectors, session attention-list,
-`--by-run` (absorbing the deleted `runs` command), and the `--json` object
-shape `{"sessions": [...], "shows": [...]}` (or `{"sessions", "runs"}` with
-`--by-run`). Plan B Task 5."""
+"""`llama status`: shared cli_select selectors, `--by-run` (absorbing the
+deleted `runs` command), and the `--json` object shape `{"shows": [...]}` (or
+`{"runs": [...]}` with `--by-run`). Plan B Task 5. Shows only: the session
+attention-list lives in `llama run list`, so stdout stays one row per show and
+pipes cleanly (`llama status --packaged --profile funk | awk '{print $1}'`)."""
 import json
 from pathlib import Path
 
@@ -166,57 +167,34 @@ def test_status_state_repeatable_ors(tmp_path: Path):
     assert "gathered-1972-01-01" not in result.output
 
 
-# --- session attention-list ---
+# --- sessions are `llama run list`'s, never status's ---
 
-def test_status_attention_header_present_with_awaiting_and_incomplete(tmp_path: Path):
-    cfg = _cfg(tmp_path)
+def _attention_sessions(tmp_path):
     _session(tmp_path, "2026-07-27-a-awaiting", state=STATE_AWAITING)
     _session(tmp_path, "2026-07-27-b-crashed")   # no marker -> incomplete
-
-    result = runner.invoke(cli.app, ["--config", cfg, "status"])
-    assert result.exit_code == 0, result.output
-    assert "sessions needing attention:" in result.output
-    assert "2026-07-27-a-awaiting" in result.output
-    assert "awaiting approval" in result.output
-    assert "llama run approve 2026-07-27-a-awaiting" in result.output
-    assert "2026-07-27-b-crashed" in result.output
-    assert "incomplete" in result.output
-    assert "llama run resume 2026-07-27-b-crashed" in result.output
-
-
-def test_status_attention_shows_paused_label_and_resume_hint(tmp_path: Path):
-    cfg = _cfg(tmp_path)
-    # Deliberately NOT named "*paused*" -- the id itself must not satisfy a
-    # substring check on the word "paused", or the label assertion below
-    # would pass no matter what the label column actually says.
     ws = RunWorkspace(tmp_path, "2026-09-04-onhold")
     write_artifact(ws.criteria, Criteria(query="q"))
     mark_paused(ws, None, [], "2026-09-04T15:10:00+00:00", "five_hour", "session limit")
 
-    result = runner.invoke(cli.app, ["--config", cfg, "status"])
-    assert result.exit_code == 0, result.output
-    assert "sessions needing attention:" in result.output
-    line = next(ln for ln in result.output.splitlines()
-                if "2026-09-04-onhold" in ln)
-    assert line.split()[1] == "paused"   # the label column, exactly
-    assert "llama run resume 2026-09-04-onhold" in line
-    assert "llama run approve 2026-09-04-onhold" not in line
 
-
-def test_status_attention_header_absent_when_all_complete(tmp_path: Path):
+def test_status_never_lists_sessions(tmp_path: Path):
+    """Every stdout line is a show row, even with awaiting, incomplete and
+    paused sessions on disk -- what makes `| awk '{print $1}'` safe."""
     cfg = _cfg(tmp_path)
-    _session(tmp_path, "2026-07-27-done", state=STATE_COMPLETE)
+    _attention_sessions(tmp_path)
+    _seed_show(tmp_path, "aaa-1970-01-01", "aaa/1970-01-01", "r1")
 
     result = runner.invoke(cli.app, ["--config", cfg, "status"])
     assert result.exit_code == 0, result.output
-    assert "sessions needing attention:" not in result.output
+    assert [ln.split()[0] for ln in result.output.splitlines()] == ["aaa-1970-01-01"]
 
 
-def test_status_attention_header_absent_when_no_sessions(tmp_path: Path):
+def test_status_no_shows_note_goes_to_stderr(tmp_path: Path):
     cfg = _cfg(tmp_path)
-    result = runner.invoke(cli.app, ["--config", cfg, "status"])
+    result = runner.invoke(cli.app, ["--config", cfg, "status", "--packaged"])
     assert result.exit_code == 0, result.output
-    assert "sessions needing attention:" not in result.output
+    assert result.stdout == ""
+    assert "no shows" in result.stderr
 
 
 # --- `--by-run` (absorbs the deleted `runs` command) ---
@@ -257,13 +235,16 @@ def test_status_by_run_rejects_all(tmp_path: Path):
     assert "--by-run" in result.output
 
 
-def test_status_by_run_shows_attention_header_too(tmp_path: Path):
+def test_status_by_run_never_lists_sessions(tmp_path: Path):
     cfg = _cfg(tmp_path)
-    _session(tmp_path, "2026-07-27-a-awaiting", state=STATE_AWAITING)
+    _session(tmp_path, "2026-07-27-a-awaiting", state=STATE_AWAITING, query="awaited q")
 
     result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
     assert result.exit_code == 0, result.output
-    assert "sessions needing attention:" in result.output
+    assert "sessions needing attention:" not in result.output
+    assert "llama run approve" not in result.output
+    # the run's own rollup row is still there
+    assert [ln.split()[0] for ln in result.output.splitlines()] == ["2026-07-27-a-awaiting"]
 
 
 # --- `--json` object shape ---
@@ -277,15 +258,7 @@ def test_status_json_object_shape(tmp_path: Path):
     result = runner.invoke(cli.app, ["--config", cfg, "status", "--json"])
     assert result.exit_code == 0, result.output
     obj = json.loads(result.output)
-    assert set(obj.keys()) == {"sessions", "shows"}
-
-    assert [s["id"] for s in obj["sessions"]] == ["2026-07-27-a-awaiting"]
-    session = obj["sessions"][0]
-    assert set(session.keys()) == {"id", "state", "updated_at", "query", "profile",
-                                   "outcome", "failures",
-                                   # null off a pause; see _session_json
-                                   "resume_after", "pause_reason"}
-    assert session["state"] == STATE_AWAITING
+    assert set(obj.keys()) == {"shows"}   # sessions: `llama run list --json`
 
     assert obj["shows"][0]["slug"] == "aaa-1970-01-01"
     assert obj["shows"][0]["state"] == "packaged"
@@ -301,7 +274,7 @@ def test_status_json_by_run_shape(tmp_path: Path):
     result = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run", "--json"])
     assert result.exit_code == 0, result.output
     obj = json.loads(result.output)
-    assert set(obj.keys()) == {"sessions", "runs"}
+    assert set(obj.keys()) == {"runs"}
     row = next(r for r in obj["runs"] if r["id"] == "2026-07-16-countryish")
     assert row["query"] == "countryish bluegrass"
     assert row["states"] == {"packaged": 1}
@@ -314,3 +287,18 @@ def test_runs_command_is_gone(tmp_path: Path):
     result = runner.invoke(cli.app, ["--config", cfg, "runs"])
     assert result.exit_code != 0
     assert "No such command" in result.output
+
+
+def test_status_no_flags_drops_the_flag_lines(tmp_path: Path):
+    """Flags print by default; `--no-flags` leaves exactly one line per show,
+    so a held show pipes cleanly too."""
+    cfg = _cfg(tmp_path)
+    _seed_show(tmp_path, "held-1970-01-01", "held/1970-01-01", "r1", held=True)
+
+    shown = runner.invoke(cli.app, ["--config", cfg, "status", "--held"])
+    assert shown.exit_code == 0, shown.output
+    assert "      - two sets missing" in shown.output
+
+    plain = runner.invoke(cli.app, ["--config", cfg, "status", "--held", "--no-flags"])
+    assert plain.exit_code == 0, plain.output
+    assert [ln.split()[0] for ln in plain.output.splitlines()] == ["held-1970-01-01"]

@@ -138,8 +138,11 @@ unsigned — verify them against `SHA256SUMS`. See
     llama profile list                # every profile: name, count, query
     llama profile show sunday-dead-hour   # inspect one profile (read-only, no LLM call)
     llama get --profile sunday-dead-hour
-    llama status                     # attention-list, then every show + its state
+    llama status                     # every show + its state (pipes: one row per show)
+    llama status --packaged --profile funk   # what `deliver --packaged --profile funk` would ship
+    llama run list                   # sessions needing attention (awaiting approval, incomplete, paused)
     llama status --held              # just the shows waiting on your judgment
+                                     # (--no-flags: one line per show, for piping)
     llama status --by-run            # sessions with per-state show counts
     llama run list                   # sessions awaiting approval or incomplete,
                                      # with what each run lost and why
@@ -180,7 +183,7 @@ prompt); acting on held shows via a selector needs explicit `--held` opt-in.
 
 Two different human gates, easy to conflate: `llama run approve` answers
 "which shortlisted shows are worth processing" (gate 1) — sessions awaiting
-it show up in `llama status`/`llama run list`'s attention-list. Separately,
+it show up in `llama run list`'s attention-list. Separately,
 a processed show can be held as **needs-review** when a stage flags
 something suspicious (`needs-review, skipped: ...`, gate 2). A held show
 has **three resolutions**, driven from `llama fix` (flag-by-flag, auto-runs
