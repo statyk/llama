@@ -734,7 +734,9 @@ deliver <slug>: held for review — resolve with llama triage`.
 
 - **Single-show form:** `llama deliver <show> ...`.
 - **Batch form:** the shared selector vocabulary. `llama deliver --packaged`
-  is the ship-everything-ready sweep. Same plan/`Proceed? [y/N]`/
+  is the ship-everything-ready sweep; add `--profile <name>` to ship only
+  the shows a standing profile acquired (exact name, read from the show's
+  `provenance.json`; one-off `llama get "..."` shows never match). Same plan/`Proceed? [y/N]`/
   `--yes`, same held-opt-in rule, same per-show `FAILED <slug>: …`
   isolation.
 - `llama status --packaged` (or `llama deliver --packaged` itself, before

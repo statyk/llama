@@ -145,3 +145,9 @@ def test_selector_is_frozen_dataclass():
     with pytest.raises(Exception):
         sel.artist = "phish"
     assert isinstance(sel, Selector)
+
+
+def test_build_selector_profile_is_active():
+    from llama.cli_select import build_selector, selector_active
+    sel = build_selector(profile="funk")
+    assert sel.profile == "funk" and selector_active(sel)

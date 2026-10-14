@@ -161,6 +161,7 @@ unsigned — verify them against `SHA256SUMS`. See
                                      # (deliver then drops the library's copy of the
                                      # audio; `llama redo <show> --from package`
                                      # re-downloads it if you need to re-deliver)
+    llama deliver --packaged --profile funk  # only shows the `funk` profile acquired
     llama rm old-show --suppress     # delete a show and never offer it again
     llama history list                # broadcast history / dedup
 

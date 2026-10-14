@@ -2112,6 +2112,8 @@ def deliver(
         [], "--state", help="Selector: shows in this derived state (repeatable)"),
     artist: str = typer.Option(None, "--artist", help="Selector: substring filter on artist"),
     run: str = typer.Option(None, "--run", help="Selector: shows processed by this run"),
+    profile: str = typer.Option(
+        None, "--profile", help="Selector: shows acquired by this standing profile (exact name)"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt for a batch"),
     replace_voiced: bool = typer.Option(
         False, "--replace-voiced",
@@ -2127,7 +2129,7 @@ def deliver(
     """
     from llama.cli_select import build_selector
 
-    other_selector = any([held, packaged, state, artist, run])
+    other_selector = any([held, packaged, state, artist, run, profile])
     if name is not None and other_selector:
         typer.echo("give a show OR selectors, not both", err=True)
         raise typer.Exit(1)
@@ -2149,7 +2151,7 @@ def deliver(
 
     try:
         sel = build_selector(held=held, packaged=packaged, states=state,
-                             artist=artist, run=run)
+                             artist=artist, run=run, profile=profile)
     except LlamaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)

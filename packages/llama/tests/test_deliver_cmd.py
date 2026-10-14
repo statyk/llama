@@ -176,6 +176,45 @@ def test_deliver_packaged_selector_ships_only_ready_shows(tmp_path: Path, monkey
     assert picked == ["ready-1973-06-10"]
 
 
+def _stamp_profile(ws, slug: str, profile: str | None) -> None:
+    write_artifact(ws.provenance, Provenance(
+        performance_id=f"P/{slug}", run="r", profile=profile, dossier="d",
+        candidate=Candidate(performance_id=f"P/{slug}", collection="P",
+                            date="1973-06-10",
+                            recordings=[RecordingSummary(identifier="gd73")]),
+        processed_at="2026-07-17T00:00:00+00:00"))
+
+
+def test_deliver_packaged_profile_selector_ships_only_that_profile(tmp_path: Path, monkeypatch):
+    for slug, profile in (("funk-1973-06-10", "funk"), ("funky-1973-06-11", "funky"),
+                          ("oneoff-1973-06-12", None)):
+        _stamp_profile(build_ready(tmp_path, slug), slug, profile)
+    picked = []
+    monkeypatch.setattr(cli, "_deliver_one",
+                        lambda config, ledger, e, dest, replace_voiced=False: picked.append(e.slug))
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--packaged",
+                                "--profile", "funk", "--yes"])
+    assert r.exit_code == 0, r.output
+    assert picked == ["funk-1973-06-10"]
+
+
+def test_deliver_profile_alone_is_a_selector(tmp_path: Path, monkeypatch):
+    _stamp_profile(build_ready(tmp_path, "funk-1973-06-10"), "funk-1973-06-10", "funk")
+    picked = []
+    monkeypatch.setattr(cli, "_deliver_one",
+                        lambda config, ledger, e, dest, replace_voiced=False: picked.append(e.slug))
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "--profile", "funk", "--yes"])
+    assert r.exit_code == 0, r.output
+    assert picked == ["funk-1973-06-10"]
+
+
+def test_deliver_rejects_name_and_profile_together(tmp_path: Path):
+    r = runner.invoke(cli.app, ["--config", _cfg(tmp_path), "deliver", "someshow",
+                                "--profile", "funk"])
+    assert r.exit_code != 0
+    assert "not both" in r.output.lower()
+
+
 def test_deliver_batch_continues_past_oserror(tmp_path, monkeypatch):
     """A per-show OSError (e.g. shutil.copytree hitting disk-full/permissions)
     must be reported as FAILED and not abort the rest of the batch."""

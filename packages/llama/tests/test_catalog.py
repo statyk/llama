@@ -157,3 +157,23 @@ def test_select_shows_run_dimension():
                             provenance=prov)
     es = [entry("a", "r1"), entry("b", "r2")]
     assert {e.slug for e in select_shows(es, run="r1")} == {"a"}
+
+
+def test_select_shows_profile_dimension():
+    """Exact match on the stamped profile: `funk` must not pick up `funky`,
+    and a one-off show (profile None) or one with no provenance never matches."""
+    from llama.catalog import CatalogEntry, select_shows
+    from llama.models import Candidate, Provenance, RecordingSummary
+    from llama.workspace import ShowWorkspace
+
+    def entry(slug, profile, *, prov=True):
+        p = Provenance(performance_id=f"P/{slug}", run="r", profile=profile, dossier="",
+                       candidate=Candidate(performance_id=f"P/{slug}", collection="P",
+                                           date="1970-01-01",
+                                           recordings=[RecordingSummary(identifier="i")]),
+                       processed_at="2026-07-17T00:00:00+00:00") if prov else None
+        return CatalogEntry(slug=slug, ws=ShowWorkspace(Path("/x")), state="packaged",
+                            provenance=p)
+    es = [entry("a", "funk"), entry("b", "funky"), entry("c", None),
+          entry("d", None, prov=False)]
+    assert {e.slug for e in select_shows(es, profile="funk")} == {"a"}
