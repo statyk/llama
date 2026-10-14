@@ -432,10 +432,11 @@ and the rest of `emcee run` carries on.
 
 4. **A launchd agent**, bound to 127.0.0.1, with a working directory and log
    directory that exist (launchd starts jobs in `/`, where the server's
-   default relative `logs` directory cannot be created). Save as
-   `~/Library/LaunchAgents/com.lma-radio.mlx-audio.plist`:
+   default relative `logs` directory cannot be created). Paste this as-is:
+   the shell fills in your home directory, and `plutil` checks what it wrote:
 
-   ```xml
+   ```sh
+   cat > ~/Library/LaunchAgents/com.lma-radio.mlx-audio.plist <<EOF
    <?xml version="1.0" encoding="UTF-8"?>
    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
    <plist version="1.0">
@@ -443,21 +444,23 @@ and the rest of `emcee run` carries on.
      <key>Label</key><string>com.lma-radio.mlx-audio</string>
      <key>ProgramArguments</key>
      <array>
-       <string>/Users/<YOU>/.mlx-audio/venv/bin/python</string>
+       <string>$HOME/.mlx-audio/venv/bin/python</string>
        <string>-m</string><string>mlx_audio.server</string>
        <string>--host</string><string>127.0.0.1</string>
        <string>--port</string><string>8000</string>
-       <string>--log-dir</string><string>/Users/<YOU>/.mlx-audio/logs</string>
+       <string>--log-dir</string><string>$HOME/.mlx-audio/logs</string>
      </array>
-     <key>WorkingDirectory</key><string>/Users/<YOU>/.mlx-audio</string>
+     <key>WorkingDirectory</key><string>$HOME/.mlx-audio</string>
      <key>EnvironmentVariables</key>
      <dict><key>HF_HUB_OFFLINE</key><string>1</string></dict>
      <key>RunAtLoad</key><true/>
      <key>KeepAlive</key><true/>
-     <key>StandardOutPath</key><string>/Users/<YOU>/.mlx-audio/server.log</string>
-     <key>StandardErrorPath</key><string>/Users/<YOU>/.mlx-audio/server.log</string>
+     <key>StandardOutPath</key><string>$HOME/.mlx-audio/server.log</string>
+     <key>StandardErrorPath</key><string>$HOME/.mlx-audio/server.log</string>
    </dict>
    </plist>
+   EOF
+   plutil -lint ~/Library/LaunchAgents/com.lma-radio.mlx-audio.plist
    ```
 
    Start, restart and stop it with:
@@ -468,7 +471,10 @@ and the rest of `emcee run` carries on.
 
    `curl -s http://127.0.0.1:8000/` answers when it is up. A generation
    failure's details are in `~/.mlx-audio/server.log` — emcee's error points
-   you there.
+   you there. `Bootstrap failed: 5: Input/output error` is launchd's
+   catch-all: usually the plist does not parse (`plutil -lint` it) or the job
+   is already loaded (`bootout` first); for anything else, read
+   `~/.mlx-audio/server.log`.
 5. **emcee config:**
 
        [tts.mlx_audio]
