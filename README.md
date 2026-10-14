@@ -463,13 +463,23 @@ and the rest of `emcee run` carries on.
    plutil -lint ~/Library/LaunchAgents/com.lma-radio.mlx-audio.plist
    ```
 
-   Start, restart and stop it with:
+   Start it once. launchd then loads it by itself at every login and
+   restarts it if it dies, so there is no per-session start command:
 
        launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lma-radio.mlx-audio.plist
+
+   `curl -s http://127.0.0.1:8000/` answers when it is up. Later, only as
+   needed (not part of setup):
+
+       # restart a running server, e.g. after upgrading mlx-audio:
        launchctl kickstart -k gui/$(id -u)/com.lma-radio.mlx-audio
+       # stop and unregister it (killing the process alone won't do;
+       # KeepAlive restarts it). Start it again with `bootstrap`, not
+       # `kickstart`. It also comes back at the next login unless you
+       # `launchctl disable gui/$(id -u)/com.lma-radio.mlx-audio`:
        launchctl bootout gui/$(id -u)/com.lma-radio.mlx-audio
 
-   `curl -s http://127.0.0.1:8000/` answers when it is up. A generation
+   A generation
    failure's details are in `~/.mlx-audio/server.log` — emcee's error points
    you there. `Bootstrap failed: 5: Input/output error` is launchd's
    catch-all: usually the plist does not parse (`plutil -lint` it) or the job
