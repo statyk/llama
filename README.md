@@ -296,6 +296,18 @@ print instead) and point `[station] root` at the same folder llama's
     # bed = "/path/to/bed.wav" # instrumental bed under every DJ clip (24kHz mono
                                # 16-bit WAV; per-presenter override via its own `bed`)
 
+**Preparing a bed file.** A bed must be a 24 kHz, mono, 16-bit PCM WAV — it is
+mixed sample-for-sample with the voice PCM, and emcee does not resample: any
+other format is refused with an error naming what it found. Convert with either
+
+    ffmpeg -i input.mp3 -ac 1 -ar 24000 -c:a pcm_s16le bed.wav
+    sox input.mp3 -r 24000 -c 1 -b 16 bed.wav    # needs sox built with mp3 support
+
+and check with `ffprobe -hide_banner bed.wav` (expect `pcm_s16le, 24000 Hz,
+mono`). `bed_gain_db` (default −20) attenuates relative to the file's own level,
+so a hot or quiet source stays hot or quiet under the voice; adding
+`-af loudnorm=I=-16` to the ffmpeg line gives every bed the same starting point.
+
 **Assigning a presenter to a llama profile.** `[assign]` maps the llama
 profile name stamped at `manifest["source"]["profile"]` to a presenter and
 an on-air title — this is the entire handoff between the two tools:
