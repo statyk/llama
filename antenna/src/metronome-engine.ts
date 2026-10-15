@@ -53,6 +53,11 @@ type WriteResult = "put" | "identical" | "null" | "cap" | "failed";
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** An alarm-confirmed tick: a PUT, an identical body, or nothing to build by rule. */
 const confirms = (r: WriteResult) => r === "put" || r === "identical" || r === "null";
+/** The boundary the last genuine tick built for (its re-armed target less one segment and the slack), or now if
+ * later: a duplicate or a renew between an early tick and its boundary rebuilds that tick's playlist, never an
+ * older one. With no stored target, or one renew armed, this is now. */
+const tickBoundary = (lease: PlayLease, lastTarget: number | null, now: number) =>
+  Math.max(now, (lastTarget ?? now) - gridOf(lease.horizon).dMs - ALARM_SLACK_MS);
 const copy = (s: MetronomeState): MetronomeState => ({ ...s, putTimes: [...s.putTimes], alarmTimes: [...s.alarmTimes] });
 
 export class MetronomeEngine {
@@ -193,12 +198,14 @@ export class MetronomeEngine {
     }
     // 2b. A duplicate or retried delivery: an alarm is still pending, which a
     //     genuine delivery never sees while its handler runs (getAlarm() is null
-    //     then, unless setAlarm ran since). Idempotent: build for now and PUT
-    //     only if the bytes differ; no re-arm, lastTarget unchanged, not counted.
+    //     then, unless setAlarm ran since). Idempotent: build for now, or for the
+    //     last tick's boundary if later, and PUT only if the bytes differ; no
+    //     re-arm, lastTarget unchanged, not counted.
     const pending = await this.port.getAlarm();
     this.episode("duplicate", pending !== null, "duplicate", "metronome-duplicate", { pending });
     if (pending !== null) {
-      if (confirms(await this.write(tx, cur, now, now, cfg, "alarm"))) s.lastAlarmGoodAt = now;
+      const at = tickBoundary(cur, s.lastTarget, now);
+      if (confirms(await this.write(tx, cur, at, now, cfg, "alarm"))) s.lastAlarmGoodAt = now;
       await this.flush(tx);
       return;
     }
@@ -281,9 +288,10 @@ export class MetronomeEngine {
                  { verdictAt: s.lease?.verdictAt ?? null, source: "renew" });
     this.episode("hold", cur?.kind === "hold", "hold", "metronome-hold", { verdictAt: cur?.verdictAt ?? null });
     // 4. Write once now under an unexpired play lease: the live playlist, or the off-air notice.
+    //    Never older than the last tick's boundary (an early tick has already built past now).
     let wrote: boolean | null = null;
     if (cur !== null && cur.kind === "play") {
-      const r = await this.write(tx, cur, now, now, cfg, "renew");
+      const r = await this.write(tx, cur, tickBoundary(cur, s.lastTarget, now), now, cfg, "renew");
       wrote = r === "put" ? true : r === "failed" ? false : null;
     }
     // 5. Arm only while live and none is pending; otherwise delete any pending alarm.

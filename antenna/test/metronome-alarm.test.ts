@@ -51,6 +51,35 @@ describe("alarm: the tick", () => {
     expect(port.alarmAt).toBe(target(1002)); // never the same target again: no hot loop
   });
 
+  it("an early tick, then a duplicate still before its boundary: the same bytes, no PUT, no re-arm", async () => {
+    const { port, engine } = await playing();
+    await deliver(port, engine, target(1001) - 40); // early: builds for boundary 1001
+    const puts = port.puts();
+    const body = port.body()!;
+    port.ops.length = 0;
+    await deliverDuplicate(port, engine, target(1001) - 35); // still 10 ms before boundary 1001
+    expect(port.puts()).toBe(puts);
+    expect(port.body()).toBe(body);
+    expect(seqOf(port.body()!)).toBe(seqOf(body));
+    expect(port.alarmAt).toBe(target(1002));
+    expect(port.store.get("lastTarget")).toBe(target(1002));
+    expect(port.ops.filter((o) => o.startsWith("setAlarm") || o === "deleteAlarm")).toEqual([]);
+  });
+
+  it("an early tick, then a renew still before its boundary: the same body, no PUT, MEDIA-SEQUENCE never goes backwards", async () => {
+    const { port, engine } = await playing();
+    await deliver(port, engine, target(1001) - 40); // early: builds for boundary 1001
+    const puts = port.puts();
+    const body = port.body()!;
+    port.t = target(1001) - 35; // still 10 ms before boundary 1001
+    const st = await engine.renew(lease(port.t));
+    expect(st).toMatchObject({ applied: "accepted", wrote: null });
+    expect(port.puts()).toBe(puts);
+    expect(seqOf(port.body()!)).toBeGreaterThanOrEqual(seqOf(body));
+    expect(port.body()).toBe(body);
+    expect(port.alarmAt).toBe(target(1002));
+  });
+
   it("a second delivery for the same boundary rebuilds identical bytes: no PUT, still a confirmed tick", async () => {
     const { port, engine } = await playing();
     await deliver(port, engine, target(1001) + 3);
@@ -166,6 +195,7 @@ describe("alarm: when it must not tick", () => {
       expect(port.body()).toBe(body);
       expect(port.alarmAt).toBeNull();
       expect(port.ops.filter((o) => o.startsWith("setAlarm") || o === "put")).toEqual([]);
+      expect(port.events("metronome-alarm-error")).toEqual([]); // the step-2 return, not a caught exception
     }
   });
 
