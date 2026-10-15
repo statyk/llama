@@ -68,6 +68,21 @@ export class MetronomeEngine {
     return this.serial(() => this.renewSteps(lease ?? null));
   }
 
+  /** The alarm chain's tick. Never throws to the runtime: an escaping
+   * exception would hand the chain to the platform's 6-retry backoff. */
+  async alarm(): Promise<void> {
+    try {
+      // 1. The rollback switch.
+      if (!this.port.switchOn()) {
+        await this.port.deleteAlarm();
+        return;
+      }
+      await this.serial(() => this.alarmSteps());
+    } catch (e) {
+      this.port.log("metronome-alarm-error", { error: msg(e) });
+    }
+  }
+
   private serial<T>(fn: () => Promise<T>): Promise<T> {
     const run = this.chain.then(fn, fn);
     this.chain = run.catch(() => undefined);
@@ -159,6 +174,66 @@ export class MetronomeEngine {
     this.episode("put-failed", false, "", "", {});
     tx.s.lastBody = body;
     return "put";
+  }
+
+  private async alarmSteps(): Promise<void> {
+    const now = this.port.now();
+    const cfg = this.port.config();
+    // 2. Not a current unblocked play lease (none, hold, blocked, expired):
+    //    delete any pending alarm and stop. The next renew restarts the chain.
+    const tx = await this.begin();
+    const s = tx.s;
+    const cur = currentLease(s.lease, now);
+    this.episode("expired", s.lease !== null && cur === null, String(s.lease?.verdictAt), "metronome-expired",
+                 { verdictAt: s.lease?.verdictAt ?? null, source: "alarm" });
+    if (cur === null || cur.kind !== "play" || cur.blocked) {
+      await this.disarm();
+      await this.flush(tx);
+      return;
+    }
+    // 2b. A duplicate or retried delivery: an alarm is still pending, which a
+    //     genuine delivery never sees while its handler runs (getAlarm() is null
+    //     then, unless setAlarm ran since). Idempotent: build for now and PUT
+    //     only if the bytes differ; no re-arm, lastTarget unchanged, not counted.
+    const pending = await this.port.getAlarm();
+    this.episode("duplicate", pending !== null, "duplicate", "metronome-duplicate", { pending });
+    if (pending !== null) {
+      if (confirms(await this.write(tx, cur, now, now, cfg, "alarm"))) s.lastAlarmGoodAt = now;
+      await this.flush(tx);
+      return;
+    }
+    // 3. Count the invocation; at the cap, do not re-arm.
+    if (!capAllows(s.alarmTimes, now, MAX_ALARMS_PER_MINUTE)) {
+      this.episode("alarm-cap", true, "alarm-cap", "metronome-alarm-cap", { cap: MAX_ALARMS_PER_MINUTE });
+      await this.flush(tx);
+      return;
+    }
+    this.episode("alarm-cap", false, "", "", {});
+    s.alarmTimes = recordTime(s.alarmTimes, now, MAX_ALARMS_PER_MINUTE);
+    const prevTarget = s.lastTarget;
+    const lateMs = prevTarget === null ? 0 : now - prevTarget;
+    this.episode("late", lateMs > LATE_LOG_MS, "late", "metronome-late", { lateMs, target: prevTarget });
+    // 4. Re-arm first, only while live, to the first boundary + 25 ms strictly
+    //    after max(now, lastTarget): no hot loop when an alarm arrives before
+    //    the DO's clock passes its boundary.
+    if (isLive(s.lease, now, cfg)) {
+      const target = nextTarget(gridOf(cur.horizon), Math.max(now, prevTarget ?? Number.NEGATIVE_INFINITY));
+      try {
+        await this.port.setAlarm(target);
+      } catch (e) {
+        this.port.log("metronome-rearm-failed", { error: msg(e), target });
+        await this.flush(tx);
+        return;
+      }
+      s.lastTarget = target;
+    }
+    // 5. Build for the due boundary (an early alarm builds for its own
+    //    boundary) and write unless identical, capped and bounded.
+    const due = Math.max(now, (prevTarget ?? now) - ALARM_SLACK_MS);
+    const r = await this.write(tx, cur, due, now, cfg, "alarm");
+    // 6. Alarm-confirmed ticks: a PUT, an identical body, or nothing to build by rule.
+    if (confirms(r)) s.lastAlarmGoodAt = now;
+    await this.flush(tx);
   }
 
   private async renewSteps(raw: unknown): Promise<MetronomeStatus> {

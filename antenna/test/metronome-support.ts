@@ -111,6 +111,20 @@ export function engineAt(t: number) {
   return { port, engine: new MetronomeEngine(port) };
 }
 
+/** Deliver the pending alarm at time t: the runtime consumes it, then runs alarm(). */
+export async function deliver(port: FakePort, engine: MetronomeEngine, t = port.alarmAt!) {
+  port.t = t;
+  port.alarmAt = null;
+  await engine.alarm();
+}
+
+/** Deliver the alarm again at time t while the re-armed one is still pending
+ * (at-least-once delivery): the pending alarm stays set. */
+export async function deliverDuplicate(port: FakePort, engine: MetronomeEngine, t: number) {
+  port.t = t;
+  await engine.alarm();
+}
+
 /** Let queued microtasks run (for interleaving tests). */
 export const settle = () => new Promise<void>((r) => setTimeout(r, 0));
 
