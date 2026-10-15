@@ -10,6 +10,11 @@ export interface Horizon {
   fallback_version: string | null;
 }
 
+/** The grid constant transmitter always writes: 441 * 1024 / 44100 s. A
+ * horizon with any other d is refused (the clock's spend bounds) and is never
+ * part of a metronome lease. */
+export const GRID_D = 10.24;
+
 export interface Grid {
   epochMs: number;
   dMs: number;

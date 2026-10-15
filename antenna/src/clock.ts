@@ -1,6 +1,6 @@
 import type { BucketLike } from "./bucket";
 import type { AlertCondition } from "./conditions";
-import { type Grid, type Horizon, gridOf, indexAt, startMs } from "./grid";
+import { GRID_D, type Grid, type Horizon, gridOf, indexAt, startMs } from "./grid";
 import type { GuardOutcome } from "./guard";
 import { reconcileIndex } from "./indexpage";
 import { type LiveSource, putLive, renderLive } from "./live";
@@ -121,8 +121,7 @@ export interface ClockResult {
 // bound is absolute and never derived from inputs alone: d comes from
 // state/horizon.json and loopMs from a wrangler var, and either could
 // otherwise turn the cap into thousands of Class-A writes per invocation.
-/** The grid constant transmitter always writes: 441 * 1024 / 44100 s. */
-export const GRID_D = 10.24;
+export { GRID_D };
 /** The spec's run length: write until scheduledTime + 75 s, never longer. */
 export const MAX_LOOP_MS = 75_000;
 /** ceil(75 / 10.24) + 2: the per-invocation PUT ceiling, whatever the inputs. */
