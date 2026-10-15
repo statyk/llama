@@ -31,6 +31,7 @@ function playLease(nowMs: number): Lease {
 const storedKeys = () =>
   runInDurableObject(stub(), async (_o: Metronome, state) => [...(await state.storage.list()).keys()].sort());
 const pendingAlarm = () => runInDurableObject(stub(), (_o: Metronome, state) => state.storage.getAlarm());
+const alarmTimes = () => runInDurableObject(stub(), (_o: Metronome, state) => state.storage.get<number[]>("alarmTimes"));
 
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -65,8 +66,8 @@ describe("the Metronome Durable Object", () => {
     await s.renew(playLease(Date.now()));
     const armed = await pendingAlarm();
     expect(await runDurableObjectAlarm(s)).toBe(true);
-    // The handler saw no pending alarm (getAlarm() is null while it runs), so it
-    // ticked as a genuine delivery and re-armed later, not as a duplicate.
+    // runDurableObjectAlarm deletes the alarm before calling alarm(), so this pins only the engine's
+    // genuine-delivery branch (re-arm, not duplicate); the next test lets the runtime deliver the alarm itself.
     expect(await pendingAlarm()).toBeGreaterThan(armed!);
     expect(logs.mock.calls.flat().join("\n")).not.toContain("metronome-duplicate");
     // A stall (no alarm-confirmed tick for > 30 s): the next renew counts it.
@@ -74,6 +75,35 @@ describe("the Metronome Durable Object", () => {
     await runInDurableObject(s, (_o: Metronome, state) => state.storage.put("playSince", Date.now() - 60_000));
     expect((await s.renew(null)).stalls).toBe(1);
     expect(await storedKeys()).toEqual([...STORAGE_KEYS].sort());
+  });
+
+  it("a genuine delivery (the runtime's own, not runDurableObjectAlarm) sees no pending alarm: counted, re-armed later, never a duplicate", async () => {
+    const logs = vi.spyOn(console, "error").mockImplementation(() => {});
+    const seen: (number | null)[] = [];
+    await runInDurableObject(stub(), (o: Metronome, state) => {
+      const self = o as unknown as { env: AntennaEnv };
+      self.env = { ...self.env, METRONOME: "on" };
+      // The engine's port calls this same storage object: record what getAlarm() answers inside alarm().
+      const real = state.storage.getAlarm.bind(state.storage);
+      vi.spyOn(state.storage, "getAlarm").mockImplementation(async () => { const v = await real(); seen.push(v); return v; });
+    });
+    const now = Date.now();
+    const epoch = new Date(now - 100 * D - (D - 600)).toISOString(); // 600 ms before boundary 101
+    const lease: Lease = { kind: "play", verdictAt: now, validUntil: now + METRONOME_LEASE_MS, blocked: false,
+                           horizon: { epoch_id: "e1", epoch, d: 10.24, first: 0, last: 1_000_000, published_at: epoch,
+                                      container: "adts", fallback_version: "v1" },
+                           fallback: { len: 7, notice: "fallback/v1/notice.aac" } };
+    expect((await stub().renew(lease)).applied).toBe("accepted");
+    const armed = await pendingAlarm();
+    expect(armed).toBeGreaterThan(now);
+    expect(armed).toBeLessThan(now + 1_000);
+    seen.length = 0;
+    // alarmTimes is recorded only on the genuine path (a duplicate is not counted).
+    await vi.waitFor(async () => expect((await alarmTimes())?.length ?? 0).toBeGreaterThanOrEqual(1),
+                     { timeout: 5_000, interval: 50 });
+    expect(seen).toEqual([null]); // the one getAlarm() inside alarm() answered null
+    expect(await pendingAlarm()).toBeGreaterThan(armed!);
+    expect(logs.mock.calls.flat().join("\n")).not.toContain("metronome-duplicate");
   });
 
   it("state lives in storage: after eviction (as at a deploy) the lease and the pending alarm are still there", async () => {

@@ -90,6 +90,22 @@ describe("alarm: the tick", () => {
     expect(port.store.get("lastAlarmGoodAt")).toBe(target(1001) + 9);
   });
 
+  it("a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick", async () => {
+    const { port, engine } = await playing();
+    port.bucket.failPuts.add("live.m3u8");
+    await deliver(port, engine, target(1001) + 3); // re-armed, then its PUT failed: lastBody null, tick unconfirmed
+    expect(port.store.get("lastBody")).toBeNull();
+    expect(port.store.get("lastAlarmGoodAt") ?? null).toBeNull();
+    port.bucket.failPuts.delete("live.m3u8");
+    const puts = port.puts();
+    await deliverDuplicate(port, engine, target(1001) + 9); // at-least-once: the retry finds the re-armed alarm pending
+    expect(port.puts()).toBe(puts + 1);
+    expect(port.body()).toContain("seg/e1/1013.aac");
+    expect(port.store.get("lastAlarmGoodAt")).toBe(target(1001) + 9);
+    expect(port.alarmAt).toBe(target(1002));
+    expect(port.store.get("lastTarget")).toBe(target(1002));
+  });
+
   it("duplicates after a completed tick (an alarm still pending): no PUT, no re-arm, lastTarget unchanged", async () => {
     const { port, engine } = await playing();
     await deliver(port, engine, target(1001) + 3);
@@ -260,6 +276,7 @@ describe("alarm: caps and failures", () => {
     expect(port.puts()).toBe(10);
     expect(port.events("metronome-cap").length).toBeGreaterThanOrEqual(1);
     expect(port.alarmAt).not.toBeNull();
+    expect(port.store.get("lastAlarmGoodAt") ?? null).toBeNull(); // a cap-skipped write is not a confirmed tick
   });
 
   it("a failed re-arm logs metronome-rearm-failed and returns without writing", async () => {

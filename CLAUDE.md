@@ -297,6 +297,7 @@ players sit at the wall clock with ~123 s of runway against a late cron fire.
 Keep lookahead = hold-back (hugo's dead-clock check dates the playlist by its
 own hold-back); a lookahead alone adds no runway. Phase-2 SDD record:
 `docs/superpowers/2026-10-12-playout-phase2-sdd/`.
+
 **The metronome** (`antenna/src/metronome{,-core,-engine}.ts`; spec `docs/superpowers/specs/2026-10-14-antenna-metronome-design.md`). With the var `METRONOME` exactly `"on"`, one SQLite-backed Durable Object (`Metronome`, `idFromName("metronome")`, binding `METRONOME_DO`, migration v1 `new_sqlite_classes`) writes `live.m3u8` from an alarm re-armed at every boundary + 25 ms. It works under a 15-minute lease that cron renews every minute over RPC (`renew(play | hold | null)`), carrying the guard's verdict, the horizon and the fallback. The object never reads R2 and never decides blocked. It accepts a blocked lease or a hold unconditionally, and an unblocked one only when it is strictly newer by `verdictAt`; it computes expiry on its own clock. Cron's own loop runs only as the fallback, raising `metronome-down`: when renew throws or times out (15 s), when a play lease is not accepted or not written, or when two consecutive renews find the chain stalled for over 30 s. Its own spend bounds:
 - at most 10 PUTs and at most 12 alarms per rolling minute;
 - a 5 s bound on each PUT;
