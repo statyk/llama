@@ -25,6 +25,8 @@ export interface ClockEnv {
   LOOP_SECONDS?: string;
   LIVE_MAX_AGE?: string;
   LEAD_FLOOR_HOURS?: string;
+  /** The metronome's rollback switch: only the exact string "on" enables it; anything else is off. */
+  METRONOME?: string;
 }
 
 function num(v: string | undefined, fallback: number): number {

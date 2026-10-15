@@ -1,13 +1,20 @@
 /** The guard's price table and spend arithmetic (spec "Cost guard"). Prices
  * and allowances are Cloudflare's published ones (Workers Paid, R2 Standard),
- * checked 2026-10-11; the $5 Workers Paid base is part of every total, so
- * monthly_budget_usd includes it. Workers CPU time is not metered: the dataset
- * exposes it only as percentiles and the clock's CPU is bounded by design. */
+ * checked 2026-10-11; the Durable Objects meters (Workers Paid) were checked
+ * 2026-10-14 on developers.cloudflare.com/durable-objects/platform/pricing/
+ * (metronome spec, "Cost guard: Durable Object meters"). The $5 Workers Paid
+ * base is part of every total, so monthly_budget_usd includes it. Not metered,
+ * each bounded by design instead: Workers CPU time (the dataset exposes it only
+ * as percentiles), DO rows read and DO stored bytes (the metronome's fixed key
+ * set and capped invocations; `durableObjectsStorageGroups` returns no rows for
+ * this account). */
 
 import type { Period } from "./period";
 
-export type Meter = "workersRequests" | "r2ClassA" | "r2ClassB" | "r2StorageGbMonth";
-export const METERS: Meter[] = ["workersRequests", "r2ClassA", "r2ClassB", "r2StorageGbMonth"];
+export type Meter = "workersRequests" | "r2ClassA" | "r2ClassB" | "r2StorageGbMonth" | "doRequests" | "doDurationGbS" |
+  "doRowsWritten";
+export const METERS: Meter[] = ["workersRequests", "r2ClassA", "r2ClassB", "r2StorageGbMonth", "doRequests",
+                                "doDurationGbS", "doRowsWritten"];
 
 export interface PriceTable {
   baseUsd: number;
@@ -21,6 +28,10 @@ export const PRICES: PriceTable = {
     r2ClassA: { included: 1_000_000, usdPerUnit: 4.5 / 1_000_000 },
     r2ClassB: { included: 10_000_000, usdPerUnit: 0.36 / 1_000_000 },
     r2StorageGbMonth: { included: 10, usdPerUnit: 0.015 },
+    // Durable Objects (requests include RPC sessions and alarm invocations).
+    doRequests: { included: 1_000_000, usdPerUnit: 0.15 / 1_000_000 },
+    doDurationGbS: { included: 400_000, usdPerUnit: 12.5 / 1_000_000 },
+    doRowsWritten: { included: 50_000_000, usdPerUnit: 1.0 / 1_000_000 },
   },
 };
 
@@ -37,11 +48,15 @@ export function priceUsage(u: Usage, p: PriceTable = PRICES): { totalUsd: number
   return { totalUsd, perMeterUsd };
 }
 
-/** Request counts from the analytics read (storage is reported separately). */
+/** Counts from the analytics read (R2 storage is reported separately). */
 export interface OpCounts {
   workersRequests: number;
   r2ClassA: number;
   r2ClassB: number;
+  doRequests: number;
+  /** GB-s (the dataset's `duration`: activeTime x 0.128 GB, measured 2026-10-14). */
+  doDurationGbS: number;
+  doRowsWritten: number;
 }
 
 export interface Reading {
@@ -89,12 +104,18 @@ export function evaluateSpend(r: Reading, period: Period, nowMs: number, budgetU
     r2ClassA: r.periodToDate.r2ClassA,
     r2ClassB: r.periodToDate.r2ClassB,
     r2StorageGbMonth: (gb * elapsedMs) / STORAGE_MONTH_MS,
+    doRequests: r.periodToDate.doRequests,
+    doDurationGbS: r.periodToDate.doDurationGbS,
+    doRowsWritten: r.periodToDate.doRowsWritten,
   };
   const projected: Usage = {
     workersRequests: periodToDate.workersRequests + rate("workersRequests") * remainingMs,
     r2ClassA: periodToDate.r2ClassA + rate("r2ClassA") * remainingMs,
     r2ClassB: periodToDate.r2ClassB + rate("r2ClassB") * remainingMs,
     r2StorageGbMonth: (gb * (period.endMs - period.startMs)) / STORAGE_MONTH_MS,
+    doRequests: periodToDate.doRequests + rate("doRequests") * remainingMs,
+    doDurationGbS: periodToDate.doDurationGbS + rate("doDurationGbS") * remainingMs,
+    doRowsWritten: periodToDate.doRowsWritten + rate("doRowsWritten") * remainingMs,
   };
   return {
     atMs: nowMs,

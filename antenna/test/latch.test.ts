@@ -7,7 +7,8 @@ const H = 3_600_000;
 const T0 = Date.parse("2026-10-20T00:00:00Z");
 const P1 = { startMs: Date.parse("2026-10-11T00:00:00Z"), endMs: Date.parse("2026-11-11T00:00:00Z") };
 const P2 = { startMs: P1.endMs, endMs: Date.parse("2026-12-11T00:00:00Z") };
-const usage = { workersRequests: 0, r2ClassA: 0, r2ClassB: 0, r2StorageGbMonth: 0 };
+const usage = { workersRequests: 0, r2ClassA: 0, r2ClassB: 0, r2StorageGbMonth: 0, doRequests: 0, doDurationGbS: 0,
+                doRowsWritten: 0 };
 
 function ok(atMs: number, actualUsd: number, projectedUsd: number, budgetUsd = 15, period = P1): Attempt {
   const evaluation: Evaluation = { atMs, actualUsd, projectedUsd, budgetUsd, periodToDate: usage, projected: usage,

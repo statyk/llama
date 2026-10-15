@@ -255,6 +255,36 @@ describe("mergeLostRace", () => {
   });
 });
 
+describe("guardStep with the metronome on (empty is not zero)", () => {
+  const ON = { ...ENV, METRONOME: "on" };
+
+  it("an empty recent Durable Object window is a failed reading while METRONOME is on, and fine while off", async () => {
+    const empty = usageResponse({ dosRecent: null });
+    const on = new MemoryBucket();
+    await step(on, cloud({ usage: empty }), T0, ON);
+    expect(on.json(GUARD_KEY)).toMatchObject({ last_success: null, last_error: expect.stringMatching(/metronome is on/) });
+    const off = new MemoryBucket();
+    await step(off, cloud({ usage: empty }), T0, ENV);
+    expect(off.json(GUARD_KEY)).toMatchObject({ last_success: new Date(T0).toISOString(), last_error: null });
+  });
+
+  it("only the exact string \"on\" counts", () => {
+    expect(guardConfigFromEnv(ON).metronomeOn).toBe(true);
+    for (const v of [undefined, "off", "On", "on ", "1", "true"]) {
+      expect(guardConfigFromEnv({ ...ENV, METRONOME: v }).metronomeOn).toBe(false);
+    }
+  });
+
+  it("stores all seven meters in guard.json", async () => {
+    const bucket = new MemoryBucket();
+    await step(bucket, cloud(), T0, ON);
+    const ev = bucket.json(GUARD_KEY).evaluation;
+    expect(Object.keys(ev.period_to_date).sort()).toEqual(["doDurationGbS", "doRequests", "doRowsWritten", "r2ClassA",
+                                                          "r2ClassB", "r2StorageGbMonth", "workersRequests"]);
+    expect(ev.period_to_date).toMatchObject({ doRequests: 90_000, doDurationGbS: 600, doRowsWritten: 150_000 });
+  });
+});
+
 describe("guardConfigFromEnv", () => {
   it("bounds the cadence and blind window so a typo cannot weaken the guard", () => {
     expect(guardConfigFromEnv(ENV)).toMatchObject({ evalIntervalMs: 900_000, blindAfterMs: 21_600_000,

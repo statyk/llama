@@ -93,11 +93,21 @@ export function fakeFetch(routes: Record<string, Route>) {
 export const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 
-/** A canned account-scoped response, shaped as the API returns it. */
+/** Durable Object usage for usageResponse: [requests, duration GB-s, rowsWritten]. */
+export type DoUsage = [number, number, number];
+
+/** A canned account-scoped response, shaped as the API returns it. The DO
+ * defaults are a metronome's: ~9 days in, inside every allowance. A DO range
+ * with no activity is `[]` in the API (`null` here). */
 export function usageResponse(o: { workers?: number; workersRecent?: number; ops?: Record<string, number>;
-                                   opsRecent?: Record<string, number>; buckets?: [number, number][] } = {}) {
+                                   opsRecent?: Record<string, number>; buckets?: [number, number][];
+                                   dos?: DoUsage | null; dosRecent?: DoUsage | null } = {}) {
   const ops = (m: Record<string, number>) =>
     Object.entries(m).map(([actionType, requests]) => ({ sum: { requests }, dimensions: { actionType } }));
+  const inv = (d: DoUsage | null) => (d === null ? [] : [{ sum: { requests: d[0] } }]);
+  const per = (d: DoUsage | null) => (d === null ? [] : [{ sum: { duration: d[1], rowsWritten: d[2] } }]);
+  const dos = o.dos === undefined ? [90_000, 600, 150_000] as DoUsage : o.dos;
+  const dosRecent = o.dosRecent === undefined ? [1_250, 8, 2_000] as DoUsage : o.dosRecent;
   return {
     data: { viewer: { accounts: [{
       workersToDate: [{ sum: { requests: o.workers ?? 40_000 } }],
@@ -106,6 +116,10 @@ export function usageResponse(o: { workers?: number; workersRecent?: number; ops
       r2Recent: ops(o.opsRecent ?? { PutObject: 3_000, GetObject: 4_000 }),
       storage: (o.buckets ?? [[1.4e9, 2e6]]).map(([payloadSize, metadataSize], i) =>
         ({ max: { payloadSize, metadataSize }, dimensions: { bucketName: `b${i}` } })),
+      doToDate: inv(dos),
+      doRecent: inv(dosRecent),
+      doPeriodicToDate: per(dos),
+      doPeriodicRecent: per(dosRecent),
     }] } },
     errors: null,
   };

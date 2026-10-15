@@ -13,7 +13,7 @@
  * the raise. */
 
 import type { Period } from "./period";
-import { type Evaluation, overThreshold, PRICES, type Usage } from "./pricing";
+import { type Evaluation, type Meter, METERS, overThreshold, PRICES, type Usage } from "./pricing";
 
 export const GUARD_KEY = "state/guard.json";
 export const BUDGET_KEY = "state/budget.json";
@@ -120,8 +120,11 @@ export type Attempt =
 
 function stored(e: Evaluation, baseBudgetUsd: number): StoredEvaluation {
   const r4 = (x: number) => Math.round(x * 10_000) / 10_000;
-  const usage = (u: Usage): Usage => ({ workersRequests: Math.round(u.workersRequests), r2ClassA: Math.round(u.r2ClassA),
-                                        r2ClassB: Math.round(u.r2ClassB), r2StorageGbMonth: r4(u.r2StorageGbMonth) });
+  // Every meter, so guard.json shows all of them: counts rounded to integers,
+  // the fractional meters (GB-month, GB-s) to 4 places.
+  const fractional: ReadonlySet<Meter> = new Set<Meter>(["r2StorageGbMonth", "doDurationGbS"]);
+  const usage = (u: Usage): Usage =>
+    Object.fromEntries(METERS.map((m) => [m, fractional.has(m) ? r4(u[m]) : Math.round(u[m])])) as Usage;
   return { at: iso(e.atMs), actual_usd: r4(e.actualUsd), projected_usd: r4(e.projectedUsd), budget_usd: e.budgetUsd,
            base_budget_usd: baseBudgetUsd, period_to_date: usage(e.periodToDate), projected: usage(e.projected),
            unknown_action_types: e.unknownActionTypes };

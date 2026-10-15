@@ -3,7 +3,8 @@ import { guardConditions, READING_WARN_MS } from "../src/conditions";
 import { freshGuardDoc, type GuardDoc, type StoredEvaluation } from "../src/latch";
 
 const T0 = Date.parse("2026-10-20T12:00:00Z");
-const usage = { workersRequests: 0, r2ClassA: 0, r2ClassB: 0, r2StorageGbMonth: 0 };
+const usage = { workersRequests: 0, r2ClassA: 0, r2ClassB: 0, r2StorageGbMonth: 0, doRequests: 0, doDurationGbS: 0,
+                doRowsWritten: 0 };
 function withEvaluation(e: Partial<StoredEvaluation>): GuardDoc {
   return { ...freshGuardDoc(T0), last_success: new Date(T0).toISOString(),
            period: { start: "2026-10-11T00:00:00.000Z", end: "2026-11-11T00:00:00.000Z" },
