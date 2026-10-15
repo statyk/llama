@@ -3,9 +3,11 @@ import type { AlertCondition } from "./conditions";
 import { type Grid, type Horizon, gridOf, indexAt, startMs } from "./grid";
 import type { GuardOutcome } from "./guard";
 import { reconcileIndex } from "./indexpage";
-import { buildPlaylist, type FallbackIndex, isOffair, type PlaylistConfig, usableFallback } from "./playlist";
+import { type LiveSource, putLive, renderLive } from "./live";
+import type { FallbackIndex, PlaylistConfig } from "./playlist";
 
 export { type BucketLike, r2Bucket, type StoredObject } from "./bucket";
+export { LIVE_KEY } from "./live";
 
 export interface ClockConfig extends PlaylistConfig {
   loopMs: number;
@@ -113,8 +115,6 @@ export interface ClockResult {
   alerts: string[];
 }
 
-export const LIVE_KEY = "live.m3u8";
-
 // Spend is the strict surface (Cloudflare has no spending cap), so the PUT
 // bound is absolute and never derived from inputs alone: d comes from
 // state/horizon.json and loopMs from a wrangler var, and either could
@@ -165,22 +165,6 @@ export async function logAlerts(conditions: AlertCondition[], _nowMs: number, ba
 
 export function putCap(cfg: ClockConfig, dMs: number): number {
   return Math.min(MAX_PUTS, Math.ceil(cfg.loopMs / dMs) + 2);
-}
-
-/** Why off-air is in force at nowMs and no usable fallback exists, or null. */
-function offairWithoutFallback(inputs: ClockInputs, horizon: Horizon, nowMs: number, cfg: ClockConfig): string | null {
-  const inp = { nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair };
-  if (!isOffair(inp, cfg) || usableFallback(inp) !== null) return null;
-  const cause = inputs.offair
-    ? "the station is blocked (tripped or state/offair.json)"
-    : `horizon is stale (now is more than ${cfg.offairAfterMs / 1000} s past the end of segment ${horizon.last})`;
-  const missing =
-    horizon.fallback_version === null || horizon.fallback_version === ""
-      ? "horizon.fallback_version is null"
-      : inputs.fallback === null
-        ? `fallback/${horizon.fallback_version}/index.json is missing or unreadable`
-        : `fallback/${horizon.fallback_version}/index.json has len < 1`;
-  return `off-air (${cause}) but no usable fallback (${missing}): live.m3u8 written as an ENDLIST-only playlist (no notice), so players stop`;
 }
 
 /**
@@ -302,19 +286,18 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     }
     const cap = putCap(config, g.dMs);
     let lastBody: string | null = null;
+    const src: LiveSource = { horizon, fallback: inputs.fallback, offair: inputs.offair };
     const write = async (force: boolean) => {
       const nowMs = deps.now();
       // The off-air number comes from max(scheduledTime + loopMs, nowMs) plus
       // lookahead + 1 (playlist.offairSequence): constant within an on-time
       // invocation, and above every live segment listed so far even when this
       // invocation runs later than its own loop.
-      const body = buildPlaylist({ nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair,
-                                   offairSeqMs: deps.scheduledTime + config.loopMs }, config);
+      const { body, offairWithoutFallback: reason } = renderLive(src, nowMs, deps.scheduledTime + config.loopMs, config);
       // Ruling: off-air without a usable fallback writes the ENDLIST-only
       // playlist through the normal path below (cap and identical-bytes skip
       // apply), but stays loud: the notice is missing. Once per invocation.
       if (result.offairWithoutFallback === null) {
-        const reason = offairWithoutFallback(inputs, horizon, nowMs, config);
         if (reason !== null) {
           result.offairWithoutFallback = reason;
           console.error(JSON.stringify({ event: "offair-without-fallback", reason, epoch_id: horizon.epoch_id,
@@ -329,9 +312,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
         return;
       }
       if (result.puts >= cap) return;
-      await bucket.put(LIVE_KEY, body, {
-        httpMetadata: { contentType: "application/vnd.apple.mpegurl", cacheControl: `public, max-age=${config.liveMaxAge}` },
-      });
+      await putLive(bucket, body, config.liveMaxAge);
       result.puts++;
       lastBody = body;
     };
