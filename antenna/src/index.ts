@@ -3,6 +3,7 @@ import { r2Bucket } from "./bucket";
 import { ClockError, type ClockResult, configFromEnv, runClock } from "./clock";
 import type { AntennaEnv } from "./env";
 import { guardConfigFromEnv, guardStep } from "./guard";
+import { metronomeClient } from "./metronome";
 
 export { Metronome } from "./metronome";
 
@@ -23,6 +24,8 @@ export default {
         config: configFromEnv(env),
         guard: () => guardStep({ bucket, now, fetch: fetchFn, config: guardConfigFromEnv(env) }),
         alerts: alertSink(bucket, env, fetchFn, now),
+        // The rollback switch: only the exact string "on" (metronome spec).
+        metronome: env.METRONOME === "on" ? metronomeClient(env.METRONOME_DO) : undefined,
       });
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
