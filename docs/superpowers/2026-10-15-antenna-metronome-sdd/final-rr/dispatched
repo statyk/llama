@@ -1,0 +1,4 @@
+budget-min: 20
+role: reviewer
+model: opus
+what: Scoped re-review of final fix wave a35208b..76ef024

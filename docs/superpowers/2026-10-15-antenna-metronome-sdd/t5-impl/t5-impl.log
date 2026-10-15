@@ -1,0 +1,104 @@
+TypeError: engine.alarm is not a function
+ ❯ test/metronome-alarm.test.ts:267:25
+    265|     port.alarmAt = null;
+    266|     port.t = target(1001);
+    267|     const tick = engine.alarm();
+       |                         ^
+    268|     await settle();
+    269|     const renewed = engine.renew(lease(port.t, { verdictAt: port.t }));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/26]⎯
+
+ FAIL  test/metronome-alarm.test.ts > storage > the stored keys are always within the fixed set, and a full cycle uses exactly it
+TypeError: engine.alarm is not a function
+ ❯ deliver test/metronome-support.ts:118:16
+    116|   port.t = t;
+    117|   port.alarmAt = null;
+    118|   await engine.alarm();
+       |                ^
+    119| }
+    120|
+ ❯ test/metronome-alarm.test.ts:286:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/26]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  26 failed (26)
+   Start at  02:09:59
+   Duration  2.04s (transform 84%, import 9%, worker 3%, tests 3%)
+
+> typecheck
+> tsc --noEmit
+
+test/metronome-alarm.test.ts(118,18): error TS2339: Property 'alarm' does not exist on type 'MetronomeEngine'.
+test/metronome-alarm.test.ts(146,22): error TS2339: Property 'alarm' does not exist on type 'MetronomeEngine'.
+test/metronome-alarm.test.ts(267,25): error TS2339: Property 'alarm' does not exist on type 'MetronomeEngine'.
+test/metronome-support.ts(118,16): error TS2339: Property 'alarm' does not exist on type 'MetronomeEngine'.
+test/metronome-support.ts(125,16): error TS2339: Property 'alarm' does not exist on type 'MetronomeEngine'.
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  02:10:15
+   Duration  2.81s (transform 77%, import 11%, tests 7%, worker 5%)
+
+      Tests  334 passed (334)
+   Start at  02:10:23
+   Duration  8.12s (transform 64%, import 19%, worker 15%, tests 2%)
+
+  Transform  transforming modules took 10.30s · 64% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+TC_EXIT=0
+=== mutant m1
+ FAIL  test/metronome-alarm.test.ts > alarm: when it must not tick > a renew that stored a hold or a block, then threw on its alarm op: the still-pending alarm writes nothing and does not re-arm
+ FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > an accepted hold or blocked lease is stored before any alarm op, so a failing alarm op cannot lose it
+      Tests  2 failed | 332 passed (334)
+=== mutant m2
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > an alarm delivered before the DO's clock passes its boundary builds for that boundary and moves on
+      Tests  1 failed | 333 passed (334)
+=== m1 minus stored-lease assertion
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ test/metronome-alarm.test.ts:164:27
+    162|       port.ops.length = 0;
+    163|       await deliver(port, engine);
+    164|       expect(port.puts()).toBe(puts);
+       |                           ^
+=== fix1 RED
+ ❯ test/metronome-alarm.test.ts (28 tests | 2 failed) 51ms
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > an early tick, then a duplicate still before its boundary: the same bytes, no PUT, no re-arm
+AssertionError: expected 3 to be 2 // Object.is equality
+- Expected
++ Received
+- 2
++ 3
+ ❯ test/metronome-alarm.test.ts:61:25
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > an early tick, then a renew still before its boundary: the same body, no PUT, MEDIA-SEQUENCE never goes backwards
+AssertionError: expected { applied: 'accepted', …(6) } to match object { applied: 'accepted', wrote: null }
+- Expected
++ Received
+-   "wrote": null,
++   "wrote": true,
+ ❯ test/metronome-alarm.test.ts:76:16
+      Tests  2 failed | 26 passed (28)
+=== fix1 GREEN
+      Tests  336 passed (336)
+> typecheck
+> tsc --noEmit
+
+TC=0

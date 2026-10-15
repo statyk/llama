@@ -1,0 +1,356 @@
+=== RED run Thu Oct 15 01:25:59 EDT 2026
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/pricing.test.ts (15 tests | 6 failed) 18ms
+   ❯ priceUsage (5)
+     × prices each Durable Object meter through its allowance 2ms
+     × carries the published prices 3ms
+     × prices every meter: a positive, finite price and a finite allowance (no meter is free by omission) 1ms
+   ❯ evaluateSpend (7)
+     × projects each Durable Object meter from its own recent rate 1ms
+     × every meter is finite in periodToDate, projected and the stored guard.json evaluation 5ms
+   ❯ overThreshold (3)
+     × fails closed on a NaN or missing Durable Object reading 1ms
+ ❯ test/meter.test.ts (12 tests | 5 failed) 24ms
+   ❯ parseUsage (9)
+     × sums Workers requests, classes R2 operations and sums per-bucket peak storage 5ms
+     × queries both Durable Object datasets over the period and the recent window 6ms
+     × sums Durable Object rows across groups, and reads an empty range ([]) as zero 0ms
+     × fails the reading on a missing, truncated or malformed Durable Object dataset 2ms
+   ❯ assertMetronomeMetered (empty is not zero) (1)
+     × fails a reading whose recent window has no DO requests or no rows written 1ms
+ ❯ test/guard.test.ts (43 tests | 3 failed) 23ms
+   ❯ guardStep with the metronome on (empty is not zero) (3)
+     × an empty recent Durable Object window is a failed reading while METRONOME is on, and fine while off 8ms
+     × only the exact string "on" counts 0ms
+     × stores all seven meters in guard.json 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/guard.test.ts > guardStep with the metronome on (empty is not zero) > an empty recent Durable Object window is a failed reading while METRONOME is on, and fine while off
+AssertionError: expected { schema: 1, tripped: false, …(11) } to match object { last_success: null, …(1) }
+(23 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "last_error": StringMatching /metronome is on/,
+-   "last_success": null,
++   "last_error": null,
++   "last_success": "2026-10-20T12:00:00.000Z",
+  }
+
+ ❯ test/guard.test.ts:265:32
+    263|     const on = new MemoryBucket();
+    264|     await step(on, cloud({ usage: empty }), T0, ON);
+    265|     expect(on.json(GUARD_KEY)).toMatchObject({ last_success: null, las…
+       |                                ^
+    266|     const off = new MemoryBucket();
+    267|     await step(off, cloud({ usage: empty }), T0, ENV);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/14]⎯
+
+ FAIL  test/guard.test.ts > guardStep with the metronome on (empty is not zero) > only the exact string "on" counts
+AssertionError: expected undefined to be true // Object.is equality
+
+- Expected:
+true
+
++ Received:
+undefined
+
+ ❯ test/guard.test.ts:272:48
+    270|
+    271|   it("only the exact string \"on\" counts", () => {
+    272|     expect(guardConfigFromEnv(ON).metronomeOn).toBe(true);
+       |                                                ^
+    273|     for (const v of [undefined, "off", "On", "on ", "1", "true"]) {
+    274|       expect(guardConfigFromEnv({ ...ENV, METRONOME: v }).metronomeOn)…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/14]⎯
+
+ FAIL  test/guard.test.ts > guardStep with the metronome on (empty is not zero) > stores all seven meters in guard.json
+AssertionError: expected [ 'r2ClassA', 'r2ClassB', …(2) ] to deeply equal [ 'doDurationGbS', 'doRequests', …(5) ]
+
+- Expected
++ Received
+
+  [
+-   "doDurationGbS",
+-   "doRequests",
+-   "doRowsWritten",
+    "r2ClassA",
+    "r2ClassB",
+    "r2StorageGbMonth",
+    "workersRequests",
+  ]
+
+ ❯ test/guard.test.ts:282:51
+    280|     await step(bucket, cloud(), T0, ON);
+    281|     const ev = bucket.json(GUARD_KEY).evaluation;
+    282|     expect(Object.keys(ev.period_to_date).sort()).toEqual(["doDuration…
+       |                                                   ^
+    283|                                                           "r2ClassB", …
+    284|     expect(ev.period_to_date).toMatchObject({ doRequests: 90_000, doDu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/14]⎯
+
+ FAIL  test/meter.test.ts > parseUsage > sums Workers requests, classes R2 operations and sums per-bucket peak storage
+AssertionError: expected { workersRequests: 40000, …(2) } to deeply equal { workersRequests: 40000, …(5) }
+
+- Expected
++ Received
+
+  {
+-   "doDurationGbS": 600,
+-   "doRequests": 90000,
+-   "doRowsWritten": 150000,
+    "r2ClassA": 11,
+    "r2ClassB": 7,
+    "workersRequests": 40000,
+  }
+
+ ❯ test/meter.test.ts:13:28
+     11|     const r = parseUsage(usageResponse({ ops: { PutObject: 10, ListObj…
+     12|                                          buckets: [[1e9, 1e6], [2e9, 0…
+     13|     expect(r.periodToDate).toEqual({ workersRequests: 40_000, r2ClassA…
+       |                            ^
+     14|                                      doDurationGbS: 600, doRowsWritten…
+     15|     expect(r.recent).toEqual({ workersRequests: 180, r2ClassA: 3_000, …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/14]⎯
+
+ FAIL  test/meter.test.ts > parseUsage > queries both Durable Object datasets over the period and the recent window
+AssertionError: expected 'query StationUsage($account: string!,…' to contain 'doToDate: durableObjectsInvocationsAd…'
+
+- Expected
++ Received
+
+- doToDate: durableObjectsInvocationsAdaptiveGroups(limit: 10000, filter: { datetime_geq: $start, datetime_leq: $now }) { sum { requests } }
++ query StationUsage($account: string!, $start: Time!, $now: Time!, $recentStart: Time!, $recentEnd: Time!) {
++   viewer {
++     accounts(filter: { accountTag: $account }) {
++       workersToDate: workersInvocationsAdaptive(limit: 10000, filter: { datetime_geq: $start, datetime_leq: $now }) { sum { requests } }
++       workersRecent: workersInvocationsAdaptive(limit: 10000, filter: { datetime_geq: $recentStart, datetime_leq: $recentEnd }) { sum { requests } }
++       r2ToDate: r2OperationsAdaptiveGroups(limit: 10000, filter: { datetime_geq: $start, datetime_leq: $now }) { sum { requests } dimensions { actionType } }
++       r2Recent: r2OperationsAdaptiveGroups(limit: 10000, filter: { datetime_geq: $recentStart, datetime_leq: $recentEnd }) { sum { requests } dimensions { actionType } }
++       storage: r2StorageAdaptiveGroups(limit: 10000, filter: { datetime_geq: $start, datetime_leq: $now }) { max { payloadSize metadataSize } dimensions { bucketName } }
++     }
++   }
++ }
+
+ ❯ test/meter.test.ts:72:25
+     70|
+     71|   it("queries both Durable Object datasets over the period and the rec…
+     72|     expect(USAGE_QUERY).toContain("doToDate: durableObjectsInvocations…
+       |                         ^
+     73|     expect(USAGE_QUERY).toContain("doRecent: durableObjectsInvocations…
+     74|     expect(USAGE_QUERY).toContain("doPeriodicToDate: durableObjectsPer…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/14]⎯
+
+ FAIL  test/meter.test.ts > parseUsage > sums Durable Object rows across groups, and reads an empty range ([]) as zero
+AssertionError: expected undefined to be 12 // Object.is equality
+
+- Expected:
+12
+
++ Received:
+undefined
+
+ ❯ test/meter.test.ts:81:51
+     79|     const r = usageResponse();
+     80|     r.data.viewer.accounts[0].doToDate = [{ sum: { requests: 5 } }, { …
+     81|     expect(parseUsage(r).periodToDate.doRequests).toBe(12);
+       |                                                   ^
+     82|     const empty = parseUsage(usageResponse({ dos: null, dosRecent: nul…
+     83|     expect(empty.periodToDate).toMatchObject({ doRequests: 0, doDurati…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/14]⎯
+
+ FAIL  test/meter.test.ts > parseUsage > fails the reading on a missing, truncated or malformed Durable Object dataset
+AssertionError: doToDate: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ test/meter.test.ts:92:47
+     90|       const missing = usageResponse();
+     91|       delete (missing.data.viewer.accounts[0] as unknown as Acct)[name…
+     92|       expect(() => parseUsage(missing), name).toThrow(new RegExp(`${na…
+       |                                               ^
+     93|       const truncated = usageResponse();
+     94|       (truncated.data.viewer.accounts[0] as unknown as Acct)[name] =
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/14]⎯
+
+ FAIL  test/meter.test.ts > assertMetronomeMetered (empty is not zero) > fails a reading whose recent window has no DO requests or no rows written
+AssertionError: expected [Function] to not throw an error but 'TypeError: (0 , __vite_ssr_import_1__…' was thrown
+
+- Expected:
+undefined
+
++ Received:
+"TypeError: (0 , __vite_ssr_import_1__.assertMetronomeMetered) is not a function"
+
+ ❯ test/meter.test.ts:144:75
+    142| describe("assertMetronomeMetered (empty is not zero)", () => {
+    143|   it("fails a reading whose recent window has no DO requests or no row…
+    144|     expect(() => assertMetronomeMetered(parseUsage(usageResponse()))).…
+       |                                                                           ^
+    145|     expect(() => assertMetronomeMetered(parseUsage(usageResponse({ dos…
+    146|     expect(() => assertMetronomeMetered(parseUsage(usageResponse({ dos…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/14]⎯
+
+ FAIL  test/pricing.test.ts > priceUsage > prices each Durable Object meter through its allowance
+AssertionError: expected undefined to be close to 0.3, received difference is NaN, but expected 5e-11
+ ❯ test/pricing.test.ts:31:38
+     29|   it("prices each Durable Object meter through its allowance", () => {
+     30|     const r = priceUsage(usage({ doRequests: 3_000_000, doDurationGbS:…
+     31|     expect(r.perMeterUsd.doRequests).toBeCloseTo(2 * 0.15, 10); // 2M …
+       |                                      ^
+     32|     expect(r.perMeterUsd.doDurationGbS).toBeCloseTo(0.2 * 12.5, 10); /…
+     33|     expect(r.perMeterUsd.doRowsWritten).toBeCloseTo(10 * 1.0, 10); // …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/14]⎯
+
+ FAIL  test/pricing.test.ts > priceUsage > carries the published prices
+AssertionError: expected undefined to deeply equal { included: 1000000, …(1) }
+
+- Expected:
+{
+  "included": 1000000,
+  "usdPerUnit": 1.5e-7,
+}
+
++ Received:
+undefined
+
+ ❯ test/pricing.test.ts:41:38
+     39|     expect(PRICES.meters.r2ClassA).toEqual({ included: 1_000_000, usdP…
+     40|     // Durable Objects, Workers Paid (checked 2026-10-14).
+     41|     expect(PRICES.meters.doRequests).toEqual({ included: 1_000_000, us…
+       |                                      ^
+     42|     expect(PRICES.meters.doDurationGbS).toEqual({ included: 400_000, u…
+     43|     expect(PRICES.meters.doRowsWritten).toEqual({ included: 50_000_000…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/14]⎯
+
+ FAIL  test/pricing.test.ts > priceUsage > prices every meter: a positive, finite price and a finite allowance (no meter is free by omission)
+AssertionError: expected [ 'workersRequests', 'r2ClassA', …(2) ] to have a length of 7 but got 4
+
+- Expected
++ Received
+
+- 7
++ 4
+
+ ❯ test/pricing.test.ts:47:20
+     45|
+     46|   it("prices every meter: a positive, finite price and a finite allowa…
+     47|     expect(METERS).toHaveLength(7);
+       |                    ^
+     48|     expect(new Set(METERS).size).toBe(7);
+     49|     expect(Object.keys(PRICES.meters).sort()).toEqual([...METERS].sort…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/14]⎯
+
+ FAIL  test/pricing.test.ts > evaluateSpend > projects each Durable Object meter from its own recent rate
+AssertionError: expected { workersRequests: +0, …(3) } to match object { doRequests: 100000, …(2) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "doDurationGbS": 1000,
+-   "doRequests": 100000,
+-   "doRowsWritten": 200000,
++   "r2ClassA": 0,
++   "r2ClassB": 0,
++   "r2StorageGbMonth": 0,
++   "workersRequests": 0,
+  }
+
+ ❯ test/pricing.test.ts:100:28
+     98|     };
+     99|     const e = evaluateSpend(r, PERIOD, now, 15);
+    100|     expect(e.periodToDate).toMatchObject({ doRequests: 100_000, doDura…
+       |                            ^
+    101|     expect(e.projected.doRequests).toBeCloseTo(100_000 + 3_000 * 504, …
+    102|     expect(e.projected.doDurationGbS).toBeCloseTo(1_000 + 20 * 504, 3);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/14]⎯
+
+ FAIL  test/pricing.test.ts > evaluateSpend > every meter is finite in periodToDate, projected and the stored guard.json evaluation
+AssertionError: expected undefined to be 5.5 // Object.is equality
+
+- Expected:
+5.5
+
++ Received:
+undefined
+
+ ❯ test/pricing.test.ts:150:58
+    148|     }
+    149|     expect(Object.keys(doc.evaluation!.period_to_date).sort()).toEqual…
+    150|     expect(doc.evaluation!.period_to_date.doDurationGbS).toBe(5.5); //…
+       |                                                          ^
+    151|   });
+    152| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/14]⎯
+
+ FAIL  test/pricing.test.ts > overThreshold > fails closed on a NaN or missing Durable Object reading
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/pricing.test.ts:172:64
+    170|       const r = { periodToDate: { ...zero, doDurationGbS: bad }, recen…
+    171|                   unknownActionTypes: [] } as unknown as Reading;
+    172|       expect(overThreshold(evaluateSpend(r, PERIOD, now, 15))).toBe(tr…
+       |                                                                ^
+    173|     }
+    174|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/14]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  14 failed | 56 passed (70)
+   Start at  01:26:01
+   Duration  2.51s (transform 76%, import 10%, worker 8%, tests 7%)
+
+=== GREEN run Thu Oct 15 01:26:23 EDT 2026
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  15 passed (15)
+      Tests  252 passed (252)
+   Start at  01:26:24
+   Duration  5.51s (transform 74%, worker 14%, import 10%, tests 2%)
+
+  Transform  transforming modules took 8.26s · 74% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+

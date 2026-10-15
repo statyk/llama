@@ -1,0 +1,15 @@
+scratch copy made at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/7c48a24a-b1ba-48f0-8b4d-9a045fdbda5f/scratchpad/t5q
+== baseline
+      Tests  55 passed (55)
+== M-A cap confirms
+      Tests  55 passed (55)
+== M-B dup counted
+     × duplicates after a completed tick (an alarm still pending): no PUT, no re-arm, lastTarget unchanged 9ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > duplicates after a completed tick (an alarm still pending): no PUT, no re-arm, lastTarget unchanged
+      Tests  1 failed | 54 passed (55)
+== M-C dup never writes
+      Tests  55 passed (55)
+== M-D step2 no disarm
+      Tests  55 passed (55)
+done

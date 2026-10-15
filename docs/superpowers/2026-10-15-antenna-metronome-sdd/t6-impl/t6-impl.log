@@ -1,0 +1,130 @@
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/metronome.test.ts (0 test)
+ ❯ test/wrangler-config.test.ts (8 tests | 2 failed) 13ms
+   ❯ wrangler.jsonc: the metronome (metronome spec) (3)
+     × binds one SQLite-backed Durable Object class, Metronome, created by migration v1 4ms
+     × carries the switch as exactly "on" or "off" (a typo would silently mean off) 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/metronome.test.ts [ test/metronome.test.ts ]
+Error: Cannot find module '../src/metronome' imported from /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna/test/metronome.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/wrangler-config.test.ts > wrangler.jsonc: the metronome (metronome spec) > binds one SQLite-backed Durable Object class, Metronome, created by migration v1
+AssertionError: expected undefined to deeply equal { bindings: [ { …(2) } ] }
+
+- Expected:
+{
+  "bindings": [
+    {
+      "class_name": "Metronome",
+      "name": "METRONOME_DO",
+    },
+  ],
+}
+
++ Received:
+undefined
+
+ ❯ test/wrangler-config.test.ts:35:36
+     33| describe("wrangler.jsonc: the metronome (metronome spec)", () => {
+     34|   it("binds one SQLite-backed Durable Object class, Metronome, created…
+     35|     expect(config.durable_objects).toEqual({ bindings: [{ name: "METRO…
+       |                                    ^
+     36|     expect(config.migrations).toEqual([{ tag: "v1", new_sqlite_classes…
+     37|     expect(config).not.toHaveProperty("exports"); // mutually exclusiv…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/wrangler-config.test.ts > wrangler.jsonc: the metronome (metronome spec) > carries the switch as exactly "on" or "off" (a typo would silently mean off)
+AssertionError: expected [ 'on', 'off' ] to include undefined
+ ❯ test/wrangler-config.test.ts:43:27
+     41|
+     42|   it("carries the switch as exactly \"on\" or \"off\" (a typo would si…
+     43|     expect(["on", "off"]).toContain(config.vars.METRONOME);
+       |                           ^
+     44|   });
+     45|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 6 passed (8)
+   Start at  02:27:29
+   Duration  2.16s (transform 79%, import 10%, worker 7%, tests 3%)
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  19 passed (19)
+      Tests  349 passed (349)
+   Start at  02:27:47
+   Duration  6.91s (transform 63%, tests 15%, import 13%, worker 10%)
+
+  Transform  transforming modules took 10.77s · 63% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  19 passed (19)
+      Tests  349 passed (349)
+   Start at  02:27:55
+   Duration  5.53s (transform 61%, tests 14%, worker 13%, import 12%)
+
+  Transform  transforming modules took 7.88s · 61% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+ ⛅️ wrangler 4.149.0
+────────────────────
+Total Upload: 81.48 KiB / gzip: 22.44 KiB
+Your Worker has access to the following bindings:
+Binding                                                   Resource                  
+env.METRONOME_DO (Metronome)                              Durable Object            
+env.ALERT_EMAIL (unrestricted)                            Send Email                
+env.BUCKET (lma-radio)                                    R2 Bucket                 
+env.PLAYLIST_WINDOW ("16")                                Environment Variable      
+env.PLAYLIST_LOOKAHEAD ("12")                             Environment Variable      
+env.PLAYLIST_HOLD_BACK ("12")                             Environment Variable      
+env.GRACE_SEGMENTS ("3")                                  Environment Variable      
+env.OFFAIR_AFTER_SECONDS ("86400")                        Environment Variable      
+env.LOOP_SECONDS ("75")                                   Environment Variable      
+env.LIVE_MAX_AGE ("5")                                    Environment Variable      
+env.LEAD_FLOOR_HOURS ("16")                               Environment Variable      
+env.MONTHLY_BUDGET_USD ("15")                             Environment Variable      
+env.BILLING_ANNIVERSARY_DAY ("11")                        Environment Variable      
+env.GUARD_EVAL_SECONDS ("900")                            Environment Variable      
+env.BLIND_AFTER_SECONDS ("21600")                         Environment Variable      
+env.KILL_SWITCH_DESCRIPTION ("station: kill switch")      Environment Variable      
+env.ALERT_REPEAT_HOURS ("6")                              Environment Variable      
+env.STATION_NAME ("llama radio")                          Environment Variable      
+env.METRONOME ("off")                                     Environment Variable      
+
+--dry-run: exiting now.

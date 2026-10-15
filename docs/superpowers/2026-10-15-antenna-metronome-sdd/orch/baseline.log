@@ -1,0 +1,29 @@
+
+added 76 packages, and audited 77 packages in 7s
+
+20 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  14 passed (14)
+      Tests  236 passed (236)
+   Start at  01:20:59
+   Duration  7.78s (transform 62%, worker 23%, import 13%, tests 2%)
+
+  Transform  transforming modules took 6.93s · 62% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+rc=0

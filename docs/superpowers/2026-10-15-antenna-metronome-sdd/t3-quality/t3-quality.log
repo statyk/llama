@@ -1,0 +1,32 @@
+progress: reading grid/playlist for named risks
+ls: /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/.superpowers/sdd/metronome/TAKEN_OVER: No such file or directory
+ls: /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/.superpowers/sdd/metronome/taken-over/t3-quality: No such file or directory
+ls: /Users/shawn/projects/llama/.superpowers/sdd/metronome/TAKEN_OVER: No such file or directory
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  01:39:06
+   Duration  3.13s (transform 65%, import 18%, worker 12%, tests 5%)
+
+M1 stateChanges drops lease removal [predict SURVIVE]: rc=0 ['Tests  26 passed (26)'] []
+M2 expired positive [predict CAUGHT: NaN test]: rc=1 ['Tests  2 failed | 24 passed (26)'] ['× is written negated: NaN or missing is expired 3ms', '× a stored lease whose expiresAt is missing loads as expired 3ms', 'FAIL  test/metronome-core.test.ts > expiry > is written negated: NaN or missing is expired', 'FAIL  test/metronome-core.test.ts > stored state > a stored lease whose expiresAt is missing loads as expired']
+M3 decideLease >= [predict CAUGHT: equal]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× supersedes an unblocked play lease whose verdictAt is not strictly newer, equal included 4ms', 'FAIL  test/metronome-core.test.ts > decideLease (ordering) > supersedes an unblocked play lease whose verdictAt is not strictly newer, equal included']
+M4 storedLease no clamp [predict CAUGHT]: rc=1 ['Tests  2 failed | 24 passed (26)'] ['× expiresAt = min(validUntil, now + 15 min): a far-future validUntil still expires at 15 min 7ms', '× a future-dated verdictAt (a cron clock running ahead) never keeps a blocked lease out 0ms', 'FAIL  test/metronome-core.test.ts > expiry > expiresAt = min(validUntil, now + 15 min): a far-future validUntil still expires at 15 min', 'FAIL  test/metronome-core.test.ts > decideLease (ordering) > a future-dated verdictAt (a cron clock running ahead) never keeps a blocked lease out']
+M5 capAllows <= [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× just over 60 s after the oldest timestamp is allowed, just under is not 3ms', 'FAIL  test/metronome-core.test.ts > rolling windows > just over 60 s after the oldest timestamp is allowed, just under is not']
+M6 inWindow <= [predict SURVIVE: boundary 60000 untested]: rc=0 ['Tests  26 passed (26)'] []
+M7 fallbackReason ignores superseded [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× (b) a play lease not accepted, or its write failed, unless superseded 6ms', "FAIL  test/metronome-core.test.ts > fallbackReason (cron's triggers) > (b) a play lease not accepted, or its write failed, unless superseded"]
+M8 drop d check [predict CAUGHT]: rc=1 ['Tests  2 failed | 24 passed (26)'] ['× rejects every invalid shape 13ms', '× an unparseable or invalid stored lease is invalid (no lease) 0ms', 'FAIL  test/metronome-core.test.ts > validateLease > rejects every invalid shape', 'FAIL  test/metronome-core.test.ts > stored state > an unparseable or invalid stored lease is invalid (no lease)']
+M9 hold not unconditional [predict CAUGHT]: rc=1 ['Tests  2 failed | 24 passed (26)'] ['× accepts blocked play and hold whatever their verdictAt (blocking is fail-closed) 7ms', '× a future-dated verdictAt (a cron clock running ahead) never keeps a blocked lease out 0ms', 'FAIL  test/metronome-core.test.ts > decideLease (ordering) > accepts blocked play and hold whatever their verdictAt (blocking is fail-closed)', 'FAIL  test/metronome-core.test.ts > decideLease (ordering) > a future-dated verdictAt (a cron clock running ahead) never keeps a blocked lease out']
+M10 isLive ignores offair [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× only an unexpired unblocked play lease that is not off air 4ms', 'FAIL  test/metronome-core.test.ts > isLive > only an unexpired unblocked play lease that is not off air']
+M11 nextTarget no slack shift [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× is the first boundary + 25 ms strictly after the given time 5ms', 'FAIL  test/metronome-core.test.ts > nextTarget > is the first boundary + 25 ms strictly after the given time']
+M12 recordTime no window [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× records into a fixed-size list 7ms', 'FAIL  test/metronome-core.test.ts > rolling windows > records into a fixed-size list']
+M13 readState accepts negative stalls [predict SURVIVE]: rc=0 ['Tests  26 passed (26)'] []
+M14 parseStoredLease expiresAt trusts Infinity-capable typeof [equivalent baseline]: rc=0 ['Tests  26 passed (26)'] []
+M15 fallbackReason stalls > instead of >= [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× (c) two consecutive stalls; a single stall is not a trigger 7ms', "FAIL  test/metronome-core.test.ts > fallbackReason (cron's triggers) > (c) two consecutive stalls; a single stall is not a trigger"]
+M16 fallbackReason wrote===false ignored [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× (b) a play lease not accepted, or its write failed, unless superseded 3ms', "FAIL  test/metronome-core.test.ts > fallbackReason (cron's triggers) > (b) a play lease not accepted, or its write failed, unless superseded"]
+M17 stalledFor ignores playSince [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× measures from the later of the last alarm tick and playSince, and only while live 3ms', 'FAIL  test/metronome-core.test.ts > stalls > measures from the later of the last alarm tick and playSince, and only while live']
+M18 fallbackOrNull keeps NaN len [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× a malformed fallback becomes null, never an invalid lease 7ms', 'FAIL  test/metronome-core.test.ts > validateLease > a malformed fallback becomes null, never an invalid lease']
+M19 validateLease drops fallback_version check [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× rejects every invalid shape 10ms', 'FAIL  test/metronome-core.test.ts > validateLease > rejects every invalid shape']
+M20 validateLease epoch_id check dropped [predict CAUGHT]: rc=1 ['Tests  1 failed | 25 passed (26)'] ['× rejects every invalid shape 9ms', 'FAIL  test/metronome-core.test.ts > validateLease > rejects every invalid shape']
+capAllows(10 ts, NaN, 10)= true
+1e999 -> Infinity number expired? false
+toEqual note: vitest toEqual ignores undefined props

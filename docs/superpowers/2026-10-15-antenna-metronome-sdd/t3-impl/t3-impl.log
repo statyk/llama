@@ -1,0 +1,114 @@
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/metronome-core.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/metronome-core.test.ts [ test/metronome-core.test.ts ]
+Error: Cannot find module '../src/metronome-core' imported from /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna/test/metronome-core.test.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  01:33:08
+   Duration  1.68s (worker 100%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  01:33:19
+   Duration  1.75s (transform 73%, import 15%, worker 9%, tests 4%)
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  16 passed (16)
+      Tests  278 passed (278)
+   Start at  01:33:30
+   Duration  8.02s (transform 67%, worker 16%, import 14%, tests 3%)
+
+  Transform  transforming modules took 10.27s · 67% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/metronome-core.test.ts (26 tests | 1 failed) 16ms
+   ❯ rolling windows (2)
+     × just over 60 s after the oldest timestamp is allowed, just under is not 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/metronome-core.test.ts > rolling windows > just over 60 s after the oldest timestamp is allowed, just under is not
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/metronome-core.test.ts:146:43
+    144|     expect(capAllows(ts, T + 59_999, 10)).toBe(false);
+    145|     expect(capAllows(ts, T + 60_001, 10)).toBe(true);
+    146|     expect(capAllows([], Number.NaN, 10)).toBe(false); // a NaN clock …
+       |                                           ^
+    147|     expect(inWindow(ts, T + 60_001)).toHaveLength(9);
+    148|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 25 passed (26)
+   Start at  01:42:45
+   Duration  2.67s (transform 75%, import 11%, tests 7%, worker 7%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  01:42:56
+   Duration  2.78s (transform 54%, worker 31%, import 11%, tests 4%)
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  16 passed (16)
+      Tests  278 passed (278)
+   Start at  01:43:01
+   Duration  7.85s (transform 71%, worker 14%, import 12%, tests 3%)
+
+  Transform  transforming modules took 9.60s · 71% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+

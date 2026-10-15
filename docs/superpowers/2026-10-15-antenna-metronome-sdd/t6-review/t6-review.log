@@ -1,0 +1,37 @@
+progress: reading engine port + duplicate logic
+progress: scratch copy at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/7c48a24a-b1ba-48f0-8b4d-9a045fdbda5f/scratchpad/t6probe for real-alarm probe
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/7c48a24a-b1ba-48f0-8b4d-9a045fdbda5f/scratchpad/t6probe/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  02:30:39
+   Duration  2.28s (tests 72%, transform 22%, import 4%, worker 1%)
+
+───────────────────────────────────────────────
+Total Upload: 81.48 KiB / gzip: 22.44 KiB
+Your Worker has access to the following bindings:
+Binding                                                   Resource                  
+env.METRONOME_DO (Metronome)                              Durable Object            
+env.ALERT_EMAIL (unrestricted)                            Send Email                
+env.BUCKET (lma-radio)                                    R2 Bucket                 
+env.PLAYLIST_WINDOW ("16")                                Environment Variable      
+env.PLAYLIST_LOOKAHEAD ("12")                             Environment Variable      
+env.PLAYLIST_HOLD_BACK ("12")                             Environment Variable      
+env.GRACE_SEGMENTS ("3")                                  Environment Variable      
+env.OFFAIR_AFTER_SECONDS ("86400")                        Environment Variable      
+env.LOOP_SECONDS ("75")                                   Environment Variable      
+env.LIVE_MAX_AGE ("5")                                    Environment Variable      
+env.LEAD_FLOOR_HOURS ("16")                               Environment Variable      
+env.MONTHLY_BUDGET_USD ("15")                             Environment Variable      
+env.BILLING_ANNIVERSARY_DAY ("11")                        Environment Variable      
+env.GUARD_EVAL_SECONDS ("900")                            Environment Variable      
+env.BLIND_AFTER_SECONDS ("21600")                         Environment Variable      
+env.KILL_SWITCH_DESCRIPTION ("station: kill switch")      Environment Variable      
+env.ALERT_REPEAT_HOURS ("6")                              Environment Variable      
+env.STATION_NAME ("llama radio")                          Environment Variable      
+env.METRONOME ("off")                                     Environment Variable      
+
+--dry-run: exiting now.
+32:    // CF_ACCOUNT_ID, CF_ZONE_ID, CF_ANALYTICS_TOKEN, CF_WAF_TOKEN
