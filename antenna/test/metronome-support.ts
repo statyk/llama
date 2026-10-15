@@ -36,6 +36,7 @@ export class FakePort implements MetronomePort {
   /** Every storage, alarm and PUT operation in order: "save k1,k2", "setAlarm t", "deleteAlarm", "put". */
   ops: string[] = [];
   failSetAlarm = false;
+  failDeleteAlarm = false;
   failLoad = false;
   private gate: Promise<void> | null = null;
   private fires: (() => void)[] = [];
@@ -65,6 +66,7 @@ export class FakePort implements MetronomePort {
     this.alarmAt = t;
   }
   async deleteAlarm() {
+    if (this.failDeleteAlarm) throw new Error("injected deleteAlarm failure");
     this.ops.push("deleteAlarm");
     this.alarmAt = null;
   }

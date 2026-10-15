@@ -293,8 +293,8 @@ export function holdLease(verdictAt: number, issuedAt: number): HoldLease {
  * raise metronome-down), or null when the DO is healthy:
  * (a) renew threw or timed out;
  * (b) cron sent a play lease (blocked or not), it was not superseded, and it
- *     was not accepted or its write failed; or it was an unblocked play lease,
- *     accepted, and the DO's lease is not "play" (say, accepted already expired);
+ *     was not accepted or its write failed, or the DO's lease is not what it
+ *     was told ("play", or "blocked" for a blocked one: say, accepted already expired);
  * (c) STALLS_FALLBACK consecutive renews found the chain stalled. Written
  *     negated: a stall count that is not a non-negative integer trips too. */
 export function fallbackReason(sent: Lease | null,
@@ -302,7 +302,7 @@ export function fallbackReason(sent: Lease | null,
   if ("error" in r) return `renew failed: ${r.error}`;
   const s = r.status;
   if (sent?.kind === "play" && s.applied !== "superseded"
-      && (s.applied !== "accepted" || s.wrote === false || (!sent.blocked && s.lease !== "play"))) {
+      && (s.applied !== "accepted" || s.wrote === false || s.lease !== (sent.blocked ? "blocked" : "play"))) {
     const kind = sent.blocked ? "blocked play" : "play";
     return `renew answered applied=${s.applied}, wrote=${s.wrote}, lease=${s.lease} to a ${kind} lease`;
   }

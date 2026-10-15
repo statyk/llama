@@ -240,9 +240,11 @@ describe("fallbackReason (cron's triggers)", () => {
 
   it("(b) a play lease not accepted, or its write failed, unless superseded", () => {
     for (const lease of [p, b]) {
-      expect(fallbackReason(lease, { status: status({}) })).toBeNull();
-      expect(fallbackReason(lease, { status: status({ wrote: null }) })).toBeNull(); // cap, identical, nothing to build
-      expect(fallbackReason(lease, { status: status({ wrote: false }) })).toMatch(/wrote=false/);
+      const told = lease.blocked ? "blocked" : "play"; // the DO's lease after accepting it
+      expect(fallbackReason(lease, { status: status({ lease: told }) })).toBeNull();
+      // wrote null: cap, identical, nothing to build
+      expect(fallbackReason(lease, { status: status({ lease: told, wrote: null }) })).toBeNull();
+      expect(fallbackReason(lease, { status: status({ lease: told, wrote: false }) })).toMatch(/wrote=false/);
       expect(fallbackReason(lease, { status: status({ applied: "invalid", wrote: null }) })).toMatch(/invalid/);
       expect(fallbackReason(lease, { status: status({ applied: "off", wrote: null }) })).toMatch(/off/);
       expect(fallbackReason(lease, { status: status({ applied: "superseded", wrote: false }) })).toBeNull();
@@ -266,9 +268,12 @@ describe("fallbackReason (cron's triggers)", () => {
     expect(fallbackReason(p, { status: status({ stalls: 1 }) })).toBeNull();
   });
 
-  it("(b) an accepted unblocked play lease the DO is not playing (accepted already expired)", () => {
+  it("(b) an accepted play lease the DO is not doing (accepted already expired)", () => {
     expect(fallbackReason(p, { status: status({ applied: "accepted", lease: "none" }) }))
       .toMatch(/applied=accepted, wrote=true, lease=none to a play lease/);
     expect(fallbackReason(p, { status: status({ applied: "accepted", lease: "play" }) })).toBeNull();
+    expect(fallbackReason(b, { status: status({ applied: "accepted", lease: "none" }) }))
+      .toMatch(/applied=accepted, wrote=true, lease=none to a blocked play lease/);
+    expect(fallbackReason(b, { status: status({ applied: "accepted", lease: "blocked" }) })).toBeNull();
   });
 });

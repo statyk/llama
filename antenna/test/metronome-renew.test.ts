@@ -167,6 +167,26 @@ describe("renew: blocked, hold, expiry", () => {
     expect(port.events("metronome-hold")).toHaveLength(1);
   });
 
+  it("an accepted hold or blocked lease is stored before any alarm op, so a failing alarm op cannot lose it", async () => {
+    // hold, over a live play lease whose alarm is pending: disarm throws
+    const held = engineAt(T);
+    await held.engine.renew(lease(T));
+    expect(held.port.alarmAt).not.toBeNull();
+    held.port.t = T + 1_000;
+    held.port.failDeleteAlarm = true;
+    await expect(held.engine.renew(holdLease(T + 1_000, T + 1_000))).rejects.toThrow(/deleteAlarm/);
+    expect(JSON.parse(held.port.store.get("lease") as string)).toMatchObject({ kind: "hold", verdictAt: T + 1_000 });
+    // blocked, its body identical to the last one written (no PUT, so no reservation flush), an alarm pending
+    const blocked = engineAt(T);
+    await blocked.engine.renew(lease(T, { blocked: true }));
+    blocked.port.alarmAt = T + 5_000;
+    blocked.port.failDeleteAlarm = true;
+    await expect(blocked.engine.renew(lease(T, { verdictAt: T + 1, blocked: true }))).rejects.toThrow(/deleteAlarm/);
+    expect(blocked.port.puts()).toBe(1);
+    expect(JSON.parse(blocked.port.store.get("lease") as string))
+      .toMatchObject({ kind: "play", blocked: true, verdictAt: T + 1 });
+  });
+
   it("expiry: past 15 min the DO writes nothing and disarms; a new lease restarts it", async () => {
     const { port, engine } = engineAt(T);
     await engine.renew(lease(T, { verdictAt: T }));

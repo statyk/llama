@@ -197,6 +197,8 @@ export class MetronomeEngine {
         const wasPlay = leaseKind(s.lease, now) === "play";
         s.lease = storedLease(v.lease, now);
         if (leaseKind(s.lease, now) === "play" && !wasPlay) s.playSince = now;
+        // Stored before any alarm op: an alarm op that throws must not lose an accepted hold or block.
+        await this.flush(tx);
       }
     }
     const cur = currentLease(s.lease, now);
