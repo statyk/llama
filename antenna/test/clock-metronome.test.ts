@@ -300,6 +300,10 @@ describe("scheduled handler with the metronome", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("no network in tests"));
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     await seed();
+    await runInDurableObject(e.METRONOME_DO.get(e.METRONOME_DO.idFromName(METRONOME_NAME)), (o: Metronome) => {
+      const self = o as unknown as { env: AntennaEnv };
+      self.env = { ...self.env, METRONOME: "off" }; // the DO still runs the version with the switch off
+    });
     await fire(noSecrets("on"));
     const line = clockLine(log);
     expect(line.metronome).toMatchObject({ status: { applied: "off" }, fallback: expect.stringMatching(/applied=off/) });
@@ -307,12 +311,12 @@ describe("scheduled handler with the metronome", () => {
     expect(line.alerts).toContain("metronome-down");
   });
 
-  it("METRONOME off (as committed): cron's loop exactly as before, no renew", async () => {
+  it("METRONOME off: cron's loop exactly as before, no renew", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("no network in tests"));
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     await seed();
-    await fire(noSecrets(String(e.METRONOME)));
+    await fire(noSecrets("off"));
     const line = clockLine(log);
     expect(line.metronome).toBeNull();
     expect(line.puts).toBe(1);

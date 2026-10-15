@@ -9,9 +9,10 @@ const D = 10_240;
 const e = env as unknown as AntennaEnv;
 const stub = () => e.METRONOME_DO.get(e.METRONOME_DO.idFromName(METRONOME_NAME));
 
-/** The test env carries wrangler.jsonc's METRONOME ("off"); switch this
- * instance's env, as a deploy of the var would. Lasts until the object is
- * evicted or reset. */
+/** The test env carries wrangler.jsonc's committed METRONOME, which the
+ * rollout flips; tests never rely on it and set this instance's env
+ * explicitly, as a deploy of the var would. Lasts until the object is evicted
+ * or reset. */
 const setSwitch = (value: string) =>
   runInDurableObject(stub(), (o: Metronome) => {
     const self = o as unknown as { env: AntennaEnv };
@@ -39,7 +40,8 @@ afterEach(async () => {
 });
 
 describe("the Metronome Durable Object", () => {
-  it("is off as committed: renew answers off, arms nothing, stores nothing", async () => {
+  it("off: renew answers off, arms nothing, stores nothing", async () => {
+    await setSwitch("off");
     const st = await stub().renew(playLease(Date.now()));
     expect(st.applied).toBe("off");
     expect(await pendingAlarm()).toBeNull();
