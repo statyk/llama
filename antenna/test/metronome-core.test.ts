@@ -187,10 +187,22 @@ describe("stored state", () => {
     expect(parseStoredLease(undefined)).toEqual({ lease: null, invalid: null });
   });
 
-  it("a stored lease whose expiresAt is missing loads as expired", () => {
-    const { lease } = parseStoredLease(JSON.stringify(play(T)));
+  it("a stored lease whose finite expiresAt has passed loads, as expired", () => {
+    const { lease, invalid } = parseStoredLease(JSON.stringify({ ...play(T), expiresAt: T }));
+    expect(invalid).toBeNull();
     expect(lease).not.toBeNull();
     expect(currentLease(lease, T)).toBeNull();
+  });
+
+  it("a stored lease whose expiresAt is not a finite number is invalid (no lease)", () => {
+    const raw = JSON.stringify(play(T));
+    const withExpiry = (e: string) => `${raw.slice(0, -1)},"expiresAt":${e}}`;
+    // 1e999 parses to Infinity (it would never expire); null and "x" are not numbers; raw has none.
+    for (const stored of [withExpiry("1e999"), withExpiry("-1e999"), withExpiry("null"), withExpiry('"x"'), raw]) {
+      const { state, leaseInvalid } = readState({ lease: stored });
+      expect(leaseInvalid).toMatch(/expiresAt/);
+      expect(state.lease).toBeNull();
+    }
   });
 
   it("writes only the keys that changed, a removed lease as undefined", () => {
@@ -244,5 +256,19 @@ describe("fallbackReason (cron's triggers)", () => {
     expect(fallbackReason(p, { status: status({ stalls: 1, stalledMs: 40_000 }) })).toBeNull();
     expect(fallbackReason(p, { status: status({ stalls: 2, stalledMs: 40_000 }) })).toMatch(/stalled on 2/);
     expect(fallbackReason(null, { status: status({ applied: null, stalls: 3 }) })).toMatch(/stalled/);
+  });
+
+  it("(c) fails closed: a stall count that is not a non-negative integer trips", () => {
+    for (const stalls of [Number.NaN, undefined, 1.5, -1]) {
+      expect(fallbackReason(p, { status: status({ stalls: stalls as number }) })).toMatch(/stalled/);
+    }
+    expect(fallbackReason(p, { status: status({ stalls: 0 }) })).toBeNull();
+    expect(fallbackReason(p, { status: status({ stalls: 1 }) })).toBeNull();
+  });
+
+  it("(b) an accepted unblocked play lease the DO is not playing (accepted already expired)", () => {
+    expect(fallbackReason(p, { status: status({ applied: "accepted", lease: "none" }) }))
+      .toMatch(/applied=accepted, wrote=true, lease=none to a play lease/);
+    expect(fallbackReason(p, { status: status({ applied: "accepted", lease: "play" }) })).toBeNull();
   });
 });

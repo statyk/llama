@@ -223,7 +223,9 @@ const numOrNull = (v: unknown) => (finite(v) ? v : null);
 const times = (v: unknown, keep: number) => (Array.isArray(v) ? v.filter(finite).slice(-keep) : []);
 
 /** The stored lease: a JSON string written by serializeLease. Anything that
- * does not parse or validate is `invalid` (the engine deletes it: no lease). */
+ * does not parse or validate, or whose expiresAt is not a finite number (a
+ * stored 1e999 is Infinity and would never expire), is `invalid` (the engine
+ * deletes it: no lease). */
 export function parseStoredLease(raw: unknown): { lease: StoredLease | null; invalid: string | null } {
   if (raw === undefined || raw === null) return { lease: null, invalid: null };
   if (typeof raw !== "string") return { lease: null, invalid: "stored lease is not a string" };
@@ -235,7 +237,8 @@ export function parseStoredLease(raw: unknown): { lease: StoredLease | null; inv
   }
   const v = validateLease(parsed);
   if (!v.ok) return { lease: null, invalid: `stored lease: ${v.reason}` };
-  const expiresAt = isObj(parsed) && typeof parsed.expiresAt === "number" ? parsed.expiresAt : Number.NaN;
+  const expiresAt = isObj(parsed) ? parsed.expiresAt : undefined;
+  if (!finite(expiresAt)) return { lease: null, invalid: "stored lease: expiresAt not finite" };
   return { lease: { ...v.lease, expiresAt }, invalid: null };
 }
 
@@ -290,15 +293,21 @@ export function holdLease(verdictAt: number, issuedAt: number): HoldLease {
  * raise metronome-down), or null when the DO is healthy:
  * (a) renew threw or timed out;
  * (b) cron sent a play lease (blocked or not), it was not superseded, and it
- *     was not accepted or its write failed;
- * (c) STALLS_FALLBACK consecutive renews found the chain stalled. */
+ *     was not accepted or its write failed; or it was an unblocked play lease,
+ *     accepted, and the DO's lease is not "play" (say, accepted already expired);
+ * (c) STALLS_FALLBACK consecutive renews found the chain stalled. Written
+ *     negated: a stall count that is not a non-negative integer trips too. */
 export function fallbackReason(sent: Lease | null,
                                r: { status: MetronomeStatus } | { error: string }): string | null {
   if ("error" in r) return `renew failed: ${r.error}`;
   const s = r.status;
-  if (sent?.kind === "play" && s.applied !== "superseded" && (s.applied !== "accepted" || s.wrote === false)) {
-    return `renew answered applied=${s.applied}, wrote=${s.wrote} to a ${sent.blocked ? "blocked " : ""}play lease`;
+  if (sent?.kind === "play" && s.applied !== "superseded"
+      && (s.applied !== "accepted" || s.wrote === false || (!sent.blocked && s.lease !== "play"))) {
+    const kind = sent.blocked ? "blocked play" : "play";
+    return `renew answered applied=${s.applied}, wrote=${s.wrote}, lease=${s.lease} to a ${kind} lease`;
   }
-  if (s.stalls >= STALLS_FALLBACK) return `alarm chain stalled on ${s.stalls} consecutive renews (${s.stalledMs} ms)`;
+  if (!(Number.isInteger(s.stalls) && s.stalls >= 0 && s.stalls < STALLS_FALLBACK)) {
+    return `alarm chain stalled on ${s.stalls} consecutive renews (${s.stalledMs} ms)`;
+  }
   return null;
 }

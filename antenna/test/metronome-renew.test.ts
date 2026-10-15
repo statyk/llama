@@ -66,8 +66,10 @@ describe("renew: validation", () => {
     await engine.renew(lease(T));
     expect(port.alarmAt).not.toBeNull();
     port.t = T + 1_000;
+    port.ops.length = 0;
     const st = await engine.renew(lease(T + 1_000, { horizon: { d: 10.25 } }));
     expect(st).toMatchObject({ applied: "invalid", lease: "none", wrote: null, leaseVerdictAt: null });
+    expect(port.ops).toContain("save lease,stalls"); // stalls saved even unchanged (0 -> 0): every renew writes a row
     expect(port.store.has("lease")).toBe(false);
     expect(port.alarmAt).toBeNull();
     expect(port.puts()).toBe(1);
