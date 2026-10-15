@@ -419,6 +419,8 @@ Run the `transmitter` commands below as `<user>` on hugo with the env file loade
 
 ### 7.1 Alert keys
 
+What each alert means and how to respond: `docs/playout-incident-runbook.md`.
+
 **Cloud** (antenna, `state/alerts.json`). The "guard" family resolves whenever the guard returned a known outcome; the "clock" family only on a complete invocation; a key in neither family is treated as clock. Titles are in the alert text; `waf-api` redacts ids.
 
 | key | family | priority | kind |
