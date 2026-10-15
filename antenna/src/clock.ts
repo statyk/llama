@@ -246,9 +246,18 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     const sent = lease === null ? null : lease.kind === "hold" ? "hold" : lease.blocked ? "blocked" : "play";
     let r: { status: MetronomeStatus } | { error: string };
     try {
-      r = { status: await deps.metronome.renew(lease) };
+      const status: unknown = await deps.metronome.renew(lease);
+      // Data from another isolate (a skewed or broken DO): fallbackReason reads its fields.
+      r = typeof status === "object" && status !== null ? { status: status as MetronomeStatus }
+                                                        : { error: "renew returned a non-object" };
     } catch (e) {
-      r = { error: e instanceof Error ? e.message : String(e) };
+      let error: string;
+      try {
+        error = e instanceof Error ? e.message : String(e);
+      } catch {
+        error = "unprintable rejection"; // String() throws on, say, Object.create(null)
+      }
+      r = { error };
     }
     const fallback = fallbackReason(lease, r);
     result.metronome = { sent, status: "status" in r ? r.status : null, error: "error" in r ? r.error : null, fallback };

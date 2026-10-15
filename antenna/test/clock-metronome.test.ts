@@ -223,6 +223,20 @@ describe("the fallback: cron's own loop, and metronome-down", () => {
     });
   }
 
+  it("a non-object reply or an unprintable rejection is trigger (a): renew never throws, the loop runs", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const answers: (() => MetronomeStatus)[] = [() => undefined as unknown as MetronomeStatus,
+                                                () => { throw Object.create(null); }];
+    for (const answer of answers) {
+      const out = await run({ metronome: fakeMetronome(answer).client });
+      expect(out.error).toBeNull();
+      expect(out.r!.puts).toBe(8);
+      expect(out.keys).toContain("metronome-down");
+      expect(out.r!.metronome).toMatchObject({ sent: "play", status: null, error: expect.any(String),
+                                               fallback: expect.any(String) });
+    }
+  });
+
   it("a blocked lease the DO did not write: cron writes the off-air playlist", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const out = await run({ guard: guardSays(true, true),
