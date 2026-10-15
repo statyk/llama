@@ -1,0 +1,600 @@
+== RED run
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/alerts.test.ts (41 tests | 1 failed) 41ms
+   ❯ planAlerts on an incomplete batch (AlertBatch) (5)
+     × classifies every key the guard and the clock raise 5ms
+ ❯ test/clock-metronome.test.ts (22 tests | 20 failed) 91ms
+   ❯ the lease table: what cron passes to renew, by its own outcome (6)
+     × guard unknown or crashed: renew(null), and the fallback never writes 12ms
+     × verdict known unblocked, inputs unusable (read threw, missing, unreadable, bad epoch): renew(null), no cron PUT 2ms
+     × verdict known blocked, inputs unusable: renew(hold), no cron PUT 1ms
+     × horizon refused: renew(hold) blocked or not, no cron PUT 0ms
+     × verdict known, horizon accepted: a play lease with the verdict, horizon and fallback, ordered by the guard's start 2ms
+     × renews exactly once per invocation, on every path 0ms
+   ❯ a healthy metronome (6)
+     × cron writes no playlist, the batch is complete, the clock line carries the status 0ms
+     × a blocked lease that the DO wrote: no cron PUT either 0ms
+     × offair-without-fallback is raised by cron from its own inputs even though the DO writes 2ms
+     × a single stall: no fallback, no alert, stalledMs on the clock line 0ms
+     × superseded: no fallback (the DO keeps a newer lease) 0ms
+   ❯ the fallback: cron's own loop, and metronome-down (7)
+     × (a) renew throws: the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete 0ms
+     × (b) invalid: the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete 1ms
+     × (b) off (version skew): the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete 0ms
+     × (b) wrote false: the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete 0ms
+     × (c) stalls >= 2: the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete 0ms
+     × a hold the DO did not answer: metronome-down, but the fallback never writes 1ms
+   ❯ scheduled handler with the metronome (3)
+     × METRONOME on, the DO on too: the DO writes live.m3u8, cron does not, the clock line has the status 34ms
+     × METRONOME on for cron but off in the DO (version skew): cron falls back and raises metronome-down 15ms
+     × METRONOME off (as committed): cron's loop exactly as before, no renew 18ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 21 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/alerts.test.ts > planAlerts on an incomplete batch (AlertBatch) > classifies every key the guard and the clock raise
+AssertionError: expected [ Array(8) ] to deeply equal [ Array(9) ]
+
+- Expected
++ Received
+
+@@ -4,8 +4,7 @@
+    "guard-crashed",
+    "horizon-missing",
+    "horizon-refused",
+    "index-write",
+    "lead-low",
+-   "metronome-down",
+    "offair-without-fallback",
+  ]
+
+ ❯ test/alerts.test.ts:199:36
+    197|     const clock = ["guard-crashed", "index-write", "horizon-missing", …
+    198|                    "offair-without-fallback", "clock-inputs", "clock-f…
+    199|     expect([...CLOCK_KEYS].sort()).toEqual([...clock].sort());
+       |                                    ^
+    200|     for (const k of clock) expect([k, keyFamily(k)]).toEqual([k, "cloc…
+    201|     expect(keyFamily("budget-x")).toBe("clock");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > the lease table: what cron passes to renew, by its own outcome > guard unknown or crashed: renew(null), and the fallback never writes
+AssertionError: expected [] to deeply equal [ null ]
+
+- Expected
++ Received
+
+- [
+-   null,
+- ]
++ []
+
+ ❯ test/clock-metronome.test.ts:80:22
+     78|       const m = fakeMetronome(() => { throw new Error("dead"); }); // …
+     79|       const out = await run({ guard, metronome: m.client });
+     80|       expect(m.sent).toEqual([null]);
+       |                      ^
+     81|       expect(playlistPuts(out.bucket)).toBe(0);
+     82|       expect(out.keys).toContain("metronome-down");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > the lease table: what cron passes to renew, by its own outcome > verdict known unblocked, inputs unusable (read threw, missing, unreadable, bad epoch): renew(null), no cron PUT
+AssertionError: expected [] to deeply equal [ null ]
+
+- Expected
++ Received
+
+- [
+-   null,
+- ]
++ []
+
+ ❯ test/clock-metronome.test.ts:98:22
+     96|       const m = fakeMetronome(() => { throw new Error("dead"); });
+     97|       await run({ bucket, metronome: m.client });
+     98|       expect(m.sent).toEqual([null]);
+       |                      ^
+     99|       expect(playlistPuts(bucket)).toBe(0);
+    100|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > the lease table: what cron passes to renew, by its own outcome > verdict known blocked, inputs unusable: renew(hold), no cron PUT
+AssertionError: expected [] to deeply equal [ { kind: 'hold', …(2) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "kind": "hold",
+-     "validUntil": 1791635012340,
+-     "verdictAt": 1791634112340,
+-   },
+- ]
++ []
+
+ ❯ test/clock-metronome.test.ts:113:22
+    111|       const m = fakeMetronome(() => { throw new Error("dead"); });
+    112|       await run({ bucket, guard: guardSays(true, true), metronome: m.c…
+    113|       expect(m.sent).toEqual([{ kind: "hold", verdictAt: AT + 40, vali…
+       |                      ^
+    114|       expect(playlistPuts(bucket)).toBe(0);
+    115|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > the lease table: what cron passes to renew, by its own outcome > horizon refused: renew(hold) blocked or not, no cron PUT
+AssertionError: expected [] to deeply equal [ 'hold' ]
+
+- Expected
++ Received
+
+- [
+-   "hold",
+- ]
++ []
+
+ ❯ test/clock-metronome.test.ts:125:42
+    123|       const m = fakeMetronome(() => { throw new Error("dead"); });
+    124|       await run({ bucket, guard, metronome: m.client });
+    125|       expect(m.sent.map((l) => l?.kind)).toEqual(["hold"]);
+       |                                          ^
+    126|       expect(playlistPuts(bucket)).toBe(0);
+    127|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > the lease table: what cron passes to renew, by its own outcome > verdict known, horizon accepted: a play lease with the verdict, horizon and fallback, ordered by the guard's start
+AssertionError: expected [] to deeply equal [ { kind: 'play', …(5) } ]
+
+- Expected
++ Received
+
+- [
+-   {
+-     "blocked": false,
+-     "fallback": {
+-       "len": 7,
+-       "notice": "fallback/v1/notice.aac",
+-     },
+-     "horizon": {
+-       "container": "adts",
+-       "d": 10.24,
+-       "epoch": "2026-10-10T12:00:00.000Z",
+-       "epoch_id": "e1",
+-       "fallback_version": "v1",
+-       "first": 0,
+-       "last": 1000000,
+-       "published_at": "2026-10-10T12:00:00.000Z",
+-     },
+-     "kind": "play",
+-     "validUntil": 1791635014340,
+-     "verdictAt": 1791634112340,
+-   },
+- ]
++ []
+
+ ❯ test/clock-metronome.test.ts:136:22
+    134|       await runClock({ bucket: station(), ...clock, scheduledTime: AT,…
+    135|                        guard: async () => { await clock.sleep(2_000); …
+    136|       expect(m.sent).toEqual([{ kind: "play", verdictAt: AT + 40, vali…
+       |                      ^
+    137|                                 blocked, horizon: horizonDoc(E), fallb…
+    138|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > the lease table: what cron passes to renew, by its own outcome > renews exactly once per invocation, on every path
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ test/clock-metronome.test.ts:152:22
+    150|       const m = fakeMetronome();
+    151|       await run({ ...c, metronome: m.client });
+    152|       expect(m.sent).toHaveLength(1);
+       |                      ^
+    153|     }
+    154|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > a healthy metronome > cron writes no playlist, the batch is complete, the clock line carries the status
+AssertionError: expected 8 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 8
+
+ ❯ test/clock-metronome.test.ts:161:38
+    159|     const m = fakeMetronome();
+    160|     const out = await run({ metronome: m.client });
+    161|     expect(playlistPuts(out.bucket)).toBe(0);
+       |                                      ^
+    162|     expect(out.batch).toEqual({ complete: true, guardComplete: true });
+    163|     expect(out.r!.metronome).toEqual({ sent: "play", status: healthy()…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > a healthy metronome > a blocked lease that the DO wrote: no cron PUT either
+AssertionError: expected undefined to match object { kind: 'play', blocked: true }
+
+- Expected:
+{
+  "blocked": true,
+  "kind": "play",
+}
+
++ Received:
+undefined
+
+ ❯ test/clock-metronome.test.ts:170:23
+    168|     const m = fakeMetronome(() => healthy({ lease: "blocked" }));
+    169|     const out = await run({ guard: guardSays(true, true), metronome: m…
+    170|     expect(m.sent[0]).toMatchObject({ kind: "play", blocked: true });
+       |                       ^
+    171|     expect(playlistPuts(out.bucket)).toBe(0);
+    172|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > a healthy metronome > offair-without-fallback is raised by cron from its own inputs even though the DO writes
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ test/clock-metronome.test.ts:187:34
+    185|     expect(out.keys).toContain("offair-without-fallback");
+    186|     expect(out.r!.offairWithoutFallback).toMatch(/ENDLIST-only/);
+    187|     expect(playlistPuts(bucket)).toBe(0);
+       |                                  ^
+    188|   });
+    189|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > a healthy metronome > a single stall: no fallback, no alert, stalledMs on the clock line
+AssertionError: expected 8 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 8
+
+ ❯ test/clock-metronome.test.ts:192:38
+    190|   it("a single stall: no fallback, no alert, stalledMs on the clock li…
+    191|     const out = await run({ metronome: fakeMetronome(() => healthy({ s…
+    192|     expect(playlistPuts(out.bucket)).toBe(0);
+       |                                      ^
+    193|     expect(out.keys).not.toContain("metronome-down");
+    194|     expect(out.r!.metronome!.status!.stalledMs).toBe(41_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > a healthy metronome > superseded: no fallback (the DO keeps a newer lease)
+AssertionError: expected 8 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 8
+
+ ❯ test/clock-metronome.test.ts:199:38
+    197|   it("superseded: no fallback (the DO keeps a newer lease)", async () …
+    198|     const out = await run({ metronome: fakeMetronome(() => healthy({ a…
+    199|     expect(playlistPuts(out.bucket)).toBe(0);
+       |                                      ^
+    200|     expect(out.keys).not.toContain("metronome-down");
+    201|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > the fallback: cron's own loop, and metronome-down > (a) renew throws: the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete
+ FAIL  test/clock-metronome.test.ts > the fallback: cron's own loop, and metronome-down > (b) invalid: the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete
+ FAIL  test/clock-metronome.test.ts > the fallback: cron's own loop, and metronome-down > (b) off (version skew): the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete
+ FAIL  test/clock-metronome.test.ts > the fallback: cron's own loop, and metronome-down > (b) wrote false: the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete
+ FAIL  test/clock-metronome.test.ts > the fallback: cron's own loop, and metronome-down > (c) stalls >= 2: the legacy loop runs (as many PUTs as today), metronome-down is raised, the batch is complete
+AssertionError: expected [] to include 'metronome-down'
+ ❯ test/clock-metronome.test.ts:217:24
+    215|       const out = await run({ metronome: fakeMetronome(answer).client …
+    216|       expect(out.r!.puts).toBe(8); // immediate + boundaries 51..57, e…
+    217|       expect(out.keys).toContain("metronome-down");
+       |                        ^
+    218|       expect(out.r!.metronome!.fallback).toEqual(expect.any(String));
+    219|       expect(out.batch).toEqual({ complete: true, guardComplete: true …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > the fallback: cron's own loop, and metronome-down > a hold the DO did not answer: metronome-down, but the fallback never writes
+AssertionError: expected [ 'horizon-refused' ] to deeply equal ArrayContaining{…}
+
+- Expected
++ Received
+
+- ArrayContaining [
++ [
+    "horizon-refused",
+-   "metronome-down",
+  ]
+
+ ❯ test/clock-metronome.test.ts:236:22
+    234|     bucket.seed("state/horizon.json", { ...horizonDoc(E), d: 1 });
+    235|     const out = await run({ bucket, metronome: fakeMetronome(() => { t…
+    236|     expect(out.keys).toEqual(expect.arrayContaining(["horizon-refused"…
+       |                      ^
+    237|     expect(playlistPuts(bucket)).toBe(0);
+    238|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > scheduled handler with the metronome > METRONOME on, the DO on too: the DO writes live.m3u8, cron does not, the clock line has the status
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ test/clock-metronome.test.ts:276:23
+    274|     await fire(noSecrets("on"));
+    275|     const line = clockLine(log);
+    276|     expect(line.puts).toBe(0);
+       |                       ^
+    277|     expect(line.metronome).toMatchObject({ sent: "play", status: { app…
+    278|     expect(await (await e.BUCKET.get("live.m3u8"))!.text()).toContain(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > scheduled handler with the metronome > METRONOME on for cron but off in the DO (version skew): cron falls back and raises metronome-down
+AssertionError: expected undefined to match object { status: { applied: 'off' }, …(1) }
+
+- Expected:
+{
+  "fallback": StringMatching /applied=off/,
+  "status": {
+    "applied": "off",
+  },
+}
+
++ Received:
+undefined
+
+ ❯ test/clock-metronome.test.ts:288:28
+    286|     await fire(noSecrets("on"));
+    287|     const line = clockLine(log);
+    288|     expect(line.metronome).toMatchObject({ status: { applied: "off" },…
+       |                            ^
+    289|     expect(line.puts).toBe(1);
+    290|     expect(line.alerts).toContain("metronome-down");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/21]⎯
+
+ FAIL  test/clock-metronome.test.ts > scheduled handler with the metronome > METRONOME off (as committed): cron's loop exactly as before, no renew
+AssertionError: expected undefined to be null
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ test/clock-metronome.test.ts:300:28
+    298|     await fire(noSecrets(String(e.METRONOME)));
+    299|     const line = clockLine(log);
+    300|     expect(line.metronome).toBeNull();
+       |                            ^
+    301|     expect(line.puts).toBe(1);
+    302|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/21]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  21 failed | 42 passed (63)
+   Start at  02:33:50
+   Duration  2.15s (transform 64%, tests 14%, import 13%, worker 9%)
+
+== GREEN focused
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/clock-metronome.test.ts (22 tests | 1 failed) 86ms
+   ❯ a healthy metronome (6)
+     × offair-without-fallback is raised by cron from its own inputs even though the DO writes 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/clock-metronome.test.ts > a healthy metronome > offair-without-fallback is raised by cron from its own inputs even though the DO writes
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ test/clock-metronome.test.ts:187:34
+    185|     expect(out.keys).toContain("offair-without-fallback");
+    186|     expect(out.r!.offairWithoutFallback).toMatch(/ENDLIST-only/);
+    187|     expect(playlistPuts(bucket)).toBe(0);
+       |                                  ^
+    188|   });
+    189|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 62 passed (63)
+   Start at  02:34:15
+   Duration  1.81s (transform 63%, tests 15%, worker 11%, import 11%)
+
+== GREEN focused after adaptation
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  63 passed (63)
+   Start at  02:34:38
+   Duration  2.22s (transform 66%, import 17%, tests 11%, worker 6%)
+
+== full suite x2 + typecheck
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  20 passed (20)
+      Tests  371 passed (371)
+   Start at  02:34:47
+   Duration  7.16s (transform 58%, worker 17%, tests 17%, import 8%)
+
+  Transform  transforming modules took 9.71s · 58% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  20 passed (20)
+      Tests  371 passed (371)
+   Start at  02:34:56
+   Duration  7.25s (transform 53%, tests 17%, worker 17%, import 13%)
+
+  Transform  transforming modules took 8.31s · 53% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+== dry-run
+
+ ⛅️ wrangler 4.149.0 (update available 4.151.0)
+───────────────────────────────────────────────
+Total Upload: 85.01 KiB / gzip: 23.38 KiB
+Your Worker has access to the following bindings:
+Binding                                                   Resource                  
+env.METRONOME_DO (Metronome)                              Durable Object            
+env.ALERT_EMAIL (unrestricted)                            Send Email                
+env.BUCKET (lma-radio)                                    R2 Bucket                 
+env.PLAYLIST_WINDOW ("16")                                Environment Variable      
+env.PLAYLIST_LOOKAHEAD ("12")                             Environment Variable      
+env.PLAYLIST_HOLD_BACK ("12")                             Environment Variable      
+env.GRACE_SEGMENTS ("3")                                  Environment Variable      
+env.OFFAIR_AFTER_SECONDS ("86400")                        Environment Variable      
+env.LOOP_SECONDS ("75")                                   Environment Variable      
+env.LIVE_MAX_AGE ("5")                                    Environment Variable      
+env.LEAD_FLOOR_HOURS ("16")                               Environment Variable      
+env.MONTHLY_BUDGET_USD ("15")                             Environment Variable      
+env.BILLING_ANNIVERSARY_DAY ("11")                        Environment Variable      
+env.GUARD_EVAL_SECONDS ("900")                            Environment Variable      
+env.BLIND_AFTER_SECONDS ("21600")                         Environment Variable      
+env.KILL_SWITCH_DESCRIPTION ("station: kill switch")      Environment Variable      
+env.ALERT_REPEAT_HOURS ("6")                              Environment Variable      
+env.STATION_NAME ("llama radio")                          Environment Variable      
+env.METRONOME ("off")                                     Environment Variable      
+
+--dry-run: exiting now.
+== fix1 RED
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/clock-metronome.test.ts (23 tests | 1 failed | 22 skipped) 16ms
+   ❯ the fallback: cron's own loop, and metronome-down (8)
+     × a non-object reply or an unprintable rejection is trigger (a): renew never throws, the loop runs 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/clock-metronome.test.ts > the fallback: cron's own loop, and metronome-down > a non-object reply or an unprintable rejection is trigger (a): renew never throws, the loop runs
+AssertionError: expected ClockError: Cannot read properties of und… { partial: { …(9) } } to be null
+
+- Expected:
+null
+
++ Received:
+ClockError {
+  "message": "Cannot read properties of undefined (reading 'applied')",
+  "cause": TypeError {
+    "message": "Cannot read properties of undefined (reading 'applied')",
+  },
+  "partial": {
+    "alerts": [
+      "clock-failed",
+    ],
+    "blocked": false,
+    "guardMs": 0,
+    "index": "written",
+    "metronome": null,
+    "offairWithoutFallback": null,
+    "puts": 0,
+    "refused": null,
+    "skipped": 0,
+  },
+  "name": "ClockError",
+}
+
+ ❯ test/clock-metronome.test.ts:232:25
+    230|     for (const answer of answers) {
+    231|       const out = await run({ metronome: fakeMetronome(answer).client …
+    232|       expect(out.error).toBeNull();
+       |                         ^
+    233|       expect(out.r!.puts).toBe(8);
+    234|       expect(out.keys).toContain("metronome-down");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 22 skipped (23)
+   Start at  02:42:32
+   Duration  2.22s (transform 84%, import 10%, tests 3%, worker 3%)
+
+== fix1 GREEN full x1 + typecheck
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  20 passed (20)
+      Tests  372 passed (372)
+   Start at  02:42:46
+   Duration  6.77s (transform 55%, tests 17%, worker 14%, import 13%)
+
+  Transform  transforming modules took 9.01s · 55% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+

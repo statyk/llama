@@ -1,0 +1,4 @@
+budget-min: 20
+role: reviewer
+model: opus
+what: Re-review second fix

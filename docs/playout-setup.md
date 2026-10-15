@@ -212,7 +212,7 @@ developers.cloudflare.com are the authority if they drift again).
 5. The clock's spend bounds (Cloudflare has no spending cap): at most **10 PUTs per
    invocation** (`MAX_PUTS`), a horizon whose segment duration `d` is not 10.24 s is
    **refused** (nothing written; logged as `horizon-refused`), and the loop never runs
-   longer than **75 s** (`LOOP_SECONDS` above 75 is clamped and logged as `loop-clamped`).
+   longer than **75 s** (`LOOP_SECONDS` above 75 is clamped and logged as `loop-clamped`). With the metronome on (step 7), the Durable Object adds bounds of its own: at most 10 playlist PUTs and 12 alarm invocations per rolling minute, a 5 s bound on each PUT, a fixed set of 8 storage keys, and no alarm chain except while the playlist is live (never while blocked, held, or past its 15-minute lease).
 6. The playlist (amendment A4, amended 2026-10-12). `live.m3u8` lists `PLAYLIST_WINDOW`
    (16) segments ending `PLAYLIST_LOOKAHEAD` (12) past the one airing, and tells players
    to start `PLAYLIST_HOLD_BACK` (12) segments before the listed end
@@ -234,6 +234,7 @@ developers.cloudflare.com are the authority if they drift again).
    the tags are omitted below 3 target durations (hold-back < 4). Every listed segment
    exists (the published lead is ~24 h; `lead-low` alerts at 16 h), and the PUT count is
    unchanged.
+7. **The metronome** (`docs/superpowers/specs/2026-10-14-antenna-metronome-design.md`). With `"METRONOME": "on"` in `wrangler.jsonc`, a Durable Object (`Metronome`, one instance) writes `live.m3u8` at every grid boundary from an alarm chain, under a 15-minute lease that the clock renews every minute with the guard's verdict, the horizon and the fallback. The object never reads R2 and never decides blocked. The clock's own loop runs only when the object looks dead (a renew that fails or times out, a play lease not accepted or not written, or two consecutive renews that find the chain stalled), and then raises `metronome-down`. **Any other value is the rollback:** the clock's loop exactly as before, and the object deletes its alarm at its next invocation. Consequences of the lease: while cron is dead, the station keeps playing for up to 15 minutes on the last verdict, and `transmitter offair on` cannot take effect in that window (the WAF kill switch still can). Rollout, rollback and verification are in section 9.
 
 ## 5. Phase-1 verification checklist
 
@@ -443,6 +444,7 @@ Run the `transmitter` commands below as `<user>` on hugo with the env file loade
 | `lead-low` | clock | high | resolvable |
 | `offair-without-fallback` | clock | high | resolvable |
 | `clock-failed` | clock | urgent | resolvable |
+| `metronome-down` | clock | high | resolvable |
 
 **hugo** (transmitter, `~/.transmitter/alerts.json`):
 
@@ -490,3 +492,66 @@ Run with the station up and **not yet shared**. Run the `transmitter` commands a
 **Notes (expected, not pass/fail).** (1) When overlapping cron runs race, a one-minute unblocked window is possible after a trip; the trip is never lost, the next run re-blocks, and it is alerted: record any occurrence (section 7, known limitations). (2) After the upgrade, a `guard-cache.json` without the `guard_evaluated_at` key is treated as unknown, so no false `guard-stale` should arrive.
 
 When every item passes, the station may be shared publicly (spec, Phases item 2).
+
+## 9. The metronome: rollout, rollback, verification
+
+Spec: `docs/superpowers/specs/2026-10-14-antenna-metronome-design.md` (Rollout). Record results in `docs/superpowers/<date>-metronome-verification.md`. Run from the main checkout's `antenna/` with `.env` loaded (`set -a; . ./.env; set +a`: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ANALYTICS_TOKEN`). `.env` is gitignored, so a worktree has none.
+
+1. **Tear down the alarm probe** (its Durable Object would otherwise appear in the account-wide DO meters). From `~/lma-radio-ops/do-alarm-probe`:
+   ```
+   npx wrangler deploy --var STOP:1     # cron deletes the alarm; alarms stop re-arming
+   # wait ~1 min; confirm no new "event":"alarm" lines arrive in tail.jsonl, then:
+   pkill -f 'cli.js tail alarm-probe'
+   npx wrangler delete                  # removes the Worker (name from its wrangler.jsonc)
+   ```
+   If `wrangler delete` refuses because of the Durable Object class, add `{ "tag": "v2", "deleted_classes": ["Probe"] }` to the probe's `migrations`, remove its `durable_objects` binding and its `ensure` call, `npx wrangler deploy`, then `npx wrangler delete`.
+2. **Deploy with `"METRONOME": "off"`** (as committed): `npm ci && npm test && npm run typecheck`, `npx wrangler deploy --dry-run` (it lists `env.METRONOME_DO (Metronome)` and `env.METRONOME ("off")`), then `npx wrangler deploy` (its output ends with `schedule: * * * * *`). The class now exists, and the guard reads the three DO meters. **Pass** only when, at the guard's next evaluation (within 15 min), `npx wrangler r2 object get lma-radio/state/guard.json --remote --pipe | python3 -m json.tool` shows `last_error: null` and `evaluation.period_to_date` carrying all seven meters (`workersRequests`, `r2ClassA`, `r2ClassB`, `r2StorageGbMonth`, `doRequests`, `doDurationGbS`, `doRowsWritten`). Nothing on air changes: the clock's loop writes as before.
+3. **Flip on:** set `"METRONOME": "on"` in `wrangler.jsonc`, commit, `npx wrangler deploy`. Within two minutes, `npx wrangler tail antenna --format pretty` shows clock lines with `"metronome":{"sent":"play","status":{"applied":"accepted",...},"fallback":null}` and `"puts":0`, and Durable Object alarm events about every 10 s. The guard's first evaluation after the flip may fail with `the metronome is on but the recent window reads doRequests=0`, and `guard.json` shows that failure until the next evaluation (≤ ~20 min): expected, and harmless (the blind rule needs 6 h).
+4. **Verification day:** a 24 h `wrangler tail antenna` and `live.m3u8` poller, including a weekday daytime (section 9.1 below). Deploy twice during the day (`npx wrangler deploy`, no change) and note the times.
+
+**Rollback.** Immediate: `npx wrangler deploy --var METRONOME:off`. The next cron invocation runs its own loop, and the object's next alarm reads `off`, deletes its alarm and writes nothing. A `--var` lasts only until the next plain deploy, so make it durable by committing `"METRONOME": "off"`. If the Worker itself is broken, section 4 step 4's broken-Worker order applies unchanged. Roll back the same way, rather than ride it out, when `metronome-down` persists while `METRONOME` is `"on"` (the object absent or broken): with no Durable Object activity, every guard reading also fails (`doRequests=0`), and the station trips blind after 6 h.
+
+**A dead cron, now.** The object keeps the station playing for at most 15 minutes on its lease, then stops writing and re-arming. The playlist freezes, and hugo's `dead-clock` check alerts (newest segment older than `dead_clock_seconds`, 120 s, on two checks a minute apart); independently hugo alerts `guard-stale` once `guard.json`'s evaluation is older than `guard_stale_minutes` (45). A cron outage is therefore detected ~17-18 minutes after the last renew, against ~3-4 minutes before the metronome. Accepted (spec, Decision 3).
+
+**Known limitations.** An alarm chain that breaks with no error freezes the playlist until the next renew, up to one cron gap (≤ ~200 s on a bad day). It shows on the clock line as `metronome.status.stalledMs` with no alert; two in a row fall back and alert. During a fallback minute both writers may write, and their off-air MEDIA-SEQUENCE can differ (cosmetic: both end in ENDLIST). The object's "logged once" marks are memory only and the object is evicted between ticks, so a persisting anomaly may log every tick (inside the Workers Logs allowance). An R2 PUT the object has waited 5 s for is counted as failed (`metronome-put-failed`, `lastBody` cleared, the next tick retries), but R2's `put` cannot be aborted, so it may still land, even after a later successful PUT: the playlist can then show an older MEDIA-SEQUENCE until the next tick (≤ ~10 s). The slot was counted against the PUT cap before it was issued, so this costs no extra spend.
+
+### 9.1 Verification-day capture and pass criteria
+
+```
+mkdir -p ~/lma-radio-ops/metronome-tail
+nohup npx wrangler tail antenna --format json > ~/lma-radio-ops/metronome-tail/tail.jsonl \
+  2> ~/lma-radio-ops/metronome-tail/tail.err < /dev/null &
+```
+
+Alongside it, an independent poller fetches `live.m3u8` as a listener does, every ~5 s, and logs the fetch time, `MEDIA-SEQUENCE` and the last `PROGRAM-DATE-TIME`. Freezes are measured from it: the Durable Object logs anomalies only once per episode, so its lines are diagnostic, not a freeze record.
+
+```
+cat > ~/lma-radio-ops/metronome-tail/poll.py <<'EOF'
+import datetime as dt, os, re, time, urllib.request
+URL = "https://listen.lma-radio.com/live.m3u8"
+OUT = os.path.expanduser("~/lma-radio-ops/metronome-tail/poll.tsv")
+while True:
+    t0 = time.time()
+    try:
+        req = urllib.request.Request(URL, headers={"user-agent": "metronome-verification-poller"})
+        body = urllib.request.urlopen(req, timeout=10).read().decode()
+        seq = re.search(r"#EXT-X-MEDIA-SEQUENCE:(\d+)", body)
+        pdt = re.findall(r"#EXT-X-PROGRAM-DATE-TIME:(\S+)", body)
+        row = f"{seq.group(1) if seq else '-'}\t{pdt[-1] if pdt else '-'}"
+    except Exception as e:
+        row = f"error\t{type(e).__name__}: {e}"
+    with open(OUT, "a") as f:
+        f.write(f"{dt.datetime.now(dt.timezone.utc).isoformat(timespec='milliseconds')}\t{row}\n")
+    time.sleep(max(0.0, 5 - (time.time() - t0)))
+EOF
+nohup python3 ~/lma-radio-ops/metronome-tail/poll.py > ~/lma-radio-ops/metronome-tail/poll.err 2>&1 < /dev/null &
+```
+
+`poll.tsv` has one row per fetch: UTC fetch time, `MEDIA-SEQUENCE`, last `PROGRAM-DATE-TIME` (or `error` and the reason). A freeze is a run of fetches with the same `MEDIA-SEQUENCE`, from the first fetch that shows it to the first that shows the next; normal is ~10 s, give or take the 5 s poll and the 5 s `max-age`.
+
+The capture holds three kinds of event: cron invocations (`executionModel: "stateless"`, `event.cron`, with the `clock` line in `logs`); Durable Object alarms (`executionModel: "durableObject"`, `event.scheduledTime`, `outcome`); and renew RPCs (`executionModel: "durableObject"`, `event.rpcMethod: "renew"`). **Pass:**
+
+- no playlist freeze over 45 s in `poll.tsv` outside a reported `metronome-down`, except silent chain breaks: at most 1-2 in the day, each tied to a single stall on the clock line (provisional: the probe's handler did no R2 PUT);
+- the DO meters in `guard.json` (`evaluation.period_to_date.doRequests`, `doDurationGbS`, `doRowsWritten`) agree with the dashboard's billable usage for the period;
+- playlist PUTs at most ~one per boundary plus one per renew (≈ 7/min, ≈ 10k/day), counted from the DO and clock lines; below the cron-only rate is expected;
+- after each deliberate deploy, the alarm chain continues within ~10 s, or the next renew repairs it within a minute.

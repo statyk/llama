@@ -1,0 +1,122 @@
+== focused alarm test (live worktree) ==
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+   Start at  03:08:09
+   Duration  2.00s (transform 73%, import 13%, tests 8%, worker 6%)
+
+== item 1 flake check run 1 (live worktree) ==
+      Tests  11 passed (11)
+   Duration  2.37s (tests 73%, transform 21%, import 4%, worker 2%)
+== item 1 flake check run 2 (live worktree) ==
+      Tests  11 passed (11)
+   Duration  2.41s (tests 74%, transform 20%, import 4%, worker 1%)
+== item 1 flake check run 3 (live worktree) ==
+      Tests  11 passed (11)
+   Duration  2.45s (tests 72%, transform 22%, import 4%, worker 2%)
+== item 1 flake check verbose run 1 (live worktree) ==
+ ✓ test/metronome.test.ts > the Metronome Durable Object > a genuine delivery (the runtime's own, not runDurableObjectAlarm) sees no pending alarm: counted, re-armed later, never a duplicate 666ms
+      Tests  11 passed (11)
+   Duration  2.50s (tests 73%, transform 19%, import 6%, worker 2%)
+== item 1 flake check verbose run 2 (live worktree) ==
+ ✓ test/metronome.test.ts > the Metronome Durable Object > a genuine delivery (the runtime's own, not runDurableObjectAlarm) sees no pending alarm: counted, re-armed later, never a duplicate 657ms
+      Tests  11 passed (11)
+   Duration  2.26s (tests 74%, transform 21%, import 4%, worker 2%)
+== item 1 flake check verbose run 3 (live worktree) ==
+ ✓ test/metronome.test.ts > the Metronome Durable Object > a genuine delivery (the runtime's own, not runDurableObjectAlarm) sees no pending alarm: counted, re-armed later, never a duplicate 672ms
+      Tests  11 passed (11)
+   Duration  2.87s (tests 72%, transform 23%, import 4%, worker 2%)
+== full npm test (live worktree) ==
+   Duration  7.85s (transform 52%, tests 22%, import 14%, worker 12%)
+
+  Transform  transforming modules took 10.50s · 52% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+== typecheck ==
+> typecheck
+> tsc --noEmit
+
+typecheck rc=0
+full suite: Test Files 20 passed (20); Tests 374 passed (374)
+scratch copies made at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/aab0ffd0-1c39-4c05-9566-1b4fa5339bb1/scratchpad/final-fix (base, sentinel, i2, i3) from git archive HEAD (76ef024)
+== PREDICTIONS (written before any mutant run) ==
+sentinel (confirms always false, engine.ts:55): RED includes "alarm: the tick > re-arms first to the next boundary, then writes, then confirms the tick" (lastAlarmGoodAt). Proves scratch imports scratch src.
+I-2 mutant (confirms ... || r === "cap", engine.ts:55): RED exactly "alarm: caps and failures > the PUT cap holds across alarms and renews, and the chain still re-arms over it", at the new lastAlarmGoodAt assertion; all others green.
+I-3 mutant (engine.ts:208 -> s.lastAlarmGoodAt = now;): RED exactly "alarm: the tick > a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick", at expect(port.puts()).toBe(puts + 1); all others green.
+base (unmutated HEAD copy): all green.
+== scratch run: base (cwd /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/aab0ffd0-1c39-4c05-9566-1b4fa5339bb1/scratchpad/final-fix/base/antenna) ==
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+== scratch run: sentinel (cwd /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/aab0ffd0-1c39-4c05-9566-1b4fa5339bb1/scratchpad/final-fix/sentinel/antenna) ==
+ × test/metronome-alarm.test.ts > alarm: the tick > re-arms first to the next boundary, then writes, then confirms the tick 10ms
+ × test/metronome-alarm.test.ts > alarm: the tick > a second delivery for the same boundary rebuilds identical bytes: no PUT, still a confirmed tick 1ms
+ × test/metronome-alarm.test.ts > alarm: the tick > a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick 0ms
+ × test/metronome-alarm.test.ts > alarm: the tick > duplicates after a completed tick (an alarm still pending): no PUT, no re-arm, lastTarget unchanged 0ms
+ × test/metronome-alarm.test.ts > alarm: when it must not tick > a null build (before the epoch) is a confirmed tick, logged once per lease 1ms
+ × test/metronome-alarm.test.ts > alarm: when it must not tick > a fallback loop entry with no usable fallback is a null build too 0ms
+ × test/metronome-alarm.test.ts > storage > the stored keys are always within the fixed set, and a full cycle uses exactly it 12ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > re-arms first to the next boundary, then writes, then confirms the tick
+AssertionError: expected undefined to be 1791643850265 // Object.is equality
+- Expected:
++ Received:
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > a second delivery for the same boundary rebuilds identical bytes: no PUT, still a confirmed tick
+AssertionError: expected undefined to be 1791643850274 // Object.is equality
+- Expected:
++ Received:
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick
+AssertionError: expected undefined to be 1791643850274 // Object.is equality
+- Expected:
++ Received:
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > duplicates after a completed tick (an alarm still pending): no PUT, no re-arm, lastTarget unchanged
+AssertionError: expected undefined to be 1791643852265 // Object.is equality
+- Expected:
++ Received:
+ FAIL  test/metronome-alarm.test.ts > alarm: when it must not tick > a null build (before the epoch) is a confirmed tick, logged once per lease
+AssertionError: expected undefined to be 1791633559065 // Object.is equality
+- Expected:
++ Received:
+ FAIL  test/metronome-alarm.test.ts > alarm: when it must not tick > a fallback loop entry with no usable fallback is a null build too
+AssertionError: expected undefined to be 1791643850265 // Object.is equality
+- Expected:
++ Received:
+ FAIL  test/metronome-alarm.test.ts > storage > the stored keys are always within the fixed set, and a full cycle uses exactly it
+AssertionError: expected [ 'alarmTimes', 'lastBody', …(5) ] to deeply equal [ 'alarmTimes', …(7) ]
+- Expected
++ Received
+-   "lastAlarmGoodAt",
+ Test Files  1 failed (1)
+      Tests  7 failed | 22 passed (29)
+== scratch run: i2 (cwd /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/aab0ffd0-1c39-4c05-9566-1b4fa5339bb1/scratchpad/final-fix/i2/antenna) ==
+ × test/metronome-alarm.test.ts > alarm: caps and failures > the PUT cap holds across alarms and renews, and the chain still re-arms over it 8ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/metronome-alarm.test.ts > alarm: caps and failures > the PUT cap holds across alarms and renews, and the chain still re-arms over it
+AssertionError: expected 1791643880265 to be null
+- Expected:
++ Received:
+ Test Files  1 failed (1)
+      Tests  1 failed | 28 passed (29)
+== scratch run: i3 (cwd /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/aab0ffd0-1c39-4c05-9566-1b4fa5339bb1/scratchpad/final-fix/i3/antenna) ==
+ × test/metronome-alarm.test.ts > alarm: the tick > a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick 3ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick
+AssertionError: expected 2 to be 3 // Object.is equality
+- Expected
++ Received
+- 3
++ 2
+ Test Files  1 failed (1)
+      Tests  1 failed | 28 passed (29)
+== scratch FULL vitest run: i2 ==
+     × the PUT cap holds across alarms and renews, and the chain still re-arms over it 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed | 19 passed (20)
+      Tests  1 failed | 373 passed (374)
+== scratch FULL vitest run: i3 ==
+     × a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick 3ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed | 19 passed (20)
+      Tests  1 failed | 373 passed (374)

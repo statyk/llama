@@ -1,0 +1,125 @@
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/metronome-renew.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/metronome-renew.test.ts [ test/metronome-renew.test.ts ]
+Error: Cannot find module '../src/metronome-engine' imported from /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna/test/metronome-support.ts
+ ❯ maybeHandleRunRequest Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna/node_modules/@cloudflare/vitest-plugin/dist/worker/lib/cloudflare/test-internal.mjs:157:18
+ ❯ __VITEST_POOL_WORKERS_RUNNER_DURABLE_OBJECT__.fetch index.mjs:985:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  01:45:34
+   Duration  2.13s (worker 100%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  01:45:44
+   Duration  2.36s (transform 70%, import 20%, worker 6%, tests 4%)
+
+      Tests  304 passed (304)
+   Start at  01:45:53
+   Duration  6.81s (transform 68%, worker 16%, import 14%, tests 2%)
+
+  Transform  transforming modules took 8.57s · 68% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+tsc exit 0
+mutants start
+M0-sentinel:      × off: deletes the alarm, writes and stores nothing, answers applied off 7ms
+M0-sentinel:      × accepts, writes the live playlist at once, arms the next boundary, records playSince 5ms
+M0-sentinel:      × renew(null) leaves the lease untouched and still writes from a current play lease 2ms
+M0-sentinel:      × an identical body is not written again (wrote null), and is not a failure 0ms
+M0-sentinel:      × does not re-arm when an alarm is already pending 0ms
+M0-sentinel:      × an invalid lease is applied invalid: logged, the stored lease and the alarm deleted, nothing written 1ms
+M0-sentinel:      × an unparseable stored lease is deleted on load: no write, no re-arm 0ms
+M0-sentinel:      × a stored lease that no longer validates (say, after a deploy) is deleted, and the fresh one is accepted 1ms
+M0-sentinel:      × a malformed fallback plays as no usable fallback, not an invalid lease 1ms
+M0-sentinel:      × an older or equal unblocked play lease is superseded (logged once), the newer one stays 0ms
+M0-sentinel:      × a lagging older blocked lease is accepted (fail-closed) until a newer unblocked one 0ms
+M0-sentinel:      × blocked: writes the off-air notice, leaves no alarm pending 0ms
+M0-sentinel:      × the notice is numbered above every live segment listed and never decreases across renews 1ms
+M0-sentinel:      × hold: no PUT, no pending alarm, logged once 0ms
+M0-sentinel:      × expiry: past 15 min the DO writes nothing and disarms; a new lease restarts it 0ms
+M0-sentinel:      × renew(null) and a superseded lease never extend it: 15 min after acceptance nothing is written or armed 0ms
+M0-sentinel:      × renew's own write never confirms a tick: two renews over a dead chain count 1 then 2 0ms
+M0-sentinel:      × counts from playSince when the play lease is newer than the last alarm tick 0ms
+M0-sentinel:      × every renew writes stalls, unchanged or not, so a healthy DO writes a row every minute 0ms
+M0-sentinel:      × the 11th write in 60 s is skipped and logged; a cap-skipped write is wrote null, not a failure 0ms
+M0-sentinel:      × reserves the cap slot in storage before the PUT is issued 0ms
+M0-sentinel:      × a PUT that does not settle within 5 s is a failed write and clears lastBody; the next identical body is written 1ms
+M0-sentinel:      × a PUT that throws is a failed write 0ms
+M0-sentinel:      × overlapping renews run one after the other: one PUT, consistent cap and lastBody 2ms
+M0-sentinel: ⎯⎯⎯⎯⎯⎯ Failed Tests 24 ⎯⎯⎯⎯⎯⎯⎯
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: the switch > off: deletes the alarm, writes and stores nothing, answers applied off
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: a play lease > accepts, writes the live playlist at once, arms the next boundary, records playSince
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: a play lease > renew(null) leaves the lease untouched and still writes from a current play lease
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: a play lease > an identical body is not written again (wrote null), and is not a failure
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: a play lease > does not re-arm when an alarm is already pending
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: validation > an invalid lease is applied invalid: logged, the stored lease and the alarm deleted, nothing written
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: validation > an unparseable stored lease is deleted on load: no write, no re-arm
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: validation > a stored lease that no longer validates (say, after a deploy) is deleted, and the fresh one is accepted
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: validation > a malformed fallback plays as no usable fallback, not an invalid lease
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: ordering > an older or equal unblocked play lease is superseded (logged once), the newer one stays
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: ordering > a lagging older blocked lease is accepted (fail-closed) until a newer unblocked one
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > blocked: writes the off-air notice, leaves no alarm pending
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > the notice is numbered above every live segment listed and never decreases across renews
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > hold: no PUT, no pending alarm, logged once
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > expiry: past 15 min the DO writes nothing and disarms; a new lease restarts it
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > renew(null) and a superseded lease never extend it: 15 min after acceptance nothing is written or armed
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: stalls > renew's own write never confirms a tick: two renews over a dead chain count 1 then 2
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: stalls > counts from playSince when the play lease is newer than the last alarm tick
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: stalls > every renew writes stalls, unchanged or not, so a healthy DO writes a row every minute
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: the PUT cap and the PUT timeout > the 11th write in 60 s is skipped and logged; a cap-skipped write is wrote null, not a failure
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: the PUT cap and the PUT timeout > reserves the cap slot in storage before the PUT is issued
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: the PUT cap and the PUT timeout > a PUT that does not settle within 5 s is a failed write and clears lastBody; the next identical body is written
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: the PUT cap and the PUT timeout > a PUT that throws is a failed write
+M0-sentinel:  FAIL  test/metronome-renew.test.ts > renew: serialization > overlapping renews run one after the other: one PUT, consistent cap and lastBody
+M0-sentinel:       Tests  24 failed | 2 passed (26)
+M1-lastTarget:       Tests  26 passed (26)
+M2-stallsAlways:      × every renew writes stalls, unchanged or not, so a healthy DO writes a row every minute 5ms
+M2-stallsAlways: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M2-stallsAlways:  FAIL  test/metronome-renew.test.ts > renew: stalls > every renew writes stalls, unchanged or not, so a healthy DO writes a row every minute
+M2-stallsAlways:       Tests  1 failed | 25 passed (26)
+M4-lastBodyClear:      × a PUT that does not settle within 5 s is a failed write and clears lastBody; the next identical body is written 8ms
+M4-lastBodyClear: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M4-lastBodyClear:  FAIL  test/metronome-renew.test.ts > renew: the PUT cap and the PUT timeout > a PUT that does not settle within 5 s is a failed write and clears lastBody; the next identical body is written
+M4-lastBodyClear:       Tests  1 failed | 25 passed (26)
+M5-reserveFirst:      × reserves the cap slot in storage before the PUT is issued 3ms
+M5-reserveFirst: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M5-reserveFirst:  FAIL  test/metronome-renew.test.ts > renew: the PUT cap and the PUT timeout > reserves the cap slot in storage before the PUT is issued
+M5-reserveFirst:       Tests  1 failed | 25 passed (26)
+M6-keep:       Tests  26 passed (26)
+M7-playSince:      × accepts, writes the live playlist at once, arms the next boundary, records playSince 7ms
+M7-playSince:      × expiry: past 15 min the DO writes nothing and disarms; a new lease restarts it 1ms
+M7-playSince:      × renew's own write never confirms a tick: two renews over a dead chain count 1 then 2 2ms
+M7-playSince:      × counts from playSince when the play lease is newer than the last alarm tick 0ms
+M7-playSince: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+M7-playSince:  FAIL  test/metronome-renew.test.ts > renew: a play lease > accepts, writes the live playlist at once, arms the next boundary, records playSince
+M7-playSince:  FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > expiry: past 15 min the DO writes nothing and disarms; a new lease restarts it
+M7-playSince:  FAIL  test/metronome-renew.test.ts > renew: stalls > renew's own write never confirms a tick: two renews over a dead chain count 1 then 2
+M7-playSince:  FAIL  test/metronome-renew.test.ts > renew: stalls > counts from playSince when the play lease is newer than the last alarm tick
+M7-playSince:       Tests  4 failed | 22 passed (26)
+M8-serial:      × overlapping renews run one after the other: one PUT, consistent cap and lastBody 12ms
+M8-serial: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M8-serial:  FAIL  test/metronome-renew.test.ts > renew: serialization > overlapping renews run one after the other: one PUT, consistent cap and lastBody
+M8-serial:       Tests  1 failed | 25 passed (26)
+M9-invalidStored:      × an unparseable stored lease is deleted on load: no write, no re-arm 4ms
+M9-invalidStored: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+M9-invalidStored:  FAIL  test/metronome-renew.test.ts > renew: validation > an unparseable stored lease is deleted on load: no write, no re-arm
+M9-invalidStored:       Tests  1 failed | 25 passed (26)

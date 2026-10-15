@@ -509,6 +509,8 @@ so a cached non-CORS response would lack it), deliberately: browser-based
 aggregators and third-party web players must work; native apps are unaffected by
 CORS; third-party polling is cache hits and costs nothing.
 
+*(As built, 2026-10-15, the metronome: `docs/superpowers/specs/2026-10-14-antenna-metronome-design.md`. With `METRONOME = "on"`, a Durable Object writes `live.m3u8` at every grid boundary from an alarm chain under a 15-minute lease that the cron invocation renews every minute; the loop above runs only as the fallback when the object looks dead, raising `metronome-down`. Every playlist rule above is unchanged; one shared module (`antenna/src/live.ts`) builds and PUTs for both writers.)*
+
 ### Spend budget
 
 Fixed ≈ $5/month (Workers Paid), independent of listeners: ~43k clock
@@ -550,6 +552,8 @@ work follow, never precede it.
   upper bound on R2's average-of-daily-peaks. An R2 action type the code does not
   know is priced as Class A and listed in `guard.json`. The player's probe and
   hugo's dead-clock check are cache hits on `live.m3u8`.)*
+
+- *(As built, 2026-10-15, metronome spec: three Durable Object meters, `doRequests` (1M included, $0.15/M), `doDurationGbS` (400k GB-s, $12.50/M) and `doRowsWritten` (50M, $1.00/M), read from `durableObjectsInvocationsAdaptiveGroups` and `durableObjectsPeriodicGroups`. DO rows read and stored bytes are bounded by construction (a fixed key set, capped invocations) and not metered; `durableObjectsStorageGroups` returns no rows for this account. While `METRONOME` is `"on"`, a recent window with zero DO requests or rows written is a failed reading, never zero.)*
 
 **Blocking** rests on two independent flags:
 

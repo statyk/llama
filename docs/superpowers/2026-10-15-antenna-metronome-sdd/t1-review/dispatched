@@ -1,0 +1,4 @@
+budget-min: 20
+role: reviewer
+model: opus
+what: Task 1 combined spec+quality review

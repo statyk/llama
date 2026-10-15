@@ -1,0 +1,22 @@
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  20 passed (20)
+      Tests  372 passed (372)
+   Start at  02:44:42
+   Duration  6.91s (transform 60%, tests 16%, worker 14%, import 10%)
+
+  Transform  transforming modules took 9.63s · 60% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+rc=0

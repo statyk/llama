@@ -1,0 +1,4 @@
+budget-min: 40
+role: implementer
+model: opus
+what: Second fix: renew flush before alarm ops; (b) for blocked

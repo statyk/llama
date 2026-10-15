@@ -40,12 +40,29 @@
     // through the ALERT_EMAIL send_email binding, from ALERT_EMAIL_FROM to
     // ALERT_EMAIL_TO (secrets). Never put an address in this file.
     "ALERT_REPEAT_HOURS": "6",
-    "STATION_NAME": "llama radio"
+    "STATION_NAME": "llama radio",
+    // The rollback switch (metronome spec): only the exact string "on" enables
+    // the metronome. Anything else is off: cron runs its own loop exactly as
+    // before, and the Durable Object deletes its alarm and writes nothing.
+    // docs/playout-setup.md section 4 step 7 has the rollout and the rollback.
+    "METRONOME": "off"
   },
+  // The metronome (docs/superpowers/specs/2026-10-14-antenna-metronome-design.md):
+  // a SQLite-backed Durable Object that writes live.m3u8 on the grid from an
+  // alarm chain under a lease cron renews every minute. One instance, addressed
+  // as idFromName("metronome"). Migration form: `migrations` with
+  // `new_sqlite_classes`, the form the alarm probe deployed with this wrangler
+  // (4.149.0); the declarative `exports` field is the newer alternative, and the
+  // two are mutually exclusive. Both pass `wrangler deploy --dry-run`.
+  "durable_objects": { "bindings": [{ "name": "METRONOME_DO", "class_name": "Metronome" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Metronome"] }],
   // Alert email (Email Routing). Unrestricted on purpose: a send_email binding
   // can only reach the account's verified destination addresses, and the one
   // used is the ALERT_EMAIL_TO secret. Never put an address in this file.
   "send_email": [{ "name": "ALERT_EMAIL" }],
-  // One log line per invocation (~1,440/day) stays inside the free allowance.
+  // Workers Logs: one clock line per cron invocation (~1,440/day), plus the
+  // metronome's: each Durable Object invocation (alarm or renew) is itself a
+  // log event (~10k/day), and the object logs only anomalies, once per episode.
+  // All far inside the included allowance.
   "observability": { "enabled": true }
 }

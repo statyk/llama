@@ -34,7 +34,7 @@ const COMPLETE: AlertBatch = { complete: true, guardComplete: true };
 /** Keys the clock itself raises (clock.ts). They clear only on a complete batch. */
 export const CLOCK_KEYS: ReadonlySet<string> = new Set([
   "guard-crashed", "index-write", "horizon-missing", "horizon-refused", "lead-low", "offair-without-fallback",
-  "clock-inputs", "clock-failed",
+  "clock-inputs", "clock-failed", "metronome-down",
 ]);
 /** Keys the guard raises (guard.ts, conditions.ts), plus the spend levels below.
  * They are all computed whenever the guard returns a known outcome. */

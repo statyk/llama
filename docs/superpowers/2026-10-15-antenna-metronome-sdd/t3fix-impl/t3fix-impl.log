@@ -1,0 +1,132 @@
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/metronome-core.test.ts (29 tests | 3 failed) 14ms
+   ❯ stored state (6)
+     × a stored lease whose expiresAt is not a finite number is invalid (no lease) 4ms
+   ❯ fallbackReason (cron's triggers) (5)
+     × (c) fails closed: a stall count that is not a non-negative integer trips 0ms
+     × (b) an accepted unblocked play lease the DO is not playing (accepted already expired) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/metronome-core.test.ts > stored state > a stored lease whose expiresAt is not a finite number is invalid (no lease)
+TypeError: .toMatch() expects to receive a string, but got object
+ ❯ test/metronome-core.test.ts:203:28
+    201|     for (const stored of [withExpiry("1e999"), withExpiry("-1e999"), w…
+    202|       const { state, leaseInvalid } = readState({ lease: stored });
+    203|       expect(leaseInvalid).toMatch(/expiresAt/);
+       |                            ^
+    204|       expect(state.lease).toBeNull();
+    205|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/metronome-core.test.ts > fallbackReason (cron's triggers) > (c) fails closed: a stall count that is not a non-negative integer trips
+TypeError: .toMatch() expects to receive a string, but got object
+ ❯ test/metronome-core.test.ts:263:83
+    261|   it("(c) fails closed: a stall count that is not a non-negative integ…
+    262|     for (const stalls of [Number.NaN, undefined, 1.5, -1]) {
+    263|       expect(fallbackReason(p, { status: status({ stalls: stalls as nu…
+       |                                                                                   ^
+    264|     }
+    265|     expect(fallbackReason(p, { status: status({ stalls: 0 }) })).toBeN…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/metronome-core.test.ts > fallbackReason (cron's triggers) > (b) an accepted unblocked play lease the DO is not playing (accepted already expired)
+TypeError: .toMatch() expects to receive a string, but got object
+ ❯ test/metronome-core.test.ts:271:8
+    269|   it("(b) an accepted unblocked play lease the DO is not playing (acce…
+    270|     expect(fallbackReason(p, { status: status({ applied: "accepted", l…
+    271|       .toMatch(/applied=accepted, wrote=true, lease=none to a play lea…
+       |        ^
+    272|     expect(fallbackReason(p, { status: status({ applied: "accepted", l…
+    273|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 52 passed (55)
+   Start at  01:57:43
+   Duration  3.54s (transform 62%, import 29%, worker 4%, tests 4%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  55 passed (55)
+   Start at  01:58:10
+   Duration  2.62s (transform 65%, import 18%, worker 14%, tests 3%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/7c48a24a-b1ba-48f0-8b4d-9a045fdbda5f/scratchpad/mut4
+
+ ❯ test/metronome-renew.test.ts (26 tests | 1 failed) 30ms
+   ❯ renew: validation (4)
+     × an invalid lease is applied invalid: logged, the stored lease and the alarm deleted, nothing written 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/metronome-renew.test.ts > renew: validation > an invalid lease is applied invalid: logged, the stored lease and the alarm deleted, nothing written
+AssertionError: expected [ 'save lease', 'deleteAlarm' ] to include 'save lease,stalls'
+ ❯ test/metronome-renew.test.ts:72:22
+     70|     const st = await engine.renew(lease(T + 1_000, { horizon: { d: 10.…
+     71|     expect(st).toMatchObject({ applied: "invalid", lease: "none", wrot…
+     72|     expect(port.ops).toContain("save lease,stalls"); // stalls saved e…
+       |                      ^
+     73|     expect(port.store.has("lease")).toBe(false);
+     74|     expect(port.alarmAt).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 25 passed (26)
+   Start at  01:58:25
+   Duration  2.95s (transform 77%, import 9%, tests 8%, worker 7%)
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  17 passed (17)
+      Tests  307 passed (307)
+   Start at  01:58:36
+   Duration  7.15s (transform 70%, import 14%, worker 13%, tests 3%)
+
+  Transform  transforming modules took 7.92s · 70% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  17 passed (17)
+      Tests  307 passed (307)
+   Start at  01:59:09
+   Duration  7.49s (transform 57%, worker 21%, import 15%, tests 7%)
+
+  Transform  transforming modules took 6.26s · 57% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+

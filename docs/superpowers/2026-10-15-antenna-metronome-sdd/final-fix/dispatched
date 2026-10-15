@@ -1,0 +1,4 @@
+budget-min: 40
+role: implementer
+model: opus
+what: Final-review fix wave: I-1 I-2 I-3 tests, M-1 docs, M-6 blank line

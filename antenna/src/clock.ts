@@ -1,11 +1,15 @@
 import type { BucketLike } from "./bucket";
 import type { AlertCondition } from "./conditions";
-import { type Grid, type Horizon, gridOf, indexAt, startMs } from "./grid";
+import { GRID_D, type Grid, type Horizon, gridOf, indexAt, startMs } from "./grid";
 import type { GuardOutcome } from "./guard";
 import { reconcileIndex } from "./indexpage";
-import { buildPlaylist, type FallbackIndex, isOffair, type PlaylistConfig, usableFallback } from "./playlist";
+import { type LiveSource, offairWithoutFallback, putLive, renderLive } from "./live";
+import { fallbackReason, holdLease, type Lease, type MetronomeClient, type MetronomeStatus,
+         playLease } from "./metronome-core";
+import type { FallbackIndex, PlaylistConfig } from "./playlist";
 
 export { type BucketLike, r2Bucket, type StoredObject } from "./bucket";
+export { LIVE_KEY } from "./live";
 
 export interface ClockConfig extends PlaylistConfig {
   loopMs: number;
@@ -23,6 +27,8 @@ export interface ClockEnv {
   LOOP_SECONDS?: string;
   LIVE_MAX_AGE?: string;
   LEAD_FLOOR_HOURS?: string;
+  /** The metronome's rollback switch: only the exact string "on" enables it; anything else is off. */
+  METRONOME?: string;
 }
 
 function num(v: string | undefined, fallback: number): number {
@@ -60,6 +66,12 @@ export interface ClockDeps {
    * Called exactly once per invocation, after the last playlist write or at an
    * early return or throw. See AlertBatch for what `complete` obliges. */
   alerts?: (conditions: AlertCondition[], nowMs: number, batch: AlertBatch) => Promise<void>;
+  /** The metronome (metronome spec), given only when METRONOME is exactly "on".
+   * It is renewed every invocation, on every path, with the lease the lease
+   * table names; cron's own loop then runs only as the fallback, and only with
+   * a known verdict and an accepted horizon. Absent: cron's loop exactly as
+   * before. */
+  metronome?: MetronomeClient;
 }
 
 /** The scope of one invocation's condition set.
@@ -111,16 +123,27 @@ export interface ClockResult {
   index: "written" | "unchanged" | "failed" | "skipped";
   /** Keys of the alert conditions raised this invocation. */
   alerts: string[];
+  /** The renew this invocation made (the clock line's `metronome`), or null
+   * when the metronome is off. */
+  metronome: MetronomeLine | null;
 }
 
-export const LIVE_KEY = "live.m3u8";
+/** One invocation's renew, for the clock line. */
+export interface MetronomeLine {
+  /** What cron passed: a play lease (blocked or not), a hold, or null (a health check). */
+  sent: "play" | "blocked" | "hold" | null;
+  /** The DO's answer; null when renew threw or timed out. */
+  status: MetronomeStatus | null;
+  error: string | null;
+  /** Why cron fell back (metronome-core fallbackReason), or null. */
+  fallback: string | null;
+}
 
 // Spend is the strict surface (Cloudflare has no spending cap), so the PUT
 // bound is absolute and never derived from inputs alone: d comes from
 // state/horizon.json and loopMs from a wrangler var, and either could
 // otherwise turn the cap into thousands of Class-A writes per invocation.
-/** The grid constant transmitter always writes: 441 * 1024 / 44100 s. */
-export const GRID_D = 10.24;
+export { GRID_D };
 /** The spec's run length: write until scheduledTime + 75 s, never longer. */
 export const MAX_LOOP_MS = 75_000;
 /** ceil(75 / 10.24) + 2: the per-invocation PUT ceiling, whatever the inputs. */
@@ -167,22 +190,6 @@ export function putCap(cfg: ClockConfig, dMs: number): number {
   return Math.min(MAX_PUTS, Math.ceil(cfg.loopMs / dMs) + 2);
 }
 
-/** Why off-air is in force at nowMs and no usable fallback exists, or null. */
-function offairWithoutFallback(inputs: ClockInputs, horizon: Horizon, nowMs: number, cfg: ClockConfig): string | null {
-  const inp = { nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair };
-  if (!isOffair(inp, cfg) || usableFallback(inp) !== null) return null;
-  const cause = inputs.offair
-    ? "the station is blocked (tripped or state/offair.json)"
-    : `horizon is stale (now is more than ${cfg.offairAfterMs / 1000} s past the end of segment ${horizon.last})`;
-  const missing =
-    horizon.fallback_version === null || horizon.fallback_version === ""
-      ? "horizon.fallback_version is null"
-      : inputs.fallback === null
-        ? `fallback/${horizon.fallback_version}/index.json is missing or unreadable`
-        : `fallback/${horizon.fallback_version}/index.json has len < 1`;
-  return `off-air (${cause}) but no usable fallback (${missing}): live.m3u8 written as an ENDLIST-only playlist (no notice), so players stop`;
-}
-
 /**
  * One cron invocation. First the cost guard (guard.ts): it decides blocked =
  * tripped OR offair and reconciles the kill switch; when it cannot tell, the
@@ -192,7 +199,9 @@ function offairWithoutFallback(inputs: ClockInputs, horizon: Horizon, nowMs: num
  * Alerts go out after the last playlist write, so a slow channel never delays
  * a boundary write. Only CPU time is billed, so the waiting is free.
  * Overlapping invocations are harmless: the playlist is a pure function of the
- * clock and the inputs.
+ * clock and the inputs. With the metronome on (deps.metronome), the playlist
+ * is the Durable Object's: cron renews its lease on every path (metronome
+ * spec, lease table) and runs that loop only as the fallback.
  *
  * Epoch change: inputs are read once per invocation, so an epoch never changes
  * inside one. When state/horizon.json's epoch_id changes between invocations,
@@ -213,7 +222,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
                                    scheduled: deps.scheduledTime }));
   }
   const result: ClockResult = { puts: 0, skipped: 0, offairWithoutFallback: null, refused: null, blocked: null,
-                                guardMs: null, index: "skipped", alerts: [] };
+                                guardMs: null, index: "skipped", alerts: [], metronome: null };
   const conditions: AlertCondition[] = [];
   let flushed = false;
   let complete = false; // set only at the end of the normal path (AlertBatch)
@@ -229,9 +238,40 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
       console.error(JSON.stringify({ event: "alert-dispatch-failed", error: e instanceof Error ? e.message : String(e) }));
     }
   };
+  /** Renew the metronome (a no-op when it is off) and say whether cron must
+   * fall back. Never throws: a failed or timed-out renew is trigger (a). Every
+   * return path below calls it first, with the lease the lease table names. */
+  const renew = async (lease: Lease | null): Promise<string | null> => {
+    if (!deps.metronome) return null;
+    const sent = lease === null ? null : lease.kind === "hold" ? "hold" : lease.blocked ? "blocked" : "play";
+    let r: { status: MetronomeStatus } | { error: string };
+    try {
+      const status: unknown = await deps.metronome.renew(lease);
+      // Data from another isolate (a skewed or broken DO): fallbackReason reads its fields.
+      r = typeof status === "object" && status !== null ? { status: status as MetronomeStatus }
+                                                        : { error: "renew returned a non-object" };
+    } catch (e) {
+      let error: string;
+      try {
+        error = e instanceof Error ? e.message : String(e);
+      } catch {
+        error = "unprintable rejection"; // String() throws on, say, Object.create(null)
+      }
+      r = { error };
+    }
+    const fallback = fallbackReason(lease, r);
+    result.metronome = { sent, status: "status" in r ? r.status : null, error: "error" in r ? r.error : null, fallback };
+    if (fallback !== null) {
+      console.error(JSON.stringify({ event: "metronome-down", reason: fallback, scheduled: deps.scheduledTime }));
+      conditions.push({ key: "metronome-down", priority: "high", resolvable: true, title: "Metronome down",
+                        message: `The metronome looks dead (${fallback}). The clock's own loop writes live.m3u8 ` +
+                                 "this minute when the verdict is known and the horizon accepted." });
+    }
+    return fallback;
+  };
   try {
     // 1. The guard, first: it decides blocked and reconciles the kill switch.
-    const startedMs = deps.now();
+    const startedMs = deps.now(); // the lease's verdictAt: when this guard step's state reads began
     let outcome: GuardOutcome;
     try {
       outcome = await deps.guard();
@@ -244,8 +284,10 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     conditions.push(...outcome.conditions);
     result.blocked = outcome.blocked;
     if (outcome.blocked === null) {
-      // Unknown: change nothing (players stall on a stale playlist, toward zero cost).
+      // Unknown: change nothing (players stall on a stale playlist, toward zero
+      // cost). The metronome keeps its current lease, to its expiry.
       console.error(JSON.stringify({ event: "guard-unknown", scheduled: deps.scheduledTime }));
+      await renew(null);
       return result;
     }
     guardComplete = true;
@@ -258,7 +300,9 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
       conditions.push({ key: "index-write", priority: "high", resolvable: true, title: "index.html not reconciled",
                         message: `Writing index.html (${blocked ? "off-air" : "player"} page) failed: ${e instanceof Error ? e.message : String(e)}` });
     }
-    // 3. The playlist.
+    // 3. The playlist. Lease table (metronome spec): unusable inputs pass on a
+    // known blocked verdict as a hold, and an unblocked one as no lease at all.
+    const unusable = () => (blocked ? holdLease(startedMs, deps.now()) : null);
     const failedInputs = (e: unknown) => {
       failureNamed = true;
       conditions.push({ key: "clock-inputs", priority: "urgent", resolvable: true, title: "Clock cannot read its inputs",
@@ -270,6 +314,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     try {
       inputs = await readInputs(bucket, blocked);
     } catch (e) {
+      await renew(unusable());
       throw failedInputs(e);
     }
     const horizon = inputs.horizon;
@@ -277,6 +322,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
       conditions.push({ key: "horizon-missing", priority: "default", resolvable: true, title: "No horizon published",
                         message: "state/horizon.json is absent, or unreadable (not JSON): live.m3u8 was not written. " +
                                  "Either nothing is on air yet (transmitter has not published) or the object is corrupt." });
+      await renew(unusable());
       return result;
     }
     if (horizon.d !== GRID_D) {
@@ -285,12 +331,14 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
                                      epoch_id: horizon.epoch_id, scheduled: deps.scheduledTime }));
       conditions.push({ key: "horizon-refused", priority: "urgent", resolvable: true, title: "Horizon refused",
                         message: result.refused });
+      await renew(holdLease(startedMs, deps.now())); // a spend refusal, not a transient: the DO stops at once
       return result;
     }
     let g: Grid;
     try {
       g = gridOf(horizon);
     } catch (e) {
+      await renew(unusable());
       throw failedInputs(e);
     }
     const leadMs = startMs(g, horizon.last + 1) - deps.now();
@@ -300,6 +348,26 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
                         message: `The published lead is ${(leadMs / 3_600_000).toFixed(1)} h (floor ` +
                                  `${(config.leadFloorMs / 3_600_000).toFixed(1)} h): is transmitter on hugo publishing?` });
     }
+    const src: LiveSource = { horizon, fallback: inputs.fallback, offair: inputs.offair };
+    // Ruling: off-air without a usable fallback writes the ENDLIST-only
+    // playlist (cap and identical-bytes skip apply), but stays loud: the notice
+    // is missing. Raised by cron from its own inputs, once per invocation:
+    // before the lease is issued, and again by the loop if it starts later on.
+    const noteOffairWithoutFallback = (reason: string | null) => {
+      if (result.offairWithoutFallback !== null || reason === null) return;
+      result.offairWithoutFallback = reason;
+      console.error(JSON.stringify({ event: "offair-without-fallback", reason, epoch_id: horizon.epoch_id,
+                                     fallback_version: horizon.fallback_version, scheduled: deps.scheduledTime }));
+      conditions.push({ key: "offair-without-fallback", priority: "high", resolvable: true,
+                        title: "Off-air without a notice", message: reason });
+    };
+    noteOffairWithoutFallback(offairWithoutFallback(src, deps.now(), config));
+    // 4. The lease: a known verdict and an accepted horizon. A healthy DO writes
+    // the playlist from here on; cron's loop runs only when it looks dead.
+    if (deps.metronome && (await renew(playLease(startedMs, deps.now(), blocked, horizon, inputs.fallback))) === null) {
+      complete = true;
+      return result;
+    }
     const cap = putCap(config, g.dMs);
     let lastBody: string | null = null;
     const write = async (force: boolean) => {
@@ -308,30 +376,15 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
       // lookahead + 1 (playlist.offairSequence): constant within an on-time
       // invocation, and above every live segment listed so far even when this
       // invocation runs later than its own loop.
-      const body = buildPlaylist({ nowMs, horizon, fallback: inputs.fallback, offair: inputs.offair,
-                                   offairSeqMs: deps.scheduledTime + config.loopMs }, config);
-      // Ruling: off-air without a usable fallback writes the ENDLIST-only
-      // playlist through the normal path below (cap and identical-bytes skip
-      // apply), but stays loud: the notice is missing. Once per invocation.
-      if (result.offairWithoutFallback === null) {
-        const reason = offairWithoutFallback(inputs, horizon, nowMs, config);
-        if (reason !== null) {
-          result.offairWithoutFallback = reason;
-          console.error(JSON.stringify({ event: "offair-without-fallback", reason, epoch_id: horizon.epoch_id,
-                                         fallback_version: horizon.fallback_version, scheduled: deps.scheduledTime }));
-          conditions.push({ key: "offair-without-fallback", priority: "high", resolvable: true,
-                            title: "Off-air without a notice", message: reason });
-        }
-      }
+      const { body, offairWithoutFallback: reason } = renderLive(src, nowMs, deps.scheduledTime + config.loopMs, config);
+      noteOffairWithoutFallback(reason);
       if (body === null) return;
       if (!force && body === lastBody) {
         result.skipped++;
         return;
       }
       if (result.puts >= cap) return;
-      await bucket.put(LIVE_KEY, body, {
-        httpMetadata: { contentType: "application/vnd.apple.mpegurl", cacheControl: `public, max-age=${config.liveMaxAge}` },
-      });
+      await putLive(bucket, body, config.liveMaxAge);
       result.puts++;
       lastBody = body;
     };

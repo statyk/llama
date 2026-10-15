@@ -1,0 +1,88 @@
+progress: reading spec alarm() section
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/7c48a24a-b1ba-48f0-8b4d-9a045fdbda5f/scratchpad/t5spec/tree/antenna
+
+stdout | test/probe-dup.test.ts > PROBE: early genuine tick, then a duplicate still before the boundary
+PROBE puts 2 -> 3 seq 998 -> 997
+
+ ❯ test/probe-dup.test.ts (1 test | 1 failed) 8ms
+   × PROBE: early genuine tick, then a duplicate still before the boundary 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/probe-dup.test.ts > PROBE: early genuine tick, then a duplicate still before the boundary
+AssertionError: expected 3 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 3
+
+ ❯ test/probe-dup.test.ts:15:23
+     13|   await deliverDuplicate(port, engine, target(1001) - 35); // duplicat…
+     14|   console.log("PROBE puts", puts, "->", port.puts(), "seq", seq1, "->"…
+     15|   expect(port.puts()).toBe(puts);
+       |                       ^
+     16|   expect(seqOf(port.body()!)).toBe(seq1);
+     17| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  02:15:21
+   Duration  3.04s (transform 77%, import 15%, worker 5%, tests 3%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/7c48a24a-b1ba-48f0-8b4d-9a045fdbda5f/scratchpad/t5spec/tree/antenna
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  02:15:45
+   Duration  3.03s (transform 86%, import 9%, worker 4%, tests 1%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/7c48a24a-b1ba-48f0-8b4d-9a045fdbda5f/scratchpad/t5spec/tree/antenna
+
+ ❯ test/probe-renew.test.ts (1 test | 1 failed) 9ms
+   × PROBE2: early genuine tick, then a renew before the boundary 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/probe-renew.test.ts > PROBE2: early genuine tick, then a renew before the boundary
+AssertionError: expected { a: [ 2, 998 ], puts: 3, …(2) } to deeply equal 'show'
+
+- Expected:
+"show"
+
++ Received:
+{
+  "a": [
+    2,
+    998,
+  ],
+  "puts": 3,
+  "seq": 997,
+  "wrote": true,
+}
+
+ ❯ test/probe-renew.test.ts:13:79
+     11|   port.t = target(1001) - 35;
+     12|   const st = await engine.renew(lease(port.t));
+     13|   expect({ a, puts: port.puts(), seq: seqOf(port.body()!), wrote: st.w…
+       |                                                                               ^
+     14| });
+     15|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  02:16:05
+   Duration  3.03s (transform 81%, import 11%, worker 5%, tests 3%)
+
+progress: probes done, writing report

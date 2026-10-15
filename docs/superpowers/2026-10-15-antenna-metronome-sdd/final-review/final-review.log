@@ -1,0 +1,41 @@
+Thu Oct 15 02:54:28 EDT 2026 final-review: log opened
+Thu Oct 15 03:00:03 EDT 2026 scratch copy at /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/aab0ffd0-1c39-4c05-9566-1b4fa5339bb1/scratchpad/fr-scratch; running full suite once
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/aab0ffd0-1c39-4c05-9566-1b4fa5339bb1/scratchpad/fr-scratch/antenna
+
+
+ Test Files  20 passed (20)
+      Tests  372 passed (372)
+   Start at  03:00:05
+   Duration  5.89s (transform 57%, tests 20%, worker 13%, import 11%)
+
+  Transform  transforming modules took 7.61s · 57% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+Thu Oct 15 03:00:42 EDT 2026 mutant A: confirms || cap
+      Tests  65 passed (65)
+Thu Oct 15 03:00:46 EDT 2026 mutant B: duplicate path confirms without writing
+      Tests  65 passed (65)
+Thu Oct 15 03:01:41 EDT 2026 real-delivery probe test
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/aab0ffd0-1c39-4c05-9566-1b4fa5339bb1/scratchpad/fr-scratch/antenna
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  03:01:43
+   Duration  3.22s (tests 60%, transform 33%, import 6%, worker 1%)
+Thu Oct 15 03:01:46 EDT 2026 proposed pins: item 2 assertion and item 3 test, against original then mutants
+      Tests  29 passed (29)
+     × the PUT cap holds across alarms and renews, and the chain still re-arms over it 4ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/metronome-alarm.test.ts > alarm: caps and failures > the PUT cap holds across alarms and renews, and the chain still re-arms over it
+      Tests  1 failed | 28 passed (29)
+     × a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/metronome-alarm.test.ts > alarm: the tick > a duplicate after a tick whose PUT failed writes the differing bytes (lastBody is null) and confirms the tick
+      Tests  1 failed | 28 passed (29)
+Thu Oct 15 03:03:11 EDT 2026 typecheck of the scratch copy with the proposed tests
+
+> typecheck
+> tsc --noEmit
+
+Thu Oct 15 03:05:36 EDT 2026 report written; touching sentinel

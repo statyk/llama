@@ -1,0 +1,71 @@
+check1: liveMaxAge sources
+src/live.ts:51:export async function putLive(bucket: BucketLike, body: string, liveMaxAge: number): Promise<void> {
+src/live.ts:54:                    cacheControl: `public, max-age=${Math.max(1, Math.floor(liveMaxAge))}` },
+src/clock.ts:14:  liveMaxAge: number;
+src/clock.ts:48:    liveMaxAge: Math.max(1, Math.floor(num(env.LIVE_MAX_AGE, 5))),
+src/clock.ts:193:    liveMaxAge: Math.max(1, Math.floor(deps.config.liveMaxAge)),
+src/clock.ts:315:      await putLive(bucket, body, config.liveMaxAge);
+test/clock.test.ts:15:const CFG: ClockConfig = { window: 6, grace: 3, offairAfterMs: 86_400_000, loopMs: 75_000, liveMaxAge: 5,
+test/clock.test.ts:484:    expect(configFromEnv({ LIVE_MAX_AGE: "0" }).liveMaxAge).toBe(1);
+test/clock.test.ts:488:                     config: { ...CFG, loopMs: 0, liveMaxAge: 0 }, guard: onAir });
+test/clock.test.ts:495:    expect(configFromEnv({})).toEqual({ window: 6, grace: 3, offairAfterMs: 86_400_000, loopMs: 75_000, liveMaxAge: 5,
+check2: tsconfig include
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "lib": ["es2022"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["@cloudflare/vitest-plugin/types", "vite/client"]
+  },
+  "include": ["src", "test", "public", "worker-configuration.d.ts"]
+}
+check3: PlaylistConfig
+9:export interface PlaylistConfig {
+10-  window: number; // k: segments listed
+11-  grace: number; // segments the clock waits at horizon.last before falling back
+12-  offairAfterMs: number;
+13-  /** Segments listed past the one airing now (amendment A4, amended
+14-   * 2026-10-12). A lookahead adds no runway by itself -- it moves the listed
+15-   * end and a player's start point together -- but with holdBack equal to it,
+16-   * players start at the wall clock with holdBack * d of listed runway against
+17-   * a late cron fire. Every listed segment exists: the published lead is
+check4: buildPlaylist null returns
+133:  if (cur < 0) return null;
+135:  if (entries.length === 0) return null;
+136:  if (fb === null && entries.some((e) => e.kind === "fallback")) return null;
+check5: clock tests covering offair reason branches
+check6: other importers of LIVE_KEY
+src/clock.ts:10:export { LIVE_KEY } from "./live";
+test/live.test.ts:2:import { LIVE_KEY, offairWithoutFallback, putLive, renderLive } from "../src/live";
+test/live.test.ts:38:    expect(b.objects.get(LIVE_KEY)).toMatchObject({ body: "#EXTM3U\n", contentType: "application/vnd.apple.mpegurl",
+test/live.test.ts:41:    expect(b.objects.get(LIVE_KEY)!.cacheControl).toBe("public, max-age=1");
+check5b: tests asserting the offair-without-fallback reason text
+test/bucket.test.ts:40:  it("a conditional put over a stale etag writes nothing and reports it", async () => {
+test/clock.test.ts:399:    expect(r.offairWithoutFallback).toMatch(/blocked/);
+test/clock.test.ts:400:    expect(r.offairWithoutFallback).toMatch(/ENDLIST-only/);
+test/clock.test.ts:401:    expect(r.offairWithoutFallback).toMatch(/fallback\/v1\/index\.json/);
+test/clock.test.ts:404:    expect(logged[0].reason).toBe(r.offairWithoutFallback);
+test/clock.test.ts:408:  it("reports the staleness rule and a null fallback_version", async () => {
+test/clock.test.ts:411:    bucket.seed("state/horizon.json", { ...horizonDoc(E, 0, 100), fallback_version: null });
+test/clock.test.ts:416:    expect(r.offairWithoutFallback).toMatch(/stale/);
+test/clock.test.ts:417:    expect(r.offairWithoutFallback).toMatch(/fallback_version/);
+test/clock.test.ts:428:    expect(r1.offairWithoutFallback).toBeNull();
+test/clock.test.ts:434:    expect(r2.offairWithoutFallback).toBeNull();
+test/alerts.test.ts:511:    for (const stored of [{ stale: null, n: 3, a: [1], s: "x" }, [null], null, 7]) {
+test/live.test.ts:2:import { LIVE_KEY, offairWithoutFallback, putLive, renderLive } from "../src/live";
+test/live.test.ts:16:    expect(r.offairWithoutFallback).toBeNull();
+test/live.test.ts:29:    expect(r.offairWithoutFallback).toMatch(/blocked.*fallback\/v1\/index\.json is missing/);
+test/live.test.ts:30:    expect(offairWithoutFallback({ horizon: H, fallback: FB, offair: true }, E, CFG)).toBeNull();
+test/playlist.test.ts:158:    expect(buildPlaylist({ nowMs: at(104), horizon: horizon(0, 100, { fallback_version: null }), fallback: FB, offair: false }, CFG)).toBeNull();
+test/playlist.test.ts:165:      { horizon: horizon(0, 5000, { fallback_version: null }), fallback: FB, offair: true }, // never recorded
+test/playlist.test.ts:185:    // The staleness rule takes the same branch.
+test/playlist.test.ts:187:    const stale = buildPlaylist({ horizon: horizon(0, 100), fallback: null, offair: false,
+test/playlist.test.ts:189:    expect(entries(stale)).toEqual([]);
+test/playlist.test.ts:190:    expect(stale.trimEnd().endsWith("#EXT-X-ENDLIST")).toBe(true);

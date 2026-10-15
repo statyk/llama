@@ -195,7 +195,7 @@ describe("planAlerts on an incomplete batch (AlertBatch)", () => {
       expect([k, keyFamily(k)]).toEqual([k, "guard"]);
     }
     const clock = ["guard-crashed", "index-write", "horizon-missing", "horizon-refused", "lead-low",
-                   "offair-without-fallback", "clock-inputs", "clock-failed"];
+                   "offair-without-fallback", "clock-inputs", "clock-failed", "metronome-down"];
     expect([...CLOCK_KEYS].sort()).toEqual([...clock].sort());
     for (const k of clock) expect([k, keyFamily(k)]).toEqual([k, "clock"]);
     expect(keyFamily("budget-x")).toBe("clock");

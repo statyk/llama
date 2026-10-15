@@ -1,7 +1,8 @@
 /** Usage read from Cloudflare's GraphQL Analytics API, account-scoped (all
- * Workers and buckets), with an Account Analytics: Read token. The adaptive
- * datasets are sampled estimates; operations lag ~1-2 min and storage ~45 min
- * (measured 2026-10-11), so the recent window ends LAG_MS before now. Any
+ * Workers, buckets and Durable Objects), with an Account Analytics: Read token.
+ * The adaptive datasets are sampled estimates; operations lag ~1-2 min and
+ * storage ~45 min (measured 2026-10-11), the Durable Object datasets under
+ * 1 min (measured 2026-10-14), so the recent window ends LAG_MS before now. Any
  * failure -- HTTP, GraphQL errors, a missing account, a truncated result --
  * throws: the guard counts it as a failed reading. */
 
@@ -33,7 +34,13 @@ export const FREE_OPS = new Set(["DeleteObject", "DeleteBucket", "AbortMultipart
  * to 32 days (maxDuration 2,764,800 s) within the last 90 days (notOlderThan
  * 7,776,000 s), and a billing period is at most 31 days. Measured for this
  * account 2026-10-12, when this exact query (`.000Z` timestamps, `$account:
- * string!`) succeeded over 31- and 32-day ranges. */
+ * string!`) succeeded over 31- and 32-day ranges. The Durable Object datasets
+ * (`durableObjectsInvocationsAdaptiveGroups` filtered on `datetime`,
+ * `durableObjectsPeriodicGroups` on `datetimeMinute`) were measured 2026-10-14:
+ * 31- and 32-day ranges accepted, totals matching the alarm probe's counts, and
+ * a range with no DO activity returns `[]` (indistinguishable from zero: see
+ * assertMetronomeMetered). `sum.requests` counts every invocation type and
+ * status (alarms, RPC); `sum.duration` is GB-s. */
 export const USAGE_QUERY = `query StationUsage($account: string!, $start: Time!, $now: Time!, $recentStart: Time!, $recentEnd: Time!) {
   viewer {
     accounts(filter: { accountTag: $account }) {
@@ -42,6 +49,10 @@ export const USAGE_QUERY = `query StationUsage($account: string!, $start: Time!,
       r2ToDate: r2OperationsAdaptiveGroups(limit: ${ROW_LIMIT}, filter: { datetime_geq: $start, datetime_leq: $now }) { sum { requests } dimensions { actionType } }
       r2Recent: r2OperationsAdaptiveGroups(limit: ${ROW_LIMIT}, filter: { datetime_geq: $recentStart, datetime_leq: $recentEnd }) { sum { requests } dimensions { actionType } }
       storage: r2StorageAdaptiveGroups(limit: ${ROW_LIMIT}, filter: { datetime_geq: $start, datetime_leq: $now }) { max { payloadSize metadataSize } dimensions { bucketName } }
+      doToDate: durableObjectsInvocationsAdaptiveGroups(limit: ${ROW_LIMIT}, filter: { datetime_geq: $start, datetime_leq: $now }) { sum { requests } }
+      doRecent: durableObjectsInvocationsAdaptiveGroups(limit: ${ROW_LIMIT}, filter: { datetime_geq: $recentStart, datetime_leq: $recentEnd }) { sum { requests } }
+      doPeriodicToDate: durableObjectsPeriodicGroups(limit: ${ROW_LIMIT}, filter: { datetimeMinute_geq: $start, datetimeMinute_leq: $now }) { sum { duration rowsWritten } }
+      doPeriodicRecent: durableObjectsPeriodicGroups(limit: ${ROW_LIMIT}, filter: { datetimeMinute_geq: $recentStart, datetimeMinute_leq: $recentEnd }) { sum { duration rowsWritten } }
     }
   }
 }`;
@@ -58,7 +69,7 @@ export function usageVariables(accountId: string, period: Period, nowMs: number)
            recentStart: iso(recentEnd - RECENT_MS), recentEnd: iso(recentEnd) };
 }
 
-type Rows = { sum?: { requests?: unknown }; max?: Record<string, unknown>; dimensions?: Record<string, unknown> }[];
+type Rows = { sum?: Record<string, unknown>; max?: Record<string, unknown>; dimensions?: Record<string, unknown> }[];
 
 function rows(acct: Record<string, unknown>, name: string): Rows {
   const r = acct[name];
@@ -72,8 +83,20 @@ function count(v: unknown, what: string): number {
   return v;
 }
 
+function sumField(rs: Rows, field: string, what: string): number {
+  return rs.reduce((t, r) => t + count(r?.sum?.[field], what), 0);
+}
+
 function sumRequests(rs: Rows, what: string): number {
-  return rs.reduce((t, r) => t + count(r?.sum?.requests, what), 0);
+  return sumField(rs, "requests", what);
+}
+
+function doCounts(acct: Record<string, unknown>, invocations: string, periodic: string):
+    Pick<OpCounts, "doRequests" | "doDurationGbS" | "doRowsWritten"> {
+  const p = rows(acct, periodic);
+  return { doRequests: sumRequests(rows(acct, invocations), "durable object requests"),
+           doDurationGbS: sumField(p, "duration", "durable object duration"),
+           doRowsWritten: sumField(p, "rowsWritten", "durable object rowsWritten") };
 }
 
 function r2Counts(rs: Rows, unknown: Set<string>): Pick<OpCounts, "r2ClassA" | "r2ClassB"> {
@@ -108,12 +131,28 @@ export function parseUsage(body: unknown): Reading {
   const acct = accounts[0] as Record<string, unknown>;
   const unknown = new Set<string>();
   const periodToDate = { workersRequests: sumRequests(rows(acct, "workersToDate"), "workers requests"),
-                         ...r2Counts(rows(acct, "r2ToDate"), unknown) };
+                         ...r2Counts(rows(acct, "r2ToDate"), unknown),
+                         ...doCounts(acct, "doToDate", "doPeriodicToDate") };
   const recent = { workersRequests: sumRequests(rows(acct, "workersRecent"), "workers requests"),
-                   ...r2Counts(rows(acct, "r2Recent"), unknown) };
+                   ...r2Counts(rows(acct, "r2Recent"), unknown),
+                   ...doCounts(acct, "doRecent", "doPeriodicRecent") };
   const storageBytes = rows(acct, "storage").reduce(
     (t, r) => t + count(r?.max?.payloadSize, "payloadSize") + count(r?.max?.metadataSize ?? 0, "metadataSize"), 0);
   return { periodToDate, recent, recentMs: RECENT_MS, storageBytes, unknownActionTypes: [...unknown].sort() };
+}
+
+/** Empty is not zero: a range with no Durable Object activity reads as `[]`.
+ * While the metronome is on, cron renews it every minute and every renew writes
+ * at least one row (`stalls`), so a recent window with no DO requests or no rows
+ * written cannot be true: the dataset is not serving it, and the reading fails
+ * rather than price the meters at zero. A reading taken within LAG_MS of
+ * METRONOME being flipped on fails this way, and guard.json shows it until the
+ * next evaluation (<= ~20 min); harmless, since the blind rule needs 6 h. */
+export function assertMetronomeMetered(r: Reading): void {
+  if (r.recent.doRequests === 0 || r.recent.doRowsWritten === 0) {
+    throw new Error(`analytics: the metronome is on but the recent window reads doRequests=${r.recent.doRequests}, ` +
+                    `doRowsWritten=${r.recent.doRowsWritten}: the Durable Object datasets are not serving it`);
+  }
 }
 
 export async function readUsage(fetchFn: typeof fetch, creds: MeterCredentials, period: Period,

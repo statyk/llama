@@ -1,0 +1,4 @@
+budget-min: 40
+role: implementer
+model: opus
+what: Core fix round: 3 fail-open items + stalls pin

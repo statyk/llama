@@ -1,0 +1,144 @@
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+ ❯ test/metronome-core.test.ts (29 tests | 1 failed) 10ms
+   ❯ fallbackReason (cron's triggers) (5)
+     × (b) an accepted play lease the DO is not doing (accepted already expired) 3ms
+ ❯ test/metronome-renew.test.ts (27 tests | 1 failed) 29ms
+   ❯ renew: blocked, hold, expiry (7)
+     × an accepted hold or blocked lease is stored before any alarm op, so a failing alarm op cannot lose it 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/metronome-core.test.ts > fallbackReason (cron's triggers) > (b) an accepted play lease the DO is not doing (accepted already expired)
+TypeError: .toMatch() expects to receive a string, but got object
+ ❯ test/metronome-core.test.ts:275:8
+    273|     expect(fallbackReason(p, { status: status({ applied: "accepted", l…
+    274|     expect(fallbackReason(b, { status: status({ applied: "accepted", l…
+    275|       .toMatch(/applied=accepted, wrote=true, lease=none to a blocked …
+       |        ^
+    276|     expect(fallbackReason(b, { status: status({ applied: "accepted", l…
+    277|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > an accepted hold or blocked lease is stored before any alarm op, so a failing alarm op cannot lose it
+AssertionError: expected { kind: 'play', …(6) } to match object { kind: 'hold', …(1) }
+(15 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "kind": "hold",
+-   "verdictAt": 1791643844000,
++   "kind": "play",
++   "verdictAt": 1791643843000,
+  }
+
+ ❯ test/metronome-renew.test.ts:178:64
+    176|     held.port.failDeleteAlarm = true;
+    177|     await expect(held.engine.renew(holdLease(T + 1_000, T + 1_000))).r…
+    178|     expect(JSON.parse(held.port.store.get("lease") as string)).toMatch…
+       |                                                                ^
+    179|     // blocked, its body identical to the last one written (no PUT, so…
+    180|     const blocked = engineAt(T);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 54 passed (56)
+   Start at  02:04:26
+   Duration  3.80s (transform 84%, import 7%, worker 5%, tests 5%)
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  2 passed (2)
+      Tests  56 passed (56)
+   Start at  02:04:43
+   Duration  2.42s (transform 79%, import 11%, worker 5%, tests 5%)
+
+
+ RUN  v5.0.3 /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-antenna-metronome/7c48a24a-b1ba-48f0-8b4d-9a045fdbda5f/scratchpad/mutA
+
+ ❯ test/metronome-renew.test.ts (27 tests | 1 failed) 67ms
+   ❯ renew: blocked, hold, expiry (7)
+     × an accepted hold or blocked lease is stored before any alarm op, so a failing alarm op cannot lose it 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/metronome-renew.test.ts > renew: blocked, hold, expiry > an accepted hold or blocked lease is stored before any alarm op, so a failing alarm op cannot lose it
+AssertionError: expected { kind: 'play', …(6) } to match object { kind: 'play', blocked: true, …(1) }
+(14 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "blocked": true,
+    "kind": "play",
+-   "verdictAt": 1791643843001,
++   "verdictAt": 1791643843000,
+  }
+
+ ❯ test/metronome-renew.test.ts:179:8
+    177|     expect(blocked.port.puts()).toBe(1);
+    178|     expect(JSON.parse(blocked.port.store.get("lease") as string))
+    179|       .toMatchObject({ kind: "play", blocked: true, verdictAt: T + 1 }…
+       |        ^
+    180|   });
+    181|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 26 passed (27)
+   Start at  02:04:56
+   Duration  2.16s (transform 67%, tests 15%, import 12%, worker 6%)
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  17 passed (17)
+      Tests  308 passed (308)
+   Start at  02:05:05
+   Duration  6.35s (transform 73%, worker 15%, import 9%, tests 3%)
+
+  Transform  transforming modules took 7.50s · 73% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+
+
+> test
+> node scripts/build-pages.mjs --check && vitest run
+
+
+ RUN  v5.0.3 /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna
+
+
+ Test Files  17 passed (17)
+      Tests  308 passed (308)
+   Start at  02:05:27
+   Duration  7.24s (transform 70%, worker 19%, import 9%, tests 2%)
+
+  Transform  transforming modules took 9.77s · 70% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+
+> typecheck
+> tsc --noEmit
+

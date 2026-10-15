@@ -13,10 +13,11 @@
  */
 
 import { type BucketLike, createJson, type JsonRead, putJson, readJsonDoc } from "./bucket";
+import type { ClockEnv } from "./clock";
 import { type AlertCondition, guardConditions } from "./conditions";
 import { applyAttempt, applyBlindRule, BUDGET_KEY, corruptGuardDoc, effectiveBudget, freshGuardDoc, GUARD_KEY,
          type GuardDoc, OFFAIR_KEY, parseGuardDoc, shouldEvaluate, validBaseBudget } from "./latch";
-import { readUsage } from "./meter";
+import { assertMetronomeMetered, readUsage } from "./meter";
 import { billingPeriod, type Period } from "./period";
 import { evaluateSpend } from "./pricing";
 import { reconcileKillSwitch } from "./waf";
@@ -49,6 +50,8 @@ export interface GuardConfig {
   meterProblems: string[];
   /** Why the kill switch cannot be reconciled. */
   wafProblems: string[];
+  /** METRONOME is exactly "on": an empty Durable Object reading is a failed one. */
+  metronomeOn: boolean;
 }
 
 export const DEFAULT_BLIND_AFTER_S = 21_600;
@@ -64,7 +67,7 @@ const clampedSeconds = (v: string | undefined, dflt: number, min: number, max: n
  * so does an invalid BILLING_ANNIVERSARY_DAY, through billingPeriod's refusal.
  * No network call is ever made with an empty account, zone or token: the
  * problems are thrown before the call. */
-export function guardConfigFromEnv(env: GuardEnv): GuardConfig {
+export function guardConfigFromEnv(env: GuardEnv & Pick<ClockEnv, "METRONOME">): GuardConfig {
   const meterProblems: string[] = [];
   const wafProblems: string[] = [];
   const budget = Number(env.MONTHLY_BUDGET_USD);
@@ -85,6 +88,7 @@ export function guardConfigFromEnv(env: GuardEnv): GuardConfig {
     blindAfterMs: clampedSeconds(env.BLIND_AFTER_SECONDS, DEFAULT_BLIND_AFTER_S, 900, DEFAULT_BLIND_AFTER_S),
     killSwitchDescription: env.KILL_SWITCH_DESCRIPTION?.trim() || "station: kill switch",
     accountId, zoneId, analyticsToken, wafToken, meterProblems, wafProblems,
+    metronomeOn: env.METRONOME === "on",
   };
 }
 
@@ -275,6 +279,7 @@ export async function guardStep(deps: GuardDeps): Promise<GuardOutcome> {
         if (cfg.meterProblems.length > 0) throw new Error(cfg.meterProblems.join("; "));
         const p = billingPeriod(nowMs, cfg.anniversaryDay);
         const reading = await readUsage(deps.fetch, { accountId: cfg.accountId, token: cfg.analyticsToken }, p, nowMs);
+        if (cfg.metronomeOn) assertMetronomeMetered(reading);
         const evaluation = evaluateSpend(reading, p, nowMs, budget.budgetUsd);
         doc = applyAttempt(doc, { ok: true, evaluation, period: p, baseBudgetUsd: cfg.baseBudgetUsd });
       } catch (e) {
