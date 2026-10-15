@@ -48,7 +48,8 @@ Money and on-air continuity are at risk. Data is not.
 
 ## Verified while writing this plan (2026-10-14/15, read-only or in a scratch copy)
 
-- **The whole plan was run in a scratch copy of `antenna/`.** That covers every code block below, Tasks 1–7 in order. Result: `npm run typecheck` clean, 360 tests green (236 at baseline), `node scripts/build-pages.mjs --check` ok. `npx wrangler deploy --dry-run` bundles 83.85 KiB and lists `env.METRONOME_DO (Metronome)` as a Durable Object binding and `env.METRONOME ("off")`. If an implementer's result differs, the difference is theirs, not the plan's. Report it rather than "fixing" the plan's code.
+- **The plan's code was verified in a scratch copy of `antenna/`, at its final state.** Tasks 4 and 5 were verified together there, and some tests were added at the end. Result: `npm run typecheck` clean, 364 tests green (236 at baseline), `node scripts/build-pages.mjs --check` ok. `npx wrangler deploy --dry-run` bundles 84.48 KiB and lists `env.METRONOME_DO (Metronome)` as a Durable Object binding and `env.METRONOME ("off")`.
+- **The per-task boundaries were then re-run (2026-10-15).** A fresh copy of the baseline was built from this plan's text, task by task, each step applied as written. Every boundary held, with typecheck and the pages check clean at each: 240, 252, 278, 304, 329, 342, 364. The result was byte-identical to the verified final state. The per-task counts are still expected values, not guarantees: if yours differ, report the difference rather than assume it is yours, and do not "fix" the plan's code.
 - **Migration syntax** (wrangler 4.149.0). A scratch copy of `wrangler.jsonc` was dry-run in both forms:
   - `"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Metronome"] }]`;
   - `"exports": { "Metronome": { "type": "durable-object", "storage": "sqlite" } }`.
@@ -80,13 +81,13 @@ Money and on-air continuity are at risk. Data is not.
 1. **Binding name `METRONOME_DO`.** `METRONOME` is the spec's switch var, so the namespace binding needs another name.
 2. **The lease type is a discriminated union**, `PlayLease | HoldLease`. That is the spec's `Lease` with its "play only" fields made required on `play`. The DO stores it as a **JSON string**, so "an unparseable stored lease" is a real, testable case. A stored lease with no numeric `expiresAt` loads as expired.
 3. **Three modules instead of two.** `metronome-core.ts` is pure (spec J2). `metronome-engine.ts` sequences `renew`/`alarm` over a port. `metronome.ts` is the thin DO. The serialized section (an in-object promise chain) lives in the engine, so the spec's interleave test can use a fake bucket whose PUT resolves on demand.
-4. **Keys are written only when they change.** For example, `stalls` stays absent until a renew changes it. The key-set test therefore pins "always within `STORAGE_KEYS`" and "exactly `STORAGE_KEYS` after a cycle that includes a stall".
+4. **Keys are written when they change, and `stalls` on every renew.** The spec's renew step 2 says "Update `stalls`", so every renew writes it, changed or not: a healthy object then writes at least one row a minute, which the guard's "empty is not zero" check (reading 10) relies on for `doRowsWritten`. The other keys stay absent until first set (`lastAlarmGoodAt` until the first tick, for example). The key-set tests pin "always within `STORAGE_KEYS`" and "exactly `STORAGE_KEYS` after a full cycle".
 5. **"Logged once"** is a per-anomaly episode mark held in memory, as the spec's known limitation says. An episode starts on the first occurrence and ends when the condition clears. `metronome-null-build` and `offair-without-fallback` are once per lease.
-   - Two log names are added for paths the spec implies but does not name: `metronome-alarm-error`, the catch-all that keeps `alarm()` from throwing, and `metronome-null-build`.
+   - Three log names are added for paths the spec implies but does not name: `metronome-alarm-error`, the catch-all that keeps `alarm()` from throwing, `metronome-null-build`, and `metronome-duplicate` (reading 9).
 6. **`metronome-down`** (priority `high`, resolvable, clock family) is raised on **every** trigger. That includes the paths where the fallback loop may not write: the guard is unknown and renew throws, or a hold goes unanswered. The DO being unreachable is worth an alert even when cron cannot stand in for it.
 7. **`renew` answers `applied: "off"` with `lease: "none"`.** While off, the object acts on no lease.
 8. **A capped `alarm()`** (13th in 60 s) is not recorded in the window, and it does not advance `lastAlarmGoodAt`.
-9. **A duplicate alarm delivered after a completed tick.** The spec's literal due-time formula, `max(now, lastTarget − 25 ms)` with lastTarget as it stood before the re-arm, makes it build at most one boundary early. It adds no PUT overall, and the pending alarm is overridden one boundary later. A test pins this. The spec's "duplicate for the same boundary → identical bytes, no PUT" is pinned separately (a redelivery with `lastTarget` unchanged).
+9. **A duplicate alarm is one that finds an alarm still pending.** While `alarm()` runs, `getAlarm()` "returns null unless setAlarm() was called after the handler started" (the Cloudflare docs, as quoted in `docs/superpowers/2026-10-14-metronome-spec-review/do-research-sonnet.md`), so a genuine delivery sees none. When `alarm()` finds one pending after its lease check, it is a duplicate or retried delivery and is idempotent, as the spec requires ("A duplicate or retried alarm rebuilds the same bytes and skips the PUT"): it builds for `now` and PUTs only if the bytes differ (normally they are identical, a confirmed tick); it does not re-arm, leaves `lastTarget` alone and is not counted against the alarm cap; it logs `metronome-duplicate` once per episode. The rule rests on the docs and on the test double (`FakePort`, whose `deliver` consumes the alarm and `deliverDuplicate` leaves it set); Task 6 checks it in workerd, and Task 9 on the real runtime.
 10. **The guard's "empty is not zero" check** runs in `guardStep`, after `readUsage` and before pricing, behind `GuardConfig.metronomeOn` (exactly `"on"`). It is `meter.ts` `assertMetronomeMetered`: a recent window with `doRequests` 0 or `doRowsWritten` 0 is a failed reading.
 11. **Cron computes `offairWithoutFallback` before issuing the lease**, in both modes. Off-mode behaviour is unchanged, because the first write follows at once; the existing clock tests pin it. The loop keeps its once-per-invocation guard.
 12. **The renew client builds the stub inside each `renew`.** A missing binding (or anything else) then rejects into trigger (a) instead of throwing before `runClock` starts, which would also skip the guard.
@@ -99,26 +100,26 @@ The five input classes or failure modes most likely to bite, which the spec impl
 1. **A deploy while an alarm is pending** (the docs are silent). Expected: the lease and the pending alarm survive the object's restart, the next alarm ticks and re-arms, and otherwise the next renew repairs the chain within a minute. Test: eviction keeps the lease and the pending alarm, and the chain goes on (Task 6). Measured live in Task 9.
 2. **An epoch change (new `epoch_id`) while the chain ticks.** Expected: the next renew writes the new epoch's playlist at once, and the next alarm re-aims to the new grid, with no burst and no hot loop. Test: Task 5, "alarm: an epoch change".
 3. **A cron isolate whose clock runs ahead issues a future-dated `verdictAt`.** Expected: newer unblocked leases are superseded until real time passes it, but a blocked lease or a hold is still accepted at once, and expiry is still 15 min by the DO's own clock. Test: Task 3, "a future-dated verdictAt never keeps a blocked lease out".
-4. **The binding is missing while `METRONOME` is `"on"`.** This can happen with a `--var METRONOME:on` deploy from a config without the DO. Expected: the renew rejects inside the client (trigger a), cron runs its own loop and alerts, and the guard still runs. Test: Task 6, "a missing binding rejects inside renew"; Task 7, "(a) renew throws".
-5. **A duplicate alarm delivered right after a completed tick.** Expected: at most one boundary written early (≤ d ahead of the wall clock, so far inside the 75 s numbering margin of cron's off-air notice), no extra PUT over the minute, the chain back on the grid. Test: Task 5, "a duplicate delivered after a completed tick writes at most one boundary early and adds no PUT overall".
+4. **The binding is missing while `METRONOME` is `"on"`.** This can happen with a `--var METRONOME:on` deploy from a config without the DO. Expected: the renew rejects inside the client (trigger a), cron runs its own loop and alerts, and the guard still runs. Test: Task 6, "a missing binding rejects inside renew"; Task 7, "(a) renew throws". A persistent `metronome-down` while `METRONOME` is `"on"` (the object absent or broken) also fails every guard reading (`doRequests` = 0) and trips the station blind after 6 h, so the runbook rolls back with `--var METRONOME:off` rather than ride it out (Task 8, section 9 "Rollback").
+5. **A duplicate alarm delivered right after a completed tick** (spec reading 9). Expected: it sees the re-armed alarm still pending, rebuilds the same bytes and skips the PUT; it neither re-arms nor moves `lastTarget`; a renew later in the same segment writes nothing, and `MEDIA-SEQUENCE` never goes backwards. Tests: Task 5, "duplicates after a completed tick" and "a duplicate, then a renew in the same segment"; Task 6, "the alarm ticks and re-arms" (a genuine delivery in workerd sees no pending alarm).
 
 ## File structure
 
 ```
 antenna/
   src/live.ts                 NEW  the one playlist write: renderLive (build + off-air-without-fallback), putLive   [T1]
-  src/clock.ts                MOD  uses live.ts [T1]; GRID_D re-exported from grid.ts [T3];
+  src/clock.ts                MOD  uses live.ts [T1]; METRONOME in ClockEnv [T2]; GRID_D from grid.ts [T3];
                                    lease table, renew, fallback decision, metronome-down, MetronomeLine [T7]
   src/pricing.ts              MOD  three DO meters, prices, OpCounts, evaluateSpend                               [T2]
   src/meter.ts                MOD  DO datasets in USAGE_QUERY, parsing, assertMetronomeMetered                    [T2]
   src/latch.ts                MOD  stored(): every meter in guard.json                                            [T2]
-  src/guard.ts                MOD  METRONOME in GuardEnv, metronomeOn, the empty-is-zero check                    [T2]
+  src/guard.ts                MOD  metronomeOn (METRONOME read via ClockEnv), the empty-is-zero check            [T2]
   src/grid.ts                 MOD  GRID_D moves here (core must not import clock.ts)                              [T3]
   src/metronome-core.ts       NEW  pure: Lease, validation, ordering, expiry, targets, windows, stalls, state,
                                    fallbackReason, MetronomeStatus, MetronomeClient                                [T3]
   src/metronome-engine.ts     NEW  MetronomeEngine over MetronomePort: renew [T4], alarm [T5]
   src/metronome.ts            NEW  the Metronome Durable Object + metronomeClient (fixed name, 15 s timeout)      [T6]
-  src/env.ts                  MOD  METRONOME, METRONOME_DO                                                         [T6]
+  src/env.ts                  MOD  METRONOME_DO                                                                    [T6]
   src/index.ts                MOD  export Metronome [T6]; metronome client wired behind the switch [T7]
   src/alerts.ts               MOD  metronome-down in CLOCK_KEYS                                                    [T7]
   wrangler.jsonc              MOD  DO binding, migration v1, METRONOME "off", observability comment               [T6]
@@ -127,7 +128,7 @@ antenna/
   test/pricing.test.ts        REWRITE  (every Usage/OpCounts literal gains the DO meters)                          [T2]
   test/meter.test.ts, guard.test.ts, latch.test.ts, conditions.test.ts   MOD                                       [T2]
   test/metronome-core.test.ts NEW                                                                                  [T3]
-  test/metronome-support.ts   NEW  FakePort, lease(), engineAt() [T4]; deliver() [T5]
+  test/metronome-support.ts   NEW  FakePort, lease(), engineAt() [T4]; deliver(), deliverDuplicate() [T5]
   test/metronome-renew.test.ts NEW                                                                                 [T4]
   test/metronome-alarm.test.ts NEW                                                                                 [T5]
   test/metronome.test.ts      NEW  runtime plumbing: runInDurableObject / runDurableObjectAlarm                    [T6]
@@ -165,7 +166,7 @@ docs/superpowers/2026-10-1x-metronome-verification.md        the live record (op
 
 **Model hint:** sonnet
 
-**Files:** none changed except the plan file, which is copied in and committed.
+**Files:** none changed except the plan file, which is copied in, and committed only if it differs from `main`'s.
 
 **Interfaces:**
 - Produces: `.claude/worktrees/antenna-metronome` on branch `antenna-metronome` from `main`, with `antenna/node_modules`.
@@ -184,15 +185,18 @@ cd .claude/worktrees/antenna-metronome/antenna && npm ci
 Run: `cd /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna && npm test && npm run typecheck`
 Expected: `Tests  236 passed (236)`, and tsc prints nothing.
 
-- [ ] **Step 3: Commit the plan**
+- [ ] **Step 3: Commit the plan, only if it differs from `main`'s**
+
+`main` already carries the plan, so the copy differs only if the plan was edited after it was committed there. Staging first makes the check also catch a plan `main` lacks.
 
 ```bash
-cd /Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
-git add docs/superpowers/plans/2026-10-15-antenna-metronome.md
-git commit -m "docs(antenna): metronome implementation plan"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add docs/superpowers/plans/2026-10-15-antenna-metronome.md
+git -C "$W" diff --cached --quiet main -- docs/superpowers/plans/2026-10-15-antenna-metronome.md ||
+  git -C "$W" commit -m "docs(antenna): metronome implementation plan"
 ```
 
-All later paths are relative to the worktree's `antenna/` unless they start with `docs/` or `CLAUDE.md`.
+All later paths are relative to the worktree's `antenna/` unless they start with `docs/` or `CLAUDE.md`. Run steps (`cd antenna && ...`) run from the worktree root; commit steps name it with `git -C "$W"`, so they work from anywhere.
 
 ---
 
@@ -415,8 +419,9 @@ Expected: `Tests  240 passed (240)`, tsc silent. Every clock test passes unchang
 - [ ] **Step 6: Commit**
 
 ```bash
-git add antenna/src/live.ts antenna/src/clock.ts antenna/test/live.test.ts
-git commit -m "refactor(antenna): live.ts, the one playlist build-and-PUT both writers share"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add antenna/src/live.ts antenna/src/clock.ts antenna/test/live.test.ts
+git -C "$W" commit -m "refactor(antenna): live.ts, the one playlist build-and-PUT both writers share"
 ```
 
 ---
@@ -445,7 +450,7 @@ Plus "empty is not zero" while `METRONOME` is `"on"`. **Only these three meters 
 `transmitter` reads `guard.json` and checks only `evaluation.{at, actual_usd, projected_usd, budget_usd}` (`packages/transmitter/src/transmitter/cloudstate.py`). The extra `period_to_date` keys are therefore invisible to hugo, and transmitter needs no change.
 
 **Files:**
-- Modify: `src/pricing.ts`, `src/meter.ts`, `src/latch.ts`, `src/guard.ts`
+- Modify: `src/pricing.ts`, `src/meter.ts`, `src/latch.ts`, `src/guard.ts`, `src/clock.ts` (the switch in `ClockEnv`)
 - Modify (tests): `test/support.ts`, `test/meter.test.ts`, `test/guard.test.ts`, `test/latch.test.ts`, `test/conditions.test.ts`
 - Rewrite (test): `test/pricing.test.ts`
 
@@ -453,7 +458,8 @@ Plus "empty is not zero" while `METRONOME` is `"on"`. **Only these three meters 
 - Produces:
   - `pricing.ts`: `type Meter` gains `"doRequests" | "doDurationGbS" | "doRowsWritten"`; `METERS` has 7 entries; `OpCounts` gains `doRequests`, `doDurationGbS`, `doRowsWritten` (numbers); `PRICES.meters` carries the three.
   - `meter.ts`: `USAGE_QUERY` gains the aliases `doToDate`, `doRecent`, `doPeriodicToDate`, `doPeriodicRecent`; `assertMetronomeMetered(r: Reading): void` throws `analytics: the metronome is on but ...`.
-  - `guard.ts`: `GuardEnv.METRONOME?: string`; `GuardConfig.metronomeOn: boolean` (`env.METRONOME === "on"`).
+  - `clock.ts`: `ClockEnv.METRONOME?: string`, the switch's only declaration (`AntennaEnv` extends `ClockEnv`);
+  - `guard.ts`: `guardConfigFromEnv(env: GuardEnv & Pick<ClockEnv, "METRONOME">)`; `GuardConfig.metronomeOn: boolean` (`env.METRONOME === "on"`).
   - `test/support.ts`: `type DoUsage = [requests, durationGbS, rowsWritten]`; `usageResponse({... dos?: DoUsage | null; dosRecent?: DoUsage | null })`. The defaults are `[90_000, 600, 150_000]` and `[1_250, 8, 2_000]`; `null` means the API's `[]`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -774,7 +780,7 @@ describe("assertMetronomeMetered (empty is not zero)", () => {
 
 ```ts
 describe("guardStep with the metronome on (empty is not zero)", () => {
-  const ON: GuardEnv = { ...ENV, METRONOME: "on" };
+  const ON = { ...ENV, METRONOME: "on" };
 
   it("an empty recent Durable Object window is a failed reading while METRONOME is on, and fine while off", async () => {
     const empty = usageResponse({ dosRecent: null });
@@ -1002,11 +1008,12 @@ Insert immediately before `export async function readUsage(`:
 
 ```ts
 /** Empty is not zero: a range with no Durable Object activity reads as `[]`.
- * While the metronome is on, cron renews it every minute, so a recent window
- * with no DO requests or no rows written cannot be true: the dataset is not
- * serving it, and the reading fails rather than price the meters at zero. For
- * up to LAG_MS after METRONOME is flipped on, readings fail this way; harmless,
- * since the blind rule needs 6 h. */
+ * While the metronome is on, cron renews it every minute and every renew writes
+ * at least one row (`stalls`), so a recent window with no DO requests or no rows
+ * written cannot be true: the dataset is not serving it, and the reading fails
+ * rather than price the meters at zero. A reading taken within LAG_MS of
+ * METRONOME being flipped on fails this way, and guard.json shows it until the
+ * next evaluation (<= ~20 min); harmless, since the blind rule needs 6 h. */
 export function assertMetronomeMetered(r: Reading): void {
   if (r.recent.doRequests === 0 || r.recent.doRowsWritten === 0) {
     throw new Error(`analytics: the metronome is on but the recent window reads doRequests=${r.recent.doRequests}, ` +
@@ -1047,22 +1054,49 @@ with
     Object.fromEntries(METERS.map((m) => [m, fractional.has(m) ? r4(u[m]) : Math.round(u[m])])) as Usage;
 ```
 
-- [ ] **Step 6: Implement `src/guard.ts`** (four edits)
+- [ ] **Step 6: Declare the switch in `src/clock.ts`, and implement `src/guard.ts`** (one edit, then five)
 
-In `GuardEnv`, replace
+In `src/clock.ts`, in `ClockEnv`, replace
 
 ```ts
-  KILL_SWITCH_DESCRIPTION?: string;
-  // Worker secrets
+  LEAD_FLOOR_HOURS?: string;
+}
 ```
 
 with
 
 ```ts
-  KILL_SWITCH_DESCRIPTION?: string;
-  /** The metronome switch: only the exact string "on" enables it (metronome spec). */
+  LEAD_FLOOR_HOURS?: string;
+  /** The metronome's rollback switch: only the exact string "on" enables it; anything else is off. */
   METRONOME?: string;
-  // Worker secrets
+}
+```
+
+This is its only declaration: `AntennaEnv` extends `ClockEnv`, and the guard reads it through `Pick<ClockEnv, "METRONOME">`.
+
+In `src/guard.ts`, replace
+
+```ts
+import { type BucketLike, createJson, type JsonRead, putJson, readJsonDoc } from "./bucket";
+```
+
+with
+
+```ts
+import { type BucketLike, createJson, type JsonRead, putJson, readJsonDoc } from "./bucket";
+import type { ClockEnv } from "./clock";
+```
+
+Replace
+
+```ts
+export function guardConfigFromEnv(env: GuardEnv): GuardConfig {
+```
+
+with
+
+```ts
+export function guardConfigFromEnv(env: GuardEnv & Pick<ClockEnv, "METRONOME">): GuardConfig {
 ```
 
 In `GuardConfig`, replace
@@ -1121,10 +1155,11 @@ Expected: `Tests  252 passed (252)`, tsc silent.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add antenna/src/pricing.ts antenna/src/meter.ts antenna/src/latch.ts antenna/src/guard.ts antenna/test/support.ts \
-        antenna/test/pricing.test.ts antenna/test/meter.test.ts antenna/test/guard.test.ts antenna/test/latch.test.ts \
-        antenna/test/conditions.test.ts
-git commit -m "feat(antenna): the cost guard prices Durable Object requests, duration and rows written"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add antenna/src/pricing.ts antenna/src/meter.ts antenna/src/latch.ts antenna/src/guard.ts antenna/src/clock.ts \
+                antenna/test/support.ts antenna/test/pricing.test.ts antenna/test/meter.test.ts antenna/test/guard.test.ts \
+                antenna/test/latch.test.ts antenna/test/conditions.test.ts
+git -C "$W" commit -m "feat(antenna): the cost guard prices Durable Object requests, duration and rows written"
 ```
 
 ---
@@ -1781,8 +1816,9 @@ Expected: `Tests  278 passed (278)` (26 new), tsc silent.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add antenna/src/metronome-core.ts antenna/src/grid.ts antenna/src/clock.ts antenna/test/metronome-core.test.ts
-git commit -m "feat(antenna): metronome-core, the lease, its ordering and expiry, targets, caps and stalls"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add antenna/src/metronome-core.ts antenna/src/grid.ts antenna/src/clock.ts antenna/test/metronome-core.test.ts
+git -C "$W" commit -m "feat(antenna): metronome-core, the lease, its ordering and expiry, targets, caps and stalls"
 ```
 
 ---
@@ -1817,7 +1853,7 @@ The engine works over a `MetronomePort`, so a fake clock and a `MemoryBucket` te
     - `timer(ms): { done: Promise<void>; clear(): void }`;
     - `log(event, fields)`.
   - `class MetronomeEngine { constructor(port); renew(lease: unknown): Promise<MetronomeStatus> }`. Task 5 adds `alarm(): Promise<void>`.
-  - `test/metronome-support.ts`: `E`, `D`, `CFG`, `HORIZON`, `FALLBACK`, `lease(nowMs, {blocked?, hold?, verdictAt?, horizon?, fallback?})`, `class FakePort`, `engineAt(t)`, `settle()`, `seqOf`, `lastListed`. Task 5 adds `deliver`.
+  - `test/metronome-support.ts`: `E`, `D`, `CFG`, `HORIZON`, `FALLBACK`, `lease(nowMs, {blocked?, hold?, verdictAt?, horizon?, fallback?})`, `class FakePort`, `engineAt(t)`, `settle()`, `seqOf`, `lastListed`. Task 5 adds `deliver` and `deliverDuplicate`.
 
 - [ ] **Step 1: Write the test support** — `test/metronome-support.ts` (not a test file: vitest only collects `*.test.ts`):
 
@@ -2126,6 +2162,22 @@ describe("renew: blocked, hold, expiry", () => {
     expect(port.store.get("playSince")).toBe(port.t);
   });
 
+  it("renew(null) and a superseded lease never extend it: 15 min after acceptance nothing is written or armed", async () => {
+    const { port, engine } = engineAt(T);
+    await engine.renew(lease(T));
+    for (const min of [5, 10]) {
+      port.t = T + min * 60_000;
+      expect((await engine.renew(null)).lease).toBe("play");
+    }
+    port.t = T + 12 * 60_000;
+    expect((await engine.renew(lease(port.t, { verdictAt: T }))).applied).toBe("superseded");
+    port.t = T + METRONOME_LEASE_MS;
+    const puts = port.puts();
+    expect(await engine.renew(null)).toMatchObject({ lease: "none", wrote: null });
+    expect(port.puts()).toBe(puts);
+    expect(port.alarmAt).toBeNull();
+  });
+
   it("a far-future validUntil still expires 15 min after acceptance", async () => {
     const { port, engine } = engineAt(T);
     await engine.renew({ ...lease(T), validUntil: T + 86_400_000 });
@@ -2158,6 +2210,18 @@ describe("renew: stalls", () => {
     await engine.renew(lease(T)); // first play lease: playSince = T
     port.t = T + 20_000;
     expect((await engine.renew(null)).stalledMs).toBe(20_000);
+  });
+
+  it("every renew writes stalls, unchanged or not, so a healthy DO writes a row every minute", async () => {
+    const absent = engineAt(T);
+    await absent.engine.renew(null);
+    expect(absent.port.ops).toEqual(["save stalls"]);
+    const { port, engine } = engineAt(T);
+    await engine.renew(lease(T));
+    port.t = T + METRONOME_LEASE_MS; // expired
+    port.ops.length = 0;
+    await engine.renew(null);
+    expect(port.ops).toEqual(["deleteAlarm", "save stalls"]);
   });
 
   it("is 0, and resets the count, when the stored lease was not live", async () => {
@@ -2247,7 +2311,7 @@ describe("renew: serialization", () => {
 Run: `cd antenna && npx vitest run test/metronome-renew.test.ts`
 Expected: FAIL. `../src/metronome-engine` cannot be resolved.
 
-- [ ] **Step 4: Create `src/metronome-engine.ts`** (renew only; the import list already names what Task 5's `alarm()` uses)
+- [ ] **Step 4: Create `src/metronome-engine.ts`** (renew only; the import list and `confirms` already name what Task 5's `alarm()` uses)
 
 ```ts
 /** The metronome's sequencing (metronome spec, "Metronome (the DO)"): renew()
@@ -2255,7 +2319,7 @@ Expected: FAIL. `../src/metronome-engine` cannot be resolved.
  * tested with a fake clock and a fake bucket; metronome.ts binds the port to a
  * Durable Object. State lives in storage, memory is a cache only (the object is
  * evicted between alarms): every call loads the fixed key set and writes back
- * only what changed.
+ * what changed, plus `stalls` on every renew.
  *
  * Spend is the strict surface. The bounds this file enforces, whatever its
  * inputs: at most one PUT per call; at most MAX_DO_PUTS_PER_MINUTE PUTs in a
@@ -2303,6 +2367,8 @@ interface Tx {
 type WriteResult = "put" | "identical" | "null" | "cap" | "failed";
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** An alarm-confirmed tick: a PUT, an identical body, or nothing to build by rule. */
+const confirms = (r: WriteResult) => r === "put" || r === "identical" || r === "null";
 const copy = (s: MetronomeState): MetronomeState => ({ ...s, putTimes: [...s.putTimes], alarmTimes: [...s.alarmTimes] });
 
 export class MetronomeEngine {
@@ -2345,8 +2411,10 @@ export class MetronomeEngine {
     return { stored: copy(state), s: copy(state) };
   }
 
-  private async flush(tx: Tx): Promise<void> {
+  /** Write back what changed; `withStalls` writes `stalls` even when unchanged. */
+  private async flush(tx: Tx, withStalls = false): Promise<void> {
     const changes = stateChanges(tx.stored, tx.s);
+    if (withStalls) changes.stalls = tx.s.stalls;
     if (Object.keys(changes).length > 0) await this.port.save(changes);
     tx.stored = copy(tx.s);
   }
@@ -2418,7 +2486,9 @@ export class MetronomeEngine {
     }
     const now = this.port.now();
     const cfg = this.port.config();
-    // 2. Load (an invalid stored lease is deleted), then the stall count as it stood.
+    // 2. Load (an invalid stored lease is deleted), then the stall count as it
+    //    stood. `stalls` is written on every renew, changed or not, so a healthy
+    //    DO writes at least one row a minute (the guard's empty-is-not-zero check).
     const tx = await this.begin();
     const s = tx.s;
     const stalledMs = stalledFor(isLive(s.lease, now, cfg), s.lastAlarmGoodAt, s.playSince, now);
@@ -2431,7 +2501,7 @@ export class MetronomeEngine {
         // Stores nothing from it; deletes its stored lease and alarm: idle.
         this.port.log("metronome-lease-invalid", { reason: v.reason, source: "renew" });
         s.lease = null;
-        await this.flush(tx);
+        await this.flush(tx, true);
         await this.disarm();
         return { applied: "invalid", lease: "none", wrote: null, lastAlarmGoodAt: s.lastAlarmGoodAt, stalledMs,
                  stalls: s.stalls, leaseVerdictAt: null };
@@ -2465,7 +2535,7 @@ export class MetronomeEngine {
     } else {
       await this.disarm();
     }
-    await this.flush(tx);
+    await this.flush(tx, true);
     return { applied, lease: leaseKind(s.lease, now), wrote, lastAlarmGoodAt: s.lastAlarmGoodAt, stalledMs,
              stalls: s.stalls, leaseVerdictAt: currentLease(s.lease, now)?.verdictAt ?? null };
   }
@@ -2475,13 +2545,14 @@ export class MetronomeEngine {
 - [ ] **Step 5: Run everything**
 
 Run: `cd antenna && npm test && npm run typecheck`
-Expected: `Tests  302 passed (302)` (24 new), tsc silent. (Unused imports are not a tsc error under this `tsconfig.json`.)
+Expected: `Tests  304 passed (304)` (26 new), tsc silent. (Unused imports are not a tsc error under this `tsconfig.json`.)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add antenna/src/metronome-engine.ts antenna/test/metronome-support.ts antenna/test/metronome-renew.test.ts
-git commit -m "feat(antenna): metronome engine renew: lease apply, capped bounded write, arm while live"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add antenna/src/metronome-engine.ts antenna/test/metronome-support.ts antenna/test/metronome-renew.test.ts
+git -C "$W" commit -m "feat(antenna): metronome engine renew: lease apply, capped bounded write, arm while live"
 ```
 
 ---
@@ -2494,6 +2565,7 @@ The spec's `alarm()` steps 1–6, in this order:
 
 1. the switch;
 2. load and validate; not a current unblocked play lease → delete any pending alarm, no re-arm;
+   - 2b. an alarm still pending → a duplicate or retried delivery (spec reading 9): build for `now`, PUT only if the bytes differ, no re-arm, `lastTarget` unchanged, not counted, `metronome-duplicate` once per episode;
 3. count the invocation (12 per rolling 60 s, else no re-arm and `metronome-alarm-cap`);
 4. **re-arm first**, only while live, to the first boundary + 25 ms strictly after `max(now, lastTarget)`, in its own try/catch (`metronome-rearm-failed`);
 5. build for the due boundary `max(now, lastTarget − 25 ms)` (`lastTarget` as it stood before step 4) and PUT unless identical, capped and bounded;
@@ -2502,14 +2574,14 @@ The spec's `alarm()` steps 1–6, in this order:
 Nothing in `alarm()` ever throws to the runtime.
 
 **Files:**
-- Modify: `src/metronome-engine.ts` (add `alarm()` and `alarmSteps()`), `test/metronome-support.ts` (add `deliver`)
+- Modify: `src/metronome-engine.ts` (add `alarm()` and `alarmSteps()`), `test/metronome-support.ts` (add `deliver`, `deliverDuplicate`)
 - Create: `test/metronome-alarm.test.ts`
 
 **Interfaces:**
 - Consumes: Task 4's engine internals (`serial`, `episode`, `begin`, `flush`, `disarm`, `write`).
-- Produces: `MetronomeEngine.alarm(): Promise<void>`, which never rejects; `deliver(port, engine, t?)` in `test/metronome-support.ts`.
+- Produces: `MetronomeEngine.alarm(): Promise<void>`, which never rejects; `deliver(port, engine, t?)` (the runtime consumes the alarm, then runs `alarm()`) and `deliverDuplicate(port, engine, t)` (the alarm stays pending) in `test/metronome-support.ts`.
 
-- [ ] **Step 1: Add `deliver` to `test/metronome-support.ts`**
+- [ ] **Step 1: Add `deliver` and `deliverDuplicate` to `test/metronome-support.ts`**
 
 Insert immediately before `/** Let queued microtasks run (for interleaving tests). */`:
 
@@ -2521,6 +2593,13 @@ export async function deliver(port: FakePort, engine: MetronomeEngine, t = port.
   await engine.alarm();
 }
 
+/** Deliver the alarm again at time t while the re-armed one is still pending
+ * (at-least-once delivery): the pending alarm stays set. */
+export async function deliverDuplicate(port: FakePort, engine: MetronomeEngine, t: number) {
+  port.t = t;
+  await engine.alarm();
+}
+
 ```
 
 - [ ] **Step 2: Write the failing test** — `test/metronome-alarm.test.ts`:
@@ -2528,7 +2607,7 @@ export async function deliver(port: FakePort, engine: MetronomeEngine, t = port.
 ```ts
 import { describe, expect, it } from "vitest";
 import { ALARM_SLACK_MS, holdLease, METRONOME_LEASE_MS, STORAGE_KEYS } from "../src/metronome-core";
-import { CFG, D, deliver, E, engineAt, lease, settle } from "./metronome-support";
+import { CFG, D, deliver, deliverDuplicate, E, engineAt, lease, seqOf, settle } from "./metronome-support";
 
 const T = E + 1_000 * D + 3_000; // 3 s into segment 1000
 const target = (n: number) => E + n * D + ALARM_SLACK_MS;
@@ -2589,13 +2668,34 @@ describe("alarm: the tick", () => {
     expect(port.store.get("lastAlarmGoodAt")).toBe(target(1001) + 9);
   });
 
-  it("a duplicate delivered after a completed tick writes at most one boundary early and adds no PUT overall", async () => {
+  it("duplicates after a completed tick (an alarm still pending): no PUT, no re-arm, lastTarget unchanged", async () => {
     const { port, engine } = await playing();
     await deliver(port, engine, target(1001) + 3);
-    await deliver(port, engine, target(1001) + 5); // the runtime delivers again at once
-    expect(port.alarmAt).toBe(target(1003));
-    await deliver(port, engine); // boundary 1003
-    expect(port.puts()).toBe(4); // renew + 1001 + early 1002 + 1003, the same count as on time
+    const puts = port.puts();
+    port.ops.length = 0;
+    for (const dt of [5, 9, 2_000]) await deliverDuplicate(port, engine, target(1001) + dt);
+    expect(port.puts()).toBe(puts);
+    expect(port.ops.filter((o) => o !== "save lastAlarmGoodAt")).toEqual([]);
+    expect(port.alarmAt).toBe(target(1002));
+    expect(port.store.get("lastTarget")).toBe(target(1002));
+    expect(port.store.get("lastAlarmGoodAt")).toBe(target(1001) + 2_000); // identical bytes: a confirmed tick
+    expect(port.events("metronome-duplicate")).toHaveLength(1);
+  });
+
+  it("a duplicate, then a renew in the same segment: no extra PUT, MEDIA-SEQUENCE never goes backwards", async () => {
+    const { port, engine } = await playing();
+    await deliver(port, engine, target(1001) + 3);
+    const puts = port.puts();
+    const seqs = [seqOf(port.body()!)];
+    await deliverDuplicate(port, engine, target(1001) + 5);
+    seqs.push(seqOf(port.body()!));
+    port.t = target(1001) + 4_000; // still segment 1001
+    expect((await engine.renew(lease(port.t))).wrote).toBeNull();
+    seqs.push(seqOf(port.body()!));
+    expect(port.puts()).toBe(puts);
+    expect([...seqs].sort((a, b) => a - b)).toEqual(seqs);
+    await deliver(port, engine); // boundary 1002, on time
+    expect(seqOf(port.body()!)).toBeGreaterThan(seqs[2]);
   });
 });
 
@@ -2634,6 +2734,15 @@ describe("alarm: when it must not tick", () => {
       await e.engine.renew(lease(T + 1, { blocked: true, verdictAt: T + 1 }));
     }],
     ["an expired lease", async (e: Awaited<ReturnType<typeof playing>>) => { e.port.t = T + METRONOME_LEASE_MS; }],
+    ["a lease renewed only by renew(null) and a superseded lease", async (e: Awaited<ReturnType<typeof playing>>) => {
+      for (const min of [5, 10]) {
+        e.port.t = T + min * 60_000;
+        await e.engine.renew(null);
+      }
+      e.port.t = T + 12 * 60_000;
+      await e.engine.renew(lease(e.port.t, { verdictAt: T }));
+      e.port.t = T + METRONOME_LEASE_MS;
+    }],
     ["an unparseable stored lease", async (e: Awaited<ReturnType<typeof playing>>) => { e.port.store.set("lease", "{"); }],
   ] as const) {
     it(`${what}: an alarm delivered anyway writes nothing and does not re-arm`, async () => {
@@ -2820,6 +2929,17 @@ Insert immediately before `  private async renewSteps(raw: unknown): Promise<Met
       await this.flush(tx);
       return;
     }
+    // 2b. A duplicate or retried delivery: an alarm is still pending, which a
+    //     genuine delivery never sees while its handler runs (getAlarm() is null
+    //     then, unless setAlarm ran since). Idempotent: build for now and PUT
+    //     only if the bytes differ; no re-arm, lastTarget unchanged, not counted.
+    const pending = await this.port.getAlarm();
+    this.episode("duplicate", pending !== null, "duplicate", "metronome-duplicate", { pending });
+    if (pending !== null) {
+      if (confirms(await this.write(tx, cur, now, now, cfg, "alarm"))) s.lastAlarmGoodAt = now;
+      await this.flush(tx);
+      return;
+    }
     // 3. Count the invocation; at the cap, do not re-arm.
     if (!capAllows(s.alarmTimes, now, MAX_ALARMS_PER_MINUTE)) {
       this.episode("alarm-cap", true, "alarm-cap", "metronome-alarm-cap", { cap: MAX_ALARMS_PER_MINUTE });
@@ -2850,7 +2970,7 @@ Insert immediately before `  private async renewSteps(raw: unknown): Promise<Met
     const due = Math.max(now, (prevTarget ?? now) - ALARM_SLACK_MS);
     const r = await this.write(tx, cur, due, now, cfg, "alarm");
     // 6. Alarm-confirmed ticks: a PUT, an identical body, or nothing to build by rule.
-    if (r === "put" || r === "identical" || r === "null") s.lastAlarmGoodAt = now;
+    if (confirms(r)) s.lastAlarmGoodAt = now;
     await this.flush(tx);
   }
 
@@ -2859,13 +2979,14 @@ Insert immediately before `  private async renewSteps(raw: unknown): Promise<Met
 - [ ] **Step 5: Run everything**
 
 Run: `cd antenna && npm test && npm run typecheck`
-Expected: `Tests  325 passed (325)` (23 new), tsc silent.
+Expected: `Tests  329 passed (329)` (25 new), tsc silent.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add antenna/src/metronome-engine.ts antenna/test/metronome-support.ts antenna/test/metronome-alarm.test.ts
-git commit -m "feat(antenna): metronome engine alarm: re-arm first, rolling caps, never throws"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add antenna/src/metronome-engine.ts antenna/test/metronome-support.ts antenna/test/metronome-alarm.test.ts
+git -C "$W" commit -m "feat(antenna): metronome engine alarm: re-arm first, rolling caps, never throws"
 ```
 
 ---
@@ -2890,7 +3011,7 @@ The Durable Object binds the engine's port to `ctx.storage` (KV API on the SQLit
   - `class Metronome extends DurableObject<AntennaEnv>` with `renew(lease: Lease | null): Promise<MetronomeStatus>` and `alarm(): Promise<void>`;
   - `interface MetronomeNamespace { idFromName(name): DurableObjectId; get(id): unknown }`;
   - `metronomeClient(ns: MetronomeNamespace | undefined, timeoutMs = RENEW_TIMEOUT_MS): MetronomeClient`, which rejects inside `renew` on a missing binding or a timeout;
-  - `AntennaEnv.METRONOME?: string` and `AntennaEnv.METRONOME_DO: DurableObjectNamespace<Metronome>`;
+  - `AntennaEnv.METRONOME_DO: DurableObjectNamespace<Metronome>` (the switch, `METRONOME`, comes from `ClockEnv`, Task 2);
   - `src/index.ts` re-exports `Metronome`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -2959,13 +3080,17 @@ describe("the Metronome Durable Object", () => {
   });
 
   it("the alarm ticks and re-arms; a full cycle stores exactly the fixed key set", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const logs = vi.spyOn(console, "error").mockImplementation(() => {});
     await setSwitch("on");
     const s = stub();
     await s.renew(playLease(Date.now()));
+    const armed = await pendingAlarm();
     expect(await runDurableObjectAlarm(s)).toBe(true);
-    expect(await pendingAlarm()).toEqual(expect.any(Number));
-    // A stall (no alarm-confirmed tick for > 30 s) makes the next renew write `stalls`.
+    // The handler saw no pending alarm (getAlarm() is null while it runs), so it
+    // ticked as a genuine delivery and re-armed later, not as a duplicate.
+    expect(await pendingAlarm()).toBeGreaterThan(armed!);
+    expect(logs.mock.calls.flat().join("\n")).not.toContain("metronome-duplicate");
+    // A stall (no alarm-confirmed tick for > 30 s): the next renew counts it.
     await runInDurableObject(s, (_o: Metronome, state) => state.storage.put("lastAlarmGoodAt", Date.now() - 60_000));
     await runInDurableObject(s, (_o: Metronome, state) => state.storage.put("playSince", Date.now() - 60_000));
     expect((await s.renew(null)).stalls).toBe(1);
@@ -3050,10 +3175,7 @@ describe("wrangler.jsonc: the metronome (metronome spec)", () => {
     expect(["on", "off"]).toContain(config.vars.METRONOME);
   });
 
-  it("is still cron-only: no routes, no workers.dev, no preview URLs", () => {
-    expect(config).not.toHaveProperty("routes");
-    expect(config.workers_dev).toBe(false);
-    expect(config.preview_urls).toBe(false);
+  it("is still driven by one cron trigger, every minute", () => {
     expect(config.triggers).toEqual({ crons: ["* * * * *"] });
   });
 });
@@ -3172,8 +3294,6 @@ import type { Metronome } from "./metronome";
  * secrets (account details and tokens, never in the repo) and bindings. */
 export interface AntennaEnv extends ClockEnv, GuardEnv, AlertEnv {
   BUCKET: R2Bucket;
-  /** The rollback switch: only the exact string "on" enables the metronome; anything else is off. */
-  METRONOME?: string;
   /** The metronome Durable Object (one instance, idFromName("metronome")). */
   METRONOME_DO: DurableObjectNamespace<Metronome>;
 }
@@ -3250,7 +3370,7 @@ with
 - [ ] **Step 7: Run everything, and dry-run the bundle**
 
 Run: `cd antenna && npm test && npm run typecheck`
-Expected: `Tests  338 passed (338)` (13 new), tsc silent. Run the full suite **twice**: a test that races a real alarm shows up as an intermittent failure under full-suite load, never in a single file.
+Expected: `Tests  342 passed (342)` (13 new), tsc silent. Run the full suite **twice**: a test that races a real alarm shows up as an intermittent failure under full-suite load, never in a single file.
 
 Run: `cd antenna && npx wrangler deploy --dry-run --outdir /tmp/antenna-dryrun`
 Expected: the binding table lists `env.METRONOME_DO (Metronome)  Durable Object` and `env.METRONOME ("off")`, then `--dry-run: exiting now.` No warning about migrations or exports.
@@ -3258,9 +3378,10 @@ Expected: the binding table lists `env.METRONOME_DO (Metronome)  Durable Object`
 - [ ] **Step 8: Commit**
 
 ```bash
-git add antenna/src/metronome.ts antenna/src/env.ts antenna/src/index.ts antenna/wrangler.jsonc \
-        antenna/test/metronome.test.ts antenna/test/wrangler-config.test.ts
-git commit -m "feat(antenna): the Metronome Durable Object, its binding, migration v1 and the METRONOME switch (off)"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add antenna/src/metronome.ts antenna/src/env.ts antenna/src/index.ts antenna/wrangler.jsonc \
+                antenna/test/metronome.test.ts antenna/test/wrangler-config.test.ts
+git -C "$W" commit -m "feat(antenna): the Metronome Durable Object, its binding, migration v1 and the METRONOME switch (off)"
 ```
 
 ---
@@ -3290,7 +3411,6 @@ The fallback (cron's own loop) runs only on the last row, and only when `fallbac
 - Produces:
   - `ClockDeps.metronome?: MetronomeClient`;
   - `ClockResult.metronome: MetronomeLine | null`, with `MetronomeLine { sent: "play" | "blocked" | "hold" | null; status: MetronomeStatus | null; error: string | null; fallback: string | null }`. It goes on the clock line as `metronome`;
-  - `ClockEnv.METRONOME?: string`;
   - `CLOCK_KEYS` gains `metronome-down`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -3634,7 +3754,7 @@ with
 ]);
 ```
 
-- [ ] **Step 4: `src/clock.ts`** (fourteen edits, in order; each `old` text is exactly as Tasks 1 and 3 left it)
+- [ ] **Step 4: `src/clock.ts`** (fourteen edits, in order; each `old` text is exactly as Tasks 1–3 left it)
 
 (1) Replace
 
@@ -3652,23 +3772,7 @@ import { fallbackReason, holdLease, type Lease, type MetronomeClient, type Metro
 import type { FallbackIndex, PlaylistConfig } from "./playlist";
 ```
 
-(2) In `ClockEnv`, replace
-
-```ts
-  LEAD_FLOOR_HOURS?: string;
-}
-```
-
-with
-
-```ts
-  LEAD_FLOOR_HOURS?: string;
-  /** The metronome switch: only the exact string "on" enables it (metronome spec). */
-  METRONOME?: string;
-}
-```
-
-(3) In `ClockDeps`, replace
+(2) In `ClockDeps`, replace
 
 ```ts
   alerts?: (conditions: AlertCondition[], nowMs: number, batch: AlertBatch) => Promise<void>;
@@ -3688,7 +3792,7 @@ with
 }
 ```
 
-(4) In `ClockResult`, replace
+(3) In `ClockResult`, replace
 
 ```ts
   /** Keys of the alert conditions raised this invocation. */
@@ -3718,7 +3822,7 @@ export interface MetronomeLine {
 }
 ```
 
-(5) Replace
+(4) Replace
 
 ```ts
   const result: ClockResult = { puts: 0, skipped: 0, offairWithoutFallback: null, refused: null, blocked: null,
@@ -3732,7 +3836,7 @@ with
                                 guardMs: null, index: "skipped", alerts: [], metronome: null };
 ```
 
-(6) Replace
+(5) Replace
 
 ```ts
   try {
@@ -3770,7 +3874,7 @@ with
     const startedMs = deps.now(); // the lease's verdictAt: when this guard step's state reads began
 ```
 
-(7) Replace
+(6) Replace
 
 ```ts
       // Unknown: change nothing (players stall on a stale playlist, toward zero cost).
@@ -3788,7 +3892,7 @@ with
       return result;
 ```
 
-(8) Replace
+(7) Replace
 
 ```ts
     // 3. The playlist.
@@ -3804,43 +3908,43 @@ with
     const failedInputs = (e: unknown) => {
 ```
 
+(8) Replace
+
+```ts
+    try {
+      inputs = await readInputs(bucket, blocked);
+    } catch (e) {
+      throw failedInputs(e);
+    }
+```
+
+with
+
+```ts
+    try {
+      inputs = await readInputs(bucket, blocked);
+    } catch (e) {
+      await renew(unusable());
+      throw failedInputs(e);
+    }
+```
+
 (9) Replace
 
 ```ts
-    try {
-      inputs = await readInputs(bucket, blocked);
-    } catch (e) {
-      throw failedInputs(e);
-    }
+                                 "Either nothing is on air yet (transmitter has not published) or the object is corrupt." });
+      return result;
 ```
 
 with
 
 ```ts
-    try {
-      inputs = await readInputs(bucket, blocked);
-    } catch (e) {
+                                 "Either nothing is on air yet (transmitter has not published) or the object is corrupt." });
       await renew(unusable());
-      throw failedInputs(e);
-    }
+      return result;
 ```
 
 (10) Replace
-
-```ts
-                                 "Either nothing is on air yet (transmitter has not published) or the object is corrupt." });
-      return result;
-```
-
-with
-
-```ts
-                                 "Either nothing is on air yet (transmitter has not published) or the object is corrupt." });
-      await renew(unusable());
-      return result;
-```
-
-(11) Replace
 
 ```ts
       conditions.push({ key: "horizon-refused", priority: "urgent", resolvable: true, title: "Horizon refused",
@@ -3857,7 +3961,7 @@ with
       return result;
 ```
 
-(12) Replace
+(11) Replace
 
 ```ts
     try {
@@ -3878,7 +3982,7 @@ with
     }
 ```
 
-(13) Replace
+(12) Replace
 
 ```ts
     const cap = putCap(config, g.dMs);
@@ -3915,7 +4019,7 @@ with
     const write = async (force: boolean) => {
 ```
 
-(14) In the `write` closure, replace
+(13) In the `write` closure, replace
 
 ```ts
       const { body, offairWithoutFallback: reason } = renderLive(src, nowMs, deps.scheduledTime + config.loopMs, config);
@@ -3942,7 +4046,21 @@ with
       if (body === null) return;
 ```
 
-Also update `runClock`'s doc comment: add one sentence after its first paragraph: `With the metronome on (deps.metronome), the playlist is the Durable Object's: cron renews its lease on every path (metronome spec, lease table) and runs the loop below only as the fallback.`
+(14) In `runClock`'s doc comment, replace
+
+```ts
+ * Overlapping invocations are harmless: the playlist is a pure function of the
+ * clock and the inputs.
+```
+
+with
+
+```ts
+ * Overlapping invocations are harmless: the playlist is a pure function of the
+ * clock and the inputs. With the metronome on (deps.metronome), the playlist
+ * is the Durable Object's: cron renews its lease on every path (metronome
+ * spec, lease table) and runs that loop only as the fallback.
+```
 
 - [ ] **Step 5: `src/index.ts`** — wire the client behind the switch. Replace
 
@@ -3980,7 +4098,7 @@ with
 - [ ] **Step 6: Run everything (twice), the page check and a dry-run**
 
 Run: `cd antenna && npm test && npm test && npm run typecheck`
-Expected: `Tests  360 passed (360)` both times, tsc silent. Every pre-existing clock test passes unchanged: that is the "switch off ⇒ today's loop" guarantee.
+Expected: `Tests  364 passed (364)` both times, tsc silent. Every pre-existing clock test passes unchanged: that is the "switch off ⇒ today's loop" guarantee.
 
 Run: `cd antenna && npx wrangler deploy --dry-run --outdir /tmp/antenna-dryrun`
 Expected: as in Task 6 (about 84 KiB), `env.METRONOME_DO (Metronome)` listed, `--dry-run: exiting now.`
@@ -3988,9 +4106,10 @@ Expected: as in Task 6 (about 84 KiB), `env.METRONOME_DO (Metronome)` listed, `-
 - [ ] **Step 7: Commit**
 
 ```bash
-git add antenna/src/clock.ts antenna/src/index.ts antenna/src/alerts.ts antenna/test/alerts.test.ts \
-        antenna/test/clock-metronome.test.ts
-git commit -m "feat(antenna): cron renews the metronome on every path and falls back only when it looks dead"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add antenna/src/clock.ts antenna/src/index.ts antenna/src/alerts.ts antenna/test/alerts.test.ts \
+                antenna/test/clock-metronome.test.ts
+git -C "$W" commit -m "feat(antenna): cron renews the metronome on every path and falls back only when it looks dead"
 ```
 
 **Review gate:** the spend path is complete. The orchestrator reports to the parent before Task 8. The report lists each dispatch with its model.
@@ -4027,7 +4146,7 @@ Add step 7 after step 6:
 ````markdown
 ## 9. The metronome: rollout, rollback, verification
 
-Spec: `docs/superpowers/specs/2026-10-14-antenna-metronome-design.md` (Rollout). Record results in `docs/superpowers/<date>-metronome-verification.md`. Run from `antenna/` with `.env` loaded (`set -a; . ./.env; set +a`: `CLOUDFLARE_ACCOUNT_ID`, `CF_ANALYTICS_TOKEN`).
+Spec: `docs/superpowers/specs/2026-10-14-antenna-metronome-design.md` (Rollout). Record results in `docs/superpowers/<date>-metronome-verification.md`. Run from the main checkout's `antenna/` with `.env` loaded (`set -a; . ./.env; set +a`: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ANALYTICS_TOKEN`). `.env` is gitignored, so a worktree has none.
 
 1. **Tear down the alarm probe** (its Durable Object would otherwise appear in the account-wide DO meters). From `~/lma-radio-ops/do-alarm-probe`:
    ```
@@ -4038,10 +4157,10 @@ Spec: `docs/superpowers/specs/2026-10-14-antenna-metronome-design.md` (Rollout).
    ```
    If `wrangler delete` refuses because of the Durable Object class, add `{ "tag": "v2", "deleted_classes": ["Probe"] }` to the probe's `migrations`, remove its `durable_objects` binding and its `ensure` call, `npx wrangler deploy`, then `npx wrangler delete`.
 2. **Deploy with `"METRONOME": "off"`** (as committed): `npm ci && npm test && npm run typecheck`, `npx wrangler deploy --dry-run` (it lists `env.METRONOME_DO (Metronome)` and `env.METRONOME ("off")`), then `npx wrangler deploy` (its output ends with `schedule: * * * * *`). The class now exists, and the guard reads the three DO meters. **Pass** only when, at the guard's next evaluation (within 15 min), `npx wrangler r2 object get lma-radio/state/guard.json --remote --pipe | python3 -m json.tool` shows `last_error: null` and `evaluation.period_to_date` carrying all seven meters (`workersRequests`, `r2ClassA`, `r2ClassB`, `r2StorageGbMonth`, `doRequests`, `doDurationGbS`, `doRowsWritten`). Nothing on air changes: the clock's loop writes as before.
-3. **Flip on:** set `"METRONOME": "on"` in `wrangler.jsonc`, commit, `npx wrangler deploy`. Within two minutes, `npx wrangler tail antenna --format pretty` shows clock lines with `"metronome":{"sent":"play","status":{"applied":"accepted",...},"fallback":null}` and `"puts":0`, and Durable Object alarm events about every 10 s. The guard's first evaluation after the flip may fail with `the metronome is on but the recent window reads doRequests=0` for up to 5 minutes: expected, and harmless (the blind rule needs 6 h).
-4. **Verification day:** a 24 h `wrangler tail antenna` including a weekday daytime (section 9.1 below). Deploy twice during the day (`npx wrangler deploy`, no change) and note the times.
+3. **Flip on:** set `"METRONOME": "on"` in `wrangler.jsonc`, commit, `npx wrangler deploy`. Within two minutes, `npx wrangler tail antenna --format pretty` shows clock lines with `"metronome":{"sent":"play","status":{"applied":"accepted",...},"fallback":null}` and `"puts":0`, and Durable Object alarm events about every 10 s. The guard's first evaluation after the flip may fail with `the metronome is on but the recent window reads doRequests=0`, and `guard.json` shows that failure until the next evaluation (≤ ~20 min): expected, and harmless (the blind rule needs 6 h).
+4. **Verification day:** a 24 h `wrangler tail antenna` and `live.m3u8` poller, including a weekday daytime (section 9.1 below). Deploy twice during the day (`npx wrangler deploy`, no change) and note the times.
 
-**Rollback.** Immediate: `npx wrangler deploy --var METRONOME:off`. The next cron invocation runs its own loop, and the object's next alarm reads `off`, deletes its alarm and writes nothing. A `--var` lasts only until the next plain deploy, so make it durable by committing `"METRONOME": "off"`. If the Worker itself is broken, section 4 step 4's broken-Worker order applies unchanged.
+**Rollback.** Immediate: `npx wrangler deploy --var METRONOME:off`. The next cron invocation runs its own loop, and the object's next alarm reads `off`, deletes its alarm and writes nothing. A `--var` lasts only until the next plain deploy, so make it durable by committing `"METRONOME": "off"`. If the Worker itself is broken, section 4 step 4's broken-Worker order applies unchanged. Roll back the same way, rather than ride it out, when `metronome-down` persists while `METRONOME` is `"on"` (the object absent or broken): with no Durable Object activity, every guard reading also fails (`doRequests=0`), and the station trips blind after 6 h.
 
 **A dead cron, now.** The object keeps the station playing for at most 15 minutes on its lease, then stops writing and re-arming. The playlist freezes, and hugo's `dead-clock` check alerts (newest segment older than `dead_clock_seconds`, 120 s, on two checks a minute apart); independently hugo alerts `guard-stale` once `guard.json`'s evaluation is older than `guard_stale_minutes` (45). A cron outage is therefore detected ~17-18 minutes after the last renew, against ~3-4 minutes before the metronome. Accepted (spec, Decision 3).
 
@@ -4055,9 +4174,35 @@ nohup npx wrangler tail antenna --format json > ~/lma-radio-ops/metronome-tail/t
   2> ~/lma-radio-ops/metronome-tail/tail.err < /dev/null &
 ```
 
+Alongside it, an independent poller fetches `live.m3u8` as a listener does, every ~5 s, and logs the fetch time, `MEDIA-SEQUENCE` and the last `PROGRAM-DATE-TIME`. Freezes are measured from it: the Durable Object logs anomalies only once per episode, so its lines are diagnostic, not a freeze record.
+
+```
+cat > ~/lma-radio-ops/metronome-tail/poll.py <<'EOF'
+import datetime as dt, os, re, time, urllib.request
+URL = "https://listen.lma-radio.com/live.m3u8"
+OUT = os.path.expanduser("~/lma-radio-ops/metronome-tail/poll.tsv")
+while True:
+    t0 = time.time()
+    try:
+        req = urllib.request.Request(URL, headers={"user-agent": "metronome-verification-poller"})
+        body = urllib.request.urlopen(req, timeout=10).read().decode()
+        seq = re.search(r"#EXT-X-MEDIA-SEQUENCE:(\d+)", body)
+        pdt = re.findall(r"#EXT-X-PROGRAM-DATE-TIME:(\S+)", body)
+        row = f"{seq.group(1) if seq else '-'}\t{pdt[-1] if pdt else '-'}"
+    except Exception as e:
+        row = f"error\t{type(e).__name__}: {e}"
+    with open(OUT, "a") as f:
+        f.write(f"{dt.datetime.now(dt.timezone.utc).isoformat(timespec='milliseconds')}\t{row}\n")
+    time.sleep(max(0.0, 5 - (time.time() - t0)))
+EOF
+nohup python3 ~/lma-radio-ops/metronome-tail/poll.py > ~/lma-radio-ops/metronome-tail/poll.err 2>&1 < /dev/null &
+```
+
+`poll.tsv` has one row per fetch: UTC fetch time, `MEDIA-SEQUENCE`, last `PROGRAM-DATE-TIME` (or `error` and the reason). A freeze is a run of fetches with the same `MEDIA-SEQUENCE`, from the first fetch that shows it to the first that shows the next; normal is ~10 s, give or take the 5 s poll and the 5 s `max-age`.
+
 The capture holds three kinds of event: cron invocations (`executionModel: "stateless"`, `event.cron`, with the `clock` line in `logs`); Durable Object alarms (`executionModel: "durableObject"`, `event.scheduledTime`, `outcome`); and renew RPCs (`executionModel: "durableObject"`, `event.rpcMethod: "renew"`). **Pass:**
 
-- no playlist freeze over 45 s outside a reported `metronome-down`, except silent chain breaks: at most 1-2 in the day, each tied to a single stall on the clock line (provisional: the probe's handler did no R2 PUT);
+- no playlist freeze over 45 s in `poll.tsv` outside a reported `metronome-down`, except silent chain breaks: at most 1-2 in the day, each tied to a single stall on the clock line (provisional: the probe's handler did no R2 PUT);
 - the DO meters in `guard.json` (`evaluation.period_to_date.doRequests`, `doDurationGbS`, `doRowsWritten`) agree with the dashboard's billable usage for the period;
 - playlist PUTs at most ~one per boundary plus one per renew (≈ 7/min, ≈ 10k/day), counted from the DO and clock lines; below the cron-only rate is expected;
 - after each deliberate deploy, the alarm chain continues within ~10 s, or the next renew repairs it within a minute.
@@ -4090,11 +4235,12 @@ In "Cost guard (phase 2)", directly after the bullet that ends `` hugo's dead-cl
 - [ ] **Step 6: Check, and commit**
 
 Run: `cd antenna && npm test && npm run typecheck`
-Expected: unchanged (360 passed). Docs only; the run confirms that nothing else moved.
+Expected: unchanged (364 passed). Docs only; the run confirms that nothing else moved.
 
 ```bash
-git add docs/playout-setup.md CLAUDE.md docs/superpowers/specs/2026-10-09-playout-design.md
-git commit -m "docs: the metronome rollout, rollback and verification; CLAUDE.md and the parent spec as built"
+W=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome
+git -C "$W" add docs/playout-setup.md CLAUDE.md docs/superpowers/specs/2026-10-09-playout-design.md
+git -C "$W" commit -m "docs: the metronome rollout, rollback and verification; CLAUDE.md and the parent spec as built"
 ```
 
 ---
@@ -4112,13 +4258,14 @@ git commit -m "docs: the metronome rollout, rollback and verification; CLAUDE.md
 
 (a) Eyeball https://developers.cloudflare.com/durable-objects/platform/pricing/ (Workers Paid). The plan's figures are requests 1M + $0.15/M, duration 400k GB-s + $12.50/M, rows written 50M + $1.00/M (read 2026-10-14). If any differs, stop: `PRICES` and the pricing test change first.
 
-(b) Run the guard's exact query once, read-only, against the account (the same check the spec author ran on 2026-10-14, now with the shipped `USAGE_QUERY`). From the worktree's `antenna/`:
+(b) Run the guard's exact query once, read-only, against the account (the same check the spec author ran on 2026-10-14, now with the shipped `USAGE_QUERY`). Run it from the main checkout's `antenna/`, because `.env` is gitignored and the worktree has none; `METER_TS` reads the query from the branch (once merged, `src/meter.ts`):
 
 ```bash
+cd /Users/shawn/projects/llama/antenna
 set -a; . ./.env; set +a
-python3 - <<'EOF'
+METER_TS=/Users/shawn/projects/llama/.claude/worktrees/antenna-metronome/antenna/src/meter.ts python3 - <<'EOF'
 import datetime as dt, json, os, re, urllib.request
-src = open("src/meter.ts").read()
+src = open(os.environ["METER_TS"]).read()
 q = re.search(r"USAGE_QUERY = `(.*?)`;", src, re.S).group(1).replace("${ROW_LIMIT}", "10000")
 now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
 iso = lambda t: t.strftime("%Y-%m-%dT%H:%M:%S.000Z")
@@ -4129,7 +4276,7 @@ v = {"account": os.environ["CLOUDFLARE_ACCOUNT_ID"], "start": iso(start), "now":
      "recentStart": iso(rend - dt.timedelta(hours=3)), "recentEnd": iso(rend)}
 req = urllib.request.Request("https://api.cloudflare.com/client/v4/graphql",
                              data=json.dumps({"query": q, "variables": v}).encode(),
-                             headers={"authorization": "Bearer " + os.environ["CF_ANALYTICS_TOKEN"],
+                             headers={"authorization": "Bearer " + os.environ["CLOUDFLARE_ANALYTICS_TOKEN"],
                                       "content-type": "application/json"})
 r = json.load(urllib.request.urlopen(req))
 print("errors:", r.get("errors"))
@@ -4148,7 +4295,7 @@ EOF
 
   **Gate:** do not continue unless `last_error` is `null` and all seven meters are present.
 
-- [ ] **Step 3 (operator): rollout step 3, flip on.** Commit `"METRONOME": "on"` in `wrangler.jsonc` and deploy. Start the 24 h capture (`docs/playout-setup.md` 9.1) **before** this deploy, so the transition is captured. Report the deploy time and the first two clock lines after it.
+- [ ] **Step 3 (operator): rollout step 3, flip on.** Commit `"METRONOME": "on"` in `wrangler.jsonc` and deploy. Start the 24 h capture and the `live.m3u8` poller (`docs/playout-setup.md` 9.1, both commands) **before** this deploy, so the transition is captured. Report the deploy time, the first two clock lines after it, and whether Durable Object alarm events arrive about every 10 s. Alarms only about once a minute would mean genuine deliveries are being taken for duplicates (spec reading 9): each would skip its re-arm, leaving only the next renew to restart the chain. Roll back at once if so.
 
 - [ ] **Step 4 (operator): verification day.** Leave the capture running ≥ 24 h, including a weekday daytime (10:00-18:00 EDT, where cron lagged worst). Deploy twice with no change, at noted times. At the end, also record `guard.json`'s DO meters and the dashboard's billable Durable Objects usage for the same period (Workers & Pages → Durable Objects, or Billing → Billable usage).
 
@@ -4158,18 +4305,20 @@ EOF
      - each DO alarm event (`executionModel == "durableObject"` and `event.scheduledTime`) with `outcome == "ok"` and no `metronome-put-failed`, `metronome-cap` or `metronome-rearm-failed` in its logs (each such alarm writes one boundary);
      - each renew whose clock line shows `metronome.status.wrote == true`, timed by its cron event's timestamp;
      - each cron fallback write: `puts > 0` on a clock line; its writes run from `started` at about every d up to `scheduled + 75 s`.
-  2. **Freezes.** These are the gaps between consecutive writes. Count gaps over 45 s, 60 s and 75 s. For each gap over 45 s, say whether a `metronome-down` falls inside it, and whether the next clock line shows a single stall (`metronome.status.stalls == 1`, with `stalledMs`): that marks a silent chain break.
+  2. **Freezes**, from the poller's `~/lma-radio-ops/metronome-tail/poll.tsv` (9.1): runs of fetches with the same `MEDIA-SEQUENCE`. Count runs over 45 s, 60 s and 75 s, and count fetch errors separately. For each run over 45 s, say whether a `metronome-down` falls inside it, and whether the next clock line shows a single stall (`metronome.status.stalls == 1`, with `stalledMs`): that marks a silent chain break. The write times from (1) explain a freeze; they do not define one.
   3. **Alarm lateness:** `eventTimestamp − Date.parse(event.scheduledTime)`. Report the median, p99 and max, separately for weekday daytime :00-:02 and :30-:32. Also count `canceled` alarm events.
   4. **PUT rate per minute and per day**, from (1). Expect ≈ 6-7/min (≈ 10k/day) and at most ≈ one per boundary plus one per renew.
   5. **Fallbacks:** every `metronome-down` (clock line `metronome.fallback`), with its reason and duration. **Stalls:** the distribution of `metronome.status.stalls` and `stalledMs`.
   6. **The two deliberate deploys.** For each, the gap between the last alarm before it and the first after, and whether the chain survived (alarm events continue within ~10 s) or the next renew repaired it (a single stall, then alarms again).
   7. **Meters:** `guard.json` versus the dashboard, for `doRequests`, `doDurationGbS` and `doRowsWritten` (expect `doDurationGbS` far under the 400k allowance, and `rowsWritten` ~4-6 per tick).
-  8. **Anomaly lines by event name:** `metronome-late`, `-expired`, `-hold`, `-lease-invalid`, `-lease-superseded`, `-cap`, `-alarm-cap`, `-null-build`, `-alarm-error`, and `offair-without-fallback`.
+  8. **Anomaly lines by event name:** `metronome-late`, `-expired`, `-hold`, `-lease-invalid`, `-lease-superseded`, `-cap`, `-alarm-cap`, `-null-build`, `-duplicate`, `-alarm-error`, and `offair-without-fallback`.
+  9. **Duplicates.** Each `metronome-duplicate` line (once per episode) should sit on an alarm event whose `event.scheduledTime` repeats an earlier event's: a real redelivery. The rule that a pending alarm marks a duplicate (spec reading 9) comes from the docs and the test double, and Task 6's workerd test; this capture is its check on the real runtime. A `metronome-duplicate` on a fresh `scheduledTime`, or alarms arriving about once a minute rather than every ~10 s, refutes it.
 
   **Pass** (spec, Rollout step 4):
-  - no freeze over 45 s outside a reported `metronome-down`, except at most 1-2 silent chain breaks, each tied to a logged single stall;
+  - no freeze over 45 s in `poll.tsv` outside a reported `metronome-down`, except at most 1-2 silent chain breaks, each tied to a logged single stall;
   - meters agree with the dashboard;
-  - PUTs within ~one per boundary plus one per renew.
+  - PUTs within ~one per boundary plus one per renew;
+  - the duplicate check (item 9) holds.
 
   Write the results to `docs/superpowers/<date>-metronome-verification.md`, with the numbers and the pass/fail per criterion, and commit it. On a fail, the operator decides between rollback (`docs/playout-setup.md` section 9, Rollback) and a fix.
 
@@ -4199,7 +4348,7 @@ EOF
 - **The rollback switch:** only `"on"` (T2 guard, T6 DO, T7 index); the DO reads `env` itself (T6); `renew` answers `off` (T4, T6).
 - **The lease:** the validation list (T3); a bad fallback becomes null (T3, T4); invalid deletes the lease and the alarm (T4); invalid on load is deleted (T3, T4, T5); ordering (T3, T4); expiry negated (T3); persisted (T6 eviction test).
 - **The DO's state:** the fixed key set (T3, T5, T6 tests); alarm-confirmed ticks (T5); live (T3); serialized sections (T4, T5 interleave); the PUT timeout clears `lastBody` (T4).
-- **renew 1–6 and alarm 1–6:** T4 and T5, step by step. The re-arm try/catch, "never throws", and idempotent duplicates: T5.
+- **renew 1–6 and alarm 1–6:** T4 and T5, step by step. The re-arm try/catch, "never throws", and idempotent duplicates (spec reading 9): T5, with the workerd check in T6.
 - **Spend bounds:**
   - one PUT per call (structure);
   - 10 per rolling 60 s, renew's included (T4, T5);
@@ -4237,4 +4386,4 @@ EOF
 
 The scratch run compiled them together.
 
-**Review Focus:** five lines, each with its test in the owning task (T6, T5, T3, T6/T7, T5).
+**Review Focus:** five lines, each with its test in the owning task (T6, T5, T3, T6/T7, T5/T6).
