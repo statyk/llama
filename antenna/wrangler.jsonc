@@ -45,7 +45,7 @@
     // the metronome. Anything else is off: cron runs its own loop exactly as
     // before, and the Durable Object deletes its alarm and writes nothing.
     // docs/playout-setup.md section 4 step 7 has the rollout and the rollback.
-    "METRONOME": "off"
+    "METRONOME": "on"
   },
   // The metronome (docs/superpowers/specs/2026-10-14-antenna-metronome-design.md):
   // a SQLite-backed Durable Object that writes live.m3u8 on the grid from an
