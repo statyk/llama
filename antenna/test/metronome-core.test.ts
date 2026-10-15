@@ -143,6 +143,7 @@ describe("rolling windows", () => {
     const ts = Array.from({ length: 10 }, (_, i) => T + i * 1_000);
     expect(capAllows(ts, T + 59_999, 10)).toBe(false);
     expect(capAllows(ts, T + 60_001, 10)).toBe(true);
+    expect(capAllows([], Number.NaN, 10)).toBe(false); // a NaN clock trips, never opens the cap
     expect(inWindow(ts, T + 60_001)).toHaveLength(9);
   });
 
@@ -196,7 +197,7 @@ describe("stored state", () => {
     const l = storedLease(play(T) as Lease, T);
     const before = { ...EMPTY_STATE, lease: l, stalls: 1 };
     expect(stateChanges(before, { ...before, stalls: 0, lastBody: "b" })).toEqual({ stalls: 0, lastBody: "b" });
-    expect(stateChanges(before, { ...before, lease: null })).toEqual({ lease: undefined });
+    expect(stateChanges(before, { ...before, lease: null })).toStrictEqual({ lease: undefined });
     expect(Object.keys(stateChanges(EMPTY_STATE, { ...before, lastTarget: 1 })).sort()).toEqual(["lastTarget", "lease", "stalls"]);
   });
 

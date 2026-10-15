@@ -172,6 +172,7 @@ export function inWindow(times: readonly number[], nowMs: number): number[] {
 }
 
 export function capAllows(times: readonly number[], nowMs: number, cap: number): boolean {
+  if (!Number.isFinite(nowMs)) return false; // NaN would empty the window and open the cap
   return inWindow(times, nowMs).length < cap;
 }
 
