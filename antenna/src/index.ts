@@ -4,6 +4,8 @@ import { ClockError, type ClockResult, configFromEnv, runClock } from "./clock";
 import type { AntennaEnv } from "./env";
 import { guardConfigFromEnv, guardStep } from "./guard";
 
+export { Metronome } from "./metronome";
+
 export default {
   async scheduled(controller, env, _ctx): Promise<void> {
     const started = Date.now();

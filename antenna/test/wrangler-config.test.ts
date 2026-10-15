@@ -30,6 +30,24 @@ describe("wrangler.jsonc (this repo is public)", () => {
   });
 });
 
+describe("wrangler.jsonc: the metronome (metronome spec)", () => {
+  it("binds one SQLite-backed Durable Object class, Metronome, created by migration v1", () => {
+    expect(config.durable_objects).toEqual({ bindings: [{ name: "METRONOME_DO", class_name: "Metronome" }] });
+    expect(config.migrations).toEqual([{ tag: "v1", new_sqlite_classes: ["Metronome"] }]);
+    expect(config).not.toHaveProperty("exports"); // mutually exclusive with migrations
+    const ns = (env as unknown as { METRONOME_DO?: { idFromName?: unknown } }).METRONOME_DO;
+    expect(typeof ns?.idFromName).toBe("function");
+  });
+
+  it("carries the switch as exactly \"on\" or \"off\" (a typo would silently mean off)", () => {
+    expect(["on", "off"]).toContain(config.vars.METRONOME);
+  });
+
+  it("is still driven by one cron trigger, every minute", () => {
+    expect(config.triggers).toEqual({ crons: ["* * * * *"] });
+  });
+});
+
 describe("wrangler.jsonc playlist vars (amendment A4, amended 2026-10-12)", () => {
   const cfg = configFromEnv(config.vars);
 
