@@ -6,6 +6,7 @@ resolution added in Task 4.
 """
 
 import tomllib
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -535,6 +536,15 @@ def test_two_artist_keys_normalizing_alike_is_a_load_error_naming_both(tmp_path:
               '"Karl Densons Tiny Universe" = "southern"\n')
     assert "Karl Denson's Tiny Universe" in str(exc.value)
     assert "Karl Densons Tiny Universe" in str(exc.value)
+
+
+def test_decomposed_and_precomposed_artist_keys_are_a_duplicate(tmp_path: Path):
+    nfc = unicodedata.normalize("NFC", "Béla Fleck")
+    nfd = unicodedata.normalize("NFD", "Béla Fleck")
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, _SOUTHERN + f'[assign.artists]\n"{nfc}" = "southern"\n'
+              f'"{nfd}" = "southern"\n')
+    assert "name the same artist" in str(exc.value)
 
 
 def test_artist_key_normalizing_to_empty_is_a_load_error(tmp_path: Path):

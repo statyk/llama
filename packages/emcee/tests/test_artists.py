@@ -1,5 +1,7 @@
 """normalize_artist: the loose artist-name key for [assign.artists] (spec section 2)."""
 
+import unicodedata
+
 import pytest
 
 from emcee.artists import normalize_artist
@@ -35,6 +37,21 @@ def test_each_rule_in_order():
     assert normalize_artist("The Band") == "band"                       # leading "the " dropped
     assert normalize_artist("Theory of a Deadman") == "theory of a deadman"
     assert normalize_artist("Ween/Phish-ish") == "ween phish ish"
+
+
+def test_decomposed_and_precomposed_spellings_meet():
+    nfc = unicodedata.normalize("NFC", "Béla Fleck")
+    nfd = unicodedata.normalize("NFD", "Béla Fleck")
+    assert nfc != nfd
+    assert normalize_artist(nfd) == normalize_artist(nfc) == "b\u00e9la fleck"
+
+
+@pytest.mark.parametrize("name, key", [
+    ("\u0130stanbul", "i\u0307stanbul"),     # casefold emits i + U+0307: no precomposed form
+    ("Ex\u0301ample Band", "ex\u0301ample band"),
+])
+def test_a_combining_mark_with_no_precomposed_form_stays_in_its_word(name, key):
+    assert normalize_artist(name) == key
 
 
 @pytest.mark.parametrize("name", ["[Family Band]", "!!!", "   "])
