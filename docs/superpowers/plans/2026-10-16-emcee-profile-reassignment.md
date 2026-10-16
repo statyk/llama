@@ -26,12 +26,12 @@
 - No function in the profile-resolution path takes `moves` as an optional or defaulted parameter (spec §1). Test helpers pass `no_moves()` explicitly.
 - `moves.json` lives at `<config.root>/moves.json`; the lock at `<config.root>/moves.json.lock`. Writes: unique temp + `fsync` + `os.replace`. `--clear` never deletes the file (last clear leaves `{}`).
 - llama's profile is always read through `station.manifest_profile` (maps `""` and non-strings to `None`).
-- Strict surfaces (spec "Stakes"), each pinned by tests in its owning task: (1) no LLM/TTS call in `emcee run` before the plan is printed and confirmed (Task 7); (2) an unreadable/malformed `moves.json` is a hard error, and a missing one is a hard error while any package records `profile_source: "move"` (Tasks 2, 4, 5, 6); (3) with no rules and no moves every package ready today stays ready (Task 4).
+- Strict surfaces (spec "Stakes"), each pinned by tests in its owning task: (1) no LLM/TTS call in `emcee run` before the plan is printed and confirmed (Task 7; the real-terminal prompt is checked by hand after Task 7); (2) an unreadable/malformed `moves.json` is a hard error, and a missing one is a hard error while any package records `profile_source: "move"` (Tasks 2, 4, 5, 6); (3) with no rules and no moves every package ready today stays ready (Task 4; checked against the real station after Task 8, see Execution checkpoints).
 - Message texts are verbatim from the spec where it gives them:
   - readiness: `voiced as {a}, now {b} (artist rule "{key}")`, `voiced as {a}, now {b} (move)`, `voiced as {a}, now {b} (move no longer recorded)`, `voiced as {a}, now {b} (delivered profile; no rule or move applies)`; a `None` profile renders `(none)`.
   - use-time: `move target "{p}" has no [assign.profiles] entry`
   - run: `skip {slug}: {n} audio file(s) missing; re-deliver from llama`, `error: refusing to voice without confirmation; pass --yes`, `nothing voiced`, `note: {n} recorded move(s) match no package (emcee move --list)`, prompt `Proceed?` (rendered `Proceed? [y/N]:`).
-  - move: `moved: {slug}  {before} -> {after} ({state})` with states `pending; voiced on the next emcee run`, `ready; already voiced as {p}`, `unvoiced; voiced as {p} on the next emcee run`.
+  - move: `moved: {slug}  {before} -> {after} ({state})` with states `pending; voiced on the next emcee run`, `ready; already voiced as {p}`, `unvoiced; voiced as {p} on the next emcee run`, the state taken from the profile check (not full readiness); when track audio is missing, `{n} audio file(s) missing — re-deliver from llama` replaces the "on the next emcee run" claim (and is appended to the ready state).
 - The plan and the prompt go to **stderr**; per-package `voiced:`/`skip`/`would voice:` rows stay where they are today.
 - Tests are offline and deterministic; never commit audio. CliRunner has no TTY: interactive tests patch `emcee.cli._stdin_is_tty`.
 - Each task ends with the full suite green: `./.venv/bin/python -m pytest -q` from the worktree root.
@@ -62,7 +62,7 @@ Inputs the spec implies but does not test directly; each has a test in the ownin
 | `packages/emcee/src/emcee/audio.py` | modify (T5) | `_synthesize_dj_audio` returns `DJClips` |
 | `packages/emcee/src/emcee/process.py` | modify (T5) | `Voicing`, `resolve_voicing`, `speech_for_voicing`, `resolve_assignment(config, profile)`, `process_package(..., *, voicing)` |
 | `scripts/backfill_voiced_by.py` | modify (T5) | raw-dict update instead of a model round trip |
-| `packages/emcee/tests/helpers.py` | modify (T2, T4, T5) | `no_moves`, `moves_of` (T2); `artist=` kwarg, `set_dj_audio`, `write_moves_file` (T4); `voicing_for` (T5) |
+| `packages/emcee/tests/helpers.py` | modify (T2, T4, T5) | `no_moves`, `moves_of` (T2); `artist=` kwarg, `set_dj_audio`, `write_moves_file`, `station_home`, `forbid_spend`, `notes_json` (T4); `voicing_for` (T5) |
 | `packages/emcee/tests/test_artists.py` | create (T1) | |
 | `packages/emcee/tests/test_moves.py` | create (T2) | |
 | `packages/emcee/tests/test_effective.py` | create (T3) | |
@@ -88,6 +88,67 @@ Inputs the spec implies but does not test directly; each has a test in the ownin
 | 7 | `emcee run` plan and pause (strict surface 1) | **Opus**: it rewrites `run`'s control flow and exit codes |
 | 8 | `emcee status` surfaces for effective profiles | Sonnet |
 | 9 | Docs, llama `DJAudio` doc model, transmitter docstring, runbook note | Sonnet |
+
+Two orchestrator checkpoints sit between tasks (after Task 7 and after Task 8); see the next section.
+
+## Execution checkpoints (orchestrator, not implementer tasks)
+
+No implementer sees these, and nothing here is committed. A failed checkpoint goes back to the owning task before the next task starts.
+
+**After Task 7: the prompt in a real terminal (operator, manual).** CliRunner has no TTY, so the real `sys.stdin.isatty()` and `typer.confirm` path is only exercised by hand. The orchestrator prepares a throwaway home and station from the worktree root, then asks the operator to run the two `emcee run` commands in a real terminal and report what they print and their exit codes. herder has no config-selectable fake LLM, so `[llm.*]` points at openrouter with `OPENROUTER_API_KEY` unset: a run that wrongly proceeds fails instead of spending.
+
+```bash
+T=$(mktemp -d)
+mkdir -p "$T/home" "$T/station"
+cat > "$T/home/config.toml" <<EOF
+[station]
+root = "$T/station"
+
+[tts]
+backend = "fake"
+voice = "v"
+
+[llm.scriptwrite]
+backend = "openrouter"
+
+[llm.rephrase]
+backend = "openrouter"
+EOF
+./.venv/bin/python -c 'import sys; from pathlib import Path; sys.path.insert(0, "packages/emcee"); from tests.helpers import build_package; build_package(Path(sys.argv[1]), slug="fresh", profile="dead")' "$T/station"
+shasum "$T/station/fresh/manifest.json"
+```
+
+For the operator, from the worktree root in a terminal (with `T` set as above):
+
+```bash
+env -u OPENROUTER_API_KEY EMCEE_ROOT="$T/home" ./.venv/bin/python -m emcee run
+#   expect: the plan on stderr ("to voice: 1 package, 3 clips"), then "Proceed? [y/N]:"; answer n
+#   expect: "nothing voiced"; echo $? prints 0
+env -u OPENROUTER_API_KEY EMCEE_ROOT="$T/home" ./.venv/bin/python -m emcee run </dev/null
+#   expect: the plan, then "error: refusing to voice without confirmation; pass --yes", no "Proceed?"; echo $? prints 1
+shasum "$T/station/fresh/manifest.json"   # expect: unchanged
+```
+
+**After Task 8: strict surface 3 against the real station (read-only).** With the operator's current config, no artist rules and no `moves.json`, every package's `state` must be the same on the branch as on `main`. `emcee status --json` writes nothing. The repo-root `.venv` runs the main checkout's source; the worktree's runs the branch.
+
+```bash
+W=/Users/shawn/projects/llama/.claude/worktrees/emcee-profile-reassignment
+M=/Users/shawn/projects/llama
+H="${EMCEE_ROOT:-$HOME/.emcee}"
+git -C "$M" branch --show-current                                     # expect: main
+(cd "$M" && ./.venv/bin/python -c "import emcee; print(emcee.__file__)")   # expect: under $M/packages
+(cd "$W" && ./.venv/bin/python -c "import emcee; print(emcee.__file__)")   # expect: under $W/packages
+grep -n '^\[assign\.artists' "$H/config.toml"                         # expect: no output
+test ! -e "$H/moves.json" && echo "no moves.json"                      # expect: no moves.json
+D=$(mktemp -d)
+rows='import json, sys; [print(r["slug"], r["state"]) for r in json.load(sys.stdin)]'
+(cd "$M" && ./.venv/bin/python -m emcee status --json) | python3 -c "$rows" | sort > "$D/main.txt"
+(cd "$W" && ./.venv/bin/python -m emcee status --json) | python3 -c "$rows" | sort > "$D/branch.txt"
+wc -l "$D/main.txt" "$D/branch.txt"                                   # expect: equal, non-zero
+diff "$D/main.txt" "$D/branch.txt" && echo "zero differences"
+```
+
+Pass: `zero differences`. Any difference is a strict-surface-3 failure: stop and report it to the operator before Task 9.
 
 ---
 
@@ -1172,7 +1233,7 @@ This task changes `scan` and `readiness` signatures. `run` and `status` load mov
 **Files:**
 - Modify: `packages/emcee/src/emcee/station.py` (final content below)
 - Modify: `packages/emcee/src/emcee/cli.py` (`_scan_broad`, `_station_statuses`, new `_load_station`; `run` and `status_cmd` call it)
-- Modify: `packages/emcee/tests/helpers.py` (`build_package(..., artist=...)`, `set_dj_audio`, `write_moves_file`)
+- Modify: `packages/emcee/tests/helpers.py` (`build_package(..., artist=...)`, `set_dj_audio`, `write_moves_file`, `station_home`, `forbid_spend`, `notes_json`)
 - Create: `packages/emcee/tests/test_profile_readiness.py`
 - Modify existing call sites: `packages/emcee/tests/test_station.py` (every `scan(x)` → `scan(x, EmceeConfig(), no_moves())`, every `readiness(p)` → `readiness(p, EmceeConfig(), no_moves())`), `packages/emcee/tests/test_status_cmd.py:369` (`_scan_broad(tmp_path)` → `_scan_broad(tmp_path, EmceeConfig(), no_moves())`), `packages/emcee/tests/test_handshake.py:121` (`scan(station)` → `scan(station, load_config(), no_moves())`), `packages/emcee/tests/test_voice_cmd.py` lines 240, 255, 288, 301, 320, 335 (`readiness(pkg)` → `readiness(pkg, load_config(), no_moves())`, importing `load_config` from `emcee.config` and `no_moves` from `tests.helpers`)
 
@@ -1190,7 +1251,7 @@ This task changes `scan` and `readiness` signatures. `run` and `status` load mov
   - `station.scan(station_root: Path, config: EmceeConfig, moves: Moves) -> list[PackageStatus]`
   - `cli._scan_broad(root, config, moves)`, `cli._station_statuses(root, config, moves)`
   - `cli._load_station(config: EmceeConfig, root: Path) -> tuple[Moves, list[PackageStatus]]`: loads moves, scans, then enforces `require_present` before returning.
-  - tests: `build_package(..., artist: str = "Grateful Dead")`, `set_dj_audio(pkg_dir: Path, **fields) -> None`, `write_moves_file(home: Path, targets: dict[str, str | None]) -> Path`
+  - tests: `build_package(..., artist: str = "Grateful Dead")`, `set_dj_audio(pkg_dir: Path, **fields) -> None`, `write_moves_file(home: Path, targets: dict[str, str | None]) -> Path`, `station_home(tmp_path: Path, monkeypatch, *, assign: str = "", tts: str = HOUSE_TTS) -> tuple[Path, Path]` (returns `(home, station)`; sets `EMCEE_ROOT`), `forbid_spend(monkeypatch) -> None`, `notes_json() -> str`. Tasks 5-8 import these instead of defining their own.
 
 - [ ] **Step 1: Test helpers**
 
@@ -1213,6 +1274,45 @@ def write_moves_file(home: Path, targets: dict[str, str | None]) -> Path:
                              "moved_at": "2026-10-16T00:00:00Z"}
                        for pid, profile in targets.items()})
     return path
+
+
+HOUSE_TTS = '[tts]\nbackend = "fake"\nvoice = "house-voice"\n'
+
+
+def station_home(tmp_path: Path, monkeypatch, *, assign: str = "",
+                 tts: str = HOUSE_TTS) -> tuple[Path, Path]:
+    """An emcee home at <tmp>/home (EMCEE_ROOT set to it) whose config.toml
+    points [station] root at <tmp>/station. `tts` and `assign` are TOML
+    appended verbatim. Returns (home, station)."""
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    station.mkdir(parents=True)
+    home.mkdir()
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    (home / "config.toml").write_text(f'[station]\nroot = "{station}"\n\n{tts}\n{assign}\n')
+    return home, station
+
+
+def forbid_spend(monkeypatch) -> None:
+    """Building any LLM or TTS provider fails the test."""
+    import emcee.process as process_mod
+
+    def boom(*a, **k):
+        raise AssertionError("LLM or TTS spend")
+    monkeypatch.setattr(process_mod, "provider_for", boom)
+    monkeypatch.setattr(process_mod, "speech_provider_for", boom)
+
+
+def notes_json() -> str:
+    """A scriptwrite reply that passes script_guard for `build_package`'s
+    default two-set show; for `FakeProvider(completes=[notes_json()])`."""
+    return json.dumps({
+        "context": "Spring '73 tour",
+        "set_intros": {"1": "Tonight: the Dead at RFK. Opens with Morning Dew.",
+                       "2": "China Cat Sunflower leads set two."},
+        "outro": "I Know You Rider sends us off. Thanks for listening.",
+        "mentioned_songs": ["Morning Dew", "China Cat Sunflower", "I Know You Rider"],
+    })
 ```
 
 - [ ] **Step 2: Write the failing tests**
@@ -1229,14 +1329,15 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-import emcee.process as process_mod
+import emcee.cli as cli_mod
 from emcee.cli import app
 from emcee.config import EmceeConfig
 from emcee.errors import EmceeError
 from emcee.package_io import Package
 from emcee.station import readiness, scan
 
-from tests.helpers import build_package, moves_of, no_moves, set_dj_audio, write_moves_file
+from tests.helpers import (build_package, forbid_spend, moves_of, no_moves, set_dj_audio,
+                           station_home, write_moves_file)
 
 runner = CliRunner()
 TTB = "Tedeschi Trucks Band"
@@ -1370,32 +1471,23 @@ def test_scan_keeps_unsupported_rows_on_llamas_profile(tmp_path):
 # --- CLI: moves are loaded first, and loudly -------------------------------------------
 
 
-def _home(tmp_path, monkeypatch, assign: str = ""):
-    home = tmp_path / "home"
-    station = tmp_path / "station"
-    station.mkdir(parents=True)
-    home.mkdir()
-    monkeypatch.setenv("EMCEE_ROOT", str(home))
-    (home / "config.toml").write_text(
-        f'[station]\nroot = "{station}"\n\n[tts]\nbackend = "fake"\nvoice = "v"\n\n{assign}\n')
-    return home, station
-
-
-def _forbid_spend(monkeypatch) -> None:
-    def boom(*a, **k):
-        raise AssertionError("LLM or TTS spend")
-    monkeypatch.setattr(process_mod, "provider_for", boom)
-    monkeypatch.setattr(process_mod, "speech_provider_for", boom)
+def _malformed(station: Path) -> None:
+    """A valid-JSON v3 manifest whose track has no filename: `scan` raises on
+    it, so the command falls back to the per-entry `_scan_broad` walk."""
+    bad = station / "bad"
+    bad.mkdir()
+    (bad / "manifest.json").write_text(json.dumps(
+        {"schema_version": 3, "source": {"profile": "dead"}, "tracks": [{}]}))
 
 
 @pytest.mark.parametrize("command", [["run"], ["run", "--dry-run"], ["status"], ["status", "--json"]])
 @pytest.mark.parametrize("content", ['{"GratefulDead/a": {"profile": "sou', '["not", "an", "object"]'],
                          ids=["truncated", "wrong-shape"])
 def test_a_bad_moves_file_fails_loudly_before_any_work(tmp_path, monkeypatch, command, content):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch)
     build_package(station, slug="a", profile="dead")
     (home / "moves.json").write_text(content)
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
 
     result = runner.invoke(app, command)
 
@@ -1406,17 +1498,28 @@ def test_a_bad_moves_file_fails_loudly_before_any_work(tmp_path, monkeypatch, co
     assert json.loads((station / "a" / "manifest.json").read_text())["dj_audio"] is None
 
 
-@pytest.mark.parametrize("command", [["run"], ["run", "--dry-run"], ["status"]])
-def test_a_missing_moves_file_with_move_voiced_packages_fails(tmp_path, monkeypatch, command):
-    home, station = _home(tmp_path, monkeypatch, _SOUTHERN)
+@pytest.mark.parametrize("command, broken", [
+    (["run"], False), (["run", "--dry-run"], False), (["status"], False),
+    (["status"], True), (["run"], True),
+], ids=["run", "run-dry-run", "status", "status-scan-broad", "run-scan-broad"])
+def test_a_missing_moves_file_with_move_voiced_packages_fails(tmp_path, monkeypatch, command,
+                                                              broken):
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     for slug in ("m1", "m2"):
         pkg_dir = build_package(station, slug=slug, voiced=True, profile="funk")
         set_dj_audio(pkg_dir, profile="southern", profile_source="move", presenter="gregg")
     build_package(station, slug="fresh", profile="dead")
-    _forbid_spend(monkeypatch)
+    if broken:
+        _malformed(station)
+    broad: list[int] = []
+    real_broad = cli_mod._scan_broad
+    monkeypatch.setattr(cli_mod, "_scan_broad",
+                        lambda *a, **k: (broad.append(1), real_broad(*a, **k))[1])
+    forbid_spend(monkeypatch)
 
     result = runner.invoke(app, command)
 
+    assert broad == ([1] if broken else [])      # the guard ran on the path under test
     assert result.exit_code == 1
     exc = result.exception
     assert isinstance(exc, EmceeError)
@@ -1429,7 +1532,7 @@ def test_a_missing_moves_file_with_move_voiced_packages_fails(tmp_path, monkeypa
 
 
 def test_a_missing_moves_file_with_no_move_voiced_package_is_no_moves(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch)
     build_package(station, slug="a", voiced=True, profile="dead")
 
     result = runner.invoke(app, ["status", "--json"])
@@ -1440,7 +1543,7 @@ def test_a_missing_moves_file_with_no_move_voiced_package_is_no_moves(tmp_path, 
 
 
 def test_run_filters_select_by_the_effective_profile(tmp_path, monkeypatch):
-    _, station = _home(tmp_path, monkeypatch, _RULE)
+    _, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     build_package(station, slug="ttb", profile="funk", artist=TTB)
     build_package(station, slug="lettuce", profile="funk", artist="Lettuce")
 
@@ -1460,14 +1563,11 @@ def test_run_filters_select_by_the_effective_profile(tmp_path, monkeypatch):
 def test_a_malformed_manifest_does_not_unmove_a_moved_ready_package(tmp_path, monkeypatch):
     """One malformed manifest sends status down the per-entry `_scan_broad`
     path; that path must thread config and moves too."""
-    home, station = _home(tmp_path, monkeypatch, _SOUTHERN)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     moved = build_package(station, slug="moved", voiced=True, profile="funk")
     set_dj_audio(moved, profile="southern", profile_source="move", presenter="gregg")
     write_moves_file(home, {"GratefulDead/moved": "southern"})
-    bad = station / "bad"
-    bad.mkdir()
-    (bad / "manifest.json").write_text(json.dumps(
-        {"schema_version": 3, "source": {"profile": "dead"}, "tracks": [{}]}))
+    _malformed(station)
 
     result = runner.invoke(app, ["status", "--json"])
 
@@ -1788,6 +1888,8 @@ def _load_station(config: EmceeConfig, root: Path) -> tuple[Moves, list[PackageS
     return moves, statuses
 ```
 
+`_scan_broad`'s success rows must come from `package_status`, exactly as `scan`'s do, so they carry the full identity (`performance_id`, `voiced_source`, `voiced_profile`, ...) and `_load_station`'s missing-file guard sees the same rows on either path. Its error rows after a successful `pkg.manifest()` carry `identity(...)` too. The `scan-broad` cases of `test_a_missing_moves_file_with_move_voiced_packages_fails` pin this.
+
 In `run`: replace `statuses = _station_statuses(root)` with `moves, statuses = _load_station(config, root)`. `moves` is threaded into `_process_one` in Task 5. In `status_cmd`: replace `statuses = _station_statuses(root)` with `_moves, statuses = _load_station(config, root)`.
 
 - [ ] **Step 6: Update the existing call sites listed under Files**
@@ -1837,6 +1939,7 @@ Spec: §4 "What emcee records, and readiness" (one resolution, `DJAudioBlock` fi
   - `process.process_package(config: EmceeConfig, pkg: Package, speech, force: bool = False, *, voicing: Voicing) -> None`
   - `cli._process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool, fresh: Sequence[str] = ()) -> None`
   - tests: `tests.helpers.voicing_for(config: EmceeConfig, pkg: Package) -> Voicing` (house/assignment resolution with `no_moves()`)
+- Test helpers already in `tests/helpers.py` (Tasks 2 and 4): `build_package(root, slug, *, voiced=False, profile=None, ..., artist="Grateful Dead") -> Path`, `no_moves()`, `set_dj_audio(pkg_dir, **fields)`, `write_moves_file(home, targets) -> Path`, `station_home(tmp_path, monkeypatch, *, assign="", tts=HOUSE_TTS) -> tuple[Path, Path]` (`(home, station)`, `EMCEE_ROOT` set; `HOUSE_TTS` is a fake-backend `[tts]` table with voice `house-voice`), `forbid_spend(monkeypatch)` (any `provider_for`/`speech_provider_for` call fails the test), `notes_json() -> str` (a scriptwrite reply for the default two-set package).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1868,38 +1971,19 @@ from emcee.presenters import Presenter, save_presenter
 from emcee.station import readiness
 from emcee.tts.voxtral import DEFAULT_MODEL as VOX_DEFAULT
 
-from tests.helpers import build_package, no_moves, set_dj_audio, write_moves_file
+from tests.helpers import (build_package, forbid_spend, no_moves, notes_json, set_dj_audio,
+                           station_home, write_moves_file)
 
 runner = CliRunner()
 TTB = "Tedeschi Trucks Band"
+_SOUTHERN = '[assign.profiles.southern]\npresenter = "gregg"\n'
 _RULE = ('[assign.profiles.southern]\npresenter = "gregg"\ntitle = "Southern Hour"\n\n'
          '[assign.artists]\n"Tedeschi Trucks Band" = "southern"\n')
 
 
-def _notes_json() -> str:
-    return json.dumps({
-        "context": "Spring '73 tour",
-        "set_intros": {"1": "Tonight: the Dead at RFK. Opens with Morning Dew.",
-                       "2": "China Cat Sunflower leads set two."},
-        "outro": "I Know You Rider sends us off. Thanks for listening.",
-        "mentioned_songs": ["Morning Dew", "China Cat Sunflower", "I Know You Rider"],
-    })
-
-
-def _home(tmp_path, monkeypatch, assign: str = "",
-          tts: str = '[tts]\nbackend = "fake"\nvoice = "house-voice"\n'):
-    home = tmp_path / "home"
-    station = tmp_path / "station"
-    station.mkdir(parents=True)
-    home.mkdir()
-    monkeypatch.setenv("EMCEE_ROOT", str(home))
-    (home / "config.toml").write_text(f'[station]\nroot = "{station}"\n\n{tts}\n{assign}\n')
-    return home, station
-
-
 def _arm_llm(monkeypatch) -> None:
     monkeypatch.setattr(process_mod, "provider_for",
-                        lambda settings, task: FakeProvider(completes=[_notes_json()]))
+                        lambda settings, task: FakeProvider(completes=[notes_json()]))
 
 
 def _gregg(home: Path, **kw) -> None:
@@ -1921,7 +2005,7 @@ def _fake_synth(record: list | None = None):
 
 
 def test_a_voiced_package_records_its_profile_source_and_tts(tmp_path, monkeypatch):
-    _, station = _home(tmp_path, monkeypatch)
+    _, station = station_home(tmp_path, monkeypatch)
     _arm_llm(monkeypatch)
     pkg_dir = build_package(station, slug="showA", profile=None)
 
@@ -1936,10 +2020,10 @@ def test_a_voiced_package_records_its_profile_source_and_tts(tmp_path, monkeypat
 
 
 def test_voice_persona_title_bed_and_record_all_follow_the_effective_profile(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch,
-                          _RULE + '\n[assign.profiles.funk]\npresenter = "fred"\n',
-                          tts='[tts]\nbackend = "fake"\nvoice = "house-voice"\n'
-                              'bed = "/beds/house.wav"\n')
+    home, station = station_home(tmp_path, monkeypatch,
+                                 assign=_RULE + '\n[assign.profiles.funk]\npresenter = "fred"\n',
+                                 tts='[tts]\nbackend = "fake"\nvoice = "house-voice"\n'
+                                     'bed = "/beds/house.wav"\n')
     _gregg(home, bed="/beds/gregg.wav")
     save_presenter(home, Presenter(id="fred", name="Fred", sex="male", voice="fred-preset",
                                    character="x", bed="/beds/fred.wav"))
@@ -1982,7 +2066,7 @@ def test_voice_persona_title_bed_and_record_all_follow_the_effective_profile(tmp
 
 
 def test_an_artist_rule_voicing_leaves_the_package_ready(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, _RULE)
+    home, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     _gregg(home)
     _arm_llm(monkeypatch)
     pkg_dir = build_package(station, slug="ttb", profile="funk", artist=TTB)
@@ -1993,7 +2077,7 @@ def test_an_artist_rule_voicing_leaves_the_package_ready(tmp_path, monkeypatch):
 
 
 def test_process_one_resolves_the_assignment_exactly_once(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, _RULE)
+    home, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     _gregg(home)
     _arm_llm(monkeypatch)
     pkg_dir = build_package(station, slug="ttb", profile="funk", artist=TTB)
@@ -2013,7 +2097,8 @@ def test_process_one_resolves_the_assignment_exactly_once(tmp_path, monkeypatch)
 
 def test_a_clone_presenters_tts_voice_is_the_clone_hash(tmp_path, monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "k-test")
-    home, station = _home(tmp_path, monkeypatch, '[assign.profiles.dead]\npresenter = "phil"\n')
+    home, station = station_home(tmp_path, monkeypatch,
+                                 assign='[assign.profiles.dead]\npresenter = "phil"\n')
     clip = home / "phil.wav"
     clip.write_bytes(b"RIFF-phil-clip")
     save_presenter(home, Presenter(id="phil", name="Phil", sex="male", voice_clone=str(clip),
@@ -2036,7 +2121,7 @@ def test_a_legacy_block_cannot_round_trip_through_the_model():
 
 
 def test_voice_under_a_recorded_move_records_the_move(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, '[assign.profiles.southern]\npresenter = "gregg"\n')
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     _gregg(home)
     _arm_llm(monkeypatch)
     pkg_dir = build_package(station, slug="ttb", profile="funk", artist=TTB)
@@ -2049,19 +2134,12 @@ def test_voice_under_a_recorded_move_records_the_move(tmp_path, monkeypatch):
     assert readiness(Package(pkg_dir), load_config(), load_moves(home)) == (True, [])
 
 
-def _forbid_spend(monkeypatch) -> None:
-    def boom(*a, **k):
-        raise AssertionError("LLM or TTS spend")
-    monkeypatch.setattr(process_mod, "provider_for", boom)
-    monkeypatch.setattr(process_mod, "speech_provider_for", boom)
-
-
 def test_voice_refuses_a_move_whose_target_lost_its_assign_entry(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch)
     pkg_dir = build_package(station, slug="ttb", voiced=True, profile="funk", artist=TTB)
     write_moves_file(home, {"GratefulDead/ttb": "southern"})
     before = (pkg_dir / "manifest.json").read_bytes()
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["voice", "ttb"])
 
@@ -2071,11 +2149,11 @@ def test_voice_refuses_a_move_whose_target_lost_its_assign_entry(tmp_path, monke
 
 
 def test_voice_refuses_a_missing_moves_file_for_a_move_voiced_package(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, '[assign.profiles.southern]\npresenter = "gregg"\n')
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     pkg_dir = build_package(station, slug="ttb", voiced=True, profile="funk")
     set_dj_audio(pkg_dir, profile="southern", profile_source="move", presenter="gregg")
     before = (pkg_dir / "manifest.json").read_bytes()
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["voice", "ttb"])
 
@@ -2084,6 +2162,23 @@ def test_voice_refuses_a_missing_moves_file_for_a_move_voiced_package(tmp_path, 
     assert isinstance(exc, EmceeError)
     assert str(home / "moves.json") in str(exc) and "1 package(s)" in str(exc)
     assert "rebuild" in "\n".join(exc.details) and "write {}" in "\n".join(exc.details)
+    assert (pkg_dir / "manifest.json").read_bytes() == before
+
+
+@pytest.mark.parametrize("content", ['{"GratefulDead/ttb": {"profile": "sou', '["not", "an", "object"]'],
+                         ids=["truncated", "wrong-shape"])
+def test_voice_refuses_a_bad_moves_file_before_any_work(tmp_path, monkeypatch, content):
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
+    pkg_dir = build_package(station, slug="ttb", voiced=True, profile="funk")
+    (home / "moves.json").write_text(content)
+    before = (pkg_dir / "manifest.json").read_bytes()
+    forbid_spend(monkeypatch)
+
+    result = runner.invoke(app, ["voice", "ttb"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, EmceeError)
+    assert str(home / "moves.json") in str(result.exception)
     assert (pkg_dir / "manifest.json").read_bytes() == before
 ```
 
@@ -2445,6 +2540,7 @@ Spec: §3, all of it.
 **Interfaces:**
 - Consumes: `cli._load_station`, `cli._resolve_station_root`, `cli._resolve_package`, `cli._usage`, `cli._typed_error` (existing/Task 4); `moves.record_move`, `clear_move`, `load_moves` (Task 2); `station.assess`, `effective_profile`, `manifest_performance_id`, `manifest_profile`, `profile_label`, `target_problem` (Tasks 3-4).
 - Produces: `emcee move <show> <profile> | <show> --delivered | <show> --clear | --list [--station-root P]`; `_COMMAND_ORDER = ["run", "voice", "status", "move", "say", "presenter", "config"]`; `cli._utc_now() -> str` (`%Y-%m-%dT%H:%M:%SZ`).
+- Test helpers already in `tests/helpers.py` (Task 4): `build_package(root, slug, *, voiced=False, profile=None, ..., artist="Grateful Dead") -> Path`, `set_dj_audio(pkg_dir, **fields)`, `write_moves_file(home, targets) -> Path`, `station_home(tmp_path, monkeypatch, *, assign="", tts=HOUSE_TTS) -> tuple[Path, Path]` (`(home, station)`, `EMCEE_ROOT` set, fake TTS), `forbid_spend(monkeypatch)` (any `provider_for`/`speech_provider_for` call fails the test).
 
 Decision (the spec leaves it open): every form of `emcee move` requires `[station] root` (or `--station-root`), because each form scans the station for the missing-file guard before it writes or reads.
 
@@ -2465,11 +2561,10 @@ import pytest
 from typer.testing import CliRunner
 
 import emcee.moves as moves_mod
-import emcee.process as process_mod
 from emcee.cli import app
 from emcee.errors import EmceeError
 
-from tests.helpers import build_package, set_dj_audio, write_moves_file
+from tests.helpers import build_package, forbid_spend, set_dj_audio, station_home, write_moves_file
 
 runner = CliRunner()
 TTB = "Tedeschi Trucks Band"
@@ -2479,21 +2574,7 @@ _RULE = _SOUTHERN + '\n[assign.artists]\n"Tedeschi Trucks Band" = "southern"\n'
 
 @pytest.fixture(autouse=True)
 def _no_spend(monkeypatch):
-    def boom(*a, **k):
-        raise AssertionError("emcee move must make no LLM or TTS call")
-    monkeypatch.setattr(process_mod, "provider_for", boom)
-    monkeypatch.setattr(process_mod, "speech_provider_for", boom)
-
-
-def _home(tmp_path, monkeypatch, assign: str = _SOUTHERN):
-    home = tmp_path / "home"
-    station = tmp_path / "station"
-    station.mkdir(parents=True)
-    home.mkdir()
-    monkeypatch.setenv("EMCEE_ROOT", str(home))
-    (home / "config.toml").write_text(
-        f'[station]\nroot = "{station}"\n\n[tts]\nbackend = "fake"\nvoice = "v"\n\n{assign}\n')
-    return home, station
+    forbid_spend(monkeypatch)              # emcee move makes no LLM or TTS call
 
 
 def _moves(home: Path) -> dict:
@@ -2504,7 +2585,7 @@ def _moves(home: Path) -> dict:
 
 
 def test_record_a_move_of_a_voiced_package(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="ttb", voiced=True, profile="funk", artist=TTB)
 
     result = runner.invoke(app, ["move", "ttb", "southern"])
@@ -2517,7 +2598,7 @@ def test_record_a_move_of_a_voiced_package(tmp_path, monkeypatch):
 
 
 def test_the_identical_move_again_is_unchanged(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="ttb", voiced=True, profile="funk")
     runner.invoke(app, ["move", "ttb", "southern"])
     before = (home / "moves.json").read_bytes()
@@ -2530,7 +2611,7 @@ def test_the_identical_move_again_is_unchanged(tmp_path, monkeypatch):
 
 
 def test_an_unvoiced_package_says_when_it_will_be_voiced(tmp_path, monkeypatch):
-    _, station = _home(tmp_path, monkeypatch)
+    _, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="ttb", profile="funk")
 
     result = runner.invoke(app, ["move", "ttb", "southern"])
@@ -2540,7 +2621,7 @@ def test_an_unvoiced_package_says_when_it_will_be_voiced(tmp_path, monkeypatch):
 
 
 def test_an_exemption_from_a_rule_needs_no_assign_entry_and_reads_ready(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, _RULE)          # no [assign.profiles.funk]
+    home, station = station_home(tmp_path, monkeypatch, assign=_RULE)  # no [assign.profiles.funk]
     build_package(station, slug="ttb", voiced=True, profile="funk", artist=TTB)
 
     result = runner.invoke(app, ["move", "ttb", "--delivered"])
@@ -2550,8 +2631,39 @@ def test_an_exemption_from_a_rule_needs_no_assign_entry_and_reads_ready(tmp_path
     assert _moves(home)["GratefulDead/ttb"]["profile"] == "funk"
 
 
+def test_the_state_is_the_profile_checks_not_full_readiness(tmp_path, monkeypatch):
+    _, station = station_home(tmp_path, monkeypatch, assign=_RULE)
+    pkg_dir = build_package(station, slug="ttb", voiced=True, profile="funk", artist=TTB)
+    (pkg_dir / "broadcast.m3u").unlink()                          # a repair, not a re-voice
+
+    result = runner.invoke(app, ["move", "ttb", "--delivered"])
+
+    assert "moved: ttb  southern -> funk (ready; already voiced as funk)" in result.stdout
+
+
+@pytest.mark.parametrize("args, assign, voiced, expected", [
+    (["move", "ttb", "southern"], _SOUTHERN, True,
+     "funk -> southern (pending; 1 audio file(s) missing — re-deliver from llama)"),
+    (["move", "ttb", "--delivered"], _RULE, True,
+     "southern -> funk (ready; already voiced as funk; 1 audio file(s) missing — re-deliver from llama)"),
+    (["move", "ttb", "southern"], _SOUTHERN, False,
+     "funk -> southern (unvoiced; 1 audio file(s) missing — re-deliver from llama)"),
+], ids=["pending", "ready", "unvoiced"])
+def test_missing_track_audio_says_re_deliver_instead_of_voiced(tmp_path, monkeypatch, args, assign,
+                                                               voiced, expected):
+    _, station = station_home(tmp_path, monkeypatch, assign=assign)
+    pkg_dir = build_package(station, slug="ttb", voiced=voiced, profile="funk", artist=TTB)
+    sorted((pkg_dir / "audio").iterdir())[0].unlink()
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == 0, result.output
+    assert f"moved: ttb  {expected}" in result.stdout
+    assert "next emcee run" not in result.stdout
+
+
 def test_a_move_naming_the_delivered_profile_needs_no_assign_entry(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, _RULE)
+    home, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     build_package(station, slug="ttb", voiced=True, profile="funk", artist=TTB)
 
     assert runner.invoke(app, ["move", "ttb", "funk"]).exit_code == 0
@@ -2559,7 +2671,7 @@ def test_a_move_naming_the_delivered_profile_needs_no_assign_entry(tmp_path, mon
 
 
 def test_delivered_records_null_for_a_package_with_no_profile(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, _RULE)
+    home, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     build_package(station, slug="ttb", voiced=True, profile=None, artist=TTB)
 
     assert runner.invoke(app, ["move", "ttb", "--delivered"]).exit_code == 0
@@ -2567,7 +2679,7 @@ def test_delivered_records_null_for_a_package_with_no_profile(tmp_path, monkeypa
 
 
 def test_other_entries_unknown_keys_survive(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     (home / "moves.json").write_text(json.dumps(
         {"Other/1": {"profile": "southern", "package": "other", "note": "keep"}}))
     build_package(station, slug="ttb", profile="funk")
@@ -2577,7 +2689,7 @@ def test_other_entries_unknown_keys_survive(tmp_path, monkeypatch):
 
 
 def test_the_lock_is_held_around_load_modify_write(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="ttb", profile="funk")
     seen: list = []
 
@@ -2606,7 +2718,7 @@ def test_the_lock_is_held_around_load_modify_write(tmp_path, monkeypatch):
 
 
 def _refusal_station(tmp_path, monkeypatch, existing: bool):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="ttb", profile="funk")
     nopid = build_package(station, slug="nopid", profile="funk")
     m = json.loads((nopid / "manifest.json").read_text())
@@ -2649,7 +2761,7 @@ def test_each_refusal_exits_1_and_leaves_the_file_alone(tmp_path, monkeypatch, e
 @pytest.mark.parametrize("args", [["move"], ["move", "ttb"], ["move", "ttb", "southern", "--clear"],
                                   ["move", "ttb", "--delivered", "--clear"], ["move", "--list", "ttb"]])
 def test_usage_errors_exit_2(tmp_path, monkeypatch, args):
-    _home(tmp_path, monkeypatch)
+    station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     assert runner.invoke(app, args).exit_code == 2
 
 
@@ -2660,7 +2772,7 @@ def test_usage_errors_exit_2(tmp_path, monkeypatch, args):
                                   ["move", "moved", "--clear"]])
 def test_a_missing_file_with_a_move_voiced_package_refuses_and_writes_nothing(tmp_path, monkeypatch,
                                                                               args):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     moved = build_package(station, slug="moved", voiced=True, profile="funk")
     set_dj_audio(moved, profile="southern", profile_source="move", presenter="gregg")
     build_package(station, slug="fresh", profile="funk")
@@ -2668,16 +2780,40 @@ def test_a_missing_file_with_a_move_voiced_package_refuses_and_writes_nothing(tm
     result = runner.invoke(app, args)
 
     assert result.exit_code == 1
+    assert isinstance(result.exception, EmceeError)
     assert str(home / "moves.json") in str(result.exception)
     assert "1 package(s)" in str(result.exception)
+    details = "\n".join(result.exception.details)
+    assert "rebuild" in details and "{}" in details               # both ways out are named
     assert not (home / "moves.json").exists()
+
+
+# --- a bad moves.json stops every form before any work ------------------------------------
+
+
+@pytest.mark.parametrize("args", [["move", "ttb", "southern"], ["move", "ttb", "--clear"],
+                                  ["move", "--list"]])
+@pytest.mark.parametrize("content", ['{"GratefulDead/ttb": {"profile": "sou', '["not", "an", "object"]'],
+                         ids=["truncated", "wrong-shape"])
+def test_a_bad_moves_file_refuses_and_is_left_alone(tmp_path, monkeypatch, args, content):
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
+    build_package(station, slug="ttb", voiced=True, profile="funk")
+    (home / "moves.json").write_text(content)
+    before = (home / "moves.json").read_bytes()
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, EmceeError)
+    assert str(home / "moves.json") in str(result.exception)
+    assert (home / "moves.json").read_bytes() == before
 
 
 # --- --clear -----------------------------------------------------------------------------
 
 
 def test_clear_prints_the_id_and_leaves_an_empty_object(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="ttb", profile="funk")
     write_moves_file(home, {"GratefulDead/ttb": "southern"})
 
@@ -2689,7 +2825,7 @@ def test_clear_prints_the_id_and_leaves_an_empty_object(tmp_path, monkeypatch):
 
 
 def test_a_stale_move_is_cleared_by_id_or_by_its_recorded_package_name(tmp_path, monkeypatch):
-    home, _ = _home(tmp_path, monkeypatch)
+    home, _ = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     write_moves_file(home, {"Gone/gone-1999": "southern", "Gone/gone-2000": "southern"})
 
     first = runner.invoke(app, ["move", "Gone/gone-1999", "--clear"])
@@ -2701,7 +2837,7 @@ def test_a_stale_move_is_cleared_by_id_or_by_its_recorded_package_name(tmp_path,
 
 
 def test_recorded_entries_are_matched_before_live_packages(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="abc", profile="funk")              # live, pid GratefulDead/abc
     write_moves_file(home, {"Old/abc": "southern"})                # stale, recorded package "abc"
 
@@ -2711,7 +2847,7 @@ def test_recorded_entries_are_matched_before_live_packages(tmp_path, monkeypatch
 
 
 def test_ambiguous_recorded_matches_are_refused_with_their_ids(tmp_path, monkeypatch):
-    home, _ = _home(tmp_path, monkeypatch)
+    home, _ = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     write_moves_file(home, {"Old/abc": "southern", "Older/abc": "southern"})
     before = (home / "moves.json").read_bytes()
 
@@ -2726,7 +2862,7 @@ def test_ambiguous_recorded_matches_are_refused_with_their_ids(tmp_path, monkeyp
 
 
 def test_list_shows_target_delivered_missing_and_no_assign_entry(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="ttb", voiced=True, profile="funk")
     build_package(station, slug="gd", voiced=True, profile="dead")
     write_moves_file(home, {"GratefulDead/ttb": "southern", "GratefulDead/gd": "jazz",
@@ -2742,7 +2878,7 @@ def test_list_shows_target_delivered_missing_and_no_assign_entry(tmp_path, monke
 
 
 def test_list_with_no_moves(tmp_path, monkeypatch):
-    _home(tmp_path, monkeypatch)
+    station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     assert runner.invoke(app, ["move", "--list"]).stdout.strip() == "no moves recorded"
 
 
@@ -2750,7 +2886,7 @@ def test_list_with_no_moves(tmp_path, monkeypatch):
 
 
 def test_a_move_survives_a_replace_voiced_redelivery(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="ttb", voiced=True, profile="funk")
     assert runner.invoke(app, ["move", "ttb", "southern"]).exit_code == 0
 
@@ -2888,12 +3024,17 @@ def move_cmd(
                    f"(state unknown: {_typed_error(exc)})")
         return
     after = profile_label(a.effective.profile)
+    # The state is the profile check's, not full readiness (a missing clip or
+    # broadcast.m3u still reads "ready"). Missing track audio replaces any
+    # "voiced on the next run" claim: `run` skips such a package.
+    missing = (f"{a.missing_tracks} audio file(s) missing — re-deliver from llama"
+               if a.missing_tracks else None)
     if not a.voiced:
-        state = f"unvoiced; voiced as {after} on the next emcee run"
-    elif a.ok:
-        state = f"ready; already voiced as {after}"
+        state = "unvoiced; " + (missing or f"voiced as {after} on the next emcee run")
+    elif a.profile_reason is None:
+        state = f"ready; already voiced as {after}" + (f"; {missing}" if missing else "")
     else:
-        state = "pending; voiced on the next emcee run"
+        state = "pending; " + (missing or "voiced on the next emcee run")
     typer.echo(f"moved: {pkg.dir.name}  {profile_label(before)} -> {after} ({state})")
 ```
 
@@ -2928,7 +3069,10 @@ Spec: §5 "The pause before `emcee run`", §3 "Stale moves", "Validation at use 
   - `cli._stale_moves(moves: Moves, statuses: list[PackageStatus]) -> int`, `cli._stale_note(n: int) -> str` (Task 8 reuses both)
   - `cli._plural(n: int, word: str) -> str`
   - `cli._plan_tts_cell(config, presenter_id: str | None) -> tuple[str, str]`
-  - `cli._echo_plan(config: EmceeConfig, to_voice: list[PackageStatus], stale: int) -> None` (stderr)
+  - `cli._echo_plan(config: EmceeConfig, to_voice: list[PackageStatus], stale: int) -> None` (stderr; `run` calls it through the module global, so a test can wrap it)
+- Test helpers already in `tests/helpers.py` (Task 4): `build_package(root, slug, *, voiced=False, profile=None, ..., artist="Grateful Dead") -> Path`, `set_dj_audio(pkg_dir, **fields)`, `write_moves_file(home, targets) -> Path`, `station_home(tmp_path, monkeypatch, *, assign="", tts=HOUSE_TTS) -> tuple[Path, Path]` (`(home, station)`, `EMCEE_ROOT` set, fake TTS with voice `house-voice`), `forbid_spend(monkeypatch)` (any `provider_for`/`speech_provider_for` call fails the test), `notes_json() -> str` (a scriptwrite reply for the default two-set package).
+
+Decision (a documented limitation, no code): `_stale_moves` counts a move as stale when no scanned row carries its `performance_id`, so a move whose package's manifest is unreadable JSON is counted as stale (and `move --list` shows it `missing`). That package already shows as an error row.
 
 Plan layout. The spec's example shows a single re-voice reason; this layout reduces to the same content and also fits several reasons. Every line goes to stderr:
 
@@ -2972,34 +3116,13 @@ import emcee.process as process_mod
 from emcee.cli import app
 from emcee.presenters import Presenter, save_presenter
 
-from tests.helpers import build_package, set_dj_audio, write_moves_file
+from tests.helpers import (build_package, forbid_spend, notes_json, set_dj_audio, station_home,
+                           write_moves_file)
 
 runner = CliRunner()
 TTB = "Tedeschi Trucks Band"
 _ASSIGN = ('[assign.profiles.southern]\npresenter = "gregg"\n\n'
            '[assign.artists]\n"Tedeschi Trucks Band" = "southern"\n')
-
-
-def _notes_json() -> str:
-    return json.dumps({
-        "context": "Spring '73 tour",
-        "set_intros": {"1": "Tonight: the Dead at RFK. Opens with Morning Dew.",
-                       "2": "China Cat Sunflower leads set two."},
-        "outro": "I Know You Rider sends us off. Thanks for listening.",
-        "mentioned_songs": ["Morning Dew", "China Cat Sunflower", "I Know You Rider"],
-    })
-
-
-def _home(tmp_path, monkeypatch, assign: str = _ASSIGN):
-    home = tmp_path / "home"
-    station = tmp_path / "station"
-    station.mkdir(parents=True)
-    home.mkdir()
-    monkeypatch.setenv("EMCEE_ROOT", str(home))
-    (home / "config.toml").write_text(
-        f'[station]\nroot = "{station}"\n\n[tts]\nbackend = "fake"\nvoice = "house-voice"\n\n'
-        f'{assign}\n')
-    return home, station
 
 
 def _gregg(home: Path) -> None:
@@ -3013,17 +3136,10 @@ def _spend(monkeypatch) -> list[str]:
 
     def fake(settings, task):
         tasks.append(task)
-        return FakeProvider(completes=[_notes_json()])
+        return FakeProvider(completes=[notes_json()])
 
     monkeypatch.setattr(process_mod, "provider_for", fake)
     return tasks
-
-
-def _forbid_spend(monkeypatch) -> None:
-    def boom(*a, **k):
-        raise AssertionError("LLM or TTS spend before confirmation")
-    monkeypatch.setattr(process_mod, "provider_for", boom)
-    monkeypatch.setattr(process_mod, "speech_provider_for", boom)
 
 
 def _tty(monkeypatch) -> None:
@@ -3038,7 +3154,7 @@ def _station(tmp_path, monkeypatch):
     """fresh: unvoiced (new); ttb1/ttb2: voiced as funk, now southern by rule
     (re-voice); emerson: voiced, broadcast.m3u gone (repair); holes: unvoiced
     with one track's audio missing (skip)."""
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)
     _gregg(home)
     build_package(station, slug="fresh", profile="dead")
     build_package(station, slug="ttb1", voiced=True, profile="funk", artist=TTB)
@@ -3059,7 +3175,7 @@ def _manifests(station: Path) -> dict[str, bytes]:
 
 def test_the_plan_names_every_category_and_counts_clips_exactly(tmp_path, monkeypatch):
     _station(tmp_path, monkeypatch)
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["run", "--dry-run"])
 
@@ -3115,6 +3231,38 @@ def test_run_voices_from_the_one_scan_it_planned_from(tmp_path, monkeypatch):
     assert scans == [1]
 
 
+def test_the_plan_is_printed_before_the_first_llm_or_tts_provider(tmp_path, monkeypatch):
+    """Strict surface 1, ordering: with --yes nothing asks, so only the order
+    of calls shows the plan came first. A provider built before the plan
+    raises inside `_process_one`, which `run` reports as an error row (exit 1)."""
+    _station(tmp_path, monkeypatch)
+    planned: list[bool] = []
+    real_plan = cli_mod._echo_plan
+    monkeypatch.setattr(cli_mod, "_echo_plan",
+                        lambda *a, **k: (planned.append(True), real_plan(*a, **k))[1])
+    built: list[str] = []
+    real_speech = process_mod.speech_provider_for
+
+    def llm(settings, task):
+        assert planned, "LLM provider built before the plan was printed"
+        built.append(task)
+        return FakeProvider(completes=[notes_json()])
+
+    def speech(*a, **k):
+        assert planned, "TTS provider built before the plan was printed"
+        built.append("tts")
+        return real_speech(*a, **k)
+
+    monkeypatch.setattr(process_mod, "provider_for", llm)
+    monkeypatch.setattr(process_mod, "speech_provider_for", speech)
+
+    result = runner.invoke(app, ["run", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    assert planned == [True]
+    assert built.count("scriptwrite") == 4 and "tts" in built
+
+
 # --- the question -------------------------------------------------------------------------
 
 
@@ -3127,13 +3275,14 @@ def test_a_yes_at_the_prompt_voices(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert "Proceed? [y/N]" in result.stderr
+    assert result.stderr.index("to voice:") < result.stderr.index("Proceed?")
     assert tasks.count("scriptwrite") == 4
 
 
 def test_a_declined_prompt_voices_nothing_and_exits_0(tmp_path, monkeypatch):
     _, station = _station(tmp_path, monkeypatch)
     before = _manifests(station)
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     result = runner.invoke(app, ["run"], input="n\n")
@@ -3148,7 +3297,7 @@ def test_a_declined_prompt_voices_nothing_and_exits_0(tmp_path, monkeypatch):
 def test_eof_at_the_prompt_spends_nothing(tmp_path, monkeypatch):     # Review Focus 3
     _, station = _station(tmp_path, monkeypatch)
     before = _manifests(station)
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     result = runner.invoke(app, ["run"], input="")
@@ -3160,7 +3309,7 @@ def test_eof_at_the_prompt_spends_nothing(tmp_path, monkeypatch):     # Review F
 def test_no_tty_and_no_yes_refuses_after_the_plan_and_spends_nothing(tmp_path, monkeypatch):
     _, station = _station(tmp_path, monkeypatch)
     before = _manifests(station)
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["run"])
 
@@ -3174,7 +3323,7 @@ def test_no_tty_and_no_yes_refuses_after_the_plan_and_spends_nothing(tmp_path, m
 def test_dry_run_prints_the_plan_and_never_asks(tmp_path, monkeypatch):
     _, station = _station(tmp_path, monkeypatch)
     before = _manifests(station)
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     plain = runner.invoke(app, ["run", "--dry-run"])
@@ -3189,9 +3338,9 @@ def test_dry_run_prints_the_plan_and_never_asks(tmp_path, monkeypatch):
 
 
 def test_nothing_to_voice_means_no_plan_and_no_prompt(tmp_path, monkeypatch):
-    _, station = _home(tmp_path, monkeypatch)
+    _, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)
     build_package(station, slug="done", voiced=True, profile="dead")
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     result = runner.invoke(app, ["run"])
@@ -3206,7 +3355,7 @@ def test_nothing_to_voice_means_no_plan_and_no_prompt(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("mode", ["declined", "nothing", "proceeded"])
 def test_any_error_row_exits_1(tmp_path, monkeypatch, mode):
-    _, station = _home(tmp_path, monkeypatch)
+    _, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)
     bad = station / "bad"
     bad.mkdir()
     (bad / "manifest.json").write_text(json.dumps(
@@ -3217,7 +3366,7 @@ def test_any_error_row_exits_1(tmp_path, monkeypatch, mode):
         _spend(monkeypatch)
         result = runner.invoke(app, ["run", "--yes"])
     else:
-        _forbid_spend(monkeypatch)
+        forbid_spend(monkeypatch)
         _tty(monkeypatch)
         result = runner.invoke(app, ["run"], input="n\n")
 
@@ -3229,7 +3378,7 @@ def test_any_error_row_exits_1(tmp_path, monkeypatch, mode):
 
 def test_a_move_whose_target_lost_its_entry_is_an_error_row_and_others_still_voice(tmp_path,
                                                                                     monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, assign="")      # no [assign.profiles.southern]
+    home, station = station_home(tmp_path, monkeypatch)  # no [assign.profiles.southern]
     build_package(station, slug="moved", voiced=True, profile="funk")
     build_package(station, slug="fresh", profile="dead")
     write_moves_file(home, {"GratefulDead/moved": "southern"})
@@ -3243,14 +3392,36 @@ def test_a_move_whose_target_lost_its_entry_is_an_error_row_and_others_still_voi
     assert "voiced: fresh" in result.stdout and "voiced: moved" not in result.stdout
 
 
+@pytest.mark.parametrize("args", [["run", "--dry-run"], ["run"]])
+def test_a_ready_package_whose_move_lost_its_entry_is_still_an_error_row(tmp_path, monkeypatch,
+                                                                         args):
+    """Use-time validation runs before the ready check: a package already
+    voiced as its move's target still reports the move, and run exits 1."""
+    home, station = station_home(tmp_path, monkeypatch)  # no [assign.profiles.southern]
+    moved = build_package(station, slug="moved", voiced=True, profile="funk")
+    set_dj_audio(moved, profile="southern", profile_source="move", presenter="gregg")
+    write_moves_file(home, {"GratefulDead/moved": "southern"})
+    before = (moved / "manifest.json").read_bytes()
+    forbid_spend(monkeypatch)
+    _tty(monkeypatch)
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == 1
+    assert 'error: moved: move target "southern" has no [assign.profiles] entry' in result.stderr
+    assert "to voice:" not in result.stderr and "Proceed?" not in result.output
+    assert "would voice: moved" not in result.stdout
+    assert (moved / "manifest.json").read_bytes() == before
+
+
 # --- notes, markers, and the malformed-manifest path ---------------------------------------
 
 
 def test_a_stale_move_is_noted_with_or_without_a_plan(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)
     write_moves_file(home, {"Gone/gone-1999": "southern"})
     build_package(station, slug="fresh", profile="dead")
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
     note = "note: 1 recorded move(s) match no package (emcee move --list)"
 
     assert note in runner.invoke(app, ["run", "--dry-run"]).stderr
@@ -3263,9 +3434,9 @@ def test_a_stale_move_is_noted_with_or_without_a_plan(tmp_path, monkeypatch):
 
 
 def test_the_plan_marks_a_presenter_that_cannot_be_loaded(tmp_path, monkeypatch):   # Review Focus 4
-    _, station = _home(tmp_path, monkeypatch)                    # no presenters/gregg.toml
+    _, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)  # no presenters/gregg.toml
     build_package(station, slug="ttb", profile="funk", artist=TTB)
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["run", "--dry-run"])
 
@@ -3273,7 +3444,7 @@ def test_the_plan_marks_a_presenter_that_cannot_be_loaded(tmp_path, monkeypatch)
 
 
 def test_a_malformed_manifest_does_not_put_a_moved_ready_package_in_the_plan(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)
     moved = build_package(station, slug="moved", voiced=True, profile="funk")
     set_dj_audio(moved, profile="southern", profile_source="move", presenter="gregg")
     write_moves_file(home, {"GratefulDead/moved": "southern"})
@@ -3282,7 +3453,7 @@ def test_a_malformed_manifest_does_not_put_a_moved_ready_package_in_the_plan(tmp
     (bad / "manifest.json").write_text(json.dumps(
         {"schema_version": 3, "source": {"profile": "dead"}, "tracks": [{}]}))
     build_package(station, slug="fresh", profile="dead")
-    _forbid_spend(monkeypatch)
+    forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["run", "--dry-run"])
 
@@ -3454,7 +3625,8 @@ def run(
     (`skip <slug>: N audio file(s) missing; re-deliver from llama`): voicing
     cannot fix it. "unsupported" (pre-v3) packages are reported and never
     modified. A package whose recorded move targets a profile with no
-    `\\[assign.profiles]` entry is an error row. Per-package failures are
+    `\\[assign.profiles]` entry is an error row and is never voiced, even
+    when it is otherwise ready. Per-package failures are
     printed as `error: <slug>: <message>` and do not stop the batch.
 
     `--profile NAME` (repeatable) and `--assigned` select by the EFFECTIVE
@@ -3488,21 +3660,21 @@ def run(
         if status.state == "unsupported":
             typer.echo(f"skip {slug}: {status.reasons[0]}")
             continue
-        if status.state == "ready":
-            continue
         if status.state == "error":
             typer.echo(f"error: {slug}: {status.reasons[0]}", err=True)
             for line in status.reasons[1:]:
                 typer.echo(f"  {line}", err=True)
             failed = True
             continue
+        if status.move_problem is not None:   # before the ready check: a ready package reports it too
+            typer.echo(f"error: {slug}: {status.move_problem}", err=True)
+            failed = True
+            continue
+        if status.state == "ready":
+            continue
         if status.missing_tracks:   # tracks first: voicing cannot fix them
             typer.echo(f"skip {slug}: {status.missing_tracks} audio file(s) missing; "
                        "re-deliver from llama")
-            continue
-        if status.move_problem is not None:
-            typer.echo(f"error: {slug}: {status.move_problem}", err=True)
-            failed = True
             continue
         if dry_run:
             view = assignment_for(config, status.profile)
@@ -3590,6 +3762,7 @@ Spec: §1 (status grouping, `--profile`, `--list`, `--json` with `delivered_prof
 - Produces:
   - `cli._profile_cell(s: PackageStatus) -> str`: the effective profile, then ` (from <delivered>)` when they differ (resolved rows only), then ` [no assign entry]` when the move is invalid
   - `status --json` rows gain `delivered_profile`, `profile_source`, `tts`, `move_problem`
+- Test helpers already in `tests/helpers.py` (Task 4): `build_package(root, slug, *, voiced=False, profile=None, ..., artist="Grateful Dead") -> Path`, `set_dj_audio(pkg_dir, **fields)`, `write_moves_file(home, targets) -> Path`, `station_home(tmp_path, monkeypatch, *, assign="", tts=HOUSE_TTS) -> tuple[Path, Path]` (`(home, station)`, `EMCEE_ROOT` set, fake TTS).
 
 Decision (the spec only names the `[no assign entry]` mark for `status`): it appears in the `--list` profile cell, and `--json` carries the message as `move_problem`. The summary stays grouped by effective profile with no per-row marks.
 
@@ -3607,23 +3780,12 @@ from typer.testing import CliRunner
 
 from emcee.cli import app
 
-from tests.helpers import build_package, set_dj_audio, write_moves_file
+from tests.helpers import build_package, set_dj_audio, station_home, write_moves_file
 
 runner = CliRunner()
 TTB = "Tedeschi Trucks Band"
 _SOUTHERN = '[assign.profiles.southern]\npresenter = "gregg"\n'
 _RULE = _SOUTHERN + '\n[assign.artists]\n"Tedeschi Trucks Band" = "southern"\n'
-
-
-def _home(tmp_path, monkeypatch, assign: str = _RULE):
-    home = tmp_path / "home"
-    station = tmp_path / "station"
-    station.mkdir(parents=True)
-    home.mkdir()
-    monkeypatch.setenv("EMCEE_ROOT", str(home))
-    (home / "config.toml").write_text(
-        f'[station]\nroot = "{station}"\n\n[tts]\nbackend = "fake"\nvoice = "v"\n\n{assign}\n')
-    return home, station
 
 
 def _rows(result) -> dict[str, str]:
@@ -3635,7 +3797,7 @@ def _json(args=("status", "--json")) -> dict[str, dict]:
 
 
 def test_list_marks_a_profile_that_differs_from_the_delivered_one(tmp_path, monkeypatch):
-    _, station = _home(tmp_path, monkeypatch)
+    _, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     build_package(station, slug="ttb", voiced=True, profile="funk", artist=TTB)
     build_package(station, slug="gd", voiced=True, profile="dead")
 
@@ -3647,7 +3809,7 @@ def test_list_marks_a_profile_that_differs_from_the_delivered_one(tmp_path, monk
 
 
 def test_summary_groups_by_the_effective_profile(tmp_path, monkeypatch):
-    _, station = _home(tmp_path, monkeypatch)
+    _, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     build_package(station, slug="ttb", voiced=True, profile="funk", artist=TTB)
 
     lines = [line.split() for line in runner.invoke(app, ["status"]).stdout.splitlines()]
@@ -3656,7 +3818,7 @@ def test_summary_groups_by_the_effective_profile(tmp_path, monkeypatch):
 
 
 def test_profile_filter_follows_a_move(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, _SOUTHERN)
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     build_package(station, slug="moved", voiced=True, profile="funk")
     write_moves_file(home, {"GratefulDead/moved": "southern"})
 
@@ -3669,7 +3831,7 @@ def test_profile_filter_follows_a_move(tmp_path, monkeypatch):
 
 
 def test_json_carries_delivered_profile_source_tts_and_move_problem(tmp_path, monkeypatch):
-    _, station = _home(tmp_path, monkeypatch)
+    _, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     build_package(station, slug="ttb", voiced=True, profile="funk", artist=TTB)
     build_package(station, slug="legacy", voiced=True, profile="dead")
     rec = build_package(station, slug="rec", voiced=True, profile="dead")
@@ -3686,7 +3848,7 @@ def test_json_carries_delivered_profile_source_tts_and_move_problem(tmp_path, mo
 
 
 def test_a_move_without_an_assign_entry_is_marked(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, assign="")
+    home, station = station_home(tmp_path, monkeypatch)
     build_package(station, slug="moved", voiced=True, profile="funk")
     write_moves_file(home, {"GratefulDead/moved": "southern"})
 
@@ -3698,7 +3860,7 @@ def test_a_move_without_an_assign_entry_is_marked(tmp_path, monkeypatch):
 
 
 def test_status_notes_stale_moves_on_stderr(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch)
+    home, station = station_home(tmp_path, monkeypatch, assign=_RULE)
     build_package(station, slug="gd", voiced=True, profile="dead")
     write_moves_file(home, {"Gone/gone-1999": "southern"})
     note = "note: 1 recorded move(s) match no package (emcee move --list)"
@@ -3712,7 +3874,7 @@ def test_status_notes_stale_moves_on_stderr(tmp_path, monkeypatch):
 
 
 def test_two_packages_sharing_a_performance_id_both_follow_one_move(tmp_path, monkeypatch):
-    home, station = _home(tmp_path, monkeypatch, _SOUTHERN)   # Review Focus 5
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)  # Review Focus 5
     build_package(station, slug="a", voiced=True, profile="funk")
     b = build_package(station, slug="b", voiced=True, profile="funk")
     m = json.loads((b / "manifest.json").read_text())
@@ -3963,8 +4125,9 @@ the show):
   `~/.emcee/moves.json`, keyed by the show's performance id, so they survive
   a `llama deliver --replace-voiced`. A move beats a rule; `--delivered` is
   how one show is exempted from a rule. Back up `moves.json`: an unreadable
-  one stops every emcee command, and a missing one does too while any
-  package was voiced under a move. A move not yet voiced lives only there.
+  one stops `emcee run`/`voice`/`status`/`move`, and a missing one does too
+  while any package was voiced under a move. A move not yet voiced lives
+  only there.
 
 A show whose effective profile changes goes `pending` (it keeps airing its
 old voicing until the re-voice lands), and the next `emcee run` lists it
@@ -4027,10 +4190,10 @@ git commit -m "docs: profile moves, artist rules, the run plan, and the recorded
 - §4 single resolution, `DJAudioBlock`/`TTSRecord`, the backfill script, the fifth readiness leg with its four reasons, a legacy manifest staying ready, a missing `tts` never making a package pending, `tts` in `--json` only, llama's doc model: T4, T5, T8, T9.
 - §5 the pause, all bullets: T7.
 - Docs list and the Rollout agent line: T9.
-- Testing list: each item maps to a named test in T1-T8 (normalize: T1; effective: T3; config: T1; readiness incl. `""`/null/missing `source`: T4; `_scan_broad` in status (T4) and in the run plan (T7); recording incl. null profile, clone hash, legacy rejection: T5; `emcee move` list: T6; `moves.json` failures for run/status (T4), voice (T5), move (T6); use-time validation: T7 (+T5); stale note: T7, T8; the pause: T7; filters: T4).
+- Testing list: each item maps to a named test in T1-T8 (normalize: T1; effective: T3; config: T1; readiness incl. `""`/null/missing `source`: T4; `_scan_broad` in status and under the missing-file guard for `run`/`status` (T4) and in the run plan (T7); recording incl. null profile, clone hash, legacy rejection: T5; `emcee move` list: T6; `moves.json` failures for run/status (T4), voice (T5), move (T6); use-time validation: T7 (+T5); stale note: T7, T8; the pause: T7; filters: T4).
 
 **Placeholder scan:** none. Two places say "unchanged" and point at exact existing lines rather than repeating them: the bodies of `manifest_profile`/`manifest_voiced_by` (T4) and the preflight/unlink/clear block of `_process_one` (T5).
 
-**Type consistency:** `Moves`/`load_moves`/`read_moves_data`/`write_moves`/`record_move(..., *, moved_at)`/`clear_move(root, show, live_performance_id)` (T2) are used with those exact names in T4-T7. `Effective(profile, source, rule)` is defined in T3 and used in T4/T5. `scan(root, config, moves)`, `readiness(pkg, config, moves)`, `assess` → `Assessment.effective` (T4) are used in T5/T6. `_process_one(config, moves, pkg, force, fresh=())` is defined in T5 and called in T7. `process_package(config, pkg, speech, force=False, *, voicing)` and `voicing_for(config, pkg)` come from T5. `_stale_moves`/`_stale_note` are defined in T7 and reused in T8. `PackageStatus` field names match across T4, T6, T7 and T8.
+**Type consistency:** `Moves`/`load_moves`/`read_moves_data`/`write_moves`/`record_move(..., *, moved_at)`/`clear_move(root, show, live_performance_id)` (T2) are used with those exact names in T4-T7. `Effective(profile, source, rule)` is defined in T3 and used in T4/T5. `scan(root, config, moves)`, `readiness(pkg, config, moves)`, `assess` → `Assessment.effective` (T4) are used in T5/T6. `_process_one(config, moves, pkg, force, fresh=())` is defined in T5 and called in T7. `process_package(config, pkg, speech, force=False, *, voicing)` and `voicing_for(config, pkg)` come from T5. `_stale_moves`/`_stale_note` are defined in T7 and reused in T8. The shared test helpers `station_home`/`forbid_spend`/`notes_json` are added in T4 and imported (never redefined) by T5-T8, each of which states their signatures in its Interfaces block. `PackageStatus` field names match across T4, T6, T7 and T8.
 
 **Review Focus:** five lines, each with a named test in its owning task (T2, T3, T7, T7, T8).
