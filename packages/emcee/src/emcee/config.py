@@ -3,10 +3,11 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from herder import LLMSettings, TaskConfig
 
+from emcee.artists import normalize_artist
 from emcee.errors import ConfigError
 
 DEFAULT_ROOT = Path.home() / ".emcee"
@@ -142,9 +143,53 @@ class Assignment(_StrictModel):
     title: str | None = None
 
 
+class ArtistRule(_StrictModel):
+    """One `[assign.artists]` rule: voice this artist's shows as `profile`,
+    whatever profile llama delivered them under -- or, with `from`, only
+    when llama's profile is one of those listed."""
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    profile: str
+    from_: list[str] | None = Field(default=None, alias="from")
+
+
 class AssignConfig(_StrictModel):
     default: str | None = None                          # station-default presenter id
     profiles: dict[str, Assignment] = Field(default_factory=dict)
+    artists: dict[str, ArtistRule] = Field(default_factory=dict)
+
+    @field_validator("artists", mode="before")
+    @classmethod
+    def _artist_shorthand(cls, value):
+        # `"Artist" = "profile"` is shorthand for `{ profile = "profile" }`.
+        if isinstance(value, dict):
+            return {key: {"profile": rule} if isinstance(rule, str) else rule
+                    for key, rule in value.items()}
+        return value
+
+    @model_validator(mode="after")
+    def _check_artists(self):
+        """A rule naming a profile with no [assign.profiles] entry would
+        silently route shows to the default presenter; two keys normalizing
+        alike would make the winner depend on file order; an empty key or
+        an empty `from` can never match. All are load errors."""
+        seen: dict[str, str] = {}
+        for key, rule in self.artists.items():
+            norm = normalize_artist(key)
+            if not norm:
+                raise ValueError(f'[assign.artists] "{key}" normalizes to an empty artist name')
+            if norm in seen:
+                raise ValueError(f'[assign.artists] "{seen[norm]}" and "{key}" name the same '
+                                 f'artist (both normalize to "{norm}"); keep one')
+            seen[norm] = key
+            if rule.from_ is not None and not rule.from_:
+                raise ValueError(f'[assign.artists] "{key}": from = [] can never match; '
+                                 "remove it to match every delivered profile")
+            if rule.profile not in self.profiles:
+                raise ValueError(f'[assign.artists] "{key}" targets profile "{rule.profile}", '
+                                 f"which has no [assign.profiles.{rule.profile}] entry "
+                                 "(add the entry first)")
+        return self
 
 
 class EmceeConfig(_StrictModel):
@@ -324,4 +369,13 @@ backend = "claude_cli"
 # [assign.profiles.prime-dead]
 # presenter = "waldo"
 # title = "The Primal Dead Hour"
+#
+# Artist rules: voice every show by an artist as another profile, whatever
+# profile llama delivered it under (or only from the profiles in `from`).
+# Names match loosely (case, "&"/"and", apostrophes, one trailing [...], a
+# leading "The"). A rule's profile needs its own [assign.profiles.<name>]
+# entry: add that first, or every emcee command refuses to start.
+# [assign.artists]
+# "Tedeschi Trucks Band" = "southern"
+# "JJ Grey and MOFRO" = { profile = "southern", from = ["funk"] }
 """

@@ -267,7 +267,7 @@ def test_default_config_template_matches_defaults():
 
 
 def test_default_config_template_mentions_every_section():
-    for marker in ("[station]", "[llm.scriptwrite]", "[llm.rephrase]", "[llm.tiers.", "[tts]", "[assign]", "[assign.profiles.",
+    for marker in ("[station]", "[llm.scriptwrite]", "[llm.rephrase]", "[llm.tiers.", "[tts]", "[assign]", "[assign.profiles.", "[assign.artists]",
                    "voice_clone_text", "[tts.voxtral]", "[tts.elevenlabs]", "[tts.mlx_audio]", "[tts.verify]"):
         assert marker in DEFAULT_CONFIG_TOML, marker
 
@@ -493,3 +493,64 @@ def test_verify_with_stt_model_is_valid(tmp_path: Path):
     cfg = _load(tmp_path, '[tts.mlx_audio]\nstt_model = "s"\n\n'
                           '[tts.verify]\nbackends = ["mlx_audio", "voxtral"]\n')
     assert cfg.tts.verify.backends == ["mlx_audio", "voxtral"]
+
+
+# --- [assign.artists] (2026-10-16 profile reassignment, spec section 2) ---
+
+from emcee.config import ArtistRule
+
+_SOUTHERN = '[assign.profiles.southern]\npresenter = "gregg"\n\n'
+
+
+def test_artist_shorthand_and_table_forms_parse_the_same(tmp_path: Path):
+    short = _load(tmp_path, _SOUTHERN + '[assign.artists]\n"Tedeschi Trucks Band" = "southern"\n')
+    table = _load(tmp_path, _SOUTHERN + '[assign.artists]\n'
+                  '"Tedeschi Trucks Band" = { profile = "southern" }\n')
+    assert short.assign.artists == table.assign.artists
+    assert short.assign.artists["Tedeschi Trucks Band"] == ArtistRule(profile="southern")
+    assert short.assign.artists["Tedeschi Trucks Band"].from_ is None
+
+
+def test_artist_rule_from_list_parses(tmp_path: Path):
+    cfg = _load(tmp_path, _SOUTHERN + '[assign.artists]\n'
+                '"JJ Grey and MOFRO" = { profile = "southern", from = ["funk"] }\n')
+    assert cfg.assign.artists["JJ Grey and MOFRO"].from_ == ["funk"]
+
+
+def test_artists_default_empty():
+    assert EmceeConfig().assign.artists == {}
+
+
+def test_artist_rule_targeting_a_profile_without_an_entry_is_a_load_error(tmp_path: Path):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, '[assign.artists]\n"Tedeschi Trucks Band" = "southern"\n')
+    assert '"Tedeschi Trucks Band"' in str(exc.value)
+    assert "[assign.profiles.southern]" in str(exc.value)
+
+
+def test_two_artist_keys_normalizing_alike_is_a_load_error_naming_both(tmp_path: Path):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, _SOUTHERN + '[assign.artists]\n'
+              '"Karl Denson\'s Tiny Universe" = "southern"\n'
+              '"Karl Densons Tiny Universe" = "southern"\n')
+    assert "Karl Denson's Tiny Universe" in str(exc.value)
+    assert "Karl Densons Tiny Universe" in str(exc.value)
+
+
+def test_artist_key_normalizing_to_empty_is_a_load_error(tmp_path: Path):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, _SOUTHERN + '[assign.artists]\n"!!!" = "southern"\n')
+    assert "empty artist name" in str(exc.value)
+
+
+def test_empty_from_list_is_a_load_error(tmp_path: Path):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, _SOUTHERN + '[assign.artists]\n'
+              '"Lettuce" = { profile = "southern", from = [] }\n')
+    assert "can never match" in str(exc.value)
+
+
+def test_unknown_key_in_an_artist_rule_is_a_load_error(tmp_path: Path):
+    with pytest.raises(ConfigError):
+        _load(tmp_path, _SOUTHERN + '[assign.artists]\n'
+              '"Lettuce" = { profile = "southern", form = ["funk"] }\n')
