@@ -75,7 +75,7 @@ def _manifests(station: Path) -> dict[str, bytes]:
 
 def test_the_plan_names_every_category_and_counts_clips_exactly(tmp_path, monkeypatch):
     _station(tmp_path, monkeypatch)
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["run", "--dry-run"])
 
@@ -94,6 +94,7 @@ def test_the_plan_names_every_category_and_counts_clips_exactly(tmp_path, monkey
     assert "would voice: holes" not in result.stdout
     assert "4 package(s) would be voiced" in result.stdout
     assert "Proceed?" not in result.output
+    assert spent == []
 
 
 def test_yes_voices_exactly_the_planned_packages(tmp_path, monkeypatch):
@@ -182,7 +183,7 @@ def test_a_yes_at_the_prompt_voices(tmp_path, monkeypatch):
 def test_a_declined_prompt_voices_nothing_and_exits_0(tmp_path, monkeypatch):
     _, station = _station(tmp_path, monkeypatch)
     before = _manifests(station)
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     result = runner.invoke(app, ["run"], input="n\n")
@@ -192,24 +193,29 @@ def test_a_declined_prompt_voices_nothing_and_exits_0(tmp_path, monkeypatch):
     assert "nothing voiced" in result.stdout
     assert "voiced:" not in result.stdout
     assert _manifests(station) == before
+    assert spent == []
 
 
 def test_eof_at_the_prompt_spends_nothing(tmp_path, monkeypatch):     # Review Focus 3
     _, station = _station(tmp_path, monkeypatch)
     before = _manifests(station)
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     result = runner.invoke(app, ["run"], input="")
 
-    assert result.exit_code != 0
+    assert result.exit_code == 1
+    assert "Aborted" in result.stderr
+    assert "error:" not in result.stderr
+    assert "voiced:" not in result.stdout
     assert _manifests(station) == before
+    assert spent == []
 
 
 def test_no_tty_and_no_yes_refuses_after_the_plan_and_spends_nothing(tmp_path, monkeypatch):
     _, station = _station(tmp_path, monkeypatch)
     before = _manifests(station)
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["run"])
 
@@ -218,12 +224,13 @@ def test_no_tty_and_no_yes_refuses_after_the_plan_and_spends_nothing(tmp_path, m
     assert "error: refusing to voice without confirmation; pass --yes" in result.stderr
     assert "Proceed?" not in result.output
     assert _manifests(station) == before
+    assert spent == []
 
 
 def test_dry_run_prints_the_plan_and_never_asks(tmp_path, monkeypatch):
     _, station = _station(tmp_path, monkeypatch)
     before = _manifests(station)
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     plain = runner.invoke(app, ["run", "--dry-run"])
@@ -235,12 +242,13 @@ def test_dry_run_prints_the_plan_and_never_asks(tmp_path, monkeypatch):
         assert "Proceed?" not in result.output
         assert "voiced:" not in result.stdout
     assert _manifests(station) == before
+    assert spent == []
 
 
 def test_nothing_to_voice_means_no_plan_and_no_prompt(tmp_path, monkeypatch):
     _, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)
     build_package(station, slug="done", voiced=True, profile="dead")
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     result = runner.invoke(app, ["run"])
@@ -248,6 +256,7 @@ def test_nothing_to_voice_means_no_plan_and_no_prompt(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "to voice:" not in result.output and "Proceed?" not in result.output
     assert "0 package(s) voiced" in result.stdout
+    assert spent == []
 
 
 # --- exit codes ---------------------------------------------------------------------------
@@ -266,7 +275,7 @@ def test_any_error_row_exits_1(tmp_path, monkeypatch, mode):
         _spend(monkeypatch)
         result = runner.invoke(app, ["run", "--yes"])
     else:
-        forbid_spend(monkeypatch)
+        spent = forbid_spend(monkeypatch)
         _tty(monkeypatch)
         result = runner.invoke(app, ["run"], input="n\n")
 
@@ -274,6 +283,11 @@ def test_any_error_row_exits_1(tmp_path, monkeypatch, mode):
     assert "error: bad:" in result.stderr
     if mode == "proceeded":
         assert "voiced: fresh" in result.stdout
+    else:
+        assert spent == []
+        assert "voiced:" not in result.stdout
+    if mode == "declined":
+        assert "nothing voiced" in result.stdout
 
 
 def test_a_move_whose_target_lost_its_entry_is_an_error_row_and_others_still_voice(tmp_path,
@@ -302,7 +316,7 @@ def test_a_ready_package_whose_move_lost_its_entry_is_still_an_error_row(tmp_pat
     set_dj_audio(moved, profile="southern", profile_source="move", presenter="gregg")
     write_moves_file(home, {"GratefulDead/moved": "southern"})
     before = (moved / "manifest.json").read_bytes()
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
     _tty(monkeypatch)
 
     result = runner.invoke(app, args)
@@ -312,6 +326,7 @@ def test_a_ready_package_whose_move_lost_its_entry_is_still_an_error_row(tmp_pat
     assert "to voice:" not in result.stderr and "Proceed?" not in result.output
     assert "would voice: moved" not in result.stdout
     assert (moved / "manifest.json").read_bytes() == before
+    assert spent == []
 
 
 # --- notes, markers, and the malformed-manifest path ---------------------------------------
@@ -321,7 +336,7 @@ def test_a_stale_move_is_noted_with_or_without_a_plan(tmp_path, monkeypatch):
     home, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)
     write_moves_file(home, {"Gone/gone-1999": "southern"})
     build_package(station, slug="fresh", profile="dead")
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
     note = "note: 1 recorded move(s) match no package (emcee move --list)"
 
     assert note in runner.invoke(app, ["run", "--dry-run"]).stderr
@@ -331,16 +346,18 @@ def test_a_stale_move_is_noted_with_or_without_a_plan(tmp_path, monkeypatch):
     nothing = runner.invoke(app, ["run"])
     assert nothing.exit_code == 0
     assert note in nothing.stderr
+    assert spent == []
 
 
 def test_the_plan_marks_a_presenter_that_cannot_be_loaded(tmp_path, monkeypatch):   # Review Focus 4
     _, station = station_home(tmp_path, monkeypatch, assign=_ASSIGN)  # no presenters/gregg.toml
     build_package(station, slug="ttb", profile="funk", artist=TTB)
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["run", "--dry-run"])
 
     assert "gregg [missing presenters/gregg.toml] 1 package" in _lines(result.stderr)
+    assert spent == []
 
 
 def test_a_malformed_manifest_does_not_put_a_moved_ready_package_in_the_plan(tmp_path, monkeypatch):
@@ -353,10 +370,11 @@ def test_a_malformed_manifest_does_not_put_a_moved_ready_package_in_the_plan(tmp
     (bad / "manifest.json").write_text(json.dumps(
         {"schema_version": 3, "source": {"profile": "dead"}, "tracks": [{}]}))
     build_package(station, slug="fresh", profile="dead")
-    forbid_spend(monkeypatch)
+    spent = forbid_spend(monkeypatch)
 
     result = runner.invoke(app, ["run", "--dry-run"])
 
     assert "to voice: 1 package, 3 clips" in result.stderr
     assert "moved" not in _lines(result.stderr)
     assert "would voice: moved" not in result.stdout
+    assert spent == []

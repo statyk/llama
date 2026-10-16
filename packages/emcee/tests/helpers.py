@@ -223,14 +223,21 @@ def station_home(tmp_path: Path, monkeypatch, *, assign: str = "",
     return home, station
 
 
-def forbid_spend(monkeypatch) -> None:
-    """Building any LLM or TTS provider fails the test."""
+def forbid_spend(monkeypatch) -> list[str]:
+    """Building any LLM or TTS provider fails the test: it raises, and it is
+    also recorded in the returned list (one entry per attempt). Assert the
+    list empty wherever a broad `except` (e.g. `run`'s per-package error row)
+    could swallow the raise."""
     import emcee.process as process_mod
 
+    attempts: list[str] = []
+
     def boom(*a, **k):
+        attempts.append("spend")
         raise AssertionError("LLM or TTS spend")
     monkeypatch.setattr(process_mod, "provider_for", boom)
     monkeypatch.setattr(process_mod, "speech_provider_for", boom)
+    return attempts
 
 
 def notes_json() -> str:
