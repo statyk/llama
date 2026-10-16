@@ -15,11 +15,12 @@ from typer.testing import CliRunner
 
 import emcee.process as process_mod
 from emcee.cli import app
+from emcee.config import load_config
 from emcee.errors import EmceeError
 
 from herder import FakeProvider
 
-from tests.helpers import build_package
+from tests.helpers import build_package, no_moves
 
 runner = CliRunner()
 
@@ -237,7 +238,7 @@ def test_voice_failure_on_already_ready_package_degrades_manifest_to_pending(tmp
     _write_config(home)
     pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
     pkg = Package(pkg_dir)
-    ok_before, _ = readiness(pkg)
+    ok_before, _ = readiness(pkg, load_config(), no_moves())
     assert ok_before is True  # sanity: genuinely ready before the failing re-voice
 
     def flaky_process_package(config, p, speech, force=False):
@@ -252,7 +253,7 @@ def test_voice_failure_on_already_ready_package_degrades_manifest_to_pending(tmp
     manifest = json.loads((pkg_dir / "manifest.json").read_text())
     assert manifest["dj_notes"] is None
     assert manifest["dj_audio"] is None
-    ok_after, reasons_after = readiness(pkg)
+    ok_after, reasons_after = readiness(pkg, load_config(), no_moves())
     assert ok_after is False  # now honestly "pending", not stale "ready"
     assert reasons_after
 
@@ -285,7 +286,7 @@ def test_voice_failing_speech_for_leaves_a_ready_package_untouched(tmp_path, mon
     pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
     pkg = Package(pkg_dir)
     before_manifest = (pkg_dir / "manifest.json").read_text()
-    ok_before, _ = readiness(pkg)
+    ok_before, _ = readiness(pkg, load_config(), no_moves())
     assert ok_before is True  # sanity: genuinely ready before the failing re-voice
 
     # Now reconfigure with a busted [tts] voice, as if a config typo landed.
@@ -298,7 +299,7 @@ def test_voice_failing_speech_for_leaves_a_ready_package_untouched(tmp_path, mon
     # nothing was ever going to be overwritten -- the manifest must come out
     # byte-for-byte untouched, not pre-cleared to dj_notes/dj_audio = None
     assert (pkg_dir / "manifest.json").read_text() == before_manifest
-    ok_after, reasons_after = readiness(pkg)
+    ok_after, reasons_after = readiness(pkg, load_config(), no_moves())
     assert ok_after is True  # still genuinely ready, not knocked off air
     assert reasons_after == []
 
@@ -317,7 +318,7 @@ def test_voice_failing_resolve_assignment_leaves_a_ready_package_untouched(tmp_p
     pkg_dir = _fully_voiced_package(tmp_path, station, monkeypatch)
     pkg = Package(pkg_dir)
     before_manifest = (pkg_dir / "manifest.json").read_text()
-    ok_before, _ = readiness(pkg)
+    ok_before, _ = readiness(pkg, load_config(), no_moves())
     assert ok_before is True
 
     home.mkdir(parents=True, exist_ok=True)
@@ -332,7 +333,7 @@ def test_voice_failing_resolve_assignment_leaves_a_ready_package_untouched(tmp_p
     assert "error: " in result.stderr
     assert "waldo" in result.stderr
     assert (pkg_dir / "manifest.json").read_text() == before_manifest
-    ok_after, reasons_after = readiness(pkg)
+    ok_after, reasons_after = readiness(pkg, load_config(), no_moves())
     assert ok_after is True
     assert reasons_after == []
 

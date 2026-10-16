@@ -44,6 +44,7 @@ def build_package(
     narration: str = "full",
     sets: tuple[str, ...] = ("1", "2"),
     encore: bool = True,
+    artist: str = "Grateful Dead",
 ) -> Path:
     """Fabricate a full v3 package at `root / slug` and return its directory.
 
@@ -100,7 +101,7 @@ def build_package(
             "vetted": False,
         },
         "show": {
-            "artist": "Grateful Dead",
+            "artist": artist,
             "date": "1973-06-10",
             "venue": "Some Venue",
             "city": None,
@@ -178,3 +179,60 @@ def moves_of(targets: dict[str, str | None]) -> Moves:
         pid: {"profile": profile, "package": pid.rsplit("/", 1)[-1],
               "moved_at": "2026-10-16T00:00:00Z"}
         for pid, profile in targets.items()})
+
+
+def set_dj_audio(pkg_dir: Path, **fields) -> None:
+    """Merge `fields` into a voiced fixture's dj_audio block (raw JSON), e.g.
+    profile="southern", profile_source="move", presenter="gregg"."""
+    path = pkg_dir / "manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["dj_audio"].update(fields)
+    _write_json(path, manifest)
+
+
+def write_moves_file(home: Path, targets: dict[str, str | None]) -> Path:
+    """<home>/moves.json mapping performance_id -> target profile."""
+    path = home / "moves.json"
+    _write_json(path, {pid: {"profile": profile, "package": pid.rsplit("/", 1)[-1],
+                             "moved_at": "2026-10-16T00:00:00Z"}
+                       for pid, profile in targets.items()})
+    return path
+
+
+HOUSE_TTS = '[tts]\nbackend = "fake"\nvoice = "house-voice"\n'
+
+
+def station_home(tmp_path: Path, monkeypatch, *, assign: str = "",
+                 tts: str = HOUSE_TTS) -> tuple[Path, Path]:
+    """An emcee home at <tmp>/home (EMCEE_ROOT set to it) whose config.toml
+    points [station] root at <tmp>/station. `tts` and `assign` are TOML
+    appended verbatim. Returns (home, station)."""
+    home = tmp_path / "home"
+    station = tmp_path / "station"
+    station.mkdir(parents=True)
+    home.mkdir()
+    monkeypatch.setenv("EMCEE_ROOT", str(home))
+    (home / "config.toml").write_text(f'[station]\nroot = "{station}"\n\n{tts}\n{assign}\n')
+    return home, station
+
+
+def forbid_spend(monkeypatch) -> None:
+    """Building any LLM or TTS provider fails the test."""
+    import emcee.process as process_mod
+
+    def boom(*a, **k):
+        raise AssertionError("LLM or TTS spend")
+    monkeypatch.setattr(process_mod, "provider_for", boom)
+    monkeypatch.setattr(process_mod, "speech_provider_for", boom)
+
+
+def notes_json() -> str:
+    """A scriptwrite reply that passes script_guard for `build_package`'s
+    default two-set show; for `FakeProvider(completes=[notes_json()])`."""
+    return json.dumps({
+        "context": "Spring '73 tour",
+        "set_intros": {"1": "Tonight: the Dead at RFK. Opens with Morning Dew.",
+                       "2": "China Cat Sunflower leads set two."},
+        "outro": "I Know You Rider sends us off. Thanks for listening.",
+        "mentioned_songs": ["Morning Dew", "China Cat Sunflower", "I Know You Rider"],
+    })

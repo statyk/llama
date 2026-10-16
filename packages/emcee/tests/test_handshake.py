@@ -35,11 +35,12 @@ from typer.testing import CliRunner
 
 import emcee.process as process_mod
 from emcee.cli import app
+from emcee.config import load_config
 from emcee.station import scan
 
 from herder import FakeProvider
 
-from tests.helpers import build_package
+from tests.helpers import build_package, no_moves
 
 runner = CliRunner()
 
@@ -118,7 +119,7 @@ def test_emcee_run_voices_a_delivered_package_to_broadcast_ready(tmp_path, monke
     # `station.readiness` (exercised here through `scan`, the same path
     # `emcee status`/`emcee run` themselves use) -- not just the presence of
     # individual files this test happens to check above.
-    statuses = scan(station)
+    statuses = scan(station, load_config(), no_moves())
     assert len(statuses) == 1
     assert statuses[0].state == "ready", statuses[0].reasons
     assert statuses[0].reasons == []

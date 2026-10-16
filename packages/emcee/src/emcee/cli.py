@@ -18,6 +18,7 @@ from herder import HerderError
 
 from emcee.config import DEFAULT_CONFIG_TOML, EmceeConfig, default_root, load_config
 from emcee.errors import EmceeError
+from emcee.moves import Moves, load_moves
 from emcee.package_io import Package, UnsupportedPackage, rewrite_manifest
 from emcee.presenters import (
     Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
@@ -31,8 +32,8 @@ from emcee.tts.provider import SpeechError
 from emcee.tts.verify import SttClient
 from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
-from emcee.station import (PackageStatus, manifest_profile, manifest_voiced_by, raw_profile,
-                           readiness, scan)
+from emcee.station import (PackageStatus, identity, package_status, raw_profile, scan,
+                           unsupported_status)
 
 _COMMAND_ORDER = ["run", "voice", "status", "say", "presenter", "config"]
 
@@ -164,22 +165,16 @@ def _error_reasons(exc: Exception) -> list[str]:
     return [_typed_error(exc), *getattr(exc, "details", [])]
 
 
-def _scan_broad(root: Path) -> list[PackageStatus]:
+def _scan_broad(root: Path, config: EmceeConfig, moves: Moves) -> list[PackageStatus]:
     """Re-walk `root` package-by-package, never letting one malformed
-    package's `readiness()` check abort the walk.
+    package's readiness check abort the walk.
 
-    `package_io`/`station` deliberately validate no manifest model (see
-    `package_io`'s module docstring), so a valid-JSON-but-structurally-wrong
-    v3 manifest -- a track dict missing `filename`, `dj_audio` not a dict,
-    `tracks` not a list -- raises a bare `KeyError`/`AttributeError`/
-    `TypeError` straight out of `readiness()`, escaping both the
-    `EmceeError` taxonomy and `station.scan`'s own try/except (which only
-    guards `UnsupportedPackage`). This is the fallback `_station_statuses`
-    reaches for when the fast path (`station.scan`) blows up on exactly
-    that: it mirrors `scan`'s walk but wraps every entry's `manifest()`/
-    `readiness()` call individually, reporting a failure as a `PackageStatus`
-    with `state="error"` -- a state `station.scan` itself never produces --
-    instead of propagating and taking the rest of the batch down with it.
+    `package_io`/`station` deliberately validate no manifest model, so a
+    valid-JSON-but-structurally-wrong v3 manifest (a track missing
+    `filename`, `dj_audio` not a dict) raises a bare KeyError/AttributeError/
+    TypeError out of `assess`. This mirrors `scan`'s walk with every entry
+    wrapped, reporting a failure as `state="error"`. It threads the same
+    config and moves as `scan`, so a moved package stays moved here too.
     """
     statuses: list[PackageStatus] = []
     for entry in sorted(Path(root).iterdir()):
@@ -190,42 +185,40 @@ def _scan_broad(root: Path) -> list[PackageStatus]:
         try:
             manifest = pkg.manifest()
         except UnsupportedPackage:
-            version = json.loads(pkg.manifest_path.read_text()).get("schema_version", "?")
-            statuses.append(PackageStatus(
-                path=entry, state="unsupported",
-                reasons=[f"unsupported (v{version} — re-deliver from llama)"],
-                profile=raw_profile(pkg.manifest_path),
-            ))
+            statuses.append(unsupported_status(pkg))
             continue
         except Exception as exc:
+            profile = raw_profile(pkg.manifest_path)
             statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc),
-                                          profile=raw_profile(pkg.manifest_path)))
+                                          profile=profile, delivered_profile=profile))
             continue
         try:
-            ok, reasons = readiness(pkg)
+            statuses.append(package_status(pkg, config, moves))
         except Exception as exc:
             statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc),
-                                          profile=manifest_profile(manifest),
-                                          voiced_by=manifest_voiced_by(manifest)))
-            continue
-        statuses.append(PackageStatus(path=entry, state="ready" if ok else "pending",
-                                      reasons=reasons, profile=manifest_profile(manifest),
-                                      voiced_by=manifest_voiced_by(manifest)))
+                                          **identity(manifest, config, moves)))
     return statuses
 
 
-def _station_statuses(root: Path) -> list[PackageStatus]:
-    """Every package's status under `root`. Tries `station.scan` first (the
-    normal, documented path); if a structurally-mangled manifest makes it
-    raise mid-walk (see `_scan_broad`'s docstring), falls back to a
-    per-entry-isolated re-walk so one bad package can't take the whole
-    report down. `scan`/`readiness` are read-only, so re-walking on the
-    fallback path is safe and idempotent.
-    """
+def _station_statuses(root: Path, config: EmceeConfig, moves: Moves) -> list[PackageStatus]:
+    """Every package's status under `root`: `station.scan` first; if a
+    structurally mangled manifest makes it raise mid-walk, the per-entry
+    isolated `_scan_broad`. Both are read-only, so the re-walk is safe."""
     try:
-        return scan(root)
+        return scan(root, config, moves)
     except Exception:
-        return _scan_broad(root)
+        return _scan_broad(root, config, moves)
+
+
+def _load_station(config: EmceeConfig, root: Path) -> tuple[Moves, list[PackageStatus]]:
+    """moves.json first (a bad file is an EmceeError naming it), then the
+    scan, then the missing-file guard: all before the caller does any work
+    (strict surface 2). Loaded once per command and passed everywhere."""
+    moves = load_moves(config.root)
+    statuses = _station_statuses(root, config, moves)
+    moves.require_present([(s.path.name, s.performance_id, s.voiced_profile)
+                           for s in statuses if s.voiced_source == "move"])
+    return moves, statuses
 
 
 def _process_one(config: EmceeConfig, pkg: Package, force: bool,
@@ -367,7 +360,7 @@ def run(
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
-    statuses = _station_statuses(root)
+    moves, statuses = _load_station(config, root)
 
     _note_unmatched_profiles(statuses, profile)
     filtering = bool(profile) or assigned
@@ -707,7 +700,7 @@ def status_cmd(
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
-    statuses = _station_statuses(root)
+    _moves, statuses = _load_station(config, root)
 
     bad = [st for st in (state or []) if st not in _STATUS_STATES]
     if bad:

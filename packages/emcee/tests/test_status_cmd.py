@@ -11,9 +11,10 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from emcee.cli import app
+from emcee.config import EmceeConfig
 from emcee.errors import EmceeError
 
-from tests.helpers import build_package
+from tests.helpers import build_package, no_moves
 
 runner = CliRunner()
 
@@ -366,7 +367,7 @@ def test_scan_broad_skips_dot_prefixed_dir_with_manifest(tmp_path):
     build_package(tmp_path, slug=".real.deliver-abc", voiced=False)
     build_package(tmp_path, slug=".real.old-abc", voiced=True)
 
-    assert [s.path.name for s in _scan_broad(tmp_path)] == ["real"]
+    assert [s.path.name for s in _scan_broad(tmp_path, EmceeConfig(), no_moves())] == ["real"]
 
 
 def test_status_voiced_by_states_and_drift_annotation(tmp_path, monkeypatch):

@@ -1,5 +1,12 @@
 """Station model: scan a delivered-packages folder (`[station] root`) for
-emcee packages and compute each one's voice readiness (spec section 2).
+emcee packages and compute each one's voice readiness.
+
+Readiness has five legs: script present, DJ audio present, broadcast.m3u
+present, every manifest track's audio on disk, and (2026-10-16) the
+profile check: a voiced package was voiced as the profile emcee would voice
+it as now (`effective_profile`: a recorded move, else an artist rule, else
+llama's profile). transmitter mirrors the first four on files alone and
+deliberately NOT the fifth: it cannot see rules or moves.
 """
 
 import json
@@ -16,12 +23,25 @@ from emcee.package_io import Package, UnsupportedPackage
 @dataclass
 class PackageStatus:
     path: Path
-    state: str  # "ready" | "pending" | "unsupported"
+    state: str  # "ready" | "pending" | "unsupported" | "error"
     reasons: list[str] = field(default_factory=list)
-    profile: str | None = None  # manifest["source"]["profile"], when readable
+    # The EFFECTIVE profile (move > artist rule > llama's). For an unsupported
+    # or unreadable manifest, llama's profile best-effort (no resolution).
+    profile: str | None = None
     # Who voiced it: None = not voiced, "?" = voiced before emcee recorded the
     # presenter (legacy), "house" = house narrator, else the presenter id.
     voiced_by: str | None = None
+    delivered_profile: str | None = None     # llama's profile (manifest_profile)
+    profile_source: str | None = None        # "move" | "artist" | "llama"; None = not resolved
+    performance_id: str | None = None
+    voiced: bool = False                     # the dj_audio block is present
+    voiced_profile: str | None = None        # manifest_voiced_profile
+    voiced_source: str | None = None         # dj_audio.profile_source as recorded
+    profile_reason: str | None = None        # the profile check's failing reason, if it fails
+    missing_tracks: int = 0                  # manifest tracks whose audio is not on disk
+    clips: int = 0                           # clips a voicing renders: one per non-encore set + outro
+    move_problem: str | None = None          # use-time move validation failure
+    tts: dict | None = None                  # dj_audio.tts as recorded
 
 
 def manifest_profile(manifest: object) -> str | None:
@@ -49,13 +69,18 @@ def manifest_voiced_by(manifest: object) -> str | None:
     return presenter if isinstance(presenter, str) and presenter else "house"
 
 
+def _raw_manifest(manifest_path: Path) -> object:
+    """The raw parsed manifest, or None when it cannot be read. Never raises."""
+    try:
+        return json.loads(Path(manifest_path).read_text())
+    except Exception:
+        return None
+
+
 def raw_profile(manifest_path: Path) -> str | None:
     """Best-effort profile from the raw manifest JSON (for rows whose
     manifest could not be loaded normally). Never raises."""
-    try:
-        return manifest_profile(json.loads(Path(manifest_path).read_text()))
-    except Exception:
-        return None
+    return manifest_profile(_raw_manifest(manifest_path))
 
 
 ProfileSource = Literal["move", "artist", "llama"]
@@ -159,14 +184,47 @@ def move_target_problem(config: EmceeConfig, moves: Moves, manifest: object) -> 
     return target_problem(config, entry["profile"], manifest_profile(manifest))
 
 
-def readiness(pkg: Package) -> tuple[bool, list[str]]:
-    """(ok, reasons) over the four independent legs: script present, DJ audio
-    present, broadcast.m3u present, every manifest track's audio file on
-    disk. `reasons` names each failing leg (empty when ready). Callers must
-    have already screened out unsupported (pre-v3) packages -- this assumes
-    `pkg.manifest()` succeeds and will propagate `UnsupportedPackage`/
-    `EmceeError` if it doesn't."""
+@dataclass(frozen=True)
+class Assessment:
+    """Every readiness leg's outcome for one package, plus what the run plan
+    needs to classify it."""
+    reasons: list[str]
+    voiced: bool                    # the dj_audio block is present
+    profile_reason: str | None      # the profile check's failing reason
+    missing_tracks: int
+    clips: int
+    effective: Effective
+
+    @property
+    def ok(self) -> bool:
+        return not self.reasons
+
+
+def profile_change_reason(voiced: str | None, effective: Effective,
+                          voiced_source: str | None) -> str:
+    """The profile check's reason, one per direction (spec section 4)."""
+    head = f"voiced as {profile_label(voiced)}, now {profile_label(effective.profile)}"
+    if effective.source == "artist":
+        return f'{head} (artist rule "{effective.rule}")'
+    if effective.source == "move":
+        return f"{head} (move)"
+    if voiced_source == "move":
+        return f"{head} (move no longer recorded)"
+    return f"{head} (delivered profile; no rule or move applies)"
+
+
+def assess(pkg: Package, config: EmceeConfig, moves: Moves) -> Assessment:
+    """All five legs. Callers must have already screened out unsupported
+    (pre-v3) packages: this assumes `pkg.manifest()` succeeds and lets
+    `UnsupportedPackage`/`EmceeError` (or a bare KeyError from a malformed
+    manifest) propagate.
+
+    The profile check runs only when `dj_audio` is present: the voiced
+    profile (`manifest_voiced_profile`; a legacy block reads as llama's
+    profile) must equal the effective one. A missing `tts`, or a different
+    presenter, never fails it."""
     manifest = pkg.manifest()
+    effective = effective_profile(config, moves, manifest)
     reasons: list[str] = []
 
     dj_notes = manifest.get("dj_notes")
@@ -174,6 +232,7 @@ def readiness(pkg: Package) -> tuple[bool, list[str]]:
         reasons.append("no DJ script (dj_notes block + dj-notes.md required)")
 
     dj_audio = manifest.get("dj_audio")
+    profile_reason = None
     if dj_audio is None:
         reasons.append("no DJ audio (unvoiced)")
     else:
@@ -184,6 +243,11 @@ def readiness(pkg: Package) -> tuple[bool, list[str]]:
                 f"{len(missing_clips)} DJ audio clip(s) missing on disk: "
                 + ", ".join(sorted(missing_clips))
             )
+        voiced_as = manifest_voiced_profile(manifest)
+        if voiced_as != effective.profile:
+            profile_reason = profile_change_reason(voiced_as, effective,
+                                                   manifest_voiced_source(manifest))
+            reasons.append(profile_reason)
 
     if not (pkg.dir / "broadcast.m3u").exists():
         reasons.append("no broadcast.m3u")
@@ -200,52 +264,76 @@ def readiness(pkg: Package) -> tuple[bool, list[str]]:
             + ", ".join(sorted(missing_tracks))
         )
 
-    return (not reasons), reasons
+    # One intro per non-encore set plus one outro (script_guard enforces it).
+    lead_in_sets = {t.get("set") for t in tracks
+                    if isinstance(t, dict) and t.get("set") != "encore"}
+    return Assessment(reasons, dj_audio is not None, profile_reason, len(missing_tracks),
+                      len(lead_in_sets) + 1, effective)
 
 
-def scan(station_root: Path) -> list[PackageStatus]:
+def readiness(pkg: Package, config: EmceeConfig, moves: Moves) -> tuple[bool, list[str]]:
+    """(ok, reasons) over the five legs; see `assess`."""
+    a = assess(pkg, config, moves)
+    return a.ok, a.reasons
+
+
+def identity(manifest: object, config: EmceeConfig, moves: Moves) -> dict:
+    """The PackageStatus fields that need only the manifest. Never raises,
+    so an error row can carry them too."""
+    effective = effective_profile(config, moves, manifest)
+    return {"profile": effective.profile, "profile_source": effective.source,
+            "delivered_profile": manifest_profile(manifest),
+            "performance_id": manifest_performance_id(manifest),
+            "voiced_by": manifest_voiced_by(manifest),
+            "voiced_source": manifest_voiced_source(manifest),
+            "voiced_profile": manifest_voiced_profile(manifest),
+            "tts": manifest_tts(manifest),
+            "move_problem": move_target_problem(config, moves, manifest)}
+
+
+def package_status(pkg: Package, config: EmceeConfig, moves: Moves) -> PackageStatus:
+    """A loadable v3 package's status. May raise on a malformed manifest."""
+    manifest = pkg.manifest()
+    a = assess(pkg, config, moves)
+    return PackageStatus(path=pkg.dir, state="ready" if a.ok else "pending", reasons=a.reasons,
+                         voiced=a.voiced, profile_reason=a.profile_reason,
+                         missing_tracks=a.missing_tracks, clips=a.clips,
+                         **identity(manifest, config, moves))
+
+
+def unsupported_status(pkg: Package) -> PackageStatus:
+    raw = _raw_manifest(pkg.manifest_path)
+    version = raw.get("schema_version", "?") if isinstance(raw, dict) else "?"
+    profile = manifest_profile(raw)
+    return PackageStatus(path=pkg.dir, state="unsupported",
+                         reasons=[f"unsupported (v{version} — re-deliver from llama)"],
+                         profile=profile, delivered_profile=profile,
+                         performance_id=manifest_performance_id(raw))
+
+
+def scan(station_root: Path, config: EmceeConfig, moves: Moves) -> list[PackageStatus]:
     """Every direct subdirectory of `station_root` containing a
-    `manifest.json` is a package; anything else (files, dirs without a
-    manifest) is skipped. A v2-or-earlier manifest yields `state=
-    "unsupported"` and is never touched further.
+    `manifest.json` is a package; anything else is skipped, and so are
+    dot-prefixed dirs (llama's staged replace-voiced swap). A v2-or-earlier
+    manifest yields `state="unsupported"`. Read-only.
 
     A missing or non-directory `station_root` yields an empty list rather
-    than raising -- `scan` alone can't distinguish "not configured yet" from
-    "legitimately empty", so that judgment call is left to callers. `emcee
-    run`/`emcee status` raise an `EmceeError` naming `[station] root` when
-    they need "not configured"/"missing" to be a hard error; `scan`'s
-    empty-list result is what they check for that.
+    than raising: `run`/`status` decide whether that is an error.
     """
     root = Path(station_root)
     if not root.is_dir():
         return []
-
     statuses: list[PackageStatus] = []
     for entry in sorted(root.iterdir()):
         if not entry.is_dir() or entry.name.startswith("."):
-            continue   # dot dirs: llama's staged replace-voiced swap
+            continue
         if not (entry / "manifest.json").exists():
             continue
         pkg = Package(entry)
         try:
-            manifest = pkg.manifest()
+            pkg.manifest()
         except UnsupportedPackage:
-            version = json.loads(pkg.manifest_path.read_text()).get(
-                "schema_version", "?"
-            )
-            statuses.append(
-                PackageStatus(
-                    path=entry,
-                    state="unsupported",
-                    reasons=[f"unsupported (v{version} — re-deliver from llama)"],
-                    profile=raw_profile(pkg.manifest_path),
-                )
-            )
+            statuses.append(unsupported_status(pkg))
             continue
-        ok, reasons = readiness(pkg)
-        statuses.append(
-            PackageStatus(path=entry, state="ready" if ok else "pending", reasons=reasons,
-                          profile=manifest_profile(manifest),
-                          voiced_by=manifest_voiced_by(manifest))
-        )
+        statuses.append(package_status(pkg, config, moves))
     return statuses
