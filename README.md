@@ -314,7 +314,7 @@ so a hot or quiet source stays hot or quiet under the voice; adding
 
 **Assigning a presenter to a llama profile.** `[assign]` maps the llama
 profile name stamped at `manifest["source"]["profile"]` to a presenter and
-an on-air title — this is the entire handoff between the two tools:
+an on-air title (an `emcee move` or `[assign.artists]` rule can change which profile a show is voiced as; see "Moving shows between profiles") — this is the entire handoff between the two tools:
 
     [assign]
     default = "waldo"                    # presenter used when a show's profile

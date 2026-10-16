@@ -105,9 +105,8 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   llama). No `voice`/`presenter` commands — that's emcee's job now.
 - Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
   `[station] root` and voice every not-yet-broadcast-ready package;
-  it prints a plan on stderr (new / re-voice by reason / repair, the exact clip count, presenter and TTS per group) and asks `Proceed? [y/N]` before ANY LLM or TTS spend; `--yes`/`-y` skips the question; with no TTY and no `--yes` it prints the plan and exits 1. A package whose only problem is missing track audio is skipped (`re-deliver from llama`), not voiced. **An agent (no TTY) runs `emcee run --dry-run`, shows the plan, and passes `--yes` only after the operator approves**; the `--yes` run re-scans, so keep the gap short;
-  `--profile <name>` (repeatable) limits it to those llama
-  profiles' packages, `--assigned` to packages whose profile has its OWN
+  it prints a plan on stderr (new / re-voice by reason / repair, the exact clip count, presenter and TTS per group) and asks `Proceed? [y/N]` before ANY LLM or TTS spend; `--yes`/`-y` skips the question; with no TTY and no `--yes` it prints the plan and exits 1. A pending package with missing track audio is skipped (`re-deliver from llama`), not voiced, whatever else is wrong with it. **An agent (no TTY) runs `emcee run --dry-run`, shows the plan, and passes `--yes` only after the operator approves**; the `--yes` run re-scans, so keep the gap short;
+  `--profile <name>` (repeatable) limits it to packages whose EFFECTIVE profile (move > artist rule > llama's) is one of those, `--assigned` to packages whose effective profile has its OWN
   `[assign.profiles.<name>]` entry (not those falling to `[assign] default`
   or the house voice), `--dry-run` lists what
   would be voiced and by whom — an explicit assignment prints `<id>`, the
@@ -213,9 +212,9 @@ over mlx-audio's server; a presenter may pin any of the three with `tts`, and
 clones are voiced on voxtral or mlx_audio, never elevenlabs), instrumental
 beds, the per-segment render cache, and
 assembling `dj-audio/`/`broadcast.m3u`. Its `[assign]` config maps a llama
-profile name to a presenter + on-air title, keyed off
-`manifest["source"]["profile"]`, which llama stamps on every package it
-delivers. emcee writes `dj-notes.md`, `dj-audio/`, and `broadcast.m3u`
+profile name to a presenter + on-air title, keyed off the
+effective profile (`manifest["source"]["profile"]`, which llama stamps on every
+package it delivers, unless a move or `[assign.artists]` rule overrides it). emcee writes `dj-notes.md`, `dj-audio/`, and `broadcast.m3u`
 straight into the package directory llama delivered, and rewrites the
 manifest's `dj_notes`/`dj_audio` blocks in place (llama writes both as
 `null` — they are emcee-written passthrough blocks in the shared manifest
