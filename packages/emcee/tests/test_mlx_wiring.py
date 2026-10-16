@@ -23,7 +23,7 @@ from emcee.tts.provider import SpeechError
 from emcee.tts.resolve import resolve_tts
 from emcee.tts.voxtral import VoxtralProvider
 
-from tests.helpers import build_package
+from tests.helpers import build_package, no_moves
 from tests.mlx_helpers import TEST_MODEL, MlxServer, calibrate_test_model, install_mlx, wav_bytes
 
 runner = CliRunner()
@@ -221,7 +221,7 @@ def test_dead_server_leaves_a_voiced_package_untouched(tmp_path, monkeypatch):
     tasks = _arm_llm(monkeypatch)
 
     with pytest.raises(SpeechError, match="not reachable"):
-        _process_one(load_config(), Package(pkg_dir), False)
+        _process_one(load_config(), no_moves(), Package(pkg_dir), False)
 
     assert tasks == []  # no scriptwrite call
     assert (pkg_dir / "manifest.json").read_bytes() == before
@@ -431,7 +431,7 @@ def test_a_config_only_failure_spends_nothing_and_keeps_the_package(tmp_path, mo
 
     if driver == "_process_one":
         with pytest.raises(EmceeError, match=re.escape(error)):
-            _process_one(load_config(), Package(pkg_dir), False, fresh=["set1-intro"])
+            _process_one(load_config(), no_moves(), Package(pkg_dir), False, fresh=["set1-intro"])
     else:
         result = runner.invoke(app, ["voice", str(pkg_dir), "--fresh", "set1-intro"])
         assert result.exit_code == 1

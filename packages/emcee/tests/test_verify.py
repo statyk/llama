@@ -26,7 +26,7 @@ from emcee.tts.resolve import resolve_tts
 from emcee.tts.verify import (SttClient, Verifier, comparable_words, match_words,
                               preflight_clip_wav, transcript_problem)
 
-from tests.helpers import build_package
+from tests.helpers import build_package, no_moves, voicing_for
 from tests.mlx_helpers import (TEST_MODEL, MlxServer, calibrate_test_model, install_mlx,
                                plausible_seconds, wav_bytes)
 
@@ -459,7 +459,7 @@ def test_mlx_preflight_fails_the_package_on_a_broken_stt_path(tmp_path, monkeypa
     tasks = _forbid_scriptwrite(monkeypatch)
 
     with pytest.raises(SpeechError, match=error):
-        _process_one(load_config(), Package(pkg_dir), False)
+        _process_one(load_config(), no_moves(), Package(pkg_dir), False)
 
     assert tasks == []
     assert (pkg_dir / "manifest.json").read_bytes() == before
@@ -479,7 +479,7 @@ def test_hosted_preflight_checks_the_bundled_clip(tmp_path, monkeypatch, server_
     tasks = _forbid_scriptwrite(monkeypatch)
 
     with pytest.raises(SpeechError, match=error):
-        _process_one(load_config(), Package(pkg_dir), False)
+        _process_one(load_config(), no_moves(), Package(pkg_dir), False)
 
     assert tasks == []
     assert (pkg_dir / "manifest.json").read_bytes() == before
@@ -544,7 +544,7 @@ def test_a_verified_package_whose_segment_fails_twice_is_not_voiced(tmp_path, mo
     before = pkg.manifest_path.read_bytes()
 
     with pytest.raises(SpeechDefect) as exc:
-        process_package(cfg, pkg, speech)
+        process_package(cfg, pkg, speech, voicing=voicing_for(cfg, pkg))
 
     assert exc.value.segment == "set1-intro"
     assert "in set1-intro" in str(exc.value) and "(failed twice)" in str(exc.value)

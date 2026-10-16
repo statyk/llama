@@ -25,15 +25,16 @@ from emcee.presenters import (
 )
 from emcee.audio import render_speech_mp3
 from emcee.process import (ad_hoc_bed, ad_hoc_speech, assignment_for, presenter_label,
-                           process_package, resolve_assignment, speech_for)
+                           process_package, resolve_voicing, speech_for_voicing)
 from emcee.speech_text import load_lexicon, normalize_for_speech
 from emcee.tts.bed import load_bed_pcm
 from emcee.tts.provider import SpeechError
 from emcee.tts.verify import SttClient
 from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
-from emcee.station import (PackageStatus, identity, package_status, raw_profile, scan,
-                           unsupported_status)
+from emcee.station import (PackageStatus, identity, manifest_performance_id,
+                           manifest_voiced_profile, manifest_voiced_source, package_status,
+                           raw_profile, scan, unsupported_status)
 
 _COMMAND_ORDER = ["run", "voice", "status", "say", "presenter", "config"]
 
@@ -221,27 +222,26 @@ def _load_station(config: EmceeConfig, root: Path) -> tuple[Moves, list[PackageS
     return moves, statuses
 
 
-def _process_one(config: EmceeConfig, pkg: Package, force: bool,
+def _process_one(config: EmceeConfig, moves: Moves, pkg: Package, force: bool,
                  fresh: Sequence[str] = ()) -> None:
     """Script + voice + broadcast-assemble one package. Shared by `run`'s
-    per-pending-package loop and `voice`.
+    per-package loop and `voice`.
 
-    Per the blessed call convention: `resolve_assignment`/`speech_for` are
-    resolved fresh here, every call -- never hoisted above a per-package
-    loop -- so each package's presenter-derived voice is never accidentally
-    reused for a different package.
+    The package is resolved exactly once (`resolve_voicing`: effective
+    profile, presenter, title, TTS) and that `Voicing` is passed through to
+    `process_package`; it is never hoisted above a per-package loop.
 
-    Order (spec section 2, strict surface 2): resolution and provider
-    construction, then `speech.preflight()`, THEN the `--fresh` unlink
-    (`fresh` holds already-validated, de-duplicated clip stems), THEN the
-    manifest clear, THEN `process_package` (the first LLM spend). So no
-    configuration-only failure -- an unpinned presenter under an mlx_audio
-    house, a down mlx-audio server, a missing model -- can discard a clip or
-    take a broadcast-ready package off air.
+    Order (strict surface): resolution (including use-time move validation)
+    and provider construction, then `speech.preflight()`, THEN the `--fresh`
+    unlink (`fresh` holds already-validated, de-duplicated clip stems), THEN
+    the manifest clear, THEN `process_package` (the first LLM spend). So no
+    configuration-only failure -- an invalid move target, an unpinned
+    presenter under an mlx_audio house, a down mlx-audio server, a missing
+    model -- can discard a clip or take a broadcast-ready package off air.
     """
     manifest = pkg.manifest()
-    presenter, title = resolve_assignment(config, manifest)
-    speech, bed = speech_for(config, presenter)
+    voicing = resolve_voicing(config, moves, manifest)
+    speech, _bed = speech_for_voicing(config, voicing)
     try:
         speech.preflight()
         if fresh:
@@ -262,7 +262,7 @@ def _process_one(config: EmceeConfig, pkg: Package, force: bool,
         # touches `dj-audio/segments.json` (the per-clip cache `--fresh`
         # relies on).
         rewrite_manifest(pkg, dj_notes=None, dj_audio=None)
-        process_package(config, pkg, speech, force)
+        process_package(config, pkg, speech, force, voicing=voicing)
     finally:
         # A raising close() must never mask a successful process_package --
         # or turn a completed package into a reported failure. Best-effort.
@@ -397,7 +397,7 @@ def run(
             processed += 1
             continue
         try:
-            _process_one(config, Package(status.path), force)
+            _process_one(config, moves, Package(status.path), force)
         except Exception as exc:
             typer.echo(f"error: {slug}: {_typed_error(exc)}", err=True)
             for line in getattr(exc, "details", []):
@@ -471,8 +471,12 @@ def voice_cmd(
     matching `emcee run`, instead of a raw traceback. Exits 1 on failure.
     """
     config = load_config()
+    moves = load_moves(config.root)   # a bad file fails here, before any work
     pkg = Package(_resolve_package(config, package, station_root))
-    pkg.manifest()  # validates schema_version >= 3; UnsupportedPackage/EmceeError -> boundary
+    manifest = pkg.manifest()  # validates schema_version >= 3; UnsupportedPackage/EmceeError -> boundary
+    if manifest_voiced_source(manifest) == "move":
+        moves.require_present([(pkg.dir.name, manifest_performance_id(manifest),
+                                manifest_voiced_profile(manifest))])
 
     stems: list[str] = []
     if fresh:
@@ -488,7 +492,7 @@ def voice_cmd(
         stems = list(dict.fromkeys(fresh))  # dedupe: a repeated stem must not double-unlink
 
     try:
-        _process_one(config, pkg, force, fresh=stems)
+        _process_one(config, moves, pkg, force, fresh=stems)
     except Exception as exc:
         typer.echo(f"error: {pkg.dir.name}: {_typed_error(exc)}", err=True)
         for line in getattr(exc, "details", []):

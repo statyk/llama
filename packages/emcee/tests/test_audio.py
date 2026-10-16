@@ -37,7 +37,7 @@ from emcee.tts.bed import load_bed_pcm
 from emcee.tts.fake import SILENT_MP3, FakeSpeechProvider
 from emcee.tts.provider import SpeechError
 
-from tests.helpers import build_package
+from tests.helpers import build_package, voicing_for
 
 # ---------------------------------------------------------------------------
 # _split_sentences
@@ -253,7 +253,7 @@ def _process(config: EmceeConfig, pkg: Package, speech, notes: ScriptNotes,
     """process_package with write_script stubbed to return `notes` --
     these tests exercise the audio pipeline, not scriptwriting."""
     with patch("emcee.process.write_script", return_value=notes):
-        process_package(config, pkg, speech, force=force)
+        process_package(config, pkg, speech, force=force, voicing=voicing_for(config, pkg))
 
 
 def test_process_package_synthesizes_dj_audio_and_manifest_block(tmp_path):
@@ -274,6 +274,9 @@ def test_process_package_synthesizes_dj_audio_and_manifest_block(tmp_path):
         "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         "outro": "dj-audio/99-outro.mp3",
         "presenter": None,
+        "profile": None,
+        "profile_source": "llama",
+        "tts": {"backend": "voxtral", "model": "fake-model", "voice": "fake-voice"},
     }
 
 

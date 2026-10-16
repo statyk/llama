@@ -16,7 +16,7 @@ from herder import FakeProvider
 from emcee.audio import broadcast_m3u_text, interleave_broadcast, m3u_text
 from emcee.config import Assignment, EmceeConfig, TTSConfig
 from emcee.errors import EmceeError
-from emcee.models import DJAudioBlock
+from emcee.models import DJClips
 from emcee.package_io import Package
 from emcee.presenters import Presenter, save_presenter
 from emcee.process import (_resolve_bed, ad_hoc_bed, ad_hoc_speech, process_package,
@@ -25,7 +25,7 @@ from emcee.tts.bed import Bed
 from emcee.tts.fake import FakeSpeechProvider
 from emcee.tts.provider import SpeechError
 
-from tests.helpers import build_package
+from tests.helpers import build_package, voicing_for
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -67,9 +67,8 @@ def test_resolve_assignment_matches_profile(tmp_path):
         root=tmp_path,
         assign={"profiles": {"prime-dead": Assignment(presenter="casey", title="The Primal Dead Hour")}},
     )
-    manifest = Package(build_package(tmp_path / "station", profile="prime-dead")).manifest()
 
-    presenter, title = resolve_assignment(config, manifest)
+    presenter, title = resolve_assignment(config, "prime-dead")
 
     assert presenter is not None and presenter.id == "casey"
     assert title == "The Primal Dead Hour"
@@ -78,10 +77,9 @@ def test_resolve_assignment_matches_profile(tmp_path):
 def test_resolve_assignment_falls_back_to_default_when_profile_unmatched(tmp_path):
     save_presenter(tmp_path, _presenter(id="waldo"))
     config = EmceeConfig(root=tmp_path, assign={"default": "waldo"})
-    # Profile stamped in the manifest has no [assign.profiles.*] entry.
-    manifest = Package(build_package(tmp_path / "station", profile="some-other-profile")).manifest()
+    # The profile has no [assign.profiles.*] entry.
 
-    presenter, title = resolve_assignment(config, manifest)
+    presenter, title = resolve_assignment(config, "some-other-profile")
 
     assert presenter is not None and presenter.id == "waldo"
     assert title is None
@@ -90,9 +88,8 @@ def test_resolve_assignment_falls_back_to_default_when_profile_unmatched(tmp_pat
 def test_resolve_assignment_falls_back_to_default_when_no_profile_stamped(tmp_path):
     save_presenter(tmp_path, _presenter(id="waldo"))
     config = EmceeConfig(root=tmp_path, assign={"default": "waldo"})
-    manifest = Package(build_package(tmp_path / "station", profile=None)).manifest()
 
-    presenter, title = resolve_assignment(config, manifest)
+    presenter, title = resolve_assignment(config, None)
 
     assert presenter is not None and presenter.id == "waldo"
     assert title is None
@@ -100,9 +97,8 @@ def test_resolve_assignment_falls_back_to_default_when_no_profile_stamped(tmp_pa
 
 def test_resolve_assignment_neutral_when_nothing_configured(tmp_path):
     config = EmceeConfig(root=tmp_path)
-    manifest = Package(build_package(tmp_path / "station", profile="prime-dead")).manifest()
 
-    presenter, title = resolve_assignment(config, manifest)
+    presenter, title = resolve_assignment(config, "prime-dead")
 
     assert presenter is None
     assert title is None
@@ -213,7 +209,7 @@ def test_process_package_writes_dj_notes_and_audio_and_manifest_last(tmp_path, m
     pkg = Package(pkg_dir)
     config = EmceeConfig(root=tmp_path / "home")
 
-    process_package(config, pkg, FakeSpeechProvider())
+    process_package(config, pkg, FakeSpeechProvider(), voicing=voicing_for(config, pkg))
 
     assert (pkg_dir / "dj-notes.md").exists()
     assert (pkg_dir / "dj-audio" / "set1-intro.mp3").exists()
@@ -225,6 +221,9 @@ def test_process_package_writes_dj_notes_and_audio_and_manifest_last(tmp_path, m
         "set_intros": {"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         "outro": "dj-audio/99-outro.mp3",
         "presenter": None,  # house narrator: key present, null
+        "profile": None,
+        "profile_source": "llama",
+        "tts": {"backend": "voxtral", "model": "fake-model", "voice": "fake-voice"},
     }
 
 
@@ -239,7 +238,8 @@ def test_process_package_manifest_unchanged_on_tts_failure_after_script(tmp_path
     before = pkg.manifest_path.read_text()
 
     with pytest.raises(SpeechError):
-        process_package(config, pkg, FakeSpeechProvider(fail=True))
+        process_package(config, pkg, FakeSpeechProvider(fail=True),
+                        voicing=voicing_for(config, pkg))
 
     # The manifest is byte-for-byte untouched -- proof the manifest write is
     # genuinely last: the script step ran and wrote dj-notes.md to disk
@@ -277,7 +277,7 @@ def test_process_package_uses_resolved_presenter_for_the_script(tmp_path, monkey
         assign={"profiles": {"prime-dead": Assignment(presenter="casey", title="The Show")}},
     )
 
-    process_package(config, pkg, FakeSpeechProvider())
+    process_package(config, pkg, FakeSpeechProvider(), voicing=voicing_for(config, pkg))
 
     assert captured["presenter"].id == "casey"
     assert captured["title"] == "The Show"
@@ -291,7 +291,7 @@ def _voice_and_read_presenter(tmp_path, monkeypatch, config_kwargs, profile):
     save_presenter(tmp_path / "home", _presenter(id="casey"))
     pkg = Package(build_package(tmp_path / "station", voiced=False, profile=profile))
     config = EmceeConfig(root=tmp_path / "home", **config_kwargs)
-    process_package(config, pkg, FakeSpeechProvider())
+    process_package(config, pkg, FakeSpeechProvider(), voicing=voicing_for(config, pkg))
     return json.loads(pkg.manifest_path.read_text())["dj_audio"]
 
 
@@ -328,8 +328,8 @@ def make_tracks() -> list[dict]:
     ]
 
 
-def make_dj_audio() -> DJAudioBlock:
-    return DJAudioBlock(
+def make_dj_audio() -> DJClips:
+    return DJClips(
         set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         outro="dj-audio/99-outro.mp3",
     )
@@ -561,7 +561,7 @@ def test_blocked_sentence_is_rephrased_and_package_succeeds(tmp_path, monkeypatc
     pkg, config = _setup(tmp_path)
     speech = FakeSpeechProvider(block="climax")
 
-    process_package(config, pkg, speech)
+    process_package(config, pkg, speech, voicing=voicing_for(config, pkg))
 
     m = pkg.manifest()
     assert m["dj_notes"]["set_intros"]["2"] == revised
@@ -577,7 +577,7 @@ def test_force_still_renders_each_clip_once(tmp_path, monkeypatch):
     pkg, config = _setup(tmp_path)
     speech = FakeSpeechProvider(block="climax")
 
-    process_package(config, pkg, speech, force=True)
+    process_package(config, pkg, speech, force=True, voicing=voicing_for(config, pkg))
 
     assert speech.calls.count(SET1) == 1
 
@@ -589,7 +589,8 @@ def test_reblocked_twice_raises_and_manifest_untouched(tmp_path, monkeypatch):
     before = pkg.manifest_path.read_text()
 
     with pytest.raises(EmceeError) as ei:
-        process_package(config, pkg, FakeSpeechProvider(block="climax"))
+        process_package(config, pkg, FakeSpeechProvider(block="climax"),
+                        voicing=voicing_for(config, pkg))
 
     assert "set2-intro" in str(ei.value) and "sexual" in str(ei.value)
     assert any("also blocked" in d for d in ei.value.details)
@@ -604,7 +605,7 @@ def test_guard_failing_rephrase_is_never_voiced(tmp_path, monkeypatch):
     pkg, config = _setup(tmp_path)
     speech = FakeSpeechProvider(block="climax")
 
-    process_package(config, pkg, speech)
+    process_package(config, pkg, speech, voicing=voicing_for(config, pkg))
 
     assert not any("three sets" in c for c in speech.calls)
     assert "claim 3 sets" in rephrase.calls[1][1]
@@ -617,7 +618,8 @@ def test_unchanged_rephrase_consumes_an_attempt(tmp_path, monkeypatch):
     rephrase, _ = _arm(monkeypatch, [SEG2, good])
     pkg, config = _setup(tmp_path)
 
-    process_package(config, pkg, FakeSpeechProvider(block="climax"))
+    process_package(config, pkg, FakeSpeechProvider(block="climax"),
+                    voicing=voicing_for(config, pkg))
 
     assert "unchanged" in rephrase.calls[1][1]
     assert pkg.manifest()["dj_notes"]["set_intros"]["2"] == good
@@ -629,7 +631,8 @@ def test_whole_passage_block_is_not_rephrased(tmp_path, monkeypatch):
     before = pkg.manifest_path.read_text()
 
     with pytest.raises(SpeechBlocked) as ei:
-        process_package(config, pkg, FakeSpeechProvider(block="two. The climax"))
+        process_package(config, pkg, FakeSpeechProvider(block="two. The climax"),
+                        voicing=voicing_for(config, pkg))
 
     assert ei.value.whole_passage is True and ei.value.segment == "set2-intro"
     assert "rephrase" not in requested and rephrase.calls == []
@@ -644,7 +647,7 @@ def test_containment_failing_rephrase_is_never_voiced(tmp_path, monkeypatch):
     pkg, config = _setup(tmp_path)
     speech = FakeSpeechProvider(block="climax")
 
-    process_package(config, pkg, speech)
+    process_package(config, pkg, speech, voicing=voicing_for(config, pkg))
 
     assert not any("Jack Straw" in c for c in speech.calls)
     second_prompt = rephrase.calls[1][1]
@@ -665,7 +668,8 @@ def test_two_blocked_segments_each_get_their_own_budget(tmp_path, monkeypatch):
     _arm(monkeypatch, [bad2, rev2, rev_outro], notes_json=notes)
     pkg, config = _setup(tmp_path)
 
-    process_package(config, pkg, FakeSpeechProvider(block="climax"))
+    process_package(config, pkg, FakeSpeechProvider(block="climax"),
+                    voicing=voicing_for(config, pkg))
 
     m = pkg.manifest()
     assert m["dj_notes"]["set_intros"]["2"] == rev2
@@ -681,7 +685,8 @@ def test_rephrase_llm_failure_leaves_manifest_untouched(tmp_path, monkeypatch):
     before = pkg.manifest_path.read_text()
 
     with pytest.raises(EmceeError) as ei:
-        process_package(config, pkg, FakeSpeechProvider(block="climax"))
+        process_package(config, pkg, FakeSpeechProvider(block="climax"),
+                        voicing=voicing_for(config, pkg))
 
     assert "set2-intro" in str(ei.value) and "rephrase task failed" in str(ei.value)
     assert isinstance(ei.value.__cause__, TaskFailed)
@@ -695,7 +700,8 @@ def test_chunked_repair_through_process_package(tmp_path, monkeypatch, capsys):
     pkg, _ = _setup(tmp_path)
     config = EmceeConfig(root=tmp_path / "home", tts=TTSConfig(chunk=True))
 
-    process_package(config, pkg, FakeSpeechProvider(block="climax"), force=True)
+    process_package(config, pkg, FakeSpeechProvider(block="climax"), force=True,
+                    voicing=voicing_for(config, pkg))
 
     out = capsys.readouterr().out
     assert "rephrased" in out and "blocked:" in out and "revised:" in out

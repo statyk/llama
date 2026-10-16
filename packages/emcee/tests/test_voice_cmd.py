@@ -241,7 +241,7 @@ def test_voice_failure_on_already_ready_package_degrades_manifest_to_pending(tmp
     ok_before, _ = readiness(pkg, load_config(), no_moves())
     assert ok_before is True  # sanity: genuinely ready before the failing re-voice
 
-    def flaky_process_package(config, p, speech, force=False):
+    def flaky_process_package(config, p, speech, force=False, **kwargs):
         raise RuntimeError("synthetic mid-pipeline blowup")
 
     import emcee.cli as cli_mod
@@ -557,7 +557,7 @@ def test_process_one_failed_preflight_spends_nothing_and_keeps_the_manifest(tmp_
     from emcee.tts.provider import SpeechError
 
     with pytest.raises(SpeechError, match="armed to fail preflight"):
-        _process_one(load_config(), Package(pkg_dir), False)
+        _process_one(load_config(), no_moves(), Package(pkg_dir), False)
 
     assert scripted == []
     assert (pkg_dir / "manifest.json").read_bytes() == manifest_before
@@ -617,5 +617,5 @@ def test_failed_preflight_still_closes_the_speech_provider(tmp_path, monkeypatch
     from emcee.tts.provider import SpeechError
 
     with pytest.raises(SpeechError, match="armed to fail preflight"):
-        _process_one(load_config(), Package(pkg_dir), False)
+        _process_one(load_config(), no_moves(), Package(pkg_dir), False)
     assert closed == [True]

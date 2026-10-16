@@ -5,19 +5,19 @@ recorded the presenter.
 For each voiced package whose `dj_audio` lacks the `presenter` key, look for
 exactly one presenter's on-air `name` (whole word, case-sensitive) in the
 script text (`dj_notes`). One match -> that presenter's id; zero or several
--> left as `?`. Dry run by default; `--apply` writes via emcee's
-`rewrite_manifest`. Needs emcee installed (it may import it; emcee never
-imports this).
+-> left as `?`. Dry run by default; `--apply` updates the raw manifest
+JSON in place (atomic write). Needs emcee installed (it may import it;
+emcee never imports this).
 """
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
 
 from emcee.config import load_config
 from emcee.errors import EmceeError
-from emcee.models import DJAudioBlock, ScriptNotes
-from emcee.package_io import Package, rewrite_manifest
+from emcee.package_io import Package, atomic_write
 from emcee.presenters import Presenter, list_presenters
 
 
@@ -59,12 +59,13 @@ def backfill(station_root: Path, presenters: list[Presenter], apply: bool) -> No
             continue
         print(f"{d.name}: {ids[0]}")
         if apply:
+            # A raw-dict update, never a DJAudioBlock round trip: a legacy
+            # block lacks the model's required profile/profile_source/tts,
+            # and unknown keys must survive.
             try:
-                rewrite_manifest(
-                    pkg,
-                    dj_notes=ScriptNotes.model_validate(dj_notes),
-                    dj_audio=DJAudioBlock.model_validate({**dj_audio, "presenter": ids[0]}),
-                )
+                data = json.loads(pkg.manifest_path.read_text())
+                data["dj_audio"]["presenter"] = ids[0]
+                atomic_write(pkg.manifest_path, json.dumps(data, indent=2) + "\n")
             except Exception as exc:  # one bad package must not stop the sweep
                 print(f"skip {d.name}: {exc}")
 

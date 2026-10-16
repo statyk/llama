@@ -4,7 +4,7 @@ Port of the speech half of llama's `stages/package.py` (chunked-synthesis
 sentence splitting, bed mixing, per-segment caching, `_synthesize_dj_audio`)
 plus llama's `manifest.py` playlist helpers (`m3u_text`,
 `interleave_broadcast`, `broadcast_m3u_text`) -- re-addressed to emcee's
-`ScriptNotes`/`DJAudioBlock` models and to a manifest `tracks: list[dict]`
+`ScriptNotes`/`DJClips` models and to a manifest `tracks: list[dict]`
 slice instead of llama's `ManifestTrack`/`DJAudio` models. emcee never
 imports llama, so this is a text port, not a shared dependency.
 """
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import typer
 
-from emcee.models import DJAudioBlock, ScriptNotes
+from emcee.models import DJClips, ScriptNotes
 from emcee.speech_text import Lexicon, normalize_for_speech
 from emcee.tts.bed import Bed, load_bed_pcm, mix_bed
 from emcee.tts.loudness import LOUDNESS_VERSION, normalize_speech
@@ -272,7 +272,7 @@ def _segment_texts(notes: ScriptNotes) -> list[tuple[str, str]]:
 def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
                          chunk: bool = False, lexicon: Lexicon | None = None,
                          bed: Bed | None = None,
-                         rendered: set[str] | None = None) -> DJAudioBlock:
+                         rendered: set[str] | None = None) -> DJClips:
     """One MP3 per ScriptNotes segment under package/dj-audio/.
 
     Segments are keyed by sha256(the speech-normalized text + voice + model +
@@ -352,7 +352,7 @@ def _synthesize_dj_audio(pkg: Path, notes: ScriptNotes, speech, force: bool,
             detail(f"pruning orphan {existing.name}")
             existing.unlink()
     atomic_write_text(sidecar, json.dumps(keys, indent=2))
-    return DJAudioBlock(
+    return DJClips(
         set_intros={key: f"dj-audio/set{key}-intro.mp3" for key in notes.set_intros},
         outro="dj-audio/99-outro.mp3",
     )
@@ -370,7 +370,7 @@ def m3u_text(filenames: list[str]) -> str:
     return "\n".join(["#EXTM3U", *[f"audio/{name}" for name in filenames]]) + "\n"
 
 
-def interleave_broadcast(tracks: list[dict], dj_audio: DJAudioBlock) -> list[str]:
+def interleave_broadcast(tracks: list[dict], dj_audio: DJClips) -> list[str]:
     """Package-relative paths in broadcast order: each set's lead-in before
     that set's first track, then the tracks, then dj_audio.outro after the
     last one. An encore set has no key in set_intros and so gets no lead-in —
@@ -390,5 +390,5 @@ def interleave_broadcast(tracks: list[dict], dj_audio: DJAudioBlock) -> list[str
     return paths
 
 
-def broadcast_m3u_text(tracks: list[dict], dj_audio: DJAudioBlock) -> str:
+def broadcast_m3u_text(tracks: list[dict], dj_audio: DJClips) -> str:
     return "\n".join(["#EXTM3U", *interleave_broadcast(tracks, dj_audio)]) + "\n"

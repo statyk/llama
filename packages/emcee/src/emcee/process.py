@@ -1,9 +1,12 @@
 """The `process_package` orchestrator: script + DJ audio + broadcast.m3u for
 one delivered llama package, plus presenter assignment and voice resolution.
 
-`resolve_assignment`/`speech_for` are ports of llama's assignment-driven
-voice resolution (`cli.py:136-195`, folded together since emcee resolves a
-presenter from the package's manifest rather than from a `Profile`).
+`resolve_voicing` resolves one package exactly once -- its effective
+profile (station.effective_profile: move > artist rule > llama's), the
+presenter and on-air title that profile is assigned, and the TTS backend --
+and `process_package` receives that `Voicing` rather than re-deriving any
+of it, so voice, persona, title, bed and the recorded profile can never
+come from two different resolutions.
 `process_package` is emcee's analog of llama's `run_package`
 (`stages/package.py:259-...`): it writes the script, synthesizes DJ audio,
 assembles `broadcast.m3u`, and rewrites the manifest's `dj_notes`/`dj_audio`
@@ -20,16 +23,18 @@ from herder import HerderError, provider_for
 from emcee.audio import _synthesize_dj_audio, broadcast_m3u_text, detail
 from emcee.config import EmceeConfig
 from emcee.errors import EmceeError
-from emcee.models import ScriptNotes
+from emcee.models import DJAudioBlock, ScriptNotes, TTSRecord
+from emcee.moves import Moves
 from emcee.package_io import Package, rewrite_manifest
 from emcee.presenters import Presenter, load_presenter
 from emcee.scriptwrite import (_fold, render_notes_md, rephrase_problems, rephrase_segment,
                                script_guard, write_script)
 from emcee.speech_text import load_lexicon
+from emcee.station import Effective, effective_profile, move_target_problem
 from emcee.tts import speech_provider_for
 from emcee.tts.bed import Bed
 from emcee.tts.provider import SpeechBlocked
-from emcee.tts.resolve import resolve_tts
+from emcee.tts.resolve import TTSResolution, resolve_tts
 from emcee.workspace import atomic_write_text
 
 
@@ -65,14 +70,37 @@ def presenter_label(view: AssignmentView) -> str:
     return f"{view.presenter} (default)" if view.source == "default" else view.presenter
 
 
-def resolve_assignment(config: EmceeConfig, manifest: dict) -> tuple[Presenter | None, str | None]:
-    """(presenter, title) for a delivered package, keyed off the llama
-    profile name stamped at `manifest["source"]["profile"]`; the rules live
-    in `assignment_for`."""
-    view = assignment_for(config, manifest.get("source", {}).get("profile"))
+def resolve_assignment(config: EmceeConfig, profile: str | None) -> tuple[Presenter | None, str | None]:
+    """(presenter, title) for an EFFECTIVE profile (`Voicing.effective`).
+    Takes a profile, never a manifest, so no caller can key it on the
+    delivered profile by accident; the rules live in `assignment_for`."""
+    view = assignment_for(config, profile)
     if view.presenter is None:
         return None, None
     return load_presenter(config.root, view.presenter), view.title
+
+
+@dataclass(frozen=True)
+class Voicing:
+    """Everything one package's voicing is resolved to, once."""
+    effective: Effective
+    presenter: Presenter | None
+    title: str | None
+    resolution: TTSResolution
+
+
+def resolve_voicing(config: EmceeConfig, moves: Moves, manifest: dict) -> Voicing:
+    """The single resolution for one package: a recorded move whose target
+    cannot be voiced is refused (use-time validation, spec section 3); then
+    the effective profile, its presenter and title, and the presenter's TTS.
+    Pure apart from reading the presenter's TOML: raises before any spend
+    and before `_process_one` clears the manifest."""
+    problem = move_target_problem(config, moves, manifest)
+    if problem is not None:
+        raise EmceeError(problem)
+    effective = effective_profile(config, moves, manifest)
+    presenter, title = resolve_assignment(config, effective.profile)
+    return Voicing(effective, presenter, title, resolve_tts(config, presenter))
 
 
 def _resolve_bed(config: EmceeConfig, presenter: Presenter | None) -> Bed | None:
@@ -85,31 +113,10 @@ def _resolve_bed(config: EmceeConfig, presenter: Presenter | None) -> Bed | None
     return Bed(Path(path), config.tts.bed_gain_db)
 
 
-def speech_for(config: EmceeConfig, presenter: Presenter | None):
-    """(speech_provider, bed) for a resolved presenter (or the house voice).
-
-    Port of llama's `_speech_for` (`cli.py:167-174`) folded together with
-    `resolve_bed` (`cli.py:186-195`), applying `_resolve_voice`'s
-    (`cli.py:136-157`) presenter-owns-its-voice precedence rule -- minus the
-    `[tts] enabled` gate, since emcee has no station-wide voice toggle (it
-    always voices what it processes).
-
-    A presenter fully owns its voice: `presenter.voice` is passed as
-    `voice` and `presenter.voice_clone` as `clone_ref` -- the station
-    `[tts] voice_clone` never bleeds into a presenter's run. With no
-    presenter, the house `config.tts.voice` and `config.tts.voice_clone`
-    are passed the same way. Raises `EmceeError` if no voice can be
-    resolved at all -- there is no profile to fault here (unlike llama),
-    so the message instead points at `[tts] voice`/`[tts] voice_clone`/the
-    presenter's own fields.
-
-    Resolution (`resolve_tts`) runs first and is pure: an unpinned
-    presenter under an mlx_audio house, or a missing/uncalibrated mlx model,
-    raises here -- before any spend and before `_process_one` clears the
-    manifest. The presenter's (or [tts]'s) `voice_clone_text` travels with
-    its clip as `clone_text`.
-    """
-    resolution = resolve_tts(config, presenter)
+def _speech_from(config: EmceeConfig, presenter: Presenter | None, resolution: TTSResolution):
+    """(speech_provider, bed) for an already-resolved presenter and TTS
+    resolution. A presenter fully owns its voice; with no presenter the
+    house [tts] voice/voice_clone/voice_clone_text are used."""
     if presenter is not None:
         voice, clone, text = presenter.voice, presenter.voice_clone, presenter.voice_clone_text
     else:
@@ -122,6 +129,19 @@ def speech_for(config: EmceeConfig, presenter: Presenter | None):
     speech = speech_provider_for(config, resolution, voice=voice, clone_ref=clone,
                                  clone_text=text)
     return speech, _resolve_bed(config, presenter)
+
+
+def speech_for(config: EmceeConfig, presenter: Presenter | None):
+    """(speech_provider, bed) for a presenter (or the house voice), resolving
+    its TTS first (`resolve_tts`, pure: an unpinned presenter under an
+    mlx_audio house raises here). Used by `emcee say`; package voicing uses
+    `speech_for_voicing` so the TTS is resolved once."""
+    return _speech_from(config, presenter, resolve_tts(config, presenter))
+
+
+def speech_for_voicing(config: EmceeConfig, voicing: Voicing):
+    """(speech_provider, bed) for one package's `Voicing`."""
+    return _speech_from(config, voicing.presenter, voicing.resolution)
 
 
 def ad_hoc_speech(config: EmceeConfig, *, clone_ref: str | None = None,
@@ -244,42 +264,28 @@ def _repair(notes: ScriptNotes, blocked: SpeechBlocked, manifest: dict, provider
     )
 
 
-def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = False) -> None:
+def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = False, *,
+                    voicing: Voicing) -> None:
     """Script, voice, and broadcast-assemble one delivered package.
 
     Order: write_script -> render dj-notes.md -> synthesize DJ audio ->
     broadcast.m3u -> rewrite the manifest's dj_notes/dj_audio blocks last.
-    The manifest rewrite is the package's success marker (spec section 2):
-    on any failure this raises and the manifest is left byte-for-byte as it
-    was, so a partially-processed package still reads `dj_notes`/`dj_audio`
-    as `None` and stays `pending` in `station.readiness` regardless of any
-    dj-notes.md / dj-audio/*.mp3 / broadcast.m3u files a failed run left
-    behind.
+    The manifest rewrite is the package's success marker: on any failure
+    this raises and the manifest is left byte-for-byte as it was.
 
     A TTS content-filter block (`SpeechBlocked`) is repaired in place by
-    `_repair` -- see the 2026-10-03 content-filter spec; `rewrite_manifest`
-    receives the final notes, so `dj_notes`, `dj-notes.md` and the voiced
-    audio agree.
+    `_repair`.
 
-    `speech` is the already-resolved speech provider for this package's
-    assigned presenter (built by the caller via `speech_for`, or a test
-    double); `process_package` re-derives the presenter (and its bed) itself
-    from the manifest so it can build the scriptwriting persona and the
-    correct bed without the caller having to thread them through separately.
-
-    CALLER CONTRACT: `speech` MUST be the provider `speech_for` returned for
-    THIS package's own `resolve_assignment` result -- not one resolved for a
-    different package and reused. Nothing here checks that `speech` and the
-    bed this function derives came from the same presenter: a batch loop
-    that resolves a presenter and builds `speech` once, then calls
-    `process_package` for multiple packages, would silently pair presenter
-    X's voice with presenter Y's bed (and gain) for any package assigned to
-    Y -- no exception, wrong audio, and a cache key that faithfully records
-    the wrong render. Callers (e.g. `emcee run` iterating a station) must
-    resolve `speech_for` fresh per package, not hoist it above the loop.
+    CALLER CONTRACT: `voicing` is THIS package's `resolve_voicing` result
+    and `speech` is `speech_for_voicing(config, voicing)` -- never resolved
+    for one package and reused for another. The persona, title and bed all
+    come from `voicing.presenter`, and the recorded `dj_audio` from
+    `voicing` plus `speech`; nothing here re-resolves, so a hoisted
+    resolution would voice, script AND record the wrong presenter
+    consistently.
     """
     manifest = pkg.manifest()
-    presenter, title = resolve_assignment(config, manifest)
+    presenter, title = voicing.presenter, voicing.title
 
     llm_provider = provider_for(config.llm_settings(), "scriptwrite")
     notes = write_script(pkg, llm_provider, presenter, title)
@@ -297,9 +303,9 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
     rephraser = None
     while True:
         try:
-            dj_audio = _synthesize_dj_audio(pkg.dir, notes, speech, force,
-                                            chunk=config.tts.chunk, lexicon=lexicon,
-                                            bed=bed, rendered=rendered)
+            clips = _synthesize_dj_audio(pkg.dir, notes, speech, force,
+                                         chunk=config.tts.chunk, lexicon=lexicon,
+                                         bed=bed, rendered=rendered)
             break
         except SpeechBlocked as blocked:
             if blocked.whole_passage or blocked.segment is None:
@@ -310,7 +316,12 @@ def process_package(config: EmceeConfig, pkg: Package, speech, force: bool = Fal
             atomic_write_text(pkg.dir / "dj-notes.md", render_notes_md(notes, manifest))
 
     atomic_write_text(pkg.dir / "broadcast.m3u",
-                      broadcast_m3u_text(manifest["tracks"], dj_audio))
+                      broadcast_m3u_text(manifest["tracks"], clips))
 
-    dj_audio.presenter = presenter.id if presenter is not None else None
+    dj_audio = DJAudioBlock(
+        set_intros=clips.set_intros, outro=clips.outro,
+        presenter=presenter.id if presenter is not None else None,
+        profile=voicing.effective.profile, profile_source=voicing.effective.source,
+        tts=TTSRecord(backend=voicing.resolution.backend, model=speech.model,
+                      voice=speech.voice))
     rewrite_manifest(pkg, dj_notes=notes, dj_audio=dj_audio)

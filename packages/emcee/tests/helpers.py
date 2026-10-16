@@ -173,6 +173,13 @@ def no_moves() -> Moves:
     return Moves(path=_NO_ROOT / "moves.json", exists=False, entries={})
 
 
+def voicing_for(config, pkg):
+    """The one resolution `_process_one` would make for `pkg` with no moves:
+    for tests that drive `process_package` directly."""
+    from emcee.process import resolve_voicing
+    return resolve_voicing(config, no_moves(), pkg.manifest())
+
+
 def moves_of(targets: dict[str, str | None]) -> Moves:
     """A loaded moves.json mapping performance_id -> target profile."""
     return Moves(path=_NO_ROOT / "moves.json", exists=True, entries={

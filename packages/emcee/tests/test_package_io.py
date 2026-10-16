@@ -9,7 +9,7 @@ import json
 import pytest
 
 from emcee.errors import EmceeError
-from emcee.models import DJAudioBlock, ScriptNotes
+from emcee.models import DJAudioBlock, ScriptNotes, TTSRecord
 from emcee.package_io import Package, UnsupportedPackage, atomic_write, rewrite_manifest
 from emcee.workspace import atomic_write_text
 
@@ -85,6 +85,8 @@ def test_rewrite_manifest_sets_exactly_the_two_blocks(tmp_path):
     audio = DJAudioBlock(
         set_intros={"1": "dj-audio/set1-intro.mp3", "2": "dj-audio/set2-intro.mp3"},
         outro="dj-audio/99-outro.mp3",
+        profile="dead", profile_source="llama",
+        tts=TTSRecord(backend="fake", model=None, voice="v"),
     )
     rewrite_manifest(pkg, dj_notes=notes, dj_audio=audio)
 

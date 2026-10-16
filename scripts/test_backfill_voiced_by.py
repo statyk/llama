@@ -101,3 +101,11 @@ def test_unreadable_manifest_skipped(tmp_path, capsys):
     (d / "manifest.json").write_text("{nope")
     bf.backfill(tmp_path, PRES, apply=True)
     assert capsys.readouterr().out.startswith("skip bad:")
+
+
+def test_apply_is_a_raw_update_that_keeps_unknown_keys(tmp_path, capsys):
+    p = make(tmp_path, "s1", "Hi, this is K.C.",
+             audio={"set_intros": {"1": "a.mp3"}, "outro": "o.mp3", "future_key": {"x": 1}})
+    bf.backfill(tmp_path, PRES, apply=True)
+    assert load(p)["dj_audio"] == {"set_intros": {"1": "a.mp3"}, "outro": "o.mp3",
+                                   "future_key": {"x": 1}, "presenter": "kurt"}

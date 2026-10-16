@@ -9,6 +9,8 @@ design spec, section 5); the two must be kept shape-compatible by hand if
 either side changes.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -30,13 +32,38 @@ class RephrasedSegment(BaseModel):
     text: str
 
 
-class DJAudioBlock(BaseModel):
-    """Per-segment spoken DJ clips, as package-relative paths (dj-audio/...).
-    Written to the package manifest's `dj_audio` block."""
+class DJClips(BaseModel):
+    """The clip paths `_synthesize_dj_audio` renders (package-relative,
+    dj-audio/...). Everything `broadcast.m3u` assembly needs."""
 
     set_intros: dict[str, str]  # one lead-in clip per non-encore set
     outro: str
+
+
+class TTSRecord(BaseModel):
+    """How one package's clips were synthesized. `backend` comes from the
+    TTS resolution; `model`/`voice` from the provider instance -- the same
+    values the render-cache key uses, so one record per package is exact.
+    `voice` is a preset name, or `clone:<sha256[:16]>` of the reference clip
+    (voxtral) or of the clip plus its transcript (mlx_audio)."""
+
+    backend: str
+    model: str | None
+    voice: str
+
+
+class DJAudioBlock(DJClips):
+    """The manifest's `dj_audio` block as emcee writes it.
+
+    `profile`/`profile_source`/`tts` are required with no defaults, so a
+    legacy block (which lacks them) round-tripped through this model fails
+    loudly instead of writing `"profile": null` -- which would make the
+    package pending. Legacy blocks are only ever updated as raw dicts."""
+
     # Id of the presenter that voiced this package; None = the house narrator.
     # Always serialized, so a house-voiced manifest carries `"presenter": null`
     # -- distinguishable from a legacy manifest that lacks the key entirely.
     presenter: str | None = None
+    profile: str | None                                  # the effective profile voiced as
+    profile_source: Literal["move", "artist", "llama"]  # where that profile came from
+    tts: TTSRecord                                       # how its clips were synthesized

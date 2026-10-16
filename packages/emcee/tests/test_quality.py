@@ -18,7 +18,7 @@ from emcee.tts.provider import SpeechBlocked, SpeechDefect, SpeechError
 from emcee.tts.quality import QualitySpeech
 from emcee.tts.resolve import resolve_tts
 
-from tests.helpers import build_package
+from tests.helpers import build_package, voicing_for
 from tests.mlx_helpers import (TEST_CAL, TEST_MODEL, calibrate_test_model, plausible_seconds,
                                wav_bytes)
 
@@ -156,7 +156,8 @@ def test_a_double_failure_fails_the_package_and_leaves_the_manifest(tmp_path, mo
     config = EmceeConfig(root=tmp_path / "home", tts=TTSConfig(chunk=False))
 
     with pytest.raises(SpeechDefect):
-        process_package(config, pkg, layer(Scripted(defect(), defect())))
+        process_package(config, pkg, layer(Scripted(defect(), defect())),
+                        voicing=voicing_for(config, pkg))
 
     assert pkg.manifest_path.read_bytes() == before
     _assert_nothing_written_for(pkg.dir, "set1-intro")

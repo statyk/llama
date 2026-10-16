@@ -188,10 +188,10 @@ def test_run_batch_continues_after_one_package_fails(tmp_path, monkeypatch):
 
     real_process_package = process_mod.process_package
 
-    def flaky_process_package(config, pkg, speech, force=False):
+    def flaky_process_package(config, pkg, speech, force=False, **kwargs):
         if pkg.dir.name == "failshow":
             raise RuntimeError("synthetic TTS blowup")
-        return real_process_package(config, pkg, speech, force)
+        return real_process_package(config, pkg, speech, force, **kwargs)
 
     import emcee.cli as cli_mod
     monkeypatch.setattr(cli_mod, "process_package", flaky_process_package)
@@ -253,22 +253,21 @@ def test_run_malformed_but_valid_json_manifest_reported_and_batch_continues(tmp_
 
 
 # ---------------------------------------------------------------------------
-# The blessed call convention, pinned: resolve_assignment/speech_for MUST be
-# resolved fresh INSIDE the per-package loop. Hoisting them above the loop
-# is the one silent-wrong-audio failure mode in the whole package (see
+# The blessed call convention, pinned: resolve_voicing/speech_for_voicing
+# MUST be resolved fresh INSIDE the per-package loop. Hoisting them above the
+# loop is the one silent-wrong-audio failure mode in the whole package (see
 # process.py's module docstring and process_package's docstring) -- a
-# hoisted mutant would give every package in the batch the FIRST package's
-# voice paired with THAT package's own (correctly re-derived-by-
-# process_package) bed, an inconsistent pairing that raises no exception
-# and exits 0.
+# hoisted mutant would voice, script and record every package in the batch
+# as the FIRST package's presenter (its voice AND its bed), which raises no
+# exception and exits 0.
 #
 # `FakeSpeechProvider.__init__` hardcodes `self.voice = "fake-voice"`
 # (tts/fake.py), so the requested voice is only observable at the
 # `speech_provider_for` call boundary -- not on the returned object under
 # the real backend factory. We tag a fake provider with the voice it was
 # asked for, and intercept `_synthesize_dj_audio` (the point where
-# `process_package` brings `speech` and the package's own re-derived `bed`
-# together) to record (package, voice, bed-file) triples.
+# `process_package` brings `speech` and the voicing's `bed` together) to
+# record (package, voice, bed-file) triples.
 # ---------------------------------------------------------------------------
 
 
@@ -312,9 +311,9 @@ def _hoist_probe_setup(tmp_path, monkeypatch):
             pass
 
     def fake_synth(pkg_dir, notes, speech, force, chunk=False, lexicon=None, bed=None, rendered=None):
-        from emcee.models import DJAudioBlock
+        from emcee.models import DJClips
         calls.append((pkg_dir.name, speech.voice, bed.path.name if bed is not None else None))
-        return DJAudioBlock(
+        return DJClips(
             set_intros={k: f"dj-audio/set{k}-intro.mp3" for k in notes.set_intros},
             outro="dj-audio/99-outro.mp3",
         )
@@ -339,34 +338,27 @@ def test_run_never_pairs_one_packages_voice_with_anothers_bed(tmp_path, monkeypa
     }
 
 
-def test_hoisting_resolve_assignment_and_speech_for_breaks_the_pairing(tmp_path, monkeypatch):
-    """Sanity-checks the probe above: this pins the *mutant* shape the
-    previous test guards against, proving the probe would actually catch a
-    hoisted `resolve_assignment`/`speech_for` -- not just exercise a code
-    path that happens not to fail. Does not touch cli.py; it directly
-    replays the hoisted (wrong) call shape a mutation would produce, using
-    the exact same production `resolve_assignment`/`speech_for`."""
+def test_hoisting_the_voicing_breaks_the_pairing(tmp_path, monkeypatch):
+    """Sanity-checks the probe above: replays the hoisted (wrong) call shape
+    a mutation would produce -- one resolve_voicing for the whole batch --
+    and shows b-show is voiced with alice's voice and bed."""
     from emcee.config import load_config
     from emcee.package_io import Package
-    from emcee.process import resolve_assignment, speech_for
+    from emcee.process import resolve_voicing, speech_for_voicing
+    from tests.helpers import no_moves
 
     calls = _hoist_probe_setup(tmp_path, monkeypatch)
     config = load_config()
     root = config.station.root
     packages = [Package(root / "a-show"), Package(root / "b-show")]
 
-    # The hoisted mutant: resolve ONCE from the first package, reuse for all.
-    manifest = packages[0].manifest()
-    presenter, _title = resolve_assignment(config, manifest)
-    speech, _bed = speech_for(config, presenter)
+    voicing = resolve_voicing(config, no_moves(), packages[0].manifest())
+    speech, _bed = speech_for_voicing(config, voicing)
     for pkg in packages:
-        process_mod.process_package(config, pkg, speech, False)
+        process_mod.process_package(config, pkg, speech, False, voicing=voicing)
 
     by_pkg = {name: (voice, bed) for name, voice, bed in calls}
-    # b-show got alice's voice (from a-show's resolution) paired with its
-    # OWN, correctly-re-derived bob.wav bed -- the exact silent mismatch
-    # I1 warns about. No exception, but wrong audio.
-    assert by_pkg["b-show"] == ("alice-voice", "bob.wav")
+    assert by_pkg["b-show"] == ("alice-voice", "alice.wav")
     assert by_pkg["b-show"] != ("bob-voice", "bob.wav")
 
 
@@ -580,7 +572,7 @@ def test_dry_run_house_label_and_no_side_effects(tmp_path, monkeypatch):
         raise AssertionError("provider constructed during --dry-run")
 
     monkeypatch.setattr(process_mod, "provider_for", boom)
-    monkeypatch.setattr("emcee.cli.speech_for", boom)
+    monkeypatch.setattr("emcee.cli.speech_for_voicing", boom)
     monkeypatch.setattr("emcee.cli.process_package", boom)
 
     result = runner.invoke(app, ["run", "--dry-run", "--force"])
@@ -736,7 +728,7 @@ def test_dry_run_marks_invalid_and_unresolved_presenters_and_completes(tmp_path,
     build_package(station, slug="a", profile="dead")
     build_package(station, slug="b", profile="indie")
     build_package(station, slug="c", profile="jazz")
-    monkeypatch.setattr("emcee.cli.speech_for", lambda *a, **k: (_ for _ in ()).throw(
+    monkeypatch.setattr("emcee.cli.speech_for_voicing", lambda *a, **k: (_ for _ in ()).throw(
         AssertionError("dry-run must not build a provider")))
 
     result = runner.invoke(app, ["run", "--dry-run"])
