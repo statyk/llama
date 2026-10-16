@@ -17,7 +17,6 @@ imports llama.
 
 import json
 import os
-import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -29,6 +28,7 @@ except ImportError:  # pragma: no cover - non-POSIX fallback
     fcntl = None
 
 from emcee.errors import EmceeError
+from emcee.workspace import atomic_write_bytes
 
 MOVES_FILE = "moves.json"
 LOCK_FILE = "moves.json.lock"
@@ -141,22 +141,8 @@ def moves_lock(root: Path) -> Iterator[None]:
 def write_moves(root: Path, data: dict[str, dict]) -> None:
     """Unique temp + fsync + rename: a crash leaves the old file or the new
     one, never a torn one."""
-    path = moves_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = (json.dumps(data, indent=2, sort_keys=True) + "\n").encode()
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(payload)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except FileNotFoundError:
-            pass
-        raise
+    atomic_write_bytes(moves_path(root), payload, fsync=True)
 
 
 def record_move(root: Path, performance_id: str, profile: str | None, package: str, *,

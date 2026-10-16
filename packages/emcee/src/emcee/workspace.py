@@ -18,12 +18,17 @@ def atomic_write_text(path: Path, text: str) -> None:
     atomic_write_bytes(path, text.encode())
 
 
-def atomic_write_bytes(path: Path, data: bytes) -> None:
+def atomic_write_bytes(path: Path, data: bytes, *, fsync: bool = False) -> None:
+    """Unique temp + rename. `fsync=True` flushes the temp to disk before the
+    rename, so a crash leaves the old file or the new one, never a torn one."""
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
+            if fsync:
+                f.flush()
+                os.fsync(f.fileno())
         os.replace(tmp, path)
     except BaseException:
         try:

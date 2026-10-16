@@ -119,7 +119,7 @@ def test_require_present_fails_naming_the_path_the_count_and_both_ways_out(tmp_p
 def test_write_moves_fsyncs_sorts_and_leaves_no_temp(tmp_path, monkeypatch):
     synced: list[int] = []
     real_fsync = os.fsync
-    monkeypatch.setattr(moves_mod.os, "fsync", lambda fd: (synced.append(fd), real_fsync(fd))[1])
+    monkeypatch.setattr("emcee.workspace.os.fsync", lambda fd: (synced.append(fd), real_fsync(fd))[1])
     root = tmp_path / "home"
 
     write_moves(root, {"B/2": {"profile": None}, "A/1": {"profile": "x"}})
