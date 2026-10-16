@@ -8,6 +8,7 @@ import json
 import sys
 import traceback
 from collections.abc import Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn
 
@@ -18,7 +19,7 @@ from herder import HerderError
 
 from emcee.config import DEFAULT_CONFIG_TOML, EmceeConfig, default_root, load_config
 from emcee.errors import EmceeError
-from emcee.moves import Moves, load_moves
+from emcee.moves import Moves, clear_move, load_moves, record_move
 from emcee.package_io import Package, UnsupportedPackage, rewrite_manifest
 from emcee.presenters import (
     Presenter, PresenterError, delete_presenter, list_presenters, load_presenter, save_presenter,
@@ -32,11 +33,12 @@ from emcee.tts.provider import SpeechError
 from emcee.tts.verify import SttClient
 from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
-from emcee.station import (PackageStatus, identity, manifest_performance_id,
-                           manifest_voiced_profile, manifest_voiced_source, package_status,
-                           raw_profile, scan, unsupported_status)
+from emcee.station import (PackageStatus, assess, effective_profile, identity,
+                           manifest_performance_id, manifest_profile, manifest_voiced_profile,
+                           manifest_voiced_source, package_status, profile_label, raw_profile,
+                           scan, target_problem, unsupported_status)
 
-_COMMAND_ORDER = ["run", "voice", "status", "say", "presenter", "config"]
+_COMMAND_ORDER = ["run", "voice", "status", "move", "say", "presenter", "config"]
 
 
 class OrderedPanelGroup(TyperGroup):
@@ -750,6 +752,129 @@ def _assignments_using_presenter(config: EmceeConfig, presenter_id: str) -> list
     if config.assign.default == presenter_id:
         users.append("[assign] default")
     return users
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _echo_moves(config: EmceeConfig, moves: Moves, statuses: list[PackageStatus]) -> None:
+    """`move --list`: one row per recorded move, sorted by performance_id:
+    package, id, target (from delivered), `missing` when no scanned package
+    carries the id, `[no assign entry]` when the move fails use-time
+    validation."""
+    if not moves.entries:
+        typer.echo("no moves recorded")
+        return
+    by_pid: dict[str, PackageStatus] = {}
+    for s in statuses:
+        if s.performance_id is not None:
+            by_pid.setdefault(s.performance_id, s)
+    for pid, entry in sorted(moves.entries.items()):
+        target = entry["profile"]
+        package = entry.get("package")
+        name = package if isinstance(package, str) and package else pid
+        status = by_pid.get(pid)
+        if status is None:
+            line = f"{name}  {pid}  {profile_label(target)} (from ?)  missing"
+            bad = target is not None and target not in config.assign.profiles
+        else:
+            line = f"{name}  {pid}  {profile_label(target)} (from {profile_label(status.delivered_profile)})"
+            bad = target_problem(config, target, status.delivered_profile) is not None
+        if bad:
+            line += "  [no assign entry]"
+        typer.echo(line)
+
+
+@app.command("move")
+def move_cmd(
+    show: str = typer.Argument(
+        None, help="A package directory, or a package's name (or unique substring) under "
+                   "\\[station] root; for --clear also a recorded performance_id or package name"),
+    profile: str = typer.Argument(None, help="The profile to voice this show as"),
+    delivered: bool = typer.Option(
+        False, "--delivered",
+        help="Move back to the profile llama delivered it under (exempts it from an artist rule)"),
+    clear: bool = typer.Option(False, "--clear", help="Remove this show's recorded move"),
+    list_moves: bool = typer.Option(False, "--list", help="List every recorded move"),
+    station_root: Path = typer.Option(
+        None, "--station-root", help="Override \\[station] root for this invocation"),
+):
+    """Record, clear or list a one-off profile move (`moves.json`).
+
+    `emcee move <show> <profile>` voices that show as `<profile>` from the
+    next `emcee run` on, whatever llama delivered it under; `--delivered`
+    moves it back to llama's profile, which is how one show is exempted from
+    an `\\[assign.artists]` rule. The target needs its own
+    `\\[assign.profiles.<name>]` entry unless it is the delivered profile.
+    Moves are keyed by the manifest's `source.performance_id`, so they
+    survive llama's `--replace-voiced` re-delivery. No LLM or TTS call is
+    made: the show is re-voiced by the next `emcee run`.
+    """
+    if list_moves:
+        if show is not None or profile is not None or delivered or clear:
+            _usage("--list takes no package, profile, --delivered or --clear")
+    else:
+        if show is None:
+            _usage("give a package and one of <profile>, --delivered, --clear; or --list")
+        if sum([profile is not None, delivered, clear]) != 1:
+            _usage("give exactly one of <profile>, --delivered, --clear")
+
+    config = load_config()
+    root = _resolve_station_root(config, station_root)
+    moves, statuses = _load_station(config, root)   # bad or missing moves.json: refuse first
+
+    if list_moves:
+        _echo_moves(config, moves, statuses)
+        return
+
+    if clear:
+        def live_performance_id() -> str:
+            pkg = Package(_resolve_package(config, show, station_root))
+            pid = manifest_performance_id(pkg.manifest())
+            if pid is None:
+                raise EmceeError(f"{pkg.dir.name} has no source.performance_id; "
+                                 "no move can be recorded for it")
+            return pid
+
+        typer.echo(f"cleared: {clear_move(config.root, show, live_performance_id)}")
+        return
+
+    pkg = Package(_resolve_package(config, show, station_root))
+    manifest = pkg.manifest()  # unsupported or unreadable: EmceeError -> exit 1
+    pid = manifest_performance_id(manifest)
+    if pid is None:
+        raise EmceeError(f"{pkg.dir.name} has no source.performance_id; "
+                         "a move cannot be recorded for it")
+    delivered_profile = manifest_profile(manifest)
+    target = delivered_profile if delivered else profile
+    if target_problem(config, target, delivered_profile) is not None:
+        raise EmceeError(
+            f"no [assign.profiles.{target}] entry: a move must target an assigned profile "
+            f"or the delivered one ({profile_label(delivered_profile)})")
+    before = effective_profile(config, moves, manifest).profile
+    if not record_move(config.root, pid, target, pkg.dir.name, moved_at=_utc_now()):
+        typer.echo(f"unchanged: {pkg.dir.name}  move to {profile_label(target)} already recorded")
+        return
+    try:
+        a = assess(pkg, config, load_moves(config.root))
+    except Exception as exc:
+        typer.echo(f"moved: {pkg.dir.name}  {profile_label(before)} -> {profile_label(target)} "
+                   f"(state unknown: {_typed_error(exc)})")
+        return
+    after = profile_label(a.effective.profile)
+    # The state is the profile check's, not full readiness (a missing clip or
+    # broadcast.m3u still reads "ready"). Missing track audio replaces any
+    # "voiced on the next run" claim: `run` skips such a package.
+    missing = (f"{a.missing_tracks} audio file(s) missing — re-deliver from llama"
+               if a.missing_tracks else None)
+    if not a.voiced:
+        state = "unvoiced; " + (missing or f"voiced as {after} on the next emcee run")
+    elif a.profile_reason is None:
+        state = f"ready; already voiced as {after}" + (f"; {missing}" if missing else "")
+    else:
+        state = "pending; " + (missing or "voiced on the next emcee run")
+    typer.echo(f"moved: {pkg.dir.name}  {profile_label(before)} -> {after} ({state})")
 
 
 def _usage(message: str) -> NoReturn:
