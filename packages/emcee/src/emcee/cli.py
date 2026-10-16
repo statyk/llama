@@ -723,14 +723,28 @@ def say_cmd(
 _STATUS_STATES = ("ready", "pending", "unsupported", "error")
 
 
+def _profile_cell(s: PackageStatus) -> str:
+    """The `--list` profile cell: the effective profile; ` (from <llama's>)`
+    when a move or rule changed it; ` [no assign entry]` when its recorded
+    move cannot be voiced."""
+    cell = profile_label(s.profile)
+    if s.profile_source is not None and s.profile != s.delivered_profile:
+        cell += f" (from {profile_label(s.delivered_profile)})"
+    if s.move_problem is not None:
+        cell += " [no assign entry]"
+    return cell
+
+
 def _status_json_row(config: EmceeConfig, s: PackageStatus) -> dict:
     view = assignment_for(config, s.profile)
     presenter, source = view.presenter, view.source
     if s.profile is None and s.state in ("error", "unsupported"):
         presenter = source = None  # unreadable manifest: no profile, so no assignment
     return {"slug": s.path.name, "state": s.state, "reasons": s.reasons,
-            "profile": s.profile, "voiced_by": s.voiced_by,
-            "assigned_presenter": presenter, "assignment_source": source}
+            "profile": s.profile, "delivered_profile": s.delivered_profile,
+            "profile_source": s.profile_source, "voiced_by": s.voiced_by,
+            "assigned_presenter": presenter, "assignment_source": source,
+            "tts": s.tts, "move_problem": s.move_problem}
 
 
 def _note_unmatched_profiles(statuses: list[PackageStatus], names) -> None:
@@ -804,15 +818,20 @@ def status_cmd(
 ):
     """Summary of the station by profile; `--list` for every package.
 
-    With no flags: one row per profile -- its assigned presenter and how
-    many packages are ready / pending / other (unsupported + error), plus a
-    total. `--list`/`-l`, `--profile NAME` or `--state STATE` switch to the
-    per-show table (slug, profile, state, voiced-by, reasons), filtered by
-    any given `--profile`/`--state`. Voiced-by shows who voiced a package
-    (`?` = voiced before emcee recorded it) and, when the current
-    `\\[assign]` config would now pick someone else, `(now: <presenter>)`.
-    `--json` is always per-show and adds `profile`, `voiced_by`,
-    `assigned_presenter` and `assignment_source`.
+    Profiles are EFFECTIVE profiles: a recorded move (`emcee move`), else an
+    `\\[assign.artists]` rule, else the llama profile. With no flags: one row
+    per profile -- its assigned presenter and how many packages are ready /
+    pending / other (unsupported + error), plus a total. `--list`/`-l`,
+    `--profile NAME` or `--state STATE` switch to the per-show table (slug,
+    profile, state, voiced-by, reasons); a profile a move or rule changed
+    reads `southern (from funk)`, and a move whose target has no
+    `\\[assign.profiles]` entry adds `[no assign entry]`. "pending" no longer
+    means "off air": a package pending only for a profile change keeps
+    airing its old voicing until it is re-voiced. `--json` is always
+    per-show and adds `profile`, `delivered_profile`, `profile_source`,
+    `voiced_by`, `assigned_presenter`, `assignment_source`, `tts` (the
+    recorded TTS, null when absent) and `move_problem`. Recorded moves that
+    match no package are counted in a `note:` on stderr.
 
     States: "ready" (fully voiced and broadcast-assembled), "pending" (not
     yet, or not fully, processed), "unsupported" (pre-v3 manifest --
@@ -823,7 +842,8 @@ def status_cmd(
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
-    _moves, statuses = _load_station(config, root)
+    moves, statuses = _load_station(config, root)
+    stale = _stale_moves(moves, statuses)
 
     bad = [st for st in (state or []) if st not in _STATUS_STATES]
     if bad:
@@ -840,23 +860,23 @@ def status_cmd(
 
     if json_output:
         typer.echo(json.dumps([_status_json_row(config, s) for s in statuses], indent=2))
-        return
-
-    if not statuses:
+    elif not statuses:
         typer.echo("no packages found" if station_empty or not filtered
                    else "no packages match")
-        return
-    if not (list_view or filtered):
+    elif not (list_view or filtered):
         _echo_status_summary(config, statuses)
-        return
-    width = max(len(s.path.name) for s in statuses)
-    pwidth = max(len(s.profile or "(none)") for s in statuses)
-    cells = [_voiced_by_cell(config, s) for s in statuses]
-    vwidth = max(len(c) for c in cells)
-    for s, cell in zip(statuses, cells):
-        reasons = "; ".join(s.reasons)
-        typer.echo(f"{s.path.name:<{width}}  {s.profile or '(none)':<{pwidth}}  "
-                   f"{s.state:<12}  {cell:<{vwidth}}  {reasons}".rstrip())
+    else:
+        width = max(len(s.path.name) for s in statuses)
+        profiles = [_profile_cell(s) for s in statuses]
+        pwidth = max(len(p) for p in profiles)
+        cells = [_voiced_by_cell(config, s) for s in statuses]
+        vwidth = max(len(c) for c in cells)
+        for s, pcell, cell in zip(statuses, profiles, cells):
+            reasons = "; ".join(s.reasons)
+            typer.echo(f"{s.path.name:<{width}}  {pcell:<{pwidth}}  "
+                       f"{s.state:<12}  {cell:<{vwidth}}  {reasons}".rstrip())
+    if stale:
+        typer.echo(_stale_note(stale), err=True)
 
 
 def _assignments_using_presenter(config: EmceeConfig, presenter_id: str) -> list[str]:
