@@ -69,18 +69,12 @@ def manifest_voiced_by(manifest: object) -> str | None:
     return presenter if isinstance(presenter, str) and presenter else "house"
 
 
-def _raw_manifest(manifest_path: Path) -> object:
+def raw_manifest(manifest_path: Path) -> object:
     """The raw parsed manifest, or None when it cannot be read. Never raises."""
     try:
         return json.loads(Path(manifest_path).read_text())
     except Exception:
         return None
-
-
-def raw_profile(manifest_path: Path) -> str | None:
-    """Best-effort profile from the raw manifest JSON (for rows whose
-    manifest could not be loaded normally). Never raises."""
-    return manifest_profile(_raw_manifest(manifest_path))
 
 
 ProfileSource = Literal["move", "artist", "llama"]
@@ -284,6 +278,7 @@ def identity(manifest: object, config: EmceeConfig, moves: Moves) -> dict:
     return {"profile": effective.profile, "profile_source": effective.source,
             "delivered_profile": manifest_profile(manifest),
             "performance_id": manifest_performance_id(manifest),
+            "voiced": isinstance(_get(manifest, "dj_audio"), dict),
             "voiced_by": manifest_voiced_by(manifest),
             "voiced_source": manifest_voiced_source(manifest),
             "voiced_profile": manifest_voiced_profile(manifest),
@@ -296,13 +291,13 @@ def package_status(pkg: Package, config: EmceeConfig, moves: Moves) -> PackageSt
     manifest = pkg.manifest()
     a = assess(pkg, config, moves)
     return PackageStatus(path=pkg.dir, state="ready" if a.ok else "pending", reasons=a.reasons,
-                         voiced=a.voiced, profile_reason=a.profile_reason,
+                         profile_reason=a.profile_reason,
                          missing_tracks=a.missing_tracks, clips=a.clips,
                          **identity(manifest, config, moves))
 
 
 def unsupported_status(pkg: Package) -> PackageStatus:
-    raw = _raw_manifest(pkg.manifest_path)
+    raw = raw_manifest(pkg.manifest_path)
     version = raw.get("schema_version", "?") if isinstance(raw, dict) else "?"
     profile = manifest_profile(raw)
     return PackageStatus(path=pkg.dir, state="unsupported",

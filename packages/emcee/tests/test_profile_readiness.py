@@ -176,19 +176,36 @@ def test_a_bad_moves_file_fails_loudly_before_any_work(tmp_path, monkeypatch, co
     assert json.loads((station / "a" / "manifest.json").read_text())["dj_audio"] is None
 
 
+def _break_track(m: dict) -> None:
+    """`pkg.manifest()` loads; `assess` raises (KeyError): `_scan_broad`'s
+    second arm."""
+    del m["tracks"][0]["filename"]
+
+
+def _break_schema(m: dict) -> None:
+    """`pkg.manifest()` itself raises (TypeError: str < int):
+    `_scan_broad`'s first arm."""
+    m["schema_version"] = "3"
+
+
 @pytest.mark.parametrize("command, broken", [
-    (["run"], False), (["run", "--dry-run"], False), (["status"], False),
-    (["status"], True), (["run"], True),
-], ids=["run", "run-dry-run", "status", "status-scan-broad", "run-scan-broad"])
+    (["run"], None), (["run", "--dry-run"], None), (["status"], None),
+    (["status"], _break_track), (["run"], _break_track),
+    (["status"], _break_schema), (["run"], _break_schema),
+], ids=["run", "run-dry-run", "status", "status-scan-broad", "run-scan-broad",
+        "status-scan-broad-arm1", "run-scan-broad-arm1"])
 def test_a_missing_moves_file_with_move_voiced_packages_fails(tmp_path, monkeypatch, command,
                                                               broken):
+    """With `broken`, the move-voiced package m2 is itself malformed, so it
+    becomes a `_scan_broad` error row -- which must still count toward the
+    guard ("2 package(s)", not 1)."""
     home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
     for slug in ("m1", "m2"):
         pkg_dir = build_package(station, slug=slug, voiced=True, profile="funk")
         set_dj_audio(pkg_dir, profile="southern", profile_source="move", presenter="gregg")
     build_package(station, slug="fresh", profile="dead")
     if broken:
-        _malformed(station)
+        _edit(station / "m2", broken)
     broad: list[int] = []
     real_broad = cli_mod._scan_broad
     monkeypatch.setattr(cli_mod, "_scan_broad",
@@ -204,6 +221,7 @@ def test_a_missing_moves_file_with_move_voiced_packages_fails(tmp_path, monkeypa
     details = "\n".join(exc.details)
     assert str(home / "moves.json") in str(exc) and "2 package(s)" in str(exc)
     assert "m1: performance_id GratefulDead/m1, voiced as southern" in details
+    assert "m2: performance_id GratefulDead/m2, voiced as southern" in details
     assert "rebuild" in details and "write {}" in details
     assert "voiced:" not in result.output and "would voice" not in result.output
     assert not (home / "moves.json").exists()
@@ -253,3 +271,43 @@ def test_a_malformed_manifest_does_not_unmove_a_moved_ready_package(tmp_path, mo
     assert by["bad"]["state"] == "error"
     assert by["moved"]["state"] == "ready"
     assert by["moved"]["profile"] == "southern"
+
+
+@pytest.mark.parametrize("assign, moves, profile, source", [
+    (_SOUTHERN, {"GratefulDead/m2": "southern"}, "southern", "move"),
+    (_RULE, {}, "southern", "artist"),
+], ids=["move", "artist-rule"])
+def test_a_structurally_wrong_manifest_error_row_carries_the_effective_profile(
+        tmp_path, monkeypatch, assign, moves, profile, source):
+    """`_scan_broad`'s first arm (`pkg.manifest()` raises on valid JSON):
+    the error row resolves like any other row, through `identity`."""
+    home, station = station_home(tmp_path, monkeypatch, assign=assign)
+    pkg_dir = build_package(station, slug="m2", voiced=True, profile="funk", artist=TTB)
+    set_dj_audio(pkg_dir, profile="southern", profile_source=source, presenter="gregg")
+    _edit(pkg_dir, _break_schema)
+    write_moves_file(home, moves)
+
+    result = runner.invoke(app, ["status", "--json"])
+
+    [row] = json.loads(result.stdout)
+    assert row["state"] == "error"
+    assert (row["profile"], row["delivered_profile"], row["profile_source"]) == (
+        profile, "funk", source)
+    assert row["voiced_by"] == "gregg"
+    listed = runner.invoke(app, ["status", "--list"])
+    assert "southern (from funk)" in listed.output
+
+
+def test_an_unreadable_manifest_error_row_resolves_nothing(tmp_path, monkeypatch):
+    """The documented limit: unparseable JSON gets no profile and no
+    `profile_source` -- never `identity(None)`'s `"llama"`."""
+    home, station = station_home(tmp_path, monkeypatch, assign=_SOUTHERN)
+    bad = station / "bad"
+    bad.mkdir()
+    (bad / "manifest.json").write_text('{"schema_version": 3, "source": {"pro')
+
+    result = runner.invoke(app, ["status", "--json"])
+
+    [row] = json.loads(result.stdout)
+    assert row["state"] == "error"
+    assert (row["profile"], row["delivered_profile"], row["profile_source"]) == (None, None, None)

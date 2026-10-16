@@ -35,7 +35,7 @@ from emcee.tts.resolve import TTSResolutionError, resolve_tts
 from emcee.workspace import atomic_write_bytes
 from emcee.station import (PackageStatus, assess, effective_profile, identity,
                            manifest_performance_id, manifest_profile, manifest_voiced_profile,
-                           manifest_voiced_source, package_status, profile_label, raw_profile,
+                           manifest_voiced_source, package_status, profile_label, raw_manifest,
                            scan, target_problem, unsupported_status)
 
 _COMMAND_ORDER = ["run", "voice", "status", "move", "say", "presenter", "config"]
@@ -191,9 +191,25 @@ def _scan_broad(root: Path, config: EmceeConfig, moves: Moves) -> list[PackageSt
             statuses.append(unsupported_status(pkg))
             continue
         except Exception as exc:
-            profile = raw_profile(pkg.manifest_path)
+            raw = raw_manifest(pkg.manifest_path)
+            if isinstance(raw, dict):
+                # Valid JSON, wrong structure (e.g. `"schema_version": "3"`):
+                # `identity` is total over any dict, so this row still carries
+                # the effective profile, performance_id and `voiced_source`,
+                # and a move-voiced package counts toward `_load_station`'s
+                # missing-moves.json guard (strict surface 2).
+                ident = identity(raw, config, moves)
+            else:
+                # Documented limit: unreadable JSON (or a non-object top
+                # level) carries nothing to resolve, so the row records no
+                # profile and no `voiced_source` -- never `identity(None)`,
+                # which would stamp `profile_source: "llama"` on it. A
+                # move-voiced package whose manifest is unreadable does not
+                # count toward the missing-moves.json guard.
+                profile = manifest_profile(raw)
+                ident = {"profile": profile, "delivered_profile": profile}
             statuses.append(PackageStatus(path=entry, state="error", reasons=_error_reasons(exc),
-                                          profile=profile, delivered_profile=profile))
+                                          **ident))
             continue
         try:
             statuses.append(package_status(pkg, config, moves))
