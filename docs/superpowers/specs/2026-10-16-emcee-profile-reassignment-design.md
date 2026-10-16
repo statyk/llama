@@ -35,7 +35,12 @@ in this work touches a show's music or llama's library. What it does touch:
    hard error for every command that resolves a profile, never "no moves":
    treating it as empty would mark every moved show pending and re-voice it
    back under its old profile. A missing file is a hard error too whenever a
-   package records that it was voiced under a move (section 3).
+   package records that it was voiced under a move (section 3). **Limit:**
+   that record exists only for moves that have been voiced. A move not yet
+   voiced, and an exemption move (one that leaves voicing unchanged, such as
+   `--delivered`), live only in `moves.json`; if the file goes missing, those
+   are lost without an error, and `emcee run`'s plan, which names every
+   re-voice and its reason, is the last guard.
 3. **Existing packages are not re-voiced by this release alone.** With no
    rules and no moves, every package that is ready today stays ready, whether
    or not its manifest predates the new fields.
@@ -197,19 +202,25 @@ emcee move --list               # every recorded move
   whether written by name or as `--delivered` (the only spelling for a
   delivered profile of `None`). It beats an artist rule, so it is how one show
   is exempted from a rule ("this TTB show stays in funk").
-- `emcee move` makes no LLM or TTS call. It prints the result:
-  - a new move that changes the effective profile, e.g.
-    `moved: tedeschitrucksband-2012-11-29  funk -> southern (pending; voiced
-    on the next emcee run)`;
-  - a new move that leaves the effective profile as it is (e.g. a show
-    already effective as `funk` through llama, moved to `funk`): `recorded
-    (voicing unchanged)`;
+- `emcee move` makes no LLM or TTS call. It prints the effective-profile
+  change and the package's resulting state, taken from the readiness profile
+  check after the move:
+  - pending, e.g. `moved: tedeschitrucksband-2012-11-29  funk -> southern
+    (pending; voiced on the next emcee run)`;
+  - ready, e.g. an exemption of a show a rule had made pending:
+    `moved: tedeschitrucksband-2012-11-29  southern -> funk (ready; already
+    voiced as funk)`;
+  - unvoiced packages say `(unvoiced; voiced as <profile> on the next emcee
+    run)`;
   - the identical move already recorded: `unchanged`, exit 0.
 - **`--clear` addressing.** Recorded entries are matched first, by exact
   `performance_id` or exact recorded package name, so a stale move whose
   package is gone can be cleared. Only if none matches is `<show>` resolved as
   a live package (exact name, then unique substring) and its move cleared.
-  `--clear` always prints the `performance_id` it removed.
+  If more than one recorded entry matches (e.g. a stale entry and a new one
+  under a re-keyed `performance_id` share a package name), `--clear` refuses
+  as ambiguous and lists the `performance_id`s, which can then be cleared
+  exactly. `--clear` always prints the `performance_id` it removed.
 - `--list` prints one row per move: the package name, the target profile,
   the delivered profile, `missing` when no package under the station root
   carries that `performance_id`, and `[no assign entry]` when the move fails
@@ -236,10 +247,12 @@ emcee move --list               # every recorded move
   before any work. `move` scans the station for this check before writing:
   otherwise recording one new move would create a fresh `moves.json` and
   silence the check for every move that was lost. (`move --list` and
-  `--clear` refuse the same way.)
+  `--clear` refuse the same way.) The error names both ways out: rebuild the
+  entries (below), or write `{}` to the path to accept the loss.
 - **Recovery.** Every move-voiced package records its profile and
-  `profile_source: "move"` in its manifest, so lost moves can be rebuilt from
-  the station root by hand.
+  `profile_source: "move"` in its manifest, so voiced moves can be rebuilt
+  from the station root by hand. Unvoiced and exemption moves cannot (see
+  strict surface 2's limit).
 
 ## 4. What emcee records, and readiness
 
@@ -247,13 +260,20 @@ emcee move --list               # every recorded move
 package's `Effective`, its assignment (presenter, title) and its
 `TTSResolution` once, and passes them into `process_package` as required
 arguments with no defaults. `process_package` no longer calls
-`resolve_assignment`. Today the presenter is resolved twice; a second
+`resolve_assignment`, and `resolve_assignment` changes to take a profile
+(the `Effective`'s) instead of a manifest, so no caller can key it on the
+delivered profile by accident. Today the presenter is resolved twice; a second
 resolution that missed the moves would pair one presenter's voice with
 another's persona, title and bed, and record the wrong profile, so the
 package would be re-voiced on every run.
 
-`DJAudioBlock` (`models.py:33`) gains three required fields (no defaults),
-set where `process_package` builds the block:
+`DJAudioBlock` (`models.py:33`) gains three required fields (no defaults).
+Today `audio._synthesize_dj_audio` builds the block (`audio.py:355`) and
+`process_package` sets `presenter` afterwards; instead,
+`_synthesize_dj_audio` returns only the clip paths and `process_package`
+builds the whole block, with `presenter`, `profile`, `profile_source` and
+`tts`. Test helpers that build a block directly (`tests/test_process.py`,
+`tests/test_run_cmd.py`, `tests/test_package_io.py`) supply the new fields.
 
 ```python
 profile: str | None                                  # the effective profile voiced as
@@ -327,7 +347,7 @@ to voice: 20 packages, 60 clips
                 tedeschitrucksband-2012-11-29
                 tedeschitrucksband-2013-07-11
                 ...
-  repair     1
+  repair     1  emerson-1999-03-03
 TTS:
   gregg (Mr. LeNoir)   voxtral  voxtral-mini-tts-2603   18 packages
   kurt (K.C.)          mlx_audio  Qwen3-TTS-12Hz-1.7B   2 packages
@@ -340,8 +360,14 @@ Proceed? [y/N]
   - `re-voice`: `dj_audio` present and the profile check fails. Grouped by
     reason with counts, and every re-voice package listed by name, since
     re-voicing is the destructive action;
-  - `repair`: pending for any other leg only (a missing clip, missing
-    `broadcast.m3u`, missing tracks).
+  - `repair`: pending for a missing clip or missing `broadcast.m3u`, with the
+    profile check passing; listed by name like re-voices, since a repair also
+    overwrites the existing script and clips.
+  - A package whose only failing leg is missing track audio is left out of
+    the plan and reported as a skip row (`skip <slug>: N audio file(s)
+    missing; re-deliver from llama`): voicing cannot fix it, so it would be
+    paid for again on every run. If it also fails another leg, it is still
+    skipped: tracks come first.
 - **Clips** is exact: per package, one intro per non-encore set in the
   manifest's tracks plus one outro (`script_guard` enforces this,
   `scriptwrite.py:145-149`).
@@ -403,7 +429,10 @@ strands nothing.
 
 When `emcee run` is invoked by an agent (Claude Code's shell has no TTY), the
 agent runs `emcee run --dry-run`, shows the plan, and passes `--yes` only
-after the operator approves.
+after the operator approves. The `--yes` run scans again, so anything
+delivered, moved or edited between the dry run and the approval is voiced
+without having been shown; keep that gap short, and run nothing else against
+the station in between.
 
 ## Docs
 
@@ -443,9 +472,11 @@ suite.
   `profile_source` and `tts`, including `profile: null` serialized for a
   no-profile show; a clone presenter's `voice` is `clone:<hash>`; a legacy
   block round-tripped through `DJAudioBlock` is rejected.
-- **`emcee move`:** record, `unchanged`, `recorded (voicing unchanged)`,
+- **`emcee move`:** record, `unchanged`, the result state taken from the
+  readiness check (pending, ready for an exemption, unvoiced),
   `--delivered` without an assignment entry, `--clear` (present and stale,
-  recorded entries matched before live packages, the removed
+  recorded entries matched before live packages, ambiguous recorded matches
+  refused with their ids listed, the removed
   `performance_id` printed, the last move leaving `{}`), `--list` with
   `missing` and `[no assign entry]` rows, each refusal leaving the file
   byte-for-byte unchanged, the lock held around load–modify–write, other
@@ -455,13 +486,14 @@ suite.
 - **`moves.json` failures:** truncated JSON and a wrong shape each fail `run`
   and `status` loudly, and `run` makes no LLM or TTS call (strict surface 2);
   a missing file with a move-voiced package fails `run`, `voice`, `status`
-  and `move` (which writes nothing) with the path and count; a missing file
-  with none is "no moves".
+  and `move` (which writes nothing) with the path, the count and both ways
+  out; a missing file with none is "no moves".
 - **Use-time validation:** a move whose target lost its assignment entry is
   an error row in `run`, others still voiced.
 - **Stale-move note:** printed by `run` and `status`.
 - **The pause:** the plan's categories (`new`, `re-voice` grouped and listed
-  by name, `repair`) and exact clip count; plan and prompt on stderr; `--yes`;
+  by name, `repair` listed by name, a tracks-missing package skipped with
+  `re-deliver from llama` and never voiced) and exact clip count; plan and prompt on stderr; `--yes`;
   a decline; no TTY without `--yes` refusing with no LLM or TTS call made
   (strict surface 1); `--dry-run` printing the plan and never prompting, and
   `--yes --dry-run` voicing nothing; nothing to voice → no prompt; exit 1
