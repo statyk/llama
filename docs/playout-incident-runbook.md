@@ -249,5 +249,6 @@ condition clears.
   (DJ blocks cleared) is ineligible and planned around until the re-voice
   lands. A re-voice cannot cause `LayoutError` (that comes only from an
   on-air row whose encode is missing). A re-voice that FAILS leaves the
-  package off the pool until `emcee voice <show>` succeeds.
+  package off the pool until a later `emcee run` or `emcee voice <show>`
+  succeeds.
 - **Render the fallback:** `transmitter fallback render <loop> [--notice <file>]`.

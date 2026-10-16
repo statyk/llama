@@ -449,12 +449,12 @@ def run(
     no `--yes` it prints the plan and refuses (exit 1). After a yes it
     voices exactly the planned packages, from the same scan.
 
-    A pending package whose only problem is missing track audio is skipped
-    (`skip <slug>: N audio file(s) missing; re-deliver from llama`): voicing
-    cannot fix it. "unsupported" (pre-v3) packages are reported and never
-    modified. A package whose recorded move targets a profile with no
-    `\\[assign.profiles]` entry is an error row and is never voiced, even
-    when it is otherwise ready. Per-package failures are
+    A pending package with missing track audio is skipped, whatever else is
+    wrong with it (`skip <slug>: N audio file(s) missing; re-deliver from
+    llama`): voicing cannot fix it. "unsupported" (pre-v3) packages are
+    reported and never modified. A package whose recorded move targets a
+    profile with no `\\[assign.profiles]` entry is an error row and is never
+    voiced, even when it is otherwise ready. Per-package failures are
     printed as `error: <slug>: <message>` and do not stop the batch.
 
     `--profile NAME` (repeatable) and `--assigned` select by the EFFECTIVE

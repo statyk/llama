@@ -77,8 +77,11 @@ llama delivered**, and rewrites the manifest's `dj_notes`/`dj_audio` blocks
 in place — everything else in the package is llama-owned and untouched.
 Which presenter (if any) voices which show is decided by matching the
 llama **profile name** stamped in the manifest (`source.profile`, see
-below) against emcee's own `[assign]` config — llama and emcee never talk
-to each other directly; the manifest is the entire contract.
+below) against emcee's own `[assign]` config — unless an emcee move
+(`emcee move`) or an `[assign.artists]` rule changes the profile the show
+is voiced as (recorded in the manifest as `dj_audio.profile`). llama and
+emcee never talk to each other directly; the manifest is the entire
+contract.
 
 `emcee run` assumes a **single writer**: run it from one place at a time
 against a given station root (it takes no lock). Running two overlapping
