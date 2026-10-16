@@ -9,6 +9,8 @@ imports llama. Every later emcee task's tests build their fixtures through
 import json
 from pathlib import Path
 
+from emcee.moves import Moves
+
 SONGS = [
     "Morning Dew",
     "Sugaree",
@@ -160,3 +162,19 @@ def build_package(
         _write_text(pkg_dir / "broadcast.m3u", "#EXTM3U\n")
 
     return pkg_dir
+
+
+_NO_ROOT = Path("/nonexistent-emcee-root")
+
+
+def no_moves() -> Moves:
+    """An absent moves.json: the explicit 'no moves' every resolver call needs."""
+    return Moves(path=_NO_ROOT / "moves.json", exists=False, entries={})
+
+
+def moves_of(targets: dict[str, str | None]) -> Moves:
+    """A loaded moves.json mapping performance_id -> target profile."""
+    return Moves(path=_NO_ROOT / "moves.json", exists=True, entries={
+        pid: {"profile": profile, "package": pid.rsplit("/", 1)[-1],
+              "moved_at": "2026-10-16T00:00:00Z"}
+        for pid, profile in targets.items()})
