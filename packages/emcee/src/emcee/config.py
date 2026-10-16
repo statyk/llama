@@ -172,7 +172,11 @@ class AssignConfig(_StrictModel):
         """A rule naming a profile with no [assign.profiles] entry would
         silently route shows to the default presenter; two keys normalizing
         alike would make the winner depend on file order; an empty key or
-        an empty `from` can never match. All are load errors."""
+        an empty `from` can never match; an empty [assign.profiles] name
+        reads back from a voiced manifest as "no profile", so its packages
+        would be re-voiced on every run. All are load errors."""
+        if "" in self.profiles:
+            raise ValueError('[assign.profiles.""]: profile names must be non-empty')
         seen: dict[str, str] = {}
         for key, rule in self.artists.items():
             norm = normalize_artist(key)

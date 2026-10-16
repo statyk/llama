@@ -140,9 +140,13 @@ def moves_lock(root: Path) -> Iterator[None]:
 
 def write_moves(root: Path, data: dict[str, dict]) -> None:
     """Unique temp + fsync + rename: a crash leaves the old file or the new
-    one, never a torn one."""
+    one, never a torn one. `data` passes the reader's own validation first,
+    so no writer can produce a file `load_moves` would reject (e.g. an
+    empty-string profile); a refusal writes nothing."""
+    path = moves_path(root)
+    _validated(data, path)
     payload = (json.dumps(data, indent=2, sort_keys=True) + "\n").encode()
-    atomic_write_bytes(moves_path(root), payload, fsync=True)
+    atomic_write_bytes(path, payload, fsync=True)
 
 
 def record_move(root: Path, performance_id: str, profile: str | None, package: str, *,

@@ -169,6 +169,28 @@ def test_record_never_overwrites_a_malformed_file(tmp_path):
     assert path.read_text() == "{broken"
 
 
+@pytest.mark.parametrize("existing", [True, False], ids=["file-present", "file-absent"])
+def test_record_of_an_empty_profile_is_refused_and_writes_nothing(tmp_path, existing):
+    path = _write(tmp_path, {"B/2": {"profile": "funk", "package": "b-2"}}) if existing else None
+    before = path.read_bytes() if existing else None
+
+    with pytest.raises(EmceeError) as exc:
+        record_move(tmp_path, "A/1", "", "a-1", moved_at=STAMP)
+
+    assert "non-empty string or null" in str(exc.value)
+    if existing:
+        assert path.read_bytes() == before
+    else:
+        assert not (tmp_path / "moves.json").exists()
+
+
+def test_write_moves_refuses_what_the_reader_would_reject(tmp_path):
+    for bad in ({"A/1": {"profile": ""}}, {"A/1": {"package": "a-1"}}, {"A/1": "southern"}):
+        with pytest.raises(EmceeError):
+            write_moves(tmp_path, bad)
+    assert not (tmp_path / "moves.json").exists()
+
+
 def _spy_lock(monkeypatch) -> list[tuple[str, bool]]:
     seen: list[tuple[str, bool]] = []
     real_read, real_write = moves_mod.read_moves_data, moves_mod.write_moves

@@ -191,6 +191,7 @@ def _refusal_station(tmp_path, monkeypatch, existing: bool):
     (["move", "nopid", "southern"], "performance_id"),
     (["move", "old", "southern"], "unsupported"),
     (["move", "junk", "southern"], "not valid JSON"),
+    (["move", "ttb", ""], "[assign.profiles.] entry"),
 ])
 def test_each_refusal_exits_1_and_leaves_the_file_alone(tmp_path, monkeypatch, existing, args, why):
     home = _refusal_station(tmp_path, monkeypatch, existing)

@@ -543,6 +543,12 @@ def test_artist_key_normalizing_to_empty_is_a_load_error(tmp_path: Path):
     assert "empty artist name" in str(exc.value)
 
 
+def test_an_empty_profile_name_is_a_load_error(tmp_path: Path):
+    with pytest.raises(ConfigError) as exc:
+        _load(tmp_path, '[assign.profiles.""]\npresenter = "gregg"\n')
+    assert "profile names must be non-empty" in str(exc.value)
+
+
 def test_empty_from_list_is_a_load_error(tmp_path: Path):
     with pytest.raises(ConfigError) as exc:
         _load(tmp_path, _SOUTHERN + '[assign.artists]\n'
