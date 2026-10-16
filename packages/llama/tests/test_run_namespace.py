@@ -187,6 +187,35 @@ def test_run_list_resume_suffix_requires_paused_state(tmp_path: Path):
     assert "resumes" not in line
 
 
+def test_run_list_no_flags_drops_failure_lines(tmp_path: Path):
+    # Default: one indented line per lost show under the session row.
+    # --no-flags: exactly the header plus one row per session, so the
+    # listing can be counted and parsed line by line.
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
+    ws = RunWorkspace(tmp_path, "s-lost-shows")
+    write_artifact(ws.criteria, Criteria(query="q"))
+    mark_incomplete(ws, "1 packaged, 2 failed", [
+        {"show": "Furthur/2010-07-05", "error": "download failed after 3 attempts"},
+        {"show": "Furthur/2010-07-06", "error": "usage limit reached"},
+    ])
+    _session(tmp_path, "s-awaiting", state=STATE_AWAITING)
+
+    default = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
+    assert default.exit_code == 0, default.output
+    assert "      - Furthur/2010-07-05: download failed after 3 attempts" in default.output
+    assert "      - Furthur/2010-07-06: usage limit reached" in default.output
+
+    flat = runner.invoke(cli.app, ["--config", cfg, "run", "list", "--no-flags"])
+    assert flat.exit_code == 0, flat.output
+    lines = [ln for ln in flat.output.splitlines() if ln.strip()]
+    assert lines[0] == cli._RUN_LIST_HEADER
+    assert sorted(ln.split()[0] for ln in lines[1:]) == ["s-awaiting", "s-lost-shows"]
+    assert "Furthur" not in flat.output
+    # The session row itself keeps its outcome summary.
+    assert "1 packaged, 2 failed" in flat.output
+
+
 def test_attention_labels_carry_a_paused_entry():
     # `.get(state, state)` happens to fall back to the exact text
     # STATE_PAUSED's entry holds, so a CLI-output assertion cannot

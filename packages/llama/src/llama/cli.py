@@ -1015,7 +1015,7 @@ def _session_criteria_str(s) -> str:
     return f'"{s.query:.40s}"'
 
 
-def _print_sessions(sessions) -> None:
+def _print_sessions(sessions, show_flags: bool = True) -> None:
     if not sessions:
         typer.echo("no sessions need attention")
         return
@@ -1031,7 +1031,7 @@ def _print_sessions(sessions) -> None:
             line += f"   resumes {s.resume_after}"
         typer.echo(line)
         # One line per show the run lost, mirroring `status`'s flag lines.
-        for failure in s.failures:
+        for failure in s.failures if show_flags else ():
             typer.echo(f"      - {failure.get('show', '?')}: {failure.get('error', '')}")
 
 
@@ -1041,6 +1041,10 @@ def run_list(
         [], "--profile", autocompletion=_complete_profile,
         help="Only sessions run from this standing profile (exact name; repeatable)"),
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
+    show_flags: bool = typer.Option(
+        True, "--flags/--no-flags",
+        help="Print each failed show's reason beneath its session's row "
+             "(--no-flags: one line per session)"),
 ):
     """List sessions awaiting approval, incomplete, or paused (the
     attention-list); complete sessions never show here."""
@@ -1054,7 +1058,7 @@ def run_list(
     if as_json:
         typer.echo(_json.dumps([_session_json(s) for s in sessions], indent=2))
         return
-    _print_sessions(sessions)
+    _print_sessions(sessions, show_flags)
 
 
 @run_app.command("approve")

@@ -85,7 +85,9 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   (session namespace; a run that lost shows to a failure ends
   `incomplete`, not `complete`, so it stays on `run list`'s attention list
   — with the per-show reasons recorded in `session.json` — until a
-  `run resume` finishes cleanly). Shows/sessions are addressed by name or unique
+  `run resume` finishes cleanly; `run list` prints those reasons indented
+  under the session row, and `--no-flags` drops them for one line per
+  session, like `status --no-flags`). Shows/sessions are addressed by name or unique
   substring; paths still work. `llama config init` seeds a commented config
   of the baked-in defaults (config values replace defaults; nothing
   merges). **An unknown key in `config.toml` is now an ERROR, not a silent
