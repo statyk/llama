@@ -68,7 +68,7 @@ def test_run_missing_station_root_raises_emcee_error(tmp_path, monkeypatch):
     monkeypatch.setenv("EMCEE_ROOT", str(home))
     _write_config(home, station_root=None)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, EmceeError)
@@ -80,7 +80,7 @@ def test_run_nonexistent_station_root_raises_emcee_error(tmp_path, monkeypatch):
     monkeypatch.setenv("EMCEE_ROOT", str(home))
     _write_config(home, station_root=tmp_path / "does-not-exist")
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, EmceeError)
@@ -94,7 +94,7 @@ def test_run_station_root_pointing_at_a_file_raises_emcee_error(tmp_path, monkey
     monkeypatch.setenv("EMCEE_ROOT", str(home))
     _write_config(home, station_root=a_file)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, EmceeError)
@@ -108,7 +108,7 @@ def test_run_station_root_flag_overrides_config(tmp_path, monkeypatch):
     monkeypatch.setenv("EMCEE_ROOT", str(home))
     _write_config(home, station_root=None)
 
-    result = runner.invoke(app, ["run", "--station-root", str(station)])
+    result = runner.invoke(app, ["run", "--yes", "--station-root", str(station)])
 
     assert result.exit_code == 0, result.output
 
@@ -134,7 +134,7 @@ def test_run_processes_exactly_the_unvoiced_package(tmp_path, monkeypatch):
     before_voiced = (voiced_dir / "manifest.json").read_text()
     before_notes = (voiced_dir / "dj-notes.md").read_text()
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 0, result.output
     # the unvoiced package got fully processed
@@ -165,7 +165,7 @@ def test_run_skips_all_ready_and_reports_zero_processed(tmp_path, monkeypatch):
     _arm_fake_llm(monkeypatch)
     build_package(station, slug="already-ready", voiced=True)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 0, result.output
     assert "voiced:" not in result.output
@@ -196,7 +196,7 @@ def test_run_batch_continues_after_one_package_fails(tmp_path, monkeypatch):
     import emcee.cli as cli_mod
     monkeypatch.setattr(cli_mod, "process_package", flaky_process_package)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 1
     # asserted on stderr (not the mixed `.output`) specifically so a mutant
@@ -239,7 +239,7 @@ def test_run_malformed_but_valid_json_manifest_reported_and_batch_continues(tmp_
         "set_durations_sec": {},
     }))
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 1
     assert result.exception is None or not isinstance(result.exception, KeyError)
@@ -328,7 +328,7 @@ def _hoist_probe_setup(tmp_path, monkeypatch):
 def test_run_never_pairs_one_packages_voice_with_anothers_bed(tmp_path, monkeypatch):
     calls = _hoist_probe_setup(tmp_path, monkeypatch)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 0, result.output
     by_pkg = {name: (voice, bed) for name, voice, bed in calls}
@@ -402,7 +402,7 @@ def test_run_guard_failure_surfaces_detail_lines_on_stderr(tmp_path, monkeypatch
 
     build_package(station, slug="badscript", voiced=False)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 1
     # the message itself: an EmceeError, so NOT type-prefixed
@@ -431,10 +431,10 @@ def test_run_success_survives_a_raising_speech_close(tmp_path, monkeypatch):
 
     pkg_dir = build_package(station, slug="closer", voiced=False)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 0, result.output
-    assert result.stderr == ""  # no error line for a package that actually succeeded
+    assert "error:" not in result.stderr  # no error line for a package that actually succeeded
     manifest = json.loads((pkg_dir / "manifest.json").read_text())
     assert manifest["dj_notes"] is not None
     assert manifest["dj_audio"] is not None
@@ -476,7 +476,7 @@ def test_profile_option_selects_exact_matches_only(tmp_path, monkeypatch):
     b = build_package(station, slug="b", profile="deadly")
     c = build_package(station, slug="c", profile=None)
 
-    result = runner.invoke(app, ["run", "--profile", "dead"])
+    result = runner.invoke(app, ["run", "--yes", "--profile", "dead"])
 
     assert result.exit_code == 0, result.output
     assert (a / "dj-notes.md").exists()
@@ -495,7 +495,7 @@ def test_profile_option_is_repeatable(tmp_path, monkeypatch):
     b = build_package(station, slug="b", profile="phish")
     c = build_package(station, slug="c", profile="other")
 
-    result = runner.invoke(app, ["run", "--profile", "dead", "--profile", "phish"])
+    result = runner.invoke(app, ["run", "--yes", "--profile", "dead", "--profile", "phish"])
 
     assert result.exit_code == 0, result.output
     assert (a / "dj-notes.md").exists() and (b / "dj-notes.md").exists()
@@ -638,7 +638,7 @@ def test_no_options_still_reports_unreadable_rows_per_row_without_note(tmp_path,
     v2.mkdir(parents=True)
     (v2 / "manifest.json").write_text(json.dumps({"schema_version": 2}))
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert "skip v2:" in result.output
     assert "note:" not in result.output
@@ -649,7 +649,7 @@ def test_profile_with_no_matching_package_is_noted_in_run_and_dry_run(tmp_path, 
     build_package(station, slug="d1", voiced=False, profile="dead")
 
     for extra in ([], ["--dry-run"]):
-        result = runner.invoke(app, ["run", "--profile", "Dead", *extra])
+        result = runner.invoke(app, ["run", "--yes", "--profile", "Dead", *extra])
         assert "note: no package has profile 'Dead'" in result.output
         assert "would voice" not in result.output
 

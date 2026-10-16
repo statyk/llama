@@ -94,7 +94,7 @@ def test_emcee_run_voices_a_delivered_package_to_broadcast_ready(tmp_path, monke
     assert manifest_before["dj_notes"] is None
     assert manifest_before["dj_audio"] is None
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 0, result.output
     assert f"voiced: {pkg_dir.name}" in result.output

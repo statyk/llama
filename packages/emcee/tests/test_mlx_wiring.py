@@ -108,7 +108,7 @@ def _forbid_hosted(monkeypatch) -> list[str]:
 def _cmd(command: str, pkg: Path, tmp_path: Path) -> list[str]:
     text = tmp_path / "say.txt"
     text.write_text(SAY_TEXT)
-    return {"run": ["run"], "voice": ["voice", str(pkg)],
+    return {"run": ["run", "--yes"], "voice": ["voice", str(pkg)],
             "say": ["say", str(text), "--presenter", "phil"]}[command]
 
 
@@ -270,7 +270,7 @@ def test_run_continues_other_presenters_when_mlx_is_down(tmp_path, monkeypatch):
     monkeypatch.setattr("emcee.cli.process_package", tracked_process)
     monkeypatch.setattr(process_mod, "provider_for", fake_provider_for)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 1
     assert "error: a: mlx-audio server not reachable" in result.stderr
@@ -330,7 +330,7 @@ def test_two_presenters_on_different_backends_get_their_own_provider_and_cache_k
 
     monkeypatch.setattr(process_mod, "speech_provider_for", spy)
 
-    result = runner.invoke(app, ["run"])
+    result = runner.invoke(app, ["run", "--yes"])
 
     assert result.exit_code == 0, result.output
     assert [(pid, backend) for pid, backend, _ in built] == [("phil", "mlx_audio"), ("roy", "fake")]

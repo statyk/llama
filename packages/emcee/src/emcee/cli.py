@@ -289,20 +289,28 @@ def _presenter_file(root: Path, presenter_id: str) -> Path | None:
     return None
 
 
+def _presenter_or_marker(config: EmceeConfig, presenter_id: str) -> Presenter | str:
+    """The presenter, or the bracketed marker `--dry-run` and the plan print
+    for one that cannot be loaded. Never raises. An unreadable or non-UTF-8
+    file (OSError / UnicodeDecodeError, which load_presenter does not wrap)
+    is invalid too."""
+    path = _presenter_file(config.root, presenter_id)
+    if path is None:
+        return f"[missing presenters/{presenter_id}.toml]"
+    try:
+        return load_presenter(config.root, path.stem)
+    except (PresenterError, OSError, ValueError):
+        return f"[invalid presenters/{presenter_id}.toml]"
+
+
 def _dry_run_marker(config: EmceeConfig, presenter_id: str) -> str:
     """The row suffix `run --dry-run` prints for a presenter-assigned package:
     a missing or invalid file, a failed TTS resolution, or -- for a PINNED
-    presenter only -- the backend and model it resolves to. Never raises, so
-    one bad presenter cannot abort the listing; never preflights. An
-    unreadable or non-UTF-8 file (OSError / UnicodeDecodeError, which
-    load_presenter does not wrap) is invalid too."""
-    path = _presenter_file(config.root, presenter_id)
-    if path is None:
-        return f"  [missing presenters/{presenter_id}.toml]"
-    try:
-        presenter = load_presenter(config.root, path.stem)
-    except (PresenterError, OSError, ValueError):
-        return f"  [invalid presenters/{presenter_id}.toml]"
+    presenter only -- the backend and model it resolves to. Never raises;
+    never preflights."""
+    presenter = _presenter_or_marker(config, presenter_id)
+    if isinstance(presenter, str):
+        return f"  {presenter}"
     try:
         resolution = resolve_tts(config, presenter)
     except TTSResolutionError as exc:
@@ -310,6 +318,86 @@ def _dry_run_marker(config: EmceeConfig, presenter_id: str) -> str:
     if resolution.pinned:
         return f"  [{resolution.backend} {resolution.model}]"
     return ""
+
+
+def _stdin_is_tty() -> bool:
+    """Whether someone can answer `run`'s question. Tests patch this."""
+    return sys.stdin.isatty()
+
+
+def _plural(n: int, word: str) -> str:
+    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+
+def _stale_moves(moves: Moves, statuses: list[PackageStatus]) -> int:
+    """Recorded moves whose performance_id no scanned package carries."""
+    live = {s.performance_id for s in statuses if s.performance_id is not None}
+    return sum(1 for pid in moves.entries if pid not in live)
+
+
+def _stale_note(n: int) -> str:
+    return f"note: {n} recorded move(s) match no package (emcee move --list)"
+
+
+def _plan_tts_cell(config: EmceeConfig, presenter_id: str | None) -> tuple[str, str]:
+    """(who, how) for one TTS line of the plan: `<id> (<name>)` or `house`,
+    and `<backend>  <model>` -- or the `--dry-run` marker when the presenter
+    cannot be loaded or resolved. Never raises."""
+    presenter: Presenter | None = None
+    who = "house"
+    if presenter_id is not None:
+        loaded = _presenter_or_marker(config, presenter_id)
+        if isinstance(loaded, str):
+            return presenter_id, loaded
+        presenter, who = loaded, f"{presenter_id} ({loaded.name})"
+    try:
+        resolution = resolve_tts(config, presenter)
+    except TTSResolutionError as exc:
+        return who, f"[unresolved: {exc}]"
+    return who, f"{resolution.backend}  {resolution.model or '-'}"
+
+
+def _echo_plan(config: EmceeConfig, to_voice: list[PackageStatus], stale: int) -> None:
+    """The plan `run` prints before any spend (stderr): what will be voiced,
+    why, with which TTS. `new` = unvoiced; `re-voice` = the profile check
+    fails (grouped by reason, every package named: it is destructive);
+    `repair` = voiced, profile check passing, something else missing (named:
+    it also overwrites the script and clips)."""
+    def out(line: str) -> None:
+        typer.echo(line, err=True)
+
+    clips = sum(s.clips for s in to_voice)
+    out(f"to voice: {_plural(len(to_voice), 'package')}, {_plural(clips, 'clip')}")
+    new = [s for s in to_voice if not s.voiced]
+    revoice: dict[str, list[str]] = {}
+    for s in to_voice:
+        if s.voiced and s.profile_reason is not None:
+            revoice.setdefault(s.profile_reason, []).append(s.path.name)
+    repair = [s.path.name for s in to_voice if s.voiced and s.profile_reason is None]
+    if new:
+        out(f"  {'new':<9}{len(new):>3}")
+    if revoice:
+        out(f"  {'re-voice':<9}{sum(len(v) for v in revoice.values()):>3}")
+        for reason, slugs in revoice.items():
+            out(f"    {reason}: {len(slugs)}")
+            for slug in slugs:
+                out(f"      {slug}")
+    if repair:
+        out(f"  {'repair':<9}{len(repair):>3}")
+        for slug in repair:
+            out(f"      {slug}")
+    out("TTS:")
+    counts: dict[str | None, int] = {}
+    for s in to_voice:
+        pid = assignment_for(config, s.profile).presenter
+        counts[pid] = counts.get(pid, 0) + 1
+    order = sorted(counts, key=lambda pid: (pid is None, pid or ""))
+    cells = [(_plan_tts_cell(config, pid), counts[pid]) for pid in order]
+    width = max(len(who) for (who, _), _ in cells)
+    for (who, how), n in cells:
+        out(f"  {who:<{width}}  {how}  {_plural(n, 'package')}")
+    if stale:
+        out(_stale_note(stale))
 
 
 @app.command()
@@ -321,54 +409,56 @@ def run(
         help="Override \\[station] root for this invocation"),
     profile: list[str] = typer.Option(
         [], "--profile",
-        help="Only packages delivered for this llama profile (exact match); "
-             "repeatable"),
+        help="Only packages whose effective profile is this (exact match; a move or "
+             "artist rule counts); repeatable"),
     assigned: bool = typer.Option(
         False, "--assigned",
-        help="Only packages whose profile has its own \\[assign.profiles] "
+        help="Only packages whose effective profile has its own \\[assign.profiles] "
              "entry (skip those that would fall to the default or house voice)"),
     dry_run: bool = typer.Option(
         False, "--dry-run",
-        help="List what would be voiced, and with which presenter; no LLM, "
-             "TTS, or writes (--force is ignored)"),
+        help="List what would be voiced, and with which presenter, then the plan; no LLM, "
+             "TTS, or writes (--force is ignored); never asks"),
+    yes: bool = typer.Option(
+        False, "--yes", "-y",
+        help="Voice without asking (the plan is still printed)"),
 ):
-    """Voice every pending package in the station.
+    """Voice every pending package in the station, after a plan and a yes.
 
-    Scans `\\[station] root` (or `--station-root`) and processes every
-    package whose derived state is "pending": writes the DJ script,
-    synthesizes DJ audio, assembles `broadcast.m3u`, and rewrites the
-    manifest's `dj_notes`/`dj_audio` blocks. Packages already "ready" are
-    left alone. "unsupported" (pre-v3) packages are reported and never
-    modified -- re-deliver them from llama first.
+    Scans `\\[station] root` (or `--station-root`) once, with config and
+    `moves.json` loaded once. Before any LLM or TTS call it prints a plan on
+    stderr -- packages to voice (new / re-voice by reason / repair), the
+    exact clip count, and which presenter and TTS backend voice them -- and
+    asks `Proceed? [y/N]`. `--yes` skips the question. With no terminal and
+    no `--yes` it prints the plan and refuses (exit 1). After a yes it
+    voices exactly the planned packages, from the same scan.
 
-    Per-package failures -- including a structurally invalid manifest
-    (e.g. a track missing its filename), since emcee validates no manifest
-    model -- are caught broadly and printed as `error: <slug>: <message>`
-    plus any indented detail lines (e.g. a scriptwrite guard failure's
-    specific fact-check problems). Does not stop the rest of the batch.
-    Exits 1 if any package failed.
+    A pending package whose only problem is missing track audio is skipped
+    (`skip <slug>: N audio file(s) missing; re-deliver from llama`): voicing
+    cannot fix it. "unsupported" (pre-v3) packages are reported and never
+    modified. A package whose recorded move targets a profile with no
+    `\\[assign.profiles]` entry is an error row and is never voiced, even
+    when it is otherwise ready. Per-package failures are
+    printed as `error: <slug>: <message>` and do not stop the batch.
 
-    `--profile NAME` (repeatable) restricts the run to packages stamped with
-    that llama profile; `--assigned` to those whose profile has its own
-    `\\[assign.profiles]` entry; both together must both hold. Under either,
-    a package whose manifest is unreadable (no profile can be known) is not
-    run and not reported per-row -- one `note:` line counts them. `--dry-run`
-    prints `would voice: <slug>  <profile>  <presenter>` for each selected
-    pending package and a count, doing no LLM, TTS, or file writes; error and
-    unsupported rows are reported as in a real run. A pinned presenter's row
-    also shows `\\[<backend> <model>]`, an unloadable presenter file
-    `\\[invalid presenters/<id>.toml]` and a failed TTS resolution
-    `\\[unresolved: <message>]`.
+    `--profile NAME` (repeatable) and `--assigned` select by the EFFECTIVE
+    profile (a recorded move, else an `\\[assign.artists]` rule, else the
+    llama profile). `--dry-run` prints `would voice: <slug>  <profile>
+    <presenter>` rows, then the plan, and never asks or writes.
+
+    Exits 1 whenever an error row was printed (proceeded, declined, or
+    nothing to voice); otherwise a decline or nothing to voice exits 0.
     """
     config = load_config()
     root = _resolve_station_root(config, station_root)
     moves, statuses = _load_station(config, root)
+    stale = _stale_moves(moves, statuses)
 
     _note_unmatched_profiles(statuses, profile)
     filtering = bool(profile) or assigned
     unreadable = 0
     failed = False
-    processed = 0
+    to_voice: list[PackageStatus] = []
     for status in statuses:
         slug = status.path.name
         if filtering:
@@ -382,13 +472,21 @@ def run(
         if status.state == "unsupported":
             typer.echo(f"skip {slug}: {status.reasons[0]}")
             continue
-        if status.state == "ready":
-            continue
         if status.state == "error":
             typer.echo(f"error: {slug}: {status.reasons[0]}", err=True)
             for line in status.reasons[1:]:
                 typer.echo(f"  {line}", err=True)
             failed = True
+            continue
+        if status.move_problem is not None:   # before the ready check: a ready package reports it too
+            typer.echo(f"error: {slug}: {status.move_problem}", err=True)
+            failed = True
+            continue
+        if status.state == "ready":
+            continue
+        if status.missing_tracks:   # tracks first: voicing cannot fix them
+            typer.echo(f"skip {slug}: {status.missing_tracks} audio file(s) missing; "
+                       "re-deliver from llama")
             continue
         if dry_run:
             view = assignment_for(config, status.profile)
@@ -396,8 +494,34 @@ def run(
             if view.presenter is not None:
                 line += _dry_run_marker(config, view.presenter)
             typer.echo(line)
-            processed += 1
-            continue
+        to_voice.append(status)
+
+    if unreadable:
+        typer.echo(f"note: {unreadable} package(s) skipped: manifest unreadable "
+                   "(see emcee status --list)")
+    if to_voice:
+        _echo_plan(config, to_voice, stale)
+    elif stale:
+        typer.echo(_stale_note(stale), err=True)
+
+    if dry_run:
+        typer.echo(f"{len(to_voice)} package(s) would be voiced"
+                   + (" (with errors)" if failed else ""))
+        if failed:
+            raise typer.Exit(1)
+        return
+
+    if to_voice and not yes:
+        if not _stdin_is_tty():
+            typer.echo("error: refusing to voice without confirmation; pass --yes", err=True)
+            raise typer.Exit(1)
+        if not typer.confirm("Proceed?", default=False, err=True):
+            typer.echo("nothing voiced")
+            raise typer.Exit(1 if failed else 0)
+
+    processed = 0
+    for status in to_voice:
+        slug = status.path.name
         try:
             _process_one(config, moves, Package(status.path), force)
         except Exception as exc:
@@ -409,14 +533,7 @@ def run(
         processed += 1
         typer.echo(f"voiced: {slug}")
 
-    if unreadable:
-        typer.echo(f"note: {unreadable} package(s) skipped: manifest unreadable "
-                   "(see emcee status --list)")
-    if dry_run:
-        typer.echo(f"{processed} package(s) would be voiced"
-                   + (" (with errors)" if failed else ""))
-    else:
-        typer.echo(f"{processed} package(s) voiced" + (" (with errors)" if failed else ""))
+    typer.echo(f"{processed} package(s) voiced" + (" (with errors)" if failed else ""))
     if failed:
         raise typer.Exit(1)
 
