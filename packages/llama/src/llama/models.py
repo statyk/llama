@@ -259,11 +259,27 @@ class ManifestTrack(BaseModel):
     segue: bool = False
 
 
+class DJAudioTTS(BaseModel):
+    """emcee-written: how a package's DJ clips were synthesized."""
+    backend: str
+    model: str | None = None
+    voice: str
+
+
 class DJAudio(BaseModel):
-    """Per-segment spoken DJ clips, as package-relative paths (dj-audio/...)."""
+    """Per-segment spoken DJ clips, as package-relative paths (dj-audio/...).
+
+    A documentation copy of emcee's `DJAudioBlock`, kept shape-compatible by
+    hand: emcee writes it, llama only checks whether it is null. Everything
+    after `outro` is optional here because blocks voiced before emcee
+    recorded it lack those keys. llama's `status`/`deliver --profile` keep
+    using the delivered profile (`source.profile`), not `profile` below."""
     set_intros: dict[str, str]  # one lead-in per non-encore set: "1", "2"
     outro: str
-    presenter: str | None = None  # emcee-written: id of the voicing presenter; None = house
+    presenter: str | None = None       # emcee-written: id of the voicing presenter; None = house
+    profile: str | None = None         # emcee-written: the profile it was voiced as
+    profile_source: str | None = None  # "move" | "artist" | "llama"
+    tts: DJAudioTTS | None = None      # emcee-written: backend, model, voice
 
 
 class SetBreak(BaseModel):

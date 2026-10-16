@@ -68,3 +68,17 @@ def test_manifest_still_accepts_dj_notes_and_dj_audio_passthrough():
         total_duration_sec=0.0, set_durations_sec={},
     )
     assert m.dj_notes is not None and m.dj_audio is not None
+
+
+def test_dj_audio_doc_model_accepts_emcees_recorded_profile_and_tts():
+    # emcee 2026-10-16 records the profile it voiced as and how; llama's copy
+    # of the block is documentation only and must stay shape-compatible.
+    from llama.models import DJAudio
+
+    block = {"set_intros": {"1": "dj-audio/set1-intro.mp3"}, "outro": "dj-audio/99-outro.mp3",
+             "presenter": "gregg", "profile": "southern", "profile_source": "artist",
+             "tts": {"backend": "voxtral", "model": "voxtral-mini-tts-2603",
+                     "voice": "clone:0123abcd"}}
+    assert DJAudio.model_validate(block).model_dump() == block
+    legacy = DJAudio(set_intros={}, outro="o")
+    assert (legacy.profile, legacy.profile_source, legacy.tts) == (None, None, None)

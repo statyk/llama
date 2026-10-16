@@ -105,6 +105,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   llama). No `voice`/`presenter` commands — that's emcee's job now.
 - Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
   `[station] root` and voice every not-yet-broadcast-ready package;
+  it prints a plan on stderr (new / re-voice by reason / repair, the exact clip count, presenter and TTS per group) and asks `Proceed? [y/N]` before ANY LLM or TTS spend; `--yes`/`-y` skips the question; with no TTY and no `--yes` it prints the plan and exits 1. A package whose only problem is missing track audio is skipped (`re-deliver from llama`), not voiced. **An agent (no TTY) runs `emcee run --dry-run`, shows the plan, and passes `--yes` only after the operator approves**; the `--yes` run re-scans, so keep the gap short;
   `--profile <name>` (repeatable) limits it to those llama
   profiles' packages, `--assigned` to packages whose profile has its OWN
   `[assign.profiles.<name>]` entry (not those falling to `[assign] default`
@@ -127,7 +128,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   always per-show; a `--profile` no package carries prints a `note:` rather
   than looking like an empty queue; the voicing presenter is the
   recorded `dj_audio.presenter` — null is the house narrator, an absent key
-  means voiced before it was recorded and shows `?`), `emcee say <text-file>` (ad-hoc
+  means voiced before it was recorded and shows `?`), `emcee move <show> <profile>|--delivered|--clear`, `emcee move --list` (one-off profile moves in `<emcee root>/moves.json`, keyed by `source.performance_id`; flock + atomic write; a move to an unassigned profile other than the delivered one is refused), `emcee say <text-file>` (ad-hoc
   narration: text file in, MP3 out, no package/script/LLM — voice via
   `--clone`/`--voice`/`--presenter` else the house `[tts] voice`, bed via
   `--bed`/`--bed-gain`/`--no-bed` else the package rules, chunking ON by
@@ -635,26 +636,27 @@ scheduler and the full player are phases 3–4).
   station.py`; scans skip dot-prefixed dirs, which are llama's replace-swap
   siblings); `readiness()` computes the same "broadcast-ready" signal
   llama used to (script present, DJ audio present, `broadcast.m3u` present,
-  every manifest track's audio on disk) — but as emcee's own derived,
+  every manifest track's audio on disk, and, since 2026-10-16, the profile check: the voiced profile (`dj_audio.profile`, else, for a legacy block, `source.profile`) equals the EFFECTIVE profile, `station.effective_profile` = a `moves.json` move > an `[assign.artists]` rule > `source.profile`; transmitter deliberately does not mirror this leg) — but as emcee's own derived,
   never-stored state (`ready`/`pending`, plus `unsupported` for a pre-v3
   manifest), not llama's. There is no separate work-queue file: "not
   broadcast-ready" *is* the predicate `emcee run` sweeps on.
-  `process.py:process_package` orchestrates one package: resolve presenter
-  assignment (`resolve_assignment`, keyed off `manifest["source"]["profile"]`
-  against `[assign]`) → `scriptwrite.py` (script LLM task + `script_guard`,
+  `process.py:process_package` orchestrates one package: resolve the
+  package ONCE (`resolve_voicing`: effective profile, then `resolve_assignment(config, profile)`
+  against `[assign]`, then `resolve_tts`) and pass that `Voicing` through → `scriptwrite.py` (script LLM task + `script_guard`,
   emcee's own port of llama's old `factual_guard`, persona-styled when a
   presenter is assigned, byte-for-byte neutral otherwise) → render
   `dj-notes.md` → TTS via a `SpeechProvider` (`packages/emcee/src/emcee/tts/`:
   `voxtral` default, `elevenlabs` alternative, `fake` for tests; same
   per-segment cache, `[tts] chunk`, and `[tts] bed` instrumental-bed mixing
   llama used to have) → assemble `broadcast.m3u` → atomically rewrite the
-  manifest's `dj_notes`/`dj_audio` blocks last, in place, in the package
+  manifest's `dj_notes`/`dj_audio` blocks last (`dj_audio` records `presenter`, `profile`, `profile_source` and `tts` (`backend`/`model`/`voice`); the last three are required in `DJAudioBlock`, so a legacy block must never be round-tripped through the model: update it as a raw dict), in place, in the package
   directory llama delivered (`package_io.py:rewrite_manifest`).
   Chunked and bed-active clips are loudness-normalized per sentence/segment
   before the gap and the bed mix (`tts/loudness.py`: −20 dBFS speech-active,
   −1 dBFS peak ceiling, ±10 dB clamp; module constants, no config), because
   Voxtral returns every call at its own level; the unchunked no-bed path ships
   the provider's MP3 untouched and is not normalized.
+  **`moves.json` is never read leniently**: unreadable or malformed is a hard error for `run`/`voice`/`status`/`move`, and so is a missing file while any package records `profile_source: "move"`.
   Everything else in a package is llama-owned and read-only from emcee's side.
   A Voxtral content-filter refusal (403 `guardrail_violation`) is `SpeechBlocked`:
   emcee narrows it to the sentence, rewords just that segment with the small

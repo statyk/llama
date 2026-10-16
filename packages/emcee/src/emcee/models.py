@@ -1,8 +1,8 @@
 """emcee's own manifest-contract models.
 
 emcee never imports llama, so it defines its own copies of the two manifest
-blocks it owns -- shape-identical to llama's `DJNotes`
-and `DJAudio` (packages/llama/src/llama/models.py). llama's
+blocks it owns -- shape-compatible with llama's `DJNotes`
+and `DJAudio` (llama's copy carries the newer fields as optional) (packages/llama/src/llama/models.py). llama's
 models.py keeps its own `DJNotes`/`DJAudio` too, solely as passthrough
 documentation of a block it no longer writes (see the split-architecture
 design spec, section 5); the two must be kept shape-compatible by hand if

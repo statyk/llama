@@ -1,7 +1,7 @@
 """The station root and package eligibility (spec "Station-root guard",
 "Eligibility").
 
-A package is eligible iff it passes emcee's four readiness legs, reimplemented
+A package is eligible iff it passes emcee's four file-level readiness legs, reimplemented
 on files alone (transmitter never imports emcee) -- manifest v3+ with non-null
 dj_notes and dj-notes.md present; non-null dj_audio with every named clip on
 disk; broadcast.m3u present; every manifest track's audio on disk -- plus every
@@ -10,6 +10,13 @@ manifest.json, broadcast.m3u and dj-audio/* (bar emcee's *.tmp files) is older
 than the quiet period. The playable unit is broadcast.m3u, in order. A file
 that vanishes between listing and stat (emcee or llama mid-write) makes the
 package "changing" -- ineligible this scan, never an exception.
+
+emcee has a fifth readiness leg, the profile check (a package voiced as a
+profile other than the one emcee would voice it as now, after an `emcee
+move` or an `[assign.artists]` rule, is "pending" there). It is deliberately
+NOT mirrored here: transmitter cannot see emcee's rules or moves, and such a
+package keeps airing its existing voicing until its re-voice clears the DJ
+blocks (ineligible while it runs, eligible again when it lands).
 """
 
 import errno

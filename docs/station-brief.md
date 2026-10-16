@@ -272,9 +272,21 @@ supporting material. Field-by-field:
   "dj_audio": {
     "set_intros": { "1": "dj-audio/set1-intro.mp3",
                     "2": "dj-audio/set2-intro.mp3" },
-    "outro": "dj-audio/99-outro.mp3"
+    "outro": "dj-audio/99-outro.mp3",
+    "presenter": "phil",             // presenter id; null = the house narrator
+    "profile": "dead",               // the profile emcee voiced it as -- usually
+                                     // source.profile, but an operator move or an
+                                     // artist rule can change it
+    "profile_source": "llama",       // "llama" | "artist" | "move"
+    "tts": { "backend": "voxtral",   // how the clips were synthesized
+             "model": "voxtral-mini-tts-2603",
+             "voice": "clone:3f2a9c1d0b7e4a65" }  // preset name, or a clone hash
   }
   ```
+
+  Packages voiced before 2026-10-16 lack `profile`, `profile_source` and `tts`
+  (and the oldest lack `presenter`); treat a missing key as unknown. `profile`
+  is informational for consumers: what airs is `broadcast.m3u`.
 
   When a station default bed (or the host's own bed override) is
   configured, each clip already has a low instrumental bed mixed in

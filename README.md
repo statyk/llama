@@ -354,7 +354,9 @@ emcee's own factual guard, not llama's.
 
 **Voicing.**
 
-    emcee run                          # scan [station] root, voice every not-yet-ready package
+    emcee run                          # scan [station] root, print the plan, ask, then voice
+    emcee run --yes                    # same, without the question (the plan still prints)
+    emcee run --dry-run                # the would-voice rows and the plan; never asks or writes
     emcee run --force                  # re-synthesize every DJ clip even if cached
     emcee voice gratefuldead-1973-06-10
                                        # script + voice + assemble ONE package directly;
@@ -367,8 +369,15 @@ emcee's own factual guard, not llama's.
                                        # regenerated text usually changes EVERY
                                        # clip's cache key, so normally every clip
                                        # re-renders anyway, not just the named one
-    emcee status                       # table of every package: ready / pending / unsupported
+    emcee status                       # summary by (effective) profile: ready / pending / other
+    emcee status --list                # per show; a moved show reads "southern (from funk)"
     emcee status --json
+    emcee move tedeschitrucksband-2012-11-29 southern
+                                       # voice this show as southern from the next run on
+    emcee move tedeschitrucksband-2012-11-29 --delivered
+                                       # back to llama's profile (exempts it from an artist rule)
+    emcee move tedeschitrucksband-2012-11-29 --clear
+    emcee move --list                  # every recorded move; `missing` = no package has it
 
 **Ad-hoc narration.** Apart from the package pipeline entirely — no package,
 no script, no LLM, so it works on a station with no `[llm]` backend
@@ -401,6 +410,43 @@ package directory llama delivered, and the manifest's `dj_notes`/`dj_audio`
 blocks are rewritten in place. A pre-v3 package (from before this split, or
 otherwise malformed) is reported `unsupported` and left untouched —
 re-deliver it from llama rather than trying to upgrade it in place.
+
+**Moving shows between profiles.** Two ways, both emcee-side (llama's own
+records and `llama status`/`deliver --profile` keep the profile that found
+the show):
+
+- **Artist rules** in `~/.emcee/config.toml`, for every show by an artist:
+
+      [assign.artists]
+      "Tedeschi Trucks Band" = "southern"                         # from any profile
+      "JJ Grey and MOFRO"    = { profile = "southern", from = ["funk"] }
+
+  Names match loosely (case, `&`/`and`, apostrophes, one trailing `[...]`,
+  a leading "The"). A rule's profile needs its own `[assign.profiles.<name>]`
+  entry, or every emcee command refuses to start. So the order is: create
+  the presenter (`emcee presenter add`), add its `[assign.profiles.<name>]`
+  entry, then add rules.
+- **One-off moves** with `emcee move` (above), kept in
+  `~/.emcee/moves.json`, keyed by the show's performance id, so they survive
+  a `llama deliver --replace-voiced`. A move beats a rule; `--delivered` is
+  how one show is exempted from a rule. Back up `moves.json`: an unreadable
+  one stops `emcee run`/`voice`/`status`/`move`, and a missing one does too
+  while any package was voiced under a move. A move not yet voiced lives
+  only there.
+
+A show whose effective profile changes goes `pending` (it keeps airing its
+old voicing until the re-voice lands), and the next `emcee run` lists it
+under `re-voice` in the plan, with the reason, before asking. Each voiced
+manifest records the profile it was voiced as, where that came from, and
+the TTS backend, model and voice (`dj_audio.profile`, `profile_source`,
+`tts`). Changing a presenter, a presenter's TTS pin or the house voice does
+not trigger a re-voice.
+
+**Running `emcee run` from an agent** (no terminal): run `emcee run
+--dry-run`, show the operator the plan, and pass `--yes` only after they
+approve. The `--yes` run scans again, so anything delivered, moved or
+edited in between is voiced without having been shown: keep that gap
+short, and run nothing else against the station meanwhile.
 
 **Single-writer station, no lock.** Unlike llama (safe to run as multiple
 concurrent processes against one `~/.llama/`, see "Running several jobs at
@@ -627,7 +673,7 @@ without a warning, so nothing errors, shows just stop being voiced:
 The reassuring corollary: this is purely additive risk, not a data-loss
 one. Packages you already delivered under the old llama, whose manifests
 carry llama-written `dj_notes`/`dj_audio` blocks, are seen as `ready` by
-`station.readiness` and `emcee run` leaves them untouched — there is no
+`station.readiness` and `emcee run` leaves them untouched (with no artist rules and no moves; a rule or move that changes a show's profile makes it pending, and `emcee run` asks before re-voicing it) — there is no
 re-spend on your existing library. Only shows delivered *after* the cut,
 still `pending`, are affected by the silent-ignore above.
 

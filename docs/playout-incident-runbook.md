@@ -241,4 +241,13 @@ condition clears.
 - **Roll the metronome back:** `npx wrangler deploy --var METRONOME:off`,
   then commit `"METRONOME": "off"` in `antenna/wrangler.jsonc` so the next
   plain deploy keeps it off (section 9).
+- **A show is being re-voiced by emcee** (an `emcee move` or `[assign.artists]`
+  rule changed its profile): nothing to do on hugo. transmitter does not
+  see emcee's profile check, so the package keeps airing its old voicing; an
+  already-encoded row keeps its stored encode, a planned unencoded row whose
+  package changes is re-planned in place, and a package caught mid-re-voice
+  (DJ blocks cleared) is ineligible and planned around until the re-voice
+  lands. A re-voice cannot cause `LayoutError` (that comes only from an
+  on-air row whose encode is missing). A re-voice that FAILS leaves the
+  package off the pool until `emcee voice <show>` succeeds.
 - **Render the fallback:** `transmitter fallback render <loop> [--notice <file>]`.
