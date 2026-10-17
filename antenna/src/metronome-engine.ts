@@ -17,7 +17,7 @@ import { type ClockConfig, MAX_LOOP_MS } from "./clock";
 import { gridOf } from "./grid";
 import { renderLive } from "./live";
 import { ALARM_SLACK_MS, capAllows, currentLease, decideLease, DO_PUT_TIMEOUT_MS, isLive, LATE_LOG_MS, leaseKind,
-         MAX_ALARMS_PER_MINUTE, MAX_DO_PUTS_PER_MINUTE, type MetronomeState, type MetronomeStatus, nextStalls,
+         MAX_ALARMS_PER_MINUTE, MAX_TARGET_AHEAD_MS, MAX_DO_PUTS_PER_MINUTE, type MetronomeState, type MetronomeStatus, nextStalls,
          nextTarget, type PlayLease, readState, recordTime, stalledFor, stateChanges, type StorageKey, storedLease,
          validateLease } from "./metronome-core";
 
@@ -105,14 +105,20 @@ export class MetronomeEngine {
     this.port.log(event, fields);
   }
 
-  private async begin(): Promise<Tx> {
+  private async begin(now: number): Promise<Tx> {
     const { state, leaseInvalid } = readState(await this.port.load());
     if (leaseInvalid !== null) {
       // An invalid or unparseable stored lease is deleted on load: no lease.
       this.port.log("metronome-lease-invalid", { reason: leaseInvalid, source: "storage" });
       await this.port.save({ lease: undefined });
     }
-    return { stored: copy(state), s: copy(state) };
+    const tx = { stored: copy(state), s: copy(state) };
+    // A target further ahead than any computed one reads as none (written back at the flush).
+    if (state.lastTarget !== null && state.lastTarget > now + MAX_TARGET_AHEAD_MS) {
+      this.port.log("metronome-target-invalid", { lastTarget: state.lastTarget, now });
+      tx.s.lastTarget = null;
+    }
+    return tx;
   }
 
   /** Write back what changed; `withStalls` writes `stalls` even when unchanged. */
@@ -186,7 +192,7 @@ export class MetronomeEngine {
     const cfg = this.port.config();
     // 2. Not a current unblocked play lease (none, hold, blocked, expired):
     //    delete any pending alarm and stop. The next renew restarts the chain.
-    const tx = await this.begin();
+    const tx = await this.begin(now);
     const s = tx.s;
     const cur = currentLease(s.lease, now);
     this.episode("expired", s.lease !== null && cur === null, String(s.lease?.verdictAt), "metronome-expired",
@@ -261,7 +267,7 @@ export class MetronomeEngine {
     // 2. Load (an invalid stored lease is deleted), then the stall count as it
     //    stood. `stalls` is written on every renew, changed or not, so a healthy
     //    DO writes at least one row a minute (the guard's empty-is-not-zero check).
-    const tx = await this.begin();
+    const tx = await this.begin(now);
     const s = tx.s;
     const stalledMs = stalledFor(isLive(s.lease, now, cfg), s.lastAlarmGoodAt, s.playSince, now);
     s.stalls = nextStalls(s.stalls, stalledMs);
@@ -300,9 +306,11 @@ export class MetronomeEngine {
       const r = await this.write(tx, cur, tickBoundary(cur, s.lastTarget, now), now, cfg, "renew");
       wrote = r === "put" ? true : r === "failed" ? false : null;
     }
-    // 5. Arm only while live and none is pending; otherwise delete any pending alarm.
+    // 5. Arm only while live and none is pending (or the pending one is impossibly far); otherwise delete any pending alarm.
     if (cur !== null && cur.kind === "play" && isLive(s.lease, now, cfg)) {
-      if ((await this.port.getAlarm()) === null) {
+      // A pending alarm further ahead than any computed target is replaced, or it parks the chain.
+      const pending = await this.port.getAlarm();
+      if (pending === null || pending > now + MAX_TARGET_AHEAD_MS) {
         const target = nextTarget(gridOf(cur.horizon), Math.max(now, s.lastTarget ?? Number.NEGATIVE_INFINITY));
         await this.port.setAlarm(target);
         s.lastTarget = target;

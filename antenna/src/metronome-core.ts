@@ -26,6 +26,10 @@ export const DO_PUT_TIMEOUT_MS = 5_000;
 export const RENEW_TIMEOUT_MS = 15_000;
 /** Alarms aim this far past a boundary, as the cron loop sleeps to it. */
 export const ALARM_SLACK_MS = 25;
+/** No computed alarm target is further ahead of now than this (an early tick
+ * stores the next boundary's, just over one segment out); a stored one past it
+ * is clock skew or corruption and reads as none, or it parks the chain. */
+export const MAX_TARGET_AHEAD_MS = 2 * GRID_D * 1000;
 /** An alarm later than this past its target logs metronome-late. */
 export const LATE_LOG_MS = 2_000;
 /** The single instance: cron addresses it as idFromName(METRONOME_NAME). */

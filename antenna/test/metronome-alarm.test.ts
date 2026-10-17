@@ -393,3 +393,42 @@ describe("storage", () => {
     expect([...port.store.keys()].sort()).toEqual([...STORAGE_KEYS].sort());
   });
 });
+
+describe("a stored lastTarget beyond any computed one (clock skew or corruption)", () => {
+  const FAR = 3_600_000; // an hour ahead: no computed target is more than two segments past now
+
+  it("an alarm drops it, logs once, re-arms to the next boundary and builds for now", async () => {
+    const { port, engine } = await playing();
+    port.store.set("lastTarget", T + FAR);
+    await deliver(port, engine, target(1001) + 3);
+    expect(port.alarmAt).toBe(target(1002));
+    expect(port.store.get("lastTarget")).toBe(target(1002));
+    expect(port.body()).toContain("seg/e1/1013.aac"); // boundary 1001's playlist, not one an hour out
+    expect(port.events("metronome-target-invalid")).toEqual([
+      expect.objectContaining({ lastTarget: T + FAR, now: target(1001) + 3 })]);
+  });
+
+  it("a renew replaces a far pending alarm with the next boundary's and builds for now", async () => {
+    const { port, engine } = await playing();
+    port.store.set("lastTarget", T + FAR);
+    port.alarmAt = T + FAR; // the chain is parked an hour out
+    port.t = T + 4_000;
+    const st = await engine.renew(lease(port.t));
+    expect(st.applied).toBe("accepted");
+    expect(port.alarmAt).toBe(target(1001));
+    expect(port.store.get("lastTarget")).toBe(target(1001));
+    expect(port.body()).toContain("seg/e1/1012.aac"); // boundary 1000's playlist
+    await deliver(port, engine); // and the chain runs again
+    expect(port.alarmAt).toBe(target(1002));
+  });
+
+  it("targets up to two segments ahead are kept: an early tick's stored target survives a renew", async () => {
+    const { port, engine } = await playing();
+    await deliver(port, engine, target(1001) - 40); // early: lastTarget = target(1002), d + 40 ms ahead
+    port.t = target(1001) - 35;
+    await engine.renew(lease(port.t));
+    expect(port.store.get("lastTarget")).toBe(target(1002));
+    expect(port.alarmAt).toBe(target(1002));
+    expect(port.events("metronome-target-invalid")).toEqual([]);
+  });
+});
