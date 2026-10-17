@@ -6,6 +6,7 @@
  * sequences these over storage, alarms and R2; metronome.ts is the Durable
  * Object around the engine. */
 
+import { describeError } from "./errors";
 import { GRID_D, type Grid, gridOf, type Horizon, indexAt, startMs } from "./grid";
 import { type FallbackIndex, isOffair, type PlaylistConfig } from "./playlist";
 
@@ -96,7 +97,7 @@ function horizonProblem(h: unknown): string | null {
   try {
     gridOf(h as unknown as Horizon);
   } catch (e) {
-    return e instanceof Error ? e.message : String(e);
+    return describeError(e);
   }
   return null;
 }

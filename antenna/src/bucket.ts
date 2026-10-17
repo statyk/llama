@@ -2,6 +2,8 @@
  * in-memory bucket. Conditional puts are how two overlapping invocations avoid
  * overwriting each other's guard state (spec "Cost guard"). */
 
+import { describeError } from "./errors";
+
 export interface StoredObject {
   text(): Promise<string>;
   etag?: string;
@@ -49,7 +51,7 @@ export async function readJsonDoc<T = unknown>(bucket: BucketLike, key: string):
   try {
     return { kind: "ok", value: JSON.parse(text) as T, etag: obj.etag };
   } catch (e) {
-    return { kind: "corrupt", error: e instanceof Error ? e.message : String(e), etag: obj.etag };
+    return { kind: "corrupt", error: describeError(e), etag: obj.etag };
   }
 }
 

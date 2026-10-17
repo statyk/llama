@@ -15,6 +15,7 @@
 import { type BucketLike, createJson, type JsonRead, putJson, readJsonDoc } from "./bucket";
 import type { ClockEnv } from "./clock";
 import { type AlertCondition, guardConditions } from "./conditions";
+import { describeError } from "./errors";
 import { applyAttempt, applyBlindRule, BUDGET_KEY, corruptGuardDoc, effectiveBudget, freshGuardDoc, GUARD_KEY,
          type GuardDoc, OFFAIR_KEY, parseGuardDoc, shouldEvaluate, validBaseBudget } from "./latch";
 import { assertMetronomeMetered, readUsage } from "./meter";
@@ -108,7 +109,7 @@ export interface GuardOutcome {
   conditions: AlertCondition[];
 }
 
-const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const msg = describeError;
 
 function periodOrNull(nowMs: number, cfg: GuardConfig): Period | null {
   try {

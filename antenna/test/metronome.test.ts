@@ -106,7 +106,7 @@ describe("the Metronome Durable Object", () => {
     expect(seen).toEqual([null]); // the one getAlarm() inside alarm() answered null
     expect(await pendingAlarm()).toBeGreaterThan(armed!);
     expect(logs.mock.calls.flat().join("\n")).not.toContain("metronome-duplicate");
-  });
+  }, 10_000); // over waitFor's 5 s, so a slow delivery fails with waitFor's message, not the test timeout
 
   it("state lives in storage: after eviction (as at a deploy) the lease and the pending alarm are still there", async () => {
     await setSwitch("on");

@@ -2,6 +2,7 @@ import { alertSink } from "./alerts";
 import { r2Bucket } from "./bucket";
 import { ClockError, type ClockResult, configFromEnv, runClock } from "./clock";
 import type { AntennaEnv } from "./env";
+import { describeError } from "./errors";
 import { guardConfigFromEnv, guardStep } from "./guard";
 import { metronomeClient } from "./metronome";
 
@@ -28,7 +29,7 @@ export default {
         metronome: env.METRONOME === "on" ? metronomeClient(env.METRONOME_DO) : undefined,
       });
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      error = describeError(e);
       // The partial result (guardMs, blocked, puts so far) still goes on the line.
       if (e instanceof ClockError) result = e.partial;
       throw e; // still a failed invocation in observability

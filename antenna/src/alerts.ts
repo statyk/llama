@@ -22,6 +22,7 @@ import { EmailMessage } from "cloudflare:email";
 import { type BucketLike, createJson, putJson, readJsonDoc } from "./bucket";
 import type { AlertBatch } from "./clock";
 import type { AlertCondition, Priority } from "./conditions";
+import { describeError } from "./errors";
 
 export const ALERTS_KEY = "state/alerts.json";
 export const COOLDOWN_MS = 15 * 60_000;
@@ -330,7 +331,7 @@ export async function dispatchAlerts(bucket: BucketLike, channels: Channel[], co
         delivered = true;
       } catch (e) {
         console.error(JSON.stringify({ event: "alert-channel-failed", channel: ch.name, key: o.key,
-                                       error: e instanceof Error ? e.message : String(e) }));
+                                       error: describeError(e) }));
       }
     }
     if (delivered) sent++;

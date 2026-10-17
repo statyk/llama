@@ -14,6 +14,7 @@
  * blocked or absent lease never re-arms. */
 
 import { type ClockConfig, MAX_LOOP_MS } from "./clock";
+import { describeError } from "./errors";
 import { gridOf } from "./grid";
 import { renderLive } from "./live";
 import { ALARM_SLACK_MS, capAllows, currentLease, decideLease, DO_PUT_TIMEOUT_MS, isLive, LATE_LOG_MS, leaseKind,
@@ -50,7 +51,7 @@ interface Tx {
 
 type WriteResult = "put" | "identical" | "null" | "cap" | "failed";
 
-const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const msg = describeError;
 /** An alarm-confirmed tick: a PUT, an identical body, or nothing to build by rule. */
 const confirms = (r: WriteResult) => r === "put" || r === "identical" || r === "null";
 /** The boundary the last genuine tick built for (its re-armed target less one segment and the slack), or now if

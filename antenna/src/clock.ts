@@ -1,5 +1,6 @@
 import type { BucketLike } from "./bucket";
 import type { AlertCondition } from "./conditions";
+import { describeError } from "./errors";
 import { GRID_D, type Grid, type Horizon, gridOf, indexAt, startMs } from "./grid";
 import type { GuardOutcome } from "./guard";
 import { reconcileIndex } from "./indexpage";
@@ -101,7 +102,7 @@ export interface AlertBatch {
  * result so far (guardMs, blocked, puts ...) for the per-invocation clock line. */
 export class ClockError extends Error {
   constructor(readonly cause: unknown, readonly partial: ClockResult) {
-    super(cause instanceof Error ? cause.message : String(cause));
+    super(describeError(cause));
     this.name = "ClockError";
   }
 }
@@ -235,7 +236,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     try {
       await (deps.alerts ?? logAlerts)(conditions, deps.now(), { complete, guardComplete });
     } catch (e) {
-      console.error(JSON.stringify({ event: "alert-dispatch-failed", error: e instanceof Error ? e.message : String(e) }));
+      console.error(JSON.stringify({ event: "alert-dispatch-failed", error: describeError(e) }));
     }
   };
   /** Renew the metronome (a no-op when it is off) and say whether cron must
@@ -253,7 +254,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     } catch (e) {
       let error: string;
       try {
-        error = e instanceof Error ? e.message : String(e);
+        error = describeError(e);
       } catch {
         error = "unprintable rejection"; // String() throws on, say, Object.create(null)
       }
@@ -278,7 +279,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     } catch (e) {
       outcome = { blocked: null, tripped: null, offair: null, doc: null, conditions: [{
         key: "guard-crashed", priority: "urgent", resolvable: true, title: "Cost guard crashed",
-        message: `The guard step threw (${e instanceof Error ? e.message : String(e)}); the clock wrote nothing.` }] };
+        message: `The guard step threw (${describeError(e)}); the clock wrote nothing.` }] };
     }
     result.guardMs = deps.now() - startedMs;
     conditions.push(...outcome.conditions);
@@ -298,7 +299,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     } catch (e) {
       result.index = "failed";
       conditions.push({ key: "index-write", priority: "high", resolvable: true, title: "index.html not reconciled",
-                        message: `Writing index.html (${blocked ? "off-air" : "player"} page) failed: ${e instanceof Error ? e.message : String(e)}` });
+                        message: `Writing index.html (${blocked ? "off-air" : "player"} page) failed: ${describeError(e)}` });
     }
     // 3. The playlist. Lease table (metronome spec): unusable inputs pass on a
     // known blocked verdict as a hold, and an unblocked one as no lease at all.
@@ -307,7 +308,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
       failureNamed = true;
       conditions.push({ key: "clock-inputs", priority: "urgent", resolvable: true, title: "Clock cannot read its inputs",
                         message: `Reading state/horizon.json or its fallback, or deriving the grid from it, failed ` +
-                                 `(${e instanceof Error ? e.message : String(e)}); live.m3u8 was not written this minute.` });
+                                 `(${describeError(e)}); live.m3u8 was not written this minute.` });
       return e;
     };
     let inputs: ClockInputs;
@@ -403,7 +404,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
     if (!failureNamed) {
       // Catch-all, so no failure goes unalerted (a failed playlist PUT, say).
       conditions.push({ key: "clock-failed", priority: "urgent", resolvable: true, title: "Clock invocation failed",
-                        message: `The clock invocation threw (${e instanceof Error ? e.message : String(e)}); ` +
+                        message: `The clock invocation threw (${describeError(e)}); ` +
                                  "live.m3u8 may not have been written this minute." });
     }
     throw new ClockError(e, result);
