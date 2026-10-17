@@ -186,6 +186,8 @@ export interface Channel {
   send(o: Outgoing): Promise<void>;
 }
 
+/** How much of a refusal's body the log keeps. */
+const NTFY_BODY_CHARS = 200;
 const NTFY_PRIORITY: Record<Priority, string> = { urgent: "5", high: "4", default: "3" };
 const NTFY_TAGS: Record<Priority, string> = { urgent: "rotating_light", high: "warning", default: "information_source" };
 
@@ -203,9 +205,23 @@ export function ntfyChannel(fetchFn: typeof fetch, url: string, token: string | 
       if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetchFn(url, { method: "POST", headers, body: redact(o.message, secrets),
                                        signal: AbortSignal.timeout(TIMEOUT_MS) });
-      if (!res.ok) throw new Error(`ntfy: HTTP ${res.status}`);
+      if (!res.ok) throw new Error(await refusal(res));
     },
   };
+}
+
+/** ntfy's refusal as one log line: the status, any Retry-After, and the start of
+ * the body, which names the limit hit (ntfy.sh limits anonymous senders per IP,
+ * and Workers share egress IPs). A body that cannot be read is left out. */
+async function refusal(res: Response): Promise<string> {
+  const retry = res.headers.get("Retry-After");
+  let body = "";
+  try {
+    body = (await res.text()).trim().slice(0, NTFY_BODY_CHARS);
+  } catch {
+    // the status alone
+  }
+  return `ntfy: HTTP ${res.status}${retry ? ` (retry-after ${retry})` : ""}${body ? `: ${body}` : ""}`;
 }
 
 function b64(text: string): string {

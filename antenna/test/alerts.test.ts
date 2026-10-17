@@ -228,6 +228,20 @@ describe("channels", () => {
     await expect(ntfyChannel(bad.fetch, "https://ntfy.example/topic", undefined, "s").send(o)).rejects.toThrow(/429/);
   });
 
+  it("ntfy: a refusal carries the status, Retry-After and the start of ntfy's body, so the log says which limit", async () => {
+    const body = JSON.stringify({ code: 42901, http: 429, error: "limit reached: too many requests" });
+    const limited = fakeFetch({ "POST ": () => new Response(body, { status: 429, headers: { "Retry-After": "5" } }) });
+    await expect(ntfyChannel(limited.fetch, "https://ntfy.example/topic", undefined, "s").send(o)).rejects.toThrow(
+      `ntfy: HTTP 429 (retry-after 5): ${body}`);
+    const long = fakeFetch({ "POST ": () => new Response("x".repeat(1_000), { status: 503 }) });
+    await expect(ntfyChannel(long.fetch, "https://ntfy.example/topic", undefined, "s").send(o)).rejects.toThrow(
+      new RegExp(`^ntfy: HTTP 503: x{200}$`));
+    const unreadable = fakeFetch({ "POST ": () => new Response(new ReadableStream({ pull(c) { c.error(new Error("reset")); } }),
+                                                              { status: 502 }) });
+    await expect(ntfyChannel(unreadable.fetch, "https://ntfy.example/topic", undefined, "s").send(o)).rejects.toThrow(
+      /^ntfy: HTTP 502$/);
+  });
+
   it("email: a send_email message from the configured sender to the configured recipient", async () => {
     const sent: { from: string; to: string; raw: string }[] = [];
     class FakeMessage {
