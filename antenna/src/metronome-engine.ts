@@ -208,7 +208,7 @@ export class MetronomeEngine {
     const pending = await this.port.getAlarm();
     const lastCounted = s.alarmTimes.length > 0 ? Math.max(...s.alarmTimes) : Number.NEGATIVE_INFINITY;
     const duplicate = pending !== null && now - lastCounted < gridOf(cur.horizon).dMs / 2;
-    this.episode("duplicate", duplicate, "duplicate", "metronome-duplicate", { pending });
+    this.episode("duplicate", duplicate, "duplicate", "metronome-duplicate", { pending, sinceTickMs: now - lastCounted });
     if (pending !== null) {
       const at = tickBoundary(cur, s.lastTarget, now);
       if (confirms(await this.write(tx, cur, at, now, cfg, "alarm"))) s.lastAlarmGoodAt = now;

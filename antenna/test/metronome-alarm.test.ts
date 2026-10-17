@@ -154,6 +154,23 @@ describe("alarm: the tick", () => {
     expect(r.port.events("metronome-duplicate")).toEqual([]);
   });
 
+  it("the renew race on the chain's first delivery (no counted tick yet) is not a duplicate", async () => {
+    const { port, engine } = await playing();
+    port.t = target(1001) - 20;
+    port.alarmAt = null; // the runtime has taken boundary 1001's alarm
+    await engine.renew(lease(port.t));
+    await deliverDuplicate(port, engine, target(1001));
+    expect(port.events("metronome-duplicate")).toEqual([]);
+    expect(port.alarmAt).toBe(target(1002));
+  });
+
+  it("a redelivery after several ticks is judged against the latest one", async () => {
+    const { port, engine } = await playing();
+    for (let n = 1001; n <= 1003; n++) await deliver(port, engine, target(n) + 3);
+    await deliverDuplicate(port, engine, target(1003) + 5);
+    expect(port.events("metronome-duplicate")).toEqual([expect.objectContaining({ sinceTickMs: 2 })]);
+  });
+
   it("a duplicate, then a renew in the same segment: no extra PUT, MEDIA-SEQUENCE never goes backwards", async () => {
     const { port, engine } = await playing();
     await deliver(port, engine, target(1001) + 3);
