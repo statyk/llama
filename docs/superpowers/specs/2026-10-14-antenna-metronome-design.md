@@ -292,6 +292,16 @@ Nothing in `alarm()` ever throws to the runtime: an escaping exception would
 hand the chain to the platform's 6-retry backoff. A duplicate or retried alarm
 rebuilds the same bytes and skips the PUT: the handler is idempotent.
 
+*As built:* a delivery that finds an alarm already pending takes that
+idempotent path (build, PUT only if the bytes differ, no re-arm, not
+counted). Verification day (`docs/superpowers/2026-10-16-metronome-verification.md`)
+showed that a pending alarm is not by itself a redelivery: once the runtime
+has taken an alarm, `getAlarm()` reads null, so a `renew` landing a few ms
+before the boundary arms the next one, and the in-flight delivery then finds
+it pending (13 times in 34 h, none a real redelivery). So
+`metronome-duplicate` is logged only when a counted tick also ran within the
+last half segment; the path taken is the same either way.
+
 **Spend bounds (hard, independent of inputs):**
 
 - At most one PUT per `alarm()` and one per `renew()`.

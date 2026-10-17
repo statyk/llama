@@ -200,9 +200,15 @@ export class MetronomeEngine {
     //     genuine delivery never sees while its handler runs (getAlarm() is null
     //     then, unless setAlarm ran since). Idempotent: build for now, or for the
     //     last tick's boundary if later, and PUT only if the bytes differ; no
-    //     re-arm, lastTarget unchanged, not counted.
+    //     re-arm, lastTarget unchanged, not counted. Logged as a duplicate only when
+    //     a counted tick ran within the last half segment: a renew that lands while
+    //     this delivery is in flight reads getAlarm() as null and arms the next
+    //     boundary, so this genuine delivery, a segment after the last counted one,
+    //     finds it pending (measured: 13 times in 34 h on verification day).
     const pending = await this.port.getAlarm();
-    this.episode("duplicate", pending !== null, "duplicate", "metronome-duplicate", { pending });
+    const lastCounted = s.alarmTimes.length > 0 ? Math.max(...s.alarmTimes) : Number.NEGATIVE_INFINITY;
+    const duplicate = pending !== null && now - lastCounted < gridOf(cur.horizon).dMs / 2;
+    this.episode("duplicate", duplicate, "duplicate", "metronome-duplicate", { pending });
     if (pending !== null) {
       const at = tickBoundary(cur, s.lastTarget, now);
       if (confirms(await this.write(tx, cur, at, now, cfg, "alarm"))) s.lastAlarmGoodAt = now;

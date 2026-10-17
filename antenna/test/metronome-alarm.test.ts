@@ -120,6 +120,40 @@ describe("alarm: the tick", () => {
     expect(port.events("metronome-duplicate")).toHaveLength(1);
   });
 
+  it("a renew while the boundary's alarm is in flight arms the next one: the same path, not logged as a duplicate", async () => {
+    // Measured on the real runtime (verification day, 13 times in 34 h): getAlarm() reads null once the
+    // runtime has taken the alarm, so a renew a few ms before the boundary arms the next one, and the
+    // in-flight handler then finds it pending.
+    const { port, engine } = await playing();
+    await deliver(port, engine, target(1001) + 3);
+    port.t = target(1002) - 20;
+    port.alarmAt = null; // the runtime has taken boundary 1002's alarm; its handler has not run yet
+    await engine.renew(lease(port.t));
+    expect(port.alarmAt).toBe(target(1003));
+    port.ops.length = 0;
+    await deliverDuplicate(port, engine, target(1002)); // the in-flight delivery runs with target(1003) pending
+    expect(port.events("metronome-duplicate")).toEqual([]);
+    expect(port.ops.filter((o) => o.startsWith("setAlarm") || o === "deleteAlarm")).toEqual([]);
+    expect(port.alarmAt).toBe(target(1003));
+    expect(port.body()).toContain("seg/e1/1014.aac"); // boundary 1002's playlist
+    expect(port.store.get("lastAlarmGoodAt")).toBe(target(1002));
+    await deliver(port, engine); // the chain carries on at boundary 1003
+    expect(port.alarmAt).toBe(target(1004));
+    expect(port.body()).toContain("seg/e1/1015.aac");
+    expect(port.events("metronome-duplicate")).toEqual([]);
+  });
+
+  it("a redelivery inside the last half segment is still a duplicate; one a full segment after the counted tick is the renew race", async () => {
+    const { port, engine } = await playing();
+    await deliver(port, engine, target(1001) + 3);
+    await deliverDuplicate(port, engine, target(1001) + D / 2 - 1);
+    expect(port.events("metronome-duplicate")).toHaveLength(1);
+    const r = await playing();
+    await deliver(r.port, r.engine, target(1001) + 3);
+    await deliverDuplicate(r.port, r.engine, target(1001) + D / 2 + 3);
+    expect(r.port.events("metronome-duplicate")).toEqual([]);
+  });
+
   it("a duplicate, then a renew in the same segment: no extra PUT, MEDIA-SEQUENCE never goes backwards", async () => {
     const { port, engine } = await playing();
     await deliver(port, engine, target(1001) + 3);
