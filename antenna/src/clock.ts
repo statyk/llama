@@ -252,13 +252,7 @@ export async function runClock(deps: ClockDeps): Promise<ClockResult> {
       r = typeof status === "object" && status !== null ? { status: status as MetronomeStatus }
                                                         : { error: "renew returned a non-object" };
     } catch (e) {
-      let error: string;
-      try {
-        error = describeError(e);
-      } catch {
-        error = "unprintable rejection"; // String() throws on, say, Object.create(null)
-      }
-      r = { error };
+      r = { error: describeError(e) };
     }
     const fallback = fallbackReason(lease, r);
     result.metronome = { sent, status: "status" in r ? r.status : null, error: "error" in r ? r.error : null, fallback };

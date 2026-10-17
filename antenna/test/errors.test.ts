@@ -18,5 +18,7 @@ describe("describeError", () => {
       expect(typeof describeError(v)).toBe("string");
     }
     expect(describeError(Symbol.for("s"))).toBe("Symbol(s)");
+    expect(describeError(noProto)).toBe("[object Object]");
+    expect(describeError(badMessage)).toBe("[object Error]");
   });
 });

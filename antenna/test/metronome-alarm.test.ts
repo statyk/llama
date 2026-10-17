@@ -422,6 +422,14 @@ describe("a stored lastTarget beyond any computed one (clock skew or corruption)
     expect(port.alarmAt).toBe(target(1002));
   });
 
+  it("the bound is two segments: a stored target 1 ms past it reads as none", async () => {
+    const { port, engine } = await playing();
+    port.t = T + 4_000;
+    port.store.set("lastTarget", port.t + 2 * D + 1);
+    await engine.renew(lease(port.t));
+    expect(port.events("metronome-target-invalid")).toHaveLength(1);
+  });
+
   it("targets up to two segments ahead are kept: an early tick's stored target survives a renew", async () => {
     const { port, engine } = await playing();
     await deliver(port, engine, target(1001) - 40); // early: lastTarget = target(1002), d + 40 ms ahead

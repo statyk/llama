@@ -18,9 +18,9 @@ import { describeError } from "./errors";
 import { gridOf } from "./grid";
 import { renderLive } from "./live";
 import { ALARM_SLACK_MS, capAllows, currentLease, decideLease, DO_PUT_TIMEOUT_MS, isLive, LATE_LOG_MS, leaseKind,
-         MAX_ALARMS_PER_MINUTE, MAX_TARGET_AHEAD_MS, MAX_DO_PUTS_PER_MINUTE, type MetronomeState, type MetronomeStatus, nextStalls,
-         nextTarget, type PlayLease, readState, recordTime, stalledFor, stateChanges, type StorageKey, storedLease,
-         validateLease } from "./metronome-core";
+         MAX_ALARMS_PER_MINUTE, MAX_DO_PUTS_PER_MINUTE, MAX_TARGET_AHEAD_MS, type MetronomeState, type MetronomeStatus,
+         nextStalls, nextTarget, type PlayLease, readState, recordTime, stalledFor, stateChanges, type StorageKey,
+         storedLease, validateLease } from "./metronome-core";
 
 export interface MetronomePort {
   now(): number;
@@ -307,7 +307,8 @@ export class MetronomeEngine {
       const r = await this.write(tx, cur, tickBoundary(cur, s.lastTarget, now), now, cfg, "renew");
       wrote = r === "put" ? true : r === "failed" ? false : null;
     }
-    // 5. Arm only while live and none is pending (or the pending one is impossibly far); otherwise delete any pending alarm.
+    // 5. Arm only while live and none is pending (or the pending one is impossibly far);
+    //    otherwise delete any pending alarm.
     if (cur !== null && cur.kind === "play" && isLive(s.lease, now, cfg)) {
       // A pending alarm further ahead than any computed target is replaced, or it parks the chain.
       const pending = await this.port.getAlarm();
