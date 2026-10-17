@@ -38,7 +38,9 @@ Analyser scripts are in the session scratchpad (not kept). The numbers below are
    | `doDurationGbS` | 1,590 | 27,079 (6.8%) | 400k |
    | `doRowsWritten` | 64,360 | 1.19M | 50M |
 
-   Cross-check: 34.45 h since the flip gives 12,111 boundaries plus 2,067 renews = **14,178** expected requests, against 14,174 metered. That is ≈ 5.3 rows written per tick, inside the expected 4–6. **The dashboard comparison is still owed by the operator.**
+   Cross-check: 34.45 h since the flip gives 12,111 boundaries plus 2,067 renews = **14,178** expected requests, against 14,174 metered. That is ≈ 5.3 rows written per tick, inside the expected 4–6.
+
+   **Dashboard comparison (operator, 2026-10-17): close enough.** guard.json evaluated 10-17 20:31:43Z reads `doRequests` 22,416, `doDurationGbS` 2,478.92 and `doRowsWritten` 102,064 for the period to date. The operator's dashboard read was taken against a reading of 2,467.96 GB-s, about 15 min earlier. The operator judged the numbers close. The dashboard shows duration only abbreviated, as "2k". That is consistent with 2,468 GB-s if the dashboard truncates rather than rounds, so the check bounds duration only loosely: it rules out the 2x misread the check exists to catch, and nothing finer.
 8. **Anomaly lines:**
 
    | Line | Count |
@@ -74,8 +76,8 @@ Analyser scripts are in the session scratchpad (not kept). The numbers below are
 | Criterion | Verdict |
 |---|---|
 | No freeze over 45 s outside a `metronome-down`, at most 1–2 silent chain breaks | **PASS**: 0 attributable freezes, 0 chain breaks |
-| Meters agree with the dashboard | **PENDING**: internally consistent to 0.03%; the operator's dashboard glance is still owed |
+| Meters agree with the dashboard | **PASS**: internally consistent to 0.03%; the operator's dashboard read (10-17) agrees, duration only to the dashboard's "2k" precision |
 | PUTs within ~one per boundary plus one per renew | **PASS** |
-| Duplicate check (item 9) holds | **FAILS AS WRITTEN**: 13 duplicates on fresh `scheduledTime`s, all a benign renew-and-alarm race; no redelivery observed |
+| Duplicate check (item 9) holds | **FAILS AS WRITTEN**: 13 duplicates on fresh `scheduledTime`s, all a benign renew-and-alarm race; no redelivery observed. The logging fix (`794fb9b`/`94268a7`) was deployed 2026-10-17 17:58:26Z as version `2a275ac5`. No duplicates in its first ~7 min; a re-check over several hours is owed (the base rate was about one per 2.6 h) |
 
 The operator decides between accepting item 9 as benign, with a possible follow-up to stop the renew race being logged as a duplicate, and a fix. Nothing here argues for a rollback.
