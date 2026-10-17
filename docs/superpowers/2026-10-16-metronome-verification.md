@@ -59,6 +59,13 @@ Analyser scripts are in the session scratchpad (not kept). The numbers below are
 ## Other observations
 
 - **R2 PUT timeouts on 10-16 00:41–00:43:** several consecutive alarms ran 10.24 s of wall time against the 5 s PUT bound, with 3 `put-failed` lines. The poller saw a 40 s freeze, then the sequence **went backwards once**: 41737 at 04:42:32Z, 41736 at 04:42:42Z. This is consistent with a timed-out PUT landing in R2 after a newer one. A different edge-cache copy cannot be ruled out from this data. RFC 8216 forbids a live playlist's `MEDIA-SEQUENCE` from decreasing; it happened once in 34 h and self-healed on the next write.
+
+  **Accepted, not fixed (operator ruling 2026-10-16: audio continuity outranks momentary playlist correctness).** The obvious fix, conditional PUTs that refuse an out-of-order write, would refuse more writes exactly when R2 is slow. That would lengthen the playlist freezes that measurably drop iPhone audio (over ~45–60 s), in exchange for removing a step that is very likely inaudible. Research by reading sources, not by testing, found no audible effect:
+  - **hls.js:** a lower `endSN` reads as updated but not advanced. Fragments merge by sequence number, and there is no flush, seek or error. The unchanged-playlist error counter resets.
+  - **AVPlayer:** Apple's documented failures need a sequence number whose URI changed (-12312) or an unchanged playlist (-12888). This step is neither: it is the same window shifted back one, with every number mapping to the same segment URI.
+  - **VLC:** probably drops segments below its current one. Low confidence.
+
+  Players hold ~123 s, and the bad playlist lasts one reload. The variant that would matter is a late write that changes the sequence-to-URI mapping, which for this stream means a write landing across an epoch change; that has not been observed. The definitive check, still owed, is Apple's `mediastreamvalidator` or replaying the regressed playlist on an iPhone with `~/lma-radio-ops/hls-start-test/`.
 - After the flip, cron lag dropped to median 1.0 s, p90 8.1 s, max 48 s (16 over 25 s), against a median of 16.9 s and a max of 143 s on 10-13. Cron no longer writes for 75 s per run, so invocations no longer overlap.
 - The off-deploy version `29b99363` fired cron twice a minute during the deploy overlap (10:02–10:04). The flip version fired once a minute for the whole window, with no minute fired twice.
 
