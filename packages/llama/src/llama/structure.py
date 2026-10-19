@@ -263,16 +263,53 @@ _PLACE_ABBREV = {
 }
 
 
+# Spelling variants folded to one token before the stopword drop (spec Slice 1,
+# 1b "Better equivalence"). `theatre` stays in _PLACE_ABBREV.
+_PLACE_FOLD = {
+    "amphitheatre": "amphitheater",
+    "ampitheater": "amphitheater",
+    "ampitheatre": "amphitheater",
+    "pavillion": "pavilion",
+}
+
+# Tokens that only say "a university"; stripped for the subset test (spec 1b).
+_UNIVERSITY_TOKENS = frozenset({"u", "univ", "uc", "ucla", "ucsb", "uiuc", "mit", "university"})
+
+
+def _one_edit(a: str, b: str) -> bool:
+    """Levenshtein distance <= 1 (one substitution, insertion or deletion).
+    Callers apply the length floor."""
+    if a == b:
+        return True
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1:
+        return False
+    if la > lb:
+        a, b, la, lb = b, a, lb, la
+    i = 0
+    while i < la and a[i] == b[i]:
+        i += 1
+    if la == lb:
+        return a[i + 1:] == b[i + 1:]
+    return a[i:] == b[i + 1:]
+
+
 def _place_tokens(s: str) -> list[str]:
-    """Shared venue tokenizer: lowercase, alphanumerics only, stopwords dropped.
+    """Shared venue tokenizer: lowercase, apostrophes deleted, alphanumerics
+    only, race track folded, spelling variants folded, stopwords dropped.
     (Replaces gather's old _norm_place; that folded to a joined string, this
     keeps tokens for subset/initialism comparison.)"""
-    norm = re.sub(r"[^a-z0-9 ]", " ", (s or "").lower())
-    return [t for t in norm.split() if t not in _PLACE_STOPWORDS]
+    norm = (s or "").lower().replace("'", "").replace("\u2019", "")
+    norm = re.sub(r"[^a-z0-9 ]", " ", norm)
+    norm = re.sub(r"\brace\s+track\b", "racetrack", norm)
+    toks = [_PLACE_FOLD.get(t, t) for t in norm.split()]
+    return [t for t in toks if t not in _PLACE_STOPWORDS]
 
 
 def _tokens_equal(a: str, b: str) -> bool:
-    return a == b or bool(_PLACE_ABBREV.get(a, {a}) & _PLACE_ABBREV.get(b, {b}))
+    if a == b or bool(_PLACE_ABBREV.get(a, {a}) & _PLACE_ABBREV.get(b, {b})):
+        return True
+    return min(len(a), len(b)) >= 6 and _one_edit(a, b)
 
 
 def _token_subset(sub: list[str], sup: list[str]) -> bool:
@@ -315,9 +352,77 @@ def venues_equivalent(a: str, b: str) -> bool:
         return True
     if not ta or not tb:
         return False
-    if _token_subset(ta, tb) or _token_subset(tb, ta):
+    if "".join(ta) == "".join(tb):
+        return True
+    sa = [t for t in ta if t not in _UNIVERSITY_TOKENS]
+    sb = [t for t in tb if t not in _UNIVERSITY_TOKENS]
+    # Removal that empties a side declines the subset test (neither True nor
+    # a short-circuit False): "UCLA" vs "UCSB" must not match on nothing.
+    if sa and sb and (_token_subset(sa, sb) or _token_subset(sb, sa)):
         return True
     return _acronym_match(ta, tb) or _acronym_match(tb, ta)
+
+
+# --- City compatibility (spec Slice 1, 1b "City compatibility") --------------
+_CITY_FOLDS = {"ft": "fort", "st": "saint", "mt": "mount", "nyc": "new york city"}
+_METRO_ALIASES = {
+    "goleta": "santa barbara",
+    "salinas": "monterey",
+    "yuzawa": "naeba",
+    "thornville": "legend valley",
+}
+# Decision P8, signed off with the plan.
+_REGION_FOLDS = {
+    "alabama": "al", "alaska": "ak", "arizona": "az", "arkansas": "ar", "california": "ca",
+    "colorado": "co", "connecticut": "ct", "delaware": "de", "district of columbia": "dc",
+    "florida": "fl", "georgia": "ga", "hawaii": "hi", "idaho": "id", "illinois": "il",
+    "indiana": "in", "iowa": "ia", "kansas": "ks", "kentucky": "ky", "louisiana": "la",
+    "maine": "me", "maryland": "md", "massachusetts": "ma", "michigan": "mi", "minnesota": "mn",
+    "mississippi": "ms", "missouri": "mo", "montana": "mt", "nebraska": "ne", "nevada": "nv",
+    "new hampshire": "nh", "new jersey": "nj", "new mexico": "nm", "new york": "ny",
+    "north carolina": "nc", "north dakota": "nd", "ohio": "oh", "oklahoma": "ok", "oregon": "or",
+    "pennsylvania": "pa", "rhode island": "ri", "south carolina": "sc", "south dakota": "sd",
+    "tennessee": "tn", "texas": "tx", "utah": "ut", "vermont": "vt", "virginia": "va",
+    "washington": "wa", "west virginia": "wv", "wisconsin": "wi", "wyoming": "wy",
+    "alberta": "ab", "british columbia": "bc", "manitoba": "mb", "new brunswick": "nb",
+    "newfoundland and labrador": "nl", "nova scotia": "ns", "ontario": "on",
+    "prince edward island": "pe", "quebec": "qc", "saskatchewan": "sk",
+    "northwest territories": "nt", "nunavut": "nu", "yukon": "yt",
+}
+_COUNTRY_NOISE = ("united states", "usa", "us")  # folded to nothing in a region
+
+
+def _clean_place(s: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", s.lower()).split())
+
+
+def _city_parts(s: str | None) -> tuple[str, str]:
+    """(key, region) of a "City, Region" string; see cities_compatible."""
+    fields = (s or "").split(",")
+    key = " ".join(_CITY_FOLDS.get(t, t) for t in _clean_place(fields[0]).split())
+    key = _METRO_ALIASES.get(key, key)
+    region = _clean_place(fields[1]) if len(fields) > 1 else ""
+    for noise in _COUNTRY_NOISE:
+        region = re.sub(rf"\b{noise}\b", " ", region)
+    region = " ".join(region.split())
+    return key, _REGION_FOLDS.get(region, region)
+
+
+def cities_compatible(a: str | None, b: str | None) -> bool:
+    """Conservative city agreement: empty key never agrees; two non-empty
+    regions must match; then key equality, a one-edit typo (>= 6 chars), or
+    whole-token containment of the shorter key in the longer."""
+    ka, ra = _city_parts(a)
+    kb, rb = _city_parts(b)
+    if not ka or not kb:
+        return False
+    if ra and rb and ra != rb:
+        return False
+    if ka == kb or (min(len(ka), len(kb)) >= 6 and _one_edit(ka, kb)):
+        return True
+    ta, tb = ka.split(), kb.split()
+    short, long = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    return all(t in long for t in short)
 
 
 def from_setlistfm(raw: dict) -> ParsedSetlist | None:

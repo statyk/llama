@@ -327,6 +327,14 @@ from llama.structure import venues_equivalent
     ("Fillmore Theatre", "Fillmore Theater"),       # theatre/theater
     ("The Spectrum", "Spectrum"),                   # stopword dropped
     ("RFK Stadium", "RFK Stadium"),                 # identity
+    ("Penn's Landing", "Penns Landing"),
+    ("Merriweather Post Pavillion", "Merriweather Post Pavilion"),
+    ("Red Rocks Amphitheatre", "Red Rocks Ampitheater"),
+    ("Cornell U", "Cornell University"),
+    ("Barton Hall, Cornell University", "Barton Hall, Cornell U"),
+    ("Jahrhundert Halle", "Jahrhunderthalle"),
+    ("Meramec Race Track", "Merramec Racetrack"),
+    ("Barrymore Theater", "Barrymore Theatre"),
 ])
 def test_venues_equivalent_true(a, b):
     assert venues_equivalent(a, b)
@@ -337,6 +345,10 @@ def test_venues_equivalent_true(a, b):
     ("Fillmore East", "Fillmore West"),             # different halls
     ("Boston Garden", "Boston Music Hall"),         # different venues, shared city
     ("Winterland", "Warfield"),                     # unrelated
+    ("UCLA", "UCSB"),
+    ("Buffalo Auditorium", "Community War Memorial Auditorium"),
+    ("The Pageant", "Barrymore Theatre"),
+    ("Shrine Auditorium", "Shrine Exhibition Hall"),
 ])
 def test_venues_not_equivalent(a, b):
     assert not venues_equivalent(a, b)
@@ -1970,3 +1982,33 @@ def test_a_real_title_gap_beside_placeholder_shapes_still_adopts():
     out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
     assert [(t.title, t.title_source) for t in out][1:3] == [
         ("Tracks of My Tears", "setlist-gap"), ("Temptation", "setlist-gap")]
+
+
+from llama.structure import _one_edit, cities_compatible
+
+
+def test_one_edit():
+    assert _one_edit("merramec", "meramec") and _one_edit("abc", "abd") and _one_edit("abc", "abcd")
+    assert not _one_edit("abc", "xyz") and not _one_edit("abc", "abcde")
+
+
+@pytest.mark.parametrize("a, b", [
+    ("Madison, WI", "Madison, WI"), ("Ft. Lauderdale, FL", "Fort Lauderdale, FL"),
+    ("St. Louis, MO", "Saint Louis, MO"), ("NYC", "New York City, NY"), ("Mt. Vernon", "Mount Vernon"),
+    ("Detroit Lakes, MN", "Soo Pass Ranch Detroit Lakes, MN"), ("Goleta, CA", "Santa Barbara, CA"),
+    ("Thornville, OH", "Legend Valley, OH"), ("Tuxedo, NY", "Tuxedo Park, NY"),
+    ("Merramec, MO", "Meramec, MO"), ("Portland", "Portland, OR"),
+    ("Utica, New York", "Utica, NY"), ("Rothbury, Michigan", "Rothbury, MI"),
+    ("Santa Cruz, CA", "Santa Cruz, CA USA"), ("Washington, District of Columbia", "Washington, DC"),
+])
+def test_cities_compatible(a, b):
+    assert cities_compatible(a, b) and cities_compatible(b, a)
+
+
+@pytest.mark.parametrize("a, b", [
+    ("Portland, OR", "Portland, ME"), ("LA", "Dallas, TX"), ("Dallas", "LA"), (None, "Madison"),
+    ("", "Madison"), ("St. Louis, MO", "Madison, WI"), ("Apple Valley, MN", "Minneapolis, MN"),
+    ("Bonnaroo", "Manchester, TN"), ("Portland, Oregon", "Portland, ME"), ("Utica, New York", "Utica, MI"),
+])
+def test_cities_not_compatible(a, b):
+    assert not cities_compatible(a, b)
