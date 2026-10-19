@@ -610,3 +610,27 @@ def test_compare_writes_only_files_named_in_output_files(tmp_path):
     out = tmp_path / "cmp"
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
     assert {p.name for p in out.iterdir()} <= set(rh.OUTPUT_FILES)
+
+
+def test_narration_sort_uses_whole_string_numeric_test():
+    js = rh.NARRATION_JS
+    assert "parseFloat(" not in js and "/^-?" in js
+
+
+def test_narration_sort_comparator_is_correct_and_transitive():
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    start = rh.NARRATION_JS.index("var x = a.cells")
+    end = rh.NARRATION_JS.index("return asc")
+    body = rh.NARRATION_JS[start:end]
+    prog = ("var cmp=function(a,b){var asc=true;" + body.replace("a.cells[i]", "{textContent:a}")
+            .replace("b.cells[i]", "{textContent:b}") + "return c;};"
+            "var v=['1973-06-10','1973-01-02','311-1995-01-01','abc','?','12','3'];"
+            "console.log(JSON.stringify(v.slice().sort(cmp)));")
+    res = subprocess.run([node, "-e", prog], capture_output=True, text=True, check=True)
+    got = json.loads(res.stdout)
+    assert got == ["3", "12", "1973-01-02", "1973-06-10", "311-1995-01-01", "?", "abc"] or \
+        got == ["3", "12", "?", "1973-01-02", "1973-06-10", "311-1995-01-01", "abc"]

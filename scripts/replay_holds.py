@@ -550,8 +550,11 @@ document.querySelectorAll('th').forEach(function (th, i) {
     var rows = Array.prototype.slice.call(tb.rows);
     rows.sort(function (a, b) {
       var x = a.cells[i].textContent, y = b.cells[i].textContent;
-      var nx = parseFloat(x), ny = parseFloat(y);
-      var c = (!isNaN(nx) && !isNaN(ny)) ? nx - ny : x.localeCompare(y);
+      var isNum = function (v) { return /^-?\\d+(\\.\\d+)?$/.test(v.trim()); };
+      var ax = isNum(x), ay = isNum(y), c;
+      if (ax && ay) c = +x - +y;
+      else if (ax !== ay) c = ax ? -1 : 1;
+      else c = x.localeCompare(y);
       return asc ? c : -c;
     });
     rows.forEach(function (r) { tb.appendChild(r); });
