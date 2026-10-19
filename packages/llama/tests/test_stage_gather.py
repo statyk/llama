@@ -2288,3 +2288,72 @@ def test_run_gather_replaces_notes_json_on_force(tmp_path):
     write_artifact(sws.notes, ShowNotes(gather=["stale"], vet=["stale"]))
     run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT, force=True)
     assert read_model(sws.notes, ShowNotes) == ShowNotes()
+
+
+# --- slice 2: the cross-source vocabulary (ruling 3) ---
+
+from llama.stages.gather import build_canonical
+
+
+def test_build_canonical_corroboration_excludes_the_chosen_description():
+    base = json.loads(FIXTURE.read_text())
+    chosen = dict(base["metadata"], description="Set 1\nOnly In The Chosen\nMorning Dew")
+    sib = {"metadata": dict(base["metadata"], description="Set 1\nMorning Dew\nFrom A Sibling"),
+           "files": []}
+    ia = MultiIA({IDENT: {"metadata": chosen, "files": base["files"]}, "sib": sib})
+    cand = make_candidate().model_copy(update={"recordings": [RecordingSummary(identifier=IDENT),
+                                                               RecordingSummary(identifier="sib")]})
+    kept, _, _ = filter_files(base["files"], want_format=("VBR MP3",))
+    cb = build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [])
+    assert cb.corroboration == {fuzzy_norm_title("Morning Dew"): ("lma:sib",),
+                                fuzzy_norm_title("From A Sibling"): ("lma:sib",)}
+    assert fuzzy_norm_title("Only In The Chosen") not in cb.corroboration
+
+
+def test_build_canonical_corroboration_names_setlistfm(tmp_path):
+    import httpx
+    slfm_body = json.loads((FIXTURES / "slfm_gd_1974_02_24.json").read_text())
+    client = SetlistFMClient(
+        cache_dir=tmp_path / "slfm-cache", api_key="k",
+        client=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=slfm_body))),
+        backoff_s=0, rate_limit_s=0)
+    ia = gd74_ia()
+    meta = ia.metadata(W_IDENT)["metadata"]
+    kept, _, _ = filter_files(ia.metadata(W_IDENT)["files"], want_format=("VBR MP3",))
+    cb = build_canonical(ia, gd74_candidate(), W_IDENT, meta, kept, "Grateful Dead", [], setlistfm=client)
+    assert any("setlist.fm" in sources for sources in cb.corroboration.values())
+    assert any(sources == (f"lma:{M_IDENT}",) for sources in cb.corroboration.values()) or \
+           any(f"lma:{M_IDENT}" in sources for sources in cb.corroboration.values())
+    assert not any("chosen" in sources for sources in cb.corroboration.values())
+
+
+def test_build_canonical_corroboration_drops_a_sibling_that_copies_the_chosen_description():
+    # ruling 3: a byte-identical sibling (the bobbyleerodgers-2010-01-13 shape) is the same author
+    base = json.loads(FIXTURE.read_text())
+    chosen = dict(base["metadata"], description="Set 1\n07:22 - IB49\nMorning Dew")
+    copy = {"metadata": dict(base["metadata"], description="Set 1\n07:22 - IB49\nMorning Dew"), "files": []}
+    spaced = {"metadata": dict(base["metadata"], description="Set 1\n  07:22 - IB49\n\nMorning  Dew\n"),
+              "files": []}
+    ia = MultiIA({IDENT: {"metadata": chosen, "files": base["files"]}, "copy": copy, "spaced": spaced})
+    cand = make_candidate().model_copy(update={"recordings": [RecordingSummary(identifier=IDENT),
+                                                               RecordingSummary(identifier="copy"),
+                                                               RecordingSummary(identifier="spaced")]})
+    kept, _, _ = filter_files(base["files"], want_format=("VBR MP3",))
+    cb = build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [])
+    assert cb.corroboration == {}
+
+
+def test_build_canonical_corroboration_skips_items_that_normalize_to_nothing():
+    """A `???` setlist line normalizes to "" -- an empty key would let any
+    empty-normalizing tag count as corroborated (mutation (g) of task 8)."""
+    base = json.loads(FIXTURE.read_text())
+    chosen = dict(base["metadata"], description="Set 1\nMorning Dew")
+    sib = {"metadata": dict(base["metadata"], description="Set 1\nMorning Dew\n???\nFrom A Sibling"),
+           "files": []}
+    ia = MultiIA({IDENT: {"metadata": chosen, "files": base["files"]}, "sib": sib})
+    cand = make_candidate().model_copy(update={"recordings": [RecordingSummary(identifier=IDENT),
+                                                               RecordingSummary(identifier="sib")]})
+    kept, _, _ = filter_files(base["files"], want_format=("VBR MP3",))
+    cb = build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [])
+    assert "" not in cb.corroboration
+    assert set(cb.corroboration) == {fuzzy_norm_title("Morning Dew"), fuzzy_norm_title("From A Sibling")}

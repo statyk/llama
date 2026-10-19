@@ -762,6 +762,38 @@ class CanonicalBuild(NamedTuple):
     # was passed. An empty description makes no call even with a provider,
     # so it is never needs-LLM (held-backlog spec "Slice 0").
     needs_llm: bool = False
+    # The cross-source item vocabulary (held-backlog spec ruling 3; slices 2a
+    # and 2b): `fuzzy_norm_title(item.title)` -> sorted sources listing it,
+    # over setlist.fm and every sibling `lma:` parse, never the selected
+    # recording's own description (`"chosen"`) nor a sibling whose
+    # whitespace-normalised description copies it (same author), nor `"llm"`.
+    # Built from the raw parses, before the cleaning pass: an item
+    # vocabulary, not the canonical. Built here and nowhere else.
+    corroboration: dict[str, tuple[str, ...]] = {}
+
+
+def _corroboration(parses: list[SourcedParse], descriptions: list[str], chosen_desc: str,
+                   setlistfm_parse: SourcedParse | None) -> dict[str, tuple[str, ...]]:
+    """`CanonicalBuild.corroboration` (ruling 3). `parses`/`descriptions` are
+    `_collect_parses`' parallel lists; `chosen_desc` is the selected
+    recording's own description, compared whitespace-normalised so a pasted
+    copy (the bobbyleerodgers-2010-01-13 shape) is recognised as the same
+    author even with different spacing."""
+    def ws(text: str) -> str:
+        return " ".join(text.split())
+
+    chosen_ws = ws(chosen_desc)
+    eligible = [p for p, desc in zip(parses, descriptions, strict=True)
+                if p.source.startswith("lma:") and ws(desc) != chosen_ws]
+    if setlistfm_parse is not None:
+        eligible.append(setlistfm_parse)
+    vocab: dict[str, set[str]] = {}
+    for p in eligible:
+        for item in p.parsed.items:
+            norm = fuzzy_norm_title(item.title)
+            if norm:
+                vocab.setdefault(norm, set()).add(p.source)
+    return {norm: tuple(sorted(sources)) for norm, sources in vocab.items()}
 
 
 def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
@@ -787,12 +819,20 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     `StructureInfo.source`.
     """
     parses, notes, descriptions = _collect_parses(ia, candidate, identifier, meta)
+    slfm_parse = None
     if setlistfm is not None:
         raw = setlistfm.setlist(artist, candidate.date,
                                 venue=candidate.venue, city=candidate.city)
         converted = from_setlistfm(raw) if raw else None
         if converted is not None:
-            parses.insert(0, SourcedParse(source="setlist.fm", parsed=converted))
+            slfm_parse = SourcedParse(source="setlist.fm", parsed=converted)
+    # Before the setlist.fm insert, while `parses` is still parallel to
+    # `descriptions`. The chosen description is read from `meta` directly, so
+    # a selected recording missing from `candidate.recordings` still has its
+    # copies recognised.
+    corroboration = _corroboration(parses, descriptions, _description(meta), slfm_parse)
+    if slfm_parse is not None:
+        parses.insert(0, slfm_parse)
 
     best = rank_parses(parses, target_count=len(kept))
     needs_llm = False
@@ -818,7 +858,7 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     canonical = _drop_artist_items(canonical, artist)
     canonical = _strip_footnote_markers(canonical)
     return CanonicalBuild(setlist=canonical, notes=notes, source=source,
-                          needs_llm=needs_llm)
+                          needs_llm=needs_llm, corroboration=corroboration)
 
 
 class GatherResult(NamedTuple):
