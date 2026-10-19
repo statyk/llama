@@ -289,3 +289,184 @@ def test_run_restores_logging_and_reports_progress(tmp_path, monkeypatch, capsys
     assert logging.root.manager.disable == logging.NOTSET
     err = capsys.readouterr().err
     assert "replayed 1/2" in err and "replayed 2/2" in err
+
+
+def _two_arms(tmp_path, mutate_cand=None, mutate_base=None, held_for_real=True):
+    """Both arms from one library and one code tree. By default the held show
+    holds for real, so the base arm reproduces it and any "newly cleared"
+    comes only from a cand mutation."""
+    root = tmp_path / "lib"
+    build_library(root, held_for_real=held_for_real)
+    base, cand = tmp_path / "base.json", tmp_path / "cand.json"
+    cfg = str(root / "config.toml")
+    assert rh.main(["run", "--out", str(base), "--all", "--config", cfg]) == 0
+    assert rh.main(["run", "--out", str(cand), "--all", "--config", cfg]) == 0
+    for path, mutate in ((base, mutate_base), (cand, mutate_cand)):
+        if mutate:
+            arm = json.loads(path.read_text())
+            mutate(arm)
+            path.write_text(json.dumps(arm))
+    return base, cand
+
+
+def _clear_it(arm):
+    s = arm["shows"]["gratefuldead-1973-06-10"]
+    s["gather_flags"], s["vet_flags"], s["outcome"], s["briefing"] = [], [], "clears", "reuse"
+    s["notes"] = ["venue differs from jerrybase: archive 'Hall A' vs 'Hall B' (same city)"]
+
+
+def test_compare_writes_the_report_set_and_the_lists(tmp_path):
+    base, cand = _two_arms(tmp_path, _clear_it)
+    b = json.loads(base.read_text())["shows"]["gratefuldead-1973-06-10"]
+    assert b["outcome"] == "still-held" and b["reproduces"] is True     # a real hold, reproduced
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    for name in ("summary.txt", "drift.txt", "flags.txt", "outcomes.txt", "packaged_exposure.txt",
+                 "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
+                 "closest_calls.txt", "needs_llm.txt", "notes.txt", "briefings.txt",
+                 "predicted_list.json", "structure_changed_list.json", "pilot_list.json"):
+        assert (out / name).exists(), name
+    predicted = json.loads((out / "predicted_list.json").read_text())
+    assert [r["slug"] for r in predicted["rows"]] == ["gratefuldead-1973-06-10"]
+    assert predicted["sha"] == json.loads(cand.read_text())["sha"]
+    assert set(predicted["rows"][0]["digests"]) == {"show.json", "overrides.json", "provenance.json",
+                                                     "research.md", "vetting.extraction"}
+    assert "research-date: removed 1, added 0" in (out / "flags.txt").read_text()
+    assert "gratefuldead-1973-06-10" in (out / "hand_check_sample.txt").read_text()
+    assert "slice 1 (1c)" in (out / "closest_calls.txt").read_text()
+    assert "Hall A" in (out / "closest_calls.txt").read_text()
+    assert "Hall A" in (out / "notes.txt").read_text()
+    assert [r["slug"] for r in json.loads((out / "pilot_list.json").read_text())["rows"]] == \
+        ["gratefuldead-1973-06-10"]
+    summary = (out / "summary.txt").read_text()
+    assert "base reproduces 1/1 (held, not needs-LLM)" in summary
+    assert "briefing guard reproduces" in summary and "needs-LLM held: base 0, cand 0" in summary
+
+
+def test_compare_refuses_arms_whose_digests_differ(tmp_path, capsys):
+    def touch(arm):
+        arm["shows"]["gratefuldead-1973-06-11"]["digests"]["show.json"] = "deadbeef"
+    base, cand = _two_arms(tmp_path, touch)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 2
+    assert "arms differ" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_compare_refuses_arms_whose_config_differs(tmp_path, capsys):
+    def other_config(arm):
+        arm["config_fingerprint"] = "0" * 64
+    base, cand = _two_arms(tmp_path, other_config)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 2
+    assert "arms differ" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_compare_refuses_a_slug_in_one_arm_only_and_a_setlistfm_difference(tmp_path, capsys):
+    def drop(arm):
+        del arm["shows"]["gratefuldead-1973-06-11"]
+    base, cand = _two_arms(tmp_path, drop)
+    assert rh.main(["compare", str(base), str(cand), "--out", str(tmp_path / "c1")]) == 2
+    assert "gratefuldead-1973-06-11" in capsys.readouterr().err
+    def slfm(arm):
+        arm["setlistfm_configured"] = not arm["setlistfm_configured"]
+    base, cand = _two_arms(tmp_path, slfm)
+    assert rh.main(["compare", str(base), str(cand), "--out", str(tmp_path / "c2")]) == 2
+    assert not (tmp_path / "c2").exists()
+
+
+def test_compare_refuses_a_baseline_that_does_not_reproduce(tmp_path, capsys):
+    # the default library's hold is synthetic: the replay does not raise it
+    base, cand = _two_arms(tmp_path, held_for_real=False)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 3
+    assert "< 99%" in capsys.readouterr().err
+    assert (out / "drift.txt").exists()
+    assert "gratefuldead-1973-06-10" in (out / "drift.txt").read_text()
+
+
+def test_compare_gate_counts_only_held_shows_that_are_not_needs_llm(tmp_path):
+    def needs_llm_hold(arm):
+        s = arm["shows"]["gratefuldead-1973-06-11"]
+        s["state"], s["outcome"], s["reproduces"] = "held", "needs-llm", False
+        s["needs_llm"] = ["stored alignment llm"]
+    base, cand = _two_arms(tmp_path, needs_llm_hold, needs_llm_hold)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0   # 1/1, not 1/2
+    assert "gratefuldead-1973-06-11" not in (out / "drift.txt").read_text()
+    assert "gratefuldead-1973-06-11" in (out / "needs_llm.txt").read_text()
+    assert "needs-LLM held: base 1, cand 1" in (out / "summary.txt").read_text()
+
+
+def test_compare_counts_an_unreadable_state_unreplayable_row_as_not_reproducing(tmp_path, capsys):
+    def unknown(arm):
+        s = arm["shows"]["gratefuldead-1973-06-11"]
+        s["state"], s["outcome"], s["reproduces"] = "unknown", "unreplayable", False
+    base, cand = _two_arms(tmp_path, unknown, unknown)
+    assert rh.main(["compare", str(base), str(cand), "--out", str(tmp_path / "cmp")]) == 3   # 1/2
+    assert "1/2" in capsys.readouterr().err
+
+
+def test_packaged_exposure_lists_a_clean_show_whose_fields_would_change(tmp_path):
+    def change(arm):
+        s = arm["shows"]["gratefuldead-1973-06-11"]
+        s["outcome"], s["venue"] = "clean-changed", {"old": "RFK Stadium", "new": "Robert F. Kennedy Stadium"}
+        s["date"] = {"old": "1973-06-11", "new": "1973-06-12"}
+    base, cand = _two_arms(tmp_path, change)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "packaged_exposure.txt").read_text()
+    assert "gratefuldead-1973-06-11" in text and "Robert F. Kennedy Stadium" in text
+    assert "1973-06-12" in text
+
+
+def test_packaged_exposure_is_base_versus_cand_and_lists_newly_held_shows(tmp_path):
+    same = {"old": "RFK Stadium", "new": "Robert F. Kennedy Stadium"}
+    def both(arm):
+        arm["shows"]["gratefuldead-1973-06-11"]["venue"] = same
+    def cand_holds(arm):
+        both(arm)
+        s = arm["shows"]["gratefuldead-1973-06-11"]
+        s["outcome"], s["gather_flags"] = "newly-held", ["venue mismatch: archive 'A' vs jerrybase 'B'"]
+    base, cand = _two_arms(tmp_path, cand_holds, both)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "packaged_exposure.txt").read_text()
+    assert "Robert F. Kennedy Stadium" not in text          # the same diff in both arms is not exposure
+    assert "gratefuldead-1973-06-11" in text and "venue mismatch: archive 'A' vs jerrybase 'B'" in text
+
+
+def test_closest_calls_sections_and_notes_groups(tmp_path):
+    notes = [
+        "venue differs from jerrybase: archive 'Hall A' vs 'Hall B' (same city)",
+        "accepted short tag title: track 3 '1999' corroborated by setlist.fm",
+        "accepted short tag title: track 4 'Hey' corroborated by lma:x, setlist.fm",
+        "unknown-song flags suppressed by the right-show gate: 9/10 tape tracks asserted (ratio 0.90), 1 unclaimed: Foo; research date: June 10, 1973",
+        "format sibling tagged: 3 tracks",
+        "something unforeseen",
+    ]
+    def mutate(arm):
+        _clear_it(arm)
+        s = arm["shows"]["gratefuldead-1973-06-10"]
+        s["notes"] = notes
+        s["alignment"] = {"old": "none", "new": "exact"}
+    base, cand = _two_arms(tmp_path, mutate)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    cc = (out / "closest_calls.txt").read_text()
+    assert "'1999' by setlist.fm (single source, numeric-only title)" in cc
+    assert "'Hey'" not in cc
+    assert "ratio 0.90, asserted 9/10" in cc
+    assert "slice 4b" in cc and "slice 5a" in cc and "slice 5c" in cc
+    assert '"exact"' in cc
+    nt = (out / "notes.txt").read_text()
+    assert "== format sibling tagged (1)" in nt and "== other (1)" in nt and "== 2a (2)" in nt
+
+
+def test_pilot_list_swaps_in_reuse_rows(tmp_path):
+    rows = [{"slug": f"s{i:02d}", "briefing": "reuse" if i >= 12 else "fresh"} for i in range(14)]
+    pilot = rh._pilot(sorted(rows, key=lambda r: rh._skey(r["slug"])))
+    assert len(pilot) == 10
+    assert sum(r["briefing"] == "reuse" for r in pilot) >= 2
+    assert [r["slug"] for r in pilot] == sorted((r["slug"] for r in pilot), key=rh._skey)
