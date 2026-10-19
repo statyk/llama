@@ -978,9 +978,9 @@ from llama import jerrybase
 from llama.models import JerrybaseEvent, JerrybaseSet
 
 
-def _jb_event(closers_and_names, venue="V", city="C"):
+def _jb_event(closers_and_names, venue="V", city="C", state="ST"):
     return JerrybaseEvent(
-        event_id="1", venue=venue, city=city, state="ST",
+        event_id="1", venue=venue, city=city, state=state,
         sets=[JerrybaseSet(name=n, closer=c, break_length="long")
               for c, n in closers_and_names],
     )
@@ -1032,10 +1032,12 @@ def test_gather_flags_venue_mismatch_never_overwrites(tmp_path, monkeypatch):
 def test_gather_venue_equivalent_passes_no_mismatch(tmp_path, monkeypatch):
     # Spec integration test: archive "RFK Stadium" vs jerrybase "Robert F.
     # Kennedy Stadium" is a high-confidence equivalence -> no mismatch flag.
+    # Slice 1 step 1 also requires compatible cities, so the event carries the
+    # candidate's real state ("Washington, DC"), not _jb_event's "ST".
     monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(
         [("I Know You Rider", "1"), ("Eyes of the World", "2"),
          ("Johnny B. Goode", "encore")],
-        venue="Robert F. Kennedy Stadium", city="Washington")])
+        venue="Robert F. Kennedy Stadium", city="Washington", state="DC")])
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
                       jerrybase_enabled=True)
@@ -2689,3 +2691,172 @@ def test_2c_ships_and_notes_railroad_earths_titles_without_footnote_marks(tmp_pa
     assert not any(t.rstrip().endswith(("#", "^")) for t in titles)
     assert "stripped glued track number: track 19 '20The Cuckoo #' -> 'The Cuckoo'" in res.notes
     assert "stripped glued track number: track 21 '22Walls Of Time #^' -> 'Walls Of Time'" in res.notes
+
+
+# --- slice 1: venue tripwire steps, the swap, the signature, 1d (spec "Slice 1") ---
+
+from llama.stages.gather import two_venue_signature
+
+DSO = FIXTURES / "dso2003-01-25.json"; DSO_IDENT = "dso2003-01-25.shnf"
+GUSTER = FIXTURES / "guster2003-07-10.json"; G_IDENT = "guster2003-07-10.shnf"
+GD78 = FIXTURES / "gd78-11-17_dodd.json"; GD78_IDENT = "gd78-11-17.acoustic.sbd.dodd.7687.sbeok.shnf"
+
+
+def _dso_candidate():
+    return Candidate(performance_id="DarkStarOrchestra/2003-01-25", collection="DarkStarOrchestra",
+                     date="2003-01-25", venue="The Pageant", city="St. Louis, MO",
+                     recordings=[RecordingSummary(identifier="ds2003-01-25.shnf", venue="The Pageant",
+                                                  coverage="St. Louis, MO"),
+                                 RecordingSummary(identifier=DSO_IDENT, venue="Barrymore Theater",
+                                                  coverage="Madison, WI")])
+
+
+def _gather(tmp_path, fixture, cand, ident, **kw):
+    sws = ShowWorkspace(tmp_path / "s")
+    md = json.loads(fixture.read_text())
+    return compute_gather(sws, StubIA(md), None, cand, ident, jerrybase_enabled=True, **kw)
+
+
+def test_swap_ships_the_selected_venue_when_it_agrees_with_jerrybase_and_1d_still_holds(tmp_path):
+    res = _gather(tmp_path, DSO, _dso_candidate(), DSO_IDENT)
+    assert (res.show.venue, res.show.city) == ("Barrymore Theater", "Madison, WI")
+    assert ("venue taken from the selected recording: 'Barrymore Theater' agrees with jerrybase "
+            "'Barrymore Theatre' (vote was 'The Pageant')") in res.notes
+    assert not any(f.startswith("venue mismatch") for f in res.show.review_flags)
+    assert "recordings of this date disagree on city: 'Madison, WI' (selected) vs 'St. Louis, MO'" in res.show.review_flags
+
+
+def test_an_operator_venue_override_suppresses_the_1d_hold(tmp_path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.overrides, Overrides(venue="Barrymore Theatre", city="Madison, WI"))
+    res = compute_gather(sws, StubIA(json.loads(DSO.read_text())), None, _dso_candidate(), DSO_IDENT,
+                         jerrybase_enabled=True)
+    assert res.show.venue == "Barrymore Theatre" and res.show.venue_source == "override"
+    assert not any("disagree on city" in f for f in res.show.review_flags)
+
+
+def test_two_venue_signature_keeps_the_same_city_double_held(tmp_path):
+    recs = [RecordingSummary(identifier="gd1978-11-17.135718.sbd.partial.schley.andrewf.flac1644",
+                             venue="Uptown Theater", coverage="Chicago, IL"),
+            RecordingSummary(identifier=GD78_IDENT, venue="Rambler Room, Loyola College", coverage="Chicago, IL"),
+            RecordingSummary(identifier="gd78-11-17.paud.wiley.11488.sbeok.shnf", venue="Uptown Theatre",
+                             coverage="Chicago, IL")]
+    cand = Candidate(performance_id="GratefulDead/1978-11-17", collection="GratefulDead", date="1978-11-17",
+                     venue="Rambler Room, Loyola College", city="Chicago, IL", recordings=recs)
+    assert two_venue_signature(cand)
+    res = _gather(tmp_path, GD78, cand, GD78_IDENT)
+    assert "venue mismatch: archive 'Rambler Room, Loyola College' vs jerrybase 'Uptown Theatre'" in res.show.review_flags
+    assert res.show.venue == "Rambler Room, Loyola College"
+    assert not any(n.startswith("venue differs from jerrybase") for n in res.notes)
+
+
+def test_signature_also_fires_on_spellings_of_one_hall():
+    cand = Candidate(performance_id="GratefulDead/1981-09-26", collection="GratefulDead", date="1981-09-26",
+                     recordings=[RecordingSummary(identifier="a", venue="Buffalo Auditorium", coverage="Buffalo, NY"),
+                                 RecordingSummary(identifier="b", venue="Community War Memorial Auditorium",
+                                                  coverage="Buffalo, NY")])
+    assert two_venue_signature(cand)
+    assert not two_venue_signature(cand.model_copy(update={"recordings": [cand.recordings[0]]}))
+
+
+def test_1d_ships_the_selected_recording_on_a_city_conflict_without_jerrybase(tmp_path):
+    cand = Candidate(performance_id="Guster/2003-07-10", collection="Guster", date="2003-07-10",
+                     venue="Cities 97 Studio C", city="Minneapolis, MN",
+                     recordings=[RecordingSummary(identifier="guster2003-07-10.fm.shnf", venue="Cities 97 Studio C",
+                                                  coverage="Minneapolis, MN"),
+                                 RecordingSummary(identifier=G_IDENT, venue="Weesner Amphitheater, MN Zoo",
+                                                  coverage="Apple Valley, MN")])
+    res = _gather(tmp_path, GUSTER, cand, G_IDENT)
+    assert (res.show.venue, res.show.city) == ("Weesner Amphitheater, MN Zoo", "Apple Valley, MN")
+    assert "recordings of this date disagree on city: 'Apple Valley, MN' (selected) vs 'Minneapolis, MN'" in res.show.review_flags
+
+
+def test_1d_does_not_fire_without_a_selected_city_or_with_compatible_cities(tmp_path):
+    base = _dso_candidate()
+    no_city = base.model_copy(update={"recordings": [base.recordings[0],
+                                                     base.recordings[1].model_copy(update={"coverage": None})]})
+    res = _gather(tmp_path, DSO, no_city, DSO_IDENT)
+    assert not any("disagree on city" in f for f in res.show.review_flags)
+    same_city = base.model_copy(update={"city": "Madison, WI", "venue": "Barrymore Theatre"})
+    res = _gather(tmp_path, DSO, same_city, DSO_IDENT)
+    assert not any("disagree on city" in f for f in res.show.review_flags)
+    assert res.show.venue == "Barrymore Theatre"          # step 1: the vote ships, no churn
+
+
+def test_1a_blank_jerrybase_venue_is_no_evidence_when_cities_agree(tmp_path):
+    md = json.loads(DSO.read_text())
+    cand = Candidate(performance_id="DarkStarOrchestra/2012-05-19", collection="DarkStarOrchestra",
+                     date="2012-05-19", venue="Mighty High Festival-Tuxedo Ridge", city="Tuxedo, NY",
+                     recordings=[RecordingSummary(identifier=DSO_IDENT, venue="Mighty High Festival-Tuxedo Ridge",
+                                                  coverage="Tuxedo, NY")])
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None, cand, DSO_IDENT, jerrybase_enabled=True)
+    assert not any(f.startswith("venue mismatch") for f in res.show.review_flags)
+    far = cand.model_copy(update={"city": "Albany, NY",
+                                  "recordings": [cand.recordings[0].model_copy(update={"coverage": "Albany, NY"})]})
+    res = compute_gather(ShowWorkspace(tmp_path / "s2"), StubIA(md), None, far, DSO_IDENT, jerrybase_enabled=True)
+    assert "venue mismatch: archive 'Mighty High Festival-Tuxedo Ridge' vs jerrybase ''" in res.show.review_flags
+
+
+def test_1c_same_city_different_name_becomes_a_note_and_ships_the_selected_string(tmp_path):
+    cand = _dso_candidate().model_copy(update={
+        "venue": "Orpheum", "city": "Madison, WI",
+        "recordings": [RecordingSummary(identifier=DSO_IDENT, venue="Orpheum", coverage="Madison, WI")]})
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Orpheum"
+    assert "venue differs from jerrybase: archive 'Orpheum' vs 'Barrymore Theatre' (same city)" in res.notes
+    assert not any(f.startswith("venue mismatch") for f in res.show.review_flags)
+
+
+def test_1a_blank_vote_venue_on_a_blank_jerrybase_venue_takes_nothing_from_jerrybase(tmp_path):
+    md = json.loads(DSO.read_text())
+    cand = Candidate(performance_id="DarkStarOrchestra/2012-05-19", collection="DarkStarOrchestra",
+                     date="2012-05-19", venue="", city="Tuxedo, NY",
+                     recordings=[RecordingSummary(identifier=DSO_IDENT, coverage="Tuxedo, NY")])
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(md), None, cand, DSO_IDENT, jerrybase_enabled=True)
+    assert (res.show.city, res.show.venue_source) == ("Tuxedo, NY", "item")   # not jerrybase's "Tuxedo Park"
+    assert not any(f.startswith("venue mismatch") for f in res.show.review_flags)
+
+
+def test_1c_does_not_apply_on_a_per_event_candidate_of_a_multi_event_date(tmp_path, monkeypatch):
+    from llama.models import JerrybaseEvent
+    early = JerrybaseEvent(event_id="e1", venue="Barrymore Theatre", city="Madison", state="WI")
+    late = JerrybaseEvent(event_id="e2", venue="Barrymore Theatre", city="Madison", state="WI")
+    monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [early, late])
+    cand = _dso_candidate().model_copy(update={
+        "performance_id": "DarkStarOrchestra/2003-01-25/e1", "venue": "Orpheum", "city": "Madison, WI",
+        "recordings": [RecordingSummary(identifier=DSO_IDENT, venue="Orpheum", coverage="Madison, WI")]})
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert not any(n.startswith("venue differs from jerrybase") for n in res.notes)
+    assert "venue mismatch: archive 'Orpheum' vs jerrybase 'Barrymore Theatre'" in res.show.review_flags
+
+
+def test_1c_declines_on_incompatible_cities_and_keeps_the_flag(tmp_path):
+    cand = _dso_candidate().model_copy(update={
+        "recordings": [RecordingSummary(identifier=DSO_IDENT, venue="Orpheum", coverage="St. Louis, MO")]})
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert "venue mismatch: archive 'The Pageant' vs jerrybase 'Barrymore Theatre'" in res.show.review_flags
+
+
+def test_selected_recording_missing_from_candidate_is_no_swap_and_no_1d(tmp_path):
+    # Review Focus 1.
+    cand = _dso_candidate().model_copy(update={"recordings": [_dso_candidate().recordings[0]]})
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "The Pageant"
+    assert "venue mismatch: archive 'The Pageant' vs jerrybase 'Barrymore Theatre'" in res.show.review_flags
+    assert not any("disagree on city" in f for f in res.show.review_flags)
+
+
+def test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerrybase(tmp_path):
+    # Mutation (a) survivor: above, the selected dodd tape is the Rambler Room
+    # one, so the swap could never fire there. Here the selected tape is the
+    # Uptown one, which agrees with jerrybase: only the two-venue signature
+    # keeps the vote and the hold.
+    wiley = "gd78-11-17.paud.wiley.11488.sbeok.shnf"
+    recs = [RecordingSummary(identifier=GD78_IDENT, venue="Rambler Room, Loyola College", coverage="Chicago, IL"),
+            RecordingSummary(identifier=wiley, venue="Uptown Theatre", coverage="Chicago, IL")]
+    cand = Candidate(performance_id="GratefulDead/1978-11-17", collection="GratefulDead", date="1978-11-17",
+                     venue="Rambler Room, Loyola College", city="Chicago, IL", recordings=recs)
+    res = _gather(tmp_path, GD78, cand, wiley)
+    assert res.show.venue == "Rambler Room, Loyola College"
+    assert "venue mismatch: archive 'Rambler Room, Loyola College' vs jerrybase 'Uptown Theatre'" in res.show.review_flags
+    assert not any(n.startswith("venue taken from the selected recording") for n in res.notes)

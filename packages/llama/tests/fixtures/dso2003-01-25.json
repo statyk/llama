@@ -1,0 +1,902 @@
+{
+  "metadata": {
+    "identifier": "dso2003-01-25.shnf",
+    "mediatype": "etree",
+    "subject": "Live concert",
+    "publicdate": "2003-02-06 00:00:00",
+    "creator": "Dark Star Orchestra",
+    "description": "1: Bertha>\n   Greatest\n   West L.A. Fadeaway\n   Rooster\n   Bird Song\n   Tom Thumb's Blues\n   L. L. Rain>\n   Might As Well\n\n2: China Cat>\n   I Know You Rider\n   Estimated>\n   Eyes>\n   Drumz>\n\n   Space>\n   Other One>\n   Stella Blue>\n   Around>\n   NFA>\n   Crowd Chant\nEncore: Baby Blue\n        Announcements\nFiller: Mr. Fantasy>\n        St Stephen*>\n        Cosmic Charlie*",
+    "coverage": "Madison, WI",
+    "md5s": "cf5dc28ca344550550b42deb55d5f9ac *dso030125d1t01.shn\nbe32dfe028eb27a179faed9b3e4cc86c *dso030125d1t02.shn\n91c4142ea9e22dc41a7c3de0d599df8e *dso030125d1t03.shn\n81e8691486f4773b4d9b12aff05f9a34 *dso030125d1t04.shn\nb902e3994885e95505ead10bdd5ba864 *dso030125d1t05.shn\ne50ed04379250dd096bb1e739d2a89e9 *dso030125d1t06.shn\n9e45f0332c4e61b8f261109e39db921e *dso030125d1t07.shn\n85c7a87b790d2baf7a715da80f3d0507 *dso030125d1t08.shn\ne0df5198adb2880a46d6e72a92b48467 *dso030125d2t01.shn\n96c6ca36698c251f6eee1e75dbd0338d *dso030125d2t02.shn\nba2af2d95d47d1a68c7054761d990a15 *dso030125d2t03.shn\n2ca5741ddf25fad2d1a133399c60a063 *dso030125d2t04.shn\n5adac1c5f1b7c8cf39754b7005177ff6 *dso030125d2t05.shn\n05d5de43fb72a0362e3502258eaadd88 *dso030125d3t01.shn\ne6352b3a5827d9ee0a5444e6fc481b6f *dso030125d3t02.shn\need7152a826ffeb5ba98dd2cbfeb91dd *dso030125d3t03.shn\na2ad1bfca2f73446e722056118281787 *dso030125d3t04.shn\nbe89a6a5168fa9f3cbf954b81bce5c0d *dso030125d3t05.shn\nf580b2066b3c51ce05d0a209bc295768 *dso030125d3t06.shn\n6d2ab4f4d08a6be4660f41a03a0c947e *dso030125d3t07.shn\n28e47af010a55fc945063117af9019d8 *dso030125d3t08.shn\ne9e3a9da35c43e8b89b7a209b2e2cae5 *dso030125d3t09.shn\n1d7d9c06ebe318808e2ca4469574d4ca *dso030125d3t10.shn\ncea288f79dc82939467cd81b775b774f *dso030125d3t11.shn\n2ab644e7bdf10b8571c44ade92b01392 *dso030125d1t01.wav\n2abec630ae286488cc59ea23a04644be *dso030125d1t02.wav\n16a069b997eecbbdc8be3f91c499db55 *dso030125d1t03.wav\n903ba860ccdcfb7d7d6c964cd461df97 *dso030125d1t04.wav\nd20dda81e89ff8b0f47cdbc1d10e9aea *dso030125d1t05.wav\n53c32af9c25c3a8b128bb74a81c03258 *dso030125d1t06.wav\n728c85a29dd151227965d62f4eba1e51 *dso030125d1t07.wav\nae1e9a40318df1a01f0a9ef969808cdb *dso030125d1t08.wav\n254b53d7bea90bba96af6bfdbb9d9a1d *dso030125d2t01.wav\nfb38cc15e61bb0faa8453be07832551e *dso030125d2t02.wav\n1e724222dec317d278a1f7eeeb997d20 *dso030125d2t03.wav\nadeaf8ed5936273017543cdc81297653 *dso030125d2t04.wav\ne21842e7540e0f456951c0376cbf3184 *dso030125d2t05.wav\n7306bb162ea538dbb538a8767e035428 *dso030125d3t01.wav\nbef37142ff9399c15401efe1fe46806f *dso030125d3t02.wav\nd29299af73826a6413473ccafa24e1e7 *dso030125d3t03.wav\n38acdc55968cbba72c36431f61dde9b0 *dso030125d3t04.wav\nfe5e512ee6b65f451abc563f0052337e *dso030125d3t05.wav\n724ea967683497bcdb4f0be97d6dee2d *dso030125d3t06.wav\n5c2a05dd9ae99c496931089bd2f2005d *dso030125d3t07.wav\n18bd85363a8d6e0b6d432b300775fac5 *dso030125d3t08.wav\nb290e1c5380e73a174866347f304ddf7 *dso030125d3t09.wav\n8308f6cbf0322e4fda085a7b9d668c86 *dso030125d3t10.wav\n60cef5eddfe4dfe2cf015cd0433c9895 *dso030125d3t11.wav\n",
+    "date": "2003-01-25",
+    "uploader": "webmaster@darkstarorchestra.net",
+    "addeddate": "2003-02-06 00:00:00",
+    "adder": "dsowebmaster",
+    "pick": "0",
+    "notes": "Performing 4/1/1985 Cumberland County Civic Center, Portland, ME \n\n*with Lisa",
+    "source": "SBD>Sony R500",
+    "taper": "Situation Pete",
+    "lineage": "DA7>SBLive>Cool  Edit 1.2>CD Wave>SHN",
+    "venue": "Barrymore Theater",
+    "transferer": "Webmaster Ed",
+    "discs": "3",
+    "has_mp3": "0",
+    "shndiscs": "3",
+    "size": "1140",
+    "publisher": "Situation Pete",
+    "numeric_id": "3160",
+    "md5contents": "cf5dc28ca344550550b42deb55d5f9ac *dso030125d1t01.shn\nbe32dfe028eb27a179faed9b3e4cc86c *dso030125d1t02.shn\n91c4142ea9e22dc41a7c3de0d599df8e *dso030125d1t03.shn\n81e8691486f4773b4d9b12aff05f9a34 *dso030125d1t04.shn\nb902e3994885e95505ead10bdd5ba864 *dso030125d1t05.shn\ne50ed04379250dd096bb1e739d2a89e9 *dso030125d1t06.shn\n9e45f0332c4e61b8f261109e39db921e *dso030125d1t07.shn\n85c7a87b790d2baf7a715da80f3d0507 *dso030125d1t08.shn\ne0df5198adb2880a46d6e72a92b48467 *dso030125d2t01.shn\n96c6ca36698c251f6eee1e75dbd0338d *dso030125d2t02.shn\nba2af2d95d47d1a68c7054761d990a15 *dso030125d2t03.shn\n2ca5741ddf25fad2d1a133399c60a063 *dso030125d2t04.shn\n5adac1c5f1b7c8cf39754b7005177ff6 *dso030125d2t05.shn\n05d5de43fb72a0362e3502258eaadd88 *dso030125d3t01.shn\ne6352b3a5827d9ee0a5444e6fc481b6f *dso030125d3t02.shn\need7152a826ffeb5ba98dd2cbfeb91dd *dso030125d3t03.shn\na2ad1bfca2f73446e722056118281787 *dso030125d3t04.shn\nbe89a6a5168fa9f3cbf954b81bce5c0d *dso030125d3t05.shn\nf580b2066b3c51ce05d0a209bc295768 *dso030125d3t06.shn\n6d2ab4f4d08a6be4660f41a03a0c947e *dso030125d3t07.shn\n28e47af010a55fc945063117af9019d8 *dso030125d3t08.shn\ne9e3a9da35c43e8b89b7a209b2e2cae5 *dso030125d3t09.shn\n1d7d9c06ebe318808e2ca4469574d4ca *dso030125d3t10.shn\ncea288f79dc82939467cd81b775b774f *dso030125d3t11.shn\n2ab644e7bdf10b8571c44ade92b01392 *dso030125d1t01.wav\n2abec630ae286488cc59ea23a04644be *dso030125d1t02.wav\n16a069b997eecbbdc8be3f91c499db55 *dso030125d1t03.wav\n903ba860ccdcfb7d7d6c964cd461df97 *dso030125d1t04.wav\nd20dda81e89ff8b0f47cdbc1d10e9aea *dso030125d1t05.wav\n53c32af9c25c3a8b128bb74a81c03258 *dso030125d1t06.wav\n728c85a29dd151227965d62f4eba1e51 *dso030125d1t07.wav\nae1e9a40318df1a01f0a9ef969808cdb *dso030125d1t08.wav\n254b53d7bea90bba96af6bfdbb9d9a1d *dso030125d2t01.wav\nfb38cc15e61bb0faa8453be07832551e *dso030125d2t02.wav\n1e724222dec317d278a1f7eeeb997d20 *dso030125d2t03.wav\nadeaf8ed5936273017543cdc81297653 *dso030125d2t04.wav\ne21842e7540e0f456951c0376cbf3184 *dso030125d2t05.wav\n7306bb162ea538dbb538a8767e035428 *dso030125d3t01.wav\nbef37142ff9399c15401efe1fe46806f *dso030125d3t02.wav\nd29299af73826a6413473ccafa24e1e7 *dso030125d3t03.wav\n38acdc55968cbba72c36431f61dde9b0 *dso030125d3t04.wav\nfe5e512ee6b65f451abc563f0052337e *dso030125d3t05.wav\n724ea967683497bcdb4f0be97d6dee2d *dso030125d3t06.wav\n5c2a05dd9ae99c496931089bd2f2005d *dso030125d3t07.wav\n18bd85363a8d6e0b6d432b300775fac5 *dso030125d3t08.wav\nb290e1c5380e73a174866347f304ddf7 *dso030125d3t09.wav\n8308f6cbf0322e4fda085a7b9d668c86 *dso030125d3t10.wav\n60cef5eddfe4dfe2cf015cd0433c9895 *dso030125d3t11.wav\n",
+    "type": "sound",
+    "year": "2003",
+    "collection": [
+      "DarkStarOrchestra",
+      "etree"
+    ],
+    "title": "Dark Star Orchestra Live at Barrymore Theater on 2003-01-25",
+    "backup_location": "ia903600_4"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "01e62cf8a984d623403f3151e6034282"
+    },
+    {
+      "name": "dso030125.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "3c4aa64f67a06c1b7e5c3dd5719fe543"
+    },
+    {
+      "name": "dso030125d1t01.mp3",
+      "source": "derivative",
+      "original": "dso030125d1t01.shn",
+      "format": "VBR MP3",
+      "length": "07:57",
+      "md5": "00e8eae33c5af651db3a2ae533873ac0",
+      "title": "Bertha>"
+    },
+    {
+      "name": "dso030125d1t01.ogg",
+      "source": "derivative",
+      "original": "dso030125d1t01.shn",
+      "format": "Ogg Vorbis",
+      "length": "477.21",
+      "md5": "12d5ce8974a797a2f45f884ef1d47baf"
+    },
+    {
+      "name": "dso030125d1t01.png",
+      "source": "derivative",
+      "original": "dso030125d1t01.shn",
+      "format": "PNG",
+      "md5": "a6887d21c5d38c98461e562ca0208505"
+    },
+    {
+      "name": "dso030125d1t01.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "477.2",
+      "md5": "cf5dc28ca344550550b42deb55d5f9ac",
+      "title": "Bertha>"
+    },
+    {
+      "name": "dso030125d1t02.mp3",
+      "source": "derivative",
+      "original": "dso030125d1t02.shn",
+      "format": "VBR MP3",
+      "length": "05:45",
+      "md5": "13b4c526aa9f8539bd318e4b236d649a",
+      "title": "Greatest"
+    },
+    {
+      "name": "dso030125d1t02.ogg",
+      "source": "derivative",
+      "original": "dso030125d1t02.shn",
+      "format": "Ogg Vorbis",
+      "length": "345.87",
+      "md5": "6196272c40e5e3ebcffd4d0c95a6cfba"
+    },
+    {
+      "name": "dso030125d1t02.png",
+      "source": "derivative",
+      "original": "dso030125d1t02.shn",
+      "format": "PNG",
+      "md5": "7f8c01eb9bba9f603a7bf89ed2eba7e4"
+    },
+    {
+      "name": "dso030125d1t02.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "345.7",
+      "md5": "be32dfe028eb27a179faed9b3e4cc86c",
+      "title": "Greatest"
+    },
+    {
+      "name": "dso030125d1t03.mp3",
+      "source": "derivative",
+      "original": "dso030125d1t03.shn",
+      "format": "VBR MP3",
+      "length": "08:50",
+      "md5": "33fcfa38c5cb56a083e24d89441faf44",
+      "title": "West L.A. Fadeaway"
+    },
+    {
+      "name": "dso030125d1t03.ogg",
+      "source": "derivative",
+      "original": "dso030125d1t03.shn",
+      "format": "Ogg Vorbis",
+      "length": "530.2",
+      "md5": "5da80a0313b356565e7359b704babe7e"
+    },
+    {
+      "name": "dso030125d1t03.png",
+      "source": "derivative",
+      "original": "dso030125d1t03.shn",
+      "format": "PNG",
+      "md5": "cc37936d4c2c7af3c5da0b8fcab37f07"
+    },
+    {
+      "name": "dso030125d1t03.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "530.2",
+      "md5": "91c4142ea9e22dc41a7c3de0d599df8e",
+      "title": "West L.A. Fadeaway"
+    },
+    {
+      "name": "dso030125d1t04.mp3",
+      "source": "derivative",
+      "original": "dso030125d1t04.shn",
+      "format": "VBR MP3",
+      "length": "10:43",
+      "md5": "b316f850a844d2fbd1854c67c55527fe",
+      "title": "Rooster"
+    },
+    {
+      "name": "dso030125d1t04.ogg",
+      "source": "derivative",
+      "original": "dso030125d1t04.shn",
+      "format": "Ogg Vorbis",
+      "length": "643.88",
+      "md5": "9d5ef174e7c47d258ac2a449af271c6a"
+    },
+    {
+      "name": "dso030125d1t04.png",
+      "source": "derivative",
+      "original": "dso030125d1t04.shn",
+      "format": "PNG",
+      "md5": "aee9e72c6f02d270d36f1b2580902b30"
+    },
+    {
+      "name": "dso030125d1t04.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "643.7",
+      "md5": "81e8691486f4773b4d9b12aff05f9a34",
+      "title": "Rooster"
+    },
+    {
+      "name": "dso030125d1t05.mp3",
+      "source": "derivative",
+      "original": "dso030125d1t05.shn",
+      "format": "VBR MP3",
+      "length": "11:57",
+      "md5": "4c96607068f39b442e7605986dfbb068",
+      "title": "Bird Song"
+    },
+    {
+      "name": "dso030125d1t05.ogg",
+      "source": "derivative",
+      "original": "dso030125d1t05.shn",
+      "format": "Ogg Vorbis",
+      "length": "717.83",
+      "md5": "1d11958d8eb5b4a3993e9bcf78e25399"
+    },
+    {
+      "name": "dso030125d1t05.png",
+      "source": "derivative",
+      "original": "dso030125d1t05.shn",
+      "format": "PNG",
+      "md5": "5c16af84e53d1446a2839a619e5c8568"
+    },
+    {
+      "name": "dso030125d1t05.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "717.6",
+      "md5": "b902e3994885e95505ead10bdd5ba864",
+      "title": "Bird Song"
+    },
+    {
+      "name": "dso030125d1t06.mp3",
+      "source": "derivative",
+      "original": "dso030125d1t06.shn",
+      "format": "VBR MP3",
+      "length": "07:45",
+      "md5": "ee277392943619495be530732294f2ad",
+      "title": "Tom Thumb's Blues"
+    },
+    {
+      "name": "dso030125d1t06.ogg",
+      "source": "derivative",
+      "original": "dso030125d1t06.shn",
+      "format": "Ogg Vorbis",
+      "length": "465.69",
+      "md5": "eb50eb55342d4dfaf3eb6ac8e77fff8b"
+    },
+    {
+      "name": "dso030125d1t06.png",
+      "source": "derivative",
+      "original": "dso030125d1t06.shn",
+      "format": "PNG",
+      "md5": "7f1917e43ab7ced7c983ccf03386169a"
+    },
+    {
+      "name": "dso030125d1t06.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "465.5",
+      "md5": "e50ed04379250dd096bb1e739d2a89e9",
+      "title": "Tom Thumb's Blues"
+    },
+    {
+      "name": "dso030125d1t07.mp3",
+      "source": "derivative",
+      "original": "dso030125d1t07.shn",
+      "format": "VBR MP3",
+      "length": "07:52",
+      "md5": "848b0301da9eb97ad2800c5b45bf0bbb",
+      "title": "L. L. Rain> >"
+    },
+    {
+      "name": "dso030125d1t07.ogg",
+      "source": "derivative",
+      "original": "dso030125d1t07.shn",
+      "format": "Ogg Vorbis",
+      "length": "472.91",
+      "md5": "3a9cfb55161a75f4b012749e549fe15e"
+    },
+    {
+      "name": "dso030125d1t07.png",
+      "source": "derivative",
+      "original": "dso030125d1t07.shn",
+      "format": "PNG",
+      "md5": "5b7fa4cb2e2178c3b5b6860f4bd2d96f"
+    },
+    {
+      "name": "dso030125d1t07.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "472.7",
+      "md5": "9e45f0332c4e61b8f261109e39db921e",
+      "title": "L. L. Rain> >"
+    },
+    {
+      "name": "dso030125d1t08.mp3",
+      "source": "derivative",
+      "original": "dso030125d1t08.shn",
+      "format": "VBR MP3",
+      "length": "04:41",
+      "md5": "7339c3a61074c8f11af903d712066c6f",
+      "title": "Might As Well"
+    },
+    {
+      "name": "dso030125d1t08.ogg",
+      "source": "derivative",
+      "original": "dso030125d1t08.shn",
+      "format": "Ogg Vorbis",
+      "length": "281.33",
+      "md5": "f93ec8888755271916eec9e45acae517"
+    },
+    {
+      "name": "dso030125d1t08.png",
+      "source": "derivative",
+      "original": "dso030125d1t08.shn",
+      "format": "PNG",
+      "md5": "c2ca9cfc3f6959ff970daa3c9a5ac1b5"
+    },
+    {
+      "name": "dso030125d1t08.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "281.3",
+      "md5": "85c7a87b790d2baf7a715da80f3d0507",
+      "title": "Might As Well"
+    },
+    {
+      "name": "dso030125d2t01.mp3",
+      "source": "derivative",
+      "original": "dso030125d2t01.shn",
+      "format": "VBR MP3",
+      "length": "07:23",
+      "md5": "464547fbd153d928cbce41d38e8c1253",
+      "title": "China Cat>"
+    },
+    {
+      "name": "dso030125d2t01.ogg",
+      "source": "derivative",
+      "original": "dso030125d2t01.shn",
+      "format": "Ogg Vorbis",
+      "length": "443.95",
+      "md5": "167ebd401f345fc4e90a406b10b6cdd3"
+    },
+    {
+      "name": "dso030125d2t01.png",
+      "source": "derivative",
+      "original": "dso030125d2t01.shn",
+      "format": "PNG",
+      "md5": "366ff0acf8eb6ba466b3c5e042ad0b7a"
+    },
+    {
+      "name": "dso030125d2t01.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "443.7",
+      "md5": "e0df5198adb2880a46d6e72a92b48467",
+      "title": "China Cat>"
+    },
+    {
+      "name": "dso030125d2t02.mp3",
+      "source": "derivative",
+      "original": "dso030125d2t02.shn",
+      "format": "VBR MP3",
+      "length": "07:42",
+      "md5": "da1bb4593436391531bbd9f1a8731b91",
+      "title": "I Know You Rider"
+    },
+    {
+      "name": "dso030125d2t02.ogg",
+      "source": "derivative",
+      "original": "dso030125d2t02.shn",
+      "format": "Ogg Vorbis",
+      "length": "462.59",
+      "md5": "cf406fc2a1f618795c43c7a7ddc7b375"
+    },
+    {
+      "name": "dso030125d2t02.png",
+      "source": "derivative",
+      "original": "dso030125d2t02.shn",
+      "format": "PNG",
+      "md5": "54de75f2abdc8e72f49a4cf8923f744f"
+    },
+    {
+      "name": "dso030125d2t02.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "462.4",
+      "md5": "96c6ca36698c251f6eee1e75dbd0338d",
+      "title": "I Know You Rider"
+    },
+    {
+      "name": "dso030125d2t03.mp3",
+      "source": "derivative",
+      "original": "dso030125d2t03.shn",
+      "format": "VBR MP3",
+      "length": "12:54",
+      "md5": "476c45c3c81a4d475e88dde8c4604c11",
+      "title": "Estimated> >"
+    },
+    {
+      "name": "dso030125d2t03.ogg",
+      "source": "derivative",
+      "original": "dso030125d2t03.shn",
+      "format": "Ogg Vorbis",
+      "length": "774.31",
+      "md5": "c09ed945789891459e0995b220fa5049"
+    },
+    {
+      "name": "dso030125d2t03.png",
+      "source": "derivative",
+      "original": "dso030125d2t03.shn",
+      "format": "PNG",
+      "md5": "0a720769cbb47b7a3b798b60ee179cb1"
+    },
+    {
+      "name": "dso030125d2t03.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "774.2",
+      "md5": "ba2af2d95d47d1a68c7054761d990a15",
+      "title": "Estimated> >"
+    },
+    {
+      "name": "dso030125d2t04.mp3",
+      "source": "derivative",
+      "original": "dso030125d2t04.shn",
+      "format": "VBR MP3",
+      "length": "13:58",
+      "md5": "8c7eef890d8cb4badc366411155f0f0f",
+      "title": "Eyes> >"
+    },
+    {
+      "name": "dso030125d2t04.ogg",
+      "source": "derivative",
+      "original": "dso030125d2t04.shn",
+      "format": "Ogg Vorbis",
+      "length": "838.83",
+      "md5": "330aef0b50accd803868a04851419b1a"
+    },
+    {
+      "name": "dso030125d2t04.png",
+      "source": "derivative",
+      "original": "dso030125d2t04.shn",
+      "format": "PNG",
+      "md5": "e4445b423982814e595931f3c7ad9770"
+    },
+    {
+      "name": "dso030125d2t04.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "838.6",
+      "md5": "2ca5741ddf25fad2d1a133399c60a063",
+      "title": "Eyes> >"
+    },
+    {
+      "name": "dso030125d2t05.mp3",
+      "source": "derivative",
+      "original": "dso030125d2t05.shn",
+      "format": "VBR MP3",
+      "length": "24:42",
+      "md5": "8e5ef08b3e6aa9974fb04b8fef080427",
+      "title": "Drumz> >"
+    },
+    {
+      "name": "dso030125d2t05.ogg",
+      "source": "derivative",
+      "original": "dso030125d2t05.shn",
+      "format": "Ogg Vorbis",
+      "length": "1482.52",
+      "md5": "51b1b5ae6c797fd30a092c58dabe454b"
+    },
+    {
+      "name": "dso030125d2t05.png",
+      "source": "derivative",
+      "original": "dso030125d2t05.shn",
+      "format": "PNG",
+      "md5": "04219ce3a5bede17648c6ed528e4be09"
+    },
+    {
+      "name": "dso030125d2t05.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "1482.4",
+      "md5": "5adac1c5f1b7c8cf39754b7005177ff6",
+      "title": "Drumz> >"
+    },
+    {
+      "name": "dso030125d3t01.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t01.shn",
+      "format": "VBR MP3",
+      "length": "04:59",
+      "md5": "634120b5d53efd96909cced355db6c99",
+      "title": "Space> >"
+    },
+    {
+      "name": "dso030125d3t01.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t01.shn",
+      "format": "Ogg Vorbis",
+      "length": "299.28",
+      "md5": "0fa1e4a9febbf55d0d3f671499a31478"
+    },
+    {
+      "name": "dso030125d3t01.png",
+      "source": "derivative",
+      "original": "dso030125d3t01.shn",
+      "format": "PNG",
+      "md5": "6d443689b29fc6b7de40f3e9f6f63610"
+    },
+    {
+      "name": "dso030125d3t01.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "299.2",
+      "md5": "05d5de43fb72a0362e3502258eaadd88",
+      "title": "Space> >"
+    },
+    {
+      "name": "dso030125d3t02.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t02.shn",
+      "format": "VBR MP3",
+      "length": "06:59",
+      "md5": "27afd081f1a87e665bd001bcb83c694f",
+      "title": "Other One> >"
+    },
+    {
+      "name": "dso030125d3t02.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t02.shn",
+      "format": "Ogg Vorbis",
+      "length": "419.59",
+      "md5": "b4a02e4d450c30e3ef89d0fbf93f381b"
+    },
+    {
+      "name": "dso030125d3t02.png",
+      "source": "derivative",
+      "original": "dso030125d3t02.shn",
+      "format": "PNG",
+      "md5": "22457242ec7d13ebb14d9e5f80a8165d"
+    },
+    {
+      "name": "dso030125d3t02.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "419.4",
+      "md5": "e6352b3a5827d9ee0a5444e6fc481b6f",
+      "title": "Other One> >"
+    },
+    {
+      "name": "dso030125d3t03.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t03.shn",
+      "format": "VBR MP3",
+      "length": "10:33",
+      "md5": "eaf7600f1649f14bc3bdafc7b14d2ffb",
+      "title": "Stella Blue> >"
+    },
+    {
+      "name": "dso030125d3t03.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t03.shn",
+      "format": "Ogg Vorbis",
+      "length": "633.39",
+      "md5": "8d9d7ebb6f33bcbb70c52d1b6bf9054c"
+    },
+    {
+      "name": "dso030125d3t03.png",
+      "source": "derivative",
+      "original": "dso030125d3t03.shn",
+      "format": "PNG",
+      "md5": "d970647d378a4a8e7e2095db95b81e3a"
+    },
+    {
+      "name": "dso030125d3t03.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "633.3",
+      "md5": "eed7152a826ffeb5ba98dd2cbfeb91dd",
+      "title": "Stella Blue> >"
+    },
+    {
+      "name": "dso030125d3t04.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t04.shn",
+      "format": "VBR MP3",
+      "length": "04:10",
+      "md5": "f3f8ae90ba62ea86900a9f2a02d67924",
+      "title": "Around> >"
+    },
+    {
+      "name": "dso030125d3t04.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t04.shn",
+      "format": "Ogg Vorbis",
+      "length": "250.63",
+      "md5": "96dbd5aee52b4390f763e6b91ab1976f"
+    },
+    {
+      "name": "dso030125d3t04.png",
+      "source": "derivative",
+      "original": "dso030125d3t04.shn",
+      "format": "PNG",
+      "md5": "d714d4e0b48c6473edf51534e5ebabf7"
+    },
+    {
+      "name": "dso030125d3t04.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "250.5",
+      "md5": "a2ad1bfca2f73446e722056118281787",
+      "title": "Around> >"
+    },
+    {
+      "name": "dso030125d3t05.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t05.shn",
+      "format": "VBR MP3",
+      "length": "10:45",
+      "md5": "ec0e6cc3b8cc7ce478a5707272675e3b",
+      "title": "NFA> >"
+    },
+    {
+      "name": "dso030125d3t05.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t05.shn",
+      "format": "Ogg Vorbis",
+      "length": "645.03",
+      "md5": "646f1909dfc426cb01eb8d1e56c3e57d"
+    },
+    {
+      "name": "dso030125d3t05.png",
+      "source": "derivative",
+      "original": "dso030125d3t05.shn",
+      "format": "PNG",
+      "md5": "192c84e61cbc775e849ea24e1b0e60a3"
+    },
+    {
+      "name": "dso030125d3t05.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "645",
+      "md5": "be89a6a5168fa9f3cbf954b81bce5c0d",
+      "title": "NFA> >"
+    },
+    {
+      "name": "dso030125d3t06.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t06.shn",
+      "format": "VBR MP3",
+      "length": "04:46",
+      "md5": "8fd461ba90ee94e6557b81c21484ecf7",
+      "title": "Crowd Chant"
+    },
+    {
+      "name": "dso030125d3t06.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t06.shn",
+      "format": "Ogg Vorbis",
+      "length": "286.83",
+      "md5": "2a4d1ead103be32e430f77d760e8a1fb"
+    },
+    {
+      "name": "dso030125d3t06.png",
+      "source": "derivative",
+      "original": "dso030125d3t06.shn",
+      "format": "PNG",
+      "md5": "478a62766e955c666055ba0a7310c4f5"
+    },
+    {
+      "name": "dso030125d3t06.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "286.6",
+      "md5": "f580b2066b3c51ce05d0a209bc295768",
+      "title": "Crowd Chant"
+    },
+    {
+      "name": "dso030125d3t07.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t07.shn",
+      "format": "VBR MP3",
+      "length": "06:45",
+      "md5": "9c7a31c7b1deb29994c207173830cd3a",
+      "title": "Baby Blue"
+    },
+    {
+      "name": "dso030125d3t07.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t07.shn",
+      "format": "Ogg Vorbis",
+      "length": "405.65",
+      "md5": "0f60f90ba2885ea7f5ebf78a5e5b2637"
+    },
+    {
+      "name": "dso030125d3t07.png",
+      "source": "derivative",
+      "original": "dso030125d3t07.shn",
+      "format": "PNG",
+      "md5": "52cfe2492543e28f3da2ff002169453f"
+    },
+    {
+      "name": "dso030125d3t07.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "405.5",
+      "md5": "6d2ab4f4d08a6be4660f41a03a0c947e",
+      "title": "Baby Blue"
+    },
+    {
+      "name": "dso030125d3t08.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t08.shn",
+      "format": "VBR MP3",
+      "length": "01:48",
+      "md5": "ec8794da73c92954fbd56901f4cf99b7",
+      "title": "Announcements"
+    },
+    {
+      "name": "dso030125d3t08.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t08.shn",
+      "format": "Ogg Vorbis",
+      "length": "108.01",
+      "md5": "ed86bc1b798afec16cf4e08154e143e2"
+    },
+    {
+      "name": "dso030125d3t08.png",
+      "source": "derivative",
+      "original": "dso030125d3t08.shn",
+      "format": "PNG",
+      "md5": "fd1349b4419896e470460b44699506d6"
+    },
+    {
+      "name": "dso030125d3t08.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "108",
+      "md5": "28e47af010a55fc945063117af9019d8",
+      "title": "Announcements"
+    },
+    {
+      "name": "dso030125d3t09.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t09.shn",
+      "format": "VBR MP3",
+      "length": "07:39",
+      "md5": "4505ebe5840a2fe8154520508162afff",
+      "title": "Mr. Fantasy>"
+    },
+    {
+      "name": "dso030125d3t09.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t09.shn",
+      "format": "Ogg Vorbis",
+      "length": "459.88",
+      "md5": "16aa31edb7682eeef65ca7321deb1340"
+    },
+    {
+      "name": "dso030125d3t09.png",
+      "source": "derivative",
+      "original": "dso030125d3t09.shn",
+      "format": "PNG",
+      "md5": "12c8fb653e17a498a68f848b2e9301b7"
+    },
+    {
+      "name": "dso030125d3t09.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "459.7",
+      "md5": "e9e3a9da35c43e8b89b7a209b2e2cae5",
+      "title": "Mr. Fantasy>"
+    },
+    {
+      "name": "dso030125d3t10.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t10.shn",
+      "format": "VBR MP3",
+      "length": "08:30",
+      "md5": "5256de448db1174e7445fdbc57376957",
+      "title": "St Stephen >"
+    },
+    {
+      "name": "dso030125d3t10.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t10.shn",
+      "format": "Ogg Vorbis",
+      "length": "510.75",
+      "md5": "5a06d243d80589fd25cc160f21341c2b"
+    },
+    {
+      "name": "dso030125d3t10.png",
+      "source": "derivative",
+      "original": "dso030125d3t10.shn",
+      "format": "PNG",
+      "md5": "f591bcf94899b17ed190683aa64557b5"
+    },
+    {
+      "name": "dso030125d3t10.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "510.6",
+      "md5": "1d7d9c06ebe318808e2ca4469574d4ca",
+      "title": "St Stephen >"
+    },
+    {
+      "name": "dso030125d3t11.mp3",
+      "source": "derivative",
+      "original": "dso030125d3t11.shn",
+      "format": "VBR MP3",
+      "length": "08:36",
+      "md5": "ca25d0d859147fb8e6edfaa09663efb9",
+      "title": "Cosmic Charlie"
+    },
+    {
+      "name": "dso030125d3t11.ogg",
+      "source": "derivative",
+      "original": "dso030125d3t11.shn",
+      "format": "Ogg Vorbis",
+      "length": "516.92",
+      "md5": "5a88fe977b1bc3339b495c69790b9b54"
+    },
+    {
+      "name": "dso030125d3t11.png",
+      "source": "derivative",
+      "original": "dso030125d3t11.shn",
+      "format": "PNG",
+      "md5": "bea1504c7d156bb59259cb7327f821db"
+    },
+    {
+      "name": "dso030125d3t11.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "516.7",
+      "md5": "cea288f79dc82939467cd81b775b774f",
+      "title": "Cosmic Charlie"
+    },
+    {
+      "name": "dso030125shn.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "7906639472a4069fd66aa5a8d545c935"
+    },
+    {
+      "name": "dso030125wav.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "e160ea4f98b9026538dc239683423f94"
+    },
+    {
+      "name": "dso2003-01-25.shnf_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "d95fcf4eeb6f6057f93b19e04b34f5b6"
+    },
+    {
+      "name": "dso2003-01-25.shnf_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "3a1a9471096d37b9863dc47ec0a8bd66"
+    },
+    {
+      "name": "dso2003-01-25.shnf_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "6eaa5cdec1dd68a811f28a05f17a5efd"
+    },
+    {
+      "name": "dso2003-01-25.shnf_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "5ede1c677b7f634df930d6b9ba29d834"
+    }
+  ],
+  "reviews": [
+    {
+      "review_id": "2560",
+      "reviewbody": "The filler songs played were incredible; a cold night but worth the trip",
+      "reviewtitle": "Great Show and Great Venue",
+      "reviewer": "terrapinstation17",
+      "reviewdate": "2003-06-08 13:35:34",
+      "createdate": "2003-06-08 13:35:34",
+      "stars": "5"
+    },
+    {
+      "review_id": "5049",
+      "reviewbody": "Got there a little late, but the \"Might as Well\" to finish off the first set was awesome!!!\nAnd the filler was a stunner and got the barrymore rockin!!",
+      "reviewtitle": "Rockin",
+      "reviewer": "phishy311",
+      "reviewdate": "2003-07-07 16:54:49",
+      "createdate": "2003-07-07 16:54:49",
+      "stars": "4"
+    },
+    {
+      "review_id": "33659",
+      "reviewbody": "I was just getting into the Dead when I saw this show.  Had I known what I know now I would have said this show was extremely hot on an extremely cold night.  The St. Stephen filler was the highlight for me that night.",
+      "reviewtitle": "Baby Deadhead",
+      "reviewer": "WiscoStew",
+      "reviewdate": "2005-03-03 11:31:04",
+      "createdate": "2005-03-03 11:31:04",
+      "stars": "4"
+    },
+    {
+      "review_id": "42388",
+      "reviewbody": "This was my first DSO concert...very fun show. Great energy all night long...The Barrymore was rockin out hard.",
+      "reviewtitle": "Rockin in Mad Town",
+      "reviewer": "Darkstar Drummer",
+      "reviewdate": "2005-05-28 08:29:28",
+      "createdate": "2005-05-28 08:28:20",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "The band was in St. Louis on this date, I was there, have a ticket stub, as well as a recording.  I believe St. Louis was the first night on that tour, as well?  I'm guessing the year is off on this one?  ",
+      "reviewtitle": "Incorrect date?",
+      "reviewer": "Jim F",
+      "reviewdate": "2010-07-24 06:54:12",
+      "createdate": "2010-07-24 06:54:12",
+      "stars": "0"
+    }
+  ]
+}

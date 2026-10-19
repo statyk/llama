@@ -18,7 +18,8 @@ from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, cplus_filter, propose_rows, rate_alignment
 from llama.songs import GD_SHORTHAND
 from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align,
-                             apply_llm_alignment, blend_segues, from_setlistfm,
+                             apply_llm_alignment, blend_segues, cities_compatible,
+                             from_setlistfm,
                              fuzzy_norm_title, norm_title, rank_parses,
                              structure_guard, venues_equivalent)
 from llama.placeholders import is_junk_tag
@@ -940,6 +941,33 @@ class GatherResult(NamedTuple):
     needs_llm: tuple[str, ...]
 
 
+# Slice 1 1d's hold (Contracts "Exact note and flag strings"); an operator
+# venue or city override removes it.
+_CITY_CONFLICT_FLAG = "recordings of this date disagree on city"
+
+
+def _stripped(s: str | None) -> str | None:
+    return (s or "").strip() or None
+
+
+def jerrybase_city(event) -> str:
+    """A jerrybase event's place as one "City, State" string, the shape
+    `cities_compatible` compares (spec Slice 1, "City compatibility")."""
+    return f"{event.city}, {event.state}" if event.state else event.city
+
+
+def two_venue_signature(candidate: Candidate) -> bool:
+    """True when two of the candidate's recordings name venues that are not
+    equivalent in one (compatible) city: the same-city two-performance shape
+    of `gratefuldead-1978-11-17` (spec Slice 1, step 2). It also fires on two
+    spellings of one hall, which keeps that show held -- the safe error. A
+    recording without a city of its own takes the candidate's."""
+    recs = [(v, _stripped(r.coverage) or candidate.city)
+            for r in candidate.recordings if (v := _stripped(r.venue))]
+    return any(not venues_equivalent(va, vb) and cities_compatible(ca, cb)
+               for i, (va, ca) in enumerate(recs) for vb, cb in recs[i + 1:])
+
+
 def compute_gather(
     show_ws: ShowWorkspace,
     ia,
@@ -1342,19 +1370,65 @@ def compute_gather(
         if spanned > 1:
             flags.append(f"tape spans {len(events)} events")
 
-    # Venue enrichment + cross-check (single-event only; never overwrite a venue).
-    venue, city, venue_source = candidate.venue, candidate.city, "item"
+    # Venue enrichment + the jerrybase venue tripwire (spec Slice 1). The arms
+    # are ONE chain, in this order: enrichment, 1a, step 1 (the vote agrees),
+    # step 2 (the swap), the two-venue signature, 1c, else today's flag. `sel`
+    # is the selected recording's own entry in the candidate (absent after a
+    # hand-edit or an older grouping: then no swap, no 1c, no 1d).
+    sel = next((r for r in candidate.recordings if r.identifier == identifier), None)
+    sel_venue = _stripped(sel.venue) if sel is not None else None
+    sel_city = _stripped(sel.coverage) if sel is not None else None
+    vote_venue, vote_city = candidate.venue, candidate.city
+    venue, city, venue_source = vote_venue, vote_city, "item"
     if event is not None:
         if not (venue and venue.strip()):
-            venue, city, venue_source = event.venue, event.city, "jerrybase"
-        elif not venues_equivalent(venue, event.venue):
-            flags.append(f"venue mismatch: archive '{venue}' vs jerrybase '{event.venue}'")
+            # Enrichment, byte-identical to before except 1a: a blank
+            # jerrybase venue neither enriches nor flags.
+            if event.venue.strip():
+                venue, city, venue_source = event.venue, event.city, "jerrybase"
+        else:
+            jb_city = jerrybase_city(event)
+            archive_city = sel_city or vote_city
+            mismatch = f"venue mismatch: archive '{venue}' vs jerrybase '{event.venue}'"
+            if not event.venue.strip():
+                # 1a: a blank jerrybase venue is no evidence, unless the
+                # cities say this is not the place.
+                if not cities_compatible(archive_city, jb_city):
+                    flags.append(mismatch)
+            elif venues_equivalent(venue, event.venue) and cities_compatible(archive_city, jb_city):
+                pass                                    # step 1: the vote ships
+            elif (sel_venue and venues_equivalent(sel_venue, event.venue)
+                  and cities_compatible(sel_city or vote_city, jb_city)
+                  and not two_venue_signature(candidate)):
+                # Step 2, the swap: the selected recording and jerrybase agree.
+                op_notes.append(f"venue taken from the selected recording: '{sel_venue}' agrees "
+                                f"with jerrybase '{event.venue}' (vote was '{vote_venue}')")
+                venue, city = sel_venue, sel_city or vote_city
+            elif two_venue_signature(candidate):
+                flags.append(mismatch)                  # a same-city double keeps the hold
+            elif (len(events) == 1 and sel_venue
+                  and cities_compatible(sel_city or vote_city, jb_city)):
+                # 1c: same place, different name, on a single-event date.
+                op_notes.append(f"venue differs from jerrybase: archive '{sel_venue}' "
+                                f"vs '{event.venue}' (same city)")
+                venue, city = sel_venue, sel_city or vote_city
+            else:
+                flags.append(mismatch)
+
+    # 1d, every show, jerrybase or not, after the swap: a selected recording
+    # whose city is known to conflict with the vote's ships its own venue and
+    # city, held (the other recordings may be a different performance).
+    if sel_venue and sel_city and vote_city and not cities_compatible(sel_city, vote_city):
+        venue, city = sel_venue, sel_city
+        flags.append(f"{_CITY_CONFLICT_FLAG}: '{sel_city}' (selected) vs '{vote_city}'")
 
     if overrides.venue is not None:
         venue, venue_source = overrides.venue, "override"
         flags = [f for f in flags if not f.startswith("venue mismatch")]
     if overrides.city is not None:
         city = overrides.city
+    if overrides.venue is not None or overrides.city is not None:
+        flags = [f for f in flags if not f.startswith(_CITY_CONFLICT_FLAG)]
 
     # Closer tripwire (single-event, non-anchored alignments; anchoring places
     # breaks at closers by construction, so it cannot contradict itself).

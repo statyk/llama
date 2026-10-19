@@ -1,0 +1,668 @@
+{
+  "metadata": {
+    "identifier": "gd78-11-17.acoustic.sbd.dodd.7687.sbeok.shnf",
+    "mediatype": "etree",
+    "subject": "Live concert",
+    "publicdate": "2004-04-05 15:33:38",
+    "creator": "Grateful Dead",
+    "description": "Winin' Boy Blues, Tom Dooley, This Time Forever, Deep Elem Blues, K.C. Moan, Knockin' On Heaven's Door, Big Boy Pete, Jack A Roe, Dark Hollow, Oh Boy",
+    "coverage": "Chicago, IL",
+    "md5s": "9e65a1af5a51aa2bc3e86739208f052a *BobWeirBand11-17-78t01.shn\neacbec6d19452552e247c677373e3991 *BobWeirBand11-17-78t02.shn\n4731d0f5afb637842bbe4e0ee92c1b40 *BobWeirBand11-17-78t03.shn\nfb1a16b2243f298f6bd618dcd23c31b8 *BobWeirBand11-17-78t04.shn\naf8586aca9996422b53a00bbeeb41be4 *BobWeirBand11-17-78t05.shn\n81dc5009abade1bdf02aa8897e8304ae *BobWeirBand11-17-78t06.shn\n840a023d6590ec43050aa88c32425b09 *BobWeirBand11-17-78t07.shn\nd96dda6c4e5dc101c099633da4f7e32f *BobWeirBand11-17-78t08.shn\nbd5d7358e98a02eb12835b5269727ad7 *BobWeirBand11-17-78t09.shn\n12226959c6efc1c2f553738115331bc4 *BobWeirBand11-17-78t10.shn",
+    "date": "1978-11-17",
+    "uploader": "jon@archive.org",
+    "addeddate": "2004-04-05 15:33:38",
+    "adder": "jon@archive.org",
+    "pick": "0",
+    "updatedate": "2006-04-24 08:22:01",
+    "updater": "Diana Hamilton",
+    "notes": "sbd > ?? > shn; via Ernie Dodd",
+    "source": "Soundboard",
+    "lineage": "sbd > ?? > shn",
+    "venue": "Rambler Room, Loyola College",
+    "discs": "1",
+    "has_mp3": "1",
+    "shndiscs": "1",
+    "type": "sound",
+    "year": "1978",
+    "collection": [
+      "GratefulDead",
+      "etree",
+      "stream_only"
+    ],
+    "title": "Grateful Dead Live at Rambler Room, Loyola College on 1978-11-17",
+    "backup_location": "ia903600_5",
+    "access-restricted-item": "true"
+  },
+  "files": [
+    {
+      "name": "BobWeirBand11-17-78t01.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t01.shn",
+      "format": "VBR MP3",
+      "length": "04:10",
+      "md5": "773489f88b7624817d40e04c1b178f4f",
+      "title": "Winin' Boy Blues"
+    },
+    {
+      "name": "BobWeirBand11-17-78t01.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t01.shn",
+      "format": "Ogg Vorbis",
+      "length": "250.28",
+      "md5": "e817ade14fd50662127da485db9b6bc6"
+    },
+    {
+      "name": "BobWeirBand11-17-78t01.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t01.shn",
+      "format": "PNG",
+      "md5": "14a67c4e8f29eb32ef54eba2b0773f41"
+    },
+    {
+      "name": "BobWeirBand11-17-78t01.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "170.09",
+      "md5": "9e65a1af5a51aa2bc3e86739208f052a",
+      "title": "Winin' Boy Blues"
+    },
+    {
+      "name": "BobWeirBand11-17-78t02.shn",
+      "source": "original",
+      "format": "Windows Media",
+      "length": "156.83",
+      "md5": "eacbec6d19452552e247c677373e3991",
+      "title": "Tom Dooley"
+    },
+    {
+      "name": "BobWeirBand11-17-78t03.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t03.shn",
+      "format": "VBR MP3",
+      "length": "05:41",
+      "md5": "eefb406c1df767015d0214b6f6fb6b03",
+      "title": "This Time Forever"
+    },
+    {
+      "name": "BobWeirBand11-17-78t03.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t03.shn",
+      "format": "Ogg Vorbis",
+      "length": "341.04",
+      "md5": "59e7897d08c3c4bf47c99131c0a90897"
+    },
+    {
+      "name": "BobWeirBand11-17-78t03.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t03.shn",
+      "format": "PNG",
+      "md5": "2863745f62964593908f8dd682300129"
+    },
+    {
+      "name": "BobWeirBand11-17-78t03.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "233.73",
+      "md5": "4731d0f5afb637842bbe4e0ee92c1b40",
+      "title": "This Time Forever"
+    },
+    {
+      "name": "BobWeirBand11-17-78t04.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t04.shn",
+      "format": "VBR MP3",
+      "length": "03:31",
+      "md5": "8af38af93d51c1157241b8b98f1485e0",
+      "title": "Deep Elem Blues"
+    },
+    {
+      "name": "BobWeirBand11-17-78t04.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t04.shn",
+      "format": "Ogg Vorbis",
+      "length": "211.91",
+      "md5": "8f808d83875d48f832ae7d3c4b81743c"
+    },
+    {
+      "name": "BobWeirBand11-17-78t04.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t04.shn",
+      "format": "PNG",
+      "md5": "70bc1a0ee8eb1c2cbe011ad5ffdab0c9"
+    },
+    {
+      "name": "BobWeirBand11-17-78t04.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "150.12",
+      "md5": "fb1a16b2243f298f6bd618dcd23c31b8",
+      "title": "Deep Elem Blues"
+    },
+    {
+      "name": "BobWeirBand11-17-78t05.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t05.shn",
+      "format": "VBR MP3",
+      "length": "04:40",
+      "md5": "77d84e4c7815e19654e656418543a69c",
+      "title": "KC Moan"
+    },
+    {
+      "name": "BobWeirBand11-17-78t05.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t05.shn",
+      "format": "Ogg Vorbis",
+      "length": "280.53",
+      "md5": "5434ecbdb2641d525f59ceb829cc48bf"
+    },
+    {
+      "name": "BobWeirBand11-17-78t05.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t05.shn",
+      "format": "PNG",
+      "md5": "22fa14e3c3e3c5264cab8e9af761994b"
+    },
+    {
+      "name": "BobWeirBand11-17-78t05.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "197.67",
+      "md5": "af8586aca9996422b53a00bbeeb41be4",
+      "title": "KC Moan"
+    },
+    {
+      "name": "BobWeirBand11-17-78t06.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t06.shn",
+      "format": "VBR MP3",
+      "length": "08:15",
+      "md5": "e85430e3f039b65aa75056ccc7c0c2ae",
+      "title": "Knockin' On Heaven's Door"
+    },
+    {
+      "name": "BobWeirBand11-17-78t06.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t06.shn",
+      "format": "Ogg Vorbis",
+      "length": "495.71",
+      "md5": "429164f714b18f441d22c42c0d7b670d"
+    },
+    {
+      "name": "BobWeirBand11-17-78t06.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t06.shn",
+      "format": "PNG",
+      "md5": "28935bf618ccd32e6ad250cd96c7d26b"
+    },
+    {
+      "name": "BobWeirBand11-17-78t06.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "348.76",
+      "md5": "81dc5009abade1bdf02aa8897e8304ae",
+      "title": "Knockin' On Heaven's Door"
+    },
+    {
+      "name": "BobWeirBand11-17-78t07.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t07.shn",
+      "format": "VBR MP3",
+      "length": "03:10",
+      "md5": "1f9920e7c6d0569d1a78ec0073825802",
+      "title": "Big Boy Pete"
+    },
+    {
+      "name": "BobWeirBand11-17-78t07.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t07.shn",
+      "format": "Ogg Vorbis",
+      "length": "190.57",
+      "md5": "65dbc666571dd36ffb1af0bb0b8de779"
+    },
+    {
+      "name": "BobWeirBand11-17-78t07.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t07.shn",
+      "format": "PNG",
+      "md5": "474e5b02d867b351b40f07c40375c116"
+    },
+    {
+      "name": "BobWeirBand11-17-78t07.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "130.88",
+      "md5": "840a023d6590ec43050aa88c32425b09",
+      "title": "Big Boy Pete"
+    },
+    {
+      "name": "BobWeirBand11-17-78t08.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t08.shn",
+      "format": "VBR MP3",
+      "length": "04:50",
+      "md5": "bfa7cecbee8660a28521e8be12c6b8bc",
+      "title": "Jack A Roe"
+    },
+    {
+      "name": "BobWeirBand11-17-78t08.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t08.shn",
+      "format": "Ogg Vorbis",
+      "length": "290.49",
+      "md5": "8d2dd6a3aac86595b74214d464e982a4"
+    },
+    {
+      "name": "BobWeirBand11-17-78t08.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t08.shn",
+      "format": "PNG",
+      "md5": "2c4d7a114e67e98253b9add5d8429399"
+    },
+    {
+      "name": "BobWeirBand11-17-78t08.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "205.47",
+      "md5": "d96dda6c4e5dc101c099633da4f7e32f",
+      "title": "Jack A Roe"
+    },
+    {
+      "name": "BobWeirBand11-17-78t09.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t09.shn",
+      "format": "VBR MP3",
+      "length": "04:37",
+      "md5": "6b77b513068263bc8059a38dad2db989",
+      "title": "Dark Hollow"
+    },
+    {
+      "name": "BobWeirBand11-17-78t09.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t09.shn",
+      "format": "Ogg Vorbis",
+      "length": "277.94",
+      "md5": "1e21ae5a3396428feb545b4596c18691"
+    },
+    {
+      "name": "BobWeirBand11-17-78t09.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t09.shn",
+      "format": "PNG",
+      "md5": "3c73e9ada14c46df0d2debcad5174fe3"
+    },
+    {
+      "name": "BobWeirBand11-17-78t09.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "198.23",
+      "md5": "bd5d7358e98a02eb12835b5269727ad7",
+      "title": "Dark Hollow"
+    },
+    {
+      "name": "BobWeirBand11-17-78t10.mp3",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t10.shn",
+      "format": "VBR MP3",
+      "length": "02:32",
+      "md5": "2343c34b8928ccec6694066ce69b154e",
+      "title": "Oh Boy"
+    },
+    {
+      "name": "BobWeirBand11-17-78t10.ogg",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t10.shn",
+      "format": "Ogg Vorbis",
+      "length": "152.53",
+      "md5": "5a1ca5df94678de22995639458f0a7aa"
+    },
+    {
+      "name": "BobWeirBand11-17-78t10.png",
+      "source": "derivative",
+      "original": "BobWeirBand11-17-78t10.shn",
+      "format": "PNG",
+      "md5": "0bb9ac272c2aead559ba0115a80a43ad"
+    },
+    {
+      "name": "BobWeirBand11-17-78t10.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "107.77",
+      "md5": "12226959c6efc1c2f553738115331bc4",
+      "title": "Oh Boy"
+    },
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "201879521d23136f349f437ae5e9eb67"
+    },
+    {
+      "name": "gd1978-11-17-all.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "3fb5964818759c47de6b120d8a8e915d"
+    },
+    {
+      "name": "gd1978-11-17.7687.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "242d78a679f89403958926eb43501c59"
+    },
+    {
+      "name": "gd78-11-17.acoustic.sbd.dodd.7687.sbeok.shnf_archive.torrent",
+      "source": "original",
+      "format": "Archive BitTorrent",
+      "md5": "b90acad44e90b94cd054765f05a9a713"
+    },
+    {
+      "name": "gd78-11-17.acoustic.sbd.dodd.7687.sbeok.shnf_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "66649fee46fe098daa057a15bac0b3b5"
+    },
+    {
+      "name": "gd78-11-17.acoustic.sbd.dodd.7687.sbeok.shnf_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "458abe43a790658fd9b0bd12f2531ccd"
+    },
+    {
+      "name": "gd78-11-17.acoustic.sbd.dodd.7687.sbeok.shnf_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "a536bf0b05bbd03d4617c34d5b12bfeb"
+    },
+    {
+      "name": "shntool.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "053f910f311b0a1de80ff412cff4dc3e"
+    }
+  ],
+  "reviews": [
+    {
+      "review_id": "16850",
+      "reviewbody": "very cool accoustic set for charity. small venue, small crowd. crowd seems to be eating this little set right up...cool interplay between crowd and band. worth checking out.",
+      "reviewtitle": "rare show",
+      "reviewer": "jerryme",
+      "reviewdate": "2004-07-16 06:21:51",
+      "createdate": "2004-07-16 06:20:55",
+      "stars": "4"
+    },
+    {
+      "review_id": "23618",
+      "reviewbody": "This is Great, Thanks Archive, Nice sounding, nice venue",
+      "reviewtitle": "Nice Acoustic Jam",
+      "reviewer": "foreveryoung2",
+      "reviewdate": "2004-10-27 15:18:16",
+      "createdate": "2004-10-27 15:18:16",
+      "stars": "5"
+    },
+    {
+      "review_id": "27564",
+      "reviewbody": "missing KCMoan between Deep Elem and Heavens",
+      "reviewtitle": "not complete",
+      "reviewer": "au9ustwest",
+      "reviewdate": "2004-12-23 07:03:20",
+      "createdate": "2004-12-23 07:03:20",
+      "stars": "5"
+    },
+    {
+      "review_id": "28033",
+      "reviewbody": "This little show is a rare but extremely pleasent treat!  I highly recommend it to anyone who hasn't checked it out.   Sound is good and you hear the crowd so well its almost like being there.  The crowd is a little pushy it sounds but Bob and Jerry shrug it off.\n Whinin' Boy is shiny and golden.\nKC Moan was there when I got it.",
+      "reviewtitle": "Very nice",
+      "reviewer": "sproutsdream",
+      "reviewdate": "2005-01-02 11:59:55",
+      "createdate": "2005-01-02 11:59:55",
+      "stars": "5"
+    },
+    {
+      "review_id": "28057",
+      "reviewbody": "This show is actually a Bob Weir show with Garcia sitting in for the whole set and Mickey Hart for the majority. All songs, including KC Moan, are present. The track list here is wrong, click on text for proper songs and order. That all said, it's a real fun listen with very decent sound quality. The musicians seem to be having a great time and it's fun to hear acoustic Weir/Garcia from this era. Nice Weir oriented song selection, too.",
+      "reviewtitle": "Actually Weir",
+      "reviewer": "dead trail",
+      "reviewdate": "2005-01-02 17:11:12",
+      "createdate": "2005-01-02 17:11:12",
+      "stars": "5"
+    },
+    {
+      "review_id": "29076",
+      "reviewbody": "This was before the dead played Heavens Door.\nHearing Jerry on This time 4ever is sweet.\nThe 1st KC Moan for the Dog fans!\nMickey must be quiet?\nDeadbase has this in their Bob sections.\nBirdee approved,I would imagine.\nWonder how many people saw this show and the Dead show that night?Probally some happy students.\nEarly Thanksgiving!!!!\nThe bar room,parlor-band is ever present during the amazing and very chill Big Boy Pete!!!!!\ni  wonder if someone at this show was thinking..Yes-Acoustic Sets!!!!...thats it, 2 years from now theyll play 14 shows in a row on both coast[with 2 in new orleans]with full acoustic and electric sets.Somebody new something...ahh the Grateful Dead..what a topic!!!\nAlso they close this show with Oh Boy and sing about being with their baby tonight-which we all know was the Grateful Dead?\nThis was Bob,Jerry,Phil,&Mickey for Hunger Benefit week.\nBilled as the Bob Weir Band.",
+      "reviewtitle": "Fall 1980?",
+      "reviewer": "borndead",
+      "reviewdate": "2005-01-19 09:38:20",
+      "createdate": "2005-01-14 11:03:09",
+      "stars": "5"
+    },
+    {
+      "review_id": "35258",
+      "reviewbody": "this is an insane little show...very nice sound and some CLASSIC stage banter.\n\n\"...i'm new around here!\" - JG  Um..ok.",
+      "reviewtitle": "insane",
+      "reviewer": "pnc",
+      "reviewdate": "2005-03-17 15:42:36",
+      "createdate": "2005-03-17 15:42:36",
+      "stars": "5",
+      "editedby": "Diana Hamilton"
+    },
+    {
+      "review_id": "41678",
+      "reviewbody": "This is such a beautiful show!!! The Deep Elem Blues is heartbreaking!  It would have been amazing to see this show live.  So all you lucky people who did I am jelous!!!",
+      "reviewtitle": "Simply Splendid!",
+      "reviewer": "iriedancer",
+      "reviewdate": "2005-05-19 08:21:53",
+      "createdate": "2005-05-19 08:21:53",
+      "stars": "5"
+    },
+    {
+      "review_id": "41684",
+      "reviewbody": "What a treat.  It sounds like its in a small bar or something in Chicago.  Those people there were very lucky this night.  The Big Boy Pete is really cool along with the Jack a Roe.  Great sound .  Must have been a sick night back in '78.",
+      "reviewtitle": "Awesome!!",
+      "reviewer": "GDTrey",
+      "reviewdate": "2005-05-19 09:10:06",
+      "createdate": "2005-05-19 09:10:06",
+      "stars": "5"
+    },
+    {
+      "review_id": "44275",
+      "reviewbody": "I cant believe I havent heard this before. Everyone needs this. Simply perfect.",
+      "reviewtitle": "Priceless",
+      "reviewer": "BillySunday",
+      "reviewdate": "2005-06-21 21:32:34",
+      "createdate": "2005-06-21 21:32:34",
+      "stars": "5"
+    },
+    {
+      "review_id": "47894",
+      "reviewbody": "Gives you a taste of whats to come in 2 years at Radio City, New Orleans and Warfield.",
+      "reviewtitle": "Cool little snippet",
+      "reviewer": "capn doubledose",
+      "reviewdate": "2005-08-08 07:33:56",
+      "createdate": "2005-08-08 07:33:56",
+      "stars": "4"
+    },
+    {
+      "review_id": "52511",
+      "reviewbody": "Not in Deadbase, and the set list is incorrect:\nWinin' Boy\nTom Dooler\nThis Time Forever\nDeep Elem\nK.C. Moan\nKnockin'\nBig Boy Pete\nJack-A-Roe\nDark Hollow\nOh Boy\n\n\nBobby's slide? Much better when he can't turn the treble all the way up and make it to the 17th fret.",
+      "reviewtitle": "Some corrections",
+      "reviewer": "K.C. Moan",
+      "reviewdate": "2005-10-07 09:41:18",
+      "createdate": "2005-10-07 09:41:18",
+      "stars": "4"
+    },
+    {
+      "review_id": "54891",
+      "reviewbody": "The show later that evening at the Uptown was my first ever Grateful Dead concert. The idea that they were jamming in what basically amounts to a college cafeteria that afternoon boggles the mind. Definitly worth grabbing!",
+      "reviewtitle": "If I knew then what I know now.",
+      "reviewer": "PhD9",
+      "reviewdate": "2005-11-06 16:14:22",
+      "createdate": "2005-11-06 16:14:22",
+      "stars": "5"
+    },
+    {
+      "review_id": "55713",
+      "reviewbody": "Well...if I do...This is exactly what I want to be....Enough said...get to the DL and burn!\n5 million stars",
+      "reviewtitle": "When I grow up....",
+      "reviewer": "DEADBUCK",
+      "reviewdate": "2005-11-17 07:42:09",
+      "createdate": "2005-11-17 07:42:09",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "It's Soggy Bottom Boys singin' into one of them tin cans.  This about the most fun I've had on a friday night in many years.  This, to me, is a far cry better than the acoustic sets of two years later.  This is very raw and straight forward, as opposited to the later rehearsed sets.  If it weren't for the newer songs, I've had played this all night waiting for Pigpen throwing a little harmonica and letting us know he was a Kingbee.  If anyone found this last year, before the embargo, let me know how, or if, a copy of this be obtained.  Let me know:\ndawhip@optonline.net\nMere words could never express my gratitude. Big Boy Pete just came up.  Take those five stars and multiply them exponentially. . . til the sun comes up",
+      "reviewtitle": "Hot Damn",
+      "stars": "5",
+      "reviewer": "dawhip",
+      "createdate": "2006-11-18 01:46:29",
+      "reviewdate": "2006-11-18 01:58:50"
+    },
+    {
+      "reviewbody": "Fantastic little acoustic set here . . . what I would give to have seen this and other 'shows' like it that the boys would just spontaneously play from time to time.  One of those things where you would have to be in the right spot at the right time . . . anyone have a time machine? \n\nSome tunes in here that many newer fans will not recognize . . . they really point back to the roots of the musicians and the dead.  IMO much more raw and real then the 80\u2019s acoustic sets at Radio City and the Warfield, here they are just playing for fun.  Kinda reminds me of some later Garcia, Grisman and Kahn et al. shows.  \n\nFantastic sound quality with great banter between the group and the crowd in this intimate setting.\n\nDefinitely worth a listen, but I wish it was still downloadable.  Can\u2019t complain though, it\u2019s just quality music.",
+      "reviewtitle": "fantastic! 5 stars for sure . . .",
+      "reviewer": "Dunkelstar",
+      "reviewdate": "2007-05-03 19:10:12",
+      "createdate": "2007-05-03 19:10:12",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "5 times 5 trillion stars!",
+      "reviewtitle": "Fantastic!!!!!!!!!!!",
+      "reviewer": "icecoldhubbas",
+      "reviewdate": "2007-05-26 11:21:03",
+      "createdate": "2007-05-26 11:21:03",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "this is a real great find.....sounds so intiamte and like they are just having a real good time. this is the kinda thing that just makes you smile while listening. a million bazillion stars",
+      "reviewtitle": "oh wow",
+      "reviewer": "walterbedingfield415",
+      "reviewdate": "2007-06-15 03:04:46",
+      "createdate": "2007-06-15 03:04:46",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "What fun! Great intimate set. Mostly songs that were rarely played. Excellent playing. A must-have. Terrific sound.",
+      "reviewtitle": "Fantastic!",
+      "reviewer": "JamminJerome",
+      "reviewdate": "2007-11-18 00:54:25",
+      "createdate": "2007-11-18 00:54:25",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This is way cool. Knew they busted out a 1978 acoustic set from the liner notes on Reckoning. Both Tom Dooley and Deep Elem were included in the Reckoning bonus disk from this nite.\n\nAs other reviewers have mentioned, this show seems to be more of a random quick call where they put a show together with Jerry, Bobby, and Mickey (don't hear any Phil) before their full on Dead performance later that nite. What integrity these guys have, always playing for the fans who seem to be digging on it and wanting more and more. The acoustic thang would be perfected in 1980 with a full band (glad only the boys are here that nite, no Donna, this was a boys nite.)\n\nMentionables outside of those released on Reckoning diks include a slick K.C. Moan, Knockin' on Heavens door with Bobby slide and heys actually killing it! Oh Boy is a treat reminiscent of those 71' acoustic sets. Pete is the highlight of the set with a folkie tradition of storytelling gone-dead. Everything else is on as well.\n\nIt is great to hear Garcia as on as Bobby vocally and even tho this show is billed as \"Bob Weir Band\" Jerry is just as much in on the fun. \n\nAnyone got this SBD? If so, I have a rare acoustic set that I would share in exchange. dylan.muhlberg@colorado.edu",
+      "reviewtitle": "Holy Shit.",
+      "reviewer": "Dylan M",
+      "reviewdate": "2007-11-24 04:56:12",
+      "createdate": "2007-11-24 04:56:12",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Never knew this existed, just came across it while looking for something 78ish to listen to. Such a treat. Thanks!",
+      "reviewtitle": "What fun!",
+      "reviewer": "Gern Blanston",
+      "reviewdate": "2008-02-15 02:39:20",
+      "createdate": "2008-02-15 02:39:20",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This is simply must have stuff. After you have finished checking this out try Mill Valley 80-12-06 Betty Aud! for a similar small room setting acoustic set.",
+      "reviewtitle": "EUREKA",
+      "reviewer": "srtg83",
+      "reviewdate": "2008-05-07 05:24:30",
+      "createdate": "2008-05-07 05:24:30",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "http://s274.photobucket.com/albums/jj266/icepetal/Dead/Dead%201978-11-17/\n\ngo here for pics of this awesome show",
+      "reviewtitle": "you want pics? you got em!",
+      "reviewer": "cb18201",
+      "reviewdate": "2008-11-20 04:59:20",
+      "createdate": "2008-11-20 04:59:20",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This one is available here\n\nhttp://wp.me/pv9Kh-4W\n\nCheers,\n\nLuke",
+      "reviewtitle": "Fantastic show...",
+      "reviewer": "ItsGreatToBeAlive.com",
+      "reviewdate": "2009-09-03 22:02:03",
+      "createdate": "2009-09-03 22:02:03",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Man just finished listening and was that a ton of fun - saw the boys at Radio City a few times but this was much open - loosey gooesy - a definite listen",
+      "reviewtitle": "Oh boy",
+      "reviewer": "grateful4ever",
+      "reviewdate": "2010-03-17 01:35:38",
+      "createdate": "2010-03-17 01:35:38",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Most interesting.   What's the story here?  It almost sounds like one of the boys is there to impress or court a lady who went to school at Loyola? Why play this tiny venue?\n\nANYWAY... along with the photo bucket pictures this is awesome....  Even Phil was there.",
+      "reviewtitle": "exellence",
+      "reviewer": "groovernut",
+      "reviewdate": "2010-08-07 18:10:19",
+      "createdate": "2010-08-07 18:10:19",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Wish I could download it :(",
+      "reviewtitle": "Very Nice",
+      "reviewer": "John Bouffard",
+      "reviewdate": "2012-07-08 01:15:09",
+      "createdate": "2012-07-08 01:15:09",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Great Scott! \n\nSong list is off, but great music and recording!",
+      "reviewtitle": "Nice acoustic!",
+      "reviewer": "barreramusic",
+      "reviewdate": "2012-07-08 21:04:19",
+      "createdate": "2012-07-08 21:04:19",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "****",
+      "reviewtitle": "Come Take these guns off of me..",
+      "reviewer": "c-freedom",
+      "reviewer_itemname": "@c-freedom",
+      "reviewdate": "2020-01-04 20:39:06",
+      "createdate": "2018-11-18 02:22:06",
+      "stars": "0"
+    },
+    {
+      "reviewbody": "Great Show! Rare for it's time! Great sound!",
+      "reviewtitle": "1978 Loyola",
+      "reviewer": "squirrel99",
+      "reviewer_itemname": "@squirrel99",
+      "reviewdate": "2018-11-30 05:22:13",
+      "createdate": "2018-11-30 05:22:13",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "hey c-freedom, Deep Ellum is a place in Texas, and it does not stand for \"elementary\" dipshit. it is an old traditional blues tune",
+      "reviewtitle": "huh?",
+      "reviewer": "jonnyb73",
+      "reviewer_itemname": "@jonnyb73",
+      "reviewdate": "2019-11-17 06:44:04",
+      "createdate": "2019-11-17 06:44:04",
+      "stars": "0"
+    },
+    {
+      "reviewbody": "i thought deep ellum was in timbuktu  two  the  review was a year  old  LOL",
+      "reviewtitle": "deep elm",
+      "reviewer": "crzy river",
+      "reviewer_itemname": "@crzy_river",
+      "reviewdate": "2019-11-18 04:47:00",
+      "createdate": "2019-11-18 04:45:05",
+      "stars": "4"
+    },
+    {
+      "reviewtitle": "WOW!",
+      "reviewbody": "Never heard this before, simply sublime!  Yet again the This Day in History feature delivers stuff I wouldn\u2019t find otherwise.  So grateful!",
+      "stars": "5",
+      "reviewer": "Dark Star 101",
+      "reviewdate": "2020-11-18 05:33:48",
+      "createdate": "2020-11-18 05:33:48",
+      "reviewer_itemname": "@bigchief7"
+    }
+  ]
+}

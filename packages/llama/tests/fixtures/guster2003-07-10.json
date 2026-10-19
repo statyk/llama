@@ -1,0 +1,811 @@
+{
+  "metadata": {
+    "identifier": "guster2003-07-10.shnf",
+    "mediatype": "etree",
+    "collection": [
+      "Guster",
+      "etree"
+    ],
+    "title": "Guster Live at Weesner Amphitheater, MN Zoo on 2003-07-10",
+    "type": "sound",
+    "subject": "Live concert",
+    "year": "2003",
+    "publicdate": "2003-07-17 21:01:03",
+    "creator": "Guster",
+    "description": "Happier\nBarrel of a Gun\nCareful\nKeep It Together\nAll the Way Up to Heaven\nI Spy\nAirport Song\nRamona\n(Nothing But) Flowers\nEither Way\nHomecoming King\nAmsterdam\nWhat You Wish For\nFa Fa\nE: Mona Lisa\n   Come Downstairs and Say Hello\n   Medicine\n   Demons",
+    "coverage": "Apple Valley, MN",
+    "md5s": "85ab40cef0cb3da43ce64205f119f554  guster071003d101.shn\n1ba3d630de8779c13727a957855229f9  guster071003d102.shn\n37c21da7c02e8a708ea1a63750590dd3  guster071003d103.shn\nce626262ecc44addbd5d9dc08da8d1c3  guster071003d104.shn\nc9d1aa994e6c89ad3dedfbeae42be7f6  guster071003d105.shn\n15d21a0738aed55a818e730cec79d18e  guster071003d106.shn\nae635ae24539b01e3b62c2441e6b400b  guster071003d107.shn\nf1735c4e406c253201c66bb14deb1417  guster071003d108.shn\n7a522cfcebe2e713e0173d2b9c866609  guster071003d109.shn\n6835ddf965433cb29b36cde3a8674d37  guster071003d110.shn\n9e8a9accd804b26ee2d151df9ed83c56  guster071003d201.shn\n3b00ade795c5fc0a043beba1ac5ce45e  guster071003d202.shn\n4632d6f093ff8d1a09c393b6f34a04a0  guster071003d203.shn\n9b556e693504e262380b9bd7b557b315  guster071003d204.shn\nb87de6779bd58fa25c3867426c5ab1ae  guster071003d205.shn\n3162ab7633275c31ce805298ebaddf33  guster071003d206.shn\n058392c4ed049e9ba1d5c9a862cca304  guster071003d207.shn\na742195fe4e971c4b981a82668636584  guster071003d208.shn",
+    "date": "2003-07-10",
+    "uploader": "greenone@bluestraveler.net",
+    "addeddate": "2003-07-17 21:01:03",
+    "adder": "greenone",
+    "pick": "0",
+    "updatedate": "2003-11-15 11:31:19",
+    "updater": "Diana Hamilton",
+    "source": "Sony ECM-MS907 > D7",
+    "taper": "Jake Foust",
+    "lineage": "D7 > Cooledit 2000 > CD-Wave > mkwACT",
+    "venue": "Weesner Amphitheater, MN Zoo",
+    "transferer": "Jake Foust",
+    "discs": "2",
+    "has_mp3": "0",
+    "shndiscs": "1",
+    "size": "544",
+    "publisher": "Jake Foust",
+    "numeric_id": "6220",
+    "md5contents": "85ab40cef0cb3da43ce64205f119f554  guster071003d101.shn\n1ba3d630de8779c13727a957855229f9  guster071003d102.shn\n37c21da7c02e8a708ea1a63750590dd3  guster071003d103.shn\nce626262ecc44addbd5d9dc08da8d1c3  guster071003d104.shn\nc9d1aa994e6c89ad3dedfbeae42be7f6  guster071003d105.shn\n15d21a0738aed55a818e730cec79d18e  guster071003d106.shn\nae635ae24539b01e3b62c2441e6b400b  guster071003d107.shn\nf1735c4e406c253201c66bb14deb1417  guster071003d108.shn\n7a522cfcebe2e713e0173d2b9c866609  guster071003d109.shn\n6835ddf965433cb29b36cde3a8674d37  guster071003d110.shn\n9e8a9accd804b26ee2d151df9ed83c56  guster071003d201.shn\n3b00ade795c5fc0a043beba1ac5ce45e  guster071003d202.shn\n4632d6f093ff8d1a09c393b6f34a04a0  guster071003d203.shn\n9b556e693504e262380b9bd7b557b315  guster071003d204.shn\nb87de6779bd58fa25c3867426c5ab1ae  guster071003d205.shn\n3162ab7633275c31ce805298ebaddf33  guster071003d206.shn\n058392c4ed049e9ba1d5c9a862cca304  guster071003d207.shn\na742195fe4e971c4b981a82668636584  guster071003d208.shn",
+    "backup_location": "ia903600_4"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "de32598b252ca16ae8d4ddb082838a13"
+    },
+    {
+      "name": "guster071003.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "d09c0579a82b0917b5b0f33e1f873209"
+    },
+    {
+      "name": "guster071003d1/guster071003d1.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "834bda2437ede61a02c22b15fa92d016"
+    },
+    {
+      "name": "guster071003d1/guster071003d101.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d101.shn",
+      "format": "Columbia Peaks",
+      "md5": "81d9809ea6f8b1dbdf3f9d7db0482aa5"
+    },
+    {
+      "name": "guster071003d1/guster071003d101.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d101.shn",
+      "format": "VBR MP3",
+      "length": "05:08",
+      "md5": "fdce26c1ca78d57ef7cecb84b50e98cc",
+      "title": "Airport Song"
+    },
+    {
+      "name": "guster071003d1/guster071003d101.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d101.shn",
+      "format": "Ogg Vorbis",
+      "length": "308.04",
+      "md5": "7e79d68d3dcf6b4dfb500fd02cb73584"
+    },
+    {
+      "name": "guster071003d1/guster071003d101.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d101.shn",
+      "format": "PNG",
+      "md5": "6598e25b8cbc6203340630574ffe4c4b"
+    },
+    {
+      "name": "guster071003d1/guster071003d101.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "308",
+      "md5": "85ab40cef0cb3da43ce64205f119f554",
+      "title": "Airport Song"
+    },
+    {
+      "name": "guster071003d1/guster071003d102.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d102.shn",
+      "format": "Columbia Peaks",
+      "md5": "ee1f3d33518107d9daa83d9c9ec0ee2f"
+    },
+    {
+      "name": "guster071003d1/guster071003d102.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d102.shn",
+      "format": "VBR MP3",
+      "length": "04:26",
+      "md5": "a119845ce96c8a50829fbf6232fb5ee6",
+      "title": "Ramona"
+    },
+    {
+      "name": "guster071003d1/guster071003d102.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d102.shn",
+      "format": "Ogg Vorbis",
+      "length": "266.22",
+      "md5": "98b22e78d970496dbb9814c04e25ae18"
+    },
+    {
+      "name": "guster071003d1/guster071003d102.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d102.shn",
+      "format": "PNG",
+      "md5": "5dcc9c98485f632affbbbd570328a7b5"
+    },
+    {
+      "name": "guster071003d1/guster071003d102.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "266.2",
+      "md5": "1ba3d630de8779c13727a957855229f9",
+      "title": "Ramona"
+    },
+    {
+      "name": "guster071003d1/guster071003d103.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d103.shn",
+      "format": "Columbia Peaks",
+      "md5": "453b58e8af7bdd9ecb94bb702658f857"
+    },
+    {
+      "name": "guster071003d1/guster071003d103.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d103.shn",
+      "format": "VBR MP3",
+      "length": "03:54",
+      "md5": "313a0cdef5c414c8b952516d3b7f3961",
+      "title": "(Nothing But) Flowers"
+    },
+    {
+      "name": "guster071003d1/guster071003d103.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d103.shn",
+      "format": "Ogg Vorbis",
+      "length": "234.29",
+      "md5": "c83f60acbbd71f422d3ca89c87197f34"
+    },
+    {
+      "name": "guster071003d1/guster071003d103.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d103.shn",
+      "format": "PNG",
+      "md5": "db7ddb042d270f54cc7edc38dfd07aa3"
+    },
+    {
+      "name": "guster071003d1/guster071003d103.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "234.2",
+      "md5": "37c21da7c02e8a708ea1a63750590dd3",
+      "title": "(Nothing But) Flowers"
+    },
+    {
+      "name": "guster071003d1/guster071003d104.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d104.shn",
+      "format": "Columbia Peaks",
+      "md5": "fb7c02f57f0a6326ed928f4e5ffc4c9d"
+    },
+    {
+      "name": "guster071003d1/guster071003d104.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d104.shn",
+      "format": "VBR MP3",
+      "length": "05:08",
+      "md5": "6196c112aaf848d2a2dfd374ce1defcf",
+      "title": "Either Way"
+    },
+    {
+      "name": "guster071003d1/guster071003d104.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d104.shn",
+      "format": "Ogg Vorbis",
+      "length": "308.49",
+      "md5": "28d45317720c96d7a148b9bb0262e383"
+    },
+    {
+      "name": "guster071003d1/guster071003d104.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d104.shn",
+      "format": "PNG",
+      "md5": "118ad47232e9437fbe4f63512723cf3e"
+    },
+    {
+      "name": "guster071003d1/guster071003d104.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "308.4",
+      "md5": "ce626262ecc44addbd5d9dc08da8d1c3",
+      "title": "Either Way"
+    },
+    {
+      "name": "guster071003d1/guster071003d105.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d105.shn",
+      "format": "Columbia Peaks",
+      "md5": "abab6282e223be7b93e10550399fdb09"
+    },
+    {
+      "name": "guster071003d1/guster071003d105.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d105.shn",
+      "format": "VBR MP3",
+      "length": "05:50",
+      "md5": "efcb6eae2c9f8c6578878951e3834dc9",
+      "title": "Happier"
+    },
+    {
+      "name": "guster071003d1/guster071003d105.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d105.shn",
+      "format": "Ogg Vorbis",
+      "length": "350.74",
+      "md5": "4d5876004a3444bb461cff7791f506f4"
+    },
+    {
+      "name": "guster071003d1/guster071003d105.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d105.shn",
+      "format": "PNG",
+      "md5": "5fd4dde990cdd9171d4c3f2339dc4bcb"
+    },
+    {
+      "name": "guster071003d1/guster071003d105.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "350.6",
+      "md5": "c9d1aa994e6c89ad3dedfbeae42be7f6",
+      "title": "Happier"
+    },
+    {
+      "name": "guster071003d1/guster071003d106.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d106.shn",
+      "format": "Columbia Peaks",
+      "md5": "b1ded18999d0c7c98b9a9a6bc4cb4b6c"
+    },
+    {
+      "name": "guster071003d1/guster071003d106.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d106.shn",
+      "format": "VBR MP3",
+      "length": "04:22",
+      "md5": "b57233d1570fba70c9e093ee341f285a",
+      "title": "Barrel of a Gun"
+    },
+    {
+      "name": "guster071003d1/guster071003d106.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d106.shn",
+      "format": "Ogg Vorbis",
+      "length": "262.13",
+      "md5": "b4a5a32e3cd803a886e552d34fc29227"
+    },
+    {
+      "name": "guster071003d1/guster071003d106.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d106.shn",
+      "format": "PNG",
+      "md5": "dd63226b015dc13e810be359d69217ed"
+    },
+    {
+      "name": "guster071003d1/guster071003d106.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "262.1",
+      "md5": "15d21a0738aed55a818e730cec79d18e",
+      "title": "Barrel of a Gun"
+    },
+    {
+      "name": "guster071003d1/guster071003d107.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d107.shn",
+      "format": "Columbia Peaks",
+      "md5": "62127dc4d05ea979de900a5b49d23b39"
+    },
+    {
+      "name": "guster071003d1/guster071003d107.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d107.shn",
+      "format": "VBR MP3",
+      "length": "04:02",
+      "md5": "977711b1eee20c1564d7294a7daeccb1",
+      "title": "Careful"
+    },
+    {
+      "name": "guster071003d1/guster071003d107.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d107.shn",
+      "format": "Ogg Vorbis",
+      "length": "242.89",
+      "md5": "f3aaba6078c11386aef93dc23c80b2ad"
+    },
+    {
+      "name": "guster071003d1/guster071003d107.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d107.shn",
+      "format": "PNG",
+      "md5": "7d622394396877007633a415fe25d47d"
+    },
+    {
+      "name": "guster071003d1/guster071003d107.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "242.7",
+      "md5": "ae635ae24539b01e3b62c2441e6b400b",
+      "title": "Careful"
+    },
+    {
+      "name": "guster071003d1/guster071003d108.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d108.shn",
+      "format": "Columbia Peaks",
+      "md5": "487386e4904db45152cb5b62bc7df8a5"
+    },
+    {
+      "name": "guster071003d1/guster071003d108.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d108.shn",
+      "format": "VBR MP3",
+      "length": "03:03",
+      "md5": "bce52411489d2f129cc7c76c0bef7e7f",
+      "title": "All the Way Up to Heaven"
+    },
+    {
+      "name": "guster071003d1/guster071003d108.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d108.shn",
+      "format": "Ogg Vorbis",
+      "length": "183.9",
+      "md5": "e608787fa7e4c34add4c1863163a5a64"
+    },
+    {
+      "name": "guster071003d1/guster071003d108.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d108.shn",
+      "format": "PNG",
+      "md5": "46376c42131147325abd9f547540f052"
+    },
+    {
+      "name": "guster071003d1/guster071003d108.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "183.7",
+      "md5": "f1735c4e406c253201c66bb14deb1417",
+      "title": "All the Way Up to Heaven"
+    },
+    {
+      "name": "guster071003d1/guster071003d109.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d109.shn",
+      "format": "Columbia Peaks",
+      "md5": "3294823314a61e0763f6da2d3bee3b86"
+    },
+    {
+      "name": "guster071003d1/guster071003d109.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d109.shn",
+      "format": "VBR MP3",
+      "length": "06:00",
+      "md5": "92bbafcc541d41bcc91ae4151be09370",
+      "title": "I Spy"
+    },
+    {
+      "name": "guster071003d1/guster071003d109.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d109.shn",
+      "format": "Ogg Vorbis",
+      "length": "360.58",
+      "md5": "4bc4383709d865e3cbd616b68a75f0f9"
+    },
+    {
+      "name": "guster071003d1/guster071003d109.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d109.shn",
+      "format": "PNG",
+      "md5": "77e26fc8979f830f541738466f97cf82"
+    },
+    {
+      "name": "guster071003d1/guster071003d109.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "360.4",
+      "md5": "7a522cfcebe2e713e0173d2b9c866609",
+      "title": "I Spy"
+    },
+    {
+      "name": "guster071003d1/guster071003d110.afpk",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d110.shn",
+      "format": "Columbia Peaks",
+      "md5": "18988e38453b78d090c470be2792a327"
+    },
+    {
+      "name": "guster071003d1/guster071003d110.mp3",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d110.shn",
+      "format": "VBR MP3",
+      "length": "05:31",
+      "md5": "9e03273135b38ecd2d0164c756066c17",
+      "title": "Keep It Together"
+    },
+    {
+      "name": "guster071003d1/guster071003d110.ogg",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d110.shn",
+      "format": "Ogg Vorbis",
+      "length": "331.64",
+      "md5": "e281673da6ee0dcab873608b4ad43ca7"
+    },
+    {
+      "name": "guster071003d1/guster071003d110.png",
+      "source": "derivative",
+      "original": "guster071003d1/guster071003d110.shn",
+      "format": "PNG",
+      "md5": "98442c168e9205898475837d179a1169"
+    },
+    {
+      "name": "guster071003d1/guster071003d110.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "331.5",
+      "md5": "6835ddf965433cb29b36cde3a8674d37",
+      "title": "Keep It Together"
+    },
+    {
+      "name": "guster071003d2/guster071003d2.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "f534e8c590228dffe58cc51c726930ed"
+    },
+    {
+      "name": "guster071003d2/guster071003d201.afpk",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d201.shn",
+      "format": "Columbia Peaks",
+      "md5": "775d3247baba3b883166714485f2b018"
+    },
+    {
+      "name": "guster071003d2/guster071003d201.mp3",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d201.shn",
+      "format": "VBR MP3",
+      "length": "03:22",
+      "md5": "59550e36e479c690e0e739833dd9c60e",
+      "title": "Homecoming King"
+    },
+    {
+      "name": "guster071003d2/guster071003d201.ogg",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d201.shn",
+      "format": "Ogg Vorbis",
+      "length": "202.66",
+      "md5": "c1ce3f923140fc4182fa411c8712853f"
+    },
+    {
+      "name": "guster071003d2/guster071003d201.png",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d201.shn",
+      "format": "PNG",
+      "md5": "68c388f1f59f49bd3c73cbdb0ef6fc96"
+    },
+    {
+      "name": "guster071003d2/guster071003d201.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "202.5",
+      "md5": "9e8a9accd804b26ee2d151df9ed83c56",
+      "title": "Homecoming King"
+    },
+    {
+      "name": "guster071003d2/guster071003d202.afpk",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d202.shn",
+      "format": "Columbia Peaks",
+      "md5": "a76e053b9d6614b77625a6d797605ebf"
+    },
+    {
+      "name": "guster071003d2/guster071003d202.mp3",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d202.shn",
+      "format": "VBR MP3",
+      "length": "04:51",
+      "md5": "c007d0d9c74f23f38ac2e6a61e16f3b4",
+      "title": "Amsterdam"
+    },
+    {
+      "name": "guster071003d2/guster071003d202.ogg",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d202.shn",
+      "format": "Ogg Vorbis",
+      "length": "291.27",
+      "md5": "e49849bd430f5154c777f96492af3695"
+    },
+    {
+      "name": "guster071003d2/guster071003d202.png",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d202.shn",
+      "format": "PNG",
+      "md5": "e8fd94d887ffbdb04873d4bb37c73924"
+    },
+    {
+      "name": "guster071003d2/guster071003d202.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "291.2",
+      "md5": "3b00ade795c5fc0a043beba1ac5ce45e",
+      "title": "Amsterdam"
+    },
+    {
+      "name": "guster071003d2/guster071003d203.afpk",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d203.shn",
+      "format": "Columbia Peaks",
+      "md5": "0f6c58f4a04f5a87254af8d59596df7b"
+    },
+    {
+      "name": "guster071003d2/guster071003d203.mp3",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d203.shn",
+      "format": "VBR MP3",
+      "length": "04:30",
+      "md5": "a77f7d6294b4a734ac344ca46b1ee53f",
+      "title": "What You Wish For"
+    },
+    {
+      "name": "guster071003d2/guster071003d203.ogg",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d203.shn",
+      "format": "Ogg Vorbis",
+      "length": "270.36",
+      "md5": "271956f11d06132ba5102813dc0e4cf8"
+    },
+    {
+      "name": "guster071003d2/guster071003d203.png",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d203.shn",
+      "format": "PNG",
+      "md5": "2e92743ae4d797851a1a6595204cff34"
+    },
+    {
+      "name": "guster071003d2/guster071003d203.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "270.3",
+      "md5": "4632d6f093ff8d1a09c393b6f34a04a0",
+      "title": "What You Wish For"
+    },
+    {
+      "name": "guster071003d2/guster071003d204.afpk",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d204.shn",
+      "format": "Columbia Peaks",
+      "md5": "a6bdc1f652b37ee2dbcbb8d419a412c4"
+    },
+    {
+      "name": "guster071003d2/guster071003d204.mp3",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d204.shn",
+      "format": "VBR MP3",
+      "length": "06:47",
+      "md5": "391cb423aba9cc1163ebf12637aaf884",
+      "title": "Fa Fa"
+    },
+    {
+      "name": "guster071003d2/guster071003d204.ogg",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d204.shn",
+      "format": "Ogg Vorbis",
+      "length": "407.68",
+      "md5": "5a6653cc3ad6e19081bc99b6f8e815e7"
+    },
+    {
+      "name": "guster071003d2/guster071003d204.png",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d204.shn",
+      "format": "PNG",
+      "md5": "5ef2fb456f308dc61f01f96af78588b7"
+    },
+    {
+      "name": "guster071003d2/guster071003d204.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "407.5",
+      "md5": "9b556e693504e262380b9bd7b557b315",
+      "title": "Fa Fa"
+    },
+    {
+      "name": "guster071003d2/guster071003d205.afpk",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d205.shn",
+      "format": "Columbia Peaks",
+      "md5": "98c952d5168351a6e5bf79ac10d98fd3"
+    },
+    {
+      "name": "guster071003d2/guster071003d205.mp3",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d205.shn",
+      "format": "VBR MP3",
+      "length": "05:06",
+      "md5": "046b63ae39fb60f1ac9653fb9a17753f",
+      "title": "Mona Lisa"
+    },
+    {
+      "name": "guster071003d2/guster071003d205.ogg",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d205.shn",
+      "format": "Ogg Vorbis",
+      "length": "306.28",
+      "md5": "970c50419b70f3696fd4070cb942bcc8"
+    },
+    {
+      "name": "guster071003d2/guster071003d205.png",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d205.shn",
+      "format": "PNG",
+      "md5": "e8de7df2b53c17bf6cdfa6fb4790dad1"
+    },
+    {
+      "name": "guster071003d2/guster071003d205.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "306.2",
+      "md5": "b87de6779bd58fa25c3867426c5ab1ae",
+      "title": "Mona Lisa"
+    },
+    {
+      "name": "guster071003d2/guster071003d206.afpk",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d206.shn",
+      "format": "Columbia Peaks",
+      "md5": "0a8e14331b0ed2891d85e4c63d462189"
+    },
+    {
+      "name": "guster071003d2/guster071003d206.mp3",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d206.shn",
+      "format": "VBR MP3",
+      "length": "07:50",
+      "md5": "2d1c741d77d15302bd20ff56c67273f9",
+      "title": "Come Downstairs and Say Hello"
+    },
+    {
+      "name": "guster071003d2/guster071003d206.ogg",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d206.shn",
+      "format": "Ogg Vorbis",
+      "length": "470.2",
+      "md5": "29b427215d57f12ed3e8d1ec731c7541"
+    },
+    {
+      "name": "guster071003d2/guster071003d206.png",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d206.shn",
+      "format": "PNG",
+      "md5": "a90268c4dd990827c2d0d3a168d4c30d"
+    },
+    {
+      "name": "guster071003d2/guster071003d206.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "470.2",
+      "md5": "3162ab7633275c31ce805298ebaddf33",
+      "title": "Come Downstairs and Say Hello"
+    },
+    {
+      "name": "guster071003d2/guster071003d207.afpk",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d207.shn",
+      "format": "Columbia Peaks",
+      "md5": "4a14c97fee0868193675a67ca30765ce"
+    },
+    {
+      "name": "guster071003d2/guster071003d207.mp3",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d207.shn",
+      "format": "VBR MP3",
+      "length": "04:35",
+      "md5": "d8dea0c3f494500c92f240d9ef6bfe66",
+      "title": "Medicine"
+    },
+    {
+      "name": "guster071003d2/guster071003d207.ogg",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d207.shn",
+      "format": "Ogg Vorbis",
+      "length": "275.85",
+      "md5": "0a6ba78251c0c8380df638e0f9f15766"
+    },
+    {
+      "name": "guster071003d2/guster071003d207.png",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d207.shn",
+      "format": "PNG",
+      "md5": "bf17549324fe5fdd5267a4862b942e53"
+    },
+    {
+      "name": "guster071003d2/guster071003d207.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "275.6",
+      "md5": "058392c4ed049e9ba1d5c9a862cca304",
+      "title": "Medicine"
+    },
+    {
+      "name": "guster071003d2/guster071003d208.afpk",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d208.shn",
+      "format": "Columbia Peaks",
+      "md5": "dba81f375322f5e040aeabac5339d26a"
+    },
+    {
+      "name": "guster071003d2/guster071003d208.mp3",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d208.shn",
+      "format": "VBR MP3",
+      "length": "05:15",
+      "md5": "bfea6e3bbc22c8bf7baa1eaae41b0927",
+      "title": "Demons"
+    },
+    {
+      "name": "guster071003d2/guster071003d208.ogg",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d208.shn",
+      "format": "Ogg Vorbis",
+      "length": "315.65",
+      "md5": "35136b2607e98abbc7987937ba6988b8"
+    },
+    {
+      "name": "guster071003d2/guster071003d208.png",
+      "source": "derivative",
+      "original": "guster071003d2/guster071003d208.shn",
+      "format": "PNG",
+      "md5": "a36793b2cc90c7f562044a0c63c19295"
+    },
+    {
+      "name": "guster071003d2/guster071003d208.shn",
+      "source": "original",
+      "format": "Shorten",
+      "length": "315.5",
+      "md5": "a742195fe4e971c4b981a82668636584",
+      "title": "Demons"
+    },
+    {
+      "name": "guster2003-07-10.shnf_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "56d909285431c0515f9d9ecd6c50c400"
+    },
+    {
+      "name": "guster2003-07-10.shnf_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "9d40d4ed0d240347d7dc80530eb4d024"
+    },
+    {
+      "name": "guster2003-07-10.shnf_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "f4ee350e956fdb4056ab0b0dc9782315"
+    },
+    {
+      "name": "guster2003-07-10.shnf_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "a04a55913fe9b9311768bfc5c0b4e65f"
+    }
+  ],
+  "reviews": [
+    {
+      "review_id": "5759",
+      "reviewbody": "This was a great show live, and very little of the excitement from being there is lost in listening to the recording.  Despite recorder's comments, vocals on the two songs sound excellent.\n\nMmm, Subway!",
+      "reviewtitle": "Very good!",
+      "reviewer": "FallenTurtles",
+      "reviewdate": "2003-08-22 07:20:28",
+      "createdate": "2003-08-22 07:20:28",
+      "stars": "5"
+    },
+    {
+      "review_id": "7362",
+      "reviewbody": "The sound quality is terrific and there are only a few minor problems. During \"Either Way\" the bass is a bit much and it's also somewhat bad in one other song, but that's about it. The comments onstage by Ryan are great, especially the part about the zoo. \"Medicine\" with the sweet guitar solos by Joe is worth it alone. Great song selection and great music.",
+      "reviewtitle": "Great concert",
+      "reviewer": "K2K2K2K2K2",
+      "reviewdate": "2003-11-12 22:52:50",
+      "createdate": "2003-11-12 22:52:50",
+      "stars": "5"
+    }
+  ]
+}
