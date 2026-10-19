@@ -276,6 +276,11 @@ _PLACE_FOLD = {
 _UNIVERSITY_TOKENS = frozenset({"u", "univ", "uc", "ucla", "ucsb", "uiuc", "mit", "university"})
 
 
+# Shortest token/key (in characters) allowed to match on a single edit; spec
+# Slice 1 "New constants" (6-character floor). Fixed a priori.
+_ONE_EDIT_MIN_LEN = 6
+
+
 def _one_edit(a: str, b: str) -> bool:
     """Levenshtein distance <= 1 (one substitution, insertion or deletion).
     Callers apply the length floor."""
@@ -309,7 +314,7 @@ def _place_tokens(s: str) -> list[str]:
 def _tokens_equal(a: str, b: str) -> bool:
     if a == b or bool(_PLACE_ABBREV.get(a, {a}) & _PLACE_ABBREV.get(b, {b})):
         return True
-    return min(len(a), len(b)) >= 6 and _one_edit(a, b)
+    return min(len(a), len(b)) >= _ONE_EDIT_MIN_LEN and _one_edit(a, b)
 
 
 def _token_subset(sub: list[str], sup: list[str]) -> bool:
@@ -401,7 +406,8 @@ def _city_parts(s: str | None) -> tuple[str, str]:
     fields = (s or "").split(",")
     key = " ".join(_CITY_FOLDS.get(t, t) for t in _clean_place(fields[0]).split())
     key = _METRO_ALIASES.get(key, key)
-    region = _clean_place(fields[1]) if len(fields) > 1 else ""
+    region = re.sub(r"[^a-z0-9 ]", "", fields[1].lower()) if len(fields) > 1 else ""
+    region = " ".join(region.split())  # punctuation dropped, not spaced: D.C. -> dc
     for noise in _COUNTRY_NOISE:
         region = re.sub(rf"\b{noise}\b", " ", region)
     region = " ".join(region.split())
@@ -418,7 +424,7 @@ def cities_compatible(a: str | None, b: str | None) -> bool:
         return False
     if ra and rb and ra != rb:
         return False
-    if ka == kb or (min(len(ka), len(kb)) >= 6 and _one_edit(ka, kb)):
+    if ka == kb or (min(len(ka), len(kb)) >= _ONE_EDIT_MIN_LEN and _one_edit(ka, kb)):
         return True
     ta, tb = ka.split(), kb.split()
     short, long = (ta, tb) if len(ta) <= len(tb) else (tb, ta)

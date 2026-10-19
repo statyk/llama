@@ -2002,6 +2002,8 @@ def test_one_edit():
     ("Merramec, MO", "Meramec, MO"), ("Portland", "Portland, OR"),
     ("Utica, New York", "Utica, NY"), ("Rothbury, Michigan", "Rothbury, MI"),
     ("Austin, TX", "Austen, TX"),   # exactly 6 chars: the floor is inclusive
+    ("Washington, D.C.", "Washington, DC"), ("Utica, N.Y.", "Utica, NY"),
+    ("New York, N.Y.", "New York, NY"),
     ("Santa Cruz, CA", "Santa Cruz, CA USA"), ("Washington, District of Columbia", "Washington, DC"),
 ])
 def test_cities_compatible(a, b):
