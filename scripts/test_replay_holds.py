@@ -16,9 +16,19 @@ import replay_holds as rh
 from fixture_library import build_library
 
 
-def _tree_state(root: Path) -> dict[str, tuple[int, int]]:
-    return {str(p.relative_to(root)): (p.stat().st_size, p.stat().st_mtime_ns)
-            for p in root.rglob("*") if p.is_file()}
+def _tree_state(root: Path) -> dict[str, tuple]:
+    """Every path under `root`: a file by (size, mtime), a directory by its
+    mtime, so a created (even empty, or since-deleted) entry is visible."""
+    state = {}
+    for p in root.rglob("*"):
+        st = p.lstat()
+        key = str(p.relative_to(root))
+        if p.is_dir() and not p.is_symlink():
+            state[key] = ("dir", st.st_mtime_ns)
+        else:
+            state[key] = ("file", st.st_size, st.st_mtime_ns)
+    state["."] = ("dir", root.stat().st_mtime_ns)
+    return state
 
 
 def _read_only(path: Path):
@@ -155,14 +165,35 @@ def test_run_prints_llama_file_and_records_the_arm_header(tmp_path, monkeypatch,
 
 
 def test_run_writes_only_the_arm_and_empties_its_scratch(tmp_path):
+    # The writable-root half of the zero-writes check: under a read-only root
+    # a write whose error is swallowed (SetlistFMClient's never-raise cache
+    # write is the codebase's own pattern) just fails and leaves no trace, so
+    # only a writable root can show it happened.
     root = tmp_path / "lib"
     build_library(root)
+    before = _tree_state(root)
     outdir = tmp_path / "out"
     scratch = tmp_path / "scratch"
     assert rh.main(["run", "--out", str(outdir / "arm.json"), "--all",
                     "--config", str(root / "config.toml"), "--scratch", str(scratch)]) == 0
+    assert _tree_state(root) == before
     assert [p.name for p in outdir.iterdir()] == ["arm.json"]
     assert list(scratch.iterdir()) == []
+    arm = json.loads((outdir / "arm.json").read_text())
+    assert {s["outcome"] for s in arm["shows"].values()} == {"clears", "clean"}
+
+
+def test_tree_state_sees_an_empty_directory_and_a_deleted_file(tmp_path):
+    root = tmp_path / "lib"
+    build_library(root)
+    before = _tree_state(root)
+    (root / "shows" / "new-empty").mkdir()
+    assert _tree_state(root) != before
+    (root / "shows" / "new-empty").rmdir()
+    before = _tree_state(root)
+    (root / "cache" / "probe").write_text("x")
+    (root / "cache" / "probe").unlink()
+    assert _tree_state(root) != before        # the cache dir's mtime moved
 
 
 def test_run_default_scratch_is_removed_at_exit(tmp_path, monkeypatch):
