@@ -1417,8 +1417,10 @@ def compute_gather(
 
     # 1d, every show, jerrybase or not, after the swap: a selected recording
     # whose city is known to conflict with the vote's ships its own venue and
-    # city, held (the other recordings may be a different performance).
-    if sel_venue and sel_city and vote_city and not cities_compatible(sel_city, vote_city):
+    # city, held (the other recordings may be a different performance). An
+    # unknown city on either side is no conflict, so a blank vote city is None.
+    if (sel_venue and sel_city and _stripped(vote_city)
+            and not cities_compatible(sel_city, vote_city)):
         venue, city = sel_venue, sel_city
         flags.append(f"{_CITY_CONFLICT_FLAG}: '{sel_city}' (selected) vs '{vote_city}'")
 

@@ -2860,3 +2860,40 @@ def test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerryb
     assert res.show.venue == "Rambler Room, Loyola College"
     assert "venue mismatch: archive 'Rambler Room, Loyola College' vs jerrybase 'Uptown Theatre'" in res.show.review_flags
     assert not any(n.startswith("venue taken from the selected recording") for n in res.notes)
+
+
+# --- Task 13 fix round 1: the city check on step 1 and on the swap, 1d's blank vote city ---
+
+def test_step_1_needs_compatible_cities_not_just_an_equivalent_venue(tmp_path):
+    # The vote's venue is equivalent to jerrybase's, but its city (and the one
+    # recording's) is St. Louis against jerrybase's Madison: no wrong clear.
+    cand = Candidate(performance_id="DarkStarOrchestra/2003-01-25", collection="DarkStarOrchestra",
+                     date="2003-01-25", venue="Barrymore Theater", city="St. Louis, MO",
+                     recordings=[RecordingSummary(identifier=DSO_IDENT, venue="Barrymore Theater",
+                                                  coverage="St. Louis, MO")])
+    assert not two_venue_signature(cand)
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Barrymore Theater"
+    assert "venue mismatch: archive 'Barrymore Theater' vs jerrybase 'Barrymore Theatre'" in res.show.review_flags
+
+
+def test_the_swap_needs_compatible_cities_not_just_an_equivalent_venue(tmp_path):
+    cand = Candidate(performance_id="DarkStarOrchestra/2003-01-25", collection="DarkStarOrchestra",
+                     date="2003-01-25", venue="The Pageant", city="St. Louis, MO",
+                     recordings=[RecordingSummary(identifier=DSO_IDENT, venue="Barrymore Theater",
+                                                  coverage="St. Louis, MO")])
+    assert not two_venue_signature(cand)
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "The Pageant"
+    assert "venue mismatch: archive 'The Pageant' vs jerrybase 'Barrymore Theatre'" in res.show.review_flags
+    assert not any(n.startswith("venue taken from the selected recording") for n in res.notes)
+
+
+def test_1d_a_whitespace_only_vote_city_is_unknown_and_no_conflict(tmp_path):
+    cand = Candidate(performance_id="DarkStarOrchestra/2003-01-25", collection="DarkStarOrchestra",
+                     date="2003-01-25", venue="Barrymore Theatre", city="   ",
+                     recordings=[RecordingSummary(identifier=DSO_IDENT, venue="Barrymore Theater",
+                                                  coverage="Madison, WI")])
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert not any("disagree on city" in f for f in res.show.review_flags)
+    assert res.show.venue == "Barrymore Theatre"
