@@ -335,6 +335,7 @@ from llama.structure import venues_equivalent
     ("Jahrhundert Halle", "Jahrhunderthalle"),
     ("Meramec Race Track", "Merramec Racetrack"),
     ("Barrymore Theater", "Barrymore Theatre"),
+    ("Fenwick Hall", "Fenwack Hall"),   # exactly 6 chars one edit apart: floor is inclusive
 ])
 def test_venues_equivalent_true(a, b):
     assert venues_equivalent(a, b)
@@ -349,6 +350,7 @@ def test_venues_equivalent_true(a, b):
     ("Buffalo Auditorium", "Community War Memorial Auditorium"),
     ("The Pageant", "Barrymore Theatre"),
     ("Shrine Auditorium", "Shrine Exhibition Hall"),
+    ("Bryce Hall", "Bruce Hall"),   # 5-char tokens one edit apart: below the 6 floor
 ])
 def test_venues_not_equivalent(a, b):
     assert not venues_equivalent(a, b)
@@ -1999,6 +2001,7 @@ def test_one_edit():
     ("Thornville, OH", "Legend Valley, OH"), ("Tuxedo, NY", "Tuxedo Park, NY"),
     ("Merramec, MO", "Meramec, MO"), ("Portland", "Portland, OR"),
     ("Utica, New York", "Utica, NY"), ("Rothbury, Michigan", "Rothbury, MI"),
+    ("Austin, TX", "Austen, TX"),   # exactly 6 chars: the floor is inclusive
     ("Santa Cruz, CA", "Santa Cruz, CA USA"), ("Washington, District of Columbia", "Washington, DC"),
 ])
 def test_cities_compatible(a, b):
@@ -2008,6 +2011,7 @@ def test_cities_compatible(a, b):
 @pytest.mark.parametrize("a, b", [
     ("Portland, OR", "Portland, ME"), ("LA", "Dallas, TX"), ("Dallas", "LA"), (None, "Madison"),
     ("", "Madison"), ("St. Louis, MO", "Madison, WI"), ("Apple Valley, MN", "Minneapolis, MN"),
+    ("Macon, GA", "Mason, GA"),     # 5-char keys one edit apart: below the floor
     ("Bonnaroo", "Manchester, TN"), ("Portland, Oregon", "Portland, ME"), ("Utica, New York", "Utica, MI"),
 ])
 def test_cities_not_compatible(a, b):
