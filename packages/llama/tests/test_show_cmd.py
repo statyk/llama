@@ -504,3 +504,32 @@ def test_json_omits_excluded_without_the_tracks_flag(tmp_path: Path):
     r = cli_invoke(cfg, "show", "gratefuldead", "--json")
     assert r.exit_code == 0, r.output
     assert "excluded" not in json.loads(r.output)
+
+
+def test_show_prints_notes_json_under_a_notes_heading(tmp_path):
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    write_artifact(ws.notes, {"gather": ["venue differs from jerrybase: archive 'A' vs 'B' (same city)"],
+                              "vet": ["unknown-song flags suppressed by the right-show gate: 4/5 tape tracks asserted (ratio 0.80), 1 unclaimed: X; research date: 1973-06-10"]})
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert r.exit_code == 0, r.output
+    assert "notes:" in r.output
+    assert "  - venue differs from jerrybase: archive 'A' vs 'B' (same city)" in r.output
+    assert "  - unknown-song flags suppressed by the right-show gate" in r.output
+
+
+def test_show_without_notes_json_prints_no_notes_heading(tmp_path):
+    cfg = _cfg(tmp_path)
+    build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    r = cli_invoke(cfg, "show", "gratefuldead")
+    assert "notes:" not in r.output
+
+
+def test_json_carries_notes_and_empty_lists_without_notes_json(tmp_path):
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select", "gather"})
+    r = cli_invoke(cfg, "show", "gratefuldead", "--json")
+    assert json.loads(r.output)["notes"] == {"gather": [], "vet": []}
+    write_artifact(ws.notes, {"gather": ["g"], "vet": ["v"]})
+    r = cli_invoke(cfg, "show", "gratefuldead", "--json")
+    assert json.loads(r.output)["notes"] == {"gather": ["g"], "vet": ["v"]}

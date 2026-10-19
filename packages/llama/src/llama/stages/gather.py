@@ -12,7 +12,7 @@ from llama.errors import LlamaError
 from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 from llama.ia_client import IAError
 from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
-                          SourcedParse, StructureInfo)
+                          ShowNotes, SourcedParse, StructureInfo)
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, cplus_filter, propose_rows, rate_alignment
@@ -757,6 +757,11 @@ class CanonicalBuild(NamedTuple):
     setlist: ParsedSetlist
     notes: list[str]
     source: str | None
+    # True when the `extract_setlist` LLM fallback was reached and NOT taken:
+    # nothing ranked, the longest description is non-blank, and no provider
+    # was passed. An empty description makes no call even with a provider,
+    # so it is never needs-LLM (held-backlog spec "Slice 0").
+    needs_llm: bool = False
 
 
 def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
@@ -768,7 +773,8 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
 
     `provider=None` skips the `extract_setlist` LLM fallback entirely, so
     callers outside the pipeline (`llama fix --suggest-titles`) never trigger
-    an LLM call.
+    an LLM call. When that skip is what decided the result (the fallback
+    would otherwise have run), `.needs_llm` is True.
 
     Order matters for the cleaning pass: the banner strip runs on the head
     span first, then the artist drop globally. `events` covers every
@@ -789,13 +795,17 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
             parses.insert(0, SourcedParse(source="setlist.fm", parsed=converted))
 
     best = rank_parses(parses, target_count=len(kept))
-    if best is None and provider is not None:
+    needs_llm = False
+    if best is None:
         longest = max(descriptions, key=len, default="")
         if longest.strip():
-            parsed = run_json_task(provider, "extract_setlist", ParsedSetlist,
-                                   template=load_prompt("extract_setlist"),
-                                   description=longest)
-            best = SourcedParse(source="llm", parsed=parsed)
+            if provider is not None:
+                parsed = run_json_task(provider, "extract_setlist", ParsedSetlist,
+                                       template=load_prompt("extract_setlist"),
+                                       description=longest)
+                best = SourcedParse(source="llm", parsed=parsed)
+            else:
+                needs_llm = True
     source = best.source if best is not None else None
     canonical = best.parsed if best else ParsedSetlist()
     if best is not None and best.source == "setlist.fm":
@@ -807,25 +817,51 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
     canonical = _strip_head_banner(canonical, metadata_norms)
     canonical = _drop_artist_items(canonical, artist)
     canonical = _strip_footnote_markers(canonical)
-    return CanonicalBuild(setlist=canonical, notes=notes, source=source)
+    return CanonicalBuild(setlist=canonical, notes=notes, source=source,
+                          needs_llm=needs_llm)
 
 
-def run_gather(
+class GatherResult(NamedTuple):
+    """`compute_gather`'s result: everything gather derives, nothing written.
+
+    `notes` are operator-facing notes bound for `notes.json` (spec ruling 6:
+    never `show.json`, never `structure.conflicts`, so never an LLM's input).
+    `needs_llm` names each LLM touchpoint gather reached but could not take
+    for want of a provider -- `"extract_setlist"`, `"align_structure"`, each
+    at most once, in that order. Empty when providers were passed: with
+    providers gather behaves exactly as it always has."""
+    show: Show
+    reviews: list[dict]
+    notes: list[str]
+    needs_llm: tuple[str, ...]
+
+
+def compute_gather(
     show_ws: ShowWorkspace,
     ia,
     provider,
     candidate: Candidate,
     identifier: str,
+    *,
     audio_format: str = "mp3",
-    force: bool = False,
     align_provider=None,
     setlistfm=None,
     structure_cfg: StructureConfig | None = None,
     jerrybase_enabled: bool = False,
-) -> Show:
-    if not should_run(show_ws.show, force):
-        return read_model(show_ws.show, Show)
+) -> GatherResult:
+    """Gather without the writes: `run_gather` minus `should_run` and the
+    three artifacts. Reads `overrides.json` from `show_ws` and nothing else
+    from it, so an offline replay can point it at a scratch workspace holding
+    only a copy of the overrides. With `provider`/`align_provider` None, the
+    LLM touchpoints are recorded in `.needs_llm` instead of called; the
+    degraded result (e.g. the `low-confidence structure alignment` flag) is
+    exactly what `run_gather` would have written with no provider."""
     structure_cfg = structure_cfg or StructureConfig()
+    # Operator-facing notes for notes.json. Deliberately a SEPARATE list from
+    # the local `notes` below, which keeps flowing into `structure.conflicts`
+    # (and so to the briefing LLM) exactly as before (spec ruling 6).
+    op_notes: list[str] = []
+    needs_align = False
 
     md = ia.metadata(identifier)
     meta = md.get("metadata", {})
@@ -925,9 +961,10 @@ def run_gather(
     # setlist when `len(items) == len(tracks)`, so on an untagged tape one
     # header item costs every title on the show. `.source` (the winning
     # parse's provenance) is used below for `StructureInfo.source`.
-    canonical, notes, canonical_source = build_canonical(
+    cb = build_canonical(
         ia, candidate, identifier, meta, kept, artist, events,
         setlistfm=setlistfm, provider=provider)
+    canonical, notes, canonical_source = cb.setlist, cb.notes, cb.source
     # Recomputed (not re-fetched) rather than threaded out of build_canonical:
     # it's a pure function of already-in-scope values, and adopt_gap_titles
     # below needs it independently of the canonical-setlist build.
@@ -1072,6 +1109,11 @@ def run_gather(
                     raise
                 except (TaskFailed, HerderError) as err:
                     log.warning("align_structure failed: %s", err)
+            else:
+                # Reached and not taken: the flag below is still appended
+                # exactly as before, and the verdict says an LLM would have
+                # had a say (spec "Slice 0").
+                needs_align = True
             if llm_result is not None and llm_result.coverage >= structure_cfg.align_coverage_threshold:
                 # Deliberate trade-off: apply_llm_alignment never populates
                 # conflicts, so any deterministic-alignment conflicts are
@@ -1223,6 +1265,37 @@ def run_gather(
         review_flags=flags,
         structure=structure_info,
     )
-    write_artifact(show_ws.show, show)
-    write_artifact(show_ws.reviews, md.get("reviews", []))
-    return show
+    needs_llm = tuple(name for name, hit in (("extract_setlist", cb.needs_llm),
+                                             ("align_structure", needs_align)) if hit)
+    return GatherResult(show=show, reviews=md.get("reviews", []), notes=op_notes,
+                        needs_llm=needs_llm)
+
+
+def run_gather(
+    show_ws: ShowWorkspace,
+    ia,
+    provider,
+    candidate: Candidate,
+    identifier: str,
+    audio_format: str = "mp3",
+    force: bool = False,
+    align_provider=None,
+    setlistfm=None,
+    structure_cfg: StructureConfig | None = None,
+    jerrybase_enabled: bool = False,
+) -> Show:
+    if not should_run(show_ws.show, force):
+        return read_model(show_ws.show, Show)
+    res = compute_gather(
+        show_ws, ia, provider, candidate, identifier,
+        audio_format=audio_format, align_provider=align_provider,
+        setlistfm=setlistfm, structure_cfg=structure_cfg,
+        jerrybase_enabled=jerrybase_enabled)
+    # notes.json is REPLACED on every gather (`vet` reset: a vet note belongs
+    # to the gather it was raised against), and written BEFORE show.json:
+    # show.json is `should_run`'s done-marker, so a crash between the two
+    # leaves gather to re-run rather than a new show.json beside stale notes.
+    write_artifact(show_ws.notes, ShowNotes(gather=res.notes, vet=[]))
+    write_artifact(show_ws.show, res.show)
+    write_artifact(show_ws.reviews, res.reviews)
+    return res.show

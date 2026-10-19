@@ -1726,6 +1726,13 @@ def _print_stages(sws) -> None:
             typer.echo(f"  {label:22s} {age:5.1f}d old")
 
 
+def _read_show_notes(sws):
+    """`notes.json` as a `ShowNotes`; empty when the file is absent (a show
+    gathered before notes.json existed, or not gathered yet)."""
+    from llama.models import ShowNotes
+    return read_model(sws.notes, ShowNotes) if sws.notes.exists() else ShowNotes()
+
+
 def _print_show_entry(entry, show_tracks: bool = False) -> None:
     """Read-only inspection block (spec §5.2, §10) — never prompts, never
     writes. A show with no show.json yet (pre-gather) prints only slug/state/
@@ -1782,6 +1789,11 @@ def _print_show_entry(entry, show_tracks: bool = False) -> None:
         for f in s.review_flags:
             typer.echo(f"  - {f}")
         typer.echo(f"to overrule after inspecting: llama fix {entry.slug} --overrule")
+    notes = _read_show_notes(sws)
+    if notes.gather or notes.vet:
+        typer.echo("notes:")
+        for line in notes.gather + notes.vet:
+            typer.echo(f"  - {line}")
     if show_tracks:
         for line in _format_tracks(s):
             typer.echo(line)
@@ -1827,6 +1839,7 @@ def _print_show_json(entry, show_tracks: bool = False) -> None:
         "needs_review": s.needs_review if s else None,
         "overrides": None,
         "stages": dict(_stage_ages(sws)),
+        "notes": _read_show_notes(sws).model_dump(),
     }
     if s is not None:
         ov = read_overrides(sws)

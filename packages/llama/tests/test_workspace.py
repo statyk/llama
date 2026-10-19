@@ -132,3 +132,13 @@ def test_overrides_absent_metadata_defaults(tmp_path):
     ov = read_overrides(ShowWorkspace(tmp_path / "s"))
     assert ov.venue is None and ov.city is None and ov.date is None
     assert ov.titles == {} and ov.set_breaks is None
+
+
+def test_notes_json_is_a_gather_artifact(tmp_path):
+    from llama.workspace import ShowWorkspace, drop_stage_artifacts, show_stage_artifacts, write_artifact
+    ws = ShowWorkspace(tmp_path / "s")
+    assert ws.notes == tmp_path / "s" / "notes.json"
+    assert ws.notes in show_stage_artifacts(ws, "gather")
+    write_artifact(ws.notes, {"gather": [], "vet": []})
+    drop_stage_artifacts(ws, "gather")
+    assert not ws.notes.exists()

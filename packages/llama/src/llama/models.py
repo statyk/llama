@@ -213,6 +213,16 @@ class Overrides(BaseModel):
     encore_after: int | None = None     # encore begins after this track number
 
 
+class ShowNotes(BaseModel):
+    """`notes.json`: operator-facing notes, read only by `llama show` (and so
+    triage). Never read by brief, vet's prompt path or package, so a note can
+    never reach an LLM (held-backlog spec ruling 6). A gather artifact:
+    `run_gather` replaces the whole file (`vet` reset to []), and vet sets
+    `vet` on the file gather wrote."""
+    gather: list[str] = Field(default_factory=list)
+    vet: list[str] = Field(default_factory=list)
+
+
 class DJNotes(BaseModel):
     context: str = ""  # one-line era/tour context
     set_intros: dict[str, str]  # combined lead-in per non-encore set: "1", "2"

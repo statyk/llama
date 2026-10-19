@@ -79,6 +79,7 @@ class ShowWorkspace:
         self.briefing_json = dir / "briefing.json"
         self.briefing_md = dir / "briefing.md"
         self.overrides = dir / "overrides.json"
+        self.notes = dir / "notes.json"
         self.package_dir = dir / "package"
         self.lock = dir / ".lock"
 
@@ -91,7 +92,7 @@ SHOW_STAGE_ORDER = ["select", "gather", "research", "vet", "brief", "package"]
 def show_stage_artifacts(show_ws: ShowWorkspace, stage: str) -> list[Path]:
     return {
         "select": [show_ws.selection],
-        "gather": [show_ws.show, show_ws.reviews],
+        "gather": [show_ws.show, show_ws.reviews, show_ws.notes],
         "research": [show_ws.research, show_ws.vetting],
         "vet": [show_ws.vetting],
         "brief": [show_ws.briefing_json, show_ws.briefing_md],

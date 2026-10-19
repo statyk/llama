@@ -17,7 +17,7 @@ from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
                                  _strip_footnote_markers, _strip_head_banner,
                                  run_gather)
 from llama.structure import fuzzy_norm_title
-from llama.workspace import ShowWorkspace, read_overrides, write_artifact
+from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "gd73_metadata.json"
@@ -2017,8 +2017,8 @@ def test_build_canonical_matches_what_gather_uses(tmp_path: Path):
     md = json.loads(FIXTURE.read_text())
     kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
     cand = make_candidate()
-    canonical, notes, source = build_canonical(StubIA(md), cand, IDENT, md["metadata"],
-                                               kept, "Grateful Dead", [])
+    cb = build_canonical(StubIA(md), cand, IDENT, md["metadata"], kept, "Grateful Dead", [])
+    canonical, source = cb.setlist, cb.source
     sws = ShowWorkspace(tmp_path / "show")
     show = run_gather(sws, StubIA(md), FakeProvider(), cand, IDENT)
     assert [i.title for i in canonical.items]
@@ -2069,8 +2069,8 @@ def test_build_canonical_applies_the_cleaning_pass():
     )
     kept, _, _ = filter_files(md["files"], want_format=("VBR MP3",))
     cand = make_candidate()
-    canonical, notes, source = build_canonical(StubIA(md), cand, IDENT, meta,
-                                               kept, "Grateful Dead", [])
+    canonical = build_canonical(StubIA(md), cand, IDENT, meta,
+                                kept, "Grateful Dead", []).setlist
     titles = [i.title for i in canonical.items]
     assert titles == ["Morning Dew", "China Cat Sunflower", "I Know You Rider",
                       "Dark Star", "Eyes of the World", "Johnny B. Goode"]
@@ -2109,8 +2109,8 @@ def test_build_canonical_provider_none_never_reaches_the_llm_fallback(monkeypatc
     # Guard: provider=None must not reach the fallback, even though `best is
     # None` (rank_parses has nothing to rank) makes this exactly the input
     # that would otherwise trigger it.
-    canonical, notes, source = build_canonical(None, cand, "only", meta, [], "Test Artist",
-                                               [], provider=None)
+    canonical = build_canonical(None, cand, "only", meta, [], "Test Artist",
+                                [], provider=None).setlist
     assert canonical.items == []
 
     # Positive control: the identical input WITH a provider must reach the
@@ -2205,3 +2205,72 @@ def test_operator_excluded_entry_carries_duration_sec(tmp_path: Path):
     show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
     entry = next(e for e in show.excluded_files if e["filename"] == excluded_name)
     assert isinstance(entry["duration_sec"], float)
+
+
+# --- Tier 1 slice 0: LLM-free gather reports needs-LLM (spec "Slice 0") ---
+
+from llama.models import ShowNotes
+from llama.stages.gather import GatherResult, compute_gather
+
+
+def _low_coverage_candidate():
+    """gd73 fixture with a description whose setlist shares nothing with the
+    tape's tags, so align() lands under the threshold and the
+    align_structure branch is reached."""
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = "Set 1: Alpha, Beta, Gamma, Delta, Epsilon, Zeta\nSet 2: Eta, Theta"
+    return md
+
+
+def test_compute_gather_reports_align_structure_without_a_provider(tmp_path):
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(_low_coverage_candidate()), None, make_candidate(), IDENT,
+                         align_provider=None, jerrybase_enabled=False)
+    assert isinstance(res, GatherResult)
+    assert res.needs_llm == ("align_structure",)
+    assert "low-confidence structure alignment" in res.show.review_flags   # degraded flag unchanged
+    assert not sws.show.exists() and not sws.notes.exists()                 # compute writes nothing
+
+
+def test_compute_gather_reports_extract_setlist_without_a_provider(tmp_path):
+    md = json.loads(FIXTURE.read_text())
+    # Parses to 0 items, so rank_parses returns None and the extract_setlist
+    # fallback is reached (orchestrator ruling B1: the brief's prose text
+    # parsed to 3 low-confidence items and never reached it).
+    md["metadata"]["description"] = "An amazing night of music, seeded with love."
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(md), None, make_candidate(), IDENT, jerrybase_enabled=False)
+    assert res.needs_llm == ("extract_setlist",)
+
+
+def test_compute_gather_empty_description_is_not_needs_llm(tmp_path):
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = ""
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(md), None, make_candidate(), IDENT, jerrybase_enabled=False)
+    assert res.needs_llm == ()
+
+
+def test_compute_gather_with_a_provider_records_nothing_and_calls_it(tmp_path):
+    provider = FakeProvider(completes=[json.dumps({"tracks": [
+        {"index": i, "set": "1", "segue": False, "matched_title": "x"} for i in range(1, 7)]})])
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(_low_coverage_candidate()), FakeProvider(), make_candidate(),
+                         IDENT, align_provider=provider, jerrybase_enabled=False)
+    assert res.needs_llm == ()
+    assert provider.calls
+
+
+def test_run_gather_writes_notes_json_and_returns_the_show(tmp_path):
+    sws = ShowWorkspace(tmp_path / "s")
+    show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    notes = read_model(sws.notes, ShowNotes)
+    assert notes == ShowNotes(gather=[], vet=[])
+    assert show.tracks and sws.show.exists()
+
+
+def test_run_gather_replaces_notes_json_on_force(tmp_path):
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.notes, ShowNotes(gather=["stale"], vet=["stale"]))
+    run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT, force=True)
+    assert read_model(sws.notes, ShowNotes) == ShowNotes()
