@@ -40,6 +40,11 @@ def _pick(setlists: list[dict], venue: str | None, city: str | None) -> dict | N
     return None
 
 
+def cache_key(artist: str, date: str) -> str:
+    """The on-disk cache key for one (artist, date) lookup."""
+    return "slfm_" + hashlib.sha1(f"{artist}|{date}".encode()).hexdigest()
+
+
 class SetlistFMClient:
     def __init__(
         self,
@@ -77,8 +82,7 @@ class SetlistFMClient:
         cache) degrades to None so setlist.fm lookups never fail gather.
         """
         try:
-            key = "slfm_" + hashlib.sha1(f"{artist}|{date}".encode()).hexdigest()
-            path = self.cache_dir / f"{key}.json"
+            path = self.cache_dir / f"{cache_key(artist, date)}.json"
             if path.exists():
                 data = json.loads(path.read_text())
             else:

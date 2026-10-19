@@ -159,3 +159,11 @@ def test_make_client_requires_key(monkeypatch):
     assert make_client(cfg).api_key == "fromtoml"
     monkeypatch.setenv("SETLISTFM_API_KEY", "fromenv")
     assert make_client(cfg).api_key == "fromenv"
+
+
+def test_cache_key_is_the_key_the_client_writes(tmp_path: Path):
+    from llama.setlistfm import cache_key
+
+    c = make(tmp_path, lambda request: httpx.Response(200, json={"setlist": [WINTERLAND]}))
+    c.setlist("Grateful Dead", "1973-06-10")
+    assert (tmp_path / "cache" / (cache_key("Grateful Dead", "1973-06-10") + ".json")).exists()
