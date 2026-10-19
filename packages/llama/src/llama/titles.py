@@ -1,6 +1,8 @@
 import re
 
 from llama.models import ParsedSetlist, Track
+from llama.placeholders import is_placeholder, is_residue, is_timestamp, recording_level_junk
+from llama.structure import fuzzy_norm_title
 from llama.util import length_seconds
 
 # Identifier prefix embedded in tag titles ("gd73-06-10d1t04 Here Comes
@@ -242,11 +244,66 @@ def sibling_format_titles(
     return {name: title for name, title in zip(ours.values(), titles)}
 
 
+def tag_layer(
+    kept_files: list[dict],
+    format_titles: dict[str, str] | None,
+    gate_basis: list[dict] | None,
+) -> tuple[list[str], str]:
+    """The tag rung's titles, in play order, and the source they carry.
+
+    When format recovery fired (`format_titles` is not None), the delivered
+    format's own tags are known bad and are not consulted at all - a manifest
+    never interleaves two tag sources - and a file the recovered map lacks
+    reads as "". Otherwise the recording's own cleaned tags. Extracted from
+    `resolve_titles` so gather can compute slice 2b's notes over exactly the
+    titles `resolve_titles` judges."""
+    if format_titles is not None:
+        return [format_titles.get(f["name"], "") for f in kept_files], "sibling-format"
+    return clean_tag_titles(kept_files, gate_basis=gate_basis), "tags"
+
+
+def placeholder_positions(
+    tag_titles: list[str], *, corroboration: frozenset[str], item_title: str | None
+) -> list[int]:
+    """Held-backlog slice 2b (spec "2b. Junk-title detector"): the 0-based
+    positions whose tag-layer title is a placeholder and is demoted straight to
+    `unresolved`.
+
+    A blank tag is never demoted (it takes today's path, the whole-tape
+    `setlist` rung included), and neither is a tag equal by `fuzzy_norm_title`
+    to an item of a cross-source parse (`corroboration`: setlist.fm or a sibling
+    description, never the selected recording's own). Otherwise a position is
+    demoted when any of:
+
+    - its title is in the placeholder vocabulary or is a bare timestamp,
+      whether or not `is_real_title` passes (so `Tr-02` and `27:36.27` never
+      reach the positional `setlist` rung);
+    - the recording-level class fires (`placeholders.recording_level_junk`);
+    - it is a real title AND pure filename residue. The `is_real_title` gate
+      is the spec's scope (only titles the tags rung would otherwise adopt are
+      judged): `d1t02` is left to today's path.
+
+    Overrides are never judged; that exemption is applied by the caller, which
+    knows `overrides.titles`."""
+    recording_junk = recording_level_junk(tag_titles, item_title)
+    out: list[int] = []
+    for i, t in enumerate(tag_titles):
+        if not t.strip() or fuzzy_norm_title(t) in corroboration:
+            continue
+        if (is_placeholder(t) or is_timestamp(t) or recording_junk
+                or (is_real_title(t) and is_residue(t))):
+            out.append(i)
+    return out
+
+
 def resolve_titles(
     kept_files: list[dict],
     setlist: ParsedSetlist,
     format_titles: dict[str, str] | None = None,
     gate_basis: list[dict] | None = None,
+    *,
+    corroboration: frozenset[str] = frozenset(),
+    item_title: str | None = None,
 ) -> list[Track]:
     """Resolve track titles (tags -> setlist -> unresolved).
 
@@ -263,6 +320,11 @@ def resolve_titles(
     `format_titles` (from gather's `_recover_format_titles`) is a filename ->
     title map lifted from a different-format copy of the SAME item; when it is
     present it stands in for the tag layer entirely.
+
+    Slice 2b: a tag-layer placeholder (`placeholder_positions`, judged with
+    `corroboration` and `item_title`) is demoted straight to `unresolved`
+    (title = filename) and never falls through to the whole-tape `setlist`
+    rung, which copies items by position with no content check.
 
     Sets and segues are placeholders here; llama.structure.align stamps the
     real values from the canonical performance setlist. Callers pass
@@ -289,16 +351,17 @@ def resolve_titles(
     # bad and are not consulted at all - a manifest never interleaves two tag
     # sources. A recovered title that is still unusable falls through to the
     # setlist/sibling cascade rather than back to the bad tags.
-    if format_titles is not None:
-        tag_titles = [format_titles.get(f["name"], "") for f in files]
-        tag_source = "sibling-format"
-    else:
-        tag_titles = clean_tag_titles(files, gate_basis=gate_basis)
-        tag_source = "tags"
+    tag_titles, tag_source = tag_layer(files, format_titles, gate_basis)
+    demoted = set(placeholder_positions(tag_titles, corroboration=corroboration,
+                                        item_title=item_title))
 
     tracks: list[Track] = []
     for pos, f in enumerate(files):
-        if is_real_title(tag_titles[pos]):
+        if pos in demoted:
+            # Slice 2b: never the `setlist` rung. Setlist-gap and sibling-align,
+            # which check their own evidence, are the only later ways in.
+            title, source = f["name"], "unresolved"
+        elif is_real_title(tag_titles[pos]):
             title, source = tag_titles[pos], tag_source
         elif aligned:
             title, source = aligned[pos].title, "setlist"

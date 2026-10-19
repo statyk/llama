@@ -470,3 +470,108 @@ def test_clean_tag_titles_gate_basis_none_votes_with_the_files_themselves():
     does."""
     tape = [{"title": f"0{i} Song {i}"} for i in (1, 2, 3)]
     assert clean_tag_titles(tape, gate_basis=None) == ["Song 1", "Song 2", "Song 3"]
+
+
+# --- slice 2b: placeholder tags demote to unresolved at the tag rung ---
+
+from llama.structure import fuzzy_norm_title
+from llama.titles import placeholder_positions, tag_layer
+
+
+def _files(titles):
+    return [{"name": f"t{i:02d}.mp3", "title": t, "length": "300"} for i, t in enumerate(titles, 1)]
+
+
+def test_tag_layer_matches_resolve_titles_layer():
+    files = _files(["Dew", "Star", "Rider"])
+    assert tag_layer(files, None, None) == (["Dew", "Star", "Rider"], "tags")
+    assert tag_layer(files, {"t01.mp3": "A"}, None) == (["A", "", ""], "sibling-format")
+
+
+def test_placeholder_positions_classes():
+    assert placeholder_positions(["Track 01", "Dew", "tmp", "27:36.27", "fIREHOSE 1992-02-19 t02"],
+                                 corroboration=frozenset(), item_title=None) == [0, 2, 3, 4]
+    # placeholders and timestamps are judged whether or not is_real_title passes; a blank never is
+    assert placeholder_positions(["", "Dew", "Tr-02", "05:27"],
+                                 corroboration=frozenset(), item_title=None) == [2, 3]
+    assert placeholder_positions(["tmp"] * 19, corroboration=frozenset(), item_title=None) == list(range(19))
+    assert placeholder_positions(["Live at X"] * 4, corroboration=frozenset(), item_title="Live at X") == [0, 1, 2, 3]
+
+
+def test_placeholder_positions_exemptions():
+    assert placeholder_positions(["1979", "1759", "Song #1", "Untitled", "Untitled #12",
+                                  "Scarlet Begonias 1977-05-08"],
+                                 corroboration=frozenset(), item_title=None) == []
+    # a sibling description (or setlist.fm) naming "Track 01" exempts it; the chosen description never
+    # reaches this function (Task 8 builds `corroboration` without it)
+    assert placeholder_positions(["Track 01", "Track 02"] + ["x"] * 2,
+                                 corroboration=frozenset({fuzzy_norm_title("Track 01")}),
+                                 item_title=None) == [1]
+
+
+def test_placeholder_positions_residue_judges_only_titles_the_tags_rung_would_adopt():
+    """Spec 2b (576-577): only `tags`/`sibling-format` titles are judged, and those
+    passed `is_real_title` by construction -- so the residue arm is gated on it. A
+    residue-shaped tag that is NOT a real title (`d1t02`: 2 letters) is left to
+    today's path (setlist rung or unresolved), never demoted by this arm."""
+    assert placeholder_positions(["d1t02", "Dew"], corroboration=frozenset(), item_title=None) == []
+    assert placeholder_positions(["x", "Dew", "01"], corroboration=frozenset(), item_title=None) == []
+    # real-title residue is demoted
+    assert placeholder_positions(["buckethead2004-06-04d2t05", "Dew"],
+                                 corroboration=frozenset(), item_title=None) == [0]
+
+
+def test_placeholder_positions_word_plus_date_residue_breadth_is_pinned():
+    """Known, ruled limitation (spec P5): the start-anchored "word + date" prefix
+    classes a one-word title followed by a date as residue. Pinned so the class's
+    breadth is visible; a multi-word title + date is not residue."""
+    assert placeholder_positions(["Jam 12-31-99", "Ripple 1970-09-20", "Drums 1977-05-08",
+                                  "Scarlet Begonias 1977-05-08"],
+                                 corroboration=frozenset(), item_title=None) == [0, 1, 2]
+
+
+def test_resolve_titles_demotes_a_placeholder_and_never_lets_it_fall_to_the_setlist_rung():
+    files = _files(["tmp", "tmp", "tmp"])
+    setlist = ParsedSetlist(items=[SetlistItem(title=t, normalized=t.lower(), set="1")
+                                   for t in ("Dew", "Star", "Rider")], confidence="high")
+    tracks = resolve_titles(files, setlist)
+    assert [(t.title, t.title_source) for t in tracks] == [
+        ("t01.mp3", "unresolved"), ("t02.mp3", "unresolved"), ("t03.mp3", "unresolved")]
+    # a non-placeholder blank tag still takes the whole-tape setlist rung, as today
+    tracks = resolve_titles(_files(["", "", ""]), setlist)
+    assert [t.title_source for t in tracks] == ["setlist"] * 3
+
+
+def test_resolve_titles_non_real_placeholder_skips_the_setlist_rung():
+    """`Tr-02` and `05:27` fail is_real_title, so before 2b they reached the
+    positional setlist rung; now they are unresolved, while the non-placeholder
+    `d1t02` beside them still takes that rung."""
+    setlist = ParsedSetlist(items=[SetlistItem(title=t, normalized=t.lower(), set="1")
+                                   for t in ("Dew", "Star", "Rider")], confidence="high")
+    tracks = resolve_titles(_files(["Tr-02", "05:27", "d1t02"]), setlist)
+    assert [(t.title, t.title_source) for t in tracks] == [
+        ("t01.mp3", "unresolved"), ("t02.mp3", "unresolved"), ("Rider", "setlist")]
+
+
+def test_resolve_titles_demotes_a_sibling_format_placeholder():
+    files = _files(["", "", ""])
+    tracks = resolve_titles(files, ParsedSetlist(),
+                            format_titles={"t01.mp3": "Track 01", "t02.mp3": "Dew", "t03.mp3": "Star"})
+    assert [(t.title, t.title_source) for t in tracks] == [
+        ("t01.mp3", "unresolved"), ("Dew", "sibling-format"), ("Star", "sibling-format")]
+
+
+def test_resolve_titles_item_title_arm():
+    tracks = resolve_titles(_files(["Live at X"] * 3), ParsedSetlist(), item_title="Live at X")
+    assert {t.title_source for t in tracks} == {"unresolved"}
+    tracks = resolve_titles(_files(["Live at X", "Dew", "Star"]), ParsedSetlist(), item_title="Live at X")
+    assert [t.title_source for t in tracks] == ["tags"] * 3
+
+
+def test_resolve_titles_never_demotes_a_corroborated_tag():
+    files = _files(["Song #1", "Song #2", "Song #3"])
+    tracks = resolve_titles(files, ParsedSetlist(), corroboration=frozenset({fuzzy_norm_title("Song #1")}))
+    assert tracks[0].title_source == "tags"
+    tracks = resolve_titles(_files(["Track 01", "Dew", "Star"]), ParsedSetlist(),
+                            corroboration=frozenset({fuzzy_norm_title("Track 01")}))
+    assert [(t.title, t.title_source) for t in tracks][0] == ("Track 01", "tags")

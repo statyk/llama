@@ -2357,3 +2357,133 @@ def test_build_canonical_corroboration_skips_items_that_normalize_to_nothing():
     cb = build_canonical(ia, cand, IDENT, chosen, kept, "Grateful Dead", [])
     assert "" not in cb.corroboration
     assert set(cb.corroboration) == {fuzzy_norm_title("Morning Dew"), fuzzy_norm_title("From A Sibling")}
+
+
+# --- slice 2b on a captured tape: furthur2012-07-15, every tag "tmp" ---
+
+FURTHUR = FIXTURES / "furthur2012-07-15.json"
+F_IDENT = "furthur2012-07-15"
+
+
+def _furthur_candidate():
+    return Candidate(performance_id="Furthur/2012-07-15", collection="Furthur", date="2012-07-15",
+                     venue="Bethel Woods Center for the Arts", city="Bethel, NY",
+                     recordings=[RecordingSummary(identifier=F_IDENT)])
+
+
+def test_2b_demotes_a_whole_tmp_tape_and_notes_each_track(tmp_path):
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
+                         F_IDENT, jerrybase_enabled=False)
+    assert all(t.title_source == "unresolved" for t in res.show.tracks)
+    assert all(t.title == t.filename for t in res.show.tracks)
+    assert "unresolved track titles" in res.show.review_flags
+    demotions = [n for n in res.notes if n.startswith("placeholder tag title: ")]
+    assert len(demotions) == len(res.show.tracks)
+    assert demotions[0] == f"placeholder tag title: track 1 '{'tmp'}' demoted to unresolved"
+
+
+def test_2b_does_not_touch_a_real_tagged_tape(tmp_path):
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert not any(n.startswith("placeholder tag title") for n in res.notes)
+    assert [t.title for t in res.show.tracks][:2] == ["Morning Dew", "China Cat Sunflower"]
+    assert not any(n.startswith("format sibling tagged") for n in res.notes)
+
+
+def test_2b_files_the_format_sibling_it_does_not_recover_from(tmp_path):
+    """The furthur mp3s are all `tmp` (a real title by `is_real_title`, so
+    `_RECOVER_BELOW` never fires), while the FLAC copy is fully tagged: the count
+    is filed as a note, and recovery is not triggered."""
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
+                         F_IDENT, jerrybase_enabled=False)
+    assert ("format sibling tagged: Flac title fraction 1.00 "
+            "(recovery not triggered; filed, not acted on)") in res.notes
+    # notes never reach the LLM (ruling 6)
+    conflicts = res.show.structure.conflicts if res.show.structure else []
+    assert not any("placeholder tag title" in c or "format sibling" in c
+                   for c in conflicts + res.show.review_flags)
+
+
+def test_2b_recomputes_fetch_siblings_over_demoted_titles(tmp_path):
+    """`tmp` x 19 has title_fraction 1.0, so before 2b sibling-align never ran;
+    the demotions now open the fetch gate."""
+    sws = ShowWorkspace(tmp_path / "s")
+    seen = []
+
+    def fake_transfer(ia, candidate, identifier, want, tracks, metadata_norms):
+        seen.append(len(tracks))
+        return list(tracks), []
+
+    with patch.object(gather_mod, "_sibling_transfer", side_effect=fake_transfer):
+        compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
+                       F_IDENT, jerrybase_enabled=False)
+    assert seen and seen[0] > 0
+
+
+def test_2b_never_judges_an_override_title(tmp_path):
+    """Spec 576-577 (orchestrator ruling M9): a track position named in
+    `overrides.titles` gets neither a demotion nor a demotion note."""
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.overrides, Overrides(titles={1: "Tuning Up", 3: "Two Djinn"}))
+    res = compute_gather(sws, StubIA(json.loads(FURTHUR.read_text())), None, _furthur_candidate(),
+                         F_IDENT, jerrybase_enabled=False)
+    tracks = res.show.tracks
+    assert (tracks[0].title, tracks[0].title_source) == ("Tuning Up", "override")
+    assert (tracks[2].title, tracks[2].title_source) == ("Two Djinn", "override")
+    demoted = [n for n in res.notes if n.startswith("placeholder tag title: ")]
+    assert len(demoted) == len(tracks) - 2
+    assert not any(n.startswith(("placeholder tag title: track 1 ", "placeholder tag title: track 3 "))
+                   for n in demoted)
+    assert demoted[0] == "placeholder tag title: track 2 'tmp' demoted to unresolved"
+
+
+def _furthur_md():
+    return json.loads(FURTHUR.read_text())
+
+
+def test_2b_demotes_a_recovered_sibling_format_placeholder_and_files_no_sibling_note(tmp_path):
+    """Untagged mp3s beside FLACs tagged `Track NN`: format recovery fires (`Track
+    01` passes is_real_title), so the tag layer IS the FLAC copy and its
+    placeholders are demoted -- and the "recovery not triggered" note would be
+    false, so it is not filed."""
+    md = _furthur_md()
+    for f in md["files"]:
+        if f.get("format") == "VBR MP3":
+            f["title"] = ""
+        elif f.get("format") == "Flac":
+            f["title"] = f"Track {f['name'][:2]}"
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(md), None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
+    assert {t.title_source for t in res.show.tracks} == {"unresolved"}
+    assert "placeholder tag title: track 1 'Track 01' demoted to unresolved" in res.notes
+    assert not any(n.startswith("format sibling tagged") for n in res.notes)
+
+
+def test_2b_a_sibling_description_naming_the_tag_exempts_it(tmp_path):
+    """The corroboration vocabulary reaches resolve_titles and the notes: a
+    sibling recording whose description lists `tmp` exempts the tag."""
+    md = _furthur_md()
+    sib = {"metadata": dict(md["metadata"], description="Set 1\ntmp\nCold Rain And Snow\nTwo Djinn"),
+           "files": []}
+    cand = _furthur_candidate().model_copy(update={"recordings": [
+        RecordingSummary(identifier=F_IDENT), RecordingSummary(identifier="sib")]})
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, MultiIA({F_IDENT: md, "sib": sib}), None, cand, F_IDENT,
+                         jerrybase_enabled=False)
+    assert {t.title_source for t in res.show.tracks} == {"tags"}
+    assert not any(n.startswith("placeholder tag title") for n in res.notes)
+
+
+def test_2b_item_title_reaches_the_recording_level_class(tmp_path):
+    """Every file carries the item's own title, spelled two ways that agree
+    only under fuzzy_norm_title (so the identical-string arm cannot fire)."""
+    md = _furthur_md()
+    item = md["metadata"]["title"]
+    mp3s = [f for f in md["files"] if f.get("format") == "VBR MP3"]
+    for i, f in enumerate(mp3s):
+        f["title"] = item if i % 2 else item + " !"
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(md), None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
+    assert {t.title_source for t in res.show.tracks} == {"unresolved"}

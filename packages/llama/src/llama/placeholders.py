@@ -129,7 +129,12 @@ def is_residue(t: str) -> bool:
 
 def is_placeholder_title(title: str) -> bool:
     """2b's per-title classes: placeholder vocabulary, bare timestamp, or pure
-    filename residue. A blank title is not judged (False)."""
+    filename residue. A blank title is not judged (False).
+
+    Callers must pre-gate on `titles.is_real_title` (spec 2b, 576-577: only
+    `tags`/`sibling-format` titles, which passed it, are judged): this
+    combination has no such scope and returns True for `42`, `FF`, `J`, `7-11`.
+    Slice 2b itself uses `titles.placeholder_positions`, not this."""
     if not title.strip():
         return False
     return is_placeholder(title) or is_timestamp(title) or is_residue(title)

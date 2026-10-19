@@ -21,8 +21,8 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              apply_llm_alignment, blend_segues, from_setlistfm,
                              fuzzy_norm_title, norm_title, rank_parses,
                              structure_guard, venues_equivalent)
-from llama.titles import (clean_tag_titles, resolve_titles, set_breaks,
-                          sibling_format_titles, title_fraction)
+from llama.titles import (clean_tag_titles, placeholder_positions, resolve_titles, set_breaks,
+                          sibling_format_titles, tag_layer, title_fraction)
 from llama.util import length_seconds
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
@@ -1010,6 +1010,30 @@ def compute_gather(
     # below needs it independently of the canonical-setlist build.
     metadata_norms = show_metadata_norms(artist, candidate, meta, events)
 
+    # The same one-file-must-not-decide-for-the-recording rule as
+    # `recovery_basis` above, applied to the OTHER recording-level gate:
+    # clean_tag_titles' enumerated-tape test, which decides whether a leading
+    # track number is stripped from EVERY title. Computed here rather than
+    # reusing `recovery_basis` -- that one is deliberately PRE-exclusion (see
+    # the guard above it), while this gate must vote over the tracks that
+    # actually ship. Reusing it let operator-excluded files vote, which is the
+    # defect test_readmission_does_not_stop_the_track_number_strip caught.
+    tag_gate_basis = [f for f in kept if f["name"] not in readmitted]
+    # Slice 2b (held-backlog spec "2b. Junk-title detector"): placeholder tags
+    # demote to `unresolved` inside resolve_titles. The same positions are
+    # computed here, over the same tag layer, for the notes. An override is
+    # never judged (spec 2b: only `tags`/`sibling-format` titles are), so a
+    # position the overrides loop below replaces gets no note and does not
+    # count as demoted; resolve_titles' demotion there is overwritten anyway.
+    corroboration = frozenset(cb.corroboration)
+    item_title = meta.get("title")
+    tag_titles, _ = tag_layer(kept, format_titles, tag_gate_basis)
+    demoted = [i for i in placeholder_positions(tag_titles, corroboration=corroboration,
+                                                item_title=item_title)
+               if (i + 1) not in overrides.titles]
+    for i in demoted:
+        op_notes.append(f"placeholder tag title: track {i + 1} '{tag_titles[i]}' "
+                        f"demoted to unresolved")
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
     # exclude-everything tape would otherwise fetch every sibling recording's
     # metadata to resolve zero titles. The output was never wrong, only the
@@ -1022,21 +1046,36 @@ def compute_gather(
     # the fetch_siblings carve-out, and a re-admitted untagged file genuinely
     # does mean the tape is no longer fully tagged. Same function, same tape,
     # two different votes -- which is intended, not an oversight (whole-branch
-    # review M4). The flip is only ever 1.0 -> <1.0, and at 1.0 there are no
-    # unresolved tracks, so the fetch's only adoption target is the re-admitted
-    # file itself.
-    fetch_siblings = bool(kept and title_fraction(clean_tag_titles(kept)) < 1.0)
-    # The same one-file-must-not-decide-for-the-recording rule as
-    # `recovery_basis` above, applied to the OTHER recording-level gate:
-    # clean_tag_titles' enumerated-tape test, which decides whether a leading
-    # track number is stripped from EVERY title. Computed here rather than
-    # reusing `recovery_basis` -- that one is deliberately PRE-exclusion (see
-    # the guard above it), while this gate must vote over the tracks that
-    # actually ship. Reusing it let operator-excluded files vote, which is the
-    # defect test_readmission_does_not_stop_the_track_number_strip caught.
-    tag_gate_basis = [f for f in kept if f["name"] not in readmitted]
+    # review M4). The flip is only ever 1.0 -> <1.0, and at 1.0 the only
+    # unresolved tracks are slice 2b's demotions (the `or demoted` arm below),
+    # so otherwise the fetch's only adoption target is the re-admitted file.
+    #
+    # Slice 2b: `fetch_siblings` is a fetch gate, not a measured one ("never
+    # wrong, only wasted"), so it is recomputed over post-detector titles: a
+    # `tmp` x 19 tape has title_fraction 1.0 but nothing usable, and
+    # sibling-align gets its guarded chance at the demoted tracks.
+    fetch_siblings = bool(kept and (title_fraction(clean_tag_titles(kept)) < 1.0 or demoted))
+    # Spec 2b: recording-level gates keep `is_real_title`, so `_RECOVER_BELOW`
+    # does not move and a `tmp`-tagged mp3 does not trigger format recovery.
+    # A fully-tagged lossless sibling is filed as a note, not acted on. Only
+    # when recovery did NOT fire: otherwise the tag layer IS that sibling and
+    # "recovery not triggered" would be false.
+    if demoted and format_titles is None:
+        for fmt in LOSSLESS_TITLE_FORMATS:
+            if fmt == ordering.get("format"):
+                continue
+            other, _, _ = filter_files(md.get("files", []), want_format=fmt)
+            recovered = sibling_format_titles(recovery_basis, other)
+            if recovered is None:
+                continue
+            frac = title_fraction(list(recovered.values()))
+            if frac >= _RECOVER_SIBLING_ABOVE:
+                op_notes.append(f"format sibling tagged: {fmt} title fraction {frac:.2f} "
+                                f"(recovery not triggered; filed, not acted on)")
+                break
     tracks = resolve_titles(kept, canonical, format_titles=format_titles,
-                            gate_basis=tag_gate_basis)
+                            gate_basis=tag_gate_basis, corroboration=corroboration,
+                            item_title=item_title)
     for n, forced in overrides.titles.items():
         if not (1 <= n <= len(tracks)):
             raise LlamaError(f"overrides.titles: no track {n} "

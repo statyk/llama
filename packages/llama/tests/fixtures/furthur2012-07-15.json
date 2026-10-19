@@ -1,0 +1,850 @@
+{
+  "metadata": {
+    "identifier": "furthur2012-07-15",
+    "uploader": "binto37@aol.com",
+    "addeddate": "2012-07-16 10:30:51",
+    "date": "2012-07-15",
+    "title": "Furthur Live at Center For The fine Arts on 2012-07-15",
+    "creator": "Furthur",
+    "mediatype": "etree",
+    "collection": [
+      "Furthur",
+      "etree"
+    ],
+    "type": "sound",
+    "description": "1st Set (70:00)\n\nTuning Up\nCold Rain And Snow\nTwo Djinn\nThey Love Each Other\nBlack Throated Wind\nRamble On Rose\nHelp On The Way>\nSlipknot>\nFranklin's Tower\n\n2nd Set (93:46)\n\nTuning Up\nTerrapin Station>\nEstimated Prophet>\nSupplication>\nEyes Of The World>\nThe Eleven>\nStanding On The Moon>\nAt A Siding>\nTerrapin Flyer\n\nEncore\nPhil's Speech\nSamson And Delilah",
+    "year": "2012",
+    "venue": "Center For The fine Arts",
+    "coverage": "Bethel, NY",
+    "source": "Audience",
+    "lineage": "AKG568ebs>LunatecV3>MarantzPMD671>WAVE>FLAC",
+    "taper": "Bill Goldberg",
+    "transferer": "Bill Goldberg",
+    "runtime": "163:46",
+    "md5s": "01.tuningup\n02.coldrainandsnow\n03.twodjinn\n04.theyloveeachother\n05.blackthroatedwind\n06.rambleonrose\n07.helpontheway\n08.slipknot\n09.franklinstower\n10.tuningup\n11.terrapinstation\n12.estimatedprophet\n13.supplication\n14.eyesoftheworld\n15.theeleven\n16.standingonthemoon\n17.atasiding\n18.terrapinflyer\n19.philsspeech\n20.samsonanddelilah",
+    "notes": "Recorded in the OTS section front center of the lawn, mics at 8ft. under a umbrella with windsreens due to threating weather.\n\nOther one tease before Supplication.\n\nThanks to the staff at the Fine Arts Center and to the band Furthur for allowing us to record and share the music.\n\n16bit/44.1",
+    "publicdate": "2012-07-16 10:40:51",
+    "backup_location": "ia903808_13"
+  },
+  "files": [
+    {
+      "name": "01.tuningup.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "238.78",
+      "md5": "5c45b120be35f3e91f13c16c41bb67bf",
+      "title": "Tuning Up"
+    },
+    {
+      "name": "01.tuningup.mp3",
+      "source": "derivative",
+      "original": "01.tuningup.flac",
+      "format": "VBR MP3",
+      "length": "03:58",
+      "md5": "06d15abe0f1f6a17495d9947a34929b0",
+      "title": "tmp"
+    },
+    {
+      "name": "01.tuningup.ogg",
+      "source": "derivative",
+      "original": "01.tuningup.flac",
+      "format": "Ogg Vorbis",
+      "length": "232.89",
+      "md5": "60bb503a04d44c48acd4fd5657fa7fbe"
+    },
+    {
+      "name": "01.tuningup.png",
+      "source": "derivative",
+      "original": "01.tuningup.flac",
+      "format": "PNG",
+      "md5": "381e0d3efeb92e981cad6233d2c0c4f4"
+    },
+    {
+      "name": "02.coldrainandsnow.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "413.36",
+      "md5": "2516f3428c6664121a1e88bde16522f6",
+      "title": "Cold Rain and Snow"
+    },
+    {
+      "name": "02.coldrainandsnow.mp3",
+      "source": "derivative",
+      "original": "02.coldrainandsnow.flac",
+      "format": "VBR MP3",
+      "length": "06:53",
+      "md5": "0fd4f00363f787e076093003194d28fe",
+      "title": "tmp"
+    },
+    {
+      "name": "02.coldrainandsnow.ogg",
+      "source": "derivative",
+      "original": "02.coldrainandsnow.flac",
+      "format": "Ogg Vorbis",
+      "length": "410.7",
+      "md5": "eb9a3db6d001dffc322c47c048456163"
+    },
+    {
+      "name": "02.coldrainandsnow.png",
+      "source": "derivative",
+      "original": "02.coldrainandsnow.flac",
+      "format": "PNG",
+      "md5": "1e898719647b1aed7e3eb42992b063f1"
+    },
+    {
+      "name": "03.twodjinn.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "650.5",
+      "md5": "b1623579c102554272ddfda51521e693",
+      "title": "Two Djinn"
+    },
+    {
+      "name": "03.twodjinn.mp3",
+      "source": "derivative",
+      "original": "03.twodjinn.flac",
+      "format": "VBR MP3",
+      "length": "10:50",
+      "md5": "2cb48e8bb81f8a29e62e5dc1a5d20c22",
+      "title": "tmp"
+    },
+    {
+      "name": "03.twodjinn.ogg",
+      "source": "derivative",
+      "original": "03.twodjinn.flac",
+      "format": "Ogg Vorbis",
+      "length": "647.86",
+      "md5": "05d8ecb74db5860a11e8dadc8715382f"
+    },
+    {
+      "name": "03.twodjinn.png",
+      "source": "derivative",
+      "original": "03.twodjinn.flac",
+      "format": "PNG",
+      "md5": "31b6de0399f65f08d1931d71dec4ee2a"
+    },
+    {
+      "name": "04.theyloveeachother.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "471.04",
+      "md5": "70bb864d5dc29569b4bac89a4d80eadc",
+      "title": "They Love Each other"
+    },
+    {
+      "name": "04.theyloveeachother.mp3",
+      "source": "derivative",
+      "original": "04.theyloveeachother.flac",
+      "format": "VBR MP3",
+      "length": "07:51",
+      "md5": "042f6fb365717f3956ca0b8136156973",
+      "title": "tmp"
+    },
+    {
+      "name": "04.theyloveeachother.ogg",
+      "source": "derivative",
+      "original": "04.theyloveeachother.flac",
+      "format": "Ogg Vorbis",
+      "length": "468.55",
+      "md5": "d326c843dc1ef09af41d2cd5885bb2ca"
+    },
+    {
+      "name": "04.theyloveeachother.png",
+      "source": "derivative",
+      "original": "04.theyloveeachother.flac",
+      "format": "PNG",
+      "md5": "21d4a9a8ab752e960b89ef55b4b4c239"
+    },
+    {
+      "name": "05.blackthroatedwind.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "534.78",
+      "md5": "df0c3e5a313477ece2593cb18d05f7e2",
+      "title": "Black Throated Wind"
+    },
+    {
+      "name": "05.blackthroatedwind.mp3",
+      "source": "derivative",
+      "original": "05.blackthroatedwind.flac",
+      "format": "VBR MP3",
+      "length": "08:54",
+      "md5": "6a6b81dfaf3ae85b72e4a7bc9cdbe6c4",
+      "title": "tmp"
+    },
+    {
+      "name": "05.blackthroatedwind.ogg",
+      "source": "derivative",
+      "original": "05.blackthroatedwind.flac",
+      "format": "Ogg Vorbis",
+      "length": "531.28",
+      "md5": "5c8bcfd6f993a57261720648516b8374"
+    },
+    {
+      "name": "05.blackthroatedwind.png",
+      "source": "derivative",
+      "original": "05.blackthroatedwind.flac",
+      "format": "PNG",
+      "md5": "eb51128dd367b45b1fb4c386e73098ad"
+    },
+    {
+      "name": "06.rambleonrose.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "585.22",
+      "md5": "246782df67d4ef7471e18c33498ce91c",
+      "title": "Ramble On Rose"
+    },
+    {
+      "name": "06.rambleonrose.mp3",
+      "source": "derivative",
+      "original": "06.rambleonrose.flac",
+      "format": "VBR MP3",
+      "length": "09:45",
+      "md5": "cd4b3e3a0afcee02659ac7cc7f461bf1",
+      "title": "tmp"
+    },
+    {
+      "name": "06.rambleonrose.ogg",
+      "source": "derivative",
+      "original": "06.rambleonrose.flac",
+      "format": "Ogg Vorbis",
+      "length": "581.88",
+      "md5": "ad69a68f1938f829e9e990d598ecf753"
+    },
+    {
+      "name": "06.rambleonrose.png",
+      "source": "derivative",
+      "original": "06.rambleonrose.flac",
+      "format": "PNG",
+      "md5": "6def382cfd159f00e24aae8d65c93ede"
+    },
+    {
+      "name": "07.helpontheway.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "305.98",
+      "md5": "94b736f2cf229b2c91dcd86f7f72a69b",
+      "title": "Help On The Way"
+    },
+    {
+      "name": "07.helpontheway.mp3",
+      "source": "derivative",
+      "original": "07.helpontheway.flac",
+      "format": "VBR MP3",
+      "length": "05:06",
+      "md5": "4f6a4bd8986805a333b55cbf1bf1d35c",
+      "title": "tmp"
+    },
+    {
+      "name": "07.helpontheway.ogg",
+      "source": "derivative",
+      "original": "07.helpontheway.flac",
+      "format": "Ogg Vorbis",
+      "length": "303.04",
+      "md5": "734dcd8b89aaa51c901173bcdf65d465"
+    },
+    {
+      "name": "07.helpontheway.png",
+      "source": "derivative",
+      "original": "07.helpontheway.flac",
+      "format": "PNG",
+      "md5": "0ac407dd31d8ae15e6bb33b858c5c4a4"
+    },
+    {
+      "name": "08.slipknot.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "360.28",
+      "md5": "929537232a78b4b091cfbaf22ae1f73f",
+      "title": "Slipknot"
+    },
+    {
+      "name": "08.slipknot.mp3",
+      "source": "derivative",
+      "original": "08.slipknot.flac",
+      "format": "VBR MP3",
+      "length": "06:00",
+      "md5": "f55355b543f39c55564d2c99cd12b052",
+      "title": "tmp"
+    },
+    {
+      "name": "08.slipknot.ogg",
+      "source": "derivative",
+      "original": "08.slipknot.flac",
+      "format": "Ogg Vorbis",
+      "length": "357.51",
+      "md5": "438882da788909a581d8bc3454cd7b99"
+    },
+    {
+      "name": "08.slipknot.png",
+      "source": "derivative",
+      "original": "08.slipknot.flac",
+      "format": "PNG",
+      "md5": "f65b4efbc2254cfd093d8c2cab1fc200"
+    },
+    {
+      "name": "09.franklinstower.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "639.32",
+      "md5": "bba020b769ced235ea061d4c89e4779a",
+      "title": "Franklins Tower"
+    },
+    {
+      "name": "09.franklinstower.mp3",
+      "source": "derivative",
+      "original": "09.franklinstower.flac",
+      "format": "VBR MP3",
+      "length": "10:39",
+      "md5": "15c5595521819663ecbf53f175ca2e0e",
+      "title": "tmp"
+    },
+    {
+      "name": "09.franklinstower.ogg",
+      "source": "derivative",
+      "original": "09.franklinstower.flac",
+      "format": "Ogg Vorbis",
+      "length": "636.06",
+      "md5": "7f927af6a5e0e197170df5f69eb771ca"
+    },
+    {
+      "name": "09.franklinstower.png",
+      "source": "derivative",
+      "original": "09.franklinstower.flac",
+      "format": "PNG",
+      "md5": "0573969944207b7a7add9ca835089e50"
+    },
+    {
+      "name": "10.tuningup.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "114.48",
+      "md5": "740a11d873b8cee8a1d19b32b8cf1076",
+      "title": "Tuning Up"
+    },
+    {
+      "name": "10.tuningup.mp3",
+      "source": "derivative",
+      "original": "10.tuningup.flac",
+      "format": "VBR MP3",
+      "length": "01:54",
+      "md5": "600f1eb5cd59ac68ff694969dcffa5ab",
+      "title": "tmp"
+    },
+    {
+      "name": "10.tuningup.ogg",
+      "source": "derivative",
+      "original": "10.tuningup.flac",
+      "format": "Ogg Vorbis",
+      "length": "111.22",
+      "md5": "358a063e5af98da9de3071daab2dcc31"
+    },
+    {
+      "name": "10.tuningup.png",
+      "source": "derivative",
+      "original": "10.tuningup.flac",
+      "format": "PNG",
+      "md5": "33d22a5cbd0828093a7a8563780beaf7"
+    },
+    {
+      "name": "11.terrapinstation.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "1064.44",
+      "md5": "ab561bcf34808d5e89b3a5febee2ba8f",
+      "title": "Terrapin Station"
+    },
+    {
+      "name": "11.terrapinstation.mp3",
+      "source": "derivative",
+      "original": "11.terrapinstation.flac",
+      "format": "VBR MP3",
+      "length": "17:44",
+      "md5": "6786a429e95dd89a983d9e00fdebd47a",
+      "title": "tmp"
+    },
+    {
+      "name": "11.terrapinstation.ogg",
+      "source": "derivative",
+      "original": "11.terrapinstation.flac",
+      "format": "Ogg Vorbis",
+      "length": "1061.67",
+      "md5": "1628ffd8b030befdc2b202ca507bb41a"
+    },
+    {
+      "name": "11.terrapinstation.png",
+      "source": "derivative",
+      "original": "11.terrapinstation.flac",
+      "format": "PNG",
+      "md5": "64273c2ab676a00e1b418a2ba0802a7c"
+    },
+    {
+      "name": "12.estimatedprophet.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "938.18",
+      "md5": "1a73b2602ca3798fee04420f2a9b2e0a",
+      "title": "Estimated Prophet"
+    },
+    {
+      "name": "12.estimatedprophet.mp3",
+      "source": "derivative",
+      "original": "12.estimatedprophet.flac",
+      "format": "VBR MP3",
+      "length": "15:38",
+      "md5": "8147ac3107262e07c0eb62381393ac07",
+      "title": "tmp"
+    },
+    {
+      "name": "12.estimatedprophet.ogg",
+      "source": "derivative",
+      "original": "12.estimatedprophet.flac",
+      "format": "Ogg Vorbis",
+      "length": "935.35",
+      "md5": "3d88ba203ad0cac22a08f15c54b4dc02"
+    },
+    {
+      "name": "12.estimatedprophet.png",
+      "source": "derivative",
+      "original": "12.estimatedprophet.flac",
+      "format": "PNG",
+      "md5": "e5b3ca7ab14a51a7704f8aa899bd3598"
+    },
+    {
+      "name": "13.supplication.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "484.05",
+      "md5": "3d4454776bb235a7504a2648a446470c",
+      "title": "Supplication"
+    },
+    {
+      "name": "13.supplication.mp3",
+      "source": "derivative",
+      "original": "13.supplication.flac",
+      "format": "VBR MP3",
+      "length": "08:04",
+      "md5": "b64329d1b233dce45030a33249ebe931",
+      "title": "tmp"
+    },
+    {
+      "name": "13.supplication.ogg",
+      "source": "derivative",
+      "original": "13.supplication.flac",
+      "format": "Ogg Vorbis",
+      "length": "480.92",
+      "md5": "879f7aab3eb017797127f11c16601c21"
+    },
+    {
+      "name": "13.supplication.png",
+      "source": "derivative",
+      "original": "13.supplication.flac",
+      "format": "PNG",
+      "md5": "6964dbc47ee48dcb24a00f360f463ee4"
+    },
+    {
+      "name": "14.eyesoftheworld.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "811.72",
+      "md5": "ca60cd8affe3a92b9adee80c33a31e6f",
+      "title": "Eyes of the World"
+    },
+    {
+      "name": "14.eyesoftheworld.mp3",
+      "source": "derivative",
+      "original": "14.eyesoftheworld.flac",
+      "format": "VBR MP3",
+      "length": "13:31",
+      "md5": "e27334763772b602e77c061ea67467b1",
+      "title": "tmp"
+    },
+    {
+      "name": "14.eyesoftheworld.ogg",
+      "source": "derivative",
+      "original": "14.eyesoftheworld.flac",
+      "format": "Ogg Vorbis",
+      "length": "807.42",
+      "md5": "b1a7e0c4166772cc7f918aae2aeccd62"
+    },
+    {
+      "name": "14.eyesoftheworld.png",
+      "source": "derivative",
+      "original": "14.eyesoftheworld.flac",
+      "format": "PNG",
+      "md5": "1452ad6794fc08fc7d6c908ef82f5826"
+    },
+    {
+      "name": "15.theeleven.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "453.13",
+      "md5": "4acf23ff82b85a5450b3aeab2c565755",
+      "title": "The Eleven"
+    },
+    {
+      "name": "15.theeleven.mp3",
+      "source": "derivative",
+      "original": "15.theeleven.flac",
+      "format": "VBR MP3",
+      "length": "07:33",
+      "md5": "89c8dfb2a8be825ee8a48a9a116ffd91",
+      "title": "tmp"
+    },
+    {
+      "name": "15.theeleven.ogg",
+      "source": "derivative",
+      "original": "15.theeleven.flac",
+      "format": "Ogg Vorbis",
+      "length": "449.75",
+      "md5": "c5f4da9d07b21d6f1d56e566cfb43214"
+    },
+    {
+      "name": "15.theeleven.png",
+      "source": "derivative",
+      "original": "15.theeleven.flac",
+      "format": "PNG",
+      "md5": "477f887fb8920cf30d994b82dff62ef5"
+    },
+    {
+      "name": "16.standingonthemoon.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "528.49",
+      "md5": "09693e610d977dbf3be1efc52864ac76",
+      "title": "Standing On The Moon"
+    },
+    {
+      "name": "16.standingonthemoon.mp3",
+      "source": "derivative",
+      "original": "16.standingonthemoon.flac",
+      "format": "VBR MP3",
+      "length": "08:48",
+      "md5": "98c66fe46253f94eed500a95bd5322e7",
+      "title": "tmp"
+    },
+    {
+      "name": "16.standingonthemoon.ogg",
+      "source": "derivative",
+      "original": "16.standingonthemoon.flac",
+      "format": "Ogg Vorbis",
+      "length": "525.14",
+      "md5": "394924183c873339476eb80d922859b4"
+    },
+    {
+      "name": "16.standingonthemoon.png",
+      "source": "derivative",
+      "original": "16.standingonthemoon.flac",
+      "format": "PNG",
+      "md5": "7b09a0105f91822f75e9f68a419ba07b"
+    },
+    {
+      "name": "17.atasiding.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "444.52",
+      "md5": "126345893c668d5e52dd857d6046ec55",
+      "title": "At a Siding"
+    },
+    {
+      "name": "17.atasiding.mp3",
+      "source": "derivative",
+      "original": "17.atasiding.flac",
+      "format": "VBR MP3",
+      "length": "07:24",
+      "md5": "d04ae1c30d86259d609e56537b91e261",
+      "title": "tmp"
+    },
+    {
+      "name": "17.atasiding.ogg",
+      "source": "derivative",
+      "original": "17.atasiding.flac",
+      "format": "Ogg Vorbis",
+      "length": "441.04",
+      "md5": "e9256f187be62a7303d6eb35e835d6ff"
+    },
+    {
+      "name": "17.atasiding.png",
+      "source": "derivative",
+      "original": "17.atasiding.flac",
+      "format": "PNG",
+      "md5": "067c2e0c6c751451879a7a840eac8bca"
+    },
+    {
+      "name": "18.terrapinflyer.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "221",
+      "md5": "4da3229112f0a4469821b9b489e7dcba",
+      "title": "Terrapin Flyer"
+    },
+    {
+      "name": "18.terrapinflyer.mp3",
+      "source": "derivative",
+      "original": "18.terrapinflyer.flac",
+      "format": "VBR MP3",
+      "length": "03:41",
+      "md5": "597c5a9e3b68f4dfc548256d7022779f",
+      "title": "tmp"
+    },
+    {
+      "name": "18.terrapinflyer.ogg",
+      "source": "derivative",
+      "original": "18.terrapinflyer.flac",
+      "format": "Ogg Vorbis",
+      "length": "217.57",
+      "md5": "97a7a35a7c30747e82c04f8f79dda6b6"
+    },
+    {
+      "name": "18.terrapinflyer.png",
+      "source": "derivative",
+      "original": "18.terrapinflyer.flac",
+      "format": "PNG",
+      "md5": "10cb1d77670f1e568c99bbc1b323ed34"
+    },
+    {
+      "name": "19.philsspeech.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "161.32",
+      "md5": "d7ff410f17389d0a5d7e6cf60ae2a652",
+      "title": "Phils Speech"
+    },
+    {
+      "name": "19.philsspeech.mp3",
+      "source": "derivative",
+      "original": "19.philsspeech.flac",
+      "format": "VBR MP3",
+      "length": "02:41",
+      "md5": "d1c2f0db95ebfa6292f876b4924a02da",
+      "title": "tmp"
+    },
+    {
+      "name": "19.philsspeech.ogg",
+      "source": "derivative",
+      "original": "19.philsspeech.flac",
+      "format": "Ogg Vorbis",
+      "length": "158.42",
+      "md5": "33577d4d87b76de9fefe352a724f17c6"
+    },
+    {
+      "name": "19.philsspeech.png",
+      "source": "derivative",
+      "original": "19.philsspeech.flac",
+      "format": "PNG",
+      "md5": "634ca8b69b38b07400067817a9d1017c"
+    },
+    {
+      "name": "20.samsonanddelilah.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "405.44",
+      "md5": "39855203c7ce625de5fbdfdcdc16a2ca",
+      "title": "Samson And Delilah"
+    },
+    {
+      "name": "20.samsonanddelilah.mp3",
+      "source": "derivative",
+      "original": "20.samsonanddelilah.flac",
+      "format": "VBR MP3",
+      "length": "06:45",
+      "md5": "6d4ae657e4f18e33b257de47d6fcfed8",
+      "title": "tmp"
+    },
+    {
+      "name": "20.samsonanddelilah.ogg",
+      "source": "derivative",
+      "original": "20.samsonanddelilah.flac",
+      "format": "Ogg Vorbis",
+      "length": "402.54",
+      "md5": "5492d9669e8128b6bb7e048cc4d20fa9"
+    },
+    {
+      "name": "20.samsonanddelilah.png",
+      "source": "derivative",
+      "original": "20.samsonanddelilah.flac",
+      "format": "PNG",
+      "md5": "1e74859338161b2dd6f78d0593fea500"
+    },
+    {
+      "name": "7-15-12Furthur.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "2c85aaf3cd6cda2a787571b24ca55b66",
+      "title": "7-15-12 Furthur"
+    },
+    {
+      "name": "7-15-12FurthurCenterForTheArtsBethelNy.ffp",
+      "source": "original",
+      "format": "Flac FingerPrint",
+      "md5": "5f60d4fd1e4fffac2d97c50b8dbef6db",
+      "title": "7-15-12 Furthur Center For The Arts Bethel NY"
+    },
+    {
+      "name": "7-15-12FurthurCenterForTheArtsBethelNy.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "47fb04f31855cf75e1661c5707f5ea4f",
+      "title": "7-15-12 Furthur Center For The Arts Bethel NY"
+    },
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "5c9f54223a9e3371d6018e336a397833"
+    },
+    {
+      "name": "furthur2012-07-15.ffp",
+      "source": "derivative",
+      "original": "20.samsonanddelilah.flac",
+      "format": "Flac FingerPrint",
+      "md5": "2d1af91c3567b63c63609c8241480b6f"
+    },
+    {
+      "name": "furthur2012-07-15.md5",
+      "source": "derivative",
+      "original": "20.samsonanddelilah.flac",
+      "format": "Checksums",
+      "md5": "ba96af41b08bb5875392cc899ee1fcd5"
+    },
+    {
+      "name": "furthur2012-07-15_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "5d1f6c9e6e3a0b4f49e62821fa8d4375"
+    },
+    {
+      "name": "furthur2012-07-15_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "dad6c1889c0a8e5039d99827f0ed6b75"
+    },
+    {
+      "name": "furthur2012-07-15_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "ed14549410472e440d4720bcac8cf888"
+    },
+    {
+      "name": "furthur2012-07-15_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "a0ebe1e8371459d0dbe2f6a9cfbf7efc"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewbody": "Thanks for your great work on this tour! These recordings have been up before I am. I am really looking forward to this one. Much appreciated!",
+      "reviewtitle": "Thanks Bill!",
+      "reviewer": "GregAtlanta",
+      "reviewdate": "2012-07-16 11:35:28",
+      "createdate": "2012-07-16 11:35:28",
+      "stars": "0"
+    },
+    {
+      "reviewbody": "Have not listened to the recording yet, as far as the show, thought it started out a litle slow and began to pick up steam, but finished strong.  The second set was incredible from the beginning to the end.  One great jam after another.",
+      "reviewtitle": "Sick Second Set",
+      "reviewer": "ctdeadhead1",
+      "reviewdate": "2012-07-16 12:35:48",
+      "createdate": "2012-07-16 12:35:48",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "I'm only at BTW but I need to immediately express my heartfelt gratitude to Bill Goldberg for a wonderful recording and super-fast upload. It's amazing how last night I was following @deadheadland's updates from Bethel and this morning I'm lucky enough to listen to the show on LMA. Grateful. Always.",
+      "reviewtitle": "you can see that it's true",
+      "reviewer": "selvaggio",
+      "reviewdate": "2012-07-16 14:14:06",
+      "createdate": "2012-07-16 14:14:06",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "Excellent show last night and a wonderful venue.  Second set was tight and everyone sounded great.\nThanks Bill for the recording...got home at 3 am and by 8 am the download was waiting for me online!",
+      "reviewtitle": "Great show",
+      "reviewer": "Peteo",
+      "reviewdate": "2012-07-16 14:28:55",
+      "createdate": "2012-07-16 14:28:55",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "A very fine recording (A/A+) of another excellent show from this very impressive summer tour. The spirit of Woodstock lives on :)",
+      "reviewtitle": "simply stellar",
+      "reviewer": "zenm00n",
+      "reviewdate": "2012-07-16 17:28:20",
+      "createdate": "2012-07-16 17:28:20",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Thanks for the show..\n\nsounds wonderful to my ears, beautiful capture.. awesome!!!\n\nthanks for all you do, much appreciated!!",
+      "reviewtitle": "Woah!!!!!!!!!",
+      "reviewer": "DrewAlex",
+      "reviewdate": "2012-07-16 17:48:40",
+      "createdate": "2012-07-16 17:48:40",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Wonderful capture Mr. Goldberg. The set really takes off at Eyes. Sounds great! Thank you!",
+      "reviewtitle": "Thanks!",
+      "reviewer": "gyrograph",
+      "reviewdate": "2012-07-17 00:43:44",
+      "createdate": "2012-07-17 00:43:44",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "thank you for all your efforts",
+      "reviewtitle": "wonderful sound",
+      "reviewer": "drmikie",
+      "reviewdate": "2012-07-17 23:57:16",
+      "createdate": "2012-07-17 23:57:16",
+      "stars": "0"
+    },
+    {
+      "reviewbody": "Another fine performance from Furthur.  I have listened to just about all the shows and this one ranks as my favorite so far.  Maybe it is the energy captured here or that it was taped by the finest taper on tour.  Great show and maybe Bill's finest to date.",
+      "reviewtitle": "Terrapin....",
+      "reviewer": "russellvarga",
+      "reviewdate": "2012-08-01 04:16:13",
+      "createdate": "2012-08-01 04:16:13",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Glad that so many say that the venue was a good one. I volunteer there and we do our best to make everyone welcome. The full name of the venue is Bethel Woods Center for the Arts.",
+      "reviewtitle": "Bethel Woods",
+      "reviewer": "Jmstwo",
+      "reviewdate": "2012-08-09 14:52:25",
+      "createdate": "2012-08-09 14:52:25",
+      "stars": "0"
+    },
+    {
+      "reviewbody": "This is an amazing quality recording, and I can't count the number of time's I've heard it since this awesome night.  This was the best show I've been to since seeing Furthur in the spring of '11.  The little bit of rain at the beginning of the first set didn't even matter once they really got going with TLEO, and they ended the set with some real power.  The sunset breaking through the clouds for Franklin's Tower made us feel we were all rolling away the dew along with Phil.  I can't even fully express my feelings about the second set.  The Other One jam in 7 time between Estimated and Supplication was such a tease, but we loved the short bit of it.  Eyes.  Eyes eyes eyes of the world coming out of that jam...Phil and Chimenti were the real stars of this one, not to belittle Kadlecik at all.  And the envelopment of the whole second set in the Terrapin Suite blew our minds when it came full circle.  A slow build of feedback shattered by John bringing us into At a Siding almost brought me to my knees.  Thank you so much Furthur, and thank you Bill!",
+      "reviewtitle": "yes",
+      "reviewer": "foliage",
+      "reviewdate": "2012-08-23 04:05:23",
+      "createdate": "2012-08-23 04:05:23",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "Great venue...awesome show....the boys can still  weave a wicked web....I got lost in the sauce when things started cooking right around ramble on rose.....coulda been something I ate but I gotta tell ya..it was Fun Fun Fun!\n\nOh Yeah...to the person who turned in the single black Nisson car key to lost and found....THANK YOU  THANK YOU  THANK YOU...it truly was a miracle...you saved what was a wonderful night.",
+      "reviewtitle": "Fun Fun Fun",
+      "reviewer": "dogboy13",
+      "reviewdate": "2012-09-03 03:51:06",
+      "createdate": "2012-09-03 03:51:06",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "sitting high up on the stony hill\njoyous elations ebb and flow\ngrey clouds shadow Yasker's misty green meadows",
+      "reviewtitle": "little bolt of inspiration...",
+      "reviewer": "peachy420",
+      "reviewdate": "2013-03-28 05:29:46",
+      "createdate": "2013-03-28 05:29:46",
+      "stars": "5"
+    },
+    {
+      "reviewbody": "This show stands up to the 1 year test.  It still sounds as smooth, groovy and slinky as when we were there.  Seems these days it's not as easy to chase the sound.  One can hit a lot of Dead ends, and that comes through in a lot of bands.  This is far from a dead end.  The Supplication sealed the deal for me, still does.  It speaks to how righteously these guys were playing on that night.  (Don't sleep on this Terrapin sandwich; it's filled with all good ingredients.)  Here's to hoping they'll pull off a few more full on East Coast tours.  Westies seem to get the gravy these days.  Sigh . . . ",
+      "reviewtitle": "Stands Up",
+      "reviewer": "mid-maine",
+      "reviewdate": "2013-08-25 01:52:55",
+      "createdate": "2013-08-25 01:52:55",
+      "stars": "4"
+    }
+  ]
+}
