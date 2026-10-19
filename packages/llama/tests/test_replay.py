@@ -363,12 +363,15 @@ def test_shipped_diff_reports_each_field():
         {"old": "deterministic", "new": None}
 
 
-def test_shipped_diff_track_count_change_reports_every_index_with_new_none():
+def test_shipped_diff_track_count_change_reports_every_index():
     old = _show()
     new = _show(tracks=old.tracks[:2])
     d = shipped_diff(old, new)
     assert [r["index"] for r in d["title_changes"]] == [1, 2, 3]
-    assert all(r["new"] is None and r["new_source"] is None for r in d["title_changes"])
+    # Each side carries its own track's value; None only past that show's end.
+    assert [(r["new"], r["new_source"]) for r in d["title_changes"]] == \
+        [("Dew", "tags"), ("Star", "tags"), (None, None)]
+    assert d["set_changes"][2] == {"index": 3, "old": "2", "new": None}
     assert [r["index"] for r in d["set_changes"]] == [1, 2, 3]
     assert [r["index"] for r in d["segue_changes"]] == [1, 2, 3]
     # A stored show with no tracks still reports the change.
@@ -480,3 +483,79 @@ def test_show_replay_to_dict_has_the_contract_keys_plus_date():
 ])
 def test_flag_family(flag, family):
     assert flag_family(flag) == family
+
+
+# --- Task 5: carried fixes from the Task 2 and Task 4 reviews ---
+
+@pytest.mark.parametrize("body", ["{not json", "[1, 2]", '"text"', '{"setlist": 7}',
+                                  '{"setlist": [3]}'])
+def test_cache_only_setlistfm_never_raises_on_a_malformed_cache_file(tmp_path, body):
+    # Mirrors SetlistFMClient.setlist: a corrupted cache degrades to None, and
+    # is not a miss (the real client would not fetch: the file exists).
+    (tmp_path / (cache_key("Grateful Dead", "1973-06-10") + ".json")).write_text(body)
+    sl = CacheOnlySetlistFM(tmp_path)
+    assert sl.setlist("Grateful Dead", "1973-06-10", venue="RFK Stadium") is None
+    assert sl.misses == []
+
+
+def _fake_git(sha: str, status: str):
+    import subprocess
+
+    def run(cmd, **kw):
+        out = sha if "rev-parse" in cmd else status
+        return subprocess.CompletedProcess(cmd, 0, stdout=out + "\n", stderr="")
+    return run
+
+
+def test_code_identity_marks_an_uncommitted_tree_dirty(monkeypatch):
+    import llama.replay as rp
+    sha = "a" * 40
+    monkeypatch.setattr(rp.subprocess, "run", _fake_git(sha, " M x.py"))
+    assert code_identity() == sha + "-dirty"
+    monkeypatch.setattr(rp.subprocess, "run", _fake_git(sha, ""))
+    assert code_identity() == sha
+
+
+@pytest.mark.parametrize("failure", ["oserror", "called", "empty"])
+def test_code_identity_falls_back_to_the_version(monkeypatch, failure):
+    import subprocess
+
+    import llama
+    import llama.replay as rp
+
+    def run(cmd, **kw):
+        if failure == "oserror":
+            raise FileNotFoundError("git")
+        if failure == "called":
+            raise subprocess.CalledProcessError(128, cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="\n", stderr="")
+    monkeypatch.setattr(rp.subprocess, "run", run)
+    assert code_identity() == f"version:{llama.__version__}"
+
+
+def test_shipped_diff_track_count_change_carries_the_new_values():
+    old = _show()
+    longer = _show(tracks=[*old.tracks, Track(index=4, set="encore", title="Casey Jones",
+                                              filename="d.mp3", title_source="setlist",
+                                              segue=False)])
+    d = shipped_diff(old, longer)
+    assert d["title_changes"][3] == {"index": 4, "old": None, "new": "Casey Jones",
+                                     "old_source": None, "new_source": "setlist"}
+    assert d["title_changes"][0] == {"index": 1, "old": "Dew", "new": "Dew",
+                                     "old_source": "tags", "new_source": "tags"}
+    assert d["set_changes"][3] == {"index": 4, "old": None, "new": "encore"}
+    assert d["segue_changes"][1] == {"index": 2, "old": True, "new": True}
+    assert d["segue_changes"][3] == {"index": 4, "old": None, "new": False}
+
+
+def test_compute_legs_refuses_a_scratch_inside_the_library_shows_dir(tmp_path):
+    # A scratch at shows/<other-slug> would rmtree another show.
+    from llama.errors import LlamaError
+    ws, _ = _library_show(tmp_path, held=False)
+    other, _ = _library_show(tmp_path, held=False, date="1973-06-11")
+    before = sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*"))
+    for scratch in (other.dir, ws.dir.parent / "new-dir", ws.dir.parent / "a" / "b"):
+        with pytest.raises(LlamaError, match="inside the library's shows directory"):
+            compute_legs(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
+                         slfm=None, scratch=scratch)
+    assert sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*")) == before

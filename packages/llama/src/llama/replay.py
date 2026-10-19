@@ -69,8 +69,13 @@ class CacheOnlySetlistFM:
         if not path.exists():
             self.misses.append((artist, date))
             return None
-        data = json.loads(path.read_text())
-        return _pick(data.get("setlist", []), venue, city)
+        # Like SetlistFMClient.setlist, never raise: a corrupted cache file
+        # degrades to None. Not a miss: the real client would not fetch it.
+        try:
+            data = json.loads(path.read_text())
+            return _pick(data.get("setlist", []), venue, city)
+        except Exception:
+            return None
 
 
 def _sha256(data: bytes) -> str:
@@ -183,18 +188,24 @@ def shipped_diff(stored: Show, new: Show) -> dict:
 
     A track-count change makes per-index comparison meaningless, so every
     index up to the longer of the two is reported, in `title_changes`,
-    `set_changes` and `segue_changes` alike, with `new` (and `new_source`)
-    None; `old` is the stored value, None past the stored show's end."""
+    `set_changes` and `segue_changes` alike, each side carrying its own
+    track's value at that position (None past that show's end), so a
+    hand-check list shows both tapes."""
     titles: list[dict] = []
     sets: list[dict] = []
     segues: list[dict] = []
     if len(stored.tracks) != len(new.tracks):
         for i in range(max(len(stored.tracks), len(new.tracks))):
             o = stored.tracks[i] if i < len(stored.tracks) else None
-            titles.append({"index": i + 1, "old": o.title if o else None, "new": None,
-                           "old_source": o.title_source if o else None, "new_source": None})
-            sets.append({"index": i + 1, "old": o.set if o else None, "new": None})
-            segues.append({"index": i + 1, "old": o.segue if o else None, "new": None})
+            n = new.tracks[i] if i < len(new.tracks) else None
+            titles.append({"index": i + 1, "old": o.title if o else None,
+                           "new": n.title if n else None,
+                           "old_source": o.title_source if o else None,
+                           "new_source": n.title_source if n else None})
+            sets.append({"index": i + 1, "old": o.set if o else None,
+                         "new": n.set if n else None})
+            segues.append({"index": i + 1, "old": o.segue if o else None,
+                           "new": n.segue if n else None})
     else:
         for o, n in zip(stored.tracks, new.tracks):
             if o.title != n.title or o.title_source != n.title_source:
@@ -280,11 +291,15 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     `slfm` is `setlistfm_client(config)` and nothing else (None when no key is
     configured), so the replay sees what `process_show` would. `CacheMiss`
     propagates; a missing `provenance.json`/`show.json` is a `LlamaError`.
-    A `scratch` that is, contains or lies inside `ws.dir` is refused before
-    anything is deleted: the recreate is an rmtree."""
+    A `scratch` that is, contains or lies inside `ws.dir`, or lies inside the
+    library's `shows/` (`ws.dir.parent`: another show's directory), is refused
+    before anything is deleted: the recreate is an rmtree."""
     show_dir, scr = ws.dir.resolve(), scratch.resolve()
     if scr == show_dir or show_dir in scr.parents or scr in show_dir.parents:
         raise LlamaError(f"refusing scratch {scratch}: it overlaps the show directory {ws.dir}")
+    if show_dir.parent in scr.parents:
+        raise LlamaError(f"refusing scratch {scratch}: it lies inside the library's shows "
+                         f"directory {ws.dir.parent}")
     if scratch.exists():
         shutil.rmtree(scratch)
     scratch.mkdir(parents=True)
