@@ -23,7 +23,7 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              structure_guard, venues_equivalent)
 from llama.placeholders import is_junk_tag
 from llama.titles import (_GLUED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
-                          is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, strip_taper_markers, tag_core,
+                          is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
                           tag_layer, title_fraction)
 from llama.util import length_seconds
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
@@ -895,7 +895,8 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
       description, never the selected recording's own -- ruling 3);
     - the whole core is not in `metadata_norms`.
 
-    An accepted track ships `titles.strip_taper_markers(tag)` with
+    An accepted track ships `titles.shipped_short_tag(tag)` (taper markers
+    off, plus Task 11b's cosmetics: `M80,`, `E: 2x2`, `42(1)`) with
     `title_source=tag_source` (`tags`, or `sibling-format` when format
     recovery fired); `matched` is untouched. Returns a NEW list and one
     operator note per accepted track (Contracts id 2a; notes.json only)."""
@@ -916,7 +917,7 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
             continue
         if fuzzy_norm_title(core) in metadata_norms:
             continue
-        title = strip_taper_markers(tag)
+        title = shipped_short_tag(tag)
         out[i] = t.model_copy(update={"title": title, "title_source": tag_source})
         sources = sorted({src for k in keys for src in corroboration[k]})
         notes.append(f"accepted short tag title: track {t.index} '{title}' "

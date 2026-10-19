@@ -43,7 +43,7 @@ from llama.structure import (
     loosely_same_title,
     unresolved_runs,
 )
-from llama.titles import is_real_title
+from llama.titles import is_placeholder_text, is_real_title
 
 INF = float("inf")
 
@@ -304,7 +304,8 @@ def propose_rows(target_durs: list[float], donor: DonorTape, *,
         if not all(t.strip() and is_real_title(t.strip()) for t in titles):
             rows.append(SiblingRow(i0 + 1, None, span, residual, penalty,
                                    "decline", "sibling track untitled"))
-        elif not all(hygienic_title(t, metadata_norms) for t in titles):
+        elif not all(hygienic_title(t, metadata_norms) and not is_placeholder_text(t.strip())
+                     for t in titles):   # Task 11b: a donor's `Track 02`/`tmp` tag
             rows.append(SiblingRow(i0 + 1, None, span, residual, penalty,
                                    "decline", "sibling title fails hygiene"))
         elif penalty < MIN_EXCLUSION_PENALTY:

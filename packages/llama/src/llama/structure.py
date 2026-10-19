@@ -1203,6 +1203,9 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
     `metadata_norms` is passed in rather than imported: it is built in
     stages/gather.py, and structure.py must not depend on a stage.
     """
+    # Function-local, like `hygienic_title`'s imports: titles.py and
+    # placeholders.py both import this module at load time (a cycle at top).
+    from llama.titles import is_placeholder_text
     items = canonical.items
     if not items or not tracks:
         return tracks
@@ -1217,6 +1220,12 @@ def adopt_gap_titles(tracks: list["Track"], canonical: ParsedSetlist, *,
         if len(gap) != hi - lo + 1:          # not count-forced
             continue
         if not all(hygienic_title(it.title, metadata_norms) for it in gap):
+            continue
+        # Task 11b (Checkpoint B, 2026-10-19): a placeholder item (`Track 01`
+        # listed by the selected recording's own description) declines the
+        # whole gap, the same way an unhygienic item does above. A check
+        # BESIDE `hygienic_title`, not inside it (ruling 2: narrow beside).
+        if any(is_placeholder_text(it.title.strip()) for it in gap):
             continue
         for off, it in enumerate(gap):
             out[lo + off] = out[lo + off].model_copy(

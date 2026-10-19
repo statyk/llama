@@ -633,3 +633,76 @@ def test_glued_strip_never_reaches_uppercase_or_digit_second_characters():
     assert out[:8] == ["Pig In A Pen", "Midnight Moonlight", "Old And In The Way", "Dew",
                        "Star", "Hobo Song", "Panama Red", "Wild Horses"]
     assert out[8:] == ["3AM", "01ABBA"]
+
+
+# --- Task 11b (Checkpoint B, 2026-10-19): placeholder refusal + shipped cosmetics ---
+
+from llama.titles import is_placeholder_text, shipped_short_tag
+
+
+def _items(*titles):
+    return ParsedSetlist(items=[SetlistItem(title=t, normalized=t.lower(), set="1") for t in titles],
+                         confidence="high")
+
+
+@pytest.mark.parametrize("s, expected", [
+    ("Track 01", True), ("Track8", True), ("tmp", True), ("27:36.27", True), ("Tr-02", True),
+    ("buckethead2004-06-04d2t05", True),
+    # residue arm is gated on is_real_title: the short real titles 2a ships stay out
+    ("42", False), ("FF", False), ("J", False), ("7-11", False), ("1979", False),
+    ("Dew", False), ("Tracks of My Tears", False), ("Untitled #12", False),
+])
+def test_is_placeholder_text(s, expected):
+    assert is_placeholder_text(s) is expected
+
+
+def test_setlist_rung_refuses_a_placeholder_item():
+    """zachdeputy-2008-12-06 shape on the whole-tape rung: blank tags, a
+    description listing `Track 01`/`Track8` as items. Those positions stay
+    unresolved (title = filename); the real item beside them still adopts."""
+    tracks = resolve_titles(_files(["", "", ""]), _items("Track 01", "Dew", "Track8"))
+    assert [(t.title, t.title_source) for t in tracks] == [
+        ("t01.mp3", "unresolved"), ("Dew", "setlist"), ("t03.mp3", "unresolved")]
+
+
+def test_setlist_rung_still_adopts_real_and_short_items():
+    # regression guard: the refusal is scoped, so `42`/`FF` (short real titles
+    # the ungated residue arm would call residue) are still adopted
+    tracks = resolve_titles(_files(["", "", ""]), _items("Morning Dew", "42", "FF"))
+    assert [(t.title, t.title_source) for t in tracks] == [
+        ("Morning Dew", "setlist"), ("42", "setlist"), ("FF", "setlist")]
+
+
+@pytest.mark.parametrize("tag, shipped", [
+    ("M80,", "M80"),            # discobiscuits-2009-01-31
+    ("E: 2x2", "2x2"),          # umphreysmcgee-2006-11-16
+    ("42(1)", "42"),            # discobiscuits-2004-12-29
+    ("42( 2 )", "42"), ("J (*)", "J"), ("FF (#)", "FF"), ("FF;", "FF"), ("J :", "J"),
+    ("enc: FF", "FF"), ("ENCORE : J", "J"), ("Enc:J", "J"),
+    ("42(1) >", "42"), ("M80, *", "M80"), ("FF>", "FF"),
+    # stays
+    ("Help!", "Help!"), ("Who Are You?", "Who Are You?"), ("42.", "42."),
+    ("Jam (Reprise)", "Jam (Reprise)"), ("J (Jam)", "J (Jam)"),
+    ("100%", "100%"), ("F#", "F#"), ("Untitled #12", "Untitled #12"),
+    ("Set 2: FF", "Set 2: FF"),            # set markers are deliberately not handled
+    ("Every Day", "Every Day"),            # `E` without a colon is not a marker
+])
+def test_shipped_short_tag(tag, shipped):
+    assert shipped_short_tag(tag) == shipped
+
+
+def test_glued_strip_also_drops_a_free_standing_footnote_run():
+    # railroadearth-2013-11-30's measured tail; the voters all carry the glued shape
+    files = _files(["20The Cuckoo #", "21Cold Rain And Snow #", "22Walls Of Time #^",
+                    "08Untitled #12", "09Key Of F#", "10Dew"])
+    assert clean_tag_titles(files) == ["The Cuckoo", "Cold Rain And Snow", "Walls Of Time",
+                                       "Untitled #12", "Key Of F#", "Dew"]
+
+
+def test_footnote_strip_is_only_on_the_glued_path():
+    # On a glued-voting tape an UNglued title keeps its marker (2c's scope), and a
+    # tape under the vote keeps every marker.
+    files = _files(["01Pig In A Pen", "02Midnight Moonlight", "03Dew", "04Star", "Cuckoo #"])
+    assert clean_tag_titles(files)[4] == "Cuckoo #"
+    files = _files(["20The Cuckoo #", "Dew", "Star"])
+    assert clean_tag_titles(files) == ["20The Cuckoo #", "Dew", "Star"]

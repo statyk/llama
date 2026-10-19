@@ -1933,3 +1933,40 @@ def test_loosely_same_title_rejects_an_empty_side():
 
 def test_loose_title_ratio_is_the_measured_bound():
     assert LOOSE_TITLE_RATIO == 0.80
+
+
+# --- Task 11b (Checkpoint B, 2026-10-19): setlist-gap refuses placeholder items ---
+
+def test_placeholder_items_gap_is_not_readopted():
+    """zachdeputy-2008-12-06 shape: 2b demoted the `Track 01`/`Track8` tags, and
+    the selected recording's own description lists the same text as setlist
+    items. The count-forced gap must not hand them back."""
+    canonical = _gap_items(("Alpha", "1", False), ("Track 01", "1", False),
+                           ("Track8", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"),
+                         ("f3.mp3", "unresolved"), ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert [(t.title, t.title_source) for t in out] == [
+        ("Alpha", "tags"), ("f2.mp3", "unresolved"), ("f3.mp3", "unresolved"), ("Delta", "tags")]
+
+
+def test_one_placeholder_item_declines_the_whole_gap():
+    # Orchestrator ruling: like an unhygienic item, one placeholder declines the
+    # gap WHOLE -- the real `Bravo` beside it is not adopted either.
+    canonical = _gap_items(("Alpha", "1", False), ("Bravo", "1", False),
+                           ("Track 03", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"),
+                         ("f3.mp3", "unresolved"), ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert [t.title_source for t in out] == ["tags", "unresolved", "unresolved", "tags"]
+
+
+def test_a_real_title_gap_beside_placeholder_shapes_still_adopts():
+    # regression guard: near-misses of the vocabulary are real titles and adopt
+    canonical = _gap_items(("Alpha", "1", False), ("Tracks of My Tears", "1", False),
+                           ("Temptation", "1", False), ("Delta", "1", False))
+    tracks = _gap_tracks(("Alpha", "tags"), ("f2.mp3", "unresolved"),
+                         ("f3.mp3", "unresolved"), ("Delta", "tags"))
+    out = adopt_gap_titles(tracks, canonical, metadata_norms=set())
+    assert [(t.title, t.title_source) for t in out][1:3] == [
+        ("Tracks of My Tears", "setlist-gap"), ("Temptation", "setlist-gap")]

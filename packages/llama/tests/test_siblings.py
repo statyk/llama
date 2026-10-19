@@ -1056,3 +1056,22 @@ def test_a_donor_span_slide_adopts_zero_interior_titles_under_cplus():
         "tracks 5-7: donor span holds 4 tracks for a 3-file run"}
     # The anchors around it are untouched and still ship.
     assert adopted[4] == "Delta" and adopted[8] == "India"
+
+
+# --- Task 11b (Checkpoint B, 2026-10-19): a donor's placeholder tag is refused ---
+
+import pytest
+
+
+@pytest.mark.parametrize("placeholder", ["Track 02", "tmp"])
+def test_a_donor_track_titled_with_a_placeholder_fails_hygiene(placeholder):
+    """`Track 02` and `tmp` pass `is_real_title` and every `hygienic_title`
+    clause, so before Task 11b this row proposed the placeholder as `adopt`."""
+    target = [300.0, 420.0, 510.0]
+    donor = _donor([300.0, 420.0, 510.0], ["Alpha", placeholder, "Charlie"])
+    rows, _diag = propose_rows(target, donor, metadata_norms=set())
+    got = _by_track(rows)
+    assert got[1].proposed == "Alpha" and got[3].proposed == "Charlie"
+    assert got[2].verdict == "decline"
+    assert got[2].proposed is None
+    assert got[2].reason == "sibling title fails hygiene"

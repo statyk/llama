@@ -1740,6 +1740,11 @@ The orchestrator assembles, from `cmp-B-all` (library-wide, `notes.txt`) and `cm
 
 **Ask:** approve slice 2 as measured, or name the entries that fail. Stop until answered. On approval, the approved rows go to `$H/approved-B.txt`.
 
+**Recorded at Checkpoint B (operator, 2026-10-19):**
+- Check (a) is read as covering the residue class only: `ryanadams-2006-07-20`'s `6040` (the 60/40 SBD/AUD matrix ratio) is correctly demoted, by the recording-level class.
+- Known limitation: the timestamp arm demotes the real song `2:22` (`gracepotterandthenocturnals-2009-07-24` and `-2009-07-26`, track 5). `parse_setlist`'s `_JUNK_TITLE` drops it too, so no cross-source item exempts it. Those shows stay held and are resolved by `llama fix --set-title`.
+- Task 11b added. Part A: the `setlist` and `setlist-gap` rungs (and `sibling-align`'s row hygiene) never adopt a placeholder item (zachdeputy-2008-12-06, infamousstringdusters-2010-10-15). Part B: shipped-title cosmetics on the 2a (`M80,`, `E: 2x2`, `42(1)`) and 2c (`The Cuckoo #`, `Walls Of Time #^`) paths.
+
 ---
 
 ### Task 12: 1b `venues_equivalent` and `cities_compatible`

@@ -2660,3 +2660,32 @@ def test_2c_strips_railroad_earths_glued_numbers_and_notes_each(tmp_path):
     assert titles[:2] == ["Pig In A Pen", "Midnight Moonlight"]
     assert "stripped glued track number: track 1 '01Pig In A Pen' -> 'Pig In A Pen'" in res.notes
     assert sum(n.startswith("stripped glued track number:") for n in res.notes) == 23
+
+
+# --- Task 11b (Checkpoint B, 2026-10-19): shipped-title cosmetics on the 2a/2c paths ---
+
+def test_accept_short_tags_ships_and_notes_the_cleaned_title():
+    tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3", title_source="unresolved")
+              for i in (1, 2, 3)]
+    corroboration = {fuzzy_norm_title("M80"): ("setlist.fm",), fuzzy_norm_title("2x2"): ("lma:x",),
+                     fuzzy_norm_title("42(1)"): ("lma:y",)}
+    out, notes = accept_short_tags(tracks, ["M80,", "E: 2x2", "42(1)"], "tags",
+                                   corroboration=corroboration, metadata_norms=set(), demoted=frozenset())
+    assert [(t.title, t.title_source) for t in out] == [("M80", "tags"), ("2x2", "tags"), ("42", "tags")]
+    assert notes == ["accepted short tag title: track 1 'M80' corroborated by setlist.fm",
+                     "accepted short tag title: track 2 '2x2' corroborated by lma:x",
+                     "accepted short tag title: track 3 '42' corroborated by lma:y"]
+
+
+def test_2c_ships_and_notes_railroad_earths_titles_without_footnote_marks(tmp_path):
+    cand = Candidate(performance_id="RailroadEarth/2013-11-30", collection="RailroadEarth",
+                     date="2013-11-30", venue="Sherman Theater", city="Stroudsburg, PA",
+                     recordings=[RecordingSummary(identifier=R_IDENT)])
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(json.loads(RRE.read_text())), None,
+                         cand, R_IDENT, jerrybase_enabled=False)
+    titles = [t.title for t in res.show.tracks]
+    for want in ("The Cuckoo", "Cold Rain And Snow", "Walls Of Time"):
+        assert want in titles
+    assert not any(t.rstrip().endswith(("#", "^")) for t in titles)
+    assert "stripped glued track number: track 19 '20The Cuckoo #' -> 'The Cuckoo'" in res.notes
+    assert "stripped glued track number: track 21 '22Walls Of Time #^' -> 'Walls Of Time'" in res.notes

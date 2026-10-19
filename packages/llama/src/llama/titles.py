@@ -185,6 +185,14 @@ _ENUMERATED_MIN_COVERAGE = 0.8
 # two digits followed by an Upper+lower pair, so `3AM`, `M80`, `7-Up` and
 # `01ABBA` are never touched; the same recording-level vote gates it.
 _GLUED_NUM_PREFIX = re.compile(r"^\d{2}(?=[A-Z][a-z])")
+# Checkpoint B operator decision 2 (2026-10-19), Task 11b: a title the glued
+# strip changed also loses a WHITESPACE-separated trailing run of footnote
+# symbols (`The Cuckoo #`, `Walls Of Time #^`, measured on
+# railroadearth-2013-11-30). The leading `\s+` is what keeps `F#` and the
+# symbol set (no digits) what keeps `Untitled #12`. Applied only on the 2c
+# path, never to every tag; `_FOOTNOTE_TAIL` (gather) is a different,
+# untouched constant.
+_GLUED_FOOTNOTE_TAIL = re.compile(r"\s+[#^*+~@]+\s*$")
 
 
 def title_fraction(titles: list[str]) -> float:
@@ -224,7 +232,8 @@ def clean_tag_titles(
     # in the glued form never passes the spaced vote.
     glued = sum(1 for t in voters if _GLUED_NUM_PREFIX.match(t))
     if glued >= _ENUMERATED_MIN_FILES and glued >= _ENUMERATED_MIN_COVERAGE * len(voters):
-        titles = [_GLUED_NUM_PREFIX.sub("", t, count=1) for t in titles]
+        titles = [_GLUED_FOOTNOTE_TAIL.sub("", _GLUED_NUM_PREFIX.sub("", t, count=1))
+                  if _GLUED_NUM_PREFIX.match(t) else t for t in titles]
     return titles
 
 
@@ -309,6 +318,58 @@ def strip_taper_markers(tag: str) -> str:
     return out
 
 
+def is_placeholder_text(t: str) -> bool:
+    """Slice 2b's per-title judgement, single-sourced: the placeholder
+    vocabulary or a bare timestamp, whatever `is_real_title` says (`Tr-02`,
+    `27:36.27`), or pure filename residue that `is_real_title` would pass.
+
+    This is `placeholders.is_placeholder_title` WITH the `is_real_title`
+    pre-gate on its residue arm that that predicate's docstring requires of
+    every caller: ungated, the residue arm returns True for `42`, `FF`, `J`
+    and `7-11`, which are real short titles (slice 2a's whole population).
+
+    Used by `placeholder_positions` (the tag rung) and, since Task 11b
+    (Checkpoint B, 2026-10-19), as the refusal at every rung that adopts
+    text from another source: the whole-tape `setlist` rung below,
+    `structure.adopt_gap_titles` (`setlist-gap`) and `siblings.propose_rows`
+    (`sibling-align`). A description that lists `Track 01`... as its setlist
+    must not hand back the very placeholder 2b just demoted."""
+    return is_placeholder(t) or is_timestamp(t) or (is_real_title(t) and is_residue(t))
+
+
+# Checkpoint B operator decision 2 (2026-10-19), Task 11b: cosmetics on the
+# title an accepted 2a short tag SHIPS (never on matching, never on any other
+# tag). Measured: `M80,` (discobiscuits-2009-01-31), `E: 2x2`
+# (umphreysmcgee-2006-11-16), `42(1)` (discobiscuits-2004-12-29).
+# - trailing `,` `;` `:` (and whitespace) only: `.` `!` `?` stay (`Help!`);
+# - a trailing parenthesised NUMBER or footnote-symbol run (`(1)`, `( 2 )`,
+#   `(*)`, `(#)`); a word parenthetical (`(Reprise)`) stays;
+# - a leading encore marker `E:`/`Enc:`/`Encore:`, case-insensitive. A set
+#   marker (`Set 2:`) is deliberately NOT handled: no accepted 2a tag in the
+#   Checkpoint B library run carried one. `structure._STRUCTURE_PREFIX` is a
+#   different, untouched constant (no `Enc`).
+_SHIPPED_PUNCT_TAIL = re.compile(r"[\s,;:]+$")
+_SHIPPED_FOOTNOTE_PAREN = re.compile(r"\s*\(\s*(?:\d+|[*#^+~@]+)\s*\)\s*$")
+_SHIPPED_ENCORE_LEAD = re.compile(r"^\s*(?:e|enc|encore)\s*:\s*", re.I)
+
+
+def shipped_short_tag(tag: str) -> str:
+    """Slice 2a's shipped title for an accepted short tag: `strip_taper_markers`,
+    then the Task 11b cosmetics above, all trailing strips to a fixpoint (so
+    `42(1) >` and `M80, *` both come out bare). A cosmetic that would leave no
+    alphanumeric character is not applied (the tag then ships as
+    `strip_taper_markers` left it)."""
+    prev, out = None, strip_taper_markers(tag)
+    while out != prev:
+        prev = out
+        cand = strip_taper_markers(
+            _SHIPPED_FOOTNOTE_PAREN.sub("", _SHIPPED_PUNCT_TAIL.sub("", out)))
+        cand = _SHIPPED_ENCORE_LEAD.sub("", cand, count=1)
+        if any(ch.isalnum() for ch in cand):
+            out = cand
+    return out
+
+
 def placeholder_positions(
     tag_titles: list[str], *, corroboration: frozenset[str], item_title: str | None
 ) -> list[int]:
@@ -337,8 +398,7 @@ def placeholder_positions(
     for i, t in enumerate(tag_titles):
         if not t.strip() or fuzzy_norm_title(t) in corroboration:
             continue
-        if (is_placeholder(t) or is_timestamp(t) or recording_junk
-                or (is_real_title(t) and is_residue(t))):
+        if recording_junk or is_placeholder_text(t):
             out.append(i)
     return out
 
@@ -410,7 +470,10 @@ def resolve_titles(
             title, source = f["name"], "unresolved"
         elif is_real_title(tag_titles[pos]):
             title, source = tag_titles[pos], tag_source
-        elif aligned:
+        elif aligned and not is_placeholder_text(aligned[pos].title):
+            # Task 11b: an item that is itself a placeholder (`Track 01` in a
+            # description listing its own tags) is never adopted; the position
+            # stays unresolved, exactly as with no alignment at all.
             title, source = aligned[pos].title, "setlist"
         else:
             title, source = f["name"], "unresolved"
