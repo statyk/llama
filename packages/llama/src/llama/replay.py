@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import llama
@@ -138,7 +139,7 @@ def code_identity() -> str:
 
 # (family, predicate) in order; the first match wins. `research asserts ...`
 # flags are told apart by their own texts before anything generic.
-_FAMILIES: tuple[tuple[str, object], ...] = (
+_FAMILIES: tuple[tuple[str, Callable[[str], bool]], ...] = (
     ("research-song", lambda f: f.startswith("research asserts unknown song")),
     ("research-sets", lambda f: f.startswith("research asserts ") and "sets but structure has" in f),
     ("research-date", lambda f: f.startswith("research asserts wrong date")
@@ -278,7 +279,12 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
 
     `slfm` is `setlistfm_client(config)` and nothing else (None when no key is
     configured), so the replay sees what `process_show` would. `CacheMiss`
-    propagates; a missing `provenance.json`/`show.json` is a `LlamaError`."""
+    propagates; a missing `provenance.json`/`show.json` is a `LlamaError`.
+    A `scratch` that is, contains or lies inside `ws.dir` is refused before
+    anything is deleted: the recreate is an rmtree."""
+    show_dir, scr = ws.dir.resolve(), scratch.resolve()
+    if scr == show_dir or show_dir in scr.parents or scr in show_dir.parents:
+        raise LlamaError(f"refusing scratch {scratch}: it overlaps the show directory {ws.dir}")
     if scratch.exists():
         shutil.rmtree(scratch)
     scratch.mkdir(parents=True)

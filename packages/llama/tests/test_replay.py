@@ -175,6 +175,18 @@ def test_compute_legs_copies_only_overrides_into_a_fresh_scratch(tmp_path):
     assert (scratch / "overrides.json").read_bytes() == ws.overrides.read_bytes()
 
 
+@pytest.mark.parametrize("where", ["show", "inside", "parent"])
+def test_compute_legs_refuses_a_scratch_overlapping_the_show_dir(tmp_path, where):
+    from llama.errors import LlamaError
+    ws, _ = _library_show(tmp_path, held=False)
+    scratch = {"show": ws.dir, "inside": ws.dir / "scratch", "parent": ws.dir.parent}[where]
+    before = sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*"))
+    with pytest.raises(LlamaError, match="overlaps the show directory"):
+        compute_legs(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
+                     slfm=None, scratch=scratch)
+    assert sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*")) == before
+
+
 def test_compute_legs_raises_on_missing_show_or_provenance(tmp_path):
     from llama.errors import LlamaError
     ws, _ = _library_show(tmp_path, held=False)
@@ -299,6 +311,16 @@ def test_shipped_diff_compares_against_the_vetted_show(tmp_path):
     assert legs.flags == []
     assert classify(legs, "packaged") == ("clean", None)
     assert shipped_diff(stored, legs.gather.show)["date"] == {"old": "1973-06-10", "new": "1973-01-01"}
+
+
+def test_briefing_reuse_compares_against_the_vetted_show(tmp_path):
+    # The reuse rule sees the show that would ship: a held placeholder-date
+    # show whose stored briefing went out with the adopted date reuses it.
+    ws, stored = _library_show(tmp_path, held=True, date="1973-01-01", with_briefing=True,
+                               asserted_dates=["1973-06-10"], vetted=True)
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "reuse" and legs.brief_reason is None
+    assert classify(legs, "held") == ("clears", None)
 
 
 def _show(**kw):
