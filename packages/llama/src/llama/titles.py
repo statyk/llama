@@ -262,6 +262,41 @@ def tag_layer(
     return clean_tag_titles(kept_files, gate_basis=gate_basis), "tags"
 
 
+# Slice 2a's trailing taper-marker sets (held-backlog spec "2a. Corroborated
+# short tags", "New constants": fixed a priori, do not retune after a harness
+# run). Two different sets, deliberately:
+# - `_CORE_TAIL` (matching): every trailing `> -> => - * % # @ ^ ~ $ +` and the
+#   whitespace around them, so `FF>`, `ML**`, `F#` and `100%` are matched as
+#   `FF`, `ML`, `F`, `100`.
+# - `_SHIPPED_TAIL` (the title that ships): only `$ + * > -> =>`, attached or
+#   free-standing; `#` only when free-standing (`_SHIPPED_HASH`), so `F#` keeps
+#   it; `%`, `@`, `^`, `~` are never removed, so `100%` keeps it.
+# `_FOOTNOTE_TAIL` (clean_tag_title) is untouched by both.
+_CORE_TAIL = re.compile(r"(?:\s*(?:=>|->|[>\-*%#@^~$+]))+\s*$")
+_SHIPPED_TAIL = re.compile(r"(?:\s*(?:=>|->|>|\*|\$|\+))+\s*$")
+_SHIPPED_HASH = re.compile(r"\s+#+\s*$")
+
+
+def tag_core(tag: str) -> str:
+    """Slice 2a: the tag minus its trailing taper markers, for MATCHING against
+    the cross-source item vocabulary (`J >` -> `J`, `F#` -> `F`)."""
+    return _CORE_TAIL.sub("", tag).strip()
+
+
+def strip_taper_markers(tag: str) -> str:
+    """Slice 2a: the title that SHIPS for an accepted short tag: trailing
+    `$ + * > -> =>` removed, `#` only when free-standing (`Dew #` -> `Dew`,
+    `F#` stays), `%`/`@`/`^`/`~` kept (`100%` stays).
+
+    Applied to a fixpoint, so an interleaved tail (`Dew > #`: the free-standing
+    `#` hides the `>` from the first pass) still ships with no trailing marker
+    (spec 2a acceptance: no shipped title keeps a trailing taper marker)."""
+    prev, out = None, tag
+    while out != prev:
+        prev, out = out, _SHIPPED_HASH.sub("", _SHIPPED_TAIL.sub("", out)).strip()
+    return out
+
+
 def placeholder_positions(
     tag_titles: list[str], *, corroboration: frozenset[str], item_title: str | None
 ) -> list[int]:

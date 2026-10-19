@@ -1,0 +1,1299 @@
+{
+  "metadata": {
+    "identifier": "tnd2006-12-13.flac16",
+    "title": "The New Deal Live at Water Street Music Hall on 2006-12-13",
+    "creator": "The New Deal",
+    "mediatype": "etree",
+    "collection": [
+      "TheNewDeal",
+      "etree"
+    ],
+    "type": "sound",
+    "description": "Set 1\n1 J >\n2 J (Da Funk) >\n3 J >\n4 Ravine > J\n5 J >\n6 Ravine, J >\n7 J >\n8 J >\n9 G-nome > J >\n10 J > G-nome\n\nset 2\n1 ? >\n2 J >\n3 Glide >\n4 J >\n5 J > Glide, talk, \n6 Home\n7 J > Moment #2 >\n8 VL Tone > J > VL Tone\n9 Jag Off > J",
+    "date": "2006-12-13",
+    "year": "2006",
+    "publicdate": "2007-01-06 14:49:08",
+    "addeddate": "2007-01-06 14:44:08",
+    "uploader": "danwalpole@hotmail.com",
+    "updater": [
+      "DW",
+      "DW",
+      "DW",
+      "DW",
+      "DW"
+    ],
+    "updatedate": [
+      "2007-01-06 14:56:32",
+      "2007-01-06 15:00:49",
+      "2007-01-08 04:33:46",
+      "2007-01-09 04:14:18",
+      "2007-01-24 02:04:35"
+    ],
+    "venue": "Water Street Music Hall",
+    "coverage": "Rochester, NY",
+    "source": "AKG 414 (FOB-DFC- ORTF on the closed off balcony) > Lunatec V2 > Denecke ad20 > iRiver ihp120",
+    "lineage": "iRiver ihp120-> USB->Audition-> CDwav-> FLAC Frontend-> FLAC",
+    "taper": "Nick Zuccaro",
+    "transferer": "Nick Zuccaro",
+    "runtime": "2h15m26s",
+    "md5s": "149da341ff469adc9c0e6e392be5d619 *tnd2006-12-13d1t01.flac\r\n42806b86942805d0532a3d4e8e111d23 *tnd2006-12-13d1t02.flac\r\n5ef338fb99ccd8adc6c208796f8583d3 *tnd2006-12-13d1t03.flac\r\n69e873329ce8dd0fa4a1a2d7d96b45f0 *tnd2006-12-13d1t04.flac\r\n9691019f4ca3f40328bfb7513358f25b *tnd2006-12-13d1t05.flac\r\n67c7ebabc22e07010388ef798f0daa6a *tnd2006-12-13d1t06.flac\r\n9fd4b105d67be78ecda359909a26fabf *tnd2006-12-13d1t07.flac\r\n11c81b43097f0284f2c03ecd25068369 *tnd2006-12-13d1t08.flac\r\ne0eede3538557aed2727141ca37231cb *tnd2006-12-13d1t09.flac\r\n7f5ddcdbf76bddc9530eaf89f3cea6fd *tnd2006-12-13d1t10.flac\r\nbda5ef22188c802575435077ad856ac7 *tnd2006-12-13d2t01.flac\r\n467ecff7a5cc31ee76951fdc1005d76d *tnd2006-12-13d2t02.flac\r\n1b0432962776759649c07750f6e611e4 *tnd2006-12-13d2t03.flac\r\n9d67bbc30ddd22ca76523b8a5720e4fa *tnd2006-12-13d2t04.flac\r\nc23acd5d9b3309331d28f714b801cefa *tnd2006-12-13d2t05.flac\r\n78939c9ec65ba87c186e7fc338cd1d68 *tnd2006-12-13d2t06.flac\r\nfb7e35a34910bf1d9dc09c1b2d1a0046 *tnd2006-12-13d2t07.flac\r\n66c61dce012012b81c52cd9580680176 *tnd2006-12-13d2t08.flac\r\n6be91e99f4b396220226dedc8c174020 *tnd2006-12-13d2t09.flac",
+    "notes": "Taped from the balcony, which was closed off to most audience members.\n\nThe setlist, source, and transfer have been updated since this was first uploaded.  Change your text files accordingly.",
+    "backup_location": "ia903600_28"
+  },
+  "files": [
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "b891e7bb15a8693c5ef0e8c240ceafd0"
+    },
+    {
+      "name": "tnd2006-12-13.flac16_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "3e0bda362e54d1db777618cf7f87331e"
+    },
+    {
+      "name": "tnd2006-12-13.flac16_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "3760a7d03192408df9472819ab926251"
+    },
+    {
+      "name": "tnd2006-12-13.flac16_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "1cc9efb8f72ae0bdde06171c29b509be"
+    },
+    {
+      "name": "tnd2006-12-13.flac16_reviews.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "d42cfddc7b8d4bd44877e7dc915352c4"
+    },
+    {
+      "name": "tnd2006-12-13.md5",
+      "source": "original",
+      "format": "Checksums",
+      "md5": "318c0a323b7e3837fc22fabefd8486a3"
+    },
+    {
+      "name": "tnd2006-12-13.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "fcf2285a563bdf74139362c8102ddbf1"
+    },
+    {
+      "name": "tnd2006-12-13d1t01.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "f8f5cb2dd68b33663a2824fedd312aee"
+    },
+    {
+      "name": "tnd2006-12-13d1t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "316.2",
+      "md5": "149da341ff469adc9c0e6e392be5d619",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t01.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t01.flac",
+      "format": "VBR MP3",
+      "length": "05:16",
+      "md5": "aac185c97f94cc520f9323539e64c99a",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t01.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "316.2",
+      "md5": "2b6853aeafc212d155ca876eb206130b"
+    },
+    {
+      "name": "tnd2006-12-13d1t01.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t01.flac",
+      "format": "PNG",
+      "md5": "7aa2e299d44b5def8edb72905e70f854"
+    },
+    {
+      "name": "tnd2006-12-13d1t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "60b3f74dd083f1f1c94ff75cfa0f166d"
+    },
+    {
+      "name": "tnd2006-12-13d1t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "46e136b917d424ae4e275cc8505371c6"
+    },
+    {
+      "name": "tnd2006-12-13d1t01_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t01.flac",
+      "format": "Spectrogram",
+      "md5": "ba1337f7a2c7ef3f7c759dbfb3d2e080"
+    },
+    {
+      "name": "tnd2006-12-13d1t02.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "90032539e74697edc0a05d99dd484bf0"
+    },
+    {
+      "name": "tnd2006-12-13d1t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "284.04",
+      "md5": "42806b86942805d0532a3d4e8e111d23",
+      "title": "J (Da Funk) >"
+    },
+    {
+      "name": "tnd2006-12-13d1t02.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t02.flac",
+      "format": "VBR MP3",
+      "length": "04:44",
+      "md5": "584fcfde748361ba05c814fb1438fbf3",
+      "title": "J (Da Funk) >"
+    },
+    {
+      "name": "tnd2006-12-13d1t02.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "284.04",
+      "md5": "90b26c6f9b63d75ccc9305f6c8a2f695"
+    },
+    {
+      "name": "tnd2006-12-13d1t02.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t02.flac",
+      "format": "PNG",
+      "md5": "ef19251bb59fba070f603fc4ef8e11c8"
+    },
+    {
+      "name": "tnd2006-12-13d1t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "a1d2fe1d7ed5dce0f61b7e5f27818d9a"
+    },
+    {
+      "name": "tnd2006-12-13d1t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "460d9e45203e3af817f5cc98dc1f9039"
+    },
+    {
+      "name": "tnd2006-12-13d1t02_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t02.flac",
+      "format": "Spectrogram",
+      "md5": "3baa8d1b87120f86122668ec95c75749"
+    },
+    {
+      "name": "tnd2006-12-13d1t03.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "b9399d38d9758b73d5a1659899a60b16"
+    },
+    {
+      "name": "tnd2006-12-13d1t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "514.45",
+      "md5": "5ef338fb99ccd8adc6c208796f8583d3",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t03.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t03.flac",
+      "format": "VBR MP3",
+      "length": "08:34",
+      "md5": "e91922a1750f601482388e6e1aeef256",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t03.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "514.45",
+      "md5": "1a79f6711f0e290a6b1ac8efeaf8d255"
+    },
+    {
+      "name": "tnd2006-12-13d1t03.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t03.flac",
+      "format": "PNG",
+      "md5": "19d21d6324c645fb93e165d3a31038a3"
+    },
+    {
+      "name": "tnd2006-12-13d1t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "05f693ad9d6347af8d3466933d7b99a8"
+    },
+    {
+      "name": "tnd2006-12-13d1t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "75d2e6bb43a8775625e1627a2a75f4fc"
+    },
+    {
+      "name": "tnd2006-12-13d1t03_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t03.flac",
+      "format": "Spectrogram",
+      "md5": "5d51b1e6044d701409d1559060f06f6f"
+    },
+    {
+      "name": "tnd2006-12-13d1t04.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "b1d0bb9deebd38c9f4e1106a5d437ea7"
+    },
+    {
+      "name": "tnd2006-12-13d1t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "281.11",
+      "md5": "69e873329ce8dd0fa4a1a2d7d96b45f0",
+      "title": "Ravine > J"
+    },
+    {
+      "name": "tnd2006-12-13d1t04.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t04.flac",
+      "format": "VBR MP3",
+      "length": "04:41",
+      "md5": "48ff420ac2fa964eaa58d1a59c469204",
+      "title": "Ravine > J"
+    },
+    {
+      "name": "tnd2006-12-13d1t04.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "281.11",
+      "md5": "8a8b7a49deded145bf99a323b357a099"
+    },
+    {
+      "name": "tnd2006-12-13d1t04.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t04.flac",
+      "format": "PNG",
+      "md5": "ff465c79989efafe449c34fffc8e2e16"
+    },
+    {
+      "name": "tnd2006-12-13d1t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "356432e098eb5ce836afef62f8e1a920"
+    },
+    {
+      "name": "tnd2006-12-13d1t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "c6fe6de89d41efd2b5ba24672abb65f2"
+    },
+    {
+      "name": "tnd2006-12-13d1t04_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t04.flac",
+      "format": "Spectrogram",
+      "md5": "91bc32a67bbc80da06d97f8757d3e311"
+    },
+    {
+      "name": "tnd2006-12-13d1t05.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "30c92a72de50a7653bc17591f691c982"
+    },
+    {
+      "name": "tnd2006-12-13d1t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "434.64",
+      "md5": "9691019f4ca3f40328bfb7513358f25b",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t05.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t05.flac",
+      "format": "VBR MP3",
+      "length": "07:14",
+      "md5": "d18f16d24840a7c27f90a142150efe60",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t05.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "434.64",
+      "md5": "8f365a282fb9af9408a0bbd4571bab29"
+    },
+    {
+      "name": "tnd2006-12-13d1t05.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t05.flac",
+      "format": "PNG",
+      "md5": "8733360f40bbfbe92eaa2f9a52084096"
+    },
+    {
+      "name": "tnd2006-12-13d1t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "df828b1172132a8002d278c370ee3aab"
+    },
+    {
+      "name": "tnd2006-12-13d1t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "27ce9f19009bedc316c28e1c1d9d0bbf"
+    },
+    {
+      "name": "tnd2006-12-13d1t05_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t05.flac",
+      "format": "Spectrogram",
+      "md5": "38880c64b7752b5957886434ca8f25e6"
+    },
+    {
+      "name": "tnd2006-12-13d1t06.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t06.flac",
+      "format": "Columbia Peaks",
+      "md5": "f91e81bc1b909621b754498eb467998f"
+    },
+    {
+      "name": "tnd2006-12-13d1t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "662.77",
+      "md5": "67c7ebabc22e07010388ef798f0daa6a",
+      "title": "Ravine > J"
+    },
+    {
+      "name": "tnd2006-12-13d1t06.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t06.flac",
+      "format": "VBR MP3",
+      "length": "11:02",
+      "md5": "303957b41174f445e262f1d8dcde7275",
+      "title": "Ravine > J"
+    },
+    {
+      "name": "tnd2006-12-13d1t06.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "662.77",
+      "md5": "c75caed20fabf79744b3d98fedff3268"
+    },
+    {
+      "name": "tnd2006-12-13d1t06.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t06.flac",
+      "format": "PNG",
+      "md5": "f966a9ce07de121898c33ec244611e95"
+    },
+    {
+      "name": "tnd2006-12-13d1t06_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t06_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "68dd50d6ced4db6d56581d8c8a66e710"
+    },
+    {
+      "name": "tnd2006-12-13d1t06_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t06.flac",
+      "format": "Essentia Low GZ",
+      "md5": "c2f008979a182011b6036e1dad79c1d0"
+    },
+    {
+      "name": "tnd2006-12-13d1t06_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t06.flac",
+      "format": "Spectrogram",
+      "md5": "0ca7078c7b6311ae7d232f2f681ba2bf"
+    },
+    {
+      "name": "tnd2006-12-13d1t07.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t07.flac",
+      "format": "Columbia Peaks",
+      "md5": "b38a8b34ac3521bff513224ca8f5bd27"
+    },
+    {
+      "name": "tnd2006-12-13d1t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "279.8",
+      "md5": "9fd4b105d67be78ecda359909a26fabf",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t07.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t07.flac",
+      "format": "VBR MP3",
+      "length": "04:39",
+      "md5": "61c18922e82b4fe338b4842f3e88712c",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t07.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "279.8",
+      "md5": "ff379fcaee7f9c89cd74db68c698cd4e"
+    },
+    {
+      "name": "tnd2006-12-13d1t07.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t07.flac",
+      "format": "PNG",
+      "md5": "73449cec01fb295cba7ca387a0e31b02"
+    },
+    {
+      "name": "tnd2006-12-13d1t07_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t07_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "5e77b50e6062e99b4b4f47fe8769fc50"
+    },
+    {
+      "name": "tnd2006-12-13d1t07_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t07.flac",
+      "format": "Essentia Low GZ",
+      "md5": "553a3e56b883be75643537ea7a438a89"
+    },
+    {
+      "name": "tnd2006-12-13d1t07_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t07.flac",
+      "format": "Spectrogram",
+      "md5": "b811b9c18e506d5bc11a343f1c835497"
+    },
+    {
+      "name": "tnd2006-12-13d1t08.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t08.flac",
+      "format": "Columbia Peaks",
+      "md5": "5f39d6f2229ecc2855e24959874149ae"
+    },
+    {
+      "name": "tnd2006-12-13d1t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "314.79",
+      "md5": "11c81b43097f0284f2c03ecd25068369",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t08.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t08.flac",
+      "format": "VBR MP3",
+      "length": "05:14",
+      "md5": "375f1825275756e9d15a381cdbe47d84",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t08.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "314.79",
+      "md5": "b246d79d079979bee1f58e2362c37339"
+    },
+    {
+      "name": "tnd2006-12-13d1t08.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t08.flac",
+      "format": "PNG",
+      "md5": "0692a9f0022a6f2d9678d2895848fcf5"
+    },
+    {
+      "name": "tnd2006-12-13d1t08_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t08_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "920b0c67a361b2509cc1a6ffd1eba107"
+    },
+    {
+      "name": "tnd2006-12-13d1t08_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t08.flac",
+      "format": "Essentia Low GZ",
+      "md5": "f3924594cca35cbe6db1721867cb6137"
+    },
+    {
+      "name": "tnd2006-12-13d1t08_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t08.flac",
+      "format": "Spectrogram",
+      "md5": "212e1b2786f183b82b60d62233a2bc87"
+    },
+    {
+      "name": "tnd2006-12-13d1t09.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t09.flac",
+      "format": "Columbia Peaks",
+      "md5": "feff74e172241f1ae9c3a76d694ec424"
+    },
+    {
+      "name": "tnd2006-12-13d1t09.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "481.76",
+      "md5": "e0eede3538557aed2727141ca37231cb",
+      "title": "G-nome > J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t09.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t09.flac",
+      "format": "VBR MP3",
+      "length": "08:01",
+      "md5": "e1051eb3e2a0f4718554aeb43e480abf",
+      "title": "G-nome > J >"
+    },
+    {
+      "name": "tnd2006-12-13d1t09.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t09.flac",
+      "format": "Ogg Vorbis",
+      "length": "481.76",
+      "md5": "4974deb5cf08e5ced711d7ec8e88ab71"
+    },
+    {
+      "name": "tnd2006-12-13d1t09.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t09.flac",
+      "format": "PNG",
+      "md5": "552b6182ee3e887f62110c8f144ab375"
+    },
+    {
+      "name": "tnd2006-12-13d1t09_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t09_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "4bea4f287d49460de548aea3962bb3b4"
+    },
+    {
+      "name": "tnd2006-12-13d1t09_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t09.flac",
+      "format": "Essentia Low GZ",
+      "md5": "d22eaff553392fe2cacad00d04d43b60"
+    },
+    {
+      "name": "tnd2006-12-13d1t09_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t09.flac",
+      "format": "Spectrogram",
+      "md5": "e51c80247849942a5e069ff6fb8561fa"
+    },
+    {
+      "name": "tnd2006-12-13d1t10.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t10.flac",
+      "format": "Columbia Peaks",
+      "md5": "a9813b65684693e3745b33b794b5a585"
+    },
+    {
+      "name": "tnd2006-12-13d1t10.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "348.42",
+      "md5": "7f5ddcdbf76bddc9530eaf89f3cea6fd",
+      "title": "J > G-nome"
+    },
+    {
+      "name": "tnd2006-12-13d1t10.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t10.flac",
+      "format": "VBR MP3",
+      "length": "05:48",
+      "md5": "b964e2afbbfea0179039537d0f42a381",
+      "title": "J > G-nome"
+    },
+    {
+      "name": "tnd2006-12-13d1t10.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t10.flac",
+      "format": "Ogg Vorbis",
+      "length": "348.43",
+      "md5": "f3fbf4b2338a9bb48add72d855914122"
+    },
+    {
+      "name": "tnd2006-12-13d1t10.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t10.flac",
+      "format": "PNG",
+      "md5": "d10d207aa4f06d51ec069a5834c917f1"
+    },
+    {
+      "name": "tnd2006-12-13d1t10_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t10_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "1a1d33504f27ab95341dd2994f310f6b"
+    },
+    {
+      "name": "tnd2006-12-13d1t10_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t10.flac",
+      "format": "Essentia Low GZ",
+      "md5": "4df6633c4b9b06a62ad50be0a4c20b7a"
+    },
+    {
+      "name": "tnd2006-12-13d1t10_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d1t10.flac",
+      "format": "Spectrogram",
+      "md5": "aa3452403eba134815b5aab5c864b762"
+    },
+    {
+      "name": "tnd2006-12-13d2t01.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t01.flac",
+      "format": "Columbia Peaks",
+      "md5": "61a7cac98eaef7c4ab8888fd58d13ab9"
+    },
+    {
+      "name": "tnd2006-12-13d2t01.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "358.56",
+      "md5": "bda5ef22188c802575435077ad856ac7",
+      "title": "? >"
+    },
+    {
+      "name": "tnd2006-12-13d2t01.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t01.flac",
+      "format": "VBR MP3",
+      "length": "05:58",
+      "md5": "d18257036d873836fa9b5a5c130df6ba",
+      "title": "? >"
+    },
+    {
+      "name": "tnd2006-12-13d2t01.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t01.flac",
+      "format": "Ogg Vorbis",
+      "length": "358.56",
+      "md5": "3a366259b41482b5ec18a291cf43fda3"
+    },
+    {
+      "name": "tnd2006-12-13d2t01.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t01.flac",
+      "format": "PNG",
+      "md5": "686901e3e12d6e5ee22be0c642bbe580"
+    },
+    {
+      "name": "tnd2006-12-13d2t01_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t01_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "149f79705ddb69714ded1d93164a6b0c"
+    },
+    {
+      "name": "tnd2006-12-13d2t01_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t01.flac",
+      "format": "Essentia Low GZ",
+      "md5": "43fec88d43f2c2a01cb808268ab5672e"
+    },
+    {
+      "name": "tnd2006-12-13d2t01_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t01.flac",
+      "format": "Spectrogram",
+      "md5": "5737d21dd88299a12d040b012689cb70"
+    },
+    {
+      "name": "tnd2006-12-13d2t02.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t02.flac",
+      "format": "Columbia Peaks",
+      "md5": "61d0c83798666c8313300ed8876cb64a"
+    },
+    {
+      "name": "tnd2006-12-13d2t02.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "549.45",
+      "md5": "467ecff7a5cc31ee76951fdc1005d76d",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d2t02.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t02.flac",
+      "format": "VBR MP3",
+      "length": "09:09",
+      "md5": "9ad416ee51e61a5c20cc32c9e1f99d22",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d2t02.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t02.flac",
+      "format": "Ogg Vorbis",
+      "length": "549.45",
+      "md5": "2e7437681543032c845fdc129c827602"
+    },
+    {
+      "name": "tnd2006-12-13d2t02.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t02.flac",
+      "format": "PNG",
+      "md5": "d9c865eb462e490ec2f593163266bb80"
+    },
+    {
+      "name": "tnd2006-12-13d2t02_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t02_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "34fac73b5ace039acce5f6398b310618"
+    },
+    {
+      "name": "tnd2006-12-13d2t02_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t02.flac",
+      "format": "Essentia Low GZ",
+      "md5": "bd9d9183da25aacfd7fb0d1db7748209"
+    },
+    {
+      "name": "tnd2006-12-13d2t02_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t02.flac",
+      "format": "Spectrogram",
+      "md5": "0782b9c07eb92978598e98bfa562d6b1"
+    },
+    {
+      "name": "tnd2006-12-13d2t03.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t03.flac",
+      "format": "Columbia Peaks",
+      "md5": "5da1dd3b2df1f25a25691934cfdd487e"
+    },
+    {
+      "name": "tnd2006-12-13d2t03.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "258.67",
+      "md5": "1b0432962776759649c07750f6e611e4",
+      "title": "Glide >"
+    },
+    {
+      "name": "tnd2006-12-13d2t03.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t03.flac",
+      "format": "VBR MP3",
+      "length": "04:18",
+      "md5": "f509412327af8aa59a244ec4c20a584c",
+      "title": "Glide >"
+    },
+    {
+      "name": "tnd2006-12-13d2t03.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t03.flac",
+      "format": "Ogg Vorbis",
+      "length": "258.67",
+      "md5": "c25b836303f13cc655588db39da389eb"
+    },
+    {
+      "name": "tnd2006-12-13d2t03.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t03.flac",
+      "format": "PNG",
+      "md5": "c669a7419e9e7382b6420cba0cdac52f"
+    },
+    {
+      "name": "tnd2006-12-13d2t03_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t03_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "82178b449e7fc9a9cb8ac91043b683d3"
+    },
+    {
+      "name": "tnd2006-12-13d2t03_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t03.flac",
+      "format": "Essentia Low GZ",
+      "md5": "90ac7222ebfe415bce798744ab7e9211"
+    },
+    {
+      "name": "tnd2006-12-13d2t03_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t03.flac",
+      "format": "Spectrogram",
+      "md5": "f37211a9a6c8d4cf8bfdd1a1a639abef"
+    },
+    {
+      "name": "tnd2006-12-13d2t04.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t04.flac",
+      "format": "Columbia Peaks",
+      "md5": "edcc6106b23edb96757e65c179dfe938"
+    },
+    {
+      "name": "tnd2006-12-13d2t04.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "368.64",
+      "md5": "9d67bbc30ddd22ca76523b8a5720e4fa",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d2t04.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t04.flac",
+      "format": "VBR MP3",
+      "length": "06:08",
+      "md5": "8e4168b634ecca08a2019618d40a0a64",
+      "title": "J >"
+    },
+    {
+      "name": "tnd2006-12-13d2t04.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t04.flac",
+      "format": "Ogg Vorbis",
+      "length": "368.64",
+      "md5": "e3f81b16a0b505b3341ea187be79f90f"
+    },
+    {
+      "name": "tnd2006-12-13d2t04.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t04.flac",
+      "format": "PNG",
+      "md5": "6ab631875f03c71bf95be9ac0cb7f917"
+    },
+    {
+      "name": "tnd2006-12-13d2t04_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t04_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "46db8022609d9d1a613ad08cc8346d87"
+    },
+    {
+      "name": "tnd2006-12-13d2t04_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t04.flac",
+      "format": "Essentia Low GZ",
+      "md5": "5880fbe6a3f7398291ec329287d9c6e0"
+    },
+    {
+      "name": "tnd2006-12-13d2t04_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t04.flac",
+      "format": "Spectrogram",
+      "md5": "904cf31124304be5793b36ab34adf0ab"
+    },
+    {
+      "name": "tnd2006-12-13d2t05.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t05.flac",
+      "format": "Columbia Peaks",
+      "md5": "6b0b46477a786e8f6448b650bd5d5742"
+    },
+    {
+      "name": "tnd2006-12-13d2t05.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "313.44",
+      "md5": "c23acd5d9b3309331d28f714b801cefa",
+      "title": "J > Glide, talk,"
+    },
+    {
+      "name": "tnd2006-12-13d2t05.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t05.flac",
+      "format": "VBR MP3",
+      "length": "05:13",
+      "md5": "0278b8a202e5463103d6deb44338ca2d",
+      "title": "J > Glide, talk,"
+    },
+    {
+      "name": "tnd2006-12-13d2t05.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t05.flac",
+      "format": "Ogg Vorbis",
+      "length": "313.44",
+      "md5": "388db5440380b9519883b81d2daa7d01"
+    },
+    {
+      "name": "tnd2006-12-13d2t05.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t05.flac",
+      "format": "PNG",
+      "md5": "509c644c63f6ff9b06a499b59a236f4d"
+    },
+    {
+      "name": "tnd2006-12-13d2t05_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t05_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "b5da92ecf252c43d3243c7951f4c5cbb"
+    },
+    {
+      "name": "tnd2006-12-13d2t05_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t05.flac",
+      "format": "Essentia Low GZ",
+      "md5": "f414a0ae6804b32781a4e3120586e0d1"
+    },
+    {
+      "name": "tnd2006-12-13d2t05_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t05.flac",
+      "format": "Spectrogram",
+      "md5": "702cb3a1a4b3a72b384e0b2442445a03"
+    },
+    {
+      "name": "tnd2006-12-13d2t06.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t06.flac",
+      "format": "Columbia Peaks",
+      "md5": "e4401c861544625b393d31ce44041e6d"
+    },
+    {
+      "name": "tnd2006-12-13d2t06.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "424",
+      "md5": "78939c9ec65ba87c186e7fc338cd1d68",
+      "title": "Home"
+    },
+    {
+      "name": "tnd2006-12-13d2t06.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t06.flac",
+      "format": "VBR MP3",
+      "length": "07:04",
+      "md5": "bc3a3eff54e2b2bdc9e10afae330487d",
+      "title": "Home"
+    },
+    {
+      "name": "tnd2006-12-13d2t06.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t06.flac",
+      "format": "Ogg Vorbis",
+      "length": "424",
+      "md5": "d3e3f296265d85a271614d9257490e20"
+    },
+    {
+      "name": "tnd2006-12-13d2t06.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t06.flac",
+      "format": "PNG",
+      "md5": "d86de0c2b8124bc2e9fb9675c4b6c245"
+    },
+    {
+      "name": "tnd2006-12-13d2t06_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t06_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "7e4d8df9f215655f0af2603970d0647f"
+    },
+    {
+      "name": "tnd2006-12-13d2t06_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t06.flac",
+      "format": "Essentia Low GZ",
+      "md5": "b4df50d0d1e45c9d844fdb6e876142ef"
+    },
+    {
+      "name": "tnd2006-12-13d2t06_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t06.flac",
+      "format": "Spectrogram",
+      "md5": "8496ac048872ba03849fc0575192a9a8"
+    },
+    {
+      "name": "tnd2006-12-13d2t07.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t07.flac",
+      "format": "Columbia Peaks",
+      "md5": "12f84c47a5bf38d16ec69edbf70a3d4a"
+    },
+    {
+      "name": "tnd2006-12-13d2t07.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "420.93",
+      "md5": "fb7e35a34910bf1d9dc09c1b2d1a0046",
+      "title": "J > Moment #2 >"
+    },
+    {
+      "name": "tnd2006-12-13d2t07.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t07.flac",
+      "format": "VBR MP3",
+      "length": "07:00",
+      "md5": "78f2299cd3ea9fa45046da01f648698e",
+      "title": "J > Moment #2 >"
+    },
+    {
+      "name": "tnd2006-12-13d2t07.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t07.flac",
+      "format": "Ogg Vorbis",
+      "length": "420.93",
+      "md5": "364172a177a6d7cdef3d7a7f69403b34"
+    },
+    {
+      "name": "tnd2006-12-13d2t07.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t07.flac",
+      "format": "PNG",
+      "md5": "e8b9e0b5d8546dd1c16b98ff77d22814"
+    },
+    {
+      "name": "tnd2006-12-13d2t07_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t07_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "5317a8c01eafa546b72e89e3534dbbcb"
+    },
+    {
+      "name": "tnd2006-12-13d2t07_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t07.flac",
+      "format": "Essentia Low GZ",
+      "md5": "e520b49a54e7f73dc221eeac55933112"
+    },
+    {
+      "name": "tnd2006-12-13d2t07_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t07.flac",
+      "format": "Spectrogram",
+      "md5": "0861d14264008b7bccf0c36191db5d28"
+    },
+    {
+      "name": "tnd2006-12-13d2t08.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t08.flac",
+      "format": "Columbia Peaks",
+      "md5": "b08f9dedda29e15f09a0f73a2ce60a08"
+    },
+    {
+      "name": "tnd2006-12-13d2t08.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "889.43",
+      "md5": "66c61dce012012b81c52cd9580680176",
+      "title": "VL Tone > J > VL Tone"
+    },
+    {
+      "name": "tnd2006-12-13d2t08.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t08.flac",
+      "format": "VBR MP3",
+      "length": "14:49",
+      "md5": "70b6de935273c1033b5aa6acf305163b",
+      "title": "VL Tone > J > VL Tone"
+    },
+    {
+      "name": "tnd2006-12-13d2t08.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t08.flac",
+      "format": "Ogg Vorbis",
+      "length": "889.43",
+      "md5": "a2e014ce72793240777bf04c4e22cb4e"
+    },
+    {
+      "name": "tnd2006-12-13d2t08.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t08.flac",
+      "format": "PNG",
+      "md5": "35558696efc295920702ce60c6cacc21"
+    },
+    {
+      "name": "tnd2006-12-13d2t08_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t08_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "0083e81220db0316ae1107ef818641c6"
+    },
+    {
+      "name": "tnd2006-12-13d2t08_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t08.flac",
+      "format": "Essentia Low GZ",
+      "md5": "64fec23483881bf07bfbc0ddb1c218ed"
+    },
+    {
+      "name": "tnd2006-12-13d2t08_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t08.flac",
+      "format": "Spectrogram",
+      "md5": "4a50b11dcf7b5e35ec9bb4136f87c289"
+    },
+    {
+      "name": "tnd2006-12-13d2t09.afpk",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t09.flac",
+      "format": "Columbia Peaks",
+      "md5": "516dc507e3633a8e80467be00dc1f9fc"
+    },
+    {
+      "name": "tnd2006-12-13d2t09.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "634.46",
+      "md5": "6be91e99f4b396220226dedc8c174020",
+      "title": "Jagoff > J"
+    },
+    {
+      "name": "tnd2006-12-13d2t09.mp3",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t09.flac",
+      "format": "VBR MP3",
+      "length": "10:34",
+      "md5": "2986ca258d522c0ca834303b53598b38",
+      "title": "Jagoff > J"
+    },
+    {
+      "name": "tnd2006-12-13d2t09.ogg",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t09.flac",
+      "format": "Ogg Vorbis",
+      "length": "634.46",
+      "md5": "1cb45286eb829e9b7dc75a73faa056a1"
+    },
+    {
+      "name": "tnd2006-12-13d2t09.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t09.flac",
+      "format": "PNG",
+      "md5": "b65b2e7565e43dbf10d24f0a5cda9cf7"
+    },
+    {
+      "name": "tnd2006-12-13d2t09_esshigh.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t09_esslow.json.gz",
+      "format": "Essentia High GZ",
+      "md5": "3581acb9140d2fdefb38857f6b1d785c"
+    },
+    {
+      "name": "tnd2006-12-13d2t09_esslow.json.gz",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t09.flac",
+      "format": "Essentia Low GZ",
+      "md5": "036986a613c8fc9ea15417fadc286994"
+    },
+    {
+      "name": "tnd2006-12-13d2t09_spectrogram.png",
+      "source": "derivative",
+      "original": "tnd2006-12-13d2t09.flac",
+      "format": "Spectrogram",
+      "md5": "22184ca5b3627b12fa691bb83882eea9"
+    },
+    {
+      "name": "tnd2006-12-13ffp.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "08881fc02501ae7d9750f08a37d94678"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewbody": "I was at the show that night and I had no idea they were gunna jam so hard! This is definately my favorite show of all the ones i've downloaded and its not just because I was there. The sound quality is also very good for a live show.",
+      "reviewtitle": "A very sick show",
+      "stars": "5",
+      "reviewer": "phishindavelvetc",
+      "createdate": "2007-01-08 00:42:34",
+      "reviewdate": "2007-01-08 00:42:34"
+    },
+    {
+      "reviewbody": "I am still thinking about this show to this day and its almost been a month. Just amazing. They were on fire the whole night. Jamie seems to blow my mind everytime. They jammed so hard and I've never seen Waterstreet that rockin, everyone-I mean everyone was dancing. Nick, thank you so much for the tape, the sound quality is A+. G-nome is amazing, but VL Tone and Jagoff for encore stole the show.",
+      "reviewtitle": "Lost for words",
+      "stars": "5",
+      "reviewer": "keasy3",
+      "createdate": "2007-01-08 15:05:19",
+      "reviewdate": "2007-01-08 15:05:19"
+    },
+    {
+      "reviewbody": "I agree that the band was on fire.  Dan's bass tone is getting crunchy (yet still very clean) and is really cutting thru.  This show was one of the best I've seen.\n\nBack in '02, tND played as \"The Nude Eel,\" opening for Karl Denson's Tiny Universe at Water Street...  They played the most incredible jam between \"Homewrecker\" and \"VL Tone\" that nite -- best jam I've heard, with each member of the band doin' some awesome stuff.  You can check that nite out at:\nhttp://www.archive.org/details/tnd2002-12-16.shnf",
+      "reviewtitle": "If you liked this VL Tone, dude...",
+      "stars": "5",
+      "reviewer": "DW",
+      "createdate": "2007-01-09 04:18:05",
+      "reviewdate": "2007-01-09 04:18:05"
+    },
+    {
+      "reviewbody": "im so happy that they put this show on archive b/c it is so good if u don't have get.",
+      "reviewtitle": "this is it",
+      "stars": "5",
+      "reviewer": "chikin",
+      "createdate": "2007-01-11 01:16:05",
+      "reviewdate": "2007-01-11 01:16:05"
+    },
+    {
+      "reviewbody": "uhh pretty sure track 3 and track 5 of the second set are moonscraper not glide",
+      "reviewtitle": "moonscraper?",
+      "stars": "5",
+      "reviewer": "UPStatejammster",
+      "createdate": "2007-01-14 18:54:57",
+      "reviewdate": "2007-01-27 21:28:28"
+    },
+    {
+      "reviewbody": "Set 1, track 2 is a tease/mini-cover of Futurerock's Da Funk starts for anyone who doesn't know/was wondering why it sounded familar/wants to know. Starts about 12 seconds into this track.\n\nOther than that, amazing show, incredibly tight, they keep getting better and better!",
+      "reviewtitle": "A Side Note",
+      "stars": "5",
+      "reviewer": "DSGN",
+      "createdate": "2007-01-17 16:00:11",
+      "reviewdate": "2007-01-17 16:00:11"
+    },
+    {
+      "reviewbody": "FYI - Da Funk is a tune by Daft Punk that is covered by Future Rock.  If you don't own Daft Punk's album Home Work - then go get it...legendary.\n\nGreat recording here, nice job Nick",
+      "reviewtitle": "Da Funk",
+      "stars": "5",
+      "reviewer": "ingsy",
+      "createdate": "2007-01-17 21:11:25",
+      "reviewdate": "2007-01-17 21:11:25"
+    },
+    {
+      "reviewbody": "I'm not usually a big fan of mic'd live recordings, but this turned out quite well.  I just wanted to drop a few lines and thank Nick for recording the show.  This show was the first time that I saw TND live.  I've been a soundguy for the past 10 years and have mixed a ton of bands and worked a ton of shows.  This show was probably my all time favorite.  Great band, great performance and great crowd.  As soon as I hit track two, I started bobbing my head at my desk just like I was there again.  Thank you!!!",
+      "reviewtitle": "Thank you!",
+      "stars": "5",
+      "reviewer": "Zach Dumrese",
+      "createdate": "2007-01-18 17:42:33",
+      "reviewdate": "2007-01-18 17:42:33"
+    }
+  ]
+}

@@ -575,3 +575,19 @@ def test_resolve_titles_never_demotes_a_corroborated_tag():
     tracks = resolve_titles(_files(["Track 01", "Dew", "Star"]), ParsedSetlist(),
                             corroboration=frozenset({fuzzy_norm_title("Track 01")}))
     assert [(t.title, t.title_source) for t in tracks][0] == ("Track 01", "tags")
+
+
+# --- slice 2a: cores and shipped titles ---
+
+from llama.titles import strip_taper_markers, tag_core
+
+
+@pytest.mark.parametrize("tag, core, shipped", [
+    ("FF>", "FF", "FF"), ("ML**", "ML", "ML"), ("7-11**", "7-11", "7-11"), ("FF =>", "FF", "FF"),
+    ("F#", "F", "F#"), ("100%", "100", "100%"), ("Dew #", "Dew", "Dew"), ("J >", "J", "J"),
+    ("? >", "?", "?"), ("R&E ->", "R&E", "R&E"), ("Ravine > J", "Ravine > J", "Ravine > J"),
+    ("Dew > #", "Dew", "Dew"),   # interleaved tail: no shipped title keeps a trailing marker
+])
+def test_tag_core_and_shipped_title(tag, core, shipped):
+    assert tag_core(tag) == core
+    assert strip_taper_markers(tag) == shipped

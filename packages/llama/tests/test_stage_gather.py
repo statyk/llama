@@ -2487,3 +2487,131 @@ def test_2b_item_title_reaches_the_recording_level_class(tmp_path):
     sws = ShowWorkspace(tmp_path / "s")
     res = compute_gather(sws, StubIA(md), None, _furthur_candidate(), F_IDENT, jerrybase_enabled=False)
     assert {t.title_source for t in res.show.tracks} == {"unresolved"}
+
+
+# --- slice 2a on a captured tape: tnd2006-12-13, "J >" tags ---
+
+from llama.models import Track
+from llama.stages.gather import accept_short_tags
+
+TND = FIXTURES / "tnd2006-12-13.json"
+T_IDENT = "tnd2006-12-13.flac16"
+T_SIB = "tnd2006-12-13.sib"
+# Both descriptions list "J", but neither has 19 items (the tape's count), so the
+# whole-tape `setlist` rung cannot fire and the "J >" tracks reach 2a unresolved.
+CHOSEN_DESC = "Set 1\nJ >\nJ (Da Funk) >\nRavine > J\nG-nome > J >\nJ > G-nome\nSet 2\nGlide >\nHome\nJ > Moment #2 >\nVL Tone > J > VL Tone"
+SIB_DESC = "set one: J > , J (Da Funk) > , Ravine > J\nset two: Glide > , Home, J > Moment #2"
+
+
+def _tnd(with_sibling: bool):
+    md = json.loads(TND.read_text())
+    md["metadata"]["description"] = CHOSEN_DESC
+    recs = [RecordingSummary(identifier=T_IDENT)]
+    mapping = {T_IDENT: md}
+    if with_sibling:
+        recs.append(RecordingSummary(identifier=T_SIB))
+        mapping[T_SIB] = {"metadata": dict(md["metadata"], description=SIB_DESC), "files": []}
+    cand = Candidate(performance_id="TheNewDeal/2006-12-13", collection="TheNewDeal", date="2006-12-13",
+                     venue="Water Street Music Hall", city="Rochester, NY", recordings=recs)
+    return MultiIA(mapping), cand
+
+
+def _files_tagged(ia, tag):
+    return {f["name"] for f in ia.mapping[T_IDENT]["files"] if (f.get("title") or "").strip() == tag}
+
+
+def test_2a_accepts_j_when_a_sibling_description_corroborates_it(tmp_path):
+    ia, cand = _tnd(with_sibling=True)
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, T_IDENT, jerrybase_enabled=False)
+    j_tracks = [t for t in res.show.tracks if t.filename in _files_tagged(ia, "J >")]
+    assert len(j_tracks) >= 5 and all((t.title, t.title_source) == ("J", "tags") for t in j_tracks)
+    assert f"accepted short tag title: track {j_tracks[0].index} 'J' corroborated by lma:{T_SIB}" in res.notes
+    q_tracks = [t for t in res.show.tracks if t.filename in _files_tagged(ia, "? >")]
+    assert q_tracks and all(t.title_source == "unresolved" for t in q_tracks)   # "?" never qualifies
+
+
+def test_2a_does_not_count_the_chosen_recordings_own_description(tmp_path):
+    ia, cand = _tnd(with_sibling=False)
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, T_IDENT, jerrybase_enabled=False)
+    assert not any(n.startswith("accepted short tag title") for n in res.notes)
+    assert all(t.title_source == "unresolved" for t in res.show.tracks if t.filename in _files_tagged(ia, "J >"))
+    assert "unresolved track titles" in res.show.review_flags
+
+
+def test_accept_short_tags_rules():
+    tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3", title_source="unresolved")
+              for i in range(1, 8)]
+    tracks[5] = tracks[5].model_copy(update={"title": "Ramone & Emiglio", "title_source": "setlist-gap"})
+    tracks.append(Track(index=8, set="1", title="t8.mp3", filename="t8.mp3", title_source="unresolved"))
+    # row 5 is the metadata-norms veto: "NY" fails is_real_title, so it reaches 2a and is vetoed there;
+    # row 8 is the spec's named timestamp trap, corroborated (as by a copied description) and still vetoed
+    tags = ["FF>", "? >", "05:27 -", "12-28-99", "NY", "R&E", "42", "07:22 - IB49"]
+    corroboration = {fuzzy_norm_title("FF"): ("setlist.fm",), fuzzy_norm_title("?"): ("lma:x",),
+                     fuzzy_norm_title("05:27"): ("lma:x",), fuzzy_norm_title("12-28-99"): ("lma:x",),
+                     fuzzy_norm_title("NY"): ("lma:x",), fuzzy_norm_title("R&E"): ("lma:x",),
+                     fuzzy_norm_title("42"): ("lma:x", "setlist.fm"),
+                     fuzzy_norm_title("07:22 - IB49"): ("lma:x",)}
+    out, notes = accept_short_tags(tracks, tags, "tags", corroboration=corroboration,
+                                   metadata_norms={fuzzy_norm_title("NY")})
+    assert [(t.title, t.title_source) for t in out] == [
+        ("FF", "tags"), ("t2.mp3", "unresolved"), ("t3.mp3", "unresolved"), ("t4.mp3", "unresolved"),
+        ("t5.mp3", "unresolved"), ("Ramone & Emiglio", "setlist-gap"), ("42", "tags"),
+        ("t8.mp3", "unresolved")]
+    assert notes == ["accepted short tag title: track 1 'FF' corroborated by setlist.fm",
+                     "accepted short tag title: track 7 '42' corroborated by lma:x, setlist.fm"]
+    assert tracks[0].title_source == "unresolved"     # input untouched
+
+
+def test_accept_short_tags_ignores_tags_that_pass_is_real_title():
+    # a 2b-demoted "tmp" is unresolved with a real-looking tag: 2a must not re-accept it
+    tracks = [Track(index=1, set="1", title="t1.mp3", filename="t1.mp3", title_source="unresolved")]
+    out, notes = accept_short_tags(tracks, ["tmp"], "tags", corroboration={fuzzy_norm_title("tmp"): ("lma:x",)},
+                                   metadata_norms=set())
+    assert out[0].title_source == "unresolved" and notes == []
+
+
+def test_accept_short_tags_never_judges_a_real_title_tag():
+    # Mutant (f) guard: "tmp" above is also caught by the junk veto, so it does not
+    # pin the is_real_title gate on its own. "Jam > Jam" is the case only the gate
+    # stops: a recording-level 2b demotion judges the WHOLE tag ("jam jam", not an
+    # item) while 2a would judge per component ("jam" is one) and re-accept it.
+    tracks = [Track(index=1, set="1", title="t1.mp3", filename="t1.mp3", title_source="unresolved")]
+    out, notes = accept_short_tags(tracks, ["Jam > Jam"], "tags",
+                                   corroboration={fuzzy_norm_title("Jam"): ("lma:x",)}, metadata_norms=set())
+    assert out[0].title_source == "unresolved" and notes == []
+
+
+def test_accept_short_tags_needs_every_segue_component_corroborated():
+    # Mutant (c) guard: a multi-component core is accepted only when EVERY
+    # component is a cross-source item; one uncorroborated component vetoes.
+    # Row 2 is the positive control: both components corroborated, sources unioned.
+    tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3", title_source="unresolved")
+              for i in (1, 2)]
+    # Both tags fail is_real_title (2 letters), so both reach 2a's component test.
+    corroboration = {fuzzy_norm_title("J"): ("lma:x",), fuzzy_norm_title("F"): ("setlist.fm",)}
+    out, notes = accept_short_tags(tracks, ["J > X", "J > F >"], "tags",
+                                   corroboration=corroboration, metadata_norms=set())
+    assert [(t.title, t.title_source) for t in out] == [("t1.mp3", "unresolved"), ("J > F", "tags")]
+    assert notes == ["accepted short tag title: track 2 'J > F' corroborated by lma:x, setlist.fm"]
+
+
+def test_accept_short_tags_carries_the_tag_layer_source():
+    # Format recovery fired: the accepted title is stamped `sibling-format`.
+    tracks = [Track(index=1, set="1", title="t1.mp3", filename="t1.mp3", title_source="unresolved")]
+    out, _ = accept_short_tags(tracks, ["ML**"], "sibling-format",
+                               corroboration={fuzzy_norm_title("ML"): ("lma:x",)}, metadata_norms=set())
+    assert (out[0].title, out[0].title_source, out[0].matched) == ("ML", "sibling-format", None)
+
+
+def test_2a_never_judges_an_overridden_position(tmp_path):
+    # M9: a position in overrides.titles is an override, never judged or noted by 2a.
+    ia, cand = _tnd(with_sibling=True)
+    sws = ShowWorkspace(tmp_path / "s")
+    j_names = _files_tagged(ia, "J >")
+    probe = compute_gather(ShowWorkspace(tmp_path / "probe"), ia, None, cand, T_IDENT, jerrybase_enabled=False)
+    n = next(t.index for t in probe.show.tracks if t.filename in j_names)
+    write_artifact(sws.overrides, Overrides(titles={n: "Jam"}))
+    res = compute_gather(sws, ia, None, cand, T_IDENT, jerrybase_enabled=False)
+    assert (res.show.tracks[n - 1].title, res.show.tracks[n - 1].title_source) == ("Jam", "override")
+    assert not any(note.startswith(f"accepted short tag title: track {n} ") for note in res.notes)
+    assert any(note.startswith("accepted short tag title") for note in res.notes)

@@ -12,7 +12,7 @@ from llama.errors import LlamaError
 from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 from llama.ia_client import IAError
 from llama.models import (AlignedStructure, Candidate, ParsedSetlist, Show,
-                          ShowNotes, SourcedParse, StructureInfo)
+                          ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, cplus_filter, propose_rows, rate_alignment
@@ -21,8 +21,10 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              apply_llm_alignment, blend_segues, from_setlistfm,
                              fuzzy_norm_title, norm_title, rank_parses,
                              structure_guard, venues_equivalent)
-from llama.titles import (clean_tag_titles, placeholder_positions, resolve_titles, set_breaks,
-                          sibling_format_titles, tag_layer, title_fraction)
+from llama.placeholders import is_junk_tag
+from llama.titles import (clean_tag_titles, is_real_title, placeholder_positions, resolve_titles,
+                          set_breaks, sibling_format_titles, strip_taper_markers, tag_core,
+                          tag_layer, title_fraction)
 from llama.util import length_seconds
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
 
@@ -861,6 +863,60 @@ def build_canonical(ia, candidate: Candidate, identifier: str, meta: dict,
                           needs_llm=needs_llm, corroboration=corroboration)
 
 
+# Slice 2a's segue split: a core like `Ravine > J` is judged component by
+# component, every one of which must be corroborated.
+_SEGUE_SPLIT = re.compile(r"\s*(?:->|>)\s*")
+
+
+def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: str, *,
+                      corroboration: dict[str, tuple[str, ...]],
+                      metadata_norms: set[str]) -> tuple[list[Track], list[str]]:
+    """Held-backlog slice 2a (spec "2a. Corroborated short tags"; ruling 2:
+    a NEW predicate beside `is_real_title`, which is untouched).
+
+    Fills only tracks still `unresolved`, so it never pre-empts an earlier
+    rung (a `setlist-gap` title stays) and never touches an `override`. A
+    track's tag-layer text (`tag_titles[i]`, the layer `resolve_titles` used)
+    is judged only when it is non-empty and FAILS `is_real_title` -- a
+    2b-demoted `tmp` passes it and is never re-accepted here. Its core
+    (`titles.tag_core`) is accepted when all hold:
+
+    - it contains an alphanumeric character (a `?`-only core never qualifies);
+    - it passes 2a's junk veto (`placeholders.is_junk_tag`), no exemption;
+    - every segue component equals, by `fuzzy_norm_title`, an item of a
+      cross-source parse (`corroboration`: setlist.fm or a sibling
+      description, never the selected recording's own -- ruling 3);
+    - the whole core is not in `metadata_norms`.
+
+    An accepted track ships `titles.strip_taper_markers(tag)` with
+    `title_source=tag_source` (`tags`, or `sibling-format` when format
+    recovery fired); `matched` is untouched. Returns a NEW list and one
+    operator note per accepted track (Contracts id 2a; notes.json only)."""
+    out = list(tracks)
+    notes: list[str] = []
+    for i, t in enumerate(tracks):
+        if t.title_source != "unresolved" or i >= len(tag_titles):
+            continue
+        tag = tag_titles[i]
+        if not tag.strip() or is_real_title(tag):
+            continue
+        core = tag_core(tag)
+        if not any(ch.isalnum() for ch in core) or is_junk_tag(core):
+            continue
+        parts = [c for c in _SEGUE_SPLIT.split(core) if c]
+        keys = [fuzzy_norm_title(c) for c in parts]
+        if not parts or not all(k in corroboration for k in keys):
+            continue
+        if fuzzy_norm_title(core) in metadata_norms:
+            continue
+        title = strip_taper_markers(tag)
+        out[i] = t.model_copy(update={"title": title, "title_source": tag_source})
+        sources = sorted({src for k in keys for src in corroboration[k]})
+        notes.append(f"accepted short tag title: track {t.index} '{title}' "
+                     f"corroborated by {', '.join(sources)}")
+    return out, notes
+
+
 class GatherResult(NamedTuple):
     """`compute_gather`'s result: everything gather derives, nothing written.
 
@@ -1027,7 +1083,7 @@ def compute_gather(
     # count as demoted; resolve_titles' demotion there is overwritten anyway.
     corroboration = frozenset(cb.corroboration)
     item_title = meta.get("title")
-    tag_titles, _ = tag_layer(kept, format_titles, tag_gate_basis)
+    tag_titles, tag_source = tag_layer(kept, format_titles, tag_gate_basis)
     demoted = [i for i in placeholder_positions(tag_titles, corroboration=corroboration,
                                                 item_title=item_title)
                if (i + 1) not in overrides.titles]
@@ -1124,6 +1180,18 @@ def compute_gather(
         tracks, canonical,
         metadata_norms=metadata_norms,
         aliases=family_aliases)
+
+    # Slice 2a (held-backlog spec "2a. Corroborated short tags"): after
+    # sibling-align and setlist-gap, before alignment, so it fills only what
+    # every earlier rung left `unresolved` (`Ramone & Emiglio` from
+    # setlist-gap is never displaced by the tag `R&E`) and never an override
+    # (M9: an `overrides.titles` position is `override` by now, so it is never
+    # judged or noted). Over the same tag layer `resolve_titles` used. Its
+    # notes go to notes.json only (ruling 6), never `structure.conflicts`.
+    tracks, short_notes = accept_short_tags(tracks, tag_titles, tag_source,
+                                            corroboration=cb.corroboration,
+                                            metadata_norms=metadata_norms)
+    op_notes += short_notes
 
     flags = []
     if overrides.set_breaks is not None or overrides.encore_after is not None:
