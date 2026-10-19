@@ -22,8 +22,8 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              fuzzy_norm_title, norm_title, rank_parses,
                              structure_guard, venues_equivalent)
 from llama.placeholders import is_junk_tag
-from llama.titles import (clean_tag_titles, is_real_title, placeholder_positions, resolve_titles,
-                          set_breaks, sibling_format_titles, strip_taper_markers, tag_core,
+from llama.titles import (_GLUED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
+                          is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, strip_taper_markers, tag_core,
                           tag_layer, title_fraction)
 from llama.util import length_seconds
 from llama.workspace import ShowWorkspace, read_model, read_overrides, should_run, write_artifact
@@ -1097,6 +1097,17 @@ def compute_gather(
     for i in demoted:
         op_notes.append(f"placeholder tag title: track {i + 1} '{tag_titles[i]}' "
                         f"demoted to unresolved")
+    # Slice 2c: one note per title the glued-prefix strip changed. Only on the
+    # `tags` layer: under format recovery `tag_titles` are the lossless
+    # sibling's, and comparing them with this mp3's own tags would note strips
+    # that never happened. An overridden position is never judged (as for 2b).
+    if tag_source == "tags":
+        for i, f in enumerate(kept):
+            raw = clean_tag_title(f.get("title"))
+            if (tag_titles[i] != raw and _GLUED_NUM_PREFIX.match(raw)
+                    and (i + 1) not in overrides.titles):
+                op_notes.append(f"stripped glued track number: track {i + 1} "
+                                f"'{raw}' -> '{tag_titles[i]}'")
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
     # exclude-everything tape would otherwise fetch every sibling recording's
     # metadata to resolve zero titles. The output was never wrong, only the

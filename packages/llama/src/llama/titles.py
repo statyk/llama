@@ -180,6 +180,12 @@ _TRACK_NUM_PREFIX = re.compile(r"^\d{1,3}(?!\d)[.)\-:]?\s+(?=\S)")
 _ENUMERATED_MIN_FILES = 3
 _ENUMERATED_MIN_COVERAGE = 0.8
 
+# Slice 2c (held-backlog spec "2c. Glued track-number prefix"): `01Bertha`.
+# A NEW predicate beside `_TRACK_NUM_PREFIX`, never a loosening of it. Exactly
+# two digits followed by an Upper+lower pair, so `3AM`, `M80`, `7-Up` and
+# `01ABBA` are never touched; the same recording-level vote gates it.
+_GLUED_NUM_PREFIX = re.compile(r"^\d{2}(?=[A-Z][a-z])")
+
 
 def title_fraction(titles: list[str]) -> float:
     """Fraction of cleaned titles that are usable. 0.0 for no titles."""
@@ -204,16 +210,22 @@ def clean_tag_titles(
     voters = (titles if gate_basis is None
               else [clean_tag_title(f.get("title")) for f in gate_basis])
     numbered = sum(1 for t in voters if _TRACK_NUM_PREFIX.match(t))
-    if numbered < _ENUMERATED_MIN_FILES or numbered < _ENUMERATED_MIN_COVERAGE * len(voters):
-        return titles
-    # Strip exactly one number, never loop: on an enumerated tape
-    # "01 200 More Miles" must lose only the "01". count=1 is BELT-AND-BRACES
-    # and provably INERT: the REAL guarantee is the ^ anchor, which can only
-    # match at position 0, so a second strip is unreachable with or without it.
-    # The property is pinned by test_clean_tag_titles_strips_once_never_loops.
-    # Kept because it states the intent at the call site - not because it does
-    # anything.
-    return [_TRACK_NUM_PREFIX.sub("", t, count=1) for t in titles]
+    if numbered >= _ENUMERATED_MIN_FILES and numbered >= _ENUMERATED_MIN_COVERAGE * len(voters):
+        # Strip exactly one number, never loop: on an enumerated tape
+        # "01 200 More Miles" must lose only the "01". count=1 is BELT-AND-BRACES
+        # and provably INERT: the REAL guarantee is the ^ anchor, which can only
+        # match at position 0, so a second strip is unreachable with or without it.
+        # The property is pinned by test_clean_tag_titles_strips_once_never_loops.
+        # Kept because it states the intent at the call site - not because it does
+        # anything.
+        titles = [_TRACK_NUM_PREFIX.sub("", t, count=1) for t in titles]
+    # Slice 2c: a second, independent vote for the GLUED form. It runs on both
+    # paths (the spaced vote passing or failing), because a tape numbered only
+    # in the glued form never passes the spaced vote.
+    glued = sum(1 for t in voters if _GLUED_NUM_PREFIX.match(t))
+    if glued >= _ENUMERATED_MIN_FILES and glued >= _ENUMERATED_MIN_COVERAGE * len(voters):
+        titles = [_GLUED_NUM_PREFIX.sub("", t, count=1) for t in titles]
+    return titles
 
 
 def _stem_no_ext(name: str) -> str:

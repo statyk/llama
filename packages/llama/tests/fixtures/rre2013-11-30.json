@@ -1,0 +1,973 @@
+{
+  "metadata": {
+    "identifier": "RRE2013-11-30.ShermanTheaterStroudsburgPa",
+    "uploader": "doseofmk@cox.net",
+    "addeddate": "2013-12-04 00:03:14",
+    "date": "2013-11-30",
+    "title": "Railroad Earth Live at Sherman Theater on 2013-11-30",
+    "creator": "Railroad Earth",
+    "mediatype": "etree",
+    "collection": [
+      "RailroadEarth",
+      "etree"
+    ],
+    "type": "sound",
+    "description": "Railroad Earth with Peter Rowan\nSherman Theater \nStroudsburg, Pa \n11-30-13\n\nOld And In The Way \nSet 1\n\n01Pig In A Pen\n02Midnight Moonlight\n03Old And In The Way\n04Knockin On your Door\n05Hobo Song\n06Panama red\n07Wild Horses\n08Peter Rowan Banter\n09Kissimmee Kid\n10White Dove\n11Land Of The Navajo\n\nSet 2\n12Bringin\u2019 My baby Back Home\n13Old Dangerfield\n14Carrying Coal To Newcastle\n15Mighty River Jam>\n16Mighty River\n17Fisherman\u2019s Blues\n18Seven Story Mountain\n19Chasin\u2019 A Rainbow\n20The Cuckoo #\n21Cold Rain And Snow #\n22Walls Of Time #^\n23One More Night On The Road\n24Todd Banter\n25Railroad Earth",
+    "year": "2013",
+    "subject": "Railroad Earth,Peter Rowan",
+    "venue": "Sherman Theater",
+    "coverage": "Stroudsburg,Pa",
+    "source": "Aud>Pcm",
+    "lineage": "Rode NT5S>Audient Mico>Sony Pcm M10>TLH",
+    "taper": "Doseofmk@cox.net (Danny Balfour)",
+    "transferer": "Doseofmk@cox.net (Danny Balfour)",
+    "publicdate": "2013-12-04 00:09:32",
+    "backup_location": "ia905800_26"
+  },
+  "files": [
+    {
+      "name": "01pigInAPen.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "269.93",
+      "md5": "c06e845bfa0a8f16ff75adc0f93fad2b",
+      "title": "01Pig In A Pen"
+    },
+    {
+      "name": "01pigInAPen.mp3",
+      "source": "derivative",
+      "original": "01pigInAPen.flac",
+      "format": "VBR MP3",
+      "length": "04:29",
+      "md5": "31478f9ed714020f569252885a017de8",
+      "title": "01Pig In A Pen"
+    },
+    {
+      "name": "01pigInAPen.ogg",
+      "source": "derivative",
+      "original": "01pigInAPen.flac",
+      "format": "Ogg Vorbis",
+      "length": "269.93",
+      "md5": "8dba42016f5ba62004d8458671c4958c"
+    },
+    {
+      "name": "01pigInAPen.png",
+      "source": "derivative",
+      "original": "01pigInAPen.flac",
+      "format": "PNG",
+      "md5": "c5db4e429538cfa5040701f00cc09a2b"
+    },
+    {
+      "name": "02midnightMoonlight.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "524.86",
+      "md5": "5109414dcf7fa12bb8d4dc8f3e4d0127",
+      "title": "02Midnight Moonlight"
+    },
+    {
+      "name": "02midnightMoonlight.mp3",
+      "source": "derivative",
+      "original": "02midnightMoonlight.flac",
+      "format": "VBR MP3",
+      "length": "08:44",
+      "md5": "ac963a7bdbae61a77a60bd534c8a8378",
+      "title": "02Midnight Moonlight"
+    },
+    {
+      "name": "02midnightMoonlight.ogg",
+      "source": "derivative",
+      "original": "02midnightMoonlight.flac",
+      "format": "Ogg Vorbis",
+      "length": "524.86",
+      "md5": "79fe039670333c75ea3103e46579859d"
+    },
+    {
+      "name": "02midnightMoonlight.png",
+      "source": "derivative",
+      "original": "02midnightMoonlight.flac",
+      "format": "PNG",
+      "md5": "b73ae7cba267818e8915a8027c2a6296"
+    },
+    {
+      "name": "03oldAndInTheWay.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "232.68",
+      "md5": "2c61c04404550f77bee7f27febf21021",
+      "title": "03Old And In The Way"
+    },
+    {
+      "name": "03oldAndInTheWay.mp3",
+      "source": "derivative",
+      "original": "03oldAndInTheWay.flac",
+      "format": "VBR MP3",
+      "length": "03:52",
+      "md5": "4a7a77eeaf62fa453d10b1c07baafb1e",
+      "title": "03Old And In The Way"
+    },
+    {
+      "name": "03oldAndInTheWay.ogg",
+      "source": "derivative",
+      "original": "03oldAndInTheWay.flac",
+      "format": "Ogg Vorbis",
+      "length": "232.68",
+      "md5": "2f3ff18374284b484ae7c7dc15c2d238"
+    },
+    {
+      "name": "03oldAndInTheWay.png",
+      "source": "derivative",
+      "original": "03oldAndInTheWay.flac",
+      "format": "PNG",
+      "md5": "61fd25e015b71fa851dcd324e2249ade"
+    },
+    {
+      "name": "04knockinOnYourDoor.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "315.07",
+      "md5": "563181078749887ad17133f62ba3df28",
+      "title": "04Knockin On your Door"
+    },
+    {
+      "name": "04knockinOnYourDoor.mp3",
+      "source": "derivative",
+      "original": "04knockinOnYourDoor.flac",
+      "format": "VBR MP3",
+      "length": "05:15",
+      "md5": "a3c33d75913dcc33a427a54c34f5493f",
+      "title": "04Knockin On your Door"
+    },
+    {
+      "name": "04knockinOnYourDoor.ogg",
+      "source": "derivative",
+      "original": "04knockinOnYourDoor.flac",
+      "format": "Ogg Vorbis",
+      "length": "315.07",
+      "md5": "fb6ca1766fb49768482af64f45da6eba"
+    },
+    {
+      "name": "04knockinOnYourDoor.png",
+      "source": "derivative",
+      "original": "04knockinOnYourDoor.flac",
+      "format": "PNG",
+      "md5": "895ccd16070c07985b4e676dc7578c1c"
+    },
+    {
+      "name": "05hoboSong.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "443.69",
+      "md5": "8549f163a970492cfeda60f545b33da3",
+      "title": "05Hobo Song"
+    },
+    {
+      "name": "05hoboSong.mp3",
+      "source": "derivative",
+      "original": "05hoboSong.flac",
+      "format": "VBR MP3",
+      "length": "07:23",
+      "md5": "8cfa0b8e7ca31b20fb025abf76d6b56d",
+      "title": "05Hobo Song"
+    },
+    {
+      "name": "05hoboSong.ogg",
+      "source": "derivative",
+      "original": "05hoboSong.flac",
+      "format": "Ogg Vorbis",
+      "length": "443.69",
+      "md5": "4024ccbf8eb724ad16959ea8133bc8f4"
+    },
+    {
+      "name": "05hoboSong.png",
+      "source": "derivative",
+      "original": "05hoboSong.flac",
+      "format": "PNG",
+      "md5": "a64bd94beaa04ed69f73a0e02ef9b761"
+    },
+    {
+      "name": "06panamaRed.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "175.72",
+      "md5": "9436962f8baba9625e28ef23dfa21373",
+      "title": "06Panama Red"
+    },
+    {
+      "name": "06panamaRed.mp3",
+      "source": "derivative",
+      "original": "06panamaRed.flac",
+      "format": "VBR MP3",
+      "length": "02:55",
+      "md5": "4367320e87c151df6d70a41629effb18",
+      "title": "06Panama Red"
+    },
+    {
+      "name": "06panamaRed.ogg",
+      "source": "derivative",
+      "original": "06panamaRed.flac",
+      "format": "Ogg Vorbis",
+      "length": "175.72",
+      "md5": "03909b2b9a1ec48a3c9d97bbc4e1281f"
+    },
+    {
+      "name": "06panamaRed.png",
+      "source": "derivative",
+      "original": "06panamaRed.flac",
+      "format": "PNG",
+      "md5": "f1a9614294824e987d055df5d708dc12"
+    },
+    {
+      "name": "07wildHorses.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "483.48",
+      "md5": "8d36781c5130d5e257e67afb0d4adc88",
+      "title": "07Wild Horses"
+    },
+    {
+      "name": "07wildHorses.mp3",
+      "source": "derivative",
+      "original": "07wildHorses.flac",
+      "format": "VBR MP3",
+      "length": "08:03",
+      "md5": "b5dfb148321e0b7ba124ce5d5b7243f8",
+      "title": "07Wild Horses"
+    },
+    {
+      "name": "07wildHorses.ogg",
+      "source": "derivative",
+      "original": "07wildHorses.flac",
+      "format": "Ogg Vorbis",
+      "length": "483.48",
+      "md5": "f2f7b8c322866abcada21e4bff285f79"
+    },
+    {
+      "name": "07wildHorses.png",
+      "source": "derivative",
+      "original": "07wildHorses.flac",
+      "format": "PNG",
+      "md5": "6749b1a7882dcaa087862fe40f9b5507"
+    },
+    {
+      "name": "08peterRowanBanter.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "82.57",
+      "md5": "b27817b01920903d71b5c7b0ff4eb72b",
+      "title": "08Peter Rowan Banter"
+    },
+    {
+      "name": "08peterRowanBanter.mp3",
+      "source": "derivative",
+      "original": "08peterRowanBanter.flac",
+      "format": "VBR MP3",
+      "length": "01:22",
+      "md5": "a32f6fe467f9834e081fe86e24f3d346",
+      "title": "08Peter Rowan Banter"
+    },
+    {
+      "name": "08peterRowanBanter.ogg",
+      "source": "derivative",
+      "original": "08peterRowanBanter.flac",
+      "format": "Ogg Vorbis",
+      "length": "82.57",
+      "md5": "f483fb41da93cfd4346c05c4955b043a"
+    },
+    {
+      "name": "08peterRowanBanter.png",
+      "source": "derivative",
+      "original": "08peterRowanBanter.flac",
+      "format": "PNG",
+      "md5": "2832e11d67bb39469ed88e33c7d90aeb"
+    },
+    {
+      "name": "09kissimmeeKid.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "292.03",
+      "md5": "9747dfceb5c8572e7b82473556a56e6a",
+      "title": "09Kissimmee Kid"
+    },
+    {
+      "name": "09kissimmeeKid.mp3",
+      "source": "derivative",
+      "original": "09kissimmeeKid.flac",
+      "format": "VBR MP3",
+      "length": "04:52",
+      "md5": "2cd3ae4caed7a1ea1b145c219580a0bc",
+      "title": "09Kissimmee Kid"
+    },
+    {
+      "name": "09kissimmeeKid.ogg",
+      "source": "derivative",
+      "original": "09kissimmeeKid.flac",
+      "format": "Ogg Vorbis",
+      "length": "292.03",
+      "md5": "f0cf206c1ee99c794ac6b434b282e027"
+    },
+    {
+      "name": "09kissimmeeKid.png",
+      "source": "derivative",
+      "original": "09kissimmeeKid.flac",
+      "format": "PNG",
+      "md5": "38c50047f374f76a525dbdea4e734302"
+    },
+    {
+      "name": "10whiteDove.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "470",
+      "md5": "1756104a17013d372c83d389d8cbf252",
+      "title": "10White Dove"
+    },
+    {
+      "name": "10whiteDove.mp3",
+      "source": "derivative",
+      "original": "10whiteDove.flac",
+      "format": "VBR MP3",
+      "length": "07:50",
+      "md5": "c8eafa392db230d395c7d36a1778f534",
+      "title": "10White Dove"
+    },
+    {
+      "name": "10whiteDove.ogg",
+      "source": "derivative",
+      "original": "10whiteDove.flac",
+      "format": "Ogg Vorbis",
+      "length": "470",
+      "md5": "d2bce48d15916acdfd1324e0323e9c8b"
+    },
+    {
+      "name": "10whiteDove.png",
+      "source": "derivative",
+      "original": "10whiteDove.flac",
+      "format": "PNG",
+      "md5": "1a98a3b53327811fbb139610b43de5cf"
+    },
+    {
+      "name": "11landOfTheNavajo.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "750.98",
+      "md5": "988966d129ff9ad6ac77d9de707f711f",
+      "title": "11Land Of The Navajo"
+    },
+    {
+      "name": "11landOfTheNavajo.mp3",
+      "source": "derivative",
+      "original": "11landOfTheNavajo.flac",
+      "format": "VBR MP3",
+      "length": "12:31",
+      "md5": "fd36da34d7cb6be74333fa11ab925d93",
+      "title": "11Land Of The Navajo"
+    },
+    {
+      "name": "11landOfTheNavajo.ogg",
+      "source": "derivative",
+      "original": "11landOfTheNavajo.flac",
+      "format": "Ogg Vorbis",
+      "length": "750.99",
+      "md5": "b79c733c6062ce5882fb6ad832aeec16"
+    },
+    {
+      "name": "11landOfTheNavajo.png",
+      "source": "derivative",
+      "original": "11landOfTheNavajo.flac",
+      "format": "PNG",
+      "md5": "1055f8a55f7c7b7596643bace580889c"
+    },
+    {
+      "name": "12bringinMyBabyBackHome.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "314.44",
+      "md5": "c8c97279b3651d57f6fbcf24eb43873a",
+      "title": "12Bringin' My Baby Back Home"
+    },
+    {
+      "name": "12bringinMyBabyBackHome.mp3",
+      "source": "derivative",
+      "original": "12bringinMyBabyBackHome.flac",
+      "format": "VBR MP3",
+      "length": "05:14",
+      "md5": "1bcf40e1622db23b773e91e7fb053c2c",
+      "title": "12Bringin' My Baby Back Home"
+    },
+    {
+      "name": "12bringinMyBabyBackHome.ogg",
+      "source": "derivative",
+      "original": "12bringinMyBabyBackHome.flac",
+      "format": "Ogg Vorbis",
+      "length": "314.44",
+      "md5": "c86ba08764a4368817b12102c572dfc5"
+    },
+    {
+      "name": "12bringinMyBabyBackHome.png",
+      "source": "derivative",
+      "original": "12bringinMyBabyBackHome.flac",
+      "format": "PNG",
+      "md5": "9f8ef0738f90eb395ed7e5976a25ee52"
+    },
+    {
+      "name": "13oldDangerfield.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "417.73",
+      "md5": "ebe92991474439af370b62f42dc7bd2c",
+      "title": "13Old Dangerfield"
+    },
+    {
+      "name": "13oldDangerfield.mp3",
+      "source": "derivative",
+      "original": "13oldDangerfield.flac",
+      "format": "VBR MP3",
+      "length": "06:57",
+      "md5": "d9c8c2d05868557d20cbf24e6d5484c7",
+      "title": "13Old Dangerfield"
+    },
+    {
+      "name": "13oldDangerfield.ogg",
+      "source": "derivative",
+      "original": "13oldDangerfield.flac",
+      "format": "Ogg Vorbis",
+      "length": "417.73",
+      "md5": "ae66a8dbaf6cf9a52bf638c5e017c87f"
+    },
+    {
+      "name": "13oldDangerfield.png",
+      "source": "derivative",
+      "original": "13oldDangerfield.flac",
+      "format": "PNG",
+      "md5": "d72ae7e7758d6c490d497147e4324e00"
+    },
+    {
+      "name": "14carryingCoalToNewcastle.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "413.25",
+      "md5": "d15bad98478a512b67c59d3ae1f6acc5",
+      "title": "14Carrying Coal To Newcastle"
+    },
+    {
+      "name": "14carryingCoalToNewcastle.mp3",
+      "source": "derivative",
+      "original": "14carryingCoalToNewcastle.flac",
+      "format": "VBR MP3",
+      "length": "06:53",
+      "md5": "3c3ab3077cb0b59824ad720fced5c903",
+      "title": "14Carrying Coal To Newcastle"
+    },
+    {
+      "name": "14carryingCoalToNewcastle.ogg",
+      "source": "derivative",
+      "original": "14carryingCoalToNewcastle.flac",
+      "format": "Ogg Vorbis",
+      "length": "413.25",
+      "md5": "7287f53d8cfb1c711927d33d13bad896"
+    },
+    {
+      "name": "14carryingCoalToNewcastle.png",
+      "source": "derivative",
+      "original": "14carryingCoalToNewcastle.flac",
+      "format": "PNG",
+      "md5": "8c255584014c86bb608236344180576b"
+    },
+    {
+      "name": "15mightyRiverJam.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "165.74",
+      "md5": "1c94fa9789606d4a44dec34d5f9d8c4b",
+      "title": "15Mighty River Jam"
+    },
+    {
+      "name": "15mightyRiverJam.mp3",
+      "source": "derivative",
+      "original": "15mightyRiverJam.flac",
+      "format": "VBR MP3",
+      "length": "02:45",
+      "md5": "a950d62396f519ad57aa1c6ad3921e5b",
+      "title": "15Mighty River Jam"
+    },
+    {
+      "name": "15mightyRiverJam.ogg",
+      "source": "derivative",
+      "original": "15mightyRiverJam.flac",
+      "format": "Ogg Vorbis",
+      "length": "165.74",
+      "md5": "49dbd599f18cd682923735ac33eec93b"
+    },
+    {
+      "name": "15mightyRiverJam.png",
+      "source": "derivative",
+      "original": "15mightyRiverJam.flac",
+      "format": "PNG",
+      "md5": "39b807636be0b458fb7ea90d42d386e5"
+    },
+    {
+      "name": "16mightyRiver.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "343.67",
+      "md5": "92ac29318de1224ba9a33dbef6eea719",
+      "title": "16Mighty River"
+    },
+    {
+      "name": "16mightyRiver.mp3",
+      "source": "derivative",
+      "original": "16mightyRiver.flac",
+      "format": "VBR MP3",
+      "length": "05:43",
+      "md5": "f167779229b490516878014e5f88b87e",
+      "title": "16Mighty River"
+    },
+    {
+      "name": "16mightyRiver.ogg",
+      "source": "derivative",
+      "original": "16mightyRiver.flac",
+      "format": "Ogg Vorbis",
+      "length": "343.67",
+      "md5": "3c7e0297005f8b3a4b6b2415160143ff"
+    },
+    {
+      "name": "16mightyRiver.png",
+      "source": "derivative",
+      "original": "16mightyRiver.flac",
+      "format": "PNG",
+      "md5": "d54f3d9c5296b71e6fc134905371d372"
+    },
+    {
+      "name": "17fishermansBlues.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "358.93",
+      "md5": "8eea6ababc237de64362b8d187b940c7",
+      "title": "17Fisherman's Blues"
+    },
+    {
+      "name": "17fishermansBlues.mp3",
+      "source": "derivative",
+      "original": "17fishermansBlues.flac",
+      "format": "VBR MP3",
+      "length": "05:58",
+      "md5": "3f2bc52e58b8596411f47ca133e03e7d",
+      "title": "17Fisherman's Blues"
+    },
+    {
+      "name": "17fishermansBlues.ogg",
+      "source": "derivative",
+      "original": "17fishermansBlues.flac",
+      "format": "Ogg Vorbis",
+      "length": "358.93",
+      "md5": "68048c06ce49db73cea476ce502c7b7b"
+    },
+    {
+      "name": "17fishermansBlues.png",
+      "source": "derivative",
+      "original": "17fishermansBlues.flac",
+      "format": "PNG",
+      "md5": "7813bafd16e7d95acdc032779016befe"
+    },
+    {
+      "name": "18sevenStoryMountain.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "863.52",
+      "md5": "6875e9904da7f579edc1bf6c0933d130",
+      "title": "18Seven Story Mountain"
+    },
+    {
+      "name": "18sevenStoryMountain.mp3",
+      "source": "derivative",
+      "original": "18sevenStoryMountain.flac",
+      "format": "VBR MP3",
+      "length": "14:23",
+      "md5": "eb7194f0d05c1fc44bb8a79141600521",
+      "title": "18Seven Story Mountain"
+    },
+    {
+      "name": "18sevenStoryMountain.ogg",
+      "source": "derivative",
+      "original": "18sevenStoryMountain.flac",
+      "format": "Ogg Vorbis",
+      "length": "863.52",
+      "md5": "92a392328387e394b1faf6b80c62a9f2"
+    },
+    {
+      "name": "18sevenStoryMountain.png",
+      "source": "derivative",
+      "original": "18sevenStoryMountain.flac",
+      "format": "PNG",
+      "md5": "572d7fa8bf3e920cc5f3871202bcdafb"
+    },
+    {
+      "name": "19chasinARainbow.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "380.03",
+      "md5": "c17d004a0e25bfa97949f572196fbf8e",
+      "title": "19Chasin' A Rainbow"
+    },
+    {
+      "name": "19chasinARainbow.mp3",
+      "source": "derivative",
+      "original": "19chasinARainbow.flac",
+      "format": "VBR MP3",
+      "length": "06:20",
+      "md5": "cab533f52b4b982a6cdd4878350ac4df",
+      "title": "19Chasin' A Rainbow"
+    },
+    {
+      "name": "19chasinARainbow.ogg",
+      "source": "derivative",
+      "original": "19chasinARainbow.flac",
+      "format": "Ogg Vorbis",
+      "length": "380.03",
+      "md5": "60aa8f27d56c6f58702d1355acc157dd"
+    },
+    {
+      "name": "19chasinARainbow.png",
+      "source": "derivative",
+      "original": "19chasinARainbow.flac",
+      "format": "PNG",
+      "md5": "34dfc4805029ec8aa908db90749e6e84"
+    },
+    {
+      "name": "20theCuckoo.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "694.97",
+      "md5": "23d1f555ac97e167c151b92b9a0c2454",
+      "title": "20The Cuckoo #"
+    },
+    {
+      "name": "20theCuckoo.mp3",
+      "source": "derivative",
+      "original": "20theCuckoo.flac",
+      "format": "VBR MP3",
+      "length": "11:35",
+      "md5": "780f1d04d9d67a88fff2d321e877368e",
+      "title": "20The Cuckoo #"
+    },
+    {
+      "name": "20theCuckoo.ogg",
+      "source": "derivative",
+      "original": "20theCuckoo.flac",
+      "format": "Ogg Vorbis",
+      "length": "694.97",
+      "md5": "02f0abbeff08de61b148812cc874d2e1"
+    },
+    {
+      "name": "20theCuckoo.png",
+      "source": "derivative",
+      "original": "20theCuckoo.flac",
+      "format": "PNG",
+      "md5": "c14cb179bdcfaa3e1c5754d9ab798643"
+    },
+    {
+      "name": "21coldRainAndSnow.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "562.55",
+      "md5": "f926d4f5202996f66ed57e9c576b6506",
+      "title": "21Cold Rain And Snow #"
+    },
+    {
+      "name": "21coldRainAndSnow.mp3",
+      "source": "derivative",
+      "original": "21coldRainAndSnow.flac",
+      "format": "VBR MP3",
+      "length": "09:22",
+      "md5": "9ba69e4529c68a4af7bfce9aacb8f7dd",
+      "title": "21Cold Rain And Snow #"
+    },
+    {
+      "name": "21coldRainAndSnow.ogg",
+      "source": "derivative",
+      "original": "21coldRainAndSnow.flac",
+      "format": "Ogg Vorbis",
+      "length": "562.55",
+      "md5": "a9ac63b00495d13ab07e0eb68f590434"
+    },
+    {
+      "name": "21coldRainAndSnow.png",
+      "source": "derivative",
+      "original": "21coldRainAndSnow.flac",
+      "format": "PNG",
+      "md5": "cd740fc7de670b891c2c499be91b0967"
+    },
+    {
+      "name": "22wallsOfTime.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "750.59",
+      "md5": "9f1e2c5cad67903927e95a0af85d1e81",
+      "title": "22Walls Of Time #^"
+    },
+    {
+      "name": "22wallsOfTime.mp3",
+      "source": "derivative",
+      "original": "22wallsOfTime.flac",
+      "format": "VBR MP3",
+      "length": "12:30",
+      "md5": "f3cb0f3cecf08f70a49983c99d892f29",
+      "title": "22Walls Of Time #^"
+    },
+    {
+      "name": "22wallsOfTime.ogg",
+      "source": "derivative",
+      "original": "22wallsOfTime.flac",
+      "format": "Ogg Vorbis",
+      "length": "750.59",
+      "md5": "d8a8b0d4b4360f312fb80ab933bbe826"
+    },
+    {
+      "name": "22wallsOfTime.png",
+      "source": "derivative",
+      "original": "22wallsOfTime.flac",
+      "format": "PNG",
+      "md5": "4eb0a56bf20e933a0bed1844cb96e4cf"
+    },
+    {
+      "name": "23oneMoreNightOnTheRoad.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "300.56",
+      "md5": "922050792c2d7ffac4882f88db5dec19",
+      "title": "23One More Night On The Road"
+    },
+    {
+      "name": "23oneMoreNightOnTheRoad.mp3",
+      "source": "derivative",
+      "original": "23oneMoreNightOnTheRoad.flac",
+      "format": "VBR MP3",
+      "length": "05:00",
+      "md5": "0d769a3c7aab9ea1578d95b60339a812",
+      "title": "23One More Night On The Road"
+    },
+    {
+      "name": "23oneMoreNightOnTheRoad.ogg",
+      "source": "derivative",
+      "original": "23oneMoreNightOnTheRoad.flac",
+      "format": "Ogg Vorbis",
+      "length": "300.56",
+      "md5": "f9f2d11bb23d7d82cfb8b4c4a30407e8"
+    },
+    {
+      "name": "23oneMoreNightOnTheRoad.png",
+      "source": "derivative",
+      "original": "23oneMoreNightOnTheRoad.flac",
+      "format": "PNG",
+      "md5": "291ba7c85dce3551d5ffa62bc6b18adb"
+    },
+    {
+      "name": "24toddBanter.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "36.74",
+      "md5": "6056088361623f372f7b63fd3e6192ca",
+      "title": "24Todd Banter"
+    },
+    {
+      "name": "24toddBanter.mp3",
+      "source": "derivative",
+      "original": "24toddBanter.flac",
+      "format": "VBR MP3",
+      "length": "00:36",
+      "md5": "893ea9f4188d4808e31588b48493ce22",
+      "title": "24Todd Banter"
+    },
+    {
+      "name": "24toddBanter.ogg",
+      "source": "derivative",
+      "original": "24toddBanter.flac",
+      "format": "Ogg Vorbis",
+      "length": "36.74",
+      "md5": "8e67746a20a7d8a7f67186bf1ba0523e"
+    },
+    {
+      "name": "24toddBanter.png",
+      "source": "derivative",
+      "original": "24toddBanter.flac",
+      "format": "PNG",
+      "md5": "fa283ff7aca634c7b28eb73f098f1cca"
+    },
+    {
+      "name": "25railroadEarth.flac",
+      "source": "original",
+      "format": "Flac",
+      "length": "417.95",
+      "md5": "81a2bcc025dd857807b44a191365c4a0",
+      "title": "25Railroad Earth"
+    },
+    {
+      "name": "25railroadEarth.mp3",
+      "source": "derivative",
+      "original": "25railroadEarth.flac",
+      "format": "VBR MP3",
+      "length": "06:57",
+      "md5": "02e95d6e0c2e83dd3579ead8a19b9df4",
+      "title": "25Railroad Earth"
+    },
+    {
+      "name": "25railroadEarth.ogg",
+      "source": "derivative",
+      "original": "25railroadEarth.flac",
+      "format": "Ogg Vorbis",
+      "length": "417.95",
+      "md5": "6c2afdb9f7c23d811dd3c39a4dce028d"
+    },
+    {
+      "name": "25railroadEarth.png",
+      "source": "derivative",
+      "original": "25railroadEarth.flac",
+      "format": "PNG",
+      "md5": "dd558f9a33f941e0d105c24d2a1ad119"
+    },
+    {
+      "name": "RRE2013-11-30.ShermanTheaterStroudsburgPa.ffp",
+      "source": "derivative",
+      "original": [
+        "01pigInAPen.flac",
+        "02midnightMoonlight.flac",
+        "03oldAndInTheWay.flac",
+        "04knockinOnYourDoor.flac",
+        "05hoboSong.flac",
+        "06panamaRed.flac",
+        "07wildHorses.flac",
+        "08peterRowanBanter.flac",
+        "09kissimmeeKid.flac",
+        "10whiteDove.flac",
+        "11landOfTheNavajo.flac",
+        "12bringinMyBabyBackHome.flac",
+        "13oldDangerfield.flac",
+        "14carryingCoalToNewcastle.flac",
+        "15mightyRiverJam.flac",
+        "16mightyRiver.flac",
+        "17fishermansBlues.flac",
+        "18sevenStoryMountain.flac",
+        "19chasinARainbow.flac",
+        "20theCuckoo.flac",
+        "21coldRainAndSnow.flac",
+        "22wallsOfTime.flac",
+        "23oneMoreNightOnTheRoad.flac",
+        "24toddBanter.flac",
+        "25railroadEarth.flac"
+      ],
+      "format": "Flac FingerPrint",
+      "md5": "d02891002ce2fcd12991c224670602d6"
+    },
+    {
+      "name": "RRE2013-11-30.ShermanTheaterStroudsburgPa.md5",
+      "source": "derivative",
+      "original": [
+        "01pigInAPen.flac",
+        "02midnightMoonlight.flac",
+        "03oldAndInTheWay.flac",
+        "04knockinOnYourDoor.flac",
+        "05hoboSong.flac",
+        "06panamaRed.flac",
+        "07wildHorses.flac",
+        "08peterRowanBanter.flac",
+        "09kissimmeeKid.flac",
+        "10whiteDove.flac",
+        "11landOfTheNavajo.flac",
+        "12bringinMyBabyBackHome.flac",
+        "13oldDangerfield.flac",
+        "14carryingCoalToNewcastle.flac",
+        "15mightyRiverJam.flac",
+        "16mightyRiver.flac",
+        "17fishermansBlues.flac",
+        "18sevenStoryMountain.flac",
+        "19chasinARainbow.flac",
+        "20theCuckoo.flac",
+        "21coldRainAndSnow.flac",
+        "22wallsOfTime.flac",
+        "23oneMoreNightOnTheRoad.flac",
+        "24toddBanter.flac",
+        "25railroadEarth.flac"
+      ],
+      "format": "Checksums",
+      "md5": "a90b711f771ec6637cfe172e9e7b3a98"
+    },
+    {
+      "name": "RRE2013-11-30.ShermanTheaterStroudsburgPa_archive.torrent",
+      "source": "metadata",
+      "format": "Archive BitTorrent",
+      "md5": "0cc6d1c582bde622a97641ec1ac972c2"
+    },
+    {
+      "name": "RRE2013-11-30.ShermanTheaterStroudsburgPa_files.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "075ce1e854366e4363da401897c5d296"
+    },
+    {
+      "name": "RRE2013-11-30.ShermanTheaterStroudsburgPa_meta.xml",
+      "source": "metadata",
+      "format": "Metadata",
+      "md5": "99c519837301b9d5345b0292c676dcdc"
+    },
+    {
+      "name": "RRE2013-11-30.ShermanTheaterStroudsburgPa_reviews.xml",
+      "source": "original",
+      "format": "Metadata",
+      "md5": "cfe68f35f4ce8a751b01beeed7a61c72"
+    },
+    {
+      "name": "RailroadEarthWithPeterRowan11-30-13ShermanTheaterStroudsburgpa.ffp",
+      "source": "original",
+      "format": "Flac FingerPrint",
+      "md5": "661236f865f7f5b5a32305ba2cca1328",
+      "title": "railroad Earth With Peter Rowan 11-30-13 Sherman Theater Stroudsburg ,Pa"
+    },
+    {
+      "name": "RailroadEarthWithPeterRowan11-30-13ShermanTheaterStroudsburgpa.txt",
+      "source": "original",
+      "format": "Text",
+      "md5": "2c02d251744a69774ded946936e83ec0",
+      "title": "Railroad Earth With Peter Rowan 11-30-13 Sherman Theater Stroudsburg,Pa"
+    },
+    {
+      "name": "__ia_thumb.jpg",
+      "source": "original",
+      "format": "Item Tile",
+      "md5": "66beded760eaa349189179a5c5e69bbc"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewbody": "lots of crowd noise/talking, your mic's should have been set higher the 5 feet. Go for the other copies much better sound.",
+      "reviewtitle": "another let down",
+      "reviewer": "LGTR",
+      "reviewdate": "2013-12-04 05:23:15",
+      "createdate": "2013-12-04 05:23:15",
+      "stars": "1"
+    },
+    {
+      "reviewbody": "Really i dont care what you think but u need to crawl back under your bridge not sure what your deal is bedide your a troll but  if you have the expert equipment then tape the shows and let us hear what you got i myself think it sounds good so if you dont like it dont listen wait for sbd !!! I have an idea of who u are !!!!!!",
+      "reviewtitle": "LGTR wheres your pull????i think mine sounds nice !!!!!!",
+      "reviewer": "doseofmk",
+      "reviewdate": "2013-12-04 07:40:53",
+      "createdate": "2013-12-04 07:40:53",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "Felt like another review was needed here to balance things out. Yeah, there's some crowd noise but it was a loud crowd that night. As far as the recording itself, this is definitely the cleanest recordings of the show up on the archive so far and the first one that was clean enough for me to download. Nice job, Danny.",
+      "reviewtitle": "Nicely done",
+      "reviewer": "Spelaeus",
+      "reviewdate": "2013-12-04 10:26:44",
+      "createdate": "2013-12-04 10:26:44",
+      "stars": "4"
+    },
+    {
+      "reviewbody": "Great job! Love hearing the crowd getting into it (how could they not with Peter Rowan there?). New songs debuted, Railroad Earth encore. I'd be plumb happy with either of these sets, but both in the same night? Thanks for capturing the magic. ",
+      "reviewtitle": "Yessir!!",
+      "reviewer": "eyesaweabyrd",
+      "reviewdate": "2013-12-04 12:08:54",
+      "createdate": "2013-12-04 12:08:54",
+      "stars": "4"
+    }
+  ]
+}

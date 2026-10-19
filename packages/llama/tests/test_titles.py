@@ -592,3 +592,44 @@ from llama.titles import strip_taper_markers, tag_core
 def test_tag_core_and_shipped_title(tag, core, shipped):
     assert tag_core(tag) == core
     assert strip_taper_markers(tag) == shipped
+
+
+# --- slice 2c: a glued two-digit prefix on an enumerated tape ---
+
+def test_clean_tag_titles_strips_a_glued_prefix_when_the_recording_votes_for_it():
+    files = _files(["01Pig In A Pen", "02Midnight Moonlight", "03Old And In The Way", "03Colorado"])
+    assert clean_tag_titles(files) == ["Pig In A Pen", "Midnight Moonlight", "Old And In The Way", "Colorado"]
+
+
+def test_glued_strip_runs_beside_a_passing_spaced_vote():
+    # Existing vote passes (spaced prefixes), glued vote also passes on the same
+    # voters only if glued >= 80% -- here it fails, so the glued title stays.
+    files = _files(["01 Pig In A Pen", "02 Midnight Moonlight", "03 Old", "04 Dew", "05Star"])
+    assert clean_tag_titles(files) == ["Pig In A Pen", "Midnight Moonlight", "Old", "Dew", "05Star"]
+
+
+def test_glued_strip_applies_when_the_spaced_vote_fails():
+    # No spaced prefixes at all: the old vote fails and returns early; the glued
+    # vote must still run on that path.
+    files = _files(["01Pig In A Pen", "02Midnight Moonlight", "03Old And In The Way"])
+    assert clean_tag_titles(files) == ["Pig In A Pen", "Midnight Moonlight", "Old And In The Way"]
+
+
+@pytest.mark.parametrize("titles", [
+    ["01Pig In A Pen", "02Midnight Moonlight", "Dew"],                   # 2 of 3: under the count floor
+    ["01Pig In A Pen", "02Midnight Moonlight", "03Old", "Dew", "Star"],  # 3 of 5: under 0.8 coverage
+])
+def test_clean_tag_titles_leaves_glued_prefixes_alone_under_the_vote(titles):
+    assert clean_tag_titles(_files(titles)) == titles
+
+
+def test_glued_strip_never_reaches_uppercase_or_digit_second_characters():
+    # The vote PASSES (8 glued of 10 voters), so the lookahead alone is what
+    # keeps the near-misses intact.
+    glued = [f"{n:02d}{t}" for n, t in enumerate(
+        ["Pig In A Pen", "Midnight Moonlight", "Old And In The Way", "Dew",
+         "Star", "Hobo Song", "Panama Red", "Wild Horses"], 1)]
+    out = clean_tag_titles(_files(glued + ["3AM", "01ABBA"]))
+    assert out[:8] == ["Pig In A Pen", "Midnight Moonlight", "Old And In The Way", "Dew",
+                       "Star", "Hobo Song", "Panama Red", "Wild Horses"]
+    assert out[8:] == ["3AM", "01ABBA"]
