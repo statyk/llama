@@ -335,7 +335,7 @@ from llama.structure import venues_equivalent
     ("Jahrhundert Halle", "Jahrhunderthalle"),
     ("Meramec Race Track", "Merramec Racetrack"),
     ("Barrymore Theater", "Barrymore Theatre"),
-    ("Fenwick Hall", "Fenwack Hall"),   # exactly 6 chars one edit apart: floor is inclusive
+    ("Barton Hall", "Burton Hall"),   # exactly 6 chars one edit apart: floor is inclusive
 ])
 def test_venues_equivalent_true(a, b):
     assert venues_equivalent(a, b)
