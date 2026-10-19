@@ -17,6 +17,7 @@ the tree's own interpreter: `./.venv/bin/python scripts/replay_holds.py run
 """
 import argparse
 import hashlib
+import html
 import json
 import logging
 import os
@@ -499,6 +500,78 @@ def _needs_llm(base: dict, cand: dict) -> tuple[list[str], int, int]:
     return [*_lines("base:", b), *_lines("cand:", c)], len(b), len(c)
 
 
+NARRATION_FLAGS = ("single-set structure for a long show", "low-confidence setlist")
+
+
+def _is_candidate(r: dict, show: dict) -> bool:
+    if r.get("state") != "held":
+        return False
+    flags = _all_flags(r)
+    if not flags:
+        return False
+    st = show.get("structure") if isinstance(show.get("structure"), dict) else {}
+    for f in flags:
+        if f.startswith("low-confidence setlist"):
+            if not (st.get("source") == "none" or st.get("coverage") == 0.0):
+                return False
+        elif not f.startswith(NARRATION_FLAGS[0]):
+            return False
+    return True
+
+
+def _tracks(show: dict) -> list[dict]:
+    t = show.get("tracks")
+    return [x for x in t if isinstance(x, dict)] if isinstance(t, list) else []
+
+
+def _narration_row(slug: str, r: dict, root: Path) -> list[str]:
+    show = _show_json(root, slug)
+    tracks = _tracks(show)
+    try:
+        minutes = f"{sum(float(t.get('duration_sec') or 0) for t in tracks) / 60:.0f}" if tracks else "?"
+    except (TypeError, ValueError):
+        minutes = "?"
+    srcs = Counter(str(t.get("title_source")) for t in tracks)
+    untitled = "yes" if tracks and all(t.get("title_source") == "unresolved" for t in tracks) else "no"
+    return [slug, str(show.get("artist") or "?"), str(show.get("date") or "?"),
+            str(show.get("venue") or "?"), minutes, "; ".join(_all_flags(r)),
+            ", ".join(f"{k}: {v}" for k, v in sorted(srcs.items())) or "?", untitled,
+            _excerpt(root, slug)]
+
+
+NARRATION_HEAD = ("slug", "artist", "date", "venue", "minutes", "flags", "title sources",
+                  "untitled", "description")
+NARRATION_JS = """
+document.querySelectorAll('th').forEach(function (th, i) {
+  th.style.cursor = 'pointer';
+  th.addEventListener('click', function () {
+    var tb = document.querySelector('tbody'), asc = th.dataset.asc !== '1';
+    th.dataset.asc = asc ? '1' : '0';
+    var rows = Array.prototype.slice.call(tb.rows);
+    rows.sort(function (a, b) {
+      var x = a.cells[i].textContent, y = b.cells[i].textContent;
+      var nx = parseFloat(x), ny = parseFloat(y);
+      var c = (!isNaN(nx) && !isNaN(ny)) ? nx - ny : x.localeCompare(y);
+      return asc ? c : -c;
+    });
+    rows.forEach(function (r) { tb.appendChild(r); });
+  });
+});
+"""
+
+
+def _narration_page(cand: dict, root: Path) -> str:
+    rows = [_narration_row(s, r, root) for s, r in sorted(cand["shows"].items())
+            if _is_candidate(r, _show_json(root, s))]
+    e = html.escape
+    head = "".join(f"<th>{e(h)}</th>" for h in NARRATION_HEAD)
+    body = "\n".join("<tr>" + "".join(f"<td>{e(c)}</td>" for c in row) + "</tr>" for row in rows)
+    return (f"<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>Narration candidates</title>"
+            f"</head><body>\n<h1>Narration candidates ({len(rows)})</h1>\n"
+            f"<table border=\"1\" cellpadding=\"4\">\n<thead><tr>{head}</tr></thead>\n"
+            f"<tbody>\n{body}\n</tbody></table>\n<script>{NARRATION_JS}</script>\n</body></html>\n")
+
+
 def _list_doc(cand: dict, rows: list[dict]) -> dict:
     return {"sha": cand.get("sha"), "config_fingerprint": cand.get("config_fingerprint"),
             "written_at": datetime.now(timezone.utc).isoformat(), "rows": rows}
@@ -559,6 +632,7 @@ def compare(args: argparse.Namespace) -> int:
     nl, nb, nc_ = _needs_llm(base, cand)
     _write(out, "needs_llm.txt", nl)
     _write(out, "notes.txt", _notes_txt(cand))
+    (out / "narration_candidates.html").write_text(_narration_page(cand, root), encoding="utf-8")
 
     ordered = sorted(cand["shows"].items(), key=lambda kv: _skey(kv[0]))
     predicted = [_list_row(s, r, r["outcome"]) for s, r in ordered if r.get("outcome") in CLEARING]

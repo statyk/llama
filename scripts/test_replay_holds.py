@@ -533,3 +533,80 @@ def test_compare_clears_stale_outputs_before_a_failing_gate(tmp_path):
         assert not (out / name).exists(), name
     assert "gratefuldead-1973-06-10" in (out / "drift.txt").read_text()
     assert (out / "keep.txt").exists()
+
+
+SLUG = "gratefuldead-1973-06-10"
+SINGLE = "single-set structure for a long show (160 min)"
+
+
+def _hold_with(flags, gather_only=True):
+    def hold_it(arm):
+        s = arm["shows"][SLUG]
+        s["gather_flags"], s["vet_flags"] = list(flags), []
+        s["outcome"] = "still-held"
+    return hold_it
+
+
+def _page(tmp_path, mutate, edit_show=None):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    base, cand = _two_arms(tmp_path, mutate)
+    if edit_show:
+        p = tmp_path / "lib" / "shows" / SLUG / "show.json"
+        d = json.loads(p.read_text())
+        edit_show(d)
+        p.write_text(json.dumps(d))
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    return (out / "narration_candidates.html").read_text()
+
+
+def test_narration_candidates_page_lists_unknowable_structure_holds(tmp_path):
+    base, cand = _two_arms(tmp_path, _hold_with([SINGLE]))
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    html = (out / "narration_candidates.html").read_text()
+    assert "<table" in html and SLUG in html and "Grateful Dead" in html
+    assert "gratefuldead-1973-06-11" not in html
+    assert "<script>" in html and "http" not in html.split("<script>")[1]   # inline JS, no CDN
+
+
+def test_narration_candidates_excludes_shows_with_other_flags_or_none(tmp_path):
+    assert SLUG not in _page(tmp_path / "a", _hold_with([SINGLE, "unresolved track titles"]))
+    assert SLUG not in _page(tmp_path / "b", _hold_with([]))
+
+
+def test_low_confidence_setlist_counts_only_with_empty_canonical_proxy(tmp_path):
+    def struct(source, cov):
+        def edit(d):
+            d["structure"] = {"source": source, "alignment": "deterministic", "coverage": cov,
+                              "conflicts": []}
+        return edit
+    flag = _hold_with(["low-confidence setlist"])
+    assert SLUG in _page(tmp_path / "a", flag, struct("none", 0.7))
+    assert SLUG in _page(tmp_path / "b", flag, struct("chosen", 0.0))
+    assert SLUG not in _page(tmp_path / "c", flag, struct("chosen", 0.7))
+
+
+def test_narration_candidates_row_content_untitled_and_escaping(tmp_path):
+    def edit(d):
+        d["venue"] = "<b>Hall</b> & Co"
+        for t in d["tracks"]:
+            t["title_source"] = "unresolved"
+    html = _page(tmp_path, _hold_with([SINGLE]), edit)
+    assert "&lt;b&gt;Hall&lt;/b&gt; &amp; Co" in html and "<b>Hall</b>" not in html
+    assert "unresolved:" in html and ">yes<" in html
+
+
+def test_narration_candidates_degrades_when_show_json_is_unreadable(tmp_path):
+    base, cand = _two_arms(tmp_path, _hold_with([SINGLE]))
+    (tmp_path / "lib" / "shows" / SLUG / "show.json").write_text("{not json")
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    assert SLUG in (out / "narration_candidates.html").read_text()
+
+
+def test_compare_writes_only_files_named_in_output_files(tmp_path):
+    base, cand = _two_arms(tmp_path, _clear_it)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    assert {p.name for p in out.iterdir()} <= set(rh.OUTPUT_FILES)
