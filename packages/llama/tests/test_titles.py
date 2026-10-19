@@ -587,6 +587,7 @@ from llama.titles import strip_taper_markers, tag_core
     ("F#", "F", "F#"), ("100%", "100", "100%"), ("Dew #", "Dew", "Dew"), ("J >", "J", "J"),
     ("? >", "?", "?"), ("R&E ->", "R&E", "R&E"), ("Ravine > J", "Ravine > J", "Ravine > J"),
     ("Dew > #", "Dew", "Dew"),   # interleaved tail: no shipped title keeps a trailing marker
+    ("F > #", "F", "F"), ("1922 $ #", "1922", "1922"),   # reachable interleaved tails (fail is_real_title / pass)
 ])
 def test_tag_core_and_shipped_title(tag, core, shipped):
     assert tag_core(tag) == core

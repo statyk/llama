@@ -2552,7 +2552,7 @@ def test_accept_short_tags_rules():
                      fuzzy_norm_title("42"): ("lma:x", "setlist.fm"),
                      fuzzy_norm_title("07:22 - IB49"): ("lma:x",)}
     out, notes = accept_short_tags(tracks, tags, "tags", corroboration=corroboration,
-                                   metadata_norms={fuzzy_norm_title("NY")})
+                                   metadata_norms={fuzzy_norm_title("NY")}, demoted=frozenset())
     assert [(t.title, t.title_source) for t in out] == [
         ("FF", "tags"), ("t2.mp3", "unresolved"), ("t3.mp3", "unresolved"), ("t4.mp3", "unresolved"),
         ("t5.mp3", "unresolved"), ("Ramone & Emiglio", "setlist-gap"), ("42", "tags"),
@@ -2566,7 +2566,7 @@ def test_accept_short_tags_ignores_tags_that_pass_is_real_title():
     # a 2b-demoted "tmp" is unresolved with a real-looking tag: 2a must not re-accept it
     tracks = [Track(index=1, set="1", title="t1.mp3", filename="t1.mp3", title_source="unresolved")]
     out, notes = accept_short_tags(tracks, ["tmp"], "tags", corroboration={fuzzy_norm_title("tmp"): ("lma:x",)},
-                                   metadata_norms=set())
+                                   metadata_norms=set(), demoted=frozenset())
     assert out[0].title_source == "unresolved" and notes == []
 
 
@@ -2577,8 +2577,37 @@ def test_accept_short_tags_never_judges_a_real_title_tag():
     # item) while 2a would judge per component ("jam" is one) and re-accept it.
     tracks = [Track(index=1, set="1", title="t1.mp3", filename="t1.mp3", title_source="unresolved")]
     out, notes = accept_short_tags(tracks, ["Jam > Jam"], "tags",
-                                   corroboration={fuzzy_norm_title("Jam"): ("lma:x",)}, metadata_norms=set())
+                                   corroboration={fuzzy_norm_title("Jam"): ("lma:x",)}, metadata_norms=set(), demoted=frozenset())
     assert out[0].title_source == "unresolved" and notes == []
+
+
+def test_accept_short_tags_skips_positions_2b_demoted():
+    # Review fix r1: 2b judges the WHOLE tag ("j j" is no item, so a "J > J" x 3 tape
+    # is recording-level junk and demoted) while 2a judges components ("j" is one).
+    # A 2b-demoted position must never be re-accepted by 2a (spec 2b: only
+    # setlist-gap and sibling-align may still title it). Track 4 is the control:
+    # the same tag, not demoted, is accepted.
+    tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3", title_source="unresolved")
+              for i in range(1, 5)]
+    out, notes = accept_short_tags(tracks, ["J > J"] * 4, "tags",
+                                   corroboration={fuzzy_norm_title("J"): ("lma:x",)}, metadata_norms=set(),
+                                   demoted=frozenset({0, 1, 2}))
+    assert [(t.title, t.title_source) for t in out] == [
+        ("t1.mp3", "unresolved"), ("t2.mp3", "unresolved"), ("t3.mp3", "unresolved"), ("J > J", "tags")]
+    assert notes == ["accepted short tag title: track 4 'J > J' corroborated by lma:x"]
+
+
+def test_2a_does_not_reaccept_a_recording_level_2b_demotion(tmp_path):
+    # Wiring for the fix above: every tnd track tagged "J > J" is 2b recording-level
+    # junk; the sibling description corroborates "J", and still nothing is accepted.
+    ia, cand = _tnd(with_sibling=True)
+    for f in ia.mapping[T_IDENT]["files"]:
+        if f.get("title"):
+            f["title"] = "J > J"
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), ia, None, cand, T_IDENT, jerrybase_enabled=False)
+    assert any(n.startswith("placeholder tag title: track 1 'J > J'") for n in res.notes)
+    assert not any(n.startswith("accepted short tag title") for n in res.notes)
+    assert {t.title_source for t in res.show.tracks} == {"unresolved"}
 
 
 def test_accept_short_tags_needs_every_segue_component_corroborated():
@@ -2590,7 +2619,7 @@ def test_accept_short_tags_needs_every_segue_component_corroborated():
     # Both tags fail is_real_title (2 letters), so both reach 2a's component test.
     corroboration = {fuzzy_norm_title("J"): ("lma:x",), fuzzy_norm_title("F"): ("setlist.fm",)}
     out, notes = accept_short_tags(tracks, ["J > X", "J > F >"], "tags",
-                                   corroboration=corroboration, metadata_norms=set())
+                                   corroboration=corroboration, metadata_norms=set(), demoted=frozenset())
     assert [(t.title, t.title_source) for t in out] == [("t1.mp3", "unresolved"), ("J > F", "tags")]
     assert notes == ["accepted short tag title: track 2 'J > F' corroborated by lma:x, setlist.fm"]
 
@@ -2599,7 +2628,7 @@ def test_accept_short_tags_carries_the_tag_layer_source():
     # Format recovery fired: the accepted title is stamped `sibling-format`.
     tracks = [Track(index=1, set="1", title="t1.mp3", filename="t1.mp3", title_source="unresolved")]
     out, _ = accept_short_tags(tracks, ["ML**"], "sibling-format",
-                               corroboration={fuzzy_norm_title("ML"): ("lma:x",)}, metadata_norms=set())
+                               corroboration={fuzzy_norm_title("ML"): ("lma:x",)}, metadata_norms=set(), demoted=frozenset())
     assert (out[0].title, out[0].title_source, out[0].matched) == ("ML", "sibling-format", None)
 
 

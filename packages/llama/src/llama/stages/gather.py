@@ -870,7 +870,8 @@ _SEGUE_SPLIT = re.compile(r"\s*(?:->|>)\s*")
 
 def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: str, *,
                       corroboration: dict[str, tuple[str, ...]],
-                      metadata_norms: set[str]) -> tuple[list[Track], list[str]]:
+                      metadata_norms: set[str],
+                      demoted: frozenset[int]) -> tuple[list[Track], list[str]]:
     """Held-backlog slice 2a (spec "2a. Corroborated short tags"; ruling 2:
     a NEW predicate beside `is_real_title`, which is untouched).
 
@@ -878,7 +879,13 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
     rung (a `setlist-gap` title stays) and never touches an `override`. A
     track's tag-layer text (`tag_titles[i]`, the layer `resolve_titles` used)
     is judged only when it is non-empty and FAILS `is_real_title` -- a
-    2b-demoted `tmp` passes it and is never re-accepted here. Its core
+    2b-demoted `tmp` passes it and is never re-accepted here. Nor is ANY
+    position in `demoted` (0-based, 2b's `placeholder_positions` minus
+    overrides): 2b judges the whole tag and 2a its segue components, so a
+    `J > J` x 3 tape is recording-level junk to 2b (`j j` is no item) yet
+    corroborated per component; spec 2b leaves such a track to setlist-gap and
+    sibling-align only. Required, not defaulted, so no caller can forget it.
+    Its core
     (`titles.tag_core`) is accepted when all hold:
 
     - it contains an alphanumeric character (a `?`-only core never qualifies);
@@ -895,7 +902,7 @@ def accept_short_tags(tracks: list[Track], tag_titles: list[str], tag_source: st
     out = list(tracks)
     notes: list[str] = []
     for i, t in enumerate(tracks):
-        if t.title_source != "unresolved" or i >= len(tag_titles):
+        if t.title_source != "unresolved" or i in demoted or i >= len(tag_titles):
             continue
         tag = tag_titles[i]
         if not tag.strip() or is_real_title(tag):
@@ -1190,7 +1197,8 @@ def compute_gather(
     # notes go to notes.json only (ruling 6), never `structure.conflicts`.
     tracks, short_notes = accept_short_tags(tracks, tag_titles, tag_source,
                                             corroboration=cb.corroboration,
-                                            metadata_norms=metadata_norms)
+                                            metadata_norms=metadata_norms,
+                                            demoted=frozenset(demoted))
     op_notes += short_notes
 
     flags = []
