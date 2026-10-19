@@ -1,20 +1,28 @@
 """Offline replay of gather/vet over the on-disk cache: no network, no LLM.
 
 Slice 0 of the held-backlog Tier 1 work. This module holds the cache-only
-clients and the input/config/code identities the harness stamps on each arm.
+clients and the input/config/code identities the harness stamps on each arm,
+and the one place the needs-LLM verdict and the outcome class are decided
+(`compute_legs` + `classify`, spec ruling 5), shared by the harness and
+`llama reapply`.
 """
+import dataclasses
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import llama
 from llama.config import Config
 from llama.errors import LlamaError
-from llama.models import VettingResult
+from llama.models import Briefing, Provenance, Show, VettingResult
 from llama.setlistfm import _pick, cache_key
-from llama.workspace import ShowWorkspace, read_model
+from llama.stages.brief import briefing_guard
+from llama.stages.gather import GatherResult, compute_gather
+from llama.stages.vet_research import VetOutcome, apply_vet
+from llama.workspace import ShowWorkspace, read_model, read_overrides
 
 _REFUSED = "network refused by the cache-only client"
 
@@ -124,3 +132,258 @@ def code_identity() -> str:
     except (OSError, subprocess.CalledProcessError):
         pass
     return f"version:{llama.__version__}"
+
+
+# --- flag families (plan "Contracts": Flag families) ---
+
+# (family, predicate) in order; the first match wins. `research asserts ...`
+# flags are told apart by their own texts before anything generic.
+_FAMILIES: tuple[tuple[str, object], ...] = (
+    ("research-song", lambda f: f.startswith("research asserts unknown song")),
+    ("research-sets", lambda f: f.startswith("research asserts ") and "sets but structure has" in f),
+    ("research-date", lambda f: f.startswith("research asserts wrong date")
+        or (f.startswith("research asserts ") and "looks like a year-only placeholder" in f)),
+    ("structure", lambda f: f.startswith((
+        "low-confidence structure alignment", "single-set structure",
+        "setlist evidence shows multiple sets", "structure has ", "jerrybase set closer ",
+        "low-confidence setlist", "merged track(s)"))),
+    ("titles", lambda f: f.startswith("unresolved track titles")),
+    ("venue", lambda f: f.startswith("venue mismatch")),
+    ("city", lambda f: f.startswith("recordings of this date disagree on city")),
+    ("briefing", lambda f: f.startswith("briefing ")),
+    ("events", lambda f: f.startswith(("tape spans", "unassigned multi-event", "multi-event date"))),
+    ("tracks", lambda f: f.startswith("no playable tracks")),
+    ("package", lambda f: f.startswith("duration mismatch on ")),
+)
+
+
+def flag_family(flag: str) -> str:
+    """The Contracts' family of a review flag; `other` when none matches."""
+    for family, matches in _FAMILIES:
+        if matches(flag):
+            return family
+    return "other"
+
+
+# --- shipped fields and the briefing reuse rule ---
+
+def _alignment(show: Show) -> str | None:
+    return show.structure.alignment if show.structure is not None else None
+
+
+def _pair(old, new) -> dict | None:
+    return None if old == new else {"old": old, "new": new}
+
+
+def shipped_diff(stored: Show, new: Show) -> dict:
+    """The shipped fields (Contracts: per-track title, title_source, set, segue;
+    set_breaks; venue; city; date; structure.alignment) that differ between
+    the stored show and the replayed one. `[]`/`None` when equal.
+
+    A track-count change makes per-index comparison meaningless, so every
+    index up to the longer of the two is reported, in `title_changes`,
+    `set_changes` and `segue_changes` alike, with `new` (and `new_source`)
+    None; `old` is the stored value, None past the stored show's end."""
+    titles: list[dict] = []
+    sets: list[dict] = []
+    segues: list[dict] = []
+    if len(stored.tracks) != len(new.tracks):
+        for i in range(max(len(stored.tracks), len(new.tracks))):
+            o = stored.tracks[i] if i < len(stored.tracks) else None
+            titles.append({"index": i + 1, "old": o.title if o else None, "new": None,
+                           "old_source": o.title_source if o else None, "new_source": None})
+            sets.append({"index": i + 1, "old": o.set if o else None, "new": None})
+            segues.append({"index": i + 1, "old": o.segue if o else None, "new": None})
+    else:
+        for o, n in zip(stored.tracks, new.tracks):
+            if o.title != n.title or o.title_source != n.title_source:
+                titles.append({"index": o.index, "old": o.title, "new": n.title,
+                               "old_source": o.title_source, "new_source": n.title_source})
+            if o.set != n.set:
+                sets.append({"index": o.index, "old": o.set, "new": n.set})
+            if o.segue != n.segue:
+                segues.append({"index": o.index, "old": o.segue, "new": n.segue})
+    return {
+        "title_changes": titles,
+        "venue": _pair(stored.venue, new.venue),
+        "city": _pair(stored.city, new.city),
+        "set_changes": sets,
+        "segue_changes": segues,
+        "set_breaks": _pair(list(stored.set_breaks), list(new.set_breaks)),
+        "alignment": _pair(_alignment(stored), _alignment(new)),
+        "date": _pair(stored.date, new.date),
+    }
+
+
+def _structure_changed(diff: dict) -> bool:
+    """Spec "structure-changed": set or segue labels, set_breaks or alignment."""
+    return bool(diff["set_changes"] or diff["segue_changes"]
+                or diff["set_breaks"] or diff["alignment"])
+
+
+def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
+                      narration: str) -> str | None:
+    """Spec slice 6 step 3, the reuse rule: None when the stored briefing can
+    ship with `new_show`; else the first failing reason. Broadcast fields are
+    per-track titles, sets and segues, set_breaks, date, venue, city
+    (title_source is not one: the briefing never sees it)."""
+    o, n = stored_show, new_show
+    changed = [name for name, differs in (
+        ("titles", [t.title for t in o.tracks] != [t.title for t in n.tracks]),
+        ("sets", [t.set for t in o.tracks] != [t.set for t in n.tracks]),
+        ("segues", [t.segue for t in o.tracks] != [t.segue for t in n.tracks]),
+        ("set_breaks", o.set_breaks != n.set_breaks),
+        ("date", o.date != n.date),
+        ("venue", o.venue != n.venue),
+        ("city", o.city != n.city),
+    ) if differs]
+    if changed:
+        return f"broadcast fields changed: {', '.join(changed)}"
+    if briefing.narration != narration:
+        return f"narration differs: briefing {briefing.narration}, overrides {narration}"
+    problems = briefing_guard(briefing, new_show)
+    if problems:
+        return f"briefing guard: {'; '.join(problems)}"
+    return None
+
+
+# --- the three legs ---
+
+@dataclasses.dataclass
+class Legs:
+    """One show's deterministic replay: gather (LLM-free), vet (over the stored
+    extraction) and the brief reuse decision. Nothing here is written."""
+    gather: GatherResult
+    stored: Show
+    vet: VetOutcome | None
+    # gather's verdicts, then "stored alignment llm", then "no vetting.json"
+    needs_llm: list[str]
+    brief: str                     # "reuse" | "fresh" | "none"
+    brief_reason: str | None       # why a stored briefing.json is not reused
+    brief_flags: list[str]
+    briefing: Briefing | None      # the stored briefing, only when brief == "reuse"
+    carried_flags: list[str]       # stored `package`-family flags, carried through
+    flags: list[str]               # gather + vet + carried + brief_flags
+
+    @property
+    def replayed_show(self) -> Show:
+        """The replayed show with vet applied: what would ship."""
+        return self.vet.show if self.vet is not None else self.gather.show
+
+
+def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlistFM | None",
+                 scratch: Path) -> Legs:
+    """Replay one library show into `scratch` (recreated empty, then given a
+    copy of `overrides.json` and nothing else); `ws.dir` is only read.
+
+    `slfm` is `setlistfm_client(config)` and nothing else (None when no key is
+    configured), so the replay sees what `process_show` would. `CacheMiss`
+    propagates; a missing `provenance.json`/`show.json` is a `LlamaError`."""
+    if scratch.exists():
+        shutil.rmtree(scratch)
+    scratch.mkdir(parents=True)
+    if ws.overrides.exists():
+        shutil.copyfile(ws.overrides, scratch / ws.overrides.name)
+    for path in (ws.provenance, ws.show):
+        if not path.exists():
+            raise LlamaError(f"cannot replay {ws.dir.name}: missing {path.name}")
+    prov = read_model(ws.provenance, Provenance)
+    stored = read_model(ws.show, Show)
+
+    gathered = compute_gather(
+        ShowWorkspace(scratch), ia, None, prov.candidate, stored.identifier,
+        audio_format=config.audio_format, align_provider=None, setlistfm=slfm,
+        structure_cfg=config.structure, jerrybase_enabled=config.jerrybase.enabled)
+    needs_llm = list(gathered.needs_llm)
+    if stored.structure is not None and stored.structure.alignment == "llm":
+        needs_llm.append("stored alignment llm")
+
+    vet: VetOutcome | None = None
+    if ws.vetting.exists():
+        vet = apply_vet(read_model(ws.vetting, VettingResult).vetting, gathered.show)
+    else:
+        needs_llm.append("no vetting.json")
+    replayed = vet.show if vet is not None else gathered.show
+
+    carried = [f for f in stored.review_flags if flag_family(f) == "package"]
+    # The gate counts carried package flags too: a show that stays held on
+    # one gets no brief (spec slice 6 step 3: "only when steps 1 and 2 left
+    # no flag", and reapply never clears a carried package flag).
+    flags = list(gathered.show.review_flags) + (list(vet.result.flags) if vet else []) + carried
+
+    brief, reason, brief_flags, briefing = "none", None, [], None
+    if not flags:
+        brief = "fresh"
+        if ws.briefing_json.exists():
+            stored_briefing = read_model(ws.briefing_json, Briefing)
+            reason = briefing_reusable(stored, replayed, stored_briefing,
+                                       read_overrides(ws).narration)
+            if reason is None:
+                brief, briefing = "reuse", stored_briefing
+                brief_flags = briefing_guard(stored_briefing, replayed)  # [] by construction
+
+    return Legs(gather=gathered, stored=stored, vet=vet, needs_llm=needs_llm, brief=brief,
+                brief_reason=reason, brief_flags=brief_flags, briefing=briefing,
+                carried_flags=carried, flags=flags + brief_flags)
+
+
+# --- outcome classification (plan "Contracts": Outcome classes) ---
+
+def classify(legs: Legs, stored_state: str) -> tuple[str, str | None]:
+    """`(outcome, would_be)`. needs-LLM is decided first and admits no
+    exception (spec ruling 5; "No stored vetting.json means needs-LLM"), then
+    held shows (`stored_state == "held"`) and non-held shows apart."""
+    if legs.needs_llm:
+        return "needs-llm", None
+    diff = shipped_diff(legs.stored, legs.replayed_show)
+    if stored_state == "held":
+        if legs.carried_flags:
+            return "still-held-package", None
+        if legs.flags:
+            return "still-held", None
+        would_be = "clears" if legs.brief == "reuse" else "needs-brief"
+        if _structure_changed(diff):
+            return "structure-changed", would_be
+        return would_be, None
+    if legs.flags:
+        return "newly-held", None
+    if any(diff.values()):
+        return "clean-changed", None
+    return "clean", None
+
+
+@dataclasses.dataclass
+class ShowReplay:
+    """One show's row in a harness arm (plan "Contracts": ShowReplay), plus
+    `date` beside `venue`/`city` (orchestrator ruling M7: date is a shipped
+    field). Filled by `replay_show` (Task 5)."""
+    slug: str
+    state: str
+    stored_flags: list[str] = dataclasses.field(default_factory=list)
+    stored_core_flags: list[str] = dataclasses.field(default_factory=list)
+    gather_flags: list[str] = dataclasses.field(default_factory=list)
+    vet_flags: list[str] = dataclasses.field(default_factory=list)
+    brief_flags: list[str] = dataclasses.field(default_factory=list)
+    stored_brief_guard: list[str] | None = None
+    needs_llm: list[str] = dataclasses.field(default_factory=list)
+    outcome: str = ""
+    would_be: str | None = None
+    briefing: str = "none"
+    reproduces: bool = False
+    title_changes: list[dict] = dataclasses.field(default_factory=list)
+    venue: dict | None = None
+    city: dict | None = None
+    date: dict | None = None
+    selected_venue: str | None = None
+    selected_city: str | None = None
+    set_changes: list[dict] = dataclasses.field(default_factory=list)
+    segue_changes: list[dict] = dataclasses.field(default_factory=list)
+    set_breaks: dict | None = None
+    alignment: dict | None = None
+    notes: list[str] = dataclasses.field(default_factory=list)
+    digests: dict = dataclasses.field(default_factory=dict)
+    slfm_miss: bool = False
+    unreplayable: str | None = None
+
+    def to_dict(self) -> dict:
+        return dataclasses.asdict(self)

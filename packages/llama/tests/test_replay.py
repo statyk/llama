@@ -71,3 +71,390 @@ def test_setlistfm_client_is_none_unless_configured(tmp_path, monkeypatch):
     monkeypatch.setenv("SETLISTFM_API_KEY", "k")
     client = setlistfm_client(Config(root=tmp_path))
     assert isinstance(client, CacheOnlySetlistFM)
+
+
+# --- Task 4: compute_legs, the briefing reuse rule, outcome classification ---
+
+from pathlib import Path
+
+from herder import FakeProvider
+from llama.models import (Briefing, Candidate, Overrides, Provenance, RecordingSummary, Show,
+                          StructureInfo, Track)
+from llama.replay import (Legs, ShowReplay, briefing_reusable, classify, compute_legs,
+                          flag_family, shipped_diff)
+from llama.stages.gather import GatherResult, run_gather
+from llama.stages.vet_research import apply_vet
+
+FIXTURES = Path(__file__).parent / "fixtures"
+IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
+
+
+def _config(root: Path) -> Config:
+    """Jerrybase OFF: the vendored CSV has GD 1973-06-10 with three numbered
+    sets, and the trimmed gd73 fixture has two, so an enabled dataset would
+    hold the fixture show. The stored show and the replay use this same config."""
+    return Config(root=root, jerrybase={"enabled": False})
+
+
+def _library_show(root: Path, *, held: bool, date="1973-06-10",
+                  held_flags=("unresolved track titles",), asserted_dates=None,
+                  with_vetting=True, with_briefing=False, alignment=None, description=None,
+                  vetted=False):
+    """A gathered gd73 show `gratefuldead-<date>` in <root>/shows/, produced by
+    the real run_gather against the fixture under `_config(root)` (so the
+    replay reproduces it), with the knobs the tests need. `held` appends
+    `held_flags` to the stored flags; the default flag is one the replay does
+    not raise (a synthetic hold: the replay clears it). `asserted_dates`
+    defaults to `[date]`, so the vetting matches the show's own date.
+    `vetted=True` stores the show as the vet stage leaves it (apply_vet over
+    the stored vetting, e.g. a placeholder date adopted), as production does."""
+    md = json.loads((FIXTURES / "gd73_metadata.json").read_text())
+    if description is not None:
+        md["metadata"]["description"] = description
+    (root / "cache").mkdir(parents=True, exist_ok=True)
+    (root / "cache" / f"md_{IDENT}.json").write_text(json.dumps(md))
+    ws = ShowWorkspace(root / "shows" / f"gratefuldead-{date}")
+    cand = Candidate(performance_id=f"GratefulDead/{date}", collection="GratefulDead",
+                     date=date, venue="RFK Stadium", city="Washington, DC",
+                     recordings=[RecordingSummary(identifier=IDENT)])
+    write_artifact(ws.provenance, Provenance(performance_id=cand.performance_id, run="r1",
+                                             dossier="d", candidate=cand,
+                                             processed_at="2026-10-19T00:00:00+00:00"))
+
+    class _IA:
+        def metadata(self, i): return md
+    cfg = _config(root)
+    show = run_gather(ws, _IA(), FakeProvider(), cand, IDENT, structure_cfg=cfg.structure,
+                      jerrybase_enabled=cfg.jerrybase.enabled)
+    vetting = ResearchVetting(
+        asserted_songs=["Morning Dew", "Dark Star"],
+        asserted_dates=list(asserted_dates) if asserted_dates is not None else [date])
+    if vetted:
+        show = apply_vet(vetting, show).show
+    if alignment:
+        show.structure = show.structure.model_copy(update={"alignment": alignment})
+    if held:
+        show.review_flags = show.review_flags + list(held_flags)
+        show.needs_review = True
+    write_artifact(ws.show, show)
+    if with_vetting:
+        write_artifact(ws.vetting, VettingResult(vetting=vetting))
+    if with_briefing:
+        write_artifact(ws.briefing_json, Briefing(context="c", significance="s",
+                                                  per_set={"1": ["a"], "2": ["b"], "encore": ["c"]}))
+    return ws, show
+
+
+def _legs(root, ws):
+    return compute_legs(ws, config=_config(root), ia=CacheOnlyIA(root / "cache"),
+                        slfm=None, scratch=root / "scratch" / ws.dir.name)
+
+
+def test_compute_legs_reproduces_a_stored_show_and_writes_nothing_to_it(tmp_path):
+    ws, stored = _library_show(tmp_path, held=False, with_briefing=True)
+    before = {p.name: p.read_bytes() for p in ws.dir.iterdir()}
+    legs = _legs(tmp_path, ws)
+    assert isinstance(legs, Legs)
+    assert legs.gather.show.review_flags == [] and legs.vet.result.flags == []
+    assert legs.brief == "reuse" and legs.brief_flags == []
+    assert legs.briefing is not None
+    assert legs.needs_llm == []
+    assert {p.name: p.read_bytes() for p in ws.dir.iterdir()} == before
+    assert classify(legs, "briefed") == ("clean", None)
+
+
+def test_compute_legs_copies_only_overrides_into_a_fresh_scratch(tmp_path):
+    ws, _ = _library_show(tmp_path, held=False)
+    write_artifact(ws.overrides, Overrides(narration="full"))
+    scratch = tmp_path / "scratch" / ws.dir.name
+    scratch.mkdir(parents=True)
+    (scratch / "stale.json").write_text("{}")
+    compute_legs(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
+                 slfm=None, scratch=scratch)
+    assert sorted(p.name for p in scratch.iterdir()) == ["overrides.json"]
+    assert (scratch / "overrides.json").read_bytes() == ws.overrides.read_bytes()
+
+
+def test_compute_legs_raises_on_missing_show_or_provenance(tmp_path):
+    from llama.errors import LlamaError
+    ws, _ = _library_show(tmp_path, held=False)
+    ws.provenance.unlink()
+    with pytest.raises(LlamaError, match="provenance.json"):
+        _legs(tmp_path, ws)
+    ws2, _ = _library_show(tmp_path, held=False, date="1973-06-11")
+    ws2.show.unlink()
+    with pytest.raises(LlamaError, match="show.json"):
+        _legs(tmp_path, ws2)
+
+
+def test_compute_legs_raises_cache_miss_through(tmp_path):
+    ws, _ = _library_show(tmp_path, held=False)
+    (tmp_path / "cache" / f"md_{IDENT}.json").unlink()
+    with pytest.raises(CacheMiss):
+        _legs(tmp_path, ws)
+
+
+def test_stored_llm_alignment_is_needs_llm(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, alignment="llm")
+    legs = _legs(tmp_path, ws)
+    assert "stored alignment llm" in legs.needs_llm
+    assert classify(legs, "held") == ("needs-llm", None)
+
+
+def test_missing_vetting_json_is_needs_llm(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, with_vetting=False)
+    legs = _legs(tmp_path, ws)
+    assert legs.vet is None
+    assert legs.needs_llm == ["no vetting.json"]
+    assert classify(legs, "held") == ("needs-llm", None)
+
+
+def test_missing_vetting_json_is_needs_llm_even_when_gather_flags_remain(tmp_path):
+    # Spec slice 0 / slice 6 step 2: "No stored vetting.json means needs-LLM",
+    # with no exception for a show whose gather still flags it.
+    ws, _ = _library_show(tmp_path, held=True, with_vetting=False)
+    # Jerrybase ON for the replay only: the vendored dataset's three numbered
+    # sets against the fixture's two raise a deterministic gather flag.
+    legs = compute_legs(ws, config=Config(root=tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
+                        slfm=None, scratch=tmp_path / "scratch" / ws.dir.name)
+    assert legs.gather.needs_llm == ()
+    assert legs.gather.show.review_flags == ["structure has 2 sets but jerrybase shows 3"]
+    assert legs.needs_llm == ["no vetting.json"]
+    assert classify(legs, "held") == ("needs-llm", None)
+    assert classify(legs, "packaged") == ("needs-llm", None)
+
+
+def test_held_show_whose_replay_clears_with_a_reusable_briefing_is_clears(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, with_briefing=True)
+    legs = _legs(tmp_path, ws)
+    assert legs.flags == [] and legs.brief == "reuse"
+    assert classify(legs, "held") == ("clears", None)
+
+
+def test_held_show_whose_replay_clears_without_a_briefing_is_needs_brief(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True)
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "fresh" and legs.briefing is None
+    assert classify(legs, "held") == ("needs-brief", None)
+
+
+def test_held_show_still_flagged_is_still_held(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True, asserted_dates=["1973-06-10", "1974-01-01"],
+                          held_flags=("research asserts wrong date: 1974-01-01",))
+    legs = _legs(tmp_path, ws)
+    assert legs.flags == ["research asserts wrong date: 1974-01-01"] and legs.brief == "none"
+    assert classify(legs, "held") == ("still-held", None)
+    assert classify(legs, "packaged") == ("newly-held", None)
+
+
+def test_carried_package_flag_is_still_held_package(tmp_path):
+    ws, show = _library_show(tmp_path, held=True, with_briefing=True)
+    show.review_flags = ["duration mismatch on 01 - Morning Dew.mp3: file 10s vs metadata 20s"]
+    write_artifact(ws.show, show)
+    legs = _legs(tmp_path, ws)
+    # The brief leg runs only when no flag remains, carried package flags included.
+    assert legs.carried_flags == show.review_flags and legs.brief == "none"
+    assert legs.flags == show.review_flags and legs.brief_reason is None
+    assert classify(legs, "held") == ("still-held-package", None)
+
+
+def test_structure_change_on_a_would_clear_show_is_listed_apart(tmp_path):
+    ws, show = _library_show(tmp_path, held=True, with_briefing=True)
+    show.tracks = [t.model_copy(update={"set": "1"}) for t in show.tracks]   # stored labels differ
+    show.set_breaks = []
+    write_artifact(ws.show, show)
+    legs = _legs(tmp_path, ws)
+    assert classify(legs, "held") == ("structure-changed", "needs-brief")   # fields changed, so no reuse
+    assert legs.brief_reason.startswith("broadcast fields changed: sets, set_breaks")
+    d = shipped_diff(show, legs.vet.show)
+    assert d["set_changes"] and d["set_breaks"] == {"old": [], "new": [3, 5]}
+
+
+def test_alignment_change_on_a_would_clear_show_is_structure_changed(tmp_path):
+    # Broadcast fields equal (the briefing is reused), only structure.alignment differs.
+    ws, show = _library_show(tmp_path, held=True, with_briefing=True, alignment="override")
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "reuse"
+    assert classify(legs, "held") == ("structure-changed", "clears")
+
+
+def test_non_held_shipped_field_change_is_clean_changed(tmp_path):
+    ws, show = _library_show(tmp_path, held=False)
+    show.venue = "Somewhere Else"
+    write_artifact(ws.show, show)
+    legs = _legs(tmp_path, ws)
+    assert legs.flags == []
+    assert classify(legs, "packaged") == ("clean-changed", None)
+
+
+def test_shipped_diff_compares_against_the_vetted_show(tmp_path):
+    # M7: vet's placeholder-date adoption changes `date`; the stored show
+    # carries the adopted date, the replayed gather does not, the vetted one does.
+    ws, stored = _library_show(tmp_path, held=False, date="1973-01-01",
+                               asserted_dates=["1973-06-10"], vetted=True)
+    assert stored.date == "1973-06-10" and stored.date_source == "research"
+    legs = _legs(tmp_path, ws)
+    assert legs.gather.show.date == "1973-01-01" and legs.vet.show.date == "1973-06-10"
+    assert legs.replayed_show is legs.vet.show
+    assert legs.flags == []
+    assert classify(legs, "packaged") == ("clean", None)
+    assert shipped_diff(stored, legs.gather.show)["date"] == {"old": "1973-06-10", "new": "1973-01-01"}
+
+
+def _show(**kw):
+    tracks = kw.pop("tracks", None) or [
+        Track(index=1, set="1", title="Dew", filename="a.mp3", title_source="tags"),
+        Track(index=2, set="2", title="Star", filename="b.mp3", title_source="tags", segue=True),
+        Track(index=3, set="2", title="Eyes", filename="c.mp3", title_source="tags")]
+    base = dict(performance_id="A/1973-06-10", identifier="x", artist="A", date="1973-06-10",
+                venue="V", city="C", tracks=tracks, set_breaks=[1],
+                structure=StructureInfo(source="chosen", alignment="deterministic", coverage=1.0))
+    base.update(kw)
+    return Show(**base)
+
+
+def test_shipped_diff_equal_shows_is_empty():
+    s = _show()
+    assert shipped_diff(s, s) == {"title_changes": [], "venue": None, "city": None,
+                                  "set_changes": [], "segue_changes": [], "set_breaks": None,
+                                  "alignment": None, "date": None}
+
+
+def test_shipped_diff_reports_each_field():
+    old = _show()
+    tracks = [old.tracks[0].model_copy(update={"title_source": "setlist"}),
+              old.tracks[1].model_copy(update={"title": "Dark Star", "segue": False}),
+              old.tracks[2].model_copy(update={"set": "encore"})]
+    new = _show(tracks=tracks, venue="W", city="D", date="1973-06-11", set_breaks=[1, 2],
+                structure=StructureInfo(source="chosen", alignment="jerrybase", coverage=1.0))
+    d = shipped_diff(old, new)
+    assert d["title_changes"] == [
+        {"index": 1, "old": "Dew", "new": "Dew", "old_source": "tags", "new_source": "setlist"},
+        {"index": 2, "old": "Star", "new": "Dark Star", "old_source": "tags", "new_source": "tags"}]
+    assert d["venue"] == {"old": "V", "new": "W"} and d["city"] == {"old": "C", "new": "D"}
+    assert d["date"] == {"old": "1973-06-10", "new": "1973-06-11"}
+    assert d["set_changes"] == [{"index": 3, "old": "2", "new": "encore"}]
+    assert d["segue_changes"] == [{"index": 2, "old": True, "new": False}]
+    assert d["set_breaks"] == {"old": [1], "new": [1, 2]}
+    assert d["alignment"] == {"old": "deterministic", "new": "jerrybase"}
+    assert shipped_diff(old, new.model_copy(update={"structure": None}))["alignment"] == \
+        {"old": "deterministic", "new": None}
+
+
+def test_shipped_diff_track_count_change_reports_every_index_with_new_none():
+    old = _show()
+    new = _show(tracks=old.tracks[:2])
+    d = shipped_diff(old, new)
+    assert [r["index"] for r in d["title_changes"]] == [1, 2, 3]
+    assert all(r["new"] is None and r["new_source"] is None for r in d["title_changes"])
+    assert [r["index"] for r in d["set_changes"]] == [1, 2, 3]
+    assert [r["index"] for r in d["segue_changes"]] == [1, 2, 3]
+    # A stored show with no tracks still reports the change.
+    empty = old.model_copy(update={"tracks": []})
+    assert [r["index"] for r in shipped_diff(empty, old)["title_changes"]] == [1, 2, 3]
+
+
+def test_briefing_reusable_reasons():
+    show = Show(performance_id="A/1973-06-10", identifier="x", artist="A", date="1973-06-10",
+                venue="V", tracks=[Track(index=1, set="1", title="Dew", filename="a.mp3", title_source="tags")])
+    b = Briefing(context="c", significance="s", per_set={"1": ["x"]})
+    assert briefing_reusable(show, show, b, "full") is None
+    assert briefing_reusable(show, show.model_copy(update={"venue": "W"}), b, "full").startswith("broadcast fields changed: venue")
+    assert briefing_reusable(show, show, b, "vague").startswith("narration differs")
+    assert briefing_reusable(show, show, b, "vague") == "narration differs: briefing full, overrides vague"
+    bad = b.model_copy(update={"mentioned_songs": ["Nope"]})
+    assert briefing_reusable(show, show, bad, "full").startswith("briefing guard: briefing mentions unknown song: Nope")
+
+
+def test_briefing_reusable_names_every_changed_broadcast_field():
+    old = _show()
+    retitled = [old.tracks[0].model_copy(update={"title": "Morning Dew"}), *old.tracks[1:]]
+    b = Briefing(context="c", significance="s", per_set={"1": ["x"], "2": ["y"]})
+    new = old.model_copy(update={"tracks": retitled, "date": "1973-06-11", "city": "D"})
+    assert briefing_reusable(old, new, b, "full") == "broadcast fields changed: titles, date, city"
+    # title_source alone is not a broadcast field.
+    resourced = [old.tracks[0].model_copy(update={"title_source": "setlist"}), *old.tracks[1:]]
+    assert briefing_reusable(old, old.model_copy(update={"tracks": resourced}), b, "full") is None
+    segue = [old.tracks[0], old.tracks[1].model_copy(update={"segue": False}), old.tracks[2]]
+    assert briefing_reusable(old, old.model_copy(update={"tracks": segue}), b, "full") == \
+        "broadcast fields changed: segues"
+
+
+def test_reuse_refused_when_recorded_narration_differs():
+    # Review Focus 3: a briefing.json written before `narration` existed reads as "full".
+    show = Show(performance_id="A/1973-06-10", identifier="x", artist="A", date="1973-06-10",
+                tracks=[Track(index=1, set="1", title="Dew", filename="a.mp3", title_source="tags")])
+    legacy = Briefing.model_validate({"context": "c", "significance": "s", "per_set": {"1": ["x"]}})
+    assert legacy.narration == "full"
+    assert briefing_reusable(show, show, legacy, "vague") is not None
+
+
+def test_legacy_briefing_on_a_vague_show_is_needs_brief(tmp_path):
+    # Review Focus 3, end to end: the stored briefing.json predates `narration`.
+    ws, _ = _library_show(tmp_path, held=True)
+    ws.briefing_json.write_text(json.dumps(
+        {"context": "c", "significance": "s", "per_set": {"1": ["a"], "2": ["b"], "encore": ["c"]}}))
+    write_artifact(ws.overrides, Overrides(narration="vague"))
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "fresh"
+    assert legs.brief_reason == "narration differs: briefing full, overrides vague"
+    assert classify(legs, "held") == ("needs-brief", None)
+
+
+def _synthetic_legs(*, gather_flags=(), needs_llm=(), vet=True, carried=(), brief="none"):
+    show = _show(review_flags=list(gather_flags), needs_review=bool(gather_flags))
+    vet_outcome = apply_vet(ResearchVetting(), show) if vet else None
+    flags = list(gather_flags) + list(carried)
+    return Legs(gather=GatherResult(show=show, reviews=[], notes=[], needs_llm=()),
+                stored=show, vet=vet_outcome, needs_llm=list(needs_llm), brief=brief,
+                brief_reason=None, brief_flags=[], briefing=None, carried_flags=list(carried),
+                flags=flags)
+
+
+def test_classify_needs_llm_wins_over_every_flag():
+    legs = _synthetic_legs(gather_flags=["low-confidence structure alignment"],
+                           needs_llm=["align_structure"], carried=["duration mismatch on x"])
+    assert classify(legs, "held") == ("needs-llm", None)
+    assert classify(legs, "packaged") == ("needs-llm", None)
+    legs = _synthetic_legs(gather_flags=["unresolved track titles"], needs_llm=["no vetting.json"],
+                           vet=False)
+    assert classify(legs, "held") == ("needs-llm", None)
+
+
+def test_show_replay_to_dict_has_the_contract_keys_plus_date():
+    r = ShowReplay(slug="s", state="held")
+    assert list(r.to_dict()) == [
+        "slug", "state", "stored_flags", "stored_core_flags", "gather_flags", "vet_flags",
+        "brief_flags", "stored_brief_guard", "needs_llm", "outcome", "would_be", "briefing",
+        "reproduces", "title_changes", "venue", "city", "date", "selected_venue", "selected_city",
+        "set_changes", "segue_changes", "set_breaks", "alignment", "notes", "digests",
+        "slfm_miss", "unreplayable"]
+    assert r.to_dict()["date"] is None
+
+
+@pytest.mark.parametrize("flag, family", [
+    ("venue mismatch: archive 'A' vs jerrybase 'B'", "venue"),
+    ("recordings of this date disagree on city: 'A' (selected) vs 'B'", "city"),
+    ("unresolved track titles", "titles"),
+    ("research asserts unknown song: X", "research-song"),
+    ("research asserts 2 sets but structure has 1", "research-sets"),
+    ("research asserts wrong date: 1 Jan", "research-date"),
+    ("research asserts 1973-06-10; item date 1973-01-01 looks like a year-only placeholder", "research-date"),
+    ("briefing mentions unknown song: X", "briefing"),
+    ("low-confidence structure alignment", "structure"),
+    ("single-set structure for a 120-minute show", "structure"),
+    ("setlist evidence shows multiple sets but tape has one", "structure"),
+    ("low-confidence setlist", "structure"),
+    ("merged track(s): 3", "structure"),
+    ("structure has 1 sets but jerrybase shows 2", "structure"),
+    ("jerrybase set closer 'X' is not at a set break", "structure"),
+    ("duration mismatch on 01 - X.mp3: file 1s vs metadata 2s", "package"),
+    ("tape spans 2 events", "events"),
+    ("unassigned multi-event tape", "events"),
+    ("multi-event date: 2 shows", "events"),
+    ("no playable tracks", "tracks"),
+    ("research asserts something new", "other"),
+    ("something else", "other"),
+])
+def test_flag_family(flag, family):
+    assert flag_family(flag) == family

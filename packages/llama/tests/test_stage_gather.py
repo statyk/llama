@@ -2243,6 +2243,20 @@ def test_compute_gather_reports_extract_setlist_without_a_provider(tmp_path):
     assert res.needs_llm == ("extract_setlist",)
 
 
+def test_compute_gather_extract_with_a_provider_is_not_needs_llm(tmp_path):
+    # The negative of the case above: the same unparseable description, but an
+    # extract provider is passed, so the fallback is TAKEN and no verdict is
+    # recorded (needs_llm is set only when the call is skipped for want of one).
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = "An amazing night of music, seeded with love."
+    provider = FakeProvider(completes=[json.dumps({"items": [
+        {"title": "Morning Dew", "normalized": "morning dew", "set": "1"}], "confidence": "low"})])
+    sws = ShowWorkspace(tmp_path / "s")
+    res = compute_gather(sws, StubIA(md), provider, make_candidate(), IDENT, jerrybase_enabled=False)
+    assert provider.calls                                    # extract_setlist was called
+    assert "extract_setlist" not in res.needs_llm
+
+
 def test_compute_gather_empty_description_is_not_needs_llm(tmp_path):
     md = json.loads(FIXTURE.read_text())
     md["metadata"]["description"] = ""
