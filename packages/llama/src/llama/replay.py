@@ -16,9 +16,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 import llama
+from llama.catalog import derive_state
 from llama.config import Config
 from llama.errors import LlamaError
-from llama.models import Briefing, Provenance, Show, VettingResult
+from llama.models import Briefing, Overrides, Provenance, Show, VettingResult
 from llama.setlistfm import _pick, cache_key
 from llama.stages.brief import briefing_guard
 from llama.stages.gather import GatherResult, compute_gather
@@ -408,3 +409,73 @@ class ShowReplay:
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
+
+
+class _OverridesUnreadable(Exception):
+    pass
+
+
+def _selected(prov: Provenance, identifier: str) -> tuple[str | None, str | None]:
+    """The stripped non-empty `venue`/`coverage` of the provenance candidate's
+    recording `identifier` (Contracts: selected_venue/selected_city)."""
+    for rec in prov.candidate.recordings:
+        if rec.identifier == identifier:
+            return (rec.venue or "").strip() or None, (rec.coverage or "").strip() or None
+    return None, None
+
+
+def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlistFM | None",
+                scratch: Path, delivered: set[str]) -> ShowReplay:
+    """One show's arm row (plan "Contracts": ShowReplay). Never raises for a
+    per-show failure: a cache miss, an unreadable `overrides.json` or any
+    other exception is recorded as `outcome="unreplayable"`, so one bad show
+    cannot stop a run. Writes only into `scratch` (via `compute_legs`).
+
+    The stored-side fields (stored/core flags, stored_brief_guard,
+    selected_venue/city) are filled before the replay, so they are present
+    for a needs-LLM show and, where readable, for an unreplayable one."""
+    r = ShowReplay(slug=ws.dir.name, state="unknown")
+    misses = len(slfm.misses) if slfm is not None else 0
+    try:
+        r.state = derive_state(ws, delivered)[0]
+        if ws.overrides.exists():
+            try:
+                read_model(ws.overrides, Overrides)
+            except (OSError, ValueError) as err:   # pydantic ValidationError is a ValueError
+                raise _OverridesUnreadable() from err
+        r.digests = input_digests(ws)
+        if ws.show.exists():
+            stored = read_model(ws.show, Show)
+            r.stored_flags = list(stored.review_flags)
+            r.stored_core_flags = [f for f in stored.review_flags
+                                   if flag_family(f) not in ("package", "briefing")]
+            if ws.briefing_json.exists():
+                r.stored_brief_guard = briefing_guard(read_model(ws.briefing_json, Briefing),
+                                                      stored)
+            if ws.provenance.exists():
+                r.selected_venue, r.selected_city = _selected(
+                    read_model(ws.provenance, Provenance), stored.identifier)
+
+        legs = compute_legs(ws, config=config, ia=ia, slfm=slfm, scratch=scratch)
+        r.gather_flags = list(legs.gather.show.review_flags)
+        r.vet_flags = list(legs.vet.result.flags) if legs.vet is not None else []
+        r.brief_flags = list(legs.brief_flags)
+        r.needs_llm = list(legs.needs_llm)
+        r.briefing = legs.brief
+        r.outcome, r.would_be = classify(legs, r.state)
+        r.reproduces = sorted(r.stored_core_flags) == sorted(r.gather_flags + r.vet_flags)
+        diff = shipped_diff(legs.stored, legs.replayed_show)
+        for key in ("title_changes", "venue", "city", "date", "set_changes",
+                    "segue_changes", "set_breaks", "alignment"):
+            setattr(r, key, diff[key])
+        r.notes = list(legs.gather.notes) + (list(legs.vet.notes) if legs.vet is not None else [])
+    except CacheMiss as err:
+        r.outcome, r.unreplayable = "unreplayable", str(err)
+    except _OverridesUnreadable:
+        r.outcome, r.unreplayable = "unreplayable", "overrides.json unreadable"
+    except Exception as err:
+        r.outcome, r.unreplayable = "unreplayable", f"{type(err).__name__}: {err}"[:200]
+    if r.unreplayable is not None:
+        r.reproduces = False
+    r.slfm_miss = slfm is not None and len(slfm.misses) > misses
+    return r

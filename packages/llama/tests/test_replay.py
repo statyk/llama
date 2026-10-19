@@ -75,74 +75,15 @@ def test_setlistfm_client_is_none_unless_configured(tmp_path, monkeypatch):
 
 # --- Task 4: compute_legs, the briefing reuse rule, outcome classification ---
 
-from pathlib import Path
-
-from herder import FakeProvider
-from llama.models import (Briefing, Candidate, Overrides, Provenance, RecordingSummary, Show,
-                          StructureInfo, Track)
+from llama.models import Briefing, Overrides, Show, StructureInfo, Track
 from llama.replay import (Legs, ShowReplay, briefing_reusable, classify, compute_legs,
                           flag_family, shipped_diff)
-from llama.stages.gather import GatherResult, run_gather
+from llama.stages.gather import GatherResult
 from llama.stages.vet_research import apply_vet
 
-FIXTURES = Path(__file__).parent / "fixtures"
-IDENT = "gd73-06-10.sbd.hollister.174.sbeok.shnf"
-
-
-def _config(root: Path) -> Config:
-    """Jerrybase OFF: the vendored CSV has GD 1973-06-10 with three numbered
-    sets, and the trimmed gd73 fixture has two, so an enabled dataset would
-    hold the fixture show. The stored show and the replay use this same config."""
-    return Config(root=root, jerrybase={"enabled": False})
-
-
-def _library_show(root: Path, *, held: bool, date="1973-06-10",
-                  held_flags=("unresolved track titles",), asserted_dates=None,
-                  with_vetting=True, with_briefing=False, alignment=None, description=None,
-                  vetted=False):
-    """A gathered gd73 show `gratefuldead-<date>` in <root>/shows/, produced by
-    the real run_gather against the fixture under `_config(root)` (so the
-    replay reproduces it), with the knobs the tests need. `held` appends
-    `held_flags` to the stored flags; the default flag is one the replay does
-    not raise (a synthetic hold: the replay clears it). `asserted_dates`
-    defaults to `[date]`, so the vetting matches the show's own date.
-    `vetted=True` stores the show as the vet stage leaves it (apply_vet over
-    the stored vetting, e.g. a placeholder date adopted), as production does."""
-    md = json.loads((FIXTURES / "gd73_metadata.json").read_text())
-    if description is not None:
-        md["metadata"]["description"] = description
-    (root / "cache").mkdir(parents=True, exist_ok=True)
-    (root / "cache" / f"md_{IDENT}.json").write_text(json.dumps(md))
-    ws = ShowWorkspace(root / "shows" / f"gratefuldead-{date}")
-    cand = Candidate(performance_id=f"GratefulDead/{date}", collection="GratefulDead",
-                     date=date, venue="RFK Stadium", city="Washington, DC",
-                     recordings=[RecordingSummary(identifier=IDENT)])
-    write_artifact(ws.provenance, Provenance(performance_id=cand.performance_id, run="r1",
-                                             dossier="d", candidate=cand,
-                                             processed_at="2026-10-19T00:00:00+00:00"))
-
-    class _IA:
-        def metadata(self, i): return md
-    cfg = _config(root)
-    show = run_gather(ws, _IA(), FakeProvider(), cand, IDENT, structure_cfg=cfg.structure,
-                      jerrybase_enabled=cfg.jerrybase.enabled)
-    vetting = ResearchVetting(
-        asserted_songs=["Morning Dew", "Dark Star"],
-        asserted_dates=list(asserted_dates) if asserted_dates is not None else [date])
-    if vetted:
-        show = apply_vet(vetting, show).show
-    if alignment:
-        show.structure = show.structure.model_copy(update={"alignment": alignment})
-    if held:
-        show.review_flags = show.review_flags + list(held_flags)
-        show.needs_review = True
-    write_artifact(ws.show, show)
-    if with_vetting:
-        write_artifact(ws.vetting, VettingResult(vetting=vetting))
-    if with_briefing:
-        write_artifact(ws.briefing_json, Briefing(context="c", significance="s",
-                                                  per_set={"1": ["a"], "2": ["b"], "encore": ["c"]}))
-    return ws, show
+from fixture_library import IDENT
+from fixture_library import library_show as _library_show
+from fixture_library import replay_config as _config
 
 
 def _legs(root, ws):
@@ -559,3 +500,127 @@ def test_compute_legs_refuses_a_scratch_inside_the_library_shows_dir(tmp_path):
             compute_legs(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"),
                          slfm=None, scratch=scratch)
     assert sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*")) == before
+
+
+# --- Task 5: replay_show, one show's arm row ---
+
+from llama.models import Provenance, RecordingSummary
+from llama.replay import replay_show
+from llama.workspace import read_model
+
+
+def _replay(root, ws, *, slfm=None, delivered=frozenset()):
+    return replay_show(ws, config=_config(root), ia=CacheOnlyIA(root / "cache"), slfm=slfm,
+                       scratch=root / "scratch" / ws.dir.name, delivered=set(delivered))
+
+
+def test_stored_briefing_flags_are_not_core_flags_and_are_reported_apart(tmp_path):
+    # P2: a show held by the briefing guard reproduces on gather+vet; its briefing
+    # flag is compared on its own line through stored_brief_guard.
+    ws, show = _library_show(tmp_path, held=True,
+                             held_flags=("briefing mentions unknown song: Nope",))
+    write_artifact(ws.briefing_json, Briefing(context="c", significance="s",
+                                              per_set={"1": ["a"], "2": ["b"], "encore": ["c"]},
+                                              mentioned_songs=["Nope"]))
+    r = replay_show(ws, config=_config(tmp_path), ia=CacheOnlyIA(tmp_path / "cache"), slfm=None,
+                    scratch=tmp_path / "scratch" / ws.dir.name, delivered=set())
+    assert r.stored_core_flags == [] and r.reproduces is True
+    assert r.stored_brief_guard == ["briefing mentions unknown song: Nope"]
+    assert (r.selected_venue, r.selected_city) == (None, None)   # the fixture's recording names neither
+
+
+def test_replay_show_fills_the_row_of_a_clearing_held_show(tmp_path):
+    ws, show = _library_show(tmp_path, held=True, with_briefing=True)
+    r = _replay(tmp_path, ws)
+    assert (r.slug, r.state, r.outcome, r.would_be, r.briefing) == \
+        (ws.dir.name, "held", "clears", None, "reuse")
+    assert r.stored_flags == show.review_flags and "unresolved track titles" in r.stored_flags
+    assert r.stored_core_flags == show.review_flags
+    assert r.gather_flags == [] and r.vet_flags == [] and r.brief_flags == []
+    assert r.reproduces is False and r.needs_llm == [] and r.unreplayable is None
+    assert r.stored_brief_guard == []
+    assert r.digests == input_digests(ws)
+    assert r.title_changes == [] and r.venue is None and r.date is None
+    assert r.slfm_miss is False
+
+
+def test_replay_show_core_flags_drop_package_and_briefing_families(tmp_path):
+    ws, show = _library_show(tmp_path, held=True, asserted_dates=["1973-06-10", "1974-01-01"],
+                             held_flags=("research asserts wrong date: 1974-01-01",
+                                         "duration mismatch on a.mp3: file 1s vs metadata 2s",
+                                         "briefing claims 3 sets but structure has 2"))
+    r = _replay(tmp_path, ws)
+    assert r.stored_core_flags == ["research asserts wrong date: 1974-01-01"]
+    assert r.vet_flags == ["research asserts wrong date: 1974-01-01"]
+    assert r.reproduces is True and r.outcome == "still-held-package"
+    assert r.stored_brief_guard is None          # no briefing.json
+
+
+def test_replay_show_selected_venue_and_city_come_from_the_selected_recording(tmp_path):
+    ws, show = _library_show(tmp_path, held=False)
+    prov = read_model(ws.provenance, Provenance)
+    prov.candidate.recordings = [
+        RecordingSummary(identifier="other", venue="Elsewhere", coverage="Nowhere"),
+        RecordingSummary(identifier=IDENT, venue="  RFK Stadium ", coverage=" Washington, DC")]
+    write_artifact(ws.provenance, prov)
+    r = _replay(tmp_path, ws)
+    assert (r.selected_venue, r.selected_city) == ("RFK Stadium", "Washington, DC")
+    prov.candidate.recordings[1] = RecordingSummary(identifier=IDENT, venue="  ", coverage="")
+    write_artifact(ws.provenance, prov)
+    assert (_replay(tmp_path, ws).selected_venue, _replay(tmp_path, ws).selected_city) == (None, None)
+
+
+def test_replay_show_computes_stored_fields_for_a_needs_llm_show(tmp_path):
+    ws, show = _library_show(tmp_path, held=True, with_vetting=False, with_briefing=True)
+    r = _replay(tmp_path, ws)
+    assert r.outcome == "needs-llm" and r.needs_llm == ["no vetting.json"]
+    assert r.stored_core_flags == ["unresolved track titles"] and r.reproduces is False
+    assert r.stored_brief_guard == []
+
+
+def test_replay_show_cache_miss_is_unreplayable(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True)
+    (tmp_path / "cache" / f"md_{IDENT}.json").unlink()
+    r = _replay(tmp_path, ws)
+    assert r.outcome == "unreplayable" and r.unreplayable == f"cache miss: md_{IDENT}.json"
+    assert r.state == "held" and r.stored_core_flags == ["unresolved track titles"]
+
+
+@pytest.mark.parametrize("body", ["[1, 2", "[1, 2]", '"vague"', '{"exclude": 3}', b"\xff\xfe"])
+def test_replay_show_unreadable_overrides_is_unreplayable(tmp_path, body):
+    ws, _ = _library_show(tmp_path, held=True)
+    if isinstance(body, bytes):
+        ws.overrides.write_bytes(body)    # not UTF-8
+    else:
+        ws.overrides.write_text(body)
+    r = _replay(tmp_path, ws)
+    assert r.outcome == "unreplayable" and r.unreplayable == "overrides.json unreadable"
+
+
+def test_replay_show_any_other_error_is_unreplayable_with_its_type(tmp_path):
+    ws, _ = _library_show(tmp_path, held=True)
+    ws.vetting.write_text("{broken")
+    r = _replay(tmp_path, ws)
+    assert r.outcome == "unreplayable" and r.unreplayable.startswith("ValidationError: ")
+    assert len(r.unreplayable) <= 200
+    ws2, _ = _library_show(tmp_path, held=False, date="1973-06-11")
+    ws2.show.write_text("{broken")
+    r2 = _replay(tmp_path, ws2)
+    assert r2.outcome == "unreplayable" and r2.unreplayable.startswith("ValidationError: ")
+    assert r2.state == "unknown"
+
+
+def test_replay_show_records_a_setlistfm_miss(tmp_path):
+    ws, _ = _library_show(tmp_path, held=False)
+    slfm = CacheOnlySetlistFM(tmp_path / "cache")
+    r = _replay(tmp_path, ws, slfm=slfm)
+    assert slfm.misses and r.slfm_miss is True
+    assert _replay(tmp_path, ws, slfm=slfm).slfm_miss is True     # grew again on this show
+    (tmp_path / "cache" / (cache_key(*slfm.misses[0]) + ".json")).write_text('{"setlist": []}')
+    assert _replay(tmp_path, ws, slfm=slfm).slfm_miss is False
+
+
+def test_replay_show_state_counts_the_delivered_set(tmp_path):
+    ws, show = _library_show(tmp_path, held=False)
+    assert _replay(tmp_path, ws, delivered={show.performance_id}).state == "delivered"
+    assert _replay(tmp_path, ws).state == "vetted"
