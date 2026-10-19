@@ -175,6 +175,11 @@ NOTE_GROUPS = (   # (Contracts id, fixed leading words)
     ("format sibling tagged", "format sibling tagged"),
 )
 NONE = "  (none)"
+OUTPUT_FILES = ("summary.txt", "drift.txt", "flags.txt", "outcomes.txt", "packaged_exposure.txt",
+                "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
+                "closest_calls.txt", "needs_llm.txt", "notes.txt", "briefings.txt",
+                "narration_candidates.html", "predicted_list.json",
+                "structure_changed_list.json", "pilot_list.json")
 
 
 def _load_arm(path: Path) -> dict:
@@ -524,12 +529,14 @@ def compare(args: argparse.Namespace) -> int:
     _gates(base, cand)
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
+    for name in OUTPUT_FILES:     # stale outputs of an earlier compare must not outlive this one
+        (out / name).unlink(missing_ok=True)
     root = Path(base.get("root") or cand.get("root") or ".")
     drift = _drift(base)
     _write(out, "drift.txt", _lines("base shows whose stored core flags are not reproduced:", drift))
     denom = [r for r in base["shows"].values() if _in_denominator(r)]
     ok = sum(r.get("reproduces") is True for r in denom)
-    if denom and ok / len(denom) < 0.99:
+    if denom and ok * 100 < 99 * len(denom):
         print(f"baseline reproduces {ok}/{len(denom)} held shows that are not needs-LLM (< 99%)",
               file=sys.stderr)
         return 3

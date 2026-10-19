@@ -464,9 +464,72 @@ def test_closest_calls_sections_and_notes_groups(tmp_path):
     assert "== format sibling tagged (1)" in nt and "== other (1)" in nt and "== 2a (2)" in nt
 
 
-def test_pilot_list_swaps_in_reuse_rows(tmp_path):
-    rows = [{"slug": f"s{i:02d}", "briefing": "reuse" if i >= 12 else "fresh"} for i in range(14)]
-    pilot = rh._pilot(sorted(rows, key=lambda r: rh._skey(r["slug"])))
-    assert len(pilot) == 10
-    assert sum(r["briefing"] == "reuse" for r in pilot) >= 2
+def test_pilot_list_swaps_in_reuse_rows():
+    # reuse rows sit beyond sha1 position 10, so only the swap can bring them in
+    ordered = sorted((f"s{i:02d}" for i in range(14)), key=rh._skey)
+    rows = [{"slug": s, "briefing": "reuse" if i >= 10 else "fresh"} for i, s in enumerate(ordered)]
+    pilot = rh._pilot(rows)
+    # the last two non-reuse rows (positions 8, 9) give way to the first two reuse rows
+    assert {r["slug"] for r in pilot} == set(ordered[:8]) | set(ordered[10:12])
     assert [r["slug"] for r in pilot] == sorted((r["slug"] for r in pilot), key=rh._skey)
+
+
+def _synthetic_arm(n_held, n_reproducing):
+    shows = {}
+    for i in range(n_held):
+        shows[f"s{i:03d}"] = {"slug": f"s{i:03d}", "state": "held", "outcome": "still-held",
+                              "reproduces": i < n_reproducing, "digests": {}, "notes": [],
+                              "gather_flags": [], "vet_flags": [], "stored_core_flags": []}
+    return {"sha": "x", "config_fingerprint": "f", "setlistfm_configured": False,
+            "root": "/nonexistent", "shows": shows}
+
+
+@pytest.mark.parametrize("ok,rc", [(99, 0), (98, 3)])
+def test_compare_gate_boundary_is_99_percent(tmp_path, capsys, ok, rc):
+    arm = tmp_path / "arm.json"
+    arm.write_text(json.dumps(_synthetic_arm(100, ok)))
+    assert rh.main(["compare", str(arm), str(arm), "--out", str(tmp_path / "cmp")]) == rc
+    if rc == 3:
+        assert f"{ok}/100" in capsys.readouterr().err
+
+
+def test_structure_changed_and_needs_llm_rows_reach_the_right_lists(tmp_path):
+    def rows(arm):
+        arm["shows"]["sc"] = {"slug": "sc", "state": "held", "outcome": "still-held", "reproduces": True,
+                              "digests": {}, "notes": []}
+        arm["shows"]["nl"] = dict(arm["shows"]["sc"], slug="nl")
+    base = _synthetic_arm(1, 1)
+    base["shows"]["s000"].update(reproduces=True)
+    rows(base)
+    cand = json.loads(json.dumps(base))
+    cand["shows"]["sc"].update(outcome="structure-changed", would_be="needs-brief", briefing="fresh")
+    cand["shows"]["nl"].update(outcome="needs-llm", needs_llm=["stored alignment llm"])
+    b, c = tmp_path / "b.json", tmp_path / "c.json"
+    b.write_text(json.dumps(base))
+    c.write_text(json.dumps(cand))
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(b), str(c), "--out", str(out)]) == 0
+    sc = json.loads((out / "structure_changed_list.json").read_text())["rows"]
+    assert [(r["slug"], r["outcome"]) for r in sc] == [("sc", "needs-brief")]
+    for name in ("predicted_list.json", "pilot_list.json"):
+        assert json.loads((out / name).read_text())["rows"] == []
+    assert "nl" not in (out / "structure_changed_list.json").read_text()
+
+
+def test_compare_clears_stale_outputs_before_a_failing_gate(tmp_path):
+    base, cand = _two_arms(tmp_path, _clear_it)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    (out / "keep.txt").write_text("not ours")
+    assert (out / "predicted_list.json").exists()
+    # a second compare of a non-reproducing baseline into the same directory
+    base2, cand2 = tmp_path / "b2.json", tmp_path / "c2.json"
+    arm = json.loads(base.read_text())
+    arm["shows"]["gratefuldead-1973-06-10"]["reproduces"] = False
+    base2.write_text(json.dumps(arm))
+    cand2.write_text(cand.read_text())
+    assert rh.main(["compare", str(base2), str(cand2), "--out", str(out)]) == 3
+    for name in ("predicted_list.json", "pilot_list.json", "structure_changed_list.json", "summary.txt"):
+        assert not (out / name).exists(), name
+    assert "gratefuldead-1973-06-10" in (out / "drift.txt").read_text()
+    assert (out / "keep.txt").exists()
