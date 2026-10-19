@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 
 from herder import FakeProvider
-from llama.models import Show, Track
-from llama.stages.vet_research import normalize_date, run_vet_research
+from llama.models import ResearchVetting, Show, ShowNotes, Track, VettingResult
+from llama.stages.vet_research import VetOutcome, apply_vet, normalize_date, run_vet_research
 from llama.workspace import ShowWorkspace, read_model, write_artifact
 
 
@@ -405,3 +405,33 @@ def test_vet_does_not_adopt_over_manual_date(tmp_path):
     assert result.adopted_date is None
     assert json.loads(ws.show.read_text())["date_source"] == "override"
     assert json.loads(ws.show.read_text())["date"] == "2003-01-01"
+
+
+def test_apply_vet_is_pure_and_replaces_only_its_own_flags():
+    show = make_show().model_copy(update={"review_flags": ["unresolved track titles",
+                                                           "research asserts wrong date: 1970-01-01"],
+                                          "needs_review": True})
+    out = apply_vet(ResearchVetting(asserted_songs=["Morning Dew", "Dark Star"],
+                                    asserted_dates=["1973-06-10"]), show)
+    assert isinstance(out, VetOutcome)
+    assert out.show.review_flags == ["unresolved track titles"]
+    assert out.show.needs_review is True
+    assert show.review_flags[1].startswith("research asserts")        # input untouched
+    assert out.result.flags == [] and out.result.adopted_date is None
+    assert out.notes == []
+
+
+def test_apply_vet_adopts_a_placeholder_date_on_the_copy():
+    show = make_show().model_copy(update={"date": "1973-01-01"})
+    out = apply_vet(ResearchVetting(asserted_songs=["Morning Dew", "Dark Star"],
+                                    asserted_dates=["1973-06-10"]), show)
+    assert (out.show.date, out.show.item_date, out.show.date_source) == ("1973-06-10", "1973-01-01", "research")
+    assert out.result.adopted_date == "1973-06-10"
+    assert show.date == "1973-01-01"
+
+
+def test_run_vet_research_writes_vet_notes_into_notes_json(tmp_path):
+    sws, show = setup(tmp_path)
+    write_artifact(sws.notes, ShowNotes(gather=["g"], vet=["stale"]))
+    run_vet_research(sws, FakeProvider([vet_json()]), show, "research")
+    assert read_model(sws.notes, ShowNotes) == ShowNotes(gather=["g"], vet=[])

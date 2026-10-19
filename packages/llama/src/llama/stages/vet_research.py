@@ -1,7 +1,8 @@
 import re
+from typing import NamedTuple
 
 from herder import run_json_task
-from llama.models import ResearchVetting, Show, VettingResult
+from llama.models import ResearchVetting, Show, ShowNotes, VettingResult
 from llama.prompts import load_prompt
 from llama.songs import normalize_song
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
@@ -98,15 +99,17 @@ def _known_song(name: str, known: list[list[str]]) -> bool:
     return _title_match(name, known)
 
 
-def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], str | None]:
+def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], str | None, list[str]]:
     """Deterministic check: research contradicting this show flags for review.
     The gate exists to catch wrong-show research, so a couple of unmatched
     titles (tracklist gaps, odd variants) pass; a mostly-unmatched set, or a
     date that belongs to a different show, blocks. One exception: an archive
     year-only placeholder date (YYYY-01-01) contradicted by unanimous,
     well-grounded research is corrected, not flagged - returns the adopted
-    date as the second element. Zero tokens."""
+    date as the second element; the third is the vet notes (operator-facing,
+    never flags). Zero tokens."""
     flags: list[str] = []
+    notes: list[str] = []
     known = [normalize_song(t.title).split() for t in show.tracks]
     unknown = [s for s in vetting.asserted_songs if not _known_song(s, known)]
     songs_grounded = not (len(unknown) >= 2 and len(unknown) * 3 > len(vetting.asserted_songs))
@@ -153,7 +156,29 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
                 f"{_VET_FLAG_PREFIX}{vetting.asserted_set_count} sets"
                 f" but structure has {actual}"
             )
-    return flags, adopted
+    return flags, adopted, notes
+
+
+class VetOutcome(NamedTuple):
+    show: Show
+    result: VettingResult
+    notes: list[str]
+
+
+def apply_vet(vetting: ResearchVetting, show: Show) -> VetOutcome:
+    """Pure grounding step: ground `vetting` against `show` and return a copy of
+    `show` with the date adoption applied and its own `research asserts ` flags
+    replaced (flags from other stages kept). Nothing is written."""
+    flags, adopted, notes = grounding_flags(vetting, show)
+    out = show.model_copy(deep=True)
+    if adopted:
+        out.item_date = out.date
+        out.date = adopted
+        out.date_source = "research"
+    kept = [f for f in out.review_flags if not f.startswith(_VET_FLAG_PREFIX)]
+    out.review_flags = kept + flags
+    out.needs_review = bool(out.review_flags)
+    return VetOutcome(out, VettingResult(vetting=vetting, flags=flags, adopted_date=adopted), notes)
 
 
 def run_vet_research(
@@ -163,18 +188,15 @@ def run_vet_research(
         return read_model(show_ws.vetting, VettingResult)
     vetting = run_json_task(provider, "vet_research", ResearchVetting,
                             template=load_prompt("vet_research"), research=research_md)
-    flags, adopted = grounding_flags(vetting, show)
-    # Rewrite show.json every run: drop our own prior flags (so a corrected re-vet clears
-    # needs_review and repeats don't duplicate), keep flags from other stages, and recompute.
-    current = read_model(show_ws.show, Show)
-    if adopted:
-        current.item_date = current.date
-        current.date = adopted
-        current.date_source = "research"
-    kept = [f for f in current.review_flags if not f.startswith(_VET_FLAG_PREFIX)]
-    current.review_flags = kept + flags
-    current.needs_review = bool(current.review_flags)
-    write_artifact(show_ws.show, current)
-    result = VettingResult(vetting=vetting, flags=flags, adopted_date=adopted)
-    write_artifact(show_ws.vetting, result)
-    return result
+    # Grounds against show.json as read from disk, not the `show` parameter: the
+    # only caller (pipeline.process_show) passes run_gather's return value, which
+    # is exactly what run_gather just wrote to show.json, so the two are equal.
+    # Rewrite show.json every run so a corrected re-vet clears needs_review and
+    # repeats don't duplicate.
+    out = apply_vet(vetting, read_model(show_ws.show, Show))
+    write_artifact(show_ws.show, out.show)
+    write_artifact(show_ws.vetting, out.result)
+    notes = read_model(show_ws.notes, ShowNotes) if show_ws.notes.exists() else ShowNotes()
+    notes.vet = out.notes
+    write_artifact(show_ws.notes, notes)
+    return out.result
