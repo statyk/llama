@@ -632,6 +632,19 @@ def test_triage_u_declined_writes_nothing_and_returns_to_the_prompt(tmp_path, tt
     assert "packaged:" not in r.output and "still held:" not in r.output
 
 
+def test_triage_u_confirmed_but_still_held_says_still_held(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    show = read_model(ws.show, Show)
+    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
+    write_artifact(ws.show, show)
+    _stub_redo(monkeypatch, result=None)
+    r = cli_invoke(cfg, "triage", "gratefuldead", input="u\ny\n")
+    assert r.exit_code == 0, r.output
+    assert "still held: " in r.output and "packaged:" not in r.output
+    assert read_overrides(ws).narration == "vague"
+
+
 def test_triage_u_not_offered_when_one_of_several_tracks_is_resolved(tmp_path, tty):
     cfg = _cfg(tmp_path)
     ws = _held_show(tmp_path)

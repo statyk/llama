@@ -18,6 +18,14 @@ from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
                                  run_gather)
 from llama.structure import fuzzy_norm_title
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
+from llama import jerrybase
+from llama.models import JerrybaseEvent, JerrybaseSet
+from llama.models import ShowNotes
+from llama.stages.gather import GatherResult, compute_gather
+from llama.stages.gather import build_canonical
+from llama.models import Track
+from llama.stages.gather import accept_short_tags
+from llama.stages.gather import two_venue_signature
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "gd73_metadata.json"
@@ -972,10 +980,6 @@ def test_readmission_does_not_stop_the_track_number_strip(tmp_path: Path):
     by_name = {t.filename: t.title for t in show.tracks}
     assert [by_name[n] for n in names] == [
         "Morning Dew", "China Cat Sunflower", "I Know You Rider"]
-
-
-from llama import jerrybase
-from llama.models import JerrybaseEvent, JerrybaseSet
 
 
 def _jb_event(closers_and_names, venue="V", city="C", state="ST"):
@@ -2211,9 +2215,6 @@ def test_operator_excluded_entry_carries_duration_sec(tmp_path: Path):
 
 # --- Tier 1 slice 0: LLM-free gather reports needs-LLM (spec "Slice 0") ---
 
-from llama.models import ShowNotes
-from llama.stages.gather import GatherResult, compute_gather
-
 
 def _low_coverage_candidate():
     """gd73 fixture with a description whose setlist shares nothing with the
@@ -2293,8 +2294,6 @@ def test_run_gather_replaces_notes_json_on_force(tmp_path):
 
 
 # --- slice 2: the cross-source vocabulary (ruling 3) ---
-
-from llama.stages.gather import build_canonical
 
 
 def test_build_canonical_corroboration_excludes_the_chosen_description():
@@ -2493,8 +2492,6 @@ def test_2b_item_title_reaches_the_recording_level_class(tmp_path):
 
 # --- slice 2a on a captured tape: tnd2006-12-13, "J >" tags ---
 
-from llama.models import Track
-from llama.stages.gather import accept_short_tags
 
 TND = FIXTURES / "tnd2006-12-13.json"
 T_IDENT = "tnd2006-12-13.flac16"
@@ -2730,7 +2727,6 @@ def test_2c_ships_and_notes_railroad_earths_titles_without_footnote_marks(tmp_pa
 
 # --- slice 1: venue tripwire steps, the swap, the signature, 1d (spec "Slice 1") ---
 
-from llama.stages.gather import two_venue_signature
 
 DSO = FIXTURES / "dso2003-01-25.json"; DSO_IDENT = "dso2003-01-25.shnf"
 GUSTER = FIXTURES / "guster2003-07-10.json"; G_IDENT = "guster2003-07-10.shnf"

@@ -9,6 +9,17 @@ from llama.replay import (CacheMiss, CacheOnlyIA, CacheOnlySetlistFM, code_ident
                           config_fingerprint, input_digests, setlistfm_client)
 from llama.setlistfm import cache_key
 from llama.workspace import ShowWorkspace, write_artifact
+from llama.models import Briefing, Overrides, Show, StructureInfo, Track
+from llama.replay import (Legs, ShowReplay, briefing_reusable, classify, compute_legs,
+                          flag_family, shipped_diff)
+from llama.stages.gather import GatherResult
+from llama.stages.vet_research import apply_vet
+from fixture_library import IDENT
+from fixture_library import library_show as _library_show
+from fixture_library import replay_config as _config
+from llama.models import Provenance, RecordingSummary
+from llama.replay import replay_show
+from llama.workspace import read_model
 
 
 def test_cache_only_ia_reads_the_cache_and_refuses_the_network(tmp_path):
@@ -74,16 +85,6 @@ def test_setlistfm_client_is_none_unless_configured(tmp_path, monkeypatch):
 
 
 # --- Task 4: compute_legs, the briefing reuse rule, outcome classification ---
-
-from llama.models import Briefing, Overrides, Show, StructureInfo, Track
-from llama.replay import (Legs, ShowReplay, briefing_reusable, classify, compute_legs,
-                          flag_family, shipped_diff)
-from llama.stages.gather import GatherResult
-from llama.stages.vet_research import apply_vet
-
-from fixture_library import IDENT
-from fixture_library import library_show as _library_show
-from fixture_library import replay_config as _config
 
 
 def _legs(root, ws):
@@ -503,10 +504,6 @@ def test_compute_legs_refuses_a_scratch_inside_the_library_shows_dir(tmp_path):
 
 
 # --- Task 5: replay_show, one show's arm row ---
-
-from llama.models import Provenance, RecordingSummary
-from llama.replay import replay_show
-from llama.workspace import read_model
 
 
 def _replay(root, ws, *, slfm=None, delivered=frozenset()):

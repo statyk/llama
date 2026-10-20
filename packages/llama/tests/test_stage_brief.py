@@ -1,5 +1,16 @@
 from llama.models import Briefing, Show, Track
 from llama.stages.brief import generate_briefing, render_briefing_md
+from llama.stages.brief import briefing_guard
+import json
+from herder.fake import FakeProvider
+from llama.models import Overrides, VettingResult, ResearchVetting
+from llama.stages.brief import run_brief, vetting_summary
+from llama.workspace import ShowWorkspace, write_artifact
+import pytest
+from llama.songs import normalize_song
+from llama.stages.brief import briefing_guard, known_song, normalize_briefing, song_components
+from llama.workspace import read_model
+from llama.stages.brief import song_comma_components
 
 
 def _show(sets=("1", "2"), encore=True) -> Show:
@@ -60,9 +71,6 @@ def test_render_briefing_md_omits_empty_optional_sections():
     assert "## Set" not in md
 
 
-from llama.stages.brief import briefing_guard
-
-
 def test_guard_passes_clean_full_briefing():
     assert briefing_guard(_briefing(), _show()) == []
 
@@ -113,13 +121,6 @@ def test_guard_flags_empty_per_set_under_full():
     b = _briefing(per_set={})
     assert briefing_guard(b, _show()) == ["briefing has no per-set talking points"]
 
-
-import json
-
-from herder.fake import FakeProvider
-from llama.models import Overrides, VettingResult, ResearchVetting
-from llama.stages.brief import run_brief, vetting_summary
-from llama.workspace import ShowWorkspace, write_artifact
 
 GOOD_BRIEFING = json.dumps({
     "context": "Peak-era Dead on the summer '73 run.",
@@ -250,12 +251,6 @@ def test_vetting_summary(tmp_path):
 
 
 # --- slice 3 (spec "Slice 3 — Briefing guard") ---
-
-import pytest
-
-from llama.songs import normalize_song
-from llama.stages.brief import briefing_guard, known_song, normalize_briefing, song_components
-from llama.workspace import read_model
 
 
 def test_3a_empty_sets_are_dropped_and_the_guard_never_sees_them():
@@ -443,7 +438,6 @@ def test_generate_briefing_returns_the_normalised_briefing_and_problems_without_
 
 
 # fw5: comma-merged track titles contribute their parts to the known-song set
-from llama.stages.brief import song_comma_components
 
 _MERGED = "Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)"
 

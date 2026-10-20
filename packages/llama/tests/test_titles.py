@@ -5,6 +5,10 @@ from llama.titles import (
     clean_tag_title, clean_tag_titles, is_real_title, resolve_titles,
     set_breaks, sibling_format_titles, title_fraction,
 )
+from llama.structure import fuzzy_norm_title
+from llama.titles import placeholder_positions, tag_layer
+from llama.titles import strip_taper_markers, tag_core
+from llama.titles import is_placeholder_text, shipped_short_tag
 
 
 def make_setlist() -> ParsedSetlist:
@@ -474,9 +478,6 @@ def test_clean_tag_titles_gate_basis_none_votes_with_the_files_themselves():
 
 # --- slice 2b: placeholder tags demote to unresolved at the tag rung ---
 
-from llama.structure import fuzzy_norm_title
-from llama.titles import placeholder_positions, tag_layer
-
 
 def _files(titles):
     return [{"name": f"t{i:02d}.mp3", "title": t, "length": "300"} for i, t in enumerate(titles, 1)]
@@ -579,8 +580,6 @@ def test_resolve_titles_never_demotes_a_corroborated_tag():
 
 # --- slice 2a: cores and shipped titles ---
 
-from llama.titles import strip_taper_markers, tag_core
-
 
 @pytest.mark.parametrize("tag, core, shipped", [
     ("FF>", "FF", "FF"), ("ML**", "ML", "ML"), ("7-11**", "7-11", "7-11"), ("FF =>", "FF", "FF"),
@@ -678,8 +677,6 @@ def test_joined_strip_leaves_m80_and_7_up_on_a_non_enumerated_tape():
 
 
 # --- Task 11b (Checkpoint B, 2026-10-19): placeholder refusal + shipped cosmetics ---
-
-from llama.titles import is_placeholder_text, shipped_short_tag
 
 
 def _items(*titles):

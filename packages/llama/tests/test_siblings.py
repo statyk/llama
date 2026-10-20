@@ -17,6 +17,16 @@ from llama.siblings import (
     propose_rows,
 )
 from llama.structure import fuzzy_norm_title
+from llama.models import Track
+from llama.siblings import (
+    AUTO,
+    FLOOR,
+    MIN_ANCHORS,
+    SiblingRow,
+    cplus_filter,
+    rate_alignment,
+)
+import pytest
 
 
 def _donor(durations, titles, identifier="donor.item"):
@@ -468,15 +478,6 @@ def test_the_exclusion_penalty_is_what_the_best_rival_explanation_costs():
 # entire failure this layer exists to prevent.
 # ==========================================================================
 
-from llama.models import Track
-from llama.siblings import (
-    AUTO,
-    FLOOR,
-    MIN_ANCHORS,
-    SiblingRow,
-    cplus_filter,
-    rate_alignment,
-)
 
 NATO = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf",
         "Hotel", "India", "Juliett", "Kilo", "Xray", "Mike", "November"]
@@ -1059,8 +1060,6 @@ def test_a_donor_span_slide_adopts_zero_interior_titles_under_cplus():
 
 
 # --- Task 11b (Checkpoint B, 2026-10-19): a donor's placeholder tag is refused ---
-
-import pytest
 
 
 @pytest.mark.parametrize("placeholder", ["Track 02", "tmp"])

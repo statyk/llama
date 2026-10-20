@@ -21,6 +21,8 @@ from llama.reapply import ReapplyOutcome, reapply_show
 from llama.replay import input_digests
 from llama.stages.brief import normalize_briefing, render_briefing_md
 from llama.workspace import read_model, write_artifact
+from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
+from llama.replay import config_fingerprint
 
 HELD = "gratefuldead-1973-06-10"
 
@@ -401,9 +403,6 @@ def test_cli_reapply_dry_run_writes_nothing(tmp_path, monkeypatch):
 
 
 # --- Task 20: --from-list batches, the pacing gate, stop rules, list checks ---
-
-from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
-from llama.replay import config_fingerprint
 
 
 CLEAN_SHA = "c" * 40
@@ -938,6 +937,26 @@ def test_dry_run_counts_a_purged_delivered_show_as_a_download(tmp_path, monkeypa
     assert "0 downloads" in r.output, r.output
 
 
+def test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed(tmp_path, monkeypatch):
+    # Without the flag the dry run predicts the skip and counts no brief/download;
+    # with it the show is predicted, and counted, as `structure-changed`.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _force_classify(monkeypatch, "structure-changed")
+    write_artifact(entry.ws.package_dir / "manifest.json",
+                   {"schema_version": 3, "tracks": [{"filename": "a.mp3"}]})   # audio missing
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
+    assert f"would: {HELD} -> skipped: structure changed" in r.output
+    assert "0 downloads" in r.output, r.output
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run",
+                   "--allow-structure-change")
+    assert f"would: {HELD} -> structure-changed" in r.output
+    assert "1 downloads" in r.output, r.output
+
+
 def test_needs_audio_download_counts_an_unreadable_or_malformed_manifest_as_a_download(tmp_path):
     from llama.catalog import needs_audio_download
     from llama.workspace import ShowWorkspace
@@ -977,6 +996,19 @@ def test_a_held_outcome_with_changed_titles_drops_the_stale_briefing(tmp_path, m
     assert not (entry.ws.package_dir / "manifest.json").exists()   # drop_stage_artifacts("brief") also drops it
     assert out.written == ["vetting.json", "notes.json", "drop:brief", "show.json"]
     assert read_model(entry.ws.show, Show).tracks[0].title != "Stale Old Title"
+
+
+def test_a_held_outcome_with_only_a_stale_briefing_md_drops_it(tmp_path, monkeypatch):
+    # fw3 review M6: no briefing.json, only briefing.md -- the `.md` clause alone
+    # triggers the drop.
+    root, config, ledger, entry, _ = _env(tmp_path, held_for_real=True)
+    _stub_package(monkeypatch)
+    _retitle_stored(entry.ws)
+    entry.ws.briefing_json.unlink(missing_ok=True)
+    write_artifact(entry.ws.briefing_md, "# stale briefing\n")
+    out = _run(config, ledger, entry)
+    assert out.outcome == "held" and out.briefing == "none"
+    assert not entry.ws.briefing_md.exists() and "drop:brief" in out.written
 
 
 def test_a_held_outcome_with_no_shipped_change_keeps_the_briefing(tmp_path, monkeypatch):

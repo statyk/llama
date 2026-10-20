@@ -4,6 +4,7 @@ from importlib import resources
 from llama import jerrybase
 from llama.jerrybase import _closer_candidates
 from llama.models import JerrybaseEvent
+from llama.models import JerrybaseSet, Track
 
 
 def test_vendored_csv_is_present_and_well_formed():
@@ -123,9 +124,6 @@ def test_lookup_cornell_short_break_before_encore():
 
 def test_lookup_unknown_returns_empty():
     assert jerrybase.lookup("Nonexistent Artist", "1900-01-01") == []
-
-
-from llama.models import JerrybaseSet, Track
 
 
 def _tracks(titles):

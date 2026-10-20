@@ -776,6 +776,17 @@ def test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone(tmp_pat
     assert ws.overrides.read_bytes() == before and calls == []
 
 
+def test_untitled_confirmed_but_still_held_says_still_held_not_declined(tmp_path, monkeypatch):
+    # fw1 review M-1: written-then-held is not a decline (overrides are changed).
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path)
+    calls = _stub_redo(monkeypatch, result=None)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+    assert r.exit_code == 0, r.output
+    assert "still held: " in r.output and "declined" not in r.output
+    assert read_overrides(ws).narration == "vague" and calls[0] == "gather"
+
+
 def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     ws = _all_unresolved_show(tmp_path)

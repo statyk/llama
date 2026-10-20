@@ -283,10 +283,13 @@ def test_run_restores_logging_and_reports_progress(tmp_path, monkeypatch, capsys
         seen.append(logging.root.manager.disable)
         return real(ws, **kw)
     monkeypatch.setattr(rh, "replay_show", spy)
-    assert rh.main(["run", "--out", str(tmp_path / "arm.json"), "--all",
-                    "--config", str(root / "config.toml")]) == 0
-    assert seen == [logging.CRITICAL, logging.CRITICAL]
-    assert logging.root.manager.disable == logging.NOTSET
+    try:
+        assert rh.main(["run", "--out", str(tmp_path / "arm.json"), "--all",
+                        "--config", str(root / "config.toml")]) == 0
+        assert seen == [logging.CRITICAL, logging.CRITICAL]
+        assert logging.root.manager.disable == logging.NOTSET
+    finally:
+        logging.disable(logging.NOTSET)   # a failed assertion must not leak the disable
     err = capsys.readouterr().err
     assert "replayed 1/2" in err and "replayed 2/2" in err
 
@@ -421,7 +424,7 @@ def test_compare_gate_counts_only_held_shows_that_are_not_needs_llm(tmp_path):
         s = arm["shows"]["gratefuldead-1973-06-11"]
         s["state"], s["outcome"], s["reproduces"] = "held", "needs-llm", False
         s["needs_llm"] = ["stored alignment llm"]
-    base, cand = _two_arms(tmp_path, needs_llm_hold, needs_llm_hold)
+    base, cand = _two_arms(tmp_path, mutate_cand=needs_llm_hold, mutate_base=needs_llm_hold)
     out = tmp_path / "cmp"
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0   # 1/1, not 1/2
     assert "gratefuldead-1973-06-11" not in (out / "drift.txt").read_text()
@@ -459,7 +462,7 @@ def test_packaged_exposure_is_base_versus_cand_and_lists_newly_held_shows(tmp_pa
         both(arm)
         s = arm["shows"]["gratefuldead-1973-06-11"]
         s["outcome"], s["gather_flags"] = "newly-held", ["venue mismatch: archive 'A' vs jerrybase 'B'"]
-    base, cand = _two_arms(tmp_path, cand_holds, both)
+    base, cand = _two_arms(tmp_path, mutate_cand=cand_holds, mutate_base=both)
     out = tmp_path / "cmp"
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
     text = (out / "packaged_exposure.txt").read_text()
@@ -730,7 +733,7 @@ def test_4b_closest_calls_read_vetting_jsons_nested_asserted_dates(tmp_path):
         _clear_it(arm)
     def hold_flag(arm):
         arm["shows"]["gratefuldead-1973-06-10"]["vet_flags"] = ["research asserts wrong date: 1973-06-11"]
-    base, cand = _two_arms(tmp_path, lose_flag, hold_flag)
+    base, cand = _two_arms(tmp_path, mutate_cand=lose_flag, mutate_base=hold_flag)
     slug_dir = tmp_path / "lib" / "shows" / "gratefuldead-1973-06-10"
     slug_dir.mkdir(parents=True, exist_ok=True)
     (slug_dir / "vetting.json").write_text(json.dumps({

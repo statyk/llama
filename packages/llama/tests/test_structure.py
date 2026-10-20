@@ -15,6 +15,18 @@ from llama.structure import (
     rank_parses,
     structure_guard,
 )
+from llama.models import AlignedStructure, AlignedTrack
+from llama.structure import apply_llm_alignment
+import pytest
+from llama.structure import venues_equivalent
+from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
+from llama.songs import GD_SHORTHAND
+import inspect
+from llama.models import ParsedSetlist, SetlistItem, Track
+from llama.structure import adopt_gap_titles, hygienic_title
+from llama.structure import LOOSE_TITLE_RATIO, loosely_same_title
+from llama.structure import _one_edit, cities_compatible
+from llama.structure import encore_lost
 
 
 def sp(source, sets_titles, confidence="high"):
@@ -285,10 +297,6 @@ def test_structure_guard_preserves_old_behavior_without_expected_count():
     assert structure_guard(short, set_breaks(short)) is None
 
 
-from llama.models import AlignedStructure, AlignedTrack
-from llama.structure import apply_llm_alignment
-
-
 def test_apply_llm_alignment_builds_result():
     tracks = _tracks(3)
     resp = AlignedStructure(tracks=[
@@ -310,11 +318,6 @@ def test_apply_llm_alignment_rejects_bad_indices_or_sets():
     bad_set = AlignedStructure(tracks=[AlignedTrack(index=1, set="1"),
                                        AlignedTrack(index=2, set="afterparty")])
     assert apply_llm_alignment(tracks, bad_set) is None
-
-
-import pytest
-
-from llama.structure import venues_equivalent
 
 
 @pytest.mark.parametrize("a,b", [
@@ -397,8 +400,6 @@ def test_venues_equivalent_pre1b_is_the_cp_b2_rule(a, b, expected):
 
 # --- fuzzy title matching (jerrybase closer matching; see the 2026-08-01 spec) --
 
-from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
-
 
 def test_fuzzy_norm_title_folds_ampersand_to_and():
     # normalize_song's punctuation strip deletes "&" outright, so these two
@@ -440,9 +441,6 @@ def test_fuzzy_title_eq_rejects_single_word_shorthand():
 def test_fuzzy_title_eq_rejects_unrelated_titles():
     assert not fuzzy_title_eq("morning dew", "casey jones")
     assert not fuzzy_title_eq("half step mississippi", "mississippi half step")
-
-
-from llama.songs import GD_SHORTHAND
 
 
 def test_shorthand_expands_only_when_aliases_passed():
@@ -1108,9 +1106,6 @@ def test_tail_guard_inert_whenever_lookahead_le_max_skip():
     )
 
 
-import inspect
-
-
 def test_align_default_lookahead_is_8():
     """Pins the VALUE this entire branch exists to choose - nothing else in
     this file does. `align`'s default was bumped 3 -> 8 in c2740d2 (see the
@@ -1692,10 +1687,6 @@ def test_contains_sequence_repeated_song_advances_past_first_hit():
     assert not structure.contains_sequence(text, ["Playing In The Band"] * 3)
 
 
-from llama.models import ParsedSetlist, SetlistItem, Track
-from llama.structure import adopt_gap_titles, hygienic_title
-
-
 def _gap_items(*specs):
     """specs: (title, set, segue) triples."""
     return ParsedSetlist(
@@ -1936,8 +1927,6 @@ def test_songish_coverage_excludes_setlist_sourced_tracks_too():
 # `loosely_same_title` -- the sibling guard's comparator
 # ---------------------------------------------------------------------------
 
-from llama.structure import LOOSE_TITLE_RATIO, loosely_same_title
-
 
 def test_loosely_same_title_equates_normalized_spellings():
     assert loosely_same_title("Truckin'", "Truckin")
@@ -2024,9 +2013,6 @@ def test_a_real_title_gap_beside_placeholder_shapes_still_adopts():
         ("Tracks of My Tears", "setlist-gap"), ("Temptation", "setlist-gap")]
 
 
-from llama.structure import _one_edit, cities_compatible
-
-
 def test_one_edit():
     assert _one_edit("merramec", "meramec") and _one_edit("abc", "abd") and _one_edit("abc", "abcd")
     assert not _one_edit("abc", "xyz") and not _one_edit("abc", "abcde")
@@ -2056,11 +2042,10 @@ def test_cities_compatible(a, b):
 ])
 def test_cities_not_compatible(a, b):
     assert not cities_compatible(a, b)
+    assert not cities_compatible(b, a)
 
 
 # --- Tier 1 slice 5a: encore_lost ---
-
-from llama.structure import encore_lost
 
 
 def _encore_items(*pairs):
