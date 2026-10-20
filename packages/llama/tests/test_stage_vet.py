@@ -511,12 +511,12 @@ def test_4b_raw_date_flags_keep_what_the_window_hides_and_yearless_mismatches():
     show = make_show()
     mismatched = {"1973-06-11": "1973-06-11"}
     yearless = {"--06-12": "June 12"}
-    raw = _date_flags(mismatched, yearless, show, False, None)
+    raw = _date_flags(mismatched, yearless, show, False, None, day_unknown={})
     assert raw == ["research asserts wrong date: 1973-06-11", "research asserts wrong date: June 12"]
-    assert _date_flags({}, yearless, show, False, None) == ["research asserts wrong date: June 12"]
-    ph = _date_flags({"1973-06-11": "x"}, {}, show, True, None)
+    assert _date_flags({}, yearless, show, False, None, day_unknown={}) == ["research asserts wrong date: June 12"]
+    ph = _date_flags({"1973-06-11": "x"}, {}, show, True, None, day_unknown={})
     assert ph == ["research asserts 1973-06-11; item date 1973-06-10 looks like a year-only placeholder"]
-    assert _date_flags(mismatched, yearless, show, True, "1973-06-11") == []
+    assert _date_flags(mismatched, yearless, show, True, "1973-06-11", day_unknown={}) == []
     # end to end: the window hides the adjacent date but the yearless mismatch still flags
     flags, _, _ = grounding_flags(_vet(["1973-06-10", "1973-06-11", "June 12"]), show)
     assert flags == ["research asserts wrong date: June 12"]

@@ -155,7 +155,7 @@ def _within_window(a: str, b: str) -> bool:
 
 def _date_flags(
     mismatched: dict[str, str], yearless: dict[str, str], show: Show,
-    placeholder: bool, adopted: str | None, day_unknown: dict[str, str] | None = None,
+    placeholder: bool, adopted: str | None, *, day_unknown: dict[str, str],
 ) -> list[str]:
     """The date flags for a set of mismatched full dates; none when a date is adopted."""
     out: list[str] = []
@@ -170,7 +170,7 @@ def _date_flags(
         else:
             out.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
     if not placeholder:  # a day-00 assertion never matches a specific show date
-        for text in (day_unknown or {}).values():
+        for text in day_unknown.values():
             out.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
     for norm, text in yearless.items():  # year-less: match on month and day
         if not show.date.endswith(norm[1:]):
@@ -269,7 +269,7 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
     # 4a reads date_flags_raw: the date flags WITHOUT the 4b window, so research
     # about an adjacent night that names this show's date still disqualifies it.
     date_flags_raw = _date_flags(
-        mismatched_raw, yearless, show, placeholder, adopted, day_unknown)
+        mismatched_raw, yearless, show, placeholder, adopted, day_unknown=day_unknown)
     if not songs_grounded:
         ok, info = right_show_gate(vetting, show, date_flags_raw=date_flags_raw)
         if ok:
@@ -281,7 +281,7 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
             )
         else:
             flags += [f"{_VET_FLAG_PREFIX}unknown song: {s}" for s in unknown]
-    flags += _date_flags(mismatched, yearless, show, placeholder, adopted, day_unknown)
+    flags += _date_flags(mismatched, yearless, show, placeholder, adopted, day_unknown=day_unknown)
 
     # Set-count check is independent of the date decision: an adoption must
     # not swallow a genuine structure contradiction.
