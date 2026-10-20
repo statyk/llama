@@ -194,6 +194,18 @@ _GLUED_NUM_PREFIX = re.compile(r"^\d{2}(?=[A-Z][a-z])")
 # untouched constant.
 _GLUED_FOOTNOTE_TAIL = re.compile(r"\s+[#^*+~@]+\s*$")
 
+# Held-backlog post-apply fix wave fw6, operator-approved 2026-10-20: `01-Hell
+# In A Bucket`, `01_Love Love Love`. A THIRD predicate beside
+# `_TRACK_NUM_PREFIX` (which needs whitespace after the number) and
+# `_GLUED_NUM_PREFIX` (which needs Upper+lower right after two digits), neither
+# of which reaches a number joined to the title by a hyphen or underscore; both
+# stay untouched and this one has its own recording-level vote. The `\d{1,3}`
+# bound and the digit-excluding lookahead are what keep `1922`, `2001` and
+# `4-20` (and `1-800-...`, `24-7`) out of reach; `22-I Know You Rider` is
+# stripped. A remainder that starts with a digit (`01-200 More Miles`) is
+# deliberately NOT matched: a false negative, today's behaviour.
+_JOINED_NUM_PREFIX = re.compile(r"^\d{1,3}[-_](?=[^\d\s])")
+
 
 def title_fraction(titles: list[str]) -> float:
     """Fraction of cleaned titles that are usable. 0.0 for no titles."""
@@ -234,6 +246,12 @@ def clean_tag_titles(
     if glued >= _ENUMERATED_MIN_FILES and glued >= _ENUMERATED_MIN_COVERAGE * len(voters):
         titles = [_GLUED_FOOTNOTE_TAIL.sub("", _GLUED_NUM_PREFIX.sub("", t, count=1))
                   if _GLUED_NUM_PREFIX.match(t) else t for t in titles]
+    # fw6: a third, independent vote for the JOINED form (`01-Title`/`01_Title`),
+    # on every path for the same reason as 2c. No footnote-tail strip here. The
+    # `^` anchor makes count=1 BELT-AND-BRACES (equivalent mutant), as above.
+    joined = sum(1 for t in voters if _JOINED_NUM_PREFIX.match(t))
+    if joined >= _ENUMERATED_MIN_FILES and joined >= _ENUMERATED_MIN_COVERAGE * len(voters):
+        titles = [_JOINED_NUM_PREFIX.sub("", t, count=1) for t in titles]
     return titles
 
 

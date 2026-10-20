@@ -2664,6 +2664,39 @@ def test_2c_strips_railroad_earths_glued_numbers_and_notes_each(tmp_path):
     assert sum(n.startswith("stripped glued track number:") for n in res.notes) == 23
 
 
+def _rre_joined(drop_mp3_titles=False):
+    md = json.loads(RRE.read_text())
+    for f in md["files"]:
+        t = f.get("title")
+        if t:
+            f["title"] = t[:2] + "-" + t[2:]
+            if drop_mp3_titles and f["format"] == "VBR MP3":
+                del f["title"]
+    return md
+
+
+def test_2d_strips_joined_numbers_and_notes_each(tmp_path):
+    cand = Candidate(performance_id="RailroadEarth/2013-11-30", collection="RailroadEarth",
+                     date="2013-11-30", venue="Sherman Theater", city="Stroudsburg, PA",
+                     recordings=[RecordingSummary(identifier=R_IDENT)])
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_rre_joined()), None,
+                         cand, R_IDENT, jerrybase_enabled=False)
+    assert [t.title for t in res.show.tracks][:2] == ["Pig In A Pen", "Midnight Moonlight"]
+    assert "stripped joined track number: track 1 '01-Pig In A Pen' -> 'Pig In A Pen'" in res.notes
+    assert sum(n.startswith("stripped joined track number:") for n in res.notes) == 23
+    assert not any(n.startswith("stripped glued track number:") for n in res.notes)
+
+
+def test_2d_notes_nothing_under_format_recovery(tmp_path):
+    cand = Candidate(performance_id="RailroadEarth/2013-11-30", collection="RailroadEarth",
+                     date="2013-11-30", venue="Sherman Theater", city="Stroudsburg, PA",
+                     recordings=[RecordingSummary(identifier=R_IDENT)])
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_rre_joined(True)), None,
+                         cand, R_IDENT, jerrybase_enabled=False)
+    assert not any(n.startswith("stripped joined track number:") for n in res.notes)
+    assert [t.title for t in res.show.tracks][:1] == ["Pig In A Pen"]
+
+
 # --- Task 11b (Checkpoint B, 2026-10-19): shipped-title cosmetics on the 2a/2c paths ---
 
 def test_accept_short_tags_ships_and_notes_the_cleaned_title():

@@ -24,7 +24,7 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              structure_guard, venues_equivalent,
                              _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
-from llama.titles import (_GLUED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
+from llama.titles import (_GLUED_NUM_PREFIX, _JOINED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
                           tag_layer, title_fraction)
 from llama.util import length_seconds
@@ -1137,6 +1137,10 @@ def compute_gather(
             if (tag_titles[i] != raw and _GLUED_NUM_PREFIX.match(raw)
                     and (i + 1) not in overrides.titles):
                 op_notes.append(f"stripped glued track number: track {i + 1} "
+                                f"'{raw}' -> '{tag_titles[i]}'")
+            if (tag_titles[i] != raw and _JOINED_NUM_PREFIX.match(raw)
+                    and (i + 1) not in overrides.titles):
+                op_notes.append(f"stripped joined track number: track {i + 1} "
                                 f"'{raw}' -> '{tag_titles[i]}'")
     # `kept and` is load-bearing: title_fraction is 0.0 on an empty list, so an
     # exclude-everything tape would otherwise fetch every sibling recording's

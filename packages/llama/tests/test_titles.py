@@ -635,6 +635,48 @@ def test_glued_strip_never_reaches_uppercase_or_digit_second_characters():
     assert out[8:] == ["3AM", "01ABBA"]
 
 
+# --- fw6: a hyphen/underscore-joined track number on an enumerated tape ---
+
+def test_joined_strip_removes_hyphen_numbers_and_leaves_unnumbered_titles():
+    files = _files(["01-Hell In A Bucket", "Bertha", "03-Walkin' Blues", "04-Ramble On Rose",
+                    "22-I Know You Rider"])
+    assert clean_tag_titles(files) == ["Hell In A Bucket", "Bertha", "Walkin' Blues",
+                                       "Ramble On Rose", "I Know You Rider"]
+
+
+def test_joined_strip_removes_underscore_numbers():
+    files = _files(["01_Love Love Love", "02_Woke Up New", "03_No Children"])
+    assert clean_tag_titles(files) == ["Love Love Love", "Woke Up New", "No Children"]
+
+
+def test_joined_strip_leaves_a_digit_remainder_alone_a_known_false_negative():
+    # `01-200 More Miles` is not matched (the lookahead excludes digits): today's behaviour.
+    files = _files(["01-Hell In A Bucket", "02-Bertha", "03-Dew", "05-Star", "06-Hobo Song",
+                    "04-200 More Miles"])   # 5 of 6 = 0.83: the vote passes
+    assert clean_tag_titles(files) == ["Hell In A Bucket", "Bertha", "Dew", "Star", "Hobo Song",
+                                       "04-200 More Miles"]
+
+
+def test_joined_strip_never_touches_numeric_titles_when_the_vote_passes():
+    # 40 joined of 45 voters = 0.89: the vote PASSES, so only the predicate
+    # (bound + digit-excluding lookahead) keeps these five intact.
+    joined = [f"{n:02d}-Song {n}x" for n in range(1, 41)]
+    odd = ["1922", "2001", "4-20", "24-7 Spyz", "1-800-Suicide"]
+    out = clean_tag_titles(_files(joined + odd))
+    assert out[:40] == [f"Song {n}x" for n in range(1, 41)]
+    assert out[40:] == odd
+
+
+def test_joined_strip_vote_fails_on_two_of_ten():
+    titles = ["01-Hell In A Bucket", "02-Bertha"] + [f"Song {c}" for c in "ABCDEFGH"]
+    assert clean_tag_titles(_files(titles)) == titles
+
+
+def test_joined_strip_leaves_m80_and_7_up_on_a_non_enumerated_tape():
+    titles = ["M80", "7-Up", "Dew", "Star"]
+    assert clean_tag_titles(_files(titles)) == titles
+
+
 # --- Task 11b (Checkpoint B, 2026-10-19): placeholder refusal + shipped cosmetics ---
 
 from llama.titles import is_placeholder_text, shipped_short_tag
