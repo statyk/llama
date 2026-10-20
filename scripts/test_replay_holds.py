@@ -386,6 +386,36 @@ def test_compare_refuses_a_baseline_that_does_not_reproduce(tmp_path, capsys):
     assert "gratefuldead-1973-06-10" in (out / "drift.txt").read_text()
 
 
+def test_compare_refuses_a_low_reproduction_base_with_no_flag_and_writes_no_reports(tmp_path, capsys):
+    base, cand = _two_arms(tmp_path, held_for_real=False)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 3
+    assert "gate skipped" not in capsys.readouterr().err
+    assert not (out / "summary.txt").exists() and not (out / "predicted_list.json").exists()
+
+
+def test_compare_no_repro_gate_reports_the_ratio_and_writes_everything(tmp_path, capsys):
+    base, cand = _two_arms(tmp_path, held_for_real=False)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--no-repro-gate"]) == 0
+    assert ("baseline reproduces 0/1 held shows that are not needs-LLM "
+            "(gate skipped: --no-repro-gate)") in capsys.readouterr().err
+    first = (out / "summary.txt").read_text().splitlines()[0]
+    assert first == "base reproduces 0/1 (held, not needs-LLM; gate skipped: --no-repro-gate)"
+    for name in rh.OUTPUT_FILES:
+        assert (out / name).exists(), name
+
+
+def test_compare_no_repro_gate_still_refuses_a_moved_library(tmp_path, capsys):
+    def touch(arm):
+        arm["shows"]["gratefuldead-1973-06-11"]["digests"]["show.json"] = "deadbeef"
+    base, cand = _two_arms(tmp_path, touch, held_for_real=False)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--no-repro-gate"]) == 2
+    assert "arms differ" in capsys.readouterr().err
+    assert not out.exists()
+
+
 def test_compare_gate_counts_only_held_shows_that_are_not_needs_llm(tmp_path):
     def needs_llm_hold(arm):
         s = arm["shows"]["gratefuldead-1973-06-11"]

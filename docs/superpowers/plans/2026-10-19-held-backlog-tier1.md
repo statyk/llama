@@ -1183,9 +1183,11 @@ From Checkpoint C on, also measure this slice's own delta against the previous c
 ```bash
 (cd "$P" && ./.venv/bin/python scripts/replay_holds.py run --out "$H/$X-prev-held.json" \
          && ./.venv/bin/python scripts/replay_holds.py run --out "$H/$X-prev-all.json" --all)
-./.venv/bin/python scripts/replay_holds.py compare "$H/$X-prev-held.json" "$H/$X-cand-held.json" --out "$H/cmp-$X-slice-held"
-./.venv/bin/python scripts/replay_holds.py compare "$H/$X-prev-all.json"  "$H/$X-cand-all.json"  --out "$H/cmp-$X-slice-all"
+./.venv/bin/python scripts/replay_holds.py compare "$H/$X-prev-held.json" "$H/$X-cand-held.json" --no-repro-gate --out "$H/cmp-$X-slice-held"
+./.venv/bin/python scripts/replay_holds.py compare "$H/$X-prev-all.json"  "$H/$X-cand-all.json"  --no-repro-gate --out "$H/cmp-$X-slice-all"
 ```
+
+(`--no-repro-gate`: the -prev arm carries earlier slices and does not reproduce stored states by design; added at Checkpoint C, operator decision 2026-10-19.)
 
 `cmp-$X-*` is the cumulative change since `tier1-base`; `cmp-$X-slice-*` is this slice alone. Exit 2 from any compare means the library moved between runs in one sitting: re-run all arms. The pre-screen (see "Operator time" above) then reads `cmp-$X-all`, `cmp-$X-held` and the slice comparisons, and the hand-check lists below are drawn from them.
 

@@ -612,7 +612,11 @@ def compare(args: argparse.Namespace) -> int:
     _write(out, "drift.txt", _lines("base shows whose stored core flags are not reproduced:", drift))
     denom = [r for r in base["shows"].values() if _in_denominator(r)]
     ok = sum(r.get("reproduces") is True for r in denom)
-    if denom and ok * 100 < 99 * len(denom):
+    skipped = bool(getattr(args, "no_repro_gate", False))
+    if skipped:
+        print(f"baseline reproduces {ok}/{len(denom)} held shows that are not needs-LLM "
+              "(gate skipped: --no-repro-gate)", file=sys.stderr)
+    elif denom and ok * 100 < 99 * len(denom):
         print(f"baseline reproduces {ok}/{len(denom)} held shows that are not needs-LLM (< 99%)",
               file=sys.stderr)
         return 3
@@ -651,7 +655,8 @@ def compare(args: argparse.Namespace) -> int:
                               if r.get("state") == "held" and r.get("outcome") == "needs-llm")
     bl_ok = brief_lines[0]
     _write(out, "summary.txt", [
-        f"base reproduces {ok}/{len(denom)} (held, not needs-LLM)",
+        f"base reproduces {ok}/{len(denom)} (held, not needs-LLM"
+        + ("; gate skipped: --no-repro-gate)" if skipped else ")"),
         f"needs-LLM held: base {held_nl(base)}, cand {held_nl(cand)}",
         bl_ok,
         f"drift.txt: {len(drift)} show(s)",
@@ -695,6 +700,8 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("base", type=Path)
     c.add_argument("cand", type=Path)
     c.add_argument("--out", type=Path, required=True, help="directory for the reports")
+    c.add_argument("--no-repro-gate", action="store_true",
+                   help="skip the base-reproduction gate (for a -prev arm, which carries earlier slices)")
     args = ap.parse_args(argv)
     try:
         return compare(args) if args.cmd == "compare" else run(args)
