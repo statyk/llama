@@ -2465,6 +2465,14 @@ Hand the operator the pre-screen plus:
 
 **Ask:** the 0.5 vs 2/3 decision, and approval of the 4b/4c lists. Stop until answered. On approval, the approved rows go to `$H/approved-E.txt`.
 
+**Recorded at Checkpoint E (operator, 2026-10-19):**
+- First measurement at tier1-cp-E = 3928398 (PREV = tier1-cp-D): slice 4 changed 32 outcomes (25 from 4a, 7 from 4b/4c), 0 newly held, 0 clean-changed. The 4a band (`0.5 <= ratio < 2/3`, compared exactly) held 18 rows and no wrong-show research; moving to `2 / 3` would have lost 8 of the 25 4a clears. **`RIGHT_SHOW_MIN_TAPE_FRACTION` stays 0.5.**
+- Six clears REJECTED, listed in `$H/rejected-E.txt`; they stay held and **Checkpoint G drops them from `predicted_list.json`**: gratefuldead-1970-06-24-e2 (the tape merges both events of the date; a gather event-split miss, not wrong-show research), soulive-2001-07-20 (would ship the other same-date performance's venue), and four 4b clears on a disputed adjacent date: littlefeat-1973-07-19, littlefeat-1975-01-20, minutemen-1983-12-16, minutemen-1985-11-30.
+- 4c as specified ("exactly `ryanadams-2008-11-16` changes") did not hold: `billycorgan-1991-09-01`'s only hold was a research date `1991-09-00`, which 4c stopped reading. Operator decision: a day-00 date is a "day unknown" assertion and keeps flagging. **Task 16b** adds `vet_research.day_unknown_date` (full-year forms, day exactly 0, month 1-12, sharing `normalize_date`'s parsing incl. 4c's day-first slash fallback): on a specific show date each day-00 entry raises `research asserts wrong date: <text>`, also feeds the 4a gate's raw date flags, and is never dropped by 4b's window; on a year-only placeholder show it is ignored.
+- littlefeat-1970-01-01 (delivered; a placeholder show asserting `1970-08-00`) reverts its invalid research-adopted date to the item placeholder under 4c; accepted as code behaviour, not held. The operator hand-checks its date after the run.
+- **Task 16c** fixed `replay_holds compare`: the slice-4b closest-calls rows now read `vetting.json["vetting"]["asserted_dates"]` (they printed `(vetting.json unavailable)`).
+- Re-measure at tier1-cp-E2 = e59a6d8 (PREV = tier1-cp-D): exactly one show differs from the first measurement in any field, billycorgan-1991-09-01 (needs-brief → still-held). Slice 4 approved; approved rows in `$H/approved-E.txt`.
+
 ---
 
 ### Task 17: 5a — numbered sets only, with the unplaced-encore exception
