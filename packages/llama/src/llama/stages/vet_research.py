@@ -52,18 +52,22 @@ def _valid_ymd(y: int, m: int, d: int) -> bool:
     return 1 <= m <= 12 and 1 <= d <= 31
 
 
-def normalize_date(text: str) -> str | None:
-    """Normalize common prose date spellings to YYYY-MM-DD; year-less forms
-    ("December 2") to ISO 8601 --MM-DD; None if unparseable or out of range.
-    A slash form that is invalid month-first but valid day-first is read
-    day-first (spec Slice 4 - 4c)."""
+def _parse_date(text: str, day_zero: bool) -> str | None:
+    """The one date reader behind `normalize_date` and `day_unknown_date`.
+    `day_zero` False: a valid date (day 1..31). True: the day must be exactly 0
+    (the "day unknown" assertion, Checkpoint E) and only full dates are read."""
     s = re.sub(r"\s+", " ", text.strip().lower().replace(",", " ").replace(".", " ")).strip()
     s = re.sub(r"^(?:mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?|sun)(?:day)? ", "", s)
 
+    def ok(y: int, mo: int, d: int) -> bool:
+        return (1 <= mo <= 12 and d == 0) if day_zero else _valid_ymd(y, mo, d)
+
     def full(y: int, mo: int, d: int) -> str | None:
-        return f"{y:04d}-{mo:02d}-{d:02d}" if _valid_ymd(y, mo, d) else None
+        return f"{y:04d}-{mo:02d}-{d:02d}" if ok(y, mo, d) else None
 
     def noyear(mo: int, d: int) -> str | None:
+        if day_zero:
+            return None
         return f"--{mo:02d}-{d:02d}" if _valid_ymd(0, mo, d) else None
 
     m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", s)
@@ -89,6 +93,20 @@ def normalize_date(text: str) -> str | None:
     if m:
         return noyear(int(m[1]), int(m[2])) or noyear(int(m[2]), int(m[1]))
     return None
+
+
+def normalize_date(text: str) -> str | None:
+    """Normalize common prose date spellings to YYYY-MM-DD; year-less forms
+    ("December 2") to ISO 8601 --MM-DD; None if unparseable or out of range.
+    A slash form that is invalid month-first but valid day-first is read
+    day-first (spec Slice 4 - 4c)."""
+    return _parse_date(text, False)
+
+
+def day_unknown_date(text: str) -> str | None:
+    """"YYYY-MM-00" when `text` is a full date, month 1..12, whose day is exactly
+    0 (an asserted "day unknown", Checkpoint E); None otherwise."""
+    return _parse_date(text, True)
 
 
 _SEGUE_SPLIT = re.compile(r"\s*(?:->|>|→)\s*")
@@ -137,7 +155,7 @@ def _within_window(a: str, b: str) -> bool:
 
 def _date_flags(
     mismatched: dict[str, str], yearless: dict[str, str], show: Show,
-    placeholder: bool, adopted: str | None,
+    placeholder: bool, adopted: str | None, day_unknown: dict[str, str] | None = None,
 ) -> list[str]:
     """The date flags for a set of mismatched full dates; none when a date is adopted."""
     out: list[str] = []
@@ -150,6 +168,9 @@ def _date_flags(
                 " looks like a year-only placeholder"
             )
         else:
+            out.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
+    if not placeholder:  # a day-00 assertion never matches a specific show date
+        for text in (day_unknown or {}).values():
             out.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
     for norm, text in yearless.items():  # year-less: match on month and day
         if not show.date.endswith(norm[1:]):
@@ -222,6 +243,12 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
             continue  # can't verify is not a contradiction; kept in vetting.json
         (yearless if norm.startswith("--") else full).setdefault(norm, text)
 
+    day_unknown: dict[str, str] = {}
+    for text in vetting.asserted_dates:
+        du = day_unknown_date(text)
+        if du:
+            day_unknown.setdefault(du, text)
+
     mismatched_raw = {n: t for n, t in full.items() if n != show.date}
     placeholder = show.date.endswith("-01-01") and show.date_source == "item"
     adopted: str | None = None
@@ -241,7 +268,8 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
     }
     # 4a reads date_flags_raw: the date flags WITHOUT the 4b window, so research
     # about an adjacent night that names this show's date still disqualifies it.
-    date_flags_raw = _date_flags(mismatched_raw, yearless, show, placeholder, adopted)
+    date_flags_raw = _date_flags(
+        mismatched_raw, yearless, show, placeholder, adopted, day_unknown)
     if not songs_grounded:
         ok, info = right_show_gate(vetting, show, date_flags_raw=date_flags_raw)
         if ok:
@@ -253,7 +281,7 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
             )
         else:
             flags += [f"{_VET_FLAG_PREFIX}unknown song: {s}" for s in unknown]
-    flags += _date_flags(mismatched, yearless, show, placeholder, adopted)
+    flags += _date_flags(mismatched, yearless, show, placeholder, adopted, day_unknown)
 
     # Set-count check is independent of the date decision: an adoption must
     # not swallow a genuine structure contradiction.

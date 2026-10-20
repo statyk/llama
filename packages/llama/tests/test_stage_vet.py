@@ -10,6 +10,7 @@ from llama.stages.vet_research import (
     RIGHT_SHOW_MIN_TAPE_FRACTION,
     VetOutcome,
     apply_vet,
+    day_unknown_date,
     grounding_flags,
     normalize_date,
     right_show_gate,
@@ -654,3 +655,79 @@ def test_4a_note_lands_in_vet_outcome_notes_and_flags_clear():
     assert out.show.review_flags == [] and out.show.needs_review is False
     assert out.result.flags == []
     assert len(out.notes) == 1 and out.notes[0].startswith("unknown-song flags suppressed by the right-show gate: 5/8")
+
+
+# --- Task 16b (Checkpoint E): a day-00 date is a "day unknown" assertion ---
+
+
+@pytest.mark.parametrize("text, expect", [
+    ("1991-09-00", "1991-09-00"),
+    ("9/0/91", "1991-09-00"),
+    ("September 0, 1991", "1991-09-00"),
+    ("0 September 1991", "1991-09-00"),
+    ("1991-00-00", None),      # month 0
+    ("1991-13-00", None),      # month 13
+    ("0/0/91", None),          # month 0 either way round
+    ("September 0", None),     # year-less
+    ("0/5", None),             # year-less slash
+    ("1991-09-01", None),      # an ordinary valid date
+    ("1991-09-32", None),
+])
+def test_day_unknown_date(text, expect):
+    assert day_unknown_date(text) == expect
+
+
+def test_normalize_date_still_rejects_day_zero():
+    assert normalize_date("1991-09-00") is None
+
+
+def _show_on(date, source="item"):
+    return make_show().model_copy(update={"date": date, "date_source": source})
+
+
+def test_16b_billycorgan_shape_day00_is_the_only_flag():
+    show = _show_on("1991-09-01")
+    flags, adopted, _ = grounding_flags(
+        _vet(["1991-09-01", "1991-09-00", "09/XX/1991", "September 1991, London"]), show)
+    assert flags == ["research asserts wrong date: 1991-09-00"] and adopted is None
+
+
+def test_16b_day00_in_another_month_flags():
+    flags, _, _ = grounding_flags(_vet(["1973-06-10", "1973-09-00"]), make_show())
+    assert flags == ["research asserts wrong date: 1973-09-00"]
+
+
+def test_16b_day00_next_to_the_show_date_is_not_windowed_away():
+    show = _show_on("1973-06-01")
+    flags, _, _ = grounding_flags(_vet(["1973-06-01", "1973-06-00"]), show)
+    assert flags == ["research asserts wrong date: 1973-06-00"]
+
+
+def test_16b_day00_flag_uses_the_surface_text_and_orders_before_yearless():
+    flags, _, _ = grounding_flags(
+        _vet(["1973-06-10", "September 0, 1973", "December 2"]), make_show())
+    assert flags == ["research asserts wrong date: September 0, 1973",
+                     "research asserts wrong date: December 2"]
+
+
+def test_16b_placeholder_show_ignores_day00():
+    show = _show_on("1970-01-01")
+    flags, adopted, _ = grounding_flags(_vet(["August 1970", "1970-08-00"]), show)
+    assert flags == [] and adopted is None
+
+
+def test_16b_placeholder_adoption_unchanged_by_a_day00_entry():
+    show = _show_on("1970-01-01")
+    base = grounding_flags(_vet(["1970-08-15"]), show)
+    with_zero = grounding_flags(_vet(["1970-08-15", "1970-08-00"]), show)
+    assert base[1] == "1970-08-15" and with_zero[:2] == base[:2]
+
+
+def test_16b_day00_makes_the_right_show_gate_decline():
+    show = _tape(8)
+    vet = ResearchVetting(
+        asserted_songs=[f"Song {i}" for i in range(1, 6)] + ["Alpha", "Beta", "Gamma"],
+        asserted_dates=["1973-06-10", "1973-06-00"])
+    flags, _, notes = grounding_flags(vet, show)
+    assert notes == [] and any("unknown song" in f for f in flags)
+    assert "research asserts wrong date: 1973-06-00" in flags
