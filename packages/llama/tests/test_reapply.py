@@ -398,3 +398,301 @@ def test_cli_reapply_dry_run_writes_nothing(tmp_path, monkeypatch):
     assert r.exit_code == 0, r.output
     assert f"reapplied: {HELD} -> dry-run: cleared" in r.output
     assert _snapshot(entry.ws) == before
+
+
+# --- Task 20: --from-list batches, the pacing gate, stop rules, list checks ---
+
+from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
+from llama.replay import code_identity, config_fingerprint
+
+
+@pytest.fixture(autouse=True)
+def _no_global_capture_dir(monkeypatch):
+    # The reapply command switches herder's module-level failure capture on;
+    # restore it after every test so no later test captures into a dead tmp_path.
+    monkeypatch.setattr("herder.failures._capture_dir", None)
+
+
+def _list_file(tmp_path, root, config, entries, sha=None, fp=None):
+    rows = [{"slug": e.slug, "outcome": "clears", "briefing": "reuse", "digests": input_digests(e.ws)} for e in entries]
+    data = {"sha": sha or code_identity(), "config_fingerprint": fp or config_fingerprint(config),
+            "written_at": "2026-10-19T00:00:00+00:00", "rows": rows}
+    p = tmp_path / "predicted_list.json"
+    p.write_text(json.dumps(data))
+    return p
+
+
+def _cli(root):
+    return root / "config.toml"     # the fixture library's own config ([jerrybase] enabled = false)
+
+
+def _clones(root, entry, n):
+    """`n` copies of the held show under slugs held-2.., returned as entries."""
+    import shutil
+    from llama.catalog import CatalogEntry
+    out = []
+    for i in range(2, 2 + n):
+        d = root / "shows" / f"held-{i}"
+        shutil.copytree(entry.ws.dir, d)
+        out.append(CatalogEntry(slug=d.name, ws=type(entry.ws)(d), state="held"))
+    return out
+
+
+def test_list_from_another_sha_or_config_is_refused(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    bad = _list_file(tmp_path, root, config, [entry], sha="0" * 40)
+    with pytest.raises(LlamaError) as exc:
+        load_list(bad, sha=code_identity(), fingerprint=config_fingerprint(config))
+    assert "was written for code" in str(exc.value)
+    bad = _list_file(tmp_path, root, config, [entry], fp="deadbeef")
+    with pytest.raises(LlamaError):
+        load_list(bad, sha=code_identity(), fingerprint=config_fingerprint(config))
+
+
+def test_rerun_of_the_same_list_skips_finished_shows_but_not_failed_ones(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    cfg = _cli(root)
+    lst = _list_file(tmp_path, root, config, [entry])
+    calls = _stub_package(monkeypatch, fail_first=True)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    r1 = cli_invoke(cfg, "reapply", "--from-list", str(lst))
+    assert "FAILED gratefuldead-1973-06-10" in r1.output
+    progress = read_progress(batch_dir(root, lst))
+    assert progress[HELD]["retryable"] is True
+    r2 = cli_invoke(cfg, "reapply", "--from-list", str(lst))
+    assert "reapplied: gratefuldead-1973-06-10 -> cleared" in r2.output
+    r3 = cli_invoke(cfg, "reapply", "--from-list", str(lst))
+    assert "gratefuldead-1973-06-10" not in r3.output.replace(str(root), "")   # finished: skipped silently
+    assert len(calls) == 2
+
+
+def test_batch_stops_after_three_consecutive_llm_failures(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    from herder import HerderError
+    monkeypatch.setattr("herder.tasks._sleep", lambda s: None)    # _with_transport_retry's backoff
+    root, config, ledger, entry, shows = _env(tmp_path)
+    # three held rows: clone the held show under three slugs
+    import shutil
+    for i in (2, 3, 4):
+        shutil.copytree(entry.ws.dir, root / "shows" / f"held-{i}")
+    for d in (root / "shows").glob("held-*"):
+        (d / "briefing.json").unlink()
+    entry.ws.briefing_json.unlink()
+    from llama.catalog import iter_shows
+    held = [e for e in iter_shows(root, ledger) if e.state == "held"]
+    assert len(held) == 4
+    lst = _list_file(tmp_path, root, config, held)
+    cfg = _cli(root)
+    monkeypatch.setattr(cli, "make_providers",
+                        lambda config: {"brief": FakeProvider([HerderError("boom")] * 12)})   # run_json_task retries
+    r = cli_invoke(cfg, "reapply", "--from-list", str(lst))
+    assert r.output.count("FAILED") == STOP_AFTER_LLM_FAILURES
+    assert "stopping after 3 consecutive LLM failures" in r.output
+
+
+def test_a_success_resets_the_consecutive_llm_failure_count(tmp_path, monkeypatch):
+    # Mutant (a): `consecutive` not reset on success would stop at the 4th row.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    from herder import HerderError
+    root, config, ledger, entry, _ = _env(tmp_path)
+    rows = _clones(root, entry, 5)
+    lst = _list_file(tmp_path, root, config, rows)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    script = {"held-2": "fail", "held-3": "fail", "held-4": "ok", "held-5": "fail", "held-6": "fail"}
+    def fake(config, ia, ledger, entry, **kw):
+        if script[entry.slug] == "fail":
+            raise HerderError("boom")
+        return ReapplyOutcome(slug=entry.slug, outcome="cleared", briefing="fresh",
+                              flags=[], delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.output.count("FAILED") == 4 and "stopping after" not in r.output
+    assert "reapplied: held-4 -> cleared" in r.output
+    progress = read_progress(batch_dir(root, lst))
+    assert {s: p["retryable"] for s, p in progress.items()} == {
+        "held-2": True, "held-3": True, "held-4": False, "held-5": True, "held-6": True}
+
+
+def test_missing_show_is_skipped_and_not_finished(tmp_path, monkeypatch):
+    # Review Focus 4.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    data = json.loads(lst.read_text()); data["rows"][0]["slug"] = "gone-1999-01-01"; lst.write_text(json.dumps(data))
+    cfg = _cli(root)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    r = cli_invoke(cfg, "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0 and "missing: gone-1999-01-01" in r.output
+    assert read_progress(batch_dir(root, lst))["gone-1999-01-01"]["retryable"] is True
+
+
+def test_a_pause_verdict_stops_the_batch_at_the_show_boundary(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    from llama.pacing import PauseUntil
+    from datetime import datetime, timezone
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    cfg = _cli(root)
+    calls = _stub_package(monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    monkeypatch.setattr(cli, "decide", lambda *a, **k: PauseUntil(datetime.now(timezone.utc), "five_hour", "5h window at 95%"))
+    r = cli_invoke(cfg, "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0 and "paused: 5h window at 95%" in r.output
+    assert f"resume with: llama reapply --from-list {lst}" in r.output
+    assert calls == [] and read_progress(batch_dir(root, lst)) == {}
+
+
+def test_a_refusal_mid_show_leaves_it_uncommitted_and_the_list_resumable(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    from herder.limits import RateLimited
+    root, config, ledger, entry, _ = _env(tmp_path)
+    entry.ws.briefing_json.unlink()
+    lst = _list_file(tmp_path, root, config, [entry])
+    cfg = _cli(root)
+    monkeypatch.setattr(cli, "make_providers", lambda config: {"brief": FakeProvider([RateLimited("limit")])})
+    r = cli_invoke(cfg, "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0 and "paused: limit" in r.output and "resume with: llama reapply --from-list" in r.output
+    assert read_model(entry.ws.show, Show).needs_review is True
+    assert read_progress(batch_dir(root, lst)) == {}
+
+
+def test_dry_run_prints_the_cost_summary_and_creates_no_batch(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    cfg = _cli(root)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    r = cli_invoke(cfg, "reapply", "--from-list", str(lst), "--dry-run")
+    assert r.exit_code == 0
+    assert "would: gratefuldead-1973-06-10 -> cleared" in r.output
+    assert "summary: 1 rows, 0 already finished, 0 fresh briefs, 1 first-time downloads (~175 MB each, ~0.2 GB)" in r.output
+    assert not (root / "reapply").exists()
+
+
+def test_names_and_from_list_are_exclusive(tmp_path):
+    from conftest import cli_invoke
+    root, config, ledger, entry, _ = _env(tmp_path)
+    r = cli_invoke(_cli(root), "reapply", HELD, "--from-list", str(tmp_path / "x.json"))
+    assert r.exit_code != 0
+
+
+def test_one_malformed_overrides_fails_its_row_and_the_batch_continues(tmp_path, monkeypatch):
+    # M3: entries are built per row, never via catalog.iter_shows, which reads
+    # every show's overrides.json and would abort the whole batch on this one.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    (bad,) = _clones(root, entry, 1)
+    bad.ws.overrides.write_text("[1, 2")
+    lst = _list_file(tmp_path, root, config, [bad, entry])     # digests taken after the damage
+    calls = _stub_package(monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "FAILED held-2:" in r.output
+    assert f"reapplied: {HELD} -> cleared" in r.output and len(calls) == 1
+    assert r.exit_code == 1 and "Traceback" not in r.output
+    progress = read_progress(batch_dir(root, lst))
+    assert progress["held-2"]["retryable"] is True and progress[HELD]["retryable"] is False
+
+
+def test_a_corrupt_show_json_fails_its_row_and_does_not_count_as_an_llm_failure(tmp_path, monkeypatch):
+    # Task 19 review minor 4: a pydantic ValidationError on one row is a
+    # per-row FAILED recorded retryable, never a traceback that aborts the batch.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    bad = _clones(root, entry, 3)
+    for c in bad:
+        c.ws.show.write_text('{"artist": 1}')
+    lst = _list_file(tmp_path, root, config, [*bad, entry])
+    calls = _stub_package(monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.output.count("FAILED held-") == 3 and "stopping after" not in r.output
+    assert f"reapplied: {HELD} -> cleared" in r.output and len(calls) == 1
+    progress = read_progress(batch_dir(root, lst))
+    assert all(progress[c.slug]["retryable"] is True for c in bad)
+
+
+def test_the_reapply_command_switches_on_llm_failure_capture(tmp_path, monkeypatch):
+    # Task 19 review C2: a failed `claude -p` during the apply is captured whole, as in `_execute`.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    seen = []
+    monkeypatch.setattr(cli, "set_capture_dir", lambda p: seen.append(p))
+    lst = _list_file(tmp_path, root, config, [entry])
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run").exit_code == 0
+    assert cli_invoke(_cli(root), "reapply", "--dry-run", HELD).exit_code == 0
+    assert seen == []                                     # a dry run makes no LLM call
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst)).exit_code == 0
+    assert seen == [root / "llm-failures"]
+    assert cli_invoke(_cli(root), "reapply", HELD).exit_code == 0
+    assert seen == [root / "llm-failures"] * 2
+
+
+def test_the_show_lock_is_held_when_the_row_digests_are_checked(tmp_path, monkeypatch):
+    # Task 19 review mutant (h): the show.json re-read and the digest skip
+    # must run under the per-show lock, or a concurrent `fix` slips between.
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    row = {"slug": HELD, "digests": input_digests(entry.ws)}
+    real = reapply_mod.input_digests
+    seen = []
+    def spy(ws):
+        with pytest.raises(Locked):
+            with file_lock(ws.lock, blocking=False):
+                pass
+        seen.append(True)
+        return real(ws)
+    monkeypatch.setattr(reapply_mod, "input_digests", spy)
+    assert _run(config, ledger, entry, row=row).outcome == "cleared"
+    assert seen == [True]
+
+
+def test_record_progress_survives_a_cut_short_line(tmp_path):
+    from llama.reapply import record_progress
+    batch = tmp_path / "b"
+    batch.mkdir()
+    record_progress(batch, "a", "cleared", retryable=False)
+    with open(batch / "progress.jsonl", "a") as f:
+        f.write('{"slug": "b", "outc')                 # a crash mid-append
+    record_progress(batch, "c", "held", retryable=False)
+    progress = read_progress(batch)
+    assert set(progress) == {"a", "c"} and progress["c"]["outcome"] == "held"
+
+
+def test_the_gate_reads_the_meter_around_each_show_and_never_records_pacing_state(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    from datetime import datetime, timezone
+    from herder.usage import Meter, UsageReading
+    from llama.pacing import Proceed
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    _stub_package(monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    seq = [40, 42]
+    reset = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    monkeypatch.setattr(cli, "read_usage", lambda *a, **k: UsageReading(
+        five_hour=Meter(seq.pop(0), reset), seven_day=Meter(7, reset)))
+    gated = []
+    monkeypatch.setattr(cli, "decide", lambda now, reading, progress, pace:
+                        gated.append(reading.five_hour.percent) or Proceed())
+    def no_record(*a, **k):
+        raise AssertionError("reapply must not fold a show into the learned per-show cost")
+    monkeypatch.setattr(cli.pacing_state, "record", no_record)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    assert gated == [40] and seq == []
+    assert f"reapplied: {HELD} -> cleared\n  meter: 5h 40% -> 42%" in r.output

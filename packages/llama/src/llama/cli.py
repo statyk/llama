@@ -3095,13 +3095,19 @@ def reapply(
     any other LLM call is reported as needs-llm and left untouched."""
     from llama import reapply as reapply_mod
 
-    if from_list is not None:
-        typer.echo("--from-list: not implemented", err=True)
+    if names and from_list is not None:
+        typer.echo("give show names or --from-list, not both", err=True)
         raise typer.Exit(1)
+    if from_list is not None:
+        _reapply_list(from_list, dry_run=dry_run)
+        return
     if not names:
         typer.echo("give one or more shows (or --from-list)", err=True)
         raise typer.Exit(1)
     config, ia, ledger = _setup()
+    if not dry_run:
+        # As `_execute`: a failed `claude -p` during the apply is captured whole.
+        set_capture_dir(config.root / "llm-failures")
     providers = make_providers(config)
     failed = False
     for name in names:
@@ -3119,6 +3125,127 @@ def reapply(
         typer.echo(f"reapplied: {out.slug} -> {out.outcome}")
         if out.delivered and out.outcome == "cleared":
             typer.echo(f"  re-deliver with: llama deliver {out.slug}")
+    if failed:
+        raise typer.Exit(1)
+
+
+def _meter_pct(reading) -> str:
+    if reading is None or reading.five_hour is None:
+        return "?"
+    return str(reading.five_hour.percent)
+
+
+def _reapply_list(path: Path, *, dry_run: bool) -> None:
+    """`llama reapply --from-list` (spec slice 6 "Batch state"): resumable
+    through `<root>/reapply/<list hash>/progress.jsonl`, a pacing gate before
+    every show, and two stops -- a usage-limit refusal (clean, at the show
+    boundary, nothing recorded for the interrupted show) and
+    STOP_AFTER_LLM_FAILURES consecutive LLM failures of any other kind. Every
+    other per-show failure is recorded retryable and the batch goes on."""
+    from llama import reapply as reapply_mod
+    from llama.catalog import CatalogEntry, derive_state
+    from llama.replay import code_identity, config_fingerprint
+    from llama.workspace import ShowWorkspace
+
+    config, ia, ledger = _setup()
+    try:
+        data = reapply_mod.load_list(path, sha=code_identity(),
+                                     fingerprint=config_fingerprint(config))
+    except LlamaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    rows = data["rows"]
+    batch = reapply_mod.batch_dir(config.root, path)
+    if not dry_run:
+        set_capture_dir(config.root / "llm-failures")
+        batch.mkdir(parents=True, exist_ok=True)
+        if not (batch / "list.json").exists():
+            shutil.copyfile(path, batch / "list.json")
+    progress = reapply_mod.read_progress(batch) if batch.is_dir() else {}
+    finished = {s for s, r in progress.items() if not r.get("retryable", True)}
+    providers = make_providers(config)
+    pace = pace_options(config)
+    state = pacing_state.read_state(config.root)
+    delivered = {e.performance_id for e in ledger.entries() if e.status == "delivered"}
+    resume = f"resume with: llama reapply --from-list {path}"
+    consecutive, failed = 0, False
+    n_finished = fresh = downloads = 0
+
+    def fail(slug: str, exc: Exception) -> None:
+        nonlocal failed
+        failed = True
+        typer.echo(f"FAILED {slug}: {exc}", err=True)
+        if not dry_run:
+            reapply_mod.record_progress(batch, slug, f"failed: {exc}"[:300], retryable=True)
+
+    for row in rows:
+        slug = row["slug"]
+        if slug in finished:
+            n_finished += 1
+            continue
+        reading = None
+        if not dry_run:
+            # Before the show lock and any of this show's work, as the show loop.
+            reading = _meter(config, pace)
+            verdict = decide(_pacing._now(), reading, Progress(state.per_show_delta), pace)
+            if isinstance(verdict, PauseUntil):
+                typer.echo(f"paused: {str(verdict)}")
+                typer.echo(f"  {resume}")
+                return
+        show_dir = config.root / "shows" / slug
+        if not show_dir.is_dir():
+            # `llama rm`'d since the harness ran: reported, never finished.
+            typer.echo(f"missing: {slug}")
+            if not dry_run:
+                reapply_mod.record_progress(batch, slug, "skipped: missing", retryable=True)
+            continue
+        try:
+            # Built per row, never via catalog.iter_shows: one unreadable show
+            # anywhere in the library must not abort the whole batch.
+            ws = ShowWorkspace(show_dir)
+            st, flags = derive_state(ws, delivered)
+            entry = CatalogEntry(slug=slug, ws=ws, state=st, flags=flags)
+            out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
+                                           row=row, dry_run=dry_run,
+                                           echo=lambda s: typer.echo(s, err=True))
+        except RateLimited as exc:
+            # Must stay above HerderError, which it subclasses. Nothing is
+            # recorded: the interrupted show was not committed and re-runs.
+            typer.echo(f"paused: {str(exc)}")
+            typer.echo(f"  {resume}")
+            return
+        except (TaskFailed, HerderError) as exc:
+            fail(slug, exc)
+            consecutive += 1
+            if consecutive >= reapply_mod.STOP_AFTER_LLM_FAILURES:
+                typer.echo(f"stopping after {consecutive} consecutive LLM failures; {resume}")
+                raise typer.Exit(1)
+            continue
+        except (IAError, LlamaError, ValueError, OSError) as exc:
+            # ValueError covers pydantic's ValidationError and a JSON decode
+            # error: a corrupt show.json/provenance.json/vetting.json/
+            # overrides.json is this row's failure, never the batch's.
+            fail(slug, exc)
+            continue
+        if dry_run:
+            predicted = out.outcome.removeprefix("dry-run: ")
+            typer.echo(f"would: {slug} -> {predicted}")
+            if out.outcome.startswith("dry-run: ") and predicted != "held":
+                fresh += out.briefing == "fresh"
+                downloads += not (ws.package_dir / "manifest.json").exists()
+            continue
+        consecutive = 0
+        reapply_mod.record_progress(batch, slug, out.outcome, retryable=False)
+        typer.echo(f"reapplied: {slug} -> {out.outcome}")
+        if out.delivered and out.outcome == "cleared":
+            typer.echo(f"  re-deliver with: llama deliver {slug}")
+        if _meter_applies(config, pace):
+            typer.echo(f"  meter: 5h {_meter_pct(reading)}% -> "
+                       f"{_meter_pct(_meter(config, pace))}%")
+    if dry_run:
+        typer.echo(f"summary: {len(rows)} rows, {n_finished} already finished, {fresh} fresh "
+                   f"briefs, {downloads} first-time downloads (~175 MB each, "
+                   f"~{downloads * 175 / 1024:.1f} GB)")
     if failed:
         raise typer.Exit(1)
 

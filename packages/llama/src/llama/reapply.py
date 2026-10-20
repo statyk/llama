@@ -11,9 +11,12 @@ part-way leaves it on every held list and a re-run completes it.
 written.
 """
 import dataclasses
+import hashlib
+import json
 import shutil
 import tempfile
 from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 
 from llama.catalog import CatalogEntry
@@ -27,6 +30,11 @@ from llama.stages.brief import generate_briefing, render_briefing_md
 from llama.stages.package import build_package
 from llama.workspace import (drop_stage_artifacts, read_json, read_model, read_overrides,
                              write_artifact)
+
+# Spec slice 6 "Batch state": the batch also stops after this many
+# consecutive LLM failures of any kind (an openrouter 429 or an unrecognised
+# refusal arrives as a plain HerderError, which the pause path never sees).
+STOP_AFTER_LLM_FAILURES = 3
 
 # classify's held-show outcomes -> the dry-run prediction (`needs-llm` stops
 # before the dry-run check, like the apply).
@@ -140,3 +148,67 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             update={"review_flags": list(flags), "needs_review": bool(flags)}))
         return ReapplyOutcome(slug, "held" if flags else "cleared", legs.brief, list(flags),
                               delivered, written)
+
+
+# --- batch state (spec slice 6 "Batch state"; plan Contracts "Reapply batch state") ---
+
+def load_list(path: Path, *, sha: str, fingerprint: str) -> dict:
+    """A predicted list written by `replay compare` (plan Contracts). Refused
+    whole when it was written by other code or another config (spec
+    "Predicted lists are tied to what produced them"): its rows' outcomes are
+    predictions of THAT code under THAT config."""
+    try:
+        data = json.loads(Path(path).read_text())
+    except (OSError, ValueError) as exc:
+        raise LlamaError(f"cannot read list {path}: {exc}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("rows"), list):
+        raise LlamaError(f"list {path} is not a predicted list (no rows)")
+    for row in data["rows"]:
+        if not (isinstance(row, dict) and isinstance(row.get("slug"), str) and row["slug"]
+                and isinstance(row.get("digests"), dict)):
+            raise LlamaError(f"list {path} has a malformed row: {row!r}"[:300])
+    list_sha, list_fp = data.get("sha"), data.get("config_fingerprint")
+    if list_sha != sha or list_fp != fingerprint:
+        raise LlamaError(f"list {path} was written for code {list_sha} and config {list_fp}; "
+                         f"running code is {sha}, config {fingerprint}")
+    return data
+
+
+def batch_dir(root: Path, list_path: Path) -> Path:
+    """`<root>/reapply/<sha256(list bytes)[:16]>`: outside `runs/`, so `llama run
+    list` never sees it; the same list file always finds the same batch."""
+    return root / "reapply" / hashlib.sha256(Path(list_path).read_bytes()).hexdigest()[:16]
+
+
+def read_progress(batch: Path) -> dict[str, dict]:
+    """slug -> its LAST progress row. A slug is finished when that row has
+    `retryable == false`. A line that does not parse (a crash mid-append) is
+    skipped: its show is then simply not finished, the safe direction."""
+    path = batch / "progress.jsonl"
+    out: dict[str, dict] = {}
+    if not path.exists():
+        return out
+    for line in path.read_text().splitlines():
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict) and isinstance(row.get("slug"), str):
+            out[row["slug"]] = row
+    return out
+
+
+def record_progress(batch: Path, slug: str, outcome: str, retryable: bool) -> None:
+    """Append one progress row under the batch's own lock."""
+    path = batch / "progress.jsonl"
+    line = json.dumps({"slug": slug, "outcome": outcome, "retryable": bool(retryable),
+                       "at": datetime.now(timezone.utc).isoformat()})
+    with file_lock(batch / "progress.lock"):
+        # A previous append cut short (no trailing newline) must not swallow this row.
+        lead = ""
+        if path.exists() and path.stat().st_size:
+            with open(path, "rb") as f:
+                f.seek(-1, 2)
+                lead = "" if f.read(1) == b"\n" else "\n"
+        with open(path, "a") as f:
+            f.write(lead + line + "\n")
