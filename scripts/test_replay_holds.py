@@ -664,3 +664,41 @@ def test_narration_sort_comparator_is_correct_and_transitive():
     got = json.loads(res.stdout)
     assert got == ["3", "12", "1973-01-02", "1973-06-10", "311-1995-01-01", "?", "abc"] or \
         got == ["3", "12", "?", "1973-01-02", "1973-06-10", "311-1995-01-01", "abc"]
+
+
+def test_briefings_lists_a_set_count_match_the_new_guard_suppresses(tmp_path):
+    base, cand = _two_arms(tmp_path)
+    root = tmp_path / "lib"
+    ws = root / "shows" / "gratefuldead-1973-06-10"
+    b = json.loads((ws / "briefing.json").read_text())
+    b["context"] = "They played two electric sets that night, a long one and a short one."
+    (ws / "briefing.json").write_text(json.dumps(b))
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "briefings.txt").read_text()
+    assert "suppressed set-count/ordinal matches" in text
+    assert "gratefuldead-1973-06-10" in text and "two electric sets" in text
+
+
+def test_suppressed_claims_lists_only_what_3c_drops_with_bounded_context(tmp_path):
+    from fixture_library import CLEAN, HELD
+    root = tmp_path / "lib"
+    build_library(root)
+    pad = "x" * 70
+    held = json.loads((root / "shows" / HELD / "briefing.json").read_text())
+    held["context"] = f"{pad} there is no second set and two excellent sets, {pad}"
+    held["cautions"] = ["two night sets"]                  # cautions are not guard prose
+    (root / "shows" / HELD / "briefing.json").write_text(json.dumps(held))
+    clean = json.loads((root / "shows" / CLEAN / "briefing.json").read_text())
+    clean["context"], clean["narration"] = "two electric sets", "vague"   # vague: not 3c's business
+    (root / "shows" / CLEAN / "briefing.json").write_text(json.dumps(clean))
+    lines, n = rh._suppressed_claims(root)
+    assert n == 1 and lines[0] == "suppressed set-count/ordinal matches: 1"
+    row = lines[1]
+    assert row.startswith(f"  {HELD}  'second set'  ...")
+    ctx = row.split("  ...", 1)[1].rstrip(".")
+    at = held["context"].index("second set")
+    assert ctx == held["context"][at - 60:at + len("second set") + 60]
+    assert "excellent" in ctx and "night sets" not in row
+    assert rh._suppressed_claims(tmp_path / "nowhere") == (
+        ["suppressed set-count/ordinal matches: 0", rh.NONE, ""], 0)

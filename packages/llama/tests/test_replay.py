@@ -624,3 +624,32 @@ def test_replay_show_state_counts_the_delivered_set(tmp_path):
     ws, show = _library_show(tmp_path, held=False)
     assert _replay(tmp_path, ws, delivered={show.performance_id}).state == "delivered"
     assert _replay(tmp_path, ws).state == "vetted"
+
+
+# --- Task 14: stored briefings are normalised (3a) wherever replay guards or reuses them ---
+
+def test_briefing_reusable_normalises_empty_sets_before_the_guard():
+    show = Show(performance_id="A/1973-06-10", identifier="x", artist="A", date="1973-06-10",
+                tracks=[Track(index=1, set="1", title="Dew", filename="a.mp3", title_source="tags")])
+    b = Briefing(context="c", significance="s", per_set={"1": ["x"], "encore": []})
+    assert briefing_reusable(show, show, b, "full") is None
+
+
+def _with_empty_set_briefing(ws):
+    write_artifact(ws.briefing_json, Briefing(context="c", significance="s",
+                                              per_set={"1": ["a"], "2": ["b"], "encore": ["c"],
+                                                       "3": []}))
+
+
+def test_compute_legs_reuses_and_stores_the_normalised_briefing(tmp_path):
+    ws, _ = _library_show(tmp_path, held=False)
+    _with_empty_set_briefing(ws)
+    legs = _legs(tmp_path, ws)
+    assert legs.brief == "reuse" and legs.brief_flags == []
+    assert legs.briefing.per_set == {"1": ["a"], "2": ["b"], "encore": ["c"]}
+
+
+def test_stored_brief_guard_runs_on_the_normalised_briefing(tmp_path):
+    ws, _ = _library_show(tmp_path, held=False)
+    _with_empty_set_briefing(ws)
+    assert _replay(tmp_path, ws).stored_brief_guard == []

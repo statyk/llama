@@ -247,3 +247,117 @@ def test_vetting_summary(tmp_path):
     text = vetting_summary(ws)
     assert "research asserts a song not in the show" in text
     assert "1973-06-10" in text and "Summer '73 stadium run." in text
+
+
+# --- slice 3 (spec "Slice 3 — Briefing guard") ---
+
+import pytest
+
+from llama.songs import normalize_song
+from llama.stages.brief import briefing_guard, known_song, normalize_briefing, song_components
+from llama.workspace import read_model
+
+
+def test_3a_empty_sets_are_dropped_and_the_guard_never_sees_them():
+    b = _briefing(per_set={"1": ["a"], "2": ["b"], "encore": []})
+    assert briefing_guard(b, _show(encore=False)) == ["briefing references nonexistent set: encore"]  # today's reading, pre-normalisation
+    n = normalize_briefing(b)
+    assert n.per_set == {"1": ["a"], "2": ["b"]}
+    assert briefing_guard(n, _show(encore=False)) == []
+    assert "## Encore" not in render_briefing_md(n, _show(encore=False))
+
+
+def test_3a_normalize_leaves_everything_else_byte_identical():
+    b = _briefing(per_set={"1": ["a"], "2": [], "encore": ["c"]}, mentioned_songs=["Song 1"])
+    n = normalize_briefing(b)
+    assert n.per_set == {"1": ["a"], "encore": ["c"]}
+    assert n.model_dump(exclude={"per_set"}) == b.model_dump(exclude={"per_set"})
+    assert b.per_set == {"1": ["a"], "2": [], "encore": ["c"]}     # a copy: the input is untouched
+    assert normalize_briefing(n) == n
+    # an empty per_set dict stays empty: no talking points at all is still a problem
+    assert briefing_guard(normalize_briefing(_briefing(per_set={})), _show()) == [
+        "briefing has no per-set talking points"]
+
+
+def test_run_brief_normalises_before_the_guard_and_the_writes(tmp_path):
+    show = _show(encore=False)
+    ws = _ws(tmp_path, show)
+    with_empty_encore = json.dumps({**json.loads(GOOD_BRIEFING), "per_set": {"1": ["a"], "2": ["b"], "encore": []}})
+    run_brief(ws, FakeProvider(completes=[with_empty_encore]), show, "r", [])
+    assert read_model(ws.show, Show).needs_review is False
+    assert "encore" not in json.loads(ws.briefing_json.read_text())["per_set"]
+    assert "## Encore" not in ws.briefing_md.read_text()
+
+
+@pytest.mark.parametrize("song, titles, known", [
+    ("E1: Ripple", ["Ripple"], True),
+    ("Encore: Ripple", ["Ripple"], True),
+    ("1979 (Kerry Brown on drums)", ["1979"], True),
+    ("Storms (fades in)", ["Storms"], True),
+    ("Drums > Space", ["Drums", "Space"], True),
+    ("Drums > Space", ["Drums > Space"], True),
+    ("Drums", ["Drums > Space"], True),               # a merged track's component is a known title
+    ("Scarlet Begonias", ["Scarlet Begonias > Fire on the Mountain"], True),
+    ("Fire", ["Scarlet Begonias > Fire on the Mountain"], False),   # no subphrase matching
+    ("Ripple", ["Ripple (reprise)"], True),
+    ("44 Blues", ["Ripple"], False),
+    ("Dark Star", ["Dark Star Jam"], False),          # no loosely_same_title
+    ("Drums > Nope", ["Drums"], False),               # EVERY component must be known, not any
+])
+def test_3b_tolerant_matching_narrowly(song, titles, known):
+    exact = {normalize_song(t) for t in titles}
+    comps = exact | {c for t in titles for c in song_components(t)} | {" ".join(song_components(t)) for t in titles}
+    assert known_song(song, exact, comps) is known
+
+
+def test_3b_is_a_superset_of_todays_matcher():
+    # every pair today's exact test accepts, the new one accepts
+    titles = ["Ripple", "Drums > Space", "E: Casey Jones", "1979 (live)", "Me & My Uncle"]
+    exact = {normalize_song(t) for t in titles}
+    comps = exact | {c for t in titles for c in song_components(t)} | {" ".join(song_components(t)) for t in titles}
+    for t in titles:
+        assert normalize_song(t) in exact
+        assert known_song(t, exact, comps)
+
+
+@pytest.mark.parametrize("prose, claims, ordinals", [
+    ("two electric sets tonight", set(), {}),
+    ("two excellent sets", {2}, {}),
+    ("two sets that night", {2}, {}),
+    ("two night sets", set(), {}),
+    ("there is no second set", set(), {}),
+    ("not three sets but two", set(), {}),          # "three sets" negated; "but two" is not followed by "sets"
+    ("instead of the usual two sets", set(), {}),
+    ("expected two sets", set(), {}),
+    ("without the second set", set(), {}),
+    ("two sets each night of the run", set(), {}),
+    ("two sets a night", set(), {}),
+    ("two sets per weekend", set(), {}),
+    ("the second of Panic's two weekend sets", set(), {}),   # "second of" is not "second set"; the count is qualified
+    ("two hard-hitting sets", set(), {}),                     # no match today, none now: the word stays \w+
+    ("the band played both sets", {2}, {}),
+    ("two sets of fiddle tunes", set(), {}),
+    ("a monster second set", set(), {2: "second"}),
+])
+def test_3c_set_count_claims(prose, claims, ordinals):
+    from llama.stages.brief import _claim_counts
+    assert _claim_counts(prose) == (claims, ordinals)
+
+
+def test_3c_leaves_the_vague_branch_on_todays_regexes():
+    show = _show(encore=False)
+    # under full narration 3c drops this qualified count; under vague today's regex still catches it
+    b = _briefing(per_set={}, narration="vague", context="the band played two electric sets")
+    assert "briefing asserts set structure under vague narration" in briefing_guard(b, show)
+
+
+def test_3b_3c_wired_into_the_full_branch():
+    show = Show(performance_id="GratefulDead/1973-06-10", identifier="gd73",
+                artist="Grateful Dead", date="1973-06-10",
+                tracks=[Track(index=1, set="1", title="Drums > Space", filename="a.mp3",
+                              title_source="tags"),
+                        Track(index=2, set="2", title="E: Ripple", filename="b.mp3",
+                              title_source="tags")])
+    b = _briefing(mentioned_songs=["Drums", "Encore: Ripple", "Fire"],
+                  context="They played three electric sets, not a fourth set.")
+    assert briefing_guard(b, show) == ["briefing mentions unknown song: Fire"]

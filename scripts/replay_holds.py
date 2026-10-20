@@ -35,7 +35,10 @@ from llama.config import DEFAULT_ROOT, load_config
 from llama.ledger import Ledger
 from llama.replay import (CacheOnlyIA, ShowReplay, code_identity, config_fingerprint, flag_family,
                           replay_show, setlistfm_client, setlistfm_configured)
+from llama.models import Briefing
+from llama.stages.brief import _ORDINAL_SET, _SET_COUNT_CLAIM, _claim_matches, _guard_prose
 from llama.structure import _place_tokens
+from llama.workspace import read_model
 from llama.workspace import ShowWorkspace
 
 PROGRESS_EVERY = 100
@@ -274,6 +277,40 @@ def _briefings(base: dict, cand: dict) -> tuple[list[str], int]:
            *[f"  {s}" for s in fc], "",
            *_lines("stored_brief_guard differs between the arms:", differ)]
     return out, len(differ)
+
+
+SUPPRESSED_CONTEXT = 60     # characters of context either side of a suppressed match
+
+
+def _suppressed_claims(root: Path) -> tuple[list[str], int]:
+    """briefings.txt section (4), Task 14: over every stored briefing in the
+    library at `root` (read-only) that has its show.json, under full
+    narration, each match of today's set-count/ordinal regexes over the
+    guard's own prose (`brief._guard_prose`) that slice 3c no longer counts
+    (its span is not among `brief._claim_matches`'). This is the detection
+    3c gives up, which "zero newly firing" cannot see (spec slice 3
+    acceptance)."""
+    rows = []
+    shows = root / "shows"
+    for bj in sorted(shows.glob("*/briefing.json")) if shows.is_dir() else []:
+        if not (bj.parent / "show.json").exists():
+            continue
+        try:
+            b = read_model(bj, Briefing)
+        except (OSError, ValueError):
+            continue
+        if b.narration == "vague":
+            continue
+        prose = _guard_prose(b)
+        kept = {m.span() for ms in _claim_matches(prose) for m in ms}
+        for rx in (_SET_COUNT_CLAIM, _ORDINAL_SET):
+            for m in rx.finditer(prose):
+                if m.span() in kept:
+                    continue
+                s, e = m.span()
+                ctx = prose[max(0, s - SUPPRESSED_CONTEXT):e + SUPPRESSED_CONTEXT]
+                rows.append(f"  {bj.parent.name}  {m.group(0)!r}  ...{' '.join(ctx.split())}...")
+    return [f"suppressed set-count/ordinal matches: {len(rows)}", *(rows or [NONE]), ""], len(rows)
 
 
 def _flag_counts(base: dict, cand: dict) -> list[str]:
@@ -622,7 +659,8 @@ def compare(args: argparse.Namespace) -> int:
         return 3
 
     brief_lines, n_brief = _briefings(base, cand)
-    _write(out, "briefings.txt", brief_lines)
+    supp_lines, n_supp = _suppressed_claims(Path(cand.get("root") or base.get("root") or "."))
+    _write(out, "briefings.txt", brief_lines + supp_lines)
     flag_lines = _flag_counts(base, cand)
     _write(out, "flags.txt", flag_lines)
     _write(out, "outcomes.txt", _outcomes(base, cand))
@@ -660,7 +698,8 @@ def compare(args: argparse.Namespace) -> int:
         f"needs-LLM held: base {held_nl(base)}, cand {held_nl(cand)}",
         bl_ok,
         f"drift.txt: {len(drift)} show(s)",
-        f"briefings.txt: {n_brief} stored_brief_guard difference(s)",
+        f"briefings.txt: {n_brief} stored_brief_guard difference(s), "
+        f"{n_supp} suppressed set-count/ordinal match(es)",
         f"flags.txt: {len(flag_lines)} famil(ies)",
         f"newly cleared: {len(_newly_cleared(base, cand))}",
         f"packaged_exposure.txt: {n_exp} entr(ies)",

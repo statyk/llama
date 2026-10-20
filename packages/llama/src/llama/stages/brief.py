@@ -1,4 +1,5 @@
 import re
+import string
 
 from herder import run_json_task
 from llama.models import Briefing, Show, VettingResult
@@ -34,6 +35,38 @@ _ORDINAL_SET = re.compile(r"\b(second|third|fourth)\s+set\b", re.I)
 _COUNT_WORDS = {"both": 2, "two": 2, "three": 3, "four": 4, "2": 2, "3": 3, "4": 4}
 _ORDINALS = {"second": 2, "third": 3, "fourth": 4}
 
+# --- slice 3 (spec "Slice 3 — Briefing guard"; constants per "New constants",
+# fixed a priori, do not retune after the harness runs) ---
+
+# 3c: today's count pattern with its single optional intervening word captured
+# as group 2. The word stays `\w+`, never `[\w-]+`: widening it would make "two
+# hard-hitting sets" a new claim. _SET_COUNT_CLAIM above stays as it is: the
+# vague branch keeps using it.
+_SET_COUNT_CLAIM_3C = re.compile(
+    r"\b(both|two|three|four|[234])\s+(?:(\w+)\s+)?sets\b(?!\s+of\b)", re.I
+)
+# 3c qualifier denylist: an intervening word that makes the count not show-wide
+# ("two electric sets"). `late-night` is unreachable under `\w+` (the hyphen
+# ends the word) and is kept only because the spec lists it.
+_NOT_SHOW_WIDE = frozenset({"electric", "acoustic", "night", "late-night", "afternoon",
+                            "weekend", "more", "festival", "day"})
+# 3c negation: one of these in the two words before a match ...
+_NEGATION_2 = frozenset({"no", "not", "never"})
+# ... or one of these within the four words before it (`instead of` as a bigram).
+_NEGATION_4 = ("instead of", "expected", "without")
+# 3c scope: a phrase after the match that scopes it below the show ("two sets
+# a night"). `that`/`this` are deliberately absent: "two sets that night" is a
+# claim about this show.
+_SCOPE_AFTER = re.compile(r"^\s*(?:each|every|a|per)\s+(?:night|day|weekend|tour)\b", re.I)
+
+# 3b: deterministic strips for tolerant song matching. Brief-local on purpose:
+# structure._STRUCTURE_PREFIX does not match `E1:` and feeds align(), anchoring
+# and jerrybase closer matching, so it is not touched.
+_BRIEF_STRUCTURE_PREFIX = re.compile(r"^\s*(?:e\d*|encore)\s*:\s*", re.I)
+_BRIEF_TRAILING = re.compile(r"[\s>\-*%#@^~+]+$")
+_BRIEF_PAREN = re.compile(r"\s*\([^)]*\)\s*$")
+_BRIEF_SEGUE = re.compile(r"\s*(?:->|>|→)\s*")
+
 
 def _set_label(s: str) -> str:
     return "Encore" if s == "encore" else f"Set {s}"
@@ -55,6 +88,73 @@ def render_briefing_md(briefing: Briefing, show: Show) -> str:
     return "\n".join(lines)
 
 
+def normalize_briefing(b: Briefing) -> Briefing:
+    """3a: a copy of `b` with every empty `per_set` entry removed; everything
+    else identical. An empty `per_set` dict stays empty (no talking points at
+    all is still a guard problem)."""
+    return b.model_copy(deep=True,
+                        update={"per_set": {k: list(v) for k, v in b.per_set.items() if v}})
+
+
+def song_components(title: str) -> list[str]:
+    """3b: a title's segue components, normalised. Strips a leading structure
+    prefix (`E:`, `E1:`, `Encore:`), trailing segue/footnote markers and one
+    trailing parenthetical (then trailing markers again), splits on segues,
+    `normalize_song`s each part and drops empties."""
+    t = _BRIEF_STRUCTURE_PREFIX.sub("", title)
+    t = _BRIEF_TRAILING.sub("", t)
+    t = _BRIEF_PAREN.sub("", t)
+    t = _BRIEF_TRAILING.sub("", t)
+    return [c for c in (normalize_song(p) for p in _BRIEF_SEGUE.split(t)) if c]
+
+
+def known_song(song: str, exact: set[str], components: set[str]) -> bool:
+    """3b: today's exact test first, so the matcher is a superset of today's;
+    else known when the song has components and EVERY one is a known
+    component. No fuzzy, loose or subphrase matching."""
+    if normalize_song(song) in exact:
+        return True
+    cs = song_components(song)
+    return bool(cs) and all(c in components for c in cs)
+
+
+def _words_before(prose: str, start: int, n: int) -> list[str]:
+    toks = (t.strip(string.punctuation).lower() for t in prose[:start].split())
+    return [t for t in toks if t][-n:]
+
+
+def _qualified(prose: str, m: re.Match) -> bool:
+    """3c: a count or ordinal match that is negated or scoped below the show."""
+    if any(w in _NEGATION_2 for w in _words_before(prose, m.start(), 2)):
+        return True
+    four = _words_before(prose, m.start(), 4)
+    for phrase in _NEGATION_4:
+        k = len(phrase.split())
+        if any(" ".join(four[i:i + k]) == phrase for i in range(len(four) - k + 1)):
+            return True
+    return bool(_SCOPE_AFTER.match(prose[m.end():]))
+
+
+def _claim_matches(prose: str) -> tuple[list[re.Match], list[re.Match]]:
+    """3c: the (count, ordinal) matches that still count as claims under full
+    narration. A count whose intervening word is a non-show-wide qualifier is
+    skipped, and any match that is negated or followed by a scope phrase is
+    skipped. Spans equal today's regexes' (the 3c count pattern only adds a
+    capture group), which is how scripts/replay_holds.py lists the matches
+    3c suppresses."""
+    counts = [m for m in _SET_COUNT_CLAIM_3C.finditer(prose)
+              if (m.group(2) or "").lower() not in _NOT_SHOW_WIDE and not _qualified(prose, m)]
+    ordinals = [m for m in _ORDINAL_SET.finditer(prose) if not _qualified(prose, m)]
+    return counts, ordinals
+
+
+def _claim_counts(prose: str) -> tuple[set[int], dict[int, str]]:
+    """3c: (claimed set counts, implied ordinals) under full narration."""
+    counts, ordinals = _claim_matches(prose)
+    return ({_COUNT_WORDS[m.group(1).lower()] for m in counts},
+            {_ORDINALS[m.group(1).lower()]: m.group(1).lower() for m in ordinals})
+
+
 def _guard_prose(b: Briefing) -> str:
     """The prose `briefing_guard`'s set-count checks scan (also read by
     scripts/replay_holds.py's suppressed-claims report, so the two can never
@@ -72,9 +172,11 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     """A briefing that misnames songs or sets — or breaks the vague-narration
     contract — must never ship; cross-check against show.json."""
     problems: list[str] = []
-    known = {normalize_song(t.title) for t in show.tracks}
+    exact = {normalize_song(t.title) for t in show.tracks}
+    components = (exact | {c for t in show.tracks for c in song_components(t.title)}
+                  | {" ".join(song_components(t.title)) for t in show.tracks})
     for song in briefing.mentioned_songs:
-        if normalize_song(song) not in known:
+        if not known_song(song, exact, components):
             problems.append(f"briefing mentions unknown song: {song}")
     sets = {t.set for t in show.tracks}
     for s in briefing.per_set:
@@ -82,11 +184,12 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
             problems.append(f"briefing references nonexistent set: {s}")
     prose = _guard_prose(briefing)
     n_sets = len({t.set for t in show.tracks if t.set != "encore"})
-    claimed = {_COUNT_WORDS[m.group(1).lower()] for m in _SET_COUNT_CLAIM.finditer(prose)}
-    implied = {_ORDINALS[m.group(1).lower()]: m.group(1).lower()
-               for m in _ORDINAL_SET.finditer(prose)}
     if briefing.narration == "vague":
         # Vague means: assert nothing about set structure, name no songs.
+        # Unchanged by slice 3: today's regexes, no qualifier/negation/scope skip.
+        claimed = {_COUNT_WORDS[m.group(1).lower()] for m in _SET_COUNT_CLAIM.finditer(prose)}
+        implied = {_ORDINALS[m.group(1).lower()]: m.group(1).lower()
+                   for m in _ORDINAL_SET.finditer(prose)}
         if briefing.per_set:
             problems.append("briefing has per-set talking points under vague narration")
         if briefing.mentioned_songs:
@@ -94,6 +197,7 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
         if claimed or implied:
             problems.append("briefing asserts set structure under vague narration")
     else:
+        claimed, implied = _claim_counts(prose)    # 3c
         if not briefing.per_set:
             problems.append("briefing has no per-set talking points")
         for n in sorted(claimed):
@@ -153,6 +257,7 @@ def run_brief(
         briefing = run_json_task(provider, "brief", Briefing,
                                  template=load_prompt("brief"), feedback=feedback, **inputs)
         briefing.narration = narration  # stamped; the LLM's value is never trusted
+        briefing = normalize_briefing(briefing)   # 3a: before the guard and the writes
         problems = briefing_guard(briefing, show)
         if not problems:
             break

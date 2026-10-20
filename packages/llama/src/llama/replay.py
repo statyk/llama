@@ -21,7 +21,7 @@ from llama.config import Config
 from llama.errors import LlamaError
 from llama.models import Briefing, Overrides, Provenance, Show, VettingResult
 from llama.setlistfm import _pick, cache_key
-from llama.stages.brief import briefing_guard
+from llama.stages.brief import briefing_guard, normalize_briefing
 from llama.stages.gather import GatherResult, compute_gather
 from llama.stages.vet_research import VetOutcome, apply_vet
 from llama.workspace import ShowWorkspace, read_model, read_overrides
@@ -254,10 +254,18 @@ def briefing_reusable(stored_show: Show, new_show: Show, briefing: Briefing,
         return f"broadcast fields changed: {', '.join(changed)}"
     if briefing.narration != narration:
         return f"narration differs: briefing {briefing.narration}, overrides {narration}"
-    problems = briefing_guard(briefing, new_show)
+    problems = briefing_guard(normalize_briefing(briefing), new_show)   # 3a: guard the shipped form
     if problems:
         return f"briefing guard: {'; '.join(problems)}"
     return None
+
+
+def _read_briefing(ws: ShowWorkspace) -> Briefing:
+    """The stored `briefing.json` as it would ship: 3a-normalised (spec slice
+    3, "on every reuse of a stored briefing"). The one read of a stored
+    briefing in replay, so the reuse decision, `brief_flags`, `Legs.briefing`
+    and `stored_brief_guard` all see the same normalised briefing."""
+    return normalize_briefing(read_model(ws.briefing_json, Briefing))
 
 
 # --- the three legs ---
@@ -274,7 +282,7 @@ class Legs:
     brief: str                     # "reuse" | "fresh" | "none"
     brief_reason: str | None       # why a stored briefing.json is not reused
     brief_flags: list[str]
-    briefing: Briefing | None      # the stored briefing, only when brief == "reuse"
+    briefing: Briefing | None      # the stored briefing, 3a-normalised, only when brief == "reuse"
     carried_flags: list[str]       # stored `package`-family flags, carried through
     flags: list[str]               # gather + vet + carried + brief_flags
 
@@ -337,7 +345,7 @@ def compute_legs(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetli
     if not flags:
         brief = "fresh"
         if ws.briefing_json.exists():
-            stored_briefing = read_model(ws.briefing_json, Briefing)
+            stored_briefing = _read_briefing(ws)
             reason = briefing_reusable(stored, replayed, stored_briefing,
                                        read_overrides(ws).narration)
             if reason is None:
@@ -450,8 +458,7 @@ def replay_show(ws: ShowWorkspace, *, config: Config, ia, slfm: "CacheOnlySetlis
             r.stored_core_flags = [f for f in stored.review_flags
                                    if flag_family(f) not in ("package", "briefing")]
             if ws.briefing_json.exists():
-                r.stored_brief_guard = briefing_guard(read_model(ws.briefing_json, Briefing),
-                                                      stored)
+                r.stored_brief_guard = briefing_guard(_read_briefing(ws), stored)
             if ws.provenance.exists():
                 r.selected_venue, r.selected_city = _selected(
                     read_model(ws.provenance, Provenance), stored.identifier)
