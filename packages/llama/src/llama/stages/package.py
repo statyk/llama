@@ -22,12 +22,17 @@ from llama.workspace import (
 DURATION_TOLERANCE_S = 5.0
 
 
-def run_package(show_ws: ShowWorkspace, ia, show: Show,
-                force: bool = False, profile: str | None = None) -> Path:
+def build_package(show_ws: ShowWorkspace, ia, show: Show,
+                  force: bool = False, profile: str | None = None) -> tuple[Path, list[str]]:
+    """Build the package (audio, briefing copies, research, reviews, m3u,
+    manifest last) and return `(package dir, package-stage flags)`. Writes no
+    `show.json`: `run_package` folds the flags in, and `llama reapply` (spec
+    slice 6) writes them in its one final `show.json` write. An existing
+    manifest short-circuits with no flags unless `force`."""
     pkg = show_ws.package_dir
     manifest_path = pkg / "manifest.json"
     if manifest_path.exists() and not force:
-        return pkg
+        return pkg, []
 
     audio_dir = pkg / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
@@ -88,6 +93,12 @@ def run_package(show_ws: ShowWorkspace, ia, show: Show,
         context=context,
         research=research_name, reviews="reviews.md", research_vetted=vetted,
         profile=profile))
+    return pkg, flags
+
+
+def run_package(show_ws: ShowWorkspace, ia, show: Show,
+                force: bool = False, profile: str | None = None) -> Path:
+    pkg, flags = build_package(show_ws, ia, show, force=force, profile=profile)
     if flags:
         current = read_model(show_ws.show, Show)
         current.review_flags = current.review_flags + flags

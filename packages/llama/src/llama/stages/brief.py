@@ -224,12 +224,11 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     return problems
 
 
-def vetting_summary(show_ws: ShowWorkspace) -> str:
-    """Compact rendering of vetting.json for the prompt's {{vetting}} slot, so
-    `cautions` are grounded in the vet stage's findings rather than invented."""
-    if not show_ws.vetting.exists():
+def vetting_summary_text(vr: VettingResult | None) -> str:
+    """Compact rendering of a vetting result for the prompt's {{vetting}} slot,
+    so `cautions` are grounded in the vet stage's findings rather than invented."""
+    if vr is None:
         return "(no vetting data)"
-    vr = read_model(show_ws.vetting, VettingResult)
     lines = ["Vetting flags: " + "; ".join(vr.flags) if vr.flags
              else "Research passed vetting with no flags."]
     if vr.adopted_date:
@@ -238,6 +237,43 @@ def vetting_summary(show_ws: ShowWorkspace) -> str:
     if vr.vetting.context:
         lines.append("Context: " + vr.vetting.context)
     return "\n".join(lines)
+
+
+def vetting_summary(show_ws: ShowWorkspace) -> str:
+    """`vetting_summary_text` over the show's stored vetting.json."""
+    if not show_ws.vetting.exists():
+        return vetting_summary_text(None)
+    return vetting_summary_text(read_model(show_ws.vetting, VettingResult))
+
+
+def generate_briefing(provider, show: Show, research_md: str, reviews: list[dict], *,
+                      narration: str, vetting: VettingResult | None) -> tuple[Briefing, list[str]]:
+    """The brief LLM task (two attempts, the guard's problems fed back once):
+    the normalised, narration-stamped briefing and the guard problems still
+    standing (`[]` on success). Writes nothing; `run_brief` and `llama
+    reapply` (spec slice 6) do their own writes."""
+    inputs = dict(
+        show_json=show.model_dump_json(indent=2),
+        research=research_md or "(no research available)",
+        vetting=vetting_summary_text(vetting),
+        reviews_digest=reviews_digest(reviews),
+        narration_note=narration_note(narration),
+    )
+    feedback = ""
+    for _attempt in range(2):
+        briefing = run_json_task(provider, "brief", Briefing,
+                                 template=load_prompt("brief"), feedback=feedback, **inputs)
+        briefing.narration = narration  # stamped; the LLM's value is never trusted
+        briefing = normalize_briefing(briefing)   # 3a: before the guard and the writes
+        problems = briefing_guard(briefing, show)
+        if not problems:
+            break
+        feedback = (
+            "IMPORTANT: your previous briefing failed fact-checking: "
+            + "; ".join(problems)
+            + ". Fix every problem; stay strictly grounded in the inputs."
+        )
+    return briefing, problems
 
 
 def run_brief(
@@ -259,27 +295,10 @@ def run_brief(
         return briefing
 
     narration = read_overrides(show_ws).narration
-    inputs = dict(
-        show_json=show.model_dump_json(indent=2),
-        research=research_md or "(no research available)",
-        vetting=vetting_summary(show_ws),
-        reviews_digest=reviews_digest(reviews),
-        narration_note=narration_note(narration),
-    )
-    feedback = ""
-    for _attempt in range(2):
-        briefing = run_json_task(provider, "brief", Briefing,
-                                 template=load_prompt("brief"), feedback=feedback, **inputs)
-        briefing.narration = narration  # stamped; the LLM's value is never trusted
-        briefing = normalize_briefing(briefing)   # 3a: before the guard and the writes
-        problems = briefing_guard(briefing, show)
-        if not problems:
-            break
-        feedback = (
-            "IMPORTANT: your previous briefing failed fact-checking: "
-            + "; ".join(problems)
-            + ". Fix every problem; stay strictly grounded in the inputs."
-        )
+    vetting = (read_model(show_ws.vetting, VettingResult)
+               if show_ws.vetting.exists() else None)
+    briefing, problems = generate_briefing(provider, show, research_md, reviews,
+                                           narration=narration, vetting=vetting)
     if problems:
         current = read_model(show_ws.show, Show)
         current.review_flags = current.review_flags + problems

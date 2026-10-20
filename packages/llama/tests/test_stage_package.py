@@ -198,3 +198,18 @@ def test_purged_audio_is_refetched_on_repackage(tmp_path: Path):
     run_package(sws, ia, show)
     assert [f for f, _ in ia.downloads] == ["d1t01.mp3", "d2t01.mp3"]
     assert (sws.package_dir / "audio" / "01 - Morning Dew.mp3").exists()
+
+
+def test_build_package_returns_its_flags_and_never_writes_show_json(tmp_path: Path, monkeypatch):
+    # llama reapply (spec slice 6) writes show.json once and last itself, so
+    # the extracted body reports package-stage flags instead of writing them.
+    from llama.stages.package import build_package
+    sws, show = setup(tmp_path)
+    before = sws.show.read_bytes()
+    monkeypatch.setattr(package_stage, "read_duration", lambda path: 100.0)
+    pkg, flags = build_package(sws, StubIA(), show)
+    assert pkg == sws.package_dir and (pkg / "manifest.json").exists()
+    assert flags == ["duration mismatch on 01 - Morning Dew.mp3: file 100s vs metadata 600s",
+                     "duration mismatch on 02 - Dark Star.mp3: file 100s vs metadata 1800s"]
+    assert sws.show.read_bytes() == before
+    assert build_package(sws, StubIA(), show) == (pkg, [])   # an existing manifest short-circuits

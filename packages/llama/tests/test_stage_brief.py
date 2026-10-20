@@ -1,5 +1,5 @@
 from llama.models import Briefing, Show, Track
-from llama.stages.brief import render_briefing_md
+from llama.stages.brief import generate_briefing, render_briefing_md
 
 
 def _show(sets=("1", "2"), encore=True) -> Show:
@@ -397,3 +397,15 @@ def test_3b_3c_wired_into_the_full_branch():
     b = _briefing(mentioned_songs=["Drums", "Encore: Ripple", "Fire"],
                   context="They played three electric sets, not a fourth set.")
     assert briefing_guard(b, show) == ["briefing mentions unknown song: Fire"]
+
+
+def test_generate_briefing_returns_the_normalised_briefing_and_problems_without_writing(tmp_path):
+    show = _show()
+    ok = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"], "2": ["b"], "encore": []},
+                         mentioned_songs=[]))
+    b, problems = generate_briefing(FakeProvider([ok]), show, "r", [], narration="full", vetting=None)
+    assert problems == [] and b.per_set == {"1": ["a"], "2": ["b"]} and b.narration == "full"
+    bad = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"], "2": ["b"]},
+                          mentioned_songs=["Nope"]))
+    b, problems = generate_briefing(FakeProvider([bad, bad]), show, "r", [], narration="full", vetting=None)
+    assert problems == ["briefing mentions unknown song: Nope"]
