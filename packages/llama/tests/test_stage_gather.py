@@ -3014,3 +3014,29 @@ def test_5c1_filler_tail_note_goes_to_notes_json_never_to_structure_conflicts(tm
     assert note not in res.show.structure.conflicts
     assert "jerrybase set closer 'Not On This Tape' not found in tracks" in res.show.structure.conflicts
     assert not any(f.startswith("jerrybase set closer") for f in res.show.review_flags)
+
+
+def test_5c2_note_goes_to_notes_json_never_to_structure_conflicts(tmp_path, monkeypatch):
+    # The deterministic alignment is made to keep the gd73 tape's trailing
+    # "Johnny B. Goode" in set 2 (no encore label), so 5c.2 leaves one trailing
+    # track in the last numbered set and emits its Contracts note.
+    real_align = gather_mod.align
+
+    def no_encore_align(*args, **kwargs):
+        res = real_align(*args, **kwargs)
+        return res.model_copy(update={"sets": ["2" if s == "encore" else s for s in res.sets]})
+
+    monkeypatch.setattr(gather_mod, "align", no_encore_align)
+    event = JerrybaseEvent(event_id="x", venue="RFK Stadium", city="Washington", state="DC", sets=[
+        JerrybaseSet(name="1", closer="I Know You Rider", break_length="long"),
+        JerrybaseSet(name="2", closer="Eyes of the World", break_length="long"),
+        JerrybaseSet(name="encore", closer="Casey Jones", break_length="short")])
+    monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [event])
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(), make_candidate(), IDENT,
+                         jerrybase_enabled=True)
+    assert res.show.structure.alignment == "jerrybase"
+    assert [t.set for t in res.show.tracks] == ["1", "1", "1", "2", "2", "2"]
+    note = ("set breaks anchored from jerrybase numbered sets (encore row 'Casey Jones' "
+            "unmatched; 1 trailing track(s) stay in set 2)")
+    assert note in res.notes
+    assert note not in res.show.structure.conflicts
