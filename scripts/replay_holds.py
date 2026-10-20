@@ -504,7 +504,10 @@ def _closest(base: dict, cand: dict, root: Path) -> tuple[list[str], int]:
         b = base["shows"][slug]
         if "research-date" in _families(b) - _families(c):
             v = _read_json(root / "shows" / slug / "vetting.json")
-            dates = v.get("asserted_dates") if isinstance(v, dict) else None
+            inner = v.get("vetting") if isinstance(v, dict) else None
+            dates = inner.get("asserted_dates") if isinstance(inner, dict) else None
+            if not isinstance(dates, list):
+                dates = None
             rows.append(f"  {slug}: asserted_dates {_j(dates) if dates is not None else '(vetting.json unavailable)'}")
     section("slice 4b: lost a research-date flag", rows)
     rows = []

@@ -721,3 +721,23 @@ def test_suppressed_claims_without_a_root_in_either_arm_reads_nothing(tmp_path, 
     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
     text = (out / "briefings.txt").read_text()
     assert "suppressed set-count/ordinal matches: 0" in text and "elsewhere" not in text
+
+
+def test_4b_closest_calls_read_vetting_jsons_nested_asserted_dates(tmp_path):
+    # Task 16c: VettingResult nests the dates under "vetting"; the row used to
+    # read the top level and print "(vetting.json unavailable)" every time.
+    def lose_flag(arm):
+        _clear_it(arm)
+    def hold_flag(arm):
+        arm["shows"]["gratefuldead-1973-06-10"]["vet_flags"] = ["research asserts wrong date: 1973-06-11"]
+    base, cand = _two_arms(tmp_path, lose_flag, hold_flag)
+    slug_dir = tmp_path / "lib" / "shows" / "gratefuldead-1973-06-10"
+    slug_dir.mkdir(parents=True, exist_ok=True)
+    (slug_dir / "vetting.json").write_text(json.dumps({
+        "vetting": {"asserted_songs": ["Dark Star"], "asserted_dates": ["1973-06-10", "1973-06-11"]},
+        "flags": [], "adopted_date": None}))
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    cc = (out / "closest_calls.txt").read_text()
+    sect = cc[cc.index("slice 4b"):].split("\n\n")[0]
+    assert 'asserted_dates ["1973-06-10", "1973-06-11"]' in sect and "unavailable" not in sect
