@@ -368,6 +368,76 @@ def venues_equivalent(a: str, b: str) -> bool:
     return _acronym_match(ta, tb) or _acronym_match(tb, ta)
 
 
+# --- Frozen pre-1b venue equivalence ------------------------------------------
+# Checkpoint C operator decision (2026-10-19), narrowing S: gather's step 1
+# checks cities only for a pair that slice 1's 1b changes NEWLY made
+# equivalent; a pair equivalent before slice 1 passes on equivalence alone.
+# "Before slice 1" is this frozen, private copy of `venues_equivalent` and its
+# helpers exactly as they stood at tier1-cp-B2 (9b74164): no apostrophe
+# deletion, race-track fold, spelling folds, one-edit match, joined-string
+# test or university-token strip. Its tables are frozen too, so a later edit
+# to the live ones cannot move it. Never edit these to track the live code.
+_PLACE_STOPWORDS_PRE1B = frozenset({"the", "at", "of", "and"})
+_PLACE_ABBREV_PRE1B = {
+    "aud": {"auditorium"},
+    "theatre": {"theater"},
+    "theater": {"theater"},
+    "univ": {"university"},
+    "coll": {"college"},
+    "mem": {"memorial"},
+    "ctr": {"center"},
+    "cntr": {"center"},
+    "gym": {"gymnasium"},
+    "st": {"street", "state"},
+}
+
+
+def _place_tokens_pre1b(s: str) -> list[str]:
+    norm = re.sub(r"[^a-z0-9 ]", " ", (s or "").lower())
+    return [t for t in norm.split() if t not in _PLACE_STOPWORDS_PRE1B]
+
+
+def _tokens_equal_pre1b(a: str, b: str) -> bool:
+    return a == b or bool(_PLACE_ABBREV_PRE1B.get(a, {a}) & _PLACE_ABBREV_PRE1B.get(b, {b}))
+
+
+def _token_subset_pre1b(sub: list[str], sup: list[str]) -> bool:
+    return bool(sub) and all(any(_tokens_equal_pre1b(x, y) for y in sup) for x in sub)
+
+
+def _acronym_match_pre1b(short: list[str], long: list[str]) -> bool:
+    i = j = 0
+    while i < len(short) and j < len(long):
+        s = short[i]
+        if _tokens_equal_pre1b(s, long[j]):
+            i += 1
+            j += 1
+            continue
+        if len(s) >= 2 and s.isalpha():
+            run = 0
+            k = j
+            while k < len(long) and run < len(s) and long[k][0] == s[run]:
+                run += 1
+                k += 1
+            if run == len(s):
+                i += 1
+                j = k
+                continue
+        return False
+    return i == len(short) and j == len(long)
+
+
+def _venues_equivalent_pre1b(a: str, b: str) -> bool:
+    ta, tb = _place_tokens_pre1b(a), _place_tokens_pre1b(b)
+    if not ta and not tb:
+        return True
+    if not ta or not tb:
+        return False
+    if _token_subset_pre1b(ta, tb) or _token_subset_pre1b(tb, ta):
+        return True
+    return _acronym_match_pre1b(ta, tb) or _acronym_match_pre1b(tb, ta)
+
+
 # --- City compatibility (spec Slice 1, 1b "City compatibility") --------------
 _CITY_FOLDS = {"ft": "fort", "st": "saint", "mt": "mount", "nyc": "new york city"}
 _METRO_ALIASES = {

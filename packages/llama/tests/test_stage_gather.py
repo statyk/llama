@@ -2864,17 +2864,51 @@ def test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerryb
 
 # --- Task 13 fix round 1: the city check on step 1 and on the swap, 1d's blank vote city ---
 
-def test_step_1_needs_compatible_cities_not_just_an_equivalent_venue(tmp_path):
-    # The vote's venue is equivalent to jerrybase's, but its city (and the one
-    # recording's) is St. Louis against jerrybase's Madison: no wrong clear.
+def _penns_landing_event(monkeypatch):
+    from llama.models import JerrybaseEvent
+    ev = JerrybaseEvent(event_id="e1", venue="Penn's Landing", city="Philadelphia", state="PA")
+    monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [ev])
+
+
+def test_step_1_needs_compatible_cities_not_just_an_equivalent_venue(tmp_path, monkeypatch):
+    # Task 13b re-target (narrowing S): the vote's venue is equivalent to
+    # jerrybase's only under slice 1's 1b (the apostrophe deletion), and its
+    # city (and the one recording's) is Camden against jerrybase's
+    # Philadelphia: the city check applies, so no wrong clear.
+    _penns_landing_event(monkeypatch)
+    cand = Candidate(performance_id="DarkStarOrchestra/2003-01-25", collection="DarkStarOrchestra",
+                     date="2003-01-25", venue="Penns Landing", city="Camden, NJ",
+                     recordings=[RecordingSummary(identifier=DSO_IDENT, venue="Penns Landing",
+                                                  coverage="Camden, NJ")])
+    assert not two_venue_signature(cand)
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Penns Landing"
+    assert "venue mismatch: archive 'Penns Landing' vs jerrybase 'Penn's Landing'" in res.show.review_flags
+
+
+def test_step_1_newly_equivalent_pair_with_compatible_cities_clears(tmp_path, monkeypatch):
+    _penns_landing_event(monkeypatch)
+    cand = Candidate(performance_id="DarkStarOrchestra/2003-01-25", collection="DarkStarOrchestra",
+                     date="2003-01-25", venue="Penns Landing", city="Philadelphia, PA",
+                     recordings=[RecordingSummary(identifier=DSO_IDENT, venue="Penns Landing",
+                                                  coverage="Philadelphia, PA")])
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Penns Landing"
+    assert not any(f.startswith("venue mismatch") for f in res.show.review_flags)
+
+
+def test_step_1_pre_slice_equivalent_pair_clears_without_a_city_check(tmp_path):
+    # Narrowing S: Barrymore Theater/Theatre was equivalent before slice 1, so
+    # step 1 passes on equivalence alone however the cities compare (the
+    # Roosevelt Stadium 'Jersey City, NJ' vs jerrybase 'NY' shape).
     cand = Candidate(performance_id="DarkStarOrchestra/2003-01-25", collection="DarkStarOrchestra",
                      date="2003-01-25", venue="Barrymore Theater", city="St. Louis, MO",
                      recordings=[RecordingSummary(identifier=DSO_IDENT, venue="Barrymore Theater",
                                                   coverage="St. Louis, MO")])
-    assert not two_venue_signature(cand)
     res = _gather(tmp_path, DSO, cand, DSO_IDENT)
-    assert res.show.venue == "Barrymore Theater"
-    assert "venue mismatch: archive 'Barrymore Theater' vs jerrybase 'Barrymore Theatre'" in res.show.review_flags
+    assert (res.show.venue, res.show.city) == ("Barrymore Theater", "St. Louis, MO")
+    assert not any(f.startswith("venue mismatch") for f in res.show.review_flags)
+    assert not any("disagree on city" in f for f in res.show.review_flags)
 
 
 def test_the_swap_needs_compatible_cities_not_just_an_equivalent_venue(tmp_path):
@@ -2897,3 +2931,29 @@ def test_1d_a_whitespace_only_vote_city_is_unknown_and_no_conflict(tmp_path):
     res = _gather(tmp_path, DSO, cand, DSO_IDENT)
     assert not any("disagree on city" in f for f in res.show.review_flags)
     assert res.show.venue == "Barrymore Theatre"
+
+
+# --- Task 13b, narrowing V: 1d only on a genuine second venue ---
+
+def _red_rocks_candidate(vote_venue):
+    # The mymorningjacket-2008-08-21 shape: Red Rocks is in Morrison, the vote
+    # says Denver. Guster has no jerrybase data, so only 1d can speak.
+    return Candidate(performance_id="Guster/2003-07-10", collection="Guster", date="2003-07-10",
+                     venue=vote_venue, city="Denver, CO",
+                     recordings=[RecordingSummary(identifier="guster2003-07-10.fm.shnf",
+                                                  venue="Red Rocks Amphitheatre", coverage="Denver, CO"),
+                                 RecordingSummary(identifier=G_IDENT, venue="Red Rocks Amphitheater",
+                                                  coverage="Morrison, CO")])
+
+
+def test_1d_does_not_fire_when_the_selected_venue_is_the_votes_hall(tmp_path):
+    res = _gather(tmp_path, GUSTER, _red_rocks_candidate("Red Rocks Amphitheatre"), G_IDENT)
+    assert not any("disagree on city" in f for f in res.show.review_flags)
+    assert (res.show.venue, res.show.city) == ("Red Rocks Amphitheatre", "Denver, CO")
+
+
+@pytest.mark.parametrize("vote_venue", ["", "   "])
+def test_1d_a_blank_vote_venue_is_not_the_same_hall_and_still_holds(tmp_path, vote_venue):
+    res = _gather(tmp_path, GUSTER, _red_rocks_candidate(vote_venue), G_IDENT)
+    assert (res.show.venue, res.show.city) == ("Red Rocks Amphitheater", "Morrison, CO")
+    assert "recordings of this date disagree on city: 'Morrison, CO' (selected) vs 'Denver, CO'" in res.show.review_flags

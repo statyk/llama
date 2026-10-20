@@ -21,7 +21,8 @@ from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align
                              apply_llm_alignment, blend_segues, cities_compatible,
                              from_setlistfm,
                              fuzzy_norm_title, norm_title, rank_parses,
-                             structure_guard, venues_equivalent)
+                             structure_guard, venues_equivalent,
+                             _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
 from llama.titles import (_GLUED_NUM_PREFIX, clean_tag_title, clean_tag_titles,
                           is_real_title, placeholder_positions, resolve_titles, set_breaks, sibling_format_titles, shipped_short_tag, tag_core,
@@ -1395,8 +1396,14 @@ def compute_gather(
                 # cities say this is not the place.
                 if not cities_compatible(archive_city, jb_city):
                     flags.append(mismatch)
-            elif venues_equivalent(venue, event.venue) and cities_compatible(archive_city, jb_city):
-                pass                                    # step 1: the vote ships
+            elif venues_equivalent(venue, event.venue) and (
+                    _venues_equivalent_pre1b(venue, event.venue)
+                    or cities_compatible(archive_city, jb_city)):
+                # Step 1: the vote ships. Narrowing S (Checkpoint C operator
+                # decision, 2026-10-19): a pair equivalent before slice 1
+                # passes on equivalence alone; only a pair 1b NEWLY made
+                # equivalent must also have compatible cities.
+                pass
             elif (sel_venue and venues_equivalent(sel_venue, event.venue)
                   and cities_compatible(sel_city or vote_city, jb_city)
                   and not two_venue_signature(candidate)):
@@ -1419,7 +1426,14 @@ def compute_gather(
     # whose city is known to conflict with the vote's ships its own venue and
     # city, held (the other recordings may be a different performance). An
     # unknown city on either side is no conflict, so a blank vote city is None.
+    # Narrowing V (Checkpoint C operator decision, 2026-10-19): it fires only on
+    # a genuine second venue -- the selected recording's venue not equivalent
+    # to the vote's (the venue the chain started from, never the swapped one or
+    # jerrybase's). Two recordings naming one hall in "different" cities is
+    # locality noise. A blank vote venue is no evidence of the same hall, so it
+    # counts as not equivalent and the city conflict still holds.
     if (sel_venue and sel_city and _stripped(vote_city)
+            and not (_stripped(vote_venue) and venues_equivalent(sel_venue, vote_venue))
             and not cities_compatible(sel_city, vote_city)):
         venue, city = sel_venue, sel_city
         flags.append(f"{_CITY_CONFLICT_FLAG}: '{sel_city}' (selected) vs '{vote_city}'")

@@ -357,6 +357,44 @@ def test_venues_not_equivalent(a, b):
     assert not venues_equivalent(b, a)
 
 
+# Task 13b, narrowing S: the frozen pre-1b copy. Every expected value is what
+# `venues_equivalent` returned at tier1-cp-B2 (9b74164), computed by running
+# that commit's structure.py, in both argument orders.
+@pytest.mark.parametrize("a,b,expected", [
+    # 1b (Task 12) newly made these equivalent: False before slice 1.
+    ("Penn's Landing", "Penns Landing", False),          # apostrophe deletion
+    ("Jahrhundert Halle", "Jahrhunderthalle", False),    # joined-string test
+    ("Meramec Race Track", "Merramec Racetrack", False),  # race-track fold + one edit
+    ("Cornell U", "Cornell University", False),          # university-token strip
+    ("Red Rocks Amphitheatre", "Red Rocks Ampitheater", False),  # spelling fold
+    ("Merriweather Post Pavillion", "Merriweather Post Pavilion", False),  # spelling fold
+    ("Barton Hall, Cornell University", "Barton Hall, Cornell U", False),
+    ("Barton Hall", "Burton Hall", False),               # one-edit match
+    # Equivalent before slice 1 (and still).
+    ("Barrymore Theater", "Barrymore Theatre", True),
+    ("Fox Theatre", "Fox Theatre Pavilion", True),
+    ("RFK Stadium", "Robert F. Kennedy Stadium", True),
+    ("MSG", "Madison Square Garden", True),
+    ("Fillmore Aud", "Fillmore Auditorium", True),
+    ("The Spectrum", "Spectrum", True),
+    ("Roosevelt Stadium", "Roosevelt Stadium", True),
+    ("Rams Head Live", "Rams Head Live!", True),
+    ("Springer's Inn Portland", "Springer's Inn", True),
+    ("Melkweg", "Melkweg The Max", True),
+    ("", "", True),
+    # Never equivalent.
+    ("UCLA", "UCSB", False),
+    ("Fillmore East", "Fillmore West", False),
+    ("The Pageant", "Barrymore Theatre", False),
+    ("Buffalo Auditorium", "Community War Memorial Auditorium", False),
+    ("", "Winterland", False),
+])
+def test_venues_equivalent_pre1b_is_the_cp_b2_rule(a, b, expected):
+    from llama.structure import _venues_equivalent_pre1b
+    assert _venues_equivalent_pre1b(a, b) is expected
+    assert _venues_equivalent_pre1b(b, a) is expected
+
+
 # --- fuzzy title matching (jerrybase closer matching; see the 2026-08-01 spec) --
 
 from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
