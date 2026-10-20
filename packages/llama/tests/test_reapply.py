@@ -935,3 +935,92 @@ def test_dry_run_counts_a_purged_delivered_show_as_a_download(tmp_path, monkeypa
     (entry.ws.package_dir / "audio" / "a.mp3").write_bytes(b"x")
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
     assert "0 first-time downloads" in r.output, r.output
+
+
+# --- fw3: a held outcome drops a briefing written against older titles ---
+
+def _retitle_stored(ws):
+    """Make the stored show differ from the replay in a shipped field (a title)."""
+    show = read_model(ws.show, Show)
+    tracks = list(show.tracks)
+    tracks[0] = tracks[0].model_copy(update={"title": "Stale Old Title"})
+    write_artifact(ws.show, show.model_copy(update={"tracks": tracks}))
+
+
+def test_a_held_outcome_with_changed_titles_drops_the_stale_briefing(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path, held_for_real=True)
+    _stub_package(monkeypatch)
+    write_artifact(entry.ws.package_dir / "manifest.json", {"schema_version": 3, "tracks": []})
+    _retitle_stored(entry.ws)
+    write_artifact(entry.ws.briefing_md, "# stale briefing\n")
+    assert entry.ws.briefing_json.exists() and entry.ws.briefing_md.exists()
+    out = _run(config, ledger, entry)
+    assert out.outcome == "held" and out.briefing == "none"
+    assert not entry.ws.briefing_json.exists() and not entry.ws.briefing_md.exists()
+    assert not (entry.ws.package_dir / "manifest.json").exists()   # drop_stage_artifacts("brief") also drops it
+    assert out.written == ["vetting.json", "notes.json", "drop:brief", "show.json"]
+    assert read_model(entry.ws.show, Show).tracks[0].title != "Stale Old Title"
+
+
+def test_a_held_outcome_with_no_shipped_change_keeps_the_briefing(tmp_path, monkeypatch):
+    # case (c): held, nothing shipped moved (a carried package flag)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    flag = "duration mismatch on 01 - Morning Dew.mp3: file 10s vs metadata 664s"
+    show = read_model(entry.ws.show, Show)
+    write_artifact(entry.ws.show, show.model_copy(update={"review_flags": show.review_flags + [flag]}))
+    write_artifact(entry.ws.briefing_md, "# stored briefing\n")
+    _stub_package(monkeypatch)
+    out = _run(config, ledger, entry)
+    assert out.outcome == "held" and entry.ws.briefing_json.exists() and entry.ws.briefing_md.exists()
+    assert "drop:brief" not in out.written
+
+
+def test_a_held_outcome_with_no_shipped_change_and_no_carried_flag_keeps_the_briefing(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path, held_for_real=True)
+    write_artifact(entry.ws.briefing_md, "# stored briefing\n")
+    _stub_package(monkeypatch)
+    out = _run(config, ledger, entry)
+    assert out.outcome == "held" and out.briefing == "none"
+    assert entry.ws.briefing_json.exists() and entry.ws.briefing_md.exists() and "drop:brief" not in out.written
+
+
+def test_a_failed_fresh_brief_is_not_dropped_even_when_titles_changed(tmp_path, monkeypatch):
+    # case (a): the written briefing IS the new one
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _retitle_stored(entry.ws)
+    entry.ws.briefing_json.unlink()
+    _stub_package(monkeypatch)
+    bad = json.dumps(dict(context="c", significance="s", per_set={"1": ["a"]}, mentioned_songs=["Nope"]))
+    out = _run(config, ledger, entry, _providers(bad, bad))
+    assert out.outcome == "held" and out.briefing == "fresh"
+    assert entry.ws.briefing_json.exists() and "drop:brief" not in out.written
+
+
+def test_a_reused_briefing_is_not_dropped(tmp_path, monkeypatch):
+    # case (b): `compute_legs` never yields reuse + flags ("[] by construction"),
+    # so force the combination on a retitled show: the briefing written is the
+    # reused one and must survive the held outcome.
+    import dataclasses
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _retitle_stored(entry.ws)
+    stored_briefing = read_model(entry.ws.briefing_json, Briefing)
+    real = reapply_mod.compute_legs
+    def forced(*a, **k):
+        legs = real(*a, **k)
+        return dataclasses.replace(legs, brief="reuse", briefing=stored_briefing,
+                                   flags=legs.flags + ["forced flag"])
+    monkeypatch.setattr(reapply_mod, "compute_legs", forced)
+    _stub_package(monkeypatch)
+    out = _run(config, ledger, entry)
+    assert out.outcome == "held" and out.briefing == "reuse"
+    assert entry.ws.briefing_json.exists() and entry.ws.briefing_md.exists()
+    assert "drop:brief" not in out.written
+
+
+def test_a_cleared_outcome_is_not_dropped(tmp_path, monkeypatch):
+    # case (d)
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    out = _run(config, ledger, entry)
+    assert out.outcome == "cleared" and "drop:brief" not in out.written
+    assert entry.ws.briefing_json.exists()

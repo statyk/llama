@@ -25,7 +25,8 @@ from llama.errors import LlamaError
 from llama.ledger import Ledger
 from llama.locks import file_lock
 from llama.models import Provenance, Show, ShowNotes
-from llama.replay import CacheOnlyIA, classify, compute_legs, input_digests, setlistfm_client
+from llama.replay import (CacheOnlyIA, classify, compute_legs, input_digests, setlistfm_client,
+                          shipped_diff)
 from llama.stages.brief import generate_briefing, render_briefing_md
 from llama.stages.package import build_package
 from llama.workspace import (drop_stage_artifacts, read_json, read_model, read_overrides,
@@ -144,6 +145,20 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             # briefing.md is never copied (spec 3a: re-rendered on every reuse).
             put(ws.briefing_json, briefing)
             put(ws.briefing_md, render_briefing_md(briefing, final_show))
+        if (briefing is None and flags
+                and (ws.briefing_json.exists() or ws.briefing_md.exists())
+                and any(shipped_diff(stored, final_show).values())):
+            # Held with the briefing leg not run, and the replay moved shipped
+            # fields: the stored briefing was written against the OLD show, and
+            # a later `fix --overrule` -> `redo --from package` would ship it
+            # unchecked (package does not re-run briefing_guard). Drop the
+            # brief stage's artifacts (briefing.json, briefing.md and, as a
+            # redo from brief, package/manifest.json) so the eventual overrule
+            # regenerates the briefing. Last step before the commit marker: a
+            # crash between this drop and show.json leaves a held show with no
+            # briefing, which `redo --from brief` regenerates.
+            drop_stage_artifacts(ws, "brief")
+            written.append("drop:brief")
         if not flags:
             # As `redo --from package`: a stale manifest must never short-circuit
             # the package and let the show be marked cleared over it.

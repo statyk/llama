@@ -117,7 +117,9 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   leaves it on every held list and a re-run completes it. It never writes
   `reviews.json`/`provenance.json`/`research.md`/the ledger and **never
   delivers**: a delivered show that cleared prints `re-deliver with: llama
-  deliver <name>`. `--from-list` takes a `predicted_list.json` and refuses it
+  deliver <name>`. A held outcome whose replay changed shipped
+  fields (and ran no brief) drops the now-stale briefing (`drop:brief`), so the
+  eventual `fix --overrule` regenerates it rather than shipping it unchecked. `--from-list` takes a `predicted_list.json` and refuses it
   whole unless its `sha` equals `replay.code_identity()` and its
   `config_fingerprint` the running config's; **a `-dirty` identity is refused on
   either side**. A row whose `input_digests` changed since the harness ran is
