@@ -118,6 +118,30 @@ def song_components(title: str) -> list[str]:
     return [c for c in (normalize_song(p) for p in _BRIEF_SEGUE.split(t)) if c]
 
 
+def song_comma_components(title: str) -> list[str]:
+    """A merged-tease title (`A (tease), B (tease), C (tease)`) is one track
+    carrying several songs: split on commas OUTSIDE parentheses and return the
+    `song_components` of each part, in order. Fewer than two non-blank parts
+    (no top-level comma) returns `[]`. This only ever ADDS known components to
+    the guard's set; mentions are never split on commas."""
+    parts, depth, cur = [], 0, []
+    for ch in title:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        if ch == "," and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    parts.append("".join(cur))
+    parts = [p for p in parts if p.strip()]
+    if len(parts) < 2:
+        return []
+    return [c for p in parts for c in song_components(p)]
+
+
 def known_song(song: str, exact: set[str], components: set[str]) -> bool:
     """3b: today's exact test first, so the matcher is a superset of today's;
     else known when the song has components and EVERY one is a known
@@ -191,7 +215,8 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     problems: list[str] = []
     exact = {normalize_song(t.title) for t in show.tracks}
     components = (exact | {c for t in show.tracks for c in song_components(t.title)}
-                  | {" ".join(song_components(t.title)) for t in show.tracks})
+                  | {" ".join(song_components(t.title)) for t in show.tracks}
+                  | {c for t in show.tracks for c in song_comma_components(t.title)})
     for song in briefing.mentioned_songs:
         if not known_song(song, exact, components):
             problems.append(f"briefing mentions unknown song: {song}")

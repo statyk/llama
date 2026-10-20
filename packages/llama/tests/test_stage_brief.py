@@ -439,3 +439,38 @@ def test_generate_briefing_returns_the_normalised_briefing_and_problems_without_
                           mentioned_songs=["Nope"]))
     b, problems = generate_briefing(FakeProvider([bad, bad]), show, "r", [], narration="full", vetting=None)
     assert problems == ["briefing mentions unknown song: Nope"]
+
+
+# fw5: comma-merged track titles contribute their parts to the known-song set
+from llama.stages.brief import song_comma_components
+
+_MERGED = "Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)"
+
+
+def _merged_show(title=_MERGED) -> Show:
+    show = _show(sets=("1",), encore=False)
+    show.tracks[0].title = title
+    return show
+
+
+def test_comma_merged_title_parts_are_known_songs():
+    b = _briefing(per_set={"1": ["x"]},
+                  mentioned_songs=["Girl Named Sandoz", "Stay With Me", "Happy Birthday"])
+    assert briefing_guard(b, _merged_show()) == []
+
+
+def test_song_in_no_title_is_still_flagged_with_merged_title():
+    b = _briefing(per_set={"1": ["x"]}, mentioned_songs=["Mayonaise"])
+    assert briefing_guard(b, _merged_show()) == ["briefing mentions unknown song: Mayonaise"]
+
+
+def test_commas_inside_parentheses_never_split():
+    title = "Jam (w/ Bob Weir, Phil Lesh)"
+    assert song_comma_components(title) == []
+    b = _briefing(per_set={"1": ["x"]}, mentioned_songs=["Phil Lesh"])
+    assert briefing_guard(b, _merged_show(title)) == ["briefing mentions unknown song: Phil Lesh"]
+
+
+def test_single_part_title_has_no_comma_components():
+    assert song_comma_components("Ripple (reprise)") == []
+    assert song_comma_components("Ripple,") == []
