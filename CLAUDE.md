@@ -105,6 +105,113 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   different version, which is the thing T6b exists to protect. emcee has the
   same treatment on its own six models via its own base (it must never import
   llama). No `voice`/`presenter` commands — that's emcee's job now.
+- Run (llama, held-backlog tooling; spec
+  `docs/superpowers/specs/2026-10-19-held-backlog-guard-fixes-design.md`):
+  `llama reapply <show>...` / `llama reapply --from-list <list> [--dry-run]`
+  re-processes HELD shows in place with exactly the replay harness's
+  computation (`llama.replay.compute_legs` + `classify`; `llama/reapply.py`):
+  gather LLM-free from the archive.org/setlist.fm CACHE, vet from the stored
+  `vetting.json` extraction (never re-extracted; none stored = needs-llm),
+  the stored briefing REUSED when `briefing_reusable` holds (broadcast fields
+  — titles, sets, segues, set_breaks, date, venue, city — unchanged, recorded
+  narration equals `overrides.narration`, and the 3a-normalised briefing
+  passes `briefing_guard`), else ONE fresh brief (the only LLM call it makes),
+  then package. **Per show it holds the show lock (`file_lock(ws.lock)`)
+  from the still-held check through the last write, and writes `show.json`
+  LAST as the commit marker** (order: `vetting.json`, `notes.json`,
+  `briefing.json`/`briefing.md` — both re-rendered from the normalised model on
+  reuse, a stored `briefing.md` is never copied — the package, `show.json`):
+  until `show.json` is rewritten the show is still held, so a failure
+  part-way leaves it on every held list and a re-run completes it. A needs-llm
+  show writes nothing. A stored package-stage flag is carried through and never
+  cleared. It never writes `reviews.json`, `provenance.json`, `research.md` or
+  the ledger and **never delivers**: on a show the ledger records as delivered
+  that cleared it prints `re-deliver with: llama deliver <name>`. `--dry-run`
+  writes nothing and, on a list, ends with a `summary:` line (rows, already
+  finished, fresh briefs, first-time downloads at ~175 MB each). A fresh
+  brief's failed `claude -p` is captured whole under `~/.llama/llm-failures/`
+  (`set_capture_dir`), as in `_execute`. **`--from-list` takes a
+  `predicted_list.json` written by `replay_holds.py compare`** and refuses it
+  whole unless its `sha` equals `replay.code_identity()` and its
+  `config_fingerprint` equals the running config's; **a `-dirty` identity (the
+  tree has uncommitted edits) is refused on either side**, since two trees at
+  one HEAD share it. A row whose input digests (`replay.input_digests`:
+  `show.json`, `overrides.json`, `provenance.json`, `research.md`, the
+  extraction part of `vetting.json`) changed since the harness ran is skipped
+  (`skipped: inputs changed`), re-checked under the lock; a show no longer held
+  is `skipped: not held`. **Batch state lives in `<root>/reapply/<first 16 hex
+  of sha256(list bytes)>/`** (outside `runs/`, so `run list` never sees it; a
+  list file edited in any byte is a NEW batch): `list.json` (a copy) and an
+  append-only `progress.jsonl`. Re-running the same list resumes, skipping
+  slugs whose last row has `retryable: false`; a failure is recorded
+  retryable and never finishes a show. **A pacing gate (`decide()` on a live
+  meter read) runs before each show's lock**; a pause or a `RateLimited` prints
+  `resume with: llama reapply --from-list <path>` and exits (1 only if an
+  earlier row failed), nothing recorded for the interrupted show.
+  `STOP_AFTER_LLM_FAILURES = 3` consecutive `TaskFailed`/`HerderError` stop the
+  batch (an openrouter 429 arrives as a plain `HerderError`); only a fresh brief
+  that succeeds resets the count. **`pacing-state.json`'s learned per-show cost
+  reads ~3e-11, so the proactive gate is inert for this batch**: size it from
+  the pilot's meter deltas (each applied row echoes `meter: 5h A% -> B%`), not
+  from `llama pacing`. A show removed since the harness ran is `missing:`,
+  reported and retryable. Single-show form has no list, batch dir or pacing gate.
+- Run (llama, operator route for a tape with no titles): `llama fix <show>
+  --untitled`, and triage's `[u]` (offered only on a hold whose tracks are ALL
+  `title_source == "unresolved"`, `_untitled_counts`). The prompt lists each
+  track's filename first (a tape whose filenames carry the titles is not
+  discarded unseen); ONE confirmation then writes `overrides.titles`
+  `Untitled (track N)`, `narration=vague` and `set_breaks=[]` (one set, so
+  gather's override path skips `align()` and asks no LLM), redoes from
+  `gather`, and — if the show is still held — overrules the remaining flags
+  and redoes from `brief`. End state: packaged, not held, `narration: vague`.
+  `fix --untitled` refuses every other edit flag (`--suggest-titles`,
+  `--exclude/--unexclude/--include`, `--set-title/-breaks/-encore`,
+  `--narration`, `--overrule`, `--no-run`, `--clear-*`, `--set-venue/-city/-date`)
+  before any prompt or write. **Route for a delivered all-`Track NN` tape
+  (`eotoband-2007-10-09`):** `llama redo <show> --from gather` (2b demotes the
+  placeholder tags to `unresolved`), `llama fix <show> --untitled`, `llama
+  deliver <show>`.
+- Run (replay harness, read-only): `./.venv/bin/python scripts/replay_holds.py
+  run --out <arm.json> [--held|--all|--slugs FILE] [--config P] [--scratch P]`
+  recomputes every show's holds from stored artifacts and the cache under THIS
+  tree's code (LLM-free gather, vet over the stored extraction, the brief
+  leg's reuse rule) and writes one arm JSON; `compare <base.json> <cand.json>
+  --out <dir> [--no-repro-gate]` diffs two arms. **Each arm needs its own
+  tree's interpreter**: `run` prints `llama.__file__` and exits 2 unless it
+  resolves under that tree's `packages/llama/src`, and refuses an `--out` or
+  `--scratch` that overlaps the library root (it only reads `~/.llama`;
+  `--out` belongs somewhere like `~/.llama-harness`). `compare` exits non-zero
+  when the arms' input digests, config fingerprint or setlist.fm configuration
+  differ (exit 2, the library changed between runs) or when the base arm
+  reproduces stored flags on under 99% of held, non-needs-LLM shows (exit 3);
+  `--no-repro-gate` skips only the latter, and is for a `-prev`
+  arm that already carries earlier slices. It writes, into `--out`:
+  `summary.txt`, `drift.txt`, `flags.txt`, `outcomes.txt`,
+  `packaged_exposure.txt` (non-held shows a redo would now change; reported,
+  never migrated), `title_sources.txt`, `structure_changed.txt`,
+  `hand_check_sample.txt` (20 newly cleared), `closest_calls.txt`,
+  `needs_llm.txt`, `notes.txt`, `briefings.txt`, `narration_candidates.html`
+  and three lists `reapply` consumes: **`predicted_list.json`** (clears and
+  needs-brief), `structure_changed_list.json` (a would-clear show whose
+  set/segue labels, `set_breaks` or alignment change; hand-check each before it
+  joins an apply) and `pilot_list.json` (10 rows, at least 2 with a reused
+  briefing when available). **Each list carries the arm's `sha` and
+  `config_fingerprint` and each row its input digests: that is what ties it to
+  the code and config that produced it** — editing a list changes its bytes
+  and so its batch dir; do that before any apply. Outcome classes: `clears`
+  (exact through brief: stored briefing reused), `needs-brief` (a fresh Opus
+  brief, outcome not predicted), `needs-llm` (stays held, untouched),
+  `structure-changed`, `still-held`, `unreplayable`. Procedure: harness
+  `compare`, hand-check the lists, `reapply --dry-run`, a 10-show pilot, then
+  waves, then re-run the harness (any difference on a `clears` show is a defect).
+- `notes.json` (per show, written by gather; `reapply` rewrites it with vet's
+  notes): operator-facing notes — a short tag accepted (2a), a placeholder tag
+  demoted (2b), a venue swap or "same city" difference (1), 4a's unclaimed
+  songs, a filler-tail closer (5c.1). **They never reach the briefing LLM**:
+  `run_brief` passes the whole `show.json` to the prompt, so a note in
+  `show.json` or `structure.conflicts` would; they are read only by `llama show`
+  (a `notes:` block, and `--json`) and triage. `notes.json` is a gather artifact
+  replaced on every gather, so a note never outlives the run that raised it.
 - Run (emcee, station-side, post-`llama deliver`): `emcee run` (scan
   `[station] root` and voice every not-yet-broadcast-ready package;
   it prints a plan on stderr (new / re-voice by reason / repair, the exact clip count, presenter and TTS per group) and asks `Proceed? [y/N]` before ANY LLM or TTS spend; `--yes`/`-y` skips the question; with no TTY and no `--yes` it prints the plan and exits 1. A pending package with missing track audio is skipped (`re-deliver from llama`), not voiced, whatever else is wrong with it. **An agent (no TTY) runs `emcee run --dry-run`, shows the plan, and passes `--yes` only after the operator approves**; the `--yes` run re-scans, so keep the gap short;
@@ -444,6 +551,78 @@ scheduler and the full player are phases 3–4).
   hand-edit — for llama. (emcee has its own equivalent: `emcee presenter
   add/list/show/remove` manages `presenters/<id>.toml`, and its
   `[assign]` config table is the one thing a human hand-edits there.)
+- **Tier 1 held-backlog guards** (deterministic, no LLM; spec
+  `docs/superpowers/specs/2026-10-19-held-backlog-guard-fixes-design.md`, as
+  amended by the plan's "Recorded at Checkpoint B–F" blocks). They remove false
+  holds only where the harness can enumerate the effect; **no do-not-retune
+  constant above moved, and every narrower predicate sits BESIDE the protected
+  one** (`is_real_title`, `_TRACK_NUM_PREFIX`, `_STRUCTURE_PREFIX`,
+  `normalize_song` are untouched). A show whose gather would reach
+  `align_structure`/`extract_setlist`, or whose stored alignment is `llm`, is
+  **needs-LLM** and stays held. **Venue (1):** 1a a blank jerrybase venue is no
+  evidence (cities compatible); 1b `venues_equivalent` folds apostrophes,
+  amphitheat(re|er), pavillion, university tokens, joined strings and one edit on
+  tokens of 6+ characters, with `cities_compatible` (first comma field, `ft`/`st`/`mt`/
+  `nyc` folds, a 4-entry metro alias table, state must agree) shared by every
+  step; step 1 (the vote agrees with jerrybase) and the swap (the selected
+  recording's venue equals jerrybase's) ship without a flag, except that the
+  two-venue-in-one-city signature keeps the hold; 1c a same-city name
+  difference on a single-event date ships the SELECTED recording's venue string
+  and notes jerrybase's; 1d (gather, every show) holds `recordings of this date
+  disagree on city` when the selected recording's venue is NOT
+  `venues_equivalent` to the vote's (V, Checkpoint C) and its city is known
+  incompatible, shipping the selected venue and city, suppressed by an operator
+  `--set-venue`/`--set-city`; step 1's city check applies only to pairs 1b newly
+  made equivalent (S: pairs equivalent under `_venues_equivalent_pre1b`, a frozen
+  copy of the tier1-cp-B2 rule, pass on equivalence alone). **Titles (2):** 2a
+  `accept_short_tags` adopts a still-`unresolved` track's tag-layer text when its
+  core has an alphanumeric, passes the junk veto and `metadata_norms`, and every
+  segue component equals an item of a parse that is NOT the selected
+  recording's own description (cross-source or it does not count), shipping it
+  with taper markers stripped and `title_source` `tags`/`sibling-format`,
+  NOT tautological; 2b `placeholders.py` demotes a placeholder tag (`Track 01`,
+  `Trac3`, `tmp`, `No Title`, timestamps, filename residue, one identical string
+  on every track of a 3+-track tape) straight to `unresolved` at the tag rung, so
+  it never falls through to the positional `setlist` rung, unless a non-own
+  parse corroborates it (a pure 4-digit title, `Song #1`, `Untitled` and
+  `Untitled #12` are real); the `setlist`/`setlist-gap`/`sibling-align` rungs
+  never adopt a placeholder item; **known limit:** the real song `2:22` is
+  demoted by the timestamp arm and stays held for `--set-title`; 2c
+  `_GLUED_NUM_PREFIX` (`^\d{2}(?=[A-Z][a-z])`) strips a glued track number only
+  when the recording-level vote clears `_ENUMERATED_MIN_FILES`/`_COVERAGE`.
+  **Briefing guard (3):** 3a `normalize_briefing` drops empty `per_set` entries on
+  generation and on every reuse (`briefing.md` re-rendered); 3b `known_song`
+  accepts a mentioned song when today's exact test holds or every segue
+  component matches after stripping a brief-local `E:`/`E1:`/`Encore:` prefix,
+  trailing markers and one trailing parenthetical (a superset of the old
+  matcher; no fuzzy matching); 3c ignores a set-count claim whose intervening
+  word is in `_NOT_SHOW_WIDE`, one negated by `no/not/never` in two words or
+  `instead of/expected/without` in four (windows clipped at clause punctuation and
+  field boundaries), or scoped by `each/every/a/per night|day|weekend|tour`.
+  **Research (4):** 4a `right_show_gate` turns `unknown song` flags into a
+  note when `RIGHT_SHOW_MIN_TAPE_FRACTION = 0.5` of resolved, non-filler,
+  non-tautological tape tracks are asserted (ratio compared exactly; kept at 0.5
+  at Checkpoint E, not 2/3), `RIGHT_SHOW_MIN_ASSERTED = 4`, unknown songs <=
+  asserted, under half the tape `unresolved`, no wrong-date flag read BEFORE 4b,
+  and research asserts the show's own full date (it needs 2b first;
+  `briefing_guard` stays the safety net, and `research_vetted` then means
+  only "no contradiction found"); 4b an asserted full date within ONE day of the
+  show's own is context; 4c `normalize_date` rejects month > 12/day > 31/day 0,
+  reading a slash form day-first when only the swap is valid, and (Task 16b)
+  `day_unknown_date`: a full-year day-`00` date is a "day unknown" assertion that
+  keeps raising `research asserts wrong date` on a specific show date, feeds
+  4a's raw date flags and is never dropped by 4b; 4d (`vet_research.md` asks for
+  songs "on this recording") affects only fresh extractions. **Structure (5):**
+  5a `evidence_sets` counts numbered sets only, except that `encore_lost` (the
+  canonical has an encore and an encore item is unmatched or a track carries an
+  `E:`/`E]`/`encore` marker) keeps the multi-set flag; 5c.1
+  `closer_contradictions` does not hard-flag when every track between the
+  closer and the next break is `is_filler`, and `filler_tail_closers` makes it
+  an operator note instead; 5c.3 a leading-parenthetical fold is a FALLBACK
+  tier of closer matching (`(I Can't Get No) Satisfaction`). **5c.2 (numbered-set
+  anchoring when only the encore closer is missing) was built, measured
+  (5 wrong structures) and DROPPED at Checkpoint F: do not re-add it.** Evidence
+  and per-checkpoint verdicts: `docs/superpowers/plans/2026-10-19-held-backlog-tier1.md`.
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments, deduped against the on-disk show library ∪ a `ledger.jsonl`
   history keyed by performance identity (artist + date + venue), not

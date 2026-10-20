@@ -206,6 +206,17 @@ the redo) or `llama triage` (interactive walkthrough):
 - **Overrule a false alarm** — `llama fix <s> --overrule`, which redoes from
   `package`.
 
+A fourth route exists for a tape with **no resolved titles at all** (a wholly
+improvised set whose tags read `Track 01`...`Track 09`, or a tape with no
+setlist anywhere): `llama fix <s> --untitled` (or `[u]` in `llama triage`,
+offered only on such a show). It lists every track's filename first, so a tape
+whose filenames carry the titles is not thrown away unseen, then on ONE
+confirmation titles every track `Untitled (track N)`, sets narration to vague,
+puts the tape in a single set, overrules whatever flags remain and builds the
+package. It takes no other edit flag. For a show that is already delivered
+with placeholder tags (for example `eotoband-2007-10-09`), run `llama redo <s>
+--from gather`, then `llama fix <s> --untitled`, then `llama deliver <s>`.
+
 `llama triage` offers these as an interactive prompt over every held show
 and runs your choice on the spot. See [docs/workflow.md](docs/workflow.md)
 for the full pipeline map, every flag, and a troubleshooting table — start
@@ -218,6 +229,48 @@ pick the same performance, one builds it and the others wait and reuse the
 result rather than duplicating the work; runs never idle behind each other
 on shows they don't share. (Local filesystem only — a network/NFS-shared
 workspace is not supported.)
+
+### Re-checking the held backlog (replay harness and `reapply`)
+
+Many holds were false alarms of guards that have since been narrowed (venue
+spelling, short real titles, the briefing guard, adjacent-day research dates).
+Two tools re-check them without spending LLM calls on the guesswork.
+
+`scripts/replay_holds.py` is read-only against `~/.llama`: it recomputes every
+held show's flags offline, from the stored files and the archive.org cache,
+under the code of the tree you run it from. Use that tree's own interpreter
+and keep the output outside the library (for example `~/.llama-harness`):
+
+    ./.venv/bin/python scripts/replay_holds.py run --out ~/.llama-harness/base.json
+    ./.venv/bin/python scripts/replay_holds.py compare base.json cand.json --out ~/.llama-harness/cmp
+
+(`base.json` from the main checkout, `cand.json` from the branch to measure.)
+`compare` writes reports (`summary.txt`, the hand-check sample, closest calls,
+title and structure changes, shows a redo would change that are already
+packaged or delivered, and a `narration_candidates.html` page) and three lists
+for `reapply`: `predicted_list.json`, `structure_changed_list.json` and a
+10-show `pilot_list.json`. A show that would need any other LLM call is listed
+as needs-LLM and left alone.
+
+`llama reapply` applies a list. It re-processes held shows in place with the
+harness's own computation, reuses a stored briefing when it still holds
+(otherwise it asks for one fresh briefing, its only LLM call), downloads audio
+for never-packaged shows, and writes `show.json` last, so an interrupted show
+is still held and a re-run finishes it. It never delivers: on a delivered show
+that clears, it prints `re-deliver with: llama deliver <name>`.
+
+    llama reapply <show>...                      # named shows
+    llama reapply --from-list predicted_list.json --dry-run   # first: writes nothing
+    llama reapply --from-list pilot_list.json    # then a 10-show pilot
+    llama reapply --from-list predicted_list.json   # then the rest, in waves
+
+Always dry-run first and read the summary (fresh briefs, first-time downloads
+and their size). Run the pilot, compare each show's actual outcome and meter
+cost with the prediction, then run the full list: re-running the same list
+resumes where it stopped, and a usage-limit pause prints the command to
+continue. A list is accepted only from the same commit and config that wrote
+it, and a show edited since the harness ran is skipped. Afterwards re-run the
+harness; any difference on a predicted clear is a defect to look at.
 
 ### Explore artists
 
