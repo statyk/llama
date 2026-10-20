@@ -3363,8 +3363,9 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
             # made no call and proves nothing (needs-llm may still carry
             # briefing="fresh" from the replay without having called anything).
             consecutive = 0
-        # A structure-changed skip stays retryable: the operator may add the
-        # flag or move the row to the structure list; a re-run just skips it again.
+        # A structure-changed skip stays retryable: the operator may add
+        # --allow-structure-change (the structure list needs it too); a re-run
+        # without it just skips the row again.
         skipped_structure = out.outcome == "skipped: structure changed"
         reapply_mod.record_progress(batch, slug, out.outcome, retryable=skipped_structure)
         typer.echo(f"reapplied: {slug} -> {out.outcome}"

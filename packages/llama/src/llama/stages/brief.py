@@ -210,7 +210,8 @@ def _guard_prose(b: Briefing) -> str:
     Fields are joined by a newline, the field boundary 3c's negation windows
     stop at. Today's regexes' `\s+` spans it exactly as it spanned the single
     space it replaced (same length), so their matches and spans, and with
-    them the vague branch, are unchanged."""
+    them the vague branch, are unchanged -- except the `of` lookahead, which
+    stops at the newline (fw4)."""
     return "\n".join([b.context, b.significance, b.review_sentiment, *b.notable_moments,
                       *(p for pts in b.per_set.values() for p in pts)])
 
@@ -235,6 +236,7 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     if briefing.narration == "vague":
         # Vague means: assert nothing about set structure, name no songs.
         # Unchanged by slice 3: today's regexes, no qualifier/negation/scope skip.
+        # (fw4 later changed the shared `of` lookahead, under an operator ruling.)
         claimed = {_COUNT_WORDS[m.group(1).lower()] for m in _SET_COUNT_CLAIM.finditer(prose)}
         implied = {_ORDINALS[m.group(1).lower()]: m.group(1).lower()
                    for m in _ORDINAL_SET.finditer(prose)}

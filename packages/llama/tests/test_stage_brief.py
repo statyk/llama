@@ -401,6 +401,7 @@ def test_set_count_of_lookahead_end_to_end_full_narration():
 def test_guard_prose_field_marker_leaves_todays_matches_unchanged():
     # the field boundary is a newline, which today's `\s+` spans exactly as it
     # spanned the old single space: same matches, same spans, same vague verdict
+    # (except the `of` lookahead, which stops at the newline: fw4)
     import re as _re
     from llama.stages.brief import _ORDINAL_SET, _SET_COUNT_CLAIM, _guard_prose
     b = _briefing(context="they played two", significance="sets that night, and the",

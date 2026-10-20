@@ -659,7 +659,7 @@ def test_joined_strip_leaves_a_digit_remainder_alone_a_known_false_negative():
 
 def test_joined_strip_never_touches_numeric_titles_when_the_vote_passes():
     # 40 joined of 46 voters = 0.87: the vote PASSES, so only the predicate
-    # (bound + digit-excluding lookahead) keeps these five intact.
+    # (bound + digit-excluding lookahead + mandatory `[-_]`) keeps these six intact.
     joined = [f"{n:02d}-Song {n}x" for n in range(1, 41)]
     odd = ["1922", "2001", "4-20", "24-7 Spyz", "1-800-Suicide", "2001-A Space Odyssey"]
     out = clean_tag_titles(_files(joined + odd))
