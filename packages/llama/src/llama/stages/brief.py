@@ -55,6 +55,19 @@ def render_briefing_md(briefing: Briefing, show: Show) -> str:
     return "\n".join(lines)
 
 
+def _guard_prose(b: Briefing) -> str:
+    """The prose `briefing_guard`'s set-count checks scan (also read by
+    scripts/replay_holds.py's suppressed-claims report, so the two can never
+    scan different text).
+
+    briefing.cautions is deliberately excluded: cautions exist to flag exactly
+    the kind of uncertain/conflicting-source phrasing (e.g. "sources disagree
+    on whether there were three sets") that the set-count checks would misread
+    as an assertion and false-positive on."""
+    return " ".join([b.context, b.significance, b.review_sentiment, *b.notable_moments,
+                     *(p for pts in b.per_set.values() for p in pts)])
+
+
 def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     """A briefing that misnames songs or sets — or breaks the vague-narration
     contract — must never ship; cross-check against show.json."""
@@ -67,13 +80,7 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     for s in briefing.per_set:
         if s not in sets:
             problems.append(f"briefing references nonexistent set: {s}")
-    # briefing.cautions is deliberately excluded from prose: cautions exist to
-    # flag exactly the kind of uncertain/conflicting-source phrasing (e.g.
-    # "sources disagree on whether there were three sets") that the set-count
-    # checks below would misread as an assertion and false-positive on.
-    prose = " ".join([briefing.context, briefing.significance,
-                      briefing.review_sentiment, *briefing.notable_moments,
-                      *(p for pts in briefing.per_set.values() for p in pts)])
+    prose = _guard_prose(briefing)
     n_sets = len({t.set for t in show.tracks if t.set != "encore"})
     claimed = {_COUNT_WORDS[m.group(1).lower()] for m in _SET_COUNT_CLAIM.finditer(prose)}
     implied = {_ORDINALS[m.group(1).lower()]: m.group(1).lower()
