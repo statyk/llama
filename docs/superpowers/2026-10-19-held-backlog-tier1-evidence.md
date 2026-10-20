@@ -5,8 +5,9 @@
 On 2026-10-19 a survey of the ~1,073 held shows in the live library found mostly guard misfires (see
 `docs/superpowers/specs/2026-10-19-held-backlog-guard-fixes-design.md`). Tier 1 is the deterministic,
 LLM-free part of the fix: a read-only replay harness (`scripts/replay_holds.py`,
-`llama/replay.py`; slice 0), guard changes (slices 1-5), `llama reapply` (slice 6), which re-processes held
-shows in place, and the `fix --untitled` resolution (slice 7). Plan: `docs/superpowers/plans/2026-10-19-held-backlog-tier1.md`; its "Recorded at Checkpoint B-F"
+`llama/replay.py`; slice 0), guard changes (slices 1-5), `llama reapply` (slice 6), which
+re-processes held shows in place, and the `fix --untitled` resolution (slice 7). Plan:
+`docs/superpowers/plans/2026-10-19-held-backlog-tier1.md`; its "Recorded at Checkpoint B-F"
 blocks are the authority for the checkpoint decisions below. This document summarises the per-checkpoint
 numbers, the apply to the live library (2026-10-20) and the post-apply fix wave. It records what was
 measured and decided; it does not restate the design.
@@ -25,11 +26,14 @@ measured and decided; it does not restate the design.
 - **Lists tied to code.** `predicted_list.json`, `structure_changed_list.json` and `pilot_list.json` carry the
   arm's `sha`, `config_fingerprint` and per-row input digests; `reapply --from-list` refuses a list whose
   sha or fingerprint differs from the running code, and skips a row whose digests changed.
-- **Operator hand-checks.** At B-G an Opus pre-screen classed every list row `routine` or `flagged`; the
-  at B-F the operator read every flagged row plus a fixed 20-row sample per list; at G, rows flagged by the pre-screen were dropped under the operator's pre-authorization, relayed by llama-45. Approved rows went to
-  `$H/approved-<X>.txt`, rejected slugs to `$H/rejected-<X>.txt` (`H=~/.llama-harness`).
-- **Apply.** Dry run (writes nothing), a 10-show pilot, then waves, each behind an explicit go-ahead from llama-45: the pilot and
-  wave 1 under the operator's pre-authorization, waves 2-3 and the retries as explicit operator decisions; the pacing gate and the 3-consecutive-LLM-failure stop were live throughout.
+- **Operator hand-checks.** At B-G an Opus pre-screen classed every list row `routine` or `flagged`.
+  At B-F the operator read every flagged row plus a fixed 20-row sample per list; at G, rows flagged
+  by the pre-screen were dropped under the operator's pre-authorization, relayed by llama-45.
+  Approved rows went to `$H/approved-<X>.txt`, rejected slugs to `$H/rejected-<X>.txt` (`H=~/.llama-harness`).
+- **Apply.** Dry run (writes nothing), a 10-show pilot, then waves, each behind an explicit go-ahead
+  from llama-45: the pilot and wave 1 under the operator's pre-authorization, waves 2-3 and the first
+  retry as explicit operator decisions, the second retry round ordered by llama-45; the pacing gate
+  and the 3-consecutive-LLM-failure stop were live throughout.
 
 ## 3. Checkpoints A-G
 
@@ -72,8 +76,8 @@ Totals: **121 of 125 cleared** (pilot 10, wave 1 37, wave 2 37, wave 3 36, plus 
   track numbers (`01-Hell In A Bucket`), not a bad brief (fixed by fw6). The show had never been briefed
   (held at gather by a blank jerrybase venue that 1a removed); an earlier ledger premise that an old
   briefing had passed was wrong.
-- gratefuldead-1985-06-16: archive.org HTTP 500 on track downloads (t01 on the run and on the first retry, t09 on a second retry ordered by llama-45),
-  retryable; `show.json` never committed.
+- gratefuldead-1985-06-16: archive.org HTTP 500 on track downloads (t01 on the run and on the first
+  retry, t09 on a second retry ordered by llama-45), retryable; `show.json` never committed.
 
 Cost and safety: 0 new LLM failures (`llm-failures` stayed at 100), 0 usage refusals or pauses, 0 writes
 outside the lists, 0 re-deliver lines. Meter: 5h window 10% -> 14% over wave 1 and 0% -> 9% over waves 2-3 in
@@ -85,7 +89,7 @@ packaged, clean, reproduce, with 0 field changes and 0 flags; the 4 held are as 
 
 Operator rule amendments made during the waves (by the operator, relayed by llama-45): after wave 1 stopped on
 the first mismatch, a needs-brief/fresh show held solely by the briefing guard (every flag starts with
-`briefing `) became an allowed known non-match; during wave 2, a download failure is retried and, if it
+`briefing `) became an allowed known non-match; during wave 2, a download failure is retried once and, if it
 repeats, recorded as retryable and left held while the waves continue.
 
 ## 5. Post-apply fix wave (`4cd1ebc..82fc3a3`, 18 commits)
