@@ -403,7 +403,10 @@ def test_cli_reapply_dry_run_writes_nothing(tmp_path, monkeypatch):
 # --- Task 20: --from-list batches, the pacing gate, stop rules, list checks ---
 
 from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
-from llama.replay import code_identity, config_fingerprint
+from llama.replay import config_fingerprint
+
+
+CLEAN_SHA = "c" * 40
 
 
 @pytest.fixture(autouse=True)
@@ -411,11 +414,14 @@ def _no_global_capture_dir(monkeypatch):
     # The reapply command switches herder's module-level failure capture on;
     # restore it after every test so no later test captures into a dead tmp_path.
     monkeypatch.setattr("herder.failures._capture_dir", None)
+    # The suite must not depend on whether the checkout is committed: a dirty
+    # tree's `<sha>-dirty` identity is refused by load_list.
+    monkeypatch.setattr("llama.replay.code_identity", lambda: CLEAN_SHA)
 
 
 def _list_file(tmp_path, root, config, entries, sha=None, fp=None):
     rows = [{"slug": e.slug, "outcome": "clears", "briefing": "reuse", "digests": input_digests(e.ws)} for e in entries]
-    data = {"sha": sha or code_identity(), "config_fingerprint": fp or config_fingerprint(config),
+    data = {"sha": sha or CLEAN_SHA, "config_fingerprint": fp or config_fingerprint(config),
             "written_at": "2026-10-19T00:00:00+00:00", "rows": rows}
     p = tmp_path / "predicted_list.json"
     p.write_text(json.dumps(data))
@@ -442,11 +448,11 @@ def test_list_from_another_sha_or_config_is_refused(tmp_path, monkeypatch):
     root, config, ledger, entry, _ = _env(tmp_path)
     bad = _list_file(tmp_path, root, config, [entry], sha="0" * 40)
     with pytest.raises(LlamaError) as exc:
-        load_list(bad, sha=code_identity(), fingerprint=config_fingerprint(config))
+        load_list(bad, sha=CLEAN_SHA, fingerprint=config_fingerprint(config))
     assert "was written for code" in str(exc.value)
     bad = _list_file(tmp_path, root, config, [entry], fp="deadbeef")
     with pytest.raises(LlamaError):
-        load_list(bad, sha=code_identity(), fingerprint=config_fingerprint(config))
+        load_list(bad, sha=CLEAN_SHA, fingerprint=config_fingerprint(config))
 
 
 def test_rerun_of_the_same_list_skips_finished_shows_but_not_failed_ones(tmp_path, monkeypatch):
@@ -491,6 +497,7 @@ def test_batch_stops_after_three_consecutive_llm_failures(tmp_path, monkeypatch)
     r = cli_invoke(cfg, "reapply", "--from-list", str(lst))
     assert r.output.count("FAILED") == STOP_AFTER_LLM_FAILURES
     assert "stopping after 3 consecutive LLM failures" in r.output
+    assert r.exit_code == 1
 
 
 def test_a_success_resets_the_consecutive_llm_failure_count(tmp_path, monkeypatch):
@@ -696,3 +703,139 @@ def test_the_gate_reads_the_meter_around_each_show_and_never_records_pacing_stat
     assert r.exit_code == 0, r.output
     assert gated == [40] and seq == []
     assert f"reapplied: {HELD} -> cleared\n  meter: 5h 40% -> 42%" in r.output
+
+
+def test_a_dirty_code_identity_is_refused_on_either_side(tmp_path):
+    # Review Important 1: `<sha>-dirty` is shared by every uncommitted tree at
+    # one HEAD, so string equality would accept another tree's predictions.
+    root, config, ledger, entry, _ = _env(tmp_path)
+    fp = config_fingerprint(config)
+    dirty = CLEAN_SHA + "-dirty"
+    lst = _list_file(tmp_path, root, config, [entry], sha=dirty)
+    for running in (dirty, CLEAN_SHA):          # list dirty: refused even by the "same" dirty identity
+        with pytest.raises(LlamaError) as exc:
+            load_list(lst, sha=running, fingerprint=fp)
+        assert "commit first" in str(exc.value)
+    clean = _list_file(tmp_path, root, config, [entry])
+    with pytest.raises(LlamaError) as exc:      # running dirty: refused
+        load_list(clean, sha=dirty, fingerprint=fp)
+    assert "commit first" in str(exc.value)
+    assert load_list(clean, sha=CLEAN_SHA, fingerprint=fp)["rows"][0]["slug"] == HELD
+
+
+def test_the_cli_refuses_a_list_when_the_running_tree_is_dirty(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    monkeypatch.setattr("llama.replay.code_identity", lambda: CLEAN_SHA + "-dirty")
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 1 and "commit first" in r.output
+    assert not (root / "reapply").exists()
+
+
+def _scripted(monkeypatch, script):
+    """reapply_show replaced by a per-slug script: an exception instance is
+    raised, a (outcome, briefing) pair is returned."""
+    def fake(config, ia, ledger, entry, **kw):
+        step = script[entry.slug]
+        if isinstance(step, BaseException):
+            raise step
+        outcome, briefing = step
+        return ReapplyOutcome(slug=entry.slug, outcome=outcome, briefing=briefing,
+                              flags=[], delivered=False, written=[])
+    monkeypatch.setattr(reapply_mod, "reapply_show", fake)
+
+
+def test_any_other_exception_fails_only_its_row(tmp_path, monkeypatch):
+    # Review minor 1: a last-resort arm; it is not an LLM failure either.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    from herder import HerderError
+    root, config, ledger, entry, _ = _env(tmp_path)
+    rows = _clones(root, entry, 4)
+    lst = _list_file(tmp_path, root, config, rows)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _scripted(monkeypatch, {"held-2": HerderError("boom"), "held-3": RuntimeError("mutagen says no"),
+                            "held-4": HerderError("boom"), "held-5": ("cleared", "reuse")})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "FAILED held-3: mutagen says no" in r.output and "Traceback" not in r.output
+    assert "stopping after" not in r.output and "reapplied: held-5 -> cleared" in r.output
+    assert r.exit_code == 1
+    progress = read_progress(batch_dir(root, lst))
+    assert progress["held-3"]["retryable"] is True and progress["held-5"]["retryable"] is False
+
+
+def test_rows_that_made_no_llm_call_do_not_reset_the_failure_count(tmp_path, monkeypatch):
+    # Orchestrator ruling: only an applied fresh brief resets the counter.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    from herder import HerderError
+    root, config, ledger, entry, _ = _env(tmp_path)
+    rows = _clones(root, entry, 6)
+    lst = _list_file(tmp_path, root, config, rows)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _scripted(monkeypatch, {"held-2": HerderError("boom"), "held-3": ("cleared", "reuse"),
+                            "held-4": HerderError("boom"), "held-5": ("needs-llm", "fresh"),
+                            "held-6": HerderError("boom"), "held-7": ("cleared", "fresh")})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.output.count("FAILED") == 3 and "stopping after 3 consecutive LLM failures" in r.output
+    assert "held-7" not in r.output.replace(str(root), "") and r.exit_code == 1
+
+
+def test_a_pause_after_a_failed_row_exits_1(tmp_path, monkeypatch):
+    # Review minor 3: a script checking $? must see the earlier failure.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    from herder.limits import RateLimited
+    from llama.pacing import PauseUntil, Proceed
+    from datetime import datetime, timezone
+    root, config, ledger, entry, _ = _env(tmp_path)
+    rows = _clones(root, entry, 2)
+    lst = _list_file(tmp_path, root, config, rows)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _scripted(monkeypatch, {"held-2": LlamaError("bad"), "held-3": RateLimited("limit")})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "paused: limit" in r.output and r.exit_code == 1
+    # the pacing pause too: held-2 fails again, then the gate pauses before held-3
+    verdicts = iter([Proceed(), PauseUntil(datetime.now(timezone.utc), "five_hour", "5h at 95%")])
+    monkeypatch.setattr(cli, "decide", lambda *a, **k: next(verdicts))
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "FAILED held-2: bad" in r.output and "paused: 5h at 95%" in r.output and r.exit_code == 1
+
+
+def test_dry_run_over_an_existing_batch_counts_and_skips_finished_rows(tmp_path, monkeypatch):
+    # D2.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    _stub_package(monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    assert cli_invoke(_cli(root), "reapply", "--from-list", str(lst)).exit_code == 0
+    before = (batch_dir(root, lst) / "progress.jsonl").read_text()
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
+    assert r.exit_code == 0 and "would:" not in r.output
+    assert ("summary: 1 rows, 1 already finished, 0 fresh briefs, 0 first-time downloads "
+            "(~175 MB each, ~0.0 GB)") in r.output
+    assert (batch_dir(root, lst) / "progress.jsonl").read_text() == before
+
+
+def test_dry_run_counts_fresh_briefs_and_downloads_only_for_rows_it_would_apply(tmp_path, monkeypatch):
+    # D1: a held or needs-llm prediction packages nothing and briefs nothing.
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    rows = _clones(root, entry, 4)
+    lst = _list_file(tmp_path, root, config, rows)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _scripted(monkeypatch, {"held-2": ("dry-run: cleared", "fresh"), "held-3": ("dry-run: held", "fresh"),
+                            "held-4": ("needs-llm", "fresh"), "held-5": ("dry-run: needs-brief", "fresh")})
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
+    assert r.exit_code == 0, r.output
+    for line in ("would: held-2 -> cleared", "would: held-3 -> held", "would: held-4 -> needs-llm",
+                 "would: held-5 -> needs-brief"):
+        assert line in r.output
+    assert ("summary: 4 rows, 0 already finished, 2 fresh briefs, 2 first-time downloads "
+            "(~175 MB each, ~0.3 GB)") in r.output

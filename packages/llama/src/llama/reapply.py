@@ -168,6 +168,13 @@ def load_list(path: Path, *, sha: str, fingerprint: str) -> dict:
                 and isinstance(row.get("digests"), dict)):
             raise LlamaError(f"list {path} has a malformed row: {row!r}"[:300])
     list_sha, list_fp = data.get("sha"), data.get("config_fingerprint")
+    # `<sha>-dirty` names no code at all: two trees at one HEAD with different
+    # uncommitted edits share it, so equality would accept predictions made by
+    # code that is not the code running. Refused on either side.
+    if str(list_sha).endswith("-dirty") or sha.endswith("-dirty"):
+        raise LlamaError(f"list {path} was written for code {list_sha}; running code is {sha}: "
+                         "an uncommitted tree has no code identity, commit first and "
+                         "re-run the harness")
     if list_sha != sha or list_fp != fingerprint:
         raise LlamaError(f"list {path} was written for code {list_sha} and config {list_fp}; "
                          f"running code is {sha}, config {fingerprint}")

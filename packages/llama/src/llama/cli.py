@@ -3191,7 +3191,7 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
             if isinstance(verdict, PauseUntil):
                 typer.echo(f"paused: {str(verdict)}")
                 typer.echo(f"  {resume}")
-                return
+                raise typer.Exit(1 if failed else 0)
         show_dir = config.root / "shows" / slug
         if not show_dir.is_dir():
             # `llama rm`'d since the harness ran: reported, never finished.
@@ -3213,7 +3213,7 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
             # recorded: the interrupted show was not committed and re-runs.
             typer.echo(f"paused: {str(exc)}")
             typer.echo(f"  {resume}")
-            return
+            raise typer.Exit(1 if failed else 0)
         except (TaskFailed, HerderError) as exc:
             fail(slug, exc)
             consecutive += 1
@@ -3227,6 +3227,12 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
             # overrides.json is this row's failure, never the batch's.
             fail(slug, exc)
             continue
+        except Exception as exc:   # noqa: BLE001 - last resort, below every arm above
+            # Anything else (a MutagenError tagging a download, a wrong-typed
+            # reviews.json) is still this row's failure: one bad show must never
+            # abort the batch, nor wedge every re-run on the same row.
+            fail(slug, exc)
+            continue
         if dry_run:
             predicted = out.outcome.removeprefix("dry-run: ")
             typer.echo(f"would: {slug} -> {predicted}")
@@ -3234,7 +3240,12 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
                 fresh += out.briefing == "fresh"
                 downloads += not (ws.package_dir / "manifest.json").exists()
             continue
-        consecutive = 0
+        if out.briefing == "fresh" and out.outcome in ("cleared", "held"):
+            # Only a real LLM success shows the backend is healthy again: an
+            # applied row whose brief was fresh. A reuse/needs-llm/skipped row
+            # made no call and proves nothing (needs-llm may still carry
+            # briefing="fresh" from the replay without having called anything).
+            consecutive = 0
         reapply_mod.record_progress(batch, slug, out.outcome, retryable=False)
         typer.echo(f"reapplied: {slug} -> {out.outcome}")
         if out.delivered and out.outcome == "cleared":
