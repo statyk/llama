@@ -769,3 +769,15 @@ def test_untitled_gather_makes_no_align_structure_call(tmp_path):
     res = compute_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT, align_provider=Boom())
     assert res.needs_llm == () and {t.set for t in res.show.tracks} == {"1"}
     assert [t.title for t in res.show.tracks][0] == "Untitled (track 1)"
+
+
+def test_untitled_is_refused_when_only_some_tracks_are_resolved(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path, n=3)
+    show = read_model(ws.show, Show)
+    show.tracks[1] = show.tracks[1].model_copy(update={"title_source": "tags", "title": "Dew"})
+    write_artifact(ws.show, show)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+    assert r.exit_code != 0 and "(1 of 3 resolved)" in r.output
+    assert not ws.overrides.exists() and calls == []

@@ -627,3 +627,15 @@ def test_triage_u_declined_writes_nothing_and_returns_to_the_prompt(tmp_path, tt
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "triage", "gratefuldead", input="u\nn\ns\n")
     assert r.exit_code == 0 and calls == [] and not ws.overrides.exists()
+
+
+def test_triage_u_not_offered_when_one_of_several_tracks_is_resolved(tmp_path, tty):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    show = read_model(ws.show, Show)
+    base = show.tracks[0]
+    show.tracks = [base.model_copy(update={"index": i, "title_source": "unresolved" if i > 1 else "tags"})
+                   for i in (1, 2, 3)]
+    write_artifact(ws.show, show)
+    r = cli_invoke(cfg, "triage", "gratefuldead", input="s\n")
+    assert "[u]ntitled" not in r.output
