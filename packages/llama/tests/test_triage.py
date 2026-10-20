@@ -602,3 +602,28 @@ def test_exclude_prompt_applies_nothing_on_a_mixed_input(tmp_path, tty, monkeypa
     assert "x-handles name DROPPED files" in r.output
     assert read_overrides(ws).exclude == ["mine.mp3"]   # track 1 NOT excluded
     assert calls == []
+
+
+def test_triage_offers_u_only_when_every_track_is_unresolved(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    r = cli_invoke(cfg, "triage", "gratefuldead", input="s\n")
+    assert "[u]ntitled" not in r.output
+    show = read_model(ws.show, Show)
+    show.tracks = [t.model_copy(update={"title_source": "unresolved", "title": t.filename}) for t in show.tracks]
+    write_artifact(ws.show, show)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", "gratefuldead", input="u\ny\n")
+    assert "[u]ntitled" in r.output and calls == ["gather"]
+    assert read_overrides(ws).narration == "vague"
+
+
+def test_triage_u_declined_writes_nothing_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _held_show(tmp_path)
+    show = read_model(ws.show, Show)
+    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
+    write_artifact(ws.show, show)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", "gratefuldead", input="u\nn\ns\n")
+    assert r.exit_code == 0 and calls == [] and not ws.overrides.exists()

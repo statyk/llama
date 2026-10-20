@@ -1511,7 +1511,8 @@ RESOLVE_PROMPT = "[e]xclude tracks / [m]etadata / [v]ague / [o]verrule / [s]kip 
 # literal meant a sentinel edit to `RESOLVE_PROMPT` passed every test
 # without the `WITH_TITLES` variant moving at all; see
 # test_resolve_prompt_with_titles_is_derived_from_resolve_prompt.
-def _resolve_prompt(*, titles: bool = False, include: bool = False) -> str:
+def _resolve_prompt(*, titles: bool = False, include: bool = False,
+                    untitled: bool = False) -> str:
     """The resolve prompt with its two CONDITIONAL options inserted.
 
     Both are derived from `RESOLVE_PROMPT` by replacement rather than
@@ -1530,6 +1531,11 @@ def _resolve_prompt(*, titles: bool = False, include: bool = False) -> str:
         text = text.replace("[e]xclude tracks", "[e]xclude tracks / [i]nclude dropped")
     if titles:
         text = text.replace("[s]kip", "[t] suggest titles / [s]kip")
+    if untitled:
+        # Spec Slice 7: offered only when EVERY track is unresolved; sits
+        # directly before [s]kip like [t], derived by replacement so
+        # RESOLVE_PROMPT stays the single source of truth.
+        text = text.replace("[s]kip", "[u]ntitled / [s]kip")
     return text
 
 
@@ -1602,6 +1608,48 @@ def _metadata_editor(entry) -> bool:
     return True
 
 
+def _untitled_counts(show: Show) -> tuple[int, int]:
+    """(resolved, total) over the track list; a track is unresolved iff its
+    `title_source == "unresolved"`. `--untitled` / `[u]` apply only when
+    resolved == 0 and total > 0 (spec Slice 7)."""
+    n = len(show.tracks)
+    return sum(1 for t in show.tracks if t.title_source != "unresolved"), n
+
+
+def _overrides_snapshot(show_ws) -> bytes | None:
+    return show_ws.overrides.read_bytes() if show_ws.overrides.exists() else None
+
+
+def _untitled_resolution(config, ia, ledger, entry, show: Show) -> Path | None:
+    """The operator route for a tape with no resolved titles (spec Slice 7).
+
+    Lists the tracks, asks ONE confirmation, and only on yes writes
+    `overrides.json` (titles `Untitled (track N)`, narration vague, one set via
+    `set_breaks=[]`), redoes from gather and -- if the re-gather still holds the
+    show -- overrules the remaining flags and continues from brief. The
+    confirmation precedes every write; declining returns None untouched."""
+    typer.echo("tracks on this tape (no resolved titles):")
+    for t in show.tracks:
+        typer.echo(f"  {t.index:2d}  {t.filename}")
+    if not typer.confirm(
+            "Title every track 'Untitled (track N)', set narration vague, one set, "
+            "and overrule any remaining flags?", default=False):
+        return None
+    _edit_overrides(entry.ws,
+                    set_titles={n: f"Untitled (track {n})"
+                                for n in range(1, len(show.tracks) + 1)},
+                    narration="vague", set_breaks=[])
+    typer.echo(f"{entry.slug}: untitled resolution written")
+    pkg = _redo_show(config, ia, ledger,
+                     _resolve_show(config, ledger, entry.slug), "gather")
+    if pkg is None:
+        _clear_hold(entry.ws)
+        typer.echo(f"{entry.slug}: remaining flags overruled")
+        pkg = _redo_show(config, ia, ledger,
+                         _resolve_show(config, ledger, entry.slug), "brief")
+    return pkg
+
+
 def _interactive_resolve(config, ia, ledger, entry) -> None:
     _print_show_entry(entry)
     if entry.state != "held":
@@ -1621,8 +1669,15 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     # rather than looping back, so it cannot go stale within one show's session.
     include_offered = bool(
         entry.ws.show.exists() and read_model(entry.ws.show, Show).excluded_files)
+    # `[u]` is offered only when every track is unresolved (spec Slice 7); read
+    # once per show for the same reason as `[i]`: its branch redoes and returns.
+    untitled_offered = False
+    if entry.provenance is not None and entry.ws.show.exists():
+        resolved, total = _untitled_counts(read_model(entry.ws.show, Show))
+        untitled_offered = total > 0 and resolved == 0
     prompt_text = _resolve_prompt(titles=suggest_titles_offered,
-                                  include=include_offered)
+                                  include=include_offered,
+                                  untitled=untitled_offered)
     while True:
         choice = typer.prompt(prompt_text, default="s", show_default=False).strip().lower()
         if choice in ("", "s"):
@@ -1696,6 +1751,14 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             # override this show may already carry is lost either.
             _edit_overrides(entry.ws, set_titles=picks)
             stage = "gather"
+        elif choice == "u" and untitled_offered:
+            before = _overrides_snapshot(entry.ws)
+            pkg = _untitled_resolution(config, ia, ledger, entry,
+                                       read_model(entry.ws.show, Show))
+            if pkg is None and _overrides_snapshot(entry.ws) == before:
+                continue   # declined: nothing written, back to the prompt
+            typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+            return
         else:
             typer.echo("unrecognized; skipping")
             return
@@ -2682,6 +2745,11 @@ def fix(
         False, "--suggest-titles",
         help="Propose titles for unresolved tracks from the setlist and, on "
              "confirmation, write them all into overrides.titles at once"),
+    untitled: bool = typer.Option(
+        False, "--untitled",
+        help="For a tape with no resolved titles: on one confirmation, title every "
+             "track 'Untitled (track N)', set narration vague and one set, and "
+             "overrule any remaining flags. Cannot be combined with other edit flags"),
     narration: NarrationMode = typer.Option(
         None, "--narration", help="vague clears the hold; full resets narration and leaves it"),
     overrule: bool = typer.Option(
@@ -2695,6 +2763,46 @@ def fix(
     config, ia, ledger = _setup()
     entry = _resolve_show(config, ledger, name)
     sws = entry.ws
+
+    if untitled:
+        # Spec Slice 7. Every refusal precedes the confirmation prompt and any
+        # write. `--no-run` is refused because it would stage a route that
+        # stops at the first hold with no overrule; the venue/city/date edits
+        # and the --clear-* flags are refused because they would be silently
+        # dropped (or fight the one-set, all-untitled result).
+        for flag, given in (
+                ("--suggest-titles", suggest_titles), ("--exclude", exclude),
+                ("--unexclude", unexclude), ("--include", include),
+                ("--set-title", set_title), ("--set-breaks", set_breaks),
+                ("--set-encore", set_encore), ("--narration", narration),
+                ("--overrule", overrule), ("--no-run", no_run),
+                ("--clear-set-breaks", clear_set_breaks),
+                ("--clear-encore", clear_encore), ("--clear-title", clear_title),
+                ("--set-venue", set_venue), ("--set-city", set_city),
+                ("--set-date", set_date)):
+            if given:
+                typer.echo(f"--untitled cannot be combined with {flag}", err=True)
+                raise typer.Exit(1)
+        if not sws.show.exists():
+            typer.echo(f"no show.json in {sws.dir} (state: {entry.state})", err=True)
+            raise typer.Exit(1)
+        if entry.provenance is None:
+            typer.echo(f"no provenance.json in {entry.ws.dir} - "
+                       "reprocess it via its run first", err=True)
+            raise typer.Exit(1)
+        show = read_model(sws.show, Show)
+        resolved, total = _untitled_counts(show)
+        if total == 0 or resolved:
+            typer.echo(f"{entry.slug}: --untitled applies only when every track is "
+                       f"unresolved ({resolved} of {total} resolved)", err=True)
+            raise typer.Exit(1)
+        before = _overrides_snapshot(sws)
+        pkg = _untitled_resolution(config, ia, ledger, entry, show)
+        if pkg is None and _overrides_snapshot(sws) == before:
+            typer.echo("declined; nothing written")
+            return
+        typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+        return
 
     parsed_titles = {}
     for spec in (set_title or []):

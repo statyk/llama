@@ -7,11 +7,17 @@ and, by default, runs the correct redo itself (`--no-run` stages instead).
 import json
 from pathlib import Path
 
+import pytest
+
 import llama.cli as cli
 from conftest import cli_invoke
-from llama.workspace import read_overrides
+from herder import FakeProvider
+from llama.models import Overrides, Show, Track
+from llama.stages.gather import compute_gather
+from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
 from test_catalog import build
+from test_stage_gather import IDENT, StubIA, make_candidate
 
 
 def _cfg(tmp_path: Path) -> Path:
@@ -670,3 +676,96 @@ def test_a_no_op_exclude_still_reports_the_override_list(tmp_path, monkeypatch):
     r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", ",")
     assert r.exit_code == 0, r.output
     assert "overrides.exclude = " in r.output, r.output
+
+
+# --- slice 7: --untitled (spec "Slice 7") ---
+
+def _all_unresolved_show(tmp_path, n=3):
+    ws = _held_show(tmp_path)
+    show = read_model(ws.show, Show)
+    show.tracks = [Track(index=i, set="1", title=f"t{i:02d}.mp3", filename=f"t{i:02d}.mp3",
+                         title_source="unresolved") for i in range(1, n + 1)]
+    show.review_flags = ["unresolved track titles"]
+    write_artifact(ws.show, show)
+    return ws
+
+
+def test_untitled_is_refused_when_any_track_is_resolved(tmp_path):
+    cfg = _cfg(tmp_path)
+    _held_show(tmp_path)          # its one track is tagged
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled")
+    assert r.exit_code != 0 and "applies only when every track is unresolved (1 of 1 resolved)" in r.output
+
+
+@pytest.mark.parametrize("flag", [["--suggest-titles"], ["--exclude", "x1"], ["--unexclude", "a"],
+                                  ["--include", "x1"], ["--set-title", "1=A"], ["--set-breaks", "1"],
+                                  ["--set-encore", "2"], ["--narration", "vague"], ["--overrule"], ["--no-run"],
+                                  ["--clear-set-breaks"], ["--clear-encore"], ["--clear-title", "1"],
+                                  ["--set-venue", "V"], ["--set-city", "C"], ["--set-date", "1973-06-10"]])
+def test_untitled_refuses_every_combination(tmp_path, monkeypatch, flag):
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", *flag, input="y\n")
+    assert r.exit_code != 0 and f"--untitled cannot be combined with {flag[0]}" in r.output
+    # refused before the confirmation prompt and before anything is written
+    assert "Title every track" not in r.output
+    assert not ws.overrides.exists() and calls == []
+
+
+def test_untitled_lists_filenames_and_declining_writes_nothing(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="n\n")
+    assert "   1  t01.mp3" in r.output and "   3  t03.mp3" in r.output
+    assert "tracks on this tape (no resolved titles):" in r.output
+    assert not ws.overrides.exists() and calls == []
+
+
+def test_untitled_one_confirmation_writes_titles_narration_and_one_set_then_redoes(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path)
+    calls = _stub_redo(monkeypatch, result=Path("/pkg"))
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.titles == {1: "Untitled (track 1)", 2: "Untitled (track 2)", 3: "Untitled (track 3)"}
+    assert ov.narration == "vague" and ov.set_breaks == []
+    assert calls == ["gather"] and "packaged: /pkg" in r.output
+
+
+def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path)
+    outcomes = iter([None, Path("/pkg")])
+    calls = []
+
+    def fake_redo(config, ia, ledger, e, stage, **kw):
+        calls.append(stage)
+        if stage == "gather":   # the re-gather raises a flag, as the spec expects
+            s = read_model(e.ws.show, Show)
+            s.needs_review = True
+            s.review_flags = ["single-set structure for a long show (160 min)"]
+            write_artifact(e.ws.show, s)
+        return next(outcomes)
+    monkeypatch.setattr(cli, "_redo_show", fake_redo)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+    assert calls == ["gather", "brief"]
+    assert "remaining flags overruled" in r.output and "packaged: /pkg" in r.output
+    assert read_model(ws.show, Show).needs_review is False
+
+
+def test_untitled_gather_makes_no_align_structure_call(tmp_path):
+    # the override path (set_breaks=[]) skips align(): run the real gather on gd73 with an align provider
+    # that would fail if called
+    ws = ShowWorkspace(tmp_path / "s")
+    write_artifact(ws.overrides, Overrides(titles={i: f"Untitled (track {i})" for i in range(1, 7)},
+                                           narration="vague", set_breaks=[]))
+
+    class Boom:
+        def complete(self, *a, **k):
+            raise AssertionError("align_structure called")
+    res = compute_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT, align_provider=Boom())
+    assert res.needs_llm == () and {t.set for t in res.show.tracks} == {"1"}
+    assert [t.title for t in res.show.tracks][0] == "Untitled (track 1)"

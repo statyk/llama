@@ -1479,3 +1479,10 @@ def test_resolve_prompt_variants_are_all_derived_from_resolve_prompt():
             assert restored == cli.RESOLVE_PROMPT, (titles, include, text)
             assert ("[i]nclude dropped" in text) is include, (titles, include, text)
             assert ("[t] suggest titles" in text) is titles, (titles, include, text)
+
+
+def test_resolve_prompt_untitled_is_inserted_before_skip():
+    base = cli._resolve_prompt(titles=True, include=True)
+    text = cli._resolve_prompt(titles=True, include=True, untitled=True)
+    assert text.replace("[u]ntitled / ", "") == base
+    assert "[u]ntitled / [s]kip" in text
