@@ -2254,6 +2254,14 @@ Spec "Slice 3 — Acceptance". Measure per "Measuring at a checkpoint" with `X=D
 
 Hand the operator the pre-screen plus: (1) the reused-briefing list (flagged briefings are read whole, plus the 20-row sample; this is where the spec's "every reused briefing read whole by hand" becomes pre-screen + flagged + sample); (2) zero newly firing on clean briefings; (3) the suppressed-match list (prototype ≈ 68; flagged rows plus the sample); (4) the remaining ~20 holds. **Ask:** approve slice 3, or name failures. Stop until answered. On approval, the approved rows go to `$H/approved-D.txt`.
 
+**Recorded at Checkpoint D (operator, 2026-10-19):**
+- Measured at tier1-cp-D = b9ae699 (slice 3 alone; Task 15 was implemented after the measurement so it could not reach the cand arm), with PREV = tier1-cp-C2. Slice 3 changed 34 stored briefing-guard verdicts (3a 11, 3b 15, 3c 8) and moved 27 held shows to `clears`, each shipping its stored briefing by reuse. Zero clean briefings newly fire (base 0, cand 0). Suppressed set-count/ordinal matches: 21, not the prototype's ~68 (the Task 14 fix round clips 3c's negation windows at clause punctuation and briefing-field boundaries).
+- Slice 3 approved as measured; approved rows in `$H/approved-D.txt`.
+- Five reused briefings REJECTED: smashingpumpkins-1996-04-27, wacobrothers-2005-12-22, warrenzevon-1988-11-30, thewaybacks-2006-04-29, deadandcompany-2015-11-20. Their prose asserts encore or segue detail the guard does not check, and show.json does not support it. They stay held, are listed in `$H/rejected-D.txt`, and **Checkpoint G drops them from `predicted_list.json`** before any apply. The operator re-briefs them after the merge.
+- furthur-2011-02-12's suppressed match ("had expected a spacier second set", classed as negation) is accepted as harmless: the show has two sets.
+- moe-2002-06-22 stays held. Its briefing's "two sets and an encore" is right; show.json labels the `E:` encore tracks set 3. The operator fixes the structure after the run.
+- For slice 6: 9 of the 27 reused stored `briefing.md` files still carry an empty `## Encore` heading, so reapply's re-render of `briefing.md` from the normalised briefing (spec 3a) is load-bearing for them.
+
 ---
 
 ### Task 15: 4c `normalize_date` range checks, 4b adjacent-day context, 4d prompt wording
