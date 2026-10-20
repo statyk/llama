@@ -186,7 +186,7 @@ Two different human gates, easy to conflate: `llama run approve` answers
 it show up in `llama run list`'s attention-list. Separately,
 a processed show can be held as **needs-review** when a stage flags
 something suspicious (`needs-review, skipped: ...`, gate 2). A held show
-has **three resolutions**, driven from `llama fix` (flag-by-flag, auto-runs
+has **three resolutions** (plus a fourth for tapes with no titles, below), driven from `llama fix` (flag-by-flag, auto-runs
 the redo) or `llama triage` (interactive walkthrough):
 
 - **Correct the data** — `llama fix <s> --exclude <file-or-number>` drops
@@ -242,7 +242,7 @@ under the code of the tree you run it from. Use that tree's own interpreter
 and keep the output outside the library (for example `~/.llama-harness`):
 
     ./.venv/bin/python scripts/replay_holds.py run --out ~/.llama-harness/base.json
-    ./.venv/bin/python scripts/replay_holds.py compare base.json cand.json --out ~/.llama-harness/cmp
+    ./.venv/bin/python scripts/replay_holds.py compare ~/.llama-harness/base.json ~/.llama-harness/cand.json --out ~/.llama-harness/cmp
 
 (`base.json` from the main checkout, `cand.json` from the branch to measure.)
 `compare` writes reports (`summary.txt`, the hand-check sample, closest calls,
@@ -254,8 +254,8 @@ as needs-LLM and left alone.
 
 `llama reapply` applies a list. It re-processes held shows in place with the
 harness's own computation, reuses a stored briefing when it still holds
-(otherwise it asks for one fresh briefing, its only LLM call), downloads audio
-for never-packaged shows, and writes `show.json` last, so an interrupted show
+(otherwise it asks for one fresh briefing, its only LLM call), downloads any missing
+audio (first-time packages are the bulk), and writes `show.json` last, so an interrupted show
 is still held and a re-run finishes it. It never delivers: on a delivered show
 that clears, it prints `re-deliver with: llama deliver <name>`.
 
