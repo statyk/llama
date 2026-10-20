@@ -282,17 +282,18 @@ def _briefings(base: dict, cand: dict) -> tuple[list[str], int]:
 SUPPRESSED_CONTEXT = 60     # characters of context either side of a suppressed match
 
 
-def _suppressed_claims(root: Path) -> tuple[list[str], int]:
+def _suppressed_claims(root: Path | None) -> tuple[list[str], int]:
     """briefings.txt section (4), Task 14: over every stored briefing in the
     library at `root` (read-only) that has its show.json, under full
     narration, each match of today's set-count/ordinal regexes over the
     guard's own prose (`brief._guard_prose`) that slice 3c no longer counts
     (its span is not among `brief._claim_matches`'). This is the detection
     3c gives up, which "zero newly firing" cannot see (spec slice 3
-    acceptance)."""
+    acceptance). With no `root` (neither arm records one) it reads nothing
+    and reports 0, never the caller's cwd."""
     rows = []
-    shows = root / "shows"
-    for bj in sorted(shows.glob("*/briefing.json")) if shows.is_dir() else []:
+    shows = root / "shows" if root is not None else None
+    for bj in sorted(shows.glob("*/briefing.json")) if shows is not None and shows.is_dir() else []:
         if not (bj.parent / "show.json").exists():
             continue
         try:
@@ -659,7 +660,8 @@ def compare(args: argparse.Namespace) -> int:
         return 3
 
     brief_lines, n_brief = _briefings(base, cand)
-    supp_lines, n_supp = _suppressed_claims(Path(cand.get("root") or base.get("root") or "."))
+    arm_root = cand.get("root") or base.get("root")
+    supp_lines, n_supp = _suppressed_claims(Path(arm_root) if arm_root else None)
     _write(out, "briefings.txt", brief_lines + supp_lines)
     flag_lines = _flag_counts(base, cand)
     _write(out, "flags.txt", flag_lines)

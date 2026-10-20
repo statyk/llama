@@ -338,6 +338,10 @@ def test_3b_is_a_superset_of_todays_matcher():
     ("the band played both sets", {2}, {}),
     ("two sets of fiddle tunes", set(), {}),
     ("a monster second set", set(), {2: "second"}),
+    # fix round 1: a negation word qualifies only its own clause, never an earlier one
+    ("The band did not disappoint. Second set opened hot.", set(), {2: "second"}),
+    ("Fans could not complain: two sets and an encore.", {2}, {}),
+    ("As expected, the second set was a monster.", set(), {2: "second"}),
 ])
 def test_3c_set_count_claims(prose, claims, ordinals):
     from llama.stages.brief import _claim_counts
@@ -349,6 +353,38 @@ def test_3c_leaves_the_vague_branch_on_todays_regexes():
     # under full narration 3c drops this qualified count; under vague today's regex still catches it
     b = _briefing(per_set={}, narration="vague", context="the band played two electric sets")
     assert "briefing asserts set structure under vague narration" in briefing_guard(b, show)
+    # ... and a negated ordinal, which 3c drops under full narration, still counts under vague
+    b2 = _briefing(per_set={}, narration="vague", context="there is no second set")
+    assert briefing_guard(b2, show) == ["briefing asserts set structure under vague narration"]
+
+
+def test_3c_negation_does_not_cross_a_briefing_field_boundary():
+    from llama.stages.brief import _claim_counts, _guard_prose
+    b = _briefing(context="Was it the best night of the run? Probably not", significance="",
+                  review_sentiment="", notable_moments=[],
+                  per_set={"1": ["Second set: opened hot."]})
+    assert _claim_counts(_guard_prose(b)) == (set(), {2: "second"})
+    assert briefing_guard(b, _show(sets=("1",), encore=False)) == [
+        "briefing mentions the second set but structure has 1 sets"]
+
+
+def test_guard_prose_field_marker_leaves_todays_matches_unchanged():
+    # the field boundary is a newline, which today's `\s+` spans exactly as it
+    # spanned the old single space: same matches, same spans, same vague verdict
+    import re as _re
+    from llama.stages.brief import _ORDINAL_SET, _SET_COUNT_CLAIM, _guard_prose
+    b = _briefing(context="they played two", significance="sets that night, and the",
+                  review_sentiment="second", notable_moments=["set was long"],
+                  per_set={"1": ["both"], "2": ["electric sets of tunes"]})
+    old = " ".join([b.context, b.significance, b.review_sentiment, *b.notable_moments,
+                    *(p for pts in b.per_set.values() for p in pts)])
+    new = _guard_prose(b)
+    assert len(new) == len(old)
+    for rx in (_SET_COUNT_CLAIM, _ORDINAL_SET):
+        assert [(m.span(), m.group(0).split()) for m in rx.finditer(new)] == \
+            [(m.span(), m.group(0).split()) for m in rx.finditer(old)] != []
+    vague = b.model_copy(update={"narration": "vague", "per_set": {}, "mentioned_songs": []})
+    assert briefing_guard(vague, _show()) == ["briefing asserts set structure under vague narration"]
 
 
 def test_3b_3c_wired_into_the_full_branch():

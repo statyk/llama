@@ -702,3 +702,22 @@ def test_suppressed_claims_lists_only_what_3c_drops_with_bounded_context(tmp_pat
     assert "excellent" in ctx and "night sets" not in row
     assert rh._suppressed_claims(tmp_path / "nowhere") == (
         ["suppressed set-count/ordinal matches: 0", rh.NONE, ""], 0)
+
+
+def test_suppressed_claims_without_a_root_in_either_arm_reads_nothing(tmp_path, monkeypatch):
+    def drop_root(arm):
+        arm.pop("root", None)
+    base, cand = _two_arms(tmp_path, mutate_cand=drop_root, mutate_base=drop_root)
+    # a library-shaped tree in the caller's cwd that 3c would report if it were read
+    cwd = tmp_path / "cwd"
+    show = cwd / "shows" / "elsewhere-1999-01-01"
+    show.mkdir(parents=True)
+    (show / "show.json").write_text("{}")
+    (show / "briefing.json").write_text(json.dumps(
+        {"context": "two electric sets", "significance": "s"}))
+    monkeypatch.chdir(cwd)
+    assert rh._suppressed_claims(None) == (["suppressed set-count/ordinal matches: 0", rh.NONE, ""], 0)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "briefings.txt").read_text()
+    assert "suppressed set-count/ordinal matches: 0" in text and "elsewhere" not in text

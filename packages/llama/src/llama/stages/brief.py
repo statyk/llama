@@ -58,6 +58,13 @@ _NEGATION_4 = ("instead of", "expected", "without")
 # a night"). `that`/`this` are deliberately absent: "two sets that night" is a
 # claim about this show.
 _SCOPE_AFTER = re.compile(r"^\s*(?:each|every|a|per)\s+(?:night|day|weekend|tour)\b", re.I)
+# 3c negation windows look back only within the match's own clause (Task 14
+# fix round 1): a negation word in an earlier sentence, clause or briefing
+# field qualifies nothing ("The band did not disappoint. Second set opened
+# hot." is a claim). Clipping only ever removes suppressions. The comma is a
+# break too: "As expected, the second set was a monster." is a claim.
+# `\n` is _guard_prose's field boundary.
+_CLAUSE_BREAK = re.compile(r"[.!?;:,\n]")
 
 # 3b: deterministic strips for tolerant song matching. Brief-local on purpose:
 # structure._STRUCTURE_PREFIX does not match `E1:` and feeds align(), anchoring
@@ -119,7 +126,9 @@ def known_song(song: str, exact: set[str], components: set[str]) -> bool:
 
 
 def _words_before(prose: str, start: int, n: int) -> list[str]:
-    toks = (t.strip(string.punctuation).lower() for t in prose[:start].split())
+    """The last `n` words before `start`, within its own clause and field."""
+    clause = _CLAUSE_BREAK.split(prose[:start])[-1]
+    toks = (t.strip(string.punctuation).lower() for t in clause.split())
     return [t for t in toks if t][-n:]
 
 
@@ -163,9 +172,14 @@ def _guard_prose(b: Briefing) -> str:
     briefing.cautions is deliberately excluded: cautions exist to flag exactly
     the kind of uncertain/conflicting-source phrasing (e.g. "sources disagree
     on whether there were three sets") that the set-count checks would misread
-    as an assertion and false-positive on."""
-    return " ".join([b.context, b.significance, b.review_sentiment, *b.notable_moments,
-                     *(p for pts in b.per_set.values() for p in pts)])
+    as an assertion and false-positive on.
+
+    Fields are joined by a newline, the field boundary 3c's negation windows
+    stop at. Today's regexes' `\s+` spans it exactly as it spanned the single
+    space it replaced (same length), so their matches and spans, and with
+    them the vague branch, are unchanged."""
+    return "\n".join([b.context, b.significance, b.review_sentiment, *b.notable_moments,
+                      *(p for pts in b.per_set.values() for p in pts)])
 
 
 def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
