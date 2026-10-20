@@ -300,11 +300,14 @@ def propose_rows(target_durs: list[float], donor: DonorTape, *,
                                        "sibling song split across target files"))
             continue
 
-        proposed = " > ".join(t.strip().rstrip(">").strip() for t in titles)
+        def _adopted_form(t: str) -> str:   # the ONE form adoption ships and hygiene tests
+            return t.strip().rstrip(">").strip()
+
+        proposed = " > ".join(_adopted_form(t) for t in titles)
         if not all(t.strip() and is_real_title(t.strip()) for t in titles):
             rows.append(SiblingRow(i0 + 1, None, span, residual, penalty,
                                    "decline", "sibling track untitled"))
-        elif not all(hygienic_title(t, metadata_norms) and not is_placeholder_text(t.strip())
+        elif not all(hygienic_title(t, metadata_norms) and not is_placeholder_text(_adopted_form(t))
                      for t in titles):   # Task 11b: a donor's `Track 02`/`tmp` tag
             rows.append(SiblingRow(i0 + 1, None, span, residual, penalty,
                                    "decline", "sibling title fails hygiene"))

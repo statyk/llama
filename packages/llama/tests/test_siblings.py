@@ -1075,3 +1075,16 @@ def test_a_donor_track_titled_with_a_placeholder_fails_hygiene(placeholder):
     assert got[2].verdict == "decline"
     assert got[2].proposed is None
     assert got[2].reason == "sibling title fails hygiene"
+
+
+@pytest.mark.parametrize("placeholder", ["tmp >", "Track 02 >"])
+def test_a_donor_placeholder_with_a_trailing_segue_mark_still_fails_hygiene(placeholder):
+    """Adoption strips a trailing `>`; the placeholder refusal must test that
+    same stripped form, or `tmp >` is adopted as `tmp`."""
+    target = [300.0, 420.0, 510.0]
+    donor = _donor([300.0, 420.0, 510.0], ["Alpha", placeholder, "Charlie"])
+    rows, _diag = propose_rows(target, donor, metadata_norms=set())
+    got = _by_track(rows)
+    assert got[2].verdict == "decline"
+    assert got[2].proposed is None
+    assert got[2].reason == "sibling title fails hygiene"
