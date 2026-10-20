@@ -548,7 +548,8 @@ def test_4a_suppresses_unknown_songs_on_a_right_show_tape_and_notes_them():
 
 @pytest.mark.parametrize("n_titled, n_unresolved, asserted, dates, expect_gate", [
     (8, 0, 5, ["1973-06-10"], True),
-    (8, 0, 3, ["1973-06-10"], False),            # below 0.5
+    (8, 0, 3, ["1973-06-10"], False),            # fewer than 4 asserted
+    (10, 0, 4, ["1973-06-10"], False),           # 0.4: only the tape fraction fails
     (4, 0, 3, ["1973-06-10"], False),            # 0.75 but fewer than 4 asserted
     (8, 9, 5, ["1973-06-10"], False),            # over half the tape unresolved
     (8, 0, 5, ["June 10"], False),               # own date yearless only

@@ -165,7 +165,7 @@ def _claim_counts(prose: str) -> tuple[set[int], dict[int, str]]:
 
 
 def _guard_prose(b: Briefing) -> str:
-    """The prose `briefing_guard`'s set-count checks scan (also read by
+    r"""The prose `briefing_guard`'s set-count checks scan (also read by
     scripts/replay_holds.py's suppressed-claims report, so the two can never
     scan different text).
 
