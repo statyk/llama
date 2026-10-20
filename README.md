@@ -264,7 +264,7 @@ that clears, it prints `re-deliver with: llama deliver <name>`.
     llama reapply --from-list pilot_list.json    # then a 10-show pilot
     llama reapply --from-list predicted_list.json   # then the rest, in waves
 
-Always dry-run first and read the summary (fresh briefs, first-time downloads
+Always dry-run first and read the summary (fresh briefs, downloads
 and their size). Run the pilot, compare each show's actual outcome and meter
 cost with the prediction, then run the full list: re-running the same list
 resumes where it stopped, and a usage-limit pause prints the command to

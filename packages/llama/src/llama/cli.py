@@ -3208,7 +3208,8 @@ def reapply(
         typer.echo("give show names or --from-list, not both", err=True)
         raise typer.Exit(1)
     if from_list is not None:
-        _reapply_list(from_list, dry_run=dry_run)
+        _reapply_list(from_list, dry_run=dry_run,
+                      allow_structure_change=allow_structure_change)
         return
     if not names:
         typer.echo("give one or more shows (or --from-list)", err=True)
@@ -3249,7 +3250,7 @@ def _meter_pct(reading) -> str:
     return str(reading.five_hour.percent)
 
 
-def _reapply_list(path: Path, *, dry_run: bool) -> None:
+def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = False) -> None:
     """`llama reapply --from-list` (spec slice 6 "Batch state"): resumable
     through `<root>/reapply/<list hash>/progress.jsonl`, a pacing gate before
     every show, and two stops -- a usage-limit refusal (clean, at the show
@@ -3323,9 +3324,7 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
                                            row=row, dry_run=dry_run,
                                            echo=lambda s: typer.echo(s, err=True),
-                                           # the structure list is a deliberate choice
-                                           allow_structure_change=(
-                                               row.get("outcome") == "structure-changed"))
+                                           allow_structure_change=allow_structure_change)
         except RateLimited as exc:
             # Must stay above HerderError, which it subclasses. Nothing is
             # recorded: the interrupted show was not committed and re-runs.
@@ -3366,9 +3365,11 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
             consecutive = 0
         # A structure-changed skip stays retryable: the operator may add the
         # flag or move the row to the structure list; a re-run just skips it again.
-        reapply_mod.record_progress(batch, slug, out.outcome,
-                                    retryable=out.outcome == "skipped: structure changed")
-        typer.echo(f"reapplied: {slug} -> {out.outcome}")
+        skipped_structure = out.outcome == "skipped: structure changed"
+        reapply_mod.record_progress(batch, slug, out.outcome, retryable=skipped_structure)
+        typer.echo(f"reapplied: {slug} -> {out.outcome}"
+                   + (" (re-run with --allow-structure-change after checking)"
+                      if skipped_structure else ""))
         if out.delivered and out.outcome == "cleared":
             typer.echo(f"  re-deliver with: llama deliver {slug}")
         if _meter_applies(config, pace):
@@ -3376,7 +3377,7 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
                        f"{_meter_pct(_meter(config, pace))}%")
     if dry_run:
         typer.echo(f"summary: {len(rows)} rows, {n_finished} already finished, {fresh} fresh "
-                   f"briefs, {downloads} first-time downloads (~175 MB each, "
+                   f"briefs, {downloads} downloads (~175 MB each, "
                    f"~{downloads * 175 / 1024:.1f} GB)")
     if failed:
         raise typer.Exit(1)

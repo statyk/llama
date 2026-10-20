@@ -580,7 +580,7 @@ def test_dry_run_prints_the_cost_summary_and_creates_no_batch(tmp_path, monkeypa
     r = cli_invoke(cfg, "reapply", "--from-list", str(lst), "--dry-run")
     assert r.exit_code == 0
     assert "would: gratefuldead-1973-06-10 -> cleared" in r.output
-    assert "summary: 1 rows, 0 already finished, 0 fresh briefs, 1 first-time downloads (~175 MB each, ~0.2 GB)" in r.output
+    assert "summary: 1 rows, 0 already finished, 0 fresh briefs, 1 downloads (~175 MB each, ~0.2 GB)" in r.output
     assert not (root / "reapply").exists()
 
 
@@ -817,7 +817,7 @@ def test_dry_run_over_an_existing_batch_counts_and_skips_finished_rows(tmp_path,
     before = (batch_dir(root, lst) / "progress.jsonl").read_text()
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
     assert r.exit_code == 0 and "would:" not in r.output
-    assert ("summary: 1 rows, 1 already finished, 0 fresh briefs, 0 first-time downloads "
+    assert ("summary: 1 rows, 1 already finished, 0 fresh briefs, 0 downloads "
             "(~175 MB each, ~0.0 GB)") in r.output
     assert (batch_dir(root, lst) / "progress.jsonl").read_text() == before
 
@@ -837,7 +837,7 @@ def test_dry_run_counts_fresh_briefs_and_downloads_only_for_rows_it_would_apply(
     for line in ("would: held-2 -> cleared", "would: held-3 -> held", "would: held-4 -> needs-llm",
                  "would: held-5 -> needs-brief"):
         assert line in r.output
-    assert ("summary: 4 rows, 0 already finished, 2 fresh briefs, 2 first-time downloads "
+    assert ("summary: 4 rows, 0 already finished, 2 fresh briefs, 2 downloads "
             "(~175 MB each, ~0.3 GB)") in r.output
 
 
@@ -882,29 +882,28 @@ def test_cli_names_form_structure_changed_needs_the_flag(tmp_path, monkeypatch):
     assert r.exit_code == 0 and f"reapplied: {HELD} -> cleared" in r.output
 
 
-def test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped(tmp_path, monkeypatch):
+def test_list_form_skips_structure_changed_rows_unless_the_flag_is_given(tmp_path, monkeypatch):
+    # Rows are in the harness's real shape (scripts/replay_holds.py `_list_row`:
+    # slug/outcome/briefing/digests; a structure_changed_list row's outcome is the
+    # would-be `clears`/`needs-brief`, never `structure-changed`), as `_list_file` writes them.
     from conftest import cli_invoke
     import llama.cli as cli
     root, config, ledger, entry, _ = _env(tmp_path)
-    rows = _clones(root, entry, 2)
+    rows = _clones(root, entry, 1)
     lst = _list_file(tmp_path, root, config, rows)
-    data = json.loads(lst.read_text())
-    data["rows"][0]["outcome"] = "structure-changed"      # held-2: the structure list's row
-    lst.write_text(json.dumps(data))
     _stub_package(monkeypatch)
     monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
     _force_classify(monkeypatch, "structure-changed")
-    before = _snapshot(rows[1].ws)
+    before = _snapshot(rows[0].ws)
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
     assert r.exit_code == 0, r.output
-    assert "reapplied: held-2 -> cleared" in r.output
-    assert "reapplied: held-3 -> skipped: structure changed" in r.output
-    assert _snapshot(rows[1].ws) == before
-    progress = read_progress(batch_dir(root, lst))
-    assert progress["held-2"]["retryable"] is False
-    assert progress["held-3"]["retryable"] is True
-    r2 = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
-    assert "held-2" not in r2.output and "reapplied: held-3 -> skipped: structure changed" in r2.output
+    assert ("reapplied: held-2 -> skipped: structure changed "
+            "(re-run with --allow-structure-change after checking)") in r.output
+    assert _snapshot(rows[0].ws) == before
+    assert read_progress(batch_dir(root, lst))["held-2"]["retryable"] is True
+    r2 = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--allow-structure-change")
+    assert r2.exit_code == 0 and "reapplied: held-2 -> cleared" in r2.output
+    assert read_progress(batch_dir(root, lst))["held-2"]["retryable"] is False
 
 
 def test_catch_all_failure_line_names_the_exception_type(tmp_path, monkeypatch):
@@ -928,13 +927,31 @@ def test_dry_run_counts_a_purged_delivered_show_as_a_download(tmp_path, monkeypa
     lst = _list_file(tmp_path, root, config, [entry])
     monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
     write_artifact(entry.ws.package_dir / "manifest.json",
-                   {"schema_version": 3, "tracks": [{"filename": "a.mp3"}]})
-    (entry.ws.package_dir / "audio").mkdir(parents=True, exist_ok=True)
+                   {"schema_version": 3, "tracks": [{"filename": "a.mp3"}, {"filename": "b.mp3"}]})
+    audio = entry.ws.package_dir / "audio"
+    audio.mkdir(parents=True, exist_ok=True)
+    (audio / "a.mp3").write_bytes(b"x")                    # one present, one missing
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
-    assert "1 first-time downloads" in r.output, r.output
-    (entry.ws.package_dir / "audio" / "a.mp3").write_bytes(b"x")
+    assert "1 downloads" in r.output, r.output
+    (audio / "b.mp3").write_bytes(b"x")
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
-    assert "0 first-time downloads" in r.output, r.output
+    assert "0 downloads" in r.output, r.output
+
+
+def test_needs_audio_download_counts_an_unreadable_or_malformed_manifest_as_a_download(tmp_path):
+    from llama.catalog import needs_audio_download
+    from llama.workspace import ShowWorkspace
+    ws = ShowWorkspace(tmp_path / "s")
+    ws.package_dir.mkdir(parents=True)
+    m = ws.package_dir / "manifest.json"
+    m.write_text("{not json")
+    assert needs_audio_download(ws) is True
+    m.write_text('{"tracks": [{"title": "no filename"}]}')
+    assert needs_audio_download(ws) is True
+    m.write_text('{"tracks": "nope"}')
+    assert needs_audio_download(ws) is True
+    m.write_text('{"tracks": []}')
+    assert needs_audio_download(ws) is False
 
 
 # --- fw3: a held outcome drops a briefing written against older titles ---
