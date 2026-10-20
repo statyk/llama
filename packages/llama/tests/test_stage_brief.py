@@ -376,6 +376,28 @@ def test_3c_scope_window_does_not_cross_a_briefing_field_boundary():
     assert _claim_counts("The band played two sets a night to remember") == (set(), {})
 
 
+def test_set_count_of_lookahead_stops_at_the_field_boundary_full():
+    from llama.stages.brief import _claim_counts
+    assert _claim_counts("The band played two sets\nOf note, the encore was long") == ({2}, {})
+    assert _claim_counts("two sets of fiddle tunes") == (set(), {})
+
+
+def test_set_count_of_lookahead_stops_at_the_field_boundary_vague():
+    show = _show(encore=False)
+    b = _briefing(per_set={}, narration="vague", context="The band played two sets",
+                  significance="Of note, the encore was long")
+    assert briefing_guard(b, show) == ["briefing asserts set structure under vague narration"]
+    b2 = _briefing(per_set={}, narration="vague", context="two sets of fiddle tunes")
+    assert briefing_guard(b2, show) == []
+
+
+def test_set_count_of_lookahead_end_to_end_full_narration():
+    show = _show(sets=("1", "2", "3"), encore=False)
+    b = _briefing(per_set={"1": ["Opens hot"]}, context="The band played two sets",
+                  significance="Of note, the encore was long")
+    assert "briefing claims 2 sets but structure has 3" in briefing_guard(b, show)
+
+
 def test_guard_prose_field_marker_leaves_todays_matches_unchanged():
     # the field boundary is a newline, which today's `\s+` spans exactly as it
     # spanned the old single space: same matches, same spans, same vague verdict

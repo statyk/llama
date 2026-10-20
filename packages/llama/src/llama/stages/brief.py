@@ -27,9 +27,11 @@ def narration_note(narration: str) -> str:
 
 
 # Set-count claims in briefing prose. "sets of ..." ("two sets of fiddle tunes")
-# is a quantity of songs, not a set count, so it never counts as a claim.
+# is a quantity of songs, not a set count, so it never counts as a claim. The
+# lookahead stops at the field boundary (a newline), like _SCOPE_AFTER (final
+# review I1 follow-up): a claim ending one field is not excused by "Of ..." opening the next.
 _SET_COUNT_CLAIM = re.compile(
-    r"\b(both|two|three|four|[234])\s+(?:\w+\s+)?sets\b(?!\s+of\b)", re.I
+    r"\b(both|two|three|four|[234])\s+(?:\w+\s+)?sets\b(?![^\S\n]+of\b)", re.I
 )
 _ORDINAL_SET = re.compile(r"\b(second|third|fourth)\s+set\b", re.I)
 _COUNT_WORDS = {"both": 2, "two": 2, "three": 3, "four": 4, "2": 2, "3": 3, "4": 4}
@@ -40,10 +42,10 @@ _ORDINALS = {"second": 2, "third": 3, "fourth": 4}
 
 # 3c: today's count pattern with its single optional intervening word captured
 # as group 2. The word stays `\w+`, never `[\w-]+`: widening it would make "two
-# hard-hitting sets" a new claim. _SET_COUNT_CLAIM above stays as it is: the
-# vague branch keeps using it.
+# hard-hitting sets" a new claim. _SET_COUNT_CLAIM above is the
+# vague branch's; both lookaheads stop at the field boundary (final review I1 follow-up).
 _SET_COUNT_CLAIM_3C = re.compile(
-    r"\b(both|two|three|four|[234])\s+(?:(\w+)\s+)?sets\b(?!\s+of\b)", re.I
+    r"\b(both|two|three|four|[234])\s+(?:(\w+)\s+)?sets\b(?![^\S\n]+of\b)", re.I
 )
 # 3c qualifier denylist: an intervening word that makes the count not show-wide
 # ("two electric sets"). `late-night` is unreachable under `\w+` (the hyphen
