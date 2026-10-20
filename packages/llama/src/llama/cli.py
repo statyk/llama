@@ -8,6 +8,7 @@ import traceback
 from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
+from typing import Literal
 
 import typer
 from typer.core import TyperGroup
@@ -1616,29 +1617,27 @@ def _untitled_counts(show: Show) -> tuple[int, int]:
     return sum(1 for t in show.tracks if t.title_source != "unresolved"), n
 
 
-def _overrides_snapshot(show_ws) -> bytes | None:
-    return show_ws.overrides.read_bytes() if show_ws.overrides.exists() else None
-
-
-def _untitled_resolution(config, ia, ledger, entry, show: Show) -> Path | None:
+def _untitled_resolution(config, ia, ledger, entry, show: Show
+                         ) -> tuple[Literal["declined", "held", "packaged"], Path | None]:
     """The operator route for a tape with no resolved titles (spec Slice 7).
 
     Lists the tracks, asks ONE confirmation, and only on yes writes
     `overrides.json` (titles `Untitled (track N)`, narration vague, one set via
     `set_breaks=[]`), redoes from gather and -- if the re-gather still holds the
     show -- overrules the remaining flags and continues from brief. The
-    confirmation precedes every write; declining returns None untouched."""
+    confirmation precedes every write. Returns `(status, package)`: "declined"
+    (nothing written), "held" (written, still held) or "packaged"."""
     typer.echo("tracks on this tape (no resolved titles):")
     for t in show.tracks:
         typer.echo(f"  {t.index:2d}  {t.filename}")
     if not typer.confirm(
             "Title every track 'Untitled (track N)', set narration vague, one set, "
             "and overrule any remaining flags?", default=False):
-        return None
+        return "declined", None
     _edit_overrides(entry.ws,
                     set_titles={n: f"Untitled (track {n})"
                                 for n in range(1, len(show.tracks) + 1)},
-                    narration="vague", set_breaks=[])
+                    narration="vague", set_breaks=[], clear_encore=True)
     typer.echo(f"{entry.slug}: untitled resolution written")
     pkg = _redo_show(config, ia, ledger,
                      _resolve_show(config, ledger, entry.slug), "gather")
@@ -1647,7 +1646,7 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show) -> Path | None:
         typer.echo(f"{entry.slug}: remaining flags overruled")
         pkg = _redo_show(config, ia, ledger,
                          _resolve_show(config, ledger, entry.slug), "brief")
-    return pkg
+    return ("packaged", pkg) if pkg else ("held", None)
 
 
 def _interactive_resolve(config, ia, ledger, entry) -> None:
@@ -1752,10 +1751,9 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             _edit_overrides(entry.ws, set_titles=picks)
             stage = "gather"
         elif choice == "u" and untitled_offered:
-            before = _overrides_snapshot(entry.ws)
-            pkg = _untitled_resolution(config, ia, ledger, entry,
-                                       read_model(entry.ws.show, Show))
-            if pkg is None and _overrides_snapshot(entry.ws) == before:
+            status, pkg = _untitled_resolution(config, ia, ledger, entry,
+                                               read_model(entry.ws.show, Show))
+            if status == "declined":
                 continue   # declined: nothing written, back to the prompt
             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
             return
@@ -2796,9 +2794,8 @@ def fix(
             typer.echo(f"{entry.slug}: --untitled applies only when every track is "
                        f"unresolved ({resolved} of {total} resolved)", err=True)
             raise typer.Exit(1)
-        before = _overrides_snapshot(sws)
-        pkg = _untitled_resolution(config, ia, ledger, entry, show)
-        if pkg is None and _overrides_snapshot(sws) == before:
+        status, pkg = _untitled_resolution(config, ia, ledger, entry, show)
+        if status == "declined":
             typer.echo("declined; nothing written")
             return
         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")

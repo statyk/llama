@@ -732,7 +732,48 @@ def test_untitled_one_confirmation_writes_titles_narration_and_one_set_then_redo
     ov = read_overrides(ws)
     assert ov.titles == {1: "Untitled (track 1)", 2: "Untitled (track 2)", 3: "Untitled (track 3)"}
     assert ov.narration == "vague" and ov.set_breaks == []
+    assert ov.encore_after is None
     assert calls == ["gather"] and "packaged: /pkg" in r.output
+
+
+def test_untitled_clears_a_pre_existing_encore_so_the_tape_is_one_set(tmp_path, monkeypatch):
+    """The confirmation promises "one set"; a leftover encore_after would still
+    relabel the tail "encore" (final review I2)."""
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path, n=6)
+    write_artifact(ws.overrides, Overrides(encore_after=3))
+    _stub_redo(monkeypatch, result=Path("/pkg"))
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+    assert r.exit_code == 0, r.output
+    ov = read_overrides(ws)
+    assert ov.encore_after is None and ov.set_breaks == []
+    # the real gather over the written overrides yields a single set label
+    gws = ShowWorkspace(tmp_path / "gather")
+    write_artifact(gws.overrides, ov)
+    res = compute_gather(gws, StubIA(), FakeProvider(), make_candidate(), IDENT)
+    assert {t.set for t in res.show.tracks} == {"1"}
+
+
+def test_untitled_is_refused_on_a_zero_track_show(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path, n=0)
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+    assert r.exit_code == 1
+    assert "--untitled applies only when every track is unresolved (0 of 0 resolved)" in r.output
+    assert not ws.overrides.exists() and calls == []
+
+
+def test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = _all_unresolved_show(tmp_path)
+    write_artifact(ws.overrides, Overrides(encore_after=2))
+    before = ws.overrides.read_bytes()
+    calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="n\n")
+    assert r.exit_code == 0, r.output
+    assert "declined; nothing written" in r.output
+    assert ws.overrides.read_bytes() == before and calls == []
 
 
 def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path, monkeypatch):

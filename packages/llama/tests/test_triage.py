@@ -627,6 +627,9 @@ def test_triage_u_declined_writes_nothing_and_returns_to_the_prompt(tmp_path, tt
     calls = _stub_redo(monkeypatch)
     r = cli_invoke(cfg, "triage", "gratefuldead", input="u\nn\ns\n")
     assert r.exit_code == 0 and calls == [] and not ws.overrides.exists()
+    # declined -> back to the prompt: it is shown a second time (for the `s`)
+    assert r.output.count("[u]ntitled") == 2
+    assert "packaged:" not in r.output and "still held:" not in r.output
 
 
 def test_triage_u_not_offered_when_one_of_several_tracks_is_resolved(tmp_path, tty):
