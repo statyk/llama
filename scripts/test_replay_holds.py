@@ -741,3 +741,41 @@ def test_4b_closest_calls_read_vetting_jsons_nested_asserted_dates(tmp_path):
     cc = (out / "closest_calls.txt").read_text()
     sect = cc[cc.index("slice 4b"):].split("\n\n")[0]
     assert 'asserted_dates ["1973-06-10", "1973-06-11"]' in sect and "unavailable" not in sect
+
+
+def test_closest_calls_has_the_two_5c_subsections(tmp_path):
+    base, cand = _two_arms(tmp_path)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "closest_calls.txt").read_text()
+    assert "5c.3 second closer candidates" in text and "5c.1 short-track arm (not adopted)" in text
+
+
+def test_closest_calls_5c_subsections_list_the_stored_tracks_rows(tmp_path):
+    # jerrybase's 1973-06-10 event closes its sets on 'Playing In The Band',
+    # 'Sugar Magnolia' and 'Johnny B. Goode'.
+    def flag_it(arm):
+        arm["shows"]["gratefuldead-1973-06-10"]["gather_flags"].append(
+            "jerrybase set closer 'Playing In The Band' is not at a set break")
+    base, cand = _two_arms(tmp_path, mutate_cand=flag_it)
+    path = tmp_path / "lib" / "shows" / "gratefuldead-1973-06-10" / "show.json"
+    show = json.loads(path.read_text())
+    proto = show["tracks"][0]
+    rows = [("Playing In The Band", "1", 900.0), ("Me And My Uncle", "1", 180.0),
+            ("Tuning", "1", 60.0), ("(Part 1) Sugar Magnolia", "2", 400.0), ("Deal", "2", 300.0),
+            ("(Part 2) Sugar Magnolia", "2", 200.0)]
+    show["tracks"] = [{**proto, "index": i + 1, "title": t, "set": s, "duration_sec": d,
+                       "filename": f"{i + 1:02d}.mp3"} for i, (t, s, d) in enumerate(rows)]
+    path.write_text(json.dumps(show))
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    text = (out / "closest_calls.txt").read_text()
+    assert ("  gratefuldead-1973-06-10: closer 'Sugar Magnolia': candidates "
+            '["(Part 1) Sugar Magnolia", "(Part 2) Sugar Magnolia"]') in text
+    assert "5c.1 short-track arm (not adopted): 1 show(s)" in text
+    assert ("  gratefuldead-1973-06-10: closer 'Playing In The Band': followed by "
+            "'Me And My Uncle' 180s, 'Tuning' 60s") in text
+    show["tracks"][1]["duration_sec"] = 420.0                    # not under 7 min: not in the arm
+    path.write_text(json.dumps(show))
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    assert "5c.1 short-track arm (not adopted): 0 show(s)" in (out / "closest_calls.txt").read_text()

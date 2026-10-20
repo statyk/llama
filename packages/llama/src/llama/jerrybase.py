@@ -13,7 +13,7 @@ from importlib import resources
 
 from llama.models import JerrybaseEvent, JerrybaseSet, Track
 from llama.songs import GD_SHORTHAND
-from llama.structure import fuzzy_title_eq, title_components
+from llama.structure import fuzzy_title_eq, is_filler, title_components
 
 log = logging.getLogger("llama")
 
@@ -182,13 +182,35 @@ def _closer_candidates(tracks: list[Track], closer: str) -> list[int]:
     track side already did (Task 3), and leaving the closer side raw made
     "Caution (Do Not Stop on Tracks)" and "Playin' In The Band (reprise)"
     demote out of the exact tier or stop matching altogether."""
-    target = title_components(closer, GD_SHORTHAND)[-1]
-    exact = [i for i, t in enumerate(tracks)
-             if title_components(t.title, GD_SHORTHAND)[-1] == target]
+    found = _match_tiers(tracks, closer, lambda title: title)
+    if found:
+        return found
+    # 5c.3: the leading-parenthetical fold is a FALLBACK tier only (binding
+    # ruling M1). Folding unconditionally would hand a show that anchors today
+    # a second candidate ("(I'm A) Road Runner" beside "Road Runner") and move
+    # its break through _resolve_positions' latest-candidate rule; the spec
+    # requires zero anchoring changes on shows that already anchor.
+    return _match_tiers(tracks, closer, _fold_leading_paren)
+
+
+# Spec "Slice 5 — 5c" (3): one fold drops a leading parenthetical, "(I Can't
+# Get No) Satisfaction" -> "Satisfaction", on both the closer and the track side.
+_LEADING_PAREN = re.compile(r"^\s*\([^)]*\)\s*")
+
+
+def _fold_leading_paren(title: str) -> str:
+    return _LEADING_PAREN.sub("", title or "", count=1)
+
+
+def _match_tiers(tracks: list[Track], closer: str, fold) -> list[int]:
+    """`_closer_candidates`' exact-then-fuzzy tiers over `fold`ed titles: the
+    exact tier wins outright when it finds anything."""
+    target = title_components(fold(closer), GD_SHORTHAND)[-1]
+    comps = [title_components(fold(t.title), GD_SHORTHAND)[-1] for t in tracks]
+    exact = [i for i, c in enumerate(comps) if c == target]
     if exact:
         return exact
-    return [i for i, t in enumerate(tracks)
-            if fuzzy_title_eq(title_components(t.title, GD_SHORTHAND)[-1], target)]
+    return [i for i, c in enumerate(comps) if fuzzy_title_eq(c, target)]
 
 
 def _resolve_positions(candidates: list[list[int]]) -> list[int] | None:
@@ -276,7 +298,8 @@ def closer_contradictions(tracks: list[Track],
     hard: list[str] = []
     soft: list[str] = []
     for st in event.sets:
-        hits = [tracks[i] for i in _closer_candidates(tracks, st.closer)]
+        cands = _closer_candidates(tracks, st.closer)
+        hits = [tracks[i] for i in cands]
         if not hits:
             soft.append(f"jerrybase set closer '{st.closer}' not found in tracks")
             continue
@@ -284,5 +307,102 @@ def closer_contradictions(tracks: list[Track],
             continue  # ambiguous: no reliable position check
         tk = hits[0]
         if not (tk.index in breaks or tk.index == last_index):
+            if _followed_only_by_filler(tracks, cands[0]):
+                # 5c.1: the closer ends the set's music; only filler (tuning,
+                # crowd) sits between it and the break. Not a contradiction,
+                # and not a soft note either: filler_tail_closers reports it to
+                # the operator through notes.json, never to the briefing LLM.
+                continue
             hard.append(f"jerrybase set closer '{st.closer}' is not at a set break")
     return hard, soft
+
+
+def _followed_only_by_filler(tracks: list[Track], i: int) -> bool:
+    """True when at least one track follows position `i` within its set (up to
+    the next set change, or the tape's end) and every such track is filler
+    under `structure.is_filler` — the existing filler regex, unwidened."""
+    tail = []
+    for t in tracks[i + 1:]:
+        if t.set != tracks[i].set:
+            break
+        tail.append(t)
+    return bool(tail) and all(is_filler(t.title) for t in tail)
+
+
+def _filler_excused(tracks: list[Track], event: JerrybaseEvent) -> list[str]:
+    """Closers `closer_contradictions` excuses under 5c.1, in event order: a
+    single candidate, not at a break, followed only by filler."""
+    if not tracks:
+        return []
+    breaks = {t.index for t, nxt in zip(tracks, tracks[1:]) if nxt.set != t.set}
+    last_index = tracks[-1].index
+    out = []
+    for st in event.sets:
+        hits = _closer_candidates(tracks, st.closer)
+        if len(hits) != 1:
+            continue
+        tk = tracks[hits[0]]
+        if not (tk.index in breaks or tk.index == last_index) and \
+                _followed_only_by_filler(tracks, hits[0]):
+            out.append(st.closer)
+    return out
+
+
+def filler_tail_closers(tracks: list[Track], event: JerrybaseEvent) -> list[str]:
+    """5c.1's operator notes (Contracts id 5c.1), one per closer that
+    `closer_contradictions` excused because only filler follows it before the
+    set break. They go to `GatherResult.notes`, never to `structure.conflicts`."""
+    return [f"jerrybase set closer '{c}' is followed only by filler before the set break"
+            for c in _filler_excused(tracks, event)]
+
+
+def anchor_numbered_sets(tracks: list[Track], event: JerrybaseEvent,
+                         aligned_sets: list[str] | None) -> tuple[list[str], str | None] | None:
+    """5c.2: anchor the numbered sets when only the encore row's closer is missing.
+
+    Called only where `anchor_breaks` declined. Returns None unless the event
+    has at least one numbered set and at least one encore row, every numbered
+    closer has exactly one candidate, every encore row's closer has none, and
+    the numbered positions are strictly increasing. Tracks up to and including
+    numbered closer k take that set's name. Tracks after the last numbered
+    closer are labelled "encore" only where the deterministic alignment already
+    said encore (`aligned_sets`), as a trailing run like `anchor_breaks`'
+    encore guard, so a numbered set never follows an encore; the rest stay in
+    the last numbered set, and the Contracts 5c.2 note says how many. Like the
+    encore guard, this never invents an encore label.
+
+    Returns (labels, note); note is None when no trailing track stays in the
+    last set."""
+    numbered = [s for s in event.sets if s.name != "encore"]
+    encores = [s for s in event.sets if s.name == "encore"]
+    if not numbered or not encores:
+        return None
+    if any(_closer_candidates(tracks, s.closer) for s in encores):
+        return None
+    positions = []
+    for s in numbered:
+        cands = _closer_candidates(tracks, s.closer)
+        if len(cands) != 1:
+            return None
+        positions.append(cands[0])
+    if any(positions[k] >= positions[k + 1] for k in range(len(positions) - 1)):
+        return None
+    labels: list[str] = []
+    k = 0
+    for i in range(len(tracks)):
+        while k < len(positions) and i > positions[k]:
+            k += 1
+        labels.append(numbered[min(k, len(numbered) - 1)].name)
+    last = positions[-1]
+    if aligned_sets is not None and len(aligned_sets) == len(tracks):
+        for i in reversed(range(last + 1, len(tracks))):
+            if aligned_sets[i] != "encore":
+                break
+            labels[i] = "encore"
+    stay = sum(1 for i in range(last + 1, len(tracks)) if labels[i] != "encore")
+    note = None
+    if stay:
+        note = (f"set breaks anchored from jerrybase numbered sets (encore row "
+                f"'{encores[0].closer}' unmatched; {stay} trailing track(s) stay in set "
+                f"{numbered[-1].name})")
+    return labels, note

@@ -1267,6 +1267,16 @@ def compute_gather(
         # anchor and not one show that already anchored changes.
         anchored = (jerrybase.anchor_breaks(tracks, event, aligned_sets=result.sets)
                     if event is not None else None)
+        if anchored is None and event is not None:
+            # 5c.2: only where today's anchoring declined, so a show that
+            # anchors today cannot change. Anchors the numbered sets when only
+            # the encore row's closer is missing from the tape; its note is an
+            # operator note (notes.json), never a structure conflict.
+            numbered = jerrybase.anchor_numbered_sets(tracks, event, result.sets)
+            if numbered is not None:
+                anchored, numbered_note = numbered
+                if numbered_note is not None:
+                    op_notes.append(numbered_note)
         if anchored is not None:
             # Record what anchoring overrode. Anchoring now wins on
             # high-coverage shows AND suppresses the closer tripwire when it
@@ -1452,6 +1462,9 @@ def compute_gather(
         hard, soft = jerrybase.closer_contradictions(tracks, event)
         flags += hard
         notes += soft
+        # 5c.1: closers excused because only filler follows them; operator
+        # notes only (notes.json), never `notes`, which reach the briefing LLM.
+        op_notes += jerrybase.filler_tail_closers(tracks, event)
 
     # Count numbered sets only — an encore is a coda, not a set, and jerrybase
     # often records only the numbered sets, so counting it would spuriously

@@ -2,6 +2,7 @@ import csv
 from importlib import resources
 
 from llama import jerrybase
+from llama.jerrybase import _closer_candidates, anchor_numbered_sets
 from llama.models import JerrybaseEvent
 
 
@@ -383,3 +384,82 @@ def test_closer_matching_preserves_a_leading_parenthetical():
     # it would wrongly equate "(I'm A) Road Runner" with a bare "Road Runner".
     tracks = _tracks(["(I'm A) Road Runner", "Road Runner"])
     assert jerrybase._closer_candidates(tracks, "(I'm A) Road Runner") == [0]
+
+
+def test_5c1_closer_followed_only_by_filler_is_an_operator_note_not_a_soft_note():
+    # Tuning and Crowd are filler under today's _FILLER, which this task does not widen
+    tracks = _tracks_with_sets([("Bertha", "1"), ("Deal", "1"), ("Tuning", "1"), ("Crowd", "1"),
+                                ("Playin", "2"), ("Sugar Magnolia", "2")])
+    event = _event([("Deal", "1"), ("Sugar Magnolia", "2")])
+    hard, soft = jerrybase.closer_contradictions(tracks, event)
+    assert hard == [] and soft == []      # nothing reaches structure.conflicts
+    assert jerrybase.filler_tail_closers(tracks, event) == [
+        "jerrybase set closer 'Deal' is followed only by filler before the set break"]
+    tracks = _tracks_with_sets([("Bertha", "1"), ("Deal", "1"), ("Loser", "1"), ("Crowd", "1"),
+                                ("Playin", "2"), ("Sugar Magnolia", "2")])
+    hard, _ = jerrybase.closer_contradictions(tracks, event)
+    assert hard == ["jerrybase set closer 'Deal' is not at a set break"]
+    assert jerrybase.filler_tail_closers(tracks, event) == []
+
+
+def test_5c3_leading_parenthetical_folds_on_both_sides():
+    assert _closer_candidates(_tracks(["(I Can't Get No) Satisfaction", "Deal"]), "Satisfaction") == [0]
+    assert _closer_candidates(_tracks(["Satisfaction"]), "(I Can't Get No) Satisfaction") == [0]
+    assert _closer_candidates(_tracks(["Libery"]), "Liberty") == []            # typos stay failures
+    assert _closer_candidates(_tracks(["Unlce John's Band"]), "Uncle John's Band") == []
+
+
+def test_5c3_the_fold_is_a_fallback_tier_only_when_the_unfolded_tiers_miss():
+    # Binding ruling M1: the leading-parenthetical fold never adds a candidate
+    # when the unfolded exact or fuzzy tiers already found one, so a show that
+    # anchors today cannot gain a second candidate (and move a break through
+    # _resolve_positions' latest-candidate rule).
+    tracks = _tracks(["(I Can't Get No) Satisfaction", "Deal", "Satisfaction"])
+    assert _closer_candidates(tracks, "Satisfaction") == [2]                   # unfolded exact wins
+    assert _closer_candidates(tracks, "(I Can't Get No) Satisfaction") == [0]  # unfolded exact wins
+    # Neither unfolded tier matches these two spellings; only the fold does,
+    # and on both sides at once.
+    assert _closer_candidates(_tracks(["Deal", "(Sittin' On) The Dock Of The Bay"]),
+                              "(Sitting On) The Dock of the Bay") == [1]
+    assert _closer_candidates(_tracks(["Deal", "Satisfaction"]), "(I Can't Get No) Satisfaction") == [1]
+
+
+def test_5c2_anchors_numbered_sets_when_only_the_encore_closer_is_missing():
+    tracks = _tracks(["Bertha", "Deal", "Playin", "Sugar Magnolia", "Casey Jones"])
+    event = _event([("Deal", "1"), ("Sugar Magnolia", "2"), ("Johnny B. Goode", "encore")])
+    assert jerrybase.anchor_breaks(tracks, event) is None                      # today declines
+    labels, note = anchor_numbered_sets(tracks, event, ["1", "1", "1", "1", "1"])
+    assert labels == ["1", "1", "2", "2", "2"]
+    assert note == ("set breaks anchored from jerrybase numbered sets (encore row 'Johnny B. Goode' "
+                    "unmatched; 1 trailing track(s) stay in set 2)")
+    labels, note = anchor_numbered_sets(tracks, event, ["1", "1", "1", "1", "encore"])
+    assert labels == ["1", "1", "2", "2", "encore"] and note is None
+
+
+def test_5c2_trailing_tracks_stay_in_the_last_set_and_a_matched_encore_closer_declines():
+    # "Casey Jones", not "JBG": "JBG" already fuzzy-matches "Johnny B. Goode"
+    # (binding ruling B5), which would never set up the absent-encore case.
+    tracks = _tracks(["Bertha", "Deal", "Playin", "Sugar Magnolia", "Casey Jones"])
+    event = _event([("Deal", "1"), ("Sugar Magnolia", "2"), ("Johnny B. Goode", "encore")])
+    labels, note = anchor_numbered_sets(tracks, event, None)
+    assert labels == ["1", "1", "2", "2", "2"] and note is not None
+    tracks = _tracks(["Bertha", "Deal", "Playin", "Sugar Magnolia", "Johnny B. Goode"])
+    assert anchor_numbered_sets(tracks, event, None) is None                  # every closer matches: anchor_breaks' job
+    two_encores = _event([("Deal", "1"), ("Sugar Magnolia", "2"), ("Johnny B. Goode", "encore"),
+                          ("Bertha", "encore")])
+    assert anchor_numbered_sets(_tracks(["Bertha", "Deal", "Playin", "Sugar Magnolia", "Casey Jones"]),
+                                two_encores, None) is None                   # every encore row's closer must be absent
+
+
+def test_5c2_declines_without_an_encore_row_or_on_an_ambiguous_numbered_closer():
+    tracks = _tracks(["Bertha", "Deal", "Playin", "Deal"])
+    assert anchor_numbered_sets(tracks, _event([("Deal", "1"), ("Playin", "2")]), None) is None
+    assert anchor_numbered_sets(tracks, _event([("Deal", "1"), ("Playin", "2"), ("X", "encore")]), None) is None
+
+
+def test_5c2_declines_when_the_numbered_closers_are_out_of_order():
+    # Each numbered closer matches exactly once, but set 2's closer sits before
+    # set 1's: no strictly increasing placement exists.
+    tracks = _tracks(["Sugar Magnolia", "Bertha", "Deal"])
+    event = _event([("Deal", "1"), ("Sugar Magnolia", "2"), ("Johnny B. Goode", "encore")])
+    assert anchor_numbered_sets(tracks, event, None) is None

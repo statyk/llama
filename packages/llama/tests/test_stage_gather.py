@@ -2978,3 +2978,39 @@ def test_5a_passes_numbered_sets_only_unless_the_encore_was_lost(tmp_path, monke
     compute_gather(ShowWorkspace(tmp_path / "s2"), StubIA(md), FakeProvider(), make_candidate(), IDENT,
                    jerrybase_enabled=False)
     assert "encore" in seen["evidence"]              # the encore item no longer matches: kept
+
+
+def test_5c2_anchors_the_gd73_tape_when_only_the_encore_row_is_missing(tmp_path, monkeypatch):
+    event = JerrybaseEvent(event_id="x", venue="RFK Stadium", city="Washington", state="DC", sets=[
+        JerrybaseSet(name="1", closer="I Know You Rider", break_length="long"),
+        JerrybaseSet(name="2", closer="Eyes of the World", break_length="long"),
+        JerrybaseSet(name="encore", closer="Casey Jones", break_length="short")])
+    monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [event])
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(), make_candidate(), IDENT,
+                         jerrybase_enabled=True)
+    assert res.show.structure.alignment == "jerrybase"
+    assert [t.set for t in res.show.tracks] == ["1", "1", "1", "2", "2", "encore"]
+    assert "set breaks anchored from jerrybase" in " ".join(res.show.structure.conflicts)
+    assert not any(f.startswith("jerrybase set closer") for f in res.show.review_flags)
+    assert not any("followed only by filler" in c for c in res.show.structure.conflicts)
+
+
+def test_5c1_filler_tail_note_goes_to_notes_json_never_to_structure_conflicts(tmp_path, monkeypatch):
+    # The gd73 tape has no filler track, so jerrybase's filler predicate is
+    # pointed at "I Know You Rider" (track 3, set 1): set 1's closer "China Cat
+    # Sunflower" (track 2) is then followed only by "filler" before the break.
+    # The missing set-2 closer keeps anchor_breaks declining (and there is no
+    # encore row for 5c.2), so the closer tripwire runs.
+    event = JerrybaseEvent(event_id="x", venue="RFK Stadium", city="Washington", state="DC", sets=[
+        JerrybaseSet(name="1", closer="China Cat Sunflower", break_length="long"),
+        JerrybaseSet(name="2", closer="Not On This Tape", break_length="long")])
+    monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [event])
+    monkeypatch.setattr(gather_mod.jerrybase, "is_filler", lambda title: title == "I Know You Rider")
+    res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(), make_candidate(), IDENT,
+                         jerrybase_enabled=True)
+    assert res.show.structure.alignment == "deterministic"
+    note = "jerrybase set closer 'China Cat Sunflower' is followed only by filler before the set break"
+    assert note in res.notes
+    assert note not in res.show.structure.conflicts
+    assert "jerrybase set closer 'Not On This Tape' not found in tracks" in res.show.structure.conflicts
+    assert not any(f.startswith("jerrybase set closer") for f in res.show.review_flags)

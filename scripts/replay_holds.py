@@ -30,12 +30,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import llama
+from llama import jerrybase
 from llama.catalog import derive_state
 from llama.config import DEFAULT_ROOT, load_config
 from llama.ledger import Ledger
 from llama.replay import (CacheOnlyIA, ShowReplay, code_identity, config_fingerprint, flag_family,
                           replay_show, setlistfm_client, setlistfm_configured)
-from llama.models import Briefing
+from llama.models import Briefing, Track
 from llama.stages.brief import _ORDINAL_SET, _SET_COUNT_CLAIM, _claim_matches, _guard_prose
 from llama.structure import _place_tokens
 from llama.workspace import read_model
@@ -529,7 +530,75 @@ def _closest(base: dict, cand: dict, root: Path) -> tuple[list[str], int]:
         if parts:
             rows.append(f"  {slug}: " + "; ".join(parts))
     section("slice 5c: alignment or set_breaks changed", rows)
+    croot = Path(cand["root"]) if cand.get("root") else root
+    section("5c.3 second closer candidates", _second_closer_candidates(cand, croot))
+    short = _short_track_arm(cand, croot)
+    n_short = len({row.split(":", 1)[0] for row in short})
+    section(f"5c.1 short-track arm (not adopted): {n_short} show(s)", short)
     return out, n
+
+
+# The survey's "< 7 min" short-track arm (spec "Slice 5 — 5c" (1)), reported,
+# never adopted.
+SHORT_TRACK_SEC = 420
+_CLOSER_FLAG = re.compile(r"jerrybase set closer '(.*)' is not at a set break")
+
+
+def _stored_tracks(show: dict) -> list[Track] | None:
+    try:
+        return [Track.model_validate(t) for t in show.get("tracks") or []]
+    except (ValueError, TypeError):
+        return None
+
+
+def _second_closer_candidates(cand: dict, root: Path) -> list[str]:
+    """Every show whose stored tracks give some jerrybase closer on its date two
+    or more candidates, the closer or a candidate starting with a parenthetical:
+    a superset of the shows where 5c.3's fold created the second candidate."""
+    rows = []
+    for slug in sorted(cand["shows"]):
+        show = _show_json(root, slug)
+        tracks = _stored_tracks(show)
+        if not tracks:
+            continue
+        for event in jerrybase.lookup(show.get("artist") or "", show.get("date") or ""):
+            for st in event.sets:
+                hits = jerrybase._closer_candidates(tracks, st.closer)
+                if len(hits) < 2:
+                    continue
+                titles = [tracks[i].title for i in hits]
+                if jerrybase._LEADING_PAREN.match(st.closer) or \
+                        any(jerrybase._LEADING_PAREN.match(t) for t in titles):
+                    rows.append(f"  {slug}: closer '{st.closer}': candidates {_j(titles)}")
+    return rows
+
+
+def _short_track_arm(cand: dict, root: Path) -> list[str]:
+    """Shows whose cand arm still carries a closer-not-at-a-break flag where the
+    closer has one candidate in the stored tracks and every track after it, up
+    to the next set change, is under SHORT_TRACK_SEC."""
+    rows = []
+    for slug, r in sorted(cand["shows"].items()):
+        closers = [m.group(1) for f in _all_flags(r) if (m := _CLOSER_FLAG.fullmatch(f))]
+        if not closers:
+            continue
+        tracks = _stored_tracks(_show_json(root, slug))
+        if not tracks:
+            continue
+        for c in closers:
+            hits = jerrybase._closer_candidates(tracks, c)
+            if len(hits) != 1:
+                continue
+            tail = []
+            for t in tracks[hits[0] + 1:]:
+                if t.set != tracks[hits[0]].set:
+                    break
+                tail.append(t)
+            if tail and all(t.duration_sec is not None and t.duration_sec < SHORT_TRACK_SEC
+                            for t in tail):
+                rows.append(f"  {slug}: closer '{c}': followed by "
+                            + ", ".join(f"'{t.title}' {t.duration_sec:.0f}s" for t in tail))
+    return rows
 
 
 def _needs_llm(base: dict, cand: dict) -> tuple[list[str], int, int]:
