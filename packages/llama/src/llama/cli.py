@@ -3079,6 +3079,50 @@ def redo(
                yes=yes)
 
 
+@app.command(rich_help_panel="Fix & ship",
+             short_help="Re-process held shows offline with the replay harness's computation.")
+def reapply(
+    names: list[str] = typer.Argument(None, help="Show slug(s), unique substring, or path"),
+    from_list: Path = typer.Option(None, "--from-list",
+                                   help="A predicted list written by the replay harness"),
+    dry_run: bool = typer.Option(False, "--dry-run",
+                                 help="Predict each show's outcome; write nothing"),
+):
+    """Re-process held shows in place with exactly the replay harness's
+    computation: gather and vet offline from the cache and the stored vetting
+    extraction, the stored briefing reused when it still holds (else one fresh
+    brief), then the package, with show.json written last. A show that needs
+    any other LLM call is reported as needs-llm and left untouched."""
+    from llama import reapply as reapply_mod
+
+    if from_list is not None:
+        typer.echo("--from-list: not implemented", err=True)
+        raise typer.Exit(1)
+    if not names:
+        typer.echo("give one or more shows (or --from-list)", err=True)
+        raise typer.Exit(1)
+    config, ia, ledger = _setup()
+    providers = make_providers(config)
+    failed = False
+    for name in names:
+        slug = name
+        try:
+            entry = _resolve_show(config, ledger, name)
+            slug = entry.slug
+            out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
+                                           row=None, dry_run=dry_run,
+                                           echo=lambda s: typer.echo(s, err=True))
+        except (LlamaError, HerderError, IAError, TaskFailed) as exc:
+            typer.echo(f"FAILED {slug}: {exc}", err=True)
+            failed = True
+            continue
+        typer.echo(f"reapplied: {out.slug} -> {out.outcome}")
+        if out.delivered and out.outcome == "cleared":
+            typer.echo(f"  re-deliver with: llama deliver {out.slug}")
+    if failed:
+        raise typer.Exit(1)
+
+
 def _rm_action(forget: bool, suppress: bool) -> str:
     """The confirm-plan action label, folding in the history disposition
     (spec §8.1) so the confirmation prompt names it before `Proceed?`."""
