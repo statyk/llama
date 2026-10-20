@@ -957,6 +957,19 @@ def test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed(tmp_path, 
     assert "1 downloads" in r.output, r.output
 
 
+def test_names_form_dry_run_of_a_structure_changed_show_prints_the_skip(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _force_classify(monkeypatch, "structure-changed")
+    r = cli_invoke(_cli(root), "reapply", "--dry-run", HELD)
+    assert r.exit_code == 0, r.output
+    assert f"reapplied: {HELD} -> dry-run: skipped: structure changed" in r.output
+    r = cli_invoke(_cli(root), "reapply", "--dry-run", HELD, "--allow-structure-change")
+    assert f"reapplied: {HELD} -> dry-run: structure-changed" in r.output
+
+
 def test_needs_audio_download_counts_an_unreadable_or_malformed_manifest_as_a_download(tmp_path):
     from llama.catalog import needs_audio_download
     from llama.workspace import ShowWorkspace

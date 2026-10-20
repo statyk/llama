@@ -254,10 +254,11 @@ as needs-LLM and left alone.
 
 `llama reapply` applies a list. It re-processes held shows in place with the
 harness's own computation, reuses a stored briefing when it still holds
-(otherwise it asks for one fresh briefing, its only LLM call: one task of up to two attempts), downloads any missing
-audio (first-time packages are the bulk), and writes `show.json` last, so an interrupted show
-is still held and a re-run finishes it. It never delivers: on a delivered show
-that clears, it prints `re-deliver with: llama deliver <name>`.
+(otherwise it asks for one fresh briefing, its only LLM work: one brief task
+of up to two attempts), downloads any missing audio (first-time packages are
+the bulk), and writes `show.json` last, so an interrupted show is still held
+and a re-run finishes it. It never delivers: on a delivered show that clears,
+it prints `re-deliver with: llama deliver <name>`.
 
     llama reapply <show>...                      # named shows
     llama reapply --from-list predicted_list.json --dry-run   # first: writes nothing

@@ -436,7 +436,7 @@ def test_compare_counts_an_unreadable_state_unreplayable_row_as_not_reproducing(
     def unknown(arm):
         s = arm["shows"]["gratefuldead-1973-06-11"]
         s["state"], s["outcome"], s["reproduces"] = "unknown", "unreplayable", False
-    base, cand = _two_arms(tmp_path, unknown, unknown)
+    base, cand = _two_arms(tmp_path, mutate_cand=unknown, mutate_base=unknown)
     assert rh.main(["compare", str(base), str(cand), "--out", str(tmp_path / "cmp")]) == 3   # 1/2
     assert "1/2" in capsys.readouterr().err
 

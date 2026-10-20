@@ -8,7 +8,7 @@ from llama.stages.brief import run_brief, vetting_summary
 from llama.workspace import ShowWorkspace, write_artifact
 import pytest
 from llama.songs import normalize_song
-from llama.stages.brief import briefing_guard, known_song, normalize_briefing, song_components
+from llama.stages.brief import known_song, normalize_briefing, song_components
 from llama.workspace import read_model
 from llama.stages.brief import song_comma_components
 
