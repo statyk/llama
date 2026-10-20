@@ -368,6 +368,14 @@ def test_3c_negation_does_not_cross_a_briefing_field_boundary():
         "briefing mentions the second set but structure has 1 sets"]
 
 
+def test_3c_scope_window_does_not_cross_a_briefing_field_boundary():
+    from llama.stages.brief import _claim_counts
+    # a claim ending one field is NOT scoped by the next field opening "A night ..."
+    assert _claim_counts("The band played two sets\nA night to remember") == ({2}, {})
+    # the same words on one line are still scoped below the show
+    assert _claim_counts("The band played two sets a night to remember") == (set(), {})
+
+
 def test_guard_prose_field_marker_leaves_todays_matches_unchanged():
     # the field boundary is a newline, which today's `\s+` spans exactly as it
     # spanned the old single space: same matches, same spans, same vague verdict

@@ -56,8 +56,9 @@ _NEGATION_2 = frozenset({"no", "not", "never"})
 _NEGATION_4 = ("instead of", "expected", "without")
 # 3c scope: a phrase after the match that scopes it below the show ("two sets
 # a night"). `that`/`this` are deliberately absent: "two sets that night" is a
-# claim about this show.
-_SCOPE_AFTER = re.compile(r"^\s*(?:each|every|a|per)\s+(?:night|day|weekend|tour)\b", re.I)
+# claim about this show. The leading space stops at a newline: that is the
+# briefing-field boundary (final review I1).
+_SCOPE_AFTER = re.compile(r"^[^\S\n]*(?:each|every|a|per)\s+(?:night|day|weekend|tour)\b", re.I)
 # 3c negation windows look back only within the match's own clause (Task 14
 # fix round 1): a negation word in an earlier sentence, clause or briefing
 # field qualifies nothing ("The band did not disappoint. Second set opened
