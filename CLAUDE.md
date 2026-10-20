@@ -109,31 +109,37 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `llama reapply <show>...` / `--from-list <list> [--dry-run]` re-processes HELD
   shows in place with exactly the replay harness's computation
   (`llama/reapply.py`, `llama.replay`): gather LLM-free from the cache, vet from
-  the stored `vetting.json` extraction (none = needs-llm, nothing written), the
+  the stored `vetting.json` extraction (none, or a stored alignment of `"llm"`, =
+  needs-llm, nothing written), the
   stored briefing reused when `briefing_reusable` holds (else one fresh brief
-  task, its only LLM work), then package. **It holds the show lock from the
+  task of up to two attempts, its only LLM work), then package. **It holds the show lock from the
   still-held check through the last write and writes `show.json` LAST as the
   commit marker**: until then the show is still held, so a failure part-way
   leaves it on every held list and a re-run completes it. It never writes
   `reviews.json`/`provenance.json`/`research.md`/the ledger and **never
   delivers**: a delivered show that cleared prints `re-deliver with: llama
-  deliver <name>`. A held outcome whose replay changed shipped
-  fields (and ran no brief) drops the now-stale briefing (`drop:brief`), so the
-  eventual `fix --overrule` regenerates it rather than shipping it unchecked. `--from-list` takes a `predicted_list.json` and refuses it
+  deliver <name>`. A held outcome whose replay changed shipped fields (and ran
+  no brief) drops the now-stale briefing (`drop:brief`; `briefing.md` alone
+  counts), so the eventual `fix --overrule` regenerates it rather than shipping
+  it unchecked. A show whose replay is structure-changed is refused unless
+  `--allow-structure-change` (names form and `--from-list` alike; the row is
+  `skipped: structure changed`, retryable); the dry-run counts `downloads`
+  (incl. purged-audio re-downloads) and, without the flag, neither counts nor
+  predicts such a show. `--from-list` takes a `predicted_list.json` and refuses it
   whole unless its `sha` equals `replay.code_identity()` and its
   `config_fingerprint` the running config's; **a `-dirty` identity is refused on
   either side**. A row whose `input_digests` changed since the harness ran is
   skipped. Batch state is `<root>/reapply/<sha256(list bytes)[:16]>/`
   (`list.json`, append-only `progress.jsonl`; outside `runs/`): re-running the
-  same list resumes, skipping rows with `retryable: false`. A pacing gate runs
-  before each show's lock; a pause or `RateLimited` prints the resume command;
+  same list resumes, skipping rows with `retryable: false`. A pacing gate (list form
+  only) runs before each show's lock; a pause or `RateLimited` prints the resume command;
   `STOP_AFTER_LLM_FAILURES = 3` consecutive LLM failures stop the batch. **The
   learned per-show EWMA cannot size this batch (spec "Re-processing cost"):
   the gate still pauses at a ceiling but cannot project a show's cost, so size
   waves from the pilot's `meter: 5h A% -> B%` lines, not `llama pacing`.**
 - `llama fix <show> --untitled` / triage `[u]`: offered only when EVERY track is
   `unresolved`; lists filenames, then ONE confirmation writes `Untitled (track
-  N)` titles, `narration=vague`, `set_breaks=[]`, redoes from `gather`,
+  N)` titles, `narration=vague`, `set_breaks=[]`, clears any `overrides.encore_after`, redoes from `gather`,
   overrules any remaining flag and continues from `brief`. It refuses every
   other edit flag. Route for a delivered all-`Track NN` tape
   (`eotoband-2007-10-09`): `llama redo <show> --from gather` (2b demotes the
@@ -143,9 +149,9 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   exits 2 unless `llama.__file__` is inside the tree, and refuses an `--out` or
   `--scratch` overlapping the library; put output outside `~/.llama`, e.g.
   `~/.llama-harness`). `compare <base> <cand> --out <dir> [--no-repro-gate]`
-  writes the reports in `replay_holds.OUTPUT_FILES` plus `predicted_list.json`,
-  `structure_changed_list.json` (hand-check each before applying) and
-  `pilot_list.json`; it exits 2 when the arms differ (digests, config
+  writes the reports in `replay_holds.OUTPUT_FILES`, including `predicted_list.json`,
+  `structure_changed_list.json` (hand-check each, then apply with `reapply
+  --from-list <it> --allow-structure-change`) and `pilot_list.json`; it exits 2 when the arms differ (digests, config
   fingerprint, setlist.fm configuration, show set) and 3 below 99% baseline
   reproduction (`--no-repro-gate` skips only that, for `-prev` arms). **Every
   list carries the arm's `sha`, `config_fingerprint` and per-row digests; that
@@ -504,7 +510,7 @@ scheduler and the full player are phases 3–4).
   would reach an LLM call is needs-LLM and stays held. 1a: a blank jerrybase
   venue is no evidence. 1b: `venues_equivalent` folds spelling and
   `cities_compatible` is the shared city predicate (metro table fixed a
-  priori). 1c: a same-city name difference ships the selected recording's
+  priori). 1c: on a single-event date only, a same-city name difference ships the selected recording's
   venue and notes jerrybase's. 1d: gather holds `recordings of this date
   disagree on city` when the selected venue is not `venues_equivalent` to the
   vote's and the cities conflict (an operator venue/city override suppresses
@@ -517,11 +523,19 @@ scheduler and the full player are phases 3–4).
   track) to `unresolved` at the tag rung, never into the positional `setlist`
   rung; the real song `2:22` is a known false demotion. 2c: `_GLUED_NUM_PREFIX`
   strips a glued track number only under the `_ENUMERATED_MIN_FILES`/
-  `_ENUMERATED_MIN_COVERAGE` vote. 3a: `normalize_briefing` drops empty sets on
+  `_ENUMERATED_MIN_COVERAGE` vote. 2d: `_JOINED_NUM_PREFIX`
+  (`^\d{1,3}[-_](?=[^\d\s])`) strips a hyphen/underscore-joined track number
+  (`01-Hell In A Bucket`, `01_Song`) under the same vote, once, note `stripped
+  joined track number:`; a `7-Up`-style title on an enumerated tape is an
+  accepted loss like `100 Years`; `1.02 - ` and `1-002` forms are not covered. 3a: `normalize_briefing` drops empty sets on
   generation and reuse. 3b: `known_song` is a superset of the old matcher
   (segue components, brief-local `E:` prefix, one trailing parenthetical; no
-  fuzzy matching). 3c: set-count and ordinal claims are ignored when
-  qualified (`_NOT_SHOW_WIDE`), negated or scoped. 4a: `right_show_gate` turns
+  fuzzy matching); the parts of a comma-merged title also count, ONLY when
+  every top-level comma part ends in its own parenthetical (`Stay With Me
+  (tease), Girl Named Sandoz (tease)`) -- a comma inside one title never splits. 3c: set-count and ordinal claims are ignored when
+  qualified (`_NOT_SHOW_WIDE`), negated or scoped; both set-count regexes' `of`
+  lookahead stops at the briefing-field newline, the vague branch's too
+  (operator ruling 2026-10-20). 4a: `right_show_gate` turns
   `unknown song` flags into a note at `RIGHT_SHOW_MIN_TAPE_FRACTION = 0.5`
   (stays 0.5) and `RIGHT_SHOW_MIN_ASSERTED = 4`, needs 2b and the show's own
   date, and reads date flags before 4b. 4b: an asserted date within

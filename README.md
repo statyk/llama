@@ -254,7 +254,7 @@ as needs-LLM and left alone.
 
 `llama reapply` applies a list. It re-processes held shows in place with the
 harness's own computation, reuses a stored briefing when it still holds
-(otherwise it asks for one fresh briefing, its only LLM call), downloads any missing
+(otherwise it asks for one fresh briefing, its only LLM call: one task of up to two attempts), downloads any missing
 audio (first-time packages are the bulk), and writes `show.json` last, so an interrupted show
 is still held and a re-run finishes it. It never delivers: on a delivered show
 that clears, it prints `re-deliver with: llama deliver <name>`.
@@ -263,6 +263,12 @@ that clears, it prints `re-deliver with: llama deliver <name>`.
     llama reapply --from-list predicted_list.json --dry-run   # first: writes nothing
     llama reapply --from-list pilot_list.json    # then a 10-show pilot
     llama reapply --from-list predicted_list.json   # then the rest, in waves
+
+A show whose replay changes its sets, segues or breaks is skipped
+(`skipped: structure changed`, retryable) unless you pass
+`--allow-structure-change`, to the names form and `--from-list` alike. After
+hand-checking each row of `structure_changed_list.json`, apply it with
+`llama reapply --from-list structure_changed_list.json --allow-structure-change`.
 
 Always dry-run first and read the summary (fresh briefs, downloads
 and their size). Run the pilot, compare each show's actual outcome and meter
