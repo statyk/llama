@@ -1,0 +1,17 @@
+jerrybase: skipped 117 malformed rows
+no-overrides ntracks 6 needs_llm () sets ['1', '2', 'encore'] srcs ['setlist', 'tags'] flags []
+no-overrides (None provider) needs_llm ()
+untitled-6 ntracks 6 needs_llm () sets ['1'] srcs ['override'] flags ['setlist evidence shows multiple sets but alignment found none']
+untitled-6 (None provider) needs_llm ()
+Traceback (most recent call last):
+  File "/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t21-rev-8dltlf/probe.py", line 19, in <module>
+    res = compute_gather(ws, StubIA(), FakeProvider(), make_candidate(), IDENT, align_provider=Boom())
+  File "/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/gather.py", line 1185, in compute_gather
+    raise LlamaError(f"overrides.titles: no track {n} "
+                     f"(show has {len(tracks)} tracks)")
+llama.errors.LlamaError: overrides.titles: no track 7 (show has 6 tracks)
+jerrybase: skipped 117 malformed rows
+titles-only (set_breaks None) RAISED align_structure called
+titles-only (set_breaks None) (None providers) needs_llm ('align_structure',)
+titles + set_breaks=[] needs_llm () sets ['1']
+titles + set_breaks=[] (None providers) needs_llm ()

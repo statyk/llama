@@ -1,0 +1,7 @@
+Fix round 1 for the evidence doc (from the orchestrator). Read the Opus fact-check: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/.superpowers/sdd/tier1/evid-rev/handback.md. Apply ALL of I1-I4 and m1-m5 exactly as the reviewer gives the correct values (doc text only; plus the CLAUDE.md:513 rewrap for m4, wording unchanged):
+- I1: the fix wave is 18 commits (4cd1ebc..82fc3a3), not 19 (the orch-r4 ledger line you copied was wrong).
+- I2: Checkpoint C: "3 true, the other 42 false (<the classes>)".
+- I3: Method: state the quiet-library check precisely (from Checkpoint D on; `~/.llama/shows` + `~/.llama/runs`, 25 min; Checkpoint A's arms ran while an operator `llama run resume` was live).
+- I4: Checkpoint G: the 13 pre-screen-flagged rows were dropped unread under llama-45's pre-authorized rule 2; the 6 encore-inside-last-set rows by an orchestrator ruling — not operator reads. Fix the Method sentence that says the operator read every flagged row at B–G.
+- m1 (second retry on t09; the download-retry amendment came during wave 2), m2 (pilot + wave 1 GOs by llama-45 under pre-authorization; waves 2–3 explicit operator decisions), m3 (slice 0 = harness, slice 7 = --untitled), m5 (one sentence: 155 = every cand row that clears; 112 = those that did not already clear/need-brief on base, i.e. attributable to Tier 1's code).
+Commit `docs: evidence doc fact-check fixes`; re-run the suite; append to evid-impl/handback.md; touch `$D/evid-impl/done-r1`.

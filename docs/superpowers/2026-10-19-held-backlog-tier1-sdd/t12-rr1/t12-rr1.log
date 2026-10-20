@@ -1,0 +1,8 @@
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+Washington, D.C. | Washington, DC ('washington', 'dc') ('washington', 'dc') True True
+Utica, N.Y. | Utica, NY ('utica', 'ny') ('utica', 'ny') True True
+New York, N.Y. | New York, NY ('new york', 'ny') ('new york', 'ny') True True
+Vancouver, B.C. | Vancouver, BC ('vancouver', 'bc') ('vancouver', 'bc') True True
+Austin, TX-USA | Austin, TX ('austin', 'txusa') ('austin', 'tx') False False
+Austin, U.S.A. | Austin ('austin', '') ('austin', '') True True
+Portland, O.R. | Portland, ME ('portland', 'or') ('portland', 'me') False False

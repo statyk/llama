@@ -1,0 +1,35 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw2-rr1-snap-7nAgXn
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw2-rr1-snap-7nAgXn/packages/llama/src/llama/__init__.py
+== full suite in snapshot
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw2-rr1-jqZU6W
+PREDICTIONS (written before flips):
+M2'  cli.py _reapply_list call: allow_structure_change=allow_structure_change -> False  -> test_list_form_skips_structure_changed_rows_unless_the_flag_is_given
+M2'b cli.py reapply(): drop the kwarg passed to _reapply_list (default False)          -> same list test
+M4   catalog.needs_audio_download any -> all                                          -> test_dry_run_counts_a_purged_delivered_show_as_a_download
+M7   cli.py list record_progress retryable=skipped_structure -> False                 -> list test (retryable True assert)
+M8   cli.py list hint suffix dropped                                                   -> list test (hint string)
+== M2p
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rr1-jqZU6W/M2p/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_list_form_skips_structure_changed_rows_unless_the_flag_is_given
+1 failed, 58 passed in 11.51s
+== M2pb
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rr1-jqZU6W/M2pb/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_list_form_skips_structure_changed_rows_unless_the_flag_is_given
+1 failed, 58 passed in 5.73s
+== M4
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rr1-jqZU6W/M4/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_dry_run_counts_a_purged_delivered_show_as_a_download
+FAILED packages/llama/tests/test_reapply.py::test_needs_audio_download_counts_an_unreadable_or_malformed_manifest_as_a_download
+2 failed, 57 passed in 6.12s
+== M7
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rr1-jqZU6W/M7/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_list_form_skips_structure_changed_rows_unless_the_flag_is_given
+1 failed, 58 passed in 10.20s
+== M8
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rr1-jqZU6W/M8/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_list_form_skips_structure_changed_rows_unless_the_flag_is_given
+1 failed, 58 passed in 8.78s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3793 passed, 1 skipped, 8 deselected, 26 warnings in 136.02s (0:02:16)
+cleanup done; handback written

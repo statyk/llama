@@ -1,0 +1,98 @@
+wrote packages/llama/tests/fixtures/furthur2012-07-15.json
+RED: test_titles ImportError placeholder_positions; test_stage_gather -k 2b: 4 failed 1 passed (assertions, pre-impl)
+........................................................................ [ 95%]
+......................................................s................. [ 97%]
+........................................................................ [ 99%]
+...............                                                          [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=80063) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3398 passed, 1 skipped, 8 deselected, 26 warnings in 53.44s
+mutation predictions written in /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mutants.py
+== mutant a
+PREDICTED a packages/llama/tests/test_titles.py::test_placeholder_positions_exemptions
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-4YSN/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_titles.py::test_placeholder_positions_exemptions
+FAILED packages/llama/tests/test_titles.py::test_resolve_titles_never_demotes_a_corroborated_tag
+FAILED packages/llama/tests/test_stage_gather.py::test_2b_a_sibling_description_naming_the_tag_exempts_it
+3 failed, 186 passed in 1.31s
+== mutant b
+PREDICTED b packages/llama/tests/test_titles.py::test_placeholder_positions_classes
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-SKXV/tree/packages/llama/src/llama/__init__.py
+        (`IAClient` never caches a failed fetch, so both really do retry) and
+        preserved (an earlier cut threaded "already failed" state between the
+FAILED packages/llama/tests/test_titles.py::test_tags_win_and_setlist_fills_gaps
+FAILED packages/llama/tests/test_titles.py::test_junk_tag_title_falls_through_cascade
+FAILED packages/llama/tests/test_titles.py::test_placeholder_positions_classes
+FAILED packages/llama/tests/test_titles.py::test_resolve_titles_demotes_a_placeholder_and_never_lets_it_fall_to_the_setlist_rung
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_builds_show_from_fixture
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_llm_fallback_on_unparseable_description
+FAILED packages/llama/tests/test_stage_gather.py::test_a_sibling_fetch_failure_is_noted_not_fatal
+FAILED packages/llama/tests/test_stage_gather.py::test_below_floor_sibling_alignment_declines_with_a_note
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_adopts_venue_when_candidate_absent
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_venue_equivalent_passes_no_mismatch
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_anchors_over_a_confident_but_contradicted_alignment
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_set_count_ignores_encore
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_anchoring_rescues_low_confidence_without_llm
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_jerrybase_disabled_is_noop
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_event_suffix_selects_right_event
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_title_override_forces_title
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_artist_item_does_not_block_title_resolution
+FAILED packages/llama/tests/test_stage_gather.py::test_run_gather_writes_notes_json_and_returns_the_show
+FAILED packages/llama/tests/test_stage_gather.py::test_run_gather_replaces_notes_json_on_force
+FAILED packages/llama/tests/test_stage_gather.py::test_2b_does_not_touch_a_real_tagged_tape
+20 failed, 169 passed in 3.77s
+== mutant c
+PREDICTED c packages/llama/tests/test_titles.py::test_placeholder_positions_classes
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-qpwA/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_titles.py::test_placeholder_positions_classes
+FAILED packages/llama/tests/test_titles.py::test_resolve_titles_non_real_placeholder_skips_the_setlist_rung
+2 failed, 187 passed in 1.18s
+== mutant d
+PREDICTED d packages/llama/tests/test_titles.py::test_placeholder_positions_residue_judges_only_titles_the_tags_rung_would_adopt
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-Yw81/tree/packages/llama/src/llama/__init__.py
+        passed `is_real_title` by construction -- so the residue arm is gated on it. A
+FAILED packages/llama/tests/test_titles.py::test_placeholder_positions_exemptions
+FAILED packages/llama/tests/test_titles.py::test_placeholder_positions_residue_judges_only_titles_the_tags_rung_would_adopt
+FAILED packages/llama/tests/test_titles.py::test_resolve_titles_non_real_placeholder_skips_the_setlist_rung
+3 failed, 186 passed in 1.34s
+== mutant e
+PREDICTED e packages/llama/tests/test_titles.py::test_resolve_titles_demotes_a_placeholder_and_never_lets_it_fall_to_the_setlist_rung
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-Rof8/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_titles.py::test_resolve_titles_demotes_a_placeholder_and_never_lets_it_fall_to_the_setlist_rung
+FAILED packages/llama/tests/test_titles.py::test_resolve_titles_non_real_placeholder_skips_the_setlist_rung
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_low_coverage_uses_llm_alignment
+3 failed, 186 passed in 1.30s
+== mutant f
+PREDICTED f packages/llama/tests/test_stage_gather.py::test_2b_never_judges_an_override_title
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-ZmGG/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_2b_never_judges_an_override_title
+1 failed, 188 passed in 1.34s
+== mutant g
+PREDICTED g packages/llama/tests/test_stage_gather.py::test_2b_recomputes_fetch_siblings_over_demoted_titles
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-5AE3/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_2b_recomputes_fetch_siblings_over_demoted_titles
+1 failed, 188 passed in 1.25s
+== mutant h
+PREDICTED h packages/llama/tests/test_stage_gather.py::test_2b_demotes_a_recovered_sibling_format_placeholder_and_files_no_sibling_note
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-8Yym/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_2b_demotes_a_recovered_sibling_format_placeholder_and_files_no_sibling_note
+1 failed, 188 passed in 1.35s
+== mutant i
+PREDICTED i packages/llama/tests/test_stage_gather.py::test_2b_a_sibling_description_naming_the_tag_exempts_it
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-2vkv/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_2b_a_sibling_description_naming_the_tag_exempts_it
+1 failed, 188 passed in 1.25s
+== mutant j
+PREDICTED j packages/llama/tests/test_stage_gather.py::test_2b_item_title_reaches_the_recording_level_class
+SHADOW /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-HAgc/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_2b_item_title_reaches_the_recording_level_class
+1 failed, 188 passed in 1.34s
+3401 passed, 1 skipped, 8 deselected, 26 warnings in 46.80s

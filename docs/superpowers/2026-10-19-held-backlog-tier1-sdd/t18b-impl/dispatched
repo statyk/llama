@@ -1,0 +1,4 @@
+budget-min: 30
+role: impl
+model: sonnet
+what: Task 18b: drop 5c.2, keep 5c.1/5c.3

@@ -1,0 +1,13 @@
+jerrybase: skipped 117 malformed rows
+would: furthur-2011-06-03 -> needs-brief
+would: umphreysmcgee-2004-10-19 -> needs-brief
+would: railroadearth-2008-09-20 -> needs-brief
+would: elliottsmith-2000-11-03 -> needs-brief
+would: ryanadams-2008-11-16 -> needs-brief
+would: gratefuldead-1979-11-25 -> needs-brief
+would: joerussosalmostdead-2018-05-04 -> needs-brief
+would: furthur-2010-02-27 -> needs-brief
+would: littlefeat-2012-09-03 -> cleared
+would: ryanadams-2007-05-16 -> cleared
+summary: 10 rows, 0 already finished, 8 fresh briefs, 10 first-time downloads (~175 MB each, ~1.7 GB)
+rc=0

@@ -1,0 +1,4 @@
+budget-min: 45
+role: implementer
+model: sonnet
+what: Task 15: 4c normalize_date ranges, 4b adjacent-day, 4d prompt

@@ -1,0 +1,19 @@
+# fw3-rev — combined spec-compliance + code-quality review (READ-ONLY)
+
+You review commits 33f44b4..e7a029e on branch held-backlog-tier1 (worktree /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1). You change NO files in the worktree and make NO commits. **Another implementer may be committing in the worktree while you work: never read source or run tests in the live worktree.** First take a snapshot: `S=$(mktemp -d "$TMPDIR/fw3-rev-snap-XXXXXX"); git -C /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1 archive e7a029e | tar -x -C "$S"`, echo $S into your log, and read/run everything there, using the worktree's interpreter with PYTHONPATH shadowing (`cd "$S" && PYTHONPATH="$S/packages/llama/src:$S/packages/herder/src" PYTHONPYCACHEPREFIX="$S/.pyc" /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/.venv/bin/python -m pytest -q -p no:cacheprovider`; prove the shadowing once with `-c 'import llama; print(llama.__file__)'`). Mutants go in further copies of $S. Remove only your own $S at the end.
+
+- The implementer's requirements: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/.superpowers/sdd/tier1/orch-r4/fw3-brief.md (this is the spec you check compliance against).
+- The diff: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/.superpowers/sdd/tier1/orch-r4/fw3-rev-33f44b4..e7a029e.diff (also `git -C /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1 diff 33f44b4..e7a029e`). The implementer's report is in the matching `/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/.superpowers/sdd/tier1/<impl-task>/handback.md` — read it AFTER forming your own view of the diff, and treat its claims as claims to verify, not facts.
+- Binding project constraints: the plan's "Global Constraints" (docs/superpowers/plans/2026-10-19-held-backlog-tier1.md lines 24-43) and the project CLAUDE.md. The data is the operator's live library: briefing_guard and title/structure code are the STRICT surface — a change that silently loosens a guard (fewer holds) is Critical/Important unless the brief asked for exactly that loosening.
+
+## Check
+1. **Spec compliance**: every required item of the brief is done, nothing extra was changed, verbatim values are verbatim. List each brief item ✅/❌ with file:line.
+2. **Code quality**: correctness, edge cases, idiom matching the surrounding code, comment density, test quality (do the tests test behaviour and would they fail on the bug?). Grep the diff for every do-not-retune name in Global Constraints — none may move.
+3. **Mutation spot-check**: re-run at least ONE of the implementer's claimed mutants yourself per the plan's recipe (predicted test written before the flip; PYTHONPATH shadowing proven; private PYTHONPYCACHEPREFIX) and confirm the claimed catch. Name any mutant the brief should have listed and didn't, and run it if cheap.
+4. Run the full suite once in your snapshot (command above) and report the exact count line.
+
+## Verdict format (handback.md)
+First line: `VERDICT: APPROVED` or `VERDICT: CHANGES REQUIRED`. Then: spec table; findings as Critical / Important / Minor, each with file:line, the failure scenario, and a concrete fix; mutation spot-check table; suite line. Be concise.
+
+## Extra check (orchestrator)
+The implementer kept `drop_stage_artifacts(ws, "brief")`'s full reach, which ALSO removes `package/manifest.json` (wider than the brief's "exactly briefing.json/briefing.md"). Judge it: is dropping the manifest right for a held show (consider a DELIVERED held show whose library audio was purged: does losing the library manifest break `llama show`/`status`/`deliver`'s gate, the `re-deliver` path, `catalog.needs_audio_download`, or emcee/transmitter — which read the STATION copy, not the library)? Recommend keep / narrow, with evidence.

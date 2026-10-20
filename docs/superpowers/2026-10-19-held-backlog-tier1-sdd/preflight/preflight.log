@@ -1,0 +1,120 @@
+Mon Oct 19 14:32:50 EDT 2026 read spec+plan fully; starting code spot-checks
+  File "<stdin>", line 2
+    from llama.stages.gather import rank_parses if False else None
+                                                ^^
+SyntaxError: invalid syntax
+T1 lowcov parse: [('Alpha', '1'), ('Beta', '1'), ('Gamma', '1'), ('Delta', '1'), ('Epsilon', '1'), ('Zeta', '1'), ('Eta', '2'), ('Theta', '2')] high
+T1 prose parse: [('a lovely tape', '1'), ('no setlist here', '1'), ('just prose about the night', '1')] low
+'An amazing night of music, seeded with love.' [] low
+'a lovely tape, no setlist here, just prose about the night' [('a lovely tape', '1'), ('no setlist here', '1'), ('just prose about the night', '1')] low
+'Song 1' -> 'song 1'
+'Song 6' -> 'song 6'
+'Ripple (reprise)' -> 'ripple reprise'
+'E: Casey Jones' -> 'e casey jones'
+'1979 (live)' -> '1979 live'
+'Me & My Uncle' -> 'me my uncle'
+'Drums > Space' -> 'drums space'
+'Dark Star Jam' -> 'dark star jam'
+Song 6 known? False Song 2 known? True
+item
+{}
+JBG cands: [4]
+Casey cands: []
+Deal cands 4: [1, 3]
+Satisfaction: []
+Libery: [] []
+Loser after Deal (5c.1): [1]
+filler: {'Tuning': True, 'Crowd': True, 'Donor Rap': False, 'Loser': False}
+Mon Oct 19 14:37:41 EDT 2026 probing cache fixtures and jerrybase rows
+jerrybase: skipped 117 malformed rows
+Dark Star Orchestra 2003-01-25 [('Barrymore Theatre', 'Madison', 'WI', [('1', 'Might as Well'), ('2', 'Not Fade Away'), ('encore', "It's All Over Now, Baby Blue")])]
+Grateful Dead 1978-11-17 [('Uptown Theatre', 'Chicago', 'IL', [('1', 'I Need A Miracle'), ('2', 'Around And Around'), ('encore', 'Casey Jones')])]
+Dark Star Orchestra 2012-05-19 [('', 'Tuxedo Park', 'NY', [('1', 'Let It Grow'), ('2', 'Sunshine Daydream'), ('encore', 'Box of Rain')])]
+Grateful Dead 1973-06-10 [('Robert F. Kennedy Stadium', 'Washington', 'DC', [('1', 'Playing In The Band'), ('2', 'Sugar Magnolia'), ('3', 'Johnny B. Goode')])]
+== dso2003-01-25.shnf | creator: Dark Star Orchestra | venue: Barrymore Theater | coverage: Madison, WI | date: 2003-01-25 | title: Dark Star Orchestra Live at Barrymore Theater on 2003-01-25
+   formats: {'Item Tile': 1, 'Text': 1, 'VBR MP3': 24, 'Ogg Vorbis': 24, 'PNG': 24, 'Shorten': 24, 'Checksums': 2, 'Archive BitTorrent': 1, 'Metadata': 3}
+== guster2003-07-10.shnf | creator: Guster | venue: Weesner Amphitheater, MN Zoo | coverage: Apple Valley, MN | date: 2003-07-10 | title: Guster Live at Weesner Amphitheater, MN Zoo on 2003-07-10
+   formats: {'Item Tile': 1, 'Text': 1, 'Checksums': 2, 'Columbia Peaks': 18, 'VBR MP3': 18, 'Ogg Vorbis': 18, 'PNG': 18, 'Shorten': 18, 'Archive BitTorrent': 1, 'Metadata': 3}
+== gd78-11-17.acoustic.sbd.dodd.7687.sbeok.shnf | creator: Grateful Dead | venue: Rambler Room, Loyola College | coverage: Chicago, IL | date: 1978-11-17 | title: Grateful Dead Live at Rambler Room, Loyola College on 1978-11-17
+   formats: {'VBR MP3': 9, 'Ogg Vorbis': 9, 'PNG': 9, 'Shorten': 9, 'Windows Media': 1, 'Item Tile': 1, 'Checksums': 1, 'Text': 2, 'Archive BitTorrent': 1, 'Metadata': 3}
+== furthur2012-07-15 | creator: Furthur | venue: Center For The fine Arts | coverage: Bethel, NY | date: 2012-07-15 | title: Furthur Live at Center For The fine Arts on 2012-07-15
+   formats: {'Flac': 20, 'VBR MP3': 20, 'Ogg Vorbis': 20, 'PNG': 20, 'Text': 1, 'Flac FingerPrint': 2, 'Checksums': 2, 'Item Tile': 1, 'Archive BitTorrent': 1, 'Metadata': 3}
+== tnd2006-12-13.flac16 | creator: The New Deal | venue: Water Street Music Hall | coverage: Rochester, NY | date: 2006-12-13 | title: The New Deal Live at Water Street Music Hall on 2006-12-13
+   formats: {'Item Tile': 1, 'Archive BitTorrent': 1, 'Metadata': 3, 'Checksums': 1, 'Text': 2, 'Columbia Peaks': 19, 'Flac': 19, 'VBR MP3': 19, 'Ogg Vorbis': 19, 'PNG': 19, 'Essentia High GZ': 19, 'Essentia Low GZ': 19, 'Spectrogram': 19}
+== RRE2013-11-30.ShermanTheaterStroudsburgPa | creator: Railroad Earth | venue: Sherman Theater | coverage: Stroudsburg,Pa | date: 2013-11-30 | title: Railroad Earth Live at Sherman Theater on 2013-11-30
+   formats: {'Flac': 25, 'VBR MP3': 25, 'Ogg Vorbis': 25, 'PNG': 25, 'Flac FingerPrint': 2, 'Checksums': 1, 'Archive BitTorrent': 1, 'Metadata': 3, 'Text': 1, 'Item Tile': 1}
+== furthur2012-07-15 kept 19 fmt VBR MP3
+  mp3 tags: ['tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp']
+  frac: 1.0 clean: ['tmp', 'tmp', 'tmp', 'tmp', 'tmp', 'tmp']
+  flac tags: ['Tuning Up', 'Cold Rain and Snow', 'Two Djinn', 'They Love Each other', 'Black Throated Wind', 'Ramble On Rose', 'Help On The Way', 'Slipknot', 'Franklins Tower', 'Tuning Up', 'Terrapin Station', 'Estimated Prophet', 'Supplication', 'Eyes of the World', 'The Eleven', 'Standing On The Moon', 'At a Siding', 'Terrapin Flyer', 'Phils Speech', 'Samson And Delilah']
+  desc: "1st Set (70:00)\n\nTuning Up\nCold Rain And Snow\nTwo Djinn\nThey Love Each Other\nBlack Throated Wind\nRamble On Rose\nHelp On The Way>\nSlipknot>\nFranklin's Tower\n\n2nd Set (93:46)\n\nTuning Up\nTerrapin Station>\nEstimated Prophet>\nSupplication>\nEyes Of The World>\nThe Eleven>\nStanding On The Moon>\nAt A Siding>\nTerrapin Flyer\n\nEncore\nPhil's Speech\nSamson And Delilah"
+== tnd2006-12-13.flac16 kept 19 fmt VBR MP3
+  mp3 tags: ['J >', 'J (Da Funk) >', 'J >', 'Ravine > J', 'J >', 'Ravine > J', 'J >', 'J >', 'G-nome > J >', 'J > G-nome', '? >', 'J >', 'Glide >', 'J >', 'J > Glide, talk,', 'Home', 'J > Moment #2 >', 'VL Tone > J > VL Tone', 'Jagoff > J']
+  frac: 0.5789473684210527 clean: ['J >', 'J (Da Funk) >', 'J >', 'Ravine > J', 'J >', 'Ravine > J']
+  flac tags: ['J >', 'J (Da Funk) >', 'J >', 'Ravine > J', 'J >', 'Ravine > J', 'J >', 'J >', 'G-nome > J >', 'J > G-nome', '? >', 'J >', 'Glide >', 'J >', 'J > Glide, talk,', 'Home', 'J > Moment #2 >', 'VL Tone > J > VL Tone', 'Jagoff > J']
+  desc: 'Set 1\n1 J >\n2 J (Da Funk) >\n3 J >\n4 Ravine > J\n5 J >\n6 Ravine, J >\n7 J >\n8 J >\n9 G-nome > J >\n10 J > G-nome\n\nset 2\n1 ? >\n2 J >\n3 Glide >\n4 J >\n5 J > Glide, talk, \n6 Home\n7 J > Moment #2 >\n8 VL Tone > J > VL Tone\n9 Jag Off > J'
+== RRE2013-11-30.ShermanTheaterStroudsburgPa kept 23 fmt VBR MP3
+  mp3 tags: ['01Pig In A Pen', '02Midnight Moonlight', '03Old And In The Way', '04Knockin On your Door', '05Hobo Song', '06Panama Red', '07Wild Horses', '09Kissimmee Kid', '10White Dove', '11Land Of The Navajo', "12Bringin' My Baby Back Home", '13Old Dangerfield', '14Carrying Coal To Newcastle', '15Mighty River Jam', '16Mighty River', "17Fisherman's Blues", '18Seven Story Mountain', "19Chasin' A Rainbow", '20The Cuckoo #', '21Cold Rain And Snow #', '22Walls Of Time #^', '23One More Night On The Road', '25Railroad Earth']
+  frac: 1.0 clean: ['01Pig In A Pen', '02Midnight Moonlight', '03Old And In The Way', '04Knockin On your Door', '05Hobo Song', '06Panama Red']
+  flac tags: ['01Pig In A Pen', '02Midnight Moonlight', '03Old And In The Way', '04Knockin On your Door', '05Hobo Song', '06Panama Red', '07Wild Horses', '08Peter Rowan Banter', '09Kissimmee Kid', '10White Dove', '11Land Of The Navajo', "12Bringin' My Baby Back Home", '13Old Dangerfield', '14Carrying Coal To Newcastle', '15Mighty River Jam', '16Mighty River', "17Fisherman's Blues", '18Seven Story Mountain', "19Chasin' A Rainbow", '20The Cuckoo #', '21Cold Rain And Snow #', '22Walls Of Time #^', '23One More Night On The Road', '24Todd Banter', '25Railroad Earth']
+  desc: 'Railroad Earth with Peter Rowan\nSherman Theater \nStroudsburg, Pa \n11-30-13\n\nOld And In The Way \nSet 1\n\n01Pig In A Pen\n02Midnight Moonlight\n03Old And In The Way\n04Knockin On your Door\n05Hobo Song\n06Panama red\n07Wild Horses\n08Peter Rowan Banter\n09Kissimmee Kid\n10White Dove\n11Land Of The Navajo\n\nSet 2\n12Bringin’ My baby Back Home\n13Old Dangerfield\n14Carrying Coal To Newcastle\n15Mighty River Jam>\n16Mighty River\n17Fisherman’s Blues\n18Seven Story Mountain\n19Chasin’ A Rainbow\n20The Cuckoo #\n21Cold Rain And Snow #\n22Walls Of Time #^\n23One More Night On The Road\n24Todd Banter\n25Railroad Earth'
+parse: [('J', '1'), ('J (Da Funk)', '1'), ('Ravine', '1'), ('J', '1'), ('G-nome', '1'), ('J', '1'), ('J', '1'), ('G-nome', '1'), ('Glide', '2'), ('Home', '2'), ('J', '2'), ('Moment #2', '2'), ('VL Tone', '2'), ('J', '2'), ('VL Tone', '2')] high
+parse: [('J', '1'), ('J (Da Funk)', '1'), ('Ravine', '1'), ('J', '1'), ('Glide', '2'), ('Home', '2'), ('J', '2'), ('Moment #2', '2')] high
+canon src: chosen ['J', 'J (Da Funk)', 'Ravine', 'J', 'G-nome', 'J', 'J', 'G-nome', 'Glide', 'Home', 'J', 'Moment #2', 'VL Tone', 'J', 'VL Tone']
+resolved: [('tnd2006-12-13d1t01.mp3', 'unresolved'), ('J (Da Funk) >', 'tags'), ('tnd2006-12-13d1t03.mp3', 'unresolved'), ('Ravine > J', 'tags'), ('tnd2006-12-13d1t05.mp3', 'unresolved'), ('Ravine > J', 'tags'), ('tnd2006-12-13d1t07.mp3', 'unresolved'), ('tnd2006-12-13d1t08.mp3', 'unresolved'), ('G-nome > J >', 'tags'), ('J > G-nome', 'tags'), ('tnd2006-12-13d2t01.mp3', 'unresolved'), ('tnd2006-12-13d2t02.mp3', 'unresolved'), ('Glide >', 'tags'), ('tnd2006-12-13d2t04.mp3', 'unresolved'), ('J > Glide, talk,', 'tags'), ('Home', 'tags'), ('J > Moment #2 >', 'tags'), ('VL Tone > J > VL Tone', 'tags'), ('Jagoff > J', 'tags')]
+after gap: [('tnd2006-12-13d1t01.mp3', 'unresolved'), ('tnd2006-12-13d1t03.mp3', 'unresolved'), ('tnd2006-12-13d1t05.mp3', 'unresolved'), ('tnd2006-12-13d1t07.mp3', 'unresolved'), ('tnd2006-12-13d1t08.mp3', 'unresolved'), ('tnd2006-12-13d2t01.mp3', 'unresolved'), ('tnd2006-12-13d2t02.mp3', 'unresolved'), ('tnd2006-12-13d2t04.mp3', 'unresolved')]
+is_real J: False False fnt J: j  ''
+'42' False '42'
+'FF>' False 'ff'
+'NY' False 'ny'
+'? >' False ''
+'05:27 -' False '05 27'
+'12-28-99' False '12 28 99'
+'07:22 - IB49' False '07 22 ib49'
+'J >' False 'j'
+'tmp' True 'tmp'
+'Track 01' True 'track 01'
+'Trac3' True 'trac3'
+'Tr-02' False 'tr 02'
+'27:36.27' False '27 36 27'
+'05:27' False '05 27'
+'fIREHOSE 1992-02-19 t02' True 'firehose 1992 02 19 t02'
+'buckethead2004-06-04d2t05' True 'buckethead2004 06 04d2t05'
+'1979' True '1979'
+'Song #1' True 'song 1'
+'Untitled' True 'untitled'
+'Live at X' True 'live at x'
+'Dew' True 'dew'
+'Scarlet Begonias 1977-05-08' True 'scarlet begonias 1977 05 08'
+'Jam 12-31-99' True 'jam 12 31 99'
+'Master' True 'master'
+'Matrix' True 'matrix'
+'' False ''
+['01Pig In A Pen', '02Midnight Moonlight', '03Old And In The Way', '03Colorado']
+['01Pig In A Pen', '02Midnight Moonlight', '03Old And In The Way', '3AM', 'M80', '7-Up', '01ABBA']
+Mon Oct 19 14:41:34 EDT 2026 emulating Task 8 regexes
+placeholder+ ok []
+placeholder- ok []
+timestamp ok []
+starts_ts ok []
+date ok []
+fname ok []
+letters: [0, 0, 15, 0] expect [0,0,15,0]
+is_placeholder_title ok []
+junk ok []
+P5 ruled: [('Jam 12-31-99', True), ('Master', True), ('Matrix', True)]
+2b positions sample: [('Track 01', True, True), ('Dew', False, False), ('tmp', True, False), ('27:36.27', True, True), ('fIREHOSE 1992-02-19 t02', False, True), ('Tr-02', True, True), ('05:27', True, True), ('Live at X', False, False), ('Scarlet Begonias 1977-05-08', False, False)]
+differ: True miller items: 28
+['Only In The Chosen', 'Morning Dew']
+['Morning Dew', 'From A Sibling']
+['07:22 - IB49', 'Morning Dew']
+Mon Oct 19 14:45:12 EDT 2026 emulating Task 12 venue/city rules
+true fails: [('Meramec Race Track', 'Merramec Racetrack')]
+false fails: []
+orpheum vs barrymore False | uptown vs rambler False | Mighty High vs '' False
+weesner vs cities 97 False
+done
+3b done
+3c done
+Mon Oct 19 14:52:13 EDT 2026 analysis done; writing handback
+Mon Oct 19 14:54:33 EDT 2026 handback written; touching done

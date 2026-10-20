@@ -1,0 +1,4 @@
+budget-min: 45
+role: implementer
+model: sonnet
+what: Task 3 apply_vet/VetOutcome, grounding_flags 3-tuple

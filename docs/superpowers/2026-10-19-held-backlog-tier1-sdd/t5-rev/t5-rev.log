@@ -1,0 +1,18 @@
+progress: reading compute_legs/run_gather/derive_state/Ledger/load_config for write paths
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+['llama', 'llama.catalog', 'llama.config', 'llama.errors', 'llama.ia_client', 'llama.jerrybase', 'llama.junk', 'llama.ledger', 'llama.locks', 'llama.models', 'llama.prompts', 'llama.replay', 'llama.setlist', 'llama.setlistfm', 'llama.siblings', 'llama.songs', 'llama.stages', 'llama.stages.brief', 'llama.stages.gather', 'llama.stages.vet_research', 'llama.status', 'llama.structure', 'llama.titles', 'llama.util', 'llama.workspace']
+mutants: A=unswallowed write into ws.dir in compute_legs (predict: scripts/test_replay_holds.py::test_run_replays_the_library_under_a_read_only_root FAILS); B=swallowed write (predict: SURVIVES whole scripts test file)
+304:    (ws.dir / "probe").write_text("x")
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut-A-Bv8A/tree/packages/llama/src/llama/__init__.py
+----------------------------- Captured stderr call -----------------------------
+llama: /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut-A-Bv8A/tree/packages/llama/src/llama/__init__.py
+replayed 2 show(s): unreplayable=2
+------------------------------ Captured log call -------------------------------
+WARNING  llama:jerrybase.py:126 jerrybase: skipped 117 malformed rows
+=========================== short test summary info ============================
+FAILED scripts/test_replay_holds.py::test_run_replays_the_library_under_a_read_only_root
+1 failed, 19 passed in 1.32s
+305:        (ws.dir / "probe").write_text("x")
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut-B-w39x/tree/packages/llama/src/llama/__init__.py
+....................                                                     [100%]
+20 passed in 1.27s

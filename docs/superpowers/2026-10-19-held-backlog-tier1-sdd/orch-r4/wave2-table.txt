@@ -1,0 +1,48 @@
+slug | predicted | progress | brief | needs_review flags | manifest | after: outcome repro changes flags | gather-leg vs G2
+gratefuldead-1985-06-16 | needs-brief/fresh | failed: download of gd85-06-16d1t01.mp3 failed after 3 attempts: Server error '500 Internal Server Error' for url 'https://dn720303.ca.archive.org/0/items/gd85-06-16.oade.sacks.7087.sbeok.shnf/gd85-06-16d1t01.mp3'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/5 | fresh | True ["venue mismatch: archive 'Greek Theater, U. of California' vs jerrybase 'William Randolph Hearst Greek Theatre, UC Berkeley'"] | False | clears False 0 [] | MISMATCH progress=failed: download of gd85-06-16d1t01.mp3 failed after 3 attempts: Server error '500 Internal Server Error' for url 'https://dn720303.ca.archive.org/0/items/gd85-06-16.oade.sacks.7087.sbeok.shnf/gd85-06-16d1t01.mp3'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/5; still held; no manifest; after-arm not clean
+joerussosalmostdead-2016-02-11 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1974-05-25 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+antibalasmusic-2007-04-04 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+gratefuldead-1978-01-22 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1981-09-12 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1981-05-16 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+newmastersounds-2010-06-04 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+stringcheeseincident-2004-08-01 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+philleshandfriends-1999-08-17 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1983-04-13 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+deadandcompany-2016-07-29 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+darkstarorchestra-2007-09-02 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+philleshandfriends-2006-07-11 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+soundtribesector9-2005-02-12 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+thedead-2009-05-16 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1973-02-22 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+joerussosalmostdead-2019-04-26 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1990-06-23 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+railroadearth-2006-09-03 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+tortoise-2023-03-30 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+littlefeat-1976-05-31 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+philleshandfriends-2007-10-12 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1988-07-17 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+deadandcompany-2016-06-10 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+infamousstringdusters-2010-07-17 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+philleshandfriends-2007-09-29 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+gratefuldead-1983-09-02 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1985-06-15 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1984-10-20 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1968-12-29 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+minutemen-1983-03-09 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+garajmahal-2004-07-24 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+northmississippiallstars-2010-03-02 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+discobiscuits-2005-03-24 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+themotet-2013-01-07 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1995-05-26 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+stringcheeseincident-2005-06-18 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+
+held-by-fresh-guard (allowed): 0
+new show dirs created since marker (not in shows-before; llama get): 0 []
+rows 38, mismatches 1, fresh-brief lines 33 (all in wave: True), progress entries 38, re-deliver lines 0
+new llm-failures: 0 []
+show dirs outside the wave written since marker: 0 []
+other slugs named in log: []

@@ -1,0 +1,83 @@
+==================================== ERRORS ====================================
+__________ ERROR collecting packages/llama/tests/test_placeholders.py __________
+ImportError while importing test module '/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/tests/test_placeholders.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/llama/tests/test_placeholders.py:4: in <module>
+    from llama.placeholders import (is_date_like, is_junk_tag, is_placeholder, is_placeholder_title,
+E   ModuleNotFoundError: No module named 'llama.placeholders'
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_placeholders.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.32s
+packages/llama/tests/test_stage_gather.py:2343: AttributeError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_excludes_the_chosen_description
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_names_setlistfm
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_drops_a_sibling_that_copies_the_chosen_description
+3 failed, 107 deselected in 0.39s
+........................................................................ [ 85%]
+............                                                             [100%]
+84 passed in 0.27s
+...                                                                      [100%]
+3 passed, 107 deselected in 2.55s
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3381 passed, 1 skipped, 8 deselected, 26 warnings in 55.91s
+PREDICTIONS (written before flipping):
+(a) is_junk_tag uses is_timestamp -> test_placeholders.py::test_is_junk_tag_never_counts_letters[07:22 - IB49-True]
+(b) residue prefix loses ^ -> test_placeholders.py::test_letters_after_residue (Scarlet Begonias == 15 -> 7)
+(c) is_placeholder accepts untitled -> test_placeholders.py::test_placeholder_near_misses[Untitled], test_is_placeholder_title[Untitled-False]
+(d) is_placeholder_title("") True -> test_placeholders.py::test_is_placeholder_title[-False] (and [   -False] if mutant is the blank guard)
+(e) corroboration keeps a copying sibling -> test_stage_gather.py::test_build_canonical_corroboration_drops_a_sibling_that_copies_the_chosen_description
+(e2) copy check without whitespace normalisation -> same test (the 'spaced' sibling)
+(f) corroboration includes the chosen parse -> test_stage_gather.py::test_build_canonical_corroboration_excludes_the_chosen_description
+== mutant a (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-ueSo)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-ueSo/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_placeholders.py::test_is_junk_tag_never_counts_letters[07:22 - IB49-True]
+1 failed, 83 passed in 0.64s
+== mutant b (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-oZfY)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-oZfY/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_placeholders.py::test_letters_after_residue
+1 failed, 83 passed in 0.59s
+== mutant c (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-1Gu4)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-1Gu4/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_placeholders.py::test_placeholder_near_misses[Untitled]
+FAILED packages/llama/tests/test_placeholders.py::test_is_placeholder_title[Untitled-False]
+2 failed, 82 passed in 0.63s
+== mutant d (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-FNhV)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-FNhV/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_placeholders.py::test_is_placeholder_title[-False]
+FAILED packages/llama/tests/test_placeholders.py::test_is_placeholder_title[   -False]
+2 failed, 82 passed in 0.58s
+== mutant e (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-N04S)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-N04S/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_drops_a_sibling_that_copies_the_chosen_description
+1 failed, 2 passed, 107 deselected in 0.74s
+== mutant e2 (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-OlXI)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-OlXI/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_drops_a_sibling_that_copies_the_chosen_description
+1 failed, 2 passed, 107 deselected in 1.01s
+== mutant f (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-alMt)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-alMt/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_excludes_the_chosen_description
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_names_setlistfm
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_drops_a_sibling_that_copies_the_chosen_description
+3 failed, 107 deselected in 2.84s
+== mutant f-equiv (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-G7ek)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-G7ek/tree/packages/llama/src/llama/__init__.py
+3 passed, 107 deselected in 0.72s
+(g) drop empty-norm guard -> test_stage_gather.py::test_build_canonical_corroboration_skips_items_that_normalize_to_nothing
+== mutant g (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-yL8L)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-yL8L/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_build_canonical_corroboration_skips_items_that_normalize_to_nothing
+1 failed, 3 passed, 107 deselected in 0.81s
+== mutant h (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-A0Ly)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-A0Ly/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_placeholders.py::test_recording_level_junk_item_title_that_normalizes_to_nothing_never_matches
+1 failed, 84 passed in 0.59s
+3383 passed, 1 skipped, 8 deselected, 26 warnings in 46.71s

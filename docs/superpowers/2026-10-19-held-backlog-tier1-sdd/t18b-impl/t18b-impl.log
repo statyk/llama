@@ -1,0 +1,41 @@
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3686 passed, 1 skipped, 8 deselected, 26 warnings in 53.95s
+diff --git a/packages/llama/src/llama/stages/gather.py b/packages/llama/src/llama/stages/gather.py
+index f653a2e..171cc57 100644
+--- a/packages/llama/src/llama/stages/gather.py
++++ b/packages/llama/src/llama/stages/gather.py
+@@ -1452,6 +1452,9 @@ def compute_gather(
+         hard, soft = jerrybase.closer_contradictions(tracks, event)
+         flags += hard
+         notes += soft
++        # 5c.1: closers excused because only filler follows them; operator
++        # notes only (notes.json), never `notes`, which reach the briefing LLM.
++        op_notes += jerrybase.filler_tail_closers(tracks, event)
+ 
+     # Count numbered sets only — an encore is a coda, not a set, and jerrybase
+     # often records only the numbered sets, so counting it would spuriously
+PREDICTIONS (written before flipping):
+a: all->any in _followed_only_by_filler -> test_5c1_closer_followed_only_by_filler_is_an_operator_note_not_a_soft_note
+d: fold on closer only -> test_5c3_leading_parenthetical_folds_on_both_sides
+e: 5c.1 note to notes not op_notes -> test_5c1_filler_tail_note_goes_to_notes_json_never_to_structure_conflicts
+f: fold as first tier -> test_closer_matching_preserves_a_leading_parenthetical
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t18b-7qrPG8
+== a
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t18b-7qrPG8/a/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_jerrybase.py::test_5c1_closer_followed_only_by_filler_is_an_operator_note_not_a_soft_note
+1 failed, 6 passed, 242 deselected in 3.67s
+== d
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t18b-7qrPG8/d/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_jerrybase.py::test_5c3_leading_parenthetical_folds_on_both_sides
+1 failed, 6 passed, 242 deselected in 3.58s
+== e
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t18b-7qrPG8/e/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_5c1_filler_tail_note_goes_to_notes_json_never_to_structure_conflicts
+1 failed, 6 passed, 242 deselected in 3.67s
+== f
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t18b-7qrPG8/f/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_jerrybase.py::test_closer_matching_preserves_a_leading_parenthetical
+FAILED packages/llama/tests/test_jerrybase.py::test_5c3_the_fold_is_a_fallback_tier_only_when_the_unfolded_tiers_miss
+2 failed, 5 passed, 242 deselected in 1.35s

@@ -1,0 +1,54 @@
+== wave3.json retry start 09:56:01
+jerrybase: skipped 117 malformed rows
+gratefuldead-1991-10-31: packaging
+downloading 12/42: gd1991-10-31d1t06_vbr.mp3
+downloading 13/42: gd1991-10-31d1t07.mp3
+downloading 14/42: gd1991-10-31d1t07_vbr.mp3
+downloading 15/42: gd1991-10-31d2t01.mp3
+downloading 16/42: gd1991-10-31d2t01_vbr.mp3
+downloading 17/42: gd1991-10-31d2t02.mp3
+downloading 18/42: gd1991-10-31d2t02_vbr.mp3
+downloading 19/42: gd1991-10-31d2t03.mp3
+downloading 20/42: gd1991-10-31d2t03_vbr.mp3
+downloading 21/42: gd1991-10-31d2t04.mp3
+downloading 22/42: gd1991-10-31d2t04_vbr.mp3
+downloading 23/42: gd1991-10-31d2t05.mp3
+downloading 24/42: gd1991-10-31d2t05_vbr.mp3
+downloading 25/42: gd1991-10-31d2t06.mp3
+downloading 26/42: gd1991-10-31d2t06_vbr.mp3
+downloading 27/42: gd1991-10-31d2t07.mp3
+downloading 28/42: gd1991-10-31d2t07_vbr.mp3
+downloading 29/42: gd1991-10-31d3t01.mp3
+downloading 30/42: gd1991-10-31d3t01_vbr.mp3
+downloading 31/42: gd1991-10-31d3t02.mp3
+downloading 32/42: gd1991-10-31d3t02_vbr.mp3
+downloading 33/42: gd1991-10-31d3t03.mp3
+downloading 34/42: gd1991-10-31d3t03_vbr.mp3
+downloading 35/42: gd1991-10-31d3t04.mp3
+downloading 36/42: gd1991-10-31d3t04_vbr.mp3
+downloading 37/42: gd1991-10-31d3t05.mp3
+downloading 38/42: gd1991-10-31d3t05_vbr.mp3
+downloading 39/42: gd1991-10-31d3t06.mp3
+downloading 40/42: gd1991-10-31d3t06_vbr.mp3
+downloading 41/42: gd1991-10-31d3t07.mp3
+downloading 42/42: gd1991-10-31d3t07_vbr.mp3
+reapplied: gratefuldead-1991-10-31 -> cleared
+  meter: 5h 9% -> 9%
+rc=0
+end 10:01:35
+== wave2.json retry start 10:01:35
+jerrybase: skipped 117 malformed rows
+gratefuldead-1985-06-16: packaging
+downloading 1/21: gd85-06-16d1t01.mp3
+downloading 2/21: gd85-06-16d1t02.mp3
+downloading 3/21: gd85-06-16d1t03.mp3
+downloading 4/21: gd85-06-16d1t04.mp3
+downloading 5/21: gd85-06-16d1t05.mp3
+downloading 6/21: gd85-06-16d1t06.mp3
+downloading 7/21: gd85-06-16d1t07.mp3
+downloading 8/21: gd85-06-16d1t08.mp3
+downloading 9/21: gd85-06-16d1t09.mp3
+FAILED gratefuldead-1985-06-16: download of gd85-06-16d1t09.mp3 failed after 3 attempts: Server error '500 Internal Server Error' for url 'https://dn720303.ca.archive.org/0/items/gd85-06-16.oade.sacks.7087.sbeok.shnf/gd85-06-16d1t09.mp3'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+rc=1
+end 10:08:39

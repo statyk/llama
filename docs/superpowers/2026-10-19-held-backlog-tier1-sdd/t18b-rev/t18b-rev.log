@@ -1,0 +1,31 @@
+diff --git a/packages/llama/src/llama/stages/gather.py b/packages/llama/src/llama/stages/gather.py
+index f653a2e..171cc57 100644
+--- a/packages/llama/src/llama/stages/gather.py
++++ b/packages/llama/src/llama/stages/gather.py
+@@ -1452,6 +1452,9 @@ def compute_gather(
+         hard, soft = jerrybase.closer_contradictions(tracks, event)
+         flags += hard
+         notes += soft
++        # 5c.1: closers excused because only filler follows them; operator
++        # notes only (notes.json), never `notes`, which reach the briefing LLM.
++        op_notes += jerrybase.filler_tail_closers(tracks, event)
+ 
+     # Count numbered sets only — an encore is a coda, not a set, and jerrybase
+     # often records only the numbered sets, so counting it would spuriously
+===GREP
+===GREPDOCS
+docs/superpowers/plans/2026-10-19-held-backlog-tier1.md
+docs/superpowers/specs/2026-10-19-held-backlog-guard-fixes-design.md
+===OPNOTES
+996:    op_notes: list[str] = []
+1128:        op_notes.append(f"placeholder tag title: track {i + 1} '{tag_titles[i]}' "
+1139:                op_notes.append(f"stripped glued track number: track {i + 1} "
+1177:                op_notes.append(f"format sibling tagged: {fmt} title fraction {frac:.2f} "
+1243:    op_notes += short_notes
+1411:                op_notes.append(f"venue taken from the selected recording: '{sel_venue}' agrees "
+1419:                op_notes.append(f"venue differs from jerrybase: archive '{sel_venue}' "
+1457:        op_notes += jerrybase.filler_tail_closers(tracks, event)
+1534:    return GatherResult(show=show, reviews=md.get("reviews", []), notes=op_notes,
+===JB-diff-vs-df602e0
+ packages/llama/src/llama/jerrybase.py | 82 ++++++++++++++++++++++++++++++++---
+ 1 file changed, 75 insertions(+), 7 deletions(-)

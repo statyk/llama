@@ -1,0 +1,37 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw4-rev-snap-NH8tSD
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw4-rev-snap-NH8tSD/packages/llama/src/llama/__init__.py
+PREDICTIONS (written before any flip):
+M1 3C lookahead -> (?!\s+of\b): test_stage_brief.py::test_set_count_of_lookahead_stops_at_the_field_boundary_full + ::test_set_count_of_lookahead_end_to_end_full_narration
+M2 vague lookahead -> (?!\s+of\b): test_stage_brief.py::test_set_count_of_lookahead_stops_at_the_field_boundary_vague
+M3 drop 3C lookahead: test_stage_brief.py::test_3c_set_count_claims[two sets of fiddle tunes-...] + ::test_set_count_of_lookahead_stops_at_the_field_boundary_full (2nd assert)
+M4 (extra, unlisted) drop vague lookahead: test_stage_brief.py::test_set_count_of_lookahead_stops_at_the_field_boundary_vague (b2 assert)
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw4-rev-WpiFYa
+== M1
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw4-rev-WpiFYa/M1/tree/packages/llama/src/llama/__init__.py
+34:    r"\b(both|two|three|four|[234])\s+(?:\w+\s+)?sets\b(?![^\S\n]+of\b)", re.I
+48:    r"\b(both|two|three|four|[234])\s+(?:(\w+)\s+)?sets\b(?!\s+of\b)", re.I
+FAILED packages/llama/tests/test_stage_brief.py::test_set_count_of_lookahead_stops_at_the_field_boundary_full
+FAILED packages/llama/tests/test_stage_brief.py::test_set_count_of_lookahead_end_to_end_full_narration
+2 failed, 168 passed in 9.22s
+== M2
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw4-rev-WpiFYa/M2/tree/packages/llama/src/llama/__init__.py
+34:    r"\b(both|two|three|four|[234])\s+(?:\w+\s+)?sets\b(?!\s+of\b)", re.I
+48:    r"\b(both|two|three|four|[234])\s+(?:(\w+)\s+)?sets\b(?![^\S\n]+of\b)", re.I
+FAILED packages/llama/tests/test_stage_brief.py::test_set_count_of_lookahead_stops_at_the_field_boundary_vague
+1 failed, 169 passed in 6.15s
+== M3
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw4-rev-WpiFYa/M3/tree/packages/llama/src/llama/__init__.py
+34:    r"\b(both|two|three|four|[234])\s+(?:\w+\s+)?sets\b(?![^\S\n]+of\b)", re.I
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=45450) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3765 passed, 1 skipped, 8 deselected, 26 warnings in 83.60s (0:01:23)
+FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[two sets of fiddle tunes-claims15-ordinals15]
+FAILED packages/llama/tests/test_stage_brief.py::test_set_count_of_lookahead_stops_at_the_field_boundary_full
+2 failed, 168 passed in 7.84s
+== M4
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw4-rev-WpiFYa/M4/tree/packages/llama/src/llama/__init__.py
+48:    r"\b(both|two|three|four|[234])\s+(?:(\w+)\s+)?sets\b(?![^\S\n]+of\b)", re.I
+FAILED packages/llama/tests/test_stage_brief.py::test_set_count_of_lookahead_stops_at_the_field_boundary_vague
+1 failed, 169 passed in 5.34s

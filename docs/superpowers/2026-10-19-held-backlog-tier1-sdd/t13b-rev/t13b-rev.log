@@ -1,0 +1,70 @@
+old 1d fires: 57  V suppresses: 35
+V-suppressed only via 1b-new rules (pre1b False): 2
+1B-NEW alejandroescovedo-2008-09-09                  held=False nrec=2 | sel 'The Troubador' / 'West Hollywood, CA' | vote 'The Troubadour' / 'W.Hollywood, CA'
+PRE    badlivers-1991-05-04                          held=True nrec=2 | sel "Cicero's" / 'St. Louis MO' | vote "Cicero's Basement Bar" / 'University City, Missouri USA'
+PRE    belafleckandtheflecktones-2006-08-04          held=False nrec=3 | sel 'Planting Fields Arboretum' / 'Oyster Bay, Long Island, NY' | vote 'Planting Fields Arboretum' / 'Oyster Bay, NY'
+PRE    cracker-2009-05-15                            held=False nrec=2 | sel 'Duck Room' / 'St. Louis, MO' | vote 'Blueberry Hill, Duck Room' / 'University City, MO'
+PRE    darkstarorchestra-2007-07-03                  held=False nrec=4 | sel 'nelson ledges quarry park' / 'garrettsville, oh' | vote 'Nelson Ledges Quarry Park' / 'Nelson Twp. OH.'
+PRE    darkstarorchestra-2007-07-05                  held=False nrec=2 | sel 'Nelson Ledges Quarry Park' / 'Garrettsville, OH' | vote 'Nelson Ledges Quarry Park' / 'Nelson Twp. OH'
+PRE    darkstarorchestra-2007-07-07                  held=False nrec=2 | sel 'nelson ledges quarry park' / 'garrettsville, oh' | vote 'Nelson Ledges Quarry Park' / 'Nelson Twp. OH.'
+PRE    darkstarorchestra-2008-08-31                  held=True nrec=2 | sel 'Nelson Ledges Quarry Park' / 'Garrettsville, OH' | vote 'Nelson Ledges Quarry Park' / 'Nelson Twp. OH'
+PRE    deadandcompany-2018-06-16                     held=True nrec=5 | sel 'Citi Field' / 'Flushing, NY' | vote 'Citi Field' / 'Flushing, Queens, NY'
+PRE    derektrucksband-2005-11-06                    held=False nrec=2 | sel 'Jazzfest Berlin, Delphi Theater,' / 'Berlin, GER' | vote 'Delphi Theater' / 'Berlin, Germany'
+1B-NEW derektrucksband-2007-05-27                    held=False nrec=2 | sel 'Lake Martin Ampitheater' / 'Lake Martin, AL' | vote 'Lake Martin Amphitheater' / 'Alexander City, AL'
+PRE    furthur-2010-06-27                            held=False nrec=9 | sel 'MCU Park' / 'Brooklyn, NY' | vote 'MCU Park' / 'Coney Island, NY'
+PRE    furthur-2010-11-21                            held=False nrec=19 | sel 'Madison Square Garden' / 'New York City, NY' | vote 'MSG' / 'NY, NY'
+PRE    godspeedyoublackemperor-2001-09-28            held=True nrec=2 | sel 'Palais Royale' / 'Toronto, ONT' | vote 'Palais Royale' / 'Toronto, ON'
+PRE    godspeedyoublackemperor-2003-05-14            held=False nrec=4 | sel "L'Olympic" / 'Nantes, France.' | vote "L'Olympic" / 'Nantes, FR'
+PRE    gomez-2006-10-06                              held=True nrec=2 | sel 'The Bowery Ballroom' / 'Boston, MA' | vote 'Bowery Ballroom' / 'New York City'
+PRE    gratefuldead-1971-08-26                       held=False nrec=11 | sel 'Gaelic Park' / 'New York , NY' | vote 'Gaelic Park' / 'Bronx, NY'
+PRE    gratefuldead-1992-03-20                       held=False nrec=10 | sel 'Copps Coliseum' / 'Hamilton Ontario, CA' | vote 'Copps Coliseum' / 'Hamilton, ON'
+PRE    jjgreyandmofro-2008-10-12                     held=False nrec=3 | sel 'Loki Music Festival' / 'Deerfields, NC' | vote 'Loki Music Festival, Deerfields' / 'Mills River, NC'
+PRE    lotus-2003-05-10                              held=True nrec=2 | sel 'Beardslee Castle - Carriage House' / 'Little Falls, NY' | vote 'Beardslee Castle Carriage House' / 'St. Johnsville, NY'
+PRE    mogwai-2009-03-05                             held=False nrec=4 | sel 'Forum Theatre' / 'Melbourne, AU' | vote 'The Forum' / 'Melbourne, Australia'
+PRE    mymorningjacket-2008-08-21                    held=False nrec=2 | sel 'Red Rocks' / 'Morrison, CO' | vote 'Red Rocks' / 'Denver, CO'
+PRE    newridersofthepurplesage-1971-08-06           held=False nrec=2 | sel 'Hollywood Palladium' / 'Friday, August 6, 1971' | vote 'Hollywood Palladium' / 'Hollywood, Los Angeles, CA'
+PRE    particle-2003-06-14                           held=True nrec=2 | sel 'That Tent' / 'Bonnaroo Music Festival Manchester, TN' | vote 'Bonnaroo That Tent' / 'Manchester TN'
+PRE    philleshandfriends-1999-05-29                 held=True nrec=5 | sel 'Mountain Aire Music Festival' / "Angle's Camp, CA" | vote 'Mountain Aire Music Festival, Calavaras County Fai' / "Angel's Camp, CA"
+PRE    philleshandfriends-2006-02-25                 held=False nrec=2 | sel 'Tower Theater' / 'Upper Darby, PA' | vote 'Tower Theater' / 'Philadelphia, PA'
+PRE    philleshandfriends-2014-09-21                 held=False nrec=9 | sel 'Forest Hills Stadium' / 'Flushing, NY' | vote 'Forest Hills Stadium' / 'Forest Hills, NY'
+PRE    ryanadams-2001-04-24                          held=False nrec=2 | sel 'Kulturbolaget' / 'Malmo, Sweden' | vote 'Kulturbolaget' / 'Malmö, Sweden'
+PRE    ryanadams-2008-11-11                          held=False nrec=2 | sel 'Newcastle Academy' / 'Newcastle, UK' | vote 'Academy' / 'Newcastle, England'
+PRE    smashingpumpkins-1997-01-08                   held=False nrec=5 | sel 'GM Place' / 'Vancouver, BC; Canada' | vote 'GM Place' / 'Vancouver, BC, CA'
+PRE    smashingpumpkins-1998-05-19                   held=False nrec=3 | sel 'Aula Magna' / 'Lisbon, Potugal' | vote 'Aula Magna' / 'Lisbon, Portugal'
+PRE    smashingpumpkins-2007-06-05                   held=False nrec=4 | sel 'Zitadelle Spandau' / 'Berlin, DE' | vote 'Zitadelle Spandau (Gotischer Saal)' / 'Berlin, Germany'
+PRE    stringcheeseincident-2000-10-24               held=False nrec=2 | sel 'SideShow Music Hall' / 'Buffalo, NY' | vote 'Sideshow Music Hall' / 'Lackawanna, NY'
+PRE    tedeschitrucksband-2021-10-08                 held=False nrec=2 | sel 'Beacon Theatre' / 'New York NY' | vote 'Beacon Theatre, New York City, NY' / 'New York City, NY'
+PRE    tedeschitrucksband-2026-08-01                 held=False nrec=2 | sel 'Red Rocks Amphitheatre, Morrison, CO' / 'Red Rocks Amphitheatre, Morrison, CO,' | vote 'Red Rocks Amphitheatre' / 'Morrison, CO'
+recording-vs-vote pairs: equivalent venue, incompatible city: 172
+  of which the shorter side is all-generic tokens: 11
+   GEN ('billystrings-2020-01-18', 'Capitol Theatre Portchester NY', 'Portchester NY', 'Capitol Theatre', 'Port Chester, NY')
+   GEN ('furthur-2009-12-13', 'Asbury Park Convention Hall', 'Asbury Park, NY', 'Convention Hall', 'Asbury Park, NJ')
+   GEN ('furthur-2009-12-13', 'Asbury Park Convention Hall', 'Asbury Park, NY', 'Convention Hall', 'Asbury Park, NJ')
+   GEN ('gratefuldead-1983-10-15', 'Civic Center', 'Hartford, CN', 'Hartford Civic Center', 'Hartford, CT')
+   GEN ('littlefeat-1973-03-20', 'Civic Auditorium', 'Sanat Monica, CA', 'Civic Auditorium', 'Santa Monica, CA')
+   GEN ('mogwai-2009-03-05', 'Forum Theatre', 'Melbourne, AU', 'The Forum', 'Melbourne, Australia')
+   GEN ('mogwai-2009-03-05', 'Forum Theatre', 'Melbourne, AU', 'The Forum', 'Melbourne, Australia')
+   GEN ('ratdog-2007-11-03', 'Palace Theatre', 'Albany, Albany County, NY', 'Palace Theatre', 'Albany, NY')
+   GEN ('ryanadams-2008-11-10', 'The Academy', 'Manchester, England', 'Academy', 'Manchester, UK')
+   GEN ('ryanadams-2008-11-11', 'Newcastle Academy', 'Newcastle, UK', 'Academy', 'Newcastle, England')
+   GEN ('thedead-2009-05-09', 'The Forum', 'Los Angeles, CA', 'The Forum', 'Inglewood, CA')
+  of which equivalent only under 1b-new rules: 13
+   1B ('alejandroescovedo-2008-09-09', 'The Troubador', 'West Hollywood, CA', 'The Troubadour', 'W.Hollywood, CA')
+   1B ('derektrucksband-2007-05-27', 'Lake Martin Ampitheater', 'Lake Martin, AL', 'Lake Martin Amphitheater', 'Alexander City, AL')
+   1B ('discobiscuits-2006-11-08', "Mr. Small's Theatre - Pittsburgh, PA", "Mr. Small's Theatre - Pittsburgh, PA", 'Mr. Smalls Theater', 'Millvale, PA')
+   1B ('furthur-2010-07-03', 'Gelsten Castle Estate', 'Herkimer, NY', 'Gelston Castle Estate', 'Mohawk, NY')
+   1B ('furthur-2010-07-03', 'Gelsten Castle Estate', 'Herkimer, NY', 'Gelston Castle Estate', 'Mohawk, NY')
+   1B ('furthur-2010-07-03', 'Gelsten Castle Estate', 'Herkimer, NY', 'Gelston Castle Estate', 'Mohawk, NY')
+   1B ('furthur-2010-07-03', 'Gelsten Castle Estate', 'Herkimer, NY', 'Gelston Castle Estate', 'Mohawk, NY')
+   1B ('furthur-2010-07-03', 'Gelsten Castle Estate', 'Herkimer, NY', 'Gelston Castle Estate', 'Mohawk, NY')
+   1B ('gratefuldead-1982-10-09', 'Frost Ampitheater', 'Stanford, CA', 'Frost Amphitheatre', 'Palo Alto, CA')
+   1B ('joerussosalmostdead-2021-10-23', 'Frost Ampitheater', 'palo alto, Ca', 'Frost Amphitheatre', 'Stanford, CA')
+   1B ('joerussosalmostdead-2023-10-13', 'Frost Amphitheater', 'Stanford, CA', 'Frost Ampitheater', 'Palo Alto, CA')
+   1B ('railroadearth-2005-08-20', "Snipe's Farm", 'Morrisville, NJ', 'Snipes Farm', 'Morrisville, PA')
+   1B ('smashingpumpkins-1996-04-19', 'Messe-Congresszentrum B', 'Stuttgart, DE', 'Messe-Congresscentrum B', 'Stuttgart, Germany')
+distinct venue strings: 2987
+pairs: 296869 old-true: 1402 fidelity mismatches: 0 pre1b-true-but-live-false: 0
+jerrybase: skipped 117 malformed rows
+pre1b-true/live-false pairs in library: 0
+..................................................................       [100%]
+66 passed, 303 deselected in 0.48s

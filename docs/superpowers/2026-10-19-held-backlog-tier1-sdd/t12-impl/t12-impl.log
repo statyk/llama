@@ -1,0 +1,15 @@
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+.........................................                                [100%]
+185 passed in 0.44s
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=1710) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3519 passed, 1 skipped, 8 deselected, 26 warnings in 50.75s
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t12-impl-nLoRJT
+3523 passed, 1 skipped, 8 deselected, 26 warnings in 50.22s
+3523 passed, 1 skipped, 8 deselected, 26 warnings in 58.31s
+3523 passed, 1 skipped, 8 deselected, 26 warnings in 51.08s
+3526 passed, 1 skipped, 8 deselected, 26 warnings in 50.19s

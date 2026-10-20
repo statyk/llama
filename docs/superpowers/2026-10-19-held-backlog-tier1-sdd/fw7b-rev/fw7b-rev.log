@@ -1,0 +1,52 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw7b-rev-snap-KfFJJ4
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw7b-rev-snap-KfFJJ4/packages/llama/src/llama/__init__.py
+old snapshot O=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw7b-rev-old-uBjj8Y
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=43055) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3802 passed, 1 skipped, 8 deselected, 26 warnings in 138.70s (0:02:18)
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw7b-rev-by8uF1
+predictions: M1->test_fix::test_untitled_confirmed_but_still_held_says_still_held_not_declined + test_triage::test_triage_u_confirmed_but_still_held_says_still_held; M2->test_reapply::test_a_held_outcome_with_only_a_stale_briefing_md_drops_it; M3,M4,M5->test_reapply::test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed
+== M1
+1649c1649
+<     return ("packaged", pkg) if pkg else ("held", None)
+---
+>     return ("packaged", pkg) if pkg else ("declined", None)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7b-rev-by8uF1/M1/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_fix.py::test_untitled_confirmed_but_still_held_says_still_held_not_declined
+FAILED packages/llama/tests/test_triage.py::test_triage_u_confirmed_but_still_held_says_still_held
+2 failed, 114 passed in 4.00s
+== M2
+153c153
+<                 and (ws.briefing_json.exists() or ws.briefing_md.exists())
+---
+>                 and (ws.briefing_json.exists())
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7b-rev-by8uF1/M2/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_a_held_outcome_with_only_a_stale_briefing_md_drops_it
+1 failed, 60 passed in 5.21s
+== M3
+3356,3357c3356
+<             if (out.outcome.startswith("dry-run: ") and predicted != "held"
+<                     and not predicted.startswith("skipped")):
+---
+>             if (out.outcome.startswith("dry-run: ") and predicted != "held"):
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7b-rev-by8uF1/M3/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed
+1 failed, 60 passed in 6.13s
+== M4
+107c107
+<             if outcome == "structure-changed" and not allow_structure_change:
+---
+>             if False:
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7b-rev-by8uF1/M4/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed
+1 failed, 60 passed in 2.49s
+== M5
+107c107
+<             if outcome == "structure-changed" and not allow_structure_change:
+---
+>             if outcome == "structure-changed":
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7b-rev-by8uF1/M5/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed
+1 failed, 60 passed in 3.05s

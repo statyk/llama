@@ -1,0 +1,131 @@
+== Tue Oct 20 01:09:54 EDT 2026 baseline suite
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3686 passed, 1 skipped, 8 deselected, 26 warnings in 54.40s
+== Tue Oct 20 01:13:08 EDT 2026 red run
+packages/llama/tests/test_stage_brief.py:2: in <module>
+    from llama.stages.brief import generate_briefing, render_briefing_md
+E   ImportError: cannot import name 'generate_briefing' from 'llama.stages.brief' (/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/brief.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_reapply.py
+ERROR packages/llama/tests/test_stage_brief.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.41s
+== Tue Oct 20 01:13:46 EDT 2026 suite for refactor commit (test_reapply.py ignored: not yet importable)
+3688 passed, 1 skipped, 8 deselected, 26 warnings in 55.77s
+== Tue Oct 20 01:16:30 EDT 2026 green run test_reapply
+.........................                                                [100%]
+25 passed in 0.73s
+== Tue Oct 20 01:16:35 EDT 2026 full suite
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3713 passed, 1 skipped, 8 deselected, 26 warnings in 52.84s
+== mutation predictions (written BEFORE any flip) ==
+(a) show.json written before build_package -> test_reapply.py::test_show_json_is_not_rewritten_before_the_package_is_built (also expect test_a_package_failure_leaves_the_show_held_and_a_rerun_completes_it, test_package_flags_land_in_the_one_final_show_json_write)
+(b) lock released before the writes -> test_reapply.py::test_reapply_holds_the_show_lock_throughout
+(c) vetting.json written before the needs-LLM check -> test_reapply.py::test_reapply_writes_nothing_on_a_needs_llm_show
+(d) build_package's flags dropped -> test_reapply.py::test_package_flags_land_in_the_one_final_show_json_write
+(e) stale package/manifest.json not dropped before build_package -> test_reapply.py::test_a_stale_manifest_never_short_circuits_the_package
+(f) slfm built unconditionally -> test_reapply.py::test_reapply_passes_no_setlistfm_client_when_no_key_is_configured
+(g) briefing.md copied from the stored file on reuse -> test_reapply.py::test_a_reused_briefing_is_rewritten_normalised_never_copied
+== Tue Oct 20 01:18:17 EDT 2026 MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t19-impl-T9nCTQ
+applied a
+--- mutant a: shadow check
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/a/tree/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/a/tree/packages/llama/src/llama/reapply.py
+--- mutant a: diff
+129a130,131
+>         put(ws.show, final_show.model_copy(
+>             update={"review_flags": list(flags), "needs_review": bool(flags)}))
+138,140d139
+<         # The commit marker, written once and last.
+<         put(ws.show, final_show.model_copy(
+<             update={"review_flags": list(flags), "needs_review": bool(flags)}))
+--- mutant a: pytest
+FAILED packages/llama/tests/test_reapply.py::test_reapply_clears_a_held_show_with_a_reusable_briefing_and_writes_show_json_last
+FAILED packages/llama/tests/test_reapply.py::test_reapply_generates_one_fresh_brief_when_none_is_stored
+FAILED packages/llama/tests/test_reapply.py::test_a_package_failure_leaves_the_show_held_and_a_rerun_completes_it
+FAILED packages/llama/tests/test_reapply.py::test_package_flags_land_in_the_one_final_show_json_write
+FAILED packages/llama/tests/test_reapply.py::test_show_json_is_not_rewritten_before_the_package_is_built
+5 failed, 93 passed in 3.49s
+applied b
+--- mutant b: shadow check
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/b/tree/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/b/tree/packages/llama/src/llama/reapply.py
+--- mutant b: diff
+69c69,71
+<     with file_lock(ws.lock):
+---
+>     _cm = file_lock(ws.lock)
+>     _cm.__enter__()
+>     if True:
+94a97
+>         _cm.__exit__(None, None, None)
+--- mutant b: pytest
+FAILED packages/llama/tests/test_reapply.py::test_reapply_holds_the_show_lock_throughout
+1 failed, 97 passed in 1.31s
+applied c
+--- mutant c: shadow check
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/c/tree/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/c/tree/packages/llama/src/llama/reapply.py
+--- mutant c: diff
+85a86,87
+>         if legs.vet is not None:
+>             write_artifact(ws.vetting, legs.vet.result)
+--- mutant c: pytest
+FAILED packages/llama/tests/test_reapply.py::test_reapply_writes_nothing_on_a_needs_llm_show
+FAILED packages/llama/tests/test_reapply.py::test_reapply_writes_nothing_on_a_refusal_mid_show
+FAILED packages/llama/tests/test_reapply.py::test_dry_run_predicts_and_writes_nothing
+3 failed, 95 passed in 3.47s
+applied d
+--- mutant d: shadow check
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/d/tree/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/d/tree/packages/llama/src/llama/reapply.py
+--- mutant d: diff
+137c137
+<             flags += pkg_flags
+---
+>             pass
+--- mutant d: pytest
+FAILED packages/llama/tests/test_reapply.py::test_package_flags_land_in_the_one_final_show_json_write
+1 failed, 97 passed in 1.28s
+applied e
+--- mutant e: shadow check
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/e/tree/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/e/tree/packages/llama/src/llama/reapply.py
+--- mutant e: diff
+133c133
+<             drop_stage_artifacts(ws, "package")
+---
+>             pass
+--- mutant e: pytest
+FAILED packages/llama/tests/test_reapply.py::test_a_stale_manifest_never_short_circuits_the_package
+1 failed, 97 passed in 1.24s
+applied f
+--- mutant f: shadow check
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/f/tree/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/f/tree/packages/llama/src/llama/reapply.py
+--- mutant f: diff
+82c82
+<                                 slfm=setlistfm_client(config), scratch=scratch / "show")
+---
+>                                 slfm=__import__("llama.replay", fromlist=["x"]).CacheOnlySetlistFM(config.root / "cache"), scratch=scratch / "show")
+--- mutant f: pytest
+FAILED packages/llama/tests/test_reapply.py::test_reapply_passes_no_setlistfm_client_when_no_key_is_configured
+1 failed, 97 passed in 1.33s
+applied g
+--- mutant g: shadow check
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/g/tree/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-impl-T9nCTQ/g/tree/packages/llama/src/llama/reapply.py
+--- mutant g: diff
+129c129,132
+<             put(ws.briefing_md, render_briefing_md(briefing, final_show))
+---
+>             if legs.brief == "reuse" and ws.briefing_md.exists():
+>                 put(ws.briefing_md, ws.briefing_md.read_text())
+>             else:
+>                 put(ws.briefing_md, render_briefing_md(briefing, final_show))
+--- mutant g: pytest
+FAILED packages/llama/tests/test_reapply.py::test_a_reused_briefing_is_rewritten_normalised_never_copied
+1 failed, 97 passed in 1.28s
+removed /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t19-impl-T9nCTQ

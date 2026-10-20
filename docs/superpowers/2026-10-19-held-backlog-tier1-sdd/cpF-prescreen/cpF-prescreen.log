@@ -1,0 +1,233 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//cpF-snap-sCY1hW
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/cpF-snap-sCY1hW/packages/llama/src/llama/__init__.py /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/cpF-snap-sCY1hW/packages/llama/src/llama/jerrybase.py
+55 [(('align', 'outcome'), 16), (('align', 'flags', 'notes', 'outcome'), 8), (('align',), 6), (('align', 'breaks', 'flags', 'labels', 'outcome'), 6), (('flags', 'notes', 'outcome'), 4), (('align', 'breaks', 'flags', 'labels', 'notes'), 4), (('flags',), 3), (('align', 'flags', 'notes'), 3), (('flags', 'notes'), 2), (('align', 'breaks', 'flags', 'labels', 'notes', 'outcome'), 2), (('align', 'flags', 'outcome'), 1)]
+jerrybase: skipped 117 malformed rows
+darkstarorchestra-2005-04-23 1 [('1', 'Quinn the Eskimo (The Mighty Quinn)'), ('2', "(I Can't Get No) Satisfaction"), ('encore', 'Revolution')]   match= None
+     1 'Quinn the Eskimo (The Mighty Quinn)' cands [] unf [] fold [] 
+     2 "(I Can't Get No) Satisfaction" cands [20] unf [] fold [20]  FOLD
+     encore 'Revolution' cands [21] unf [21] fold [21] 
+darkstarorchestra-2007-02-16 1 [('1', 'I Know You Rider'), ('2', "(I Can't Get No) Satisfaction"), ('encore', 'Brokedown Palace')] AB  match= True
+     1 'I Know You Rider' cands [10] unf [10] fold [10] 
+     2 "(I Can't Get No) Satisfaction" cands [19] unf [] fold [19]  FOLD
+     encore 'Brokedown Palace' cands [20] unf [20] fold [20] 
+darkstarorchestra-2007-08-09 1 [('1', "Franklin's Tower"), ('2', 'Turn On Your Love Light'), ('encore', 'Ripple')]   match= None
+     1 "Franklin's Tower" cands [10] unf [10] fold [10] 
+     2 'Turn On Your Love Light' cands [] unf [] fold [] 
+     encore 'Ripple' cands [24] unf [24] fold [24] 
+darkstarorchestra-2008-02-17 1 [('1', "Good Lovin'"), ('encore', 'Like a Road Leading Home')]  ANS match= True
+     1 "Good Lovin'" cands [18] unf [18] fold [18] 
+     encore 'Like a Road Leading Home' cands [] unf [] fold [] 
+darkstarorchestra-2008-08-31 1 [('1', "Don't Let Go"), ('2', 'Not Fade Away'), ('encore', 'Brokedown Palace')]  ANS match= True
+     1 "Don't Let Go" cands [9] unf [9] fold [9] 
+     2 'Not Fade Away' cands [18] unf [18] fold [18] 
+     encore 'Brokedown Palace' cands [] unf [] fold [] 
+darkstarorchestra-2009-02-27 1 [('1', 'Let It Grow'), ('2', 'Sugar Magnolia'), ('encore', 'Ripple')]  ANS match= True
+     1 'Let It Grow' cands [8] unf [8] fold [8] 
+     2 'Sugar Magnolia' cands [17] unf [17] fold [17] 
+     encore 'Ripple' cands [] unf [] fold [] 
+darkstarorchestra-2009-12-05 1 [('1', 'Deal'), ('2', 'Turn On Your Love Light'), ('encore', 'Brokedown Palace')]   match= None
+     1 'Deal' cands [12] unf [12] fold [12] 
+     2 'Turn On Your Love Light' cands [] unf [] fold [] 
+     encore 'Brokedown Palace' cands [26] unf [26] fold [26] 
+deadandcompany-2018-06-16 1 [('1', 'New Speedway Boogie'), ('2', 'Sunshine Daydream'), ('encore', 'One More Saturday Night')]  ANS match= True
+     1 'New Speedway Boogie' cands [8] unf [8] fold [8] 
+     2 'Sunshine Daydream' cands [20] unf [20] fold [20] 
+     encore 'One More Saturday Night' cands [] unf [] fold [] 
+furthur-2010-02-08 1 [('1', 'Passenger'), ('2', 'Fire on the Mountain'), ('encore', "(I Can't Get No) Satisfaction")] AB  match= True
+     1 'Passenger' cands [8] unf [8] fold [8] 
+     2 'Fire on the Mountain' cands [17] unf [17] fold [17] 
+     encore "(I Can't Get No) Satisfaction" cands [19] unf [] fold [19]  FOLD
+furthur-2010-02-20 1 [('1', "(I Can't Get No) Satisfaction"), ('2', 'And We Bid You Goodnight'), ('encore', 'One More Saturday Night')] AB  match= True
+     1 "(I Can't Get No) Satisfaction" cands [8] unf [] fold [8]  FOLD
+     2 'And We Bid You Goodnight' cands [17] unf [17] fold [17] 
+     encore 'One More Saturday Night' cands [18] unf [18] fold [18] 
+furthur-2010-03-03 1 [('1', 'I Know You Rider'), ('2', "Franklin's Tower"), ('encore', 'Johnny B. Goode')]  ANS match= True
+     1 'I Know You Rider' cands [8] unf [8] fold [8] 
+     2 "Franklin's Tower" cands [18] unf [18] fold [18] 
+     encore 'Johnny B. Goode' cands [] unf [] fold [] 
+furthur-2010-05-30 1 [('1', 'Blues for Allah'), ('2', 'Cosmic Charlie'), ('3', 'Terrapin Station'), ('encore', 'Not Fade Away')]  ANS match= True
+     1 'Blues for Allah' cands [9] unf [9] fold [9] 
+     2 'Cosmic Charlie' cands [17] unf [17] fold [17] 
+     3 'Terrapin Station' cands [23] unf [23] fold [23] 
+     encore 'Not Fade Away' cands [] unf [] fold [] 
+furthur-2010-07-30 1 [('1', 'Not Fade Away'), ('2', "Franklin's Tower"), ('encore', 'Terrapin Station')]  ANS match= True
+     1 'Not Fade Away' cands [8] unf [8] fold [8] 
+     2 "Franklin's Tower" cands [18] unf [18] fold [18] 
+     encore 'Terrapin Station' cands [] unf [] fold [] 
+furthur-2010-09-24 1 [('1', 'Casey Jones'), ('2', 'Not Fade Away'), ('encore', "Just Like Tom Thumb's Blues")]   match= None
+     1 'Casey Jones' cands [9] unf [9] fold [9] 
+     2 'Not Fade Away' cands [] unf [] fold [] 
+     encore "Just Like Tom Thumb's Blues" cands [20] unf [20] fold [20] 
+furthur-2011-02-11 1 [('1', 'Brown-Eyed Women'), ('2', "Franklin's Tower"), ('encore', 'Liberty')]  ANS match= True
+     1 'Brown-Eyed Women' cands [9] unf [9] fold [9] 
+     2 "Franklin's Tower" cands [19] unf [19] fold [19] 
+     encore 'Liberty' cands [] unf [] fold [] 
+furthur-2011-02-13 1 [('1', 'Man Smart, Woman Smarter'), ('2', 'Sugar Magnolia'), ('encore', "(I Can't Get No) Satisfaction")] AB  match= True
+     1 'Man Smart, Woman Smarter' cands [9] unf [9] fold [9] 
+     2 'Sugar Magnolia' cands [19] unf [19] fold [19] 
+     encore "(I Can't Get No) Satisfaction" cands [22] unf [] fold [22]  FOLD
+furthur-2011-11-11 1 [('1', 'Revolution'), ('2', "Going Down the Road Feelin' Bad"), ('encore', 'The Star-Spangled Banner')]  ANS match= True
+     1 'Revolution' cands [8] unf [8] fold [8] 
+     2 "Going Down the Road Feelin' Bad" cands [17] unf [17] fold [17] 
+     encore 'The Star-Spangled Banner' cands [] unf [] fold [] 
+furthur-2012-07-07 1 [('1', 'Deal'), ('2', 'And We Bid You Goodnight'), ('encore', 'One More Saturday Night')]  ANS match= True
+     1 'Deal' cands [9] unf [9] fold [9] 
+     2 'And We Bid You Goodnight' cands [20] unf [20] fold [20] 
+     encore 'One More Saturday Night' cands [] unf [] fold [] 
+furthur-2012-07-08 1 [('1', 'Cosmic Charlie'), ('2', 'Throwing Stones'), ('encore', 'Samson and Delilah')]  ANS match= True
+     1 'Cosmic Charlie' cands [7] unf [7] fold [7] 
+     2 'Throwing Stones' cands [16] unf [16] fold [16] 
+     encore 'Samson and Delilah' cands [] unf [] fold [] 
+furthur-2012-07-17 1 [('1', 'Saint of Circumstance'), ('2', 'Throwing Stones'), ('encore', 'Attics of My Life')]   match= None
+     1 'Saint of Circumstance' cands [] unf [] fold [] 
+     2 'Throwing Stones' cands [16] unf [16] fold [16] 
+     encore 'Attics of My Life' cands [18] unf [18] fold [18] 
+gratefuldead-1970-05-14 1 [('1', 'Turn On Your Lovelight'), ('encore', 'Cold Jordan')]  ANS match= True
+     1 'Turn On Your Lovelight' cands [37] unf [37] fold [37] 
+     encore 'Cold Jordan' cands [] unf [] fold [] 
+gratefuldead-1971-04-29 1 [('1', 'Casey Jones'), ('2', "Uncle John's Band"), ('encore', 'And We Bid You Good Night')]  ANS match= True
+     1 'Casey Jones' cands [13] unf [13] fold [13] 
+     2 "Uncle John's Band" cands [29] unf [29] fold [29] 
+     encore 'And We Bid You Good Night' cands [] unf [] fold [] 
+gratefuldead-1971-12-05 1 [('1', 'One More Saturday Night'), ('2', 'Not Fade Away'), ('encore', 'Johnny B. Goode')]   match= None
+     1 'One More Saturday Night' cands [16] unf [16] fold [16] 
+     2 'Not Fade Away' cands [31, 33] unf [31, 33] fold [31, 33] 
+     encore 'Johnny B. Goode' cands [] unf [] fold [] 
+gratefuldead-1972-03-23 1 [('1', 'Casey Jones'), ('2', 'Not Fade Away'), ('encore', 'Sugar Magnolia')]   match= None
+     1 'Casey Jones' cands [18] unf [18] fold [18] 
+     2 'Not Fade Away' cands [26, 28] unf [26, 28] fold [26, 28] 
+     encore 'Sugar Magnolia' cands [] unf [] fold [] 
+gratefuldead-1972-05-11 1 [('1', 'Casey Jones'), ('2', "Uncle John's Band"), ('encore', 'One More Saturday Night')]  ANS match= True
+     1 'Casey Jones' cands [16] unf [16] fold [16] 
+     2 "Uncle John's Band" cands [33] unf [33] fold [33] 
+     encore 'One More Saturday Night' cands [] unf [] fold [] 
+gratefuldead-1974-10-18 1 [('1', 'Let It Grow'), ('2', 'Morning Dew'), ('3', 'One More Saturday Night'), ('encore', 'U.S. Blues')]  ANS match= True
+     1 'Let It Grow' cands [12] unf [12] fold [12] 
+     2 'Morning Dew' cands [16] unf [16] fold [16] 
+     3 'One More Saturday Night' cands [23] unf [23] fold [23] 
+     encore 'U.S. Blues' cands [] unf [] fold [] 
+gratefuldead-1978-04-15 1 [('1', 'Deal'), ('2', 'Around And Around'), ('encore', 'One More Saturday Night')]  ANS match= True
+     1 'Deal' cands [7] unf [7] fold [7] 
+     2 'Around And Around' cands [16] unf [16] fold [16] 
+     encore 'One More Saturday Night' cands [] unf [] fold [] 
+gratefuldead-1978-12-19 1 [('1', 'Supplication'), ('2', 'Around And Around'), ('encore', 'Casey Jones')]  ANS match= True
+     1 'Supplication' cands [10] unf [10] fold [10] 
+     2 'Around And Around' cands [20] unf [20] fold [20] 
+     encore 'Casey Jones' cands [] unf [] fold [] 
+gratefuldead-1978-12-31 1 [('1', 'Sunshine Daydream'), ('2', 'Around And Around'), ('3', "Good Lovin'"), ('encore', 'And We Bid You Good Night')]  ANS match= True
+     1 'Sunshine Daydream' cands [9] unf [9] fold [9] 
+     2 'Around And Around' cands [17] unf [17] fold [17] 
+     3 "Good Lovin'" cands [22] unf [22] fold [22] 
+     encore 'And We Bid You Good Night' cands [] unf [] fold [] 
+gratefuldead-1980-10-31 1 [('1', 'Deal'), ('2', "Good Lovin'"), ('encore', "Uncle John's Band")]  ANS match= True
+     1 'Deal' cands [18] unf [18] fold [18] 
+     2 "Good Lovin'" cands [30] unf [30] fold [30] 
+     encore "Uncle John's Band" cands [] unf [] fold [] 
+gratefuldead-1981-09-12 1 [('1', 'I Know You Rider'), ('2', 'One More Saturday Night'), ('encore', "Good Lovin'")]  ANS match= True
+     1 'I Know You Rider' cands [10] unf [10] fold [10] 
+     2 'One More Saturday Night' cands [20] unf [20] fold [20] 
+     encore "Good Lovin'" cands [] unf [] fold [] 
+gratefuldead-1982-09-05 1 [('1', 'I Know You Rider'), ('2', 'Sugar Magnolia'), ('encore', 'Satisfaction')] AB  match= True
+     1 'I Know You Rider' cands [7] unf [7] fold [7] 
+     2 'Sugar Magnolia' cands [15] unf [15] fold [15] 
+     encore 'Satisfaction' cands [17] unf [] fold [17]  FOLD
+gratefuldead-1983-04-09 1 [('1', 'I Know You Rider'), ('2', 'One More Saturday Night'), ('encore', 'Satisfaction')] AB  match= True
+     1 'I Know You Rider' cands [10] unf [10] fold [10] 
+     2 'One More Saturday Night' cands [21] unf [21] fold [21] 
+     encore 'Satisfaction' cands [22] unf [] fold [22]  FOLD
+gratefuldead-1984-03-31 1 [('1', 'Deal'), ('2', 'Not Fade Away'), ('encore', "It's All Over Now Baby Blue")]  ANS match= True
+     1 'Deal' cands [9] unf [9] fold [9] 
+     2 'Not Fade Away' cands [17] unf [17] fold [17] 
+     encore "It's All Over Now Baby Blue" cands [] unf [] fold [] 
+gratefuldead-1984-06-21 1 [('1', 'Might As Well'), ('2', 'Not Fade Away'), ('encore', 'Iko Iko')]  ANS match= True
+     1 'Might As Well' cands [10] unf [10] fold [10] 
+     2 'Not Fade Away' cands [20] unf [20] fold [20] 
+     encore 'Iko Iko' cands [] unf [] fold [] 
+gratefuldead-1986-12-15 1 [('1', 'Let It Grow'), ('2', "Good Lovin'"), ('encore', 'Johnny B. Goode')]  ANS match= True
+     1 'Let It Grow' cands [11] unf [11] fold [11] 
+     2 "Good Lovin'" cands [23] unf [23] fold [23] 
+     encore 'Johnny B. Goode' cands [] unf [] fold [] 
+gratefuldead-1989-10-08 1 [('1', 'Promised Land'), ('2', 'Morning Dew'), ('encore', 'And We Bid You Good Night')]  ANS match= True
+     1 'Promised Land' cands [10] unf [10] fold [10] 
+     2 'Morning Dew' cands [21] unf [21] fold [21] 
+     encore 'And We Bid You Good Night' cands [] unf [] fold [] 
+gratefuldead-1990-04-03 1 [('1', 'Promised Land'), ('2', 'Not Fade Away'), ('encore', 'And We Bid You Good Night')]  ANS match= True
+     1 'Promised Land' cands [9] unf [9] fold [9] 
+     2 'Not Fade Away' cands [19] unf [19] fold [19] 
+     encore 'And We Bid You Good Night' cands [] unf [] fold [] 
+gratefuldead-1990-07-08 1 [('1', 'Let It Grow'), ('2', 'Turn On Your Lovelight'), ('encore', "Knockin' On Heaven's Door")]  ANS match= True
+     1 'Let It Grow' cands [9] unf [9] fold [9] 
+     2 'Turn On Your Lovelight' cands [19] unf [19] fold [19] 
+     encore "Knockin' On Heaven's Door" cands [] unf [] fold [] 
+gratefuldead-1990-09-15 1 [('1', 'Box Of Rain'), ('2', 'Not Fade Away'), ('encore', 'One More Saturday Night')]  ANS match= True
+     1 'Box Of Rain' cands [9] unf [9] fold [9] 
+     2 'Not Fade Away' cands [20] unf [20] fold [20] 
+     encore 'One More Saturday Night' cands [] unf [] fold [] 
+gratefuldead-1990-09-19 1 [('1', "Franklin's Tower"), ('2', 'Around And Around'), ('encore', 'The Mighty Quinn')]  ANS match= True
+     1 "Franklin's Tower" cands [9] unf [9] fold [9] 
+     2 'Around And Around' cands [21] unf [21] fold [21] 
+     encore 'The Mighty Quinn' cands [] unf [] fold [] 
+gratefuldead-1991-10-27 1 [('1', 'Touch Of Grey'), ('2', "Good Lovin'"), ('encore', "Knockin' On Heaven's Door")]  ANS match= True
+     1 'Touch Of Grey' cands [8] unf [8] fold [8] 
+     2 "Good Lovin'" cands [19] unf [19] fold [19] 
+     encore "Knockin' On Heaven's Door" cands [] unf [] fold [] 
+gratefuldead-1994-06-26 1 [('1', 'The Music Never Stopped'), ('2', 'Morning Dew'), ('encore', 'U.S. Blues')]  ANS match= True
+     1 'The Music Never Stopped' cands [8] unf [8] fold [8] 
+     2 'Morning Dew' cands [18] unf [18] fold [18] 
+     encore 'U.S. Blues' cands [] unf [] fold [] 
+gratefuldead-1995-04-07 1 [('1', 'Promised Land'), ('2', 'Not Fade Away'), ('encore', 'U.S. Blues')]  ANS match= True
+     1 'Promised Land' cands [7] unf [7] fold [7] 
+     2 'Not Fade Away' cands [17] unf [17] fold [17] 
+     encore 'U.S. Blues' cands [] unf [] fold [] 
+philleshandfriends-2001-11-17 1 [('1', 'Box of Rain'), ('2', 'The Golden Road (To Unlimited Devotion)'), ('encore', 'And We Bid You Goodnight')]  ANS match= True
+     1 'Box of Rain' cands [8] unf [8] fold [8] 
+     2 'The Golden Road (To Unlimited Devotion)' cands [16] unf [16] fold [16] 
+     encore 'And We Bid You Goodnight' cands [] unf [] fold [] 
+philleshandfriends-2005-10-29 1 [('1', 'Casey Jones'), ('encore', "Franklin's Tower")]  ANS match= True
+     1 'Casey Jones' cands [13] unf [13] fold [13] 
+     encore "Franklin's Tower" cands [] unf [] fold [] 
+philleshandfriends-2008-07-06 1 [('1', 'Sugaree'), ('2', 'Scarlet Begonias'), ('encore', 'Dancing in the Street')]  ANS match= True
+     1 'Sugaree' cands [8] unf [8] fold [8] 
+     2 'Scarlet Begonias' cands [21] unf [21] fold [21] 
+     encore 'Dancing in the Street' cands [] unf [] fold [] 
+railroadearth-2007-09-13 0 None   match= None
+ratdog-2003-05-01 1 [('1', 'Liberty'), ('encore', 'The RatDog Drinking Song')]  ANS match= True
+     1 'Liberty' cands [11] unf [11] fold [11] 
+     encore 'The RatDog Drinking Song' cands [] unf [] fold [] 
+ratdog-2008-11-16 1 [('1', "Good Lovin'"), ('2', "Going Down the Road Feelin' Bad"), ('encore', 'Ripple')]  ANS match= True
+     1 "Good Lovin'" cands [10] unf [10] fold [10] 
+     2 "Going Down the Road Feelin' Bad" cands [18] unf [18] fold [18] 
+     encore 'Ripple' cands [] unf [] fold [] 
+ratdog-2014-03-07 1 [('1', 'Johnny B. Goode'), ('2', 'Not Fade Away'), ('encore', 'Refrain')]  ANS match= True
+     1 'Johnny B. Goode' cands [10] unf [10] fold [10] 
+     2 'Not Fade Away' cands [20] unf [20] fold [20] 
+     encore 'Refrain' cands [] unf [] fold [] 
+thedead-2009-04-15 1 [('1', 'Standing on the Moon'), ('2', 'Foolish Heart'), ('encore', 'Gloria')]  ANS match= True
+     1 'Standing on the Moon' cands [8] unf [8] fold [8] 
+     2 'Foolish Heart' cands [17] unf [17] fold [17] 
+     encore 'Gloria' cands [] unf [] fold [] 
+thedead-2009-04-29 1 [('1', 'Casey Jones'), ('2', 'I Know You Rider'), ('encore', 'Man Smart, Woman Smarter')]  ANS match= True
+     1 'Casey Jones' cands [7] unf [7] fold [7] 
+     2 'I Know You Rider' cands [15] unf [15] fold [15] 
+     encore 'Man Smart, Woman Smarter' cands [] unf [] fold [] 
+thedead-2009-05-09 1 [('1', 'Cosmic Charlie'), ('2', "(I Can't Get No) Satisfaction"), ('encore', 'One More Saturday Night')] AB  match= True
+     1 'Cosmic Charlie' cands [7] unf [7] fold [7] 
+     2 "(I Can't Get No) Satisfaction" cands [18] unf [] fold [18]  FOLD
+     encore 'One More Saturday Night' cands [19] unf [19] fold [19] 
+yondermountainstringband-2000-11-02 0 None   match= None
+done 117 0
+shows with jerrybase events: 799
+actual 2+ candidates w/ paren: []
+folded-tier 2+ (would-be under unconditional fold): []
+fold fallback used (unfolded empty, folded non-empty): 8
+   ('darkstarorchestra-2005-04-23', "(I Can't Get No) Satisfaction", ['Satisfaction (8:37)'])
+   ('darkstarorchestra-2007-02-16', "(I Can't Get No) Satisfaction", ['Satisfaction'])
+   ('furthur-2010-02-08', "(I Can't Get No) Satisfaction", ['Satisfaction'])
+   ('furthur-2010-02-20', "(I Can't Get No) Satisfaction", ['Satisfaction'])
+   ('furthur-2011-02-13', "(I Can't Get No) Satisfaction", ['Satisfaction'])
+   ('gratefuldead-1982-09-05', 'Satisfaction', ["(I Can't Get No) Satisfaction"])
+   ('gratefuldead-1983-04-09', 'Satisfaction', ["(I Can't Get No) Satisfaction"])
+   ('thedead-2009-05-09', "(I Can't Get No) Satisfaction", ['Satisfaction'])
+progress: analysis done, writing prescreen
+removed /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/cpF-snap-sCY1hW
+cb85ea2ddef48d4a91cca6bfcf8492c20045dc17b12b8f0dcc1b100741248abb  /Users/shawn/.llama-harness/cmp-F-all/prescreen.md

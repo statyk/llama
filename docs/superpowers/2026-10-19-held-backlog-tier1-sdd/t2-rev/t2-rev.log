@@ -1,0 +1,14 @@
+...................                                                      [100%]
+19 passed in 2.30s
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+1ba08193f12eba43e9ace1621579d40b6ac2edfe
+{"guard_min_minutes": 150, "align_coverage_threshold": 0.8}
+{"enabled": true}
+wrote /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmp.AQNoPYvx6V/out.json
+no fixture [Errno 2] No such file or directory: 'packages/llama/tests/fixtures/gd73-06-10.sbd.hollister.174.sbeok.shnf.json'
+['files', 'metadata', 'reviews'] 279
+['files', 'metadata', 'reviews'] 15 279
+files equal: False meta equal: False reviews eq: False
+{'title', 'length', 'format', 'name', 'source', 'md5', 'original'} {'title', 'length', 'format', 'name', 'source', 'md5', 'original'}
+slfm files: 3466 would raise in CacheOnlySetlistFM: 0 []
+progress: checks done, writing report

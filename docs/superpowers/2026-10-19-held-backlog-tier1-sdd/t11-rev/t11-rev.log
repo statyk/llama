@@ -1,0 +1,35 @@
+llama from /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/titles.py
+glued-vote-fail cases 199609 mismatches 0 both votes pass 0 glued-pass cases differing 363
+'01Pig In A Pen' True
+'Pig In A Pen' True
+'05Star' True
+'52Nd Street' True
+'Nd Street' True
+'10Th Avenue' True
+== mutant A
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut-A-OquD/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_strips_a_glued_prefix_when_the_recording_votes_for_it
+FAILED packages/llama/tests/test_titles.py::test_glued_strip_applies_when_the_spaced_vote_fails
+FAILED packages/llama/tests/test_titles.py::test_glued_strip_never_reaches_uppercase_or_digit_second_characters
+FAILED packages/llama/tests/test_stage_gather.py::test_2c_strips_railroad_earths_glued_numbers_and_notes_each
+4 failed, 216 passed in 1.28s
+== mutant B
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut-B-aXFR/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_protects_a_lone_numeric_title
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_never_mutilates_a_real_numeric_title[100 Years]
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_never_mutilates_a_real_numeric_title[200 More Miles]
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_never_mutilates_a_real_numeric_title[20 Eyes]
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_never_mutilates_a_real_numeric_title[2 x 4]
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_never_mutilates_a_real_numeric_title[52 Vincent Black Lightning]
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_never_mutilates_a_real_numeric_title[40 Miles From Denver]
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_never_mutilates_a_real_numeric_title[18 Wheels Of Love]
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_declines_below_the_count_floor
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_leaves_dbt2014_01_31s_corpus_shape_alone
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_declines_below_the_coverage_floor
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_accepts_its_known_false_negatives
+FAILED packages/llama/tests/test_titles.py::test_clean_tag_titles_gate_basis_scopes_the_enumeration_vote
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_keeps_a_lone_numeric_title
+14 failed, 206 passed in 3.45s
+== mutant B2 (glued only on spaced-fails path)
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut-B2-e0YN/tree/packages/llama/src/llama/__init__.py
+220 passed in 3.26s

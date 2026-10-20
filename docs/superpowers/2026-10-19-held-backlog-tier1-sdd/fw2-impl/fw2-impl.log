@@ -1,0 +1,28 @@
+....................................................                     [100%]
+52 passed in 2.02s
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3786 passed, 1 skipped, 8 deselected, 26 warnings in 89.95s (0:01:29)
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw2-IuEITi
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw2-IuEITi/M1/tree/if False:'
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-IuEITi/M1/tree/packages/llama/src/llama/__init__.py
+52 passed in 6.19s
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw2-IuEITi/M2/tree/allow_structure_change=True)'
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-IuEITi/M2/tree/packages/llama/src/llama/__init__.py
+52 passed in 3.48s
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw2-zQ7y2I
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-zQ7y2I/M1/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_structure_changed_is_skipped_unless_allowed_and_writes_nothing
+FAILED packages/llama/tests/test_reapply.py::test_cli_names_form_structure_changed_needs_the_flag
+FAILED packages/llama/tests/test_reapply.py::test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped
+3 failed, 49 passed in 4.72s
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-zQ7y2I/M2/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped
+1 failed, 51 passed in 3.32s
+3784 passed, 1 skipped, 8 deselected, 26 warnings in 101.68s (0:01:41)
+3786 passed, 1 skipped, 8 deselected, 26 warnings in 87.96s (0:01:27)

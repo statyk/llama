@@ -1,0 +1,30 @@
+20:59:20 start
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+replayed 1067 show(s): needs-brief=43, needs-llm=492, still-held=532
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+replayed 3468 show(s): clean=2044, needs-brief=43, needs-llm=844, newly-held=4, still-held=532, unreplayable=1
+base rc=0
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-prev/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-prev/packages/llama/src/llama/__init__.py
+replayed 1067 show(s): needs-brief=66, needs-llm=495, still-held=499, structure-changed=7
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-prev/packages/llama/src/llama/__init__.py
+replayed 3468 show(s): clean=2040, clean-changed=2, needs-brief=66, needs-llm=847, newly-held=6, still-held=499, structure-changed=7, unreplayable=1
+prev rc=0
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 1067 show(s): needs-brief=120, needs-llm=495, still-held=445, structure-changed=7
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 3468 show(s): clean=2037, clean-changed=2, needs-brief=120, needs-llm=847, newly-held=9, still-held=445, structure-changed=7, unreplayable=1
+cand rc=0
+compare: wrote /Users/shawn/.llama-harness/cmp-C2-held
+cmp-held exit 0
+baseline reproduces 539/572 held shows that are not needs-LLM (gate skipped: --no-repro-gate)
+compare: wrote /Users/shawn/.llama-harness/cmp-C2-slice-held
+cmp-slice-held exit 0
+compare: wrote /Users/shawn/.llama-harness/cmp-C2-all
+cmp-all exit 0
+baseline reproduces 539/572 held shows that are not needs-LLM (gate skipped: --no-repro-gate)
+compare: wrote /Users/shawn/.llama-harness/cmp-C2-slice-all
+cmp-slice-all exit 0
+21:01:36 end

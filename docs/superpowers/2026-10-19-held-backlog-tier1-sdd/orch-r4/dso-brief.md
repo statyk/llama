@@ -1,0 +1,18 @@
+# dso-diag — READ-ONLY diagnosis: why did darkstarorchestra-2012-05-19's fresh brief describe a different setlist?
+
+You build NOTHING and commit NOTHING. Do not edit any file in the worktree. Never run any `llama` command that writes (`get`, `redo`, `fix`, `triage`, `deliver`, `reapply`, `rm`); reading files under `~/.llama` is fine. Read the code from a SNAPSHOT, not the live worktree (another agent is editing `brief.py` concurrently): `S=$(mktemp -d "$TMPDIR/dso-snap-XXXXXX"); git -C /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1 archive 4cd1ebc | tar -x -C "$S"` and read `$S/packages/llama/src/llama/...`. Remove only that `$S` at the end.
+
+## Facts
+- `~/.llama/shows/darkstarorchestra-2012-05-19/` was HELD before the apply (its flags then are in `~/.llama-harness/G2-cand-held.json` → `shows["darkstarorchestra-2012-05-19"]` `stored_flags`; its stored briefing then passed the guard: `stored_brief_guard` was None). The harness predicted `needs-brief`/`fresh` → cleared.
+- On 2026-10-20 ~09:5x the apply (`llama reapply`, code at 4cd1ebc, `packages/llama/src/llama/reapply.py` `reapply_show` → `stages/brief.py` `generate_briefing`) wrote a FRESH briefing (`briefing.json`/`briefing.md` in the show dir now) whose `briefing_guard` result held the show with 21 flags `briefing mentions unknown song: …` (Hell In A Bucket, Walkin' Blues, Ramble On Rose, Beat It On Down The Line, Big Railroad Blues, Just Like Tom Thumb's Blues, Let It Grow, Sugar Magnolia, Follish Heart, Playin' In The Band, Terrapin Station, Playin' In The Band Jam, Drums-Space Jam, The Wheel, Black Peter, Around & Around, Sunshine Daydream, Box Of Rain, Gotta Be Heaven, China Cat, I Know You Rider). `show.json` now holds those flags.
+- Dark Star Orchestra recreates Grateful Dead shows (often a specific historical setlist).
+- The brief prompt is `packages/llama/src/llama/prompts/brief*` (find it); its inputs are built in `generate_briefing` (show_json, research.md, vetting summary, reviews digest).
+
+## Questions to answer, with file/line evidence
+1. What setlist does the fresh briefing describe, and where did it come from? Compare `briefing.json` (`mentioned_songs`, `per_set`) against `show.json`'s tracks, `research.md`, `reviews.json`, `vetting.json`, and the cached archive.org item (`~/.llama/cache/md_<identifier>.json`; the identifier is in `selection.json`/`provenance.json`). Is it the recreated GD show's setlist? A different DSO night? The tape's real setlist with titles the show lacks?
+2. What are `show.json`'s track titles and `title_source`s — are they unresolved/placeholder (so the guard's known-song set is nearly empty), or real titles that don't match? Did the Tier 1 replay change the titles (compare against `G2-cand-held.json`'s `title_changes` for this slug)?
+3. Why did the OLD stored briefing pass the guard and the fresh one not (diff old vs new if the old one is recoverable; if not, reason from what the old show.json/titles were — the G2 arm row's digests and fields)?
+4. Is this a guard false alarm (the brief is right and the show's titles are wrong/missing), a brief-prompt failure (the LLM described the wrong show), or a data problem (research.md describes the wrong show)? One sentence verdict, then evidence.
+5. Propose a fix (do not build it): where, what, the risk, and how it would be measured. Also say whether other held or packaged shows are likely affected (e.g. other DSO / tribute-band shows in `~/.llama/shows/` — count them read-only, and check a few packaged ones' briefings for the same pattern).
+
+Write the handback as: verdict, evidence (paths + quoted lines), cause, proposed fix, blast radius.

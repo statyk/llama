@@ -1,0 +1,190 @@
+progress: implementing gate
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+..................s..................................................... [ 98%]
+.........................................................                [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=87549) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3656 passed, 1 skipped, 8 deselected, 26 warnings in 49.82s
+=== mutation predictions (written before flipping) ===
+a  drop own_full -> test_right_show_gate_table[8-0-5-dates4-False], [8-0-5-dates5-False], test_right_show_gate_requires_the_own_full_date_with_year
+b1 drop not date_flags_raw -> test_right_show_gate_table[8-0-5-dates6-False], test_4a_reads_the_raw_date_flags_not_the_windowed_ones
+b2 grounding_flags passes windowed date flags -> test_4a_reads_the_raw_date_flags_not_the_windowed_ones
+c  drop len(unknown)<=len(asserted) -> test_4a_unknown_songs_may_not_outnumber_the_asserted_tracks
+d  tautological counted as resolved -> test_4a_excludes_tautological_titles_from_both_sides
+e  >= -> > on tape fraction -> test_right_show_gate_holds_at_exactly_half_the_tape, test_right_show_gate_excludes_filler_from_the_resolved_count
+f  (extra) drop is_filler exclusion -> test_right_show_gate_excludes_filler_from_the_resolved_count
+g  (extra) drop unresolved-half clause -> test_right_show_gate_table[8-9-5-dates3-False]
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t16-impl-SLxmKN
+### mutant a: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/a/tree/packages/llama/src/llama/__init__.py
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/837d9dc6-98f1-4e3d-839b-6d49195e368c/scratchpad/mut.py", line 33, in <module>
+    assert where.startswith(M + "/tree"), where
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+AssertionError: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/a/tree/packages/llama/src/llama/__init__.py
+### mutant a: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/a/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_table[8-0-5-dates4-False]
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_table[8-0-5-dates5-False]
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_requires_the_own_full_date_with_year
+3 failed, 66 passed, 1 warning in 2.85s
+### mutant b1: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/b1/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_table[8-0-5-dates6-False]
+FAILED packages/llama/tests/test_stage_vet.py::test_4a_reads_the_raw_date_flags_not_the_windowed_ones
+2 failed, 67 passed, 1 warning in 0.75s
+### mutant b2: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/b2/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_4a_reads_the_raw_date_flags_not_the_windowed_ones
+1 failed, 68 passed, 1 warning in 2.78s
+### mutant c: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/c/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_4a_unknown_songs_may_not_outnumber_the_asserted_tracks
+1 failed, 68 passed, 1 warning in 0.72s
+### mutant d: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/d/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_4a_excludes_tautological_titles_from_both_sides
+1 failed, 68 passed, 1 warning in 0.72s
+### mutant e: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/e/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_holds_at_exactly_half_the_tape
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_excludes_filler_from_the_resolved_count
+2 failed, 67 passed, 1 warning in 0.75s
+### mutant f: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/f/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_excludes_filler_from_the_resolved_count
+1 failed, 68 passed, 1 warning in 0.70s
+### mutant g: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-SLxmKN/g/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_table[8-9-5-dates3-False]
+1 failed, 68 passed, 1 warning in 0.73s
+removed /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t16-impl-SLxmKN
+=== fix round 1 start ===
+brief.py compiles clean under -W error
+=== r1 mutation predictions (before flipping) ===
+f1 delete fraction clause -> test_right_show_gate_table[10-0-4-dates2-False]
+f2 numerator RIGHT_SHOW_MIN_TAPE_FRACTION * len(asserted) -> test_right_show_gate_table[10-0-4-dates2-False]
+SyntaxError: "\s" is an invalid escape sequence. Did you mean "\\s"? A raw string is also an option.
+after fix: no warning
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t16-impl-r1-nBvLuG
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/837d9dc6-98f1-4e3d-839b-6d49195e368c/scratchpad/mut.py", line 14
+    "f1": ("        and len(asserted) >= RIGHT_SHOW_MIN_TAPE_FRACTION * len(resolved)
+           ^
+SyntaxError: unterminated string literal (detected at line 14)
+### mutant f1: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-r1-nBvLuG/f1/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_table[10-0-4-dates2-False]
+1 failed, 69 passed in 0.79s
+### mutant f2: llama from /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t16-impl-r1-nBvLuG/f2/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_vet.py::test_right_show_gate_table[10-0-4-dates2-False]
+1 failed, 69 passed in 0.75s
+removed /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t16-impl-r1-nBvLuG
+130 passed in 0.32s
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+...................s.................................................... [ 98%]
+..........................................................               [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=46738) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3657 passed, 1 skipped, 8 deselected, 26 warnings in 48.67s

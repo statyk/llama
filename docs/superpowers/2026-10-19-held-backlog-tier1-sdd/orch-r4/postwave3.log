@@ -1,0 +1,13 @@
+09:55:50 postwave 3 start
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 39 show(s): clean=36, clears=1, needs-brief=2
+replay rc=0
+check rc=0
+  darkstarorchestra-2012-05-19: ['briefing mentions unknown song: Hell In A Bucket', "briefing mentions unknown song: Walkin' Blues", 'briefing mentions unknown song: Ramble On Rose', 'briefing mentions unknown song: Beat It On Down The Line', 'briefing mentions unknown song: Big Railroad Blues', "briefing mentions unknown song: Just Like Tom Thumb's Blues", 'briefing mentions unknown song: Let It Grow', 'briefing mentions unknown song: Sugar Magnolia', 'briefing mentions unknown song: Follish Heart', "briefing mentions unknown song: Playin' In The Band", 'briefing mentions unknown song: Terrapin Station', "briefing mentions unknown song: Playin' In The Band Jam", 'briefing mentions unknown song: Drums-Space Jam', 'briefing mentions unknown song: The Wheel', 'briefing mentions unknown song: Black Peter', 'briefing mentions unknown song: Around & Around', 'briefing mentions unknown song: Sunshine Daydream', 'briefing mentions unknown song: Box Of Rain', 'briefing mentions unknown song: Gotta Be Heaven', 'briefing mentions unknown song: China Cat', 'briefing mentions unknown song: I Know You Rider']
+new show dirs created since marker (not in shows-before; llama get): 0 []
+rows 39, mismatches 1, fresh-brief lines 28 (all in wave: True), progress entries 39, re-deliver lines 0
+new llm-failures: 0 []
+show dirs outside the wave written since marker: 0 []
+other slugs named in log: []
+09:55:52 postwave 3 end

@@ -1,0 +1,10 @@
+reviewing diff; focused checks
+== mutant A: < 0.99 -> < 1.0
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut/A/tree/packages/llama/src/llama/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut/A/tree/scripts/replay_holds.py
+...........                                                              [100%]
+11 passed, 21 deselected in 3.08s
+== mutant B: no pilot swap
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut/B/tree/packages/llama/src/llama/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut/B/tree/scripts/replay_holds.py
+...........                                                              [100%]
+11 passed, 21 deselected in 0.96s
+mutants A,B survived; grep done

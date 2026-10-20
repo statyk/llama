@@ -1,0 +1,6 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//evid-rr1-snap-vBdvWk
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/evid-rr1-snap-vBdvWk/packages/llama/src/llama/__init__.py
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3803 passed, 1 skipped, 8 deselected, 26 warnings in 125.02s (0:02:05)
+snapshot removed

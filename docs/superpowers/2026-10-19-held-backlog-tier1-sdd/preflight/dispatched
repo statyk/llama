@@ -1,0 +1,4 @@
+budget-min: 30
+role: reviewer
+model: opus
+what: pre-flight plan conflict scan (read-only)

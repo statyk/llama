@@ -1,0 +1,4 @@
+budget-min: 45
+role: impl
+model: sonnet
+what: evidence doc + CLAUDE.md pointer

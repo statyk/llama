@@ -1,0 +1,122 @@
+17:04:04 start
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+replayed 100/1073
+replayed 200/1073
+replayed 300/1073
+replayed 400/1073
+replayed 500/1073
+replayed 600/1073
+replayed 700/1073
+replayed 800/1073
+replayed 900/1073
+replayed 1000/1073
+replayed 1073 show(s): needs-brief=43, needs-llm=492, still-held=538
+
+real	0m12.663s
+user	0m7.997s
+sys	0m1.135s
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+replayed 100/3468
+replayed 200/3468
+replayed 300/3468
+replayed 400/3468
+replayed 500/3468
+replayed 600/3468
+replayed 700/3468
+replayed 800/3468
+replayed 900/3468
+replayed 1000/3468
+replayed 1100/3468
+replayed 1200/3468
+replayed 1300/3468
+replayed 1400/3468
+replayed 1500/3468
+replayed 1600/3468
+replayed 1700/3468
+replayed 1800/3468
+replayed 1900/3468
+replayed 2000/3468
+replayed 2100/3468
+replayed 2200/3468
+replayed 2300/3468
+replayed 2400/3468
+replayed 2500/3468
+replayed 2600/3468
+replayed 2700/3468
+replayed 2800/3468
+replayed 2900/3468
+replayed 3000/3468
+replayed 3100/3468
+replayed 3200/3468
+replayed 3300/3468
+replayed 3400/3468
+replayed 3468 show(s): clean=2038, needs-brief=43, needs-llm=844, newly-held=4, still-held=538, unreplayable=1
+
+real	0m32.950s
+user	0m22.506s
+sys	0m3.402s
+base rc=0
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 100/1073
+replayed 200/1073
+replayed 300/1073
+replayed 400/1073
+replayed 500/1073
+replayed 600/1073
+replayed 700/1073
+replayed 800/1073
+replayed 900/1073
+replayed 1000/1073
+replayed 1073 show(s): needs-brief=66, needs-llm=494, still-held=506, structure-changed=7
+
+real	0m14.515s
+user	0m11.419s
+sys	0m1.276s
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 100/3468
+replayed 200/3468
+replayed 300/3468
+replayed 400/3468
+replayed 500/3468
+replayed 600/3468
+replayed 700/3468
+replayed 800/3468
+replayed 900/3468
+replayed 1000/3468
+replayed 1100/3468
+replayed 1200/3468
+replayed 1300/3468
+replayed 1400/3468
+replayed 1500/3468
+replayed 1600/3468
+replayed 1700/3468
+replayed 1800/3468
+replayed 1900/3468
+replayed 2000/3468
+replayed 2100/3468
+replayed 2200/3468
+replayed 2300/3468
+replayed 2400/3468
+replayed 2500/3468
+replayed 2600/3468
+replayed 2700/3468
+replayed 2800/3468
+replayed 2900/3468
+replayed 3000/3468
+replayed 3100/3468
+replayed 3200/3468
+replayed 3300/3468
+replayed 3400/3468
+replayed 3468 show(s): clean=2033, clean-changed=2, needs-brief=66, needs-llm=846, newly-held=7, still-held=506, structure-changed=7, unreplayable=1
+
+real	0m31.106s
+user	0m24.191s
+sys	0m3.066s
+cand rc=0
+compare: wrote /Users/shawn/.llama-harness/cmp-B-held
+cmp-held exit 0
+compare: wrote /Users/shawn/.llama-harness/cmp-B-all
+cmp-all exit 0
+17:05:37 end

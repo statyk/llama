@@ -1,0 +1,28 @@
+18:12:11 start
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+replayed 1073 show(s): needs-brief=43, needs-llm=492, still-held=538
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+replayed 3468 show(s): clean=2038, needs-brief=43, needs-llm=844, newly-held=4, still-held=538, unreplayable=1
+base rc=0
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-prev/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-prev/packages/llama/src/llama/__init__.py
+replayed 1073 show(s): needs-brief=66, needs-llm=495, still-held=505, structure-changed=7
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-prev/packages/llama/src/llama/__init__.py
+replayed 3468 show(s): clean=2034, clean-changed=2, needs-brief=66, needs-llm=847, newly-held=6, still-held=505, structure-changed=7, unreplayable=1
+prev rc=0
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 1073 show(s): needs-brief=126, needs-llm=495, still-held=445, structure-changed=7
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 3468 show(s): clean=1990, clean-changed=2, needs-brief=126, needs-llm=847, newly-held=50, still-held=445, structure-changed=7, unreplayable=1
+cand rc=0
+compare: wrote /Users/shawn/.llama-harness/cmp-C-held
+cmp-held exit 0
+baseline reproduces 545/578 held shows that are not needs-LLM (< 99%)
+cmp-slice-held exit 3
+compare: wrote /Users/shawn/.llama-harness/cmp-C-all
+cmp-all exit 0
+baseline reproduces 545/578 held shows that are not needs-LLM (< 99%)
+cmp-slice-all exit 3
+18:14:38 end

@@ -1,0 +1,4 @@
+budget-min: 50
+role: impl
+model: sonnet
+what: reapply I3 + type names + dry-run count

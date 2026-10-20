@@ -1,0 +1,646 @@
+scratch /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//cpC-8eC5iV
+jerrybase: skipped 117 malformed rows
+===== alejandroescovedo-2008-09-09 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'West Hollywood, CA' (selected) vs 'W.Hollywood, CA'"]
+  stored venue/city: 'The Troubadour' 'W.Hollywood, CA'
+  vote: 'The Troubadour' 'W.Hollywood, CA'
+  selected: 'The Troubador' 'West Hollywood, CA'
+  cand venue chg: {'old': 'The Troubadour', 'new': 'The Troubador'}  city chg: {'old': 'W.Hollywood, CA', 'new': 'West Hollywood, CA'}
+  notes: []
+  recs: [('The Troubadour', 'W.Hollywood, CA'), ('The Troubador', 'West Hollywood, CA')]
+  parts sel ('west hollywood', 'ca') vote ('w hollywood', 'ca')
+===== belafleckandtheflecktones-2006-08-04 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Oyster Bay, Long Island, NY' (selected) vs 'Oyster Bay, NY'"]
+  stored venue/city: 'Planting Fields Arboretum' 'Oyster Bay, NY'
+  vote: 'Planting Fields Arboretum' 'Oyster Bay, NY'
+  selected: 'Planting Fields Arboretum' 'Oyster Bay, Long Island, NY'
+  cand venue chg: None  city chg: {'old': 'Oyster Bay, NY', 'new': 'Oyster Bay, Long Island, NY'}
+  notes: []
+  recs: [('Planting Fields Arboretum', 'Oyster Bay, NY'), ('Planting Fields', 'Oyster Bay,Ny'), ('Planting Fields Arboretum', 'Oyster Bay, Long Island, NY')]
+  parts sel ('oyster bay', 'long island') vote ('oyster bay', 'ny')
+===== beneventorusso-2005-08-27 clean -> newly-held state packaged
+  new flags: ["recordings of this date disagree on city: 'Skye-Top Festival Grounds , Van Etten,NY' (selected) vs 'Van Etten,NY'"]
+  stored venue/city: 'Skye-Top Festival Grounds' 'Van Etten,NY'
+  vote: 'Skye-Top Festival Grounds' 'Van Etten,NY'
+  selected: 'Camp Bisco IV: The Trance-Formation' 'Skye-Top Festival Grounds , Van Etten,NY'
+  cand venue chg: {'old': 'Skye-Top Festival Grounds', 'new': 'Camp Bisco IV: The Trance-Formation'}  city chg: {'old': 'Van Etten,NY', 'new': 'Skye-Top Festival Grounds , Van Etten,NY'}
+  notes: []
+  recs: [('Skye-Top Festival Grounds', 'Van Etten,NY'), ('Camp Bisco IV: The Trance-Formation', 'Skye-Top Festival Grounds , Van Etten,NY')]
+  parts sel ('skye top festival grounds', 'van etten') vote ('van etten', 'ny')
+===== cracker-2009-05-15 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'St. Louis, MO' (selected) vs 'University City, MO'"]
+  stored venue/city: 'Blueberry Hill, Duck Room' 'University City, MO'
+  vote: 'Blueberry Hill, Duck Room' 'University City, MO'
+  selected: 'Duck Room' 'St. Louis, MO'
+  cand venue chg: {'old': 'Blueberry Hill, Duck Room', 'new': 'Duck Room'}  city chg: {'old': 'University City, MO', 'new': 'St. Louis, MO'}
+  notes: []
+  recs: [('Blueberry Hill, Duck Room', 'University City, MO'), ('Duck Room', 'St. Louis, MO')]
+  parts sel ('saint louis', 'mo') vote ('university city', 'mo')
+===== darkstarorchestra-2007-07-03 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'garrettsville, oh' (selected) vs 'Nelson Twp. OH.'"]
+  stored venue/city: 'Nelson Ledges Quarry Park' 'Nelson Twp. OH.'
+  vote: 'Nelson Ledges Quarry Park' 'Nelson Twp. OH.'
+  selected: 'nelson ledges quarry park' 'garrettsville, oh'
+  cand venue chg: {'old': 'Nelson Ledges Quarry Park', 'new': 'nelson ledges quarry park'}  city chg: {'old': 'Nelson Twp. OH.', 'new': 'garrettsville, oh'}
+  notes: []
+  recs: [('Nelson Ledges Quarry Park', 'Nelson Twp. OH.'), ('Nelson Ledges Quarry Park', 'Nelson Twp. OH.'), ('GratefulFest 8', 'Nelson Ledges Quarry Park, OH'), ('nelson ledges quarry park', 'garrettsville, oh')]
+  jb: 'Nelson Ledges Quarry Park' 'Garrettsville, OH' ('garrettsville', 'oh')
+  parts sel ('garrettsville', 'oh') vote ('nelson twp oh', '')
+===== darkstarorchestra-2007-07-05 clean -> newly-held state packaged
+  new flags: ["recordings of this date disagree on city: 'Garrettsville, OH' (selected) vs 'Nelson Twp. OH'"]
+  stored venue/city: 'Nelson Ledges Quarry Park' 'Nelson Twp. OH'
+  vote: 'Nelson Ledges Quarry Park' 'Nelson Twp. OH'
+  selected: 'Nelson Ledges Quarry Park' 'Garrettsville, OH'
+  cand venue chg: None  city chg: {'old': 'Nelson Twp. OH', 'new': 'Garrettsville, OH'}
+  notes: []
+  recs: [('Nelson Ledges Quarry Park', 'Nelson Twp. OH'), ('Nelson Ledges Quarry Park', 'Garrettsville, OH')]
+  jb: 'Nelson Ledges Quarry Park' 'Garrettsville, OH' ('garrettsville', 'oh')
+  parts sel ('garrettsville', 'oh') vote ('nelson twp oh', '')
+===== darkstarorchestra-2007-07-07 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'garrettsville, oh' (selected) vs 'Nelson Twp. OH.'"]
+  stored venue/city: 'Nelson Ledges Quarry Park' 'Nelson Twp. OH.'
+  vote: 'Nelson Ledges Quarry Park' 'Nelson Twp. OH.'
+  selected: 'nelson ledges quarry park' 'garrettsville, oh'
+  cand venue chg: {'old': 'Nelson Ledges Quarry Park', 'new': 'nelson ledges quarry park'}  city chg: {'old': 'Nelson Twp. OH.', 'new': 'garrettsville, oh'}
+  notes: []
+  recs: [('Nelson Ledges Quarry Park', 'Nelson Twp. OH.'), ('nelson ledges quarry park', 'garrettsville, oh')]
+  jb: 'Nelson Ledges Quarry Park' 'Garrettsville, OH' ('garrettsville', 'oh')
+  parts sel ('garrettsville', 'oh') vote ('nelson twp oh', '')
+===== darkstarorchestra-2009-12-30 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Rams Head Live' vs jerrybase 'Rams Head Live!'"]
+  stored venue/city: 'Rams Head Live' None
+  vote: 'Rams Head Live' None
+  selected: 'Rams Head Live' None
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Rams Head Live', None)]
+  jb: 'Rams Head Live!' 'Baltimore, MD' ('baltimore', 'md')
+  parts sel ('', '') vote ('', '')
+===== deadandcompany-2015-11-28 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'MGM Grand Garden Arena' vs jerrybase 'MGM Grand Garden Arena'"]
+  stored venue/city: 'MGM Grand Garden Arena' 'Las Vegas, NV/Clark County'
+  vote: 'MGM Grand Garden Arena' 'Las Vegas, NV/Clark County'
+  selected: 'MGM Grand Garden Arena' 'Las Vegas, NV/Clark County'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('MGM Grand Garden Arena', 'Las Vegas, NV/Clark County'), ('MGM Grand Garden Arena', None)]
+  jb: 'MGM Grand Garden Arena' 'Las Vegas, NV' ('las vegas', 'nv')
+  parts sel ('las vegas', 'nvclark county') vote ('las vegas', 'nvclark county')
+===== derektrucksband-2005-11-06 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Berlin, GER' (selected) vs 'Berlin, Germany'"]
+  stored venue/city: 'Delphi Theater' 'Berlin, Germany'
+  vote: 'Delphi Theater' 'Berlin, Germany'
+  selected: 'Jazzfest Berlin, Delphi Theater,' 'Berlin, GER'
+  cand venue chg: {'old': 'Delphi Theater', 'new': 'Jazzfest Berlin, Delphi Theater,'}  city chg: {'old': 'Berlin, Germany', 'new': 'Berlin, GER'}
+  notes: []
+  recs: [('Delphi Theater', 'Berlin, Germany'), ('Jazzfest Berlin, Delphi Theater,', 'Berlin, GER')]
+  parts sel ('berlin', 'ger') vote ('berlin', 'germany')
+===== derektrucksband-2007-05-27 clean -> newly-held state packaged
+  new flags: ["recordings of this date disagree on city: 'Lake Martin, AL' (selected) vs 'Alexander City, AL'"]
+  stored venue/city: 'Lake Martin Amphitheater' 'Alexander City, AL'
+  vote: 'Lake Martin Amphitheater' 'Alexander City, AL'
+  selected: 'Lake Martin Ampitheater' 'Lake Martin, AL'
+  cand venue chg: {'old': 'Lake Martin Amphitheater', 'new': 'Lake Martin Ampitheater'}  city chg: {'old': 'Alexander City, AL', 'new': 'Lake Martin, AL'}
+  notes: []
+  recs: [('Lake Martin Amphitheater', 'Alexander City, AL'), ('Lake Martin Ampitheater', 'Lake Martin, AL')]
+  parts sel ('lake martin', 'al') vote ('alexander city', 'al')
+===== furthur-2010-06-27 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Brooklyn, NY' (selected) vs 'Coney Island, NY'"]
+  stored venue/city: 'MCU Park' 'Coney Island, NY'
+  vote: 'MCU Park' 'Coney Island, NY'
+  selected: 'MCU Park' 'Brooklyn, NY'
+  cand venue chg: None  city chg: {'old': 'Coney Island, NY', 'new': 'Brooklyn, NY'}
+  notes: []
+  recs: [('MCU Park', 'Brooklyn, NY'), ('MCU Park', 'Brooklyn, NY'), ('MCU Park', 'Coney Island, NY'), ('MCU Park', 'Brooklyn,NY'), ('MCU Park', 'Coney Island, NY'), ('mcu park', 'brooklyn ny'), ('MCU Park', 'Coney Island, NY'), ('MCU Park', 'Coney Island, NY'), ('MCU Park, Coney Island', 'Brooklyn, NY')]
+  jb: 'MCU Park' 'Brooklyn, NY' ('brooklyn', 'ny')
+  parts sel ('brooklyn', 'ny') vote ('coney island', 'ny')
+===== furthur-2010-07-03 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Gelston Castle Estate' vs jerrybase 'Gelston Castle'"]
+  stored venue/city: 'Gelston Castle Estate' 'Mohawk, NY'
+  vote: 'Gelston Castle Estate' 'Mohawk, NY'
+  selected: 'Gelston Castle Estate' 'Mohawk, NY'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Gelston Castle Estate', 'Mohawk, NY'), ('Gelston Castle Estate', 'Herkimer, NY'), ('Gelston Castle Estates', 'Mohawk, NY'), ('gelston castle', 'mohawk ny'), ('Gelsten Castle Estate', 'Herkimer, NY'), ('Gelsten Castle Estate', 'Herkimer, NY'), ('Gelsten Castle Estate', 'Herkimer, NY'), ('Gelston Castle Estate', 'Mohawk, NY'), ('Gelsten Castle Estate', 'Herkimer, NY'), ('Gelston Castle Estate', 'Mohawk, NY'), ('Gelston Castle Estate', 'Mohawk, NY'), ('Gelsten Castle Estate', 'Herkimer, NY'), ('Gelston Castle Estate', 'Mohawk, NY')]
+  jb: 'Gelston Castle' 'Jordanville, NY' ('jordanville', 'ny')
+  parts sel ('mohawk', 'ny') vote ('mohawk', 'ny')
+===== furthur-2010-11-21 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'New York City, NY' (selected) vs 'NY, NY'"]
+  stored venue/city: 'MSG' 'NY, NY'
+  vote: 'MSG' 'NY, NY'
+  selected: 'Madison Square Garden' 'New York City, NY'
+  cand venue chg: {'old': 'MSG', 'new': 'Madison Square Garden'}  city chg: {'old': 'NY, NY', 'new': 'New York City, NY'}
+  notes: []
+  recs: [('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('MSG', 'NY, NY'), ('Madison Square Garden', 'New York, NY'), ('Madison Square Garden', 'New York, NY'), ('Madison Square Garden', 'New York City, NY')]
+  jb: 'Madison Square Garden' 'New York, NY' ('new york', 'ny')
+  parts sel ('new york city', 'ny') vote ('ny', 'ny')
+===== ginblossoms-2003-01-24 clean -> newly-held state packaged
+  new flags: ["recordings of this date disagree on city: 'Agoura Hills, CA' (selected) vs 'Los Angeles, CA'"]
+  stored venue/city: 'KLOS Mark and Brian Radio' 'Los Angeles, CA'
+  vote: 'KLOS Mark and Brian Radio' 'Los Angeles, CA'
+  selected: 'Canyon Club' 'Agoura Hills, CA'
+  cand venue chg: {'old': 'KLOS Mark and Brian Radio', 'new': 'Canyon Club'}  city chg: {'old': 'Los Angeles, CA', 'new': 'Agoura Hills, CA'}
+  notes: []
+  recs: [('KLOS Mark and Brian Radio', 'Los Angeles, CA'), ('Canyon Club', 'Agoura Hills, CA')]
+  parts sel ('agoura hills', 'ca') vote ('los angeles', 'ca')
+===== gratefuldead-1970-01-16 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Springer's Inn Portland' vs jerrybase 'Springer's Inn'"]
+  stored venue/city: "Springer's Inn Portland" 'Portland, OR'
+  vote: "Springer's Inn Portland" 'Portland, OR'
+  selected: "Springer's Inn Portland" 'Portland, OR'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [("Springer's Inn Portland", 'Portland, OR'), ("Springer's Inn Portland", 'Portland, OR'), ("Springer's Inn Portland", 'Portland, OR'), ("Springer's Inn Portland", 'Portland, OR')]
+  jb: "Springer's Inn" 'Gresham, OR' ('gresham', 'or')
+  parts sel ('portland', 'or') vote ('portland', 'or')
+===== gratefuldead-1971-08-26 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Gaelic Park' vs jerrybase 'Gaelic Park'", "recordings of this date disagree on city: 'New York , NY' (selected) vs 'Bronx, NY'"]
+  stored venue/city: 'Gaelic Park' 'Bronx, NY'
+  vote: 'Gaelic Park' 'Bronx, NY'
+  selected: 'Gaelic Park' 'New York , NY'
+  cand venue chg: None  city chg: {'old': 'Bronx, NY', 'new': 'New York , NY'}
+  notes: []
+  recs: [('Gaelic Park', 'Bronx, NY'), ('Gaelic Park', 'Bronx, NY'), ('Gaelic Park', 'Bronx, NY'), ('Gaelic Park', 'Bronx, NY'), ('Gaelic Park', 'Bronx, NY'), ('Gaelic Park', 'Bronx, NY'), ('Gaelic Park', 'Bronx, NY'), ('Gaelic Park', 'New York, NY'), ('Gaelic Park', 'New York , NY'), ('Gaelic Park', 'Bronx, NY'), ('Gaelic Park', 'Bronx, NY')]
+  jb: 'Gaelic Park' 'Bronx, NY' ('bronx', 'ny')
+  parts sel ('new york', 'ny') vote ('bronx', 'ny')
+===== gratefuldead-1972-04-29 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Musikhalle' vs jerrybase 'Musikhalle'"]
+  stored venue/city: 'Musikhalle' 'Hamburg, Germany'
+  vote: 'Musikhalle' 'Hamburg, Germany'
+  selected: 'Musikhalle' 'Hamburg, Germany'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Musikhalle', 'Hamburg, Germany'), ('Musikhalle', 'Hamburg, Germany'), ('Musikhalle', 'Hamburg, West Germany'), ('Musikhalle', 'Hamburg, West Germany'), ('Musikhalle', 'Hamburg, Germany'), ('Musikhalle', 'Hamburg, West Germany'), ('Musikhalle', 'Hamburg, Germany'), ('Musikhalle', 'Hamburg, Germany'), ('Musikhalle', 'Hamburg, Germany')]
+  jb: 'Musikhalle' 'Hamburg, FRG' ('hamburg', 'frg')
+  parts sel ('hamburg', 'germany') vote ('hamburg', 'germany')
+===== gratefuldead-1972-05-11 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Rotterdam Civic Hall' vs jerrybase 'Rotterdam Civic Hall'"]
+  stored venue/city: 'Rotterdam Civic Hall' 'Rotterdam, Netherlands'
+  vote: 'Rotterdam Civic Hall' 'Rotterdam, Netherlands'
+  selected: 'Rotterdam Civic Hall' 'Rotterdam, Netherlands'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Rotterdam Civic Hall', 'Rotterdam, Netherlands'), ('Rotterdam Civic Hall', 'Rotterdam, Netherlands'), ('Rotterdam Civic Hall', 'Rotterdam, Netherlands')]
+  jb: 'Rotterdam Civic Hall' 'Rotterdam, NL' ('rotterdam', 'nl')
+  parts sel ('rotterdam', 'netherlands') vote ('rotterdam', 'netherlands')
+===== gratefuldead-1973-08-01 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Roosevelt Stadium' vs jerrybase 'Roosevelt Stadium'"]
+  stored venue/city: 'Roosevelt Stadium' 'Jersey City, NJ'
+  vote: 'Roosevelt Stadium' 'Jersey City, NJ'
+  selected: 'Roosevelt Stadium' 'Jersey City, NJ'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Roosevelt Stadium', 'Jersey City, NJ'), ('Record Plant', 'Sausalito, CA'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Record Plant', 'Sausalito, CA'), ('Record Plant', 'Sausalito, CA'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Studio- Wake of the Flood Outtakes', 'San Francisco?, CA')]
+  jb: 'Roosevelt Stadium' 'Jersey City, NY' ('jersey city', 'ny')
+  parts sel ('jersey city', 'nj') vote ('jersey city', 'nj')
+===== gratefuldead-1974-08-06 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Roosevelt Stadium' vs jerrybase 'Roosevelt Stadium'"]
+  stored venue/city: 'Roosevelt Stadium' 'Jersey City, NJ'
+  vote: 'Roosevelt Stadium' 'Jersey City, NJ'
+  selected: 'Roosevelt Stadium' 'Jersey City, NJ'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ')]
+  jb: 'Roosevelt Stadium' 'Jersey City, NY' ('jersey city', 'ny')
+  parts sel ('jersey city', 'nj') vote ('jersey city', 'nj')
+===== gratefuldead-1976-08-04 clean -> newly-held state packaged
+  new flags: ["venue mismatch: archive 'Roosevelt Stadium' vs jerrybase 'Roosevelt Stadium'"]
+  stored venue/city: 'Roosevelt Stadium' 'Jersey City, NJ'
+  vote: 'Roosevelt Stadium' 'Jersey City, NJ'
+  selected: 'Roosevelt Stadium' 'Jersey City, NJ'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ'), ('Roosevelt Stadium', 'Jersey City, NJ')]
+  jb: 'Roosevelt Stadium' 'Jersey City, NY' ('jersey city', 'ny')
+  parts sel ('jersey city', 'nj') vote ('jersey city', 'nj')
+===== gratefuldead-1978-09-16 clean -> newly-held state packaged
+  new flags: ["venue mismatch: archive 'Gizah Sound and Light Theater' vs jerrybase 'Gizah Sound and Light Theater'", "recordings of this date disagree on city: 'Giza, Egypt' (selected) vs 'Cairo, Egypt'"]
+  stored venue/city: 'Gizah Sound and Light Theater' 'Cairo, Egypt'
+  vote: 'Gizah Sound and Light Theater' 'Cairo, Egypt'
+  selected: 'Sphinx Theatre' 'Giza, Egypt'
+  cand venue chg: {'old': 'Gizah Sound and Light Theater', 'new': 'Sphinx Theatre'}  city chg: {'old': 'Cairo, Egypt', 'new': 'Giza, Egypt'}
+  notes: []
+  recs: [('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Sphinx Theatre', 'Giza, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt'), ('Sphinx Theatre', 'Giza, Egypt'), ('Sphinx Theatre', 'Giza, Egypt'), ('Sphinx Theatre', 'Giza, Egypt'), ('Sphinx Theatre', 'Giza, Egypt'), ('Gizah Sound and Light Theater', 'Cairo, Egypt')]
+  jb: 'Gizah Sound and Light Theater' 'Cairo, Egypt' ('cairo', 'egypt')
+  parts sel ('giza', 'egypt') vote ('cairo', 'egypt')
+===== gratefuldead-1991-06-09 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Buckeye Lake Music Center' vs jerrybase 'Buckeye Lake Music Center'"]
+  stored venue/city: 'Buckeye Lake Music Center' 'Hebron, OH'
+  vote: 'Buckeye Lake Music Center' 'Hebron, OH'
+  selected: 'Buckeye Lake Music Center' 'Hebron, OH'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Buckeye Lake Music Center', 'Hebron, OH'), ('Rich Stadium', 'Orchard Park, NY'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH')]
+  jb: 'Buckeye Lake Music Center' 'Thornville, OH' ('legend valley', 'oh')
+  parts sel ('hebron', 'oh') vote ('hebron', 'oh')
+===== gratefuldead-1992-03-20 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Copps Coliseum' vs jerrybase 'Copps Coliseum'", "recordings of this date disagree on city: 'Hamilton Ontario, CA' (selected) vs 'Hamilton, ON'"]
+  stored venue/city: 'Copps Coliseum' 'Hamilton, ON'
+  vote: 'Copps Coliseum' 'Hamilton, ON'
+  selected: 'Copps Coliseum' 'Hamilton Ontario, CA'
+  cand venue chg: None  city chg: {'old': 'Hamilton, ON', 'new': 'Hamilton Ontario, CA'}
+  notes: []
+  recs: [('Copps Coliseum', 'Hamilton, ON'), ('Copps Coliseum', 'Hamilton, ON'), ('Copps Coliseum', 'Hamilton, ON'), ('Copps Coliseum', 'Hamilton, ON'), ('Copps Coliseum', 'Hamilton, ON'), ('Copps Coliseum', 'Hamilton, Ontario Canada'), ('Copps Coliseum', 'Hamilton, Ontario, Canada'), ('Copps Coliseum', 'Hamilton, Ontario, Canada'), ('Copps Coliseum', 'Hamilton, ON'), ('Copps Coliseum', 'Hamilton Ontario, CA')]
+  jb: 'Copps Coliseum' 'Hamilton, ON' ('hamilton', 'on')
+  parts sel ('hamilton ontario', 'ca') vote ('hamilton', 'on')
+===== gratefuldead-1992-07-01 clean -> newly-held state packaged
+  new flags: ["venue mismatch: archive 'Buckeye Lake Music Center' vs jerrybase 'Buckeye Lake Music Center'"]
+  stored venue/city: 'Buckeye Lake Music Center' 'Hebron, OH'
+  vote: 'Buckeye Lake Music Center' 'Hebron, OH'
+  selected: 'Buckeye Lake Music Center' 'Hebron, OH'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH')]
+  jb: 'Buckeye Lake Music Center' 'Thornville, OH' ('legend valley', 'oh')
+  parts sel ('hebron', 'oh') vote ('hebron', 'oh')
+===== gratefuldead-1993-06-11 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Buckeye Lake Music Center' vs jerrybase 'Buckeye Lake Music Center'"]
+  stored venue/city: 'Buckeye Lake Music Center' 'Hebron, OH'
+  vote: 'Buckeye Lake Music Center' 'Hebron, OH'
+  selected: 'Buckeye Lake Music Center' 'Hebron, OH'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH'), ('Buckeye Lake Music Center', 'Hebron, OH')]
+  jb: 'Buckeye Lake Music Center' 'Thornville, OH' ('legend valley', 'oh')
+  parts sel ('hebron', 'oh') vote ('hebron', 'oh')
+===== jjgreyandmofro-2008-10-12 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Deerfields, NC' (selected) vs 'Mills River, NC'"]
+  stored venue/city: 'Loki Music Festival, Deerfields' 'Mills River, NC'
+  vote: 'Loki Music Festival, Deerfields' 'Mills River, NC'
+  selected: 'Loki Music Festival' 'Deerfields, NC'
+  cand venue chg: {'old': 'Loki Music Festival, Deerfields', 'new': 'Loki Music Festival'}  city chg: {'old': 'Mills River, NC', 'new': 'Deerfields, NC'}
+  notes: []
+  recs: [('Loki Music Festival', 'Deerfields, NC'), ('Loki Music Festival, Deerfields', 'Mills River, NC'), ('Loki Music Festival, Deerfields', 'Mills River, NC')]
+  parts sel ('deerfields', 'nc') vote ('mills river', 'nc')
+===== mogwai-2009-03-05 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Melbourne, AU' (selected) vs 'Melbourne, Australia'"]
+  stored venue/city: 'The Forum' 'Melbourne, Australia'
+  vote: 'The Forum' 'Melbourne, Australia'
+  selected: 'Forum Theatre' 'Melbourne, AU'
+  cand venue chg: {'old': 'The Forum', 'new': 'Forum Theatre'}  city chg: {'old': 'Melbourne, Australia', 'new': 'Melbourne, AU'}
+  notes: []
+  recs: [('The Forum', 'Melbourne, Australia'), ('The Forum', 'Melbourne, Australia'), ('Forum Theatre', 'Melbourne, AU'), ('Forum Theatre', 'Melbourne, AU')]
+  parts sel ('melbourne', 'au') vote ('melbourne', 'australia')
+===== mymorningjacket-2008-08-21 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Morrison, CO' (selected) vs 'Denver, CO'"]
+  stored venue/city: 'Red Rocks' 'Denver, CO'
+  vote: 'Red Rocks' 'Denver, CO'
+  selected: 'Red Rocks' 'Morrison, CO'
+  cand venue chg: None  city chg: {'old': 'Denver, CO', 'new': 'Morrison, CO'}
+  notes: []
+  recs: [('Red Rocks', 'Denver, CO'), ('Red Rocks', 'Morrison, CO')]
+  parts sel ('morrison', 'co') vote ('denver', 'co')
+===== newridersofthepurplesage-1971-08-06 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Friday, August 6, 1971' (selected) vs 'Hollywood, Los Angeles, CA'"]
+  stored venue/city: 'Hollywood Palladium' 'Hollywood, Los Angeles, CA'
+  vote: 'Hollywood Palladium' 'Hollywood, Los Angeles, CA'
+  selected: 'Hollywood Palladium' 'Friday, August 6, 1971'
+  cand venue chg: None  city chg: {'old': 'Hollywood, Los Angeles, CA', 'new': 'Friday, August 6, 1971'}
+  notes: []
+  recs: [('Hollywood Palladium', 'Hollywood, Los Angeles, CA'), ('Hollywood Palladium', 'Friday, August 6, 1971')]
+  parts sel ('friday', 'august 6') vote ('hollywood', 'los angeles')
+===== philleshandfriends-2006-02-25 clean -> newly-held state packaged
+  new flags: ["recordings of this date disagree on city: 'Upper Darby, PA' (selected) vs 'Philadelphia, PA'"]
+  stored venue/city: 'Tower Theater' 'Philadelphia, PA'
+  vote: 'Tower Theater' 'Philadelphia, PA'
+  selected: 'Tower Theater' 'Upper Darby, PA'
+  cand venue chg: None  city chg: {'old': 'Philadelphia, PA', 'new': 'Upper Darby, PA'}
+  notes: []
+  recs: [('Tower Theater', 'Philadelphia, PA'), ('Tower Theater', 'Upper Darby, PA')]
+  jb: 'Tower Theatre' 'Upper Darby, PA' ('upper darby', 'pa')
+  parts sel ('upper darby', 'pa') vote ('philadelphia', 'pa')
+===== philleshandfriends-2014-09-21 clean -> newly-held state delivered
+  new flags: ["venue mismatch: archive 'Forest Hills Stadium' vs jerrybase 'Forest Hills Stadium'", "recordings of this date disagree on city: 'Flushing, NY' (selected) vs 'Forest Hills, NY'"]
+  stored venue/city: 'Forest Hills Stadium' 'Forest Hills, NY'
+  vote: 'Forest Hills Stadium' 'Forest Hills, NY'
+  selected: 'Forest Hills Stadium' 'Flushing, NY'
+  cand venue chg: None  city chg: {'old': 'Forest Hills, NY', 'new': 'Flushing, NY'}
+  notes: []
+  recs: [('Forest Hills Tennis Stadium', 'Queens Forest Hills, NY'), ('Forest Hills Stadium', 'Queens , NY'), ('Forest Hills Stadium', 'Forest Hills, NY'), ('Forest Hills Stadium', 'Forest Hills, NY'), ('Forest Hills Stadium', 'Flushing, NY'), ('Forest Hills Stadium', 'Flushing, NY'), ('Tennis Stadium', 'Forest Hills NY'), ('Forest Hills Tennis Stadium', 'Forest Hills,New York'), ('Forest Hills Tennis Center', 'Queens, NY')]
+  jb: 'Forest Hills Stadium' 'Queens, NY' ('queens', 'ny')
+  parts sel ('flushing', 'ny') vote ('forest hills', 'ny')
+===== ratdog-2002-07-10 clean -> newly-held state packaged
+  new flags: ["venue mismatch: archive 'Melkweg' vs jerrybase 'Melkweg The Max'"]
+  stored venue/city: 'Melkweg' 'Amsterdam, The Netherlands'
+  vote: 'Melkweg' 'Amsterdam, The Netherlands'
+  selected: 'Melkweg' 'Amsterdam, The Netherlands'
+  cand venue chg: None  city chg: None
+  notes: []
+  recs: [('Melkweg', 'Amsterdam, The Netherlands'), ('Melkweg', 'Amsterdam, The Netherlands. Soundcheck'), ('Melkweg', 'Amsterdam, The Netherlands')]
+  jb: 'Melkweg The Max' 'Amsterdam, Netherlands' ('amsterdam', 'netherlands')
+  parts sel ('amsterdam', 'the netherlands') vote ('amsterdam', 'the netherlands')
+===== ryanadams-2001-04-24 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Malmo, Sweden' (selected) vs 'Malmö, Sweden'"]
+  stored venue/city: 'Kulturbolaget' 'Malmö, Sweden'
+  vote: 'Kulturbolaget' 'Malmö, Sweden'
+  selected: 'Kulturbolaget' 'Malmo, Sweden'
+  cand venue chg: None  city chg: {'old': 'Malmö, Sweden', 'new': 'Malmo, Sweden'}
+  notes: []
+  recs: [('Kulturbolaget', 'Malmö, Sweden'), ('Kulturbolaget', 'Malmo, Sweden')]
+  parts sel ('malmo', 'sweden') vote ('malm', 'sweden')
+===== ryanadams-2007-06-06 clean -> newly-held state packaged
+  new flags: ["recordings of this date disagree on city: 'London, England' (selected) vs 'London, UK'"]
+  stored venue/city: 'Gideon Coe BBC' 'London, UK'
+  vote: 'Gideon Coe BBC' 'London, UK'
+  selected: "St. Luke's Church" 'London, England'
+  cand venue chg: {'old': 'Gideon Coe BBC', 'new': "St. Luke's Church"}  city chg: {'old': 'London, UK', 'new': 'London, England'}
+  notes: []
+  recs: [('Gideon Coe BBC', 'London, UK'), ("St. Luke's Church", 'London, England')]
+  parts sel ('london', 'england') vote ('london', 'uk')
+===== ryanadams-2008-11-11 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Newcastle, UK' (selected) vs 'Newcastle, England'"]
+  stored venue/city: 'Academy' 'Newcastle, England'
+  vote: 'Academy' 'Newcastle, England'
+  selected: 'Newcastle Academy' 'Newcastle, UK'
+  cand venue chg: {'old': 'Academy', 'new': 'Newcastle Academy'}  city chg: {'old': 'Newcastle, England', 'new': 'Newcastle, UK'}
+  notes: []
+  recs: [('Academy', 'Newcastle, England'), ('Newcastle Academy', 'Newcastle, UK')]
+  parts sel ('newcastle', 'uk') vote ('newcastle', 'england')
+===== smashingpumpkins-1997-01-08 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Vancouver, BC; Canada' (selected) vs 'Vancouver, BC, CA'"]
+  stored venue/city: 'GM Place' 'Vancouver, BC, CA'
+  vote: 'GM Place' 'Vancouver, BC, CA'
+  selected: 'GM Place' 'Vancouver, BC; Canada'
+  cand venue chg: None  city chg: {'old': 'Vancouver, BC, CA', 'new': 'Vancouver, BC; Canada'}
+  notes: []
+  recs: [('GM Place - Vancouver, BC (13 thir13en Remaster)', 'Vancouver, BC'), ('GM Place', 'Vancouver, BC; Canada'), ('GM Place', None), ('GM Place', 'Vancouver, BC, CA'), ('GM Place', 'Vancouver, BC, CA')]
+  parts sel ('vancouver', 'bc canada') vote ('vancouver', 'bc')
+===== smashingpumpkins-1997-06-28 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Roskilde, Denmark' (selected) vs 'Roskilde, DK'"]
+  stored venue/city: 'Roskilde Festival (Orange Stage)' 'Roskilde, DK'
+  vote: 'Roskilde Festival (Orange Stage)' 'Roskilde, DK'
+  selected: 'Roskilde Festival - Roskilde, Denmark (13 thir13en Remaster)' 'Roskilde, Denmark'
+  cand venue chg: {'old': 'Roskilde Festival (Orange Stage)', 'new': 'Roskilde Festival - Roskilde, Denmark (13 thir13en Remaster)'}  city chg: {'old': 'Roskilde, DK', 'new': 'Roskilde, Denmark'}
+  notes: []
+  recs: [('Roskilde Festival (Orange Stage)', 'Roskilde, DK'), ('Roskilde Festival - Roskilde, Denmark (13 thir13en Remaster)', 'Roskilde, Denmark'), ('Roskilde Festival', 'Roskilde, DK'), ('Roskilde Festival (Orange Stage)', 'Roskilde, DK')]
+  parts sel ('roskilde', 'denmark') vote ('roskilde', 'dk')
+===== smashingpumpkins-1998-05-19 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Lisbon, Potugal' (selected) vs 'Lisbon, Portugal'"]
+  stored venue/city: 'Aula Magna' 'Lisbon, Portugal'
+  vote: 'Aula Magna' 'Lisbon, Portugal'
+  selected: 'Aula Magna' 'Lisbon, Potugal'
+  cand venue chg: None  city chg: {'old': 'Lisbon, Portugal', 'new': 'Lisbon, Potugal'}
+  notes: []
+  recs: [('Aula Magna - Lisbon, Portugal (13 thir13en Remaster)', 'Lisbon, Portugal'), ('Aula Magna', 'Lisbon, Potugal'), ('Aula Magna', 'Lisbon, PT')]
+  parts sel ('lisbon', 'potugal') vote ('lisbon', 'portugal')
+===== smashingpumpkins-2007-06-05 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Berlin, DE' (selected) vs 'Berlin, Germany'"]
+  stored venue/city: 'Zitadelle Spandau (Gotischer Saal)' 'Berlin, Germany'
+  vote: 'Zitadelle Spandau (Gotischer Saal)' 'Berlin, Germany'
+  selected: 'Zitadelle Spandau' 'Berlin, DE'
+  cand venue chg: {'old': 'Zitadelle Spandau (Gotischer Saal)', 'new': 'Zitadelle Spandau'}  city chg: {'old': 'Berlin, Germany', 'new': 'Berlin, DE'}
+  notes: []
+  recs: [('Zitadelle Spandau (Gotischer Saal)', 'Berlin, Germany'), ('Zitadelle Spandau (Gotischer Saal)', 'Berlin, Germany'), ('Zitadelle Spandau', 'Berlin, DE'), ('Zitadelle Spandau', 'Berlin, DE')]
+  parts sel ('berlin', 'de') vote ('berlin', 'germany')
+===== stringcheeseincident-2000-10-24 clean -> newly-held state packaged
+  new flags: ["recordings of this date disagree on city: 'Buffalo, NY' (selected) vs 'Lackawanna, NY'"]
+  stored venue/city: 'Sideshow Music Hall' 'Lackawanna, NY'
+  vote: 'Sideshow Music Hall' 'Lackawanna, NY'
+  selected: 'SideShow Music Hall' 'Buffalo, NY'
+  cand venue chg: {'old': 'Sideshow Music Hall', 'new': 'SideShow Music Hall'}  city chg: {'old': 'Lackawanna, NY', 'new': 'Buffalo, NY'}
+  notes: []
+  recs: [('Sideshow Music Hall', 'Lackawanna, NY'), ('SideShow Music Hall', 'Buffalo, NY')]
+  parts sel ('buffalo', 'ny') vote ('lackawanna', 'ny')
+===== stuallenandmarshotel-2012-11-11 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Oakland CA' (selected) vs 'San Rafeal, CA'"]
+  stored venue/city: 'Brunch Show - Terrapin Crossroads' 'San Rafeal, CA'
+  vote: 'Brunch Show - Terrapin Crossroads' 'San Rafeal, CA'
+  selected: 'Moss House' 'Oakland CA'
+  cand venue chg: {'old': 'Brunch Show - Terrapin Crossroads', 'new': 'Moss House'}  city chg: {'old': 'San Rafeal, CA', 'new': 'Oakland CA'}
+  notes: []
+  recs: [('Brunch Show - Terrapin Crossroads', 'San Rafeal, CA'), ('Moss House', 'Oakland CA')]
+  parts sel ('oakland ca', '') vote ('san rafeal', 'ca')
+===== tedeschitrucksband-2021-10-08 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'New York NY' (selected) vs 'New York City, NY'"]
+  stored venue/city: 'Beacon Theatre, New York City, NY' 'New York City, NY'
+  vote: 'Beacon Theatre, New York City, NY' 'New York City, NY'
+  selected: 'Beacon Theatre' 'New York NY'
+  cand venue chg: {'old': 'Beacon Theatre, New York City, NY', 'new': 'Beacon Theatre'}  city chg: {'old': 'New York City, NY', 'new': 'New York NY'}
+  notes: []
+  recs: [('Beacon Theatre, New York City, NY', 'New York City, NY'), ('Beacon Theatre', 'New York NY')]
+  parts sel ('new york ny', '') vote ('new york city', 'ny')
+===== tedeschitrucksband-2026-08-01 clean -> newly-held state delivered
+  new flags: ["recordings of this date disagree on city: 'Red Rocks Amphitheatre, Morrison, CO,' (selected) vs 'Morrison, CO'"]
+  stored venue/city: 'Red Rocks Amphitheatre' 'Morrison, CO'
+  vote: 'Red Rocks Amphitheatre' 'Morrison, CO'
+  selected: 'Red Rocks Amphitheatre, Morrison, CO' 'Red Rocks Amphitheatre, Morrison, CO,'
+  cand venue chg: {'old': 'Red Rocks Amphitheatre', 'new': 'Red Rocks Amphitheatre, Morrison, CO'}  city chg: {'old': 'Morrison, CO', 'new': 'Red Rocks Amphitheatre, Morrison, CO,'}
+  notes: []
+  recs: [('Red Rocks Amphitheatre', 'Morrison, CO'), ('Red Rocks Amphitheatre, Morrison, CO', 'Red Rocks Amphitheatre, Morrison, CO,')]
+  parts sel ('red rocks amphitheatre', 'morrison') vote ('morrison', 'co')
+jerrybase: skipped 117 malformed rows
+validated 3467 mismatches 0
+jerrybase: skipped 117 malformed rows
+45
+V          fixes 23/45 (true-conflict lost: []); library: flags removed on 35 shows, other changes 0
+    remaining: ['beneventorusso-2005-08-27', 'darkstarorchestra-2009-12-30', 'deadandcompany-2015-11-28', 'furthur-2010-07-03', 'ginblossoms-2003-01-24', 'gratefuldead-1970-01-16', 'gratefuldead-1971-08-26', 'gratefuldead-1972-04-29', 'gratefuldead-1972-05-11', 'gratefuldead-1973-08-01', 'gratefuldead-1974-08-06', 'gratefuldead-1976-08-04', 'gratefuldead-1978-09-16', 'gratefuldead-1991-06-09', 'gratefuldead-1992-03-20', 'gratefuldead-1992-07-01', 'gratefuldead-1993-06-11', 'philleshandfriends-2014-09-21', 'ratdog-2002-07-10', 'ryanadams-2007-06-06', 'smashingpumpkins-1997-06-28', 'stuallenandmarshotel-2012-11-11']
+    library removed outside 45: ['badlivers-1991-05-04', 'darkstarorchestra-2008-08-31', 'deadandcompany-2018-06-16', 'godspeedyoublackemperor-2001-09-28', 'godspeedyoublackemperor-2003-05-14', 'gomez-2006-10-06', 'lotus-2003-05-10', 'particle-2003-06-14', 'philleshandfriends-1999-05-29']
+S          fixes 13/45 (true-conflict lost: []); library: flags removed on 27 shows, other changes 0
+R          fixes 13/45 (true-conflict lost: ['ryanadams-2007-06-06']); library: flags removed on 19 shows, other changes 0
+C          fixes  9/45 (true-conflict lost: ['ryanadams-2007-06-06']); library: flags removed on 11 shows, other changes 0
+D          fixes  1/45 (true-conflict lost: []); library: flags removed on 1 shows, other changes 0
+K          fixes  1/45 (true-conflict lost: []); library: flags removed on 2 shows, other changes 0
+N          fixes  1/45 (true-conflict lost: []); library: flags removed on 1 shows, other changes 0
+M          fixes  2/45 (true-conflict lost: []); library: flags removed on 5 shows, other changes 7
+J          fixes  0/45 (true-conflict lost: []); library: flags removed on 0 shows, other changes 7
+VS         fixes 39/45 (true-conflict lost: []); library: flags removed on 58 shows, other changes 0
+    remaining: ['beneventorusso-2005-08-27', 'ginblossoms-2003-01-24', 'gratefuldead-1978-09-16', 'ryanadams-2007-06-06', 'smashingpumpkins-1997-06-28', 'stuallenandmarshotel-2012-11-11']
+    library removed outside 45: ['badlivers-1991-05-04', 'darkstarorchestra-2005-02-25', 'darkstarorchestra-2006-04-06', 'darkstarorchestra-2007-07-06', 'darkstarorchestra-2008-02-17', 'darkstarorchestra-2008-08-31', 'darkstarorchestra-2012-10-13', 'deadandcompany-2018-06-16', 'godspeedyoublackemperor-2001-09-28', 'godspeedyoublackemperor-2003-05-14', 'gomez-2006-10-06', 'gratefuldead-1972-04-26', 'gratefuldead-1972-07-18', 'gratefuldead-1983-09-04', 'gratefuldead-1990-07-16', 'lotus-2003-05-10', 'particle-2003-06-14', 'philleshandfriends-1999-05-29']
+VSR        fixes 41/45 (true-conflict lost: ['ryanadams-2007-06-06']); library: flags removed on 62 shows, other changes 0
+    remaining: ['beneventorusso-2005-08-27', 'ginblossoms-2003-01-24', 'gratefuldead-1978-09-16', 'stuallenandmarshotel-2012-11-11']
+    library removed outside 45: ['badlivers-1991-05-04', 'darkstarorchestra-2005-02-25', 'darkstarorchestra-2006-04-06', 'darkstarorchestra-2007-07-06', 'darkstarorchestra-2008-02-17', 'darkstarorchestra-2008-08-31', 'darkstarorchestra-2011-07-31', 'darkstarorchestra-2012-10-13', 'deadandcompany-2018-06-16', 'godspeedyoublackemperor-2001-09-28', 'godspeedyoublackemperor-2003-05-14', 'gomez-2006-10-06', 'gratefuldead-1972-04-26', 'gratefuldead-1972-07-18', 'gratefuldead-1983-09-04', 'gratefuldead-1990-07-16', 'lotus-2003-05-10', 'mogwai-2001-03-14', 'particle-2003-06-14', 'philleshandfriends-1999-05-29']
+VSC        fixes 41/45 (true-conflict lost: ['ryanadams-2007-06-06']); library: flags removed on 60 shows, other changes 0
+    remaining: ['beneventorusso-2005-08-27', 'ginblossoms-2003-01-24', 'gratefuldead-1978-09-16', 'stuallenandmarshotel-2012-11-11']
+    library removed outside 45: ['badlivers-1991-05-04', 'darkstarorchestra-2005-02-25', 'darkstarorchestra-2006-04-06', 'darkstarorchestra-2007-07-06', 'darkstarorchestra-2008-02-17', 'darkstarorchestra-2008-08-31', 'darkstarorchestra-2012-10-13', 'deadandcompany-2018-06-16', 'godspeedyoublackemperor-2001-09-28', 'godspeedyoublackemperor-2003-05-14', 'gomez-2006-10-06', 'gratefuldead-1972-04-26', 'gratefuldead-1972-07-18', 'gratefuldead-1983-09-04', 'gratefuldead-1990-07-16', 'lotus-2003-05-10', 'particle-2003-06-14', 'philleshandfriends-1999-05-29']
+VSRDKNMJ   fixes 42/45 (true-conflict lost: ['ryanadams-2007-06-06']); library: flags removed on 65 shows, other changes 0
+    remaining: ['ginblossoms-2003-01-24', 'gratefuldead-1978-09-16', 'stuallenandmarshotel-2012-11-11']
+    library removed outside 45: ['badlivers-1991-05-04', 'darkstarorchestra-2005-02-25', 'darkstarorchestra-2006-04-06', 'darkstarorchestra-2007-07-06', 'darkstarorchestra-2008-02-17', 'darkstarorchestra-2008-07-23', 'darkstarorchestra-2008-08-31', 'darkstarorchestra-2012-10-13', 'deadandcompany-2018-06-16', 'godspeedyoublackemperor-2001-09-28', 'godspeedyoublackemperor-2003-05-14', 'gomez-2006-10-06', 'gratefuldead-1972-04-26', 'gratefuldead-1972-07-18', 'gratefuldead-1983-09-04', 'gratefuldead-1990-07-16', 'lotus-2003-05-10', 'moe-2004-09-04', 'mogwai-2001-03-14', 'particle-2003-06-14', 'philleshandfriends-1999-05-29', 'soundtribesector9-2003-06-13']
+RDKNMJ     fixes 16/45 (true-conflict lost: ['ryanadams-2007-06-06']); library: flags removed on 24 shows, other changes 15
+RCDKNMJ    fixes 16/45 (true-conflict lost: ['ryanadams-2007-06-06']); library: flags removed on 24 shows, other changes 15
+SRCDKNMJ   fixes 25/45 (true-conflict lost: ['ryanadams-2007-06-06']); library: flags removed on 45 shows, other changes 10
+darkstarorchestra-2003-01-25 {'': ['city'], 'V': ['city'], 'VS': ['city'], 'VSR': ['city'], 'VSRDKNMJ': ['city']}
+gratefuldead-1978-11-17 {'': ['venue mismatch'], 'V': ['venue mismatch'], 'VS': ['venue mismatch'], 'VSR': ['venue mismatch'], 'VSRDKNMJ': ['venue mismatch']}
+gratefuldead-1981-09-26 {'': ['venue mismatch'], 'V': ['venue mismatch'], 'VS': ['venue mismatch'], 'VSR': ['venue mismatch'], 'VSRDKNMJ': ['venue mismatch']}
+jerrybase: skipped 117 malformed rows
+== badlivers-1991-05-04 still-held -> still-held | sel "Cicero's" 'St. Louis MO' | vote "Cicero's Basement Bar" 'University City, Missouri USA'
+    + recordings of this date disagree on city: 'St. Louis MO' (selected) vs 'University City, Missouri USA'
+    V: []  VS: []  cand: ['city']
+== bandofheathens-2009-07-27 needs-llm -> needs-llm | sel "Don Quixote's" 'Felton, CA' | vote 'KPIG Studios' 'Watsonville, CA'
+    + recordings of this date disagree on city: 'Felton, CA' (selected) vs 'Watsonville, CA'
+    V: ['city']  VS: ['city']  cand: ['city']
+== belafleckandtheflecktones-2004-04-06 needs-llm -> needs-llm | sel 'Singletary Center for the Arts' 'Lexington, KY' | vote 'Lexington, KY' 'Singletary Center For The Arts, University of Kentucky'
+    + recordings of this date disagree on city: 'Lexington, KY' (selected) vs 'Singletary Center For The Arts, University of Kentucky'
+    V: ['city']  VS: ['city']  cand: ['city']
+== belafleckandtheflecktones-2006-04-21 needs-llm -> needs-llm | sel 'World Cafe Live' 'Philadelphia, PA' | vote "B.B. King's" 'New York, NY'
+    + recordings of this date disagree on city: 'Philadelphia, PA' (selected) vs 'New York, NY'
+    V: ['city']  VS: ['city']  cand: ['city']
+== darkstarorchestra-2003-01-25 still-held -> still-held | sel 'Barrymore Theater' 'Madison, WI' | vote 'The Pageant' 'St. Louis, MO'
+    + recordings of this date disagree on city: 'Madison, WI' (selected) vs 'St. Louis, MO'
+    - venue mismatch: archive 'The Pageant' vs jerrybase 'Barrymore Theatre'
+    V: ['city']  VS: ['city']  cand: ['city']
+== darkstarorchestra-2005-02-25 needs-llm -> needs-llm | sel 'Crystal Ballroom' 'Fri, Feb 25, 2005' | vote 'Crystal Ballroom' 'Fri, Feb 25, 2005'
+    + venue mismatch: archive 'Crystal Ballroom' vs jerrybase 'Crystal Ballroom'
+    V: ['venue mismatch']  VS: []  cand: ['venue mismatch']
+== darkstarorchestra-2006-04-06 needs-llm -> needs-llm | sel 'Lakewood Theater' None | vote 'Lakewood Theater' None
+    + venue mismatch: archive 'Lakewood Theater' vs jerrybase 'Lakewood Theatre'
+    V: ['venue mismatch']  VS: []  cand: ['venue mismatch']
+== darkstarorchestra-2007-07-06 needs-llm -> needs-llm | sel 'Nelson Ledges Quarry Park' 'Nelson Twp. OH.' | vote 'Nelson Ledges Quarry Park' 'Nelson Twp. OH.'
+    + venue mismatch: archive 'Nelson Ledges Quarry Park' vs jerrybase 'Nelson Ledges Quarry Park'
+    V: ['venue mismatch']  VS: []  cand: ['venue mismatch']
+== darkstarorchestra-2008-02-17 still-held -> still-held | sel 'Carnegie Music Hall' 'Homestead, PA' | vote 'Carnegie Music Hall' 'Homestead, PA'
+    + venue mismatch: archive 'Carnegie Music Hall' vs jerrybase 'Carnegie Music Hall of Homestead'
+    V: ['venue mismatch']  VS: []  cand: ['venue mismatch']
+== darkstarorchestra-2008-08-31 still-held -> still-held | sel 'Nelson Ledges Quarry Park' 'Garrettsville, OH' | vote 'Nelson Ledges Quarry Park' 'Nelson Twp. OH'
+    + recordings of this date disagree on city: 'Garrettsville, OH' (selected) vs 'Nelson Twp. OH'
+    V: []  VS: []  cand: ['city']
+== darkstarorchestra-2012-10-13 needs-llm -> needs-llm | sel 'Fillmore Auditorium' None | vote 'Fillmore Auditorium' None
+    + venue mismatch: archive 'Fillmore Auditorium' vs jerrybase 'The Fillmore'
+    V: ['venue mismatch']  VS: []  cand: ['venue mismatch']
+== deadandcompany-2018-06-16 still-held -> still-held | sel 'Citi Field' 'Flushing, NY' | vote 'Citi Field' 'Flushing, Queens, NY'
+    + venue mismatch: archive 'Citi Field' vs jerrybase 'Citi Field'
+    + recordings of this date disagree on city: 'Flushing, NY' (selected) vs 'Flushing, Queens, NY'
+    V: ['venue mismatch']  VS: []  cand: ['city', 'venue mismatch']
+== derektrucksband-2009-05-31 needs-llm -> needs-llm | sel 'Mountain Jam, Hunter Mountain' 'New York' | vote 'Mountain Jam V' 'Hunter, NY'
+    + recordings of this date disagree on city: 'New York' (selected) vs 'Hunter, NY'
+    V: ['city']  VS: ['city']  cand: ['city']
+== elliottsmith-1997-05-06 needs-llm -> needs-llm | sel 'Morning Becomes Eclectic, KCRW-FM Studios' 'Santa Monica, CA' | vote 'No Life Records' 'Los Angeles, CA'
+    + recordings of this date disagree on city: 'Santa Monica, CA' (selected) vs 'Los Angeles, CA'
+    V: ['city']  VS: ['city']  cand: ['city']
+== explosionsinthesky-2003-03-12 needs-llm -> needs-llm | sel 'Mercury' 'Austin, TX' | vote 'Austin, TX, USA' 'Mercury'
+    + recordings of this date disagree on city: 'Austin, TX' (selected) vs 'Mercury'
+    V: ['city']  VS: ['city']  cand: ['city']
+== godspeedyoublackemperor-2001-09-28 needs-llm -> needs-llm | sel 'Palais Royale' 'Toronto, ONT' | vote 'Palais Royale' 'Toronto, ON'
+    + recordings of this date disagree on city: 'Toronto, ONT' (selected) vs 'Toronto, ON'
+    V: []  VS: []  cand: ['city']
+== godspeedyoublackemperor-2003-05-14 needs-llm -> needs-llm | sel "L'Olympic" 'Nantes, France.' | vote "L'Olympic" 'Nantes, FR'
+    + recordings of this date disagree on city: 'Nantes, France.' (selected) vs 'Nantes, FR'
+    V: []  VS: []  cand: ['city']
+== gomez-2006-10-06 needs-llm -> needs-llm | sel 'The Bowery Ballroom' 'Boston, MA' | vote 'Bowery Ballroom' 'New York City'
+    + recordings of this date disagree on city: 'Boston, MA' (selected) vs 'New York City'
+    V: []  VS: []  cand: ['city']
+== gratefuldead-1972-07-18 still-held -> still-held | sel 'Roosevelt Stadium' 'Jersey City, NJ' | vote 'Roosevelt Stadium' 'Jersey City, NJ'
+    + venue mismatch: archive 'Roosevelt Stadium' vs jerrybase 'Roosevelt Stadium'
+    V: ['venue mismatch']  VS: []  cand: ['venue mismatch']
+== gratefuldead-1983-09-04 still-held -> still-held | sel 'Park West Ski Resort' 'Park City, UT' | vote 'Park West Ski Resort' 'Park City, UT'
+    + venue mismatch: archive 'Park West Ski Resort' vs jerrybase 'Park West Ski Resort'
+    V: ['venue mismatch']  VS: []  cand: ['venue mismatch']
+== gratefuldead-1990-07-16 still-held -> still-held | sel 'Rich Stadium' 'Orchard Park, NY' | vote 'Rich Stadium' 'Orchard Park, NY'
+    + venue mismatch: archive 'Rich Stadium' vs jerrybase 'Rich Stadium'
+    V: ['venue mismatch']  VS: []  cand: ['venue mismatch']
+== guster-2003-07-10 needs-llm -> needs-llm | sel 'Weesner Amphitheater, MN Zoo' 'Apple Valley, MN' | vote 'Cities 97 Studio C' 'Minneapolis, MN'
+    + recordings of this date disagree on city: 'Apple Valley, MN' (selected) vs 'Minneapolis, MN'
+    V: ['city']  VS: ['city']  cand: ['city']
+== lotus-2003-05-10 needs-llm -> needs-llm | sel 'Beardslee Castle - Carriage House' 'Little Falls, NY' | vote 'Beardslee Castle Carriage House' 'St. Johnsville, NY'
+    + recordings of this date disagree on city: 'Little Falls, NY' (selected) vs 'St. Johnsville, NY'
+    V: []  VS: []  cand: ['city']
+== moe-2004-09-04 still-held -> still-held | sel 'moe down V' 'Snow Ridge Ski Area, Turin, NY' | vote 'Snow Ridge Ski Area' 'Turin, NY'
+    + recordings of this date disagree on city: 'Snow Ridge Ski Area, Turin, NY' (selected) vs 'Turin, NY'
+    V: ['city']  VS: ['city']  cand: ['city']
+== mogwai-2001-03-14 needs-llm -> needs-llm | sel 'idno theatre' 'reykjavik, iceland' | vote 'Iðnó' 'Reykjavik, IS'
+    + recordings of this date disagree on city: 'reykjavik, iceland' (selected) vs 'Reykjavik, IS'
+    V: ['city']  VS: ['city']  cand: ['city']
+== newridersofthepurplesage-1970-05-02 needs-llm -> needs-llm | sel 'West Gym, State University of New York at Binghamton' 'Vestal, Broome County, NY' | vote 'Harpur College' 'Binghampton, NY'
+    + recordings of this date disagree on city: 'Vestal, Broome County, NY' (selected) vs 'Binghampton, NY'
+    V: ['city']  VS: ['city']  cand: ['city']
+== particle-2003-06-14 needs-llm -> needs-llm | sel 'That Tent' 'Bonnaroo Music Festival Manchester, TN' | vote 'Bonnaroo That Tent' 'Manchester TN'
+    + recordings of this date disagree on city: 'Bonnaroo Music Festival Manchester, TN' (selected) vs 'Manchester TN'
+    V: []  VS: []  cand: ['city']
+== philleshandfriends-1999-05-29 still-held -> still-held | sel 'Mountain Aire Music Festival' "Angle's Camp, CA" | vote 'Mountain Aire Music Festival, Calavaras County Fai' "Angel's Camp, CA"
+    + recordings of this date disagree on city: 'Angle's Camp, CA' (selected) vs 'Angel's Camp, CA'
+    V: ['venue mismatch']  VS: ['venue mismatch']  cand: ['city', 'venue mismatch']
+== philleshandfriends-2008-06-15 still-held -> still-held | sel 'This Tent' 'Bonnaroo , TN' | vote 'Bonnaroo' 'Manchester, TN'
+    + recordings of this date disagree on city: 'Bonnaroo , TN' (selected) vs 'Manchester, TN'
+    V: ['city', 'venue mismatch']  VS: ['city', 'venue mismatch']  cand: ['city', 'venue mismatch']
+== soundtribesector9-2001-03-16 needs-llm -> needs-llm | sel 'Denver, CO' 'Bluebird Theatre' | vote 'The Bluebird Theatre' 'Denver, CO'
+    + recordings of this date disagree on city: 'Bluebird Theatre' (selected) vs 'Denver, CO'
+    V: ['city']  VS: ['city']  cand: ['city']
+== soundtribesector9-2003-06-13 needs-llm -> needs-llm | sel 'Late Night @ That Tent - Bonnaroo' 'Bonnaroo Music Festival, Manchester ,TN' | vote 'Late Night - Bonnaroo Music Festival' 'Manchester, TN'
+    + recordings of this date disagree on city: 'Bonnaroo Music Festival, Manchester ,TN' (selected) vs 'Manchester, TN'
+    V: ['city']  VS: ['city']  cand: ['city']
+== tedeschitrucksband-2014-08-15 needs-llm -> needs-llm | sel 'Performing Arts Center at Simsbury Meadows' 'Simsbury, CT' | vote 'Montage Mountain' 'Scranton, PA'
+    + recordings of this date disagree on city: 'Simsbury, CT' (selected) vs 'Scranton, PA'
+    V: ['city']  VS: ['city']  cand: ['city']
+== yondermountainstringband-2005-07-16 needs-llm -> needs-llm | sel "Marvin's Mountaintop, Masontown WV" 'All Good Music Festival' | vote "Marvin's Mountaintop, Allgood Summer Festival" 'Masontown, WV'
+    + recordings of this date disagree on city: 'All Good Music Festival' (selected) vs 'Masontown, WV'
+    V: ['city']  VS: ['city']  cand: ['city']
+
+S-removals: is the step-1 pair old-equivalent?
+Traceback (most recent call last):
+  File "/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//cpC-8eC5iV/held.py", line 24, in <module>
+    kind,n=_event_kind(cd['performance_id'])
+           ^^^^^^^^^^^
+NameError: name '_event_kind' is not defined
+S-removals: is the step-1 pair old-equivalent?
+  darkstarorchestra-2005-02-25: vote 'Crystal Ballroom' vs jb 'Crystal Ballroom'; old_equiv=True; cities 'Fri, Feb 25, 2005' vs 'Portland, OR'; prev_flags_venue=[]
+  darkstarorchestra-2006-04-06: vote 'Lakewood Theater' vs jb 'Lakewood Theatre'; old_equiv=True; cities None vs 'Dallas, TX'; prev_flags_venue=[]
+  darkstarorchestra-2007-07-06: vote 'Nelson Ledges Quarry Park' vs jb 'Nelson Ledges Quarry Park'; old_equiv=True; cities 'Nelson Twp. OH.' vs 'Garrettsville, OH'; prev_flags_venue=[]
+  darkstarorchestra-2008-02-17: vote 'Carnegie Music Hall' vs jb 'Carnegie Music Hall of Homestead'; old_equiv=True; cities 'Homestead, PA' vs 'Munhall, PA'; prev_flags_venue=[]
+  darkstarorchestra-2009-12-30: vote 'Rams Head Live' vs jb 'Rams Head Live!'; old_equiv=True; cities None vs 'Baltimore, MD'; prev_flags_venue=[]
+  darkstarorchestra-2012-10-13: vote 'Fillmore Auditorium' vs jb 'The Fillmore'; old_equiv=True; cities None vs 'San Francisco, CA'; prev_flags_venue=[]
+  deadandcompany-2015-11-28: vote 'MGM Grand Garden Arena' vs jb 'MGM Grand Garden Arena'; old_equiv=True; cities 'Las Vegas, NV/Clark County' vs 'Las Vegas, NV'; prev_flags_venue=[]
+  deadandcompany-2018-06-16: vote 'Citi Field' vs jb 'Citi Field'; old_equiv=True; cities 'Flushing, NY' vs 'New York, NY'; prev_flags_venue=[]
+  furthur-2010-07-03: vote 'Gelston Castle Estate' vs jb 'Gelston Castle'; old_equiv=True; cities 'Mohawk, NY' vs 'Jordanville, NY'; prev_flags_venue=[]
+  gratefuldead-1970-01-16: vote "Springer's Inn Portland" vs jb "Springer's Inn"; old_equiv=True; cities 'Portland, OR' vs 'Gresham, OR'; prev_flags_venue=[]
+  gratefuldead-1971-08-26: vote 'Gaelic Park' vs jb 'Gaelic Park'; old_equiv=True; cities 'New York , NY' vs 'Bronx, NY'; prev_flags_venue=[]
+  gratefuldead-1972-04-26: vote 'Jahrhundert Halle' vs jb 'Jahrhunderthalle'; old_equiv=False; cities 'Frankfurt, West Germany' vs 'Frankfurt, FRG'; prev_flags_venue=["venue mismatch: archive 'Jahrhundert Halle' vs jerrybase 'Jahrhunderthalle'"]
+  gratefuldead-1972-04-29: vote 'Musikhalle' vs jb 'Musikhalle'; old_equiv=True; cities 'Hamburg, Germany' vs 'Hamburg, FRG'; prev_flags_venue=[]
+  gratefuldead-1972-05-11: vote 'Rotterdam Civic Hall' vs jb 'Rotterdam Civic Hall'; old_equiv=True; cities 'Rotterdam, Netherlands' vs 'Rotterdam, NL'; prev_flags_venue=[]
+  gratefuldead-1972-07-18: vote 'Roosevelt Stadium' vs jb 'Roosevelt Stadium'; old_equiv=True; cities 'Jersey City, NJ' vs 'Jersey City, NY'; prev_flags_venue=[]
+  gratefuldead-1973-08-01: vote 'Roosevelt Stadium' vs jb 'Roosevelt Stadium'; old_equiv=True; cities 'Jersey City, NJ' vs 'Jersey City, NY'; prev_flags_venue=[]
+  gratefuldead-1974-08-06: vote 'Roosevelt Stadium' vs jb 'Roosevelt Stadium'; old_equiv=True; cities 'Jersey City, NJ' vs 'Jersey City, NY'; prev_flags_venue=[]
+  gratefuldead-1976-08-04: vote 'Roosevelt Stadium' vs jb 'Roosevelt Stadium'; old_equiv=True; cities 'Jersey City, NJ' vs 'Jersey City, NY'; prev_flags_venue=[]
+  gratefuldead-1978-09-16: vote 'Gizah Sound and Light Theater' vs jb 'Gizah Sound and Light Theater'; old_equiv=True; cities 'Giza, Egypt' vs 'Cairo, Egypt'; prev_flags_venue=[]
+  gratefuldead-1983-09-04: vote 'Park West Ski Resort' vs jb 'Park West Ski Resort'; old_equiv=True; cities 'Park City, UT' vs 'Park West, UT'; prev_flags_venue=[]
+  gratefuldead-1990-07-16: vote 'Rich Stadium' vs jb 'Rich Stadium'; old_equiv=True; cities 'Orchard Park, NY' vs 'Buffalo, NY'; prev_flags_venue=[]
+  gratefuldead-1991-06-09: vote 'Buckeye Lake Music Center' vs jb 'Buckeye Lake Music Center'; old_equiv=True; cities 'Hebron, OH' vs 'Thornville, OH'; prev_flags_venue=[]
+  gratefuldead-1992-03-20: vote 'Copps Coliseum' vs jb 'Copps Coliseum'; old_equiv=True; cities 'Hamilton Ontario, CA' vs 'Hamilton, ON'; prev_flags_venue=[]
+  gratefuldead-1992-07-01: vote 'Buckeye Lake Music Center' vs jb 'Buckeye Lake Music Center'; old_equiv=True; cities 'Hebron, OH' vs 'Thornville, OH'; prev_flags_venue=[]
+  gratefuldead-1993-06-11: vote 'Buckeye Lake Music Center' vs jb 'Buckeye Lake Music Center'; old_equiv=True; cities 'Hebron, OH' vs 'Thornville, OH'; prev_flags_venue=[]
+  philleshandfriends-2014-09-21: vote 'Forest Hills Stadium' vs jb 'Forest Hills Stadium'; old_equiv=True; cities 'Flushing, NY' vs 'Queens, NY'; prev_flags_venue=[]
+  ratdog-2002-07-10: vote 'Melkweg' vs jb 'Melkweg The Max'; old_equiv=True; cities 'Amsterdam, The Netherlands' vs 'Amsterdam, Netherlands'; prev_flags_venue=[]
+Mon Oct 19 18:24:09 EDT 2026 progress: analysis done, writing generator
+Traceback (most recent call last):
+  File "/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//cpC-8eC5iV/gen.py", line 153, in <module>
+    h=how(ac,r['jb_city'])
+  File "/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//cpC-8eC5iV/gen.py", line 145, in how
+    if min(len(ka),len(kb))>=6 and _one_edit(ka,kb): return f'one edit "{ka}"/"{kb}", {rk}'
+                                   ^^^^^^^^^
+NameError: name '_one_edit' is not defined
+# Checkpoint C pre-screen (slice 1, venue tripwire) -- read-only, Opus
+
+## SUMMARY
+- **Slice 1 newly holds 45 clean shows (27 delivered, 18 packaged... see table): 28 by 1d only (A), 13 by step-1 `venue mismatch` only (B), 4 by both.** Only 3 are TRUE: ginblossoms-2003-01-24 and stuallenandmarshotel-2012-11-11 (two performances; the shipped venue is WRONG today), plus ryanadams-2007-06-06 (right hold, wrong reason: the city test fails only on England/UK). **42 are FALSE.**
+- FALSE causes, A: country name/code not folded (6: GER/DE/AU/DK/UK/England), suburb/neighbourhood/landmark vs metro, no alias (10), comma-less 'City ST' (4), venue text or junk in the city field (3), 3-field/semicolon regions (2), diacritic (1), 'NY, NY' (1), region typo (1). B: step 1 now demands compatible cities but prev never checked them: country forms (3), jerrybase 'Jersey City, NY' data error (3), Hebron vs Thornville alias gap (3), suburb/neighbouring town (2), unknown archive city (1, spec-mandated), 'NV/Clark County' region (1).
+- 32 of the 45 would get a SHIPPED venue/city string change on any future redo/fix (1d ships the selected recording's strings); 14 of those are regressions (misspellings, lowercase, junk: a date as city, venue text in city, 'Hamilton Ontario, CA'). reapply does not touch them (held-only), but the next redo/fix would hold them.
+- **Recommendation: narrow before approving.** Two small changes, measured with a validated simulator over the whole library:
+  - **V: 1d fires only when the selected recording's venue is NOT venues_equivalent to the vote's** (same hall + 'different' city is locality noise, not a second performance). Fixes 23/45, keeps all 3 TRUE held, removes 1d on 35 shows library-wide, adds none; also stops gomez-2006-10-06 shipping a WRONG 'Boston, MA' for the Bowery Ballroom. DSO-2003-01-25 stays held.
+  - **S: step 1 passes on venue equivalence alone when the pair was already equivalent under the pre-slice rule** (prev never checked cities there; keep the city check only for pairs newly equivalent via 1b). Fixes 13/45 (all B), removes the slice-1-added step-1 flag on 26 shows, none of which base flagged; only gratefuldead-1972-04-26 (newly equivalent Jahrhundert Halle) differs from dropping the check outright, and stays held.
+  - **V+S: 39/45 cleared; the 6 left held = 3 TRUE + 3 FALSE** (beneventorusso-2005-08-27, gratefuldead-1978-09-16, smashingpumpkins-1997-06-28; venue names differ). Country/region folding (C or R) adds 2 more but releases the ryanadams-2007-06-06 catch; the metro class (~15) cannot be fixed with a bounded alias table. Not recommended now.
+- Items 1-5:
+  1. PASS with notes. 74 cleared pairs: 35 step 1 (30 spelling-only, 5 different-name via the university strip, all verdicts correct), 4 swaps, 34 1c, 1 1a. 1c shipped strings: 29 right/acceptable, 4 need --set-venue (DSO-2005-06-07, DSO-2005-07-17 guest annotations; DSO-2017-06-27 wrong name; philleshandfriends-1999-10-31 'University Of Illinois' = UIC Pavilion), 1 less precise (GD-1991-10-31). 2 of 4 swaps ship a worse string than the vote (GD-1978-04-15, GD-1985-06-14). The 3 known wrong strings did not clear (two-venue signature).
+  2. PASS. 38/38 swap/1c shows have compatible cities (re-derived); all 36 step-1/1a clears too.
+  3. PASS. darkstarorchestra-2003-01-25: venue 'Barrymore Theater', city Madison, WI, held by 1d (`city` family). gratefuldead-1978-11-17 keeps `venue mismatch`.
+  4. PASS (mechanically): 66 string changes, each carries a swap/1c note or 1d flag; step 1/1a/1b changed none. 4b: 2 clears with shipped venue not equivalent to the selected one, both benign. But 26 of the 66 new strings are junk/regressions or TRUE conflicts, flagged in list 4a.
+  5. Bottom 10 1c by token overlap: 8 festival/site or vague names (all right except philleshandfriends-1999-10-31), plus 2 Greek Theatre/Mexicali rows; DSO-2005-06-07 needs --set-venue.
+- Row counts (flagged/routine): list 1 43/31; list 2 2/36; list 3 0/2; list 4a 36/30; list 4b 0/2; list 5 10/0. Newly-held: 45 rows (3 TRUE, 42 FALSE), all for decision. Held shows gaining a slice-1 flag: 33 (6 TRUE).
+states of 45: Counter({'delivered': 34, 'packaged': 11})
+nchg 32
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: invalid syntax
+## SUMMARY
+- **Slice 1 newly holds 45 clean shows (34 delivered, 11 packaged): 28 by 1d only (A), 13 by step-1 `venue mismatch` only (B), 4 by both.** Only 3 are TRUE: ginblossoms-2003-01-24 and stuallenandmarshotel-2012-11-11 (two performances; the shipped venue is WRONG today), plus ryanadams-2007-06-06 (right hold, wrong reason: the city test fails only on England/UK). **42 are FALSE.**
+- FALSE causes, A: (25) country name vs code (5: GER/DE/AU/DK/UK-vs-England), suburb/neighbourhood/landmark/site vs town, no alias (7), comma-less 'City ST' (4), venue text or a date in the city field (3), 3-field/semicolon regions (2), 'W.' abbreviation (1), diacritic (1), 'NY, NY' (1), region typo (1). A+B (4): borough/metro/neighbourhood (3), 'Hamilton Ontario, CA' (1). B (13): step 1 now demands compatible cities but prev never checked them: country forms (3), jerrybase 'Jersey City, NY' data error (3), Hebron vs Thornville alias gap (3), suburb/neighbouring town (2), unknown archive city (1, spec-mandated), 'NV/Clark County' region (1).
+- 32 of the 45 would get a SHIPPED venue/city string change on any future redo/fix (1d ships the selected recording's strings); 13 of those are regressions (misspellings, lowercase, junk: a date as city, venue text in city, 'Hamilton Ontario, CA', a renamed venue): alejandroescovedo-2008-09-09, beneventorusso-2005-08-27, darkstarorchestra-2007-07-03, darkstarorchestra-2007-07-07, derektrucksband-2005-11-06, derektrucksband-2007-05-27, gratefuldead-1971-08-26, gratefuldead-1978-09-16, gratefuldead-1992-03-20, newridersofthepurplesage-1971-08-06, smashingpumpkins-1997-06-28, smashingpumpkins-1998-05-19, tedeschitrucksband-2026-08-01. reapply does not touch them (held-only), but the next redo/fix would hold them.
+- **Recommendation: narrow before approving.** Two small changes, measured with a validated simulator over the whole library:
+  - **V: 1d fires only when the selected recording's venue is NOT venues_equivalent to the vote's** (same hall + 'different' city is locality noise, not a second performance). Fixes 23/45, keeps all 3 TRUE held, removes 1d on 35 shows library-wide, adds none; also stops gomez-2006-10-06 shipping a WRONG 'Boston, MA' for the Bowery Ballroom. DSO-2003-01-25 stays held.
+  - **S: step 1 passes on venue equivalence alone when the pair was already equivalent under the pre-slice rule** (prev never checked cities there; keep the city check only for pairs newly equivalent via 1b). Fixes 13/45 (all B), removes the slice-1-added step-1 flag on 26 shows, none of which base flagged; only gratefuldead-1972-04-26 (newly equivalent Jahrhundert Halle) differs from dropping the check outright, and stays held.
+  - **V+S: 39/45 cleared; the 6 left held = 3 TRUE + 3 FALSE** (beneventorusso-2005-08-27, gratefuldead-1978-09-16, smashingpumpkins-1997-06-28; venue names differ). Country/region folding (C or R) adds 2 more but releases the ryanadams-2007-06-06 catch; the metro class (~15) cannot be fixed with a bounded alias table. Not recommended now.
+- Items 1-5:
+  1. PASS with notes. 74 cleared pairs: 35 step 1 (30 spelling-only, 5 different-name via the university strip, all verdicts correct), 4 swaps, 34 1c, 1 1a. 1c shipped strings: 29 right/acceptable, 4 need --set-venue (DSO-2005-06-07, DSO-2005-07-17 guest annotations; DSO-2017-06-27 wrong name; philleshandfriends-1999-10-31 'University Of Illinois' = UIC Pavilion), 1 less precise (GD-1991-10-31). 2 of 4 swaps ship a worse string than the vote (GD-1978-04-15, GD-1985-06-14). The 3 known wrong strings did not clear (two-venue signature).
+  2. PASS. 38/38 swap/1c shows have compatible cities (re-derived); all 36 step-1/1a clears too.
+  3. PASS. darkstarorchestra-2003-01-25: venue 'Barrymore Theater', city Madison, WI, held by 1d (`city` family). gratefuldead-1978-11-17 keeps `venue mismatch`.
+  4. PASS (mechanically): 66 string changes, each carries a swap/1c note or 1d flag; step 1/1a/1b changed none. 4b: 2 clears with shipped venue not equivalent to the selected one, both benign. Flagged in 4a: 24 junk/regressed strings, 8 TRUE conflicts, 4 swaps.
+  5. Bottom 10 1c by token overlap: 8 festival/site or vague names (all right except philleshandfriends-1999-10-31), plus 2 Greek Theatre/Mexicali rows; DSO-2005-06-07 needs --set-venue.
+- Row counts (flagged/routine): list 1 43/31; list 2 2/36; list 3 0/2; list 4a 36/30; list 4b 0/2; list 5 10/0. Newly-held: 45 rows (3 TRUE, 42 FALSE), all for decision. Held shows gaining a slice-1 flag: 33 (6 TRUE).
+states of 45: Counter({'delivered': 34, 'packaged': 11})
+nchg 32

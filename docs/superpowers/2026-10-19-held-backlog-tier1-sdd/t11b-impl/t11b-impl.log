@@ -1,0 +1,81 @@
+1 adopt Alpha 
+2 adopt Track 02 
+3 adopt Charlie 
+1 adopt Alpha 
+2 adopt tmp 
+3 adopt Charlie 
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 65%]
+........................................................................ [ 87%]
+...........................................                              [100%]
+331 passed in 0.63s
+........................................................................ [ 40%]
+........................................................................ [ 81%]
+................................                                         [100%]
+176 passed in 4.35s
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 6 show(s): needs-brief=1, needs-llm=4, structure-changed=1
+== full suite Mon Oct 19 17:33:55 EDT 2026
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=99310) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3481 passed, 1 skipped, 8 deselected, 26 warnings in 48.09s
+== mutation predictions: m1->test_titles::test_setlist_rung_refuses_a_placeholder_item; m2->test_structure::test_placeholder_items_gap_is_not_readopted (+test_one_placeholder_item_declines_the_whole_gap); m2s->test_siblings::test_a_donor_track_titled_with_a_placeholder_fails_hygiene[Track 02,tmp]; m3->test_titles::test_shipped_short_tag[M80,-M80] (+gather test_accept_short_tags_ships_and_notes_the_cleaned_title); m3b->test_shipped_short_tag[Help!-Help!],[Who Are You?-...]; m4->test_shipped_short_tag[E: 2x2-2x2]; m5->test_shipped_short_tag[42(1)-42]; m5b->test_shipped_short_tag[Jam (Reprise)-Jam (Reprise)]; m6->test_titles::test_glued_strip_also_drops_a_free_standing_footnote_run (+gather test_2c_ships...); m6b->test_glued_strip_also_drops_a_free_standing_footnote_run (Key Of F#); m7 (literal is_placeholder_title in setlist rung)->test_setlist_rung_still_adopts_real_and_short_items
+== m1 shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-d8tl2tth/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_setlist_rung_refuses_a_placeholder_item
+    1 failed, 506 passed in 6.29s
+== m2 shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-g4cb7ni4/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_structure.py::test_placeholder_items_gap_is_not_readopted
+    packages/llama/tests/test_structure.py::test_one_placeholder_item_declines_the_whole_gap
+    2 failed, 505 passed in 3.91s
+== m2s shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-5ehm255u/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_siblings.py::test_a_donor_track_titled_with_a_placeholder_fails_hygiene[Track 02]
+    packages/llama/tests/test_siblings.py::test_a_donor_track_titled_with_a_placeholder_fails_hygiene[tmp]
+    2 failed, 505 passed in 5.52s
+== m3 shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-g8m4s3te/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[M80,-M80]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[FF;-FF]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[J :-J]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[M80, *-M80]
+    packages/llama/tests/test_stage_gather.py::test_accept_short_tags_ships_and_notes_the_cleaned_title
+    5 failed, 502 passed in 4.48s
+== m3b shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-dcrjm01f/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[Help!-Help!]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[Who Are You?-Who Are You?]
+    2 failed, 505 passed in 3.72s
+== m4 shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-4xv6vwdi/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[E: 2x2-2x2]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[enc: FF-FF]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[ENCORE : J-J]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[Enc:J-J]
+    packages/llama/tests/test_stage_gather.py::test_accept_short_tags_ships_and_notes_the_cleaned_title
+    5 failed, 502 passed in 3.94s
+== m5 shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-57i_8_ys/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[42(1)-42]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[42( 2 )-42]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[J (*)-J]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[FF (#)-FF]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[42(1) >-42]
+    packages/llama/tests/test_stage_gather.py::test_accept_short_tags_ships_and_notes_the_cleaned_title
+    6 failed, 501 passed in 3.99s
+== m5b shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-b8rvphcg/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[Jam (Reprise)-Jam (Reprise)]
+    packages/llama/tests/test_titles.py::test_shipped_short_tag[J (Jam)-J (Jam)]
+    2 failed, 505 passed in 3.61s
+== m6 shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-wohgj853/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_glued_strip_also_drops_a_free_standing_footnote_run
+    packages/llama/tests/test_stage_gather.py::test_2c_ships_and_notes_railroad_earths_titles_without_footnote_marks
+    2 failed, 505 passed in 3.95s
+== m6b shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-khne9fty/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_glued_strip_also_drops_a_free_standing_footnote_run
+    1 failed, 506 passed in 3.60s
+== m7 shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-opkcz722/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_setlist_rung_still_adopts_real_and_short_items
+    1 failed, 506 passed in 3.93s
+== m8 (footnote strip on every title of a glued-voting tape) predicted -> test_titles::test_footnote_strip_is_only_on_the_glued_path
+== m8 shadow=True (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-8b_yi1yl/tree/packages/llama/src/llama/__init__.py) rc=1
+    packages/llama/tests/test_titles.py::test_footnote_strip_is_only_on_the_glued_path
+    1 failed, 506 passed in 3.59s

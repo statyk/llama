@@ -1,0 +1,32 @@
+SNAP=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw5-rr1-snap-mxcBGI
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw5-rr1-snap-mxcBGI/packages/llama/src/llama/__init__.py
+Traceback (most recent call last):
+  File "<string>", line 8, in <module>
+    print("guard:", briefing_guard(b, show))
+                    ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw5-rr1-snap-mxcBGI/packages/llama/src/llama/stages/brief.py", line 222, in briefing_guard
+    exact = {normalize_song(t.title) for t in show.tracks}
+                                              ^^^^^^^^^^^
+AttributeError: 'dict' object has no attribute 'tracks'
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw5-rr1-snap-mxcBGI/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw5-rr1-snap-mxcBGI/packages/llama/src/llama/__init__.py
+guard: []
+Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease) -> ['stay with me', 'girl named sandoz', 'happy birthday']
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw5-rr1-qfiMEH
+M5 (drop all(...) clause) predicted: test_stage_brief.py::test_unannotated_comma_titles_never_split
+M6 (all -> any) predicted: test_stage_brief.py::test_unannotated_comma_titles_never_split (Lawyers... (Warren Zevon) has one annotated part)
+== M5
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw5-rr1-qfiMEH/M5/packages/llama/src/llama/__init__.py
+-    if len(parts) < 2 or not all(_BRIEF_PAREN.search(_BRIEF_TRAILING.sub("", p)) for p in parts):
++    if len(parts) < 2:
+FAILED packages/llama/tests/test_stage_brief.py::test_unannotated_comma_titles_never_split
+1 failed, 69 passed in 1.26s
+== M6
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw5-rr1-qfiMEH/M6/packages/llama/src/llama/__init__.py
+-    if len(parts) < 2 or not all(_BRIEF_PAREN.search(_BRIEF_TRAILING.sub("", p)) for p in parts):
++    if len(parts) < 2 or not any(_BRIEF_PAREN.search(_BRIEF_TRAILING.sub("", p)) for p in parts):
+FAILED packages/llama/tests/test_stage_brief.py::test_unannotated_comma_titles_never_split
+1 failed, 69 passed in 0.94s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3781 passed, 1 skipped, 8 deselected, 26 warnings in 83.65s (0:01:23)

@@ -1,0 +1,11 @@
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+'0/5/08' 2008-05-00 None
+'0/9/91' 1991-09-00 None
+'5/0/08' 2008-05-00 None
+'13/0/91' None None
+'0/13/91' None None
+'Sept 0 91' 1991-09-00 None
+'1991-9-0' 1991-09-00 None
+'September 00, 1991' 1991-09-00 None
+'Sunday, September 0, 1991' 1991-09-00 None
+['research asserts wrong date: 1991-09-00']

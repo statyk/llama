@@ -1,0 +1,10 @@
+Tue Oct 20 02:03:30 EDT 2026 start final-rev
+Tue Oct 20 02:04:13 EDT 2026 ledgers read; starting pass 1 reapply/cli
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=27899) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+Tue Oct 20 02:08:13 EDT 2026 suite done; pass 2 starting
+3761 passed, 1 skipped, 8 deselected, 26 warnings in 60.38s (0:01:00)
+Tue Oct 20 02:14:34 EDT 2026 handback written; touching done

@@ -1,0 +1,152 @@
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index aecf145..6a338ed 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -8,6 +8,7 @@ import traceback
+ from datetime import date, datetime, timezone
+ from enum import Enum
+ from pathlib import Path
++from typing import Literal
+ 
+ import typer
+ from typer.core import TyperGroup
+@@ -1616,29 +1617,27 @@ def _untitled_counts(show: Show) -> tuple[int, int]:
+     return sum(1 for t in show.tracks if t.title_source != "unresolved"), n
+ 
+ 
+-def _overrides_snapshot(show_ws) -> bytes | None:
+-    return show_ws.overrides.read_bytes() if show_ws.overrides.exists() else None
+-
+-
+-def _untitled_resolution(config, ia, ledger, entry, show: Show) -> Path | None:
++def _untitled_resolution(config, ia, ledger, entry, show: Show
++                         ) -> tuple[Literal["declined", "held", "packaged"], Path | None]:
+     """The operator route for a tape with no resolved titles (spec Slice 7).
+ 
+     Lists the tracks, asks ONE confirmation, and only on yes writes
+     `overrides.json` (titles `Untitled (track N)`, narration vague, one set via
+     `set_breaks=[]`), redoes from gather and -- if the re-gather still holds the
+     show -- overrules the remaining flags and continues from brief. The
+-    confirmation precedes every write; declining returns None untouched."""
++    confirmation precedes every write. Returns `(status, package)`: "declined"
++    (nothing written), "held" (written, still held) or "packaged"."""
+     typer.echo("tracks on this tape (no resolved titles):")
+     for t in show.tracks:
+         typer.echo(f"  {t.index:2d}  {t.filename}")
+     if not typer.confirm(
+             "Title every track 'Untitled (track N)', set narration vague, one set, "
+             "and overrule any remaining flags?", default=False):
+-        return None
++        return "declined", None
+     _edit_overrides(entry.ws,
+                     set_titles={n: f"Untitled (track {n})"
+                                 for n in range(1, len(show.tracks) + 1)},
+-                    narration="vague", set_breaks=[])
++                    narration="vague", set_breaks=[], clear_encore=True)
+     typer.echo(f"{entry.slug}: untitled resolution written")
+     pkg = _redo_show(config, ia, ledger,
+                      _resolve_show(config, ledger, entry.slug), "gather")
+@@ -1647,7 +1646,7 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show) -> Path | None:
+         typer.echo(f"{entry.slug}: remaining flags overruled")
+         pkg = _redo_show(config, ia, ledger,
+                          _resolve_show(config, ledger, entry.slug), "brief")
+-    return pkg
++    return ("packaged", pkg) if pkg else ("held", None)
+ 
+ 
+ def _interactive_resolve(config, ia, ledger, entry) -> None:
+@@ -1752,10 +1751,9 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
+             _edit_overrides(entry.ws, set_titles=picks)
+             stage = "gather"
+         elif choice == "u" and untitled_offered:
+-            before = _overrides_snapshot(entry.ws)
+-            pkg = _untitled_resolution(config, ia, ledger, entry,
+-                                       read_model(entry.ws.show, Show))
+-            if pkg is None and _overrides_snapshot(entry.ws) == before:
++            status, pkg = _untitled_resolution(config, ia, ledger, entry,
++                                               read_model(entry.ws.show, Show))
++            if status == "declined":
+                 continue   # declined: nothing written, back to the prompt
+             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+             return
+@@ -2796,9 +2794,8 @@ def fix(
+             typer.echo(f"{entry.slug}: --untitled applies only when every track is "
+                        f"unresolved ({resolved} of {total} resolved)", err=True)
+             raise typer.Exit(1)
+-        before = _overrides_snapshot(sws)
+-        pkg = _untitled_resolution(config, ia, ledger, entry, show)
+-        if pkg is None and _overrides_snapshot(sws) == before:
++        status, pkg = _untitled_resolution(config, ia, ledger, entry, show)
++        if status == "declined":
+             typer.echo("declined; nothing written")
+             return
+         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
+diff --git a/packages/llama/tests/test_fix.py b/packages/llama/tests/test_fix.py
+index f7c558b..22ebe09 100644
+--- a/packages/llama/tests/test_fix.py
++++ b/packages/llama/tests/test_fix.py
+@@ -732,9 +732,50 @@ def test_untitled_one_confirmation_writes_titles_narration_and_one_set_then_redo
+     ov = read_overrides(ws)
+     assert ov.titles == {1: "Untitled (track 1)", 2: "Untitled (track 2)", 3: "Untitled (track 3)"}
+     assert ov.narration == "vague" and ov.set_breaks == []
++    assert ov.encore_after is None
+     assert calls == ["gather"] and "packaged: /pkg" in r.output
+ 
+ 
++def test_untitled_clears_a_pre_existing_encore_so_the_tape_is_one_set(tmp_path, monkeypatch):
++    """The confirmation promises "one set"; a leftover encore_after would still
++    relabel the tail "encore" (final review I2)."""
++    cfg = _cfg(tmp_path)
++    ws = _all_unresolved_show(tmp_path, n=6)
++    write_artifact(ws.overrides, Overrides(encore_after=3))
++    _stub_redo(monkeypatch, result=Path("/pkg"))
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
++    assert r.exit_code == 0, r.output
++    ov = read_overrides(ws)
++    assert ov.encore_after is None and ov.set_breaks == []
++    # the real gather over the written overrides yields a single set label
++    gws = ShowWorkspace(tmp_path / "gather")
++    write_artifact(gws.overrides, ov)
++    res = compute_gather(gws, StubIA(), FakeProvider(), make_candidate(), IDENT)
++    assert {t.set for t in res.show.tracks} == {"1"}
++
++
++def test_untitled_is_refused_on_a_zero_track_show(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = _all_unresolved_show(tmp_path, n=0)
++    calls = _stub_redo(monkeypatch)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
++    assert r.exit_code == 1
++    assert "--untitled applies only when every track is unresolved (0 of 0 resolved)" in r.output
++    assert not ws.overrides.exists() and calls == []
++
++
++def test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone(tmp_path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = _all_unresolved_show(tmp_path)
++    write_artifact(ws.overrides, Overrides(encore_after=2))
++    before = ws.overrides.read_bytes()
++    calls = _stub_redo(monkeypatch)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="n\n")
++    assert r.exit_code == 0, r.output
++    assert "declined; nothing written" in r.output
++    assert ws.overrides.read_bytes() == before and calls == []
++
++
+ def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+     ws = _all_unresolved_show(tmp_path)
+diff --git a/packages/llama/tests/test_triage.py b/packages/llama/tests/test_triage.py
+index b9c4539..7002f21 100644
+--- a/packages/llama/tests/test_triage.py
++++ b/packages/llama/tests/test_triage.py
+@@ -627,6 +627,9 @@ def test_triage_u_declined_writes_nothing_and_returns_to_the_prompt(tmp_path, tt
+     calls = _stub_redo(monkeypatch)
+     r = cli_invoke(cfg, "triage", "gratefuldead", input="u\nn\ns\n")
+     assert r.exit_code == 0 and calls == [] and not ws.overrides.exists()
++    # declined -> back to the prompt: it is shown a second time (for the `s`)
++    assert r.output.count("[u]ntitled") == 2
++    assert "packaged:" not in r.output and "still held:" not in r.output
+ 
+ 
+ def test_triage_u_not_offered_when_one_of_several_tracks_is_resolved(tmp_path, tty):

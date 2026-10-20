@@ -1,0 +1,20 @@
+==================================== ERRORS ====================================
+_____________ ERROR collecting packages/llama/tests/test_replay.py _____________
+ImportError while importing test module '/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/tests/test_replay.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/llama/tests/test_replay.py:8: in <module>
+    from llama.replay import (CacheMiss, CacheOnlyIA, CacheOnlySetlistFM, code_identity,
+E   ModuleNotFoundError: No module named 'llama.replay'
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_replay.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.22s
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=90886) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3171 passed, 1 skipped, 8 deselected, 26 warnings in 48.87s

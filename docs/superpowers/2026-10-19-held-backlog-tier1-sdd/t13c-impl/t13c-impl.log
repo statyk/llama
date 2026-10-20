@@ -1,0 +1,20 @@
+...............................................                          [100%]
+47 passed in 4.31s
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13c-impl-b73sf3
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13c-impl-b73sf3/m1/tree/packages/llama/src/llama/__init__.py /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13c-impl-b73sf3/m1/tree/scripts/replay_holds.py
+FAILED scripts/test_replay_holds.py::test_compare_no_repro_gate_reports_the_ratio_and_writes_everything
+1 failed, 46 passed in 2.26s
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13c-impl-b73sf3/m2/tree/packages/llama/src/llama/__init__.py /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13c-impl-b73sf3/m2/tree/scripts/replay_holds.py
+FAILED scripts/test_replay_holds.py::test_compare_no_repro_gate_still_refuses_a_moved_library
+1 failed, 46 passed in 2.33s
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13c-impl-b73sf3/m3/tree/packages/llama/src/llama/__init__.py /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13c-impl-b73sf3/m3/tree/scripts/replay_holds.py
+FAILED scripts/test_replay_holds.py::test_compare_writes_the_report_set_and_the_lists
+FAILED scripts/test_replay_holds.py::test_compare_refuses_a_baseline_that_does_not_reproduce
+FAILED scripts/test_replay_holds.py::test_compare_refuses_a_low_reproduction_base_with_no_flag_and_writes_no_reports
+FAILED scripts/test_replay_holds.py::test_compare_counts_an_unreadable_state_unreplayable_row_as_not_reproducing
+FAILED scripts/test_replay_holds.py::test_compare_gate_boundary_is_99_percent[98-3]
+FAILED scripts/test_replay_holds.py::test_compare_clears_stale_outputs_before_a_failing_gate
+6 failed, 41 passed in 2.49s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3574 passed, 1 skipped, 8 deselected, 26 warnings in 49.47s

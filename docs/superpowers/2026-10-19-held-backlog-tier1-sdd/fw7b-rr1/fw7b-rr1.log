@@ -1,0 +1,25 @@
+snapshot /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw7b-rr1-snap-GRUPDC
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw7b-rr1-snap-GRUPDC/packages/llama/src/llama/__init__.py
+...                                                                      [100%]
+3 passed, 60 deselected in 2.49s
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3803 passed, 1 skipped, 8 deselected, 26 warnings in 102.93s (0:01:42)
+MROOT /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw7b-rr1-0qRvtB
+M4: dry-run skip disabled; PREDICT test_names_form_dry_run_of_a_structure_changed_show_prints_the_skip (assert 1) + test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed
+107c107
+<             if outcome == "structure-changed" and not allow_structure_change:
+---
+>             if False:
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7b-rr1-0qRvtB/M4/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed
+FAILED packages/llama/tests/test_reapply.py::test_names_form_dry_run_of_a_structure_changed_show_prints_the_skip
+2 failed, 60 passed in 9.07s
+M5: dry-run skip ignores flag; PREDICT names_form test (assert 2) + list-form test second half
+107c107
+<             if outcome == "structure-changed" and not allow_structure_change:
+---
+>             if outcome == "structure-changed":
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7b-rr1-0qRvtB/M5/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed
+FAILED packages/llama/tests/test_reapply.py::test_names_form_dry_run_of_a_structure_changed_show_prints_the_skip
+2 failed, 60 passed in 4.59s

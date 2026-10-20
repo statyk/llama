@@ -1,0 +1,18 @@
+
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: FileNotFoundError
+----------------------------- Captured stderr call -----------------------------
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 2 show(s): clean=1, still-held=1
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 2 show(s): clean=1, still-held=1
+compare: wrote /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-828/test_narration_candidates_degr0/cmp
+=========================== short test summary info ============================
+FAILED scripts/test_replay_holds.py::test_narration_candidates_page_lists_unknowable_structure_holds
+FAILED scripts/test_replay_holds.py::test_narration_candidates_excludes_shows_with_other_flags_or_none
+FAILED scripts/test_replay_holds.py::test_low_confidence_setlist_counts_only_with_empty_canonical_proxy
+FAILED scripts/test_replay_holds.py::test_narration_candidates_row_content_untitled_and_escaping
+FAILED scripts/test_replay_holds.py::test_narration_candidates_degrades_when_show_json_is_unreadable
+5 failed, 1 passed, 36 deselected in 1.26s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3292 passed, 1 skipped, 8 deselected, 26 warnings in 50.32s

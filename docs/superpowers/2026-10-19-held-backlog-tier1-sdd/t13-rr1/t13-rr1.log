@@ -1,0 +1,10 @@
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-rr1-Bp2HTz/tree/packages/llama/src/llama/stages/gather.py
+E        +    where Show(performance_id='DarkStarOrchestra/2003-01-25', identifier='dso2003-01-25.shnf', artist='Dark Star Orchestra', dat...9090909091, conflicts=['1: Bertha', '2: China Cat', 'Announcements', 'set breaks anchored from jerrybase (was [19])'])) = GatherResult(show=Show(performance_id='DarkStarOrchestra/2003-01-25', identifier='dso2003-01-25.shnf', artist='Dark St...m F', 'reviewdate': '2010-07-24 06:54:12', 'createdate': '2010-07-24 06:54:12', 'stars': '0'}], notes=[], needs_llm=()).show
+
+packages/llama/tests/test_stage_gather.py:2877: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+1 failed, 147 passed in 1.12s
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_a_whitespace_only_vote_city_is_unknown_and_no_conflict
+1 failed, 147 passed in 1.52s

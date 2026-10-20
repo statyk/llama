@@ -1,0 +1,199 @@
+Mon Oct 19 21:19:41 EDT 2026 t14-impl start
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3574 passed, 1 skipped, 8 deselected, 26 warnings in 50.82s
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/llama/tests/test_stage_brief.py:257: in <module>
+    from llama.stages.brief import briefing_guard, known_song, normalize_briefing, song_components
+E   ImportError: cannot import name 'known_song' from 'llama.stages.brief' (/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/brief.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_stage_brief.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.41s
+replayed 2 show(s): clean=1, still-held=1
+compare: wrote /private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-956/test_briefings_lists_a_set_cou0/cmp
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_replay.py::test_briefing_reusable_normalises_empty_sets_before_the_guard
+FAILED packages/llama/tests/test_replay.py::test_compute_legs_reuses_and_stores_the_normalised_briefing
+FAILED packages/llama/tests/test_replay.py::test_stored_brief_guard_runs_on_the_normalised_briefing
+FAILED scripts/test_replay_holds.py::test_briefings_lists_a_set_count_match_the_new_guard_suppresses
+4 failed, 183 passed in 6.76s
+........................................................................ [ 77%]
+...........................................                              [100%]
+187 passed in 6.43s
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3615 passed, 1 skipped, 8 deselected, 26 warnings in 48.93s
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t14-impl-9VGixp
+ABORT a_any_component: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/a_any_component/tree/packages/llama/src/llama/__init__.py)
+ABORT b_no_neg2_window: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/b_no_neg2_window/tree/packages/llama/src/llama/__init__.py)
+ABORT c_vague_uses_claim_counts: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/c_vague_uses_claim_counts/tree/packages/llama/src/llama/__init__.py)
+ABORT d_widen_word: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/d_widen_word/tree/packages/llama/src/llama/__init__.py)
+ABORT e_drop_nonempty: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/e_drop_nonempty/tree/packages/llama/src/llama/__init__.py)
+ABORT f_reusable_no_normalize: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/f_reusable_no_normalize/tree/packages/llama/src/llama/__init__.py)
+ABORT g_loader_no_normalize: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/g_loader_no_normalize/tree/packages/llama/src/llama/__init__.py)
+ABORT h_run_brief_no_normalize: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/h_run_brief_no_normalize/tree/packages/llama/src/llama/__init__.py)
+ABORT i_no_scope: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/i_no_scope/tree/packages/llama/src/llama/__init__.py)
+ABORT j_no_neg4: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/j_no_neg4/tree/packages/llama/src/llama/__init__.py)
+ABORT k_no_denylist: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/k_no_denylist/tree/packages/llama/src/llama/__init__.py)
+ABORT m_report_no_kept_filter: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/m_report_no_kept_filter/tree/packages/llama/src/llama/__init__.py)
+ABORT n_prose_includes_cautions: shadowing failed (/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/n_prose_includes_cautions/tree/packages/llama/src/llama/__init__.py)
+normalised MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp
+=== a_any_component  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/a_any_component/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3b_tolerant_matching_narrowly[Drums > Nope-titles12-False]
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3b_tolerant_matching_narrowly[Drums > Nope-titles12-False]
+1 failed, 187 passed in 3.41s
+=== b_no_neg2_window  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/b_no_neg2_window/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_set_count_claims[there is no second set-claims4-ordinals4]
+  test_3c_set_count_claims[not three sets but two-claims5-ordinals5]
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[there is no second set-claims4-ordinals4]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[not three sets but two-claims5-ordinals5]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3b_3c_wired_into_the_full_branch
+  FAILED scripts/test_replay_holds.py::test_suppressed_claims_lists_only_what_3c_drops_with_bounded_context
+4 failed, 184 passed in 3.45s
+=== c_vague_uses_claim_counts  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/c_vague_uses_claim_counts/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_leaves_the_vague_branch_on_todays_regexes
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_leaves_the_vague_branch_on_todays_regexes
+1 failed, 187 passed in 5.35s
+=== d_widen_word  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/d_widen_word/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_set_count_claims[two hard-hitting sets-claims13-ordinals13]
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[two hard-hitting sets-claims13-ordinals13]
+1 failed, 187 passed in 4.15s
+=== e_drop_nonempty  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/e_drop_nonempty/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3a_empty_sets_are_dropped_and_the_guard_never_sees_them
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_run_brief_writes_artifacts_and_stamps_narration
+  FAILED packages/llama/tests/test_stage_brief.py::test_run_brief_skips_when_artifact_exists
+  FAILED packages/llama/tests/test_stage_brief.py::test_run_brief_self_heals_missing_briefing_md
+  FAILED packages/llama/tests/test_stage_brief.py::test_run_brief_recovers_on_retry
+  FAILED packages/llama/tests/test_stage_brief.py::test_run_brief_vague_narration_retries_when_llm_fills_per_set
+  FAILED packages/llama/tests/test_stage_brief.py::test_3a_empty_sets_are_dropped_and_the_guard_never_sees_them
+  FAILED packages/llama/tests/test_stage_brief.py::test_3a_normalize_leaves_everything_else_byte_identical
+  FAILED packages/llama/tests/test_stage_brief.py::test_run_brief_normalises_before_the_guard_and_the_writes
+  FAILED packages/llama/tests/test_replay.py::test_compute_legs_reproduces_a_stored_show_and_writes_nothing_to_it
+  FAILED packages/llama/tests/test_replay.py::test_held_show_whose_replay_clears_with_a_reusable_briefing_is_clears
+  FAILED packages/llama/tests/test_replay.py::test_alignment_change_on_a_would_clear_show_is_structure_changed
+  FAILED packages/llama/tests/test_replay.py::test_briefing_reuse_compares_against_the_vetted_show
+  FAILED packages/llama/tests/test_replay.py::test_briefing_reusable_reasons
+  FAILED packages/llama/tests/test_replay.py::test_briefing_reusable_names_every_changed_broadcast_field
+  FAILED packages/llama/tests/test_replay.py::test_stored_briefing_flags_are_not_core_flags_and_are_reported_apart
+  FAILED packages/llama/tests/test_replay.py::test_replay_show_fills_the_row_of_a_clearing_held_show
+  FAILED packages/llama/tests/test_replay.py::test_replay_show_computes_stored_fields_for_a_needs_llm_show
+  FAILED packages/llama/tests/test_replay.py::test_briefing_reusable_normalises_empty_sets_before_the_guard
+  FAILED packages/llama/tests/test_replay.py::test_compute_legs_reuses_and_stores_the_normalised_briefing
+  FAILED packages/llama/tests/test_replay.py::test_stored_brief_guard_runs_on_the_normalised_briefing
+  FAILED scripts/test_replay_holds.py::test_run_replays_the_library_under_a_read_only_root
+  FAILED scripts/test_replay_holds.py::test_run_prints_llama_file_and_records_the_arm_header
+  FAILED scripts/test_replay_holds.py::test_run_writes_only_the_arm_and_empties_its_scratch
+  FAILED scripts/test_replay_holds.py::test_held_scope_includes_a_show_whose_state_cannot_be_read
+24 failed, 164 passed in 3.53s
+=== f_reusable_no_normalize  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/f_reusable_no_normalize/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_briefing_reusable_normalises_empty_sets_before_the_guard
+failed:
+  FAILED packages/llama/tests/test_replay.py::test_briefing_reusable_normalises_empty_sets_before_the_guard
+1 failed, 187 passed in 3.33s
+=== g_loader_no_normalize  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/g_loader_no_normalize/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_compute_legs_reuses_and_stores_the_normalised_briefing
+  test_stored_brief_guard_runs_on_the_normalised_briefing
+failed:
+  FAILED packages/llama/tests/test_replay.py::test_compute_legs_reuses_and_stores_the_normalised_briefing
+  FAILED packages/llama/tests/test_replay.py::test_stored_brief_guard_runs_on_the_normalised_briefing
+2 failed, 186 passed in 3.35s
+=== h_run_brief_no_normalize  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/h_run_brief_no_normalize/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_run_brief_normalises_before_the_guard_and_the_writes
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_run_brief_normalises_before_the_guard_and_the_writes
+1 failed, 187 passed in 3.20s
+=== i_no_scope  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/i_no_scope/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_set_count_claims[two sets a night-claims10-ordinals10]
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[two sets each night of the run-claims9-ordinals9]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[two sets a night-claims10-ordinals10]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[two sets per weekend-claims11-ordinals11]
+3 failed, 185 passed in 3.41s
+=== j_no_neg4  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/j_no_neg4/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_set_count_claims[expected two sets-claims7-ordinals7]
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[instead of the usual two sets-claims6-ordinals6]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[expected two sets-claims7-ordinals7]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[without the second set-claims8-ordinals8]
+3 failed, 185 passed in 3.35s
+=== k_no_denylist  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/k_no_denylist/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_set_count_claims[two electric sets tonight-claims0-ordinals0]
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[two electric sets tonight-claims0-ordinals0]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[two night sets-claims3-ordinals3]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[the second of Panic's two weekend sets-claims12-ordinals12]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3b_3c_wired_into_the_full_branch
+  FAILED scripts/test_replay_holds.py::test_briefings_lists_a_set_count_match_the_new_guard_suppresses
+5 failed, 183 passed in 3.50s
+=== m_report_no_kept_filter  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/m_report_no_kept_filter/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_suppressed_claims_lists_only_what_3c_drops_with_bounded_context
+failed:
+  FAILED scripts/test_replay_holds.py::test_suppressed_claims_lists_only_what_3c_drops_with_bounded_context
+1 failed, 187 passed in 3.34s
+=== n_prose_includes_cautions  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-9VGixp/n_prose_includes_cautions/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_suppressed_claims_lists_only_what_3c_drops_with_bounded_context
+failed:
+  FAILED scripts/test_replay_holds.py::test_suppressed_claims_lists_only_what_3c_drops_with_bounded_context
+1 failed, 187 passed in 3.29s
+removed MROOT
+3615 passed, 1 skipped, 8 deselected, 26 warnings in 51.20s
+Mon Oct 19 21:33:55 EDT 2026 fix round 1 start
+194 passed, 1 warning in 4.78s
+stored briefings read: 2455; today's-regex matches: 2446; briefings whose matches differ old-join vs newline-join: 0
+3621 passed, 1 skipped, 8 deselected, 26 warnings in 48.40s
+MROOT(r1)=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-r1-9wevYy
+=== r1a_no_clipping  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-r1-9wevYy/r1a_no_clipping/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_set_count_claims[The band did not disappoint. Second set opened hot.-claims17-ordinals17]
+  test_3c_set_count_claims[Fans could not complain: two sets and an encore.-claims18-ordinals18]
+  test_3c_set_count_claims[As expected, the second set was a monster.-claims19-ordinals19]
+  test_3c_negation_does_not_cross_a_briefing_field_boundary
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[The band did not disappoint. Second set opened hot.-claims17-ordinals17]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[Fans could not complain: two sets and an encore.-claims18-ordinals18]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[As expected, the second set was a monster.-claims19-ordinals19]
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_negation_does_not_cross_a_briefing_field_boundary
+4 failed, 190 passed, 1 warning in 3.87s
+=== r1b_no_field_marker  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-r1-9wevYy/r1b_no_field_marker/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_negation_does_not_cross_a_briefing_field_boundary
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_negation_does_not_cross_a_briefing_field_boundary
+1 failed, 193 passed, 1 warning in 3.55s
+=== r1c_comma_not_a_break  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-r1-9wevYy/r1c_comma_not_a_break/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_set_count_claims[As expected, the second set was a monster.-claims19-ordinals19]
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_set_count_claims[As expected, the second set was a monster.-claims19-ordinals19]
+1 failed, 193 passed, 1 warning in 5.22s
+=== r1d_vague_ordinals_via_3c  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-r1-9wevYy/r1d_vague_ordinals_via_3c/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_3c_leaves_the_vague_branch_on_todays_regexes
+failed:
+  FAILED packages/llama/tests/test_stage_brief.py::test_3c_leaves_the_vague_branch_on_todays_regexes
+1 failed, 193 passed, 1 warning in 3.47s
+=== r1e_root_fallback_cwd  (llama at /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t14-impl-r1-9wevYy/r1e_root_fallback_cwd/tree/packages/llama/src/llama/__init__.py)
+predicted:
+  test_suppressed_claims_without_a_root_in_either_arm_reads_nothing
+failed:
+  FAILED scripts/test_replay_holds.py::test_suppressed_claims_without_a_root_in_either_arm_reads_nothing
+1 failed, 193 passed, 1 warning in 3.34s
+removed MROOT(r1)

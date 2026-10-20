@@ -1,0 +1,4 @@
+budget-min: 40
+role: implementer
+model: sonnet
+what: Tasks 16b day-00 flags + 16c harness 4b asserted_dates

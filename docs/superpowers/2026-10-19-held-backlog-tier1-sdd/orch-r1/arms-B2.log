@@ -1,0 +1,108 @@
+17:41:39 start
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+replayed 100/1073
+replayed 200/1073
+replayed 300/1073
+replayed 400/1073
+replayed 500/1073
+replayed 600/1073
+replayed 700/1073
+replayed 800/1073
+replayed 900/1073
+replayed 1000/1073
+replayed 1073 show(s): needs-brief=43, needs-llm=492, still-held=538
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+replayed 100/3468
+replayed 200/3468
+replayed 300/3468
+replayed 400/3468
+replayed 500/3468
+replayed 600/3468
+replayed 700/3468
+replayed 800/3468
+replayed 900/3468
+replayed 1000/3468
+replayed 1100/3468
+replayed 1200/3468
+replayed 1300/3468
+replayed 1400/3468
+replayed 1500/3468
+replayed 1600/3468
+replayed 1700/3468
+replayed 1800/3468
+replayed 1900/3468
+replayed 2000/3468
+replayed 2100/3468
+replayed 2200/3468
+replayed 2300/3468
+replayed 2400/3468
+replayed 2500/3468
+replayed 2600/3468
+replayed 2700/3468
+replayed 2800/3468
+replayed 2900/3468
+replayed 3000/3468
+replayed 3100/3468
+replayed 3200/3468
+replayed 3300/3468
+replayed 3400/3468
+replayed 3468 show(s): clean=2038, needs-brief=43, needs-llm=844, newly-held=4, still-held=538, unreplayable=1
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1-base/packages/llama/src/llama/__init__.py
+base rc=0
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 100/1073
+replayed 200/1073
+replayed 300/1073
+replayed 400/1073
+replayed 500/1073
+replayed 600/1073
+replayed 700/1073
+replayed 800/1073
+replayed 900/1073
+replayed 1000/1073
+replayed 1073 show(s): needs-brief=66, needs-llm=495, still-held=505, structure-changed=7
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 100/3468
+replayed 200/3468
+replayed 300/3468
+replayed 400/3468
+replayed 500/3468
+replayed 600/3468
+replayed 700/3468
+replayed 800/3468
+replayed 900/3468
+replayed 1000/3468
+replayed 1100/3468
+replayed 1200/3468
+replayed 1300/3468
+replayed 1400/3468
+replayed 1500/3468
+replayed 1600/3468
+replayed 1700/3468
+replayed 1800/3468
+replayed 1900/3468
+replayed 2000/3468
+replayed 2100/3468
+replayed 2200/3468
+replayed 2300/3468
+replayed 2400/3468
+replayed 2500/3468
+replayed 2600/3468
+replayed 2700/3468
+replayed 2800/3468
+replayed 2900/3468
+replayed 3000/3468
+replayed 3100/3468
+replayed 3200/3468
+replayed 3300/3468
+replayed 3400/3468
+replayed 3468 show(s): clean=2034, clean-changed=2, needs-brief=66, needs-llm=847, newly-held=6, still-held=505, structure-changed=7, unreplayable=1
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+cand rc=0
+compare: wrote /Users/shawn/.llama-harness/cmp-B2-held
+cmp-held exit 0
+compare: wrote /Users/shawn/.llama-harness/cmp-B2-all
+cmp-all exit 0
+arms differ: gracepotterandthenocturnals-2009-07-26: digests differ
+cmp-11b-delta exit 2
+17:43:09 end

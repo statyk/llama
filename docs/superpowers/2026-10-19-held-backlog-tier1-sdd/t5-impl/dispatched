@@ -1,0 +1,4 @@
+budget-min: 90
+role: implementer
+model: opus
+what: Task 5 scripts/replay_holds.py run + fixture library

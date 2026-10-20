@@ -1,0 +1,67 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw5-rev-snap-p3OO2v
+shows scanned 3467
+| gate | titles split | shows | new (component,title) pairs | of which single-word | multi-word | smashingpumpkins clears |
+| G0 as built (>=2 parts) | 694 | 511 | 872 | 306 | 566 | True |
+| G1 every part's components >=2 words | 276 | 233 | 367 | 0 | 367 | True |
+| G2 >=1 part trailing paren | 50 | 25 | 40 | 16 | 24 | True |
+| G2b every part trailing paren | 3 | 3 | 3 | 0 | 3 | True |
+| G3 >=3 parts | 101 | 74 | 210 | 106 | 104 | True |
+
+## G0 as built (>=2 parts) single-word sample: ['000', '1', '10', '1975', '1983', '2', '3', '500', '8', 'adored', 'again', 'aiko', 'albuquerque', 'arf', 'atlanta', 'audience', 'baby', 'bad', 'banter', 'billy', 'blah', 'blind', 'booze', 'boxes', 'brother', 'ca', 'ca02', 'ca03', 'ca04', 'ca05', 'ca06', 'ca08', 'ca09', 'ca10', 'ca11', 'ca12', 'ca13', 'ca14', 'ca15', 'ca17', 'ca18', 'ca19', 'ca20', 'ca21', 'ca22', 'ca23', 'ca24', 'ca25', 'ca26', 'ca27', 'ca28', 'ca29', 'cadillacs', 'caroline', 'cars', 'cassidy', 'chillicothe', 'cindy', 'cold', 'congratulate']
+   multi-word sample: [('000 islands', '10,000 Islands'), ('000 people', '1,000,000 People'), ('000 scovilles', '500,000 Scovilles'), ('1 07 july', "1.07 - July, You're a Woman"), ('1 17 marie', '1.17 - Marie, Marie - Downey to Lubbock - Down By the Riverside'), ('11 banter johns farts stink just like anyone elses', "11_(Banter) John's farts stink just like anyone else's, and also an excellent story about Unicorn Tolerance"), ('15 05 fri belly up solana beach', '15-05 (Fri) Belly Up - Solana Beach, Ca'), ('15 97 ej s portland', '15.97 - ejï¿½s - portland, or'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 01'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 02'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 03'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 04'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 05'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 06'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 07'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 08'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 09'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 10'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 11'), ('1hr36min jam w steve kimock', '1hr36min Jam w/Steve Kimock,Tim Carbone,Dylan Skursky & Len Mooney'), ('20 eyes', "[April Fools' breakdancing], 20 Eyes"), ('20180828 smashingpumpkins sac 22 tonight', '20180828_SmashingPumpkins_Sac_22 Tonight, Tonight'), ('20180828 smashingpumpkins sac 29 try', '20180828_SmashingPumpkins_Sac_29 Try, Try, Try'), ('22 new york', '22-New York, New York'), ('28 06 three sisters park', '28/06 Three Sisters Park, Chillicothe, IL')]
+
+## G1 every part's components >=2 words single-word sample: []
+   multi-word sample: [('1 07 july', "1.07 - July, You're a Woman"), ('1 17 marie', '1.17 - Marie, Marie - Downey to Lubbock - Down By the Riverside'), ('11 banter johns farts stink just like anyone elses', "11_(Banter) John's farts stink just like anyone else's, and also an excellent story about Unicorn Tolerance"), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 01'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 02'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 03'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 04'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 05'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 06'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 07'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 08'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 09'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 10'), ('1977 05 25 houston', '1977-05-25 Houston, TX - - Track 11'), ('1hr36min jam w steve kimock', '1hr36min Jam w/Steve Kimock,Tim Carbone,Dylan Skursky & Len Mooney'), ('20 eyes', "[April Fools' breakdancing], 20 Eyes"), ('22 new york', '22-New York, New York'), ('3 05 dont worry', '3:05) Dont Worry, Be Happy >'), ('38 banter johns been favoring the long encore lately welcome', "38_(Banter) John's been favoring the long encore lately.. welcome, John Vanderslice, who hid the vodka!"), ('39 days', '7 Months, 39 Days'), ('7 months', '7 Months, 39 Days'), ('8 46 good times', '8:46) *Good Times, Bad Times >'), ('a good old fashioned seattle', 'a good old-fashioned Seattle, Washington dance-off'), ('all this everything', 'All This Everything, Part II'), ('and also an excellent story about unicorn tolerance', "11_(Banter) John's farts stink just like anyone else's, and also an excellent story about Unicorn Tolerance")]
+
+## G2 >=1 part trailing paren single-word sample: ['again', 'arf', 'baby', 'brother', 'damn', 'galapogos', 'lawyers', 'maria', 'marie', 'obscured', 'rhinoceros', 'sam', 'slunk', 'today', 'tristessa', 'well']
+   multi-word sample: [('backstreets back backstreet boys', "(interview), Backstreet's Back [Backstreet Boys] (tease)"), ('blue roof', 'Red Roof, Blue Roof (Old Roof, New Roof)'), ('bonus pete shand sat in on bass with higher hands', 'Bonus: Pete Shand sat in on bass with Higher Hands, the opening band on Galaxy (War cover)'), ('bullet with butterfly wings', 'Bullet with Butterfly Wings, Fly by Night [Rush] (tease)'), ('e turn your lights down low', 'E] Turn Your Lights Down Low (Hank Ballard), w/ opener, Sarah Borges (vox)'), ('fly by night rush', 'Bullet with Butterfly Wings, Fly by Night [Rush] (tease)'), ('girl named sandoz', 'Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)'), ('guns and money', 'Lawyers, Guns and Money (Warren Zevon)'), ('heavy metal machine', 'Heavy Metal Machine, If There Is a God (abandoned)'), ('if there is a god', 'Heavy Metal Machine, If There Is a God (abandoned)'), ('im dead', "I'm Jim Morrison, I'm Dead (abandoned)"), ('im jim morrison', "I'm Jim Morrison, I'm Dead (abandoned)"), ('little suzie', 'Wake Up, Little Suzie (Final time played)'), ('lovefool the cardigans', 'Lovefool [The Cardigans] (tease), (picking the dancers)'), ('new york', 'New York, New York (punk thrash version) *'), ('red roof', 'Red Roof, Blue Roof (Old Roof, New Roof)'), ('sarah borges', 'E] Turn Your Lights Down Low (Hank Ballard), w/ opener, Sarah Borges (vox)'), ('she cried', 'Arf, She Cried (Mother Of Pearl Cerletti)'), ('sit down', 'Sit Down, Baby (Willie Dixon)'), ('stage banter', 'Henry (1st attempt), stage banter'), ('the opening band on galaxy', 'Bonus: Pete Shand sat in on bass with Higher Hands, the opening band on Galaxy (War cover)'), ('w opener', 'E] Turn Your Lights Down Low (Hank Ballard), w/ opener, Sarah Borges (vox)'), ('wake up', 'Wake Up, Little Suzie (Final time played)'), ('were in the same boat', "We're In The Same Boat, Brother (Lead Belly) ***")]
+
+## G2b every part trailing paren single-word sample: []
+   multi-word sample: [('backstreets back backstreet boys', "(interview), Backstreet's Back [Backstreet Boys] (tease)"), ('girl named sandoz', 'Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)'), ('lovefool the cardigans', 'Lovefool [The Cardigans] (tease), (picking the dancers)')]
+
+## G3 >=3 parts single-word sample: ['000', '1', '2', '3', '8', 'again', 'audience', 'bad', 'blah', 'blind', 'booze', 'ca02', 'ca03', 'ca04', 'ca05', 'ca06', 'ca08', 'ca09', 'ca10', 'ca11', 'ca12', 'ca13', 'ca14', 'ca15', 'ca17', 'ca18', 'ca19', 'ca20', 'ca21', 'ca22', 'ca23', 'ca24', 'ca25', 'ca26', 'ca27', 'ca28', 'ca29', 'cars', 'chillicothe', 'cold', 'crazy', 'crippled', 'dope', 'down', 'etc', 'farewell', 'farewll', 'fight', 'free', 'fuck', 'going', 'gone', 'goodby', 'goodbye', 'guns', 'il', 'intro', 'intros', 'kylenote', 'lawyers']
+   multi-word sample: [('000 people', '1,000,000 People'), ('1hr36min jam w steve kimock', '1hr36min Jam w/Steve Kimock,Tim Carbone,Dylan Skursky & Len Mooney'), ('20180828 smashingpumpkins sac 29 try', '20180828_SmashingPumpkins_Sac_29 Try, Try, Try'), ('28 06 three sisters park', '28/06 Three Sisters Park, Chillicothe, IL'), ('38 banter johns been favoring the long encore lately welcome', "38_(Banter) John's been favoring the long encore lately.. welcome, John Vanderslice, who hid the vodka!"), ('7 medley', 'intro #9, 8, 7 medley'), ('and band intro', 'encore intro, cake announcement, and band intro'), ('and crazy', 'Blind, Crippled, And Crazy'), ('and mean', 'Lonesome, Oníry, and Mean'), ('and the ugly', 'The Good, The Bad, And The UGly'), ('banter dead rider owns', '[Banter- Dead Rider Owns, seriously, kylenote, give them a legit chance, they grow on you]'), ('cake announcement', 'encore intro, cake announcement, and band intro'), ('christ and beethoven', 'In Sarah, Mencken, Christ and Beethoven'), ('christ and beethoven there were women and men', 'In Sarah, Mencken, Christ and Beethoven There Were Women and Men'), ('donor rap', 'audience, donor rap, intros'), ('dylan skursky len mooney', '1hr36min Jam w/Steve Kimock,Tim Carbone,Dylan Skursky & Len Mooney'), ('e turn your lights down low', 'E] Turn Your Lights Down Low (Hank Ballard), w/ opener, Sarah Borges (vox)'), ('encore going', 'Encore)Going, Going, Gone'), ('encore intro', 'encore intro, cake announcement, and band intro'), ('girl named sandoz', 'Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)'), ('give them a legit chance', '[Banter- Dead Rider Owns, seriously, kylenote, give them a legit chance, they grow on you]'), ('i rather be blind', 'I Rather Be Blind, Crippled, & Crazy'), ('im going down', "I'm Going Down, Down, Down"), ('im going to scream', "Touch Me, I'm Going to Scream, Pt. 2"), ('in sarah', 'In Sarah, Mencken, Christ and Beethoven')]
+briefings scanned 2550
+
+## G0 as built (>=2 parts): 1 stored mentions newly known
+   smashingpumpkins-1994-04-17 | Girl Named Sandoz | ['Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)']
+
+## G1 every part's components >=2 words: 1 stored mentions newly known
+   smashingpumpkins-1994-04-17 | Girl Named Sandoz | ['Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)']
+
+## G2 >=1 part trailing paren: 1 stored mentions newly known
+   smashingpumpkins-1994-04-17 | Girl Named Sandoz | ['Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)']
+
+## G2b every part trailing paren: 1 stored mentions newly known
+   smashingpumpkins-1994-04-17 | Girl Named Sandoz | ['Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)']
+
+## G3 >=3 parts: 1 stored mentions newly known
+   smashingpumpkins-1994-04-17 | Girl Named Sandoz | ['Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)']
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw5-rev-wJ0a9z
+PREDICTIONS: M1 -> test_stage_brief.py::test_comma_merged_title_parts_are_known_songs; M2 -> test_stage_brief.py::test_commas_inside_parentheses_never_split; M4(no blank filter) -> test_stage_brief.py::test_single_part_title_has_no_comma_components
+== M1
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw5-rev-wJ0a9z/M1/tree/packages/llama/src/llama/__init__.py
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=74997) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3769 passed, 1 skipped, 8 deselected, 26 warnings in 143.48s (0:02:23)
+FAILED packages/llama/tests/test_stage_brief.py::test_comma_merged_title_parts_are_known_songs
+1 failed, 68 passed in 1.56s
+== M2
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw5-rev-wJ0a9z/M2/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_brief.py::test_commas_inside_parentheses_never_split
+1 failed, 68 passed in 3.60s
+== M4
+ 1 file changed, 1 deletion(-)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw5-rev-wJ0a9z/M4/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_brief.py::test_single_part_title_has_no_comma_components
+1 failed, 68 passed in 3.09s
+== G2b probe (recommended gate) in scratch
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw5-rev-wJ0a9z/G2b/tree/packages/llama/src/llama/__init__.py
+70 passed in 0.90s
+FAILED packages/llama/tests/test_stage_brief.py::test_g2b_probe_unannotated_comma_title_does_not_split
+1 failed, 69 passed in 0.95s
+cleaned MROOT and S

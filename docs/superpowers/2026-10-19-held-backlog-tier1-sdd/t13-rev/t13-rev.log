@@ -1,0 +1,22 @@
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13-rev-e4a0Ml
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-rev-e4a0Ml/f/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-rev-e4a0Ml/g/packages/llama/src/llama/__init__.py
+predictions: f (step1 no city gate) -> SURVIVED; g (swap no city gate) -> SURVIVED
+== mutant f
+........................................................................ [ 49%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+145 passed in 1.61s
+== mutant g
+........................................................................ [ 49%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+145 passed in 1.58s
+== mutant f (other venue-touching files)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+235 passed, 6 warnings in 7.18s
+== mutant g (other venue-touching files)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+235 passed, 6 warnings in 4.96s

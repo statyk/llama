@@ -1,0 +1,13 @@
+08:21:37 postwave 2 start
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 38 show(s): clean=37, clears=1
+replay rc=0
+check rc=0
+held-by-fresh-guard (allowed): 0
+new show dirs created since marker (not in shows-before; llama get): 0 []
+rows 38, mismatches 1, fresh-brief lines 33 (all in wave: True), progress entries 38, re-deliver lines 0
+new llm-failures: 0 []
+show dirs outside the wave written since marker: 0 []
+other slugs named in log: []
+08:21:40 postwave 2 end

@@ -1,0 +1,24 @@
+'The band did not disappoint. Two sets of music then. Second set opened hot.' (set(), {2: 'second'})
+'The band did not disappoint. The second set opened hot.' (set(), {2: 'second'})
+'It never let up. Two sets that night.' ({2}, {})
+'As expected, the second set was a monster.' (set(), {})
+'no doubt the second set burned' (set(), {2: 'second'})
+'two sets a day before the encore' (set(), {})
+'two acoustic sets' (set(), {})
+'TWO NIGHT SETS' (set(), {})
+'two sets, each night' ({2}, {})
+'Dark Star (jam) →' ['dark star jam'] 'dark star jam'
+'Dark Star →' ['dark star'] 'dark star'
+'Sugar Magnolia / Sunshine Daydream' ['sugar magnolia sunshine daydream'] 'sugar magnolia sunshine daydream'
+'E: Ripple*' ['ripple'] 'e ripple'
+'Encore: U.S. Blues' ['us blues'] 'encore u s blues'
+'Drums -> Space ->' ['drums', 'space'] 'drums space'
+'(intro)' [] 'intro'
+'Jam >' ['jam'] 'jam'
+superset ok; '' in comps: True
+True True
+'The band did not disappoint. Second set opened hot.' (set(), {})
+'Fans could not complain: two sets and an encore.' (set(), {})
+'Nothing was missing, not one bit. Both sets shone.' ({2}, {})
+'us blues' ['us blues'] ['us blues']
+'Was it the best? Probably not s  Second set: Dark Star' (set(), {})

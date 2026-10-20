@@ -1,0 +1,285 @@
+diff --git a/packages/llama/src/llama/catalog.py b/packages/llama/src/llama/catalog.py
+index 4895297..d5e044d 100644
+--- a/packages/llama/src/llama/catalog.py
++++ b/packages/llama/src/llama/catalog.py
+@@ -154,6 +154,22 @@ def deliver_refusals(ws: ShowWorkspace) -> list[str]:
+     return reasons
+ 
+ 
++def needs_audio_download(ws: ShowWorkspace) -> bool:
++    """True when `package` would have to download: no manifest, or any manifest
++    track's file is missing from `package/audio/` (a purged delivered show).
++    Never raises; an unreadable manifest counts as needing a download."""
++    manifest_path = ws.package_dir / "manifest.json"
++    if not manifest_path.exists():
++        return True
++    tracks = _tracks(manifest_path)
++    if tracks is None:
++        return True
++    try:
++        return any(not (ws.package_dir / "audio" / t["filename"]).exists() for t in tracks)
++    except (KeyError, TypeError):
++        return True
++
++
+ @dataclass
+ class PurgeResult:
+     freed: int = 0               # bytes deleted (or that would be, on a dry run)
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index 6a338ed..4afdd46 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -3192,6 +3192,10 @@ def reapply(
+                                    help="A predicted list written by the replay harness"),
+     dry_run: bool = typer.Option(False, "--dry-run",
+                                  help="Predict each show's outcome; write nothing"),
++    allow_structure_change: bool = typer.Option(
++        False, "--allow-structure-change",
++        help="apply a show whose replay changes its sets/segues/breaks; "
++             "check `llama show <name>` first"),
+ ):
+     """Re-process held shows in place with exactly the replay harness's
+     computation: gather and vet offline from the cache and the stored vetting
+@@ -3222,11 +3226,16 @@ def reapply(
+             slug = entry.slug
+             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
+                                            row=None, dry_run=dry_run,
+-                                           echo=lambda s: typer.echo(s, err=True))
++                                           echo=lambda s: typer.echo(s, err=True),
++                                           allow_structure_change=allow_structure_change)
+         except (LlamaError, HerderError, IAError, TaskFailed) as exc:
+             typer.echo(f"FAILED {slug}: {exc}", err=True)
+             failed = True
+             continue
++        if out.outcome == "skipped: structure changed":
++            typer.echo(f"reapplied: {out.slug} -> {out.outcome} "
++                       "(re-run with --allow-structure-change after checking)")
++            continue
+         typer.echo(f"reapplied: {out.slug} -> {out.outcome}")
+         if out.delivered and out.outcome == "cleared":
+             typer.echo(f"  re-deliver with: llama deliver {out.slug}")
+@@ -3248,7 +3257,7 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
+     STOP_AFTER_LLM_FAILURES consecutive LLM failures of any other kind. Every
+     other per-show failure is recorded retryable and the batch goes on."""
+     from llama import reapply as reapply_mod
+-    from llama.catalog import CatalogEntry, derive_state
++    from llama.catalog import CatalogEntry, derive_state, needs_audio_download
+     from llama.replay import code_identity, config_fingerprint
+     from llama.workspace import ShowWorkspace
+ 
+@@ -3276,12 +3285,13 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
+     consecutive, failed = 0, False
+     n_finished = fresh = downloads = 0
+ 
+-    def fail(slug: str, exc: Exception) -> None:
++    def fail(slug: str, exc: Exception, text: str | None = None) -> None:
+         nonlocal failed
+         failed = True
+-        typer.echo(f"FAILED {slug}: {exc}", err=True)
++        text = text if text is not None else str(exc)
++        typer.echo(f"FAILED {slug}: {text}", err=True)
+         if not dry_run:
+-            reapply_mod.record_progress(batch, slug, f"failed: {exc}"[:300], retryable=True)
++            reapply_mod.record_progress(batch, slug, f"failed: {text}"[:300], retryable=True)
+ 
+     for row in rows:
+         slug = row["slug"]
+@@ -3312,7 +3322,10 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
+             entry = CatalogEntry(slug=slug, ws=ws, state=st, flags=flags)
+             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
+                                            row=row, dry_run=dry_run,
+-                                           echo=lambda s: typer.echo(s, err=True))
++                                           echo=lambda s: typer.echo(s, err=True),
++                                           # the structure list is a deliberate choice
++                                           allow_structure_change=(
++                                               row.get("outcome") == "structure-changed"))
+         except RateLimited as exc:
+             # Must stay above HerderError, which it subclasses. Nothing is
+             # recorded: the interrupted show was not committed and re-runs.
+@@ -3336,14 +3349,14 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
+             # Anything else (a MutagenError tagging a download, a wrong-typed
+             # reviews.json) is still this row's failure: one bad show must never
+             # abort the batch, nor wedge every re-run on the same row.
+-            fail(slug, exc)
++            fail(slug, exc, f"{type(exc).__name__}: {exc}")
+             continue
+         if dry_run:
+             predicted = out.outcome.removeprefix("dry-run: ")
+             typer.echo(f"would: {slug} -> {predicted}")
+             if out.outcome.startswith("dry-run: ") and predicted != "held":
+                 fresh += out.briefing == "fresh"
+-                downloads += not (ws.package_dir / "manifest.json").exists()
++                downloads += needs_audio_download(ws)
+             continue
+         if out.briefing == "fresh" and out.outcome in ("cleared", "held"):
+             # Only a real LLM success shows the backend is healthy again: an
+@@ -3351,7 +3364,10 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
+             # made no call and proves nothing (needs-llm may still carry
+             # briefing="fresh" from the replay without having called anything).
+             consecutive = 0
+-        reapply_mod.record_progress(batch, slug, out.outcome, retryable=False)
++        # A structure-changed skip stays retryable: the operator may add the
++        # flag or move the row to the structure list; a re-run just skips it again.
++        reapply_mod.record_progress(batch, slug, out.outcome,
++                                    retryable=out.outcome == "skipped: structure changed")
+         typer.echo(f"reapplied: {slug} -> {out.outcome}")
+         if out.delivered and out.outcome == "cleared":
+             typer.echo(f"  re-deliver with: llama deliver {slug}")
+diff --git a/packages/llama/src/llama/reapply.py b/packages/llama/src/llama/reapply.py
+index 94883f6..6db6364 100644
+--- a/packages/llama/src/llama/reapply.py
++++ b/packages/llama/src/llama/reapply.py
+@@ -51,7 +51,8 @@ _PREDICTED = {
+ class ReapplyOutcome:
+     slug: str
+     # "cleared" | "held" | "needs-llm" | "skipped: not held" |
+-    # "skipped: inputs changed" | "dry-run: <predicted>"
++    # "skipped: inputs changed" | "skipped: structure changed" |
++    # "dry-run: <predicted>"
+     outcome: str
+     briefing: str                  # "reuse" | "fresh" | "none"
+     flags: list[str]
+@@ -66,13 +67,18 @@ def _delivered(ledger: Ledger, performance_id: str) -> bool:
+ 
+ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
+                  providers: dict, row: dict | None, dry_run: bool,
+-                 echo: Callable[[str], None]) -> ReapplyOutcome:
++                 echo: Callable[[str], None],
++                 allow_structure_change: bool = False) -> ReapplyOutcome:
+     """Reapply one held show (spec slice 6). `ia` is the real archive.org
+     client and is used ONLY by `build_package`; the replay itself reads the
+     cache through `CacheOnlyIA`. `row` is the show's predicted-list row (its
+     `digests` must still match), or None for a show named on the command
+     line. The only LLM call is one fresh brief (`providers["brief"]`), made
+-    before anything is written, so a refusal there writes nothing."""
++    before anything is written, so a refusal there writes nothing. A show whose
++    replay changes its sets/segues/breaks (`structure-changed`) is applied only
++    when `allow_structure_change` (spec slice 6: it joins the apply once
++    checked); otherwise nothing is written and the outcome is `skipped:
++    structure changed`."""
+     ws, slug = entry.ws, entry.slug
+     with file_lock(ws.lock):
+         if not ws.show.exists():
+@@ -99,6 +105,9 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
+         if dry_run:
+             return ReapplyOutcome(slug, f"dry-run: {_PREDICTED[outcome]}", legs.brief,
+                                   list(legs.flags), delivered, [])
++        if outcome == "structure-changed" and not allow_structure_change:
++            return ReapplyOutcome(slug, "skipped: structure changed", legs.brief,
++                                  list(legs.flags), delivered, [])
+ 
+         # In memory first: the fresh brief (the one LLM call) runs before any write.
+         # legs.flags = gather + vet + carried package flags + brief_flags; the
+diff --git a/packages/llama/tests/test_reapply.py b/packages/llama/tests/test_reapply.py
+index d645661..ed96e8e 100644
+--- a/packages/llama/tests/test_reapply.py
++++ b/packages/llama/tests/test_reapply.py
+@@ -760,7 +760,7 @@ def test_any_other_exception_fails_only_its_row(tmp_path, monkeypatch):
+     _scripted(monkeypatch, {"held-2": HerderError("boom"), "held-3": RuntimeError("mutagen says no"),
+                             "held-4": HerderError("boom"), "held-5": ("cleared", "reuse")})
+     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+-    assert "FAILED held-3: mutagen says no" in r.output and "Traceback" not in r.output
++    assert "FAILED held-3: RuntimeError: mutagen says no" in r.output and "Traceback" not in r.output
+     assert "stopping after" not in r.output and "reapplied: held-5 -> cleared" in r.output
+     assert r.exit_code == 1
+     progress = read_progress(batch_dir(root, lst))
+@@ -839,3 +839,99 @@ def test_dry_run_counts_fresh_briefs_and_downloads_only_for_rows_it_would_apply(
+         assert line in r.output
+     assert ("summary: 4 rows, 0 already finished, 2 fresh briefs, 2 first-time downloads "
+             "(~175 MB each, ~0.3 GB)") in r.output
++
++
++# --- fw2: structure-changed needs a deliberate allow; failure type names; purged-audio downloads ---
++
++def _force_classify(monkeypatch, outcome, would_be="clears"):
++    real = reapply_mod.classify
++    def fake(legs, state):
++        out, wb = real(legs, state)
++        return (outcome, would_be) if out in ("clears", "needs-brief") else (out, wb)
++    monkeypatch.setattr(reapply_mod, "classify", fake)
++
++
++def test_structure_changed_is_skipped_unless_allowed_and_writes_nothing(tmp_path, monkeypatch):
++    root, config, ledger, entry, _ = _env(tmp_path)
++    calls = _stub_package(monkeypatch)
++    _stale(entry.ws)
++    before = _snapshot(entry.ws)
++    _force_classify(monkeypatch, "structure-changed")
++    out = _run(config, ledger, entry)
++    assert out.outcome == "skipped: structure changed" and out.written == []
++    assert _snapshot(entry.ws) == before and calls == []
++    ok = reapply_show(config, object(), ledger, entry, providers=_providers(), row=None,
++                      dry_run=False, echo=lambda s: None, allow_structure_change=True)
++    assert ok.outcome == "cleared" and calls
++
++
++def test_cli_names_form_structure_changed_needs_the_flag(tmp_path, monkeypatch):
++    from conftest import cli_invoke
++    import llama.cli as cli
++    root, config, ledger, entry, _ = _env(tmp_path)
++    _stub_package(monkeypatch)
++    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
++    _force_classify(monkeypatch, "structure-changed")
++    before = _snapshot(entry.ws)
++    r = cli_invoke(_cli(root), "reapply", HELD)
++    assert r.exit_code == 0, r.output
++    assert (f"reapplied: {HELD} -> skipped: structure changed "
++            "(re-run with --allow-structure-change after checking)") in r.output
++    assert _snapshot(entry.ws) == before
++    r = cli_invoke(_cli(root), "reapply", HELD, "--allow-structure-change")
++    assert r.exit_code == 0 and f"reapplied: {HELD} -> cleared" in r.output
++
++
++def test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped(tmp_path, monkeypatch):
++    from conftest import cli_invoke
++    import llama.cli as cli
++    root, config, ledger, entry, _ = _env(tmp_path)
++    rows = _clones(root, entry, 2)
++    lst = _list_file(tmp_path, root, config, rows)
++    data = json.loads(lst.read_text())
++    data["rows"][0]["outcome"] = "structure-changed"      # held-2: the structure list's row
++    lst.write_text(json.dumps(data))
++    _stub_package(monkeypatch)
++    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
++    _force_classify(monkeypatch, "structure-changed")
++    before = _snapshot(rows[1].ws)
++    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
++    assert r.exit_code == 0, r.output
++    assert "reapplied: held-2 -> cleared" in r.output
++    assert "reapplied: held-3 -> skipped: structure changed" in r.output
++    assert _snapshot(rows[1].ws) == before
++    progress = read_progress(batch_dir(root, lst))
++    assert progress["held-2"]["retryable"] is False
++    assert progress["held-3"]["retryable"] is True
++    r2 = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
++    assert "held-2" not in r2.output and "reapplied: held-3 -> skipped: structure changed" in r2.output
++
++
++def test_catch_all_failure_line_names_the_exception_type(tmp_path, monkeypatch):
++    from conftest import cli_invoke
++    import llama.cli as cli
++    root, config, ledger, entry, _ = _env(tmp_path)
++    lst = _list_file(tmp_path, root, config, [entry])
++    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
++    def boom(*a, **k):
++        raise RuntimeError("boom")
++    monkeypatch.setattr(reapply_mod, "compute_legs", boom)
++    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
++    assert f"FAILED {HELD}: RuntimeError: boom" in r.output and r.exit_code == 1
++    assert read_progress(batch_dir(root, lst))[HELD]["outcome"] == "failed: RuntimeError: boom"
++
++
++def test_dry_run_counts_a_purged_delivered_show_as_a_download(tmp_path, monkeypatch):
++    from conftest import cli_invoke
++    import llama.cli as cli
++    root, config, ledger, entry, _ = _env(tmp_path)
++    lst = _list_file(tmp_path, root, config, [entry])
++    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
++    write_artifact(entry.ws.package_dir / "manifest.json",
++                   {"schema_version": 3, "tracks": [{"filename": "a.mp3"}]})
++    (entry.ws.package_dir / "audio").mkdir(parents=True, exist_ok=True)
++    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
++    assert "1 first-time downloads" in r.output, r.output
++    (entry.ws.package_dir / "audio" / "a.mp3").write_bytes(b"x")
++    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
++    assert "0 first-time downloads" in r.output, r.output

@@ -1,0 +1,22 @@
+probe: region punctuation
+'Washington, D.C.' 'Washington, DC' ('washington', 'd c') ('washington', 'dc') False
+'Utica, N.Y.' 'Utica, NY' ('utica', 'n y') ('utica', 'ny') False
+'Seattle, Wash.' 'Seattle, WA' ('seattle', 'wash') ('seattle', 'wa') False
+'New York, N.Y.' 'New York, NY' ('new york', 'n y') ('new york', 'ny') False
+'Toronto, ON Canada' 'Toronto, ON' ('toronto', 'on canada') ('toronto', 'on') False
+'Santa Cruz, CA, USA' 'Santa Cruz, CA' ('santa cruz', 'ca') ('santa cruz', 'ca') True
+probe: containment w/o region
+York, PA | New York True
+Portland | South Portland, ME True
+Kansas City | Kansas City, KS True
+probe: univ strip widening
+UC Berkeley | Berkeley Community Theatre True
+UC Santa Barbara | Santa Barbara County Bowl True
+University of Oregon | Oregon State University True
+University of Michigan | Michigan State University True
+Cornell University | Cornell True
+MIT | Kresge Auditorium, MIT False
+probe: apostrophe variants
+'Penn‘s Landing' True
+'Penn`s Landing' True
+'Penn’s Landing' True

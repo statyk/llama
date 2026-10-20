@@ -1,0 +1,8 @@
+start 08:21:57
+jerrybase: skipped 117 malformed rows
+gratefuldead-1985-06-16: packaging
+downloading 1/21: gd85-06-16d1t01.mp3
+FAILED gratefuldead-1985-06-16: download of gd85-06-16d1t01.mp3 failed after 3 attempts: Server error '500 Internal Server Error' for url 'https://dn720303.ca.archive.org/0/items/gd85-06-16.oade.sacks.7087.sbeok.shnf/gd85-06-16d1t01.mp3'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+rc=1
+end 08:22:55

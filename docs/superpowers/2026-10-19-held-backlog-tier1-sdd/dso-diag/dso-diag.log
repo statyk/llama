@@ -1,0 +1,38 @@
+snapshot /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//dso-snap-uF5wL9
+DSO shows by state: {'held': 48, 'packaged': 61}
+shows with any numbered title:  307
+('billystrings-2021-12-04', 'held', 22, 0, 22, 0, 0, ['01 Red Daisy.mp3', '02 Taking Water _ Ice Bridges.mp3', '03 In the Morning Light.mp3'])
+('billystrings-2024-06-20', 'held', 17, 5, 12, 0, 0, ['01.mp3', '02 Wild Bill Jones.mp3', "03 There's More Pretty Girls Than One.mp3"])
+('blackberry-smoke-2024-05-17', 'held', 24, 0, 24, 0, 0, ["01 - Payback's a Bitch.mp3", '02 - Leave a Scar.mp3', "03 - Good One Comin' On.mp3"])
+('builttospill-1997-10-13', 'held', 14, 14, 0, 0, 0, ['1-002 Joyride.mp3', '1-003 Temporarily Blind.mp3', '1-004 The Plan.mp3'])
+('buttholesurfers-2008-07-28', 'packaged', 20, 0, 3, 0, 0, ['22 Going On 23', 'Fast', 'Suicide'])
+('darkstarorchestra-2012-05-19', 'held', 23, 21, 0, 0, 21, ['01-Hell In A Bucket', 'Bertha', "03-Walkin' Blues"])
+('davealvin-2018-12-09', 'packaged', 16, 16, 0, 0, 0, ['1.02 - Downey to Lubbock', "1.03 - Tonight I Think I'm Gonna Go Downtown", '1.04 - Johnny Ace Is Dead'])
+('drive-bytruckers-2008-02-28', 'packaged', 21, 0, 3, 0, 0, ['2 daughters', 'daddy needs a drink', '3 dimes down'])
+('joerussosalmostdead-2026-08-23', 'held', 15, 0, 15, 0, 0, ['01 Samson and Delilah.mp3', '02 Jam.mp3', '03 Second That Emotion.mp3'])
+('mountaingoats-2012-06-27', 'held', 31, 31, 0, 0, 0, ['01-Pure Milk (partial)', "02-Dinu Lipatti's Bones", '03-Intro to Stars Around Her'])
+('mountaingoats-2017-06-02', 'packaged', 45, 45, 0, 0, 0, ['01_The Goats Take The Stage At The Fillmore', '02_The Grey King and the Silver Flame Attunement', '03_Rain in Soho'])
+('mountaingoats-2019-05-07', 'packaged', 33, 4, 0, 0, 0, ['00_[Intro - Puccini - La Boheme]', '01_Done Bleeding', '02_Younger'])
+('mountaingoats-2019-05-08', 'packaged', 37, 31, 0, 0, 0, ['Intro', 'Clemency for the Wizard King', 'You or Your Memory'])
+('railroadearth-2013-10-13', 'held', 16, 0, 0, 13, 0, ['Storms', '03Happy Song', '04Walk Beside Me'])
+('railroadearth-2013-11-30', 'held', 23, 0, 0, 23, 0, ['01Pig In A Pen', '02Midnight Moonlight', '03Old And In The Way'])
+('railroadearth-2014-02-06', 'held', 21, 0, 0, 21, 0, ['01Potters Field', '02Lone Croft Farewell', '03Dance Around Molly'])
+('railroadearth-2014-02-08', 'held', 22, 0, 1, 21, 0, ['01Been Down That Road', '02Chasin A Rainbow', '03Four Twenty Hornpipe'])
+('railroadearth-2019-04-08', 'held', 22, 0, 22, 0, 0, ['02 Mighty River.mp3', '03 Bread and Water.mp3', '04 Bird in a House.mp3'])
+('robertwalters20thcongress-2009-04-29', 'held', 17, 17, 0, 0, 0, ["1.01 - Robert Walter's 20th Congress w- Karl Denson - (fades in)", "1.02 - Robert Walter's 20th Congress w- Karl Denson - 29d1t02", "1.03 - Robert Walter's 20th Congress w- Karl Denson - 29d1t03"])
+('ryanadams-2017-05-06', 'packaged', 25, 18, 0, 0, 0, ['02-Do You Still Love Me', '03-To Be Young (Is to Be Sad, Is to Be High)', '04-Gimme Something Good'])
+('steelydead-2019-06-14', 'held', 6, 0, 0, 6, 0, ['01Shakedown St. Kid Charlemange Shakedown Bodhisattva.mp3', '02The Fez Sugaree.mp3', '03Scarlet Begonias Jam Dirty Work.mp3'])
+('theblacklillies-2014-04-20', 'packaged', 16, 13, 0, 0, 0, ['01-Trying to Start Out Clean', 'Midnight', '03-Two Hearts Down'])
+items with >=3 tagged mp3: 12249 | H1 vote (NN[-_]Upper+lower): 4 | H2 vote (\d{1,3}[-_]\S): 9
+('BL2014-04-20.matrix', 16, 13, False, '01-Trying to Start Out Clean', [])
+('DSO2009-07-18.VasaParkAKG391FOB.FLAC_478', 25, 25, True, '02-Bertha--]', ['...Drums-]'])
+('DSO2012-05-19', 23, 21, True, '01-Hell In A Bucket', [])
+('MountainGoats2012-06-27', 27, 27, True, '01-Pure Milk (partial)', [])
+('TheDead2009-04-29.TheDead04-29-2009AKG391OTS', 16, 16, False, '101-touch of grey', ['touch of grey'])
+('gd2009-04-28.TheDead04-28-2009AKG391OTS', 14, 12, False, 'Intro', ['dear mr fantasy', 'dark star', 'eyes of the world'])
+('rhd2008-06-20.mk4', 13, 13, True, '01-Long Tall Sally', [])
+('tmg2017-06-02', 51, 51, False, '01_The Goats Take The Stage At The Fillmore', [])
+('tmg2019-05-08', 45, 39, False, 'Intro', [])
+{'held/no-brief': 47, 'packaged/guard-ok': 61, 'held/guard-ok': 1, 'held/unknown-song': 1}
+('darkstarorchestra-2012-05-19', 21, ['briefing mentions unknown song: Hell In A Bucket', "briefing mentions unknown song: Walkin' Blues"])
+snapshot removed

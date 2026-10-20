@@ -1,0 +1,4 @@
+budget-min: 60
+role: impl
+model: sonnet
+what: joined track-number strip + census

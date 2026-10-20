@@ -1,0 +1,3 @@
+(<class 'mutagen.MutagenError'>, <class 'Exception'>, <class 'BaseException'>, <class 'object'>)
+(<class 'mutagen.flac.FLACNoHeaderError'>, <class 'mutagen.flac.error'>, <class 'mutagen.MutagenError'>, <class 'Exception'>, <class 'BaseException'>, <class 'object'>)
+False

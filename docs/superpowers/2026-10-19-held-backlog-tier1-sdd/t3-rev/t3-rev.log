@@ -1,0 +1,15 @@
+grep callers
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut-nocopy/tree/packages/llama/src/llama/__init__.py
+
+packages/llama/tests/test_stage_vet.py:430: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_vet.py::test_apply_vet_is_pure_and_replaces_only_its_own_flags
+FAILED packages/llama/tests/test_stage_vet.py::test_apply_vet_adopts_a_placeholder_date_on_the_copy
+2 failed, 33 passed in 0.96s
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/mut-nonotes/tree/packages/llama/src/llama/__init__.py
+E         Use -v to get more diff
+
+packages/llama/tests/test_stage_vet.py:437: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_vet.py::test_run_vet_research_writes_vet_notes_into_notes_json
+1 failed, 34 passed in 0.92s

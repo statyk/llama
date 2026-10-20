@@ -1,0 +1,53 @@
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3236 passed, 1 skipped, 8 deselected, 26 warnings in 52.66s
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3270 passed, 1 skipped, 8 deselected, 26 warnings in 53.56s
+smoke run start Mon Oct 19 15:34:08 EDT 2026 T=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/tmp.5Z3LLgf33N
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 100/1073
+replayed 200/1073
+replayed 300/1073
+replayed 400/1073
+replayed 500/1073
+replayed 600/1073
+replayed 700/1073
+replayed 800/1073
+replayed 900/1073
+replayed 1000/1073
+replayed 1073 show(s): needs-brief=43, needs-llm=492, still-held=538
+
+real	0m18.387s
+user	0m11.511s
+sys	0m1.482s
+predictions: identity->scripts/test_replay_holds.py::test_run_refuses_a_llama_from_a_worktree_nested_in_this_tree; overrides->test_replay.py::test_replay_show_unreadable_overrides_is_unreplayable + scripts::test_unreadable_overrides_marks_the_show_unreplayable_and_continues; showsguard->test_replay.py::test_compute_legs_refuses_a_scratch_inside_the_library_shows_dir; scriptscratch->scripts::test_run_refuses_a_scratch_overlapping_the_library[parent]; diffnew->test_replay.py::test_shipped_diff_track_count_change_carries_the_new_values + test_shipped_diff_track_count_change_reports_every_index
+== identity: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-Azk3/tree/packages/llama/src/llama/__init__.py
+FAILED scripts/test_replay_holds.py::test_run_refuses_a_llama_from_a_worktree_nested_in_this_tree
+1 failed, 100 passed in 2.29s
+== overrides: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-ip5L/tree/packages/llama/src/llama/__init__.py
+FAILED scripts/test_replay_holds.py::test_unreadable_overrides_marks_the_show_unreplayable_and_continues
+FAILED packages/llama/tests/test_replay.py::test_replay_show_unreadable_overrides_is_unreplayable[[1, 2]
+FAILED packages/llama/tests/test_replay.py::test_replay_show_unreadable_overrides_is_unreplayable[[1, 2]]
+FAILED packages/llama/tests/test_replay.py::test_replay_show_unreadable_overrides_is_unreplayable["vague"]
+FAILED packages/llama/tests/test_replay.py::test_replay_show_unreadable_overrides_is_unreplayable[{"exclude": 3}]
+FAILED packages/llama/tests/test_replay.py::test_replay_show_unreadable_overrides_is_unreplayable[\xff\xfe]
+6 failed, 95 passed in 2.35s
+== showsguard: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-VWgV/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_compute_legs_refuses_a_scratch_inside_the_library_shows_dir
+1 failed, 100 passed in 4.62s
+== scriptscratch: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-Dpkf/tree/packages/llama/src/llama/__init__.py
+FAILED scripts/test_replay_holds.py::test_run_refuses_a_scratch_overlapping_the_library[root]
+FAILED scripts/test_replay_holds.py::test_run_refuses_a_scratch_overlapping_the_library[shows]
+FAILED scripts/test_replay_holds.py::test_run_refuses_a_scratch_overlapping_the_library[inside]
+FAILED scripts/test_replay_holds.py::test_run_refuses_a_scratch_overlapping_the_library[parent]
+4 failed, 97 passed in 2.37s
+== diffnew: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-QhyG/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_shipped_diff_track_count_change_reports_every_index
+FAILED packages/llama/tests/test_replay.py::test_shipped_diff_track_count_change_carries_the_new_values
+2 failed, 99 passed in 2.27s
+r1 start Mon Oct 19 15:41:46 EDT 2026
+r1 mutant swallowed-probe-write: predicted scripts/test_replay_holds.py::test_run_writes_only_the_arm_and_empties_its_scratch
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-TLkN/tree/packages/llama/src/llama/__init__.py
+FAILED scripts/test_replay_holds.py::test_run_writes_only_the_arm_and_empties_its_scratch
+1 failed, 20 passed in 1.28s
+3271 passed, 1 skipped, 8 deselected, 26 warnings in 53.36s

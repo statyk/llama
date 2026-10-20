@@ -1,0 +1,43 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw1-rev-snap-wGMmek
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw1-rev-snap-wGMmek/packages/llama/src/llama/__init__.py
+PREDICTIONS (before any flip):
+ M1 drop clear_encore=True -> test_fix.py::test_untitled_clears_a_pre_existing_encore_so_the_tape_is_one_set
+ M2 decline returns ("held", None) -> test_fix.py::test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone + test_triage.py::test_triage_u_declined_writes_nothing_and_returns_to_the_prompt
+ M3 (reviewer-added) held path returns ("declined", None) -> predicted: no test (likely SURVIVED) unless some --untitled/[u] test has both redos return None
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw1-rev-ZyosL2
+== M1 diff
+1640c1640
+<                     narration="vague", set_breaks=[], clear_encore=True)
+---
+>                     narration="vague", set_breaks=[])
+== M2 diff
+1636c1636
+<         return "declined", None
+---
+>         return "held", None
+== M3 diff
+1649c1649
+<     return ("packaged", pkg) if pkg else ("held", None)
+---
+>     return ("packaged", pkg) if pkg else ("declined", None)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw1-rev-ZyosL2/M1/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw1-rev-ZyosL2/M2/packages/llama/src/llama/__init__.py
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw1-rev-ZyosL2/M3/packages/llama/src/llama/__init__.py
+== M1
+FAILED packages/llama/tests/test_fix.py::test_untitled_clears_a_pre_existing_encore_so_the_tape_is_one_set
+1 failed, 113 passed in 21.59s
+== M2
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=11848) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3772 passed, 1 skipped, 8 deselected, 26 warnings in 94.22s (0:01:34)
+FAILED packages/llama/tests/test_fix.py::test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone
+FAILED packages/llama/tests/test_triage.py::test_triage_u_declined_writes_nothing_and_returns_to_the_prompt
+2 failed, 112 passed in 21.58s
+== M3
+114 passed in 4.76s
+jerrybase: skipped 117 malformed rows
+None 6 ['1', '1', '1', '1', '1', '1']
+3 6 ['1', '1', '1', 'encore', 'encore', 'encore']
+cleaned MROOT and S; done

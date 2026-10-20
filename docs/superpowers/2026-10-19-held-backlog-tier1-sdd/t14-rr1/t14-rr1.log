@@ -1,0 +1,21 @@
+brief from /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/brief.py
+'not, as some claim, two sets' {'pre': 'KEPT', 'ruled': 'KEPT', 'impl': 'KEPT'}
+'no encore, no second set' {'pre': 'suppressed', 'ruled': 'suppressed', 'impl': 'suppressed'}
+'without a break, two sets' {'pre': 'suppressed', 'ruled': 'suppressed', 'impl': 'KEPT'}
+'There was no encore, no second set.' {'pre': 'suppressed', 'ruled': 'suppressed', 'impl': 'suppressed'}
+'They played not three, but two sets' {'pre': 'KEPT', 'ruled': 'KEPT', 'impl': 'KEPT'}
+'never, in their history, a second set' {'pre': 'KEPT', 'ruled': 'KEPT', 'impl': 'KEPT'}
+'instead of the usual, two sets' {'pre': 'suppressed', 'ruled': 'suppressed', 'impl': 'KEPT'}
+'As expected, the second set was a monster.' {'pre': 'suppressed', 'ruled': 'suppressed', 'impl': 'KEPT'}
+'expected, as always, two sets' {'pre': 'suppressed', 'ruled': 'suppressed', 'impl': 'KEPT'}
+'without, oddly, a second set' {'pre': 'suppressed', 'ruled': 'suppressed', 'impl': 'KEPT'}
+'not one, not two, but three sets' {'pre': 'KEPT', 'ruled': 'KEPT', 'impl': 'KEPT'}
+'no second set, no encore' {'pre': 'suppressed', 'ruled': 'suppressed', 'impl': 'suppressed'}
+briefings 2455, matches 2446, join-diff 0
+suppressed counts {'pre': 24, 'ruled': 21, 'impl': 21}
+--- ruled_only: 0
+--- impl_only: 0
+--- pre_only: 3
+  deadandcompany-2021-09-18: ..., not the show, and Live for Live Music says it came earlier than expected. The second set included 'Milestones' by Mile...
+  gratefuldead-1990-03-24: ...atter only as "thought to have been taken from" this date, without a venue. The second set is also the site of a Mind Le...
+  gratefuldead-1990-03-24: ...ts this performance as the probable source of the version on Without a Net. | The second set as documented runs ten tracks...

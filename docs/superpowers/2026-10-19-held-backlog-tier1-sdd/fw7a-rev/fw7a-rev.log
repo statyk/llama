@@ -1,0 +1,32 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw7a-rev-snap-vmECXY
+== full suite in snapshot
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=91255) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3798 passed, 1 skipped, 8 deselected, 26 warnings in 117.24s (0:01:57)
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw7a-rev-QpzfvR
+PREDICTIONS (written before flipping):
+ M1 siblings refusal back to is_placeholder_text(t.strip()) -> test_siblings.py::test_a_donor_placeholder_with_a_trailing_segue_mark_still_fails_hygiene[tmp >] fails; [Track 02 >] PASSES (raw form already refused)
+ M2 day_unknown.setdefault(du,text) -> day_unknown[du]=text -> test_stage_vet.py::test_day00_entries_dedupe_on_the_first_surface_text fails
+ M3 move day_unknown loop after yearless loop -> test_stage_vet.py::test_date_flags_order_is_mismatched_then_day_unknown_then_yearless fails
+== m1
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7a-rev-QpzfvR/m1/packages/llama/src/llama/__init__.py
+Files /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw7a-rev-snap-vmECXY/packages/llama/src/llama/siblings.py and /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw7a-rev-QpzfvR/m1/packages/llama/src/llama/siblings.py differ
+== m2
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7a-rev-QpzfvR/m2/packages/llama/src/llama/__init__.py
+Files /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw7a-rev-snap-vmECXY/packages/llama/src/llama/stages/vet_research.py and /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw7a-rev-QpzfvR/m2/packages/llama/src/llama/stages/vet_research.py differ
+== m3
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7a-rev-QpzfvR/m3/packages/llama/src/llama/__init__.py
+Files /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw7a-rev-snap-vmECXY/packages/llama/src/llama/stages/vet_research.py and /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw7a-rev-QpzfvR/m3/packages/llama/src/llama/stages/vet_research.py differ
+== m1 run
+FAILED packages/llama/tests/test_siblings.py::test_a_donor_placeholder_with_a_trailing_segue_mark_still_fails_hygiene[tmp >]
+1 failed, 53 passed in 2.53s
+== m2 run
+FAILED packages/llama/tests/test_stage_vet.py::test_day00_entries_dedupe_on_the_first_surface_text
+1 failed, 91 passed in 8.38s
+== m3 run
+FAILED packages/llama/tests/test_stage_vet.py::test_16b_day00_flag_uses_the_surface_text_and_orders_before_yearless
+FAILED packages/llama/tests/test_stage_vet.py::test_date_flags_order_is_mismatched_then_day_unknown_then_yearless
+2 failed, 90 passed in 3.85s
+cleaned MROOT and S

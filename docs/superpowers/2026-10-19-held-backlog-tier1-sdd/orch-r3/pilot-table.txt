@@ -1,0 +1,11 @@
+slug | predicted (outcome/briefing) | actual outcome | brief | needs_review | review_flags | pkg flags | after-replay: outcome reproduces fieldchanges
+furthur-2011-06-03 | needs-brief/fresh (list needs-brief/fresh) | cleared | fresh | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+umphreysmcgee-2004-10-19 | needs-brief/fresh (list needs-brief/fresh) | cleared | fresh | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+railroadearth-2008-09-20 | needs-brief/fresh (list needs-brief/fresh) | cleared | fresh | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+elliottsmith-2000-11-03 | needs-brief/fresh (list needs-brief/fresh) | cleared | fresh | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+ryanadams-2008-11-16 | needs-brief/fresh (list needs-brief/fresh) | cleared | fresh | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+gratefuldead-1979-11-25 | needs-brief/fresh (list needs-brief/fresh) | cleared | fresh | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+joerussosalmostdead-2018-05-04 | needs-brief/fresh (list needs-brief/fresh) | cleared | fresh | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+furthur-2010-02-27 | needs-brief/fresh (list needs-brief/fresh) | cleared | fresh | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+littlefeat-2012-09-03 | clears/reuse (list clears/reuse) | cleared | reuse | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]
+ryanadams-2007-05-16 | clears/reuse (list clears/reuse) | cleared | reuse | False | [] | [] manifest=True | clean repro=True changes=[] flags=[]

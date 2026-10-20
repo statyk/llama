@@ -1,0 +1,4 @@
+budget-min: 60
+role: impl
+model: sonnet
+what: docs + test hygiene + dry-run consistency

@@ -1,0 +1,162 @@
+only-old []
+only-new []
+darkstarorchestra-2008-02-17 still-held -> still-held ['alignment']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+darkstarorchestra-2008-08-31 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'set_breaks', 'set_changes', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Not Fade Away' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Brokedown Palace' unmatched; 1 trailing track(s) stay in set 2)"] => ["jerrybase set closer 'Don't Let Go' is followed only by filler before the set break"]
+    outcome : "structure-changed" => "still-held"
+    set_breaks : {"old": [10], "new": [9]} => null
+    set_changes : [{"index": 10, "old": "1", "new": "2"}] => []
+darkstarorchestra-2009-02-27 structure-changed -> needs-llm ['alignment', 'briefing', 'gather_flags', 'needs_llm', 'notes', 'outcome', 'reproduces', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["low-confidence structure alignment", "jerrybase set closer 'Sugar Magnolia' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Ripple' unmatched; 3 trailing track(s) stay in set 2)"] => []
+    outcome : "structure-changed" => "needs-llm"
+deadandcompany-2018-06-16 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'outcome', 'reproduces', 'set_breaks', 'set_changes', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'New Speedway Boogie' is not at a set break"]
+    outcome : "structure-changed" => "still-held"
+    set_breaks : {"old": [9], "new": [8]} => null
+    set_changes : [{"index": 9, "old": "1", "new": "2"}] => []
+furthur-2010-03-03 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+furthur-2010-05-30 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'reproduces', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Terrapin Station' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Not Fade Away' unmatched; 2 trailing track(s) stay in set 3)"] => []
+    outcome : "structure-changed" => "still-held"
+furthur-2010-07-30 still-held -> still-held ['alignment', 'gather_flags', 'notes', 'reproduces']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : ["venue mismatch: archive 'Gathering of the Vibes' vs jerrybase 'Seaside Park'"] => ["venue mismatch: archive 'Gathering of the Vibes' vs jerrybase 'Seaside Park'", "jerrybase set closer 'Franklin's Tower' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Terrapin Station' unmatched; 2 trailing track(s) stay in set 2)"] => []
+furthur-2011-02-11 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'reproduces', 'set_breaks', 'set_changes', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Brown-Eyed Women' is not at a set break", "jerrybase set closer 'Franklin's Tower' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Liberty' unmatched; 1 trailing track(s) stay in set 2)"] => []
+    outcome : "structure-changed" => "still-held"
+    set_breaks : {"old": [11], "new": [9]} => null
+    set_changes : [{"index": 10, "old": "1", "new": "2"}, {"index": 11, "old": "1", "new": "2"}] => []
+furthur-2011-11-11 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+furthur-2012-07-07 still-held -> still-held ['alignment']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+furthur-2012-07-08 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Throwing Stones' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Samson and Delilah' unmatched; 2 trailing track(s) stay in set 2)"] => []
+    outcome : "structure-changed" => "still-held"
+gratefuldead-1970-05-14 still-held -> needs-llm ['alignment', 'gather_flags', 'needs_llm', 'outcome', 'set_breaks', 'set_changes']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : ["setlist evidence shows multiple sets but alignment found none"] => ["low-confidence structure alignment", "structure has 2 sets but jerrybase shows 1"]
+    outcome : "still-held" => "needs-llm"
+    set_breaks : {"old": [18], "new": []} => null
+    set_changes : [{"index": 19, "old": "2", "new": "1"}, {"index": 20, "old": "2", "new": "1"}, {"index": 21, "old": "2", "new": "1"}, {"index": 22, "old": "2", "new": "1"}, {"index": 23, "old": "2", "new": "1"}, {"index": 24, "old": "2", "new": "1"}, {"index": 25, "old": "2", "new": "1"}, {"index": 26, "old": "2",  => []
+gratefuldead-1971-04-29 clean-changed -> newly-held ['alignment', 'briefing', 'gather_flags', 'outcome', 'reproduces', 'set_breaks', 'set_changes']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Uncle John's Band' is not at a set break"]
+    outcome : "clean-changed" => "newly-held"
+    set_breaks : {"old": [13, 28], "new": [13, 29]} => null
+    set_changes : [{"index": 29, "old": "encore", "new": "2"}] => []
+gratefuldead-1972-05-11 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+gratefuldead-1974-10-18 needs-llm -> needs-llm ['alignment', 'briefing', 'gather_flags', 'needs_llm', 'notes', 'reproduces', 'set_breaks', 'set_changes']
+    alignment : {"old": "llm", "new": "jerrybase"} => {"old": "llm", "new": "deterministic"}
+    gather_flags : [] => ["low-confidence structure alignment", "jerrybase set closer 'Let It Grow' is not at a set break", "jerrybase set closer 'One More Saturday Night' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'U.S. Blues' unmatched; 1 trailing track(s) stay in set 3)"] => []
+    set_breaks : {"old": [12, 16, 23], "new": [12, 16]} => {"old": [12, 16, 23], "new": [14, 16]}
+    set_changes : [{"index": 24, "old": "encore", "new": "3"}] => [{"index": 13, "old": "2", "new": "1"}, {"index": 14, "old": "2", "new": "1"}, {"index": 24, "old": "encore", "new": "3"}]
+gratefuldead-1978-04-15 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+gratefuldead-1978-12-19 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'reproduces', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Around And Around' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Casey Jones' unmatched; 1 trailing track(s) stay in set 2)"] => []
+    outcome : "structure-changed" => "still-held"
+gratefuldead-1978-12-31 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+gratefuldead-1980-10-31 still-held -> still-held ['alignment', 'gather_flags', 'notes', 'reproduces', 'set_breaks', 'set_changes', 'vet_flags']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Good Lovin'' is not at a set break", "structure has 3 sets but jerrybase shows 2"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Uncle John's Band' unmatched; 1 trailing track(s) stay in set 2)"] => []
+    set_breaks : {"old": [9, 18], "new": [18]} => null
+    set_changes : [{"index": 10, "old": "2", "new": "1"}, {"index": 11, "old": "2", "new": "1"}, {"index": 12, "old": "2", "new": "1"}, {"index": 13, "old": "2", "new": "1"}, {"index": 14, "old": "2", "new": "1"}, {"index": 15, "old": "2", "new": "1"}, {"index": 16, "old": "2", "new": "1"}, {"index": 17, "old": "2",  => []
+gratefuldead-1981-09-12 structure-changed -> needs-brief ['alignment', 'outcome', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "structure-changed" => "needs-brief"
+gratefuldead-1984-03-31 still-held -> still-held ['alignment']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+gratefuldead-1984-06-21 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+gratefuldead-1986-12-15 needs-llm -> needs-llm ['alignment', 'gather_flags', 'needs_llm', 'notes', 'reproduces']
+    alignment : {"old": "llm", "new": "jerrybase"} => {"old": "llm", "new": "deterministic"}
+    gather_flags : ["venue mismatch: archive 'Oakland-Alameda County Coliseum' vs jerrybase 'Oakland Coliseum Arena'", "unresolved track titles"] => ["low-confidence structure alignment", "venue mismatch: archive 'Oakland-Alameda County Coliseum' vs jerrybase 'Oakland Coliseum Arena'", "jerrybase set closer 'Good Lovin'' is not at a set break", "unresolved track titles"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Johnny B. Goode' unmatched; 1 trailing track(s) stay in set 2)"] => []
+gratefuldead-1989-10-08 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+gratefuldead-1990-04-03 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+gratefuldead-1990-07-08 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+gratefuldead-1990-09-15 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'reproduces', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Not Fade Away' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'One More Saturday Night' unmatched; 1 trailing track(s) stay in set 2)"] => []
+    outcome : "structure-changed" => "still-held"
+gratefuldead-1990-09-19 still-held -> still-held ['alignment']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+gratefuldead-1991-10-27 still-held -> still-held ['alignment']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+gratefuldead-1994-06-26 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+gratefuldead-1995-04-07 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+philleshandfriends-2001-11-17 needs-llm -> needs-llm ['alignment', 'briefing', 'gather_flags', 'needs_llm', 'notes']
+    alignment : {"old": "llm", "new": "jerrybase"} => {"old": "llm", "new": "deterministic"}
+    gather_flags : [] => ["low-confidence structure alignment"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'And We Bid You Goodnight' unmatched; 1 trailing track(s) stay in set 2)"] => ["jerrybase set closer 'The Golden Road (To Unlimited Devotion)' is followed only by filler before the set break"]
+philleshandfriends-2005-10-29 still-held -> still-held ['alignment']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+philleshandfriends-2008-07-06 still-held -> still-held ['alignment', 'gather_flags', 'notes', 'set_breaks', 'set_changes']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : ["venue mismatch: archive 'Rothbury Festival' vs jerrybase 'Double JJ Ranch'"] => ["venue mismatch: archive 'Rothbury Festival' vs jerrybase 'Double JJ Ranch'", "jerrybase set closer 'Scarlet Begonias' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Dancing in the Street' unmatched; 1 trailing track(s) stay in set 2)"] => ["jerrybase set closer 'Sugaree' is followed only by filler before the set break"]
+    set_breaks : {"old": [9], "new": [8]} => null
+    set_changes : [{"index": 9, "old": "1", "new": "2"}] => []
+ratdog-2003-05-01 still-held -> still-held ['alignment', 'gather_flags', 'notes', 'reproduces', 'set_breaks', 'set_changes', 'vet_flags']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["structure has 2 sets but jerrybase shows 1"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'The RatDog Drinking Song' unmatched; 10 trailing track(s) stay in set 1)"] => []
+    set_breaks : {"old": [11, 21], "new": [21]} => null
+    set_changes : [{"index": 12, "old": "2", "new": "1"}, {"index": 13, "old": "2", "new": "1"}, {"index": 14, "old": "2", "new": "1"}, {"index": 15, "old": "2", "new": "1"}, {"index": 16, "old": "2", "new": "1"}, {"index": 17, "old": "2", "new": "1"}, {"index": 18, "old": "2", "new": "1"}, {"index": 19, "old": "2",  => []
+ratdog-2008-11-16 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'reproduces', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Going Down the Road Feelin' Bad' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Ripple' unmatched; 1 trailing track(s) stay in set 2)"] => []
+    outcome : "structure-changed" => "still-held"
+ratdog-2014-03-07 clean-changed -> clean ['alignment', 'outcome']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    outcome : "clean-changed" => "clean"
+thedead-2009-04-15 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'reproduces', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'Foolish Heart' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Gloria' unmatched; 2 trailing track(s) stay in set 2)"] => []
+    outcome : "structure-changed" => "still-held"
+thedead-2009-04-29 structure-changed -> still-held ['alignment', 'briefing', 'gather_flags', 'notes', 'outcome', 'reproduces', 'would_be']
+    alignment : {"old": "deterministic", "new": "jerrybase"} => null
+    gather_flags : [] => ["jerrybase set closer 'I Know You Rider' is not at a set break"]
+    notes : ["set breaks anchored from jerrybase numbered sets (encore row 'Man Smart, Woman Smarter' unmatched; 1 trailing track(s) stay in set 2)"] => []
+    outcome : "structure-changed" => "still-held"
+changed shows: 39

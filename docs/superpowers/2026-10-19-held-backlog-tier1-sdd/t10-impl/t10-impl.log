@@ -1,0 +1,113 @@
+wrote /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/tests/fixtures/tnd2006-12-13.flac16.json
+packages/llama/tests/test_stage_gather.py:2495: in <module>
+    from llama.stages.gather import accept_short_tags
+E   ImportError: cannot import name 'accept_short_tags' from 'llama.stages.gather' (/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/gather.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_titles.py
+ERROR packages/llama/tests/test_stage_gather.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.35s
+        tracks = [Track(index=i, set="1", title=f"t{i}.mp3", filename=f"t{i}.mp3", title_source="unresolved")
+                  for i in (1, 2)]
+        corroboration = {fuzzy_norm_title("J"): ("lma:x",), fuzzy_norm_title("FF"): ("setlist.fm",)}
+        out, notes = accept_short_tags(tracks, ["J > Nope", "J > FF >"], "tags",
+                                       corroboration=corroboration, metadata_norms=set())
+>       assert [(t.title, t.title_source) for t in out] == [("t1.mp3", "unresolved"), ("J > FF", "tags")]
+E       AssertionError: assert [('t1.mp3', '...'unresolved')] == [('t1.mp3', '... FF', 'tags')]
+E         
+E         At index 1 diff: ('t2.mp3', 'unresolved') != ('J > FF', 'tags')
+E         Use -v to get more diff
+
+packages/llama/tests/test_stage_gather.py:2582: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_needs_every_segue_component_corroborated
+1 failed, 206 passed in 0.84s
+........................................................................ [ 69%]
+...............................................................          [100%]
+207 passed in 0.83s
+progress: impl green on target files, running full suite
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3419 passed, 1 skipped, 8 deselected, 26 warnings in 49.16s
+== (a) drop alnum
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-a-XP1q/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-a-XP1q/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_rules
+1 failed, 206 passed in 1.48s
+== (b) drop metadata_norms
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-b-8MJj/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-b-8MJj/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_rules
+1 failed, 206 passed in 1.29s
+== (c) any
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-c-EWF3/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-c-EWF3/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_needs_every_segue_component_corroborated
+1 failed, 206 passed in 3.24s
+== (d) drop is_junk_tag
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-d-eG6b/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-d-eG6b/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_rules
+1 failed, 206 passed in 1.30s
+== (e) attached #
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-e-8lUW/tree/packages/llama/src/llama/titles.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-e-8lUW/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_titles.py::test_tag_core_and_shipped_title[F#-F-F#]
+1 failed, 206 passed in 1.29s
+== (f) drop is_real_title gate [pred: test_accept_short_tags_ignores_tags_that_pass_is_real_title]
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-f-77aN/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-f-77aN/tree/packages/llama/src/llama/__init__.py
+207 passed in 1.26s
+== (g) hardcode tags source [pred: test_accept_short_tags_carries_the_tag_layer_source]
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-g-XVtp/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-g-XVtp/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_carries_the_tag_layer_source
+1 failed, 206 passed in 1.25s
+== (h) only corroboration from any key incl. chosen? n/a; unwire call [pred: test_2a_accepts_j_when_a_sibling_description_corroborates_it]
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-h-ilFd/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-h-ilFd/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_2a_accepts_j_when_a_sibling_description_corroborates_it
+FAILED packages/llama/tests/test_stage_gather.py::test_2a_never_judges_an_overridden_position
+2 failed, 205 passed in 1.32s
+== (f) re-run [pred: test_accept_short_tags_never_judges_a_real_title_tag]
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-f-ESTH/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-f-ESTH/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_never_judges_a_real_title_tag
+1 failed, 207 passed in 1.35s
+3420 passed, 1 skipped, 8 deselected, 26 warnings in 47.69s
+== (i) single pass, no fixpoint [pred: test_tag_core_and_shipped_title[Dew > #-Dew-Dew]]
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-i-oTpL/tree/packages/llama/src/llama/titles.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-i-oTpL/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_titles.py::test_tag_core_and_shipped_title[Dew > #-Dew-Dew]
+1 failed, 208 passed in 1.50s
+== (e) re-run after fixpoint change [pred: test_tag_core_and_shipped_title[F#-F-F#]]
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-e-AMpq/tree/packages/llama/src/llama/titles.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-e-AMpq/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_titles.py::test_tag_core_and_shipped_title[F#-F-F#]
+1 failed, 208 passed in 1.25s
+3421 passed, 1 skipped, 8 deselected, 26 warnings in 49.20s
+r1 start
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_rules
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_ignores_tags_that_pass_is_real_title
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_never_judges_a_real_title_tag
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_skips_positions_2b_demoted
+FAILED packages/llama/tests/test_stage_gather.py::test_2a_does_not_reaccept_a_recording_level_2b_demotion
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_needs_every_segue_component_corroborated
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_carries_the_tag_layer_source
+7 failed, 206 passed in 1.19s
+E       assert not True
+E        +  where True = any(<generator object test_2a_does_not_reaccept_a_recording_level_2b_demotion.<locals>.<genexpr> at 0x10a9a2960>)
+213 passed in 2.75s
+== (j) drop the demoted skip [pred: test_accept_short_tags_skips_positions_2b_demoted]
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-j-QlWf/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-j-QlWf/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_accept_short_tags_skips_positions_2b_demoted
+FAILED packages/llama/tests/test_stage_gather.py::test_2a_does_not_reaccept_a_recording_level_2b_demotion
+2 failed, 211 passed in 1.37s
+== (k) wiring passes empty demoted [pred: test_2a_does_not_reaccept_a_recording_level_2b_demotion]
+applied in /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-k-4xCb/tree/packages/llama/src/llama/stages/gather.py
+shadow: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-k-4xCb/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_2a_does_not_reaccept_a_recording_level_2b_demotion
+1 failed, 212 passed in 1.34s
+3425 passed, 1 skipped, 8 deselected, 26 warnings in 47.87s

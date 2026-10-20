@@ -1,0 +1,4 @@
+budget-min: 20
+role: impl
+model: sonnet
+what: pre-apply fix I1: _SCOPE_AFTER field boundary

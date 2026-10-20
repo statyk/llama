@@ -1,0 +1,36 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw3-rev-snap-2T4pcC
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw3-rev-snap-2T4pcC/packages/llama/src/llama/__init__.py
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw3-rev-BjdwYy
+predictions (written before flipping):
+M2 drop whenever held (diff ignored) -> test_reapply.py::test_a_held_outcome_with_no_shipped_change_keeps_the_briefing
+M4 drop without recording written -> test_reapply.py::test_a_held_outcome_with_changed_titles_drops_the_stale_briefing
+M5 drop stage "package" instead of "brief" -> test_reapply.py::test_a_held_outcome_with_changed_titles_drops_the_stale_briefing
+M6 condition checks only briefing_json.exists() -> no test predicted (expect SURVIVED: no row with only briefing.md)
+M7 compare with briefing_reusable's broadcast fields (title_source excluded) -> no test predicted (expect SURVIVED)
+== M2
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw3-rev-BjdwYy/M2/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_a_show_still_flagged_after_vet_is_written_held_with_no_briefing_or_package
+FAILED packages/llama/tests/test_reapply.py::test_a_held_outcome_with_no_shipped_change_keeps_the_briefing
+FAILED packages/llama/tests/test_reapply.py::test_a_held_outcome_with_no_shipped_change_and_no_carried_flag_keeps_the_briefing
+3 failed, 55 passed in 6.39s
+== M4
+ 1 file changed, 1 deletion(-)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw3-rev-BjdwYy/M4/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_a_held_outcome_with_changed_titles_drops_the_stale_briefing
+1 failed, 57 passed in 5.48s
+== M5
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw3-rev-BjdwYy/M5/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_a_held_outcome_with_changed_titles_drops_the_stale_briefing
+1 failed, 57 passed in 6.25s
+== M6
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw3-rev-BjdwYy/M6/tree/packages/llama/src/llama/__init__.py
+58 passed in 6.15s
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=28023) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3792 passed, 1 skipped, 8 deselected, 26 warnings in 126.04s (0:02:06)
+removed MROOT and S

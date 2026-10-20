@@ -1,0 +1,65 @@
+progress: reading placeholders/titles for 2b-vs-2a overlap risk
+'Dew > #' core= 'Dew' ship= 'Dew' real= True norm= 'dew'
+'F# > #' core= 'F' ship= 'F#' real= False norm= 'f'
+'Song #9' core= 'Song #9' ship= 'Song #9' real= True norm= 'song 9'
+'Song #' core= 'Song' ship= 'Song' real= True norm= 'song'
+'1922 $' core= '1922' ship= '1922' real= False norm= '1922'
+'1922 $ #' core= '1922' ship= '1922' real= False norm= '1922'
+'C++' core= 'C' ship= 'C' real= False norm= 'c'
+'Dew -' core= 'Dew' ship= 'Dew -' real= True norm= 'dew'
+'FF ~' core= 'FF' ship= 'FF ~' real= False norm= 'ff'
+'J @' core= 'J' ship= 'J @' real= False norm= 'j'
+'FF%' core= 'FF' ship= 'FF%' real= False norm= 'ff'
+'J > ?' core= 'J > ?' ship= 'J > ?' real= False norm= 'j'
+'J => K' core= 'J => K' ship= 'J => K' real= False norm= 'j k'
+'Moment #2 >' core= 'Moment #2' ship= 'Moment #2' real= True norm= 'moment 2'
+'# >' core= '' ship= '#' real= False norm= ''
+'J #2' core= 'J #2' ship= 'J #2' real= False norm= 'j 2'
+'F #' core= 'F' ship= 'F' real= False norm= 'f'
+'F ##' core= 'F' ship= 'F' real= False norm= 'f'
+'X -> #' core= 'X' ship= 'X' real= False norm= 'x'
+DIFF ('100% # #', '100% #', '100%')
+DIFF ('100% # # #', '100% # #', '100%')
+DIFF ('100% # # ->', '100% #', '100%')
+DIFF ('100% # # >', '100% #', '100%')
+DIFF ('100% # ##', '100% #', '100%')
+DIFF ('100% # #$', '100% #', '100%')
+DIFF ('100% # #*', '100% #', '100%')
+DIFF ('100% # #+', '100% #', '100%')
+DIFF ('100% # #=>', '100% #', '100%')
+DIFF ('100% # #>', '100% #', '100%')
+DIFF ('100% # -> #', '100% # ->', '100%')
+DIFF ('100% # > #', '100% # >', '100%')
+DIFF ('100% ## #', '100% ##', '100%')
+DIFF ('100% #$ #', '100% #$', '100%')
+DIFF ('100% #* #', '100% #*', '100%')
+DIFF ('100% #+ #', '100% #+', '100%')
+DIFF ('100% #=> #', '100% #=>', '100%')
+DIFF ('100% #> #', '100% #>', '100%')
+DIFF ('100% - # #', '100% - #', '100% -')
+DIFF ('100% - -> #', '100% - ->', '100% -')
+DIFF ('100% - > #', '100% - >', '100% -')
+DIFF ('100% -$ #', '100% -$', '100% -')
+DIFF ('100% -* #', '100% -*', '100% -')
+DIFF ('100% -+ #', '100% -+', '100% -')
+DIFF ('100% -=> #', '100% -=>', '100% -')
+DIFF ('100% -> #', '100% ->', '100%')
+DIFF ('100% -> # #', '100% -> #', '100%')
+DIFF ('100% -> # ->', '100% ->', '100%')
+DIFF ('100% -> # >', '100% ->', '100%')
+DIFF ('100% -> ##', '100% ->', '100%')
+DIFF ('100% -> #$', '100% ->', '100%')
+DIFF ('100% -> #*', '100% ->', '100%')
+DIFF ('100% -> #+', '100% ->', '100%')
+DIFF ('100% -> #=>', '100% ->', '100%')
+DIFF ('100% -> #>', '100% ->', '100%')
+DIFF ('100% -> -> #', '100% -> ->', '100%')
+DIFF ('100% -> > #', '100% -> >', '100%')
+DIFF ('100% ->$ #', '100% ->$', '100%')
+DIFF ('100% ->* #', '100% ->*', '100%')
+DIFF ('100% ->+ #', '100% ->+', '100%')
+696
+2b demoted: [0, 1, 2, 3]
+['J > J', 'J > J', 'J > J', 'J > J'] ["accepted short tag title: track 1 'J > J' corroborated by lma:x"]
+J > 05:27 junk: False 05 27
+diffs 1158 bad 0

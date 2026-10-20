@@ -1,0 +1,204 @@
+Tue Oct 20 01:27:59 EDT 2026 writing tests
+.......................................                                  [100%]
+39 passed in 2.38s
+........................................                                 [100%]
+40 passed in 2.75s
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+...............s........................................................ [ 98%]
+.........................................................                [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=60093) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3728 passed, 1 skipped, 8 deselected, 26 warnings in 50.73s
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t20-impl-OeZ7dn
+PREDICTIONS (written before any flip):
+(a) consecutive not reset on success -> test_reapply.py::test_a_success_resets_the_consecutive_llm_failure_count
+(b) RateLimited show recorded as progress (finished) -> test_reapply.py::test_a_refusal_mid_show_leaves_it_uncommitted_and_the_list_resumable
+(c) missing recorded retryable=False -> test_reapply.py::test_missing_show_is_skipped_and_not_finished
+(d) load_list ignores the fingerprint -> test_reapply.py::test_list_from_another_sha_or_config_is_refused
+(e) M3 reverted to iter_shows -> test_reapply.py::test_one_malformed_overrides_fails_its_row_and_the_batch_continues
+(h) show.json re-read + not-held skip + digest skip moved above the lock -> test_reapply.py::test_the_show_lock_is_held_when_the_row_digests_are_checked
+applied a
+== mutant a: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-OeZ7dn/a/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_a_success_resets_the_consecutive_llm_failure_count
+1 failed, 39 passed in 2.03s
+applied b
+== mutant b: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-OeZ7dn/b/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_a_refusal_mid_show_leaves_it_uncommitted_and_the_list_resumable
+1 failed, 39 passed in 2.46s
+applied c
+== mutant c: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-OeZ7dn/c/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_missing_show_is_skipped_and_not_finished
+1 failed, 39 passed in 4.13s
+applied d
+== mutant d: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-OeZ7dn/d/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_list_from_another_sha_or_config_is_refused
+1 failed, 39 passed in 2.15s
+applied e
+== mutant e: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-OeZ7dn/e/tree/packages/llama/src/llama/__init__.py
+E        +  where '' = <Result 1 validation error for Overrides\n  Invalid JSON: EOF while parsing a list at line 1 column 5 [type=json_invalid, input_value='[1, 2', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/json_invalid>.output
+E        +      where '' = <Result 4 validation errors for Show\nperformance_id\n  Field required [type=missing, input_value={'artist': 1}, input_t...put_value={'artist': 1}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing>.output
+FAILED packages/llama/tests/test_reapply.py::test_one_malformed_overrides_fails_its_row_and_the_batch_continues
+FAILED packages/llama/tests/test_reapply.py::test_a_corrupt_show_json_fails_its_row_and_does_not_count_as_an_llm_failure
+2 failed, 38 passed in 2.47s
+applied h
+== mutant h: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-OeZ7dn/h/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_the_show_lock_is_held_when_the_row_digests_are_checked
+1 failed, 39 passed in 2.08s
+Tue Oct 20 01:30:52 EDT 2026 mutation done, MROOT removed
+Tue Oct 20 01:36:49 EDT 2026 fix round 1 start
+...............................................                          [100%]
+47 passed in 1.33s
+...............................................                          [100%]
+47 passed in 1.75s
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+......................s................................................. [ 98%]
+................................................................         [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=49426) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3735 passed, 1 skipped, 8 deselected, 26 warnings in 50.39s
+fix-r1 MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t20-impl-XogPWt
+FIX-R1 PREDICTIONS (before any flip):
+(i) dirty check removed from load_list -> test_reapply.py::test_a_dirty_code_identity_is_refused_on_either_side (also test_the_cli_refuses_a_list_when_the_running_tree_is_dirty)
+(j) counter reset on any success (rule 3 reverted) -> test_reapply.py::test_rows_that_made_no_llm_call_do_not_reset_the_failure_count
+(k) last-resort except Exception arm removed -> test_reapply.py::test_any_other_exception_fails_only_its_row
+(l) pause paths exit 0 regardless of failures -> test_reapply.py::test_a_pause_after_a_failed_row_exits_1
+(a') consecutive never reset -> test_reapply.py::test_a_success_resets_the_consecutive_llm_failure_count
+applied i
+== mutant i: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-XogPWt/i/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_a_dirty_code_identity_is_refused_on_either_side
+FAILED packages/llama/tests/test_reapply.py::test_the_cli_refuses_a_list_when_the_running_tree_is_dirty
+2 failed, 45 passed in 1.85s
+applied j
+== mutant j: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-XogPWt/j/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_rows_that_made_no_llm_call_do_not_reset_the_failure_count
+1 failed, 46 passed in 1.86s
+applied k
+== mutant k: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-XogPWt/k/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_any_other_exception_fails_only_its_row
+1 failed, 46 passed in 3.81s
+applied l
+== mutant l: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-XogPWt/l/tree/packages/llama/src/llama/__init__.py
+___________________ test_a_pause_after_a_failed_row_exits_1 ____________________
+tmp_path = PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1095/test_a_pause_after_a_failed_ro0')
+    def test_a_pause_after_a_failed_row_exits_1(tmp_path, monkeypatch):
+FAILED packages/llama/tests/test_reapply.py::test_a_pause_after_a_failed_row_exits_1
+1 failed, 46 passed in 1.81s
+applied a2
+== mutant a2: shadow check: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t20-impl-XogPWt/a2/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_reapply.py::test_a_success_resets_the_consecutive_llm_failure_count
+1 failed, 46 passed in 1.87s
+Tue Oct 20 01:39:55 EDT 2026 fix-r1 mutation done, MROOT removed

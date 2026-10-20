@@ -1,0 +1,4 @@
+budget-min: 50
+role: reviewer
+model: opus
+what: Checkpoint B read-only pre-screen of slice-2 lists

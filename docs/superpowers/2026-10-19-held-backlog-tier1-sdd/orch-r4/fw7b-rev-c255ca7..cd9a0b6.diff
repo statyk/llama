@@ -1,0 +1,778 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 34a80b4..bbc2ec9 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -109,31 +109,37 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   `llama reapply <show>...` / `--from-list <list> [--dry-run]` re-processes HELD
+   shows in place with exactly the replay harness's computation
+   (`llama/reapply.py`, `llama.replay`): gather LLM-free from the cache, vet from
+-  the stored `vetting.json` extraction (none = needs-llm, nothing written), the
++  the stored `vetting.json` extraction (none, or a stored alignment of `"llm"`, =
++  needs-llm, nothing written), the
+   stored briefing reused when `briefing_reusable` holds (else one fresh brief
+-  task, its only LLM work), then package. **It holds the show lock from the
++  task of up to two attempts, its only LLM work), then package. **It holds the show lock from the
+   still-held check through the last write and writes `show.json` LAST as the
+   commit marker**: until then the show is still held, so a failure part-way
+   leaves it on every held list and a re-run completes it. It never writes
+   `reviews.json`/`provenance.json`/`research.md`/the ledger and **never
+   delivers**: a delivered show that cleared prints `re-deliver with: llama
+-  deliver <name>`. A held outcome whose replay changed shipped
+-  fields (and ran no brief) drops the now-stale briefing (`drop:brief`), so the
+-  eventual `fix --overrule` regenerates it rather than shipping it unchecked. `--from-list` takes a `predicted_list.json` and refuses it
++  deliver <name>`. A held outcome whose replay changed shipped fields (and ran
++  no brief) drops the now-stale briefing (`drop:brief`; `briefing.md` alone
++  counts), so the eventual `fix --overrule` regenerates it rather than shipping
++  it unchecked. A show whose replay is structure-changed is refused unless
++  `--allow-structure-change` (names form and `--from-list` alike; the row is
++  `skipped: structure changed`, retryable); the dry-run counts `downloads`
++  (incl. purged-audio re-downloads) and, without the flag, neither counts nor
++  predicts such a show. `--from-list` takes a `predicted_list.json` and refuses it
+   whole unless its `sha` equals `replay.code_identity()` and its
+   `config_fingerprint` the running config's; **a `-dirty` identity is refused on
+   either side**. A row whose `input_digests` changed since the harness ran is
+   skipped. Batch state is `<root>/reapply/<sha256(list bytes)[:16]>/`
+   (`list.json`, append-only `progress.jsonl`; outside `runs/`): re-running the
+-  same list resumes, skipping rows with `retryable: false`. A pacing gate runs
+-  before each show's lock; a pause or `RateLimited` prints the resume command;
++  same list resumes, skipping rows with `retryable: false`. A pacing gate (list form
++  only) runs before each show's lock; a pause or `RateLimited` prints the resume command;
+   `STOP_AFTER_LLM_FAILURES = 3` consecutive LLM failures stop the batch. **The
+   learned per-show EWMA cannot size this batch (spec "Re-processing cost"):
+   the gate still pauses at a ceiling but cannot project a show's cost, so size
+   waves from the pilot's `meter: 5h A% -> B%` lines, not `llama pacing`.**
+ - `llama fix <show> --untitled` / triage `[u]`: offered only when EVERY track is
+   `unresolved`; lists filenames, then ONE confirmation writes `Untitled (track
+-  N)` titles, `narration=vague`, `set_breaks=[]`, redoes from `gather`,
++  N)` titles, `narration=vague`, `set_breaks=[]`, clears any `overrides.encore_after`, redoes from `gather`,
+   overrules any remaining flag and continues from `brief`. It refuses every
+   other edit flag. Route for a delivered all-`Track NN` tape
+   (`eotoband-2007-10-09`): `llama redo <show> --from gather` (2b demotes the
+@@ -143,9 +149,9 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   exits 2 unless `llama.__file__` is inside the tree, and refuses an `--out` or
+   `--scratch` overlapping the library; put output outside `~/.llama`, e.g.
+   `~/.llama-harness`). `compare <base> <cand> --out <dir> [--no-repro-gate]`
+-  writes the reports in `replay_holds.OUTPUT_FILES` plus `predicted_list.json`,
+-  `structure_changed_list.json` (hand-check each before applying) and
+-  `pilot_list.json`; it exits 2 when the arms differ (digests, config
++  writes the reports in `replay_holds.OUTPUT_FILES`, including `predicted_list.json`,
++  `structure_changed_list.json` (hand-check each, then apply with `reapply
++  --from-list <it> --allow-structure-change`) and `pilot_list.json`; it exits 2 when the arms differ (digests, config
+   fingerprint, setlist.fm configuration, show set) and 3 below 99% baseline
+   reproduction (`--no-repro-gate` skips only that, for `-prev` arms). **Every
+   list carries the arm's `sha`, `config_fingerprint` and per-row digests; that
+@@ -504,7 +510,7 @@ scheduler and the full player are phases 3–4).
+   would reach an LLM call is needs-LLM and stays held. 1a: a blank jerrybase
+   venue is no evidence. 1b: `venues_equivalent` folds spelling and
+   `cities_compatible` is the shared city predicate (metro table fixed a
+-  priori). 1c: a same-city name difference ships the selected recording's
++  priori). 1c: on a single-event date only, a same-city name difference ships the selected recording's
+   venue and notes jerrybase's. 1d: gather holds `recordings of this date
+   disagree on city` when the selected venue is not `venues_equivalent` to the
+   vote's and the cities conflict (an operator venue/city override suppresses
+@@ -517,11 +523,19 @@ scheduler and the full player are phases 3–4).
+   track) to `unresolved` at the tag rung, never into the positional `setlist`
+   rung; the real song `2:22` is a known false demotion. 2c: `_GLUED_NUM_PREFIX`
+   strips a glued track number only under the `_ENUMERATED_MIN_FILES`/
+-  `_ENUMERATED_MIN_COVERAGE` vote. 3a: `normalize_briefing` drops empty sets on
++  `_ENUMERATED_MIN_COVERAGE` vote. 2d: `_JOINED_NUM_PREFIX`
++  (`^\d{1,3}[-_](?=[^\d\s])`) strips a hyphen/underscore-joined track number
++  (`01-Hell In A Bucket`, `01_Song`) under the same vote, once, note `stripped
++  joined track number:`; a `7-Up`-style title on an enumerated tape is an
++  accepted loss like `100 Years`; `1.02 - ` and `1-002` forms are not covered. 3a: `normalize_briefing` drops empty sets on
+   generation and reuse. 3b: `known_song` is a superset of the old matcher
+   (segue components, brief-local `E:` prefix, one trailing parenthetical; no
+-  fuzzy matching). 3c: set-count and ordinal claims are ignored when
+-  qualified (`_NOT_SHOW_WIDE`), negated or scoped. 4a: `right_show_gate` turns
++  fuzzy matching); the parts of a comma-merged title also count, ONLY when
++  every top-level comma part ends in its own parenthetical (`Stay With Me
++  (tease), Girl Named Sandoz (tease)`) -- a comma inside one title never splits. 3c: set-count and ordinal claims are ignored when
++  qualified (`_NOT_SHOW_WIDE`), negated or scoped; both set-count regexes' `of`
++  lookahead stops at the briefing-field newline, the vague branch's too
++  (operator ruling 2026-10-20). 4a: `right_show_gate` turns
+   `unknown song` flags into a note at `RIGHT_SHOW_MIN_TAPE_FRACTION = 0.5`
+   (stays 0.5) and `RIGHT_SHOW_MIN_ASSERTED = 4`, needs 2b and the show's own
+   date, and reads date flags before 4b. 4b: an asserted date within
+diff --git a/README.md b/README.md
+index be44898..21cf1fb 100644
+--- a/README.md
++++ b/README.md
+@@ -254,7 +254,7 @@ as needs-LLM and left alone.
+ 
+ `llama reapply` applies a list. It re-processes held shows in place with the
+ harness's own computation, reuses a stored briefing when it still holds
+-(otherwise it asks for one fresh briefing, its only LLM call), downloads any missing
++(otherwise it asks for one fresh briefing, its only LLM call: one task of up to two attempts), downloads any missing
+ audio (first-time packages are the bulk), and writes `show.json` last, so an interrupted show
+ is still held and a re-run finishes it. It never delivers: on a delivered show
+ that clears, it prints `re-deliver with: llama deliver <name>`.
+@@ -264,6 +264,12 @@ that clears, it prints `re-deliver with: llama deliver <name>`.
+     llama reapply --from-list pilot_list.json    # then a 10-show pilot
+     llama reapply --from-list predicted_list.json   # then the rest, in waves
+ 
++A show whose replay changes its sets, segues or breaks is skipped
++(`skipped: structure changed`, retryable) unless you pass
++`--allow-structure-change`, to the names form and `--from-list` alike. After
++hand-checking each row of `structure_changed_list.json`, apply it with
++`llama reapply --from-list structure_changed_list.json --allow-structure-change`.
++
+ Always dry-run first and read the summary (fresh briefs, downloads
+ and their size). Run the pilot, compare each show's actual outcome and meter
+ cost with the prediction, then run the full list: re-running the same list
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index 06f23c3..c57432c 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -3353,7 +3353,8 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
+         if dry_run:
+             predicted = out.outcome.removeprefix("dry-run: ")
+             typer.echo(f"would: {slug} -> {predicted}")
+-            if out.outcome.startswith("dry-run: ") and predicted != "held":
++            if (out.outcome.startswith("dry-run: ") and predicted != "held"
++                    and not predicted.startswith("skipped")):
+                 fresh += out.briefing == "fresh"
+                 downloads += needs_audio_download(ws)
+             continue
+@@ -3363,8 +3364,9 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
+             # made no call and proves nothing (needs-llm may still carry
+             # briefing="fresh" from the replay without having called anything).
+             consecutive = 0
+-        # A structure-changed skip stays retryable: the operator may add the
+-        # flag or move the row to the structure list; a re-run just skips it again.
++        # A structure-changed skip stays retryable: the operator may add
++        # --allow-structure-change (the structure list needs it too); a re-run
++        # without it just skips the row again.
+         skipped_structure = out.outcome == "skipped: structure changed"
+         reapply_mod.record_progress(batch, slug, out.outcome, retryable=skipped_structure)
+         typer.echo(f"reapplied: {slug} -> {out.outcome}"
+diff --git a/packages/llama/src/llama/reapply.py b/packages/llama/src/llama/reapply.py
+index ebdc567..6157cc1 100644
+--- a/packages/llama/src/llama/reapply.py
++++ b/packages/llama/src/llama/reapply.py
+@@ -104,6 +104,10 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
+         if outcome not in _PREDICTED:
+             raise LlamaError(f"cannot reapply {slug}: unexpected replay outcome {outcome!r}")
+         if dry_run:
++            if outcome == "structure-changed" and not allow_structure_change:
++                # as the apply: skipped, so it spends no brief and no download
++                return ReapplyOutcome(slug, "dry-run: skipped: structure changed", "none",
++                                      list(legs.flags), delivered, [])
+             return ReapplyOutcome(slug, f"dry-run: {_PREDICTED[outcome]}", legs.brief,
+                                   list(legs.flags), delivered, [])
+         if outcome == "structure-changed" and not allow_structure_change:
+diff --git a/packages/llama/src/llama/stages/brief.py b/packages/llama/src/llama/stages/brief.py
+index b9a76d2..830d020 100644
+--- a/packages/llama/src/llama/stages/brief.py
++++ b/packages/llama/src/llama/stages/brief.py
+@@ -210,7 +210,8 @@ def _guard_prose(b: Briefing) -> str:
+     Fields are joined by a newline, the field boundary 3c's negation windows
+     stop at. Today's regexes' `\s+` spans it exactly as it spanned the single
+     space it replaced (same length), so their matches and spans, and with
+-    them the vague branch, are unchanged."""
++    them the vague branch, are unchanged -- except the `of` lookahead, which
++    stops at the newline (fw4)."""
+     return "\n".join([b.context, b.significance, b.review_sentiment, *b.notable_moments,
+                       *(p for pts in b.per_set.values() for p in pts)])
+ 
+@@ -235,6 +236,7 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
+     if briefing.narration == "vague":
+         # Vague means: assert nothing about set structure, name no songs.
+         # Unchanged by slice 3: today's regexes, no qualifier/negation/scope skip.
++        # (fw4 later changed the shared `of` lookahead, under an operator ruling.)
+         claimed = {_COUNT_WORDS[m.group(1).lower()] for m in _SET_COUNT_CLAIM.finditer(prose)}
+         implied = {_ORDINALS[m.group(1).lower()]: m.group(1).lower()
+                    for m in _ORDINAL_SET.finditer(prose)}
+diff --git a/packages/llama/tests/test_fix.py b/packages/llama/tests/test_fix.py
+index 22ebe09..16ef5ba 100644
+--- a/packages/llama/tests/test_fix.py
++++ b/packages/llama/tests/test_fix.py
+@@ -776,6 +776,17 @@ def test_untitled_declined_says_so_exits_zero_and_leaves_overrides_alone(tmp_pat
+     assert ws.overrides.read_bytes() == before and calls == []
+ 
+ 
++def test_untitled_confirmed_but_still_held_says_still_held_not_declined(tmp_path, monkeypatch):
++    # fw1 review M-1: written-then-held is not a decline (overrides are changed).
++    cfg = _cfg(tmp_path)
++    ws = _all_unresolved_show(tmp_path)
++    calls = _stub_redo(monkeypatch, result=None)
++    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
++    assert r.exit_code == 0, r.output
++    assert "still held: " in r.output and "declined" not in r.output
++    assert read_overrides(ws).narration == "vague" and calls[0] == "gather"
++
++
+ def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path, monkeypatch):
+     cfg = _cfg(tmp_path)
+     ws = _all_unresolved_show(tmp_path)
+diff --git a/packages/llama/tests/test_jerrybase.py b/packages/llama/tests/test_jerrybase.py
+index 9210e21..4a5ac4e 100644
+--- a/packages/llama/tests/test_jerrybase.py
++++ b/packages/llama/tests/test_jerrybase.py
+@@ -4,6 +4,7 @@ from importlib import resources
+ from llama import jerrybase
+ from llama.jerrybase import _closer_candidates
+ from llama.models import JerrybaseEvent
++from llama.models import JerrybaseSet, Track
+ 
+ 
+ def test_vendored_csv_is_present_and_well_formed():
+@@ -125,9 +126,6 @@ def test_lookup_unknown_returns_empty():
+     assert jerrybase.lookup("Nonexistent Artist", "1900-01-01") == []
+ 
+ 
+-from llama.models import JerrybaseSet, Track
+-
+-
+ def _tracks(titles):
+     return [Track(index=i + 1, set="1", title=t, filename=f"{i+1:02d}.mp3",
+                   title_source="tags") for i, t in enumerate(titles)]
+diff --git a/packages/llama/tests/test_reapply.py b/packages/llama/tests/test_reapply.py
+index ccb342a..6ff0780 100644
+--- a/packages/llama/tests/test_reapply.py
++++ b/packages/llama/tests/test_reapply.py
+@@ -21,6 +21,8 @@ from llama.reapply import ReapplyOutcome, reapply_show
+ from llama.replay import input_digests
+ from llama.stages.brief import normalize_briefing, render_briefing_md
+ from llama.workspace import read_model, write_artifact
++from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
++from llama.replay import config_fingerprint
+ 
+ HELD = "gratefuldead-1973-06-10"
+ 
+@@ -402,9 +404,6 @@ def test_cli_reapply_dry_run_writes_nothing(tmp_path, monkeypatch):
+ 
+ # --- Task 20: --from-list batches, the pacing gate, stop rules, list checks ---
+ 
+-from llama.reapply import STOP_AFTER_LLM_FAILURES, batch_dir, load_list, read_progress
+-from llama.replay import config_fingerprint
+-
+ 
+ CLEAN_SHA = "c" * 40
+ 
+@@ -938,6 +937,26 @@ def test_dry_run_counts_a_purged_delivered_show_as_a_download(tmp_path, monkeypa
+     assert "0 downloads" in r.output, r.output
+ 
+ 
++def test_dry_run_of_a_structure_changed_row_is_skipped_unless_allowed(tmp_path, monkeypatch):
++    # Without the flag the dry run predicts the skip and counts no brief/download;
++    # with it the show is predicted, and counted, as `structure-changed`.
++    from conftest import cli_invoke
++    import llama.cli as cli
++    root, config, ledger, entry, _ = _env(tmp_path)
++    lst = _list_file(tmp_path, root, config, [entry])
++    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
++    _force_classify(monkeypatch, "structure-changed")
++    write_artifact(entry.ws.package_dir / "manifest.json",
++                   {"schema_version": 3, "tracks": [{"filename": "a.mp3"}]})   # audio missing
++    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
++    assert f"would: {HELD} -> skipped: structure changed" in r.output
++    assert "0 downloads" in r.output, r.output
++    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run",
++                   "--allow-structure-change")
++    assert f"would: {HELD} -> structure-changed" in r.output
++    assert "1 downloads" in r.output, r.output
++
++
+ def test_needs_audio_download_counts_an_unreadable_or_malformed_manifest_as_a_download(tmp_path):
+     from llama.catalog import needs_audio_download
+     from llama.workspace import ShowWorkspace
+@@ -979,6 +998,19 @@ def test_a_held_outcome_with_changed_titles_drops_the_stale_briefing(tmp_path, m
+     assert read_model(entry.ws.show, Show).tracks[0].title != "Stale Old Title"
+ 
+ 
++def test_a_held_outcome_with_only_a_stale_briefing_md_drops_it(tmp_path, monkeypatch):
++    # fw3 review M6: no briefing.json, only briefing.md -- the `.md` clause alone
++    # triggers the drop.
++    root, config, ledger, entry, _ = _env(tmp_path, held_for_real=True)
++    _stub_package(monkeypatch)
++    _retitle_stored(entry.ws)
++    entry.ws.briefing_json.unlink(missing_ok=True)
++    write_artifact(entry.ws.briefing_md, "# stale briefing\n")
++    out = _run(config, ledger, entry)
++    assert out.outcome == "held" and out.briefing == "none"
++    assert not entry.ws.briefing_md.exists() and "drop:brief" in out.written
++
++
+ def test_a_held_outcome_with_no_shipped_change_keeps_the_briefing(tmp_path, monkeypatch):
+     # case (c): held, nothing shipped moved (a carried package flag)
+     root, config, ledger, entry, _ = _env(tmp_path)
+diff --git a/packages/llama/tests/test_replay.py b/packages/llama/tests/test_replay.py
+index 626fe52..18a8f15 100644
+--- a/packages/llama/tests/test_replay.py
++++ b/packages/llama/tests/test_replay.py
+@@ -9,6 +9,17 @@ from llama.replay import (CacheMiss, CacheOnlyIA, CacheOnlySetlistFM, code_ident
+                           config_fingerprint, input_digests, setlistfm_client)
+ from llama.setlistfm import cache_key
+ from llama.workspace import ShowWorkspace, write_artifact
++from llama.models import Briefing, Overrides, Show, StructureInfo, Track
++from llama.replay import (Legs, ShowReplay, briefing_reusable, classify, compute_legs,
++                          flag_family, shipped_diff)
++from llama.stages.gather import GatherResult
++from llama.stages.vet_research import apply_vet
++from fixture_library import IDENT
++from fixture_library import library_show as _library_show
++from fixture_library import replay_config as _config
++from llama.models import Provenance, RecordingSummary
++from llama.replay import replay_show
++from llama.workspace import read_model
+ 
+ 
+ def test_cache_only_ia_reads_the_cache_and_refuses_the_network(tmp_path):
+@@ -75,16 +86,6 @@ def test_setlistfm_client_is_none_unless_configured(tmp_path, monkeypatch):
+ 
+ # --- Task 4: compute_legs, the briefing reuse rule, outcome classification ---
+ 
+-from llama.models import Briefing, Overrides, Show, StructureInfo, Track
+-from llama.replay import (Legs, ShowReplay, briefing_reusable, classify, compute_legs,
+-                          flag_family, shipped_diff)
+-from llama.stages.gather import GatherResult
+-from llama.stages.vet_research import apply_vet
+-
+-from fixture_library import IDENT
+-from fixture_library import library_show as _library_show
+-from fixture_library import replay_config as _config
+-
+ 
+ def _legs(root, ws):
+     return compute_legs(ws, config=_config(root), ia=CacheOnlyIA(root / "cache"),
+@@ -504,10 +505,6 @@ def test_compute_legs_refuses_a_scratch_inside_the_library_shows_dir(tmp_path):
+ 
+ # --- Task 5: replay_show, one show's arm row ---
+ 
+-from llama.models import Provenance, RecordingSummary
+-from llama.replay import replay_show
+-from llama.workspace import read_model
+-
+ 
+ def _replay(root, ws, *, slfm=None, delivered=frozenset()):
+     return replay_show(ws, config=_config(root), ia=CacheOnlyIA(root / "cache"), slfm=slfm,
+diff --git a/packages/llama/tests/test_siblings.py b/packages/llama/tests/test_siblings.py
+index 733108f..f193858 100644
+--- a/packages/llama/tests/test_siblings.py
++++ b/packages/llama/tests/test_siblings.py
+@@ -17,6 +17,16 @@ from llama.siblings import (
+     propose_rows,
+ )
+ from llama.structure import fuzzy_norm_title
++from llama.models import Track
++from llama.siblings import (
++    AUTO,
++    FLOOR,
++    MIN_ANCHORS,
++    SiblingRow,
++    cplus_filter,
++    rate_alignment,
++)
++import pytest
+ 
+ 
+ def _donor(durations, titles, identifier="donor.item"):
+@@ -468,15 +478,6 @@ def test_the_exclusion_penalty_is_what_the_best_rival_explanation_costs():
+ # entire failure this layer exists to prevent.
+ # ==========================================================================
+ 
+-from llama.models import Track
+-from llama.siblings import (
+-    AUTO,
+-    FLOOR,
+-    MIN_ANCHORS,
+-    SiblingRow,
+-    cplus_filter,
+-    rate_alignment,
+-)
+ 
+ NATO = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf",
+         "Hotel", "India", "Juliett", "Kilo", "Xray", "Mike", "November"]
+@@ -1060,8 +1061,6 @@ def test_a_donor_span_slide_adopts_zero_interior_titles_under_cplus():
+ 
+ # --- Task 11b (Checkpoint B, 2026-10-19): a donor's placeholder tag is refused ---
+ 
+-import pytest
+-
+ 
+ @pytest.mark.parametrize("placeholder", ["Track 02", "tmp"])
+ def test_a_donor_track_titled_with_a_placeholder_fails_hygiene(placeholder):
+diff --git a/packages/llama/tests/test_stage_brief.py b/packages/llama/tests/test_stage_brief.py
+index cc76620..7492fbc 100644
+--- a/packages/llama/tests/test_stage_brief.py
++++ b/packages/llama/tests/test_stage_brief.py
+@@ -1,5 +1,16 @@
+ from llama.models import Briefing, Show, Track
+ from llama.stages.brief import generate_briefing, render_briefing_md
++from llama.stages.brief import briefing_guard
++import json
++from herder.fake import FakeProvider
++from llama.models import Overrides, VettingResult, ResearchVetting
++from llama.stages.brief import run_brief, vetting_summary
++from llama.workspace import ShowWorkspace, write_artifact
++import pytest
++from llama.songs import normalize_song
++from llama.stages.brief import briefing_guard, known_song, normalize_briefing, song_components
++from llama.workspace import read_model
++from llama.stages.brief import song_comma_components
+ 
+ 
+ def _show(sets=("1", "2"), encore=True) -> Show:
+@@ -60,9 +71,6 @@ def test_render_briefing_md_omits_empty_optional_sections():
+     assert "## Set" not in md
+ 
+ 
+-from llama.stages.brief import briefing_guard
+-
+-
+ def test_guard_passes_clean_full_briefing():
+     assert briefing_guard(_briefing(), _show()) == []
+ 
+@@ -114,13 +122,6 @@ def test_guard_flags_empty_per_set_under_full():
+     assert briefing_guard(b, _show()) == ["briefing has no per-set talking points"]
+ 
+ 
+-import json
+-
+-from herder.fake import FakeProvider
+-from llama.models import Overrides, VettingResult, ResearchVetting
+-from llama.stages.brief import run_brief, vetting_summary
+-from llama.workspace import ShowWorkspace, write_artifact
+-
+ GOOD_BRIEFING = json.dumps({
+     "context": "Peak-era Dead on the summer '73 run.",
+     "significance": "A standout show from a strong year.",
+@@ -251,12 +252,6 @@ def test_vetting_summary(tmp_path):
+ 
+ # --- slice 3 (spec "Slice 3 — Briefing guard") ---
+ 
+-import pytest
+-
+-from llama.songs import normalize_song
+-from llama.stages.brief import briefing_guard, known_song, normalize_briefing, song_components
+-from llama.workspace import read_model
+-
+ 
+ def test_3a_empty_sets_are_dropped_and_the_guard_never_sees_them():
+     b = _briefing(per_set={"1": ["a"], "2": ["b"], "encore": []})
+@@ -401,6 +396,7 @@ def test_set_count_of_lookahead_end_to_end_full_narration():
+ def test_guard_prose_field_marker_leaves_todays_matches_unchanged():
+     # the field boundary is a newline, which today's `\s+` spans exactly as it
+     # spanned the old single space: same matches, same spans, same vague verdict
++    # (except the `of` lookahead, which stops at the newline: fw4)
+     import re as _re
+     from llama.stages.brief import _ORDINAL_SET, _SET_COUNT_CLAIM, _guard_prose
+     b = _briefing(context="they played two", significance="sets that night, and the",
+@@ -442,7 +438,6 @@ def test_generate_briefing_returns_the_normalised_briefing_and_problems_without_
+ 
+ 
+ # fw5: comma-merged track titles contribute their parts to the known-song set
+-from llama.stages.brief import song_comma_components
+ 
+ _MERGED = "Stay With Me (tease), Girl Named Sandoz (tease), Happy Birthday (tease)"
+ 
+diff --git a/packages/llama/tests/test_stage_gather.py b/packages/llama/tests/test_stage_gather.py
+index 9de12fe..5f6fe26 100644
+--- a/packages/llama/tests/test_stage_gather.py
++++ b/packages/llama/tests/test_stage_gather.py
+@@ -18,6 +18,14 @@ from llama.stages.gather import (_HEAD_CHATTER, _drop_artist_items,
+                                  run_gather)
+ from llama.structure import fuzzy_norm_title
+ from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
++from llama import jerrybase
++from llama.models import JerrybaseEvent, JerrybaseSet
++from llama.models import ShowNotes
++from llama.stages.gather import GatherResult, compute_gather
++from llama.stages.gather import build_canonical
++from llama.models import Track
++from llama.stages.gather import accept_short_tags
++from llama.stages.gather import two_venue_signature
+ 
+ FIXTURES = Path(__file__).parent / "fixtures"
+ FIXTURE = FIXTURES / "gd73_metadata.json"
+@@ -974,10 +982,6 @@ def test_readmission_does_not_stop_the_track_number_strip(tmp_path: Path):
+         "Morning Dew", "China Cat Sunflower", "I Know You Rider"]
+ 
+ 
+-from llama import jerrybase
+-from llama.models import JerrybaseEvent, JerrybaseSet
+-
+-
+ def _jb_event(closers_and_names, venue="V", city="C", state="ST"):
+     return JerrybaseEvent(
+         event_id="1", venue=venue, city=city, state=state,
+@@ -2211,9 +2215,6 @@ def test_operator_excluded_entry_carries_duration_sec(tmp_path: Path):
+ 
+ # --- Tier 1 slice 0: LLM-free gather reports needs-LLM (spec "Slice 0") ---
+ 
+-from llama.models import ShowNotes
+-from llama.stages.gather import GatherResult, compute_gather
+-
+ 
+ def _low_coverage_candidate():
+     """gd73 fixture with a description whose setlist shares nothing with the
+@@ -2294,8 +2295,6 @@ def test_run_gather_replaces_notes_json_on_force(tmp_path):
+ 
+ # --- slice 2: the cross-source vocabulary (ruling 3) ---
+ 
+-from llama.stages.gather import build_canonical
+-
+ 
+ def test_build_canonical_corroboration_excludes_the_chosen_description():
+     base = json.loads(FIXTURE.read_text())
+@@ -2493,8 +2492,6 @@ def test_2b_item_title_reaches_the_recording_level_class(tmp_path):
+ 
+ # --- slice 2a on a captured tape: tnd2006-12-13, "J >" tags ---
+ 
+-from llama.models import Track
+-from llama.stages.gather import accept_short_tags
+ 
+ TND = FIXTURES / "tnd2006-12-13.json"
+ T_IDENT = "tnd2006-12-13.flac16"
+@@ -2730,7 +2727,6 @@ def test_2c_ships_and_notes_railroad_earths_titles_without_footnote_marks(tmp_pa
+ 
+ # --- slice 1: venue tripwire steps, the swap, the signature, 1d (spec "Slice 1") ---
+ 
+-from llama.stages.gather import two_venue_signature
+ 
+ DSO = FIXTURES / "dso2003-01-25.json"; DSO_IDENT = "dso2003-01-25.shnf"
+ GUSTER = FIXTURES / "guster2003-07-10.json"; G_IDENT = "guster2003-07-10.shnf"
+diff --git a/packages/llama/tests/test_structure.py b/packages/llama/tests/test_structure.py
+index f241328..50415d7 100644
+--- a/packages/llama/tests/test_structure.py
++++ b/packages/llama/tests/test_structure.py
+@@ -15,6 +15,18 @@ from llama.structure import (
+     rank_parses,
+     structure_guard,
+ )
++from llama.models import AlignedStructure, AlignedTrack
++from llama.structure import apply_llm_alignment
++import pytest
++from llama.structure import venues_equivalent
++from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
++from llama.songs import GD_SHORTHAND
++import inspect
++from llama.models import ParsedSetlist, SetlistItem, Track
++from llama.structure import adopt_gap_titles, hygienic_title
++from llama.structure import LOOSE_TITLE_RATIO, loosely_same_title
++from llama.structure import _one_edit, cities_compatible
++from llama.structure import encore_lost
+ 
+ 
+ def sp(source, sets_titles, confidence="high"):
+@@ -285,10 +297,6 @@ def test_structure_guard_preserves_old_behavior_without_expected_count():
+     assert structure_guard(short, set_breaks(short)) is None
+ 
+ 
+-from llama.models import AlignedStructure, AlignedTrack
+-from llama.structure import apply_llm_alignment
+-
+-
+ def test_apply_llm_alignment_builds_result():
+     tracks = _tracks(3)
+     resp = AlignedStructure(tracks=[
+@@ -312,11 +320,6 @@ def test_apply_llm_alignment_rejects_bad_indices_or_sets():
+     assert apply_llm_alignment(tracks, bad_set) is None
+ 
+ 
+-import pytest
+-
+-from llama.structure import venues_equivalent
+-
+-
+ @pytest.mark.parametrize("a,b", [
+     ("RFK Stadium", "Robert F. Kennedy Stadium"),   # initialism + shared tail
+     ("MSG", "Madison Square Garden"),               # bare initialism
+@@ -397,8 +400,6 @@ def test_venues_equivalent_pre1b_is_the_cp_b2_rule(a, b, expected):
+ 
+ # --- fuzzy title matching (jerrybase closer matching; see the 2026-08-01 spec) --
+ 
+-from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
+-
+ 
+ def test_fuzzy_norm_title_folds_ampersand_to_and():
+     # normalize_song's punctuation strip deletes "&" outright, so these two
+@@ -442,9 +443,6 @@ def test_fuzzy_title_eq_rejects_unrelated_titles():
+     assert not fuzzy_title_eq("half step mississippi", "mississippi half step")
+ 
+ 
+-from llama.songs import GD_SHORTHAND
+-
+-
+ def test_shorthand_expands_only_when_aliases_passed():
+     assert fuzzy_norm_title("Scarlet") == "scarlet"
+     assert fuzzy_norm_title("Scarlet", GD_SHORTHAND) == "scarlet begonias"
+@@ -1108,9 +1106,6 @@ def test_tail_guard_inert_whenever_lookahead_le_max_skip():
+     )
+ 
+ 
+-import inspect
+-
+-
+ def test_align_default_lookahead_is_8():
+     """Pins the VALUE this entire branch exists to choose - nothing else in
+     this file does. `align`'s default was bumped 3 -> 8 in c2740d2 (see the
+@@ -1692,10 +1687,6 @@ def test_contains_sequence_repeated_song_advances_past_first_hit():
+     assert not structure.contains_sequence(text, ["Playing In The Band"] * 3)
+ 
+ 
+-from llama.models import ParsedSetlist, SetlistItem, Track
+-from llama.structure import adopt_gap_titles, hygienic_title
+-
+-
+ def _gap_items(*specs):
+     """specs: (title, set, segue) triples."""
+     return ParsedSetlist(
+@@ -1936,8 +1927,6 @@ def test_songish_coverage_excludes_setlist_sourced_tracks_too():
+ # `loosely_same_title` -- the sibling guard's comparator
+ # ---------------------------------------------------------------------------
+ 
+-from llama.structure import LOOSE_TITLE_RATIO, loosely_same_title
+-
+ 
+ def test_loosely_same_title_equates_normalized_spellings():
+     assert loosely_same_title("Truckin'", "Truckin")
+@@ -2024,9 +2013,6 @@ def test_a_real_title_gap_beside_placeholder_shapes_still_adopts():
+         ("Tracks of My Tears", "setlist-gap"), ("Temptation", "setlist-gap")]
+ 
+ 
+-from llama.structure import _one_edit, cities_compatible
+-
+-
+ def test_one_edit():
+     assert _one_edit("merramec", "meramec") and _one_edit("abc", "abd") and _one_edit("abc", "abcd")
+     assert not _one_edit("abc", "xyz") and not _one_edit("abc", "abcde")
+@@ -2056,12 +2042,11 @@ def test_cities_compatible(a, b):
+ ])
+ def test_cities_not_compatible(a, b):
+     assert not cities_compatible(a, b)
++    assert not cities_compatible(b, a)
+ 
+ 
+ # --- Tier 1 slice 5a: encore_lost ---
+ 
+-from llama.structure import encore_lost
+-
+ 
+ def _encore_items(*pairs):
+     return ParsedSetlist(items=[SetlistItem(title=t, normalized=normalize_song(t), set=s) for t, s in pairs],
+diff --git a/packages/llama/tests/test_titles.py b/packages/llama/tests/test_titles.py
+index 826b66f..36c3b16 100644
+--- a/packages/llama/tests/test_titles.py
++++ b/packages/llama/tests/test_titles.py
+@@ -5,6 +5,10 @@ from llama.titles import (
+     clean_tag_title, clean_tag_titles, is_real_title, resolve_titles,
+     set_breaks, sibling_format_titles, title_fraction,
+ )
++from llama.structure import fuzzy_norm_title
++from llama.titles import placeholder_positions, tag_layer
++from llama.titles import strip_taper_markers, tag_core
++from llama.titles import is_placeholder_text, shipped_short_tag
+ 
+ 
+ def make_setlist() -> ParsedSetlist:
+@@ -474,9 +478,6 @@ def test_clean_tag_titles_gate_basis_none_votes_with_the_files_themselves():
+ 
+ # --- slice 2b: placeholder tags demote to unresolved at the tag rung ---
+ 
+-from llama.structure import fuzzy_norm_title
+-from llama.titles import placeholder_positions, tag_layer
+-
+ 
+ def _files(titles):
+     return [{"name": f"t{i:02d}.mp3", "title": t, "length": "300"} for i, t in enumerate(titles, 1)]
+@@ -579,8 +580,6 @@ def test_resolve_titles_never_demotes_a_corroborated_tag():
+ 
+ # --- slice 2a: cores and shipped titles ---
+ 
+-from llama.titles import strip_taper_markers, tag_core
+-
+ 
+ @pytest.mark.parametrize("tag, core, shipped", [
+     ("FF>", "FF", "FF"), ("ML**", "ML", "ML"), ("7-11**", "7-11", "7-11"), ("FF =>", "FF", "FF"),
+@@ -659,7 +658,7 @@ def test_joined_strip_leaves_a_digit_remainder_alone_a_known_false_negative():
+ 
+ def test_joined_strip_never_touches_numeric_titles_when_the_vote_passes():
+     # 40 joined of 46 voters = 0.87: the vote PASSES, so only the predicate
+-    # (bound + digit-excluding lookahead) keeps these five intact.
++    # (bound + digit-excluding lookahead + mandatory `[-_]`) keeps these six intact.
+     joined = [f"{n:02d}-Song {n}x" for n in range(1, 41)]
+     odd = ["1922", "2001", "4-20", "24-7 Spyz", "1-800-Suicide", "2001-A Space Odyssey"]
+     out = clean_tag_titles(_files(joined + odd))
+@@ -679,8 +678,6 @@ def test_joined_strip_leaves_m80_and_7_up_on_a_non_enumerated_tape():
+ 
+ # --- Task 11b (Checkpoint B, 2026-10-19): placeholder refusal + shipped cosmetics ---
+ 
+-from llama.titles import is_placeholder_text, shipped_short_tag
+-
+ 
+ def _items(*titles):
+     return ParsedSetlist(items=[SetlistItem(title=t, normalized=t.lower(), set="1") for t in titles],
+diff --git a/packages/llama/tests/test_triage.py b/packages/llama/tests/test_triage.py
+index 7002f21..116e537 100644
+--- a/packages/llama/tests/test_triage.py
++++ b/packages/llama/tests/test_triage.py
+@@ -632,6 +632,19 @@ def test_triage_u_declined_writes_nothing_and_returns_to_the_prompt(tmp_path, tt
+     assert "packaged:" not in r.output and "still held:" not in r.output
+ 
+ 
++def test_triage_u_confirmed_but_still_held_says_still_held(tmp_path, tty, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = _held_show(tmp_path)
++    show = read_model(ws.show, Show)
++    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
++    write_artifact(ws.show, show)
++    _stub_redo(monkeypatch, result=None)
++    r = cli_invoke(cfg, "triage", "gratefuldead", input="u\ny\n")
++    assert r.exit_code == 0, r.output
++    assert "still held: " in r.output and "packaged:" not in r.output
++    assert read_overrides(ws).narration == "vague"
++
++
+ def test_triage_u_not_offered_when_one_of_several_tracks_is_resolved(tmp_path, tty):
+     cfg = _cfg(tmp_path)
+     ws = _held_show(tmp_path)
+diff --git a/scripts/test_replay_holds.py b/scripts/test_replay_holds.py
+index bc3ad7d..618aec7 100644
+--- a/scripts/test_replay_holds.py
++++ b/scripts/test_replay_holds.py
+@@ -283,10 +283,13 @@ def test_run_restores_logging_and_reports_progress(tmp_path, monkeypatch, capsys
+         seen.append(logging.root.manager.disable)
+         return real(ws, **kw)
+     monkeypatch.setattr(rh, "replay_show", spy)
+-    assert rh.main(["run", "--out", str(tmp_path / "arm.json"), "--all",
+-                    "--config", str(root / "config.toml")]) == 0
+-    assert seen == [logging.CRITICAL, logging.CRITICAL]
+-    assert logging.root.manager.disable == logging.NOTSET
++    try:
++        assert rh.main(["run", "--out", str(tmp_path / "arm.json"), "--all",
++                        "--config", str(root / "config.toml")]) == 0
++        assert seen == [logging.CRITICAL, logging.CRITICAL]
++        assert logging.root.manager.disable == logging.NOTSET
++    finally:
++        logging.disable(logging.NOTSET)   # a failed assertion must not leak the disable
+     err = capsys.readouterr().err
+     assert "replayed 1/2" in err and "replayed 2/2" in err
+ 
+@@ -421,7 +424,7 @@ def test_compare_gate_counts_only_held_shows_that_are_not_needs_llm(tmp_path):
+         s = arm["shows"]["gratefuldead-1973-06-11"]
+         s["state"], s["outcome"], s["reproduces"] = "held", "needs-llm", False
+         s["needs_llm"] = ["stored alignment llm"]
+-    base, cand = _two_arms(tmp_path, needs_llm_hold, needs_llm_hold)
++    base, cand = _two_arms(tmp_path, mutate_cand=needs_llm_hold, mutate_base=needs_llm_hold)
+     out = tmp_path / "cmp"
+     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0   # 1/1, not 1/2
+     assert "gratefuldead-1973-06-11" not in (out / "drift.txt").read_text()
+@@ -459,7 +462,7 @@ def test_packaged_exposure_is_base_versus_cand_and_lists_newly_held_shows(tmp_pa
+         both(arm)
+         s = arm["shows"]["gratefuldead-1973-06-11"]
+         s["outcome"], s["gather_flags"] = "newly-held", ["venue mismatch: archive 'A' vs jerrybase 'B'"]
+-    base, cand = _two_arms(tmp_path, cand_holds, both)
++    base, cand = _two_arms(tmp_path, mutate_cand=cand_holds, mutate_base=both)
+     out = tmp_path / "cmp"
+     assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+     text = (out / "packaged_exposure.txt").read_text()
+@@ -730,7 +733,7 @@ def test_4b_closest_calls_read_vetting_jsons_nested_asserted_dates(tmp_path):
+         _clear_it(arm)
+     def hold_flag(arm):
+         arm["shows"]["gratefuldead-1973-06-10"]["vet_flags"] = ["research asserts wrong date: 1973-06-11"]
+-    base, cand = _two_arms(tmp_path, lose_flag, hold_flag)
++    base, cand = _two_arms(tmp_path, mutate_cand=lose_flag, mutate_base=hold_flag)
+     slug_dir = tmp_path / "lib" / "shows" / "gratefuldead-1973-06-10"
+     slug_dir.mkdir(parents=True, exist_ok=True)
+     (slug_dir / "vetting.json").write_text(json.dumps({

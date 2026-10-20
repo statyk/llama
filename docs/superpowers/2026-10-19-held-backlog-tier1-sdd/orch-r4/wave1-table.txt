@@ -1,0 +1,44 @@
+slug | predicted | progress | brief | needs_review flags | manifest | after: outcome repro changes flags | gather-leg vs G2
+gratefuldead-1982-05-22 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+umphreysmcgee-2002-10-04 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1972-03-23 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1977-10-29 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1973-11-17 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+stringcheeseincident-2005-07-15 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+joerussosalmostdead-2019-09-26 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+railroadearth-2006-07-20 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+darkstarorchestra-2005-06-06 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+darkstarorchestra-2009-12-05 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+darkstarorchestra-2005-08-13 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1984-07-15 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1971-12-05 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+umphreysmcgee-2006-02-16 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+elliottsmith-2000-05-08 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+darkstarorchestra-2004-04-24 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+railroadearth-2005-04-16 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+umphreysmcgee-2010-02-27 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+discobiscuits-2005-12-31 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+g-loveandspecialsauce-2004-04-15 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+greenskybluegrass-2016-10-31 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+umphreysmcgee-2004-02-07 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+smashingpumpkins-1996-07-10 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+darkstarorchestra-2015-07-11 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+mogwai-2008-09-13 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1984-04-20 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1989-08-19 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+bluestraveler-1994-09-19 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+gratefuldead-1971-12-31 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+gratefuldead-1985-09-15 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+robertrandolphandthefamilyband-2001-11-16 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+derektrucksband-2009-06-05 | clears/reuse | cleared | reuse | False [] | True | clean True 0 [] | OK
+gratefuldead-1971-10-19 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+moe-2004-10-29 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+stringcheeseincident-2000-10-27 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+philleshandfriends-2005-02-12 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+railroadearth-2010-05-27 | needs-brief/fresh | cleared | fresh | False [] | True | clean True 0 [] | OK
+smashingpumpkins-1994-04-17 | needs-brief/fresh | held | fresh | True ['briefing mentions unknown song: Girl Named Sandoz'] | False | needs-brief True 0 [] | MISMATCH progress=held; still held; no manifest; after-arm not clean
+
+rows 38, mismatches 1, fresh-brief lines 34 (all in wave: True), progress entries 38, re-deliver lines 0
+new llm-failures: 0 []
+show dirs outside the wave written since marker: 0 []
+other slugs named in log: []

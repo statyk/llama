@@ -1,0 +1,4 @@
+budget-min: 60
+role: implementer
+model: sonnet
+what: Task 2 replay clients, digests, setlistfm.cache_key, capture_fixture --from-cache

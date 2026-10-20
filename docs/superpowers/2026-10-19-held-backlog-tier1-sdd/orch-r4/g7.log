@@ -1,0 +1,6 @@
+start 10:21:53
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 100/166
+replayed 166 show(s): clean=121, clears=6, needs-brief=28, structure-changed=11
+rc=0
+end 10:21:56

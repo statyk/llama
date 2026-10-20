@@ -1,0 +1,4 @@
+budget-min: 30
+role: implementer
+model: sonnet
+what: Task 13c replay_holds compare --no-repro-gate

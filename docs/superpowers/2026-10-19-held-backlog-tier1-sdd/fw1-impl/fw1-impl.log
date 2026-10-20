@@ -1,0 +1,7 @@
+........................................................................ [ 63%]
+..........................................                               [100%]
+114 passed in 15.22s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3772 passed, 1 skipped, 8 deselected, 26 warnings in 86.04s (0:01:26)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw1-RZehPJ

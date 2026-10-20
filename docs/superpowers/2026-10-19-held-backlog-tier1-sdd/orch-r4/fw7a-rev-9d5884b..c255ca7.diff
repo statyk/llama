@@ -1,0 +1,135 @@
+diff --git a/packages/llama/src/llama/siblings.py b/packages/llama/src/llama/siblings.py
+index a9bbcc1..1ec33b6 100644
+--- a/packages/llama/src/llama/siblings.py
++++ b/packages/llama/src/llama/siblings.py
+@@ -300,11 +300,14 @@ def propose_rows(target_durs: list[float], donor: DonorTape, *,
+                                        "sibling song split across target files"))
+             continue
+ 
+-        proposed = " > ".join(t.strip().rstrip(">").strip() for t in titles)
++        def _adopted_form(t: str) -> str:   # the ONE form adoption ships and hygiene tests
++            return t.strip().rstrip(">").strip()
++
++        proposed = " > ".join(_adopted_form(t) for t in titles)
+         if not all(t.strip() and is_real_title(t.strip()) for t in titles):
+             rows.append(SiblingRow(i0 + 1, None, span, residual, penalty,
+                                    "decline", "sibling track untitled"))
+-        elif not all(hygienic_title(t, metadata_norms) and not is_placeholder_text(t.strip())
++        elif not all(hygienic_title(t, metadata_norms) and not is_placeholder_text(_adopted_form(t))
+                      for t in titles):   # Task 11b: a donor's `Track 02`/`tmp` tag
+             rows.append(SiblingRow(i0 + 1, None, span, residual, penalty,
+                                    "decline", "sibling title fails hygiene"))
+diff --git a/packages/llama/src/llama/stages/vet_research.py b/packages/llama/src/llama/stages/vet_research.py
+index 3f7f491..b6d2967 100644
+--- a/packages/llama/src/llama/stages/vet_research.py
++++ b/packages/llama/src/llama/stages/vet_research.py
+@@ -155,7 +155,7 @@ def _within_window(a: str, b: str) -> bool:
+ 
+ def _date_flags(
+     mismatched: dict[str, str], yearless: dict[str, str], show: Show,
+-    placeholder: bool, adopted: str | None, day_unknown: dict[str, str] | None = None,
++    placeholder: bool, adopted: str | None, *, day_unknown: dict[str, str],
+ ) -> list[str]:
+     """The date flags for a set of mismatched full dates; none when a date is adopted."""
+     out: list[str] = []
+@@ -170,7 +170,7 @@ def _date_flags(
+         else:
+             out.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
+     if not placeholder:  # a day-00 assertion never matches a specific show date
+-        for text in (day_unknown or {}).values():
++        for text in day_unknown.values():
+             out.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
+     for norm, text in yearless.items():  # year-less: match on month and day
+         if not show.date.endswith(norm[1:]):
+@@ -269,7 +269,7 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
+     # 4a reads date_flags_raw: the date flags WITHOUT the 4b window, so research
+     # about an adjacent night that names this show's date still disqualifies it.
+     date_flags_raw = _date_flags(
+-        mismatched_raw, yearless, show, placeholder, adopted, day_unknown)
++        mismatched_raw, yearless, show, placeholder, adopted, day_unknown=day_unknown)
+     if not songs_grounded:
+         ok, info = right_show_gate(vetting, show, date_flags_raw=date_flags_raw)
+         if ok:
+@@ -281,7 +281,7 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
+             )
+         else:
+             flags += [f"{_VET_FLAG_PREFIX}unknown song: {s}" for s in unknown]
+-    flags += _date_flags(mismatched, yearless, show, placeholder, adopted, day_unknown)
++    flags += _date_flags(mismatched, yearless, show, placeholder, adopted, day_unknown=day_unknown)
+ 
+     # Set-count check is independent of the date decision: an adoption must
+     # not swallow a genuine structure contradiction.
+diff --git a/packages/llama/tests/test_siblings.py b/packages/llama/tests/test_siblings.py
+index c489052..733108f 100644
+--- a/packages/llama/tests/test_siblings.py
++++ b/packages/llama/tests/test_siblings.py
+@@ -1075,3 +1075,16 @@ def test_a_donor_track_titled_with_a_placeholder_fails_hygiene(placeholder):
+     assert got[2].verdict == "decline"
+     assert got[2].proposed is None
+     assert got[2].reason == "sibling title fails hygiene"
++
++
++@pytest.mark.parametrize("placeholder", ["tmp >", "Track 02 >"])
++def test_a_donor_placeholder_with_a_trailing_segue_mark_still_fails_hygiene(placeholder):
++    """Adoption strips a trailing `>`; the placeholder refusal must test that
++    same stripped form, or `tmp >` is adopted as `tmp`."""
++    target = [300.0, 420.0, 510.0]
++    donor = _donor([300.0, 420.0, 510.0], ["Alpha", placeholder, "Charlie"])
++    rows, _diag = propose_rows(target, donor, metadata_norms=set())
++    got = _by_track(rows)
++    assert got[2].verdict == "decline"
++    assert got[2].proposed is None
++    assert got[2].reason == "sibling title fails hygiene"
+diff --git a/packages/llama/tests/test_stage_vet.py b/packages/llama/tests/test_stage_vet.py
+index b66a65a..f47f7c6 100644
+--- a/packages/llama/tests/test_stage_vet.py
++++ b/packages/llama/tests/test_stage_vet.py
+@@ -511,12 +511,12 @@ def test_4b_raw_date_flags_keep_what_the_window_hides_and_yearless_mismatches():
+     show = make_show()
+     mismatched = {"1973-06-11": "1973-06-11"}
+     yearless = {"--06-12": "June 12"}
+-    raw = _date_flags(mismatched, yearless, show, False, None)
++    raw = _date_flags(mismatched, yearless, show, False, None, day_unknown={})
+     assert raw == ["research asserts wrong date: 1973-06-11", "research asserts wrong date: June 12"]
+-    assert _date_flags({}, yearless, show, False, None) == ["research asserts wrong date: June 12"]
+-    ph = _date_flags({"1973-06-11": "x"}, {}, show, True, None)
++    assert _date_flags({}, yearless, show, False, None, day_unknown={}) == ["research asserts wrong date: June 12"]
++    ph = _date_flags({"1973-06-11": "x"}, {}, show, True, None, day_unknown={})
+     assert ph == ["research asserts 1973-06-11; item date 1973-06-10 looks like a year-only placeholder"]
+-    assert _date_flags(mismatched, yearless, show, True, "1973-06-11") == []
++    assert _date_flags(mismatched, yearless, show, True, "1973-06-11", day_unknown={}) == []
+     # end to end: the window hides the adjacent date but the yearless mismatch still flags
+     flags, _, _ = grounding_flags(_vet(["1973-06-10", "1973-06-11", "June 12"]), show)
+     assert flags == ["research asserts wrong date: June 12"]
+@@ -731,3 +731,31 @@ def test_16b_day00_makes_the_right_show_gate_decline():
+     flags, _, notes = grounding_flags(vet, show)
+     assert notes == [] and any("unknown song" in f for f in flags)
+     assert "research asserts wrong date: 1973-06-00" in flags
++
++
++# --- fw7a (16b deferred pins): _date_flags ordering, day-00 parse, de-dup ---
++
++
++def test_date_flags_order_is_mismatched_then_day_unknown_then_yearless():
++    from llama.stages.vet_research import _date_flags
++    show = make_show()
++    out = _date_flags(
++        {"1973-06-11": "1973-06-11"}, {"--12-02": "December 2"}, show, False, None,
++        day_unknown={"1973-09-00": "September 0, 1973"})
++    assert out == [
++        "research asserts wrong date: 1973-06-11",
++        "research asserts wrong date: September 0, 1973",
++        "research asserts wrong date: December 2",
++    ]
++
++
++def test_day_unknown_date_reads_0_5_08_day_first_as_2008_05_00():
++    # 4c's month-first reading is invalid (month 0), so the day-first swap applies.
++    assert day_unknown_date("0/5/08") == "2008-05-00"
++    assert normalize_date("0/5/08") is None
++
++
++def test_day00_entries_dedupe_on_the_first_surface_text():
++    flags, _, _ = grounding_flags(
++        _vet(["1973-06-10", "September 0, 1973", "1973-09-00"]), make_show())
++    assert flags == ["research asserts wrong date: September 0, 1973"]

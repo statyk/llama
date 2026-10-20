@@ -1,0 +1,5 @@
+approved rows B-F: 998
+hand_check_sample.txt: rows on listed shows 20, dropped (approved verbatim) 0, remaining 20; rows on unlisted shows dropped 0
+closest_calls.txt: rows on listed shows 65, dropped (approved verbatim) 25, remaining 40; rows on unlisted shows dropped 438
+title_sources.txt: rows on listed shows 32, dropped (approved verbatim) 31, remaining 1; rows on unlisted shows dropped 0
+structure_changed.txt: rows on listed shows 11, dropped (approved verbatim) 7, remaining 4; rows on unlisted shows dropped 0

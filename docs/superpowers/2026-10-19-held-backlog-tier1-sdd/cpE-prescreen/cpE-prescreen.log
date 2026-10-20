@@ -1,0 +1,16 @@
+SNAP /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//cpE-snap-24mpGw
+progress: 4a table built (67 rows, 18 band); 4c computed
+progress: band rows 1-15 read
+progress: band rows all 18 read; starting non-band 4a rows
+progress: non-band 9/49 read
+progress: non-band 14/49 read
+progress: non-band 19/49 read
+progress: non-band 24/49 read
+progress: non-band 29/49 read
+progress: non-band 34/49 read
+progress: non-band 39/49 read
+progress: all 67 4a research.md read; building report
+66253 9 58 8 2 18 8 25
+67210 9 58 8 2 18 8 25
+7538b574221a560186a601c5aec2230d52f6227b27ea9fcb04a39de26f574232  /Users/shawn/.llama-harness/cmp-E-all/prescreen.md
+removed /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//cpE-snap-24mpGw

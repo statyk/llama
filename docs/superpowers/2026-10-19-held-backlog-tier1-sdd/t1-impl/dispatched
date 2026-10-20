@@ -1,0 +1,4 @@
+budget-min: 90
+role: implementer
+model: opus
+what: Task 1 compute_gather/GatherResult/needs_llm/notes.json

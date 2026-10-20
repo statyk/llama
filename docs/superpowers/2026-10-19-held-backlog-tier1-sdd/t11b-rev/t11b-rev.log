@@ -1,0 +1,58 @@
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+'Dew' False True
+'Jam' False True
+'Space' False True
+'Drums' False True
+'U.S. Blues' False True
+'1999' False True
+'2001' False True
+'Tuning' False True
+'Intro' False True
+'Encore' False True
+'Crowd' False True
+'Title' True True
+'Title Track' False True
+'Temp' True True
+'Cut' False True
+'2:22' True False
+'3:10 To Yuma' False True
+'Tracks' False True
+'Temptation' False True
+'Track 1 Jam' False True
+'No Title' True True
+'Tr 2' True False
+'Cut 3' True True
+'Trk 5' True True
+'Untitled' False True
+'MLK' False True
+'Jam #2' False True
+'Drums > Space' False True
+'E.M.D.' False True
+'Mr.' False False
+'Tr3s' False True
+'Temps' False True
+'Tempo' False True
+'Ii' False False
+'XTC' False True
+---
+'E: 2x2' '2x2' 'E: 2x2'
+'M80,' 'M80' 'M80,'
+'42(1)' '42' '42(1)'
+'Enc: Help!' 'Help!' 'Enc: Help!'
+'E:' 'E' 'E:'
+'e: ' 'e' 'e:'
+'Re:' 'Re' 'Re:'
+'E: (1)' 'E: (1)' 'E: (1)'
+'Encore: Jam (1),' 'Jam' 'Encore: Jam (1),'
+'Encore' 'Encore' 'Encore'
+'Encore:Sugaree' 'Sugaree' 'Encore:Sugaree'
+'E2:' 'E2' 'E2:'
+'42 (12)' '42' '42 (12)'
+'42 (2001)' '42' '42 (2001)'
+'Track 02 >' True True True
+'Track 02 ->' True True True
+'tmp >' False True True
+'Track 02' True True True
+........................................................................ [ 58%]
+...................................................                      [100%]
+123 passed, 252 deselected in 4.58s

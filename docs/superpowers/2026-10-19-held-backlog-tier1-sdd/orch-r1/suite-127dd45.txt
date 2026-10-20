@@ -1,0 +1,6 @@
+/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+127dd45 2026-10-19 16:57:05 -0400
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3432 passed, 1 skipped, 8 deselected, 26 warnings in 54.25s
+rc=0

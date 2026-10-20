@@ -1,0 +1,7 @@
+2026-10-20T06:08:03Z read brief, plan checkpoints B-G, approved-[B-F], lists; starting G2 script
+2026-10-20T06:11:34Z G2 mechanical done (hc 18/0/18, cc 50/25/25, ts 24/24/0); coverage: 130/144 slug-attributed, 14 fresh-brief briefing rows unattributed by row; reading the 16 fresh-brief shows
+2026-10-20T06:13:39Z 16 fresh-brief rows read: wrong-show candidates found (radiators-1984-09-07, philleshandfriends-2008-11-18, darkstarorchestra-2004-11-14, smashingpumpkins-2012-05-26, stringcheeseincident-2005-07-19, larrykeel-2007-08-26, rre-2007-04-25, thebrew); starting structure/title scan over all 144
+2026-10-20T06:15:41Z structure scan: more wrong structures (ratdog-2007-11-17, phil 2008-07-04, jrad 2018-02-18, um 2006-11-16); checking every jerrybase-anchored apply row
+2026-10-20T06:18:01Z exposure checked (none on lists); E-rule research read for 4 hand-check 4a rows
+2026-10-20T06:18:49Z analysis done: 13 flagged (6 no-B-F-row fresh-brief, 7 on slice-approved shows), pilot all routine; writing prescreen.md
+2026-10-20T06:20:58Z prescreen.md written

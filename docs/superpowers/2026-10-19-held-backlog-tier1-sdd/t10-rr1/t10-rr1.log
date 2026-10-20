@@ -1,0 +1,15 @@
+mutant j (drop demoted skip); predicted red: test_accept_short_tags_skips_positions_2b_demoted + test_2a_does_not_reaccept_a_recording_level_2b_demotion
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-held-backlog-tier1/d4918098-e484-43e4-8857-2fae7853ad18/scratchpad/rr1/tree/packages/llama/src/llama/stages/gather.py
+E       assert not True
+E        +  where True = any(<generator object test_2a_does_not_reaccept_a_recording_level_2b_demotion.<locals>.<genexpr> at 0x109745540>)
+
+../tree/packages/llama/tests/test_stage_gather.py:2609: AssertionError
+=========================== short test summary info ============================
+FAILED ../tree/packages/llama/tests/test_stage_gather.py::test_accept_short_tags_skips_positions_2b_demoted
+FAILED ../tree/packages/llama/tests/test_stage_gather.py::test_2a_does_not_reaccept_a_recording_level_2b_demotion
+2 failed, 8 passed, 119 deselected in 0.88s
+control (unmutated)
+..........                                                               [100%]
+10 passed, 119 deselected in 0.94s
+..............                                                           [100%]
+14 passed, 70 deselected in 0.20s

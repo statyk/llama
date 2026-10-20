@@ -1,0 +1,186 @@
+start Mon Oct 19 17:57:27 EDT 2026
+packages/llama/tests/test_stage_gather.py:2696: in <module>
+    from llama.stages.gather import two_venue_signature
+E   ImportError: cannot import name 'two_venue_signature' from 'llama.stages.gather' (/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/gather.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_stage_gather.py
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.41s
+             ("Johnny B. Goode", "encore")],
+            venue="Robert F. Kennedy Stadium", city="Washington")])
+        sws = ShowWorkspace(tmp_path / "show")
+        show = run_gather(sws, StubIA(), FakeProvider(), make_candidate(), IDENT,
+                          jerrybase_enabled=True)
+        assert show.venue == "RFK Stadium"          # never overwritten
+        assert show.venue_source == "item"
+>       assert not any("venue mismatch" in f for f in show.review_flags)
+E       assert not True
+E        +  where True = any(<generator object test_gather_venue_equivalent_passes_no_mismatch.<locals>.<genexpr> at 0x10de632a0>)
+
+packages/llama/tests/test_stage_gather.py:1044: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_stage_gather.py::test_gather_venue_equivalent_passes_no_mismatch
+1 failed, 143 passed in 3.19s
+........................................................................ [ 50%]
+........................................................................ [100%]
+144 passed in 3.07s
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=33733) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3538 passed, 1 skipped, 8 deselected, 26 warnings in 53.22s
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13-impl-wqwqmn
+PREDICTIONS (written before flipping):
+(a) swap without `not two_venue_signature` -> predicted test_stage_gather.py::test_two_venue_signature_keeps_the_same_city_double_held; my reading: that test selects the dodd tape (Rambler Room), whose venue is not equivalent to jerrybase, so the swap never applies -> I expect SURVIVED.
+(b) 1c without `len(events) == 1` -> test_1c_does_not_apply_on_a_per_event_candidate_of_a_multi_event_date
+(c) 1d evaluated before the swap -> test_swap_ships_the_selected_venue_when_it_agrees_with_jerrybase_and_1d_still_holds
+(d) overrides block no longer removes 1d flag -> test_an_operator_venue_override_suppresses_the_1d_hold
+(e) enrichment fires on blank event.venue -> test_1a_blank_vote_venue_on_a_blank_jerrybase_venue_takes_nothing_from_jerrybase
+=== mutant a
+applied a
+--- /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/gather.py	2026-10-19 17:59:01.641335339 -0400
++++ /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13-impl-wqwqmn/a/tree/packages/llama/src/llama/stages/gather.py	2026-10-19 18:00:51.987335899 -0400
+@@ -1398,8 +1398,7 @@
+             elif venues_equivalent(venue, event.venue) and cities_compatible(archive_city, jb_city):
+                 pass                                    # step 1: the vote ships
+             elif (sel_venue and venues_equivalent(sel_venue, event.venue)
+-                  and cities_compatible(sel_city or vote_city, jb_city)
+-                  and not two_venue_signature(candidate)):
++                  and cities_compatible(sel_city or vote_city, jb_city)):
+                 # Step 2, the swap: the selected recording and jerrybase agree.
+                 op_notes.append(f"venue taken from the selected recording: '{sel_venue}' agrees "
+                                 f"with jerrybase '{event.venue}' (vote was '{vote_venue}')")
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-wqwqmn/a/tree/packages/llama/src/llama/__init__.py
+144 passed in 1.52s
+=== mutant b
+applied b
+--- /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/gather.py	2026-10-19 17:59:01.641335339 -0400
++++ /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13-impl-wqwqmn/b/tree/packages/llama/src/llama/stages/gather.py	2026-10-19 18:00:57.198246136 -0400
+@@ -1406,7 +1406,7 @@
+                 venue, city = sel_venue, sel_city or vote_city
+             elif two_venue_signature(candidate):
+                 flags.append(mismatch)                  # a same-city double keeps the hold
+-            elif (len(events) == 1 and sel_venue
++            elif (sel_venue
+                   and cities_compatible(sel_city or vote_city, jb_city)):
+                 # 1c: same place, different name, on a single-event date.
+                 op_notes.append(f"venue differs from jerrybase: archive '{sel_venue}' "
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-wqwqmn/b/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_1c_does_not_apply_on_a_per_event_candidate_of_a_multi_event_date
+1 failed, 143 passed in 1.40s
+=== mutant c
+applied c
+--- /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/gather.py	2026-10-19 17:59:01.641335339 -0400
++++ /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13-impl-wqwqmn/c/tree/packages/llama/src/llama/stages/gather.py	2026-10-19 18:01:02.287898773 -0400
+@@ -1380,6 +1380,9 @@
+     sel_city = _stripped(sel.coverage) if sel is not None else None
+     vote_venue, vote_city = candidate.venue, candidate.city
+     venue, city, venue_source = vote_venue, vote_city, "item"
++    if sel_venue and sel_city and vote_city and not cities_compatible(sel_city, vote_city):
++        venue, city = sel_venue, sel_city
++        flags.append(f"{_CITY_CONFLICT_FLAG}: '{sel_city}' (selected) vs '{vote_city}'")
+     if event is not None:
+         if not (venue and venue.strip()):
+             # Enrichment, byte-identical to before except 1a: a blank
+@@ -1418,9 +1421,6 @@
+     # 1d, every show, jerrybase or not, after the swap: a selected recording
+     # whose city is known to conflict with the vote's ships its own venue and
+     # city, held (the other recordings may be a different performance).
+-    if sel_venue and sel_city and vote_city and not cities_compatible(sel_city, vote_city):
+-        venue, city = sel_venue, sel_city
+-        flags.append(f"{_CITY_CONFLICT_FLAG}: '{sel_city}' (selected) vs '{vote_city}'")
+ 
+     if overrides.venue is not None:
+         venue, venue_source = overrides.venue, "override"
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-wqwqmn/c/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_swap_ships_the_selected_venue_when_it_agrees_with_jerrybase_and_1d_still_holds
+1 failed, 143 passed in 3.57s
+=== mutant d
+applied d
+--- /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/gather.py	2026-10-19 17:59:01.641335339 -0400
++++ /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13-impl-wqwqmn/d/tree/packages/llama/src/llama/stages/gather.py	2026-10-19 18:01:09.529300920 -0400
+@@ -1427,8 +1427,7 @@
+         flags = [f for f in flags if not f.startswith("venue mismatch")]
+     if overrides.city is not None:
+         city = overrides.city
+-    if overrides.venue is not None or overrides.city is not None:
+-        flags = [f for f in flags if not f.startswith(_CITY_CONFLICT_FLAG)]
++    pass
+ 
+     # Closer tripwire (single-event, non-anchored alignments; anchoring places
+     # breaks at closers by construction, so it cannot contradict itself).
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-wqwqmn/d/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_an_operator_venue_override_suppresses_the_1d_hold
+1 failed, 143 passed in 1.37s
+=== mutant e
+applied e
+--- /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/stages/gather.py	2026-10-19 17:59:01.641335339 -0400
++++ /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13-impl-wqwqmn/e/tree/packages/llama/src/llama/stages/gather.py	2026-10-19 18:01:14.450222978 -0400
+@@ -1384,7 +1384,7 @@
+         if not (venue and venue.strip()):
+             # Enrichment, byte-identical to before except 1a: a blank
+             # jerrybase venue neither enriches nor flags.
+-            if event.venue.strip():
++            if True:
+                 venue, city, venue_source = event.venue, event.city, "jerrybase"
+         else:
+             jb_city = jerrybase_city(event)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-wqwqmn/e/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_1a_blank_vote_venue_on_a_blank_jerrybase_venue_takes_nothing_from_jerrybase
+1 failed, 143 passed in 1.34s
+...                                                                      [100%]
+3 passed, 142 deselected in 0.53s
+PREDICTION (a, rerun after survivor test): test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerrybase
+applied a
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-wqwqmn/a/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerrybase
+1 failed, 144 passed in 1.51s
+removed MROOT
+3539 passed, 1 skipped, 8 deselected, 26 warnings in 50.15s
+110f72d feat(gather): slice 1 venue tripwire: swap, 1a, 1c, two-venue signature, 1d city-conflict hold
+fix round 1 start Mon Oct 19 18:07:51 EDT 2026
+....                                                                     [100%]
+148 passed in 0.92s
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13-impl-r1-0W7KOR
+R1 PREDICTIONS (before flipping):
+(f) drop step 1's city check -> test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+(g) drop the swap's city check -> test_the_swap_needs_compatible_cities_not_just_an_equivalent_venue (also expected red: test_step_1_needs_compatible_cities_not_just_an_equivalent_venue, whose selected tape is equivalent and would now swap)
+(h) 1d tests raw vote_city (revert _stripped) -> test_1d_a_whitespace_only_vote_city_is_unknown_and_no_conflict
+=== mutant f
+SyntaxError: unterminated string literal (detected at line 30)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-r1-0W7KOR/f/tree/packages/llama/src/llama/__init__.py
+148 passed in 2.19s
+=== mutant g
+SyntaxError: unterminated string literal (detected at line 30)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-r1-0W7KOR/g/tree/packages/llama/src/llama/__init__.py
+148 passed in 1.75s
+=== mutant h
+SyntaxError: unterminated string literal (detected at line 30)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-r1-0W7KOR/h/tree/packages/llama/src/llama/__init__.py
+148 passed in 1.38s
+first f/g/h attempt INVALID: mutants.py had a syntax error, no mutant applied (148 passed = unmutated); rerunning with fresh copies, same predictions
+=== mutant f
+applied f
+-            elif venues_equivalent(venue, event.venue) and cities_compatible(archive_city, jb_city):
++            elif venues_equivalent(venue, event.venue):
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-r1-0W7KOR/f/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+1 failed, 147 passed in 1.49s
+=== mutant g
+applied g
+-                  and cities_compatible(sel_city or vote_city, jb_city)
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-r1-0W7KOR/g/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+FAILED packages/llama/tests/test_stage_gather.py::test_the_swap_needs_compatible_cities_not_just_an_equivalent_venue
+2 failed, 146 passed in 1.54s
+=== mutant h
+applied h
+-    if (sel_venue and sel_city and _stripped(vote_city)
++    if (sel_venue and sel_city and vote_city
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13-impl-r1-0W7KOR/h/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_a_whitespace_only_vote_city_is_unknown_and_no_conflict
+1 failed, 147 passed in 1.42s
+removed r1 MROOT
+3542 passed, 1 skipped, 8 deselected, 26 warnings in 52.78s
+88f087a fix(gather): pin slice 1's city checks on step 1 and the swap; a blank vote city is no 1d conflict

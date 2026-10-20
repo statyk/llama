@@ -1,0 +1,4 @@
+budget-min: 30
+role: reviewer
+model: opus
+what: Task 1 spec+quality review f1744ad..dd0bf7c

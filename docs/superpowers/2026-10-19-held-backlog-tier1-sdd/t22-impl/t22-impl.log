@@ -1,0 +1,5 @@
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3761 passed, 1 skipped, 8 deselected, 26 warnings in 50.34s
+3761 passed, 1 skipped, 8 deselected, 26 warnings in 49.77s

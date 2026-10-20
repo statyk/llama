@@ -1,0 +1,6 @@
+PREDICTION: mutant (h) still-held + digest check moved outside the lock -> predicted SURVIVED (no test asserts the lock at the check)
+M=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t19-rev-4mikNy
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t19-rev-4mikNy/tree/packages/llama/src/llama/reapply.py
+.........................                                                [100%]
+25 passed in 0.92s
+mutant (h): SURVIVED (25 passed); M removed

@@ -1,0 +1,4 @@
+budget-min: 60
+role: review
+model: opus
+what: Checkpoint G pre-screen (read-only)

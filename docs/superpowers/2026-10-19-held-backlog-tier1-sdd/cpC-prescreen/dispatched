@@ -1,0 +1,4 @@
+budget-min: 50
+role: reviewer
+model: opus
+what: Checkpoint C read-only pre-screen (slice 1)

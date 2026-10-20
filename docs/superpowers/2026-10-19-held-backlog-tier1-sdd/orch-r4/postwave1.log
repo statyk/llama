@@ -1,0 +1,13 @@
+04:28:40 postwave 1 start
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 38 show(s): clean=37, needs-brief=1
+replay rc=0
+check rc=0
+smashingpumpkins-1994-04-17 | needs-brief/fresh | held | fresh | True ['briefing mentions unknown song: Girl Named Sandoz'] | False | needs-brief True 0 [] | MISMATCH progress=held; still held; no manifest; after-arm not clean
+
+rows 38, mismatches 1, fresh-brief lines 34 (all in wave: True), progress entries 38, re-deliver lines 0
+new llm-failures: 0 []
+show dirs outside the wave written since marker: 0 []
+other slugs named in log: []
+04:28:43 postwave 1 end

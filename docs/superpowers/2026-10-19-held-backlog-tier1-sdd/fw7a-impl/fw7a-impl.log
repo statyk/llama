@@ -1,0 +1,12 @@
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw7a-cUUwCd
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw7a-cUUwCd/tree/packages/llama/src/llama/__init__.py
+
+packages/llama/tests/test_siblings.py:1088: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_siblings.py::test_a_donor_placeholder_with_a_trailing_segue_mark_still_fails_hygiene[tmp >]
+1 failed, 53 passed in 2.14s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3795 passed, 1 skipped, 8 deselected, 26 warnings in 135.27s (0:02:15)
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3798 passed, 1 skipped, 8 deselected, 26 warnings in 89.87s (0:01:29)

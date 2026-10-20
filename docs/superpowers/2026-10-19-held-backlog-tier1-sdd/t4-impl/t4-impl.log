@@ -1,0 +1,127 @@
+E   ImportError: cannot import name 'Legs' from 'llama.replay' (/Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/replay.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_replay.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.34s
+>       assert legs.gather.needs_llm == ()
+E       AssertionError: assert ('align_structure',) == ()
+E         
+E         Left contains one more item: 'align_structure'
+E         Use -v to get more diff
+
+packages/llama/tests/test_replay.py:219: AssertionError
+----------------------------- Captured stderr call -----------------------------
+overrides.exclude entry 'FOLLOW-ME @BYPIKENO.mp3' matched no file
+overrides.exclude entry 'gd73-06-10.md5' matched no file
+overrides.exclude entry 'gd73-06-10.txt' matched no file
+overrides.exclude entry 'gd73-06-10d1t01.shn' matched no file
+overrides.exclude entry 'gd73-06-10d1t02.shn' matched no file
+overrides.exclude entry 'gd73-06-10d1t03.shn' matched no file
+overrides.exclude entry 'gd73-06-10d2t01.shn' matched no file
+overrides.exclude entry 'gd73-06-10d2t02.shn' matched no file
+overrides.exclude entry 'gd73-06-10d3t01.shn' matched no file
+------------------------------ Captured log call -------------------------------
+WARNING  llama:gather.py:927 overrides.exclude entry 'FOLLOW-ME @BYPIKENO.mp3' matched no file
+WARNING  llama:gather.py:927 overrides.exclude entry 'gd73-06-10.md5' matched no file
+WARNING  llama:gather.py:927 overrides.exclude entry 'gd73-06-10.txt' matched no file
+WARNING  llama:gather.py:927 overrides.exclude entry 'gd73-06-10d1t01.shn' matched no file
+WARNING  llama:gather.py:927 overrides.exclude entry 'gd73-06-10d1t02.shn' matched no file
+WARNING  llama:gather.py:927 overrides.exclude entry 'gd73-06-10d1t03.shn' matched no file
+WARNING  llama:gather.py:927 overrides.exclude entry 'gd73-06-10d2t01.shn' matched no file
+WARNING  llama:gather.py:927 overrides.exclude entry 'gd73-06-10d2t02.shn' matched no file
+WARNING  llama:gather.py:927 overrides.exclude entry 'gd73-06-10d3t01.shn' matched no file
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_replay.py::test_missing_vetting_json_is_needs_llm_even_when_gather_flags_remain
+1 failed, 51 passed in 2.95s
+....................................................                     [100%]
+52 passed in 0.64s
+..                                                                       [100%]
+2 passed, 105 deselected in 0.56s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3221 passed, 1 skipped, 8 deselected, 26 warnings in 52.07s
+== mutation run 1 ==
+### a_flags_before_needs_llm
+PREDICTED: packages/llama/tests/test_replay.py::test_classify_needs_llm_wins_over_every_flag
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-2GyK/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_missing_vetting_json_is_needs_llm_even_when_gather_flags_remain
+FAILED packages/llama/tests/test_replay.py::test_classify_needs_llm_wins_over_every_flag
+2 failed, 157 passed in 1.32s
+### b_no_vetting_exception_added
+PREDICTED: packages/llama/tests/test_replay.py::test_missing_vetting_json_is_needs_llm_even_when_gather_flags_remain
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-zqas/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_missing_vetting_json_is_needs_llm_even_when_gather_flags_remain
+FAILED packages/llama/tests/test_replay.py::test_classify_needs_llm_wins_over_every_flag
+2 failed, 157 passed in 3.31s
+### c_omit_stored_alignment_llm
+PREDICTED: packages/llama/tests/test_replay.py::test_stored_llm_alignment_is_needs_llm
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-UxzS/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_stored_llm_alignment_is_needs_llm
+1 failed, 158 passed in 1.38s
+### d_skip_narration_compare
+PREDICTED: packages/llama/tests/test_replay.py::test_briefing_reusable_reasons
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-UvqW/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_briefing_reusable_reasons
+FAILED packages/llama/tests/test_replay.py::test_reuse_refused_when_recorded_narration_differs
+FAILED packages/llama/tests/test_replay.py::test_legacy_briefing_on_a_vague_show_is_needs_brief
+3 failed, 156 passed in 1.33s
+### e_needs_llm_short_circuit_removed
+PREDICTED: packages/llama/tests/test_replay.py::test_stored_llm_alignment_is_needs_llm
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-nTc6/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_stored_llm_alignment_is_needs_llm
+FAILED packages/llama/tests/test_replay.py::test_missing_vetting_json_is_needs_llm
+FAILED packages/llama/tests/test_replay.py::test_missing_vetting_json_is_needs_llm_even_when_gather_flags_remain
+FAILED packages/llama/tests/test_replay.py::test_classify_needs_llm_wins_over_every_flag
+4 failed, 155 passed in 1.42s
+### f_brief_gate_ignores_carried
+PREDICTED: packages/llama/tests/test_replay.py::test_carried_package_flag_is_still_held_package
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-YgoP/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_carried_package_flag_is_still_held_package
+1 failed, 158 passed in 1.34s
+### g_package_prefix
+PREDICTED: packages/llama/tests/test_replay.py::test_flag_family[duration mismatch on 01 - X.mp3: file 1s vs metadata 2s-package]
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-Cu2N/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_carried_package_flag_is_still_held_package
+FAILED packages/llama/tests/test_replay.py::test_flag_family[duration mismatch on 01
+2 failed, 157 passed in 1.45s
+### h_diff_against_gather_show
+PREDICTED: packages/llama/tests/test_replay.py::test_shipped_diff_compares_against_the_vetted_show
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-ZGV2/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_shipped_diff_compares_against_the_vetted_show
+1 failed, 158 passed in 1.41s
+### i_gather_extract_verdict_above_provider
+PREDICTED: packages/llama/tests/test_stage_gather.py::test_compute_gather_extract_with_a_provider_is_not_needs_llm
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-WSlf/tree/packages/llama/src/llama/__init__.py
+        # extract provider is passed, so the fallback is TAKEN and no verdict is
+FAILED packages/llama/tests/test_stage_gather.py::test_compute_gather_extract_with_a_provider_is_not_needs_llm
+1 failed, 158 passed in 1.38s
+### j_structure_check_drops_alignment
+PREDICTED: packages/llama/tests/test_replay.py::test_alignment_change_on_a_would_clear_show_is_structure_changed
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-wHJu/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_alignment_change_on_a_would_clear_show_is_structure_changed
+1 failed, 158 passed in 1.36s
+### k_count_change_stored_indices_only
+PREDICTED: packages/llama/tests/test_replay.py::test_shipped_diff_track_count_change_reports_every_index_with_new_none
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-SnGM/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_shipped_diff_track_count_change_reports_every_index_with_new_none
+1 failed, 158 passed in 1.40s
+### l_brief_vs_gather_show
+PREDICTED: NONE PREDICTED (vetted vs gathered differ only by an adopted date; see run)
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-mONh/tree/packages/llama/src/llama/__init__.py
+159 passed in 1.28s
+### l_brief_vs_gather_show (rerun)
+PREDICTED: packages/llama/tests/test_replay.py::test_briefing_reuse_compares_against_the_vetted_show
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-8dCo/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_replay.py::test_briefing_reuse_compares_against_the_vetted_show
+1 failed, 159 passed in 1.43s
+### m_scratch_guard_removed
+PREDICTED: packages/llama/tests/test_replay.py::test_compute_legs_refuses_a_scratch_overlapping_the_show_dir[show]
+SHADOW: /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-5Dlp/tree/packages/llama/src/llama/__init__.py
+        from llama.errors import LlamaError
+        from llama.errors import LlamaError
+        from llama.errors import LlamaError
+FAILED packages/llama/tests/test_replay.py::test_compute_legs_refuses_a_scratch_overlapping_the_show_dir[show]
+FAILED packages/llama/tests/test_replay.py::test_compute_legs_refuses_a_scratch_overlapping_the_show_dir[inside]
+FAILED packages/llama/tests/test_replay.py::test_compute_legs_refuses_a_scratch_overlapping_the_show_dir[parent]
+3 failed, 160 passed in 1.37s
+3225 passed, 1 skipped, 8 deselected, 26 warnings in 44.30s

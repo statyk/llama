@@ -1,0 +1,36 @@
+snapshot S=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//fw2-rev-snap-41gGMM
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/fw2-rev-snap-41gGMM/packages/llama/src/llama/__init__.py
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=52516) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3786 passed, 1 skipped, 8 deselected, 26 warnings in 147.79s (0:02:27)
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-fw2-rev-SMRRkP
+PREDICTIONS (before flips):
+M1 reapply.py gate `and not allow_structure_change` -> `and False` : test_structure_changed_is_skipped_unless_allowed_and_writes_nothing (+ names-form CLI test, list test)
+M2 cli.py list allowance -> True : test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped
+M3 cli.py retryable=... -> False : same list test (retryable True assert)
+M4 catalog.needs_audio_download any -> all : SURVIVE predicted (single-track fixture)
+M5 catalog.needs_audio_download returns False once manifest exists : test_dry_run_counts_a_purged_delivered_show_as_a_download
+== M1
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m1/packages/llama/src/llama/__init__.py
+FAILED ../../../../../../../../var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m1/packages/llama/tests/test_reapply.py::test_structure_changed_is_skipped_unless_allowed_and_writes_nothing
+FAILED ../../../../../../../../var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m1/packages/llama/tests/test_reapply.py::test_cli_names_form_structure_changed_needs_the_flag
+FAILED ../../../../../../../../var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m1/packages/llama/tests/test_reapply.py::test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped
+3 failed, 49 passed in 3.36s
+== M2
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m2/packages/llama/src/llama/__init__.py
+FAILED ../../../../../../../../var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m2/packages/llama/tests/test_reapply.py::test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped
+1 failed, 51 passed in 6.82s
+== M3
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m3/packages/llama/src/llama/__init__.py
+FAILED ../../../../../../../../var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m3/packages/llama/tests/test_reapply.py::test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped
+1 failed, 51 passed in 7.47s
+== M4
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m4/packages/llama/src/llama/__init__.py
+52 passed in 5.41s
+== M5
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m5/packages/llama/src/llama/__init__.py
+FAILED ../../../../../../../../var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-fw2-rev-SMRRkP/m5/packages/llama/tests/test_reapply.py::test_dry_run_counts_a_purged_delivered_show_as_a_download
+1 failed, 51 passed in 4.96s
+cleaned MROOT and S

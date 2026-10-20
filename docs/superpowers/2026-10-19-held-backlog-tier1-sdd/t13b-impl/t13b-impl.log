@@ -1,0 +1,82 @@
+........................................................................ [ 19%]
+........................................................................ [ 39%]
+........................................................................ [ 58%]
+........................................................................ [ 78%]
+........................................................................ [ 97%]
+.........                                                                [100%]
+369 passed in 3.33s
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=44591) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3571 passed, 1 skipped, 8 deselected, 26 warnings in 48.09s
+MROOT=/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13b-impl-F3XURd
+PREDICTIONS (written before flipping):
+m1  remove V                          -> test_stage_gather.py::test_1d_does_not_fire_when_the_selected_venue_is_the_votes_hall
+m2a V against post-swap `venue`        -> test_stage_gather.py::test_swap_ships_the_selected_venue_when_it_agrees_with_jerrybase_and_1d_still_holds
+m2b V against jerrybase venue          -> test_stage_gather.py::test_swap_ships_the_selected_venue_when_it_agrees_with_jerrybase_and_1d_still_holds
+m2c V inverted                         -> test_stage_gather.py::test_1d_ships_the_selected_recording_on_a_city_conflict_without_jerrybase
+m7  blank vote venue counts as same    -> test_stage_gather.py::test_1d_a_blank_vote_venue_is_not_the_same_hall_and_still_holds
+m3  remove S (always city check)       -> test_stage_gather.py::test_step_1_pre_slice_equivalent_pair_clears_without_a_city_check
+m4  S widened (no city check)          -> test_stage_gather.py::test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+m5  pre1b delegates to live            -> test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Penn's Landing-Penns Landing-False] (+ the other 1b rows); test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+m6  pre1b tokens gain apostrophe drop  -> test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Penn's Landing-Penns Landing-False]; test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+m6b pre1b tokens_equal gains one-edit  -> test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Barton Hall-Burton Hall-False]
+applied m1
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m1/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_does_not_fire_when_the_selected_venue_is_the_votes_hall
+1 failed, 368 passed in 2.33s
+applied m2a
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m2a/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_swap_ships_the_selected_venue_when_it_agrees_with_jerrybase_and_1d_still_holds
+1 failed, 368 passed in 1.56s
+applied m2b
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m2b/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_swap_ships_the_selected_venue_when_it_agrees_with_jerrybase_and_1d_still_holds
+1 failed, 368 passed in 3.68s
+applied m2c
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m2c/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_swap_ships_the_selected_venue_when_it_agrees_with_jerrybase_and_1d_still_holds
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_ships_the_selected_recording_on_a_city_conflict_without_jerrybase
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_does_not_fire_when_the_selected_venue_is_the_votes_hall
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_a_blank_vote_venue_is_not_the_same_hall_and_still_holds[]
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_a_blank_vote_venue_is_not_the_same_hall_and_still_holds[   ]
+5 failed, 364 passed in 1.69s
+applied m7
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m7/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_a_blank_vote_venue_is_not_the_same_hall_and_still_holds[]
+FAILED packages/llama/tests/test_stage_gather.py::test_1d_a_blank_vote_venue_is_not_the_same_hall_and_still_holds[   ]
+2 failed, 367 passed in 1.65s
+applied m3
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m3/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_pre_slice_equivalent_pair_clears_without_a_city_check
+1 failed, 368 passed in 1.62s
+applied m4
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m4/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+1 failed, 368 passed in 1.58s
+applied m5
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m5/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Penn's Landing-Penns Landing-False]
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Jahrhundert Halle-Jahrhunderthalle-False]
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Meramec Race Track-Merramec Racetrack-False]
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Cornell U-Cornell University-False]
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Red Rocks Amphitheatre-Red Rocks Ampitheater-False]
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Merriweather Post Pavillion-Merriweather Post Pavilion-False]
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Barton Hall, Cornell University-Barton Hall, Cornell U-False]
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Barton Hall-Burton Hall-False]
+9 failed, 360 passed in 1.77s
+applied m6
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m6/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_stage_gather.py::test_step_1_needs_compatible_cities_not_just_an_equivalent_venue
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Penn's Landing-Penns Landing-False]
+2 failed, 367 passed in 1.68s
+applied m6b
+/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/mut-t13b-impl-F3XURd/m6b/tree/packages/llama/src/llama/__init__.py
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Merriweather Post Pavillion-Merriweather Post Pavilion-False]
+FAILED packages/llama/tests/test_structure.py::test_venues_equivalent_pre1b_is_the_cp_b2_rule[Barton Hall-Burton Hall-False]
+2 failed, 367 passed in 2.28s
+removed /var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T//mut-t13b-impl-F3XURd
+llama: /Users/shawn/projects/llama/.claude/worktrees/held-backlog-tier1/packages/llama/src/llama/__init__.py
+replayed 10 show(s): clean=5, newly-held=3, still-held=2
