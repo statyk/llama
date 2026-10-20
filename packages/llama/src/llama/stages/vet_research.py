@@ -6,6 +6,7 @@ from herder import run_json_task
 from llama.models import ResearchVetting, Show, ShowNotes, VettingResult
 from llama.prompts import load_prompt
 from llama.songs import normalize_song
+from llama.structure import TAUTOLOGICAL_TITLE_SOURCES, is_filler
 from llama.workspace import ShowWorkspace, read_model, should_run, write_artifact
 
 # Every deterministic grounding flag starts with this prefix, so a re-vet can strip
@@ -15,6 +16,14 @@ _VET_FLAG_PREFIX = "research asserts "
 # Slice 4 - 4b (spec "New constants"): another asserted full date within this
 # many days of the show's own asserted full date is context, not a contradiction.
 ADJACENT_DAY_WINDOW = 1
+
+# Slice 4 - 4a (spec "New constants"): the right-show gate. At least this fraction
+# of the tape's resolved, non-filler, non-tautological tracks must be asserted by
+# research, and at least this many of them. RIGHT_SHOW_MIN_TAPE_FRACTION may move
+# to `2 / 3` (written exactly so) only at 4a's decision point (Checkpoint E),
+# before shipping; never retuned after.
+RIGHT_SHOW_MIN_TAPE_FRACTION = 0.5
+RIGHT_SHOW_MIN_ASSERTED = 4
 
 _MONTHS = {m: i for i, m in enumerate(
     ["january", "february", "march", "april", "may", "june", "july",
@@ -148,6 +157,48 @@ def _date_flags(
     return out
 
 
+def right_show_gate(
+    vetting: ResearchVetting, show: Show, *, date_flags_raw: list[str],
+) -> tuple[bool, dict]:
+    """Slice 4 - 4a: do the tape and the research demonstrably describe the same
+    show? Only then may unknown-song flags become a vet note. Tautological titles
+    (their text IS the canonical's) count on neither side; the date flags are the
+    ones read BEFORE 4b's adjacent-day window; the own date must be a full date,
+    year included. Returns (holds, info) with info's counts for the note."""
+    research_known = [normalize_song(s).split() for s in vetting.asserted_songs]
+    resolved = [
+        t for t in show.tracks
+        if t.title_source != "unresolved"
+        and not is_filler(t.title)
+        and t.title_source not in TAUTOLOGICAL_TITLE_SOURCES
+    ]
+    asserted = [t for t in resolved if _known_song(t.title, research_known)]
+    tape_known = [normalize_song(t.title).split() for t in show.tracks]
+    unknown = [s for s in vetting.asserted_songs if not _known_song(s, tape_known)]
+    unresolved_n = sum(1 for t in show.tracks if t.title_source == "unresolved")
+    date_text = next(
+        (d for d in vetting.asserted_dates if normalize_date(d) == show.date), None
+    )
+    own_full = date_text is not None
+    holds = (
+        len(resolved) > 0
+        and len(asserted) >= RIGHT_SHOW_MIN_TAPE_FRACTION * len(resolved)
+        and len(asserted) >= RIGHT_SHOW_MIN_ASSERTED
+        and len(unknown) <= len(asserted)
+        and unresolved_n * 2 < len(show.tracks)
+        and not date_flags_raw
+        and own_full
+    )
+    info = {
+        "asserted": len(asserted),
+        "resolved": len(resolved),
+        "ratio": len(asserted) / len(resolved) if resolved else 0.0,
+        "unknown": unknown,
+        "date_text": date_text,
+    }
+    return holds, info
+
+
 def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], str | None, list[str]]:
     """Deterministic check: research contradicting this show flags for review.
     The gate exists to catch wrong-show research, so a couple of unmatched
@@ -162,8 +213,6 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
     known = [normalize_song(t.title).split() for t in show.tracks]
     unknown = [s for s in vetting.asserted_songs if not _known_song(s, known)]
     songs_grounded = not (len(unknown) >= 2 and len(unknown) * 3 > len(vetting.asserted_songs))
-    if not songs_grounded:
-        flags += [f"{_VET_FLAG_PREFIX}unknown song: {s}" for s in unknown]
 
     full: dict[str, str] = {}      # normalized YYYY-MM-DD -> first surface text
     yearless: dict[str, str] = {}  # normalized --MM-DD -> first surface text
@@ -190,9 +239,20 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
         n: t for n, t in mismatched_raw.items()
         if not (own_full and _within_window(n, show.date))
     }
-    # Task 16 (4a) reads date_flags_raw: the date flags without the 4b window.
-    # Unused in this task.
-    date_flags_raw = _date_flags(mismatched_raw, yearless, show, placeholder, adopted)  # noqa: F841
+    # 4a reads date_flags_raw: the date flags WITHOUT the 4b window, so research
+    # about an adjacent night that names this show's date still disqualifies it.
+    date_flags_raw = _date_flags(mismatched_raw, yearless, show, placeholder, adopted)
+    if not songs_grounded:
+        ok, info = right_show_gate(vetting, show, date_flags_raw=date_flags_raw)
+        if ok:
+            notes.append(
+                "unknown-song flags suppressed by the right-show gate: "
+                f"{info['asserted']}/{info['resolved']} tape tracks asserted "
+                f"(ratio {info['ratio']:.2f}), {len(info['unknown'])} unclaimed: "
+                f"{'; '.join(info['unknown'])}; research date: {info['date_text']}"
+            )
+        else:
+            flags += [f"{_VET_FLAG_PREFIX}unknown song: {s}" for s in unknown]
     flags += _date_flags(mismatched, yearless, show, placeholder, adopted)
 
     # Set-count check is independent of the date decision: an adoption must

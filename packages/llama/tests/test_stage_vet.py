@@ -5,7 +5,16 @@ import pytest
 
 from herder import FakeProvider
 from llama.models import ResearchVetting, Show, ShowNotes, Track, VettingResult
-from llama.stages.vet_research import VetOutcome, apply_vet, grounding_flags, normalize_date, run_vet_research
+from llama.stages.vet_research import (
+    RIGHT_SHOW_MIN_ASSERTED,
+    RIGHT_SHOW_MIN_TAPE_FRACTION,
+    VetOutcome,
+    apply_vet,
+    grounding_flags,
+    normalize_date,
+    right_show_gate,
+    run_vet_research,
+)
 from llama.workspace import ShowWorkspace, read_model, write_artifact
 
 
@@ -510,3 +519,137 @@ def test_4b_raw_date_flags_keep_what_the_window_hides_and_yearless_mismatches():
     # end to end: the window hides the adjacent date but the yearless mismatch still flags
     flags, _, _ = grounding_flags(_vet(["1973-06-10", "1973-06-11", "June 12"]), show)
     assert flags == ["research asserts wrong date: June 12"]
+
+
+# --- slice 4a (spec "Slice 4 — 4a") ---
+
+
+def _tape(n_titled, n_unresolved=0, sources="tags"):
+    tracks = [Track(index=i, set="1", title=f"Song {i}", filename=f"{i}.mp3", title_source=sources)
+              for i in range(1, n_titled + 1)]
+    tracks += [Track(index=i, set="1", title=f"{i}.mp3", filename=f"{i}.mp3", title_source="unresolved")
+               for i in range(n_titled + 1, n_titled + n_unresolved + 1)]
+    return make_show().model_copy(update={"tracks": tracks})
+
+
+def test_constants_are_the_spec_values():
+    assert RIGHT_SHOW_MIN_TAPE_FRACTION == 0.5 and RIGHT_SHOW_MIN_ASSERTED == 4
+
+
+def test_4a_suppresses_unknown_songs_on_a_right_show_tape_and_notes_them():
+    show = _tape(8)
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 6)] + ["Alpha", "Beta", "Gamma"],
+                          asserted_dates=["June 10, 1973"])
+    flags, _, notes = grounding_flags(vet, show)
+    assert not any("unknown song" in f for f in flags)
+    assert notes == ["unknown-song flags suppressed by the right-show gate: 5/8 tape tracks asserted "
+                     "(ratio 0.62), 3 unclaimed: Alpha; Beta; Gamma; research date: June 10, 1973"]
+
+
+@pytest.mark.parametrize("n_titled, n_unresolved, asserted, dates, expect_gate", [
+    (8, 0, 5, ["1973-06-10"], True),
+    (8, 0, 3, ["1973-06-10"], False),            # below 0.5
+    (4, 0, 3, ["1973-06-10"], False),            # 0.75 but fewer than 4 asserted
+    (8, 9, 5, ["1973-06-10"], False),            # over half the tape unresolved
+    (8, 0, 5, ["June 10"], False),               # own date yearless only
+    (8, 0, 5, [], False),                        # no own date
+    (8, 0, 5, ["1973-06-10", "1973-06-11"], False),   # a date flag read BEFORE 4b suppresses it
+])
+def test_right_show_gate_table(n_titled, n_unresolved, asserted, dates, expect_gate):
+    show = _tape(n_titled, n_unresolved)
+    songs = [f"Song {i}" for i in range(1, asserted + 1)] + ["Alpha", "Beta"]
+    vet = ResearchVetting(asserted_songs=songs, asserted_dates=dates)
+    raw = ["research asserts wrong date: 1973-06-11"] if "1973-06-11" in dates else []
+    ok, info = right_show_gate(vet, show, date_flags_raw=raw)
+    assert ok is expect_gate
+
+
+def test_right_show_gate_requires_the_own_full_date_with_year():
+    # Review Focus 5.
+    show = _tape(8)
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 6)] + ["Alpha", "Beta", "Gamma"],
+                          asserted_dates=["June 10"])
+    flags, _, notes = grounding_flags(vet, show)
+    assert any("unknown song" in f for f in flags) and notes == []
+
+
+def test_4a_unknown_songs_may_not_outnumber_the_asserted_tracks():
+    show = _tape(8)
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 5)] + [f"X{i}" for i in range(5)],
+                          asserted_dates=["1973-06-10"])
+    ok, _ = right_show_gate(vet, show, date_flags_raw=[])
+    assert ok is False
+
+
+def test_4a_excludes_tautological_titles_from_both_sides():
+    show = _tape(8, sources="setlist-gap")
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 9)] + ["Alpha", "Beta"],
+                          asserted_dates=["1973-06-10"])
+    ok, info = right_show_gate(vet, show, date_flags_raw=[])
+    assert ok is False and info["resolved"] == 0
+
+
+def test_4a_a_tmp_tape_demoted_by_2b_cannot_pass():
+    show = _tape(0, n_unresolved=19)
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 20)], asserted_dates=["1973-06-10"])
+    ok, _ = right_show_gate(vet, show, date_flags_raw=[])
+    assert ok is False
+
+
+def test_right_show_gate_holds_at_exactly_half_the_tape():
+    # The fraction bound is inclusive: 4 of 8 resolved tracks asserted is enough.
+    show = _tape(8)
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 5)] + ["Alpha", "Beta"],
+                          asserted_dates=["1973-06-10"])
+    ok, info = right_show_gate(vet, show, date_flags_raw=[])
+    assert ok is True
+    assert info == {"asserted": 4, "resolved": 8, "ratio": 0.5,
+                    "unknown": ["Alpha", "Beta"], "date_text": "1973-06-10"}
+
+
+def test_right_show_gate_excludes_filler_from_the_resolved_count():
+    # 4 asserted of 8 songs is exactly half; two filler tracks must not dilute it.
+    show = _tape(8)
+    filler = [Track(index=9, set="1", title="Tuning", filename="9.mp3", title_source="tags"),
+              Track(index=10, set="1", title="Crowd", filename="10.mp3", title_source="tags")]
+    show = show.model_copy(update={"tracks": show.tracks + filler})
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 5)] + ["Alpha", "Beta"],
+                          asserted_dates=["1973-06-10"])
+    ok, info = right_show_gate(vet, show, date_flags_raw=[])
+    assert ok is True and info["resolved"] == 8
+
+
+def test_4a_reads_the_raw_date_flags_not_the_windowed_ones():
+    # Wiring pin: 4b drops the adjacent day from the flags, but research naming
+    # the adjacent night still disqualifies 4a (spec "Failure modes", 4a).
+    show = _tape(8)
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 6)] + ["Alpha", "Beta", "Gamma"],
+                          asserted_dates=["1973-06-10", "1973-06-11"])
+    flags, _, notes = grounding_flags(vet, show)
+    assert not any("wrong date" in f for f in flags)        # 4b's window applied
+    assert [f for f in flags if "unknown song" in f] == [
+        "research asserts unknown song: Alpha",
+        "research asserts unknown song: Beta",
+        "research asserts unknown song: Gamma",
+    ]
+    assert notes == []
+
+
+def test_4a_note_only_when_the_unknown_song_flags_would_fire():
+    # One unclaimed song of nine is grounded today: no flag, so nothing to suppress or note.
+    show = _tape(8)
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 9)] + ["Alpha"],
+                          asserted_dates=["1973-06-10"])
+    flags, _, notes = grounding_flags(vet, show)
+    assert flags == [] and notes == []
+
+
+def test_4a_note_lands_in_vet_outcome_notes_and_flags_clear():
+    show = _tape(8).model_copy(update={"review_flags": ["research asserts unknown song: Old"],
+                                       "needs_review": True})
+    vet = ResearchVetting(asserted_songs=[f"Song {i}" for i in range(1, 6)] + ["Alpha", "Beta", "Gamma"],
+                          asserted_dates=["1973-06-10"])
+    out = apply_vet(vet, show)
+    assert out.show.review_flags == [] and out.show.needs_review is False
+    assert out.result.flags == []
+    assert len(out.notes) == 1 and out.notes[0].startswith("unknown-song flags suppressed by the right-show gate: 5/8")
