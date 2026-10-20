@@ -126,6 +126,28 @@ def _within_window(a: str, b: str) -> bool:
         return False  # e.g. day 31 in a 30-day month: not comparable, keep the flag
 
 
+def _date_flags(
+    mismatched: dict[str, str], yearless: dict[str, str], show: Show,
+    placeholder: bool, adopted: str | None,
+) -> list[str]:
+    """The date flags for a set of mismatched full dates; none when a date is adopted."""
+    out: list[str] = []
+    if adopted is not None:
+        return out
+    for norm, text in mismatched.items():
+        if placeholder:
+            out.append(
+                f"{_VET_FLAG_PREFIX}{norm}; item date {show.date}"
+                " looks like a year-only placeholder"
+            )
+        else:
+            out.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
+    for norm, text in yearless.items():  # year-less: match on month and day
+        if not show.date.endswith(norm[1:]):
+            out.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
+    return out
+
+
 def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], str | None, list[str]]:
     """Deterministic check: research contradicting this show flags for review.
     The gate exists to catch wrong-show research, so a couple of unmatched
@@ -168,21 +190,10 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
         n: t for n, t in mismatched_raw.items()
         if not (own_full and _within_window(n, show.date))
     }
-    # Task 16 (4a) reads the flags the window would otherwise have hidden; unused here.
-    raw_date_flags = [f"{_VET_FLAG_PREFIX}wrong date: {t}" for t in mismatched_raw.values()]
-
-    if adopted is None:
-        for norm, text in mismatched.items():
-            if placeholder:
-                flags.append(
-                    f"{_VET_FLAG_PREFIX}{norm}; item date {show.date}"
-                    " looks like a year-only placeholder"
-                )
-            else:
-                flags.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
-        for norm, text in yearless.items():  # year-less: match on month and day
-            if not show.date.endswith(norm[1:]):
-                flags.append(f"{_VET_FLAG_PREFIX}wrong date: {text}")
+    # Task 16 (4a) reads date_flags_raw: the date flags without the 4b window.
+    # Unused in this task.
+    date_flags_raw = _date_flags(mismatched_raw, yearless, show, placeholder, adopted)  # noqa: F841
+    flags += _date_flags(mismatched, yearless, show, placeholder, adopted)
 
     # Set-count check is independent of the date decision: an adoption must
     # not swallow a genuine structure contradiction.
