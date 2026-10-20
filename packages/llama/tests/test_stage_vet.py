@@ -444,6 +444,7 @@ def test_run_vet_research_writes_vet_notes_into_notes_json(tmp_path):
 @pytest.mark.parametrize("text, expected", [
     ("16/11/08", "2008-11-16"),          # month-first invalid, day-first valid: day-first
     ("11/16/08", "2008-11-16"),          # month-first valid stays month-first
+    ("10/11/08", "2008-10-11"),          # both valid: month-first wins, not swapped
     ("13/13/08", None), ("2008-13-01", None), ("2008-00-10", None), ("June 32, 1973", None),
     ("0/5/08", None), ("31/4", "--04-31"),
 ])
