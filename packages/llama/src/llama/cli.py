@@ -3353,7 +3353,8 @@ def _reapply_list(path: Path, *, dry_run: bool, allow_structure_change: bool = F
         if dry_run:
             predicted = out.outcome.removeprefix("dry-run: ")
             typer.echo(f"would: {slug} -> {predicted}")
-            if out.outcome.startswith("dry-run: ") and predicted != "held":
+            if (out.outcome.startswith("dry-run: ") and predicted != "held"
+                    and not predicted.startswith("skipped")):
                 fresh += out.briefing == "fresh"
                 downloads += needs_audio_download(ws)
             continue

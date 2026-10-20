@@ -104,6 +104,10 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
         if outcome not in _PREDICTED:
             raise LlamaError(f"cannot reapply {slug}: unexpected replay outcome {outcome!r}")
         if dry_run:
+            if outcome == "structure-changed" and not allow_structure_change:
+                # as the apply: skipped, so it spends no brief and no download
+                return ReapplyOutcome(slug, "dry-run: skipped: structure changed", "none",
+                                      list(legs.flags), delivered, [])
             return ReapplyOutcome(slug, f"dry-run: {_PREDICTED[outcome]}", legs.brief,
                                   list(legs.flags), delivered, [])
         if outcome == "structure-changed" and not allow_structure_change:
