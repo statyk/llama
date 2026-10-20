@@ -51,7 +51,8 @@ _PREDICTED = {
 class ReapplyOutcome:
     slug: str
     # "cleared" | "held" | "needs-llm" | "skipped: not held" |
-    # "skipped: inputs changed" | "dry-run: <predicted>"
+    # "skipped: inputs changed" | "skipped: structure changed" |
+    # "dry-run: <predicted>"
     outcome: str
     briefing: str                  # "reuse" | "fresh" | "none"
     flags: list[str]
@@ -66,13 +67,18 @@ def _delivered(ledger: Ledger, performance_id: str) -> bool:
 
 def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
                  providers: dict, row: dict | None, dry_run: bool,
-                 echo: Callable[[str], None]) -> ReapplyOutcome:
+                 echo: Callable[[str], None],
+                 allow_structure_change: bool = False) -> ReapplyOutcome:
     """Reapply one held show (spec slice 6). `ia` is the real archive.org
     client and is used ONLY by `build_package`; the replay itself reads the
     cache through `CacheOnlyIA`. `row` is the show's predicted-list row (its
     `digests` must still match), or None for a show named on the command
     line. The only LLM call is one fresh brief (`providers["brief"]`), made
-    before anything is written, so a refusal there writes nothing."""
+    before anything is written, so a refusal there writes nothing. A show whose
+    replay changes its sets/segues/breaks (`structure-changed`) is applied only
+    when `allow_structure_change` (spec slice 6: it joins the apply once
+    checked); otherwise nothing is written and the outcome is `skipped:
+    structure changed`."""
     ws, slug = entry.ws, entry.slug
     with file_lock(ws.lock):
         if not ws.show.exists():
@@ -98,6 +104,9 @@ def reapply_show(config: Config, ia, ledger: Ledger, entry: CatalogEntry, *,
             raise LlamaError(f"cannot reapply {slug}: unexpected replay outcome {outcome!r}")
         if dry_run:
             return ReapplyOutcome(slug, f"dry-run: {_PREDICTED[outcome]}", legs.brief,
+                                  list(legs.flags), delivered, [])
+        if outcome == "structure-changed" and not allow_structure_change:
+            return ReapplyOutcome(slug, "skipped: structure changed", legs.brief,
                                   list(legs.flags), delivered, [])
 
         # In memory first: the fresh brief (the one LLM call) runs before any write.

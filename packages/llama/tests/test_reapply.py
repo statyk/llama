@@ -839,3 +839,69 @@ def test_dry_run_counts_fresh_briefs_and_downloads_only_for_rows_it_would_apply(
         assert line in r.output
     assert ("summary: 4 rows, 0 already finished, 2 fresh briefs, 2 first-time downloads "
             "(~175 MB each, ~0.3 GB)") in r.output
+
+
+# --- fw2: structure-changed needs a deliberate allow; failure type names; purged-audio downloads ---
+
+def _force_classify(monkeypatch, outcome, would_be="clears"):
+    real = reapply_mod.classify
+    def fake(legs, state):
+        out, wb = real(legs, state)
+        return (outcome, would_be) if out in ("clears", "needs-brief") else (out, wb)
+    monkeypatch.setattr(reapply_mod, "classify", fake)
+
+
+def test_structure_changed_is_skipped_unless_allowed_and_writes_nothing(tmp_path, monkeypatch):
+    root, config, ledger, entry, _ = _env(tmp_path)
+    calls = _stub_package(monkeypatch)
+    _stale(entry.ws)
+    before = _snapshot(entry.ws)
+    _force_classify(monkeypatch, "structure-changed")
+    out = _run(config, ledger, entry)
+    assert out.outcome == "skipped: structure changed" and out.written == []
+    assert _snapshot(entry.ws) == before and calls == []
+    ok = reapply_show(config, object(), ledger, entry, providers=_providers(), row=None,
+                      dry_run=False, echo=lambda s: None, allow_structure_change=True)
+    assert ok.outcome == "cleared" and calls
+
+
+def test_cli_names_form_structure_changed_needs_the_flag(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    _stub_package(monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _force_classify(monkeypatch, "structure-changed")
+    before = _snapshot(entry.ws)
+    r = cli_invoke(_cli(root), "reapply", HELD)
+    assert r.exit_code == 0, r.output
+    assert (f"reapplied: {HELD} -> skipped: structure changed "
+            "(re-run with --allow-structure-change after checking)") in r.output
+    assert _snapshot(entry.ws) == before
+    r = cli_invoke(_cli(root), "reapply", HELD, "--allow-structure-change")
+    assert r.exit_code == 0 and f"reapplied: {HELD} -> cleared" in r.output
+
+
+def test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_changed_is_skipped(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    rows = _clones(root, entry, 2)
+    lst = _list_file(tmp_path, root, config, rows)
+    data = json.loads(lst.read_text())
+    data["rows"][0]["outcome"] = "structure-changed"      # held-2: the structure list's row
+    lst.write_text(json.dumps(data))
+    _stub_package(monkeypatch)
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    _force_classify(monkeypatch, "structure-changed")
+    before = _snapshot(rows[1].ws)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert r.exit_code == 0, r.output
+    assert "reapplied: held-2 -> cleared" in r.output
+    assert "reapplied: held-3 -> skipped: structure changed" in r.output
+    assert _snapshot(rows[1].ws) == before
+    progress = read_progress(batch_dir(root, lst))
+    assert progress["held-2"]["retryable"] is False
+    assert progress["held-3"]["retryable"] is True
+    r2 = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert "held-2" not in r2.output and "reapplied: held-3 -> skipped: structure changed" in r2.output

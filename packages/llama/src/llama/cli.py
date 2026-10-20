@@ -3192,6 +3192,10 @@ def reapply(
                                    help="A predicted list written by the replay harness"),
     dry_run: bool = typer.Option(False, "--dry-run",
                                  help="Predict each show's outcome; write nothing"),
+    allow_structure_change: bool = typer.Option(
+        False, "--allow-structure-change",
+        help="apply a show whose replay changes its sets/segues/breaks; "
+             "check `llama show <name>` first"),
 ):
     """Re-process held shows in place with exactly the replay harness's
     computation: gather and vet offline from the cache and the stored vetting
@@ -3222,10 +3226,15 @@ def reapply(
             slug = entry.slug
             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
                                            row=None, dry_run=dry_run,
-                                           echo=lambda s: typer.echo(s, err=True))
+                                           echo=lambda s: typer.echo(s, err=True),
+                                           allow_structure_change=allow_structure_change)
         except (LlamaError, HerderError, IAError, TaskFailed) as exc:
             typer.echo(f"FAILED {slug}: {exc}", err=True)
             failed = True
+            continue
+        if out.outcome == "skipped: structure changed":
+            typer.echo(f"reapplied: {out.slug} -> {out.outcome} "
+                       "(re-run with --allow-structure-change after checking)")
             continue
         typer.echo(f"reapplied: {out.slug} -> {out.outcome}")
         if out.delivered and out.outcome == "cleared":
@@ -3276,12 +3285,13 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
     consecutive, failed = 0, False
     n_finished = fresh = downloads = 0
 
-    def fail(slug: str, exc: Exception) -> None:
+    def fail(slug: str, exc: Exception, text: str | None = None) -> None:
         nonlocal failed
         failed = True
-        typer.echo(f"FAILED {slug}: {exc}", err=True)
+        text = text if text is not None else str(exc)
+        typer.echo(f"FAILED {slug}: {text}", err=True)
         if not dry_run:
-            reapply_mod.record_progress(batch, slug, f"failed: {exc}"[:300], retryable=True)
+            reapply_mod.record_progress(batch, slug, f"failed: {text}"[:300], retryable=True)
 
     for row in rows:
         slug = row["slug"]
@@ -3312,7 +3322,10 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
             entry = CatalogEntry(slug=slug, ws=ws, state=st, flags=flags)
             out = reapply_mod.reapply_show(config, ia, ledger, entry, providers=providers,
                                            row=row, dry_run=dry_run,
-                                           echo=lambda s: typer.echo(s, err=True))
+                                           echo=lambda s: typer.echo(s, err=True),
+                                           # the structure list is a deliberate choice
+                                           allow_structure_change=(
+                                               row.get("outcome") == "structure-changed"))
         except RateLimited as exc:
             # Must stay above HerderError, which it subclasses. Nothing is
             # recorded: the interrupted show was not committed and re-runs.
@@ -3351,7 +3364,10 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
             # made no call and proves nothing (needs-llm may still carry
             # briefing="fresh" from the replay without having called anything).
             consecutive = 0
-        reapply_mod.record_progress(batch, slug, out.outcome, retryable=False)
+        # A structure-changed skip stays retryable: the operator may add the
+        # flag or move the row to the structure list; a re-run just skips it again.
+        reapply_mod.record_progress(batch, slug, out.outcome,
+                                    retryable=out.outcome == "skipped: structure changed")
         typer.echo(f"reapplied: {slug} -> {out.outcome}")
         if out.delivered and out.outcome == "cleared":
             typer.echo(f"  re-deliver with: llama deliver {slug}")
