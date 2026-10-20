@@ -1176,6 +1176,25 @@ def _songish_coverage(tracks: list["Track"], matched: list[bool]) -> float:
     return (sum(songish) / len(songish)) if songish else 0.0
 
 
+# Local to the 5a check; deliberately not `_STRUCTURE_PREFIX`.
+_ENCORE_MARKER = re.compile(r"^\s*e\d?\s*[:\]]|\bencore\b", re.I)
+
+
+def encore_lost(tracks: list[Track], canonical: ParsedSetlist,
+                aliases: dict[str, str] | None = None) -> bool:
+    """True when the canonical has an encore and the tape lost it: some encore
+    item matches no track component, or some track title carries an encore
+    marker. Then the multi-set flag is the only signal alignment lost the
+    encore, so gather keeps "encore" in the guard's evidence sets."""
+    encore_items = [i for i in canonical.items if i.set == "encore"]
+    if not encore_items:
+        return False
+    have = {c for t in tracks for c in title_components(t.title, aliases)}
+    if any(fuzzy_norm_title(i.title, aliases) not in have for i in encore_items):
+        return True
+    return any(_ENCORE_MARKER.search(t.title) for t in tracks)
+
+
 def structure_guard(tracks: list[Track], set_breaks: list[int],
                     evidence_sets: set[str] | None = None,
                     min_minutes: int = 150,

@@ -18,7 +18,7 @@ from llama.setlist import parse_setlist
 from llama.siblings import DonorTape, cplus_filter, propose_rows, rate_alignment
 from llama.songs import GD_SHORTHAND
 from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align,
-                             apply_llm_alignment, blend_segues, cities_compatible,
+                             apply_llm_alignment, blend_segues, cities_compatible, encore_lost,
                              from_setlistfm,
                              fuzzy_norm_title, norm_title, rank_parses,
                              structure_guard, venues_equivalent,
@@ -1458,8 +1458,12 @@ def compute_gather(
     # disagree with a tape that labels a trailing encore (or vice-versa).
     expected_sets = (len({s.name for s in event.sets if s.name != "encore"})
                      if event is not None else None)
+    # 5a: numbered sets only, unless the canonical's encore was lost from the tape.
+    evidence = {i.set for i in canonical.items}
+    if not encore_lost(tracks, canonical, family_aliases):
+        evidence.discard("encore")
     guard = structure_guard(tracks, breaks,
-                            evidence_sets={i.set for i in canonical.items},
+                            evidence_sets=evidence,
                             min_minutes=structure_cfg.guard_min_minutes,
                             expected_set_count=expected_sets)
     if guard:

@@ -2957,3 +2957,24 @@ def test_1d_a_blank_vote_venue_is_not_the_same_hall_and_still_holds(tmp_path, vo
     res = _gather(tmp_path, GUSTER, _red_rocks_candidate(vote_venue), G_IDENT)
     assert (res.show.venue, res.show.city) == ("Red Rocks Amphitheater", "Morrison, CO")
     assert "recordings of this date disagree on city: 'Morrison, CO' (selected) vs 'Denver, CO'" in res.show.review_flags
+
+
+def test_5a_passes_numbered_sets_only_unless_the_encore_was_lost(tmp_path, monkeypatch):
+    seen = {}
+    real = gather_mod.structure_guard
+
+    def spy(tracks, breaks, evidence_sets=None, **kw):
+        seen["evidence"] = set(evidence_sets or ())
+        return real(tracks, breaks, evidence_sets=evidence_sets, **kw)
+
+    monkeypatch.setattr(gather_mod, "structure_guard", spy)
+    compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), FakeProvider(), make_candidate(), IDENT,
+                   jerrybase_enabled=False)
+    assert seen["evidence"] == {"1", "2"}            # the encore matched: dropped from the evidence
+    md = json.loads(FIXTURE.read_text())
+    md["metadata"]["description"] = md["metadata"]["description"].replace("Johnny B. Goode", "Casey Jones")
+    sixth = next(f for f in md["files"] if f["name"] == "gd73-06-10d3t01.mp3")
+    sixth["title"] = "Johnny B. Goode"               # a real tag, so the count-equal setlist rung cannot copy "Casey Jones" onto it
+    compute_gather(ShowWorkspace(tmp_path / "s2"), StubIA(md), FakeProvider(), make_candidate(), IDENT,
+                   jerrybase_enabled=False)
+    assert "encore" in seen["evidence"]              # the encore item no longer matches: kept

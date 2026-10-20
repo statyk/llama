@@ -2056,3 +2056,33 @@ def test_cities_compatible(a, b):
 ])
 def test_cities_not_compatible(a, b):
     assert not cities_compatible(a, b)
+
+
+# --- Tier 1 slice 5a: encore_lost ---
+
+from llama.structure import encore_lost
+
+
+def _encore_items(*pairs):
+    return ParsedSetlist(items=[SetlistItem(title=t, normalized=normalize_song(t), set=s) for t, s in pairs],
+                         confidence="high")
+
+
+def _titled_tracks(*titles):
+    return [Track(index=i, set="1", title=t, filename=f"{i}.mp3", title_source="tags")
+            for i, t in enumerate(titles, 1)]
+
+
+def test_encore_lost_is_false_without_an_encore_item_or_when_it_matched():
+    assert not encore_lost(_titled_tracks("A", "B"), _encore_items(("A", "1"), ("B", "2")))
+    assert not encore_lost(_titled_tracks("A", "B", "Willin'"),
+                           _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+
+
+def test_encore_lost_on_an_unmatched_encore_item_or_a_marked_track():
+    assert encore_lost(_titled_tracks("A", "B"), _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+    assert encore_lost(_titled_tracks("A", "B", "E] Willin' >"),
+                       _encore_items(("A", "1"), ("B", "2"), ("Willin'", "encore")))
+    assert encore_lost(_titled_tracks("A", "E: Rilly Wut?"), _encore_items(("A", "1"), ("Rilly Wut?", "encore")))
+    assert encore_lost(_titled_tracks("A", "Crowd Encore Call > B"), _encore_items(("A", "1"), ("B", "encore")))
+    assert not encore_lost(_titled_tracks("A", "Encore Call > B"), _encore_items(("A", "1"), ("B", "2")))
