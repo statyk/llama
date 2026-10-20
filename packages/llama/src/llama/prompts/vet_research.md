@@ -7,7 +7,8 @@ Research document:
 
 Extract:
 1. asserted_songs: every song title the document asserts was performed
-   AT THIS SHOW. List each song as its own entry: split segue chains
+   on this recording — at this show, on this date. List each song as its own
+   entry: split segue chains
    ("China Cat Sunflower > I Know You Rider" asserts two songs) and
    comma-joined runs into individual titles. Exclude songs mentioned only
    as context — other nights, studio versions, tour statistics,

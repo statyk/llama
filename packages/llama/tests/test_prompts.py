@@ -27,10 +27,15 @@ def test_prompt_loads_with_placeholders(name, placeholders):
 def test_vet_research_prompt_excludes_context_mentions():
     text = load_prompt("vet_research")
     assert text.count("Exclude") >= 2  # once for songs, once for dates
-    assert "AT THIS SHOW" in text
+    assert "at this show, on this date" in text  # 4d reworded item 1
 
 
 def test_vet_research_prompt_extracts_set_count():
     text = load_prompt("vet_research")
     assert "asserted_set_count" in text
     assert "encore" in text.lower()  # encores must not count as sets
+
+
+def test_vet_research_prompt_asks_for_songs_on_this_recording():
+    from llama.prompts import load_prompt
+    assert "on this recording" in load_prompt("vet_research")

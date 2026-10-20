@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from herder import FakeProvider
 from llama.models import ResearchVetting, Show, ShowNotes, Track, VettingResult
-from llama.stages.vet_research import VetOutcome, apply_vet, normalize_date, run_vet_research
+from llama.stages.vet_research import VetOutcome, apply_vet, grounding_flags, normalize_date, run_vet_research
 from llama.workspace import ShowWorkspace, read_model, write_artifact
 
 
@@ -435,3 +437,59 @@ def test_run_vet_research_writes_vet_notes_into_notes_json(tmp_path):
     write_artifact(sws.notes, ShowNotes(gather=["g"], vet=["stale"]))
     run_vet_research(sws, FakeProvider([vet_json()]), show, "research")
     assert read_model(sws.notes, ShowNotes) == ShowNotes(gather=["g"], vet=[])
+
+
+# --- slice 4c/4b (spec "Slice 4") ---
+
+@pytest.mark.parametrize("text, expected", [
+    ("16/11/08", "2008-11-16"),          # month-first invalid, day-first valid: day-first
+    ("11/16/08", "2008-11-16"),          # month-first valid stays month-first
+    ("13/13/08", None), ("2008-13-01", None), ("2008-00-10", None), ("June 32, 1973", None),
+    ("0/5/08", None), ("31/4", "--04-31"),
+])
+def test_4c_normalize_date_ranges(text, expected):
+    assert normalize_date(text) == expected
+
+
+def _vet(dates, songs=("Morning Dew", "Dark Star")):
+    return ResearchVetting(asserted_songs=list(songs), asserted_dates=list(dates))
+
+
+def test_4b_adjacent_day_is_context_when_the_own_full_date_is_asserted():
+    flags, _, _ = grounding_flags(_vet(["June 10, 1973", "1973-06-11"]), make_show())
+    assert not any("wrong date" in f for f in flags)
+    flags, _, _ = grounding_flags(_vet(["1973-06-10", "1973-06-09"]), make_show())
+    assert not any("wrong date" in f for f in flags)
+
+
+def test_4b_two_days_off_still_flags():
+    flags, _, _ = grounding_flags(_vet(["1973-06-10", "1973-06-12"]), make_show())
+    assert flags == ["research asserts wrong date: 1973-06-12"]
+
+
+def test_4b_without_the_own_date_an_adjacent_date_still_flags():
+    flags, _, _ = grounding_flags(_vet(["1973-06-11"]), make_show())
+    assert flags == ["research asserts wrong date: 1973-06-11"]
+
+
+def test_yearless_own_date_does_not_make_a_far_date_context():
+    # Review Focus 5: "June 10" is not the own FULL date, so 1973-06-12 is not context.
+    flags, _, _ = grounding_flags(_vet(["June 10", "1973-06-12"]), make_show())
+    assert "research asserts wrong date: 1973-06-12" in flags
+
+
+def test_4b_leaves_placeholder_adoption_unchanged():
+    show = make_show().model_copy(update={"date": "1973-01-01"})
+    flags, adopted, _ = grounding_flags(_vet(["1973-06-10"]), show)
+    assert adopted == "1973-06-10" and flags == []
+
+
+def test_run_vet_research_writes_vetting_json_last(tmp_path: Path, monkeypatch):
+    # vetting.json is the stage's done-marker: a crash before it must re-run the stage.
+    import llama.stages.vet_research as vr
+    sws, show = setup(tmp_path)
+    order = []
+    real = vr.write_artifact
+    monkeypatch.setattr(vr, "write_artifact", lambda path, obj: (order.append(path), real(path, obj))[1])
+    run_vet_research(sws, FakeProvider(completes=[vet_json()]), show, "r")
+    assert order == [sws.show, sws.notes, sws.vetting]

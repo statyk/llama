@@ -1,4 +1,5 @@
 import re
+from datetime import date as _date
 from typing import NamedTuple
 
 from herder import run_json_task
@@ -10,6 +11,10 @@ from llama.workspace import ShowWorkspace, read_model, should_run, write_artifac
 # Every deterministic grounding flag starts with this prefix, so a re-vet can strip
 # its own prior flags without disturbing flags from other stages (duration, guard).
 _VET_FLAG_PREFIX = "research asserts "
+
+# Slice 4 - 4b (spec "New constants"): another asserted full date within this
+# many days of the show's own asserted full date is context, not a contradiction.
+ADJACENT_DAY_WINDOW = 1
 
 _MONTHS = {m: i for i, m in enumerate(
     ["january", "february", "march", "april", "may", "june", "july",
@@ -33,32 +38,47 @@ def _year(y: int) -> int:
     return 1900 + y if y >= 30 else 2000 + y
 
 
+def _valid_ymd(y: int, m: int, d: int) -> bool:
+    """Range check only (spec Slice 4 - 4c); a calendar-exact check is not needed."""
+    return 1 <= m <= 12 and 1 <= d <= 31
+
+
 def normalize_date(text: str) -> str | None:
     """Normalize common prose date spellings to YYYY-MM-DD; year-less forms
-    ("December 2") to ISO 8601 --MM-DD; None if unparseable."""
+    ("December 2") to ISO 8601 --MM-DD; None if unparseable or out of range.
+    A slash form that is invalid month-first but valid day-first is read
+    day-first (spec Slice 4 - 4c)."""
     s = re.sub(r"\s+", " ", text.strip().lower().replace(",", " ").replace(".", " ")).strip()
     s = re.sub(r"^(?:mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?|sun)(?:day)? ", "", s)
+
+    def full(y: int, mo: int, d: int) -> str | None:
+        return f"{y:04d}-{mo:02d}-{d:02d}" if _valid_ymd(y, mo, d) else None
+
+    def noyear(mo: int, d: int) -> str | None:
+        return f"--{mo:02d}-{d:02d}" if _valid_ymd(0, mo, d) else None
+
     m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", s)
     if m:
-        return f"{int(m[1]):04d}-{int(m[2]):02d}-{int(m[3]):02d}"
+        return full(int(m[1]), int(m[2]), int(m[3]))
     m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{2,4})", s)
     if m:
-        return f"{_year(int(m[3])):04d}-{int(m[1]):02d}-{int(m[2]):02d}"
+        y = _year(int(m[3]))
+        return full(y, int(m[1]), int(m[2])) or full(y, int(m[2]), int(m[1]))
     m = re.fullmatch(r"([a-z]+) (\d{1,2})(?:st|nd|rd|th)? '?(\d{2,4})", s)
     if m and _month(m[1]):
-        return f"{_year(int(m[3])):04d}-{_month(m[1]):02d}-{int(m[2]):02d}"
+        return full(_year(int(m[3])), _month(m[1]), int(m[2]))
     m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)? ([a-z]+) '?(\d{2,4})", s)
     if m and _month(m[2]):
-        return f"{_year(int(m[3])):04d}-{_month(m[2]):02d}-{int(m[1]):02d}"
+        return full(_year(int(m[3])), _month(m[2]), int(m[1]))
     m = re.fullmatch(r"([a-z]+) (\d{1,2})(?:st|nd|rd|th)?", s)
     if m and _month(m[1]):
-        return f"--{_month(m[1]):02d}-{int(m[2]):02d}"
+        return noyear(_month(m[1]), int(m[2]))
     m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)? ([a-z]+)", s)
     if m and _month(m[2]):
-        return f"--{_month(m[2]):02d}-{int(m[1]):02d}"
+        return noyear(_month(m[2]), int(m[1]))
     m = re.fullmatch(r"(\d{1,2})/(\d{1,2})", s)
     if m:
-        return f"--{int(m[1]):02d}-{int(m[2]):02d}"
+        return noyear(int(m[1]), int(m[2])) or noyear(int(m[2]), int(m[1]))
     return None
 
 
@@ -99,6 +119,13 @@ def _known_song(name: str, known: list[list[str]]) -> bool:
     return _title_match(name, known)
 
 
+def _within_window(a: str, b: str) -> bool:
+    try:
+        return abs((_date.fromisoformat(a) - _date.fromisoformat(b)).days) <= ADJACENT_DAY_WINDOW
+    except ValueError:
+        return False  # e.g. day 31 in a 30-day month: not comparable, keep the flag
+
+
 def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], str | None, list[str]]:
     """Deterministic check: research contradicting this show flags for review.
     The gate exists to catch wrong-show research, so a couple of unmatched
@@ -124,15 +151,25 @@ def grounding_flags(vetting: ResearchVetting, show: Show) -> tuple[list[str], st
             continue  # can't verify is not a contradiction; kept in vetting.json
         (yearless if norm.startswith("--") else full).setdefault(norm, text)
 
-    mismatched = {n: t for n, t in full.items() if n != show.date}
+    mismatched_raw = {n: t for n, t in full.items() if n != show.date}
     placeholder = show.date.endswith("-01-01") and show.date_source == "item"
     adopted: str | None = None
-    if placeholder and songs_grounded and len(full) == 1 and len(mismatched) == 1:
-        candidate = next(iter(mismatched))
+    if placeholder and songs_grounded and len(full) == 1 and len(mismatched_raw) == 1:
+        candidate = next(iter(mismatched_raw))
         if candidate[:4] == show.date[:4] and all(
             candidate.endswith(y[1:]) for y in yearless
         ):
             adopted = candidate
+
+    # 4b: when research asserts the show's own full date, a full date within one
+    # day of it is context. Adoption above reads the unwindowed set.
+    own_full = show.date in full
+    mismatched = {
+        n: t for n, t in mismatched_raw.items()
+        if not (own_full and _within_window(n, show.date))
+    }
+    # Task 16 (4a) reads the flags the window would otherwise have hidden; unused here.
+    raw_date_flags = [f"{_VET_FLAG_PREFIX}wrong date: {t}" for t in mismatched_raw.values()]
 
     if adopted is None:
         for norm, text in mismatched.items():
@@ -195,8 +232,9 @@ def run_vet_research(
     # repeats don't duplicate.
     out = apply_vet(vetting, read_model(show_ws.show, Show))
     write_artifact(show_ws.show, out.show)
-    write_artifact(show_ws.vetting, out.result)
     notes = read_model(show_ws.notes, ShowNotes) if show_ws.notes.exists() else ShowNotes()
     notes.vet = out.notes
     write_artifact(show_ws.notes, notes)
+    # vetting.json is the stage's done-marker (should_run), so it is written last.
+    write_artifact(show_ws.vetting, out.result)
     return out.result
