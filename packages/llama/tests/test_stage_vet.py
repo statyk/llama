@@ -731,3 +731,31 @@ def test_16b_day00_makes_the_right_show_gate_decline():
     flags, _, notes = grounding_flags(vet, show)
     assert notes == [] and any("unknown song" in f for f in flags)
     assert "research asserts wrong date: 1973-06-00" in flags
+
+
+# --- fw7a (16b deferred pins): _date_flags ordering, day-00 parse, de-dup ---
+
+
+def test_date_flags_order_is_mismatched_then_day_unknown_then_yearless():
+    from llama.stages.vet_research import _date_flags
+    show = make_show()
+    out = _date_flags(
+        {"1973-06-11": "1973-06-11"}, {"--12-02": "December 2"}, show, False, None,
+        day_unknown={"1973-09-00": "September 0, 1973"})
+    assert out == [
+        "research asserts wrong date: 1973-06-11",
+        "research asserts wrong date: September 0, 1973",
+        "research asserts wrong date: December 2",
+    ]
+
+
+def test_day_unknown_date_reads_0_5_08_day_first_as_2008_05_00():
+    # 4c's month-first reading is invalid (month 0), so the day-first swap applies.
+    assert day_unknown_date("0/5/08") == "2008-05-00"
+    assert normalize_date("0/5/08") is None
+
+
+def test_day00_entries_dedupe_on_the_first_surface_text():
+    flags, _, _ = grounding_flags(
+        _vet(["1973-06-10", "September 0, 1973", "1973-09-00"]), make_show())
+    assert flags == ["research asserts wrong date: September 0, 1973"]
