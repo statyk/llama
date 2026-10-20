@@ -199,11 +199,15 @@ _GLUED_FOOTNOTE_TAIL = re.compile(r"\s+[#^*+~@]+\s*$")
 # `_TRACK_NUM_PREFIX` (which needs whitespace after the number) and
 # `_GLUED_NUM_PREFIX` (which needs Upper+lower right after two digits), neither
 # of which reaches a number joined to the title by a hyphen or underscore; both
-# stay untouched and this one has its own recording-level vote. The `\d{1,3}`
-# bound and the digit-excluding lookahead are what keep `1922`, `2001` and
-# `4-20` (and `1-800-...`, `24-7`) out of reach; `22-I Know You Rider` is
-# stripped. A remainder that starts with a digit (`01-200 More Miles`) is
-# deliberately NOT matched: a false negative, today's behaviour.
+# stay untouched and this one has its own recording-level vote. The mandatory
+# `[-_]` is what keeps a bare `1922` or `2001` out of reach; the `\d{1,3}` bound
+# keeps `2001-A Space Odyssey` out (4 digits cannot match at position 0); the
+# digit-excluding lookahead keeps `4-20`, `1-800-...` and `24-7` out.
+# `22-I Know You Rider` is stripped. A remainder that starts with a digit
+# (`01-200 More Miles`) is deliberately NOT matched: a false negative, today's
+# behaviour. Accepted loss, same class as `100 Years` on the spaced rule: on an
+# enumerated tape a real `7-Up`-style title (digits, separator, letter) loses
+# its number; 0 such titles in the 13,339-item cache.
 _JOINED_NUM_PREFIX = re.compile(r"^\d{1,3}[-_](?=[^\d\s])")
 
 

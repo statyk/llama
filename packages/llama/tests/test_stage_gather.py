@@ -2662,6 +2662,7 @@ def test_2c_strips_railroad_earths_glued_numbers_and_notes_each(tmp_path):
     assert titles[:2] == ["Pig In A Pen", "Midnight Moonlight"]
     assert "stripped glued track number: track 1 '01Pig In A Pen' -> 'Pig In A Pen'" in res.notes
     assert sum(n.startswith("stripped glued track number:") for n in res.notes) == 23
+    assert not any(n.startswith("stripped joined track number:") for n in res.notes)
 
 
 def _rre_joined(drop_mp3_titles=False):
@@ -2671,7 +2672,7 @@ def _rre_joined(drop_mp3_titles=False):
         if t:
             f["title"] = t[:2] + "-" + t[2:]
             if drop_mp3_titles and f["format"] == "VBR MP3":
-                del f["title"]
+                f["title"] = t[:2] + "-x"   # unusable: recovery from the flac fires
     return md
 
 
@@ -2694,7 +2695,8 @@ def test_2d_notes_nothing_under_format_recovery(tmp_path):
     res = compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(_rre_joined(True)), None,
                          cand, R_IDENT, jerrybase_enabled=False)
     assert not any(n.startswith("stripped joined track number:") for n in res.notes)
-    assert [t.title for t in res.show.tracks][:1] == ["Pig In A Pen"]
+    t1 = res.show.tracks[0]
+    assert (t1.title, t1.title_source) == ("Pig In A Pen", "sibling-format")
 
 
 # --- Task 11b (Checkpoint B, 2026-10-19): shipped-title cosmetics on the 2a/2c paths ---
