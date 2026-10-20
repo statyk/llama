@@ -3257,7 +3257,7 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
     STOP_AFTER_LLM_FAILURES consecutive LLM failures of any other kind. Every
     other per-show failure is recorded retryable and the batch goes on."""
     from llama import reapply as reapply_mod
-    from llama.catalog import CatalogEntry, derive_state
+    from llama.catalog import CatalogEntry, derive_state, needs_audio_download
     from llama.replay import code_identity, config_fingerprint
     from llama.workspace import ShowWorkspace
 
@@ -3349,14 +3349,14 @@ def _reapply_list(path: Path, *, dry_run: bool) -> None:
             # Anything else (a MutagenError tagging a download, a wrong-typed
             # reviews.json) is still this row's failure: one bad show must never
             # abort the batch, nor wedge every re-run on the same row.
-            fail(slug, exc)
+            fail(slug, exc, f"{type(exc).__name__}: {exc}")
             continue
         if dry_run:
             predicted = out.outcome.removeprefix("dry-run: ")
             typer.echo(f"would: {slug} -> {predicted}")
             if out.outcome.startswith("dry-run: ") and predicted != "held":
                 fresh += out.briefing == "fresh"
-                downloads += not (ws.package_dir / "manifest.json").exists()
+                downloads += needs_audio_download(ws)
             continue
         if out.briefing == "fresh" and out.outcome in ("cleared", "held"):
             # Only a real LLM success shows the backend is healthy again: an

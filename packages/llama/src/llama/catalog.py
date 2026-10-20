@@ -154,6 +154,22 @@ def deliver_refusals(ws: ShowWorkspace) -> list[str]:
     return reasons
 
 
+def needs_audio_download(ws: ShowWorkspace) -> bool:
+    """True when `package` would have to download: no manifest, or any manifest
+    track's file is missing from `package/audio/` (a purged delivered show).
+    Never raises; an unreadable manifest counts as needing a download."""
+    manifest_path = ws.package_dir / "manifest.json"
+    if not manifest_path.exists():
+        return True
+    tracks = _tracks(manifest_path)
+    if tracks is None:
+        return True
+    try:
+        return any(not (ws.package_dir / "audio" / t["filename"]).exists() for t in tracks)
+    except (KeyError, TypeError):
+        return True
+
+
 @dataclass
 class PurgeResult:
     freed: int = 0               # bytes deleted (or that would be, on a dry run)

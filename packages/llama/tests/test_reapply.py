@@ -760,7 +760,7 @@ def test_any_other_exception_fails_only_its_row(tmp_path, monkeypatch):
     _scripted(monkeypatch, {"held-2": HerderError("boom"), "held-3": RuntimeError("mutagen says no"),
                             "held-4": HerderError("boom"), "held-5": ("cleared", "reuse")})
     r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
-    assert "FAILED held-3: mutagen says no" in r.output and "Traceback" not in r.output
+    assert "FAILED held-3: RuntimeError: mutagen says no" in r.output and "Traceback" not in r.output
     assert "stopping after" not in r.output and "reapplied: held-5 -> cleared" in r.output
     assert r.exit_code == 1
     progress = read_progress(batch_dir(root, lst))
@@ -905,3 +905,33 @@ def test_list_structure_row_applies_but_a_predicted_row_that_turned_structure_ch
     assert progress["held-3"]["retryable"] is True
     r2 = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
     assert "held-2" not in r2.output and "reapplied: held-3 -> skipped: structure changed" in r2.output
+
+
+def test_catch_all_failure_line_names_the_exception_type(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    def boom(*a, **k):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(reapply_mod, "compute_legs", boom)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst))
+    assert f"FAILED {HELD}: RuntimeError: boom" in r.output and r.exit_code == 1
+    assert read_progress(batch_dir(root, lst))[HELD]["outcome"] == "failed: RuntimeError: boom"
+
+
+def test_dry_run_counts_a_purged_delivered_show_as_a_download(tmp_path, monkeypatch):
+    from conftest import cli_invoke
+    import llama.cli as cli
+    root, config, ledger, entry, _ = _env(tmp_path)
+    lst = _list_file(tmp_path, root, config, [entry])
+    monkeypatch.setattr(cli, "make_providers", lambda config: _providers())
+    write_artifact(entry.ws.package_dir / "manifest.json",
+                   {"schema_version": 3, "tracks": [{"filename": "a.mp3"}]})
+    (entry.ws.package_dir / "audio").mkdir(parents=True, exist_ok=True)
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
+    assert "1 first-time downloads" in r.output, r.output
+    (entry.ws.package_dir / "audio" / "a.mp3").write_bytes(b"x")
+    r = cli_invoke(_cli(root), "reapply", "--from-list", str(lst), "--dry-run")
+    assert "0 first-time downloads" in r.output, r.output
