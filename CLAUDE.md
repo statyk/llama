@@ -509,7 +509,8 @@ scheduler and the full player are phases 3–4).
 - **Tier 1 held-backlog guards** (deterministic, no LLM; spec
   `docs/superpowers/specs/2026-10-19-held-backlog-guard-fixes-design.md` as
   amended by the plan's "Recorded at Checkpoint B-F" blocks,
-  `docs/superpowers/plans/2026-10-19-held-backlog-tier1.md`). Each removes false
+  `docs/superpowers/plans/2026-10-19-held-backlog-tier1.md`; evidence:
+  `docs/superpowers/2026-10-19-held-backlog-tier1-evidence.md`). Each removes false
   holds only where the harness can enumerate the effect, and **sits beside the
   protected predicate, never loosening it** (`is_real_title`,
   `_TRACK_NUM_PREFIX`, `_STRUCTURE_PREFIX` untouched). A show whose gather
