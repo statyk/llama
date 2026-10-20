@@ -474,3 +474,11 @@ def test_commas_inside_parentheses_never_split():
 def test_single_part_title_has_no_comma_components():
     assert song_comma_components("Ripple (reprise)") == []
     assert song_comma_components("Ripple,") == []
+
+
+def test_unannotated_comma_titles_never_split():
+    assert song_comma_components("Talk To Me Devil, Again") == []
+    assert song_comma_components("Lawyers, Guns and Money (Warren Zevon)") == []
+    b = _briefing(per_set={"1": ["x"]}, mentioned_songs=["Again"])
+    assert briefing_guard(b, _merged_show("Talk To Me Devil, Again")) == [
+        "briefing mentions unknown song: Again"]

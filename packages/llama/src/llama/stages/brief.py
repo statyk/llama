@@ -123,7 +123,13 @@ def song_comma_components(title: str) -> list[str]:
     carrying several songs: split on commas OUTSIDE parentheses and return the
     `song_components` of each part, in order. Fewer than two non-blank parts
     (no top-level comma) returns `[]`. This only ever ADDS known components to
-    the guard's set; mentions are never split on commas."""
+    the guard's set; mentions are never split on commas.
+
+    Splits only when EVERY top-level comma part ends in its own parenthetical
+    (the merged-tease shape, e.g. `Stay With Me (tease), Girl Named Sandoz
+    (tease)`). A comma inside a single song title (`Lawyers, Guns and Money`,
+    `Talk To Me Devil, Again`) never splits; a merged title with any
+    un-annotated part stays a hold (fails safe)."""
     parts, depth, cur = [], 0, []
     for ch in title:
         if ch == "(":
@@ -137,7 +143,7 @@ def song_comma_components(title: str) -> list[str]:
             cur.append(ch)
     parts.append("".join(cur))
     parts = [p for p in parts if p.strip()]
-    if len(parts) < 2:
+    if len(parts) < 2 or not all(_BRIEF_PAREN.search(_BRIEF_TRAILING.sub("", p)) for p in parts):
         return []
     return [c for p in parts for c in song_components(p)]
 
