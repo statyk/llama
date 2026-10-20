@@ -175,7 +175,6 @@ NOTE_GROUPS = (   # (Contracts id, fixed leading words)
     ("2b", "placeholder tag title:"),
     ("2c", "stripped glued track number:"),
     ("5c.1", "jerrybase set closer "),
-    ("5c.2", "set breaks anchored from jerrybase numbered sets"),
     ("4a", "unknown-song flags suppressed by the right-show gate:"),
     ("format sibling tagged", "format sibling tagged"),
 )

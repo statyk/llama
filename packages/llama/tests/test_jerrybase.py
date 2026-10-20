@@ -2,7 +2,7 @@ import csv
 from importlib import resources
 
 from llama import jerrybase
-from llama.jerrybase import _closer_candidates, anchor_numbered_sets
+from llama.jerrybase import _closer_candidates
 from llama.models import JerrybaseEvent
 
 
@@ -422,44 +422,3 @@ def test_5c3_the_fold_is_a_fallback_tier_only_when_the_unfolded_tiers_miss():
     assert _closer_candidates(_tracks(["Deal", "(Sittin' On) The Dock Of The Bay"]),
                               "(Sitting On) The Dock of the Bay") == [1]
     assert _closer_candidates(_tracks(["Deal", "Satisfaction"]), "(I Can't Get No) Satisfaction") == [1]
-
-
-def test_5c2_anchors_numbered_sets_when_only_the_encore_closer_is_missing():
-    tracks = _tracks(["Bertha", "Deal", "Playin", "Sugar Magnolia", "Casey Jones"])
-    event = _event([("Deal", "1"), ("Sugar Magnolia", "2"), ("Johnny B. Goode", "encore")])
-    assert jerrybase.anchor_breaks(tracks, event) is None                      # today declines
-    labels, note = anchor_numbered_sets(tracks, event, ["1", "1", "1", "1", "1"])
-    assert labels == ["1", "1", "2", "2", "2"]
-    assert note == ("set breaks anchored from jerrybase numbered sets (encore row 'Johnny B. Goode' "
-                    "unmatched; 1 trailing track(s) stay in set 2)")
-    labels, note = anchor_numbered_sets(tracks, event, ["1", "1", "1", "1", "encore"])
-    assert labels == ["1", "1", "2", "2", "encore"] and note is None
-
-
-def test_5c2_trailing_tracks_stay_in_the_last_set_and_a_matched_encore_closer_declines():
-    # "Casey Jones", not "JBG": "JBG" already fuzzy-matches "Johnny B. Goode"
-    # (binding ruling B5), which would never set up the absent-encore case.
-    tracks = _tracks(["Bertha", "Deal", "Playin", "Sugar Magnolia", "Casey Jones"])
-    event = _event([("Deal", "1"), ("Sugar Magnolia", "2"), ("Johnny B. Goode", "encore")])
-    labels, note = anchor_numbered_sets(tracks, event, None)
-    assert labels == ["1", "1", "2", "2", "2"] and note is not None
-    tracks = _tracks(["Bertha", "Deal", "Playin", "Sugar Magnolia", "Johnny B. Goode"])
-    assert anchor_numbered_sets(tracks, event, None) is None                  # every closer matches: anchor_breaks' job
-    two_encores = _event([("Deal", "1"), ("Sugar Magnolia", "2"), ("Johnny B. Goode", "encore"),
-                          ("Bertha", "encore")])
-    assert anchor_numbered_sets(_tracks(["Bertha", "Deal", "Playin", "Sugar Magnolia", "Casey Jones"]),
-                                two_encores, None) is None                   # every encore row's closer must be absent
-
-
-def test_5c2_declines_without_an_encore_row_or_on_an_ambiguous_numbered_closer():
-    tracks = _tracks(["Bertha", "Deal", "Playin", "Deal"])
-    assert anchor_numbered_sets(tracks, _event([("Deal", "1"), ("Playin", "2")]), None) is None
-    assert anchor_numbered_sets(tracks, _event([("Deal", "1"), ("Playin", "2"), ("X", "encore")]), None) is None
-
-
-def test_5c2_declines_when_the_numbered_closers_are_out_of_order():
-    # Each numbered closer matches exactly once, but set 2's closer sits before
-    # set 1's: no strictly increasing placement exists.
-    tracks = _tracks(["Sugar Magnolia", "Bertha", "Deal"])
-    event = _event([("Deal", "1"), ("Sugar Magnolia", "2"), ("Johnny B. Goode", "encore")])
-    assert anchor_numbered_sets(tracks, event, None) is None
