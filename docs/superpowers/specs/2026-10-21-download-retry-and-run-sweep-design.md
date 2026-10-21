@@ -296,7 +296,20 @@ eligible when its `request.json` has `auto: true` or no `auto` key.
     re-runs every chosen show, so a show that fails the same way would be re-paid once per window;
   - a run with neither `criteria.json` nor `request.json`;
   - a run with no session marker whose `request.json` has `auto: false`: an interactive `get`
-    interrupted at a prompt, which the sweep would otherwise process with `--auto`.
+    interrupted at a prompt, which the sweep would otherwise process with `--auto`;
+  - *(operator ruling, final review, 2026-10-21: the sweep makes no human decisions)* a run in **any**
+    state whose `request.json` has an `auto` key that is not `true`. A paused or incomplete interactive
+    run may have stopped before its artist-prune or rank prompt as surely as a killed one;
+  - *(same ruling)* a human-gated run. `request.json` records `human_gate` from now on: the profile's
+    value for `get --profile`, `false` for a query `get`; any recorded value other than `false` is
+    gated. A request without the key (written before this change) whose `mode` is `profile` falls back
+    to loading that profile and reading its `human_gate`; a profile that cannot be loaded (missing,
+    unreadable, invalid, or no profile named) is treated as gated. A query request (or one with no
+    `mode`) without the key is not gated. Resume behaviour is unchanged: `_resume_locked` still passes
+    `human_gate=False`; only eligibility changed;
+  - *(operator ruling, final review, 2026-10-21)* a run whose `updated_at` is malformed or not a
+    string. The sweep orders by that instant, so such a run is skipped before the sort rather than
+    crashing the pass, and the rest of the sweep proceeds.
 
 `complete` runs are not listed.
 

@@ -154,8 +154,9 @@ unsigned — verify them against `SHA256SUMS`. See
                                      # usage pause. Loop it:
                                      #   while true; do llama run resume --all; sleep 600; done
                                      # `run list` marks a run another process is working
-                                     # `running`; a run that fails any other way waits for an
-                                     # explicit `run resume <id>`
+                                     # `running`; a run that fails any other way, was started
+                                     # without --auto, or is human-gated waits for an explicit
+                                     # `run resume <id>`
     llama show 1973-06-10            # inspect one show (its state, artifacts, archive URL, flags)
     llama show 1973-06-10 --tracks   # numbered track list (index, title, filename, duration)
     llama fix 1973-06-10 --exclude 9,10       # exclude by track number (filenames work too);

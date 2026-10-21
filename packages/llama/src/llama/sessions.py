@@ -136,10 +136,10 @@ def _read_marker(run_dir: Path) -> dict:
 def read_request(path: Path) -> dict:
     """A run's request.json as a dict, or {} when absent or unreadable.
 
-    For the two SWEEP paths only (this module's `iter_sessions` and
-    `cli._by_run_rollup`): a malformed request.json must not take down the
-    whole triage listing, so an unreadable request reads as "no request"
-    here, same as `_read_marker` a few lines up. `run_resume`'s own read of
+    For the SWEEP paths only (this module's `iter_sessions` and
+    `sweep_verdict`, and `cli._by_run_rollup`): a malformed request.json must
+    not take down the whole triage listing, so an unreadable request reads as
+    "no request" here, same as `_read_marker` a few lines up. `run_resume`'s own read of
     this file is deliberately NOT routed through this helper -- there a
     malformed request must fail loudly rather than silently resume with
     plan=False, which is precisely the failure mode this guard exists to

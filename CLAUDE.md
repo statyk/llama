@@ -97,8 +97,13 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `auto` key. Skipped, one line each: `running`, `paused until HH:MM`, `awaiting
   approval`, `needs attention` (any `transport`/`llm`/`rate-limited`/`other`
   failure, so a loop never re-spends on a run that fails the same way every time;
-  no `criteria.json` and no `request.json`; an `auto: false` request, i.e. an
-  interactive `get` interrupted at a prompt); `complete` runs are not listed. Oldest
+  no `criteria.json` and no `request.json`; an `auto: false` request in ANY state,
+  i.e. an interactive `get` that may have stopped before a prompt; a human-gated
+  run — `request.json` records `human_gate` (the profile's, `false` for a query
+  run) and a profile request written before that loads its profile, an unloadable
+  one counting as gated; a malformed or non-string `updated_at`, skipped rather
+  than crashing the sort — the sweep makes no human decisions, operator ruling
+  2026-10-21); `complete` runs are not listed. Oldest
   `updated_at` first, one at a time, always `--auto`, **`--no-wait` by default**
   (unlike plain `run resume`: a usage pause checkpoints `paused` instead of napping
   inside the loop; `--max-wait`/`--no-pacing` pass through). A run that ends `paused`
@@ -711,9 +716,11 @@ scheduler and the full player are phases 3–4).
   it unconditionally is worse than dropping it, because the artifact carries
   `plan: true` for the life of the run and every later resume would re-park
   the session forever, including the one `run approve` recommends.
-  **Four readers, not three** (`run_resume`, `_interpret_with_pause`,
-  `iter_sessions`, `_by_run_rollup`); the last was missed twice in two
-  consecutive features, so check it when adding a fifth. The two SWEEP
+  **Five readers, not three** (`run_resume`, `_interpret_with_pause`,
+  `iter_sessions`, `_by_run_rollup`, and `sessions.sweep_verdict` for `run
+  resume --all`, which reads `auto` and `human_gate`); `_by_run_rollup` was
+  missed twice in two consecutive features, so check every one when adding a
+  key or a reader, and keep a missing key readable (old run dirs). The three SWEEP
   readers go through `sessions.read_request()`, which treats an unreadable or
   non-object file as "no request" so one bad file cannot blind the whole
   triage listing — **`run_resume`'s two reads deliberately do NOT**, because
