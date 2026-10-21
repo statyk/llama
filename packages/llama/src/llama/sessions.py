@@ -233,3 +233,46 @@ def iter_sessions(root: Path, *, probe_live: bool = True) -> list[SessionInfo]:
 def attention_sessions(root: Path) -> list[SessionInfo]:
     """The subset of sessions with state != STATE_COMPLETE (spec §4)."""
     return [s for s in iter_sessions(root) if s.state != STATE_COMPLETE]
+
+
+_SWEEPABLE_KINDS = (KIND_DOWNLOAD, KIND_ARCHIVE)
+
+
+def sweep_verdict(info: SessionInfo, run_dir: Path, now: datetime) -> str | None:
+    """Why `run resume --all` must leave this run alone, or None when it may
+    resume it (spec §6).
+
+    Only download and archive failures are worth a blind retry: anything else
+    (an LLM failure, a transport error, a crash) may fail the same way, and
+    re-spend, on every pass of the operator's sweep loop. A paused marker
+    carries the failures already taken, so it gets the same test. `complete`
+    runs never reach here (`attention_sessions`)."""
+    if info.state == STATE_RUNNING:
+        return "running"
+    if info.state == STATE_AWAITING:
+        return "awaiting approval"
+    request = run_dir / "request.json"
+    if not (run_dir / "criteria.json").exists() and not request.exists():
+        return "needs attention"
+    failures = info.failures
+    if not isinstance(failures, list) or any(
+            not isinstance(f, dict) or failure_kind(f) not in _SWEEPABLE_KINDS
+            for f in failures):
+        return "needs attention"
+    if not (run_dir / "session.json").exists():
+        # No marker: a run that never stopped cleanly. One whose request
+        # says it was interactive stopped at a prompt, and the sweep would
+        # otherwise answer that prompt with --auto.
+        req = read_request(request)
+        if "auto" in req and req["auto"] is not True:
+            return "needs attention"
+    if info.state == STATE_PAUSED and info.resume_after:
+        try:
+            when = datetime.fromisoformat(info.resume_after)
+        except (TypeError, ValueError):
+            return "needs attention"
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if when > now:
+            return f"paused until {when.astimezone().strftime('%H:%M')}"
+    return None
