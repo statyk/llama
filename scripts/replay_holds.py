@@ -181,7 +181,7 @@ NOTE_GROUPS = (   # (Contracts id, fixed leading words)
 )
 NONE = "  (none)"
 OUTPUT_FILES = ("summary.txt", "drift.txt", "flags.txt", "outcomes.txt", "packaged_exposure.txt",
-                "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
+                "venue_changes.txt", "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
                 "closest_calls.txt", "needs_llm.txt", "notes.txt", "briefings.txt",
                 "narration_candidates.html", "predicted_list.json",
                 "structure_changed_list.json", "pilot_list.json")
@@ -367,6 +367,42 @@ def _exposure(base: dict, cand: dict) -> tuple[list[str], int]:
     if m == 0:
         out.append(NONE)
     return out, n + m
+
+
+def _shipped(field: str, own: dict, other: dict):
+    """An arm's shipped value of venue/city: the diff's `new`, else the stored
+    value (null means the replay equals it), which is `old` of whichever arm has a diff."""
+    d = own.get(field)
+    if d:
+        return d.get("new")
+    o = other.get(field)
+    return o.get("old") if o else None
+
+
+def _venue_changes(base: dict, cand: dict) -> tuple[list[str], int, int]:
+    rows, n, m, skipped = [], 0, 0, 0
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if b.get("outcome") == "unreplayable" or c.get("outcome") == "unreplayable":
+            skipped += 1
+            continue
+        bv, cv = _shipped("venue", b, c), _shipped("venue", c, b)
+        bc, cc = _shipped("city", b, c), _shipped("city", c, b)
+        if bv == cv and bc == cc:
+            continue
+        n += 1
+        rows.append(f"{slug}  [{c.get('state')}]" + ("  DELIVERED" if c.get("state") == "delivered" else ""))
+        rows.append(f"  venue: {_j(bv)} -> {_j(cv)}")
+        rows.append(f"  city: {_j(bc)} -> {_j(cc)}")
+        bf, cf = set(_all_flags(b)), set(_all_flags(c))
+        if bf == cf:
+            rows.append("  flags: unchanged")
+        else:
+            m += 1
+            rows.append(f"  flags CHANGED: added {_j(sorted(cf - bf))}; removed {_j(sorted(bf - cf))}")
+    head = ["shows whose shipped venue or city differs (base -> cand):",
+            f"skipped {skipped} unreplayable show(s) (fields absent)"]
+    return head + (rows or [NONE]), n, m
 
 
 def _would_clear(r: dict) -> bool:
@@ -740,6 +776,8 @@ def compare(args: argparse.Namespace) -> int:
     _write(out, "outcomes.txt", _outcomes(base, cand))
     exp, n_exp = _exposure(base, cand)
     _write(out, "packaged_exposure.txt", exp)
+    vc, n_vc, m_vc = _venue_changes(base, cand)
+    _write(out, "venue_changes.txt", vc)
     ts = _title_sources(cand)
     _write(out, "title_sources.txt", _lines("title changes of would-clear shows:", ts))
     sc = _structure_changed(cand, root)
@@ -777,6 +815,7 @@ def compare(args: argparse.Namespace) -> int:
         f"flags.txt: {len(flag_lines)} famil(ies)",
         f"newly cleared: {len(_newly_cleared(base, cand))}",
         f"packaged_exposure.txt: {n_exp} entr(ies)",
+        f"venue_changes.txt: {n_vc} show(s), {m_vc} with a flag change",
         f"title_sources.txt: {len(ts)} row(s)",
         f"structure_changed.txt: {len(sclist)} show(s)",
         f"hand_check_sample.txt: {len(hc_rows(base, cand))} show(s)",
