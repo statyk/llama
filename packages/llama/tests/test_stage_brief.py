@@ -215,6 +215,39 @@ def test_run_brief_recovers_on_retry(tmp_path):
     assert Show.model_validate_json(ws.show.read_text()).needs_review is False
 
 
+def test_run_brief_replaces_only_its_own_flags(tmp_path):
+    other = "venue mismatch: archive 'A' vs jerrybase 'B'"
+    show = _show().model_copy(update={
+        "review_flags": [other, "briefing claims 3 sets but structure has 2"],
+        "needs_review": True})
+    ws = _ws(tmp_path, show)
+    run_brief(ws, FakeProvider(completes=[GOOD_BRIEFING]), show, "", [], force=False)
+    held = read_model(ws.show, Show)
+    assert held.review_flags == [other] and held.needs_review
+
+
+def test_run_brief_records_new_problems_before_the_briefing(tmp_path, monkeypatch):
+    # A crash between the two writes must not leave a guard-failed briefing
+    # on disk with no flag (the next run would reuse it unchecked).
+    import llama.stages.brief as brief_mod
+
+    show = _show()
+    ws = _ws(tmp_path, show)
+    real = brief_mod.write_artifact
+
+    def crash_on_briefing(path, model):
+        if path == ws.briefing_json:
+            raise OSError("crash")
+        real(path, model)
+
+    monkeypatch.setattr(brief_mod, "write_artifact", crash_on_briefing)
+    with pytest.raises(OSError):
+        run_brief(ws, FakeProvider(completes=[BAD_BRIEFING, BAD_BRIEFING]), show, "", [])
+    held = read_model(ws.show, Show)
+    assert held.needs_review
+    assert any(f.startswith("briefing claims 3 sets") for f in held.review_flags)
+
+
 def test_run_brief_vague_narration_retries_when_llm_fills_per_set(tmp_path):
     # The prompt tells the model to leave per_set empty under vague narration;
     # this covers what happens when it doesn't comply on the first attempt.

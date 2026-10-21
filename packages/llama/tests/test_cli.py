@@ -59,6 +59,25 @@ def test_help_shows_description():
     assert "Live Music Archive" in result.output
 
 
+def _command_paths(group, prefix=()):
+    for name, cmd in group.commands.items():
+        yield prefix + (name,)
+        if hasattr(cmd, "commands"):
+            yield from _command_paths(cmd, prefix + (name,))
+
+
+def test_every_command_help_renders():
+    # rich parses help text as markup, so a literal `[/eN]` crashed
+    # `suppress --help` with a MarkupError.
+    import typer
+
+    paths = list(_command_paths(typer.main.get_command(app)))
+    assert ("suppress",) in paths
+    for path in paths:
+        result = runner.invoke(app, [*path, "--help"])
+        assert result.exit_code == 0, (path, result.output, result.exception)
+
+
 def test_version_flag_works():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0

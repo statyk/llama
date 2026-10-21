@@ -6,6 +6,7 @@ from herder import provider_ladder
 from llama.config import Config
 from llama.ledger import Ledger
 from llama.models import LedgerEntry, Provenance, Show, ShortlistEntry
+from llama.stages import brief, package
 from llama.stages.brief import run_brief
 from llama.stages.gather import run_gather
 from llama.stages.package import run_package
@@ -14,7 +15,8 @@ from llama.stages.select_recording import run_select_recording
 from llama.util import cap_across_artists
 from llama.stages.vet_research import run_vet_research
 from llama.status import step
-from llama.workspace import RunWorkspace, drop_stage_artifacts, read_json, read_model, write_artifact
+from llama.workspace import (RunWorkspace, ShowWorkspace, drop_stage_artifacts,
+                             read_json, read_model, write_artifact)
 
 log = logging.getLogger("llama")
 
@@ -40,6 +42,19 @@ def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool
                                 lambda e: e.candidate.date, count, artist_cap,
                                 year_cap)
     return sorted(picked, key=lambda e: e.rank)
+
+
+def _blocking_flags(show_ws: ShowWorkspace, show: Show) -> list[str]:
+    """The review flags that hold `show` now. A brief or package flag whose
+    artifact is gone (a redo dropped it) judged something that no longer
+    exists: that stage is about to run and replace its own flags, so it does
+    not block. The flag itself stays in show.json until the re-run succeeds,
+    so a failed redo leaves the show held."""
+    stale = tuple(prefix for prefix, marker in (
+        (brief.FLAG_PREFIX, show_ws.briefing_json),
+        (package.FLAG_PREFIX, show_ws.package_dir / "manifest.json"))
+        if not marker.exists())
+    return [f for f in show.review_flags if not f.startswith(stale)]
 
 
 def process_show(
@@ -87,15 +102,15 @@ def process_show(
     with step(f"[{pid}] vetting research"):
         run_vet_research(show_ws, providers["vet_research"], show, research_md, force=force)
     show = read_model(show_ws.show, Show)  # vet may have flagged it
-    if show.needs_review:
-        log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
+    if blocking := _blocking_flags(show_ws, show):
+        log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(blocking))
         return None
     reviews = read_json(show_ws.reviews) if show_ws.reviews.exists() else []
     with step(f"[{pid}] briefing"):
         run_brief(show_ws, providers["brief"], show, research_md, reviews, force=force)
     show = read_model(show_ws.show, Show)  # brief's guard may have flagged it
-    if show.needs_review:
-        log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(show.review_flags))
+    if blocking := _blocking_flags(show_ws, show):
+        log.warning("skipping %s: needs review (%s)", cand.performance_id, "; ".join(blocking))
         return None
     with step(f"[{pid}] packaging"):
         pkg = run_package(show_ws, ia, show, force=force, profile=profile)

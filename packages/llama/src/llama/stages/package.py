@@ -20,14 +20,16 @@ from llama.workspace import (
 )
 
 DURATION_TOLERANCE_S = 5.0
+# Every packaging review flag starts with this.
+FLAG_PREFIX = "duration mismatch on "
 
 
 def build_package(show_ws: ShowWorkspace, ia, show: Show,
                   force: bool = False, profile: str | None = None) -> tuple[Path, list[str]]:
     """Build the package (audio, briefing copies, research, reviews, m3u,
     manifest last) and return `(package dir, package-stage flags)`. Writes no
-    `show.json`: `run_package` folds the flags in, and `llama reapply` (spec
-    slice 6) writes them in its one final `show.json` write. An existing
+    `show.json`: `run_package` replaces its own flags with these, and `llama
+    reapply` (spec slice 6) writes them in its one final `show.json` write. An existing
     manifest short-circuits with no flags unless `force`."""
     pkg = show_ws.package_dir
     manifest_path = pkg / "manifest.json"
@@ -56,7 +58,7 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
         )
         real = read_duration(dest)
         if real is not None and t.duration_sec is not None and abs(real - t.duration_sec) > DURATION_TOLERANCE_S:
-            flags.append(f"duration mismatch on {out_name}: file {real:.0f}s vs metadata {t.duration_sec:.0f}s")
+            flags.append(f"{FLAG_PREFIX}{out_name}: file {real:.0f}s vs metadata {t.duration_sec:.0f}s")
         packaged.append(ManifestTrack(index=t.index, set=t.set, title=t.title,
                                       filename=out_name,
                                       duration_sec=real if real is not None else t.duration_sec,
@@ -98,10 +100,13 @@ def build_package(show_ws: ShowWorkspace, ia, show: Show,
 
 def run_package(show_ws: ShowWorkspace, ia, show: Show,
                 force: bool = False, profile: str | None = None) -> Path:
+    built = force or not (show_ws.package_dir / "manifest.json").exists()
     pkg, flags = build_package(show_ws, ia, show, force=force, profile=profile)
-    if flags:
+    if built:
+        # Replace this stage's own flags (a redo's stale verdict included).
         current = read_model(show_ws.show, Show)
-        current.review_flags = current.review_flags + flags
-        current.needs_review = True
-        write_artifact(show_ws.show, current)
+        kept = [f for f in current.review_flags if not f.startswith(FLAG_PREFIX)] + flags
+        if kept != current.review_flags:
+            write_artifact(show_ws.show, current.model_copy(
+                update={"review_flags": kept, "needs_review": bool(kept)}))
     return pkg

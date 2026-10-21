@@ -2749,7 +2749,7 @@ def fix(
              "track 'Untitled (track N)', set narration vague and one set, and "
              "overrule any remaining flags. Cannot be combined with other edit flags"),
     narration: NarrationMode = typer.Option(
-        None, "--narration", help="vague clears the hold; full resets narration and leaves it"),
+        None, "--narration", help="vague clears the hold; full resets narration and re-briefs (a hold of briefing flags alone clears if the new briefing passes)"),
     overrule: bool = typer.Option(
         False, "--overrule", help="Overrule a held show: clear needs-review and its flags"),
     no_run: bool = typer.Option(
@@ -3526,7 +3526,7 @@ def _resolve_pid(config, ledger, name: str) -> str:
 @app.command(rich_help_panel="Fix & ship",
              short_help="Skip a performance in future gets (reversible `rejected` row).")
 def suppress(name: str = typer.Argument(
-    ..., help="Show slug, unique substring, path, or a raw collection/date[/eN] performance id")):
+    ..., help="Show slug, unique substring, path, or a raw collection/date\\[/eN] performance id")):
     """Write a reversible `rejected` history row -- without touching anything
     on disk -- so the performance is skipped by future gets. Resolves an
     on-disk show like other acting commands; a raw performance id also works
@@ -3546,7 +3546,7 @@ def suppress(name: str = typer.Argument(
 @app.command(rich_help_panel="Fix & ship",
              short_help="Undo a suppress: remove the `rejected` row (eligible again).")
 def unsuppress(name: str = typer.Argument(
-    ..., help="Show slug, unique substring, path, or a raw collection/date[/eN] performance id")):
+    ..., help="Show slug, unique substring, path, or a raw collection/date\\[/eN] performance id")):
     """Remove a `rejected` history row written by `suppress` (or `rm
     --suppress`), making the performance eligible again. A clean no-op
     (still exit 0) when there is nothing to remove.

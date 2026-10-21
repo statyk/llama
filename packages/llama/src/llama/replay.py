@@ -21,6 +21,7 @@ from llama.config import Config
 from llama.errors import LlamaError
 from llama.models import Briefing, Overrides, Provenance, Show, VettingResult
 from llama.setlistfm import _pick, cache_key
+from llama.stages import brief as brief_stage, package as package_stage
 from llama.stages.brief import briefing_guard, normalize_briefing
 from llama.stages.gather import GatherResult, compute_gather
 from llama.stages.vet_research import VetOutcome, apply_vet
@@ -157,10 +158,10 @@ _FAMILIES: tuple[tuple[str, Callable[[str], bool]], ...] = (
     ("titles", lambda f: f.startswith("unresolved track titles")),
     ("venue", lambda f: f.startswith("venue mismatch")),
     ("city", lambda f: f.startswith("recordings of this date disagree on city")),
-    ("briefing", lambda f: f.startswith("briefing ")),
+    ("briefing", lambda f: f.startswith(brief_stage.FLAG_PREFIX)),
     ("events", lambda f: f.startswith(("tape spans", "unassigned multi-event", "multi-event date"))),
     ("tracks", lambda f: f.startswith("no playable tracks")),
-    ("package", lambda f: f.startswith("duration mismatch on ")),
+    ("package", lambda f: f.startswith(package_stage.FLAG_PREFIX)),
 )
 
 

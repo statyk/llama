@@ -577,3 +577,98 @@ def test_run_no_longer_accepts_stage_or_force(tmp_path: Path, monkeypatch):
     r2 = runner.invoke(cli.app, ["--config", cfg, "run", "resume", str(ws.dir), "--force"])
     assert r2.exit_code != 0
     assert "no such option" in r2.output.lower()
+
+
+# ---------------------------------------------------------------------------
+# A redo re-judges the flags of the stages it re-runs: a briefing-guard hold
+# used to survive `redo --from brief` (process_show skipped at the post-vet
+# needs_review check, after the briefing had already been deleted). The stale
+# flag is replaced only when the re-run succeeds.
+# ---------------------------------------------------------------------------
+
+def _held_packaged_show(tmp_path: Path, monkeypatch, flags: list[str]) -> Path:
+    import llama.pipeline as pipeline
+    from test_pipeline import JB_OFF, FakeIA, fake_providers
+
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(pipeline, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+    first = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "get", "GD 1973", "--auto", "--name", "held"])
+    assert first.exit_code == 0, first.output
+    show_dir = tmp_path / "shows" / "gratefuldead-1973-06-10"
+    show = read_model(show_dir / "show.json", Show)
+    assert not show.needs_review
+    show.review_flags = list(flags)
+    show.needs_review = True
+    write_artifact(show_dir / "show.json", show)
+    return show_dir
+
+
+def test_redo_from_brief_clears_a_briefing_guard_hold(tmp_path: Path, monkeypatch):
+    show_dir = _held_packaged_show(tmp_path, monkeypatch,
+                                   ["briefing claims 2 sets but structure has 1"])
+    r = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "redo", "gratefuldead-1973-06-10", "--from", "brief"])
+    assert r.exit_code == 0, r.output
+    show = read_model(show_dir / "show.json", Show)
+    assert show.review_flags == [] and not show.needs_review
+    assert (show_dir / "briefing.json").exists()
+    assert (show_dir / "package" / "manifest.json").exists()
+
+
+def test_redo_keeps_flags_of_stages_it_does_not_rerun(tmp_path: Path, monkeypatch):
+    # The venue hold stops the run before brief, so the briefing verdict is
+    # never re-judged either: both stay (the stale one is harmless, the show
+    # is held regardless, and the next brief replaces it).
+    flags = ["venue mismatch: archive 'A' vs jerrybase 'B'", "briefing mentions unknown song: X"]
+    show_dir = _held_packaged_show(tmp_path, monkeypatch, flags)
+    r = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "redo", "gratefuldead-1973-06-10", "--from", "brief"])
+    assert r.exit_code == 0, r.output
+    show = read_model(show_dir / "show.json", Show)
+    assert show.review_flags == flags and show.needs_review
+
+
+def test_a_failed_redo_leaves_the_show_held(tmp_path: Path, monkeypatch):
+    # The flag must outlive a re-run that fails: un-holding first would drop
+    # the show off every held list (status --held, triage, reapply).
+    from herder import TaskFailed
+
+    flag = "briefing claims 2 sets but structure has 1"
+    show_dir = _held_packaged_show(tmp_path, monkeypatch, [flag])
+
+    class Boom:
+        def __getattr__(self, name):
+            raise TaskFailed("brief failed")
+
+    from test_pipeline import fake_providers
+    broken = fake_providers(None)
+    broken["brief"] = Boom()
+    monkeypatch.setattr(cli, "make_providers", lambda config: broken)
+    r = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "redo", "--held", "--from", "brief", "--yes"])
+    assert "brief failed" in r.output, r.output
+    show = read_model(show_dir / "show.json", Show)
+    assert show.review_flags == [flag] and show.needs_review
+
+
+def test_redo_from_package_clears_a_duration_hold(tmp_path: Path, monkeypatch):
+    show_dir = _held_packaged_show(tmp_path, monkeypatch,
+        ["duration mismatch on 01.mp3: file 10s vs metadata 300s"])
+    r = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "redo", "gratefuldead-1973-06-10", "--from", "package"])
+    assert r.exit_code == 0, r.output
+    show = read_model(show_dir / "show.json", Show)
+    assert show.review_flags == [] and not show.needs_review
+
+
+def test_redo_from_package_keeps_a_briefing_flag(tmp_path: Path, monkeypatch):
+    # package does not re-run the briefing guard, so its verdict stands.
+    flag = "briefing claims 2 sets but structure has 1"
+    show_dir = _held_packaged_show(tmp_path, monkeypatch, [flag])
+    r = runner.invoke(cli.app, ["--config", str(tmp_path / "config.toml"),
+        "redo", "gratefuldead-1973-06-10", "--from", "package"])
+    assert r.exit_code == 0, r.output
+    assert read_model(show_dir / "show.json", Show).review_flags == [flag]

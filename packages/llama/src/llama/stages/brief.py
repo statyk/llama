@@ -9,6 +9,9 @@ from llama.util import reviews_digest
 from llama.workspace import (ShowWorkspace, read_model, read_overrides,
                              should_run, write_artifact)
 
+# Every briefing-guard review flag starts with this (see `briefing_guard`).
+FLAG_PREFIX = "briefing "
+
 _VAGUE_NOTE = (
     "IMPORTANT — uncertain setlist: this show's song list is incomplete and the "
     "available sources conflict. Do NOT name specific songs, do NOT assert a set "
@@ -335,11 +338,19 @@ def run_brief(
                if show_ws.vetting.exists() else None)
     briefing, problems = generate_briefing(provider, show, research_md, reviews,
                                            narration=narration, vetting=vetting)
-    if problems:
-        current = read_model(show_ws.show, Show)
-        current.review_flags = current.review_flags + problems
-        current.needs_review = True
-        write_artifact(show_ws.show, current)
+    # This stage's flags are replaced, as vet's are (a redo's stale verdict
+    # included), in two writes so a crash anywhere leaves the show held: new
+    # problems land before briefing.json, the stale verdict leaves after it.
+    current = read_model(show_ws.show, Show)
+    added = [p for p in problems if p not in current.review_flags]
+    if added:
+        write_artifact(show_ws.show, current.model_copy(
+            update={"review_flags": current.review_flags + added, "needs_review": True}))
     write_artifact(show_ws.briefing_json, briefing)
     write_artifact(show_ws.briefing_md, render_briefing_md(briefing, show))
+    current = read_model(show_ws.show, Show)
+    flags = [f for f in current.review_flags if not f.startswith(FLAG_PREFIX)] + problems
+    if flags != current.review_flags:
+        write_artifact(show_ws.show, current.model_copy(
+            update={"review_flags": flags, "needs_review": bool(flags)}))
     return briefing
