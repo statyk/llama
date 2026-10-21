@@ -3030,3 +3030,119 @@ def test_5c1_filler_tail_note_goes_to_notes_json_never_to_structure_conflicts(tm
     assert note not in res.show.structure.conflicts
     assert "jerrybase set closer 'Not On This Tape' not found in tracks" in res.show.structure.conflicts
     assert not any(f.startswith("jerrybase set closer") for f in res.show.review_flags)
+
+
+# --- slice B: venue tie-break ---
+
+from llama.grouping import _make_candidate
+from llama.stages.gather import venue_tie_break
+
+
+def _cand(pid, coll, date, *specs):   # specs: (identifier, venue, coverage)
+    return _make_candidate(pid, coll, [RecordingSummary(identifier=i, date=date, venue=v, coverage=c)
+                                       for i, v, c in specs])
+
+
+def _gd(tmp_path, cand):
+    return compute_gather(ShowWorkspace(tmp_path / "s"), StubIA(), None, cand, IDENT, jerrybase_enabled=False)
+
+
+def _venue_flags(show):
+    return [f for f in show.review_flags if f.startswith(("venue mismatch", "recordings of this date disagree"))]
+
+
+def test_tie_ships_the_selected_recordings_string_without_jerrybase(tmp_path):
+    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                 ("gd73-other", "R.F.K. Stadium", "Washington"), (IDENT, " RFK Stadium ", "Washington, DC"))
+    assert cand.venue == "R.F.K. Stadium"                         # listing order won the 1-1 tie
+    res = _gd(tmp_path, cand)
+    assert (res.show.venue, res.show.city, res.show.venue_source) == ("RFK Stadium", "Washington, DC", "item")
+    assert _venue_flags(res.show) == []
+
+
+def test_a_majority_keeps_the_consensus(tmp_path):   # (pin)
+    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                 ("a", "R.F.K. Stadium", "Washington, DC"), ("b", "R.F.K. Stadium", "Washington, DC"),
+                 (IDENT, "RFK Stadium", "Washington, DC"))
+    assert _gd(tmp_path, cand).show.venue == "R.F.K. Stadium"
+
+
+def test_a_tie_whose_selected_city_is_incompatible_ships_the_vote_unchanged(tmp_path):   # (pin)
+    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                 ("gd73-other", "RFK Stadium", "Washington, DC"), (IDENT, "RFK Stadium ", "Baltimore, MD"))
+    res = _gd(tmp_path, cand)
+    assert (res.show.venue, res.show.city) == ("RFK Stadium", "Washington, DC")
+
+
+def test_a_tie_with_a_blank_selected_city_keeps_the_vote_city(tmp_path):
+    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                 ("gd73-other", "R.F.K. Stadium", "Washington, DC"), (IDENT, "RFK Stadium", None))
+    assert (lambda s: (s.venue, s.city))(_gd(tmp_path, cand).show) == ("RFK Stadium", "Washington, DC")
+
+
+def test_a_whitespace_only_selected_venue_never_ships(tmp_path):   # (pin) Review Focus 3
+    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                 ("gd73-other", "RFK Stadium", "Washington, DC"), (IDENT, "   ", "Washington, DC"))
+    assert _gd(tmp_path, cand).show.venue == "RFK Stadium"
+
+
+def test_step_1_tie_ships_the_selected_string_jerrybase_corroborates(tmp_path, monkeypatch):
+    _penns_landing_event(monkeypatch)
+    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
+                 ("ds-other", "Penn's Landing", "Philadelphia, PA"), (DSO_IDENT, "Penns Landing", "Philadelphia, PA"))
+    assert cand.venue == "Penn's Landing"
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Penns Landing" and _venue_flags(res.show) == []
+
+
+def test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict(tmp_path, monkeypatch):   # (pin)
+    # Narrowing S: the vote passes step 1 on pre-1b equivalence alone; the selected string is
+    # equivalent only under 1b, and Camden is not jerrybase's Philadelphia, so it fails step 1's full test.
+    _penns_landing_event(monkeypatch)
+    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
+                 ("ds-other", "Penn's Landing", "Camden, NJ"), (DSO_IDENT, "Penns Landing", "Camden, NJ"))
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Penn's Landing" and _venue_flags(res.show) == []
+
+
+def test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string(tmp_path):   # (pin)
+    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
+                 ("ds-other", "Barrymore Theatre", "Madison, WI"), (DSO_IDENT, "Orpheum Theater", "Madison, WI"))
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Barrymore Theatre" and _venue_flags(res.show) == []
+
+
+def _blank_venue_event(monkeypatch, city="Philadelphia", state="PA"):
+    from llama.models import JerrybaseEvent
+    ev = JerrybaseEvent(event_id="e1", venue="", city=city, state=state)
+    monkeypatch.setattr(gather_mod.jerrybase, "lookup", lambda artist, date: [ev])
+
+
+def test_1a_tie_ships_the_selected_string_when_cities_agree(tmp_path, monkeypatch):
+    _blank_venue_event(monkeypatch)
+    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
+                 ("ds-other", "Penn's Landing", "Philadelphia, PA"), (DSO_IDENT, "Penns Landing", "Philadelphia, PA"))
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Penns Landing" and _venue_flags(res.show) == []
+
+
+def test_1a_tie_keeps_the_vote_when_the_cities_conflict(tmp_path, monkeypatch):   # (pin)
+    _blank_venue_event(monkeypatch)
+    cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
+                 ("ds-other", "Penn's Landing", "Camden, NJ"), (DSO_IDENT, "Penns Landing", "Camden, NJ"))
+    res = _gather(tmp_path, DSO, cand, DSO_IDENT)
+    assert res.show.venue == "Penn's Landing"
+    assert "venue mismatch: archive 'Penn's Landing' vs jerrybase ''" in res.show.review_flags
+
+
+def test_venue_tie_break_unit_cases():
+    recs = [RecordingSummary(identifier="a", venue="X Hall", coverage="Austin, TX"),
+            RecordingSummary(identifier="b", venue="X Hall ", coverage=None)]
+    cand = _make_candidate("A/2000-01-01", "A", recs)
+    assert venue_tie_break(cand, recs[1]) == ("X Hall", "Austin, TX")   # raw strings counted apart
+    assert venue_tie_break(cand, recs[0]) is None                        # the selected string IS the vote
+    assert venue_tie_break(cand, None) is None
+    odd = cand.model_copy(update={"venue": "Elsewhere"})                 # a vote no recording carries
+    assert venue_tie_break(odd, recs[1]) is None
+    stray = RecordingSummary(identifier="z", venue="Y Hall", coverage=None)
+    assert venue_tie_break(odd, stray) is None                           # 0 == 0 is not a tie

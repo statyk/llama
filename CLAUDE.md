@@ -620,6 +620,7 @@ scheduler and the full player are phases 3–4).
   **5c.2 (numbered-set anchoring when only the encore closer is missing) was
   built, measured wrong on 5 structures and DROPPED at Checkpoint F: do not
   re-add it.**
+  **Venue tie-break** (`gather.venue_tie_break`, spec `2026-10-21-held-backlog-small-fixes-design.md` slice B): on a tied grouping vote (raw strings, counted as `grouping._make_candidate` counts) the selected recording's own stripped venue ships, with `sel_city or vote_city`. It applies only when its city is blank or `cities_compatible` with the vote's, and only in the arms that ship the vote unflagged: no event, unflagged 1a, and step 1 when the selected string passes step 1's full test. It never adds or removes a flag, `venue_source` stays `item`, and `provenance.json` is unchanged.
 - **Two modes:** one-off queries, and standing criteria profiles for recurring
   segments, deduped against the on-disk show library ∪ a `ledger.jsonl`
   history keyed by performance identity (artist + date + venue), not
