@@ -783,9 +783,13 @@ def test_vet_folds_curly_apostrophes_in_a_tape_segue_chain():
     assert not any("unknown song" in f for f in flags)
 
 
-def test_right_show_gate_counts_a_curly_tape_title_as_asserted():
-    tape = ["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"]
-    v = ResearchVetting(asserted_songs=["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"],
-                        asserted_dates=["1973-06-10"], context="")
+@pytest.mark.parametrize("tape,research", [
+    (["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"],
+     ["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"]),   # curly on tape
+    (["He's Gone", "Don't Ease Me In", "Truckin'", "Sugar Magnolia"],
+     ["He’s Gone", "Don’t Ease Me In", "Truckin’", "Sugar Magnolia"]),   # curly in research
+])
+def test_right_show_gate_counts_curly_and_straight_apostrophes_both_ways(tape, research):
+    v = ResearchVetting(asserted_songs=research, asserted_dates=["1973-06-10"], context="")
     _, info = right_show_gate(v, _curly_show(tape), date_flags_raw=[])
     assert info["asserted"] == 4 and info["unknown"] == []

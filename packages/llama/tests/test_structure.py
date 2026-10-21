@@ -19,7 +19,8 @@ from llama.models import AlignedStructure, AlignedTrack
 from llama.structure import apply_llm_alignment
 import pytest
 from llama.structure import venues_equivalent
-from llama.structure import fuzzy_norm_title, fuzzy_title_eq, title_components
+from llama.structure import (contains_sequence, fold_curly_apostrophes, fuzzy_norm_title,
+                             fuzzy_title_eq, title_components)
 from llama.songs import GD_SHORTHAND
 import inspect
 from llama.models import ParsedSetlist, SetlistItem, Track
@@ -2071,9 +2072,6 @@ def test_encore_lost_on_an_unmatched_encore_item_or_a_marked_track():
     assert encore_lost(_titled_tracks("A", "E: Rilly Wut?"), _encore_items(("A", "1"), ("Rilly Wut?", "encore")))
     assert encore_lost(_titled_tracks("A", "Crowd Encore Call > B"), _encore_items(("A", "1"), ("B", "encore")))
     assert not encore_lost(_titled_tracks("A", "Encore Call > B"), _encore_items(("A", "1"), ("B", "2")))
-
-
-from llama.structure import contains_sequence, fold_curly_apostrophes  # noqa: E402
 
 
 def test_fuzzy_norm_title_folds_curly_apostrophes():

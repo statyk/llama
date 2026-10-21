@@ -775,7 +775,9 @@ scheduler and the full player are phases 3–4).
   `docs/superpowers/specs/2026-08-01-jerrybase-anchoring-design.md`.
   **`align()` matches fuzzily, at the matching layer only**: it normalizes both
   the track and the setlist item at compare time via `fuzzy_norm_title`
-  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`, and curly apostrophes (`’`/`‘`) to `'` (`structure.fold_curly_apostrophes`, also applied by vet_research's and brief's song matchers on both sides),
+  (bypassing the precomputed `SetlistItem.normalized`), folding `&`→`and`, and
+  curly apostrophes (`’`/`‘`) to `'` (`structure.fold_curly_apostrophes`, also
+  applied by vet_research's and brief's song matchers on both sides),
   tolerating dropped subtitles, matching merged tracks as consecutive runs, and
   dropping credit-only parentheticals. **`songs.normalize_song` and
   `DEFAULT_ALIASES` are deliberately NOT part of this** — folding there would
