@@ -99,16 +99,25 @@ def restore_snapshot(show_ws: ShowWorkspace) -> None:
     keep_audio = set(json.loads((txn / _INDEX).read_text())["audio"])
     for rel in list(_tracked_files(show_ws)):          # (a) drop files the unit created
         if rel not in saved:
-            (show_ws.dir / rel).unlink()
+            (show_ws.dir / rel).unlink(missing_ok=True)
     for rel in sorted(saved):                          # (b) put the originals back
         atomic_write_bytes(show_ws.dir / rel, (files / rel).read_bytes())
     for name in _audio_names(show_ws):                 # (c) drop audio the unit added
         if name not in keep_audio:
-            (show_ws.package_dir / "audio" / name).unlink()
+            (show_ws.package_dir / "audio" / name).unlink(missing_ok=True)
 
 
 def discard_snapshot(show_ws: ShowWorkspace) -> None:
     shutil.rmtree(show_ws.dir / TXN_DIR, ignore_errors=True)
+
+
+def _discard_leftover(show_ws: ShowWorkspace) -> None:
+    """Entry discard: a leftover that cannot be removed would be mixed into the
+    new snapshot, so refuse before anything is written."""
+    discard_snapshot(show_ws)
+    txn = show_ws.dir / TXN_DIR
+    if txn.exists():
+        raise LlamaError(f"{show_ws.dir.name}: cannot remove leftover snapshot {txn}")
 
 
 @contextmanager
@@ -122,7 +131,7 @@ def show_unit(show_ws: ShowWorkspace, expect: ShowView | None) -> Iterator[None]
             if expect.provenance and not now.provenance:
                 raise ShowChanged(f"{slug}: the show was removed; nothing changed")
             raise ShowChanged(f"{slug}: changed by another command; run it again")
-        discard_snapshot(show_ws)          # a leftover is deleted, never restored
+        _discard_leftover(show_ws)         # a leftover is deleted, never restored
         try:
             take_snapshot(show_ws)
         except BaseException:

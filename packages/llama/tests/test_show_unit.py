@@ -85,9 +85,11 @@ def test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed(tmp
 
 def test_existing_audio_is_never_snapshotted_or_rewritten(tmp_path):
     ws = _show(tmp_path)
-    _fail_inside(ws, LlamaError("x"), lambda: (ws.package_dir / "audio" / "a.mp3").write_bytes(b"RETAGGED"))
+    def body():
+        (ws.package_dir / "audio" / "a.mp3").write_bytes(b"RETAGGED")
+        assert not (ws.dir / ".txn" / "files" / "package" / "audio").exists()
+    _fail_inside(ws, LlamaError("x"), body)
     assert (ws.package_dir / "audio" / "a.mp3").read_bytes() == b"RETAGGED"
-    assert not (ws.dir / ".txn" / "files" / "package" / "audio").exists()
 
 
 def test_a_leftover_snapshot_is_deleted_not_restored(tmp_path):
@@ -123,3 +125,46 @@ def test_the_lock_is_held_inside_the_unit_and_released_after(tmp_path):
                 pass
     with file_lock(ws.lock, blocking=False):
         pass
+
+
+def test_the_lock_file_is_never_touched_by_a_failed_unit(tmp_path):
+    ws = _show(tmp_path); ws.lock.touch(); ino = ws.lock.stat().st_ino
+    _fail_inside(ws, LlamaError("x"), lambda: write_artifact(ws.research, "n"))
+    assert ws.lock.stat().st_ino == ino
+
+
+def test_a_leftover_snapshot_file_is_not_resurrected_by_a_failed_unit(tmp_path):
+    ws = _show(tmp_path); before = tree_bytes(ws.dir)
+    atomic_write_bytes(ws.dir / ".txn" / "files" / "ghost.json", b"G")
+    _fail_inside(ws, LlamaError("x"), lambda: None)
+    assert tree_bytes(ws.dir) == before
+
+
+def test_a_leftover_that_cannot_be_removed_refuses_before_anything_is_written(tmp_path, monkeypatch):
+    ws = _show(tmp_path)
+    atomic_write_bytes(ws.dir / ".txn" / "files" / "ghost.json", b"G")
+    monkeypatch.setattr(show_unit_mod.shutil, "rmtree", lambda *a, **k: None)
+    ran = []
+    with pytest.raises(LlamaError, match="leftover snapshot"):
+        with show_unit(ws, capture_view(ws)):
+            ran.append(1)
+    assert not ran and not (ws.dir / ".txn" / "index.json").exists()
+
+
+@pytest.mark.parametrize("exc", [KeyboardInterrupt, OSError])
+def test_a_failing_take_snapshot_discards_and_re_raises(tmp_path, monkeypatch, exc):
+    ws = _show(tmp_path); before = tree_bytes(ws.dir)
+    real = show_unit_mod.atomic_write_bytes; calls = []
+    def flaky(path, data):
+        calls.append(path)
+        if len(calls) == 2:
+            raise exc("mid-snapshot")
+        real(path, data)
+    monkeypatch.setattr(show_unit_mod, "atomic_write_bytes", flaky)
+    ran = []
+    with pytest.raises(exc):
+        with show_unit(ws, capture_view(ws)):
+            ran.append(1)
+    assert not ran and not (ws.dir / ".txn").exists()
+    monkeypatch.undo()
+    assert tree_bytes(ws.dir) == before
