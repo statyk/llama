@@ -1575,8 +1575,10 @@ def test_execute_records_kind_for_a_failed_show(tmp_path, monkeypatch):
 
 # --- honest pacing samples: a boundary needs an LLM call -------------------
 
-def _boundaries(tmp_path, monkeypatch, *, llm):
-    """Drive one show; return (boundaries recorded, meter reads taken)."""
+def _boundaries(tmp_path, monkeypatch, *, llm, pids=("a",)):
+    """Drive `pids` (one show by default); return (boundaries recorded, meter
+    reads taken). `record` is stubbed, so no pacing-state.json is ever written:
+    `recorded` is the whole observable."""
     _clock(monkeypatch)
     recorded, reads = [], []
     monkeypatch.setattr(cli.pacing_state, "record",
@@ -1587,7 +1589,7 @@ def _boundaries(tmp_path, monkeypatch, *, llm):
         reads.append(1)
         return _reading()
     monkeypatch.setattr(cli, "_meter", _meter)
-    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/package", ["a"],
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/package", list(pids),
            pace=pacing.pace_options(Config()), llm=llm)
     return recorded, len(reads)
 
@@ -1604,14 +1606,24 @@ def test_a_download_only_resume_records_no_boundary(tmp_path, monkeypatch):
     recorded, reads = _boundaries(tmp_path, monkeypatch, llm=False)
     assert recorded == []
     assert reads == with_llm - 1            # no after-show meter read either
-    assert not (tmp_path / "pacing-state.json").exists()
 
 
 def test_an_already_packaged_show_records_no_boundary(tmp_path, monkeypatch):
     # An already-packaged show returns its package untouched: no LLM call.
     recorded, _ = _boundaries(tmp_path, monkeypatch, llm=lambda pid: False)
     assert recorded == []
-    assert not (tmp_path / "pacing-state.json").exists()
+
+
+@pytest.mark.parametrize("pids", [("a", "b"), ("b", "a")])
+def test_a_mixed_run_records_only_the_show_that_called_the_llm(
+        tmp_path, monkeypatch, pids):
+    """The baseline is PER SHOW: an LLM-free show after an LLM show must not
+    read the earlier show's call as its own. A run-level baseline (`calls > 0`)
+    records `b` too when `a` comes first; one taken once before the loop
+    records nothing extra either way but is pinned by the reverse order."""
+    recorded, _ = _boundaries(tmp_path, monkeypatch, llm=lambda pid: pid == "a",
+                              pids=pids)
+    assert len(recorded) == 1
 
 
 def test_count_llm_calls_wraps_defaultdict_and_ladders():
