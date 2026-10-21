@@ -23,6 +23,7 @@ from llama.artist_index import (
 from llama.catalog import library_performance_ids
 from llama.cli_select import ShowState
 from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
+from llama.download_slots import DownloadSlots
 from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
@@ -121,7 +122,7 @@ def main(
 
 def _setup() -> tuple[Config, IAClient, Ledger]:
     config = load_config(_config_path)
-    ia = IAClient(config.root / "cache")
+    ia = IAClient(config.root / "cache", slots=DownloadSlots(config.root / ".download-slots"))
     ledger = Ledger(config.root / "ledger.jsonl")
     return config, ia, ledger
 

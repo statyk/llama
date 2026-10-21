@@ -6,12 +6,13 @@ import re
 import time
 from collections import deque
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from urllib.parse import quote
 
 import httpx
 
+from llama.download_slots import DownloadSlots
 from llama.errors import LlamaError
 from llama.status import detail
 from llama.workspace import atomic_write_text
@@ -115,6 +116,7 @@ class IAClient:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
         rng: random.Random | None = None,
+        slots: DownloadSlots | None = None,
     ):
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -128,6 +130,7 @@ class IAClient:
         self.clock = clock
         self.sleep = sleep
         self.rng = rng or random.Random()
+        self.slots = slots  # None: no cap on concurrent downloads
 
     def _throttle(self) -> None:
         wait = self.rate_limit_s - (time.monotonic() - self._last_request)
@@ -367,6 +370,13 @@ class IAClient:
         in_first_pass = True
         first_pass_end = 0.0
         slot_wait = 0.0
+        announced = False
+
+        def on_wait() -> None:
+            nonlocal announced
+            if not announced:
+                announced = True
+                detail("waiting for a download slot")
 
         def expired() -> bool:
             return self.clock() - first_pass_end - slot_wait >= DOWNLOAD_DEADLINE_S
@@ -384,7 +394,14 @@ class IAClient:
         def attempt(url: str) -> _Attempt:
             nonlocal attempts, slot_wait
             attempts += 1
-            outcome = self._attempt(url, tmp, md5=md5, size=size, may_abandon=may_abandon(url))
+            if self.slots is None:
+                outcome = self._attempt(url, tmp, md5=md5, size=size, may_abandon=may_abandon(url))
+            else:
+                # The slot covers exactly one attempt and is freed before any sleep.
+                with self.slots.acquire(on_wait=on_wait) as waited:
+                    outcome = self._attempt(url, tmp, md5=md5, size=size,
+                                            may_abandon=may_abandon(url))
+                outcome = replace(outcome, slot_wait_s=waited)
             slot_wait += outcome.slot_wait_s
             if outcome.trickled:
                 abandoned.add(url)

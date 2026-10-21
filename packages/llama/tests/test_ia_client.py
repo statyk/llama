@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import json
 import logging
@@ -7,6 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from llama.download_slots import DownloadSlots
 from llama.ia_client import (DOWNLOAD_CONNECT_TIMEOUT_S, DOWNLOAD_DEADLINE_S,
                              DOWNLOAD_STALL_TIMEOUT_S, TRICKLE_FLOOR_BPS, TRICKLE_WINDOW_S,
                              IAClient, IADownloadError, IAError)
@@ -31,7 +33,7 @@ class FakeClock:
 
 
 def make_client(tmp_path: Path, handler, *, metadata: dict | None = None,
-                clock: FakeClock | None = None) -> IAClient:
+                clock: FakeClock | None = None, slots=None) -> IAClient:
     """`metadata`, when given, is served at the metadata URL for every identifier;
     otherwise the metadata request reaches `handler` like any other."""
     def route(request: httpx.Request) -> httpx.Response:
@@ -42,7 +44,7 @@ def make_client(tmp_path: Path, handler, *, metadata: dict | None = None,
     clock = clock or FakeClock()
     http = httpx.Client(transport=httpx.MockTransport(route))
     return IAClient(cache_dir=tmp_path / "cache", client=http, backoff_s=0, rate_limit_s=0,
-                    clock=clock, sleep=clock.sleep, rng=random.Random(0))
+                    clock=clock, sleep=clock.sleep, rng=random.Random(0), slots=slots)
 
 
 def test_search_returns_docs_and_caches(tmp_path: Path):
@@ -1077,3 +1079,104 @@ def test_a_transfer_that_slows_to_a_trickle_is_abandoned(tmp_path: Path):
     assert ranges == [f"bytes={sent['n']}-"]
     # Abandoned within about a window of the slowdown, not at the end of the file.
     assert fast < sent["n"] <= fast + (TRICKLE_WINDOW_S + 2) * TRICKLE
+
+
+# --- download cap (spec 2026-10-21 §2) ------------------------------------------------
+
+
+def test_slot_released_before_sleep_between_attempts(tmp_path: Path):
+    import fcntl
+    import os
+
+    clock = FakeClock()
+    slots = DownloadSlots(tmp_path / "slots", 1, sleep=clock.sleep, clock=clock,
+                          rng=random.Random(0))
+    free_at_sleep: list[bool] = []
+
+    def probe(seconds: float) -> None:
+        fd = os.open(tmp_path / "slots" / "0.lock", os.O_CREAT | os.O_RDWR)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            free_at_sleep.append(True)
+        except OSError:
+            free_at_sleep.append(False)
+        finally:
+            os.close(fd)
+        clock.sleep(seconds)
+
+    seen: list = []
+    ia = make_client(tmp_path, routed({REDIRECT: 500, SERVER: BODY}, seen),
+                     metadata=item_metadata("ia800903.us.archive.org"), clock=clock, slots=slots)
+    ia.sleep = probe
+    ia.download_file("x", "t.mp3", tmp_path / "t.mp3", md5=BODY_MD5)
+    assert seen == [REDIRECT, SERVER]
+    assert free_at_sleep == [True]
+
+
+class _WaitingSlots:
+    """Stub with DownloadSlots' acquire contract: each acquire waits `wait` s."""
+
+    def __init__(self, clock: FakeClock, wait: float):
+        self.clock, self.wait, self.acquires = clock, wait, 0
+
+    @contextlib.contextmanager
+    def acquire(self, *, on_wait=None):
+        self.acquires += 1
+        if self.wait and on_wait:
+            on_wait()
+        self.clock.advance(self.wait)
+        yield self.wait
+
+
+def _count_attempts(tmp_path: Path, wait: float) -> int:
+    clock = FakeClock()
+    seen: list = []
+    ia = make_client(tmp_path, routed({REDIRECT: 500, SERVER: 500}, seen),
+                     metadata=item_metadata("ia800903.us.archive.org"), clock=clock,
+                     slots=_WaitingSlots(clock, wait))
+    with pytest.raises(IADownloadError):
+        ia.download_file("x", "t.mp3", tmp_path / "t.mp3", md5=BODY_MD5)
+    return len(seen)
+
+
+def test_slot_wait_does_not_count_toward_deadline(tmp_path: Path):
+    assert _count_attempts(tmp_path / "waited", 500.0) == _count_attempts(tmp_path / "free", 0.0)
+
+
+def test_waiting_line_prints_at_most_once_per_download(tmp_path: Path, monkeypatch):
+    lines: list[str] = []
+    monkeypatch.setattr("llama.ia_client.detail", lines.append)
+    _count_attempts(tmp_path, 5.0)
+    assert lines == ["waiting for a download slot"]
+
+
+def test_transport_error_mid_continuation_discards_the_part(tmp_path: Path):
+    clock = FakeClock()
+    ranges: list = []
+    S2 = SERVER2
+
+    def s1(request: httpx.Request) -> httpx.Response:
+        ranges.append((str(request.url), request.headers.get("range")))
+        start = int(request.headers["range"].removeprefix("bytes=").removesuffix("-"))
+
+        def body():
+            yield LONG[start:start + 1_000]
+            raise httpx.ReadError("connection reset")
+        return httpx.Response(
+            206, headers={"content-range": f"bytes {start}-{len(LONG) - 1}/{len(LONG)}"},
+            content=body())
+
+    def s2(request: httpx.Request) -> httpx.Response:
+        ranges.append((str(request.url), request.headers.get("range")))
+        return httpx.Response(200, content=stream(clock, LONG, HEALTHY))
+
+    seen: list = []
+    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE), SERVER: s1,
+                                       S2: s2}, seen),
+                     metadata=long_metadata("ia800903.us.archive.org", "ia600903.us.archive.org"),
+                     clock=clock)
+    dest = tmp_path / "t.mp3"
+    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
+    assert dest.read_bytes() == LONG
+    assert ranges == [(SERVER, f"bytes={K}-"), (S2, None)]  # the half-appended .part was dropped
+    assert no_leftovers(tmp_path)
