@@ -5,6 +5,7 @@ its own command, adding a `[m]etadata` mini-editor and renaming `[c]lear` to
 `[o]verrule`. `show`'s own walkthrough stays in place until Task 4 strips it.
 """
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -12,8 +13,11 @@ import typer.testing as typer_testing
 
 import llama.cli as cli
 from conftest import cli_invoke, output_without_paths
+from helpers import tree_bytes
 from herder import FakeProvider
-from llama.models import Provenance, RecordingSummary, Show
+from llama.errors import LlamaError
+from llama.locks import file_lock
+from llama.models import Overrides, Provenance, RecordingSummary, Show
 from llama.stages.gather import run_gather
 from llama.workspace import (ShowWorkspace, read_model, read_overrides,
                              write_artifact)
@@ -655,3 +659,85 @@ def test_triage_u_not_offered_when_one_of_several_tracks_is_resolved(tmp_path, t
     write_artifact(ws.show, show)
     r = cli_invoke(cfg, "triage", "gratefuldead", input="s\n")
     assert "[u]ntitled" not in r.output
+
+
+# --- Slice C: edits as restoring units ---
+
+def test_a_failed_triage_edit_prints_the_error_restores_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); before = tree_bytes(ws.dir)
+    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
+    r = cli_invoke(cfg, "triage", input="o\ns\n")
+    assert r.exit_code == 0, r.output
+    assert "error: boom" in r.output and r.output.count(PROMPT) == 2
+    assert tree_bytes(ws.dir) == before            # still held
+
+
+def test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); calls = _stub_redo(monkeypatch)
+    def picker(show):
+        write_artifact(ws.overrides, Overrides(exclude=["other.mp3"])); return ["a.mp3"], False
+    monkeypatch.setattr(cli, "_pick_excludes", picker)
+    r = cli_invoke(cfg, "triage", input="e\ns\n")
+    assert "changed by another command; run it again" in r.output
+    assert read_overrides(ws).exclude == ["other.mp3"] and calls == []
+
+
+def test_triage_prompts_are_answered_without_the_show_lock(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch); seen = []
+    def picker(show):
+        with file_lock(ws.lock, blocking=False):
+            seen.append("free")
+        return ["a.mp3"], False
+    monkeypatch.setattr(cli, "_pick_excludes", picker)
+    assert cli_invoke(cfg, "triage", input="e\n").exit_code == 0 and seen == ["free"]
+
+
+def _second_held_show(tmp_path):
+    return build(tmp_path, "gratefuldead-1974-01-01", stages={"select", "gather"}, needs_review=True,
+                 pid="GratefulDead/1974-01-01")
+
+
+def test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); shows = [_held_show(tmp_path), _second_held_show(tmp_path)]
+    before = [tree_bytes(ws.dir) for ws in shows]
+    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
+    r = cli_invoke(cfg, "triage", input="v\ns\n")
+    assert r.exit_code != 0 and r.output.count(PROMPT) == 1      # the second show is never offered
+    assert [tree_bytes(ws.dir) for ws in shows] == before
+
+
+def test_a_successful_triage_edit_moves_on_to_the_next_show(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); _held_show(tmp_path); _second_held_show(tmp_path); calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="o\ns\n")
+    assert r.exit_code == 0, r.output
+    assert r.output.count(PROMPT) == 2 and calls == ["package"]
+
+
+def test_a_retry_after_a_failed_edit_applies_against_the_restored_show(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); _held_show(tmp_path); outcomes = iter([LlamaError("boom"), Path("/pkg")])
+    def fake(config, ia, ledger, e, stage, **kw):
+        out = next(outcomes)
+        if isinstance(out, Exception):
+            raise out
+        return out
+    monkeypatch.setattr(cli, "_redo_show_locked", fake)
+    r = cli_invoke(cfg, "triage", input="o\no\n")
+    assert "error: boom" in r.output and "packaged: /pkg" in r.output
+    assert "changed by another command" not in r.output
+
+
+def test_a_show_removed_before_its_turn_is_reported_and_skipped(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); _held_show(tmp_path); second = _second_held_show(tmp_path)
+    def fake(config, ia, ledger, e, stage, **kw):
+        shutil.rmtree(second.dir); return Path("/pkg")   # another command removes the next show
+    monkeypatch.setattr(cli, "_redo_show_locked", fake)
+    r = cli_invoke(cfg, "triage", input="o\n")
+    assert r.exit_code == 0, r.output
+    assert "error: " in r.output and r.output.count(PROMPT) == 1
+
+
+def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
+    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("refused")))
+    r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\ns\n")
+    assert "error: refused" in r.output and not ws.overrides.exists()

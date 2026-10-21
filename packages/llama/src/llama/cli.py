@@ -1724,13 +1724,13 @@ def _resolve_prompt(*, titles: bool = False, include: bool = False,
 UNRESOLVED_TITLES_FLAG = "unresolved track titles"
 
 
-def _metadata_editor(entry) -> bool:
+def _metadata_editor(entry) -> dict | None:
     """The `[m]etadata` mini-editor: sequential prompts for the gather-consumed
     override fields, each defaulting to (and so, on bare Enter, keeping) the
-    current effective value. Validation mirrors `fix`'s flags. Returns True
-    iff any field actually changed (and the overrides were written); False
-    means nothing changed, so the caller should return to the prompt rather
-    than redo anything."""
+    current effective value. Validation mirrors `fix`'s flags. Writes nothing:
+    returns the `_edit_overrides` keyword arguments (everything but `show_ws`)
+    for the caller to apply inside its unit, or None when nothing changed or
+    the input was invalid, so the caller returns to the prompt."""
     from llama.workspace import read_overrides
 
     sws = entry.ws
@@ -1754,7 +1754,7 @@ def _metadata_editor(entry) -> bool:
     breaks_changed = breaks_in != cur_breaks
     if (venue == cur_venue and city == cur_city and show_date == cur_date
             and not titles_changed and not breaks_changed):
-        return False
+        return None
 
     parsed_titles = {}
     if titles_changed:
@@ -1764,7 +1764,7 @@ def _metadata_editor(entry) -> bool:
             n, sep, t = spec.partition("=")
             if not sep or not n.strip().isdigit():
                 typer.echo(f"title overrides expects N=Title, got {spec!r}")
-                return False
+                return None
             parsed_titles[int(n.strip())] = t
 
     breaks_val = None
@@ -1772,18 +1772,15 @@ def _metadata_editor(entry) -> bool:
         parts = [x.strip() for x in breaks_in.split(",") if x.strip()]
         if not all(p.isdigit() for p in parts):
             typer.echo(f"set breaks expects comma-separated track numbers, got {breaks_in!r}")
-            return False
+            return None
         breaks_val = [int(p) for p in parts]
 
-    _edit_overrides(sws,
-                    venue=venue if venue != cur_venue else _UNSET,
-                    city=city if city != cur_city else _UNSET,
-                    date=show_date if show_date != cur_date else _UNSET,
-                    set_titles=parsed_titles if titles_changed else None,
-                    clear_titles=list(ov.titles.keys()) if titles_changed else [],
-                    set_breaks=breaks_val if breaks_changed else _UNSET)
-    typer.echo(f"{entry.slug}: metadata override updated")
-    return True
+    return dict(venue=venue if venue != cur_venue else _UNSET,
+                city=city if city != cur_city else _UNSET,
+                date=show_date if show_date != cur_date else _UNSET,
+                set_titles=parsed_titles if titles_changed else None,
+                clear_titles=list(ov.titles.keys()) if titles_changed else [],
+                set_breaks=breaks_val if breaks_changed else _UNSET)
 
 
 def _untitled_counts(show: Show) -> tuple[int, int]:
@@ -1833,6 +1830,16 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
 
 
 def _interactive_resolve(config, ia, ledger, entry) -> None:
+    try:
+        # Re-resolve by path (an exact match while the directory exists; a
+        # removed show matches nothing) so the held check and the offers below
+        # read the show as it is now, not as the listing saw it.
+        entry = _resolve_show(config, ledger, str(entry.ws.dir))
+    except LlamaError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        return
+    # Every successful edit leaves the show, so this session-long view stays valid.
+    view = capture_view(entry.ws)
     _print_show_entry(entry)
     if entry.state != "held":
         return
@@ -1866,6 +1873,8 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             return
         if choice == "q":
             raise typer.Exit()
+        edit = None
+        lines: list[str] = []   # echoed inside the unit, before the redo's writes
         if choice == "e":
             files, wrong_mode = _pick_excludes(read_model(entry.ws.show, Show))
             if wrong_mode:
@@ -1873,7 +1882,7 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             if not files:
                 typer.echo("nothing selected; skipping")
                 return
-            _edit_overrides(entry.ws, add_exclude=files)
+            edit = lambda: _edit_overrides(entry.ws, add_exclude=files)  # noqa: E731
             stage = "gather"
         elif choice == "i" and include_offered:
             try:
@@ -1889,20 +1898,24 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             # appending to overrides.include, and two surfaces deciding that
             # separately would diverge on the next change to it.
             undo, readmit = _split_include_targets(entry.ws, targets)
-            _edit_overrides(entry.ws, rm_exclude=undo, add_include=readmit)
+            edit = lambda: _edit_overrides(entry.ws, rm_exclude=undo, add_include=readmit)  # noqa: E731
             if undo:
-                typer.echo(_unexclude_routing_note(undo))
+                lines.append(_unexclude_routing_note(undo))
             stage = "gather"
         elif choice == "m":
-            if not _metadata_editor(entry):
+            kwargs = _metadata_editor(entry)
+            if kwargs is None:
                 continue   # nothing changed - back to the prompt, same show
+            edit = lambda: _edit_overrides(entry.ws, **kwargs)  # noqa: E731
+            lines.append(f"{entry.slug}: metadata override updated")
             stage = "gather"
         elif choice == "v":
-            _edit_overrides(entry.ws, narration="vague")
-            _clear_hold(entry.ws)
+            def edit():
+                _edit_overrides(entry.ws, narration="vague")
+                _clear_hold(entry.ws)
             stage = "brief"
         elif choice == "o":
-            _clear_hold(entry.ws)
+            edit = lambda: _clear_hold(entry.ws)  # noqa: E731
             stage = "package"
         elif choice == "t" and suggest_titles_offered:
             # Shares `_propose_and_confirm_titles`/`_propose_titles_for_show`
@@ -1931,12 +1944,15 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             # ...)` itself MERGES into the existing `overrides.titles` dict
             # rather than replacing it (see `_edit_overrides`), so no prior
             # override this show may already carry is lost either.
-            _edit_overrides(entry.ws, set_titles=picks)
+            edit = lambda: _edit_overrides(entry.ws, set_titles=picks)  # noqa: E731
             stage = "gather"
         elif choice == "u" and untitled_offered:
-            view = capture_view(entry.ws)   # Task 7 replaces this with the session's view
-            status, pkg = _untitled_resolution(config, ia, ledger, entry,
-                                               read_model(entry.ws.show, Show), view)
+            try:
+                status, pkg = _untitled_resolution(config, ia, ledger, entry,
+                                                   read_model(entry.ws.show, Show), view)
+            except (LlamaError, HerderError) as exc:
+                typer.echo(f"error: {exc}", err=True)
+                continue   # restored; back to the same show's prompt
             if status == "declined":
                 continue   # declined: nothing written, back to the prompt
             typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
@@ -1944,8 +1960,18 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         else:
             typer.echo("unrecognized; skipping")
             return
-        fresh = _resolve_show(config, ledger, entry.slug)
-        pkg = _redo_show(config, ia, ledger, fresh, stage)
+        try:
+            # The prompts above ran with no lock; edit and redo are one unit, so
+            # a failure restores the show. Call only `_redo_show_locked` here.
+            with show_unit(entry.ws, view):
+                edit()
+                for line in lines:
+                    typer.echo(line)
+                pkg = _redo_show_locked(config, ia, ledger,
+                                        _resolve_show(config, ledger, entry.slug), stage)
+        except (LlamaError, HerderError) as exc:
+            typer.echo(f"error: {exc}", err=True)
+            continue   # restored; back to the same show's prompt
         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
         return
 

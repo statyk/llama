@@ -58,7 +58,10 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   the setlist correspondence and writes them all on confirmation;
   `[i]nclude dropped`, offered only when the show has `excluded_files`,
   re-admits by x-handle or filename and shares `fix --include`'s
-  operator-excluded routing via `_split_include_targets`), `llama
+  operator-excluded routing via `_split_include_targets`; each edit is one
+  unit like `fix`'s -- a failure prints `error: …`, restores the show and
+  returns to the same show's prompt, and Ctrl-C ends the walkthrough after the
+  restore), `llama
   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
   `--suggest-titles` is the same title-proposal resolution, one
   invocation, one confirmation, refuses to combine with
