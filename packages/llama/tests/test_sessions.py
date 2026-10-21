@@ -1654,3 +1654,42 @@ def test_a_limit_during_interpret_sleeps_at_most_once(tmp_path: Path, monkeypatc
     # A third would mean it napped on an instant already behind it.
     assert providers["interpret"].calls == 2
     assert "no progress since last pause" in result.output
+
+
+from herder import HerderError, TaskFailed
+from herder.provider import ResearchNotSupported
+from llama.ia_client import IADownloadError, IAError
+from llama.sessions import (KIND_ARCHIVE, KIND_DOWNLOAD, KIND_LLM, KIND_OTHER,
+                            KIND_RATE_LIMITED, KIND_TRANSPORT, classify_failure,
+                            failure_kind, failure_record)
+
+
+@pytest.mark.parametrize("exc,kind", [
+    (RateLimited("limit", scope="five_hour", resets_at=None), KIND_RATE_LIMITED),
+    (TaskFailed("bad output"), KIND_LLM),
+    (ResearchNotSupported("no web"), KIND_OTHER),
+    (HerderError("connection reset"), KIND_TRANSPORT),
+    (IADownloadError("download of x failed"), KIND_DOWNLOAD),
+    (IAError("metadata 500"), KIND_ARCHIVE),
+    (ValueError("boom"), KIND_OTHER),
+])
+def test_classify_failure_follows_the_order(exc, kind):
+    assert classify_failure(exc) == kind
+
+
+def test_failure_record_stamps_kind_and_utc_at():
+    now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+    rec = failure_record("GD/1973-06-10", IADownloadError("download of x failed"), now=now)
+    assert rec == {"show": "GD/1973-06-10", "error": "download of x failed",
+                   "kind": KIND_DOWNLOAD, "at": now.isoformat()}
+    assert failure_record("s", ValueError("x"), kind=KIND_LLM, now=now)["kind"] == KIND_LLM
+    assert failure_record("s", ValueError(), now=now)["error"] == "ValueError"
+    at = datetime.fromisoformat(failure_record("s", ValueError("x"))["at"])
+    assert at.utcoffset() == timedelta(0)
+
+
+def test_legacy_record_kind():
+    assert failure_kind({"error": "download of x failed after 3 attempts: ..."}) == KIND_DOWNLOAD
+    assert failure_kind({"error": "boom"}) == KIND_OTHER
+    assert failure_kind({"show": "s"}) == KIND_OTHER
+    assert failure_kind({"error": "boom", "kind": KIND_LLM}) == KIND_LLM

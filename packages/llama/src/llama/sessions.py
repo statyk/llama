@@ -7,8 +7,58 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from herder import HerderError, TaskFailed
+from herder.limits import RateLimited
+from herder.provider import ResearchNotSupported
+
+from llama.ia_client import IAError, IADownloadError
 from llama.models import Criteria
 from llama.workspace import RunWorkspace, read_model, write_artifact
+
+
+KIND_RATE_LIMITED = "rate-limited"
+KIND_LLM = "llm"
+KIND_TRANSPORT = "transport"
+KIND_DOWNLOAD = "download"
+KIND_ARCHIVE = "archive"
+KIND_OTHER = "other"
+
+
+def classify_failure(exc: BaseException) -> str:
+    """The failure kind of `exc`; the first match wins, so the order is load-bearing
+    (RateLimited and TaskFailed subclass HerderError, IADownloadError IAError)."""
+    if isinstance(exc, RateLimited):
+        return KIND_RATE_LIMITED
+    if isinstance(exc, TaskFailed):
+        return KIND_LLM
+    if isinstance(exc, ResearchNotSupported):
+        return KIND_OTHER
+    if isinstance(exc, HerderError):
+        return KIND_TRANSPORT
+    if isinstance(exc, IADownloadError):
+        return KIND_DOWNLOAD
+    if isinstance(exc, IAError):
+        return KIND_ARCHIVE
+    return KIND_OTHER
+
+
+def failure_record(show: str | None, exc: BaseException, *, kind: str | None = None,
+                   now: datetime | None = None) -> dict:
+    """One `session.json` failure entry: show, error text, kind, UTC ISO time."""
+    when = now or datetime.now(timezone.utc)
+    return {"show": show, "error": str(exc) or type(exc).__name__,
+            "kind": kind or classify_failure(exc), "at": when.isoformat()}
+
+
+def failure_kind(record: dict) -> str:
+    """A record's kind. Legacy records (no `kind`) are inferred from the error text."""
+    kind = record.get("kind")
+    if kind:
+        return kind
+    if str(record.get("error", "")).startswith("download of "):
+        return KIND_DOWNLOAD
+    return KIND_OTHER
+
 
 STATE_AWAITING = "awaiting-approval"
 STATE_COMPLETE = "complete"

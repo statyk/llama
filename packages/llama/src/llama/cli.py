@@ -41,8 +41,8 @@ from llama.profiles import (
 )
 from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
                             attention_sessions, mark_awaiting, mark_complete,
-                            mark_incomplete, mark_paused, read_request,
-                            session_state)
+                            failure_record, mark_incomplete, mark_paused,
+                            read_request, session_state)
 from llama.setlistfm import make_client
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
@@ -577,7 +577,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             # stages are on disk and a resume redoes only what is missing.
             if not pace.enabled:
                 typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
-                failures.append({"show": entry.candidate.performance_id, "error": str(exc)})
+                failures.append(failure_record(entry.candidate.performance_id, exc))
                 return
             limited = exc
             return
@@ -587,7 +587,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 failure_path.parent.mkdir(parents=True, exist_ok=True)
                 failure_path.write_text(exc.raw_output)
             typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
-            failures.append({"show": entry.candidate.performance_id, "error": str(exc)})
+            failures.append(failure_record(entry.candidate.performance_id, exc))
             return
         if pkg:
             typer.echo(f"packaged: {pkg}")

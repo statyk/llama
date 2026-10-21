@@ -1549,3 +1549,16 @@ def test_the_deferred_gate_leaves_the_show_it_stopped_in_front_of(
     # would pass on the mutant this test exists to kill.
     assert "2 shows left" in capsys.readouterr().out
     assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+
+
+def test_execute_records_kind_for_a_failed_show(tmp_path, monkeypatch):
+    from llama.ia_client import IADownloadError
+
+    def _process(pid):
+        raise IADownloadError(f"download of {pid}.mp3 failed after 3 attempts")
+
+    _drive(tmp_path, monkeypatch, _process, ["a"])
+    failure = iter_sessions(tmp_path)[0].failures[0]
+    assert failure["show"] == "a"
+    assert failure["kind"] == "download"
+    assert datetime.fromisoformat(failure["at"]).utcoffset() == timedelta(0)
