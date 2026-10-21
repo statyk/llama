@@ -20,8 +20,9 @@ by the DJ and shown to listeners. Strict surface in this spec:
   artifacts** (slice C). This overwrites a show's state: today a refused
   structure edit leaves a show with no `show.json` and no CLI route back
   (`billystrings-2021-12-04` needed a hand edit). After this spec, a refused
-  or failed edit or redo leaves every file of the show byte-identical to
-  before the command.
+  or failed edit or redo leaves every file of the show outside
+  `package/audio/` byte-identical to before the command (C2 states the
+  limits).
 
 Ordinary: the venue tie-break (slice B; cosmetic, new gathers only) and the
 apostrophe fold (slice D). Tier 1's strict list still binds: `normalize_song`,
@@ -141,60 +142,104 @@ what gather will accept.
 
 **Requirements** (my call).
 
-- **C1, one invocation is one transaction.** Every command that edits
-  overrides or redoes a show runs as one unit under the show lock: `fix`
-  (every flag combination, `--suggest-titles`, `--untitled` and its
-  follow-on overrule/brief steps), triage's edit paths (`_metadata_editor`,
-  `[t]`, `[i]`, `[u]`, accept-vague, overrule), and `redo <show> --from
-  <stage>`, single and batch (each show its own unit). The command takes the
-  show lock **before** it reads `overrides.json` and holds it through every
-  write, the drop and the redo (today `fix` writes overrides without the
-  lock, so two concurrent edits can lose one). `_redo_show` gets a lock-held
-  inner form that callers already holding the lock use; `file_lock` opens a
-  new descriptor per call, so taking it twice in one process deadlocks.
-  `process_show` stays lock-free.
-- **C2, a failed unit leaves the show as it was.** Before changing anything,
-  the unit sets aside every file it will remove or rewrite in the show
-  directory: the stage artifacts `drop_stage_artifacts` would delete,
-  `provenance.json` and `overrides.json`. If the unit raises anything
-  (gather's `LlamaError` refusals, archive and download errors, LLM failures,
-  `RateLimited`, `KeyboardInterrupt`), it puts every set-aside file back and
-  removes anything the unit created, so every file in the show directory is
-  byte-identical to before the command; then it reports the error and, for
-  Ctrl-C, re-raises. On success the set-aside copy is deleted. Set-aside is
-  by rename within the show directory (no audio is copied). A held outcome is
-  success, not failure. The ledger, the item cache and downloads outside the
-  show directory are not rolled back (the ledger is append-only history; a
-  `selected` row from an unfinished redo is harmless).
-  A process killed outright (SIGKILL, power loss) leaves the set-aside copy
-  behind: the next `fix`/`redo`/triage unit on that show restores it first
-  and says so. Other commands ignore it (documented limitation).
+- **C1, one invocation is one unit.** Every command that edits overrides or
+  redoes a show runs as one unit: `fix` (every flag combination,
+  `--suggest-titles`, `--untitled` and its follow-on overrule/brief steps),
+  triage's edit paths (`[e]`, `_metadata_editor`, `[t]`, `[i]`, `[u]`,
+  accept-vague, overrule), and `redo <show> --from <stage>`, single and batch
+  (each show its own unit). The order inside a unit is fixed:
+
+  1. Any human prompts and confirmations happen first, without the lock,
+     against the show as resolved then.
+  2. Take the show lock (once; `_redo_show` gets a lock-held inner form,
+     since `file_lock` opens a new descriptor per call and taking it twice
+     in one process deadlocks; `process_show` stays lock-free).
+  3. Re-resolve the show under the lock. Refuse, changing nothing, if
+     `provenance.json` is gone (the show was removed) or if `overrides.json`
+     or `show.json` differ from what the prompts were shown ("changed by
+     another command; run it again"). The lock is never held across a
+     prompt, so an open triage prompt never blocks a run, the sweep, deliver
+     or reapply.
+  4. Delete any leftover snapshot (C2) from a killed earlier unit, without
+     restoring it.
+  5. Take the snapshot, then apply today's refusals and do the work.
+
+  (Today `fix` writes overrides without the lock, so two concurrent edits
+  can lose one.)
+- **C2, a failed unit leaves the show as it was.** The snapshot is a plain
+  copy of every file in the show directory except `package/audio/*`, `.lock`
+  and `.txn/` itself (all small JSON/Markdown), into `<show>/.txn/`, plus the
+  list of filenames present in `package/audio/`. Nothing is moved or renamed
+  for the snapshot: the unit reads and writes the live files exactly as
+  today. If the unit raises any exception (`LlamaError` refusals, archive
+  and download errors, LLM failures, `RateLimited`, `KeyboardInterrupt`), it
+  restores: every file
+  outside `package/audio/` that is not in the snapshot is removed (`.lock`
+  and `.txn/` excepted), every snapshot file is written back atomically, and
+  every `package/audio/` file not on the list is removed. Then it deletes the
+  snapshot and re-raises; callers report as in C4, and a single `fix` or
+  `redo` exits 1 with the error. On success the snapshot is deleted. A held
+  outcome is success. The ledger, the item cache and anything else outside
+  the show directory are not rolled back (the ledger is append-only history;
+  a `selected` row from an unfinished redo is harmless).
+
+  Limitations, documented, not mechanised:
+  - Audio already in `package/audio/` is retagged in place by `package`, so
+    after a package-stage failure its ID3 tags may carry the rolled-back
+    venue/title until the next successful package retags it, and, as today,
+    an interruption during an in-place retag can damage that file. Audio is
+    outside the byte-identical guarantee; new audio files are still removed.
+  - A unit that waits on the lock while `llama rm` removes the show
+    recreates an empty show directory holding only `.lock` (`file_lock`
+    creates it) and then refuses at step 3; a second `llama rm` removes it.
+    The race exists today.
+  - A process killed outright (SIGKILL, power loss) or interrupted during
+    the restore leaves the show part-way and a stale `.txn/`, which the next
+    unit deletes without restoring (restoring it could revert newer work by
+    `get`, `run resume` or `reapply`, which ignore it). Such a show is
+    always CLI-repairable, because the unit never moves `provenance.json` or
+    `overrides.json`: `llama redo <show> --from gather` rebuilds every
+    derived file from the overrides on disk, and `fix` accepts override
+    edits on a show with no `show.json` (C4).
 - **C3, `fix --no-run`** writes overrides under the lock and validates
-  nothing; a later redo that refuses them rolls back under C2 and names the
-  flag to change. (Stated so nobody adds validation ahead of the redo.)
+  nothing; a later redo that refuses them rolls back under C2 and prints
+  gather's message, which names the override field (`encore_after`,
+  `set_breaks`, `titles`). (Stated so nobody adds validation ahead of the
+  redo.)
 - **C4, triage and runs keep going.** In triage, a failed unit prints the
-  error and returns to the same show's prompt (today only the `[i]` branch
-  catches `LlamaError`; the other `_redo_show` calls, including
-  `_untitled_resolution`'s, do not). Ctrl-C still ends the walkthrough,
-  after the restore. Batch `redo` keeps today's behaviour: `FAILED` per
-  show, exit 0. `_execute`'s per-show loop also catches `LlamaError` per
-  show, recording it as a failure of kind `other`, so one show's refused
-  override cannot abort a whole run (today it does, and the sweep writes a
-  crash marker).
-  The existing refusal for a show with no `show.json` names the remedy,
-  `llama redo <show> --from gather`.
+  error and returns to the same show's prompt (today no triage branch
+  catches an error from `_redo_show`; `[i]`'s handler covers only the
+  include picker). Ctrl-C still ends the walkthrough, after the restore.
+  Batch `redo` keeps today's behaviour: `FAILED` per show, exit 0.
+  `_execute`'s per-show loop also catches `LlamaError` per show, recording
+  it as a failure of kind `other`, so one show's refused override cannot
+  abort a whole run (today it does, and the sweep writes a crash marker).
+  With no `show.json`, `fix` accepts every flag that needs neither the
+  show's tracks nor its hold state: `--set-*`/`--clear-*`, and
+  `--exclude`/`--unexclude` given as filenames (`--include` reads
+  `show.json` to route its targets, so it keeps the refusal). Every other
+  flag keeps today's refusal, which now names the remedy, `llama redo
+  <show> --from gather`.
 - **C5, tests from the real shape.** Tests reproduce the
   `billystrings-2021-12-04` sequence (its pre-repair overrides are in
   `~/.llama-harness/t3/apply/billystrings-2021-12-04.overrides.bak`:
   `set_breaks [10, 20]`, `encore_after 20`): the bad `fix` refuses and every
   file is byte-identical, `provenance.json` and `overrides.json` included; a
-  multi-flag `fix` whose last part fails leaves nothing of the first; an
-  `IAError` and a `KeyboardInterrupt` raised after the drop both restore; a
-  leftover set-aside copy is restored by the next `fix`; a triage edit that
-  fails returns to the prompt; a run whose show refuses its overrides
-  records a per-show failure and processes the next show; `reapply` on bad
-  overrides leaves the show unchanged (already true: `reapply_show` computes
-  in a scratch directory before writing anything; pinned).
+  `fix` that adds one override to a show already carrying several keeps all
+  of them on success; a failed accept-vague (brief raises `RateLimited`)
+  restores `show.json`'s hold and the overrides; a failed `--overrule` and a
+  failed `redo --from brief` restore every file; a multi-flag `fix` whose
+  last part fails leaves nothing of the first; an `IAError` during package
+  on a show whose audio was purged removes the new audio and restores the
+  manifest; `KeyboardInterrupt` after the drop restores and re-raises; a
+  leftover `.txn/` is deleted, not restored, by the next unit; a show with
+  no `show.json` takes `fix --clear-encore`; a triage edit whose show
+  changed between prompt and lock refuses and changes nothing; a triage
+  edit that fails returns to the prompt; a run whose show refuses its
+  overrides records a per-show failure and processes the next show;
+  `reapply` on bad overrides leaves the show unchanged (already true:
+  `reapply_show` computes in a scratch directory before writing anything;
+  pinned).
 
 ## Slice D: the curly apostrophe matches the straight one
 
@@ -238,9 +283,9 @@ branch) over all shows, each with its own tree's interpreter, then `compare`.
   `replay_holds.OUTPUT_FILES` has none today) listing every show whose
   shipped venue or city changes, with both strings and whether the show is
   delivered. **Zero flag changes are expected**; any flag change is a defect.
-- **C.** No harness effect. Unit and CLI tests per C5; the mutation recipe is
-  applied to C2's restore (each set-aside and restore step removed in turn
-  must turn a named test red).
+- **C.** No harness effect. Unit and CLI tests per C5; the mutation recipe
+  applies to C2's restore steps and C1's re-resolve check (each removed in
+  turn turns a named test red).
 - **D.** The harness lists flag and title changes; expect few or none in the
   current library. No show gains a flag.
 - **Apply.** Held shows only, via `llama reapply --from-list
@@ -249,7 +294,8 @@ branch) over all shows, each with its own tree's interpreter, then `compare`.
 
 Every behavioural change gets a test that fails on today's code, and the
 mutation recipe Tier 1 used (named expected red test per mutant, isolated
-bytecode cache) is applied to slice B's conditions and slice C's restore.
+bytecode cache) is applied to slice B's conditions and to slice C's restore
+and re-resolve check.
 
 ## Non-goals
 
@@ -271,8 +317,8 @@ bytecode cache) is applied to slice B's conditions and slice C's restore.
 
 ## Left to the builder
 
-- The set-aside mechanism's shape (directory name, how a leftover is
-  detected), within C2.
+- How the snapshot and restore are factored (a context manager is the obvious
+  shape), within C1-C2.
 - Where exactly the tie-break sits in gather's venue chain, within slice B's
   invariants.
 - Test file placement and fixture shapes.
