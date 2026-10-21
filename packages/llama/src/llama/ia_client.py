@@ -2,7 +2,9 @@ import hashlib
 import itertools
 import json
 import random
+import re
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,9 +30,15 @@ DOWNLOAD_STALL_TIMEOUT_S = 20.0
 DOWNLOAD_DEADLINE_S = 60.0
 DOWNLOAD_SLEEP_MIN_S = 1.0
 DOWNLOAD_SLEEP_MAX_S = 4.0
+# Trickle switch: a request moving fewer than TRICKLE_FLOOR_BPS * TRICKLE_WINDOW_S
+# bytes over the last TRICKLE_WINDOW_S (counted from its first body byte) is
+# abandoned for the next candidate, which continues it with a Range request.
+TRICKLE_FLOOR_BPS = 10_000
+TRICKLE_WINDOW_S = 30.0
 _DOWNLOAD_TIMEOUT = httpx.Timeout(DOWNLOAD_STALL_TIMEOUT_S, connect=DOWNLOAD_CONNECT_TIMEOUT_S)
 # Not 5xx but transient: a retry may get a different answer.
 _RETRYABLE_STATUS = frozenset({408, 429})
+_CONTENT_RANGE = re.compile(r"bytes (\d+)-(\d+)/(\d+|\*)")
 
 
 class IAError(LlamaError):
@@ -52,6 +60,35 @@ class _Attempt:
     error: str = ""
     retryable: bool = False
     slot_wait_s: float = 0.0  # time spent waiting for a download slot (not counted)
+    trickled: bool = False  # abandoned by the trickle switch (always retryable)
+
+
+class _TrickleMonitor:
+    """One request's throughput over a sliding TRICKLE_WINDOW_S window. The window
+    opens at the request's first body byte (the stall timeout covers the wait
+    before it); samples are (arrival time, cumulative bytes) per chunk."""
+
+    def __init__(self, clock: Callable[[], float]):
+        self.clock = clock
+        self.total = 0
+        self.first_byte_t: float | None = None
+        self.samples: deque[tuple[float, int]] = deque()
+
+    def trickling(self, n: int) -> bool:
+        """Record a chunk of `n` bytes arriving now; True when the bytes since the
+        latest sample at or before (now - TRICKLE_WINDOW_S) fall below the floor."""
+        t = self.clock()
+        self.total += n
+        if self.first_byte_t is None:
+            self.first_byte_t = t
+        self.samples.append((t, self.total))
+        if t - self.first_byte_t < TRICKLE_WINDOW_S:
+            return False
+        cutoff = t - TRICKLE_WINDOW_S
+        # Keep samples[0] the latest at or before the cutoff (the cutoff only grows).
+        while len(self.samples) > 1 and self.samples[1][0] <= cutoff:
+            self.samples.popleft()
+        return self.total - self.samples[0][1] < TRICKLE_FLOOR_BPS * TRICKLE_WINDOW_S
 
 
 def _http_error_text(exc: httpx.HTTPError) -> str:
@@ -179,7 +216,7 @@ class IAClient:
         urls = [DOWNLOAD_URL.format(identifier=identifier, filename=quoted)]
         try:
             md = self.metadata(identifier)
-        except (IAError, ValueError):
+        except (IAError, ValueError, httpx.HTTPError):
             return urls, None
         if not isinstance(md, dict):
             return urls, None
@@ -210,27 +247,75 @@ class IAClient:
     def _pause(self) -> None:
         self.sleep(self.rng.uniform(DOWNLOAD_SLEEP_MIN_S, DOWNLOAD_SLEEP_MAX_S))
 
-    def _attempt(self, url: str, tmp: Path, *, md5: str | None, size: int | None) -> _Attempt:
-        """One GET of `url` into `tmp`, then the integrity check. A failed attempt
-        leaves no `.part`; a successful one leaves the verified `.part` for the caller
-        to rename into place."""
-        self._throttle()
+    def _attempt(self, url: str, tmp: Path, *, md5: str | None, size: int | None,
+                 may_abandon: Callable[[], bool] | None = None) -> _Attempt:
+        """One attempt at `url`, then the integrity check over the whole `.part`.
+
+        A `.part` already on disk (kept by an earlier trickle abandonment in this
+        `download_file` call) is continued with `Range: bytes=<its size>-`: a `206`
+        whose Content-Range starts there (and totals `size`, when known) is appended;
+        a `200` rewrites the `.part` from byte 0; a mismatched `206` discards it and
+        re-issues the same URL without Range; a `416` discards it and ends the attempt.
+        A status error otherwise writes nothing and leaves the `.part` as it was.
+
+        Each request runs a trickle monitor; when it trips and `may_abandon()` allows
+        (and the `.part` is short of `size`) the attempt ends retryably, keeping the
+        `.part` for continuation only when an md5 will verify the stitched whole.
+        Any other failure discards whatever this attempt wrote. A successful attempt
+        leaves the verified `.part` for the caller to rename into place."""
+        offset = tmp.stat().st_size if tmp.exists() else 0
+        wrote = False  # this attempt changed the .part: a failure must discard it
+        trickled = False
         try:
-            with self.client.stream("GET", url, timeout=_DOWNLOAD_TIMEOUT) as resp:
-                status = resp.status_code
-                if not 200 <= status < 300:
-                    tmp.unlink(missing_ok=True)
-                    retryable = status >= 500 or status in _RETRYABLE_STATUS
-                    return _Attempt(False, f"HTTP {status}", retryable=retryable)
-                with tmp.open("wb") as f:
-                    for chunk in resp.iter_bytes():
-                        f.write(chunk)
+            while True:
+                self._throttle()
+                headers = {"range": f"bytes={offset}-"} if offset else None
+                with self.client.stream("GET", url, headers=headers,
+                                        timeout=_DOWNLOAD_TIMEOUT) as resp:
+                    status = resp.status_code
+                    if status == 416 and offset:
+                        # The copy is shorter than the bytes held: start over elsewhere.
+                        tmp.unlink(missing_ok=True)
+                        return _Attempt(False, f"HTTP 416 for bytes={offset}-", retryable=True)
+                    if not 200 <= status < 300:
+                        retryable = status >= 500 or status in _RETRYABLE_STATUS
+                        return _Attempt(False, f"HTTP {status}", retryable=retryable)
+                    if status == 206 and not offset:
+                        tmp.unlink(missing_ok=True)
+                        return _Attempt(False, "HTTP 206 to a request without Range",
+                                        retryable=True)
+                    if status == 206 and not self._continues(resp, offset, size):
+                        # Not the rest of this file: drop the prefix, ask again from 0.
+                        tmp.unlink(missing_ok=True)
+                        offset = 0
+                        continue
+                    monitor = _TrickleMonitor(self.clock)
+                    with tmp.open("ab" if status == 206 else "wb") as f:
+                        wrote = wrote or status != 206  # "wb" truncated the .part
+                        for chunk in resp.iter_bytes():
+                            f.write(chunk)
+                            wrote = True
+                            if (monitor.trickling(len(chunk))
+                                    and (size is None or f.tell() < size)
+                                    and may_abandon is not None and may_abandon()):
+                                trickled = True
+                                break
+                    break
         except httpx.HTTPError as e:
             # Transport errors (connect/stall timeouts, resets, a body dying
             # mid-transfer) and every other httpx error (TooManyRedirects,
             # DecodingError) fail this attempt only, retryably.
-            tmp.unlink(missing_ok=True)
+            if wrote:
+                tmp.unlink(missing_ok=True)
             return _Attempt(False, _http_error_text(e), retryable=True)
+
+        if trickled:
+            # Continuation only under an md5: with size alone, a prefix and a suffix
+            # from copies of different lengths could pass the check.
+            if not md5:
+                tmp.unlink(missing_ok=True)
+            return _Attempt(False, f"trickling below {TRICKLE_FLOOR_BPS} B/s over "
+                                   f"{TRICKLE_WINDOW_S:.0f} s", retryable=True, trickled=True)
 
         # Verify the file on disk, whole: a bad copy is not asked again.
         if md5:
@@ -245,6 +330,15 @@ class IAClient:
                 return _Attempt(False, f"size mismatch (got {got_size} bytes, expected {size})")
         return _Attempt(True)
 
+    @staticmethod
+    def _continues(resp: httpx.Response, offset: int, size: int | None) -> bool:
+        """A 206 is the rest of this file: Content-Range starts at `offset` and, when
+        `size` is known, totals it."""
+        m = _CONTENT_RANGE.fullmatch(resp.headers.get("content-range", "").strip())
+        if not m or int(m[1]) != offset:
+            return False
+        return size is None or (m[3] != "*" and int(m[3]) == size)
+
     def download_file(self, identifier: str, filename: str, dest: Path, md5: str | None = None) -> Path:
         """Fetch `filename` into `dest`, verified, trying the item's listed servers
         when the redirect URL fails (spec 2026-10-21 §1).
@@ -253,23 +347,55 @@ class IAClient:
         repeat attempts cycle the candidates whose last error was retryable until
         DOWNLOAD_DEADLINE_S has passed since the first pass ended (checked before
         each attempt). A short random sleep separates attempts; Retry-After is
-        ignored, since switching servers is the response to a struggling one."""
+        ignored, since switching servers is the response to a struggling one.
+
+        A trickling transfer may be abandoned for the next candidate, which
+        continues it (`_attempt`), only while that cannot strand the file: each
+        candidate at most once, never the last one not yet abandoned and still
+        retryable, and only while another attempt will start (the first pass is
+        unfinished or the deadline has not passed). The attempt after an
+        abandonment always starts, even if the pause before it crosses the
+        deadline: the abandonment promised it. So every abandonment is followed by
+        an attempt, and abandonments are bounded by the candidate count."""
         candidates, size = self._download_candidates(identifier, filename)
         dest.parent.mkdir(parents=True, exist_ok=True)
         tmp = dest.with_suffix(dest.suffix + ".part")
         last_error: dict[str, str] = {}
         retryable: dict[str, bool] = {}
+        abandoned: set[str] = set()
         attempts = 0
+        in_first_pass = True
+        first_pass_end = 0.0
+        slot_wait = 0.0
+
+        def expired() -> bool:
+            return self.clock() - first_pass_end - slot_wait >= DOWNLOAD_DEADLINE_S
+
+        def may_abandon(url: str) -> Callable[[], bool]:
+            def check() -> bool:
+                if url in abandoned:
+                    return False
+                if not any(d != url and d not in abandoned and retryable.get(d, True)
+                           for d in candidates):
+                    return False
+                return in_first_pass or not expired()
+            return check
 
         def attempt(url: str) -> _Attempt:
-            nonlocal attempts
+            nonlocal attempts, slot_wait
             attempts += 1
-            outcome = self._attempt(url, tmp, md5=md5, size=size)
+            outcome = self._attempt(url, tmp, md5=md5, size=size, may_abandon=may_abandon(url))
+            slot_wait += outcome.slot_wait_s
+            if outcome.trickled:
+                abandoned.add(url)
             if not outcome.ok:
                 last_error[url] = outcome.error
                 retryable[url] = outcome.retryable
             return outcome
 
+        # A .part from an earlier (killed) process is never continued: only this
+        # call's own trickle abandonments leave a .part to continue.
+        tmp.unlink(missing_ok=True)
         try:
             for i, url in enumerate(candidates):
                 if i:
@@ -278,20 +404,19 @@ class IAClient:
                     tmp.replace(dest)
                     return dest
 
+            in_first_pass = False
             first_pass_end = self.clock()
             slot_wait = 0.0
-
-            def expired() -> bool:
-                return self.clock() - first_pass_end - slot_wait >= DOWNLOAD_DEADLINE_S
+            owed = False  # an abandonment's promised next attempt
 
             ring = itertools.cycle(candidates)
-            while any(retryable.values()) and not expired():
+            while any(retryable.values()) and (owed or not expired()):
                 self._pause()
-                if expired():
+                if not owed and expired():
                     break
                 url = next(u for u in ring if retryable[u])
                 outcome = attempt(url)
-                slot_wait += outcome.slot_wait_s
+                owed = outcome.trickled
                 if outcome.ok:
                     tmp.replace(dest)
                     return dest
