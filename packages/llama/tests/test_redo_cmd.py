@@ -2,16 +2,29 @@
 batch, and `--run SESSION` session scope (absorbing the old
 `run --stage X --force` run-wide re-execution). Plan B Task 6."""
 import json
+import shutil
 from pathlib import Path
 
+import pytest
+from herder import TaskFailed
+from helpers import packaged_gd73, tree_bytes
 from typer.testing import CliRunner
 
 import llama.cli as cli
+import llama.pipeline as pipeline
+from llama.config import load_config
+from llama.errors import LlamaError
+from llama.ia_client import IAError
+from llama.ledger import Ledger
+from llama.locks import Locked, file_lock
+from llama.show_unit import ShowChanged
+from llama.workspace import atomic_write_bytes
 from llama.models import Criteria, Provenance, QualityAssessment, Show, ShortlistEntry, Track
 from llama.workspace import (
     RunWorkspace, ShowWorkspace, read_model, read_model_list, write_artifact,
 )
 
+from test_catalog import build
 from test_cli_commands import _approved_run, _seed_show, make_entries
 
 runner = CliRunner()
@@ -672,3 +685,90 @@ def test_redo_from_package_keeps_a_briefing_flag(tmp_path: Path, monkeypatch):
         "redo", "gratefuldead-1973-06-10", "--from", "package"])
     assert r.exit_code == 0, r.output
     assert read_model(show_dir / "show.json", Show).review_flags == [flag]
+
+
+def test_failed_redo_from_brief_restores_every_file(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
+    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(TaskFailed("boom")))
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "brief"])
+    assert r.exit_code == 1 and isinstance(r.exception, TaskFailed)
+    assert tree_bytes(ws.dir) == before            # provenance.json's processed_at included
+
+
+def test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    for f in (ws.package_dir / "audio").iterdir():
+        f.unlink()                                  # as `deliver` purges
+    before = tree_bytes(ws.dir)
+    from test_pipeline import FakeIA
+    class SecondFails(FakeIA):
+        n = 0
+        def download_file(self, identifier, filename, dest, md5=None):
+            SecondFails.n += 1
+            if SecondFails.n == 2:
+                raise IAError("download of x failed")
+            return super().download_file(identifier, filename, dest, md5)
+    monkeypatch.setattr(cli, "IAClient", SecondFails)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
+    assert r.exit_code == 1 and isinstance(r.exception, IAError)
+    assert tree_bytes(ws.dir) == before and list((ws.package_dir / "audio").iterdir()) == []
+
+
+def test_keyboard_interrupt_after_the_drop_restores_and_re_raises(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
+    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
+    # through the function, not the runner: click turns KeyboardInterrupt into "Aborted!"
+    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
+    entry = cli._resolve_show(config, ledger, "gratefuldead")
+    with pytest.raises(KeyboardInterrupt):
+        cli._redo_show(config, cli.IAClient(), ledger, entry, "brief")
+    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
+
+
+def test_a_redo_of_a_show_removed_while_it_waited_refuses_with_the_removed_message(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
+    entry = cli._resolve_show(config, ledger, "gratefuldead")
+    shutil.rmtree(ws.dir)                           # `llama rm` ran while this redo waited for the lock
+    with pytest.raises(ShowChanged, match="gratefuldead-1973-06-10: the show was removed; nothing changed"):
+        cli._redo_show(config, cli.IAClient(), ledger, entry, "brief")
+    assert [p.name for p in ws.dir.iterdir()] == [".lock"]   # spec C2's documented husk
+
+
+def test_a_leftover_txn_is_deleted_not_restored_by_the_next_redo(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    atomic_write_bytes(ws.dir / ".txn" / "files" / "show.json", b"STALE")
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "package"])
+    assert r.exit_code == 0, r.output
+    assert ws.show.read_bytes() != b"STALE" and not (ws.dir / ".txn").exists()
+
+
+def test_redo_runs_the_pipeline_inside_the_show_lock(tmp_path, monkeypatch):   # (pin)
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch); seen = []
+    def probe(*a, **k):
+        try:
+            with file_lock(ws.lock, blocking=False):
+                seen.append("free")
+        except Locked:
+            seen.append("held")
+        raise TaskFailed("stop")
+    monkeypatch.setattr(pipeline, "run_brief", probe)
+    runner.invoke(cli.app, ["--config", str(cfg), "redo", "gratefuldead", "--from", "brief"])
+    assert seen == ["held"]
+
+
+def test_redo_batch_restores_a_failed_show_and_continues(tmp_path, monkeypatch):
+    cfg = tmp_path / "config.toml"; cfg.write_text(f'root = "{tmp_path}"\n')
+    a = build(tmp_path, "aready", stages={"select", "gather", "research", "vet", "package"})
+    build(tmp_path, "bready", stages={"select", "gather", "research", "vet", "package"})
+    before, done = tree_bytes(a.dir), []
+    def fake(config, ia, ledger, e, stage, **kw):
+        write_artifact(e.ws.show, {"half": "written"})
+        if e.slug == "aready":
+            raise LlamaError("boom")
+        done.append(e.slug)
+        return e.ws.package_dir
+    monkeypatch.setattr(cli, "_redo_show_locked", fake)
+    r = runner.invoke(cli.app, ["--config", str(cfg), "redo", "--packaged", "--from", "package", "--yes"])
+    assert r.exit_code == 0 and "FAILED aready: boom" in r.output and done == ["bready"]
+    assert tree_bytes(a.dir) == before

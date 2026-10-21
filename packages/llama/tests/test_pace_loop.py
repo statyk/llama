@@ -20,6 +20,7 @@ from herder.limits import RateLimited
 import llama.cli as cli
 from llama import pacing, pacing_state
 from llama.config import Config, LLMTaskConfig, PacingConfig
+from llama.errors import LlamaError
 from llama.locks import Locked
 from llama.models import Candidate, Criteria, QualityAssessment, ShortlistEntry
 from llama.sessions import (STATE_COMPLETE, STATE_INCOMPLETE, STATE_PAUSED,
@@ -1649,3 +1650,15 @@ def test_count_llm_calls_wraps_defaultdict_and_ladders():
         wrapped["boom"][0].complete("p")
     assert calls() == 4                                           # raising counts
     assert isinstance(wrapped["boom"], list)
+
+
+def test_a_show_refusing_its_overrides_is_a_per_show_failure_and_the_run_continues(tmp_path, monkeypatch):
+    def _process(pid):
+        if pid == "a":
+            raise LlamaError("overrides.encore_after (20) must be greater than every set break [10, 20]")
+        return f"{pid}/pkg"
+    _, seen = _drive(tmp_path, monkeypatch, _process, ["a", "b"])
+    assert seen == ["a", "b"]
+    s = iter_sessions(tmp_path)[0]
+    assert s.state == STATE_INCOMPLETE
+    assert [(f["show"], f["kind"]) for f in s.failures] == [("a", "other")]

@@ -62,7 +62,7 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
   `--suggest-titles` is the same title-proposal resolution, one
   invocation, one confirmation, refuses to combine with
-  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>`,
+  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>` (one unit: see `llama fix` below),
   `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
   unless `--replace-voiced`, which replaces the destination wholesale and
   discards its DJ script and audio; a batch confirmation marks or counts the
@@ -947,7 +947,7 @@ scheduler and the full player are phases 3–4).
   any other `HerderError` → `transport`; `IADownloadError` → `download`; any other
   `IAError` → `archive`; else `other`. The order is load-bearing (several subclass
   `HerderError`). `at` is the UTC ISO time. The sweep re-spends only on `download`
-  and `archive`. The records are persisted state and stay permissive: a legacy
+  and `archive`. A per-show `LlamaError` (e.g. gather refusing the show's overrides) is a per-show failure of kind `other`, not a run abort. The records are persisted state and stay permissive: a legacy
   record without `kind` reads as `download` when `error` starts with `download of `,
   else `other` (`failure_kind`).
 - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track

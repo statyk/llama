@@ -588,7 +588,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 return
             limited = exc
             return
-        except (TaskFailed, HerderError, IAError) as exc:
+        except (TaskFailed, HerderError, LlamaError) as exc:
             if isinstance(exc, TaskFailed) and exc.raw_output:
                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
                 failure_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2457,36 +2457,51 @@ def deliver(
 
 def _redo_show(config, ia, ledger, entry, from_stage: str, *,
                with_research: bool = False) -> Path | None:
-    """Re-run one resolved show from `from_stage` onward; returns the package
-    path, or None if the show was held/skipped. Raises LlamaError on a
-    hand-built show with no provenance."""
-    from llama.models import QualityAssessment
-    from llama.workspace import drop_stage_artifacts
+    """Re-run one resolved show from `from_stage` onward as one restoring unit
+    (see `show_unit`); returns the package path, or None if the show was
+    held/skipped. A redo shows no content, so its view is read under the lock
+    (`expect=None`): it waits behind another writer instead of refusing."""
+    from llama.show_unit import show_unit
 
-    if entry.provenance is None:
+    with show_unit(entry.ws, None):
+        return _redo_show_locked(config, ia, ledger, entry, from_stage,
+                                 with_research=with_research)
+
+
+def _redo_show_locked(config, ia, ledger, entry, from_stage: str, *,
+                      with_research: bool = False) -> Path | None:
+    """`_redo_show`'s body. The caller must already be inside a `show_unit`
+    for `entry.ws` (this takes no lock). Raises LlamaError on a hand-built
+    show with no provenance, ShowChanged if the show was removed meanwhile."""
+    from llama.models import Provenance, QualityAssessment
+    from llama.show_unit import ShowChanged
+    from llama.workspace import drop_stage_artifacts, read_model
+
+    show_ws = entry.ws
+    if not show_ws.provenance.exists():
+        if entry.provenance is not None:      # it existed when the entry was resolved
+            raise ShowChanged(f"{entry.slug}: the show was removed; nothing changed")
         raise LlamaError(f"no provenance.json in {entry.ws.dir} - "
                          "reprocess it via its run first")
-    prov = entry.provenance
+    prov = read_model(show_ws.provenance, Provenance)   # under the caller's lock
     keep_research = not with_research and from_stage in ("select", "gather")
-    show_ws = entry.ws
-    with file_lock(show_ws.lock):
-        drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
-        # Keep the winnow assessment (quality_score + recording_complaints) so
-        # select-recording still avoids complained-about recordings; override only
-        # the rationale so the dossier round-trip stays stable (it already carries
-        # the external-reputation suffix). Fall back to a zero stub for pre-fix
-        # provenance.json files that predate the assessment field.
-        assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
-                      if prov.assessment is not None
-                      else QualityAssessment(performance_id=prov.performance_id,
-                                             quality_score=0.0, rationale=prov.dossier))
-        shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
-        ws = RunWorkspace(config.root, prov.run)
-        return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
-                            prov.run, config.audio_format,
-                            setlistfm=make_client(config), structure_cfg=config.structure,
-                            jerrybase_enabled=config.jerrybase.enabled,
-                            selection_cfg=config.selection, profile=prov.profile)
+    drop_stage_artifacts(entry.ws, from_stage, keep_research=keep_research)
+    # Keep the winnow assessment (quality_score + recording_complaints) so
+    # select-recording still avoids complained-about recordings; override only
+    # the rationale so the dossier round-trip stays stable (it already carries
+    # the external-reputation suffix). Fall back to a zero stub for pre-fix
+    # provenance.json files that predate the assessment field.
+    assessment = (prov.assessment.model_copy(update={"rationale": prov.dossier})
+                  if prov.assessment is not None
+                  else QualityAssessment(performance_id=prov.performance_id,
+                                         quality_score=0.0, rationale=prov.dossier))
+    shortlist_entry = ShortlistEntry(rank=1, candidate=prov.candidate, assessment=assessment)
+    ws = RunWorkspace(config.root, prov.run)
+    return process_show(ws, ia, ledger, shortlist_entry, make_providers(config),
+                        prov.run, config.audio_format,
+                        setlistfm=make_client(config), structure_cfg=config.structure,
+                        jerrybase_enabled=config.jerrybase.enabled,
+                        selection_cfg=config.selection, profile=prov.profile)
 
 
 class NarrationMode(str, Enum):

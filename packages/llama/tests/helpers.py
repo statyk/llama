@@ -46,3 +46,23 @@ def tree_bytes(d: Path) -> dict[str, bytes]:
     return {p.relative_to(d).as_posix(): p.read_bytes()
             for p in sorted(d.rglob("*"))
             if p.is_file() and p.relative_to(d).as_posix() != ".lock"}
+
+
+def packaged_gd73(tmp_path: Path, monkeypatch):
+    """Run a real `get "GD 1973"` against the fake backend and FakeIA; returns
+    (config path, ShowWorkspace) for the packaged gratefuldead-1973-06-10."""
+    from typer.testing import CliRunner
+
+    import llama.cli as cli
+    import test_pipeline
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'root = "{tmp_path}"\n[jerrybase]\nenabled = false\n')
+    monkeypatch.setattr(cli, "make_providers", test_pipeline.fake_providers)
+    monkeypatch.setattr(cli, "IAClient", test_pipeline.FakeIA)
+    r = CliRunner().invoke(cli.app, ["--config", str(cfg), "get", "GD 1973",
+                                     "--auto", "--name", "r"])
+    assert r.exit_code == 0, r.output
+    ws = ShowWorkspace(tmp_path / "shows" / "gratefuldead-1973-06-10")
+    assert (ws.package_dir / "manifest.json").exists()
+    return cfg, ws
