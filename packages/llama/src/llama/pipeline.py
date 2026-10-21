@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,6 +29,57 @@ TASK_KEYS = ["interpret", "score_reviews", "light_research",
 def make_providers(config: Config) -> dict:
     settings = config.llm_settings()
     return {key: provider_ladder(settings, key) for key in TASK_KEYS}
+
+
+class _CountedProvider:
+    """Delegates to a provider, counting `complete`/`research` calls on the
+    shared counter BEFORE delegating, so a call that raises still counts."""
+
+    def __init__(self, inner, counter: list[int]):
+        self._inner = inner
+        self._counter = counter
+
+    def complete(self, *args, **kwargs):
+        self._counter[0] += 1
+        return self._inner.complete(*args, **kwargs)
+
+    def research(self, *args, **kwargs):
+        self._counter[0] += 1
+        return self._inner.research(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+class _CountedProviders(Mapping):
+    """Lazy view over `inner` (so a defaultdict's missing keys still answer)
+    whose values are wrapped: ladder -> list of wrappers, provider -> wrapper,
+    None -> None."""
+
+    def __init__(self, inner: Mapping, counter: list[int]):
+        self._inner = inner
+        self._counter = counter
+
+    def __getitem__(self, key):
+        value = self._inner[key]
+        if value is None:
+            return None
+        if isinstance(value, (list, tuple)):
+            return [_CountedProvider(p, self._counter) for p in value]
+        return _CountedProvider(value, self._counter)
+
+    def __iter__(self):
+        return iter(self._inner)
+
+    def __len__(self):
+        return len(self._inner)
+
+
+def count_llm_calls(providers: Mapping) -> tuple[Mapping, Callable[[], int]]:
+    """Wrap `providers` so LLM calls through it are counted. A show that made
+    none (download-only resume, already packaged) is not a pacing sample."""
+    counter = [0]
+    return _CountedProviders(providers, counter), lambda: counter[0]
 
 
 def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool,

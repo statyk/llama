@@ -35,7 +35,8 @@ from llama import pacing_state
 from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
                           binding_forecast, decide, duration_arg, format_delta,
                           pace_options, resume_at, sleep_until)
-from llama.pipeline import choose_entries, make_providers, process_show
+from llama.pipeline import (choose_entries, count_llm_calls, make_providers,
+                            process_show)
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
 )
@@ -412,7 +413,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
              force_stage: str | None = None,
              full_rationale: bool = False, plan: bool = False,
              pace: PaceOptions | None = None) -> None:
-    providers = make_providers(config)
+    providers, llm_calls = count_llm_calls(make_providers(config))
     if pace is None:
         pace = pace_options(config)
     # Pre-flight, BEFORE the opening burst: run_discover/run_search/run_winnow
@@ -557,7 +558,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
         return
     setlistfm = make_client(config)
     packaged = held = 0
-    failures: list[dict] = []          # {show, error} per show this run lost
+    failures: list[dict] = []          # {show, error, kind, at} per show this run lost
     # A RateLimited is a window that refused us; a PauseUntil is one the gate
     # stopped short of. Both pause the run, and the block below renders either.
     limited: RateLimited | PauseUntil | None = None
@@ -622,6 +623,7 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
                 break
             lock_path = ws.show_ws(entry.candidate.performance_id).lock
             ran = True
+            calls_before = llm_calls()
             try:
                 with file_lock(lock_path, blocking=False):
                     _process(entry)
@@ -635,7 +637,12 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
             if limited:
                 unprocessed.extend(pending[idx:])
                 break
-            if ran and reading_before is not None:
+            if ran and reading_before is not None and llm_calls() > calls_before:
+                # A show that made no LLM call (a download-only resume, an
+                # already-packaged show) spent nothing the meter can see, and
+                # folding its zero in would teach the gate a cheaper show than
+                # any that exists; it takes no after-show read either.
+                #
                 # One show boundary, measured from its own two readings: what
                 # the meter moved by while exactly this show ran. A deferred
                 # show ran nothing between them, and folding its zero in would

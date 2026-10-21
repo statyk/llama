@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from herder import HerderError, TaskFailed
+from herder.fake import FakeProvider
 from herder.limits import RateLimited
 
 import llama.cli as cli
@@ -67,22 +68,29 @@ def _clock(monkeypatch, *, sleep_budget: int = 4) -> dict:
 def _drive(tmp_path: Path, monkeypatch, process, pids, *,
            pace=None, config=None, winnow=None,
            search=None, choose=None, discover=None, auto=True,
-           criteria=None) -> tuple[RunWorkspace, list[str]]:
-    """Run `_execute` over `pids` with `process` standing in for process_show."""
+           criteria=None, llm=True) -> tuple[RunWorkspace, list[str]]:
+    """Run `_execute` over `pids` with `process` standing in for process_show.
+
+    `llm` says whether a show makes an LLM call (through the counted provider
+    it is handed): True for all, False for none, or a predicate on the pid."""
     config = config or Config(root=tmp_path)
     ws = RunWorkspace(tmp_path, "r1")
     entries = [_entry(p, i + 1) for i, p in enumerate(pids)]
     seen: list[str] = []
 
-    def _process_show(_ws, _ia, _ledger, entry, *args, **kwargs):
+    def _process_show(_ws, _ia, _ledger, entry, providers, *args, **kwargs):
         pid = entry.candidate.performance_id
         seen.append(pid)
+        if llm is True or (callable(llm) and llm(pid)):
+            providers["brief"][0].complete("x")
         return process(pid)
 
     # run_winnow/run_search are stubbed, but their argument lists are still
     # evaluated, so the provider map has to answer every key by name.
-    monkeypatch.setattr(cli, "make_providers",
-                        lambda config: collections.defaultdict(lambda: None))
+    monkeypatch.setattr(
+        cli, "make_providers",
+        lambda config: collections.defaultdict(
+            lambda: [FakeProvider(completes=["x"] * 50)]))
     monkeypatch.setattr(cli, "run_search", search or (lambda *a, **k: None))
     monkeypatch.setattr(cli, "run_winnow", winnow or (lambda *a, **k: entries))
     # `choose=` because this is set AFTER the caller's own monkeypatches and
@@ -1561,4 +1569,71 @@ def test_execute_records_kind_for_a_failed_show(tmp_path, monkeypatch):
     failure = iter_sessions(tmp_path)[0].failures[0]
     assert failure["show"] == "a"
     assert failure["kind"] == "download"
+    assert failure["error"].startswith("download of ")
     assert datetime.fromisoformat(failure["at"]).utcoffset() == timedelta(0)
+
+
+# --- honest pacing samples: a boundary needs an LLM call -------------------
+
+def _boundaries(tmp_path, monkeypatch, *, llm):
+    """Drive one show; return (boundaries recorded, meter reads taken)."""
+    _clock(monkeypatch)
+    recorded, reads = [], []
+    monkeypatch.setattr(cli.pacing_state, "record",
+                        lambda root, before, after: recorded.append((before, after))
+                        or pacing_state.PacingState())
+
+    def _meter(config, pace):
+        reads.append(1)
+        return _reading()
+    monkeypatch.setattr(cli, "_meter", _meter)
+    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/package", ["a"],
+           pace=pacing.pace_options(Config()), llm=llm)
+    return recorded, len(reads)
+
+
+def test_a_show_that_called_the_llm_records_a_boundary(tmp_path, monkeypatch):
+    recorded, reads = _boundaries(tmp_path, monkeypatch, llm=True)
+    assert len(recorded) == 1
+    assert reads >= 2                       # the after-show read happened
+
+
+def test_a_download_only_resume_records_no_boundary(tmp_path, monkeypatch):
+    # The stub returns a package path, as a resume that only re-downloaded does.
+    with_llm = _boundaries(tmp_path, monkeypatch, llm=True)[1]
+    recorded, reads = _boundaries(tmp_path, monkeypatch, llm=False)
+    assert recorded == []
+    assert reads == with_llm - 1            # no after-show meter read either
+    assert not (tmp_path / "pacing-state.json").exists()
+
+
+def test_an_already_packaged_show_records_no_boundary(tmp_path, monkeypatch):
+    # An already-packaged show returns its package untouched: no LLM call.
+    recorded, _ = _boundaries(tmp_path, monkeypatch, llm=lambda pid: False)
+    assert recorded == []
+    assert not (tmp_path / "pacing-state.json").exists()
+
+
+def test_count_llm_calls_wraps_defaultdict_and_ladders():
+    from llama.pipeline import count_llm_calls
+
+    class Boom:
+        def complete(self, prompt):
+            raise HerderError("boom")
+
+    src = collections.defaultdict(lambda: [FakeProvider(completes=["x"] * 5)])
+    src["single"] = FakeProvider(completes=["y"], researches=["r"])
+    src["none"] = None
+    src["boom"] = [Boom()]
+    wrapped, calls = count_llm_calls(src)
+    assert calls() == 0
+    assert wrapped["none"] is None
+    wrapped["single"].complete("p")
+    wrapped["single"].research("p")
+    assert calls() == 2
+    assert wrapped["lazy-missing-key"][0].complete("p") == "x"   # defaultdict
+    assert calls() == 3
+    with pytest.raises(HerderError):
+        wrapped["boom"][0].complete("p")
+    assert calls() == 4                                           # raising counts
+    assert isinstance(wrapped["boom"], list)
