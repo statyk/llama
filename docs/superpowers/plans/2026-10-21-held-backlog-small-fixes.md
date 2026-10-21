@@ -4,7 +4,7 @@
 
 **Goal:** Ship three small confirmed fixes from the held-backlog adjudication: a tied venue vote ships the selected recording's own string (B), every `fix`/`redo`/triage edit runs as one snapshot-and-restore unit under the show lock so a refused or failed edit leaves the show byte-identical (C), and `’`/`‘` match `'` at the matching layer (D).
 
-**Architecture:** B is a pure helper `venue_tie_break` in `stages/gather.py`, consulted in exactly three arms of the existing venue chain. C adds one module, `llama/show_unit.py` (a view of the show taken before any prompt, a context manager that takes the show lock, re-checks that view, snapshots every file outside `package/audio/` into `<show>/.txn/`, and restores on any exception). `cli._redo_show` splits into a lock-held `_redo_show_locked` plus a unit-wrapping `_redo_show`, and `fix`/triage run their edits and redo inside one unit. D adds `structure.fold_curly_apostrophes`, applied by `fuzzy_norm_title` and by vet_research's and brief's song matchers. `normalize_song` is not touched. The replay harness gains a `venue_changes.txt` report. Acceptance runs the harness on a base arm and a candidate arm.
+**Architecture:** B is a pure helper `venue_tie_break` in `stages/gather.py`, consulted in exactly three arms of the existing venue chain. C adds one module, `llama/show_unit.py` (a view of the show taken before any prompt, or under the lock for a redo, which shows nothing; a context manager that takes the show lock, re-checks that view, snapshots every file outside `package/audio/` into `<show>/.txn/`, and restores on any exception). `cli._redo_show` splits into a lock-held `_redo_show_locked` plus a unit-wrapping `_redo_show`, and `fix`/triage run their edits and redo inside one unit. D adds `structure.fold_curly_apostrophes`, applied by `fuzzy_norm_title` and by vet_research's and brief's song matchers. `normalize_song` is not touched. The replay harness gains a `venue_changes.txt` report. Acceptance runs the harness on a base arm and a candidate arm.
 
 **Tech Stack:** Python 3.11+, pydantic v2, typer (`CliRunner` in tests), `fcntl.flock`, pytest. All tests are offline (`herder.FakeProvider`, captured archive.org fixtures, `test_pipeline.FakeIA`).
 
@@ -18,7 +18,9 @@
 - Slice B adds and removes no flag, and `venue_source` stays `"item"` wherever B fires. `provenance.json`'s stored candidate is unchanged. The selected string is stripped (`_stripped`). B adds no new normalization and no operator note (plan's call: the spec names none).
 - Slice D folds only U+2019 and U+2018 to `'`, on both sides of every comparison it touches. No other character is folded.
 - Slice C fixed strings: refusal `"<slug>: changed by another command; run it again"`; removed show `"<slug>: the show was removed; nothing changed"`; no-`show.json` remedy suffix `"; rebuild it with: llama redo <slug> --from gather"`. The snapshot lives at `<show>/.txn/`.
+- Nothing inside a unit signals success by raising, and nothing inside it writes to stdout after the last show write (a BrokenPipeError there would roll back a finished redo).
 - Tests: run from the worktree root as `./.venv/bin/python -m pytest ...`. Never use a bare `pytest`, and never `.venv/bin/pytest` from a copy (CLAUDE.md). Each task ends with the full suite green: `./.venv/bin/python -m pytest -q`.
+- No test may reach a real redo, archive.org or `claude -p`; stub `_redo_show_locked` (or use the fake backend and FakeIA).
 - Every behavioural change gets a test that fails on today's code. A test that only pins existing behaviour is marked **(pin)** in this plan.
 - Never write to `~/.llama`. Harness outputs go under `~/.llama-harness/small-fixes/`. No task runs `reapply`, `deliver`, `rm`, `fix` or `redo` against the live library.
 - One commit per task. End each commit message with the attribution trailer the orchestrating session specifies.
@@ -26,10 +28,9 @@
 ## Review Focus
 
 1. **Files that are not stage artifacts, present before or created during a failed unit** (an `llm-failure.txt` left by an earlier run, a `*.tmp` from a killed atomic write). Pre-existing ones are restored byte-identical. New ones are removed. Test: Task 4 `test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed`.
-2. **A show with no `package/` directory whose failed unit created `package/` and `package/audio/`** (never packaged, or redone from `select`). Both directories are gone after the restore. A leftover empty `package/` would otherwise survive. Test: Task 4 `test_new_directories_created_by_a_failed_unit_are_removed`.
-3. **The first-ever edit: no `overrides.json` existed before the unit.** A failure removes the file the unit created rather than leaving it behind. Test: Task 6 `test_a_failed_first_edit_removes_the_overrides_file_it_created`.
-4. **A selected recording whose raw venue is whitespace-only, or differs from the vote only by surrounding whitespace.** Raw strings are counted as grouping counts them, so either case can tie. A whitespace-only string never ships. A padded one ships stripped. Tests: Task 2 `test_a_whitespace_only_selected_venue_never_ships` and `test_tie_ships_the_selected_recordings_string_without_jerrybase`.
-5. **A curly apostrophe at a title's edge or inside a segue chain on the tape side** (`He’s Gone > Truckin’`), with straight research or briefing mentions. Both sides are known. Tests: Task 1 `test_guard_folds_curly_apostrophes_inside_segue_chains` and `test_vet_folds_curly_apostrophes_in_a_tape_segue_chain`.
+2. **The first-ever edit: no `overrides.json` existed before the unit.** A failure removes the file the unit created rather than leaving it behind. Test: Task 6 `test_a_failed_first_edit_removes_the_overrides_file_it_created`.
+3. **A selected recording whose raw venue is whitespace-only, or differs from the vote only by surrounding whitespace.** Raw strings are counted as grouping counts them, so either case can tie. A whitespace-only string never ships. A padded one ships stripped. Tests: Task 2 `test_a_whitespace_only_selected_venue_never_ships` and `test_tie_ships_the_selected_recordings_string_without_jerrybase`.
+4. **A curly apostrophe at a title's edge or inside a segue chain on the tape side** (`He’s Gone > Truckin’`), with straight research or briefing mentions. Both sides are known. Tests: Task 1 `test_guard_folds_curly_apostrophes_inside_segue_chains` and `test_vet_folds_curly_apostrophes_in_a_tape_segue_chain`.
 
 ---
 
@@ -183,11 +184,11 @@ git commit -m "feat(match): fold curly apostrophes at the matching layer (slice 
 - Consumes: `grouping._make_candidate(pid, collection, recs)` (tests build candidates through it so the vote is grouping's), `structure.cities_compatible`, `venues_equivalent`, `_venues_equivalent_pre1b`, `gather._stripped`.
 - Produces: `gather.venue_tie_break(candidate: Candidate, sel: RecordingSummary | None) -> tuple[str, str | None] | None`. It returns `(venue, city)` to ship, or `None` when the tie-break does not apply. It returns a value only when all of these hold:
   1. `sel` is not None and `_stripped(sel.venue)` is non-empty.
-  2. With `counts = Counter(r.venue for r in candidate.recordings if r.venue)` (raw strings, exactly as `grouping._make_candidate` counts), `counts[sel.venue] == max(counts.values())`.
+  2. With `counts = Counter(r.venue for r in candidate.recordings if r.venue)` (raw strings, exactly as `grouping._make_candidate` counts), the selected string has as many votes as the vote string: `counts.get(sel.venue, 0) == counts.get(candidate.venue, 0)`, and that count is > 0.
   3. `sel.venue != candidate.venue`.
   4. `_stripped(sel.coverage)` is None, or `cities_compatible(sel_city, candidate.city)`.
 
-  The value returned is `(_stripped(sel.venue), sel_city or candidate.city)`. Plan's call: "as many votes as the winning string" is read as "equals the top count". That is identical under grouping's own construction and robust to a hand-edited candidate.
+  The value returned is `(_stripped(sel.venue), sel_city or candidate.city)`. A candidate whose vote string is not among its recordings' venues (hand-edited, as `test_1d_does_not_fire_without_a_selected_city_or_with_compatible_cities` builds one) never ties, so that test stays green unmodified.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -215,13 +216,13 @@ def test_tie_ships_the_selected_recordings_string_without_jerrybase(tmp_path):
     assert (res.show.venue, res.show.city, res.show.venue_source) == ("RFK Stadium", "Washington, DC", "item")
     assert _venue_flags(res.show) == []
 
-def test_a_majority_keeps_the_consensus(tmp_path):
+def test_a_majority_keeps_the_consensus(tmp_path):   # (pin)
     cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
                  ("a", "R.F.K. Stadium", "Washington, DC"), ("b", "R.F.K. Stadium", "Washington, DC"),
                  (IDENT, "RFK Stadium", "Washington, DC"))
     assert _gd(tmp_path, cand).show.venue == "R.F.K. Stadium"
 
-def test_a_tie_whose_selected_city_is_incompatible_ships_the_vote_unchanged(tmp_path):
+def test_a_tie_whose_selected_city_is_incompatible_ships_the_vote_unchanged(tmp_path):   # (pin)
     cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
                  ("gd73-other", "RFK Stadium", "Washington, DC"), (IDENT, "RFK Stadium ", "Baltimore, MD"))
     res = _gd(tmp_path, cand)
@@ -232,7 +233,7 @@ def test_a_tie_with_a_blank_selected_city_keeps_the_vote_city(tmp_path):
                  ("gd73-other", "R.F.K. Stadium", "Washington, DC"), (IDENT, "RFK Stadium", None))
     assert (lambda s: (s.venue, s.city))(_gd(tmp_path, cand).show) == ("RFK Stadium", "Washington, DC")
 
-def test_a_whitespace_only_selected_venue_never_ships(tmp_path):   # Review Focus 4
+def test_a_whitespace_only_selected_venue_never_ships(tmp_path):   # (pin) Review Focus 3
     cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
                  ("gd73-other", "RFK Stadium", "Washington, DC"), (IDENT, "   ", "Washington, DC"))
     assert _gd(tmp_path, cand).show.venue == "RFK Stadium"
@@ -245,7 +246,7 @@ def test_step_1_tie_ships_the_selected_string_jerrybase_corroborates(tmp_path, m
     res = _gather(tmp_path, DSO, cand, DSO_IDENT)
     assert res.show.venue == "Penns Landing" and _venue_flags(res.show) == []
 
-def test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict(tmp_path, monkeypatch):
+def test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict(tmp_path, monkeypatch):   # (pin)
     # Narrowing S: the vote passes step 1 on pre-1b equivalence alone; the selected string is
     # equivalent only under 1b, and Camden is not jerrybase's Philadelphia, so it fails step 1's full test.
     _penns_landing_event(monkeypatch)
@@ -254,7 +255,7 @@ def test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_
     res = _gather(tmp_path, DSO, cand, DSO_IDENT)
     assert res.show.venue == "Penn's Landing" and _venue_flags(res.show) == []
 
-def test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string(tmp_path):
+def test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string(tmp_path):   # (pin)
     cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
                  ("ds-other", "Barrymore Theatre", "Madison, WI"), (DSO_IDENT, "Orpheum Theater", "Madison, WI"))
     res = _gather(tmp_path, DSO, cand, DSO_IDENT)
@@ -272,22 +273,13 @@ def test_1a_tie_ships_the_selected_string_when_cities_agree(tmp_path, monkeypatc
     res = _gather(tmp_path, DSO, cand, DSO_IDENT)
     assert res.show.venue == "Penns Landing" and _venue_flags(res.show) == []
 
-def test_1a_tie_keeps_the_vote_when_the_cities_conflict(tmp_path, monkeypatch):
+def test_1a_tie_keeps_the_vote_when_the_cities_conflict(tmp_path, monkeypatch):   # (pin)
     _blank_venue_event(monkeypatch)
     cand = _cand("DarkStarOrchestra/2003-01-25", "DarkStarOrchestra", "2003-01-25",
                  ("ds-other", "Penn's Landing", "Camden, NJ"), (DSO_IDENT, "Penns Landing", "Camden, NJ"))
     res = _gather(tmp_path, DSO, cand, DSO_IDENT)
     assert res.show.venue == "Penn's Landing"
     assert "venue mismatch: archive 'Penn's Landing' vs jerrybase ''" in res.show.review_flags
-
-@pytest.mark.parametrize("tied,untied", [   # same show, the selected string set to the vote's
-    ((("gd73-other", "R.F.K. Stadium", "Washington"), (IDENT, "RFK Stadium", "Washington, DC")),
-     (("gd73-other", "R.F.K. Stadium", "Washington"), (IDENT, "R.F.K. Stadium", "Washington, DC"))),
-])
-def test_the_tie_break_never_changes_a_flag(tmp_path, tied, untied):
-    a = _gd(tmp_path / "a", _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10", *tied))
-    b = _gd(tmp_path / "b", _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10", *untied))
-    assert a.show.venue != b.show.venue and a.show.review_flags == b.show.review_flags
 
 def test_venue_tie_break_unit_cases():
     recs = [RecordingSummary(identifier="a", venue="X Hall", coverage="Austin, TX"),
@@ -296,14 +288,20 @@ def test_venue_tie_break_unit_cases():
     assert venue_tie_break(cand, recs[1]) == ("X Hall", "Austin, TX")   # raw strings counted apart
     assert venue_tie_break(cand, recs[0]) is None                        # the selected string IS the vote
     assert venue_tie_break(cand, None) is None
+    odd = cand.model_copy(update={"venue": "Elsewhere"})                 # a vote no recording carries
+    assert venue_tie_break(odd, recs[1]) is None
+    stray = RecordingSummary(identifier="z", venue="Y Hall", coverage=None)
+    assert venue_tie_break(odd, stray) is None                           # 0 == 0 is not a tie
 ```
 
-Must stay green unmodified (the arms that keep the vote and flag): `test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerrybase` (a hand-built 1-1 tie in which the selected Uptown tape agrees with jerrybase, and the signature arm must keep `'Rambler Room, Loyola College'`). The same goes for every other existing venue test. If an existing test changes outcome, stop and report it to the orchestrator: it is a spec question, not a test to edit.
+No separate "never changes a flag" test (plan's choice: dropped). With jerrybase off no venue flag can arise, so it was vacuous. Every arm test above asserts its venue flags (`_venue_flags(...) == []`, or the exact 1a flag), and Task 9's venue/city flag check covers the library.
+
+Must stay green unmodified (the arms that keep the vote and flag): `test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerrybase` (a hand-built 1-1 tie in which the selected Uptown tape agrees with jerrybase, and the signature arm must keep `'Rambler Room, Loyola College'`), and `test_1d_does_not_fire_without_a_selected_city_or_with_compatible_cities` (its hand-set vote `Barrymore Theatre` is on no recording, so it never ties). The same goes for every other existing venue test. If an existing test changes outcome, stop and report it to the orchestrator: it is a spec question, not a test to edit.
 
 - [ ] **Step 2: Run them and see them fail**
 
 Run: `./.venv/bin/python -m pytest packages/llama/tests/test_stage_gather.py -q -k "tie or majority or whitespace_only"`
-Expected: FAIL. `venue_tie_break` cannot be imported. Once that is stubbed out, the positive cases still ship the vote.
+Expected: FAIL. `venue_tie_break` cannot be imported, so the file does not collect. With a stub that returns None, the positive cases still ship the vote and the **(pin)** tests pass.
 
 - [ ] **Step 3: Implement `venue_tie_break` and wire it into `compute_gather`'s venue chain**
 
@@ -426,25 +424,27 @@ git commit -m "feat(harness): venue_changes.txt lists shipped venue/city changes
   - `capture_view(show_ws: ShowWorkspace) -> ShowView` (`provenance.json` exists; `overrides.json` and `show.json` bytes, or None)
   - `class ShowChanged(LlamaError)`
   - `take_snapshot(show_ws) -> None`, `restore_snapshot(show_ws) -> None`, `discard_snapshot(show_ws) -> None`
-  - `@contextmanager show_unit(show_ws: ShowWorkspace, expect: ShowView) -> Iterator[None]`
+  - `@contextmanager show_unit(show_ws: ShowWorkspace, expect: ShowView | None) -> Iterator[None]` (`None`: a caller that showed no content, i.e. redo; the view is read under the lock and the check always passes)
   - tests: `helpers.tree_bytes(d: Path) -> dict[str, bytes]`, which maps each file's posix path relative to `d` to its bytes, for every file under `d` except the top-level `.lock`
 
 Behaviour (spec C1 steps 2-5, C2):
 - `show_unit`:
   1. Takes `file_lock(show_ws.lock)` (blocking) for the whole context.
-  2. Computes `now = capture_view(show_ws)`. If `now != expect`, it raises `ShowChanged`: when `expect.provenance and not now.provenance`, the text is `f"{slug}: the show was removed; nothing changed"`; otherwise it is `f"{slug}: changed by another command; run it again"` (`slug = show_ws.dir.name`). Nothing is written.
+  2. Computes `now = capture_view(show_ws)`; a `None` `expect` becomes `now`. If `now != expect`, it raises `ShowChanged`: when `expect.provenance and not now.provenance`, the text is `f"{slug}: the show was removed; nothing changed"`; otherwise it is `f"{slug}: changed by another command; run it again"` (`slug = show_ws.dir.name`). Nothing is written.
   3. Calls `discard_snapshot` (a leftover is deleted, never restored), then `take_snapshot`. If `take_snapshot` raises, it discards and re-raises.
   4. Yields.
-  5. On any `BaseException` it calls `restore_snapshot`, then `discard_snapshot`, then re-raises. On normal exit it calls `discard_snapshot`.
-- `take_snapshot` copies every file under the show dir, except the top-level `.lock`, everything under `.txn/` and everything under `package/audio/`, to `.txn/files/<relpath>`. It writes `.txn/index.json` = `{"audio": sorted file names directly in package/audio/, "dirs": sorted relative posix paths of every directory under the show dir except .txn and anything below package/audio}`.
+  5. On any `BaseException` it calls `restore_snapshot`, then `discard_snapshot`, then re-raises. If `restore_snapshot` itself raises, that error propagates with the original exception chained (its `__context__`) and `.txn/` is left in place (spec C2's documented limitation: the next unit deletes it without restoring). On normal exit it calls `discard_snapshot`.
+- `take_snapshot` copies every file under the show dir, except the top-level `.lock`, everything under `.txn/` and everything under `package/audio/`, to `.txn/files/<relpath>`. It writes `.txn/index.json` = `{"audio": sorted file names directly in package/audio/}`.
 - `restore_snapshot`, in this order:
   - (a) Unlink every file outside `package/audio/`, `.lock` and `.txn/` that is not in the snapshot.
   - (b) `atomic_write_bytes` every snapshot file back to its path.
   - (c) Unlink every file in `package/audio/` not on the `audio` list.
-  - (d) Plan's call: `rmdir` every directory not in `dirs`, deepest first, when it is empty.
+- Directories are not restored. An empty directory a failed unit created (`package/`, `package/audio/`) stays; nothing checks for a directory's existence, and C2's guarantee covers files.
 - Existing audio is never copied or rewritten. A retag that a failed package stage made in place stays, as the spec's limitation documents.
 
-- [ ] **Step 1: Write the failing tests** (`test_show_unit.py`, `from helpers import tree_bytes`)
+- [ ] **Step 1: Write the failing tests** (`test_show_unit.py`)
+
+Imports: `import pytest`, `import llama.show_unit as show_unit_mod`, `from helpers import tree_bytes`, `from llama.errors import LlamaError`, `from llama.locks import Locked, file_lock`, `from llama.show_unit import ShowChanged, capture_view, show_unit`, `from llama.workspace import ShowWorkspace, atomic_write_bytes, write_artifact`.
 
 Fixture `_show(tmp_path)`: a `ShowWorkspace(tmp_path / "shows" / "s")` with `provenance.json`, `overrides.json`, `show.json`, `reviews.json`, `package/manifest.json` and `package/audio/a.mp3` (bytes `b"A"`), written with `write_artifact`/`atomic_write_bytes`.
 
@@ -477,10 +477,26 @@ def test_a_successful_unit_keeps_its_writes_and_removes_the_snapshot(tmp_path):
         write_artifact(ws.research, "kept")
     assert ws.research.read_text() == "kept" and not (ws.dir / ".txn").exists()
 
-def test_new_directories_created_by_a_failed_unit_are_removed(tmp_path):            # Review Focus 2
-    ws = ShowWorkspace(tmp_path / "shows" / "s"); write_artifact(ws.provenance, {"p": 1})
-    _fail_inside(ws, LlamaError("x"), lambda: atomic_write_bytes(ws.package_dir / "audio" / "n.mp3", b"N"))
-    assert not ws.package_dir.exists()
+def test_a_unit_with_no_expected_view_reads_the_show_under_the_lock(tmp_path):   # redo's form
+    ws = _show(tmp_path); write_artifact(ws.overrides, {"other": "command"})
+    with show_unit(ws, None):
+        write_artifact(ws.research, "kept")
+    assert ws.research.read_text() == "kept"
+
+def test_a_failed_restore_propagates_chained_and_the_next_unit_deletes_the_txn(tmp_path, monkeypatch):
+    ws = _show(tmp_path)
+    def broken(show_ws):
+        raise OSError("disk full")
+    monkeypatch.setattr(show_unit_mod, "restore_snapshot", broken)
+    with pytest.raises(OSError) as info:
+        with show_unit(ws, capture_view(ws)):
+            write_artifact(ws.research, "half")
+            raise LlamaError("boom")
+    assert isinstance(info.value.__context__, LlamaError) and (ws.dir / ".txn").exists()
+    monkeypatch.undo()
+    with show_unit(ws, capture_view(ws)):
+        pass
+    assert ws.research.read_text() == "half" and not (ws.dir / ".txn").exists()   # deleted, not restored
 
 def test_files_outside_the_known_artifacts_are_restored_and_new_ones_removed(tmp_path):   # Review Focus 1
     ws = _show(tmp_path); (ws.dir / "llm-failure.txt").write_text("old"); (ws.dir / "notes.json.1.tmp").write_text("t")
@@ -535,7 +551,7 @@ Expected: FAIL with `ModuleNotFoundError: llama.show_unit`.
 
 - [ ] **Step 3: Implement `show_unit.py` and `helpers.tree_bytes` as specified above**
 
-Give the module docstring the three documented limitations from spec C2: audio retagged in place, the `.lock`-only husk left by a racing `rm`, and SIGKILL leaving a stale `.txn/`, which the next unit deletes and `llama redo <show> --from gather` repairs.
+Give the module docstring the three documented limitations from spec C2: audio retagged in place, the `.lock`-only husk left by a racing `rm`, and SIGKILL (or a failed restore) leaving a stale `.txn/`, which the next unit deletes and `llama redo <show> --from gather` repairs. Add a fourth: the unit protects `entry.ws`, while `process_show` writes to `show_ws(prov.performance_id)`, so a show directory whose name is not `slugify(performance_id)` (renamed by hand) is outside the guarantee, as today.
 
 - [ ] **Step 4: Run the file's tests, then the full suite**
 
@@ -560,19 +576,18 @@ git commit -m "feat(show_unit): snapshot-and-restore unit under the show lock (s
 - Test: `packages/llama/tests/test_redo_cmd.py`, `test_pace_loop.py`, `test_reapply.py`
 
 **Interfaces:**
-- Consumes: Task 4's `ShowView`, `capture_view`, `show_unit`.
+- Consumes: Task 4's `show_unit` (with `expect=None`), `ShowChanged`.
 - Produces:
-  - `cli._redo_show_locked(config, ia, ledger, entry, from_stage: str, *, with_research: bool = False) -> Path | None`: today's `_redo_show` body without the `file_lock`. The caller must already be inside a `show_unit` for `entry.ws`. It reads `provenance.json` itself, under the caller's lock (not `entry.provenance`), and raises today's `LlamaError(f"no provenance.json in {entry.ws.dir} - reprocess it via its run first")` when it is absent. Only `entry.ws` and `entry.slug` are used. The positional shape matches today's test stubs `(config, ia, ledger, e, stage, **kw)`, so Tasks 6-7 retarget those stubs by attribute name alone.
-  - `cli._redo_show(config, ia, ledger, entry, from_stage: str, *, with_research: bool = False, expect: ShowView | None = None) -> Path | None`: `with show_unit(entry.ws, expect or capture_view(entry.ws)): return _redo_show_locked(...)`. `redo` (single), `_redo_batch` and every existing `_redo_show` stub keep working unchanged. Plan's call: batch redo captures each show's view when its turn comes, because its confirmation lists slugs, not content.
+  - `cli._redo_show_locked(config, ia, ledger, entry, from_stage: str, *, with_research: bool = False) -> Path | None`: today's `_redo_show` body without the `file_lock`. The caller must already be inside a `show_unit` for `entry.ws`. It reads `provenance.json` itself, under the caller's lock (not `entry.provenance`). When it is absent it raises `ShowChanged(f"{entry.slug}: the show was removed; nothing changed")` if `entry.provenance` was set when the entry was resolved (the show was removed while this command waited for the lock), else today's `LlamaError(f"no provenance.json in {entry.ws.dir} - reprocess it via its run first")` (plan's call: a show that never had provenance was not removed). Apart from that check it uses only `entry.ws` and `entry.slug`. The positional shape matches today's test stubs `(config, ia, ledger, e, stage, **kw)`, so Tasks 6-7 retarget those stubs by attribute name alone.
+  - `cli._redo_show(config, ia, ledger, entry, from_stage: str, *, with_research: bool = False) -> Path | None`: `with show_unit(entry.ws, None): return _redo_show_locked(...)`. A redo shows no content, so its view is read after the lock is acquired and the unit's check always passes: single and batch redo wait behind another writer instead of refusing, and a show removed meanwhile is refused by `_redo_show_locked`. `redo` (single), `_redo_batch` and every existing `_redo_show` stub keep working unchanged.
   - `helpers.packaged_gd73(tmp_path, monkeypatch) -> tuple[Path, ShowWorkspace]`: writes `config.toml` (`root = tmp_path`, `[jerrybase] enabled = false`), patches `cli.make_providers = test_pipeline.fake_providers` and `cli.IAClient = test_pipeline.FakeIA`, and runs `get "GD 1973" --auto --name r`. It returns `(cfg_path, ws)` for `shows/gratefuldead-1973-06-10`, which is packaged with `package/audio/*` (64-byte files). Import `test_pipeline` inside the function.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Add `helpers.packaged_gd73` (test infrastructure), then write the failing tests**
+
+`test_redo_cmd.py` imports (in addition to the file's own): `import shutil`, `import pytest`, `import llama.pipeline as pipeline`, `from helpers import packaged_gd73, tree_bytes`, `from herder import TaskFailed`, `from llama.config import load_config`, `from llama.errors import LlamaError`, `from llama.ia_client import IAError`, `from llama.ledger import Ledger`, `from llama.locks import Locked, file_lock`, `from llama.show_unit import ShowChanged`, `from llama.workspace import atomic_write_bytes`, `from test_catalog import build`. `test_pace_loop.py` adds `from llama.errors import LlamaError`. `test_reapply.py` adds `from llama.models import Overrides`.
 
 `test_redo_cmd.py`:
 ```python
-from helpers import packaged_gd73, tree_bytes
-import llama.pipeline as pipeline
-
 def test_failed_redo_from_brief_restores_every_file(tmp_path, monkeypatch):
     cfg, ws = packaged_gd73(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
     monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(TaskFailed("boom")))
@@ -602,12 +617,20 @@ def test_keyboard_interrupt_after_the_drop_restores_and_re_raises(tmp_path, monk
     cfg, ws = packaged_gd73(tmp_path, monkeypatch); before = tree_bytes(ws.dir)
     monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
     # through the function, not the runner: click turns KeyboardInterrupt into "Aborted!"
-    from llama.config import load_config; from llama.ledger import Ledger
     config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
     entry = cli._resolve_show(config, ledger, "gratefuldead")
     with pytest.raises(KeyboardInterrupt):
         cli._redo_show(config, cli.IAClient(), ledger, entry, "brief")
     assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
+
+def test_a_redo_of_a_show_removed_while_it_waited_refuses_with_the_removed_message(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch)
+    config = load_config(cfg); ledger = Ledger(config.root / "ledger.jsonl")
+    entry = cli._resolve_show(config, ledger, "gratefuldead")
+    shutil.rmtree(ws.dir)                           # `llama rm` ran while this redo waited for the lock
+    with pytest.raises(ShowChanged, match="gratefuldead-1973-06-10: the show was removed; nothing changed"):
+        cli._redo_show(config, cli.IAClient(), ledger, entry, "brief")
+    assert [p.name for p in ws.dir.iterdir()] == [".lock"]   # spec C2's documented husk
 
 def test_a_leftover_txn_is_deleted_not_restored_by_the_next_redo(tmp_path, monkeypatch):
     cfg, ws = packaged_gd73(tmp_path, monkeypatch)
@@ -616,7 +639,7 @@ def test_a_leftover_txn_is_deleted_not_restored_by_the_next_redo(tmp_path, monke
     assert r.exit_code == 0, r.output
     assert ws.show.read_bytes() != b"STALE" and not (ws.dir / ".txn").exists()
 
-def test_redo_runs_the_pipeline_inside_the_show_lock(tmp_path, monkeypatch):
+def test_redo_runs_the_pipeline_inside_the_show_lock(tmp_path, monkeypatch):   # (pin)
     cfg, ws = packaged_gd73(tmp_path, monkeypatch); seen = []
     def probe(*a, **k):
         try:
@@ -630,7 +653,6 @@ def test_redo_runs_the_pipeline_inside_the_show_lock(tmp_path, monkeypatch):
     assert seen == ["held"]
 
 def test_redo_batch_restores_a_failed_show_and_continues(tmp_path, monkeypatch):
-    from test_catalog import build
     cfg = tmp_path / "config.toml"; cfg.write_text(f'root = "{tmp_path}"\n')
     a = build(tmp_path, "aready", stages={"select", "gather", "research", "vet", "package"})
     build(tmp_path, "bready", stages={"select", "gather", "research", "vet", "package"})
@@ -673,12 +695,13 @@ def test_reapply_on_refused_overrides_raises_and_writes_nothing(tmp_path, monkey
 
 - [ ] **Step 2: Run them and see them fail**
 
-Run: `./.venv/bin/python -m pytest packages/llama/tests/test_redo_cmd.py packages/llama/tests/test_pace_loop.py packages/llama/tests/test_reapply.py -q -k "restores or leftover or inside_the_show_lock or refusing_its_overrides or refused_overrides"`
-Expected: the restore, leftover and batch tests FAIL (files are left dropped, and `_redo_show_locked` does not exist). The run test FAILs because a `LlamaError` aborts `_execute`. The reapply pin PASSes.
+Run: `./.venv/bin/python -m pytest packages/llama/tests/test_redo_cmd.py packages/llama/tests/test_pace_loop.py packages/llama/tests/test_reapply.py -q -k "restores or leftover or removed_while or inside_the_show_lock or refusing_its_overrides or refused_overrides"`
+Expected: the restore, leftover, removed-show and batch tests FAIL (files are left dropped, `_redo_show_locked` does not exist, and today's redo rebuilds a removed show from the provenance it read before the lock). The run test FAILs because a `LlamaError` aborts `_execute`. The two **(pin)** tests (the show-lock test and the reapply test) PASS.
 
 - [ ] **Step 3: Implement**
 
 - Split `_redo_show` as specified in Interfaces. `process_show` is unchanged and lock-free.
+- Limitation, not mechanism: the unit protects `entry.ws`, while `process_show` writes to `show_ws(prov.performance_id)`. A show directory whose name is not `slugify(performance_id)` (renamed by hand) is outside the guarantee, as today.
 - In `_execute._process`, change `except (TaskFailed, HerderError, IAError) as exc:` to `except (TaskFailed, HerderError, LlamaError) as exc:`. Keep the `RateLimited` arm above it. `classify_failure` already maps `IAError`→`archive`/`download`, and any other `LlamaError` falls through to `other`.
 - In `CLAUDE.md`'s command list, after `llama redo <name> --from <stage>`, add: "(one unit: see `llama fix` below)". In the "Failure records" gotcha, add: "a per-show `LlamaError` (e.g. gather refusing the show's overrides) is a per-show failure of kind `other`, not a run abort."
 
@@ -701,7 +724,7 @@ git commit -m "feat(redo): every redo is a restoring unit; a refused show no lon
 **Files:**
 - Modify: `packages/llama/src/llama/cli.py` (`fix`, `_untitled_resolution`)
 - Modify: `packages/llama/tests/test_fix.py` (retarget `_stub_redo` and the two inline `monkeypatch.setattr(cli, "_redo_show", ...)` calls to `_redo_show_locked`, plus the new tests)
-- Modify: `packages/llama/tests/test_triage.py` (`_stub_redo` patches both names; see Step 3)
+- Modify: `packages/llama/tests/test_triage.py` (`_stub_redo` retargeted to `_redo_show_locked`; see Step 3)
 - Modify: `CLAUDE.md` (the `llama fix` entry in Commands)
 - Test: `packages/llama/tests/test_fix.py`
 
@@ -718,12 +741,13 @@ New order inside `fix`:
    - `nothing to fix`.
    - The C4 gate. When `show.json` is absent, refuse `--narration`, `--overrule` and `--include` (and `--untitled`/`--suggest-titles` in their branches) with `f"no show.json in {sws.dir} (state: {entry.state}); rebuild it with: llama redo {entry.slug} --from gather"`, exit 1. `--set-*`/`--clear-*` and `--exclude`/`--unexclude` pass. A track-number `--exclude` keeps `_resolve_exclude_tokens`' own message (plan's call: it already names a remedy).
    - Plan's call: refusals that write nothing may stay before the lock, because the unit's view check re-verifies the state they judged.
-4. `with show_unit(sws, view):` everything that writes, in today's order and with today's echo text: token resolution and the `--exclude`/`--include` clash check (still `typer.Exit(1)` with today's text, which now also restores), `_edit_overrides`, `_clear_hold`, then `--no-run` prints `staged; next: ...`. Otherwise `_redo_show_locked(config, ia, ledger, entry, stage)` and `packaged:`/`still held:`.
-5. A failure propagates. `main_cli` prints `error: <msg>` and exits 1. Under `CliRunner`, that shows as `r.exit_code == 1` with `r.exception` set.
+4. `with show_unit(sws, view):` everything that writes, in today's order: token resolution and the `--exclude`/`--include` clash check (still `typer.Exit(1)` with today's text, which now also restores), `_split_include_targets` only when `inc` is non-empty (it reads `show.json` unconditionally, `cli.py:1467-1470`, and the no-`show.json` `--exclude <file>` test depends on skipping it), `_edit_overrides`, `_clear_hold`, then, unless `--no-run`, `_redo_show_locked(config, ia, ledger, entry, stage)`. The edit lines (today's echo text) are collected inside the unit, not printed there (plan's call: with `--no-run` they would otherwise follow the last show write).
+5. After the block exits: the collected edit lines, then `staged; next: ...` (`--no-run`) or `packaged:`/`still held:`.
+6. A failure propagates. `main_cli` prints `error: <msg>` and exits 1. Under `CliRunner`, that shows as `r.exit_code == 1` with `r.exception` set.
 
 - [ ] **Step 1: Retarget the existing stubs, then write the failing tests**
 
-Change `_stub_redo` and the inline stubs (around the `test_apply_prints_still_held_when_redo_returns_none` and `test_untitled_overrules_remaining_flags_then_continues_from_brief` tests) to patch `"_redo_show_locked"`. Until Step 3 these tests run the real redo, because `fix` still calls `_redo_show`, so they fail until then. That is expected.
+Change `_stub_redo` and the inline stubs (around the `test_apply_prints_still_held_when_redo_returns_none` and `test_untitled_overrules_remaining_flags_then_continues_from_brief` tests) to patch `"_redo_show_locked"`. They stay green: after Task 5, `fix` still calls `_redo_show`, which calls the module-global `_redo_show_locked`, so the retargeted stubs are reached.
 
 New tests (`from helpers import packaged_gd73, tree_bytes`; `from test_cli import _staged_ymsb_show`):
 ```python
@@ -786,7 +810,7 @@ def test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits(tmp
     assert r.exit_code == 1 and "encore_after" in str(r.exception)
     assert tree_bytes(ws.dir) == before            # no narration, no cleared hold, no breaks
 
-def test_a_failed_first_edit_removes_the_overrides_file_it_created(tmp_path, monkeypatch):   # Review Focus 3
+def test_a_failed_first_edit_removes_the_overrides_file_it_created(tmp_path, monkeypatch):   # Review Focus 2
     cfg = _cfg(tmp_path); ws = _held_show(tmp_path); assert not ws.overrides.exists()
     monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
     assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 1
@@ -846,13 +870,13 @@ def test_fix_on_a_show_with_no_show_json_refuses_the_rest_and_names_the_remedy(t
 - [ ] **Step 2: Run them and see them fail**
 
 Run: `./.venv/bin/python -m pytest packages/llama/tests/test_fix.py -q`
-Expected: the new restore, lock, changed-view and no-`show.json` tests FAIL, because today the overrides are written and the files dropped with no restore, and every flag is refused without `show.json`. The pin passes.
+Expected: the new restore, lock, changed-view and no-`show.json` tests FAIL, because today the overrides are written and the files dropped with no restore, and every flag is refused without `show.json`. The pin and the retargeted existing tests pass.
 
 - [ ] **Step 3: Implement `fix` and `_untitled_resolution` in the order specified above**
 
-Triage's `[u]` branch also calls `_untitled_resolution`. In this task, pass it `capture_view(entry.ws)` so the suite stays green; Task 7 replaces that with the show session's view. Triage's other branches still call `_redo_show`, which now wraps its own unit, so they keep working until Task 7. Because `[u]` now reaches `_redo_show_locked`, make `test_triage.py`'s `_stub_redo` patch **both** `_redo_show` and `_redo_show_locked` with the same recording fake, sharing one `calls` list. That keeps the three `[u]` tests (`test_triage_offers_u_only_when_every_track_is_unresolved`, `test_triage_u_declined_writes_nothing_and_returns_to_the_prompt`, `test_triage_u_confirmed_but_still_held_says_still_held`) on a stub. Add `packages/llama/tests/test_triage.py` to this task's `git add`.
+Triage's `[u]` branch also calls `_untitled_resolution`. In this task, pass it `capture_view(entry.ws)` so the suite stays green; Task 7 replaces that with the show session's view. Triage's other branches still call `_redo_show`, which now wraps its own unit, so they keep working until Task 7. Because `[u]` now calls `_redo_show_locked` directly, retarget `test_triage.py`'s `_stub_redo` to patch `_redo_show_locked` only: the other branches reach it through `_redo_show`, so one patch covers every branch, including the three `[u]` tests (`test_triage_offers_u_only_when_every_track_is_unresolved`, `test_triage_u_declined_writes_nothing_and_returns_to_the_prompt`, `test_triage_u_confirmed_but_still_held_says_still_held`). Add `packages/llama/tests/test_triage.py` to this task's `git add`.
 
-Then replace the `llama fix <name> <edit-flags>` description in `CLAUDE.md`'s Commands with this addition (keep the existing text): "**One unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) ask any prompts first with no lock held. They then take the show lock, refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed (or `the show was removed`), snapshot every file outside `package/audio/` into `<show>/.txn/`, and do the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field."
+Then replace the `llama fix <name> <edit-flags>` description in `CLAUDE.md`'s Commands with this addition (keep the existing text): "**One unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) each run as one unit under the show lock. `fix` and triage ask any prompts first with no lock held, then take the lock and refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed since (or `the show was removed`). `redo` shows nothing, so it reads the show once it holds the lock: it waits behind another writer rather than refusing, and refuses only a show removed meanwhile. Each unit snapshots every file outside `package/audio/` into `<show>/.txn/`, then does the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field."
 
 - [ ] **Step 4: Run the file's tests, then the full suite**
 
@@ -872,23 +896,24 @@ git commit -m "feat(fix): one restoring unit per invocation; edits on a show wit
 
 **Files:**
 - Modify: `packages/llama/src/llama/cli.py` (`_interactive_resolve`, `_metadata_editor`)
-- Modify: `packages/llama/tests/test_triage.py` (`_stub_redo` drops its Task 6 `_redo_show` patch and keeps only `_redo_show_locked`, plus the new tests)
+- Modify: `packages/llama/tests/test_triage.py` (the new tests)
 - Modify: `CLAUDE.md` (one sentence on `llama triage` in Commands)
 - Test: `packages/llama/tests/test_triage.py`
 
 **Interfaces:**
-- Consumes: Task 4's `capture_view`, `show_unit`. Task 5's `_redo_show_locked`. Task 6's `_untitled_resolution(config, ia, ledger, entry, show, view)`.
+- Consumes: Task 4's `capture_view`, `show_unit`. Task 5's `_redo_show_locked`. `_resolve_show`. Task 6's `_untitled_resolution(config, ia, ledger, entry, show, view)`.
 - Produces: `cli._metadata_editor(entry) -> dict | None`. It returns the `_edit_overrides` keyword arguments (everything except `show_ws`) without writing anything, or None when nothing changed or the input was invalid (today's echo texts unchanged). Plan's call: the editor stops writing, so the write moves into the unit.
 
 Behaviour:
-- `view = capture_view(entry.ws)` is taken once per show, before `_print_show_entry`, and kept for the whole show session.
+- At the start of each show's turn, before `_print_show_entry`, re-resolve the entry with `entry = _resolve_show(config, ledger, str(entry.ws.dir))` (the path form is an exact match while the directory exists, and a removed show matches nothing, so it never lands on a show whose slug merely contains this one) and take `view = capture_view(entry.ws)` from it. The held check and the `[t]`/`[i]`/`[u]` offers read the fresh entry. The view is kept for the whole show session, with a one-line comment: every successful edit leaves the show, so the session-long view stays valid.
+- Plan's call: if the re-resolve raises `LlamaError` (the show was removed since the listing), print `f"error: {exc}"` to stderr and move on to the next show.
 - Each branch runs its prompts with no lock held (`_pick_excludes`, `_pick_includes` + `_split_include_targets`, `_metadata_editor`, `_propose_and_confirm_titles`, `[u]`'s confirmation inside `_untitled_resolution`). It then builds the edit as a no-argument callable plus the stage, for example `lambda: _edit_overrides(entry.ws, add_exclude=files)` with `"gather"`, or `[o]` as `lambda: _clear_hold(entry.ws)` with `"package"`.
-- The common tail is `with show_unit(entry.ws, view): edit(); echo-if-any; pkg = _redo_show_locked(config, ia, ledger, entry, stage)`, followed by today's `packaged:`/`still held:` and `return`.
+- The common tail is `with show_unit(entry.ws, view): edit(); echo-if-any; pkg = _redo_show_locked(config, ia, ledger, entry, stage)`, then, after the block exits, today's `packaged:`/`still held:` and `return`. The echo inside the block comes before the redo's writes, so it is never after the last show write.
 - `except (LlamaError, HerderError) as exc:` prints `f"error: {exc}"` to stderr and `continue`s to the same show's prompt. `ShowChanged`, `IAError`, `TaskFailed` and `RateLimited` all fall in these two classes.
 - `KeyboardInterrupt` and any other exception propagate after the restore, ending the walkthrough. `[u]` is wrapped in the same `try`.
 - Plan's call: the view is not re-captured after a failure. A show that another command changed keeps refusing until the operator skips it and re-runs triage, so nothing is applied against content the operator was not shown.
 
-- [ ] **Step 1: Drop `_stub_redo`'s `_redo_show` patch (only `_redo_show_locked` remains), then write the failing tests**
+- [ ] **Step 1: Write the failing tests**
 
 ```python
 def test_a_failed_triage_edit_prints_the_error_restores_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
@@ -908,7 +933,7 @@ def test_a_triage_edit_whose_show_changed_meanwhile_refuses_and_changes_nothing(
     assert "changed by another command; run it again" in r.output
     assert read_overrides(ws).exclude == ["other.mp3"] and calls == []
 
-def test_triage_prompts_are_answered_without_the_show_lock(tmp_path, tty, monkeypatch):
+def test_triage_prompts_are_answered_without_the_show_lock(tmp_path, tty, monkeypatch):   # (pin)
     cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch); seen = []
     def picker(show):
         with file_lock(ws.lock, blocking=False):
@@ -917,13 +942,44 @@ def test_triage_prompts_are_answered_without_the_show_lock(tmp_path, tty, monkey
     monkeypatch.setattr(cli, "_pick_excludes", picker)
     assert cli_invoke(cfg, "triage", input="e\n").exit_code == 0 and seen == ["free"]
 
+def _second_held_show(tmp_path):
+    return build(tmp_path, "gratefuldead-1974-01-01", stages={"select", "gather"}, needs_review=True,
+                 pid="GratefulDead/1974-01-01")
+
 def test_ctrl_c_in_a_triage_edit_restores_and_ends_the_walkthrough(tmp_path, tty, monkeypatch):
-    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _held_show(tmp_path, slug="gratefuldead-1974-01-01")
-    before = tree_bytes(ws.dir)
+    cfg = _cfg(tmp_path); shows = [_held_show(tmp_path), _second_held_show(tmp_path)]
+    before = [tree_bytes(ws.dir) for ws in shows]
     monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
     r = cli_invoke(cfg, "triage", input="v\ns\n")
     assert r.exit_code != 0 and r.output.count(PROMPT) == 1      # the second show is never offered
-    assert tree_bytes(ws.dir) == before
+    assert [tree_bytes(ws.dir) for ws in shows] == before
+
+def test_a_successful_triage_edit_moves_on_to_the_next_show(tmp_path, tty, monkeypatch):   # (pin)
+    cfg = _cfg(tmp_path); _held_show(tmp_path); _second_held_show(tmp_path); calls = _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="o\ns\n")
+    assert r.exit_code == 0, r.output
+    assert r.output.count(PROMPT) == 2 and calls == ["package"]
+
+def test_a_retry_after_a_failed_edit_applies_against_the_restored_show(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); _held_show(tmp_path); outcomes = iter([LlamaError("boom"), Path("/pkg")])
+    def fake(config, ia, ledger, e, stage, **kw):
+        out = next(outcomes)
+        if isinstance(out, Exception):
+            raise out
+        return out
+    monkeypatch.setattr(cli, "_redo_show_locked", fake)
+    r = cli_invoke(cfg, "triage", input="o\no\n")
+    assert "error: boom" in r.output and "packaged: /pkg" in r.output
+    assert "changed by another command" not in r.output
+
+def test_a_show_removed_before_its_turn_is_reported_and_skipped(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); _held_show(tmp_path); second = _second_held_show(tmp_path)
+    def fake(config, ia, ledger, e, stage, **kw):
+        shutil.rmtree(second.dir); return Path("/pkg")   # another command removes the next show
+    monkeypatch.setattr(cli, "_redo_show_locked", fake)
+    r = cli_invoke(cfg, "triage", input="o\n")
+    assert r.exit_code == 0, r.output
+    assert "error: " in r.output and r.output.count(PROMPT) == 1
 
 def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
@@ -931,12 +987,12 @@ def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatc
     r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\ns\n")
     assert "error: refused" in r.output and not ws.overrides.exists()
 ```
-(Imports: `from helpers import tree_bytes`, `from llama.errors import LlamaError`, `from llama.locks import file_lock`, `from llama.models import Overrides`. Check `_held_show`'s second slug against `build`'s `pid` default. If two shows share a pid, pass a distinct `pid=` the way `_packaged_show` does.)
+(Imports: `import shutil`, `from helpers import tree_bytes`, `from llama.errors import LlamaError`, `from llama.locks import file_lock`, `from llama.models import Overrides`. `build` and `Path` are already imported. The second show gets its own `pid=` because `build`'s default pid is the first show's.)
 
 - [ ] **Step 2: Run them and see them fail**
 
 Run: `./.venv/bin/python -m pytest packages/llama/tests/test_triage.py -q`
-Expected: the new tests FAIL. The error escapes triage instead of returning to the prompt, nothing restores, and `_metadata_editor` writes before the redo.
+Expected: the new tests FAIL, except the two **(pin)** tests, which pass. The error escapes triage instead of returning to the prompt, nothing restores, and `_metadata_editor` writes before the redo.
 
 - [ ] **Step 3: Implement `_interactive_resolve`/`_metadata_editor` as specified above**
 
@@ -970,7 +1026,7 @@ The recipe for each mutant (spec "Measurement and acceptance"; CLAUDE.md):
 **Mutants (predicted red test in brackets):**
 
 Slice B (`gather.venue_tie_break` and the chain), test file `test_stage_gather.py`:
-- B1 count test `== max(...)` replaced with `>= 1` [`test_a_majority_keeps_the_consensus`]
+- B1 count test `counts.get(sel.venue, 0) == counts.get(candidate.venue, 0)` replaced with `counts.get(sel.venue, 0) >= 1` [`test_a_majority_keeps_the_consensus`]
 - B2 city gate removed [`test_a_tie_whose_selected_city_is_incompatible_ships_the_vote_unchanged`]
 - B3 returned city `sel_city or candidate.city` replaced with `sel_city` [`test_a_tie_with_a_blank_selected_city_keeps_the_vote_city`]
 - B4 returns the raw `sel.venue` instead of the stripped one [`test_tie_ships_the_selected_recordings_string_without_jerrybase`]
@@ -981,12 +1037,13 @@ Slice B (`gather.venue_tie_break` and the chain), test file `test_stage_gather.p
 - B9 step 1 applies `tie` without testing it against jerrybase [`test_step_1_tie_keeps_the_vote_when_jerrybase_does_not_corroborate_the_selected_string`]
 - B10 step 1's test on the selected string drops the city half [`test_step_1_tie_keeps_the_vote_when_the_selected_string_is_newly_equivalent_and_cities_conflict`]
 - B11 `tie` applied in the `two_venue_signature` arm [`test_the_signature_blocks_the_swap_when_the_selected_tape_agrees_with_jerrybase`]
+- B12 the `> 0` half of the count test dropped [`test_venue_tie_break_unit_cases`]
 
 Slice C (`show_unit.py`; CLI view capture), test files `test_show_unit.py`, `test_fix.py`, `test_triage.py`, `test_redo_cmd.py`:
 - C1 restore step (a) removed (new files kept) [`test_show_unit.py::test_a_failed_unit_restores_every_file_byte_identical`]
 - C2 restore step (b) removed (no write-back) [same]
 - C3 restore step (c) removed (new audio kept) [`test_redo_cmd.py::test_package_failure_on_purged_audio_removes_new_audio_and_restores_manifest`]
-- C4 restore's directory cleanup removed [`test_new_directories_created_by_a_failed_unit_are_removed`]
+- C4 removed (the directory cleanup it targeted is not built)
 - C5 `except BaseException` replaced with `except Exception` [`test_keyboard_interrupt_restores_and_re_raises`]
 - C6 the `raise` after restore removed [`test_a_failed_unit_restores_every_file_byte_identical` (`pytest.raises`)]
 - C7 `discard_snapshot` after restore removed [`test_a_failed_unit_restores_every_file_byte_identical` (`.txn` absent)]
@@ -1042,7 +1099,7 @@ Expected: `exit 0`. On `exit 2` (the library changed between arms), re-run both 
 
 - [ ] **Step 4: Check against the spec's acceptance and record the numbers**
 
-- B: `venue_changes.txt`. Record the count of shows. The order of magnitude is the spec's ~270 ties, fewer after the city gate and step 1's test. **`0 with a flag change` is required.** Any flag change is a defect: stop and report it.
+- B: `venue_changes.txt`. Record the count of shows. The order of magnitude is the spec's ~270 ties, fewer after the city gate and step 1's test. For every row marked `flags CHANGED`, read the flags added and removed. A venue or city flag is one starting `venue mismatch:` (emitted by 1a, the `two_venue_signature` arm and the chain's final `else`) or `recordings of this date disagree on city` (1d, `gather._CITY_CONFLICT_FLAG`). **Any added or removed venue or city flag is a defect: stop and report it.** Any other flag change on a venue-changed row is attributed (to slice D, or to none) and listed in the report, not a stop.
 - D: `flags.txt` shows `added 0` for every family. `packaged_exposure.txt`'s "newly held" section is `(none)`. Record any title changes from D in `packaged_exposure.txt`/`title_sources.txt`. Few or none are expected.
 - C: no harness effect is expected.
 - `predicted_list.json`: record its row count. Near zero is expected, because B and D clear no holds by design.
@@ -1052,6 +1109,7 @@ Expected: `exit 0`. On `exit 2` (the library changed between arms), re-run both 
 Report the paths (`$H/base.json`, `$H/cand.json`, `$H/cmp/`), the text of `summary.txt`, and the numbers from Step 4. Then list what the owner should hand-check:
 - every `venue_changes.txt` row whose two venue strings are not plain spelling variants of one place;
 - every row marked `DELIVERED` (informational: delivered shows keep their spelling until something re-gathers them);
+- every non-venue flag change on a venue-changed row, with its attribution;
 - every D-driven title change.
 
 State plainly that nothing was applied, and that the base worktree at `$B` is left for the owner to remove. Also state that **`predicted_list.json` is tied to this branch's sha**: `llama reapply --from-list` refuses a list whose `sha` differs from the installed code, so after merging the owner re-runs both arms from the merged tree before applying (spec "Apply" is the owner's call).

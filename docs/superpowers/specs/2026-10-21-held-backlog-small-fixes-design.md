@@ -282,7 +282,8 @@ branch) over all shows, each with its own tree's interpreter, then `compare`.
 - **B.** The harness gains a venue-change report (its own plan task:
   `replay_holds.OUTPUT_FILES` has none today) listing every show whose
   shipped venue or city changes, with both strings and whether the show is
-  delivered. **Zero flag changes are expected**; any flag change is a defect.
+  delivered. **No venue or city flag changes are expected**; any is a
+  defect. Other flag changes on those rows come from slice D and are listed.
 - **C.** No harness effect. Unit and CLI tests per C5; the mutation recipe
   applies to C2's restore steps and C1's re-resolve check (each removed in
   turn turns a named test red).
