@@ -5,6 +5,7 @@ from herder import run_json_task
 from llama.models import Briefing, Show, VettingResult
 from llama.prompts import load_prompt
 from llama.songs import normalize_song
+from llama.structure import fold_curly_apostrophes
 from llama.util import reviews_digest
 from llama.workspace import (ShowWorkspace, read_model, read_overrides,
                              should_run, write_artifact)
@@ -109,6 +110,10 @@ def normalize_briefing(b: Briefing) -> Briefing:
                         update={"per_set": {k: list(v) for k, v in b.per_set.items() if v}})
 
 
+def _song_norm(s: str) -> str:
+    return normalize_song(fold_curly_apostrophes(s))
+
+
 def song_components(title: str) -> list[str]:
     """3b: a title's segue components, normalised. Strips a leading structure
     prefix (`E:`, `E1:`, `Encore:`), trailing segue/footnote markers and one
@@ -118,7 +123,7 @@ def song_components(title: str) -> list[str]:
     t = _BRIEF_TRAILING.sub("", t)
     t = _BRIEF_PAREN.sub("", t)
     t = _BRIEF_TRAILING.sub("", t)
-    return [c for c in (normalize_song(p) for p in _BRIEF_SEGUE.split(t)) if c]
+    return [c for c in (_song_norm(p) for p in _BRIEF_SEGUE.split(t)) if c]
 
 
 def song_comma_components(title: str) -> list[str]:
@@ -155,7 +160,7 @@ def known_song(song: str, exact: set[str], components: set[str]) -> bool:
     """3b: today's exact test first, so the matcher is a superset of today's;
     else known when the song has components and EVERY one is a known
     component. No fuzzy, loose or subphrase matching."""
-    if normalize_song(song) in exact:
+    if _song_norm(song) in exact:
         return True
     cs = song_components(song)
     return bool(cs) and all(c in components for c in cs)
@@ -223,7 +228,7 @@ def briefing_guard(briefing: Briefing, show: Show) -> list[str]:
     """A briefing that misnames songs or sets — or breaks the vague-narration
     contract — must never ship; cross-check against show.json."""
     problems: list[str] = []
-    exact = {normalize_song(t.title) for t in show.tracks}
+    exact = {_song_norm(t.title) for t in show.tracks}
     components = (exact | {c for t in show.tracks for c in song_components(t.title)}
                   | {" ".join(song_components(t.title)) for t in show.tracks}
                   | {c for t in show.tracks for c in song_comma_components(t.title)})

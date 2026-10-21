@@ -59,6 +59,11 @@ _SEGUE_SEP = re.compile(r"\s*(?:->|>|→)\s*")
 _TRAILING_PAREN = re.compile(r"\s*\([^)]*\)\s*$")
 
 
+def fold_curly_apostrophes(text: str) -> str:
+    """Replace U+2019 and U+2018 with "'" and change nothing else."""
+    return text.replace("\u2019", "'").replace("\u2018", "'")
+
+
 def fuzzy_norm_title(title: str, aliases: dict[str, str] | None = None) -> str:
     """`norm_title` with "&" folded to "and" first, then an optional
     caller-supplied shorthand table applied to the result.
@@ -67,11 +72,13 @@ def fuzzy_norm_title(title: str, aliases: dict[str, str] | None = None) -> str:
     "Me & My Uncle" and "Me and My Uncle" normalize differently. Folding
     beforehand collapses them. Deliberately kept out of `normalize_song`
     itself: folding there would also change grouping, vet_research, brief and
-    setlist.fm artist matching, none of which was measured.
+    setlist.fm artist matching, none of which was measured. Curly apostrophes
+    are folded to "'" first, which lives here for the same reason the "&"
+    fold does.
 
     `aliases` is `songs.GD_SHORTHAND` for Garcia-universe artists and empty for
     everyone else — see that table's comment for why it cannot be global."""
-    norm = norm_title(title.replace("&", " and "))
+    norm = norm_title(fold_curly_apostrophes(title).replace("&", " and "))
     return (aliases or {}).get(norm, norm)
 
 
