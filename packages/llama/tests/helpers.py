@@ -38,3 +38,11 @@ def build_ready(root: Path, slug: str = "gratefuldead-1973-06-10", *,
     if not drop_audio:
         write_artifact(ws.package_dir / "audio" / "01 - Morning Dew.mp3", "x")
     return ws
+
+
+def tree_bytes(d: Path) -> dict[str, bytes]:
+    """Every file under `d` (posix path relative to `d`) -> its bytes, except
+    the top-level `.lock`."""
+    return {p.relative_to(d).as_posix(): p.read_bytes()
+            for p in sorted(d.rglob("*"))
+            if p.is_file() and p.relative_to(d).as_posix() != ".lock"}
