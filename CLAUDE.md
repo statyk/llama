@@ -62,7 +62,8 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
   `--suggest-titles` is the same title-proposal resolution, one
   invocation, one confirmation, refuses to combine with
-  `--exclude`/`--unexclude`/`--include`), `llama redo <name> --from <stage>` (one unit: see `llama fix` below),
+  `--exclude`/`--unexclude`/`--include`). **One unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) each run as one unit under the show lock. `fix` and triage ask any prompts first with no lock held, then take the lock and refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed since (or `the show was removed`). `redo` shows nothing, so it reads the show once it holds the lock: it waits behind another writer rather than refusing, and refuses only a show removed meanwhile. Each unit snapshots every file outside `package/audio/` into `<show>/.txn/`, then does the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field.
+  `llama redo <name> --from <stage>` (one unit, above),
   `llama deliver <name>` (refuses to overwrite an emcee-voiced destination
   unless `--replace-voiced`, which replaces the destination wholesale and
   discards its DJ script and audio; a batch confirmation marks or counts the
@@ -181,7 +182,6 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   delivered all-`Track NN` tape (`eotoband-2007-10-09`): `llama redo <show>
   --from gather` (2b demotes the tags), `llama fix <show> --untitled`, `llama
   deliver <show>`.
-- **`llama fix` is one unit (2026-10-21):** `fix`, triage's edits and `redo` (single and batch, per show) each run as one unit under the show lock. `fix` and triage ask any prompts first with no lock held, then take the lock and refuse with `changed by another command; run it again` if `overrides.json`/`show.json` changed since (or `the show was removed`). `redo` shows nothing, so it reads the show once it holds the lock: it waits behind another writer rather than refusing, and refuses only a show removed meanwhile. Each unit snapshots every file outside `package/audio/` into `<show>/.txn/`, then does the work. Any exception, including Ctrl-C, restores those files byte-identical and removes new audio. A single `fix`/`redo` then exits 1 with the error. A stale `.txn/` (SIGKILL) is deleted, never restored, by the next unit. With no `show.json`, `fix` still accepts `--set-*`/`--clear-*` and filename `--exclude`/`--unexclude`. Every other flag refuses and names `llama redo <show> --from gather`, which is also the repair for any show left part-way. `--no-run` validates nothing: a later redo that refuses the overrides rolls back and names the field.
 - `scripts/replay_holds.py run --out <arm.json> [--held|--all|--slugs F]`
   replays holds read-only under THIS tree's code (use that tree's own
   interpreter; it exits 2 unless `llama.__file__` is inside the tree, and

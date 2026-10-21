@@ -901,7 +901,8 @@ def test_failed_accept_vague_restores_the_hold_and_the_overrides(tmp_path, monke
 def test_failed_overrule_restores_every_file(tmp_path, monkeypatch):
     cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
     monkeypatch.setattr(pipeline, "run_package", lambda *a, **k: (_ for _ in ()).throw(IAError("archive down")))
-    assert cli_invoke(cfg, "fix", "gratefuldead", "--overrule").exit_code == 1
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
+    assert r.exit_code == 1 and isinstance(r.exception, IAError) and "archive down" in str(r.exception)
     assert tree_bytes(ws.dir) == before
 
 
@@ -915,7 +916,8 @@ def test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits(tmp
 def test_a_failed_first_edit_removes_the_overrides_file_it_created(tmp_path, monkeypatch):   # Review Focus 2
     cfg = _cfg(tmp_path); ws = _held_show(tmp_path); assert not ws.overrides.exists()
     monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
-    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 1
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall")
+    assert r.exit_code == 1 and "boom" in str(r.exception)
     assert not ws.overrides.exists()
 
 
@@ -944,14 +946,17 @@ def test_fix_refuses_when_the_show_changed_after_the_prompt(tmp_path, monkeypatc
 
 def test_untitled_failure_after_the_overrule_restores_everything(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path); ws = _all_unresolved_show(tmp_path); before = tree_bytes(ws.dir)
+    stages = []
     def fake(config, ia, ledger, e, stage, **kw):
+        stages.append(stage)
         if stage == "gather":
             s = read_model(e.ws.show, Show); s.needs_review = True; s.review_flags = ["x"]; write_artifact(e.ws.show, s)
             return None
         raise LlamaError("brief failed")
     monkeypatch.setattr(cli, "_redo_show_locked", fake)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
-    assert r.exit_code == 1 and tree_bytes(ws.dir) == before
+    assert r.exit_code == 1 and stages == ["gather", "brief"] and "brief failed" in str(r.exception)
+    assert tree_bytes(ws.dir) == before
 
 
 def test_fix_on_a_show_with_no_show_json_takes_metadata_and_filename_edits(tmp_path, monkeypatch):
@@ -971,3 +976,20 @@ def test_fix_on_a_show_with_no_show_json_refuses_the_rest_and_names_the_remedy(t
     cfg = _cfg(tmp_path); build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
     r = cli_invoke(cfg, "fix", "gratefuldead", *args)
     assert r.exit_code == 1 and "rebuild it with: llama redo gratefuldead-1973-06-10 --from gather" in r.output
+
+
+def test_a_typer_exit_inside_the_unit_leaves_the_show_byte_identical(tmp_path):   # clash
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
+    before = tree_bytes(ws.dir)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "a.mp3", "--include", "a.mp3")
+    assert r.exit_code == 1 and "name the same file(s): a.mp3" in r.output
+    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
+
+
+def test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing(tmp_path):
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
+    before = tree_bytes(ws.dir)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "3")
+    assert r.exit_code == 1 and "resolving a track number needs show.json" in r.output
+    assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()
