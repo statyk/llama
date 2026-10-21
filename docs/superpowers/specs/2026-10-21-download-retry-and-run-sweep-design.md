@@ -125,7 +125,12 @@ per-connection rate, is abandoned for the next candidate:
   `Range: bytes=<bytes so far>-`. A `206` whose `Content-Range` starts at that offset is appended to the
   same `.part`; any other answer (a `200` ignoring the range, a mismatched `Content-Range`) discards the
   `.part` and that attempt downloads from byte 0. Listed servers answered range requests with 206 in the
-  probes.
+  probes. Continuation is used only when the file has an md5: with size alone, a prefix and a suffix from
+  copies of different lengths could pass the size check, so without an md5 an abandoned `.part` is
+  discarded and the next attempt starts from byte 0. When `size` is known, a `Content-Range` total that
+  differs from it counts as mismatched. An abandonment is allowed only while another attempt will still
+  start (the first pass is unfinished or the deadline has not passed), and never once the `.part` holds
+  the full `size`.
 - **Integrity is unchanged:** the md5 (or size) check runs over the whole finished `.part`, however many
   servers it came from. If it fails, the `.part` is deleted and the next attempt starts from byte 0.
 - **Terminates:** each candidate can be abandoned for trickling at most once per file. The last candidate
@@ -138,12 +143,16 @@ per-connection rate, is abandoned for the next candidate:
 - **Other 4xx:** moves on to the next candidate; it does not fail the file at once. It is not retryable
   for the repeat attempts after the first pass, so a file whose every candidate answered 4xx fails after
   one pass.
-- **md5 mismatch:** counts as retryable. A different copy may be good. The mismatched `.part` is deleted
-  as today.
+- **md5 mismatch:** moves on to the next candidate, since a different copy may be good. The mismatched
+  `.part` is deleted as today. That copy is not tried again in the repeat attempts: each copy is checked
+  at most once per file, and the others are still tried.
 - **No md5 in the metadata:** the byte count must equal the metadata `size` before the rename into place.
-  A mismatch deletes the `.part` and counts as retryable, like an md5 mismatch. Metadata `size` is
-  present for every cached audio entry; 4 of 531k entries lack an md5. With neither md5 nor `size`, the
-  file is renamed into place as today.
+  A mismatch is handled like an md5 mismatch. Metadata `size` is present for every cached audio entry; 4
+  of 531k entries lack an md5. With neither md5 nor `size`, the file is renamed into place as today.
+
+A file whose every copy fails the check (a removed or darked item, or a stale cached md5) fails as
+`download` on every sweep pass; the sweep keeps listing it and exits 1. This is a known limitation,
+cleared by hand.
 
 **Schedule.** First pass: every candidate gets one attempt, in order, with a short randomised sleep
 between attempts (about 1-4 s, uniform; exact constants are the builder's). The first pass is never cut
@@ -207,7 +216,7 @@ These records are persisted state and stay permissive. A legacy record with no `
 The commands that work a run take an exclusive flock on `runs/<id>/.lock` **exactly once**, at command
 entry, and hold it until exit. It is never taken inside `_execute`. The commands:
 - `llama get`: query and profile forms, on its freshly claimed run dir, before interpret. The dir comes
-  from `claim_run_dir`, or with `--name <new>` the dir is created (`exist_ok`) before locking. On a dir
+  from `claim_run_dir`, or with `--name` the dir is created with `exist_ok=False`: success means a new dir, `FileExistsError` an existing one. On a dir
   this invocation created, `get` takes the lock **blocking**: only a reader's probe or the sweep's helper
   can hold a fresh dir's lock, and only briefly, so a collision with a `run list` probe never makes a fresh
   `get` exit and never leaves a request-less husk. `get --name <existing>` takes it non-blocking and
@@ -220,8 +229,11 @@ entry, and hold it until exit. It is never taken inside `_execute`. The commands
 
 Rules:
 - **Missing run dir:** for resume, approve, redo `--run`, rm and the readers, the lock helper refuses to
-  create one, so a lock attempt racing `rm` can't leave a husk. `get` is the exception: it creates its dir
-  before locking (above).
+  create one, so a lock attempt that loses a race with `rm` can't recreate the run (one narrow window
+  remains, below). `get` is the exception: it creates its dir before locking (above).
+- **The locked file must still be the run's lock file:** after acquiring (blocking or not), the lock
+  helper checks that the locked fd is still the file at `runs/<id>/.lock` (same inode and device).
+  Otherwise, or if that file is gone, it releases the lock and treats the run as missing.
 - **A held lock means live:** resume, approve, redo `--run` and rm try the lock non-blocking; on a live run
   they refuse with `run <id> is in progress in another process` and exit 1.
 - **`run rm` holds the lock through `rmtree`.**
@@ -233,7 +245,14 @@ Rules:
   - The milliseconds between a fresh `get` creating its run dir and locking it. A `run rm` landing there
     can delete the new dir. Nothing guards this window.
   - A `run list` probe colliding with a resume starting at the same instant, which then refuses.
-  - Neither can produce two workers.
+  - A lock attempt (resume, approve, redo `--run`) that opens `.lock` after `run rm`'s `rmtree` unlinked
+    it but before the dir is removed recreates `.lock`. `rm` then fails with "directory not empty" and
+    leaves a dir holding only `.lock`. It shows on the sweep's needs-attention list (no criteria, no
+    request), and a second `run rm` removes it.
+
+  Without the inode check, a `run rm` landing within milliseconds of a fresh `get` could leave `get`
+  holding a lock on a deleted file while its artifacts recreate the dir unlocked, and a sweep would start
+  a second worker. The check closes that, so none of the remaining windows can produce two workers.
 
 **Rollout caveat:** a run started by a pre-v2.14 binary holds no lock, so it is invisible to the sweep.
 Don't sweep while pre-v2.14 runs are going. This goes in the release notes.
@@ -255,20 +274,27 @@ into the EWMA. The deferred pass is unchanged; it already records nothing.
 One pass, then exit. *Flag name is my call.* A positional session plus `--all` is an error.
 
 **Eligible:**
-- `paused` with `resume_after` in the past or absent;
+- `paused` with `resume_after` in the past or absent, and every recorded failure (if any) `download` or
+  `archive`;
 - `incomplete` with no recorded failures (a crash or kill left no clean stop);
 - `incomplete` whose every failure is `download` or `archive`.
+
+A run with no session marker (`session.json` absent) reads as `incomplete` with no failures. It is
+eligible when its `request.json` has `auto: true` or no `auto` key.
 
 **Skipped, one line each, with the reason:**
 - live (`running`);
 - `paused until HH:MM`;
 - `awaiting approval`;
 - `needs attention`:
-  - an incomplete run with any `transport`, `llm`, `rate-limited` or `other` failure. These are left for
-    an explicit `run resume <id>`, so a sweep loop never re-spends on a show that fails the same way
-    every time. Some `transport` failures repeat every time and cost tokens (a 900 s research timeout,
-    retried 3× per pass);
-  - a run with neither `criteria.json` nor `request.json`.
+  - an incomplete or paused run with any `transport`, `llm`, `rate-limited` or `other` failure. These
+    are left for an explicit `run resume <id>`, so a sweep loop never re-spends on a show that fails the
+    same way every time. Some `transport` failures repeat every time and cost tokens (a 900 s research
+    timeout, retried 3× per pass). A paused marker carries the failures already taken, and a resume
+    re-runs every chosen show, so a show that fails the same way would be re-paid once per window;
+  - a run with neither `criteria.json` nor `request.json`;
+  - a run with no session marker whose `request.json` has `auto: false`: an interactive `get`
+    interrupted at a prompt, which the sweep would otherwise process with `--auto`.
 
 `complete` runs are not listed.
 
@@ -325,7 +351,7 @@ The operator's loop becomes `while true; do llama run resume --all; sleep 600; d
   - a stitched file whose md5 fails is deleted and re-fetched from byte 0;
   - the last non-abandoned candidate is never abandoned, however slow;
   - a 4xx on one candidate followed by success on the next;
-  - an md5 mismatch on one server with success on the next;
+  - an md5 mismatch on one server with success on the next, and each copy checked at most once;
   - the size check for a file with no md5;
   - no `.part` left behind;
   - a mid-stream failure;
@@ -336,11 +362,13 @@ The operator's loop becomes `while true; do llama run resume --all; sleep 600; d
   correctly.
 - **Run lock:** resume, approve, redo `--run` and rm refuse a live run; `get`'s lock is blocking; `get
   --name` creates and locks its dir; `run list` shows `running`; no self-deadlock on the get → interpret →
-  `_execute` path or the sweep → helper path; the helper never creates a missing run dir.
+  `_execute` path or the sweep → helper path; the helper never creates a missing run dir; a lock acquired
+  on a replaced `.lock` is treated as a missing run.
 - **Pacing:** a show whose `process_show` invoked an LLM provider records a boundary; a download-only
   resume (only `package` re-runs) and an already-packaged show record none.
 - **Sweep:**
-  - eligibility per state and per failure kind, including legacy records;
+  - eligibility per state and per failure kind, including legacy records, paused runs with failures, and
+    marker-less runs by their `auto`;
   - `transport` runs are needs-attention;
   - live runs skipped;
   - stops on a pause;
