@@ -14,6 +14,7 @@ from herder.provider import ResearchNotSupported
 from llama.ia_client import IAError, IADownloadError
 from llama.locks import run_is_live
 from llama.models import Criteria
+from llama.profiles import ProfileError, load_profile
 from llama.workspace import RunWorkspace, read_model, write_artifact
 
 
@@ -180,8 +181,12 @@ class SessionInfo:
 
 
 def _updated_at(run_dir: Path, marker: dict) -> str:
-    return marker.get("updated_at") or \
-        datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
+    value = marker.get("updated_at")
+    if not value:
+        return datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
+    # Always a str, so the listing's sort cannot meet a mixed-type key; a
+    # non-ISO value is the sweep's to refuse (`sweep_verdict`).
+    return value if isinstance(value, str) else str(value)
 
 
 def iter_sessions(root: Path, *, probe_live: bool = True) -> list[SessionInfo]:
@@ -238,6 +243,27 @@ def attention_sessions(root: Path) -> list[SessionInfo]:
 _SWEEPABLE_KINDS = (KIND_DOWNLOAD, KIND_ARCHIVE)
 
 
+def _human_gated(req: dict, root: Path) -> bool:
+    """Whether a run's selection was meant for a human to approve.
+
+    `request.json` records `human_gate` since 2026-10-21; a recorded value
+    other than False is gated. A profile run written before that falls back
+    to its profile, and a profile that cannot be loaded (removed, unreadable,
+    invalid) reads as gated: the direction that spends nothing. A query run
+    has no gate. A missing `mode` means a query run, as for every reader."""
+    if "human_gate" in req:
+        return req["human_gate"] is not False
+    if req.get("mode", "query") != "profile":
+        return False
+    name = req.get("profile")
+    if not isinstance(name, str) or not name:
+        return True
+    try:
+        return load_profile(root, name).human_gate is not False
+    except (ProfileError, OSError, ValueError):
+        return True
+
+
 def sweep_verdict(info: SessionInfo, run_dir: Path, now: datetime) -> str | None:
     """Why `run resume --all` must leave this run alone, or None when it may
     resume it (spec §6).
@@ -251,6 +277,13 @@ def sweep_verdict(info: SessionInfo, run_dir: Path, now: datetime) -> str | None
         return "running"
     if info.state == STATE_AWAITING:
         return "awaiting approval"
+    try:
+        datetime.fromisoformat(info.updated_at)
+    except (TypeError, ValueError):
+        # The sweep orders by this instant; a hand-damaged marker must not
+        # take the whole pass down before any run is resumed (operator
+        # ruling, final review 2026-10-21).
+        return "needs attention"
     request = run_dir / "request.json"
     if not (run_dir / "criteria.json").exists() and not request.exists():
         return "needs attention"
@@ -259,13 +292,16 @@ def sweep_verdict(info: SessionInfo, run_dir: Path, now: datetime) -> str | None
             not isinstance(f, dict) or failure_kind(f) not in _SWEEPABLE_KINDS
             for f in failures):
         return "needs attention"
-    if not (run_dir / "session.json").exists():
-        # No marker: a run that never stopped cleanly. One whose request
-        # says it was interactive stopped at a prompt, and the sweep would
-        # otherwise answer that prompt with --auto.
-        req = read_request(request)
-        if "auto" in req and req["auto"] is not True:
-            return "needs attention"
+    # The sweep makes no human decisions (operator ruling, final review
+    # 2026-10-21). A run started interactively may stop before a prompt in
+    # any state -- a pause before its artist-prune or rank prompt as much as
+    # a kill -- and the sweep would answer that prompt with --auto. A
+    # human-gated run would have its picks made with no approval.
+    req = read_request(request)
+    if "auto" in req and req["auto"] is not True:
+        return "needs attention"
+    if _human_gated(req, run_dir.parent.parent):
+        return "needs attention"
     if info.state == STATE_PAUSED and info.resume_after:
         try:
             when = datetime.fromisoformat(info.resume_after)

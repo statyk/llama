@@ -1693,3 +1693,45 @@ def test_legacy_record_kind():
     assert failure_kind({"error": "boom"}) == KIND_OTHER
     assert failure_kind({"show": "s"}) == KIND_OTHER
     assert failure_kind({"error": "boom", "kind": KIND_LLM}) == KIND_LLM
+
+
+def test_get_records_that_a_query_run_is_not_human_gated(tmp_path: Path, monkeypatch):
+    """`run resume --all` reads `human_gate` from the request; a query run
+    has no gate, and says so rather than leaving it to a default."""
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                     "--auto", "--name", "gate"])
+    assert result.exit_code == 0, result.output
+
+    req = json.loads((tmp_path / "runs" / "gate" / "request.json").read_text())
+    assert req["human_gate"] is False
+
+
+@pytest.mark.parametrize("gate", [True, False])
+def test_get_profile_records_the_profile_human_gate(tmp_path: Path, monkeypatch, gate):
+    """The gate the run was started under, recorded so the sweep never has to
+    trust a profile edited (or removed) since."""
+    from llama.profiles import Profile, save_profile
+
+    cfg = str(tmp_path / "config.toml")
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
+    save_profile(tmp_path, Profile(
+        name="prime-dead",
+        criteria=Criteria(query="x", collection="GratefulDead",
+                          artist="Grateful Dead",
+                          date_from="1973-01-01", date_to="1973-12-31"),
+        count=1, human_gate=gate))
+    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
+    monkeypatch.setattr(cli, "IAClient", FakeIA)
+
+    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
+                                     "prime-dead", "--auto", "--plan"])
+    assert result.exit_code == 0, result.output
+
+    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
+    req = json.loads((run_dir / "request.json").read_text())
+    assert req["human_gate"] is gate

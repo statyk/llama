@@ -26,6 +26,7 @@ from llama.config import Config
 from llama.locks import Locked
 from llama.models import Criteria
 from llama.pacing import pace_options
+from llama.profiles import Profile, save_profile
 from llama.sessions import (KIND_ARCHIVE, KIND_DOWNLOAD, KIND_LLM, KIND_OTHER,
                             KIND_RATE_LIMITED, KIND_TRANSPORT, STATE_COMPLETE,
                             STATE_INCOMPLETE, failure_record, iter_sessions,
@@ -163,6 +164,39 @@ ELIGIBILITY = {
                             None),
     "no-marker-no-auto-key": (dict(state=None, criteria=False,
                                    request={"mode": "query", "query": "q"}), None),
+    # Final review, operator ruling 2026-10-21: an interactive request is
+    # never answered with --auto, whatever state the run stopped in.
+    "paused-past-auto-false": (dict(state="paused", resume_after=PAST,
+                                    request={"mode": "query", "query": "q",
+                                             "auto": False}),
+                               "needs attention"),
+    "incomplete-auto-false": (dict(failures=[],
+                                   request={"mode": "query", "query": "q",
+                                            "auto": False}),
+                              "needs attention"),
+    "incomplete-auto-true": (dict(failures=[],
+                                  request={"mode": "query", "query": "q",
+                                           "auto": True}), None),
+    # ...and a human gate is never bypassed. A recorded key decides on its
+    # own: no profile is loaded (none exists in these cases).
+    "recorded-human-gate": (dict(request={"mode": "profile", "profile": "gone",
+                                          "auto": True, "human_gate": True}),
+                            "needs attention"),
+    "recorded-human-gate-paused": (dict(state="paused", resume_after=PAST,
+                                        request={"mode": "profile",
+                                                 "profile": "gone", "auto": True,
+                                                 "human_gate": True}),
+                                   "needs attention"),
+    "recorded-no-human-gate": (dict(request={"mode": "profile", "profile": "gone",
+                                             "auto": True, "human_gate": False}),
+                               None),
+    "profile-request-naming-no-profile": (dict(request={"mode": "profile",
+                                                        "profile": None,
+                                                        "auto": True}),
+                                           "needs attention"),
+    "query-without-gate-key": (dict(request={"mode": "query", "query": "q",
+                                             "auto": True}), None),
+    "no-mode-without-gate-key": (dict(request={"query": "q", "auto": True}), None),
 }
 
 
@@ -172,6 +206,88 @@ def test_eligibility_per_state_and_kind(tmp_path: Path, case):
     ws = _run(tmp_path, "r1", **kwargs)
     [info] = iter_sessions(tmp_path)
     assert sweep_verdict(info, ws.dir, NOW) == expected
+
+
+def _profile_request(**extra) -> dict:
+    """A profile request written before `human_gate` was recorded."""
+    return {"mode": "profile", "query": None, "profile": "weekly", "auto": True,
+            **extra}
+
+
+def _gated(tmp_path: Path, gate: bool) -> None:
+    save_profile(tmp_path, Profile(name="weekly", criteria=Criteria(query="q"),
+                                   human_gate=gate))
+
+
+def _bad_toml(tmp_path: Path) -> None:
+    (tmp_path / "profiles").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "profiles" / "weekly.toml").write_text("name = [unclosed\n")
+
+
+def _bad_schema(tmp_path: Path) -> None:
+    (tmp_path / "profiles").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "profiles" / "weekly.toml").write_text('name = "weekly"\n')
+
+
+PROFILE_GATE = {
+    "gated": (lambda root: _gated(root, True), "needs attention"),
+    "not-gated": (lambda root: _gated(root, False), None),
+    "missing": (lambda root: None, "needs attention"),
+    "unparseable": (_bad_toml, "needs attention"),
+    "invalid": (_bad_schema, "needs attention"),
+}
+
+
+@pytest.mark.parametrize("state", ["incomplete", "paused"])
+@pytest.mark.parametrize("case", list(PROFILE_GATE))
+def test_a_profile_request_without_the_gate_key_reads_the_profile(
+        tmp_path: Path, case, state):
+    """Runs written before `request.json` recorded `human_gate`: the profile
+    itself says whether a human must pick, and one that cannot be read is
+    treated as gated (the direction that spends nothing)."""
+    setup, expected = PROFILE_GATE[case]
+    setup(tmp_path)
+    kwargs = dict(state="paused", resume_after=PAST) if state == "paused" else {}
+    ws = _run(tmp_path, "r1", request=_profile_request(), **kwargs)
+    [info] = iter_sessions(tmp_path)
+    assert sweep_verdict(info, ws.dir, NOW) == expected
+
+
+def test_a_recorded_gate_key_wins_over_the_profile(tmp_path: Path):
+    """The request records what the run was started with; a profile edited
+    since does not re-open (or re-gate) it."""
+    _gated(tmp_path, True)
+    ws = _run(tmp_path, "r1", request=_profile_request(human_gate=False))
+    [info] = iter_sessions(tmp_path)
+    assert sweep_verdict(info, ws.dir, NOW) is None
+
+
+@pytest.mark.parametrize("value", ["not-a-date", 12345, ["2026-10-21"]])
+def test_a_malformed_updated_at_is_needs_attention(tmp_path: Path, value):
+    ws = _run(tmp_path, "r1")
+    marker = _marker(ws)
+    marker["updated_at"] = value
+    ws.session.write_text(json.dumps(marker))
+    [info] = iter_sessions(tmp_path)
+    assert sweep_verdict(info, ws.dir, NOW) == "needs attention"
+
+
+@pytest.mark.parametrize("value", ["not-a-date", 12345])
+def test_a_malformed_updated_at_does_not_stop_the_sweep(
+        tmp_path: Path, monkeypatch, value):
+    cfg = _cfg(tmp_path)
+    bad = _run(tmp_path, "bad", updated_at=NOW - timedelta(days=3))
+    marker = _marker(bad)
+    marker["updated_at"] = value
+    bad.session.write_text(json.dumps(marker))
+    _run(tmp_path, "r1", updated_at=NOW - timedelta(days=2))
+    _run(tmp_path, "r2", updated_at=NOW - timedelta(days=1))
+    calls = _stub_execute(monkeypatch)
+    result = _sweep(cfg)
+    assert result.exit_code == 0, result.output
+    assert "skip bad: needs attention" in _lines(result)
+    assert [c[0] for c in calls] == ["r1", "r2"]
+    assert _marker(bad)["updated_at"] == value              # untouched
 
 
 def test_live_runs_are_skipped_as_running(tmp_path: Path, monkeypatch):

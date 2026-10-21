@@ -862,7 +862,7 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
             "mode": "query", "query": query, "profile": None,
             "limit": limit, "artist_cap": artist_cap,
             "min_score": min_score, "year_cap": year_cap,
-            "auto": auto, "plan": plan}, indent=2))
+            "auto": auto, "plan": plan, "human_gate": False}, indent=2))
         if pace is None:
             pace = pace_options(config)
         # BEFORE interpret, not after: interpret is this run's first LLM call, and
@@ -900,7 +900,9 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
             "mode": "profile", "query": None, "profile": name,
             "limit": None, "artist_cap": None,
             "min_score": None, "year_cap": None,
-            "auto": auto, "plan": plan}, indent=2))
+            "auto": auto, "plan": plan,
+            # What the sweep reads to leave a gated run to a human.
+            "human_gate": profile.human_gate}, indent=2))
         # Stamp count into the run's criteria: a later `llama run` on this dir
         # must behave like the profile, not the defaults.
         criteria = profile.criteria.model_copy(update={"count": profile.count,
