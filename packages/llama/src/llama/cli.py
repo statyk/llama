@@ -1830,6 +1830,9 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
 
 
 def _interactive_resolve(config, ia, ledger, entry) -> None:
+    # Every successful edit leaves the show, so this session-long view stays valid.
+    # Taken BEFORE the re-resolve: anything that changes after it makes the unit refuse.
+    view = capture_view(entry.ws)
     try:
         # Re-resolve by path (an exact match while the directory exists; a
         # removed show matches nothing) so the held check and the offers below
@@ -1838,8 +1841,6 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
     except LlamaError as exc:
         typer.echo(f"error: {exc}", err=True)
         return
-    # Every successful edit leaves the show, so this session-long view stays valid.
-    view = capture_view(entry.ws)
     _print_show_entry(entry)
     if entry.state != "held":
         return

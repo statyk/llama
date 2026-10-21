@@ -733,11 +733,27 @@ def test_a_show_removed_before_its_turn_is_reported_and_skipped(tmp_path, tty, m
     monkeypatch.setattr(cli, "_redo_show_locked", fake)
     r = cli_invoke(cfg, "triage", input="o\n")
     assert r.exit_code == 0, r.output
-    assert "error: " in r.output and r.output.count(PROMPT) == 1
+    assert "no show matches" in r.output and "gratefuldead-1974-01-01" in r.output
+    assert r.output.count(PROMPT) == 1
 
 
 def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatch):
     cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
     monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("refused")))
     r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\ns\n")
-    assert "error: refused" in r.output and not ws.overrides.exists()
+    assert r.exit_code == 0, r.output
+    assert "error: refused" in r.output and r.output.count(PROMPT) == 2
+    assert not ws.overrides.exists()
+
+
+def test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path)
+    show = read_model(ws.show, Show)
+    show.tracks = [t.model_copy(update={"title_source": "unresolved"}) for t in show.tracks]
+    write_artifact(ws.show, show)
+    before = tree_bytes(ws.dir)
+    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
+    r = cli_invoke(cfg, "triage", input="u\ny\ns\n")
+    assert r.exit_code == 0, r.output
+    assert "error: boom" in r.output and r.output.count("[u]ntitled") == 2
+    assert tree_bytes(ws.dir) == before
