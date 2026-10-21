@@ -1006,12 +1006,17 @@ def test_stale_part_from_a_previous_process_is_not_continued(tmp_path: Path):
     assert no_leftovers(tmp_path)
 
 
-def test_a_status_error_keeps_the_continuation_part(tmp_path: Path):
+def refuse_connection(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("connection refused", request=request)
+
+
+@pytest.mark.parametrize("failure", [500, refuse_connection], ids=["status", "connect"])
+def test_a_status_error_keeps_the_continuation_part(tmp_path: Path, failure):
     clock = FakeClock()
     seen: list = []
     ranges: list = []
     ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE),
-                                       SERVER: 500,
+                                       SERVER: failure,
                                        SERVER2: serve(clock, LONG, HEALTHY, ranges=ranges)}, seen),
                      metadata=long_metadata("ia800903.us.archive.org", "ia600903.us.archive.org"),
                      clock=clock)
@@ -1020,3 +1025,38 @@ def test_a_status_error_keeps_the_continuation_part(tmp_path: Path):
     assert dest.read_bytes() == LONG
     assert seen == [REDIRECT, SERVER, SERVER2]
     assert ranges == [f"bytes={K}-"]
+
+
+def test_a_transfer_that_slows_to_a_trickle_is_abandoned(tmp_path: Path):
+    # The window slides: a fast start does not license a trickle after it.
+    clock = FakeClock()
+    fast, slow = 500_000, 100_000
+    data = bytes(range(256)) * ((fast + slow) // 256) + bytes((fast + slow) % 256)
+    sent = {"n": 0}
+
+    def fast_then_trickle(request: httpx.Request) -> httpx.Response:
+        def body():
+            for i in range(0, fast, 10_000):
+                clock.advance(0.1)
+                sent["n"] += 10_000
+                yield data[i:i + 10_000]
+            for i in range(fast, fast + slow, 1_000):
+                clock.advance(1.0)
+                sent["n"] += 1_000
+                yield data[i:i + 1_000]
+        return httpx.Response(200, content=body())
+
+    seen: list = []
+    ranges: list = []
+    ia = make_client(tmp_path, routed({REDIRECT: fast_then_trickle,
+                                       SERVER: serve(clock, data, HEALTHY, ranges=ranges)}, seen),
+                     metadata=long_metadata("ia800903.us.archive.org",
+                                            md5=hashlib.md5(data).hexdigest(), data=data),
+                     clock=clock)
+    dest = tmp_path / "t.mp3"
+    ia.download_file("x", "t.mp3", dest, md5=hashlib.md5(data).hexdigest())
+    assert dest.read_bytes() == data
+    assert seen == [REDIRECT, SERVER]
+    assert ranges == [f"bytes={sent['n']}-"]
+    # Abandoned within about a window of the slowdown, not at the end of the file.
+    assert fast < sent["n"] <= fast + (TRICKLE_WINDOW_S + 2) * TRICKLE
