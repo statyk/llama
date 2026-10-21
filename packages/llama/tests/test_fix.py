@@ -38,7 +38,7 @@ def _stub_redo(monkeypatch, picked=None, result=Path("/pkg")):
     """Stub `_redo_show` so no real pipeline work happens; records the stage
     it was called with (or nothing if never called)."""
     calls = []
-    monkeypatch.setattr(cli, "_redo_show",
+    monkeypatch.setattr(cli, "_redo_show_locked",
                         lambda config, ia, ledger, e, stage, **kw: (
                             calls.append(stage), result)[1])
     return calls
@@ -309,7 +309,7 @@ def test_apply_prints_packaged_or_still_held(tmp_path, monkeypatch):
 def test_apply_prints_still_held_when_redo_returns_none(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     _held_show(tmp_path)
-    monkeypatch.setattr(cli, "_redo_show",
+    monkeypatch.setattr(cli, "_redo_show_locked",
                         lambda config, ia, ledger, e, stage, **kw: None)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--overrule")
     assert r.exit_code == 0, r.output
@@ -801,7 +801,7 @@ def test_untitled_overrules_remaining_flags_then_continues_from_brief(tmp_path, 
             s.review_flags = ["single-set structure for a long show (160 min)"]
             write_artifact(e.ws.show, s)
         return next(outcomes)
-    monkeypatch.setattr(cli, "_redo_show", fake_redo)
+    monkeypatch.setattr(cli, "_redo_show_locked", fake_redo)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
     assert calls == ["gather", "brief"]
     assert "remaining flags overruled" in r.output and "packaged: /pkg" in r.output

@@ -50,7 +50,7 @@ def _packaged_show(tmp_path: Path, slug="other-1974-01-01"):
 
 def _stub_redo(monkeypatch, result=Path("/pkg")):
     calls = []
-    monkeypatch.setattr(cli, "_redo_show",
+    monkeypatch.setattr(cli, "_redo_show_locked",
                         lambda config, ia, ledger, e, stage, **kw: (
                             calls.append(stage), result)[1])
     return calls
