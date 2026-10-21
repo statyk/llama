@@ -87,7 +87,34 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   — with the per-show reasons recorded in `session.json` — until a
   `run resume` finishes cleanly; `run list` prints those reasons indented
   under the session row, and `--no-flags` drops them for one line per
-  session, like `status --no-flags`). Shows/sessions are addressed by name or unique
+  session, like `status --no-flags`; a run another process is working shows as
+  `running`, derived and never written). **`llama run resume --all`** is the
+  unattended sweep (spec `docs/superpowers/specs/2026-10-21-download-retry-and-run-sweep-design.md`
+  §6): one pass, then exit; a positional session plus `--all` is an error. Eligible:
+  `paused` past its `resume_after` (or with none) and `incomplete`, either with no
+  recorded failures or only `download`/`archive` ones; a run with no `session.json`
+  reads `incomplete` and is eligible when its `request.json` has `auto: true` or no
+  `auto` key. Skipped, one line each: `running`, `paused until HH:MM`, `awaiting
+  approval`, `needs attention` (any `transport`/`llm`/`rate-limited`/`other`
+  failure, so a loop never re-spends on a run that fails the same way every time;
+  no `criteria.json` and no `request.json`; an `auto: false` request, i.e. an
+  interactive `get` interrupted at a prompt); `complete` runs are not listed. Oldest
+  `updated_at` first, one at a time, always `--auto`, **`--no-wait` by default**
+  (unlike plain `run resume`: a usage pause checkpoints `paused` instead of napping
+  inside the loop; `--max-wait`/`--no-pacing` pass through). A run that ends `paused`
+  stops the sweep (the window is account-wide) and the rest print `not reached:
+  <id>`. Per-run results: the run's state, `running` (turned live since the listing),
+  `gone` (removed since), or `error: <msg>`; the summary lists each. Exit 0 only when
+  every resumed run ended `complete` (`running`/`gone` don't count against it) or
+  nothing was eligible (`nothing to resume`); else 1. **Crash marker:** an exception
+  escaping a swept run (a non-zero `typer.Exit` included, as `exit <code>`) writes
+  `incomplete` with one run-level failure `{show: null, kind: "other", error: <msg>}`
+  while the run lock is still held; `run list` prints it under `(run)` and the next
+  sweep skips the run as `needs attention`. `KeyboardInterrupt` stops the sweep and
+  records nothing. Operator loop: `while true; do llama run resume --all; sleep 600;
+  done`. `llama get`'s `no matching artists found` now marks the run `complete`. A
+  run that cannot be locked prints `run <id> is in progress in another process` (or
+  `run <id> no longer exists`) and exits 1. Shows/sessions are addressed by name or unique
   substring; paths still work. `llama config init` seeds a commented config
   of the baked-in defaults (config values replace defaults; nothing
   merges). **An unknown key in `config.toml` is now an ERROR, not a silent
@@ -411,6 +438,34 @@ scheduler and the full player are phases 3–4).
   writes use unique temp names. POSIX-only; non-POSIX degrades to no-op
   locking. **`emcee` does not share this locking scheme** — see emcee's
   bullet below.
+  **Run lock (third scope, spec §4):** the commands that work a run — `get`,
+  `run resume`, `run approve`, the run-level `redo --run <id> --from search|winnow`
+  and `run rm` — take an exclusive flock on `runs/<id>/.lock` exactly once, at
+  command entry, held to exit, **never inside `_execute`** (`locks.run_lock`). Lock
+  order is **run ⊃ show ⊃ ledger**; `process_show` stays lock-free. A held lock means
+  live: all but `get` try non-blocking and refuse. `get` on a dir it just created
+  locks blocking (only a reader's probe can hold a fresh dir's lock, briefly);
+  `get --name <existing>` refuses a live run. The helper never creates a missing run
+  dir (`RunMissing`), and after acquiring checks the locked fd is still
+  `run_dir/.lock` (inode and device) — that check is what stops a fresh `get` whose
+  dir was removed under it from working an unlocked dir. `run rm` holds the lock
+  through `rmtree`. Readers (`run list`, `status --by-run`, `--json`) probe with
+  `run_is_live`: a non-blocking acquire released at once, no `O_CREAT`, and report
+  `running`. **Rollout caveat:** a run started by a pre-v2.14 binary holds no lock and
+  is invisible to the sweep; don't sweep while one is going. **Known limitations:**
+  a lock attempt landing inside `run rm`'s `rmtree` recreates `.lock`, so `rm` fails
+  and leaves a `.lock`-only dir, listed as needs attention (a second `run rm`
+  removes it); a `run list` probe colliding with a resume starting that instant makes
+  the resume refuse; the milliseconds between a fresh `get` creating its dir and
+  locking it are unguarded against `run rm`. None of the remaining windows can
+  produce two workers.
+  **Download cap:** at most `download_slots.DOWNLOAD_SLOTS = 8` concurrent audio
+  downloads per workspace, across processes, via flock slot files
+  `<root>/.download-slots/0..7.lock` (non-blocking polls with jitter; one `waiting
+  for a download slot` line per file; the slot is held for one attempt and released
+  before any inter-attempt sleep; module constant, not config). **Known limitation:**
+  not FIFO — with more than 8 downloading processes a waiter may wait until a
+  holder's show finishes downloading.
 - **`overrides.json`:** the one durable, app-edited per-show input —
   excluded source-track filenames, `narration` (`full`/`vague`), and
   metadata corrections (`venue`, `city`, `date`, `titles`: track#→forced
@@ -594,7 +649,10 @@ scheduler and the full player are phases 3–4).
   `~/.claude.json`'s cached utilization is deliberately not read (it was
   measured serving an already-expired window). What a show costs is learned
   from the meter across show boundaries and persisted as an EWMA in
-  `pacing-state.json` (`llama.pacing_state`), and `pacing.decide()` turns a
+  `pacing-state.json` (`llama.pacing_state`) — **a show records a boundary only if
+  an LLM provider was invoked during its `process_show` call**, so a resume that
+  merely re-downloads and re-packages (the sweep's population) cannot fold
+  near-zero deltas into the EWMA — and `pacing.decide()` turns a
   reading plus that estimate into `Proceed` or `PauseUntil`. Gates sit at the
   top of `_execute` (pre-flight, before the opening burst), before each
   show's lock, and — since T6b — ahead of `run_interpret` at both of its
@@ -843,6 +901,45 @@ scheduler and the full player are phases 3–4).
   with spam clips cannot drag the threshold down and license itself. The 0.25/90/5
   constants were measured over 2,030 cached items (see the comment above them) and
   are the same do-not-retune class as the tail-guard constants.
+- **Downloads fall back across archive.org servers** (`IAClient.download_file`,
+  spec §1; constants module-level in `ia_client.py`, none in config). archive.org
+  throttles each connection, so a struggling server is answered by switching, not by
+  waiting. Candidates, in order: the redirect URL, then `https://<server><dir>/<file>`
+  for each of the item's cached `workable_servers`, or `d1` then `d2` only when that
+  list is missing or empty (de-duplicated; a `d1`/`d2` absent from a non-empty list
+  is marked not workable). Metadata trouble degrades to fewer candidates or no size
+  check, never a crash. Own timeouts (connect `DOWNLOAD_CONNECT_TIMEOUT_S` 10 s,
+  stall `DOWNLOAD_STALL_TIMEOUT_S` 20 s; `_get` keeps the client's); there is **no
+  total-time bound on a transfer** (normal rate is 50-100 KB/s). First pass: one
+  attempt per candidate with a 1-4 s random sleep, never cut short; then repeat
+  attempts over candidates whose last error was retryable, until a monotonic
+  `DOWNLOAD_DEADLINE_S` (60 s) counted from the end of the first pass (slot wait
+  excluded). Retryable: 5xx/429/408 and transport errors; other 4xx moves on but is
+  not repeated; `Retry-After` is ignored. **Trickle switch:** throughput below
+  `TRICKLE_FLOOR_BPS` (10 KB/s) over `TRICKLE_WINDOW_S` (30 s) abandons that
+  candidate once per file, and the next asks `Range: bytes=<held>-`; only a `206`
+  whose `Content-Range` starts at that offset (and total matches `size`) is
+  appended, anything else (incl. `416`) discards the `.part` and restarts from byte
+  0. Continuation needs an md5; with size alone the `.part` is discarded. A stale
+  `.part` from a killed process is never continued. **Integrity is over the whole
+  finished file, however many servers it came from:** md5 (else byte count equal to
+  `size`) before the rename; a mismatch deletes the `.part`, moves on, and that copy
+  is not tried again. Exhaustion raises `IADownloadError(IAError)` whose text keeps
+  the `download of <filename>` prefix and names every URL tried. **Known
+  limitations:** the last non-abandoned candidate is never abandoned, so a server
+  dribbling just above the stall timeout holds its slot until it finishes; a file
+  whose every copy fails the integrity check (removed or darked item, stale cached
+  md5) fails as `download` on every sweep pass, so the sweep keeps listing it and
+  exits 1 until cleared by hand.
+- **Failure records carry `kind` and `at`** (`sessions.failure_record`, spec §3).
+  `kind`, first match wins: `RateLimited` → `rate-limited` (recorded only under
+  `--no-pacing`); `TaskFailed` → `llm`; herder `ResearchNotSupported` → `other`;
+  any other `HerderError` → `transport`; `IADownloadError` → `download`; any other
+  `IAError` → `archive`; else `other`. The order is load-bearing (several subclass
+  `HerderError`). `at` is the UTC ISO time. The sweep re-spends only on `download`
+  and `archive`. The records are persisted state and stay permissive: a legacy
+  record without `kind` reads as `download` when `error` starts with `download of `,
+  else `other` (`failure_kind`).
 - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track
   numbering doesn't map to sets. Titles resolve via cascade: recovered-format
   tags → own tags → setlist parsed from the item description → **sibling

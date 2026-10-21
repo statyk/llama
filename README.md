@@ -148,6 +148,14 @@ unsigned — verify them against `SHA256SUMS`. See
                                      # with what each run lost and why
     llama run approve countryish     # gate 1: approve a session's shortlist, optionally process it
     llama run resume countryish      # resume/replay a session; finished stages are skipped
+    llama run resume --all           # one unattended pass over every resumable run (paused past
+                                     # its reset, or incomplete from a download/archive failure
+                                     # or a crash); --no-wait by default, stops at the first
+                                     # usage pause. Loop it:
+                                     #   while true; do llama run resume --all; sleep 600; done
+                                     # `run list` marks a run another process is working
+                                     # `running`; a run that fails any other way waits for an
+                                     # explicit `run resume <id>`
     llama show 1973-06-10            # inspect one show (its state, artifacts, archive URL, flags)
     llama show 1973-06-10 --tracks   # numbered track list (index, title, filename, duration)
     llama fix 1973-06-10 --exclude 9,10       # exclude by track number (filenames work too);
