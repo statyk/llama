@@ -5,6 +5,7 @@ import sys
 import tempfile
 import textwrap
 import traceback
+from contextlib import ExitStack, contextmanager
 from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -27,7 +28,7 @@ from llama.download_slots import DownloadSlots
 from llama.errors import LlamaError
 from llama.ia_client import IAClient, IAError
 from llama.ledger import Ledger
-from llama.locks import Locked, file_lock
+from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock
 from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
 from llama import pacing as _pacing   # module, not `from ... import _now`:
                                       # a rebound name defeats the tests' clock
@@ -40,7 +41,7 @@ from llama.pipeline import (choose_entries, count_llm_calls, make_providers,
 from llama.profiles import (
     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
 )
-from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
+from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED, STATE_RUNNING,
                             attention_sessions, mark_awaiting, mark_complete,
                             failure_record, mark_incomplete, mark_paused,
                             read_request, session_state)
@@ -831,34 +832,49 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
         typer.echo("--artist-cap/--year-cap must be above 0 "
                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
         raise typer.Exit(1)
-    run_name = name or claim_run_dir(config.root,
-                                     f"{date.today().isoformat()}-{slugify(query)[:40]}")
+    if name:
+        # `--name` reuses an existing dir exactly as before; only HOW we learn
+        # whether this invocation created it changed (an atomic mkdir), since
+        # that decides blocking vs refusing a live run.
+        try:
+            (config.root / "runs" / name).mkdir(parents=True, exist_ok=False)
+            created = True
+        except FileExistsError:
+            created = False
+        run_name = name
+    else:
+        run_name = claim_run_dir(config.root,
+                                 f"{date.today().isoformat()}-{slugify(query)[:40]}")
+        created = True
     ws = RunWorkspace(config.root, run_name)
-    # Persisted BEFORE the first LLM call: a limit during interpret parks a
-    # session whose query would otherwise live only in argv. This artifact is
-    # what makes such a session resumable at all (T6b).
-    write_artifact(ws.request, json.dumps({
-        "mode": "query", "query": query, "profile": None,
-        "limit": limit, "artist_cap": artist_cap,
-        "min_score": min_score, "year_cap": year_cap,
-        "auto": auto, "plan": plan}, indent=2))
-    if pace is None:
-        pace = pace_options(config)
-    # BEFORE interpret, not after: interpret is this run's first LLM call, and
-    # until now it was the one call spent with no proactive check at all.
-    # `_execute` keeps its own gate -- it has four other entry points.
-    proceed, _ = _preflight_gate(ws, config, pace,
-                                 pacing_state.read_state(config.root))
-    if not proceed:
-        return
-    criteria = _interpret_with_pause(config, ws, {
-        "mode": "query", "query": query, "limit": limit, "artist_cap": artist_cap,
-        "min_score": min_score, "year_cap": year_cap}, pace)
-    if criteria is None:
-        return
-    _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False,
-             full_rationale=full_rationale, plan=plan, pace=pace)
+    # Locked before request.json and interpret, held to exit. A dir this call
+    # created waits for its lock: only a reader's probe can hold it, briefly.
+    with _run_locked(ws, blocking=created):
+        # Persisted BEFORE the first LLM call: a limit during interpret parks a
+        # session whose query would otherwise live only in argv. This artifact is
+        # what makes such a session resumable at all (T6b).
+        write_artifact(ws.request, json.dumps({
+            "mode": "query", "query": query, "profile": None,
+            "limit": limit, "artist_cap": artist_cap,
+            "min_score": min_score, "year_cap": year_cap,
+            "auto": auto, "plan": plan}, indent=2))
+        if pace is None:
+            pace = pace_options(config)
+        # BEFORE interpret, not after: interpret is this run's first LLM call, and
+        # until now it was the one call spent with no proactive check at all.
+        # `_execute` keeps its own gate -- it has four other entry points.
+        proceed, _ = _preflight_gate(ws, config, pace,
+                                     pacing_state.read_state(config.root))
+        if not proceed:
+            return
+        criteria = _interpret_with_pause(config, ws, {
+            "mode": "query", "query": query, "limit": limit, "artist_cap": artist_cap,
+            "min_score": min_score, "year_cap": year_cap}, pace)
+        if criteria is None:
+            return
+        _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
+                 human_gate=False,
+                 full_rationale=full_rationale, plan=plan, pace=pace)
 
 
 def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
@@ -868,24 +884,26 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
     profile = load_profile(config.root, name)
     ws = RunWorkspace(config.root, claim_run_dir(config.root,
                                                  f"{date.today().isoformat()}-{name}"))
-    # The same invocation record `_get_query` writes. Without it a profile
-    # run parked by the run-level catch resumes with plan=False and performs
-    # a full acquisition -- from the recovery path the CLI itself prints.
-    # The query-mode selection flags are None here: a profile run takes those
-    # values from its stored criteria, not from argv.
-    write_artifact(ws.request, json.dumps({
-        "mode": "profile", "query": None, "profile": name,
-        "limit": None, "artist_cap": None,
-        "min_score": None, "year_cap": None,
-        "auto": auto, "plan": plan}, indent=2))
-    # Stamp count into the run's criteria: a later `llama run` on this dir
-    # must behave like the profile, not the defaults.
-    criteria = profile.criteria.model_copy(update={"count": profile.count,
-                                                   "profile": name})
-    write_artifact(ws.criteria, criteria)
-    _execute(config, ia, ledger, ws, criteria, profile.count, auto,
-             human_gate=profile.human_gate,
-             full_rationale=full_rationale, plan=plan, pace=pace)
+    # A fresh dir: wait for its lock (only a reader's probe can hold it).
+    with _run_locked(ws, blocking=True):
+        # The same invocation record `_get_query` writes. Without it a profile
+        # run parked by the run-level catch resumes with plan=False and performs
+        # a full acquisition -- from the recovery path the CLI itself prints.
+        # The query-mode selection flags are None here: a profile run takes those
+        # values from its stored criteria, not from argv.
+        write_artifact(ws.request, json.dumps({
+            "mode": "profile", "query": None, "profile": name,
+            "limit": None, "artist_cap": None,
+            "min_score": None, "year_cap": None,
+            "auto": auto, "plan": plan}, indent=2))
+        # Stamp count into the run's criteria: a later `llama run` on this dir
+        # must behave like the profile, not the defaults.
+        criteria = profile.criteria.model_copy(update={"count": profile.count,
+                                                       "profile": name})
+        write_artifact(ws.criteria, criteria)
+        _execute(config, ia, ledger, ws, criteria, profile.count, auto,
+                 human_gate=profile.human_gate,
+                 full_rationale=full_rationale, plan=plan, pace=pace)
 
 
 @app.command(rich_help_panel="Acquire",
@@ -998,7 +1016,7 @@ def artists(
 _RUN_LIST_HEADER = f"{'SESSION':<36} {'STATE':<18} {'AGE':>4}  {'NEXT':<12} CRITERIA"
 # The command that clears each attention state; the session id is column one.
 _NEXT_STEP = {STATE_AWAITING: "run approve", STATE_INCOMPLETE: "run resume",
-              STATE_PAUSED: "run resume"}
+              STATE_PAUSED: "run resume", STATE_RUNNING: "in progress"}
 
 
 def _humanize_age(updated_at: str) -> str:
@@ -1091,26 +1109,28 @@ def run_approve(
     config, ia, ledger = _setup()
     pace = _pace(config, wait, max_wait, no_pacing)
     ws = _resolve_run(config, session)
-    entries = read_model_list(ws.shortlist, ShortlistEntry)
-    _print_shortlist(entries, full=full_rationale)
-    picks = typer.prompt("Approve which ranks? (comma-separated)",
-                         default="", show_default=False)
-    wanted = _parse_ranks(picks) & {e.rank for e in entries}
-    if not wanted:
-        typer.echo("no matching ranks given; shortlist unchanged")
-        return
-    for e in entries:
-        if e.rank in wanted:
-            e.approved = True   # unnamed ranks stay undecided, not rejected
-    write_artifact(ws.shortlist, entries)
-    typer.echo(f"approved: {sorted(wanted)}")
-    if typer.confirm("Process approved shows now?", default=True):
-        criteria = read_model(ws.criteria, Criteria)
-        _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
-                 human_gate=False,
-                 full_rationale=full_rationale, pace=pace)
-    else:
-        typer.echo(f"next: llama run resume {ws.name}")
+    # At entry: before the shortlist prints, any prompt or any write.
+    with _run_locked(ws):
+        entries = read_model_list(ws.shortlist, ShortlistEntry)
+        _print_shortlist(entries, full=full_rationale)
+        picks = typer.prompt("Approve which ranks? (comma-separated)",
+                             default="", show_default=False)
+        wanted = _parse_ranks(picks) & {e.rank for e in entries}
+        if not wanted:
+            typer.echo("no matching ranks given; shortlist unchanged")
+            return
+        for e in entries:
+            if e.rank in wanted:
+                e.approved = True   # unnamed ranks stay undecided, not rejected
+        write_artifact(ws.shortlist, entries)
+        typer.echo(f"approved: {sorted(wanted)}")
+        if typer.confirm("Process approved shows now?", default=True):
+            criteria = read_model(ws.criteria, Criteria)
+            _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
+                     human_gate=False,
+                     full_rationale=full_rationale, pace=pace)
+        else:
+            typer.echo(f"next: llama run resume {ws.name}")
 
 
 @run_app.command("resume")
@@ -1136,55 +1156,57 @@ def run_resume(
     config, ia, ledger = _setup()
     pace = _pace(config, wait, max_wait, no_pacing)
     ws = _resolve_run(config, session)
-    if not ws.criteria.exists():
-        if not ws.request.exists():
-            typer.echo(f"no criteria.json in {ws.dir}", err=True)
-            raise typer.Exit(1)
-        # Parked before interpret ever succeeded (T6b). The persisted request
-        # is enough to re-interpret and carry on -- but this branch spends an
-        # interpret call BEFORE `_execute`'s own gate is reached, so gate it
-        # here or the one command that exists to recover from a limit pays
-        # the very call T6b removed. Only this branch: the ordinary resume
-        # reaches `_execute`'s gate with nothing spent ahead of it.
-        proceed, _ = _preflight_gate(ws, config, pace,
-                                     pacing_state.read_state(config.root))
-        if not proceed:
-            return
-        # ...and catch a refusal on the call itself, not just gate ahead of
-        # it: the gate reads an account-wide meter that another session can
-        # empty between the reading and the call. A resume that died here
-        # would leave the session exactly as parked, having spent the call.
-        req = json.loads(ws.request.read_text())
-        criteria = _interpret_with_pause(config, ws, req, pace)
-        if criteria is None:
-            return
-    else:
-        criteria = read_model(ws.criteria, Criteria)
-        # A run parked by the run-level `RateLimited` catch -- in discover /
-        # search / winnow -- HAS criteria.json, and that is the LIKELIER
-        # place for a `--plan` run to die: interpret is one call, those three
-        # are where a window actually empties. So this branch has to read the
-        # request too. Guarded, because a run dir predating `--plan` has no
-        # request.json at all and must keep resuming exactly as it did.
-        req = json.loads(ws.request.read_text()) if ws.request.exists() else {}
-    # One expression, both branches. `--plan` means "stop AT the shortlist",
-    # so that directive is already SATISFIED once a shortlist exists, and a
-    # resume past that point should process normally. Replaying `plan`
-    # unconditionally is worse than dropping it: `request.json` carries
-    # `plan: true` for the life of the run, so every later `run resume` --
-    # including the one `run approve` itself recommends when the operator
-    # declines to process immediately -- would re-park the session awaiting
-    # and process nothing, permanently.
-    #
-    # `auto` is deliberately NOT replayed this way: `run resume` has its own
-    # explicit `--auto/--interactive` flag, and a persisted value must never
-    # override an explicit one. `auto` stays in the request artifact as
-    # informational only.
-    plan = bool(req.get("plan")) and not ws.shortlist.exists()
-    _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
-             human_gate=False, force=False,
-             force_stage=None,
-             full_rationale=full_rationale, plan=plan, pace=pace)
+    # Before reading anything: a live run is another process's to finish.
+    with _run_locked(ws):
+        if not ws.criteria.exists():
+            if not ws.request.exists():
+                typer.echo(f"no criteria.json in {ws.dir}", err=True)
+                raise typer.Exit(1)
+            # Parked before interpret ever succeeded (T6b). The persisted request
+            # is enough to re-interpret and carry on -- but this branch spends an
+            # interpret call BEFORE `_execute`'s own gate is reached, so gate it
+            # here or the one command that exists to recover from a limit pays
+            # the very call T6b removed. Only this branch: the ordinary resume
+            # reaches `_execute`'s gate with nothing spent ahead of it.
+            proceed, _ = _preflight_gate(ws, config, pace,
+                                         pacing_state.read_state(config.root))
+            if not proceed:
+                return
+            # ...and catch a refusal on the call itself, not just gate ahead of
+            # it: the gate reads an account-wide meter that another session can
+            # empty between the reading and the call. A resume that died here
+            # would leave the session exactly as parked, having spent the call.
+            req = json.loads(ws.request.read_text())
+            criteria = _interpret_with_pause(config, ws, req, pace)
+            if criteria is None:
+                return
+        else:
+            criteria = read_model(ws.criteria, Criteria)
+            # A run parked by the run-level `RateLimited` catch -- in discover /
+            # search / winnow -- HAS criteria.json, and that is the LIKELIER
+            # place for a `--plan` run to die: interpret is one call, those three
+            # are where a window actually empties. So this branch has to read the
+            # request too. Guarded, because a run dir predating `--plan` has no
+            # request.json at all and must keep resuming exactly as it did.
+            req = json.loads(ws.request.read_text()) if ws.request.exists() else {}
+        # One expression, both branches. `--plan` means "stop AT the shortlist",
+        # so that directive is already SATISFIED once a shortlist exists, and a
+        # resume past that point should process normally. Replaying `plan`
+        # unconditionally is worse than dropping it: `request.json` carries
+        # `plan: true` for the life of the run, so every later `run resume` --
+        # including the one `run approve` itself recommends when the operator
+        # declines to process immediately -- would re-park the session awaiting
+        # and process nothing, permanently.
+        #
+        # `auto` is deliberately NOT replayed this way: `run resume` has its own
+        # explicit `--auto/--interactive` flag, and a persisted value must never
+        # override an explicit one. `auto` stays in the request artifact as
+        # informational only.
+        plan = bool(req.get("plan")) and not ws.shortlist.exists()
+        _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
+                 human_gate=False, force=False,
+                 force_stage=None,
+                 full_rationale=full_rationale, plan=plan, pace=pace)
 
 
 @run_app.command("rm")
@@ -1197,13 +1219,34 @@ def run_rm(
     history of their own."""
     config, _, _ = _setup()
     ws = _resolve_run(config, session)
-    state = session_state(ws.dir)
-    if not yes:
-        typer.echo(f"session {ws.name}: {state}")
-        if not typer.confirm("Proceed?", default=False):
-            return
-    shutil.rmtree(ws.dir)
-    typer.echo(f"removed session {ws.name}")
+    # Held through rmtree, so nothing can start on the run while it goes.
+    with _run_locked(ws):
+        state = session_state(ws.dir)
+        if not yes:
+            typer.echo(f"session {ws.name}: {state}")
+            if not typer.confirm("Proceed?", default=False):
+                return
+        shutil.rmtree(ws.dir)
+        typer.echo(f"removed session {ws.name}")
+
+
+@contextmanager
+def _run_locked(ws: RunWorkspace, *, blocking: bool = False):
+    """Hold `ws`'s run lock for the life of the context (spec §4): taken once,
+    at command entry, never inside `_execute` (a second flock on the same file
+    from this process would wait on itself). Non-blocking by default: a run
+    another process holds is refused, never joined. `blocking` is for `get`'s
+    freshly created dir only."""
+    with ExitStack() as stack:
+        try:
+            stack.enter_context(run_lock(ws.dir, blocking=blocking))
+        except Locked:
+            typer.echo(f"run {ws.name} is in progress in another process", err=True)
+            raise typer.Exit(1)
+        except RunMissing:
+            typer.echo(f"run {ws.name} no longer exists", err=True)
+            raise typer.Exit(1)
+        yield
 
 
 def _resolve_run(config, name: str) -> RunWorkspace:
@@ -3089,24 +3132,25 @@ def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str) -> None:
     confirm on a doomed shortlist, downstream-artifact deletion, then a
     plain `_execute` replay with the run's own persisted criteria)."""
     ws = _resolve_run(config, run_name)
-    if not ws.criteria.exists():
-        typer.echo(f"no criteria.json in {ws.dir}", err=True)
-        raise typer.Exit(1)
-    criteria = read_model(ws.criteria, Criteria)
-    if from_stage == "search" and ws.shortlist.exists():
-        entries = read_model_list(ws.shortlist, ShortlistEntry)
-        if any(e.approved is not None for e in entries):
-            typer.echo("this rebuilds the shortlist and discards the approvals recorded on it")
-            if not typer.confirm("Continue?", default=False):
-                raise typer.Exit(1)
-    # a stale shortlist would block re-winnowing after a fresh search
-    doomed = [ws.candidates, ws.shortlist] if from_stage == "search" else [ws.shortlist]
-    for path in doomed:
-        if path.exists():
-            path.unlink()
-    _execute(config, ia, ledger, ws, criteria, criteria.count, True,
-             human_gate=False, force=False,
-             force_stage=None, full_rationale=False)
+    with _run_locked(ws):
+        if not ws.criteria.exists():
+            typer.echo(f"no criteria.json in {ws.dir}", err=True)
+            raise typer.Exit(1)
+        criteria = read_model(ws.criteria, Criteria)
+        if from_stage == "search" and ws.shortlist.exists():
+            entries = read_model_list(ws.shortlist, ShortlistEntry)
+            if any(e.approved is not None for e in entries):
+                typer.echo("this rebuilds the shortlist and discards the approvals recorded on it")
+                if not typer.confirm("Continue?", default=False):
+                    raise typer.Exit(1)
+        # a stale shortlist would block re-winnowing after a fresh search
+        doomed = [ws.candidates, ws.shortlist] if from_stage == "search" else [ws.shortlist]
+        for path in doomed:
+            if path.exists():
+                path.unlink()
+        _execute(config, ia, ledger, ws, criteria, criteria.count, True,
+                 human_gate=False, force=False,
+                 force_stage=None, full_rationale=False)
 
 
 @app.command(rich_help_panel="Fix & ship",
@@ -3566,7 +3610,7 @@ def unsuppress(name: str = typer.Argument(
 
 
 _ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete",
-                     STATE_PAUSED: "paused"}
+                     STATE_PAUSED: "paused", STATE_RUNNING: "running"}
 
 
 def _session_json(s) -> dict:
@@ -3582,8 +3626,10 @@ def _session_json(s) -> dict:
             "outcome": s.outcome, "failures": s.failures,
             "resume_after": s.resume_after, "pause_reason": s.pause_reason,
             # NEXT as a runnable command: the table's column drops `llama`
-            # and the id only because both are already on the row.
-            "next": f"llama {_NEXT_STEP.get(s.state, 'run resume')} {s.id}"}
+            # and the id only because both are already on the row. A running
+            # run has none: its NEXT ("in progress") is not a command.
+            "next": None if s.state == STATE_RUNNING
+            else f"llama {_NEXT_STEP.get(s.state, 'run resume')} {s.id}"}
 
 
 def _by_run_rollup(config, ledger) -> list[dict]:
@@ -3623,7 +3669,8 @@ def _by_run_rollup(config, ledger) -> list[dict]:
                 query = req.get("query") or ""
         counts = by_run.get(d.name, Counter())
         rows.append({"id": d.name, "query": query, "profile": profile,
-                    "states": dict(sorted(counts.items()))})
+                    "states": dict(sorted(counts.items())),
+                    "running": run_is_live(d)})
     return rows
 
 
@@ -3682,7 +3729,8 @@ def status(
         for row in rollup:
             summary = "  ".join(f"{s} {n}" for s, n in row["states"].items()) or "no shows"
             label = f"profile: {row['profile']}" if row["profile"] else row["query"]
-            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {label:40.40s}")
+            running = "  [running]" if row["running"] else ""
+            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {label:40.40s}{running}")
         return
 
     entries = apply_selector(iter_shows(config.root, ledger), sel)

@@ -12,6 +12,7 @@ from herder.limits import RateLimited
 from herder.provider import ResearchNotSupported
 
 from llama.ia_client import IAError, IADownloadError
+from llama.locks import run_is_live
 from llama.models import Criteria
 from llama.workspace import RunWorkspace, read_model, write_artifact
 
@@ -65,6 +66,8 @@ STATE_COMPLETE = "complete"
 STATE_INCOMPLETE = "incomplete"          # written when shows failed; also the
                                          # fallback when no clean stop was recorded
 STATE_PAUSED = "paused"                  # waiting out an exhausted usage window
+STATE_RUNNING = "running"                # derived, never written: another process
+                                         # holds the run lock (iter_sessions only)
 
 
 def _write(ws: RunWorkspace, state: str, outcome: str | None,
@@ -157,6 +160,8 @@ def _state_of(marker: dict) -> str:
 
 
 def session_state(run_dir: Path) -> str:
+    """The marker's state. Never probes the run lock: `run rm` calls this while
+    holding it, and its own probe would read the run as live."""
     return _state_of(_read_marker(run_dir))
 
 
@@ -164,6 +169,7 @@ def session_state(run_dir: Path) -> str:
 class SessionInfo:
     id: str
     state: str            # STATE_AWAITING | STATE_COMPLETE | STATE_INCOMPLETE | STATE_PAUSED
+                          # | STATE_RUNNING
     updated_at: str       # marker updated_at, else dir-mtime ISO
     query: str            # criteria.query, else request.json's; "" if neither
     profile: str | None   # criteria.profile
@@ -178,8 +184,12 @@ def _updated_at(run_dir: Path, marker: dict) -> str:
         datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
 
 
-def iter_sessions(root: Path) -> list[SessionInfo]:
-    """Every dir under runs/, newest-first by updated_at."""
+def iter_sessions(root: Path, *, probe_live: bool = True) -> list[SessionInfo]:
+    """Every dir under runs/, newest-first by updated_at.
+
+    With `probe_live`, a run whose lock another process holds reads as
+    STATE_RUNNING whatever its marker says (spec §4): the marker records how
+    the last attempt ended, not whether one is under way now."""
     runs_dir = root / "runs"
     infos = []
     if runs_dir.is_dir():
@@ -204,9 +214,10 @@ def iter_sessions(root: Path) -> list[SessionInfo]:
                 else:
                     query = req.get("query") or ""
             marker = _read_marker(run_dir)
+            live = probe_live and run_is_live(run_dir)
             infos.append(SessionInfo(
                 id=run_dir.name,
-                state=_state_of(marker),
+                state=STATE_RUNNING if live else _state_of(marker),
                 updated_at=_updated_at(run_dir, marker),
                 query=query,
                 profile=profile,

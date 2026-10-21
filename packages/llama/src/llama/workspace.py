@@ -123,6 +123,7 @@ class RunWorkspace:
         self.shortlist = self.dir / "shortlist.json"
         self.artists = self.dir / "artists.json"
         self.session = self.dir / "session.json"
+        self.lock = self.dir / ".lock"            # the run lock (locks.run_lock)
 
     def show_ws(self, performance_id: str) -> ShowWorkspace:
         return ShowWorkspace(self.root / "shows" / slugify(performance_id))
