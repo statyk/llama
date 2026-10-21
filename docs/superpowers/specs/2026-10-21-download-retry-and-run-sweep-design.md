@@ -159,7 +159,9 @@ between attempts (about 1-4 s, uniform; exact constants are the builder's). The 
 short, so a hanging redirect can't starve the listed servers. After it, repeat attempts cycle through the
 candidates whose last error was retryable, for a **monotonic deadline of about 60 s** of attempts and
 sleeps counted from the end of the first pass. The deadline is checked before starting an attempt, and
-an attempt in flight is allowed to finish. Time spent waiting for a download slot (§2) does not count.
+an attempt in flight is allowed to finish. One exception: the attempt that follows a trickle abandonment
+always starts, even past the deadline, because the abandonment was allowed only on the promise of a next
+attempt; that attempt cannot itself be abandoned, so at most one runs past the deadline. Time spent waiting for a download slot (§2) does not count.
 When the deadline passes, or no candidate is retryable, raise `IADownloadError` (below) naming every URL
 tried and its last error. `Retry-After` is ignored: switching servers is the response to a struggling
 server.
