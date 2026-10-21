@@ -1,3 +1,4 @@
+import errno
 import fcntl
 import os
 import random
@@ -124,3 +125,18 @@ def test_slot_released_on_exit(tmp_path: Path):
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     finally:
         os.close(fd)
+
+
+def test_a_flock_error_other_than_held_propagates(tmp_path: Path, monkeypatch):
+    def broken(fd, op):
+        raise OSError(errno.ENOLCK, "no locks available")
+
+    monkeypatch.setattr("llama.download_slots.fcntl.flock", broken)
+
+    def never(_s: float) -> None:
+        raise AssertionError("must not poll on a persistent flock error")
+
+    with pytest.raises(OSError) as info:
+        with DownloadSlots(tmp_path / "slots", 2, sleep=never).acquire():
+            pass
+    assert info.value.errno == errno.ENOLCK
