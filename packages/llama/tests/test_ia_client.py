@@ -715,13 +715,15 @@ def test_range_answered_200_restarts_from_zero(tmp_path: Path):
         ranges.append(request.headers.get("range"))
         return httpx.Response(200, content=stream(clock, LONG, HEALTHY))
 
+    seen: list = []
     ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE),
-                                       SERVER: ignores_range}, []),
+                                       SERVER: ignores_range}, seen),
                      metadata=long_metadata("ia800903.us.archive.org"), clock=clock)
     dest = tmp_path / "t.mp3"
     ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
     assert dest.read_bytes() == LONG
     assert ranges == [f"bytes={K}-"]
+    assert seen == [REDIRECT, SERVER]  # the 200 body alone was the whole file
 
 
 @pytest.mark.parametrize("content_range, body", [
@@ -885,6 +887,20 @@ def test_no_abandonment_after_the_deadline(tmp_path: Path):
     assert events[-1][0] == "R" and events[-1][1] < deadline < clock.now
 
 
+class SlowToClose(httpx.SyncByteStream):
+    """A response body whose close() takes a second of fake-clock time."""
+
+    def __init__(self, clock: FakeClock, body):
+        self.clock = clock
+        self.body = body
+
+    def __iter__(self):
+        yield from self.body
+
+    def close(self) -> None:
+        self.clock.advance(1.0)
+
+
 def test_abandonment_just_before_the_deadline_still_gets_its_next_attempt(tmp_path: Path):
     clock = FakeClock()
     events: list = []
@@ -902,11 +918,12 @@ def test_abandonment_just_before_the_deadline_still_gets_its_next_attempt(tmp_pa
         if deadline is None or clock.now < deadline - 40:
             return httpx.Response(500)
         # First byte at deadline - 30.5: abandoned about half a second before the
-        # deadline (0.1 s chunks, so float drift costs at most 0.1 s), so the pause
-        # (>= 1 s) before the next attempt ends after it.
+        # deadline (0.1 s chunks, so float drift costs at most 0.1 s). Closing the
+        # response takes 1 s, so the schedule's checks before and after the pause
+        # both run past the deadline.
         first_byte = deadline - TRICKLE_WINDOW_S - 0.5
-        return httpx.Response(200, content=stream(clock, LONG, TRICKLE, chunk=100,
-                                                  delay=first_byte - 0.1 - clock.now))
+        return httpx.Response(200, stream=SlowToClose(
+            clock, stream(clock, LONG, TRICKLE, chunk=100, delay=first_byte - 0.1 - clock.now)))
 
     ia = make_client(tmp_path, routed({REDIRECT: redirect, SERVER: server}, []),
                      metadata=long_metadata("ia800903.us.archive.org"), clock=clock)
