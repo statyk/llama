@@ -1,0 +1,566 @@
+# Review package: d0e08c4..HEAD
+
+## Commits
+4feccc4 feat(ia): cap concurrent audio downloads at 8 per workspace
+
+## Files changed
+ packages/llama/src/llama/cli.py             |   3 +-
+ packages/llama/src/llama/download_slots.py  |  71 ++++++++++++++++
+ packages/llama/src/llama/ia_client.py       |  21 ++++-
+ packages/llama/tests/test_download_slots.py | 126 ++++++++++++++++++++++++++++
+ packages/llama/tests/test_ia_client.py      | 107 ++++++++++++++++++++++-
+ 5 files changed, 323 insertions(+), 5 deletions(-)
+
+## Diff
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index 9c977df..0d2ca9f 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -16,20 +16,21 @@ from typer.core import TyperGroup
+ from herder import HerderError, TaskFailed, provider_ladder
+ from herder.failures import set_capture_dir
+ from herder.limits import RateLimited
+ from herder.usage import read_usage
+ from llama.artist_index import (
+     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
+ )
+ from llama.catalog import library_performance_ids
+ from llama.cli_select import ShowState
+ from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
++from llama.download_slots import DownloadSlots
+ from llama.errors import LlamaError
+ from llama.ia_client import IAClient, IAError
+ from llama.ledger import Ledger
+ from llama.locks import Locked, file_lock
+ from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
+ from llama import pacing as _pacing   # module, not `from ... import _now`:
+                                       # a rebound name defeats the tests' clock
+ from llama import pacing_state
+ from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
+                           binding_forecast, decide, duration_arg, format_delta,
+@@ -114,21 +115,21 @@ def main(
+         help="Print the llama version and exit.",
+     ),
+ ) -> None:
+     """Find, vet, research, and package LMA concerts for broadcast."""
+     global _config_path
+     _config_path = config
+ 
+ 
+ def _setup() -> tuple[Config, IAClient, Ledger]:
+     config = load_config(_config_path)
+-    ia = IAClient(config.root / "cache")
++    ia = IAClient(config.root / "cache", slots=DownloadSlots(config.root / ".download-slots"))
+     ledger = Ledger(config.root / "ledger.jsonl")
+     return config, ia, ledger
+ 
+ 
+ def _profile_names(root: Path) -> list[str]:
+     """Names of the standing profiles on disk, sorted -- file stems only,
+     so a malformed profile still counts as existing."""
+     d = root / "profiles"
+     return sorted(p.stem for p in d.glob("*.toml")) if d.is_dir() else []
+ 
+diff --git a/packages/llama/src/llama/download_slots.py b/packages/llama/src/llama/download_slots.py
+new file mode 100644
+index 0000000..9d2424d
+--- /dev/null
++++ b/packages/llama/src/llama/download_slots.py
+@@ -0,0 +1,71 @@
++"""A per-workspace cap on concurrent audio downloads (spec 2026-10-21 §2).
++
++N slot files `<dir>/0.lock .. <dir>/{n-1}.lock`; a download holds an exclusive
++non-blocking `flock` on one for the length of a single attempt. flock dies with
++the process, so a killed holder frees its slot without any reaping.
++"""
++
++import os
++import random
++import time
++from collections.abc import Callable, Iterator
++from contextlib import contextmanager
++from pathlib import Path
++
++try:
++    import fcntl  # POSIX only
++except ImportError:  # pragma: no cover - non-POSIX fallback
++    fcntl = None
++
++DOWNLOAD_SLOTS = 8
++SLOT_POLL_MIN_S = 0.5
++SLOT_POLL_MAX_S = 1.0
++
++
++class DownloadSlots:
++    def __init__(self, dir: Path, n: int = DOWNLOAD_SLOTS, *,
++                 sleep: Callable[[float], None] = time.sleep,
++                 clock: Callable[[], float] = time.monotonic,
++                 rng: random.Random | None = None):
++        self.dir = dir
++        self.n = n
++        self.sleep = sleep
++        self.clock = clock
++        self.rng = rng or random.Random()
++
++    def _try_take(self) -> int | None:
++        """The fd of the first free slot, locked, or None when all are held."""
++        for i in range(self.n):
++            fd = os.open(self.dir / f"{i}.lock", os.O_CREAT | os.O_RDWR, 0o644)
++            try:
++                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
++            except OSError:  # BlockingIOError: held (any other OSError: treat as held)
++                os.close(fd)
++                continue
++            return fd
++        return None
++
++    @contextmanager
++    def acquire(self, *, on_wait: Callable[[], None] | None = None) -> Iterator[float]:
++        """Hold a slot; yields the seconds spent waiting for it. Never blocks on
++        one slot: polls them all, and when every one is held calls `on_wait`
++        (first miss only) and sleeps a jittered interval before polling again."""
++        self.dir.mkdir(parents=True, exist_ok=True)
++        if fcntl is None:  # pragma: no cover - non-POSIX fallback
++            yield 0.0
++            return
++        start = self.clock()
++        waited_once = False
++        while (fd := self._try_take()) is None:
++            if not waited_once:
++                waited_once = True
++                if on_wait is not None:
++                    on_wait()
++            self.sleep(self.rng.uniform(SLOT_POLL_MIN_S, SLOT_POLL_MAX_S))
++        try:
++            yield self.clock() - start
++        finally:
++            try:
++                fcntl.flock(fd, fcntl.LOCK_UN)
++            finally:
++                os.close(fd)
+diff --git a/packages/llama/src/llama/ia_client.py b/packages/llama/src/llama/ia_client.py
+index ecfc923..61b5735 100644
+--- a/packages/llama/src/llama/ia_client.py
++++ b/packages/llama/src/llama/ia_client.py
+@@ -1,24 +1,25 @@
+ import hashlib
+ import itertools
+ import json
+ import random
+ import re
+ import time
+ from collections import deque
+ from collections.abc import Callable
+-from dataclasses import dataclass
++from dataclasses import dataclass, replace
+ from pathlib import Path
+ from urllib.parse import quote
+ 
+ import httpx
+ 
++from llama.download_slots import DownloadSlots
+ from llama.errors import LlamaError
+ from llama.status import detail
+ from llama.workspace import atomic_write_text
+ 
+ SEARCH_URL = "https://archive.org/advancedsearch.php"
+ METADATA_URL = "https://archive.org/metadata/{identifier}"
+ DOWNLOAD_URL = "https://archive.org/download/{identifier}/{filename}"
+ SCRAPE_URL = "https://archive.org/services/search/v1/scrape"
+ 
+ # Audio downloads (spec 2026-10-21 §1). A stall (read) timeout, not a total-time
+@@ -108,33 +109,35 @@ class IAClient:
+         self,
+         cache_dir: Path,
+         client: httpx.Client | None = None,
+         max_retries: int = 3,
+         backoff_s: float = 1.0,
+         rate_limit_s: float = 0.5,
+         *,
+         clock: Callable[[], float] = time.monotonic,
+         sleep: Callable[[float], None] = time.sleep,
+         rng: random.Random | None = None,
++        slots: DownloadSlots | None = None,
+     ):
+         self.cache_dir = cache_dir
+         self.cache_dir.mkdir(parents=True, exist_ok=True)
+         self.client = client or httpx.Client(
+             timeout=60, follow_redirects=True, headers={"user-agent": "llama-radio/0.1"}
+         )
+         self.max_retries = max_retries
+         self.backoff_s = backoff_s
+         self.rate_limit_s = rate_limit_s
+         self._last_request = 0.0
+         self.clock = clock
+         self.sleep = sleep
+         self.rng = rng or random.Random()
++        self.slots = slots  # None: no cap on concurrent downloads
+ 
+     def _throttle(self) -> None:
+         wait = self.rate_limit_s - (time.monotonic() - self._last_request)
+         if wait > 0:
+             time.sleep(wait)
+         self._last_request = time.monotonic()
+ 
+     def _get(self, url: str, params: dict | None = None, *,
+              max_retries: int | None = None, backoff_s: float | None = None) -> httpx.Response:
+         retries = max_retries if max_retries is not None else self.max_retries
+@@ -360,38 +363,52 @@ class IAClient:
+         candidates, size = self._download_candidates(identifier, filename)
+         dest.parent.mkdir(parents=True, exist_ok=True)
+         tmp = dest.with_suffix(dest.suffix + ".part")
+         last_error: dict[str, str] = {}
+         retryable: dict[str, bool] = {}
+         abandoned: set[str] = set()
+         attempts = 0
+         in_first_pass = True
+         first_pass_end = 0.0
+         slot_wait = 0.0
++        announced = False
++
++        def on_wait() -> None:
++            nonlocal announced
++            if not announced:
++                announced = True
++                detail("waiting for a download slot")
+ 
+         def expired() -> bool:
+             return self.clock() - first_pass_end - slot_wait >= DOWNLOAD_DEADLINE_S
+ 
+         def may_abandon(url: str) -> Callable[[], bool]:
+             def check() -> bool:
+                 if url in abandoned:
+                     return False
+                 if not any(d != url and d not in abandoned and retryable.get(d, True)
+                            for d in candidates):
+                     return False
+                 return in_first_pass or not expired()
+             return check
+ 
+         def attempt(url: str) -> _Attempt:
+             nonlocal attempts, slot_wait
+             attempts += 1
+-            outcome = self._attempt(url, tmp, md5=md5, size=size, may_abandon=may_abandon(url))
++            if self.slots is None:
++                outcome = self._attempt(url, tmp, md5=md5, size=size, may_abandon=may_abandon(url))
++            else:
++                # The slot covers exactly one attempt and is freed before any sleep.
++                with self.slots.acquire(on_wait=on_wait) as waited:
++                    outcome = self._attempt(url, tmp, md5=md5, size=size,
++                                            may_abandon=may_abandon(url))
++                outcome = replace(outcome, slot_wait_s=waited)
+             slot_wait += outcome.slot_wait_s
+             if outcome.trickled:
+                 abandoned.add(url)
+             if not outcome.ok:
+                 last_error[url] = outcome.error
+                 retryable[url] = outcome.retryable
+             return outcome
+ 
+         # A .part from an earlier (killed) process is never continued: only this
+         # call's own trickle abandonments leave a .part to continue.
+diff --git a/packages/llama/tests/test_download_slots.py b/packages/llama/tests/test_download_slots.py
+new file mode 100644
+index 0000000..8a2a59b
+--- /dev/null
++++ b/packages/llama/tests/test_download_slots.py
+@@ -0,0 +1,126 @@
++import fcntl
++import os
++import random
++import subprocess
++import sys
++import threading
++from pathlib import Path
++
++import pytest
++
++from llama.download_slots import DownloadSlots
++
++
++class Boom(Exception):
++    pass
++
++
++def test_never_more_than_n_holders(tmp_path: Path):
++    n, total = 8, 12
++    go = threading.Event()
++    cond = threading.Condition()
++    state = {"held": 0, "max": 0, "polls": 0, "done": 0}
++
++    def sleep(_s: float) -> None:
++        with cond:
++            state["polls"] += 1
++            cond.notify_all()
++        assert go.wait(30)
++
++    def worker() -> None:
++        slots = DownloadSlots(tmp_path / "slots", n, sleep=sleep, rng=random.Random(0))
++        with slots.acquire():
++            with cond:
++                state["held"] += 1
++                state["max"] = max(state["max"], state["held"])
++                cond.notify_all()
++            assert go.wait(30)
++            with cond:
++                state["held"] -= 1
++                state["done"] += 1
++
++    threads = [threading.Thread(target=worker) for _ in range(total)]
++    for t in threads:
++        t.start()
++    with cond:  # failure-guard timeout only; correctness is by counters
++        assert cond.wait_for(lambda: state["held"] == n and state["polls"] >= total - n, 30)
++        assert state["held"] == n
++    go.set()
++    for t in threads:
++        t.join(30)
++    assert state["max"] == n
++    assert state["done"] == total
++
++
++def test_a_dead_holder_frees_its_slot(tmp_path: Path):
++    slots_dir = tmp_path / "slots"
++    code = (
++        "import fcntl, os, sys\n"
++        "d = sys.argv[1]; os.makedirs(d, exist_ok=True)\n"
++        "fds = [os.open(f'{d}/{i}.lock', os.O_CREAT | os.O_RDWR) for i in range(8)]\n"
++        "[fcntl.flock(fd, fcntl.LOCK_EX) for fd in fds]\n"
++        "print('held', flush=True)\n"
++        "sys.stdin.read()\n"
++    )
++    child = subprocess.Popen([sys.executable, "-c", code, str(slots_dir)],
++                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
++    try:
++        assert child.stdout.readline().strip() == "held"
++
++        def boom(_s: float) -> None:
++            raise Boom
++
++        with pytest.raises(Boom):
++            with DownloadSlots(slots_dir, 8, sleep=boom).acquire():
++                pass
++        child.kill()
++        child.wait()
++        with DownloadSlots(slots_dir, 8, sleep=boom, clock=lambda: 0.0).acquire() as waited:
++            assert waited == 0.0
++    finally:
++        child.kill()
++        child.wait()
++        child.stdout.close()
++        child.stdin.close()
++
++
++def test_on_wait_called_once_per_acquire(tmp_path: Path):
++    n = 2
++    holder = DownloadSlots(tmp_path / "slots", n)
++    ctxs = [holder.acquire() for _ in range(n)]
++    for c in ctxs:
++        c.__enter__()
++    polls = []
++
++    def sleep(_s: float) -> None:
++        polls.append(1)
++        if len(polls) == 3:
++            for c in ctxs:
++                c.__exit__(None, None, None)
++
++    waits = []
++    now = [0.0]
++
++    def clock() -> float:
++        return now[0]
++
++    def tick(s: float) -> None:
++        now[0] += s
++        sleep(s)
++
++    slots = DownloadSlots(tmp_path / "slots", n, sleep=tick, clock=clock, rng=random.Random(0))
++    with slots.acquire(on_wait=lambda: waits.append(1)) as waited:
++        assert waited > 0
++    assert len(polls) == 3
++    assert waits == [1]
++
++
++def test_slot_released_on_exit(tmp_path: Path):
++    slots = DownloadSlots(tmp_path / "slots", 1)
++    with slots.acquire():
++        pass
++    fd = os.open(tmp_path / "slots" / "0.lock", os.O_RDWR)
++    try:
++        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
++    finally:
++        os.close(fd)
+diff --git a/packages/llama/tests/test_ia_client.py b/packages/llama/tests/test_ia_client.py
+index a5abf9c..577efd4 100644
+--- a/packages/llama/tests/test_ia_client.py
++++ b/packages/llama/tests/test_ia_client.py
+@@ -1,19 +1,21 @@
++import contextlib
+ import hashlib
+ import json
+ import logging
+ import random
+ from pathlib import Path
+ 
+ import httpx
+ import pytest
+ 
++from llama.download_slots import DownloadSlots
+ from llama.ia_client import (DOWNLOAD_CONNECT_TIMEOUT_S, DOWNLOAD_DEADLINE_S,
+                              DOWNLOAD_STALL_TIMEOUT_S, TRICKLE_FLOOR_BPS, TRICKLE_WINDOW_S,
+                              IAClient, IADownloadError, IAError)
+ 
+ 
+ class FakeClock:
+     """A monotonic clock that only moves when slept on or advanced by a handler."""
+ 
+     def __init__(self) -> None:
+         self.now = 0.0
+@@ -24,32 +26,32 @@ class FakeClock:
+ 
+     def sleep(self, seconds: float) -> None:
+         self.sleeps.append(seconds)
+         self.now += seconds
+ 
+     def advance(self, seconds: float) -> None:
+         self.now += seconds
+ 
+ 
+ def make_client(tmp_path: Path, handler, *, metadata: dict | None = None,
+-                clock: FakeClock | None = None) -> IAClient:
++                clock: FakeClock | None = None, slots=None) -> IAClient:
+     """`metadata`, when given, is served at the metadata URL for every identifier;
+     otherwise the metadata request reaches `handler` like any other."""
+     def route(request: httpx.Request) -> httpx.Response:
+         if metadata is not None and request.url.path.startswith("/metadata/"):
+             return httpx.Response(200, json=metadata)
+         return handler(request)
+ 
+     clock = clock or FakeClock()
+     http = httpx.Client(transport=httpx.MockTransport(route))
+     return IAClient(cache_dir=tmp_path / "cache", client=http, backoff_s=0, rate_limit_s=0,
+-                    clock=clock, sleep=clock.sleep, rng=random.Random(0))
++                    clock=clock, sleep=clock.sleep, rng=random.Random(0), slots=slots)
+ 
+ 
+ def test_search_returns_docs_and_caches(tmp_path: Path):
+     calls = {"n": 0}
+ 
+     def handler(request: httpx.Request) -> httpx.Response:
+         calls["n"] += 1
+         return httpx.Response(200, json={"response": {"docs": [{"identifier": "gd73-06-10.sbd"}]}})
+ 
+     ia = make_client(tmp_path, handler)
+@@ -1070,10 +1072,111 @@ def test_a_transfer_that_slows_to_a_trickle_is_abandoned(tmp_path: Path):
+                      metadata=long_metadata("ia800903.us.archive.org",
+                                             md5=hashlib.md5(data).hexdigest(), data=data),
+                      clock=clock)
+     dest = tmp_path / "t.mp3"
+     ia.download_file("x", "t.mp3", dest, md5=hashlib.md5(data).hexdigest())
+     assert dest.read_bytes() == data
+     assert seen == [REDIRECT, SERVER]
+     assert ranges == [f"bytes={sent['n']}-"]
+     # Abandoned within about a window of the slowdown, not at the end of the file.
+     assert fast < sent["n"] <= fast + (TRICKLE_WINDOW_S + 2) * TRICKLE
++
++
++# --- download cap (spec 2026-10-21 §2) ------------------------------------------------
++
++
++def test_slot_released_before_sleep_between_attempts(tmp_path: Path):
++    import fcntl
++    import os
++
++    clock = FakeClock()
++    slots = DownloadSlots(tmp_path / "slots", 1, sleep=clock.sleep, clock=clock,
++                          rng=random.Random(0))
++    free_at_sleep: list[bool] = []
++
++    def probe(seconds: float) -> None:
++        fd = os.open(tmp_path / "slots" / "0.lock", os.O_CREAT | os.O_RDWR)
++        try:
++            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
++            free_at_sleep.append(True)
++        except OSError:
++            free_at_sleep.append(False)
++        finally:
++            os.close(fd)
++        clock.sleep(seconds)
++
++    seen: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: 500, SERVER: BODY}, seen),
++                     metadata=item_metadata("ia800903.us.archive.org"), clock=clock, slots=slots)
++    ia.sleep = probe
++    ia.download_file("x", "t.mp3", tmp_path / "t.mp3", md5=BODY_MD5)
++    assert seen == [REDIRECT, SERVER]
++    assert free_at_sleep == [True]
++
++
++class _WaitingSlots:
++    """Stub with DownloadSlots' acquire contract: each acquire waits `wait` s."""
++
++    def __init__(self, clock: FakeClock, wait: float):
++        self.clock, self.wait, self.acquires = clock, wait, 0
++
++    @contextlib.contextmanager
++    def acquire(self, *, on_wait=None):
++        self.acquires += 1
++        if self.wait and on_wait:
++            on_wait()
++        self.clock.advance(self.wait)
++        yield self.wait
++
++
++def _count_attempts(tmp_path: Path, wait: float) -> int:
++    clock = FakeClock()
++    seen: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: 500, SERVER: 500}, seen),
++                     metadata=item_metadata("ia800903.us.archive.org"), clock=clock,
++                     slots=_WaitingSlots(clock, wait))
++    with pytest.raises(IADownloadError):
++        ia.download_file("x", "t.mp3", tmp_path / "t.mp3", md5=BODY_MD5)
++    return len(seen)
++
++
++def test_slot_wait_does_not_count_toward_deadline(tmp_path: Path):
++    assert _count_attempts(tmp_path / "waited", 500.0) == _count_attempts(tmp_path / "free", 0.0)
++
++
++def test_waiting_line_prints_at_most_once_per_download(tmp_path: Path, monkeypatch):
++    lines: list[str] = []
++    monkeypatch.setattr("llama.ia_client.detail", lines.append)
++    _count_attempts(tmp_path, 5.0)
++    assert lines == ["waiting for a download slot"]
++
++
++def test_transport_error_mid_continuation_discards_the_part(tmp_path: Path):
++    clock = FakeClock()
++    ranges: list = []
++    S2 = SERVER2
++
++    def s1(request: httpx.Request) -> httpx.Response:
++        ranges.append((str(request.url), request.headers.get("range")))
++        start = int(request.headers["range"].removeprefix("bytes=").removesuffix("-"))
++
++        def body():
++            yield LONG[start:start + 1_000]
++            raise httpx.ReadError("connection reset")
++        return httpx.Response(
++            206, headers={"content-range": f"bytes {start}-{len(LONG) - 1}/{len(LONG)}"},
++            content=body())
++
++    def s2(request: httpx.Request) -> httpx.Response:
++        ranges.append((str(request.url), request.headers.get("range")))
++        return httpx.Response(200, content=stream(clock, LONG, HEALTHY))
++
++    seen: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE), SERVER: s1,
++                                       S2: s2}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org", "ia600903.us.archive.org"),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert ranges == [(SERVER, f"bytes={K}-"), (S2, None)]  # the half-appended .part was dropped
++    assert no_leftovers(tmp_path)

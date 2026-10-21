@@ -1,0 +1,85 @@
+# Review package: 4feccc4..HEAD
+
+## Commits
+2ce8fa9 fix(ia): only a held slot is a wait; other flock errors propagate
+
+## Files changed
+ packages/llama/src/llama/download_slots.py  |  5 ++++-
+ packages/llama/tests/test_download_slots.py | 16 ++++++++++++++++
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/packages/llama/src/llama/download_slots.py b/packages/llama/src/llama/download_slots.py
+index 9d2424d..8606e0b 100644
+--- a/packages/llama/src/llama/download_slots.py
++++ b/packages/llama/src/llama/download_slots.py
+@@ -32,23 +32,26 @@ class DownloadSlots:
+         self.sleep = sleep
+         self.clock = clock
+         self.rng = rng or random.Random()
+ 
+     def _try_take(self) -> int | None:
+         """The fd of the first free slot, locked, or None when all are held."""
+         for i in range(self.n):
+             fd = os.open(self.dir / f"{i}.lock", os.O_CREAT | os.O_RDWR, 0o644)
+             try:
+                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+-            except OSError:  # BlockingIOError: held (any other OSError: treat as held)
++            except BlockingIOError:  # held by another holder
+                 os.close(fd)
+                 continue
++            except BaseException:  # any other error (ENOLCK, ...) propagates; no fd leak
++                os.close(fd)
++                raise
+             return fd
+         return None
+ 
+     @contextmanager
+     def acquire(self, *, on_wait: Callable[[], None] | None = None) -> Iterator[float]:
+         """Hold a slot; yields the seconds spent waiting for it. Never blocks on
+         one slot: polls them all, and when every one is held calls `on_wait`
+         (first miss only) and sleeps a jittered interval before polling again."""
+         self.dir.mkdir(parents=True, exist_ok=True)
+         if fcntl is None:  # pragma: no cover - non-POSIX fallback
+diff --git a/packages/llama/tests/test_download_slots.py b/packages/llama/tests/test_download_slots.py
+index 8a2a59b..eba04a3 100644
+--- a/packages/llama/tests/test_download_slots.py
++++ b/packages/llama/tests/test_download_slots.py
+@@ -1,10 +1,11 @@
++import errno
+ import fcntl
+ import os
+ import random
+ import subprocess
+ import sys
+ import threading
+ from pathlib import Path
+ 
+ import pytest
+ 
+@@ -117,10 +118,25 @@ def test_on_wait_called_once_per_acquire(tmp_path: Path):
+ 
+ def test_slot_released_on_exit(tmp_path: Path):
+     slots = DownloadSlots(tmp_path / "slots", 1)
+     with slots.acquire():
+         pass
+     fd = os.open(tmp_path / "slots" / "0.lock", os.O_RDWR)
+     try:
+         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+     finally:
+         os.close(fd)
++
++
++def test_a_flock_error_other_than_held_propagates(tmp_path: Path, monkeypatch):
++    def broken(fd, op):
++        raise OSError(errno.ENOLCK, "no locks available")
++
++    monkeypatch.setattr("llama.download_slots.fcntl.flock", broken)
++
++    def never(_s: float) -> None:
++        raise AssertionError("must not poll on a persistent flock error")
++
++    with pytest.raises(OSError) as info:
++        with DownloadSlots(tmp_path / "slots", 2, sleep=never).acquire():
++            pass
++    assert info.value.errno == errno.ENOLCK

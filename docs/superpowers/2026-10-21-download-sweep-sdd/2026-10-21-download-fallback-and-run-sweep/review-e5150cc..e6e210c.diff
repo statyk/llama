@@ -1,0 +1,1336 @@
+# Review package: e5150cc..HEAD
+
+## Commits
+e6e210c feat(runs): run lock on every command that works a run; readers report running
+
+## Files changed
+ packages/llama/src/llama/cli.py       | 342 +++++++++++++-----------
+ packages/llama/src/llama/locks.py     |  74 ++++++
+ packages/llama/src/llama/sessions.py  |  17 +-
+ packages/llama/src/llama/workspace.py |   1 +
+ packages/llama/tests/test_run_lock.py | 471 ++++++++++++++++++++++++++++++++++
+ 5 files changed, 755 insertions(+), 150 deletions(-)
+
+## Diff
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index 78d26b4..381686b 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -1,17 +1,18 @@
+ import json
+ import re
+ import shutil
+ import sys
+ import tempfile
+ import textwrap
+ import traceback
++from contextlib import ExitStack, contextmanager
+ from datetime import date, datetime, timezone
+ from enum import Enum
+ from pathlib import Path
+ from typing import Literal
+ 
+ import typer
+ from typer.core import TyperGroup
+ 
+ from herder import HerderError, TaskFailed, provider_ladder
+ from herder.failures import set_capture_dir
+@@ -20,34 +21,34 @@ from herder.usage import read_usage
+ from llama.artist_index import (
+     filter_artists, find_matching_artists, fmt_count, load_or_build, resolve_artists,
+ )
+ from llama.catalog import library_performance_ids
+ from llama.cli_select import ShowState
+ from llama.config import DEFAULT_CONFIG_TOML, DEFAULT_ROOT, Config, load_config
+ from llama.download_slots import DownloadSlots
+ from llama.errors import LlamaError
+ from llama.ia_client import IAClient, IAError
+ from llama.ledger import Ledger
+-from llama.locks import Locked, file_lock
++from llama.locks import Locked, RunMissing, file_lock, run_is_live, run_lock
+ from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
+ from llama import pacing as _pacing   # module, not `from ... import _now`:
+                                       # a rebound name defeats the tests' clock
+ from llama import pacing_state
+ from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
+                           binding_forecast, decide, duration_arg, format_delta,
+                           pace_options, resume_at, sleep_until)
+ from llama.pipeline import (choose_entries, count_llm_calls, make_providers,
+                             process_show)
+ from llama.profiles import (
+     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
+ )
+-from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
++from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED, STATE_RUNNING,
+                             attention_sessions, mark_awaiting, mark_complete,
+                             failure_record, mark_incomplete, mark_paused,
+                             read_request, session_state)
+ from llama.setlistfm import make_client
+ from llama.stages.discover import run_discover
+ from llama.stages.interpret import run_interpret
+ from llama.stages.search import run_search
+ from llama.stages.winnow import run_winnow
+ from llama.status import configure_logging
+ from llama.util import parse_performance_id, slugify
+@@ -824,75 +825,92 @@ def _interpret_with_pause(config, ws: RunWorkspace, req: dict,
+ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: bool,
+               name: str | None,
+               artist_cap: float | None, min_score: float | None, year_cap: float | None,
+               full_rationale: bool, pace: PaceOptions | None = None) -> None:
+     """Query mode: today's `find` verbatim (interpret -> stamp explicit flags
+     into criteria for replay -> `_execute`)."""
+     if artist_cap == 0.0 or year_cap == 0.0:
+         typer.echo("--artist-cap/--year-cap must be above 0 "
+                    "(a tiny value forces strict rotation; 1.0 disables the cap)", err=True)
+         raise typer.Exit(1)
+-    run_name = name or claim_run_dir(config.root,
+-                                     f"{date.today().isoformat()}-{slugify(query)[:40]}")
++    if name:
++        # `--name` reuses an existing dir exactly as before; only HOW we learn
++        # whether this invocation created it changed (an atomic mkdir), since
++        # that decides blocking vs refusing a live run.
++        try:
++            (config.root / "runs" / name).mkdir(parents=True, exist_ok=False)
++            created = True
++        except FileExistsError:
++            created = False
++        run_name = name
++    else:
++        run_name = claim_run_dir(config.root,
++                                 f"{date.today().isoformat()}-{slugify(query)[:40]}")
++        created = True
+     ws = RunWorkspace(config.root, run_name)
+-    # Persisted BEFORE the first LLM call: a limit during interpret parks a
+-    # session whose query would otherwise live only in argv. This artifact is
+-    # what makes such a session resumable at all (T6b).
+-    write_artifact(ws.request, json.dumps({
+-        "mode": "query", "query": query, "profile": None,
+-        "limit": limit, "artist_cap": artist_cap,
+-        "min_score": min_score, "year_cap": year_cap,
+-        "auto": auto, "plan": plan}, indent=2))
+-    if pace is None:
+-        pace = pace_options(config)
+-    # BEFORE interpret, not after: interpret is this run's first LLM call, and
+-    # until now it was the one call spent with no proactive check at all.
+-    # `_execute` keeps its own gate -- it has four other entry points.
+-    proceed, _ = _preflight_gate(ws, config, pace,
+-                                 pacing_state.read_state(config.root))
+-    if not proceed:
+-        return
+-    criteria = _interpret_with_pause(config, ws, {
+-        "mode": "query", "query": query, "limit": limit, "artist_cap": artist_cap,
+-        "min_score": min_score, "year_cap": year_cap}, pace)
+-    if criteria is None:
+-        return
+-    _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
+-             human_gate=False,
+-             full_rationale=full_rationale, plan=plan, pace=pace)
++    # Locked before request.json and interpret, held to exit. A dir this call
++    # created waits for its lock: only a reader's probe can hold it, briefly.
++    with _run_locked(ws, blocking=created):
++        # Persisted BEFORE the first LLM call: a limit during interpret parks a
++        # session whose query would otherwise live only in argv. This artifact is
++        # what makes such a session resumable at all (T6b).
++        write_artifact(ws.request, json.dumps({
++            "mode": "query", "query": query, "profile": None,
++            "limit": limit, "artist_cap": artist_cap,
++            "min_score": min_score, "year_cap": year_cap,
++            "auto": auto, "plan": plan}, indent=2))
++        if pace is None:
++            pace = pace_options(config)
++        # BEFORE interpret, not after: interpret is this run's first LLM call, and
++        # until now it was the one call spent with no proactive check at all.
++        # `_execute` keeps its own gate -- it has four other entry points.
++        proceed, _ = _preflight_gate(ws, config, pace,
++                                     pacing_state.read_state(config.root))
++        if not proceed:
++            return
++        criteria = _interpret_with_pause(config, ws, {
++            "mode": "query", "query": query, "limit": limit, "artist_cap": artist_cap,
++            "min_score": min_score, "year_cap": year_cap}, pace)
++        if criteria is None:
++            return
++        _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
++                 human_gate=False,
++                 full_rationale=full_rationale, plan=plan, pace=pace)
+ 
+ 
+ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
+                  full_rationale: bool, pace: PaceOptions | None = None) -> None:
+     """Profile mode: today's `profile run` verbatim (load profile -> stamp
+     count into the run's criteria -> `_execute`)."""
+     profile = load_profile(config.root, name)
+     ws = RunWorkspace(config.root, claim_run_dir(config.root,
+                                                  f"{date.today().isoformat()}-{name}"))
+-    # The same invocation record `_get_query` writes. Without it a profile
+-    # run parked by the run-level catch resumes with plan=False and performs
+-    # a full acquisition -- from the recovery path the CLI itself prints.
+-    # The query-mode selection flags are None here: a profile run takes those
+-    # values from its stored criteria, not from argv.
+-    write_artifact(ws.request, json.dumps({
+-        "mode": "profile", "query": None, "profile": name,
+-        "limit": None, "artist_cap": None,
+-        "min_score": None, "year_cap": None,
+-        "auto": auto, "plan": plan}, indent=2))
+-    # Stamp count into the run's criteria: a later `llama run` on this dir
+-    # must behave like the profile, not the defaults.
+-    criteria = profile.criteria.model_copy(update={"count": profile.count,
+-                                                   "profile": name})
+-    write_artifact(ws.criteria, criteria)
+-    _execute(config, ia, ledger, ws, criteria, profile.count, auto,
+-             human_gate=profile.human_gate,
+-             full_rationale=full_rationale, plan=plan, pace=pace)
++    # A fresh dir: wait for its lock (only a reader's probe can hold it).
++    with _run_locked(ws, blocking=True):
++        # The same invocation record `_get_query` writes. Without it a profile
++        # run parked by the run-level catch resumes with plan=False and performs
++        # a full acquisition -- from the recovery path the CLI itself prints.
++        # The query-mode selection flags are None here: a profile run takes those
++        # values from its stored criteria, not from argv.
++        write_artifact(ws.request, json.dumps({
++            "mode": "profile", "query": None, "profile": name,
++            "limit": None, "artist_cap": None,
++            "min_score": None, "year_cap": None,
++            "auto": auto, "plan": plan}, indent=2))
++        # Stamp count into the run's criteria: a later `llama run` on this dir
++        # must behave like the profile, not the defaults.
++        criteria = profile.criteria.model_copy(update={"count": profile.count,
++                                                       "profile": name})
++        write_artifact(ws.criteria, criteria)
++        _execute(config, ia, ledger, ws, criteria, profile.count, auto,
++                 human_gate=profile.human_gate,
++                 full_rationale=full_rationale, plan=plan, pace=pace)
+ 
+ 
+ @app.command(rich_help_panel="Acquire",
+              short_help="Find, vet, research & package shows: a query or a standing --profile.")
+ def get(
+     query: str = typer.Argument(
+         None, help="Natural-language query (one-off); give this OR --profile, not both"),
+     profile: str = typer.Option(
+         None, "--profile", help="Standing profile name (recurring segment) instead of a query"),
+     limit: int = typer.Option(0, "--limit",
+@@ -991,21 +1009,21 @@ def artists(
+                    "lower thresholds, or --include-junk")
+         return
+     _print_artists(matches)
+ 
+ 
+ # Same widths as the row f-string in _print_sessions, so the header cannot
+ # drift off its columns (the hand-typed one sat one character right).
+ _RUN_LIST_HEADER = f"{'SESSION':<36} {'STATE':<18} {'AGE':>4}  {'NEXT':<12} CRITERIA"
+ # The command that clears each attention state; the session id is column one.
+ _NEXT_STEP = {STATE_AWAITING: "run approve", STATE_INCOMPLETE: "run resume",
+-              STATE_PAUSED: "run resume"}
++              STATE_PAUSED: "run resume", STATE_RUNNING: "in progress"}
+ 
+ 
+ def _humanize_age(updated_at: str) -> str:
+     """`3h`/`2d`-style age from an ISO timestamp (spec §4)."""
+     then = datetime.fromisoformat(updated_at)
+     if then.tzinfo is None:
+         then = then.replace(tzinfo=timezone.utc)
+     seconds = max((datetime.now(timezone.utc) - then).total_seconds(), 0)
+     if seconds < 60:
+         return f"{int(seconds)}s"
+@@ -1084,40 +1102,42 @@ def run_approve(
+                                       "longer wait checkpoints instead. e.g. 30h"),
+     no_pacing: bool = typer.Option(False, "--no-pacing",
+                                    help="Disable usage pacing: a limit fails the show "
+                                         "as it did before"),
+ ):
+     """Gate 1: show a session's persisted shortlist, approve ranks, then
+     optionally process it now."""
+     config, ia, ledger = _setup()
+     pace = _pace(config, wait, max_wait, no_pacing)
+     ws = _resolve_run(config, session)
+-    entries = read_model_list(ws.shortlist, ShortlistEntry)
+-    _print_shortlist(entries, full=full_rationale)
+-    picks = typer.prompt("Approve which ranks? (comma-separated)",
+-                         default="", show_default=False)
+-    wanted = _parse_ranks(picks) & {e.rank for e in entries}
+-    if not wanted:
+-        typer.echo("no matching ranks given; shortlist unchanged")
+-        return
+-    for e in entries:
+-        if e.rank in wanted:
+-            e.approved = True   # unnamed ranks stay undecided, not rejected
+-    write_artifact(ws.shortlist, entries)
+-    typer.echo(f"approved: {sorted(wanted)}")
+-    if typer.confirm("Process approved shows now?", default=True):
+-        criteria = read_model(ws.criteria, Criteria)
+-        _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
+-                 human_gate=False,
+-                 full_rationale=full_rationale, pace=pace)
+-    else:
+-        typer.echo(f"next: llama run resume {ws.name}")
++    # At entry: before the shortlist prints, any prompt or any write.
++    with _run_locked(ws):
++        entries = read_model_list(ws.shortlist, ShortlistEntry)
++        _print_shortlist(entries, full=full_rationale)
++        picks = typer.prompt("Approve which ranks? (comma-separated)",
++                             default="", show_default=False)
++        wanted = _parse_ranks(picks) & {e.rank for e in entries}
++        if not wanted:
++            typer.echo("no matching ranks given; shortlist unchanged")
++            return
++        for e in entries:
++            if e.rank in wanted:
++                e.approved = True   # unnamed ranks stay undecided, not rejected
++        write_artifact(ws.shortlist, entries)
++        typer.echo(f"approved: {sorted(wanted)}")
++        if typer.confirm("Process approved shows now?", default=True):
++            criteria = read_model(ws.criteria, Criteria)
++            _execute(config, ia, ledger, ws, criteria, criteria.count, auto=True,
++                     human_gate=False,
++                     full_rationale=full_rationale, pace=pace)
++        else:
++            typer.echo(f"next: llama run resume {ws.name}")
+ 
+ 
+ @run_app.command("resume")
+ def run_resume(
+     session: str = typer.Argument(..., help="Session id, unique substring, or path"),
+     auto: bool = typer.Option(True, "--auto/--interactive"),
+     full_rationale: bool = typer.Option(False, "--full-rationale",
+                                         help="Show each shortlisted show's full selection "
+                                              "rationale (default: first few lines)"),
+     wait: bool = typer.Option(None, "--wait/--no-wait",
+@@ -1129,88 +1149,111 @@ def run_resume(
+     no_pacing: bool = typer.Option(False, "--no-pacing",
+                                    help="Disable usage pacing: a limit fails the show "
+                                         "as it did before"),
+ ):
+     """Resume a crashed or incomplete session from its artifacts (stages
+     skip work already done). To force a stage re-run (run-wide or per-show),
+     use `llama redo --run`."""
+     config, ia, ledger = _setup()
+     pace = _pace(config, wait, max_wait, no_pacing)
+     ws = _resolve_run(config, session)
+-    if not ws.criteria.exists():
+-        if not ws.request.exists():
+-            typer.echo(f"no criteria.json in {ws.dir}", err=True)
+-            raise typer.Exit(1)
+-        # Parked before interpret ever succeeded (T6b). The persisted request
+-        # is enough to re-interpret and carry on -- but this branch spends an
+-        # interpret call BEFORE `_execute`'s own gate is reached, so gate it
+-        # here or the one command that exists to recover from a limit pays
+-        # the very call T6b removed. Only this branch: the ordinary resume
+-        # reaches `_execute`'s gate with nothing spent ahead of it.
+-        proceed, _ = _preflight_gate(ws, config, pace,
+-                                     pacing_state.read_state(config.root))
+-        if not proceed:
+-            return
+-        # ...and catch a refusal on the call itself, not just gate ahead of
+-        # it: the gate reads an account-wide meter that another session can
+-        # empty between the reading and the call. A resume that died here
+-        # would leave the session exactly as parked, having spent the call.
+-        req = json.loads(ws.request.read_text())
+-        criteria = _interpret_with_pause(config, ws, req, pace)
+-        if criteria is None:
+-            return
+-    else:
+-        criteria = read_model(ws.criteria, Criteria)
+-        # A run parked by the run-level `RateLimited` catch -- in discover /
+-        # search / winnow -- HAS criteria.json, and that is the LIKELIER
+-        # place for a `--plan` run to die: interpret is one call, those three
+-        # are where a window actually empties. So this branch has to read the
+-        # request too. Guarded, because a run dir predating `--plan` has no
+-        # request.json at all and must keep resuming exactly as it did.
+-        req = json.loads(ws.request.read_text()) if ws.request.exists() else {}
+-    # One expression, both branches. `--plan` means "stop AT the shortlist",
+-    # so that directive is already SATISFIED once a shortlist exists, and a
+-    # resume past that point should process normally. Replaying `plan`
+-    # unconditionally is worse than dropping it: `request.json` carries
+-    # `plan: true` for the life of the run, so every later `run resume` --
+-    # including the one `run approve` itself recommends when the operator
+-    # declines to process immediately -- would re-park the session awaiting
+-    # and process nothing, permanently.
+-    #
+-    # `auto` is deliberately NOT replayed this way: `run resume` has its own
+-    # explicit `--auto/--interactive` flag, and a persisted value must never
+-    # override an explicit one. `auto` stays in the request artifact as
+-    # informational only.
+-    plan = bool(req.get("plan")) and not ws.shortlist.exists()
+-    _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
+-             human_gate=False, force=False,
+-             force_stage=None,
+-             full_rationale=full_rationale, plan=plan, pace=pace)
++    # Before reading anything: a live run is another process's to finish.
++    with _run_locked(ws):
++        if not ws.criteria.exists():
++            if not ws.request.exists():
++                typer.echo(f"no criteria.json in {ws.dir}", err=True)
++                raise typer.Exit(1)
++            # Parked before interpret ever succeeded (T6b). The persisted request
++            # is enough to re-interpret and carry on -- but this branch spends an
++            # interpret call BEFORE `_execute`'s own gate is reached, so gate it
++            # here or the one command that exists to recover from a limit pays
++            # the very call T6b removed. Only this branch: the ordinary resume
++            # reaches `_execute`'s gate with nothing spent ahead of it.
++            proceed, _ = _preflight_gate(ws, config, pace,
++                                         pacing_state.read_state(config.root))
++            if not proceed:
++                return
++            # ...and catch a refusal on the call itself, not just gate ahead of
++            # it: the gate reads an account-wide meter that another session can
++            # empty between the reading and the call. A resume that died here
++            # would leave the session exactly as parked, having spent the call.
++            req = json.loads(ws.request.read_text())
++            criteria = _interpret_with_pause(config, ws, req, pace)
++            if criteria is None:
++                return
++        else:
++            criteria = read_model(ws.criteria, Criteria)
++            # A run parked by the run-level `RateLimited` catch -- in discover /
++            # search / winnow -- HAS criteria.json, and that is the LIKELIER
++            # place for a `--plan` run to die: interpret is one call, those three
++            # are where a window actually empties. So this branch has to read the
++            # request too. Guarded, because a run dir predating `--plan` has no
++            # request.json at all and must keep resuming exactly as it did.
++            req = json.loads(ws.request.read_text()) if ws.request.exists() else {}
++        # One expression, both branches. `--plan` means "stop AT the shortlist",
++        # so that directive is already SATISFIED once a shortlist exists, and a
++        # resume past that point should process normally. Replaying `plan`
++        # unconditionally is worse than dropping it: `request.json` carries
++        # `plan: true` for the life of the run, so every later `run resume` --
++        # including the one `run approve` itself recommends when the operator
++        # declines to process immediately -- would re-park the session awaiting
++        # and process nothing, permanently.
++        #
++        # `auto` is deliberately NOT replayed this way: `run resume` has its own
++        # explicit `--auto/--interactive` flag, and a persisted value must never
++        # override an explicit one. `auto` stays in the request artifact as
++        # informational only.
++        plan = bool(req.get("plan")) and not ws.shortlist.exists()
++        _execute(config, ia, ledger, ws, criteria, criteria.count, auto,
++                 human_gate=False, force=False,
++                 force_stage=None,
++                 full_rationale=full_rationale, plan=plan, pace=pace)
+ 
+ 
+ @run_app.command("rm")
+ def run_rm(
+     session: str = typer.Argument(..., help="Session id, unique substring, or path"),
+     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt"),
+ ):
+     """Discard a session directory. Shows it already processed are untouched
+     (they live in shows/ and carry provenance) -- sessions have no ledger
+     history of their own."""
+     config, _, _ = _setup()
+     ws = _resolve_run(config, session)
+-    state = session_state(ws.dir)
+-    if not yes:
+-        typer.echo(f"session {ws.name}: {state}")
+-        if not typer.confirm("Proceed?", default=False):
+-            return
+-    shutil.rmtree(ws.dir)
+-    typer.echo(f"removed session {ws.name}")
++    # Held through rmtree, so nothing can start on the run while it goes.
++    with _run_locked(ws):
++        state = session_state(ws.dir)
++        if not yes:
++            typer.echo(f"session {ws.name}: {state}")
++            if not typer.confirm("Proceed?", default=False):
++                return
++        shutil.rmtree(ws.dir)
++        typer.echo(f"removed session {ws.name}")
++
++
++@contextmanager
++def _run_locked(ws: RunWorkspace, *, blocking: bool = False):
++    """Hold `ws`'s run lock for the life of the context (spec §4): taken once,
++    at command entry, never inside `_execute` (a second flock on the same file
++    from this process would wait on itself). Non-blocking by default: a run
++    another process holds is refused, never joined. `blocking` is for `get`'s
++    freshly created dir only."""
++    with ExitStack() as stack:
++        try:
++            stack.enter_context(run_lock(ws.dir, blocking=blocking))
++        except Locked:
++            typer.echo(f"run {ws.name} is in progress in another process", err=True)
++            raise typer.Exit(1)
++        except RunMissing:
++            typer.echo(f"run {ws.name} no longer exists", err=True)
++            raise typer.Exit(1)
++        yield
+ 
+ 
+ def _resolve_run(config, name: str) -> RunWorkspace:
+     from llama.catalog import resolve_run
+ 
+     return RunWorkspace(config.root, resolve_run(config.root, name))
+ 
+ 
+ def _resolve_show(config, ledger, name: str):
+     from llama.catalog import resolve_show
+@@ -3082,38 +3125,39 @@ def _redo_batch(config, ia, ledger, sel, from_stage: str, *, redo_research: bool
+         except (LlamaError, TaskFailed, HerderError, IAError) as exc:
+             typer.echo(f"FAILED {e.slug}: {exc}", err=True)
+ 
+ 
+ def _redo_run_level(config, ia, ledger, run_name: str, from_stage: str) -> None:
+     """`redo --run SESSION --from search|winnow`: the old `run --stage X
+     --force` run-wide re-execution, relocated verbatim (approvals-loss
+     confirm on a doomed shortlist, downstream-artifact deletion, then a
+     plain `_execute` replay with the run's own persisted criteria)."""
+     ws = _resolve_run(config, run_name)
+-    if not ws.criteria.exists():
+-        typer.echo(f"no criteria.json in {ws.dir}", err=True)
+-        raise typer.Exit(1)
+-    criteria = read_model(ws.criteria, Criteria)
+-    if from_stage == "search" and ws.shortlist.exists():
+-        entries = read_model_list(ws.shortlist, ShortlistEntry)
+-        if any(e.approved is not None for e in entries):
+-            typer.echo("this rebuilds the shortlist and discards the approvals recorded on it")
+-            if not typer.confirm("Continue?", default=False):
+-                raise typer.Exit(1)
+-    # a stale shortlist would block re-winnowing after a fresh search
+-    doomed = [ws.candidates, ws.shortlist] if from_stage == "search" else [ws.shortlist]
+-    for path in doomed:
+-        if path.exists():
+-            path.unlink()
+-    _execute(config, ia, ledger, ws, criteria, criteria.count, True,
+-             human_gate=False, force=False,
+-             force_stage=None, full_rationale=False)
++    with _run_locked(ws):
++        if not ws.criteria.exists():
++            typer.echo(f"no criteria.json in {ws.dir}", err=True)
++            raise typer.Exit(1)
++        criteria = read_model(ws.criteria, Criteria)
++        if from_stage == "search" and ws.shortlist.exists():
++            entries = read_model_list(ws.shortlist, ShortlistEntry)
++            if any(e.approved is not None for e in entries):
++                typer.echo("this rebuilds the shortlist and discards the approvals recorded on it")
++                if not typer.confirm("Continue?", default=False):
++                    raise typer.Exit(1)
++        # a stale shortlist would block re-winnowing after a fresh search
++        doomed = [ws.candidates, ws.shortlist] if from_stage == "search" else [ws.shortlist]
++        for path in doomed:
++            if path.exists():
++                path.unlink()
++        _execute(config, ia, ledger, ws, criteria, criteria.count, True,
++                 human_gate=False, force=False,
++                 force_stage=None, full_rationale=False)
+ 
+ 
+ @app.command(rich_help_panel="Fix & ship",
+              short_help="The re-execution verb: re-run a show, batch, or --run from a stage.")
+ def redo(
+     name: str = typer.Argument(None, help="Show slug, unique substring, or path"),
+     from_stage: str = typer.Option(..., "--from",
+                                    help="Stage to re-run from: select|gather|research|vet|"
+                                         "brief|package (search|winnow valid only with --run)"),
+     run: str = typer.Option(None, "--run",
+@@ -3559,38 +3603,40 @@ def unsuppress(name: str = typer.Argument(
+     --suppress`), making the performance eligible again. A clean no-op
+     (still exit 0) when there is nothing to remove.
+     """
+     config, _, ledger = _setup()
+     pid = _resolve_pid(config, ledger, name)
+     n = ledger.remove_status(pid, "rejected")
+     typer.echo(f"removed {n} rejected row(s) for {pid}")
+ 
+ 
+ _ATTENTION_LABELS = {STATE_AWAITING: "awaiting approval", STATE_INCOMPLETE: "incomplete",
+-                     STATE_PAUSED: "paused"}
++                     STATE_PAUSED: "paused", STATE_RUNNING: "running"}
+ 
+ 
+ def _session_json(s) -> dict:
+     # Carries everything the human table renders, `resumes <instant>`
+     # included: a consumer reading state="paused" out of `run list --json`
+     # has nothing else to answer "when may this be retried?" with, and the
+     # table already answers it. Both keys are always present and null off a
+     # pause, like `outcome`, so no row changes shape. `pause_scope` is
+     # deliberately not here -- it is in the marker but not on SessionInfo,
+     # and the reason text names the window anyway.
+     return {"id": s.id, "state": s.state, "updated_at": s.updated_at,
+             "query": s.query, "profile": s.profile,
+             "outcome": s.outcome, "failures": s.failures,
+             "resume_after": s.resume_after, "pause_reason": s.pause_reason,
+             # NEXT as a runnable command: the table's column drops `llama`
+-            # and the id only because both are already on the row.
+-            "next": f"llama {_NEXT_STEP.get(s.state, 'run resume')} {s.id}"}
++            # and the id only because both are already on the row. A running
++            # run has none: its NEXT ("in progress") is not a command.
++            "next": None if s.state == STATE_RUNNING
++            else f"llama {_NEXT_STEP.get(s.state, 'run resume')} {s.id}"}
+ 
+ 
+ def _by_run_rollup(config, ledger) -> list[dict]:
+     """One row per session dir: id, per-state show counts (via provenance
+     grouping), query/profile. Absorbs the deleted `runs` command."""
+     from collections import Counter
+ 
+     from llama.catalog import iter_shows
+ 
+     by_run: dict[str, Counter] = {}
+@@ -3616,21 +3662,22 @@ def _by_run_rollup(config, ledger) -> list[dict]:
+             # existed, and those were all query runs. A malformed request
+             # reads as "no request" (`read_request`) so one bad file can't
+             # blind this sweep to every other session.
+             req = read_request(ws.request)
+             if req.get("mode", "query") == "profile":
+                 profile = req.get("profile")
+             else:
+                 query = req.get("query") or ""
+         counts = by_run.get(d.name, Counter())
+         rows.append({"id": d.name, "query": query, "profile": profile,
+-                    "states": dict(sorted(counts.items()))})
++                    "states": dict(sorted(counts.items())),
++                    "running": run_is_live(d)})
+     return rows
+ 
+ 
+ @app.command(rich_help_panel="Watch",
+              short_help="Every show and its state, held-for-review first (sessions: run list).")
+ def status(
+     held: bool = typer.Option(False, "--held", help="Selector: include held shows"),
+     packaged: bool = typer.Option(False, "--packaged", help="Selector: packaged, undelivered shows"),
+     state: list[ShowState] = typer.Option(
+         [], "--state", help="Selector: shows in this derived state (repeatable)"),
+@@ -3675,21 +3722,22 @@ def status(
+         rollup = _by_run_rollup(config, ledger)
+         if as_json:
+             typer.echo(_json.dumps({"runs": rollup}, indent=2))
+             return
+         if not rollup:
+             typer.echo("no runs", err=True)
+             return
+         for row in rollup:
+             summary = "  ".join(f"{s} {n}" for s, n in row["states"].items()) or "no shows"
+             label = f"profile: {row['profile']}" if row["profile"] else row["query"]
+-            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {label:40.40s}")
++            running = "  [running]" if row["running"] else ""
++            typer.echo(f"{row['id']:34.34s} {summary:40.40s} {label:40.40s}{running}")
+         return
+ 
+     entries = apply_selector(iter_shows(config.root, ledger), sel)
+     filtering = selector_active(sel)
+     entries.sort(key=lambda e: (_STATE_RANK[e.state], e.slug))
+     if not all_shows and not filtering:
+         recorded: dict[str, str] = {}
+         for le in ledger.entries():
+             if le.status == "delivered":
+                 slug = slugify(le.performance_id)
+diff --git a/packages/llama/src/llama/locks.py b/packages/llama/src/llama/locks.py
+index 3400b44..badd77e 100644
+--- a/packages/llama/src/llama/locks.py
++++ b/packages/llama/src/llama/locks.py
+@@ -30,10 +30,84 @@ def file_lock(path: Path, *, blocking: bool = True):
+         try:
+             fcntl.flock(fd, flags)
+         except BlockingIOError as exc:
+             raise Locked(path) from exc
+         yield
+     finally:
+         try:
+             fcntl.flock(fd, fcntl.LOCK_UN)
+         finally:
+             os.close(fd)
++
++
++
++class RunMissing(Exception):
++    """The run dir does not exist, or its lock file was replaced while we
++    waited for it (a `run rm` landed): either way there is no run to work."""
++
++
++@contextmanager
++def run_lock(run_dir: Path, *, blocking: bool):
++    """Exclusive lock on `run_dir/.lock`, held for the life of the context.
++
++    Never creates `run_dir`: the lock file is opened with O_CREAT but the dir
++    is not made, so a lock attempt that loses a race with `run rm` cannot
++    resurrect the run (RunMissing). Non-blocking mode raises Locked when held.
++
++    After acquiring, the locked fd must still be THE file at `run_dir/.lock`
++    (same inode and device). A `run rm` (and a re-create) landing while we
++    waited would otherwise leave us holding a lock on a deleted file while
++    our artifacts recreate the dir unlocked, and a second worker could start
++    on it. Spec §4; the remaining `.lock`-only-husk window is documented there.
++    """
++    path = run_dir / ".lock"
++    if fcntl is None:  # pragma: no cover - non-POSIX fallback
++        if not run_dir.is_dir():
++            raise RunMissing(run_dir)
++        yield
++        return
++    try:
++        fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o644)
++    except (FileNotFoundError, NotADirectoryError) as exc:
++        raise RunMissing(run_dir) from exc
++    try:
++        flags = fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB)
++        try:
++            fcntl.flock(fd, flags)
++        except BlockingIOError as exc:
++            raise Locked(path) from exc
++        try:
++            on_disk = os.stat(path)
++        except FileNotFoundError as exc:
++            raise RunMissing(run_dir) from exc
++        held = os.fstat(fd)
++        if (held.st_ino, held.st_dev) != (on_disk.st_ino, on_disk.st_dev):
++            raise RunMissing(run_dir)
++        yield
++    finally:
++        try:
++            fcntl.flock(fd, fcntl.LOCK_UN)
++        finally:
++            os.close(fd)
++
++
++def run_is_live(run_dir: Path) -> bool:
++    """True when another holder has the run's lock: a non-blocking acquire and
++    an immediate release. Opens only an EXISTING lock file (no O_CREAT), so a
++    missing file or dir is "not live" and a reader never creates either. Only
++    a held lock is "live"; any other error propagates rather than reading as
++    "not live", which would let a second worker start."""
++    if fcntl is None:  # pragma: no cover - non-POSIX fallback
++        return False
++    try:
++        fd = os.open(run_dir / ".lock", os.O_RDONLY)
++    except (FileNotFoundError, NotADirectoryError):
++        return False
++    try:
++        try:
++            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
++        except BlockingIOError:
++            return True
++        fcntl.flock(fd, fcntl.LOCK_UN)
++        return False
++    finally:
++        os.close(fd)
+diff --git a/packages/llama/src/llama/sessions.py b/packages/llama/src/llama/sessions.py
+index fa8e34c..841e4f8 100644
+--- a/packages/llama/src/llama/sessions.py
++++ b/packages/llama/src/llama/sessions.py
+@@ -5,20 +5,21 @@ never lives under shows/ (spec §4)."""
+ import json
+ from dataclasses import dataclass, field
+ from datetime import datetime, timezone
+ from pathlib import Path
+ 
+ from herder import HerderError, TaskFailed
+ from herder.limits import RateLimited
+ from herder.provider import ResearchNotSupported
+ 
+ from llama.ia_client import IAError, IADownloadError
++from llama.locks import run_is_live
+ from llama.models import Criteria
+ from llama.workspace import RunWorkspace, read_model, write_artifact
+ 
+ 
+ KIND_RATE_LIMITED = "rate-limited"
+ KIND_LLM = "llm"
+ KIND_TRANSPORT = "transport"
+ KIND_DOWNLOAD = "download"
+ KIND_ARCHIVE = "archive"
+ KIND_OTHER = "other"
+@@ -58,20 +59,22 @@ def failure_kind(record: dict) -> str:
+     if str(record.get("error", "")).startswith("download of "):
+         return KIND_DOWNLOAD
+     return KIND_OTHER
+ 
+ 
+ STATE_AWAITING = "awaiting-approval"
+ STATE_COMPLETE = "complete"
+ STATE_INCOMPLETE = "incomplete"          # written when shows failed; also the
+                                          # fallback when no clean stop was recorded
+ STATE_PAUSED = "paused"                  # waiting out an exhausted usage window
++STATE_RUNNING = "running"                # derived, never written: another process
++                                         # holds the run lock (iter_sessions only)
+ 
+ 
+ def _write(ws: RunWorkspace, state: str, outcome: str | None,
+            failures: list[dict] | None = None,
+            resume_after: str | None = None, scope: str | None = None,
+            reason: str | None = None) -> None:
+     write_artifact(ws.session, json.dumps({
+         "state": state,
+         "updated_at": datetime.now(timezone.utc).isoformat(),
+         "outcome": outcome,
+@@ -150,43 +153,50 @@ def read_request(path: Path) -> dict:
+ 
+ 
+ def _state_of(marker: dict) -> str:
+     state = marker.get("state")
+     return state if state in (STATE_AWAITING, STATE_COMPLETE, STATE_INCOMPLETE,
+                               STATE_PAUSED) \
+         else STATE_INCOMPLETE
+ 
+ 
+ def session_state(run_dir: Path) -> str:
++    """The marker's state. Never probes the run lock: `run rm` calls this while
++    holding it, and its own probe would read the run as live."""
+     return _state_of(_read_marker(run_dir))
+ 
+ 
+ @dataclass
+ class SessionInfo:
+     id: str
+     state: str            # STATE_AWAITING | STATE_COMPLETE | STATE_INCOMPLETE | STATE_PAUSED
++                          # | STATE_RUNNING
+     updated_at: str       # marker updated_at, else dir-mtime ISO
+     query: str            # criteria.query, else request.json's; "" if neither
+     profile: str | None   # criteria.profile
+     outcome: str | None = None      # marker outcome ("5 packaged, 3 held, 1 failed")
+     failures: list[dict] = field(default_factory=list)  # per-show {show, error}
+     resume_after: str | None = None   # ISO instant a paused run may resume
+     pause_reason: str | None = None   # the backend's own refusal text
+ 
+ 
+ def _updated_at(run_dir: Path, marker: dict) -> str:
+     return marker.get("updated_at") or \
+         datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
+ 
+ 
+-def iter_sessions(root: Path) -> list[SessionInfo]:
+-    """Every dir under runs/, newest-first by updated_at."""
++def iter_sessions(root: Path, *, probe_live: bool = True) -> list[SessionInfo]:
++    """Every dir under runs/, newest-first by updated_at.
++
++    With `probe_live`, a run whose lock another process holds reads as
++    STATE_RUNNING whatever its marker says (spec §4): the marker records how
++    the last attempt ended, not whether one is under way now."""
+     runs_dir = root / "runs"
+     infos = []
+     if runs_dir.is_dir():
+         for run_dir in runs_dir.iterdir():
+             if not run_dir.is_dir():
+                 continue
+             ws = RunWorkspace(root, run_dir.name)
+             query, profile = "", None
+             if ws.criteria.exists():
+                 criteria = read_model(ws.criteria, Criteria)
+@@ -197,23 +207,24 @@ def iter_sessions(root: Path) -> list[SessionInfo]:
+                 # means an artifact written before modes existed, and those
+                 # were all query runs. A malformed request reads as "no
+                 # request" (`read_request`) so one bad file can't blind this
+                 # sweep to every other session.
+                 req = read_request(ws.request)
+                 if req.get("mode", "query") == "profile":
+                     profile = req.get("profile")
+                 else:
+                     query = req.get("query") or ""
+             marker = _read_marker(run_dir)
++            live = probe_live and run_is_live(run_dir)
+             infos.append(SessionInfo(
+                 id=run_dir.name,
+-                state=_state_of(marker),
++                state=STATE_RUNNING if live else _state_of(marker),
+                 updated_at=_updated_at(run_dir, marker),
+                 query=query,
+                 profile=profile,
+                 outcome=marker.get("outcome"),
+                 failures=marker.get("failures") or [],
+                 resume_after=marker.get("resume_after"),
+                 pause_reason=marker.get("pause_reason"),
+             ))
+     infos.sort(key=lambda s: s.updated_at, reverse=True)
+     return infos
+diff --git a/packages/llama/src/llama/workspace.py b/packages/llama/src/llama/workspace.py
+index 8cf74c0..c20ce81 100644
+--- a/packages/llama/src/llama/workspace.py
++++ b/packages/llama/src/llama/workspace.py
+@@ -116,20 +116,21 @@ class RunWorkspace:
+     def __init__(self, root: Path, name: str):
+         self.root = root
+         self.name = name
+         self.dir = root / "runs" / name
+         self.criteria = self.dir / "criteria.json"
+         self.request = self.dir / "request.json"
+         self.candidates = self.dir / "candidates.json"
+         self.shortlist = self.dir / "shortlist.json"
+         self.artists = self.dir / "artists.json"
+         self.session = self.dir / "session.json"
++        self.lock = self.dir / ".lock"            # the run lock (locks.run_lock)
+ 
+     def show_ws(self, performance_id: str) -> ShowWorkspace:
+         return ShowWorkspace(self.root / "shows" / slugify(performance_id))
+ 
+ 
+ def claim_run_dir(root: Path, base: str) -> str:
+     """Atomically claim a run name by creating its dir. `base`, else `base-2`,
+     `base-3`, ... — two concurrent callers can never win the same name."""
+     runs = root / "runs"
+     for name in itertools.chain([base], (f"{base}-{n}" for n in itertools.count(2))):
+diff --git a/packages/llama/tests/test_run_lock.py b/packages/llama/tests/test_run_lock.py
+new file mode 100644
+index 0000000..7b4754f
+--- /dev/null
++++ b/packages/llama/tests/test_run_lock.py
+@@ -0,0 +1,471 @@
++"""The per-run lock (spec §4): every command that works a run takes an
++exclusive flock on `runs/<id>/.lock` once, at entry, and holds it to exit;
++the session readers report a live run as `running`.
++
++A second holder is a real `fcntl.flock` on another fd: flock locks belong to
++the open file description, so two fds in one process conflict exactly as two
++processes do."""
++import collections
++import fcntl
++import json
++import os
++import shutil
++import threading
++from contextlib import contextmanager
++from datetime import date
++from pathlib import Path
++
++import pytest
++from typer.testing import CliRunner
++
++import llama.cli as cli
++import llama.locks as locks
++from llama.locks import Locked, RunMissing, run_is_live, run_lock
++from llama.models import (
++    Candidate, Criteria, QualityAssessment, RecordingSummary, ShortlistEntry,
++)
++from llama.sessions import STATE_COMPLETE, mark_awaiting, mark_complete
++from llama.workspace import RunWorkspace, write_artifact
++
++runner = CliRunner()
++
++REFUSED = "is in progress in another process"
++CRITERIA_JSON = json.dumps({"query": "x", "collection": "GratefulDead", "count": 1})
++# A hang detector, not a correctness timer: every wait below is released by
++# an event the test itself controls, so this only bounds a deadlock.
++HANG_S = 30
++
++
++def _cfg(tmp_path: Path) -> str:
++    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n')
++    return str(tmp_path / "config.toml")
++
++
++def _entries():
++    pid = "GratefulDead/1973-06-10"
++    return [ShortlistEntry(
++        rank=1,
++        candidate=Candidate(performance_id=pid, collection="GratefulDead",
++                            date="1973-06-10", venue="V",
++                            recordings=[RecordingSummary(identifier="id1")]),
++        assessment=QualityAssessment(performance_id=pid, quality_score=9.0,
++                                     rationale="great show"),
++    )]
++
++
++def _session(tmp_path: Path, name: str = "r1") -> RunWorkspace:
++    ws = RunWorkspace(tmp_path, name)
++    write_artifact(ws.criteria, Criteria(query="q"))
++    write_artifact(ws.shortlist, _entries())
++    mark_awaiting(ws)
++    return ws
++
++
++@contextmanager
++def _held(run_dir: Path):
++    """Another holder of the run lock, on its own fd."""
++    fd = os.open(run_dir / ".lock", os.O_CREAT | os.O_RDWR, 0o644)
++    fcntl.flock(fd, fcntl.LOCK_EX)
++    try:
++        yield fd
++    finally:
++        fcntl.flock(fd, fcntl.LOCK_UN)
++        os.close(fd)
++
++
++def _snapshot(run_dir: Path) -> dict:
++    return {str(p.relative_to(run_dir)): (p.read_bytes(), p.stat().st_mtime_ns)
++            for p in sorted(run_dir.rglob("*")) if p.is_file()}
++
++
++def _record_execute(monkeypatch) -> list:
++    calls = []
++    monkeypatch.setattr(cli, "_execute", lambda *a, **k: calls.append((a, k)))
++    return calls
++
++
++# ---------------------------------------------------------------------------
++# locks.run_lock / locks.run_is_live
++# ---------------------------------------------------------------------------
++
++def test_run_lock_never_creates_a_missing_run_dir(tmp_path: Path):
++    run_dir = tmp_path / "runs" / "gone"
++    for blocking in (False, True):
++        with pytest.raises(RunMissing):
++            with run_lock(run_dir, blocking=blocking):
++                pass
++    assert not run_dir.exists()
++    assert not (tmp_path / "runs").exists()
++
++
++def test_run_is_live_does_not_create_the_lock_file(tmp_path: Path):
++    missing = tmp_path / "runs" / "gone"
++    assert run_is_live(missing) is False
++    assert not missing.exists()
++
++    run_dir = tmp_path / "runs" / "r1"
++    run_dir.mkdir(parents=True)
++    assert run_is_live(run_dir) is False
++    assert not (run_dir / ".lock").exists()
++
++    with _held(run_dir):
++        assert run_is_live(run_dir) is True
++    assert run_is_live(run_dir) is False          # the probe released at once
++
++
++def test_run_lock_non_blocking_on_a_held_run_is_locked(tmp_path: Path):
++    run_dir = tmp_path / "runs" / "r1"
++    run_dir.mkdir(parents=True)
++    with _held(run_dir):
++        with pytest.raises(Locked):
++            with run_lock(run_dir, blocking=False):
++                pass
++    with run_lock(run_dir, blocking=False):
++        assert run_is_live(run_dir) is True
++    assert run_is_live(run_dir) is False
++
++
++@pytest.mark.parametrize("replace", ["lock-file", "dir-with-lock", "dir-only"])
++def test_lock_on_a_replaced_lock_file_is_run_missing(tmp_path: Path, monkeypatch, replace):
++    """Review Focus 4: a `run rm` + re-create landing while an acquirer waits
++    must not leave it holding a lock on the deleted file."""
++    run_dir = tmp_path / "runs" / "r1"
++    run_dir.mkdir(parents=True)
++    lock_file = run_dir / ".lock"
++
++    def do_replace():
++        if replace == "lock-file":
++            lock_file.unlink()
++            lock_file.touch()
++        else:
++            shutil.rmtree(run_dir)
++            run_dir.mkdir()
++            if replace == "dir-with-lock":
++                lock_file.touch()
++
++    replaced = threading.Event()
++
++    class _Fcntl:
++        """`locks.fcntl`, except the acquirer's first LOCK_EX first replaces
++        the lock file -- after its fd was opened, before the lock is granted."""
++        def __getattr__(self, name):
++            return getattr(fcntl, name)
++
++        def flock(self, fd, op):
++            if (threading.current_thread().name == "acquirer"
++                    and op & fcntl.LOCK_EX and not replaced.is_set()):
++                do_replace()
++                replaced.set()
++            return fcntl.flock(fd, op)
++
++    monkeypatch.setattr(locks, "fcntl", _Fcntl())
++    outcome = []
++
++    def acquire():
++        try:
++            with run_lock(run_dir, blocking=True):
++                outcome.append("acquired")
++        except RunMissing:
++            outcome.append("missing")
++        except BaseException as exc:   # surfaced by the assertion below
++            outcome.append(repr(exc))
++
++    holder = os.open(lock_file, os.O_CREAT | os.O_RDWR, 0o644)
++    fcntl.flock(holder, fcntl.LOCK_EX)
++    try:
++        t = threading.Thread(target=acquire, name="acquirer", daemon=True)
++        t.start()
++        assert replaced.wait(HANG_S)
++        fcntl.flock(holder, fcntl.LOCK_UN)      # the acquirer may now be granted
++        t.join(HANG_S)
++        assert not t.is_alive()
++        assert outcome == ["missing"]
++        # ...and it holds nothing: neither the old inode nor the new file.
++        fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
++        fcntl.flock(holder, fcntl.LOCK_UN)
++        assert run_is_live(run_dir) is False
++    finally:
++        os.close(holder)
++
++
++# ---------------------------------------------------------------------------
++# Commands that work an existing run refuse a live one
++# ---------------------------------------------------------------------------
++
++def test_resume_refuses_a_live_run(tmp_path: Path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = _session(tmp_path)
++    calls = _record_execute(monkeypatch)
++    with _held(ws.dir):
++        before = _snapshot(ws.dir)
++        result = runner.invoke(cli.app, ["--config", cfg, "run", "resume", "r1"])
++        after = _snapshot(ws.dir)
++    assert result.exit_code == 1, result.output
++    assert f"run r1 {REFUSED}" in result.output
++    assert calls == []
++    assert after == before
++
++
++def test_approve_refuses_a_live_run_before_prompting(tmp_path: Path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = _session(tmp_path)
++    calls = _record_execute(monkeypatch)
++    with _held(ws.dir):
++        before = _snapshot(ws.dir)
++        result = runner.invoke(cli.app, ["--config", cfg, "run", "approve", "r1"],
++                               input="1\ny\n")
++        after = _snapshot(ws.dir)
++    assert result.exit_code == 1, result.output
++    assert f"run r1 {REFUSED}" in result.output
++    assert "Approve which ranks" not in result.output
++    assert "1973-06-10" not in result.output          # the shortlist never printed
++    assert calls == []
++    assert after == before
++
++
++def test_redo_run_level_refuses_a_live_run(tmp_path: Path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = _session(tmp_path)
++    write_artifact(ws.candidates, [])
++    calls = _record_execute(monkeypatch)
++    for stage in ("search", "winnow"):
++        with _held(ws.dir):
++            before = _snapshot(ws.dir)
++            result = runner.invoke(cli.app, ["--config", cfg, "redo", "--run", "r1",
++                                             "--from", stage], input="y\n")
++            after = _snapshot(ws.dir)
++        assert result.exit_code == 1, result.output
++        assert f"run r1 {REFUSED}" in result.output
++        assert after == before                     # shortlist/candidates kept
++    assert calls == []
++
++
++def test_rm_refuses_a_live_run(tmp_path: Path):
++    cfg = _cfg(tmp_path)
++    ws = _session(tmp_path)
++    with _held(ws.dir):
++        before = _snapshot(ws.dir)
++        for args in (["run", "rm", "r1", "--yes"], ["run", "rm", "r1"]):
++            result = runner.invoke(cli.app, ["--config", cfg, *args], input="y\n")
++            assert result.exit_code == 1, result.output
++            assert f"run r1 {REFUSED}" in result.output
++            assert "Proceed?" not in result.output
++        after = _snapshot(ws.dir)
++    assert after == before
++
++
++def test_rm_holds_the_lock_through_rmtree(tmp_path: Path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = _session(tmp_path)
++    seen = []
++    real_rmtree = shutil.rmtree
++
++    def rmtree(path, *a, **k):
++        seen.append(run_is_live(Path(path)))
++        return real_rmtree(path, *a, **k)
++
++    monkeypatch.setattr(cli.shutil, "rmtree", rmtree)
++    result = runner.invoke(cli.app, ["--config", cfg, "run", "rm", "r1", "--yes"])
++    assert result.exit_code == 0, result.output
++    assert seen == [True]
++    assert not ws.dir.exists()
++
++
++# ---------------------------------------------------------------------------
++# get: the lock on its own run dir
++# ---------------------------------------------------------------------------
++
++def _get_harness(monkeypatch):
++    """Record every `run_lock` cli takes (blocking, and whether request.json
++    already existed), and from `_execute` whether the run is held."""
++    real = locks.run_lock
++    taken, probes = [], []
++
++    def recording(run_dir, *, blocking):
++        taken.append((blocking, (run_dir / "request.json").exists()))
++        return real(run_dir, blocking=blocking)
++
++    def fake_execute(config, ia, ledger, ws, *a, **k):
++        try:
++            with real(ws.dir, blocking=False):
++                probes.append("free")
++        except Locked:
++            probes.append("held")
++
++    monkeypatch.setattr(cli, "run_lock", recording)
++    monkeypatch.setattr(cli, "_execute", fake_execute)
++    monkeypatch.setattr(cli, "make_providers",
++                        lambda config: collections.defaultdict(
++                            lambda: _fake_provider()))
++    return taken, probes
++
++
++def _fake_provider():
++    from herder import FakeProvider
++    return FakeProvider(completes=[CRITERIA_JSON] * 3)
++
++
++def test_get_takes_a_blocking_lock_on_its_fresh_dir(tmp_path: Path, monkeypatch):
++    from llama.profiles import Profile, save_profile
++
++    cfg = _cfg(tmp_path)
++    taken, probes = _get_harness(monkeypatch)
++    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD classics"])
++    assert result.exit_code == 0, result.output
++    assert taken == [(True, False)]               # blocking, before request.json
++    assert probes == ["held"]
++    assert RunWorkspace(tmp_path, f"{date.today().isoformat()}-gd-classics").request.exists()
++
++    save_profile(tmp_path, Profile(name="classic", criteria=Criteria(query="GD classics")))
++    taken.clear(), probes.clear()
++    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile", "classic"])
++    assert result.exit_code == 0, result.output
++    assert taken == [(True, False)]
++    assert probes == ["held"]
++    assert RunWorkspace(tmp_path, f"{date.today().isoformat()}-classic").request.exists()
++
++
++def test_get_name_creates_and_locks_its_dir(tmp_path: Path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    taken, probes = _get_harness(monkeypatch)
++    ws = RunWorkspace(tmp_path, "mine")
++    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD", "--name", "mine"])
++    assert result.exit_code == 0, result.output
++    assert ws.dir.is_dir() and ws.request.exists()
++    assert taken == [(True, False)]               # created here: blocking
++    assert probes == ["held"]
++
++    # An existing, non-live dir of that name is reused exactly as before,
++    # under a non-blocking lock.
++    taken.clear(), probes.clear()
++    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD", "--name", "mine"])
++    assert result.exit_code == 0, result.output
++    assert taken == [(False, True)]
++    assert probes == ["held"]
++
++
++def test_get_name_existing_live_run_is_refused(tmp_path: Path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    taken, probes = _get_harness(monkeypatch)
++    interpreted = []
++    monkeypatch.setattr(cli, "make_providers",
++                        lambda config: interpreted.append(1) or {})
++    ws = RunWorkspace(tmp_path, "busy")
++    ws.dir.mkdir(parents=True)
++    with _held(ws.dir):
++        before = _snapshot(ws.dir)
++        result = runner.invoke(cli.app, ["--config", cfg, "get", "GD", "--name", "busy"])
++        after = _snapshot(ws.dir)
++    assert result.exit_code == 1, result.output
++    assert f"run busy {REFUSED}" in result.output
++    assert taken == [(False, False)]
++    assert probes == [] and interpreted == []
++    assert not ws.request.exists()
++    assert after == before
++
++
++# ---------------------------------------------------------------------------
++# No self-deadlock: the lock is never re-taken inside `_execute`
++# ---------------------------------------------------------------------------
++
++def _stub_stages(monkeypatch) -> list:
++    """Real `_execute`, stubbed stages; each stage records whether the run is
++    held while it runs."""
++    live = []
++
++    def search(ws, *a, **k):
++        live.append(("search", run_is_live(ws.dir)))
++
++    def winnow(ws, *a, **k):
++        live.append(("winnow", run_is_live(ws.dir)))
++        return _entries()
++
++    def process_show(ws, *a, **k):
++        live.append(("show", run_is_live(ws.dir)))
++        return "pkg"
++
++    monkeypatch.setattr(cli, "make_providers",
++                        lambda config: collections.defaultdict(_fake_provider))
++    monkeypatch.setattr(cli, "run_search", search)
++    monkeypatch.setattr(cli, "run_winnow", winnow)
++    monkeypatch.setattr(cli, "process_show", process_show)
++    monkeypatch.setattr(cli, "make_client", lambda config: None)
++    return live
++
++
++def _invoke_bounded(args):
++    box = []
++    t = threading.Thread(target=lambda: box.append(runner.invoke(cli.app, args)),
++                         daemon=True)
++    t.start()
++    t.join(HANG_S)
++    assert not t.is_alive(), "the command deadlocked"
++    return box[0]
++
++
++def test_no_self_deadlock_get_to_execute(tmp_path: Path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    live = _stub_stages(monkeypatch)
++    result = _invoke_bounded(["--config", cfg, "get", "GD", "--auto", "--name", "e2e"])
++    assert result.exit_code == 0, result.output
++    assert "packaged: pkg" in result.output
++    assert live == [("search", True), ("winnow", True), ("show", True)]
++    ws = RunWorkspace(tmp_path, "e2e")
++    assert json.loads(ws.session.read_text())["state"] == STATE_COMPLETE
++    assert run_is_live(ws.dir) is False           # released at exit
++
++
++def test_no_self_deadlock_resume_to_execute(tmp_path: Path, monkeypatch):
++    cfg = _cfg(tmp_path)
++    ws = RunWorkspace(tmp_path, "r1")
++    write_artifact(ws.criteria, Criteria(query="q", count=1))
++    live = _stub_stages(monkeypatch)
++    result = _invoke_bounded(["--config", cfg, "run", "resume", "r1"])
++    assert result.exit_code == 0, result.output
++    assert "packaged: pkg" in result.output
++    assert live == [("search", True), ("winnow", True), ("show", True)]
++    assert json.loads(ws.session.read_text())["state"] == STATE_COMPLETE
++    assert run_is_live(ws.dir) is False
++
++
++# ---------------------------------------------------------------------------
++# Readers report a live run as `running`
++# ---------------------------------------------------------------------------
++
++def test_run_list_reports_running(tmp_path: Path):
++    cfg = _cfg(tmp_path)
++    live = RunWorkspace(tmp_path, "live-run")
++    write_artifact(live.criteria, Criteria(query="q"))
++    mark_complete(live, "done")       # a stale marker: live wins regardless
++    idle = _session(tmp_path, "idle-run")
++    with _held(live.dir):
++        text = runner.invoke(cli.app, ["--config", cfg, "run", "list"])
++        as_json = runner.invoke(cli.app, ["--config", cfg, "run", "list", "--json"])
++    assert text.exit_code == 0, text.output
++    row = next(ln for ln in text.output.splitlines() if ln.startswith("live-run"))
++    assert row.split()[1] == "running"
++    assert "in progress" in row
++    other = next(ln for ln in text.output.splitlines() if ln.startswith("idle-run"))
++    assert "running" not in other and "run approve" in other
++
++    rows = {r["id"]: r for r in json.loads(as_json.output)}
++    assert rows["live-run"]["state"] == "running"
++    assert rows["live-run"]["next"] is None
++    assert rows["idle-run"]["state"] == "awaiting-approval"
++    assert rows["idle-run"]["next"] == f"llama run approve {idle.name}"
++
++
++def test_status_by_run_marks_running(tmp_path: Path):
++    cfg = _cfg(tmp_path)
++    live = _session(tmp_path, "live-run")
++    _session(tmp_path, "idle-run")
++    with _held(live.dir):
++        text = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run"])
++        as_json = runner.invoke(cli.app, ["--config", cfg, "status", "--by-run", "--json"])
++    assert text.exit_code == 0, text.output
++    lines = text.output.splitlines()
++    assert next(ln for ln in lines if ln.startswith("live-run")).endswith("  [running]")
++    assert "[running]" not in next(ln for ln in lines if ln.startswith("idle-run"))
++    rows = {r["id"]: r for r in json.loads(as_json.output)["runs"]}
++    assert rows["live-run"]["running"] is True
++    assert rows["idle-run"]["running"] is False

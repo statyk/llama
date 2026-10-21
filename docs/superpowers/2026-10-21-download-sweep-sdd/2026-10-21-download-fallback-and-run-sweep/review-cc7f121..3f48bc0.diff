@@ -1,0 +1,233 @@
+# Review package: cc7f121..HEAD
+
+## Commits
+3f48bc0 docs: download fallback, run lock, run resume --all
+
+## Files changed
+ CLAUDE.md | 101 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ README.md |   8 +++++
+ 2 files changed, 107 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 7cb6ce7..3bb6521 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -80,21 +80,48 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   keeps sizes) and flushes each station file to disk (`F_FULLFSYNC`) before
+   the first delete. A voiced-destination refusal is checked BEFORE the gate,
+   so a purged show is not sent to re-download only to be refused anyway),
+   `llama rm <name>`, `llama suppress`/
+   `llama unsuppress <performance-id>`, `llama run list/approve/resume/rm`
+   (session namespace; a run that lost shows to a failure ends
+   `incomplete`, not `complete`, so it stays on `run list`'s attention list
+   — with the per-show reasons recorded in `session.json` — until a
+   `run resume` finishes cleanly; `run list` prints those reasons indented
+   under the session row, and `--no-flags` drops them for one line per
+-  session, like `status --no-flags`). Shows/sessions are addressed by name or unique
++  session, like `status --no-flags`; a run another process is working shows as
++  `running`, derived and never written). **`llama run resume --all`** is the
++  unattended sweep (spec `docs/superpowers/specs/2026-10-21-download-retry-and-run-sweep-design.md`
++  §6): one pass, then exit; a positional session plus `--all` is an error. Eligible:
++  `paused` past its `resume_after` (or with none) and `incomplete`, either with no
++  recorded failures or only `download`/`archive` ones; a run with no `session.json`
++  reads `incomplete` and is eligible when its `request.json` has `auto: true` or no
++  `auto` key. Skipped, one line each: `running`, `paused until HH:MM`, `awaiting
++  approval`, `needs attention` (any `transport`/`llm`/`rate-limited`/`other`
++  failure, so a loop never re-spends on a run that fails the same way every time;
++  no `criteria.json` and no `request.json`; an `auto: false` request, i.e. an
++  interactive `get` interrupted at a prompt); `complete` runs are not listed. Oldest
++  `updated_at` first, one at a time, always `--auto`, **`--no-wait` by default**
++  (unlike plain `run resume`: a usage pause checkpoints `paused` instead of napping
++  inside the loop; `--max-wait`/`--no-pacing` pass through). A run that ends `paused`
++  stops the sweep (the window is account-wide) and the rest print `not reached:
++  <id>`. Per-run results: the run's state, `running` (turned live since the listing),
++  `gone` (removed since), or `error: <msg>`; the summary lists each. Exit 0 only when
++  every resumed run ended `complete` (`running`/`gone` don't count against it) or
++  nothing was eligible (`nothing to resume`); else 1. **Crash marker:** an exception
++  escaping a swept run (a non-zero `typer.Exit` included, as `exit <code>`) writes
++  `incomplete` with one run-level failure `{show: null, kind: "other", error: <msg>}`
++  while the run lock is still held; `run list` prints it under `(run)` and the next
++  sweep skips the run as `needs attention`. `KeyboardInterrupt` stops the sweep and
++  records nothing. Operator loop: `while true; do llama run resume --all; sleep 600;
++  done`. `llama get`'s `no matching artists found` now marks the run `complete`. A
++  run that cannot be locked prints `run <id> is in progress in another process` (or
++  `run <id> no longer exists`) and exits 1. Shows/sessions are addressed by name or unique
+   substring; paths still work. `llama config init` seeds a commented config
+   of the baked-in defaults (config values replace defaults; nothing
+   merges). **An unknown key in `config.toml` is now an ERROR, not a silent
+   drop** (`extra="forbid"`, 2026-09-07): a typo'd knob used to parse to its
+   default and leave the operator's edit with no effect and no message. It is
+   set on a shared strict base because pydantic does NOT propagate
+   `model_config` to nested models — on `Config` alone every section below it
+   stays permissive, which is most of the value. Mapping KEYS stay free-form
+   (task names under `[llm.*]`, backend names under `[llm.tiers.*]`); only
+   their values are strict. `herder`'s `TaskConfig` is deliberately left
+@@ -404,20 +431,48 @@ scheduler and the full player are phases 3–4).
+   (`packages/llama/src/llama/locks.py`) at two scopes — a short **ledger lock**
+   (`ledger.jsonl.lock`) around every ledger mutation, and a long **per-show
+   lock** (`shows/<slug>/.lock`) around `process_show` and every single-show
+   mutator (`redo`/`fix`/`deliver`/`rm`). Locks auto-release on
+   process death (no stale-lock reaping). Same-performance runs serialize
+   (first builds, others wait and reuse); independent shows run fully in
+   parallel. Readers (`show`/`status`/winnow dedup) never lock. All atomic
+   writes use unique temp names. POSIX-only; non-POSIX degrades to no-op
+   locking. **`emcee` does not share this locking scheme** — see emcee's
+   bullet below.
++  **Run lock (third scope, spec §4):** the commands that work a run — `get`,
++  `run resume`, `run approve`, the run-level `redo --run <id> --from search|winnow`
++  and `run rm` — take an exclusive flock on `runs/<id>/.lock` exactly once, at
++  command entry, held to exit, **never inside `_execute`** (`locks.run_lock`). Lock
++  order is **run ⊃ show ⊃ ledger**; `process_show` stays lock-free. A held lock means
++  live: all but `get` try non-blocking and refuse. `get` on a dir it just created
++  locks blocking (only a reader's probe can hold a fresh dir's lock, briefly);
++  `get --name <existing>` refuses a live run. The helper never creates a missing run
++  dir (`RunMissing`), and after acquiring checks the locked fd is still
++  `run_dir/.lock` (inode and device) — that check is what stops a fresh `get` whose
++  dir was removed under it from working an unlocked dir. `run rm` holds the lock
++  through `rmtree`. Readers (`run list`, `status --by-run`, `--json`) probe with
++  `run_is_live`: a non-blocking acquire released at once, no `O_CREAT`, and report
++  `running`. **Rollout caveat:** a run started by a pre-v2.14 binary holds no lock and
++  is invisible to the sweep; don't sweep while one is going. **Known limitations:**
++  a lock attempt landing inside `run rm`'s `rmtree` recreates `.lock`, so `rm` fails
++  and leaves a `.lock`-only dir, listed as needs attention (a second `run rm`
++  removes it); a `run list` probe colliding with a resume starting that instant makes
++  the resume refuse; the milliseconds between a fresh `get` creating its dir and
++  locking it are unguarded against `run rm`. None of the remaining windows can
++  produce two workers.
++  **Download cap:** at most `download_slots.DOWNLOAD_SLOTS = 8` concurrent audio
++  downloads per workspace, across processes, via flock slot files
++  `<root>/.download-slots/0..7.lock` (non-blocking polls with jitter; one `waiting
++  for a download slot` line per file; the slot is held for one attempt and released
++  before any inter-attempt sleep; module constant, not config). **Known limitation:**
++  not FIFO — with more than 8 downloading processes a waiter may wait until a
++  holder's show finishes downloading.
+ - **`overrides.json`:** the one durable, app-edited per-show input —
+   excluded source-track filenames, `narration` (`full`/`vague`), and
+   metadata corrections (`venue`, `city`, `date`, `titles`: track#→forced
+   title, `set_breaks`: track numbers a break falls after, numbered-sets-only,
+   `encore_after`: track number past which every remaining track relabels
+   "encore") — that survive every `redo`. `gather` drops excluded files (reason
+   `operator-excluded`), forces `venue`/`city`/`date`/track titles/set
+   breaks when their fields are set (bypassing structure alignment entirely
+   for `set_breaks`/`encore_after`; `encore_after` must exceed every
+   `set_breaks` entry), and `brief` reads `narration=vague` to write a
+@@ -587,21 +642,24 @@ scheduler and the full player are phases 3–4).
+   `~/.llama/llm-failures/`; the 7-day refusal's wording is still unobserved and
+   that capture is how it will be learned.
+   **Pacing has two halves.** *Reactive* (phase 1): the refusal above pauses the
+   run. *Proactive* (phase 2): a live meter read decides, BEFORE spending
+   anything, whether the window can finish the next unit of work. The meter is
+   `claude -p "/usage"` via `herder.usage` — a live `GET /api/oauth/usage`, zero
+   tokens, NOT an inference call, so it is affordable at every show boundary;
+   `~/.claude.json`'s cached utilization is deliberately not read (it was
+   measured serving an already-expired window). What a show costs is learned
+   from the meter across show boundaries and persisted as an EWMA in
+-  `pacing-state.json` (`llama.pacing_state`), and `pacing.decide()` turns a
++  `pacing-state.json` (`llama.pacing_state`) — **a show records a boundary only if
++  an LLM provider was invoked during its `process_show` call**, so a resume that
++  merely re-downloads and re-packages (the sweep's population) cannot fold
++  near-zero deltas into the EWMA — and `pacing.decide()` turns a
+   reading plus that estimate into `Proceed` or `PauseUntil`. Gates sit at the
+   top of `_execute` (pre-flight, before the opening burst), before each
+   show's lock, and — since T6b — ahead of `run_interpret` at both of its
+   in-run call sites (`_get_query`, and `run resume`'s criteria-less
+   re-interpret branch). `llama pacing` prints the same picture read-only. `--no-pacing`
+   opts out of both halves; a failed meter read degrades to the reactive
+   backstop alone and says so.
+   **Three boundaries on what that pause guarantee covers, all confirmed in
+   review:** **(a) it is `claude_cli`-specific.**
+   `packages/herder/src/herder/openrouter.py:37` raises a plain `HerderError` on
+@@ -836,20 +894,59 @@ scheduler and the full player are phases 3–4).
+   usable durations. The old absolute 90 s floor sat *above* the median track
+   length of short-song bands and amputated them: `minutemen1983-03-09` has 38
+   audio files matching a 38-song description one-for-one, 27 of them under 90 s,
+   so llama kept 11 tracks, aligned at coverage **1.00**, and shipped a
+   29%-complete show with **no review flag** — the tape was whole and the filter
+   made it partial. The two-pass structure in `_keep_and_exclude` is load-bearing:
+   the median is taken over files passing every OTHER junk arm, so an item padded
+   with spam clips cannot drag the threshold down and license itself. The 0.25/90/5
+   constants were measured over 2,030 cached items (see the comment above them) and
+   are the same do-not-retune class as the tail-guard constants.
++- **Downloads fall back across archive.org servers** (`IAClient.download_file`,
++  spec §1; constants module-level in `ia_client.py`, none in config). archive.org
++  throttles each connection, so a struggling server is answered by switching, not by
++  waiting. Candidates, in order: the redirect URL, then `https://<server><dir>/<file>`
++  for each of the item's cached `workable_servers`, or `d1` then `d2` only when that
++  list is missing or empty (de-duplicated; a `d1`/`d2` absent from a non-empty list
++  is marked not workable). Metadata trouble degrades to fewer candidates or no size
++  check, never a crash. Own timeouts (connect `DOWNLOAD_CONNECT_TIMEOUT_S` 10 s,
++  stall `DOWNLOAD_STALL_TIMEOUT_S` 20 s; `_get` keeps the client's); there is **no
++  total-time bound on a transfer** (normal rate is 50-100 KB/s). First pass: one
++  attempt per candidate with a 1-4 s random sleep, never cut short; then repeat
++  attempts over candidates whose last error was retryable, until a monotonic
++  `DOWNLOAD_DEADLINE_S` (60 s) counted from the end of the first pass (slot wait
++  excluded). Retryable: 5xx/429/408 and transport errors; other 4xx moves on but is
++  not repeated; `Retry-After` is ignored. **Trickle switch:** throughput below
++  `TRICKLE_FLOOR_BPS` (10 KB/s) over `TRICKLE_WINDOW_S` (30 s) abandons that
++  candidate once per file, and the next asks `Range: bytes=<held>-`; only a `206`
++  whose `Content-Range` starts at that offset (and total matches `size`) is
++  appended, anything else (incl. `416`) discards the `.part` and restarts from byte
++  0. Continuation needs an md5; with size alone the `.part` is discarded. A stale
++  `.part` from a killed process is never continued. **Integrity is over the whole
++  finished file, however many servers it came from:** md5 (else byte count equal to
++  `size`) before the rename; a mismatch deletes the `.part`, moves on, and that copy
++  is not tried again. Exhaustion raises `IADownloadError(IAError)` whose text keeps
++  the `download of <filename>` prefix and names every URL tried. **Known
++  limitations:** the last non-abandoned candidate is never abandoned, so a server
++  dribbling just above the stall timeout holds its slot until it finishes; a file
++  whose every copy fails the integrity check (removed or darked item, stale cached
++  md5) fails as `download` on every sweep pass, so the sweep keeps listing it and
++  exits 1 until cleared by hand.
++- **Failure records carry `kind` and `at`** (`sessions.failure_record`, spec §3).
++  `kind`, first match wins: `RateLimited` → `rate-limited` (recorded only under
++  `--no-pacing`); `TaskFailed` → `llm`; herder `ResearchNotSupported` → `other`;
++  any other `HerderError` → `transport`; `IADownloadError` → `download`; any other
++  `IAError` → `archive`; else `other`. The order is load-bearing (several subclass
++  `HerderError`). `at` is the UTC ISO time. The sweep re-spends only on `download`
++  and `archive`. The records are persisted state and stay permissive: a legacy
++  record without `kind` reads as `download` when `error` starts with `download of `,
++  else `other` (`failure_kind`).
+ - Track filenames (`gd73-06-10d1t04.mp3`) don't carry song titles; disc/track
+   numbering doesn't map to sets. Titles resolve via cascade: recovered-format
+   tags → own tags → setlist parsed from the item description → **sibling
+   recordings of the same performance (`sibling-align`)** → **setlist-gap** →
+   unresolved, with `title_source` recording which fired. Never guess — flag
+   unresolved.
+   **`setlist-gap`** fills a run of unresolved tracks ONLY when it is
+   count-forced (the gap's canonical-item count exactly equals its file count,
+   so no shift can hide in it) and anchored by tracks that independently
+   matched, plus per-title hygiene; trailing-edge runs are declined outright.
+diff --git a/README.md b/README.md
+index d19d8e2..d55a633 100644
+--- a/README.md
++++ b/README.md
+@@ -141,20 +141,28 @@ unsigned — verify them against `SHA256SUMS`. See
+     llama status                     # every show + its state (pipes: one row per show)
+     llama status --packaged --profile funk   # what `deliver --packaged --profile funk` would ship
+     llama run list                   # sessions needing attention (awaiting approval, incomplete, paused)
+     llama status --held              # just the shows waiting on your judgment
+                                      # (--no-flags: one line per show, for piping)
+     llama status --by-run            # sessions with per-state show counts
+     llama run list                   # sessions awaiting approval or incomplete,
+                                      # with what each run lost and why
+     llama run approve countryish     # gate 1: approve a session's shortlist, optionally process it
+     llama run resume countryish      # resume/replay a session; finished stages are skipped
++    llama run resume --all           # one unattended pass over every resumable run (paused past
++                                     # its reset, or incomplete from a download/archive failure
++                                     # or a crash); --no-wait by default, stops at the first
++                                     # usage pause. Loop it:
++                                     #   while true; do llama run resume --all; sleep 600; done
++                                     # `run list` marks a run another process is working
++                                     # `running`; a run that fails any other way waits for an
++                                     # explicit `run resume <id>`
+     llama show 1973-06-10            # inspect one show (its state, artifacts, archive URL, flags)
+     llama show 1973-06-10 --tracks   # numbered track list (index, title, filename, duration)
+     llama fix 1973-06-10 --exclude 9,10       # exclude by track number (filenames work too);
+                                      # auto-runs the redo from gather
+     llama fix 1973-06-10 --include x1         # re-admit a file the junk filter dropped
+                                      # (x-handles come from `llama show ... --tracks`)
+     llama fix 1973-06-10 --set-venue "Winterland" --set-city "San Francisco, CA" \
+         --set-date 1973-06-10 --set-title 4="Dark Star" --set-breaks "9,17"
+                                      # metadata corrections; redoes from gather, hold self-clears
+     llama triage                     # walk every held show and resolve each in turn

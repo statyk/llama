@@ -1,0 +1,171 @@
+== RED run 1 (before any implementation)
+==================================== ERRORS ====================================
+_____________ ERROR collecting packages/llama/tests/test_sweep.py ______________
+ImportError while importing test module '/Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/llama/tests/test_sweep.py:29: in <module>
+    from llama.sessions import (KIND_ARCHIVE, KIND_DOWNLOAD, KIND_LLM, KIND_OTHER,
+E   ImportError: cannot import name 'sweep_verdict' from 'llama.sessions' (/Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/src/llama/sessions.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_sweep.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.47s
+== RED run 2 (sweep_verdict stub raising NotImplementedError; nothing else implemented)
+info = SessionInfo(id='r1', state='incomplete', updated_at='2026-10-21T07:46:22.829056+00:00', query='q', profile=None, outcome=None, failures=[{'show': 'GD/x', 'error': 'download of gd.mp3 failed: 500'}], resume_after=None, pause_reason=None)
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-past]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-absent]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-future]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-past-with-transport]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-past-with-download]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[awaiting]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-no-failures]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-download-and-archive]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-with-transport]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-with-llm]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-with-rate-limited]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-with-other]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[legacy-download-record]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[legacy-boom-record]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[no-criteria-no-request]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[no-marker-auto-false]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[no-marker-auto-true]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[no-marker-no-auto-key]
+FAILED packages/llama/tests/test_sweep.py::test_live_runs_are_skipped_as_running
+FAILED packages/llama/tests/test_sweep.py::test_oldest_first_and_summary - As...
+FAILED packages/llama/tests/test_sweep.py::test_stops_on_a_pause - AssertionE...
+FAILED packages/llama/tests/test_sweep.py::test_one_run_raising_does_not_stop_the_others_and_writes_a_marker
+FAILED packages/llama/tests/test_sweep.py::test_crash_marker_for_typer_exit_reads_exit_code
+FAILED packages/llama/tests/test_sweep.py::test_keyboard_interrupt_stops_the_sweep
+FAILED packages/llama/tests/test_sweep.py::test_run_that_turned_live_reports_running
+FAILED packages/llama/tests/test_sweep.py::test_a_run_removed_before_its_turn_is_reported_gone
+FAILED packages/llama/tests/test_sweep.py::test_no_wait_is_the_default_for_the_sweep
+FAILED packages/llama/tests/test_sweep.py::test_exit_codes - AssertionError: ...
+FAILED packages/llama/tests/test_sweep.py::test_session_and_all_are_exclusive
+FAILED packages/llama/tests/test_sweep.py::test_all_rejects_interactive - Ass...
+FAILED packages/llama/tests/test_sweep.py::test_no_matching_artists_marks_the_run_complete
+31 failed, 1 passed in 0.96s
+test_eligibility_per_state_and_kind[paused-past]
+test_eligibility_per_state_and_kind[paused-absent]
+test_eligibility_per_state_and_kind[paused-future]
+test_eligibility_per_state_and_kind[paused-past-with-transport]
+test_eligibility_per_state_and_kind[paused-past-with-download]
+test_eligibility_per_state_and_kind[awaiting]
+test_eligibility_per_state_and_kind[incomplete-no-failures]
+test_eligibility_per_state_and_kind[incomplete-download-and-archive]
+test_eligibility_per_state_and_kind[incomplete-with-transport]
+test_eligibility_per_state_and_kind[incomplete-with-llm]
+test_eligibility_per_state_and_kind[incomplete-with-rate-limited]
+test_eligibility_per_state_and_kind[incomplete-with-other]
+test_eligibility_per_state_and_kind[legacy-download-record]
+test_eligibility_per_state_and_kind[legacy-boom-record]
+test_eligibility_per_state_and_kind[no-criteria-no-request]
+test_eligibility_per_state_and_kind[no-marker-auto-false]
+test_eligibility_per_state_and_kind[no-marker-auto-true]
+test_eligibility_per_state_and_kind[no-marker-no-auto-key]
+test_live_runs_are_skipped_as_running
+test_oldest_first_and_summary - As...
+test_stops_on_a_pause - AssertionE...
+test_one_run_raising_does_not_stop_the_others_and_writes_a_marker
+test_crash_marker_for_typer_exit_reads_exit_code
+test_keyboard_interrupt_stops_the_sweep
+test_run_that_turned_live_reports_running
+test_a_run_removed_before_its_turn_is_reported_gone
+test_no_wait_is_the_default_for_the_sweep
+test_exit_codes - AssertionError: ...
+test_session_and_all_are_exclusive
+test_all_rejects_interactive - Ass...
+test_no_matching_artists_marks_the_run_complete
+  10       ╭─ Error ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1 /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:771: FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm000
+  18 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/src/llama/sessions.py:239: NotImplementedError
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:184: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:201: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:220: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:237: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:269: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:287: AssertionError: assert [] == ['r1']
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:303: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:323: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:344: assert [] == [False, True, False, False]
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:352: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:379: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 /Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_sweep.py:390: AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 E   assert [] == [False, True, False, False]
+   1 E   AssertionError: assert [] == ['r1']
+  10 E   AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 E   FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1404/test_no_matching_artists_marks0/runs/r1/session.json'
+  18 E   NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_a_run_removed_before_its_turn_is_reported_gone - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_all_rejects_interactive - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_crash_marker_for_typer_exit_reads_exit_code - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[awaiting] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-download-and-archive] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-no-failures] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-with-llm] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-with-other] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-with-rate-limited] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-with-transport] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[legacy-boom-record] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[legacy-download-record] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[no-criteria-no-request] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[no-marker-auto-false] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[no-marker-auto-true] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[no-marker-no-auto-key] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-absent] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-future] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-past-with-download] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-past-with-transport] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-past] - NotImplementedError
+   1 FAILED packages/llama/tests/test_sweep.py::test_exit_codes - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_keyboard_interrupt_stops_the_sweep - AssertionError: assert [] == ['r1']
+   1 FAILED packages/llama/tests/test_sweep.py::test_live_runs_are_skipped_as_running - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_no_matching_artists_marks_the_run_complete - FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-
+   1 FAILED packages/llama/tests/test_sweep.py::test_oldest_first_and_summary - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_one_run_raising_does_not_stop_the_others_and_writes_a_marker - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_run_that_turned_live_reports_running - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_session_and_all_are_exclusive - AssertionError: Usage: root run resume [OPTIONS] {session}
+   1 FAILED packages/llama/tests/test_sweep.py::test_stops_on_a_pause - AssertionError: Usage: root run resume [OPTIONS] {session}
+== GREEN: test_sweep.py
+................................                                         [100%]
+32 passed in 0.92s
+== full suite 1
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 87%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+.....s.................................................................. [ 98%]
+...............................................                          [100%]
+=============================== warnings summary ===============================
+packages/llama/tests/test_atomic_write.py: 2 warnings
+packages/llama/tests/test_concurrency.py: 4 warnings
+packages/llama/tests/test_ledger_concurrency.py: 12 warnings
+packages/llama/tests/test_locks.py: 2 warnings
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=31063) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3934 passed, 1 skipped, 8 deselected, 26 warnings in 83.52s (0:01:23)
+M1 BaseException: CAUGHT-as-predicted; predicted=['test_keyboard_interrupt_stops_the_sweep'] failed=['test_keyboard_interrupt_stops_the_sweep']
+M2 no crash marker: CAUGHT-as-predicted; predicted=['test_crash_marker_for_typer_exit_reads_exit_code', 'test_one_run_raising_does_not_stop_the_others_and_writes_a_marker'] failed=['test_crash_marker_for_typer_exit_reads_exit_code', 'test_one_run_raising_does_not_stop_the_others_and_writes_a_marker']
+M3 paused ignores failures: CAUGHT-as-predicted; predicted=['test_eligibility_per_state_and_kind[paused-past-with-transport]'] failed=['test_eligibility_per_state_and_kind[paused-past-with-transport]']
+M4 exit0 is crash: CAUGHT-as-predicted; predicted=['test_crash_marker_for_typer_exit_reads_exit_code'] failed=['test_crash_marker_for_typer_exit_reads_exit_code']
+M5 wait default: CAUGHT-as-predicted; predicted=['test_no_wait_is_the_default_for_the_sweep'] failed=['test_no_wait_is_the_default_for_the_sweep']
+M6 no stop on pause: CAUGHT-as-predicted; predicted=['test_stops_on_a_pause'] failed=['test_stops_on_a_pause']
+M7 running counts against exit: CAUGHT-as-predicted; predicted=['test_run_that_turned_live_reports_running'] failed=['test_run_that_turned_live_reports_running']
+M8 no auto-false check: CAUGHT-as-predicted; predicted=['test_eligibility_per_state_and_kind[no-marker-auto-false]'] failed=['test_eligibility_per_state_and_kind[no-marker-auto-false]']
+M9 newest first: CAUGHT-as-predicted; predicted=['test_oldest_first_and_summary'] failed=['test_a_run_removed_before_its_turn_is_reported_gone', 'test_crash_marker_for_typer_exit_reads_exit_code', 'test_keyboard_interrupt_stops_the_sweep', 'test_oldest_first_and_summary', 'test_one_run_raising_does_not_stop_the_others_and_writes_a_marker', 'test_stops_on_a_pause']
+M10 no-match unmarked: CAUGHT-as-predicted; predicted=['test_no_matching_artists_marks_the_run_complete'] failed=['test_no_matching_artists_marks_the_run_complete']
+M11 (run) label: CAUGHT-as-predicted; predicted=['test_one_run_raising_does_not_stop_the_others_and_writes_a_marker'] failed=['test_one_run_raising_does_not_stop_the_others_and_writes_a_marker']

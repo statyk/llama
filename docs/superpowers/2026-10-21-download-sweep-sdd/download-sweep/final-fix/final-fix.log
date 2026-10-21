@@ -1,0 +1,76 @@
+........................................................................ [ 91%]
+.......                                                                  [100%]
+79 passed in 0.46s
+M1 prediction: test_a_mixed_run_records_only_the_show_that_called_the_llm[pids0] (a,b) RED (2 boundaries); [pids1] (b,a) stays green
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-download-sweep/446798df-a539-46d2-ac3f-d8fe6fe5e4e3/scratchpad/m1/packages/llama/src/llama/__init__.py True
+
+ 2. 1973-06-10  C                   ?                           score 9.0
+      fine
+packaged: a/package
+packaged: b/package
+=========================== short test summary info ============================
+FAILED ../m1/packages/llama/tests/test_pace_loop.py::test_a_mixed_run_records_only_the_show_that_called_the_llm[pids0]
+1 failed, 110 passed in 1.14s
+E       assert 2 == 1
+E        +  where 2 = len([(UsageReading(five_hour=Meter(percent=10, resets_at=datetime.datetime(2026, 9, 4, 10, 0, tzinfo=datetime.timezone.utc...=datetime.timezone.utc)), per_model={}, fetched_at=datetime.datetime(2026, 9, 4, 8, 0, tzinfo=datetime.timezone.utc)))])
+1 failed, 1 passed in 0.39s
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=94722) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3936 passed, 1 skipped, 8 deselected, 26 warnings in 54.82s
+== F2/F3 RED run
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[paused-past-auto-false]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[incomplete-auto-false]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[recorded-human-gate]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[recorded-human-gate-paused]
+FAILED packages/llama/tests/test_sweep.py::test_eligibility_per_state_and_kind[profile-request-naming-no-profile]
+FAILED packages/llama/tests/test_sweep.py::test_a_profile_request_without_the_gate_key_reads_the_profile[gated-incomplete]
+FAILED packages/llama/tests/test_sweep.py::test_a_profile_request_without_the_gate_key_reads_the_profile[gated-paused]
+FAILED packages/llama/tests/test_sweep.py::test_a_profile_request_without_the_gate_key_reads_the_profile[missing-incomplete]
+FAILED packages/llama/tests/test_sweep.py::test_a_profile_request_without_the_gate_key_reads_the_profile[missing-paused]
+FAILED packages/llama/tests/test_sweep.py::test_a_profile_request_without_the_gate_key_reads_the_profile[unparseable-incomplete]
+FAILED packages/llama/tests/test_sweep.py::test_a_profile_request_without_the_gate_key_reads_the_profile[unparseable-paused]
+FAILED packages/llama/tests/test_sweep.py::test_a_profile_request_without_the_gate_key_reads_the_profile[invalid-incomplete]
+FAILED packages/llama/tests/test_sweep.py::test_a_profile_request_without_the_gate_key_reads_the_profile[invalid-paused]
+FAILED packages/llama/tests/test_sweep.py::test_a_malformed_updated_at_is_needs_attention[not-a-date]
+FAILED packages/llama/tests/test_sweep.py::test_a_malformed_updated_at_is_needs_attention[12345]
+FAILED packages/llama/tests/test_sweep.py::test_a_malformed_updated_at_is_needs_attention[value2]
+FAILED packages/llama/tests/test_sweep.py::test_a_malformed_updated_at_does_not_stop_the_sweep[not-a-date]
+FAILED packages/llama/tests/test_sweep.py::test_a_malformed_updated_at_does_not_stop_the_sweep[12345]
+FAILED packages/llama/tests/test_sessions.py::test_get_records_that_a_query_run_is_not_human_gated
+FAILED packages/llama/tests/test_sessions.py::test_get_profile_records_the_profile_human_gate[True]
+FAILED packages/llama/tests/test_sessions.py::test_get_profile_records_the_profile_human_gate[False]
+21 failed, 111 passed, 6 warnings in 2.70s
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_malformed_updated_at_is0/runs/r1') = <llama.workspace.RunWorkspace object at 0x1080128f0>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_malformed_updated_at_is1/runs/r1') = <llama.workspace.RunWorkspace object at 0x108012d50>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_malformed_updated_at_is2/runs/r1') = <llama.workspace.RunWorkspace object at 0x108012f30>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_profile_request_without0/runs/r1') = <llama.workspace.RunWorkspace object at 0x108010230>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_profile_request_without1/runs/r1') = <llama.workspace.RunWorkspace object at 0x1080111d0>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_profile_request_without4/runs/r1') = <llama.workspace.RunWorkspace object at 0x108010690>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_profile_request_without5/runs/r1') = <llama.workspace.RunWorkspace object at 0x108010ff0>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_profile_request_without6/runs/r1') = <llama.workspace.RunWorkspace object at 0x108011b30>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_profile_request_without7/runs/r1') = <llama.workspace.RunWorkspace object at 0x108011090>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_profile_request_without8/runs/r1') = <llama.workspace.RunWorkspace object at 0x108011270>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_a_profile_request_without9/runs/r1') = <llama.workspace.RunWorkspace object at 0x1080114f0>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_eligibility_per_state_and18/runs/r1') = <llama.workspace.RunWorkspace object at 0x107f76cb0>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_eligibility_per_state_and19/runs/r1') = <llama.workspace.RunWorkspace object at 0x1080100f0>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_eligibility_per_state_and21/runs/r1') = <llama.workspace.RunWorkspace object at 0x108010410>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_eligibility_per_state_and22/runs/r1') = <llama.workspace.RunWorkspace object at 0x108010910>.dir
+   1 E        +    where PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_eligibility_per_state_and24/runs/r1') = <llama.workspace.RunWorkspace object at 0x108010b90>.dir
+   1 E        +  where 1 = <Result TypeError("'<' not supported between instances of 'int' and 'str'")>.exit_code
+   1 E        +  where 1 = <Result ValueError("Invalid isoformat string: 'not-a-date'")>.exit_code
+   1 E        +  where None = sweep_verdict(SessionInfo(id='r1', state='incomplete', updated_at='2026-10-21T08:17:29.627532+00:00', query='q', profile=None, outcome=None, failures=[], resume_after=None, pause_reason=None), PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_eligibility_per_state_and19/runs/r1'), datetime.datetime(2026, 10, 21, 12, 0, tzinfo=datetime.timezone.utc))
+   1 E        +  where None = sweep_verdict(SessionInfo(id='r1', state='incomplete', updated_at='2026-10-21T08:17:29.636895+00:00', query='q', profile=None, outcome=None, failures=[], resume_after=None, pause_reason=None), PosixPath('/private/var/folders/yn/jlwxryrj1ds7jpvw931jk1jm0000gn/T/pytest-of-shawn/pytest-1443/test_eligibility_per_state_and21/runs/r1'), datetime.datetime(2026, 10, 21, 12, 0, tzinfo=datetime.timezone.utc))
+== F2/F3 GREEN run
+150 passed, 6 warnings in 4.38s
+== full suite after F2/F3
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=22038) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3964 passed, 1 skipped, 8 deselected, 26 warnings in 59.30s
+== full suite after F4
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3964 passed, 1 skipped, 8 deselected, 26 warnings in 69.44s (0:01:09)

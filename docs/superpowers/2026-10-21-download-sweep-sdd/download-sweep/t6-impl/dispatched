@@ -1,0 +1,4 @@
+budget-min: 60
+role: impl
+model: opus
+what: Task 6 run lock + running readers

@@ -1,0 +1,14 @@
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/llama/tests/test_sessions.py:1662: in <module>
+    from llama.sessions import (KIND_ARCHIVE, KIND_DOWNLOAD, KIND_LLM, KIND_OTHER,
+E   ImportError: cannot import name 'KIND_ARCHIVE' from 'llama.sessions' (/Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/src/llama/sessions.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_sessions.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 1.06s
+packages/llama/tests/test_sessions.py: 6 warnings
+  /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/popen_fork.py:76: DeprecationWarning: This process (pid=1420) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3880 passed, 1 skipped, 8 deselected, 26 warnings in 117.37s (0:01:57)

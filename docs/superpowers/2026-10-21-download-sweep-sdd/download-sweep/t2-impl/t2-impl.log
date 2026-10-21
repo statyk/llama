@@ -1,0 +1,81 @@
+
+==================================== ERRORS ====================================
+___________ ERROR collecting packages/llama/tests/test_ia_client.py ____________
+ImportError while importing test module '/Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_ia_client.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/llama/tests/test_ia_client.py:10: in <module>
+    from llama.ia_client import (DOWNLOAD_CONNECT_TIMEOUT_S, DOWNLOAD_DEADLINE_S,
+E   ImportError: cannot import name 'TRICKLE_FLOOR_BPS' from 'llama.ia_client' (/Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/src/llama/ia_client.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_ia_client.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.69s
+FAILED packages/llama/tests/test_ia_client.py::test_metadata_http_error_means_redirect_only
+FAILED packages/llama/tests/test_ia_client.py::test_trickle_switches_and_continues_from_offset
+FAILED packages/llama/tests/test_ia_client.py::test_range_answered_200_restarts_from_zero
+FAILED packages/llama/tests/test_ia_client.py::test_wrong_content_range_restarts_from_zero[wrong-start]
+FAILED packages/llama/tests/test_ia_client.py::test_wrong_content_range_restarts_from_zero[wrong-total]
+FAILED packages/llama/tests/test_ia_client.py::test_stitched_file_with_bad_md5_is_deleted_and_refetched_from_zero
+FAILED packages/llama/tests/test_ia_client.py::test_last_non_abandoned_candidate_is_never_abandoned
+FAILED packages/llama/tests/test_ia_client.py::test_each_candidate_abandoned_at_most_once
+FAILED packages/llama/tests/test_ia_client.py::test_an_abandoned_candidate_is_not_abandoned_again
+FAILED packages/llama/tests/test_ia_client.py::test_abandonment_just_before_the_deadline_still_gets_its_next_attempt
+FAILED packages/llama/tests/test_ia_client.py::test_no_md5_trickle_restarts_from_zero
+FAILED packages/llama/tests/test_ia_client.py::test_206_to_a_plain_request_is_rejected
+FAILED packages/llama/tests/test_ia_client.py::test_416_discards_the_part_and_restarts_from_zero
+FAILED packages/llama/tests/test_ia_client.py::test_a_status_error_keeps_the_continuation_part
+14 failed, 47 passed in 1.96s
+E       AssertionError: assert [None, 'bytes=63000-'] == [None, 'bytes=62000-']
+packages/llama/tests/test_ia_client.py:836: AssertionError
+FAILED packages/llama/tests/test_ia_client.py::test_an_abandoned_candidate_is_not_abandoned_again
+1 failed, 60 passed in 1.61s
+61 passed in 0.70s
+61 passed in 0.74s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3859 passed, 1 skipped, 8 deselected, 26 warnings in 93.10s (0:01:33)
+61 passed in 0.61s
+3859 passed, 1 skipped, 8 deselected, 26 warnings in 77.44s (0:01:17)
+63 passed in 9.90s
+3861 passed, 1 skipped, 8 deselected, 26 warnings in 75.73s (0:01:15)
+cond1 abandoned-once | CAUGHT | test_an_abandoned_candidate_is_not_abandoned_again | test_an_abandoned_candidate_is_not_abandoned_again
+cond2 another candidate | CAUGHT | test_last_non_abandoned_candidate_is_never_abandoned | test_last_non_abandoned_candidate_is_never_abandoned,test_single_candidate_trickle_completes_in_one_request,test_each_candidate_abandoned_at_most_once
+cond2 ignores non-retryable | CAUGHT | test_last_non_abandoned_candidate_is_never_abandoned | test_last_non_abandoned_candidate_is_never_abandoned
+cond3 deadline | CAUGHT | test_no_abandonment_after_the_deadline | test_no_abandonment_after_the_deadline
+cond4 full part | CAUGHT | test_full_part_is_never_abandoned | test_full_part_is_never_abandoned
+owed bypass (loop) | SURVIVED/OTHER | test_abandonment_just_before_the_deadline_still_gets_its_next_attempt | 
+owed bypass (post-pause) | CAUGHT | test_abandonment_just_before_the_deadline_still_gets_its_next_attempt | test_abandonment_just_before_the_deadline_still_gets_its_next_attempt
+no-md5 keeps part | CAUGHT | test_no_md5_trickle_restarts_from_zero | test_no_md5_trickle_restarts_from_zero
+content-range start | CAUGHT | test_wrong_content_range_restarts_from_zero[wrong-start] | test_wrong_content_range_restarts_from_zero[wrong-start]
+content-range total | CAUGHT | test_wrong_content_range_restarts_from_zero[wrong-total] | test_wrong_content_range_restarts_from_zero[wrong-total]
+416 branch | CAUGHT | test_416_discards_the_part_and_restarts_from_zero | test_416_discards_the_part_and_restarts_from_zero
+416 keeps part | CAUGHT | test_416_discards_the_part_and_restarts_from_zero | test_416_discards_the_part_and_restarts_from_zero
+206 to plain accepted | CAUGHT | test_206_to_a_plain_request_is_rejected | test_206_to_a_plain_request_is_rejected
+stale part kept | CAUGHT | test_stale_part_from_a_previous_process_is_not_continued | test_stale_part_from_a_previous_process_is_not_continued
+status error discards part | CAUGHT | test_a_status_error_keeps_the_continuation_part[status] | test_last_non_abandoned_candidate_is_never_abandoned,test_an_abandoned_candidate_is_not_abandoned_again,test_a_status_error_keeps_the_continuation_part[status]
+transport error always discards | CAUGHT | test_a_status_error_keeps_the_continuation_part[connect] | test_a_status_error_keeps_the_continuation_part[connect]
+transport error never discards | CAUGHT | test_mid_stream_failure_is_retryable | test_mid_stream_failure_is_retryable
+check before write | CAUGHT | test_trickle_switches_and_continues_from_offset | test_download_verifies_md5,test_500_on_redirect_falls_back_to_listed_server,test_hanging_redirect_does_not_starve_listed_servers,test_deadline_counts_from_the_end_of_the_first_pass,test_4xx_moves_on_then_succeeds,test_408_429_and_5xx_are_retried[408],test_408_429_and_5xx_are_retried[429],test_408_429_and_5xx_are_retried[503],test_md5_mismatch_on_one_server_then_success,test_md5_mismatch_copy_is_skipped_by_repeat_attempts,test_too_many_redirects_is_caught,test_size_check_when_no_md5,test_mid_stream_failure_is_retryable,test_missing_server_fields_mean_redirect_only,test_listed_server_url_quotes_but_keeps_slash,test_unusable_metadata_degrades_to_redirect_only[metadata_answer0],test_unusable_metadata_degrades_to_redirect_only[metadata_answer1],test_unusable_size_means_no_size_check[files0],test_unusable_size_means_no_size_check[files1],test_unusable_size_means_no_size_check[files2],test_unusable_size_means_no_size_check[files3],test_unusable_size_means_no_size_check[not,test_download_uses_short_timeouts,test_metadata_http_error_means_redirect_only,test_slow_but_above_floor_transfer_finishes,test_trickle_switches_and_continues_from_offset,test_range_answered_200_restarts_from_zero,test_wrong_content_range_restarts_from_zero[wrong-start],test_wrong_content_range_restarts_from_zero[wrong-total],test_stitched_file_with_bad_md5_is_deleted_and_refetched_from_zero,test_last_non_abandoned_candidate_is_never_abandoned,test_single_candidate_trickle_completes_in_one_request,test_each_candidate_abandoned_at_most_once,test_an_abandoned_candidate_is_not_abandoned_again,test_full_part_is_never_abandoned,test_no_abandonment_after_the_deadline,test_abandonment_just_before_the_deadline_still_gets_its_next_attempt,test_no_md5_trickle_restarts_from_zero,test_206_to_a_plain_request_is_rejected,test_416_discards_the_part_and_restarts_from_zero,test_stale_part_from_a_previous_process_is_not_continued,test_a_status_error_keeps_the_continuation_part[status],test_a_status_error_keeps_the_continuation_part[connect],test_a_transfer_that_slows_to_a_trickle_is_abandoned
+window opens late | CAUGHT | test_trickle_switches_and_continues_from_offset | test_trickle_switches_and_continues_from_offset,test_range_answered_200_restarts_from_zero,test_wrong_content_range_restarts_from_zero[wrong-start],test_wrong_content_range_restarts_from_zero[wrong-total],test_stitched_file_with_bad_md5_is_deleted_and_refetched_from_zero,test_last_non_abandoned_candidate_is_never_abandoned,test_each_candidate_abandoned_at_most_once,test_an_abandoned_candidate_is_not_abandoned_again,test_416_discards_the_part_and_restarts_from_zero,test_a_status_error_keeps_the_continuation_part[status],test_a_status_error_keeps_the_continuation_part[connect]
+cumulative not sliding | CAUGHT | test_a_transfer_that_slows_to_a_trickle_is_abandoned | test_a_transfer_that_slows_to_a_trickle_is_abandoned
+floor comparison flipped | CAUGHT | test_slow_but_above_floor_transfer_finishes | test_slow_but_above_floor_transfer_finishes,test_trickle_switches_and_continues_from_offset,test_range_answered_200_restarts_from_zero,test_wrong_content_range_restarts_from_zero[wrong-start],test_wrong_content_range_restarts_from_zero[wrong-total],test_stitched_file_with_bad_md5_is_deleted_and_refetched_from_zero,test_last_non_abandoned_candidate_is_never_abandoned,test_each_candidate_abandoned_at_most_once,test_an_abandoned_candidate_is_not_abandoned_again,test_abandonment_just_before_the_deadline_still_gets_its_next_attempt,test_no_md5_trickle_restarts_from_zero,test_416_discards_the_part_and_restarts_from_zero,test_a_status_error_keeps_the_continuation_part[status],test_a_status_error_keeps_the_continuation_part[connect]
+200 appends | SURVIVED/OTHER | test_range_answered_200_restarts_from_zero | 
+metadata httpx error | CAUGHT | test_metadata_http_error_means_redirect_only | test_metadata_http_error_means_redirect_only
+deadline 10s | CAUGHT | test_every_server_failing_raises_after_first_pass_and_deadline | test_every_server_failing_raises_after_first_pass_and_deadline,test_no_abandonment_after_the_deadline,test_abandonment_just_before_the_deadline_still_gets_its_next_attempt
+trickle not retryable | CAUGHT | test_an_abandoned_candidate_is_not_abandoned_again | test_an_abandoned_candidate_is_not_abandoned_again,test_416_discards_the_part_and_restarts_from_zero
+no abandoned bookkeeping | CAUGHT | test_last_non_abandoned_candidate_is_never_abandoned | test_last_non_abandoned_candidate_is_never_abandoned,test_each_candidate_abandoned_at_most_once,test_an_abandoned_candidate_is_not_abandoned_again
+63 passed in 0.73s
+  File "/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-download-sweep/cec61fef-ceff-4906-a725-327b45944d5e/scratchpad/mut/../mutate.py", line 12
+    ("check before write", "                            f.write(chunk)
+                           ^
+SyntaxError: unterminated string literal (detected at line 12)
+owed bypass (loop) | CAUGHT | test_abandonment_just_before_the_deadline_still_gets_its_next_attempt | test_abandonment_just_before_the_deadline_still_gets_its_next_attempt
+owed bypass (post-pause) | CAUGHT | test_abandonment_just_before_the_deadline_still_gets_its_next_attempt | test_abandonment_just_before_the_deadline_still_gets_its_next_attempt
+200 appends | CAUGHT | test_range_answered_200_restarts_from_zero | test_range_answered_200_restarts_from_zero
+check before write | CAUGHT | test_trickle_switches_and_continues_from_offset | test_trickle_switches_and_continues_from_offset,test_range_answered_200_restarts_from_zero,test_wrong_content_range_restarts_from_zero[wrong-start],test_wrong_content_range_restarts_from_zero[wrong-total],test_stitched_file_with_bad_md5_is_deleted_and_refetched_from_zero,test_last_non_abandoned_candidate_is_never_aband
+1
+3861 passed, 1 skipped, 8 deselected, 26 warnings in 86.79s (0:01:26)

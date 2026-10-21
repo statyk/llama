@@ -1,0 +1,21 @@
+mutant A: append path never marks wrote (transport error mid-206 keeps .part)
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-download-sweep/cec61fef-ceff-4906-a725-327b45944d5e/scratchpad/t2rev/tree/packages/llama/src/llama/__init__.py
+...............................................................          [100%]
+63 passed in 1.29s
+mutant B: metadata catch reverted to (IAError, ValueError); predict red: test_metadata_http_error_means_redirect_only
+FAILED tree/packages/llama/tests/test_ia_client.py::test_metadata_http_error_means_redirect_only
+1 failed, 62 passed in 2.12s
+mutant C: owed never set; predict red: test_abandonment_just_before_the_deadline_still_gets_its_next_attempt
+        DOWNLOAD_DEADLINE_S has passed since the first pass ended (checked before
+        unfinished or the deadline has not passed). The attempt after an
+>       raise IADownloadError(f"download of {filename} failed: {tried} ({attempts} attempts)")
+E       llama.ia_client.IADownloadError: download of t.mp3 failed: https://archive.org/download/x/t.mp3 -> trickling below 10000 B/s over 30 s; https://ia800903.us.archive.org/9/items/x/t.mp3 -> HTTP 500 (11 attempts)
+FAILED tree/packages/llama/tests/test_ia_client.py::test_abandonment_just_before_the_deadline_still_gets_its_next_attempt
+1 failed, 62 passed in 5.94s
+mutant D: condition 3 dropped (in_first_pass or not expired -> True); predict red: test_no_abandonment_after_the_deadline
+        DOWNLOAD_DEADLINE_S has passed since the first pass ended (checked before
+        unfinished or the deadline has not passed). The attempt after an
+>       raise IADownloadError(f"download of {filename} failed: {tried} ({attempts} attempts)")
+E       llama.ia_client.IADownloadError: download of t.mp3 failed: https://archive.org/download/x/t.mp3 -> trickling below 10000 B/s over 30 s; https://ia800903.us.archive.org/9/items/x/t.mp3 -> HTTP 500 (22 attempts)
+FAILED tree/packages/llama/tests/test_ia_client.py::test_no_abandonment_after_the_deadline
+1 failed, 62 passed in 1.07s

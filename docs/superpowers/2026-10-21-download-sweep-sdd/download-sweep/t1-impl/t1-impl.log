@@ -1,0 +1,71 @@
+==================================== ERRORS ====================================
+___________ ERROR collecting packages/llama/tests/test_ia_client.py ____________
+ImportError while importing test module '/Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/tests/test_ia_client.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/llama/tests/test_ia_client.py:10: in <module>
+    from llama.ia_client import (DOWNLOAD_CONNECT_TIMEOUT_S, DOWNLOAD_DEADLINE_S,
+E   ImportError: cannot import name 'DOWNLOAD_CONNECT_TIMEOUT_S' from 'llama.ia_client' (/Users/shawn/projects/llama/.claude/worktrees/download-sweep/packages/llama/src/llama/ia_client.py)
+=========================== short test summary info ============================
+ERROR packages/llama/tests/test_ia_client.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.36s
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of t.mp3 failed after 3 attempts: Server error '500 Internal Server Error' for url 'https://archive.org/download/x/t.mp3'
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of t.mp3 failed after 3 attempts: Server error '500 Internal Server Error' for url 'https://archive.org/download/x/t.mp3'
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of t.mp3 failed after 3 attempts: stalled
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of t.mp3 failed after 3 attempts: Client error '404 Not Found' for url 'https://archive.org/download/x/t.mp3'
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of t.mp3 failed after 3 attempts: Client error '404 Not Found' for url 'https://archive.org/download/x/t.mp3'
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of t.mp3 failed after 3 attempts: redirect loop
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of t.mp3 failed after 3 attempts: connection reset
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of set 2/t 06.mp3 failed after 3 attempts: Server error '500 Internal Server Error' for url 'https://archive.org/download/x/set%202/t%2006.mp3'
+>       raise IAError(f"download of {filename} failed after {self.max_retries} attempts: {last}") from last
+E       llama.ia_client.IAError: download of t.mp3 failed after 3 attempts: Server error '500 Internal Server Error' for url 'https://archive.org/download/x/t.mp3'
+FAILED packages/llama/tests/test_ia_client.py::test_500_on_redirect_falls_back_to_listed_server
+FAILED packages/llama/tests/test_ia_client.py::test_every_server_failing_raises_after_first_pass_and_deadline
+FAILED packages/llama/tests/test_ia_client.py::test_hanging_redirect_does_not_starve_listed_servers
+FAILED packages/llama/tests/test_ia_client.py::test_4xx_moves_on_then_succeeds
+FAILED packages/llama/tests/test_ia_client.py::test_all_4xx_fails_after_one_pass
+FAILED packages/llama/tests/test_ia_client.py::test_408_429_and_5xx_are_retried[408]
+FAILED packages/llama/tests/test_ia_client.py::test_408_429_and_5xx_are_retried[429]
+FAILED packages/llama/tests/test_ia_client.py::test_408_429_and_5xx_are_retried[503]
+FAILED packages/llama/tests/test_ia_client.py::test_md5_mismatch_on_one_server_then_success
+FAILED packages/llama/tests/test_ia_client.py::test_md5_mismatch_copy_is_checked_once
+FAILED packages/llama/tests/test_ia_client.py::test_md5_mismatch_copy_is_skipped_by_repeat_attempts
+FAILED packages/llama/tests/test_ia_client.py::test_too_many_redirects_is_caught
+FAILED packages/llama/tests/test_ia_client.py::test_size_check_when_no_md5 - ...
+FAILED packages/llama/tests/test_ia_client.py::test_mid_stream_failure_is_retryable
+FAILED packages/llama/tests/test_ia_client.py::test_missing_server_fields_mean_redirect_only
+FAILED packages/llama/tests/test_ia_client.py::test_d1_d2_used_only_when_workable_servers_empty
+FAILED packages/llama/tests/test_ia_client.py::test_listed_server_url_quotes_but_keeps_slash
+FAILED packages/llama/tests/test_ia_client.py::test_unusable_metadata_degrades_to_redirect_only[metadata_answer0]
+FAILED packages/llama/tests/test_ia_client.py::test_unusable_metadata_degrades_to_redirect_only[metadata_answer1]
+FAILED packages/llama/tests/test_ia_client.py::test_unusable_size_means_no_size_check[files0]
+FAILED packages/llama/tests/test_ia_client.py::test_unusable_size_means_no_size_check[files1]
+FAILED packages/llama/tests/test_ia_client.py::test_unusable_size_means_no_size_check[files2]
+FAILED packages/llama/tests/test_ia_client.py::test_unusable_size_means_no_size_check[files3]
+FAILED packages/llama/tests/test_ia_client.py::test_unusable_size_means_no_size_check[not a list]
+FAILED packages/llama/tests/test_ia_client.py::test_duplicate_servers_are_tried_once
+FAILED packages/llama/tests/test_ia_client.py::test_download_uses_short_timeouts
+FAILED packages/llama/tests/test_ia_client.py::test_sleeps_between_attempts_are_short_and_random
+27 failed, 14 passed in 4.41s
+41 passed in 3.76s
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_ia_client.py::test_deadline_counts_from_the_end_of_the_first_pass
+1 failed, 53 passed in 0.98s
+......................................................                   [100%]
+54 passed in 0.99s
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3840 passed, 1 skipped, 8 deselected, 26 warnings in 107.37s (0:01:47)
+138 passed in 2.51s

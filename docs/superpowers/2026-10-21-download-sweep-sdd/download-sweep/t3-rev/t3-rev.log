@@ -1,0 +1,21 @@
+/private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-download-sweep/cec61fef-ceff-4906-a725-327b45944d5e/scratchpad/t3rev/base/packages/llama/src/llama/__init__.py /private/tmp/claude-501/-Users-shawn-projects-llama--claude-worktrees-download-sweep/cec61fef-ceff-4906-a725-327b45944d5e/scratchpad/t3rev/base/packages/llama/src/llama/download_slots.py
+== base
+8 passed in 0.77s
+== m1
+FAILED packages/llama/tests/test_ia_client.py::test_slot_wait_does_not_count_toward_deadline
+1 failed, 7 passed in 0.97s
+== m2
+FAILED packages/llama/tests/test_ia_client.py::test_waiting_line_prints_at_most_once_per_download
+1 failed, 7 passed in 3.96s
+== m3
+FAILED packages/llama/tests/test_download_slots.py::test_on_wait_called_once_per_acquire
+1 failed, 7 passed in 0.71s
+== m4
+FAILED packages/llama/tests/test_ia_client.py::test_slot_released_before_sleep_between_attempts
+1 failed, 7 passed in 0.92s
+== m5
+FAILED packages/llama/tests/test_download_slots.py::test_never_more_than_n_holders
+FAILED packages/llama/tests/test_download_slots.py::test_a_dead_holder_frees_its_slot
+FAILED packages/llama/tests/test_download_slots.py::test_on_wait_called_once_per_acquire
+3 failed, 5 passed, 12 warnings in 30.56s
+review complete

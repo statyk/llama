@@ -1,0 +1,10 @@
+progress: diff read, checking _get/_cached and callers
+mutant: deadline 10s; prediction: test_every_server_failing... SURVIVES (no lower bound)
+..........................................                               [100%]
+42 passed in 5.56s
+mutant: no post-pause deadline check; prediction: test_every_server_failing... CAUGHT (attempt starts past deadline)
+
+packages/llama/tests/test_ia_client.py:296: AssertionError
+=========================== short test summary info ============================
+FAILED packages/llama/tests/test_ia_client.py::test_every_server_failing_raises_after_first_pass_and_deadline
+1 failed, 41 passed in 2.48s

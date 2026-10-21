@@ -1,0 +1,4 @@
+budget-min: 25
+role: editor
+model: opus
+what: apply plan-review decisions to plan+spec

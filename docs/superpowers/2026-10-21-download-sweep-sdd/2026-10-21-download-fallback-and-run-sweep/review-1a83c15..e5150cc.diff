@@ -1,0 +1,371 @@
+# Review package: 1a83c15..HEAD
+
+## Commits
+e5150cc fix(pacing): record a show boundary only when the show called an LLM
+
+## Files changed
+ packages/llama/src/llama/cli.py        | 15 ++++--
+ packages/llama/src/llama/pipeline.py   | 52 +++++++++++++++++++++
+ packages/llama/tests/test_pace_loop.py | 85 ++++++++++++++++++++++++++++++++--
+ 3 files changed, 143 insertions(+), 9 deletions(-)
+
+## Diff
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index 3d5fe7a..78d26b4 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -28,21 +28,22 @@ from llama.errors import LlamaError
+ from llama.ia_client import IAClient, IAError
+ from llama.ledger import Ledger
+ from llama.locks import Locked, file_lock
+ from llama.models import Criteria, LedgerEntry, ShortlistEntry, Show
+ from llama import pacing as _pacing   # module, not `from ... import _now`:
+                                       # a rebound name defeats the tests' clock
+ from llama import pacing_state
+ from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
+                           binding_forecast, decide, duration_arg, format_delta,
+                           pace_options, resume_at, sleep_until)
+-from llama.pipeline import choose_entries, make_providers, process_show
++from llama.pipeline import (choose_entries, count_llm_calls, make_providers,
++                            process_show)
+ from llama.profiles import (
+     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
+ )
+ from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
+                             attention_sessions, mark_awaiting, mark_complete,
+                             failure_record, mark_incomplete, mark_paused,
+                             read_request, session_state)
+ from llama.setlistfm import make_client
+ from llama.stages.discover import run_discover
+ from llama.stages.interpret import run_interpret
+@@ -405,21 +406,21 @@ def _preflight_gate(ws: RunWorkspace, config: Config, pace: PaceOptions,
+         # meter is account-wide, so another session may have spent the window
+         # we just waited for, and the reset itself may have moved.
+         slept = True
+ 
+ 
+ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
+              count: int, auto: bool, human_gate: bool, force: bool = False,
+              force_stage: str | None = None,
+              full_rationale: bool = False, plan: bool = False,
+              pace: PaceOptions | None = None) -> None:
+-    providers = make_providers(config)
++    providers, llm_calls = count_llm_calls(make_providers(config))
+     if pace is None:
+         pace = pace_options(config)
+     # Pre-flight, BEFORE the opening burst: run_discover/run_search/run_winnow
+     # each write their artifact only on success, so a refusal part-way through
+     # one costs the whole stage on the resume. This is the cheapest place in a
+     # run to stop, and the only gate that runs before any of them.
+     #
+     # The reading is bound and reused, not re-read: the forecast below must
+     # describe the same reading this verdict was computed from.
+     state = pacing_state.read_state(config.root)
+@@ -550,21 +551,21 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
+             write_artifact(ws.shortlist, shortlist)
+     chosen = choose_entries(shortlist, count, human_gate and auto,
+                             artist_cap=criteria.artist_cap,
+                             year_cap=criteria.year_cap)
+     if chosen is None:
+         mark_awaiting(ws)
+         typer.echo(f"Shortlist awaits review: llama run approve {ws.name}")
+         return
+     setlistfm = make_client(config)
+     packaged = held = 0
+-    failures: list[dict] = []          # {show, error} per show this run lost
++    failures: list[dict] = []          # {show, error, kind, at} per show this run lost
+     # A RateLimited is a window that refused us; a PauseUntil is one the gate
+     # stopped short of. Both pause the run, and the block below renders either.
+     limited: RateLimited | PauseUntil | None = None
+ 
+     def _process(entry):
+         nonlocal packaged, held, limited
+         try:
+             pkg = process_show(ws, ia, ledger, entry, providers, ws.name, config.audio_format,
+                                force=force,
+                                setlistfm=setlistfm,
+@@ -615,34 +616,40 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
+             # whole point is not to start a show the window cannot finish.
+             reading_before = _meter(config, pace)
+             verdict = decide(_pacing._now(), reading_before,
+                              Progress(state.per_show_delta), pace)
+             if isinstance(verdict, PauseUntil):
+                 limited = verdict
+                 unprocessed.extend(pending[idx:])   # this show has NOT run
+                 break
+             lock_path = ws.show_ws(entry.candidate.performance_id).lock
+             ran = True
++            calls_before = llm_calls()
+             try:
+                 with file_lock(lock_path, blocking=False):
+                     _process(entry)
+             except Locked:
+                 deferred.append(entry)         # another run is building it
+                 ran = False
+             # AFTER the call, not before: `pending[idx:]` must INCLUDE the show
+             # that hit the limit. Checking at the top of the body instead starts
+             # the slice one entry late and silently drops that show from the
+             # run, which then reports `complete` having never processed it.
+             if limited:
+                 unprocessed.extend(pending[idx:])
+                 break
+-            if ran and reading_before is not None:
++            if ran and reading_before is not None and llm_calls() > calls_before:
++                # A show that made no LLM call (a download-only resume, an
++                # already-packaged show) spent nothing the meter can see, and
++                # folding its zero in would teach the gate a cheaper show than
++                # any that exists; it takes no after-show read either.
++                #
+                 # One show boundary, measured from its own two readings: what
+                 # the meter moved by while exactly this show ran. A deferred
+                 # show ran nothing between them, and folding its zero in would
+                 # teach the gate a cheaper show than any that exists -- an
+                 # under-estimate being the direction that walks into the wall.
+                 # A show that was REFUSED is excluded for the same reason, by
+                 # the `if limited` break above: it did partial work, so its
+                 # delta understates a whole show.
+                 #
+                 # No reading means no window to read -- every openrouter and
+diff --git a/packages/llama/src/llama/pipeline.py b/packages/llama/src/llama/pipeline.py
+index bc51699..6ff378a 100644
+--- a/packages/llama/src/llama/pipeline.py
++++ b/packages/llama/src/llama/pipeline.py
+@@ -1,11 +1,12 @@
+ import logging
++from collections.abc import Callable, Mapping
+ from datetime import datetime, timezone
+ from pathlib import Path
+ 
+ from herder import provider_ladder
+ from llama.config import Config
+ from llama.ledger import Ledger
+ from llama.models import LedgerEntry, Provenance, Show, ShortlistEntry
+ from llama.stages import brief, package
+ from llama.stages.brief import run_brief
+ from llama.stages.gather import run_gather
+@@ -23,20 +24,71 @@ log = logging.getLogger("llama")
+ TASK_KEYS = ["interpret", "score_reviews", "light_research",
+              "extract_setlist", "deep_research", "brief",
+              "find_artists", "align_structure", "vet_research"]
+ 
+ 
+ def make_providers(config: Config) -> dict:
+     settings = config.llm_settings()
+     return {key: provider_ladder(settings, key) for key in TASK_KEYS}
+ 
+ 
++class _CountedProvider:
++    """Delegates to a provider, counting `complete`/`research` calls on the
++    shared counter BEFORE delegating, so a call that raises still counts."""
++
++    def __init__(self, inner, counter: list[int]):
++        self._inner = inner
++        self._counter = counter
++
++    def complete(self, *args, **kwargs):
++        self._counter[0] += 1
++        return self._inner.complete(*args, **kwargs)
++
++    def research(self, *args, **kwargs):
++        self._counter[0] += 1
++        return self._inner.research(*args, **kwargs)
++
++    def __getattr__(self, name):
++        return getattr(self._inner, name)
++
++
++class _CountedProviders(Mapping):
++    """Lazy view over `inner` (so a defaultdict's missing keys still answer)
++    whose values are wrapped: ladder -> list of wrappers, provider -> wrapper,
++    None -> None."""
++
++    def __init__(self, inner: Mapping, counter: list[int]):
++        self._inner = inner
++        self._counter = counter
++
++    def __getitem__(self, key):
++        value = self._inner[key]
++        if value is None:
++            return None
++        if isinstance(value, (list, tuple)):
++            return [_CountedProvider(p, self._counter) for p in value]
++        return _CountedProvider(value, self._counter)
++
++    def __iter__(self):
++        return iter(self._inner)
++
++    def __len__(self):
++        return len(self._inner)
++
++
++def count_llm_calls(providers: Mapping) -> tuple[Mapping, Callable[[], int]]:
++    """Wrap `providers` so LLM calls through it are counted. A show that made
++    none (download-only resume, already packaged) is not a pacing sample."""
++    counter = [0]
++    return _CountedProviders(providers, counter), lambda: counter[0]
++
++
+ def choose_entries(shortlist: list[ShortlistEntry], count: int, human_gate: bool,
+                    artist_cap: float = 1 / 3, year_cap: float = 1.0):
+     approved = [e for e in shortlist if e.approved is True]
+     if approved:
+         return approved[:count]  # explicit human picks: no capping
+     if human_gate:
+         return None  # gate required, nothing approved yet
+     unrejected = [e for e in shortlist if e.approved is not False]
+     picked = cap_across_artists(unrejected, lambda e: e.candidate.collection,
+                                 lambda e: e.candidate.date, count, artist_cap,
+diff --git a/packages/llama/tests/test_pace_loop.py b/packages/llama/tests/test_pace_loop.py
+index 21d5ba7..f80785f 100644
+--- a/packages/llama/tests/test_pace_loop.py
++++ b/packages/llama/tests/test_pace_loop.py
+@@ -7,20 +7,21 @@ else finished the run" for every mutation of the queue arithmetic. Here the
+ run has three shows and a scripted process_show, so the exact set that comes
+ back after a pause is observable.
+ """
+ import collections
+ import json
+ from datetime import datetime, timedelta, timezone
+ from pathlib import Path
+ 
+ import pytest
+ from herder import HerderError, TaskFailed
++from herder.fake import FakeProvider
+ from herder.limits import RateLimited
+ 
+ import llama.cli as cli
+ from llama import pacing, pacing_state
+ from llama.config import Config, LLMTaskConfig, PacingConfig
+ from llama.locks import Locked
+ from llama.models import Candidate, Criteria, QualityAssessment, ShortlistEntry
+ from llama.sessions import (STATE_COMPLETE, STATE_INCOMPLETE, STATE_PAUSED,
+                             iter_sessions)
+ from llama.workspace import RunWorkspace
+@@ -60,36 +61,43 @@ def _clock(monkeypatch, *, sleep_budget: int = 4) -> dict:
+         state["now"] = state["now"] + timedelta(seconds=seconds)
+ 
+     monkeypatch.setattr(pacing, "_now", lambda: state["now"])
+     monkeypatch.setattr(pacing, "_sleep", _sleep)
+     return state
+ 
+ 
+ def _drive(tmp_path: Path, monkeypatch, process, pids, *,
+            pace=None, config=None, winnow=None,
+            search=None, choose=None, discover=None, auto=True,
+-           criteria=None) -> tuple[RunWorkspace, list[str]]:
+-    """Run `_execute` over `pids` with `process` standing in for process_show."""
++           criteria=None, llm=True) -> tuple[RunWorkspace, list[str]]:
++    """Run `_execute` over `pids` with `process` standing in for process_show.
++
++    `llm` says whether a show makes an LLM call (through the counted provider
++    it is handed): True for all, False for none, or a predicate on the pid."""
+     config = config or Config(root=tmp_path)
+     ws = RunWorkspace(tmp_path, "r1")
+     entries = [_entry(p, i + 1) for i, p in enumerate(pids)]
+     seen: list[str] = []
+ 
+-    def _process_show(_ws, _ia, _ledger, entry, *args, **kwargs):
++    def _process_show(_ws, _ia, _ledger, entry, providers, *args, **kwargs):
+         pid = entry.candidate.performance_id
+         seen.append(pid)
++        if llm is True or (callable(llm) and llm(pid)):
++            providers["brief"][0].complete("x")
+         return process(pid)
+ 
+     # run_winnow/run_search are stubbed, but their argument lists are still
+     # evaluated, so the provider map has to answer every key by name.
+-    monkeypatch.setattr(cli, "make_providers",
+-                        lambda config: collections.defaultdict(lambda: None))
++    monkeypatch.setattr(
++        cli, "make_providers",
++        lambda config: collections.defaultdict(
++            lambda: [FakeProvider(completes=["x"] * 50)]))
+     monkeypatch.setattr(cli, "run_search", search or (lambda *a, **k: None))
+     monkeypatch.setattr(cli, "run_winnow", winnow or (lambda *a, **k: entries))
+     # `choose=` because this is set AFTER the caller's own monkeypatches and
+     # would clobber one: a test that wants to see what `count` reaches
+     # choose_entries as has to hand it in, not patch around this.
+     monkeypatch.setattr(cli, "choose_entries",
+                         choose or (lambda entries, *a, **k: entries))
+     monkeypatch.setattr(cli, "make_client", lambda config: None)
+     monkeypatch.setattr(cli, "process_show", _process_show)
+ 
+@@ -1554,11 +1562,78 @@ def test_the_deferred_gate_leaves_the_show_it_stopped_in_front_of(
+ def test_execute_records_kind_for_a_failed_show(tmp_path, monkeypatch):
+     from llama.ia_client import IADownloadError
+ 
+     def _process(pid):
+         raise IADownloadError(f"download of {pid}.mp3 failed after 3 attempts")
+ 
+     _drive(tmp_path, monkeypatch, _process, ["a"])
+     failure = iter_sessions(tmp_path)[0].failures[0]
+     assert failure["show"] == "a"
+     assert failure["kind"] == "download"
++    assert failure["error"].startswith("download of ")
+     assert datetime.fromisoformat(failure["at"]).utcoffset() == timedelta(0)
++
++
++# --- honest pacing samples: a boundary needs an LLM call -------------------
++
++def _boundaries(tmp_path, monkeypatch, *, llm):
++    """Drive one show; return (boundaries recorded, meter reads taken)."""
++    _clock(monkeypatch)
++    recorded, reads = [], []
++    monkeypatch.setattr(cli.pacing_state, "record",
++                        lambda root, before, after: recorded.append((before, after))
++                        or pacing_state.PacingState())
++
++    def _meter(config, pace):
++        reads.append(1)
++        return _reading()
++    monkeypatch.setattr(cli, "_meter", _meter)
++    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/package", ["a"],
++           pace=pacing.pace_options(Config()), llm=llm)
++    return recorded, len(reads)
++
++
++def test_a_show_that_called_the_llm_records_a_boundary(tmp_path, monkeypatch):
++    recorded, reads = _boundaries(tmp_path, monkeypatch, llm=True)
++    assert len(recorded) == 1
++    assert reads >= 2                       # the after-show read happened
++
++
++def test_a_download_only_resume_records_no_boundary(tmp_path, monkeypatch):
++    # The stub returns a package path, as a resume that only re-downloaded does.
++    with_llm = _boundaries(tmp_path, monkeypatch, llm=True)[1]
++    recorded, reads = _boundaries(tmp_path, monkeypatch, llm=False)
++    assert recorded == []
++    assert reads == with_llm - 1            # no after-show meter read either
++    assert not (tmp_path / "pacing-state.json").exists()
++
++
++def test_an_already_packaged_show_records_no_boundary(tmp_path, monkeypatch):
++    # An already-packaged show returns its package untouched: no LLM call.
++    recorded, _ = _boundaries(tmp_path, monkeypatch, llm=lambda pid: False)
++    assert recorded == []
++    assert not (tmp_path / "pacing-state.json").exists()
++
++
++def test_count_llm_calls_wraps_defaultdict_and_ladders():
++    from llama.pipeline import count_llm_calls
++
++    class Boom:
++        def complete(self, prompt):
++            raise HerderError("boom")
++
++    src = collections.defaultdict(lambda: [FakeProvider(completes=["x"] * 5)])
++    src["single"] = FakeProvider(completes=["y"], researches=["r"])
++    src["none"] = None
++    src["boom"] = [Boom()]
++    wrapped, calls = count_llm_calls(src)
++    assert calls() == 0
++    assert wrapped["none"] is None
++    wrapped["single"].complete("p")
++    wrapped["single"].research("p")
++    assert calls() == 2
++    assert wrapped["lazy-missing-key"][0].complete("p") == "x"   # defaultdict
++    assert calls() == 3
++    with pytest.raises(HerderError):
++        wrapped["boom"][0].complete("p")
++    assert calls() == 4                                           # raising counts
++    assert isinstance(wrapped["boom"], list)

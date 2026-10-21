@@ -1,0 +1,235 @@
+# Review package: 2ce8fa9..HEAD
+
+## Commits
+1a83c15 feat(sessions): failure records carry kind and at
+
+## Files changed
+ packages/llama/src/llama/cli.py        |  8 +++---
+ packages/llama/src/llama/sessions.py   | 50 ++++++++++++++++++++++++++++++++++
+ packages/llama/tests/test_pace_loop.py | 13 +++++++++
+ packages/llama/tests/test_sessions.py  | 39 ++++++++++++++++++++++++++
+ 4 files changed, 106 insertions(+), 4 deletions(-)
+
+## Diff
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index 0d2ca9f..3d5fe7a 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -34,22 +34,22 @@ from llama import pacing as _pacing   # module, not `from ... import _now`:
+ from llama import pacing_state
+ from llama.pacing import (PaceOptions, PauseUntil, Proceed, Progress,
+                           binding_forecast, decide, duration_arg, format_delta,
+                           pace_options, resume_at, sleep_until)
+ from llama.pipeline import choose_entries, make_providers, process_show
+ from llama.profiles import (
+     Profile, ProfileError, delete_profile, list_profiles, load_profile, save_profile,
+ )
+ from llama.sessions import (STATE_AWAITING, STATE_INCOMPLETE, STATE_PAUSED,
+                             attention_sessions, mark_awaiting, mark_complete,
+-                            mark_incomplete, mark_paused, read_request,
+-                            session_state)
++                            failure_record, mark_incomplete, mark_paused,
++                            read_request, session_state)
+ from llama.setlistfm import make_client
+ from llama.stages.discover import run_discover
+ from llama.stages.interpret import run_interpret
+ from llama.stages.search import run_search
+ from llama.stages.winnow import run_winnow
+ from llama.status import configure_logging
+ from llama.util import parse_performance_id, slugify
+ from llama.workspace import (RunWorkspace, SHOW_STAGE_ORDER, claim_run_dir,
+                              read_model, read_model_list, write_artifact)
+ 
+@@ -570,31 +570,31 @@ def _execute(config: Config, ia, ledger, ws: RunWorkspace, criteria: Criteria,
+                                setlistfm=setlistfm,
+                                structure_cfg=config.structure, selection_cfg=config.selection,
+                                jerrybase_enabled=config.jerrybase.enabled,
+                                force_stage=force_stage, profile=criteria.profile)
+         except RateLimited as exc:
+             # Caught BEFORE the HerderError arm below, which it subclasses.
+             # Not a failure: nothing is wrong with this show. Its finished
+             # stages are on disk and a resume redoes only what is missing.
+             if not pace.enabled:
+                 typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+-                failures.append({"show": entry.candidate.performance_id, "error": str(exc)})
++                failures.append(failure_record(entry.candidate.performance_id, exc))
+                 return
+             limited = exc
+             return
+         except (TaskFailed, HerderError, IAError) as exc:
+             if isinstance(exc, TaskFailed) and exc.raw_output:
+                 failure_path = ws.show_ws(entry.candidate.performance_id).dir / "llm-failure.txt"
+                 failure_path.parent.mkdir(parents=True, exist_ok=True)
+                 failure_path.write_text(exc.raw_output)
+             typer.echo(f"FAILED {entry.candidate.performance_id}: {exc}", err=True)
+-            failures.append({"show": entry.candidate.performance_id, "error": str(exc)})
++            failures.append(failure_record(entry.candidate.performance_id, exc))
+             return
+         if pkg:
+             typer.echo(f"packaged: {pkg}")
+             packaged += 1
+         else:
+             typer.echo(f"needs-review, skipped: {entry.candidate.performance_id}")
+             held += 1
+ 
+     def _outcome() -> str | None:
+         parts = []
+diff --git a/packages/llama/src/llama/sessions.py b/packages/llama/src/llama/sessions.py
+index 0d2c173..fa8e34c 100644
+--- a/packages/llama/src/llama/sessions.py
++++ b/packages/llama/src/llama/sessions.py
+@@ -1,22 +1,72 @@
+ """Session lifecycle: a session (run) is a process object, not a derived view
+ of content, so its lifecycle is recorded on its own directory as
+ runs/<id>/session.json. Show state stays derived-never-stored; this marker
+ never lives under shows/ (spec §4)."""
+ import json
+ from dataclasses import dataclass, field
+ from datetime import datetime, timezone
+ from pathlib import Path
+ 
++from herder import HerderError, TaskFailed
++from herder.limits import RateLimited
++from herder.provider import ResearchNotSupported
++
++from llama.ia_client import IAError, IADownloadError
+ from llama.models import Criteria
+ from llama.workspace import RunWorkspace, read_model, write_artifact
+ 
++
++KIND_RATE_LIMITED = "rate-limited"
++KIND_LLM = "llm"
++KIND_TRANSPORT = "transport"
++KIND_DOWNLOAD = "download"
++KIND_ARCHIVE = "archive"
++KIND_OTHER = "other"
++
++
++def classify_failure(exc: BaseException) -> str:
++    """The failure kind of `exc`; the first match wins, so the order is load-bearing
++    (RateLimited and TaskFailed subclass HerderError, IADownloadError IAError)."""
++    if isinstance(exc, RateLimited):
++        return KIND_RATE_LIMITED
++    if isinstance(exc, TaskFailed):
++        return KIND_LLM
++    if isinstance(exc, ResearchNotSupported):
++        return KIND_OTHER
++    if isinstance(exc, HerderError):
++        return KIND_TRANSPORT
++    if isinstance(exc, IADownloadError):
++        return KIND_DOWNLOAD
++    if isinstance(exc, IAError):
++        return KIND_ARCHIVE
++    return KIND_OTHER
++
++
++def failure_record(show: str | None, exc: BaseException, *, kind: str | None = None,
++                   now: datetime | None = None) -> dict:
++    """One `session.json` failure entry: show, error text, kind, UTC ISO time."""
++    when = now or datetime.now(timezone.utc)
++    return {"show": show, "error": str(exc) or type(exc).__name__,
++            "kind": kind or classify_failure(exc), "at": when.isoformat()}
++
++
++def failure_kind(record: dict) -> str:
++    """A record's kind. Legacy records (no `kind`) are inferred from the error text."""
++    kind = record.get("kind")
++    if kind:
++        return kind
++    if str(record.get("error", "")).startswith("download of "):
++        return KIND_DOWNLOAD
++    return KIND_OTHER
++
++
+ STATE_AWAITING = "awaiting-approval"
+ STATE_COMPLETE = "complete"
+ STATE_INCOMPLETE = "incomplete"          # written when shows failed; also the
+                                          # fallback when no clean stop was recorded
+ STATE_PAUSED = "paused"                  # waiting out an exhausted usage window
+ 
+ 
+ def _write(ws: RunWorkspace, state: str, outcome: str | None,
+            failures: list[dict] | None = None,
+            resume_after: str | None = None, scope: str | None = None,
+diff --git a/packages/llama/tests/test_pace_loop.py b/packages/llama/tests/test_pace_loop.py
+index bcfcbb4..21d5ba7 100644
+--- a/packages/llama/tests/test_pace_loop.py
++++ b/packages/llama/tests/test_pace_loop.py
+@@ -1542,10 +1542,23 @@ def test_the_deferred_gate_leaves_the_show_it_stopped_in_front_of(
+     monkeypatch.setattr(cli, "file_lock", _lock)
+     ws, seen = _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/pkg", ["a", "b"],
+                       pace=pacing.pace_options(Config(), wait=False))
+ 
+     assert seen == []
+     # The count is the whole point: `deferred[idx + 1:]` also leaves the run
+     # paused, just silently one show poorer, so asserting the state alone
+     # would pass on the mutant this test exists to kill.
+     assert "2 shows left" in capsys.readouterr().out
+     assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
++
++
++def test_execute_records_kind_for_a_failed_show(tmp_path, monkeypatch):
++    from llama.ia_client import IADownloadError
++
++    def _process(pid):
++        raise IADownloadError(f"download of {pid}.mp3 failed after 3 attempts")
++
++    _drive(tmp_path, monkeypatch, _process, ["a"])
++    failure = iter_sessions(tmp_path)[0].failures[0]
++    assert failure["show"] == "a"
++    assert failure["kind"] == "download"
++    assert datetime.fromisoformat(failure["at"]).utcoffset() == timedelta(0)
+diff --git a/packages/llama/tests/test_sessions.py b/packages/llama/tests/test_sessions.py
+index 0ce5d6a..a871868 100644
+--- a/packages/llama/tests/test_sessions.py
++++ b/packages/llama/tests/test_sessions.py
+@@ -1647,10 +1647,49 @@ def test_a_limit_during_interpret_sleeps_at_most_once(tmp_path: Path, monkeypatc
+ 
+     result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
+                                      "--auto", "--name", "twice"])
+ 
+     assert result.exit_code == 0, result.output
+     assert iter_sessions(tmp_path)[0].state == STATE_PAUSED
+     # Exactly two attempts: refused, slept once, refused again, checkpointed.
+     # A third would mean it napped on an instant already behind it.
+     assert providers["interpret"].calls == 2
+     assert "no progress since last pause" in result.output
++
++
++from herder import HerderError, TaskFailed
++from herder.provider import ResearchNotSupported
++from llama.ia_client import IADownloadError, IAError
++from llama.sessions import (KIND_ARCHIVE, KIND_DOWNLOAD, KIND_LLM, KIND_OTHER,
++                            KIND_RATE_LIMITED, KIND_TRANSPORT, classify_failure,
++                            failure_kind, failure_record)
++
++
++@pytest.mark.parametrize("exc,kind", [
++    (RateLimited("limit", scope="five_hour", resets_at=None), KIND_RATE_LIMITED),
++    (TaskFailed("bad output"), KIND_LLM),
++    (ResearchNotSupported("no web"), KIND_OTHER),
++    (HerderError("connection reset"), KIND_TRANSPORT),
++    (IADownloadError("download of x failed"), KIND_DOWNLOAD),
++    (IAError("metadata 500"), KIND_ARCHIVE),
++    (ValueError("boom"), KIND_OTHER),
++])
++def test_classify_failure_follows_the_order(exc, kind):
++    assert classify_failure(exc) == kind
++
++
++def test_failure_record_stamps_kind_and_utc_at():
++    now = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
++    rec = failure_record("GD/1973-06-10", IADownloadError("download of x failed"), now=now)
++    assert rec == {"show": "GD/1973-06-10", "error": "download of x failed",
++                   "kind": KIND_DOWNLOAD, "at": now.isoformat()}
++    assert failure_record("s", ValueError("x"), kind=KIND_LLM, now=now)["kind"] == KIND_LLM
++    assert failure_record("s", ValueError(), now=now)["error"] == "ValueError"
++    at = datetime.fromisoformat(failure_record("s", ValueError("x"))["at"])
++    assert at.utcoffset() == timedelta(0)
++
++
++def test_legacy_record_kind():
++    assert failure_kind({"error": "download of x failed after 3 attempts: ..."}) == KIND_DOWNLOAD
++    assert failure_kind({"error": "boom"}) == KIND_OTHER
++    assert failure_kind({"show": "s"}) == KIND_OTHER
++    assert failure_kind({"error": "boom", "kind": KIND_LLM}) == KIND_LLM

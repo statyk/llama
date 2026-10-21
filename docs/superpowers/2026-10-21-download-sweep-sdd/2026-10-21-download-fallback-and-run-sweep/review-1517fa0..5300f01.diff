@@ -1,0 +1,884 @@
+# Review package: 1517fa0..HEAD
+
+## Commits
+5300f01 test(ia): pin the 200 rewrite and both halves of the post-abandonment attempt
+be153c2 test(ia): pin the sliding trickle window and a transport error keeping the .part
+6c19958 feat(ia): trickle switch with Range continuation and whole-file integrity
+
+## Files changed
+ packages/llama/src/llama/ia_client.py  | 175 ++++++++++--
+ packages/llama/tests/test_ia_client.py | 476 ++++++++++++++++++++++++++++++++-
+ 2 files changed, 625 insertions(+), 26 deletions(-)
+
+## Diff
+diff --git a/packages/llama/src/llama/ia_client.py b/packages/llama/src/llama/ia_client.py
+index fae6a25..ecfc923 100644
+--- a/packages/llama/src/llama/ia_client.py
++++ b/packages/llama/src/llama/ia_client.py
+@@ -1,15 +1,17 @@
+ import hashlib
+ import itertools
+ import json
+ import random
++import re
+ import time
++from collections import deque
+ from collections.abc import Callable
+ from dataclasses import dataclass
+ from pathlib import Path
+ from urllib.parse import quote
+ 
+ import httpx
+ 
+ from llama.errors import LlamaError
+ from llama.status import detail
+ from llama.workspace import atomic_write_text
+@@ -21,23 +23,29 @@ SCRAPE_URL = "https://archive.org/services/search/v1/scrape"
+ 
+ # Audio downloads (spec 2026-10-21 §1). A stall (read) timeout, not a total-time
+ # bound: healthy archive.org transfers run at ~50-100 KB/s and take minutes.
+ DOWNLOAD_CONNECT_TIMEOUT_S = 10.0
+ DOWNLOAD_STALL_TIMEOUT_S = 20.0
+ # Repeat attempts after the first pass stop starting once this much clock time
+ # (attempts + sleeps, less slot waits) has passed since the first pass ended.
+ DOWNLOAD_DEADLINE_S = 60.0
+ DOWNLOAD_SLEEP_MIN_S = 1.0
+ DOWNLOAD_SLEEP_MAX_S = 4.0
++# Trickle switch: a request moving fewer than TRICKLE_FLOOR_BPS * TRICKLE_WINDOW_S
++# bytes over the last TRICKLE_WINDOW_S (counted from its first body byte) is
++# abandoned for the next candidate, which continues it with a Range request.
++TRICKLE_FLOOR_BPS = 10_000
++TRICKLE_WINDOW_S = 30.0
+ _DOWNLOAD_TIMEOUT = httpx.Timeout(DOWNLOAD_STALL_TIMEOUT_S, connect=DOWNLOAD_CONNECT_TIMEOUT_S)
+ # Not 5xx but transient: a retry may get a different answer.
+ _RETRYABLE_STATUS = frozenset({408, 429})
++_CONTENT_RANGE = re.compile(r"bytes (\d+)-(\d+)/(\d+|\*)")
+ 
+ 
+ class IAError(LlamaError):
+     pass
+ 
+ 
+ class IADownloadError(IAError):
+     """A download that exhausted every candidate URL. The message starts
+     `download of <filename> failed:` (failure records and operator greps match it)."""
+ 
+@@ -45,20 +53,49 @@ class IADownloadError(IAError):
+ @dataclass(frozen=True)
+ class _Attempt:
+     """One download attempt's outcome. `ok` means the `.part` is complete and
+     verified; otherwise `error` says why and `retryable` whether the schedule's
+     repeat attempts may ask this URL again."""
+ 
+     ok: bool
+     error: str = ""
+     retryable: bool = False
+     slot_wait_s: float = 0.0  # time spent waiting for a download slot (not counted)
++    trickled: bool = False  # abandoned by the trickle switch (always retryable)
++
++
++class _TrickleMonitor:
++    """One request's throughput over a sliding TRICKLE_WINDOW_S window. The window
++    opens at the request's first body byte (the stall timeout covers the wait
++    before it); samples are (arrival time, cumulative bytes) per chunk."""
++
++    def __init__(self, clock: Callable[[], float]):
++        self.clock = clock
++        self.total = 0
++        self.first_byte_t: float | None = None
++        self.samples: deque[tuple[float, int]] = deque()
++
++    def trickling(self, n: int) -> bool:
++        """Record a chunk of `n` bytes arriving now; True when the bytes since the
++        latest sample at or before (now - TRICKLE_WINDOW_S) fall below the floor."""
++        t = self.clock()
++        self.total += n
++        if self.first_byte_t is None:
++            self.first_byte_t = t
++        self.samples.append((t, self.total))
++        if t - self.first_byte_t < TRICKLE_WINDOW_S:
++            return False
++        cutoff = t - TRICKLE_WINDOW_S
++        # Keep samples[0] the latest at or before the cutoff (the cutoff only grows).
++        while len(self.samples) > 1 and self.samples[1][0] <= cutoff:
++            self.samples.popleft()
++        return self.total - self.samples[0][1] < TRICKLE_FLOOR_BPS * TRICKLE_WINDOW_S
+ 
+ 
+ def _http_error_text(exc: httpx.HTTPError) -> str:
+     return f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+ 
+ 
+ def _file_md5(path: Path) -> str:
+     h = hashlib.md5()
+     with path.open("rb") as f:
+         for block in iter(lambda: f.read(1 << 20), b""):
+@@ -172,21 +209,21 @@ class IAClient:
+         return self._cached(f"md_{identifier}", fetch)
+ 
+     def _download_candidates(self, identifier: str, filename: str) -> tuple[list[str], int | None]:
+         """Candidate URLs for one file, in order, and its metadata `size` (None when
+         absent or non-numeric). The redirect URL first, then each listed server; with
+         unusable metadata, the redirect URL alone."""
+         quoted = quote(filename)  # keeps "/" as a path separator
+         urls = [DOWNLOAD_URL.format(identifier=identifier, filename=quoted)]
+         try:
+             md = self.metadata(identifier)
+-        except (IAError, ValueError):
++        except (IAError, ValueError, httpx.HTTPError):
+             return urls, None
+         if not isinstance(md, dict):
+             return urls, None
+ 
+         size: int | None = None
+         files = md.get("files")
+         for entry in files if isinstance(files, list) else []:
+             if isinstance(entry, dict) and entry.get("name") == filename:
+                 try:
+                     size = int(entry.get("size"))
+@@ -203,100 +240,188 @@ class IAClient:
+             for server in servers:
+                 if isinstance(server, str) and server:
+                     url = f"https://{server}{item_dir}/{quoted}"
+                     if url not in urls:
+                         urls.append(url)
+         return urls, size
+ 
+     def _pause(self) -> None:
+         self.sleep(self.rng.uniform(DOWNLOAD_SLEEP_MIN_S, DOWNLOAD_SLEEP_MAX_S))
+ 
+-    def _attempt(self, url: str, tmp: Path, *, md5: str | None, size: int | None) -> _Attempt:
+-        """One GET of `url` into `tmp`, then the integrity check. A failed attempt
+-        leaves no `.part`; a successful one leaves the verified `.part` for the caller
+-        to rename into place."""
+-        self._throttle()
++    def _attempt(self, url: str, tmp: Path, *, md5: str | None, size: int | None,
++                 may_abandon: Callable[[], bool] | None = None) -> _Attempt:
++        """One attempt at `url`, then the integrity check over the whole `.part`.
++
++        A `.part` already on disk (kept by an earlier trickle abandonment in this
++        `download_file` call) is continued with `Range: bytes=<its size>-`: a `206`
++        whose Content-Range starts there (and totals `size`, when known) is appended;
++        a `200` rewrites the `.part` from byte 0; a mismatched `206` discards it and
++        re-issues the same URL without Range; a `416` discards it and ends the attempt.
++        A status error otherwise writes nothing and leaves the `.part` as it was.
++
++        Each request runs a trickle monitor; when it trips and `may_abandon()` allows
++        (and the `.part` is short of `size`) the attempt ends retryably, keeping the
++        `.part` for continuation only when an md5 will verify the stitched whole.
++        Any other failure discards whatever this attempt wrote. A successful attempt
++        leaves the verified `.part` for the caller to rename into place."""
++        offset = tmp.stat().st_size if tmp.exists() else 0
++        wrote = False  # this attempt changed the .part: a failure must discard it
++        trickled = False
+         try:
+-            with self.client.stream("GET", url, timeout=_DOWNLOAD_TIMEOUT) as resp:
+-                status = resp.status_code
+-                if not 200 <= status < 300:
+-                    tmp.unlink(missing_ok=True)
+-                    retryable = status >= 500 or status in _RETRYABLE_STATUS
+-                    return _Attempt(False, f"HTTP {status}", retryable=retryable)
+-                with tmp.open("wb") as f:
+-                    for chunk in resp.iter_bytes():
+-                        f.write(chunk)
++            while True:
++                self._throttle()
++                headers = {"range": f"bytes={offset}-"} if offset else None
++                with self.client.stream("GET", url, headers=headers,
++                                        timeout=_DOWNLOAD_TIMEOUT) as resp:
++                    status = resp.status_code
++                    if status == 416 and offset:
++                        # The copy is shorter than the bytes held: start over elsewhere.
++                        tmp.unlink(missing_ok=True)
++                        return _Attempt(False, f"HTTP 416 for bytes={offset}-", retryable=True)
++                    if not 200 <= status < 300:
++                        retryable = status >= 500 or status in _RETRYABLE_STATUS
++                        return _Attempt(False, f"HTTP {status}", retryable=retryable)
++                    if status == 206 and not offset:
++                        tmp.unlink(missing_ok=True)
++                        return _Attempt(False, "HTTP 206 to a request without Range",
++                                        retryable=True)
++                    if status == 206 and not self._continues(resp, offset, size):
++                        # Not the rest of this file: drop the prefix, ask again from 0.
++                        tmp.unlink(missing_ok=True)
++                        offset = 0
++                        continue
++                    monitor = _TrickleMonitor(self.clock)
++                    with tmp.open("ab" if status == 206 else "wb") as f:
++                        wrote = wrote or status != 206  # "wb" truncated the .part
++                        for chunk in resp.iter_bytes():
++                            f.write(chunk)
++                            wrote = True
++                            if (monitor.trickling(len(chunk))
++                                    and (size is None or f.tell() < size)
++                                    and may_abandon is not None and may_abandon()):
++                                trickled = True
++                                break
++                    break
+         except httpx.HTTPError as e:
+             # Transport errors (connect/stall timeouts, resets, a body dying
+             # mid-transfer) and every other httpx error (TooManyRedirects,
+             # DecodingError) fail this attempt only, retryably.
+-            tmp.unlink(missing_ok=True)
++            if wrote:
++                tmp.unlink(missing_ok=True)
+             return _Attempt(False, _http_error_text(e), retryable=True)
+ 
++        if trickled:
++            # Continuation only under an md5: with size alone, a prefix and a suffix
++            # from copies of different lengths could pass the check.
++            if not md5:
++                tmp.unlink(missing_ok=True)
++            return _Attempt(False, f"trickling below {TRICKLE_FLOOR_BPS} B/s over "
++                                   f"{TRICKLE_WINDOW_S:.0f} s", retryable=True, trickled=True)
++
+         # Verify the file on disk, whole: a bad copy is not asked again.
+         if md5:
+             got = _file_md5(tmp)
+             if got != md5:
+                 tmp.unlink()
+                 return _Attempt(False, f"md5 mismatch (got {got}, expected {md5})")
+         elif size is not None:
+             got_size = tmp.stat().st_size
+             if got_size != size:
+                 tmp.unlink()
+                 return _Attempt(False, f"size mismatch (got {got_size} bytes, expected {size})")
+         return _Attempt(True)
+ 
++    @staticmethod
++    def _continues(resp: httpx.Response, offset: int, size: int | None) -> bool:
++        """A 206 is the rest of this file: Content-Range starts at `offset` and, when
++        `size` is known, totals it."""
++        m = _CONTENT_RANGE.fullmatch(resp.headers.get("content-range", "").strip())
++        if not m or int(m[1]) != offset:
++            return False
++        return size is None or (m[3] != "*" and int(m[3]) == size)
++
+     def download_file(self, identifier: str, filename: str, dest: Path, md5: str | None = None) -> Path:
+         """Fetch `filename` into `dest`, verified, trying the item's listed servers
+         when the redirect URL fails (spec 2026-10-21 §1).
+ 
+         First pass: one attempt per candidate, in order, never cut short. Then
+         repeat attempts cycle the candidates whose last error was retryable until
+         DOWNLOAD_DEADLINE_S has passed since the first pass ended (checked before
+         each attempt). A short random sleep separates attempts; Retry-After is
+-        ignored, since switching servers is the response to a struggling one."""
++        ignored, since switching servers is the response to a struggling one.
++
++        A trickling transfer may be abandoned for the next candidate, which
++        continues it (`_attempt`), only while that cannot strand the file: each
++        candidate at most once, never the last one not yet abandoned and still
++        retryable, and only while another attempt will start (the first pass is
++        unfinished or the deadline has not passed). The attempt after an
++        abandonment always starts, even if the pause before it crosses the
++        deadline: the abandonment promised it. So every abandonment is followed by
++        an attempt, and abandonments are bounded by the candidate count."""
+         candidates, size = self._download_candidates(identifier, filename)
+         dest.parent.mkdir(parents=True, exist_ok=True)
+         tmp = dest.with_suffix(dest.suffix + ".part")
+         last_error: dict[str, str] = {}
+         retryable: dict[str, bool] = {}
++        abandoned: set[str] = set()
+         attempts = 0
++        in_first_pass = True
++        first_pass_end = 0.0
++        slot_wait = 0.0
++
++        def expired() -> bool:
++            return self.clock() - first_pass_end - slot_wait >= DOWNLOAD_DEADLINE_S
++
++        def may_abandon(url: str) -> Callable[[], bool]:
++            def check() -> bool:
++                if url in abandoned:
++                    return False
++                if not any(d != url and d not in abandoned and retryable.get(d, True)
++                           for d in candidates):
++                    return False
++                return in_first_pass or not expired()
++            return check
+ 
+         def attempt(url: str) -> _Attempt:
+-            nonlocal attempts
++            nonlocal attempts, slot_wait
+             attempts += 1
+-            outcome = self._attempt(url, tmp, md5=md5, size=size)
++            outcome = self._attempt(url, tmp, md5=md5, size=size, may_abandon=may_abandon(url))
++            slot_wait += outcome.slot_wait_s
++            if outcome.trickled:
++                abandoned.add(url)
+             if not outcome.ok:
+                 last_error[url] = outcome.error
+                 retryable[url] = outcome.retryable
+             return outcome
+ 
++        # A .part from an earlier (killed) process is never continued: only this
++        # call's own trickle abandonments leave a .part to continue.
++        tmp.unlink(missing_ok=True)
+         try:
+             for i, url in enumerate(candidates):
+                 if i:
+                     self._pause()
+                 if attempt(url).ok:
+                     tmp.replace(dest)
+                     return dest
+ 
++            in_first_pass = False
+             first_pass_end = self.clock()
+             slot_wait = 0.0
+-
+-            def expired() -> bool:
+-                return self.clock() - first_pass_end - slot_wait >= DOWNLOAD_DEADLINE_S
++            owed = False  # an abandonment's promised next attempt
+ 
+             ring = itertools.cycle(candidates)
+-            while any(retryable.values()) and not expired():
++            while any(retryable.values()) and (owed or not expired()):
+                 self._pause()
+-                if expired():
++                if not owed and expired():
+                     break
+                 url = next(u for u in ring if retryable[u])
+                 outcome = attempt(url)
+-                slot_wait += outcome.slot_wait_s
++                owed = outcome.trickled
+                 if outcome.ok:
+                     tmp.replace(dest)
+                     return dest
+         finally:
+             tmp.unlink(missing_ok=True)  # gone after a rename; any other exit leaves no .part
+ 
+         tried = "; ".join(f"{url} -> {last_error[url]}" for url in candidates)
+         raise IADownloadError(f"download of {filename} failed: {tried} ({attempts} attempts)")
+diff --git a/packages/llama/tests/test_ia_client.py b/packages/llama/tests/test_ia_client.py
+index dcb7d9d..a5abf9c 100644
+--- a/packages/llama/tests/test_ia_client.py
++++ b/packages/llama/tests/test_ia_client.py
+@@ -1,21 +1,22 @@
+ import hashlib
+ import json
+ import logging
+ import random
+ from pathlib import Path
+ 
+ import httpx
+ import pytest
+ 
+ from llama.ia_client import (DOWNLOAD_CONNECT_TIMEOUT_S, DOWNLOAD_DEADLINE_S,
+-                             DOWNLOAD_STALL_TIMEOUT_S, IAClient, IADownloadError, IAError)
++                             DOWNLOAD_STALL_TIMEOUT_S, TRICKLE_FLOOR_BPS, TRICKLE_WINDOW_S,
++                             IAClient, IADownloadError, IAError)
+ 
+ 
+ class FakeClock:
+     """A monotonic clock that only moves when slept on or advanced by a handler."""
+ 
+     def __init__(self) -> None:
+         self.now = 0.0
+         self.sleeps: list[float] = []
+ 
+     def __call__(self) -> float:
+@@ -287,20 +288,21 @@ def test_every_server_failing_raises_after_first_pass_and_deadline(tmp_path: Pat
+     dest = tmp_path / "t.mp3"
+     with pytest.raises(IADownloadError) as info:
+         ia.download_file("x", "t.mp3", dest, md5=BODY_MD5)
+     message = str(info.value)
+     assert message.startswith("download of t.mp3 failed")
+     assert REDIRECT in message and SERVER in message
+     assert [url for _, url in starts[:2]] == [REDIRECT, SERVER]
+     first_pass_end = starts[1][0]  # instant handlers: the pass ends as its last attempt starts
+     assert len(starts) > 2  # repeat attempts happened
+     assert starts[-1][0] < first_pass_end + DOWNLOAD_DEADLINE_S
++    assert clock.now >= first_pass_end + DOWNLOAD_DEADLINE_S  # and kept going until then
+     # The repeats cycle both retryable candidates.
+     assert {url for _, url in starts[2:]} == {REDIRECT, SERVER}
+     assert not dest.exists() and no_leftovers(tmp_path)
+ 
+ 
+ def test_hanging_redirect_does_not_starve_listed_servers(tmp_path: Path):
+     clock = FakeClock()
+     seen: list = []
+ 
+     def hang(request: httpx.Request) -> httpx.Response:
+@@ -596,10 +598,482 @@ def test_sleeps_between_attempts_are_short_and_random(tmp_path: Path):
+     ia = make_client(tmp_path, lambda r: httpx.Response(500),
+                      metadata=item_metadata("ia800903.us.archive.org"), clock=clock)
+     with pytest.raises(IADownloadError):
+         ia.download_file("x", "t.mp3", tmp_path / "t.mp3", md5=BODY_MD5)
+     assert clock.sleeps and all(1.0 <= s <= 4.0 for s in clock.sleeps)
+     assert len(set(clock.sleeps)) > 1
+ 
+ 
+ def test_download_error_is_an_ia_error():
+     assert issubclass(IADownloadError, IAError)
++
++
++def test_metadata_http_error_means_redirect_only(tmp_path: Path):
++    seen: list = []
++
++    def handler(request: httpx.Request) -> httpx.Response:
++        if request.url.path.startswith("/metadata/"):
++            raise httpx.TooManyRedirects("metadata redirect loop", request=request)
++        seen.append(str(request.url))
++        return httpx.Response(200, content=BODY)
++
++    ia = make_client(tmp_path, handler)
++    assert ia._download_candidates("x", "t.mp3") == ([REDIRECT], None)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=BODY_MD5)
++    assert dest.read_bytes() == BODY
++    assert seen == [REDIRECT]
++
++
++# --- download_file: trickle switch with Range continuation --------------------------
++
++LONG = bytes(range(256)) * 400  # 102,400 bytes: ~102 simulated s at the trickle rate
++LONG_MD5 = hashlib.md5(LONG).hexdigest()
++TRICKLE = 1_000  # B/s: a tenth of the floor
++HEALTHY = 100_000  # B/s
++# A trickle arrives in 1,000-byte chunks, one per simulated second, and is abandoned at
++# the first chunk TRICKLE_WINDOW_S after its first byte: 31 chunks in, that chunk written.
++K = (int(TRICKLE_WINDOW_S) + 1) * TRICKLE
++
++
++def long_metadata(*servers: str, md5: str | None = LONG_MD5, data: bytes = LONG) -> dict:
++    return item_metadata(*servers, md5=md5, size=str(len(data)))
++
++
++def stream(clock: FakeClock, data: bytes, rate: int, *, delay: float = 0.0,
++           arrivals: list | None = None, chunk: int = 1_000):
++    """A lazy body: `data` in `chunk`-byte pieces, the fake clock advancing
++    len(piece)/rate s before each piece (and `delay` s before the first). Each
++    piece's arrival time is appended to `arrivals` when given."""
++    def body():
++        clock.advance(delay)
++        for i in range(0, len(data), chunk):
++            piece = data[i:i + chunk]
++            clock.advance(len(piece) / rate)
++            if arrivals is not None:
++                arrivals.append(clock.now)
++            yield piece
++    return body()
++
++
++def serve(clock: FakeClock, data: bytes, rate: int, *, ranges: list | None = None,
++          arrivals: list | None = None):
++    """A handler serving `data` at `rate` B/s that honours `Range: bytes=N-` with a 206
++    and its Content-Range. Records each request's Range header (None without one)."""
++    def handler(request: httpx.Request) -> httpx.Response:
++        asked = request.headers.get("range")
++        if ranges is not None:
++            ranges.append(asked)
++        if asked is None:
++            return httpx.Response(200, content=stream(clock, data, rate, arrivals=arrivals))
++        start = int(asked.removeprefix("bytes=").removesuffix("-"))
++        return httpx.Response(
++            206, headers={"content-range": f"bytes {start}-{len(data) - 1}/{len(data)}"},
++            content=stream(clock, data[start:], rate, arrivals=arrivals))
++    return handler
++
++
++def test_slow_but_above_floor_transfer_finishes(tmp_path: Path):
++    clock = FakeClock()
++    slow = bytes(range(256)) * 9375  # 2,400,000 bytes: 120 s at twice the floor
++    seen: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, slow, 2 * TRICKLE_FLOOR_BPS),
++                                       SERVER: serve(clock, slow, HEALTHY)}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org",
++                                            md5=hashlib.md5(slow).hexdigest(), data=slow),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=hashlib.md5(slow).hexdigest())
++    assert dest.read_bytes() == slow
++    assert seen == [REDIRECT]
++    assert clock.now >= 119.9
++
++
++def test_trickle_switches_and_continues_from_offset(tmp_path: Path):
++    clock = FakeClock()
++    seen: list = []
++    ranges: list = []
++    arrivals: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE, arrivals=arrivals),
++                                       SERVER: serve(clock, LONG, HEALTHY, ranges=ranges)}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org"), clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert seen == [REDIRECT, SERVER]
++    assert ranges == [f"bytes={K}-"]  # the .part size at abandonment, triggering chunk included
++    # Abandoned at the first chunk TRICKLE_WINDOW_S after the first byte, not before or after.
++    assert len(arrivals) == K // TRICKLE
++    assert arrivals[-1] - arrivals[0] >= TRICKLE_WINDOW_S > arrivals[-2] - arrivals[0]
++    assert no_leftovers(tmp_path)
++
++
++def test_range_answered_200_restarts_from_zero(tmp_path: Path):
++    clock = FakeClock()
++    ranges: list = []
++
++    def ignores_range(request: httpx.Request) -> httpx.Response:
++        ranges.append(request.headers.get("range"))
++        return httpx.Response(200, content=stream(clock, LONG, HEALTHY))
++
++    seen: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE),
++                                       SERVER: ignores_range}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org"), clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert ranges == [f"bytes={K}-"]
++    assert seen == [REDIRECT, SERVER]  # the 200 body alone was the whole file
++
++
++@pytest.mark.parametrize("content_range, body", [
++    (f"bytes 0-{len(LONG) - 1}/{len(LONG)}", LONG),  # starts at 0, not at the offset
++    (f"bytes {K}-{len(LONG)}/{len(LONG) + 1}", LONG[K:] + b"x"),  # a different-length copy
++], ids=["wrong-start", "wrong-total"])
++def test_wrong_content_range_restarts_from_zero(tmp_path: Path, content_range, body):
++    clock = FakeClock()
++    seen: list = []
++    ranges: list = []
++
++    def mismatched(request: httpx.Request) -> httpx.Response:
++        ranges.append(request.headers.get("range"))
++        if request.headers.get("range"):
++            return httpx.Response(206, headers={"content-range": content_range},
++                                  content=stream(clock, body, HEALTHY))
++        return httpx.Response(200, content=stream(clock, LONG, HEALTHY))
++
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE),
++                                       SERVER: mismatched}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org"), clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert ranges == [f"bytes={K}-", None]  # re-issued without Range in the same attempt
++    assert seen == [REDIRECT, SERVER, SERVER]
++
++
++def test_stitched_file_with_bad_md5_is_deleted_and_refetched_from_zero(tmp_path: Path):
++    clock = FakeClock()
++    seen: list = []
++    s1_ranges: list = []
++    s2_ranges: list = []
++    corrupt = bytes(len(LONG))
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE),
++                                       SERVER: serve(clock, corrupt, HEALTHY, ranges=s1_ranges),
++                                       SERVER2: serve(clock, LONG, HEALTHY, ranges=s2_ranges)},
++                                      seen),
++                     metadata=long_metadata("ia800903.us.archive.org", "ia600903.us.archive.org"),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert seen == [REDIRECT, SERVER, SERVER2]
++    assert s1_ranges == [f"bytes={K}-"]  # the stitch, checked once
++    assert s2_ranges == [None]  # the failed stitch was deleted: from byte 0
++    assert no_leftovers(tmp_path)
++
++
++def test_last_non_abandoned_candidate_is_never_abandoned(tmp_path: Path):
++    clock = FakeClock()
++    seen: list = []
++    ranges: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE),
++                                       SERVER: 404,
++                                       SERVER2: serve(clock, LONG, TRICKLE, ranges=ranges)}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org", "ia600903.us.archive.org"),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert seen == [REDIRECT, SERVER, SERVER2]
++    assert ranges == [f"bytes={K}-"]  # one request, run to completion however slow
++
++
++def test_single_candidate_trickle_completes_in_one_request(tmp_path: Path):
++    clock = FakeClock()
++    ranges: list = []
++    md = {"files": [{"name": "t.mp3", "md5": LONG_MD5, "size": str(len(LONG))}]}  # no dir
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE, ranges=ranges)}, []),
++                     metadata=md, clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert ranges == [None]
++
++
++def test_each_candidate_abandoned_at_most_once(tmp_path: Path):
++    clock = FakeClock()
++    seen: list = []
++    r_ranges: list = []
++    s_ranges: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE, ranges=r_ranges),
++                                       SERVER: serve(clock, LONG, TRICKLE, ranges=s_ranges)}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org"), clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert s_ranges == [f"bytes={K}-"]  # never abandoned: the redirect already was
++    assert r_ranges == [None]
++    assert seen == [REDIRECT, SERVER]
++
++
++def test_an_abandoned_candidate_is_not_abandoned_again(tmp_path: Path):
++    # SERVER2 stays retryable and un-abandoned, the deadline is far off and the .part
++    # short of `size`, so only "abandoned once already" keeps the redirect's second
++    # request running to completion.
++    clock = FakeClock()
++    seen: list = []
++    r_ranges: list = []
++    s_ranges: list = []
++    s_arrivals: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE, ranges=r_ranges),
++                                       SERVER: serve(clock, LONG, TRICKLE, ranges=s_ranges,
++                                                     arrivals=s_arrivals),
++                                       SERVER2: 500}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org", "ia600903.us.archive.org"),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert seen == [REDIRECT, SERVER, SERVER2, REDIRECT]
++    assert s_ranges == [f"bytes={K}-"]
++    # The server is abandoned in turn about a window later (its clock base is not a
++    # whole number, so the window may close a chunk late), and the redirect continues.
++    assert s_arrivals[-1] - s_arrivals[0] >= TRICKLE_WINDOW_S
++    assert len(s_arrivals) in (K // TRICKLE, K // TRICKLE + 1)
++    assert r_ranges == [None, f"bytes={K + TRICKLE * len(s_arrivals)}-"]
++
++
++def test_full_part_is_never_abandoned(tmp_path: Path):
++    clock = FakeClock()
++    seen: list = []
++    exact = LONG[:K]  # the window closes on the chunk that completes the file
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, exact, TRICKLE),
++                                       SERVER: serve(clock, exact, HEALTHY)}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org",
++                                            md5=hashlib.md5(exact).hexdigest(), data=exact),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=hashlib.md5(exact).hexdigest())
++    assert dest.read_bytes() == exact
++    assert seen == [REDIRECT]
++
++
++def test_no_abandonment_after_the_deadline(tmp_path: Path):
++    clock = FakeClock()
++    events: list = []
++    r_ranges: list = []
++    trickle = serve(clock, LONG, TRICKLE, ranges=r_ranges)
++
++    def server(request: httpx.Request) -> httpx.Response:
++        events.append(("S", clock.now))
++        return httpx.Response(500)
++
++    def redirect(request: httpx.Request) -> httpx.Response:
++        events.append(("R", clock.now))
++        s_starts = [t for who, t in events if who == "S"]
++        # Instant handlers: the first pass ends as the server's first attempt starts.
++        if not s_starts or clock.now < s_starts[0] + DOWNLOAD_DEADLINE_S - 10:
++            return httpx.Response(500)
++        return trickle(request)  # starts < 10 s before the deadline: its window closes after
++
++    ia = make_client(tmp_path, routed({REDIRECT: redirect, SERVER: server}, []),
++                     metadata=long_metadata("ia800903.us.archive.org"), clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert r_ranges == [None]
++    deadline = events[1][1] + DOWNLOAD_DEADLINE_S
++    assert events[-1][0] == "R" and events[-1][1] < deadline < clock.now
++
++
++class SlowToClose(httpx.SyncByteStream):
++    """A response body whose close() takes a second of fake-clock time."""
++
++    def __init__(self, clock: FakeClock, body):
++        self.clock = clock
++        self.body = body
++
++    def __iter__(self):
++        yield from self.body
++
++    def close(self) -> None:
++        self.clock.advance(1.0)
++
++
++def test_abandonment_just_before_the_deadline_still_gets_its_next_attempt(tmp_path: Path):
++    clock = FakeClock()
++    events: list = []
++    s_ranges: list = []
++    rest = serve(clock, LONG, HEALTHY, ranges=s_ranges)
++
++    def server(request: httpx.Request) -> httpx.Response:
++        events.append(("S", clock.now))
++        return rest(request) if request.headers.get("range") else httpx.Response(500)
++
++    def redirect(request: httpx.Request) -> httpx.Response:
++        events.append(("R", clock.now))
++        s_starts = [t for who, t in events if who == "S"]
++        deadline = s_starts[0] + DOWNLOAD_DEADLINE_S if s_starts else None
++        if deadline is None or clock.now < deadline - 40:
++            return httpx.Response(500)
++        # First byte at deadline - 30.5: abandoned about half a second before the
++        # deadline (0.1 s chunks, so float drift costs at most 0.1 s). Closing the
++        # response takes 1 s, so the schedule's checks before and after the pause
++        # both run past the deadline.
++        first_byte = deadline - TRICKLE_WINDOW_S - 0.5
++        return httpx.Response(200, stream=SlowToClose(
++            clock, stream(clock, LONG, TRICKLE, chunk=100, delay=first_byte - 0.1 - clock.now)))
++
++    ia = make_client(tmp_path, routed({REDIRECT: redirect, SERVER: server}, []),
++                     metadata=long_metadata("ia800903.us.archive.org"), clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    deadline = events[1][1] + DOWNLOAD_DEADLINE_S
++    assert len(s_ranges) == 1 and s_ranges[0] != "bytes=0-"  # continued the abandoned .part
++    assert events[-1][0] == "S" and events[-1][1] > deadline  # started past the deadline
++
++
++def test_no_md5_trickle_restarts_from_zero(tmp_path: Path):
++    clock = FakeClock()
++    seen: list = []
++    ranges: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE),
++                                       SERVER: serve(clock, LONG, HEALTHY, ranges=ranges)}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org", md5=None), clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest)  # size check only
++    assert dest.read_bytes() == LONG
++    assert seen == [REDIRECT, SERVER]  # still abandoned
++    assert ranges == [None]  # but no stitching without an md5
++    assert no_leftovers(tmp_path)
++
++
++def test_206_to_a_plain_request_is_rejected(tmp_path: Path):
++    def partial(request: httpx.Request) -> httpx.Response:
++        assert request.headers.get("range") is None
++        return httpx.Response(206, headers={"content-range": f"bytes 0-{len(BODY) - 1}/{len(BODY)}"},
++                              content=BODY)
++
++    def server(request: httpx.Request) -> httpx.Response:
++        assert request.headers.get("range") is None and no_leftovers(tmp_path)
++        return httpx.Response(200, content=BODY)
++
++    seen: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: partial, SERVER: server}, seen),
++                     metadata=item_metadata("ia800903.us.archive.org"))
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=BODY_MD5)
++    assert dest.read_bytes() == BODY
++    assert seen == [REDIRECT, SERVER]
++
++    lone: list = []
++    ia = make_client(tmp_path / "lone", routed({REDIRECT: partial}, lone), metadata={})
++    with pytest.raises(IADownloadError) as info:
++        ia.download_file("x", "t.mp3", tmp_path / "lone.mp3", md5=BODY_MD5)
++    assert "206" in str(info.value)
++    assert len(lone) > 1  # retryable
++    assert no_leftovers(tmp_path)
++
++
++def test_416_discards_the_part_and_restarts_from_zero(tmp_path: Path):
++    clock = FakeClock()
++    seen: list = []
++    s_ranges: list = []
++    s2_ranges: list = []
++    redirect_calls = iter([serve(clock, LONG, TRICKLE)])
++
++    def redirect(request: httpx.Request) -> httpx.Response:
++        first = next(redirect_calls, None)
++        return first(request) if first else httpx.Response(500)
++
++    def shorter_copy(request: httpx.Request) -> httpx.Response:
++        s_ranges.append(request.headers.get("range"))
++        if request.headers.get("range"):
++            return httpx.Response(416)
++        return httpx.Response(200, content=stream(clock, LONG, HEALTHY))
++
++    def not_found(request: httpx.Request) -> httpx.Response:
++        s2_ranges.append(request.headers.get("range"))
++        return httpx.Response(404)
++
++    ia = make_client(tmp_path, routed({REDIRECT: redirect, SERVER: shorter_copy,
++                                       SERVER2: not_found}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org", "ia600903.us.archive.org"),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert seen == [REDIRECT, SERVER, SERVER2, REDIRECT, SERVER]  # the 416 was retryable
++    assert s_ranges == [f"bytes={K}-", None]
++    assert s2_ranges == [None]  # the 416 discarded the .part
++
++
++def test_stale_part_from_a_previous_process_is_not_continued(tmp_path: Path):
++    clock = FakeClock()
++    ranges: list = []
++    dest = tmp_path / "t.mp3"
++    dest.with_suffix(".mp3.part").write_bytes(b"junk from a killed process" * 100)
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, HEALTHY, ranges=ranges)}, []),
++                     metadata=long_metadata(), clock=clock)
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert ranges == [None]
++    assert no_leftovers(tmp_path)
++
++
++def refuse_connection(request: httpx.Request) -> httpx.Response:
++    raise httpx.ConnectError("connection refused", request=request)
++
++
++@pytest.mark.parametrize("failure", [500, refuse_connection], ids=["status", "connect"])
++def test_a_status_error_keeps_the_continuation_part(tmp_path: Path, failure):
++    clock = FakeClock()
++    seen: list = []
++    ranges: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: serve(clock, LONG, TRICKLE),
++                                       SERVER: failure,
++                                       SERVER2: serve(clock, LONG, HEALTHY, ranges=ranges)}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org", "ia600903.us.archive.org"),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=LONG_MD5)
++    assert dest.read_bytes() == LONG
++    assert seen == [REDIRECT, SERVER, SERVER2]
++    assert ranges == [f"bytes={K}-"]
++
++
++def test_a_transfer_that_slows_to_a_trickle_is_abandoned(tmp_path: Path):
++    # The window slides: a fast start does not license a trickle after it.
++    clock = FakeClock()
++    fast, slow = 500_000, 100_000
++    data = bytes(range(256)) * ((fast + slow) // 256) + bytes((fast + slow) % 256)
++    sent = {"n": 0}
++
++    def fast_then_trickle(request: httpx.Request) -> httpx.Response:
++        def body():
++            for i in range(0, fast, 10_000):
++                clock.advance(0.1)
++                sent["n"] += 10_000
++                yield data[i:i + 10_000]
++            for i in range(fast, fast + slow, 1_000):
++                clock.advance(1.0)
++                sent["n"] += 1_000
++                yield data[i:i + 1_000]
++        return httpx.Response(200, content=body())
++
++    seen: list = []
++    ranges: list = []
++    ia = make_client(tmp_path, routed({REDIRECT: fast_then_trickle,
++                                       SERVER: serve(clock, data, HEALTHY, ranges=ranges)}, seen),
++                     metadata=long_metadata("ia800903.us.archive.org",
++                                            md5=hashlib.md5(data).hexdigest(), data=data),
++                     clock=clock)
++    dest = tmp_path / "t.mp3"
++    ia.download_file("x", "t.mp3", dest, md5=hashlib.md5(data).hexdigest())
++    assert dest.read_bytes() == data
++    assert seen == [REDIRECT, SERVER]
++    assert ranges == [f"bytes={sent['n']}-"]
++    # Abandoned within about a window of the slowdown, not at the end of the file.
++    assert fast < sent["n"] <= fast + (TRICKLE_WINDOW_S + 2) * TRICKLE

@@ -1,0 +1,4 @@
+budget-min: 30
+role: reviewer
+model: opus
+what: Task 3 review (spec+quality)

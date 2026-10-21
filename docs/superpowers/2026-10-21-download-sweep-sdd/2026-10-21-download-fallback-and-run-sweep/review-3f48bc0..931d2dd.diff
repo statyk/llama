@@ -1,0 +1,684 @@
+# Review package: 3f48bc0..HEAD
+
+## Commits
+931d2dd docs: sweep eligibility rulings (no human decisions, bad updated_at)
+fae128c fix(sweep): never answer a prompt or a human gate; survive a bad updated_at
+78886dc test(pacing): pin the per-show LLM-call baseline with a mixed run
+
+## Files changed
+ CLAUDE.md                                          |  17 ++-
+ README.md                                          |   5 +-
+ ...26-10-21-download-retry-and-run-sweep-design.md |  15 ++-
+ packages/llama/src/llama/cli.py                    |   6 +-
+ packages/llama/src/llama/sessions.py               |  62 ++++++++---
+ packages/llama/tests/test_pace_loop.py             |  22 +++-
+ packages/llama/tests/test_sessions.py              |  42 ++++++++
+ packages/llama/tests/test_sweep.py                 | 116 +++++++++++++++++++++
+ 8 files changed, 257 insertions(+), 28 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 3bb6521..eb0f82f 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -90,22 +90,27 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
+   session, like `status --no-flags`; a run another process is working shows as
+   `running`, derived and never written). **`llama run resume --all`** is the
+   unattended sweep (spec `docs/superpowers/specs/2026-10-21-download-retry-and-run-sweep-design.md`
+   §6): one pass, then exit; a positional session plus `--all` is an error. Eligible:
+   `paused` past its `resume_after` (or with none) and `incomplete`, either with no
+   recorded failures or only `download`/`archive` ones; a run with no `session.json`
+   reads `incomplete` and is eligible when its `request.json` has `auto: true` or no
+   `auto` key. Skipped, one line each: `running`, `paused until HH:MM`, `awaiting
+   approval`, `needs attention` (any `transport`/`llm`/`rate-limited`/`other`
+   failure, so a loop never re-spends on a run that fails the same way every time;
+-  no `criteria.json` and no `request.json`; an `auto: false` request, i.e. an
+-  interactive `get` interrupted at a prompt); `complete` runs are not listed. Oldest
++  no `criteria.json` and no `request.json`; an `auto: false` request in ANY state,
++  i.e. an interactive `get` that may have stopped before a prompt; a human-gated
++  run — `request.json` records `human_gate` (the profile's, `false` for a query
++  run) and a profile request written before that loads its profile, an unloadable
++  one counting as gated; a malformed or non-string `updated_at`, skipped rather
++  than crashing the sort — the sweep makes no human decisions, operator ruling
++  2026-10-21); `complete` runs are not listed. Oldest
+   `updated_at` first, one at a time, always `--auto`, **`--no-wait` by default**
+   (unlike plain `run resume`: a usage pause checkpoints `paused` instead of napping
+   inside the loop; `--max-wait`/`--no-pacing` pass through). A run that ends `paused`
+   stops the sweep (the window is account-wide) and the rest print `not reached:
+   <id>`. Per-run results: the run's state, `running` (turned live since the listing),
+   `gone` (removed since), or `error: <msg>`; the summary lists each. Exit 0 only when
+   every resumed run ended `complete` (`running`/`gone` don't count against it) or
+   nothing was eligible (`nothing to resume`); else 1. **Crash marker:** an exception
+   escaping a swept run (a non-zero `typer.Exit` included, as `exit <code>`) writes
+   `incomplete` with one run-level failure `{show: null, kind: "other", error: <msg>}`
+@@ -704,23 +709,25 @@ scheduler and the full player are phases 3–4).
+   by construction. `_get_profile` writes the record too; without it a
+   `--plan` profile run parked by the run-level catch resumed with
+   `plan=False` and performed a full acquisition, from the recovery path the
+   CLI itself prints, and profiles are the unattended recurring path.
+   `run resume` replays the persisted `plan` as
+   `bool(req.get("plan")) and not ws.shortlist.exists()`: `--plan` means "stop
+   AT the shortlist", so the directive is SATISFIED once one exists — replaying
+   it unconditionally is worse than dropping it, because the artifact carries
+   `plan: true` for the life of the run and every later resume would re-park
+   the session forever, including the one `run approve` recommends.
+-  **Four readers, not three** (`run_resume`, `_interpret_with_pause`,
+-  `iter_sessions`, `_by_run_rollup`); the last was missed twice in two
+-  consecutive features, so check it when adding a fifth. The two SWEEP
++  **Five readers, not three** (`run_resume`, `_interpret_with_pause`,
++  `iter_sessions`, `_by_run_rollup`, and `sessions.sweep_verdict` for `run
++  resume --all`, which reads `auto` and `human_gate`); `_by_run_rollup` was
++  missed twice in two consecutive features, so check every one when adding a
++  key or a reader, and keep a missing key readable (old run dirs). The three SWEEP
+   readers go through `sessions.read_request()`, which treats an unreadable or
+   non-object file as "no request" so one bad file cannot blind the whole
+   triage listing — **`run_resume`'s two reads deliberately do NOT**, because
+   there a malformed request must fail loudly rather than silently resume with
+   `plan=False`. That asymmetry is pinned by a test asserting the exception
+   TYPE (rerouting still exits non-zero, via a downstream `KeyError`), because
+   `read_request`'s docstring names the sweep call sites and "unify the
+   readers" is the signposted next cleanup. `--no-pacing` restores the pre-pacing
+   behaviour here as it does at every other site, though what that MEANS
+   differs per site and only two of them literally re-raise: this catch and
+diff --git a/README.md b/README.md
+index d55a633..ff46eb1 100644
+--- a/README.md
++++ b/README.md
+@@ -147,22 +147,23 @@ unsigned — verify them against `SHA256SUMS`. See
+     llama run list                   # sessions awaiting approval or incomplete,
+                                      # with what each run lost and why
+     llama run approve countryish     # gate 1: approve a session's shortlist, optionally process it
+     llama run resume countryish      # resume/replay a session; finished stages are skipped
+     llama run resume --all           # one unattended pass over every resumable run (paused past
+                                      # its reset, or incomplete from a download/archive failure
+                                      # or a crash); --no-wait by default, stops at the first
+                                      # usage pause. Loop it:
+                                      #   while true; do llama run resume --all; sleep 600; done
+                                      # `run list` marks a run another process is working
+-                                     # `running`; a run that fails any other way waits for an
+-                                     # explicit `run resume <id>`
++                                     # `running`; a run that fails any other way, was started
++                                     # without --auto, or is human-gated waits for an explicit
++                                     # `run resume <id>`
+     llama show 1973-06-10            # inspect one show (its state, artifacts, archive URL, flags)
+     llama show 1973-06-10 --tracks   # numbered track list (index, title, filename, duration)
+     llama fix 1973-06-10 --exclude 9,10       # exclude by track number (filenames work too);
+                                      # auto-runs the redo from gather
+     llama fix 1973-06-10 --include x1         # re-admit a file the junk filter dropped
+                                      # (x-handles come from `llama show ... --tracks`)
+     llama fix 1973-06-10 --set-venue "Winterland" --set-city "San Francisco, CA" \
+         --set-date 1973-06-10 --set-title 4="Dark Star" --set-breaks "9,17"
+                                      # metadata corrections; redoes from gather, hold self-clears
+     llama triage                     # walk every held show and resolve each in turn
+diff --git a/docs/superpowers/specs/2026-10-21-download-retry-and-run-sweep-design.md b/docs/superpowers/specs/2026-10-21-download-retry-and-run-sweep-design.md
+index 65b24f1..a193db0 100644
+--- a/docs/superpowers/specs/2026-10-21-download-retry-and-run-sweep-design.md
++++ b/docs/superpowers/specs/2026-10-21-download-retry-and-run-sweep-design.md
+@@ -289,21 +289,34 @@ eligible when its `request.json` has `auto: true` or no `auto` key.
+ - `paused until HH:MM`;
+ - `awaiting approval`;
+ - `needs attention`:
+   - an incomplete or paused run with any `transport`, `llm`, `rate-limited` or `other` failure. These
+     are left for an explicit `run resume <id>`, so a sweep loop never re-spends on a show that fails the
+     same way every time. Some `transport` failures repeat every time and cost tokens (a 900 s research
+     timeout, retried 3× per pass). A paused marker carries the failures already taken, and a resume
+     re-runs every chosen show, so a show that fails the same way would be re-paid once per window;
+   - a run with neither `criteria.json` nor `request.json`;
+   - a run with no session marker whose `request.json` has `auto: false`: an interactive `get`
+-    interrupted at a prompt, which the sweep would otherwise process with `--auto`.
++    interrupted at a prompt, which the sweep would otherwise process with `--auto`;
++  - *(operator ruling, final review, 2026-10-21: the sweep makes no human decisions)* a run in **any**
++    state whose `request.json` has an `auto` key that is not `true`. A paused or incomplete interactive
++    run may have stopped before its artist-prune or rank prompt as surely as a killed one;
++  - *(same ruling)* a human-gated run. `request.json` records `human_gate` from now on: the profile's
++    value for `get --profile`, `false` for a query `get`; any recorded value other than `false` is
++    gated. A request without the key (written before this change) whose `mode` is `profile` falls back
++    to loading that profile and reading its `human_gate`; a profile that cannot be loaded (missing,
++    unreadable, invalid, or no profile named) is treated as gated. A query request (or one with no
++    `mode`) without the key is not gated. Resume behaviour is unchanged: `_resume_locked` still passes
++    `human_gate=False`; only eligibility changed;
++  - *(operator ruling, final review, 2026-10-21)* a run whose `updated_at` is malformed or not a
++    string. The sweep orders by that instant, so such a run is skipped before the sort rather than
++    crashing the pass, and the rest of the sweep proceeds.
+ 
+ `complete` runs are not listed.
+ 
+ **Related fix:** `_execute`'s early return on "no matching artists found" writes `mark_complete` with
+ that message, so such runs no longer read as `incomplete`.
+ 
+ **Order:** oldest `updated_at` first, one at a time, in-process, via a helper extracted from `run_resume`.
+ The helper takes the run lock itself and the sweep does not pre-acquire it. A run that turned live since
+ the listing reports `running` (the helper's non-blocking acquire decides).
+ 
+diff --git a/packages/llama/src/llama/cli.py b/packages/llama/src/llama/cli.py
+index e7f4f8f..b81c9db 100644
+--- a/packages/llama/src/llama/cli.py
++++ b/packages/llama/src/llama/cli.py
+@@ -855,21 +855,21 @@ def _get_query(config, ia, ledger, query: str, limit: int, auto: bool, plan: boo
+     # Locked before request.json and interpret, held to exit. A dir this call
+     # created waits for its lock: only a reader's probe can hold it, briefly.
+     with _run_locked(ws, blocking=created):
+         # Persisted BEFORE the first LLM call: a limit during interpret parks a
+         # session whose query would otherwise live only in argv. This artifact is
+         # what makes such a session resumable at all (T6b).
+         write_artifact(ws.request, json.dumps({
+             "mode": "query", "query": query, "profile": None,
+             "limit": limit, "artist_cap": artist_cap,
+             "min_score": min_score, "year_cap": year_cap,
+-            "auto": auto, "plan": plan}, indent=2))
++            "auto": auto, "plan": plan, "human_gate": False}, indent=2))
+         if pace is None:
+             pace = pace_options(config)
+         # BEFORE interpret, not after: interpret is this run's first LLM call, and
+         # until now it was the one call spent with no proactive check at all.
+         # `_execute` keeps its own gate -- it has four other entry points.
+         proceed, _ = _preflight_gate(ws, config, pace,
+                                      pacing_state.read_state(config.root))
+         if not proceed:
+             return
+         criteria = _interpret_with_pause(config, ws, {
+@@ -893,21 +893,23 @@ def _get_profile(config, ia, ledger, name: str, auto: bool, plan: bool,
+     with _run_locked(ws, blocking=True):
+         # The same invocation record `_get_query` writes. Without it a profile
+         # run parked by the run-level catch resumes with plan=False and performs
+         # a full acquisition -- from the recovery path the CLI itself prints.
+         # The query-mode selection flags are None here: a profile run takes those
+         # values from its stored criteria, not from argv.
+         write_artifact(ws.request, json.dumps({
+             "mode": "profile", "query": None, "profile": name,
+             "limit": None, "artist_cap": None,
+             "min_score": None, "year_cap": None,
+-            "auto": auto, "plan": plan}, indent=2))
++            "auto": auto, "plan": plan,
++            # What the sweep reads to leave a gated run to a human.
++            "human_gate": profile.human_gate}, indent=2))
+         # Stamp count into the run's criteria: a later `llama run` on this dir
+         # must behave like the profile, not the defaults.
+         criteria = profile.criteria.model_copy(update={"count": profile.count,
+                                                        "profile": name})
+         write_artifact(ws.criteria, criteria)
+         _execute(config, ia, ledger, ws, criteria, profile.count, auto,
+                  human_gate=profile.human_gate,
+                  full_rationale=full_rationale, plan=plan, pace=pace)
+ 
+ 
+diff --git a/packages/llama/src/llama/sessions.py b/packages/llama/src/llama/sessions.py
+index cbde8d0..3f3299f 100644
+--- a/packages/llama/src/llama/sessions.py
++++ b/packages/llama/src/llama/sessions.py
+@@ -7,20 +7,21 @@ from dataclasses import dataclass, field
+ from datetime import datetime, timezone
+ from pathlib import Path
+ 
+ from herder import HerderError, TaskFailed
+ from herder.limits import RateLimited
+ from herder.provider import ResearchNotSupported
+ 
+ from llama.ia_client import IAError, IADownloadError
+ from llama.locks import run_is_live
+ from llama.models import Criteria
++from llama.profiles import ProfileError, load_profile
+ from llama.workspace import RunWorkspace, read_model, write_artifact
+ 
+ 
+ KIND_RATE_LIMITED = "rate-limited"
+ KIND_LLM = "llm"
+ KIND_TRANSPORT = "transport"
+ KIND_DOWNLOAD = "download"
+ KIND_ARCHIVE = "archive"
+ KIND_OTHER = "other"
+ 
+@@ -128,24 +129,24 @@ def _read_marker(run_dir: Path) -> dict:
+     try:
+         marker = json.loads(path.read_text())
+     except (OSError, json.JSONDecodeError):
+         return {}
+     return marker if isinstance(marker, dict) else {}
+ 
+ 
+ def read_request(path: Path) -> dict:
+     """A run's request.json as a dict, or {} when absent or unreadable.
+ 
+-    For the two SWEEP paths only (this module's `iter_sessions` and
+-    `cli._by_run_rollup`): a malformed request.json must not take down the
+-    whole triage listing, so an unreadable request reads as "no request"
+-    here, same as `_read_marker` a few lines up. `run_resume`'s own read of
++    For the SWEEP paths only (this module's `iter_sessions` and
++    `sweep_verdict`, and `cli._by_run_rollup`): a malformed request.json must
++    not take down the whole triage listing, so an unreadable request reads as
++    "no request" here, same as `_read_marker` a few lines up. `run_resume`'s own read of
+     this file is deliberately NOT routed through this helper -- there a
+     malformed request must fail loudly rather than silently resume with
+     plan=False, which is precisely the failure mode this guard exists to
+     remove everywhere else."""
+     if not path.exists():
+         return {}
+     try:
+         req = json.loads(path.read_text())
+     except (OSError, json.JSONDecodeError):
+         return {}
+@@ -173,22 +174,26 @@ class SessionInfo:
+     updated_at: str       # marker updated_at, else dir-mtime ISO
+     query: str            # criteria.query, else request.json's; "" if neither
+     profile: str | None   # criteria.profile
+     outcome: str | None = None      # marker outcome ("5 packaged, 3 held, 1 failed")
+     failures: list[dict] = field(default_factory=list)  # per-show {show, error}
+     resume_after: str | None = None   # ISO instant a paused run may resume
+     pause_reason: str | None = None   # the backend's own refusal text
+ 
+ 
+ def _updated_at(run_dir: Path, marker: dict) -> str:
+-    return marker.get("updated_at") or \
+-        datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
++    value = marker.get("updated_at")
++    if not value:
++        return datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
++    # Always a str, so the listing's sort cannot meet a mixed-type key; a
++    # non-ISO value is the sweep's to refuse (`sweep_verdict`).
++    return value if isinstance(value, str) else str(value)
+ 
+ 
+ def iter_sessions(root: Path, *, probe_live: bool = True) -> list[SessionInfo]:
+     """Every dir under runs/, newest-first by updated_at.
+ 
+     With `probe_live`, a run whose lock another process holds reads as
+     STATE_RUNNING whatever its marker says (spec §4): the marker records how
+     the last attempt ended, not whether one is under way now."""
+     runs_dir = root / "runs"
+     infos = []
+@@ -231,48 +236,79 @@ def iter_sessions(root: Path, *, probe_live: bool = True) -> list[SessionInfo]:
+ 
+ 
+ def attention_sessions(root: Path) -> list[SessionInfo]:
+     """The subset of sessions with state != STATE_COMPLETE (spec §4)."""
+     return [s for s in iter_sessions(root) if s.state != STATE_COMPLETE]
+ 
+ 
+ _SWEEPABLE_KINDS = (KIND_DOWNLOAD, KIND_ARCHIVE)
+ 
+ 
++def _human_gated(req: dict, root: Path) -> bool:
++    """Whether a run's selection was meant for a human to approve.
++
++    `request.json` records `human_gate` since 2026-10-21; a recorded value
++    other than False is gated. A profile run written before that falls back
++    to its profile, and a profile that cannot be loaded (removed, unreadable,
++    invalid) reads as gated: the direction that spends nothing. A query run
++    has no gate. A missing `mode` means a query run, as for every reader."""
++    if "human_gate" in req:
++        return req["human_gate"] is not False
++    if req.get("mode", "query") != "profile":
++        return False
++    name = req.get("profile")
++    if not isinstance(name, str) or not name:
++        return True
++    try:
++        return load_profile(root, name).human_gate is not False
++    except (ProfileError, OSError, ValueError):
++        return True
++
++
+ def sweep_verdict(info: SessionInfo, run_dir: Path, now: datetime) -> str | None:
+     """Why `run resume --all` must leave this run alone, or None when it may
+     resume it (spec §6).
+ 
+     Only download and archive failures are worth a blind retry: anything else
+     (an LLM failure, a transport error, a crash) may fail the same way, and
+     re-spend, on every pass of the operator's sweep loop. A paused marker
+     carries the failures already taken, so it gets the same test. `complete`
+     runs never reach here (`attention_sessions`)."""
+     if info.state == STATE_RUNNING:
+         return "running"
+     if info.state == STATE_AWAITING:
+         return "awaiting approval"
++    try:
++        datetime.fromisoformat(info.updated_at)
++    except (TypeError, ValueError):
++        # The sweep orders by this instant; a hand-damaged marker must not
++        # take the whole pass down before any run is resumed (operator
++        # ruling, final review 2026-10-21).
++        return "needs attention"
+     request = run_dir / "request.json"
+     if not (run_dir / "criteria.json").exists() and not request.exists():
+         return "needs attention"
+     failures = info.failures
+     if not isinstance(failures, list) or any(
+             not isinstance(f, dict) or failure_kind(f) not in _SWEEPABLE_KINDS
+             for f in failures):
+         return "needs attention"
+-    if not (run_dir / "session.json").exists():
+-        # No marker: a run that never stopped cleanly. One whose request
+-        # says it was interactive stopped at a prompt, and the sweep would
+-        # otherwise answer that prompt with --auto.
+-        req = read_request(request)
+-        if "auto" in req and req["auto"] is not True:
+-            return "needs attention"
++    # The sweep makes no human decisions (operator ruling, final review
++    # 2026-10-21). A run started interactively may stop before a prompt in
++    # any state -- a pause before its artist-prune or rank prompt as much as
++    # a kill -- and the sweep would answer that prompt with --auto. A
++    # human-gated run would have its picks made with no approval.
++    req = read_request(request)
++    if "auto" in req and req["auto"] is not True:
++        return "needs attention"
++    if _human_gated(req, run_dir.parent.parent):
++        return "needs attention"
+     if info.state == STATE_PAUSED and info.resume_after:
+         try:
+             when = datetime.fromisoformat(info.resume_after)
+         except (TypeError, ValueError):
+             return "needs attention"
+         if when.tzinfo is None:
+             when = when.replace(tzinfo=timezone.utc)
+         if when > now:
+             return f"paused until {when.astimezone().strftime('%H:%M')}"
+     return None
+diff --git a/packages/llama/tests/test_pace_loop.py b/packages/llama/tests/test_pace_loop.py
+index f80785f..4d3f938 100644
+--- a/packages/llama/tests/test_pace_loop.py
++++ b/packages/llama/tests/test_pace_loop.py
+@@ -1568,57 +1568,69 @@ def test_execute_records_kind_for_a_failed_show(tmp_path, monkeypatch):
+     _drive(tmp_path, monkeypatch, _process, ["a"])
+     failure = iter_sessions(tmp_path)[0].failures[0]
+     assert failure["show"] == "a"
+     assert failure["kind"] == "download"
+     assert failure["error"].startswith("download of ")
+     assert datetime.fromisoformat(failure["at"]).utcoffset() == timedelta(0)
+ 
+ 
+ # --- honest pacing samples: a boundary needs an LLM call -------------------
+ 
+-def _boundaries(tmp_path, monkeypatch, *, llm):
+-    """Drive one show; return (boundaries recorded, meter reads taken)."""
++def _boundaries(tmp_path, monkeypatch, *, llm, pids=("a",)):
++    """Drive `pids` (one show by default); return (boundaries recorded, meter
++    reads taken). `record` is stubbed, so no pacing-state.json is ever written:
++    `recorded` is the whole observable."""
+     _clock(monkeypatch)
+     recorded, reads = [], []
+     monkeypatch.setattr(cli.pacing_state, "record",
+                         lambda root, before, after: recorded.append((before, after))
+                         or pacing_state.PacingState())
+ 
+     def _meter(config, pace):
+         reads.append(1)
+         return _reading()
+     monkeypatch.setattr(cli, "_meter", _meter)
+-    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/package", ["a"],
++    _drive(tmp_path, monkeypatch, lambda pid: f"{pid}/package", list(pids),
+            pace=pacing.pace_options(Config()), llm=llm)
+     return recorded, len(reads)
+ 
+ 
+ def test_a_show_that_called_the_llm_records_a_boundary(tmp_path, monkeypatch):
+     recorded, reads = _boundaries(tmp_path, monkeypatch, llm=True)
+     assert len(recorded) == 1
+     assert reads >= 2                       # the after-show read happened
+ 
+ 
+ def test_a_download_only_resume_records_no_boundary(tmp_path, monkeypatch):
+     # The stub returns a package path, as a resume that only re-downloaded does.
+     with_llm = _boundaries(tmp_path, monkeypatch, llm=True)[1]
+     recorded, reads = _boundaries(tmp_path, monkeypatch, llm=False)
+     assert recorded == []
+     assert reads == with_llm - 1            # no after-show meter read either
+-    assert not (tmp_path / "pacing-state.json").exists()
+ 
+ 
+ def test_an_already_packaged_show_records_no_boundary(tmp_path, monkeypatch):
+     # An already-packaged show returns its package untouched: no LLM call.
+     recorded, _ = _boundaries(tmp_path, monkeypatch, llm=lambda pid: False)
+     assert recorded == []
+-    assert not (tmp_path / "pacing-state.json").exists()
++
++
++@pytest.mark.parametrize("pids", [("a", "b"), ("b", "a")])
++def test_a_mixed_run_records_only_the_show_that_called_the_llm(
++        tmp_path, monkeypatch, pids):
++    """The baseline is PER SHOW: an LLM-free show after an LLM show must not
++    read the earlier show's call as its own. A run-level baseline (`calls > 0`)
++    records `b` too when `a` comes first; one taken once before the loop
++    records nothing extra either way but is pinned by the reverse order."""
++    recorded, _ = _boundaries(tmp_path, monkeypatch, llm=lambda pid: pid == "a",
++                              pids=pids)
++    assert len(recorded) == 1
+ 
+ 
+ def test_count_llm_calls_wraps_defaultdict_and_ladders():
+     from llama.pipeline import count_llm_calls
+ 
+     class Boom:
+         def complete(self, prompt):
+             raise HerderError("boom")
+ 
+     src = collections.defaultdict(lambda: [FakeProvider(completes=["x"] * 5)])
+diff --git a/packages/llama/tests/test_sessions.py b/packages/llama/tests/test_sessions.py
+index a871868..289a02d 100644
+--- a/packages/llama/tests/test_sessions.py
++++ b/packages/llama/tests/test_sessions.py
+@@ -1686,10 +1686,52 @@ def test_failure_record_stamps_kind_and_utc_at():
+     assert failure_record("s", ValueError(), now=now)["error"] == "ValueError"
+     at = datetime.fromisoformat(failure_record("s", ValueError("x"))["at"])
+     assert at.utcoffset() == timedelta(0)
+ 
+ 
+ def test_legacy_record_kind():
+     assert failure_kind({"error": "download of x failed after 3 attempts: ..."}) == KIND_DOWNLOAD
+     assert failure_kind({"error": "boom"}) == KIND_OTHER
+     assert failure_kind({"show": "s"}) == KIND_OTHER
+     assert failure_kind({"error": "boom", "kind": KIND_LLM}) == KIND_LLM
++
++
++def test_get_records_that_a_query_run_is_not_human_gated(tmp_path: Path, monkeypatch):
++    """`run resume --all` reads `human_gate` from the request; a query run
++    has no gate, and says so rather than leaving it to a default."""
++    cfg = str(tmp_path / "config.toml")
++    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
++    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
++    monkeypatch.setattr(cli, "IAClient", FakeIA)
++
++    result = runner.invoke(cli.app, ["--config", cfg, "get", "GD 1973",
++                                     "--auto", "--name", "gate"])
++    assert result.exit_code == 0, result.output
++
++    req = json.loads((tmp_path / "runs" / "gate" / "request.json").read_text())
++    assert req["human_gate"] is False
++
++
++@pytest.mark.parametrize("gate", [True, False])
++def test_get_profile_records_the_profile_human_gate(tmp_path: Path, monkeypatch, gate):
++    """The gate the run was started under, recorded so the sweep never has to
++    trust a profile edited (or removed) since."""
++    from llama.profiles import Profile, save_profile
++
++    cfg = str(tmp_path / "config.toml")
++    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n{JB_OFF}')
++    save_profile(tmp_path, Profile(
++        name="prime-dead",
++        criteria=Criteria(query="x", collection="GratefulDead",
++                          artist="Grateful Dead",
++                          date_from="1973-01-01", date_to="1973-12-31"),
++        count=1, human_gate=gate))
++    monkeypatch.setattr(cli, "make_providers", lambda config: fake_providers(None))
++    monkeypatch.setattr(cli, "IAClient", FakeIA)
++
++    result = runner.invoke(cli.app, ["--config", cfg, "get", "--profile",
++                                     "prime-dead", "--auto", "--plan"])
++    assert result.exit_code == 0, result.output
++
++    run_dir = next((tmp_path / "runs").glob("*-prime-dead"))
++    req = json.loads((run_dir / "request.json").read_text())
++    assert req["human_gate"] is gate
+diff --git a/packages/llama/tests/test_sweep.py b/packages/llama/tests/test_sweep.py
+index e7cebc4..b8e08fa 100644
+--- a/packages/llama/tests/test_sweep.py
++++ b/packages/llama/tests/test_sweep.py
+@@ -19,20 +19,21 @@ from pathlib import Path
+ import pytest
+ import typer
+ from herder.fake import FakeProvider
+ from typer.testing import CliRunner
+ 
+ import llama.cli as cli
+ from llama.config import Config
+ from llama.locks import Locked
+ from llama.models import Criteria
+ from llama.pacing import pace_options
++from llama.profiles import Profile, save_profile
+ from llama.sessions import (KIND_ARCHIVE, KIND_DOWNLOAD, KIND_LLM, KIND_OTHER,
+                             KIND_RATE_LIMITED, KIND_TRANSPORT, STATE_COMPLETE,
+                             STATE_INCOMPLETE, failure_record, iter_sessions,
+                             mark_awaiting, mark_complete, mark_incomplete,
+                             mark_paused, sweep_verdict)
+ from llama.workspace import RunWorkspace, write_artifact
+ 
+ runner = CliRunner()
+ 
+ NOW = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+@@ -156,31 +157,146 @@ ELIGIBILITY = {
+                            "needs attention"),
+     "no-criteria-no-request": (dict(criteria=False), "needs attention"),
+     "no-marker-auto-false": (dict(state=None, criteria=False,
+                                   request={"mode": "query", "query": "q", "auto": False}),
+                              "needs attention"),
+     "no-marker-auto-true": (dict(state=None, criteria=False,
+                                  request={"mode": "query", "query": "q", "auto": True}),
+                             None),
+     "no-marker-no-auto-key": (dict(state=None, criteria=False,
+                                    request={"mode": "query", "query": "q"}), None),
++    # Final review, operator ruling 2026-10-21: an interactive request is
++    # never answered with --auto, whatever state the run stopped in.
++    "paused-past-auto-false": (dict(state="paused", resume_after=PAST,
++                                    request={"mode": "query", "query": "q",
++                                             "auto": False}),
++                               "needs attention"),
++    "incomplete-auto-false": (dict(failures=[],
++                                   request={"mode": "query", "query": "q",
++                                            "auto": False}),
++                              "needs attention"),
++    "incomplete-auto-true": (dict(failures=[],
++                                  request={"mode": "query", "query": "q",
++                                           "auto": True}), None),
++    # ...and a human gate is never bypassed. A recorded key decides on its
++    # own: no profile is loaded (none exists in these cases).
++    "recorded-human-gate": (dict(request={"mode": "profile", "profile": "gone",
++                                          "auto": True, "human_gate": True}),
++                            "needs attention"),
++    "recorded-human-gate-paused": (dict(state="paused", resume_after=PAST,
++                                        request={"mode": "profile",
++                                                 "profile": "gone", "auto": True,
++                                                 "human_gate": True}),
++                                   "needs attention"),
++    "recorded-no-human-gate": (dict(request={"mode": "profile", "profile": "gone",
++                                             "auto": True, "human_gate": False}),
++                               None),
++    "profile-request-naming-no-profile": (dict(request={"mode": "profile",
++                                                        "profile": None,
++                                                        "auto": True}),
++                                           "needs attention"),
++    "query-without-gate-key": (dict(request={"mode": "query", "query": "q",
++                                             "auto": True}), None),
++    "no-mode-without-gate-key": (dict(request={"query": "q", "auto": True}), None),
+ }
+ 
+ 
+ @pytest.mark.parametrize("case", list(ELIGIBILITY))
+ def test_eligibility_per_state_and_kind(tmp_path: Path, case):
+     kwargs, expected = ELIGIBILITY[case]
+     ws = _run(tmp_path, "r1", **kwargs)
+     [info] = iter_sessions(tmp_path)
+     assert sweep_verdict(info, ws.dir, NOW) == expected
+ 
+ 
++def _profile_request(**extra) -> dict:
++    """A profile request written before `human_gate` was recorded."""
++    return {"mode": "profile", "query": None, "profile": "weekly", "auto": True,
++            **extra}
++
++
++def _gated(tmp_path: Path, gate: bool) -> None:
++    save_profile(tmp_path, Profile(name="weekly", criteria=Criteria(query="q"),
++                                   human_gate=gate))
++
++
++def _bad_toml(tmp_path: Path) -> None:
++    (tmp_path / "profiles").mkdir(parents=True, exist_ok=True)
++    (tmp_path / "profiles" / "weekly.toml").write_text("name = [unclosed\n")
++
++
++def _bad_schema(tmp_path: Path) -> None:
++    (tmp_path / "profiles").mkdir(parents=True, exist_ok=True)
++    (tmp_path / "profiles" / "weekly.toml").write_text('name = "weekly"\n')
++
++
++PROFILE_GATE = {
++    "gated": (lambda root: _gated(root, True), "needs attention"),
++    "not-gated": (lambda root: _gated(root, False), None),
++    "missing": (lambda root: None, "needs attention"),
++    "unparseable": (_bad_toml, "needs attention"),
++    "invalid": (_bad_schema, "needs attention"),
++}
++
++
++@pytest.mark.parametrize("state", ["incomplete", "paused"])
++@pytest.mark.parametrize("case", list(PROFILE_GATE))
++def test_a_profile_request_without_the_gate_key_reads_the_profile(
++        tmp_path: Path, case, state):
++    """Runs written before `request.json` recorded `human_gate`: the profile
++    itself says whether a human must pick, and one that cannot be read is
++    treated as gated (the direction that spends nothing)."""
++    setup, expected = PROFILE_GATE[case]
++    setup(tmp_path)
++    kwargs = dict(state="paused", resume_after=PAST) if state == "paused" else {}
++    ws = _run(tmp_path, "r1", request=_profile_request(), **kwargs)
++    [info] = iter_sessions(tmp_path)
++    assert sweep_verdict(info, ws.dir, NOW) == expected
++
++
++def test_a_recorded_gate_key_wins_over_the_profile(tmp_path: Path):
++    """The request records what the run was started with; a profile edited
++    since does not re-open (or re-gate) it."""
++    _gated(tmp_path, True)
++    ws = _run(tmp_path, "r1", request=_profile_request(human_gate=False))
++    [info] = iter_sessions(tmp_path)
++    assert sweep_verdict(info, ws.dir, NOW) is None
++
++
++@pytest.mark.parametrize("value", ["not-a-date", 12345, ["2026-10-21"]])
++def test_a_malformed_updated_at_is_needs_attention(tmp_path: Path, value):
++    ws = _run(tmp_path, "r1")
++    marker = _marker(ws)
++    marker["updated_at"] = value
++    ws.session.write_text(json.dumps(marker))
++    [info] = iter_sessions(tmp_path)
++    assert sweep_verdict(info, ws.dir, NOW) == "needs attention"
++
++
++@pytest.mark.parametrize("value", ["not-a-date", 12345])
++def test_a_malformed_updated_at_does_not_stop_the_sweep(
++        tmp_path: Path, monkeypatch, value):
++    cfg = _cfg(tmp_path)
++    bad = _run(tmp_path, "bad", updated_at=NOW - timedelta(days=3))
++    marker = _marker(bad)
++    marker["updated_at"] = value
++    bad.session.write_text(json.dumps(marker))
++    _run(tmp_path, "r1", updated_at=NOW - timedelta(days=2))
++    _run(tmp_path, "r2", updated_at=NOW - timedelta(days=1))
++    calls = _stub_execute(monkeypatch)
++    result = _sweep(cfg)
++    assert result.exit_code == 0, result.output
++    assert "skip bad: needs attention" in _lines(result)
++    assert [c[0] for c in calls] == ["r1", "r2"]
++    assert _marker(bad)["updated_at"] == value              # untouched
++
++
+ def test_live_runs_are_skipped_as_running(tmp_path: Path, monkeypatch):
+     cfg = _cfg(tmp_path)
+     live = _run(tmp_path, "live-run", updated_at=PAST)
+     _run(tmp_path, "idle-run", updated_at=NOW)
+     calls = _stub_execute(monkeypatch)
+     with _held(live.dir):
+         result = _sweep(cfg)
+     assert result.exit_code == 0, result.output
+     assert "skip live-run: running" in _lines(result)
+     assert [c[0] for c in calls] == ["idle-run"]
