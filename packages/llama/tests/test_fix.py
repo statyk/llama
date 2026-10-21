@@ -10,13 +10,20 @@ from pathlib import Path
 import pytest
 
 import llama.cli as cli
+import llama.pipeline as pipeline
 from conftest import cli_invoke
 from herder import FakeProvider
+from herder.limits import RateLimited
+from llama.errors import LlamaError
+from llama.ia_client import IAError
+from llama.locks import Locked, file_lock
 from llama.models import Overrides, Show, Track
 from llama.stages.gather import compute_gather
 from llama.workspace import ShowWorkspace, read_model, read_overrides, write_artifact
 
+from helpers import packaged_gd73, tree_bytes
 from test_catalog import build
+from test_cli import _staged_ymsb_show
 from test_stage_gather import IDENT, StubIA, make_candidate
 
 
@@ -833,3 +840,134 @@ def test_untitled_is_refused_when_only_some_tracks_are_resolved(tmp_path, monkey
     r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
     assert r.exit_code != 0 and "(1 of 3 resolved)" in r.output
     assert not ws.overrides.exists() and calls == []
+
+
+# --- slice C: fix is one restoring unit ---
+
+def _billy_shape(tmp_path, monkeypatch):
+    """The billystrings-2021-12-04 sequence on a real 24-track tape: overrides already
+    carrying edits, then the bad structure fix (pre-repair overrides set_breaks [10, 20],
+    encore_after 20)."""
+    from test_pipeline import fake_providers
+    (tmp_path / "config.toml").write_text(f'root = "{tmp_path}"\n\n[jerrybase]\nenabled = false\n')
+    # the dir name must be slugify(performance_id): process_show writes there
+    sws = _staged_ymsb_show(tmp_path, monkeypatch, slug="yondermountainstringband-2005-12-31")
+    write_artifact(sws.selection, {"identifier": "ymsb2005-12-31.flac16.wav"})
+    write_artifact(sws.overrides, Overrides(narration="vague", titles={1: "Kirby Hill"}))
+    monkeypatch.setattr(cli, "make_providers", fake_providers)
+    return tmp_path / "config.toml", sws
+
+
+def test_a_refused_structure_fix_leaves_every_file_byte_identical(tmp_path, monkeypatch):
+    cfg, sws = _billy_shape(tmp_path, monkeypatch); before = tree_bytes(sws.dir)
+    r = cli_invoke(cfg, "fix", "yonder", "--set-breaks", "10,20", "--set-encore", "20")
+    assert r.exit_code == 1 and isinstance(r.exception, LlamaError)
+    assert "overrides.encore_after (20) must be greater than every set break [10, 20]" in str(r.exception)
+    assert tree_bytes(sws.dir) == before            # provenance.json and overrides.json included
+    r2 = cli_invoke(cfg, "fix", "yonder", "--clear-encore", "--no-run")   # still editable afterwards
+    assert r2.exit_code == 0, r2.output
+
+
+def test_no_run_stages_bad_overrides_and_the_redo_restores_and_names_the_field(tmp_path, monkeypatch):   # C3
+    cfg, sws = _billy_shape(tmp_path, monkeypatch)
+    assert cli_invoke(cfg, "fix", "yonder", "--set-breaks", "10,20", "--set-encore", "20", "--no-run").exit_code == 0
+    assert read_overrides(sws).encore_after == 20
+    before = tree_bytes(sws.dir)
+    r = cli_invoke(cfg, "redo", "yonder", "--from", "gather")
+    assert r.exit_code == 1 and "encore_after" in str(r.exception) and tree_bytes(sws.dir) == before
+
+
+def test_a_fix_adding_one_override_keeps_the_others(tmp_path, monkeypatch):   # (pin)
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); _stub_redo(monkeypatch)
+    write_artifact(ws.overrides, Overrides(exclude=["junk.mp3"], venue="Hall", titles={2: "Dew"}, narration="vague"))
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-city", "Austin, TX").exit_code == 0
+    ov = read_overrides(ws)
+    assert (ov.exclude, ov.venue, ov.titles, ov.narration, ov.city) == (["junk.mp3"], "Hall", {2: "Dew"}, "vague", "Austin, TX")
+
+
+def _held(ws):
+    s = read_model(ws.show, Show); s.needs_review = True; s.review_flags = ["research asserts wrong date: 1974-01-01"]
+    write_artifact(ws.show, s)
+
+
+def test_failed_accept_vague_restores_the_hold_and_the_overrides(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
+    monkeypatch.setattr(pipeline, "run_brief", lambda *a, **k: (_ for _ in ()).throw(RateLimited("limit")))
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague")
+    assert r.exit_code == 1 and isinstance(r.exception, RateLimited)
+    assert tree_bytes(ws.dir) == before and read_model(ws.show, Show).needs_review is True
+
+
+def test_failed_overrule_restores_every_file(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
+    monkeypatch.setattr(pipeline, "run_package", lambda *a, **k: (_ for _ in ()).throw(IAError("archive down")))
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--overrule").exit_code == 1
+    assert tree_bytes(ws.dir) == before
+
+
+def test_a_multi_flag_fix_whose_redo_fails_leaves_nothing_of_the_first_edits(tmp_path, monkeypatch):
+    cfg, ws = packaged_gd73(tmp_path, monkeypatch); _held(ws); before = tree_bytes(ws.dir)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--narration", "vague", "--set-breaks", "2,4", "--set-encore", "4")
+    assert r.exit_code == 1 and "encore_after" in str(r.exception)
+    assert tree_bytes(ws.dir) == before            # no narration, no cleared hold, no breaks
+
+
+def test_a_failed_first_edit_removes_the_overrides_file_it_created(tmp_path, monkeypatch):   # Review Focus 2
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); assert not ws.overrides.exists()
+    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 1
+    assert not ws.overrides.exists()
+
+
+def test_fix_writes_overrides_under_the_show_lock(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); seen = []; real = cli._edit_overrides
+    def probe(show_ws, **kw):
+        try:
+            with file_lock(show_ws.lock, blocking=False): seen.append("free")
+        except Locked:
+            seen.append("held")
+        return real(show_ws, **kw)
+    monkeypatch.setattr(cli, "_edit_overrides", probe)
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall", "--no-run").exit_code == 0
+    assert seen == ["held"]
+
+
+def test_fix_refuses_when_the_show_changed_after_the_prompt(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); calls = _stub_redo(monkeypatch)
+    def other_command_meanwhile(ia, config, entry, show):
+        write_artifact(entry.ws.overrides, Overrides(venue="Elsewhere")); return {1: "Dew"}
+    monkeypatch.setattr(cli, "_propose_and_confirm_titles", other_command_meanwhile)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--suggest-titles")
+    assert r.exit_code == 1 and "changed by another command; run it again" in str(r.exception)
+    assert read_overrides(ws) == Overrides(venue="Elsewhere") and calls == []
+
+
+def test_untitled_failure_after_the_overrule_restores_everything(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _all_unresolved_show(tmp_path); before = tree_bytes(ws.dir)
+    def fake(config, ia, ledger, e, stage, **kw):
+        if stage == "gather":
+            s = read_model(e.ws.show, Show); s.needs_review = True; s.review_flags = ["x"]; write_artifact(e.ws.show, s)
+            return None
+        raise LlamaError("brief failed")
+    monkeypatch.setattr(cli, "_redo_show_locked", fake)
+    r = cli_invoke(cfg, "fix", "gratefuldead", "--untitled", input="y\n")
+    assert r.exit_code == 1 and tree_bytes(ws.dir) == before
+
+
+def test_fix_on_a_show_with_no_show_json_takes_metadata_and_filename_edits(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    ws = build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
+    write_artifact(ws.overrides, Overrides(set_breaks=[10, 20], encore_after=20))
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--clear-encore", "--no-run").exit_code == 0
+    assert read_overrides(ws).encore_after is None
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "junk.mp3", "--no-run").exit_code == 0
+    calls = _stub_redo(monkeypatch)
+    assert cli_invoke(cfg, "fix", "gratefuldead", "--set-venue", "Hall").exit_code == 0 and calls == ["gather"]
+
+
+@pytest.mark.parametrize("args", [["--overrule"], ["--narration", "vague"], ["--include", "junk.mp3"],
+                                  ["--suggest-titles"], ["--untitled"]])
+def test_fix_on_a_show_with_no_show_json_refuses_the_rest_and_names_the_remedy(tmp_path, args):
+    cfg = _cfg(tmp_path); build(tmp_path, "gratefuldead-1973-06-10", stages={"select"})
+    r = cli_invoke(cfg, "fix", "gratefuldead", *args)
+    assert r.exit_code == 1 and "rebuild it with: llama redo gratefuldead-1973-06-10 --from gather" in r.output
