@@ -167,7 +167,9 @@ _SET_TOKEN = (
     r"|(?P<ordn>1st|2nd|3rd)\s+set(?!\w))"
 )
 # A repeated set number written as a continuation: `Set 2 cont.`, `Set II (cont.)`,
-# `Set 2, cont.`, `Set 2 cont'd`, `Set 2 continued`, `Set2cont`.
+# `Set 2, cont.`, `Set 2 cont'd`, `Set 2 continued`. A `cont` glued to the token
+# (`Set2cont`, `Set 2cont:`, `Set IIcont`) is NOT one: the token's `(?!\w)` stops it, so
+# such a line reads as a song title.
 _CONT = r"(?P<cont>\s*,?\s*\(?\s*cont(?:inued|'d|’d|d)?\.?\s*\)?)?"
 # A header naming both a set and the encore: `Set 2 + Encore`, `Set One & Encore`.
 _AND_ENCORE = r"(?P<andenc>\s*(?:\+|&|/|,|\band\b)\s*encores?(?!\w))?"

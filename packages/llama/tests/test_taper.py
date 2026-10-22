@@ -4090,12 +4090,28 @@ def test_set_like_tokens_in_a_numbered_set_item(line):
     "Set The Controls For The Heart of The Sun",
     "surprise vocal - this was not on the set list",
     "DJ Set:", "CD 2", "Sunset 1", "Reset 2", "Set In Stone", "Sets 1 and 2",
+    # The ordinal tokens' word boundary (Task 8 fix round 1, mutants o2/o3): `first set`
+    # and `2nd set` must end at a word boundary to count.
+    "songs from the first setlist", "Second Settlement", "2nd settle", "1st Setting Sun",
 ])
 def test_set_like_negatives(line):
     tt = read_taper_structure(f"Set 1:\nBertha\nLet It Grow\nSet 2:\nScarlet Begonias\n{line}\n"
                               "Truckin\n")
     assert tt.asserts is True
     assert tt.set_like is False, line
+
+
+@pytest.mark.parametrize("line", ["Set2cont", "Set 2cont:", "Set IIcont", "Set 1CD1", "Set 1Disc 1"])
+def test_token_glued_to_cont_or_disc_is_a_song_title(line):
+    # (pin, Task 8 fix round 1, mutant (o)) The set token's `(?!\w)` also guards the header
+    # reader: `_CONT` and a disc label may directly follow the token, so without it a
+    # `cont`/`CD`/`Disc` glued to the token would make these lines headers (a continuation,
+    # or a set-1 header that voids). Today each is a set-2 song title and nothing voids.
+    tt = read_taper_structure(f"Set 1:\nBertha\nSet 2:\nSugaree\n{line}\nRipple\n")
+    assert tt.asserts is True and tt.reason is None
+    assert titles(tt) == ["Bertha", "Sugaree", line, "Ripple"]
+    assert label(tt, line) == "2"
+    assert tt.set_like is False
 
 
 def test_recognised_markers_are_never_set_like():
