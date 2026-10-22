@@ -52,6 +52,10 @@ matched on song lines and on the song text after a marker, never on the marker i
 - a header naming both a set and the encore (`Set 2 + Encore`), which names an encore it
   does not start.
 
+An encore whose rest (or first song item) is `none`, `no encore` or `n/a`, after
+decoration (`Encore: none`, `E: None Filler: ...`), voids the structure: `void: encore none`
+(Checkpoint A). Accepted collateral: a title starting with the word `None` voids too.
+
 Beyond section 2's void rules (decreasing, restarting or skipping set numbers, set 4 or
 higher, a numbered marker after the encore, an empty set), three own-less voids are this
 module's own reading:
@@ -182,6 +186,11 @@ _TIMESTAMP = r"[-–—\[({]?\s*\d{1,3}:\d{2}(?::\d{2})?(?:\.\d+)?\s*[-–—\])
 _LEAD_TIMESTAMP = re.compile(rf"^{_TIMESTAMP}\s+(?=\S)")
 # An item that is only a timestamp: `(2:33:33)` after a set header, `1:08:07`.
 _TIMESTAMP_ONLY = re.compile(rf"^{_TIMESTAMP}$")
+
+# An encore whose rest says there was none (`Encore: none`, `E: None Filler: ...`,
+# `Encore: N/A`, `Encore: no encore`): the taper owns nothing (Checkpoint A). Tested on the
+# marker's rest after decoration, and on the encore's first song item.
+_ENCORE_NONE = re.compile(r"^[-–—*~=\[\]()\s]*(?:none|no\s+encores?|n/a)(?![\w/])", re.I)
 
 # --- Encore-like text (section 2's veto input), matched only OUTSIDE recognised markers.
 # `\bencor\b` is the `Encor:` typo (Checkpoint A, the veto gap).
@@ -370,8 +379,12 @@ def _scan(text: str) -> _Scan:
                 s.in_encore = True
                 s.has_encore = True
             # Every encore line after the first continues the encore.
+            if _ENCORE_NONE.match(rest):
+                s.set_void("encore none")
         for title in _song_titles(rest, enumerated):
             lab = s.label()
+            if lab == "encore" and s.songs.get("encore", 0) == 0 and _ENCORE_NONE.match(title):
+                s.set_void("encore none")
             s.entries.append((title, lab))
             if lab is not None:
                 s.songs[lab] = s.songs.get(lab, 0) + 1

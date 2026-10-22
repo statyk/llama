@@ -2532,3 +2532,69 @@ def test_preprocess_keeps_the_joined_inline_split(text):
     """(pin) Without a set-and-encore header, `_preprocess` splits exactly as before."""
     from llama.taper import _preprocess
     assert _preprocess(text) == _joined_split(text)
+
+
+# Item 3, an encore rest of none / no encore / n/a: the taper owns nothing.
+# darkstarorchestra-2001-11-09: md_dso2001-11-09.shnf.json (description)
+DSO_2001_11_09 = (
+    '11/09/01 (Fri) Crystal Ballroom - Portland, OR\n'
+    '    Set 1: Cats Under The Stars, Stop That Train, Dear Prudence, Mission In The Rain, I Shall'
+    ' Be Released, Sisters And Brothers, Deal\n'
+    '\n'
+    "    Set 2: Harder They Come, Like A Road, Think, Russian Lullaby, Don't Let Go, Night They"
+    ' Drove Old Dixie Down, Midnight Moonlight, E: None Filler: Evangeline, Stir It Up, Breadbox'
+    ' > Eleanor Rigby Jam > Breadbox, How Sweet It Is'
+)
+DSO_2001_11_09_TRACKS = [
+    'Cats Under The Stars', 'Stop That Train', 'Dear Prudence', 'Mission in the Rain',
+    'I Shall Be Released', 'sisters and Brothers', 'Deal', 'Harder They Come', 'Like A Road',
+    'Think', 'Russian Lullaby', "Don't Let Go", 'Night They Drove Old Dixie Down',
+    'Midnight Moonlight', 'Evangeline', 'Stir It Up', 'Breadbox>Rigby Jam>Breadbox',
+    'How Sweet It Is']
+DSO_2001_11_09_TODAY = ['1'] * 7 + ['2'] * 7 + ['3'] * 4
+
+
+def test_encore_none_real_case_owns_nothing():
+    tt = read_taper_structure(DSO_2001_11_09)
+    assert tt.asserts is False and tt.reason == "void: encore none"
+    d = decide_taper(_mk_today(DSO_2001_11_09_TRACKS, DSO_2001_11_09_TODAY),
+                     {"description": DSO_2001_11_09}, aliases=GD_SHORTHAND,
+                     today_sets=DSO_2001_11_09_TODAY)
+    assert d.placement is None and d.reason == "void: encore none"
+
+
+def test_encore_none_built_case_owns_nothing():
+    # cpa-forms' built case: drop Evangeline from the text and the tape, so the first filler
+    # song `Stir It Up` would be read as the encore (fuzzy subphrase on "None Filler: ...").
+    text = DSO_2001_11_09.replace("Filler: Evangeline, ", "Filler: ")
+    i = DSO_2001_11_09_TRACKS.index("Evangeline")
+    names = DSO_2001_11_09_TRACKS[:i] + DSO_2001_11_09_TRACKS[i + 1:]
+    today = DSO_2001_11_09_TODAY[:i] + DSO_2001_11_09_TODAY[i + 1:]
+    d = decide_taper(_mk_today(names, today), {"description": text}, aliases=GD_SHORTHAND,
+                     today_sets=today)
+    assert d.placement is None and d.reason == "void: encore none"
+
+
+@pytest.mark.parametrize("encore", [
+    "Encore: none\n", "Encore: None +\n", "ENCORE: NONE\n", "E: N/A\n", "Encore - None\n",
+    "Encore: no encore\n", "Encore: No Encores\n", "~Encore~: none\n", "-Encore-\nnone\n",
+    "Encore:\nNone\n", "Encore\n(none)\n",
+])
+def test_encore_none_forms(encore):
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\n" + encore)
+    assert tt.asserts is False and tt.reason == "void: encore none"
+
+
+@pytest.mark.parametrize("encore", [
+    "Encore: Nobody's Fault But Mine\n", "Encore: Nonesuch\n", "Encore: Northern Lights\n",
+    "Encore: Not Fade Away\n", "Encore: Ripple, None Shall Pass\n",
+])
+def test_encore_none_negatives(encore):
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\n" + encore)
+    assert tt.asserts is True and tt.reason is None and tt.has_encore is True
+
+
+def test_encore_none_collateral_is_accepted():
+    # A title starting with the word "None" voids too. It only makes the taper own less.
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\nEncore: None of Us Are Free\n")
+    assert tt.asserts is False and tt.reason == "void: encore none"
