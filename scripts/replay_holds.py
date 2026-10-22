@@ -629,9 +629,25 @@ def _runs(labels: list) -> str:
     return " ".join(out) or "-"
 
 
-def _tier(before: list, after: list, filler: list, base_owned: bool, cand_owned: bool) -> str | None:
+def _segues_before(b: dict) -> list:
+    """The base arm's segue changes against stored, or none where the base is needs-LLM
+    (its "before" is then the stored structure, as for the labels)."""
+    return [] if b.get("outcome") == "needs-llm" else list(b.get("segue_changes") or [])
+
+
+def _segue_key(changes: list) -> list:
+    return sorted(json.dumps(ch, sort_keys=True) for ch in changes)
+
+
+def _tier(before: list, after: list, filler: list, base_owned: bool, cand_owned: bool,
+          segues_differ: bool = False) -> str | None:
     if before == after:
-        return "provenance only" if cand_owned and not base_owned else None
+        if not (cand_owned and not base_owned):
+            return None
+        # R1 (pre3-llm): labels unchanged but segues changed is not provenance only. On a
+        # taper-owned show segues come from step 1, so the LLM's restored segues are lost
+        # (spec "Documented limitations", D1); this tier keeps that loss visible.
+        return "segues changed" if segues_differ else "provenance only"
     if len(before) != len(after) or len(filler) != len(after):
         return "songs moved"           # cannot compare per track: do not under-report
     keep = [i for i, f in enumerate(filler) if not f]
@@ -654,7 +670,8 @@ def _delivery_path(config_path: Path | None) -> Path | None:
     return load_config(config_path or DEFAULT_ROOT / "config.toml").delivery_path   # as `run`
 
 
-TAPER_TIERS = ("songs moved", "labels renamed", "filler labels only", "provenance only")
+TAPER_TIERS = ("songs moved", "labels renamed", "filler labels only", "segues changed",
+               "provenance only")
 
 
 def _taper_changes(base: dict, cand: dict, root: Path, delivery: Path | None) -> tuple[list[str], dict]:
@@ -670,7 +687,9 @@ def _taper_changes(base: dict, cand: dict, root: Path, delivery: Path | None) ->
         stored = _stored_labels(root, slug)
         before, after = _before_labels(b, stored), _after_labels(c, stored)
         filler = list(c.get("filler") or [False] * len(after))
-        tier = _tier(before, after, filler, bool(b.get("taper_owned")), bool(c.get("taper_owned")))
+        seg_before, seg_after = _segues_before(b), list(c.get("segue_changes") or [])
+        tier = _tier(before, after, filler, bool(b.get("taper_owned")), bool(c.get("taper_owned")),
+                     segues_differ=_segue_key(seg_before) != _segue_key(seg_after))
         if tier is None:
             continue
         state = str(c.get("state"))
@@ -682,7 +701,9 @@ def _taper_changes(base: dict, cand: dict, root: Path, delivery: Path | None) ->
             f"  {slug}  [{state}]  before {_j(_label_breaks(before))} after {_j(_label_breaks(after))} "
             f"stored {_j(_label_breaks(stored))}  labels: before {_runs(before)} | after {_runs(after)} "
             f"| stored {_runs(stored)}  source: {c.get('taper_source')}  "
-            f"{step1}: {c.get('step1_alignment')}")
+            f"{step1}: {c.get('step1_alignment')}"
+            + (f"  segue changes: before {_j(seg_before)} after {_j(seg_after)}"
+               if tier == "segues changed" else ""))
     out = [f"needs-LLM in the candidate and not taper-owned (unchanged by this piece, not listed): "
            f"{not_owned_nl}", ""]
     for t in TAPER_TIERS:

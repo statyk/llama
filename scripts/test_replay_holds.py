@@ -1221,3 +1221,46 @@ def test_compare_refuses_a_missing_config_before_writing_and_summary_names_deliv
     cfg.write_text(f'delivery_path = "{tmp_path / "st"}"\n')
     assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--config", str(cfg)]) == 0
     assert f"voiced check: delivery_path {tmp_path / 'st'}" in (out / "summary.txt").read_text()
+
+
+def test_taper_changes_segues_changed_tier(tmp_path):
+    # R1 (pre3-llm): labels unchanged but segues changed is its own tier, between filler
+    # labels only and provenance only, with each row's segue changes and a summary count.
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    lost = [{"index": 2, "old": True, "new": False}]
+    for slug in ("seg-llm", "seg-det", "seg-same", "prov-only"):
+        for arm in (b, c):
+            _clone(arm, CLEAN_SLUG, slug, "packaged")
+            _row(arm, slug).update(outcome="clears", set_changes=[], segue_changes=[], notes=[])
+        (root / "shows" / slug).mkdir(parents=True)
+        (root / "shows" / slug / "show.json").write_text(json.dumps(
+            {"tracks": [{"index": i + 1, "set": s} for i, s in enumerate(["1", "1", "2"])]}))
+        _owned(_row(c, slug), ["1", "1", "2"])
+    # a stored-llm show: the base is needs-LLM, so "before" is stored (no segue change)
+    _row(b, "seg-llm").update(outcome="needs-llm", needs_llm=["stored alignment llm"])
+    _row(c, "seg-llm")["segue_changes"] = lost
+    # a replayed base whose segues differ from the candidate's
+    _row(b, "seg-det")["sets"] = ["1", "1", "2"]
+    _row(c, "seg-det")["segue_changes"] = lost
+    # the same segue change in both arms: base drift, not this piece
+    for arm in (b, c):
+        _row(arm, "seg-same")["segue_changes"] = lost
+    _row(b, "seg-same")["sets"] = ["1", "1", "2"]
+    _row(b, "prov-only")["sets"] = ["1", "1", "2"]
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--no-repro-gate"]) == 0
+    text = (out / "taper_changes.txt").read_text()
+    assert text.index("== filler labels only") < text.index("== segues changed") < text.index(
+        "== provenance only")
+    seg = text.split("== segues changed")[1].split("\n== ")[0]
+    prov = text.split("== provenance only")[1].split("\n== ")[0]
+    assert "seg-llm" in seg and "seg-det" in seg
+    assert "seg-same" in prov and "prov-only" in prov
+    assert "seg-llm" not in prov and "seg-det" not in prov
+    row = [l for l in seg.splitlines() if "seg-llm" in l][0]
+    assert 'segue changes: before [] after [{"index": 2' in row
+    assert "segue changes" not in prov
+    assert "segues changed 2" in (out / "summary.txt").read_text()
