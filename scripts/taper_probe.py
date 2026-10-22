@@ -56,7 +56,7 @@ DEFAULT_EVIDENCE = (Path(__file__).resolve().parents[1]
 SAMPLE_SEED = 20261022
 SAMPLE_OTHERS = 30
 TIER_ORDER = ("songs moved", "labels renamed", "encore folded", "encore added",
-              "sets merged or split", "filler only")
+              "sets merged", "sets split", "filler only")
 NO_MATCH = re.compile(r"(?!)")
 
 
@@ -214,8 +214,21 @@ def _runs(labels: list[str]) -> list[int]:
     return out
 
 
+def numbered_count(labels: list[str], tracks: list[Track]) -> int:
+    """Distinct numbered (non-encore) set labels over the non-filler tracks."""
+    return len({lab for lab, t in zip(labels, tracks)
+                if lab != "encore" and not is_filler(t.title)})
+
+
+def sets_merged(stored: list[str], new: list[str], tracks: list[Track]) -> bool:
+    """The taper's numbered-set count is lower than the stored one (any tier)."""
+    return numbered_count(new, tracks) < numbered_count(stored, tracks)
+
+
 def tier(stored: list[str], new: list[str], tracks: list[Track]) -> str | None:
-    """One tier per differing owned show (first rule wins); None when labels are equal."""
+    """One tier per differing owned show (first rule wins); None when labels are equal.
+    Encore presence is decided before run equality, so an encore relabelled as a numbered
+    set (or the reverse) is never filed as a rename."""
     if stored == new:
         return None
     nf = [i for i, t in enumerate(tracks) if not is_filler(t.title)]
@@ -223,15 +236,19 @@ def tier(stored: list[str], new: list[str], tracks: list[Track]) -> str | None:
     t = [new[i] for i in nf]
     if s == t:
         return "filler only"
-    if _runs(s) == _runs(t):
-        return "labels renamed"
     s_enc, t_enc = "encore" in s, "encore" in t
     if s_enc and not t_enc:
         return "encore folded"
     if t_enc and not s_enc:
         return "encore added"
-    if len({x for x in s if x != "encore"}) != len({x for x in t if x != "encore"}):
-        return "sets merged or split"
+    same_enc = [x == "encore" for x in s] == [x == "encore" for x in t]
+    if same_enc and _runs(s) == _runs(t):
+        return "labels renamed"
+    ns, nt = numbered_count(stored, tracks), numbered_count(new, tracks)
+    if nt < ns:
+        return "sets merged"
+    if nt > ns:
+        return "sets split"
     return "songs moved"
 
 
@@ -378,6 +395,7 @@ def library_rows(root: Path) -> list[dict]:
             row["stored"] = today
             row["taper"] = list(d.placement.sets)
             row["tier"] = tier(today, row["taper"], tracks)
+            row["sets_merged"] = sets_merged(today, row["taper"], tracks)
         rows.append(row)
     return rows
 
@@ -404,8 +422,14 @@ def library_summary(rows: list[dict]) -> str:
     rng = random.Random(SAMPLE_SEED)
     for name in TIER_ORDER:
         slugs = sorted(tiers[name])
+        if name == "sets merged":
+            out += ["", f"## every row: sets merged ({len(slugs)})"] + [f"  {x}" for x in slugs]
+            continue
         pick = sorted(rng.sample(slugs, min(10, len(slugs))))
         out += ["", f"## sample: {name} ({len(pick)} of {len(slugs)})"] + [f"  {s}" for s in pick]
+    merged = [r for r in owned if r.get("sets_merged")]
+    out += ["", f"## numbered-set count decreased (any tier), EVERY row ({len(merged)})"]
+    out += [f"  {r['slug']}  [{r['tier']}]" for r in merged]
     r4 = [r for r in ev if r.get("r4_alone")]
     out += ["", "## R4 collateral: not owned for `veto: encore-like text`, owned with R4 off",
             f"shows: {len(r4)}"] + [f"  {r['slug']}" for r in r4]

@@ -95,10 +95,29 @@ def test_target_labels_and_tiers():
     tr = [Track(index=i, set="1", title=t, filename="f", title_source="tags")
           for i, t in enumerate(["A", "B", "Tuning", "C", "D"], 1)]
     assert tp.tier(["1", "1", "1", "2", "2"], ["1", "2", "2", "2", "2"], tr) == "songs moved"
-    assert tp.tier(["1"] * 5, ["1", "1", "1", "2", "2"], tr) == "sets merged or split"
+    assert tp.tier(["1"] * 5, ["1", "1", "1", "2", "2"], tr) == "sets split"
+    assert tp.tier(["1", "1", "1", "2", "2"], ["1"] * 5, tr) == "sets merged"
     assert tp.tier(["1", "1", "1", "2", "encore"], ["1", "1", "1", "2", "2"], tr) == "encore folded"
     assert tp.tier(["1", "1", "1", "2", "2"], ["1", "1", "2", "2", "2"], tr) == "filler only"
     assert tp.tier(["1", "1", "1", "3", "3"], ["1", "1", "1", "2", "2"], tr) == "labels renamed"
+
+
+def test_encore_changes_are_never_renames_and_merges_are_flagged():
+    from llama.models import Track
+    tr = [Track(index=i, set="1", title=t, filename="f", title_source="tags")
+          for i, t in enumerate(["A", "B", "C", "D", "E", "F"], 1)]
+    # encore folded into set 2 (same runs shape would otherwise read as a rename)
+    stored = ["1", "1", "2", "2", "encore", "encore"]
+    assert tp.tier(stored, ["1", "1", "2", "2", "2", "2"], tr) == "encore folded"
+    # stored set 3 becomes the taper's encore
+    stored = ["1", "1", "2", "2", "3", "3"]
+    assert tp.tier(stored, ["1", "1", "2", "2", "encore", "encore"], tr) == "encore added"
+    # a merge hiding inside an encore tier (3 sets -> 2, encore folded) is flagged
+    stored = ["1", "1", "2", "2", "3", "encore"]
+    new = ["1", "1", "1", "2", "2", "2"]
+    assert tp.tier(stored, new, tr) == "encore folded"
+    assert tp.sets_merged(stored, new, tr)
+    assert not tp.sets_merged(new, stored, tr)
 
 
 def test_forms_counts_matches_per_form(tmp_path):
