@@ -3373,6 +3373,47 @@ def test_owned_low_confidence_uses_reader_coverage(tmp_path):
     assert bare.show.structure.coverage == 1.0
 
 
+# The owned-show flag needs ALL FOUR conditions (canonical items, no
+# anchoring, step-1 coverage under the threshold, reader coverage under it).
+# Each test below keeps the reader's coverage weak (2 of 7) and removes exactly
+# one of the other three, so each condition is pinned on its own (fix round 1).
+_WEAK_DESC = ("Set 1:\nZed One\nZed Two\nCharlie\nSet 2:\nDelta\nZed Three\nZed Four\n"
+              "Zed Five")
+
+
+def _assert_weak_reader_no_flag(res):
+    assert res.taper_owned is True
+    assert res.show.structure.coverage == pytest.approx(2 / 7)    # reader under the threshold
+    assert "low-confidence structure alignment" not in res.show.review_flags
+    assert res.needs_llm == ()
+
+
+def test_owned_low_confidence_needs_canonical_items(tmp_path):
+    # No setlist.fm and an empty description: no canonical items; the notes
+    # carry the weak markers.
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, "", notes=_WEAK_DESC))
+    assert res.taper.source == "notes"
+    _assert_weak_reader_no_flag(res)
+
+
+def test_owned_low_confidence_needs_no_anchoring(tmp_path, monkeypatch):
+    # setlist.fm shares nothing with the tape (step-1 coverage 0), but
+    # jerrybase anchoring succeeds, so today never reaches the LLM branch.
+    monkeypatch.setattr(jerrybase, "lookup",
+                        lambda a, d: [_jb_event([("Charlie", "1"), ("Golf", "2")])])
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, _WEAK_DESC),
+                     setlistfm=_FakeSetlistFM(_MISMATCHED_SLFM), jerrybase_enabled=True)
+    assert res.step1_alignment == "jerrybase"
+    _assert_weak_reader_no_flag(res)
+
+
+def test_owned_low_confidence_needs_weak_step_one(tmp_path):
+    # setlist.fm matches the tape (step-1 coverage 1.0); only the reader is weak.
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, _WEAK_DESC), setlistfm=_FakeSetlistFM(TP_SONGS))
+    assert res.step1_alignment == "deterministic"
+    _assert_weak_reader_no_flag(res)
+
+
 def test_track_title_veto_is_exactly_today(tmp_path, monkeypatch):
     titles = TP_SONGS[:6] + ["Encore: Box Of Rain"]
     md = _tp_md(titles, "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot\nBox Of Rain")
