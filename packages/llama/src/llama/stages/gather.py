@@ -12,7 +12,7 @@ from llama.config import StructureConfig
 from llama.errors import LlamaError
 from llama.junk import FORMAT_BY_AUDIO, LOSSLESS_TITLE_FORMATS, filter_files
 from llama.ia_client import IAError
-from llama.models import (AlignedStructure, Candidate, ParsedSetlist, SetlistItem, Show,
+from llama.models import (AlignedStructure, JerrybaseEvent, Candidate, ParsedSetlist, SetlistItem, Show,
                           ShowNotes, SourcedParse, StructureInfo, Track)
 from llama.prompts import load_prompt
 from llama.setlist import parse_setlist
@@ -21,7 +21,7 @@ from llama.songs import GD_SHORTHAND, normalize_song
 from llama.structure import (TAUTOLOGICAL_TITLE_SOURCES, adopt_gap_titles, align,
                              apply_llm_alignment, blend_segues, cities_compatible, encore_lost,
                              from_setlistfm,
-                             fuzzy_norm_title, is_filler, norm_title, rank_parses,
+                             fuzzy_norm_title, fuzzy_title_eq, is_filler, norm_title, rank_parses,
                              structure_guard, venues_equivalent,
                              _venues_equivalent_pre1b)
 from llama.placeholders import is_junk_tag
@@ -82,6 +82,51 @@ def _breaks_of(sets: list[str]) -> list[int]:
     """Inverse of _sets_from_breaks: the 1-based track numbers a break falls
     after, given per-track set labels."""
     return [i + 1 for i in range(len(sets) - 1) if sets[i + 1] != sets[i]]
+
+
+_CLOSER_FLAG = re.compile(r"^jerrybase set closer '(.*)' is not at a set break$")
+
+
+def demote_jerrybase_flags(hard: list[str], count_flag: str | None,
+                           event: JerrybaseEvent, taper: "taper.TaperText",
+                           aliases: dict[str, str] | None = None
+                           ) -> tuple[list[str], str | None, list[str]]:
+    """(kept hard flags, kept count flag, op notes). On a taper-owned show a
+    jerrybase disagreement with the taper's OWN text is an operator note, not a
+    hold (spec 2026-10-22-taper-set-markers section 5). Jerrybase numbered set k
+    maps to the taper's set k and its `encore` to the taper's encore; a closer
+    flag is demoted when the taper has no such set or its last song there
+    differs from jerrybase's closer, and otherwise stays hard (it then catches
+    llama's placement, not the taper's text). The set-count flag is demoted
+    when the taper's numbered set count differs from jerrybase's."""
+    notes: list[str] = []
+    kept_count = count_flag
+    if count_flag is not None:
+        taper_n = len({i.set for i in taper.items if i.set != "encore"})
+        jb_n = len({s.name for s in event.sets if s.name != "encore"})
+        if taper_n != jb_n:
+            notes.append(f"{count_flag} (taper's markers)")
+            kept_count = None
+    kept: list[str] = []
+    used: set[int] = set()
+    for flag in hard:
+        m = _CLOSER_FLAG.match(flag)
+        k = next((n for n, st in enumerate(event.sets)
+                  if n not in used and m is not None and st.closer == m.group(1)), None)
+        if k is None:
+            kept.append(flag)
+            continue
+        used.add(k)
+        st = event.sets[k]
+        songs = [i.title for i in taper.items if i.set == st.name]
+        agrees = bool(songs) and fuzzy_title_eq(fuzzy_norm_title(songs[-1], aliases),
+                                                fuzzy_norm_title(st.closer, aliases))
+        if agrees:
+            kept.append(flag)
+        else:
+            notes.append(f"jerrybase set closer '{st.closer}' is not at a set break "
+                         f"(taper's markers)")
+    return kept, kept_count, notes
 
 
 _EVENT_SUFFIX = re.compile(r"/e(\d+)$")
@@ -1553,8 +1598,14 @@ def compute_gather(
 
     # Closer tripwire (single-event, non-anchored alignments; anchoring places
     # breaks at closers by construction, so it cannot contradict itself).
-    if event is not None and alignment != "jerrybase":
+    # The skip keys on ownership plus mechanism: only when the taper does not
+    # own the structure AND the shipped breaks came from jerrybase anchoring.
+    if event is not None and (taper_owned or alignment != "jerrybase"):
         hard, soft = jerrybase.closer_contradictions(tracks, event)
+        if taper_owned:
+            hard, _, closer_notes = demote_jerrybase_flags(
+                hard, None, event, decision.taper, family_aliases)
+            op_notes += closer_notes
         flags += hard
         notes += soft
         # 5c.1: closers excused because only filler follows them; operator
@@ -1574,6 +1625,10 @@ def compute_gather(
                             evidence_sets=evidence,
                             min_minutes=structure_cfg.guard_min_minutes,
                             expected_set_count=expected_sets)
+    if guard and guard.startswith("structure has ") and taper_owned and event is not None:
+        _, guard, count_notes = demote_jerrybase_flags(
+            [], guard, event, decision.taper, family_aliases)
+        op_notes += count_notes
     if guard:
         flags.append(guard)
 

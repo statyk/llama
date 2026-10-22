@@ -3606,3 +3606,121 @@ def test_old_structure_info_reads_without_taper_owned():
     old = StructureInfo.model_validate({"source": "chosen", "alignment": "deterministic",
                                         "coverage": 1.0, "conflicts": []})
     assert old.taper_owned is False
+
+
+# --- Held-backlog piece 2, Task 5: jerrybase disagreements become notes -----
+
+from llama.stages.gather import demote_jerrybase_flags
+
+_TP_CHINA = ["Alpha", "China Doll", "Let It Grow", "Delta", "Echo", "Foxtrot", "Golf"]
+_TP_CHINA_DESC = ("Set 1:\nAlpha\nChina Doll\nLet It Grow\nSet 2:\nDelta\nEcho\nFoxtrot\n"
+                  "Encore:\nGolf")
+
+
+def _jb(monkeypatch, *closers_and_names):
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event(list(closers_and_names))])
+
+
+def _spy_tripwire(monkeypatch):
+    calls = []
+    real = jerrybase.closer_contradictions
+
+    def spy(tracks, event):
+        calls.append(1)
+        return real(tracks, event)
+    monkeypatch.setattr(jerrybase, "closer_contradictions", spy)
+    return calls
+
+
+def _closer_flags(res):
+    return [f for f in res.show.review_flags if f.startswith("jerrybase set closer")]
+
+
+def _count_flags(res):
+    return [f for f in res.show.review_flags if "jerrybase shows" in f]
+
+
+def test_set_count_disagreement_is_a_note_when_taper_text_disagrees(tmp_path, monkeypatch):
+    _jb(monkeypatch, ("Charlie", "1"))
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), jerrybase_enabled=True)
+    assert res.taper_owned is True
+    assert _count_flags(res) == []
+    assert "structure has 2 sets but jerrybase shows 1 (taper's markers)" in res.notes
+    assert not any("jerrybase shows" in c for c in res.show.structure.conflicts)
+
+
+def test_agreeing_set_count_raises_neither_flag_nor_note(tmp_path, monkeypatch):
+    """(pin)"""
+    _jb(monkeypatch, ("Charlie", "1"), ("Foxtrot", "2"))
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), jerrybase_enabled=True)
+    assert res.taper_owned is True
+    assert _count_flags(res) == []
+    assert not any("jerrybase shows" in n for n in res.notes)
+    assert _closer_flags(res) == []
+
+
+def test_closer_flag_is_a_note_when_taper_text_names_another_closer(tmp_path, monkeypatch):
+    _jb(monkeypatch, ("China Doll", "1"), ("Foxtrot", "2"))
+    res = _tp_gather(tmp_path, _tp_md(_TP_CHINA, _TP_CHINA_DESC), jerrybase_enabled=True)
+    assert res.taper_owned is True
+    assert _closer_flags(res) == []
+    assert ("jerrybase set closer 'China Doll' is not at a set break (taper's markers)"
+            in res.notes)
+
+
+def test_closer_flag_stays_hard_when_taper_text_agrees():
+    taper = taper_mod.read_taper_structure(TP_DESC)
+    event = _jb_event([("Charlie", "1"), ("Foxtrot", "2")])
+    flag = "jerrybase set closer 'Charlie' is not at a set break"
+    hard = [flag]
+    assert flag in hard
+    kept, count, notes = demote_jerrybase_flags(hard, None, event, taper)
+    assert kept == [flag] and count is None and notes == []
+
+
+def test_closer_for_a_set_the_taper_lacks_is_a_note(tmp_path, monkeypatch):
+    _jb(monkeypatch, ("Charlie", "1"), ("Foxtrot", "2"), ("Echo", "3"))
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), jerrybase_enabled=True)
+    assert res.taper_owned is True
+    assert _closer_flags(res) == []
+    assert "jerrybase set closer 'Echo' is not at a set break (taper's markers)" in res.notes
+
+
+def test_encore_closer_maps_to_the_taper_encore(tmp_path, monkeypatch):
+    _jb(monkeypatch, ("Charlie", "1"), ("Foxtrot", "2"), ("Alpha", "encore"))
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), jerrybase_enabled=True)
+    assert res.taper_owned is True
+    assert _closer_flags(res) == []
+    assert "jerrybase set closer 'Alpha' is not at a set break (taper's markers)" in res.notes
+    # the taper has no encore at all
+    _jb(monkeypatch, ("Charlie", "1"), ("Golf", "2"), ("Echo", "encore"))
+    res2 = _tp_gather(tmp_path, _tp_md(TP_SONGS, "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\n"
+                                       "Delta\nEcho\nFoxtrot\nGolf"),
+                      sub="s2", jerrybase_enabled=True)
+    assert res2.taper_owned is True
+    assert res2.taper.taper.has_encore is False
+    assert _closer_flags(res2) == []
+    assert "jerrybase set closer 'Echo' is not at a set break (taper's markers)" in res2.notes
+
+
+def test_tripwire_skipped_when_numbered_breaks_came_from_anchoring(tmp_path, monkeypatch):
+    """(pin) Not owned and anchoring succeeded: no tripwire, as today."""
+    _jb(monkeypatch, ("Charlie", "1"), ("Foxtrot", "2"))
+    calls = _spy_tripwire(monkeypatch)
+    with monkeypatch.context() as m:
+        m.setattr(taper_mod, "decide_taper", _not_owned)
+        res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), jerrybase_enabled=True)
+    assert res.taper_owned is False
+    assert res.show.structure.alignment == "jerrybase"
+    assert calls == []
+
+
+def test_tripwire_runs_on_owned_show_agreeing_with_anchoring(tmp_path, monkeypatch):
+    _jb(monkeypatch, ("Charlie", "1"), ("Foxtrot", "2"))
+    calls = _spy_tripwire(monkeypatch)
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), jerrybase_enabled=True)
+    assert res.taper_owned is True
+    assert res.step1_alignment == "jerrybase"
+    assert res.show.structure.alignment == "jerrybase"
+    assert calls == [1]
+    assert _closer_flags(res) == []
