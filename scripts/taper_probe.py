@@ -28,6 +28,13 @@ Judgment calls (each errs toward the taper owning LESS):
   * A show whose tables cannot give tracks and `today_sets` of equal length is skipped.
   * Library shows with an operator structure override (`set_breaks`/`encore_after`, or
     `structure.source == "override"`) are counted and skipped.
+  * G1's predicate (`decide_taper(today_reaches_llm=...)`: canonical items, no anchoring,
+    step-1 coverage under the threshold) needs a gather, which the probe does not run. It
+    passes a STORED proxy instead (`stored_llm_path`): the stored show's
+    `structure.alignment` is `llm`, or its `review_flags` hold `low-confidence structure
+    alignment` -- the old gather reached the LLM branch, and the LLM won or did not. Each
+    row records it as `today_llm`; the summaries count the rows it is True on and the rows
+    G1 declined.
 """
 from __future__ import annotations
 
@@ -143,10 +150,21 @@ def aliases_for(artist: str | None) -> dict[str, str]:
     return GD_SHORTHAND if artist and jerrybase.is_family_artist(artist) else {}
 
 
-def decide(tracks: list[Track], meta: dict, artist: str | None, today_sets: list[str]):
+G1_REASON = "veto: no encore on today's LLM path"
+
+
+def stored_llm_path(sj: dict) -> bool:
+    """The probe's offline stand-in for gather's `today_reaches_llm` (module docstring)."""
+    return ((sj.get("structure") or {}).get("alignment") == "llm"
+            or "low-confidence structure alignment" in (sj.get("review_flags") or []))
+
+
+def decide(tracks: list[Track], meta: dict, artist: str | None, today_sets: list[str],
+           today_llm: bool = False):
     if len(today_sets) != len(tracks):
         raise Skip("today_sets not parallel to tracks")
-    return taper.decide_taper(tracks, meta, aliases=aliases_for(artist), today_sets=today_sets)
+    return taper.decide_taper(tracks, meta, aliases=aliases_for(artist), today_sets=today_sets,
+                              today_reaches_llm=today_llm)
 
 
 # --- R4 collateral: a probe-local switch-off of ruling R4's widened veto inputs ---
@@ -164,12 +182,12 @@ def r4_disabled():
         taper._ENCORE_LIKE_END, taper._ENCORE_LIKE_ITEM, taper._LEADING_NUMBER = saved
 
 
-def r4_alone(decision, tracks, meta, artist, today_sets) -> bool:
+def r4_alone(decision, tracks, meta, artist, today_sets, today_llm=False) -> bool:
     """Not owned for `veto: encore-like text` and owned with the R4 rules off."""
     if decision.placement is not None or decision.reason != "veto: encore-like text":
         return False
     with r4_disabled():
-        return decide(tracks, meta, artist, today_sets).placement is not None
+        return decide(tracks, meta, artist, today_sets, today_llm).placement is not None
 
 
 # --- label arithmetic ---
@@ -284,7 +302,8 @@ def gate_rows(root: Path, bundles: Path, evidence: Path) -> list[dict]:
             sj, tracks = parse_bundle(bundles / f"{slug}.md")
             meta = load_meta(root, sj["identifier"])
             today = [t.set for t in tracks]
-            d = decide(tracks, meta, sj.get("artist"), today)
+            today_llm = stored_llm_path(sj)
+            d = decide(tracks, meta, sj.get("artist"), today, today_llm)
         except (Skip, KeyError) as e:
             row["status"] = f"skipped: {e.args[0] if e.args else e!r}"
             rows.append(row)
@@ -292,9 +311,10 @@ def gate_rows(root: Path, bundles: Path, evidence: Path) -> list[dict]:
         row["status"] = _status(d)
         row["reason"] = d.reason
         row["source"] = d.source
+        row["today_llm"] = today_llm
         tb, te = s1.get("t_breaks"), s1.get("t_enc")
         row["has_target"] = tb is not None or te is not None
-        row["r4_alone"] = r4_alone(d, tracks, meta, sj.get("artist"), today)
+        row["r4_alone"] = r4_alone(d, tracks, meta, sj.get("artist"), today, today_llm)
         if d.placement is not None and row["has_target"]:
             row["match"] = compare(list(d.placement.sets), target_labels(len(tracks), tb, te),
                                    tracks)
@@ -337,6 +357,7 @@ def gate_summary(rows: list[dict]) -> str:
     out += ["", "## in-scope status counts"]
     for k, v in sorted(Counter(r["status"] for r in scoped).items()):
         out.append(f"{v:4d}  {k}")
+    out += _g1_lines(rows)
     r4 = [r for r in rows if r.get("r4_alone")]
     r4s = [r for r in scoped if r.get("r4_alone")]
     out += ["", f"## R4 collateral: not owned for `veto: encore-like text`, owned with R4 off",
@@ -353,6 +374,14 @@ def gate_summary(rows: list[dict]) -> str:
     listing("filler-only", filler)
     listing("skipped in-scope rows", skipped, lambda r: f"  {r['status']}")
     return "\n".join(out) + "\n"
+
+
+def _g1_lines(rows: list[dict]) -> list[str]:
+    proxy = [r for r in rows if r.get("today_llm")]
+    g1 = [r for r in rows if r.get("reason") == G1_REASON]
+    return (["", "## G1 (stored proxy for today's LLM path; module docstring)",
+             f"rows with the proxy True: {len(proxy)}; declined for `{G1_REASON}`: {len(g1)}"]
+            + [f"  {r['slug']}" for r in g1])
 
 
 # --- library ---
@@ -389,14 +418,16 @@ def library_rows(root: Path) -> list[dict]:
                 raise Skip("no tracks")
             meta = load_meta(root, sj["identifier"])
             today = [t.set for t in tracks]
-            d = decide(tracks, meta, sj.get("artist"), today)
+            today_llm = stored_llm_path(sj)
+            d = decide(tracks, meta, sj.get("artist"), today, today_llm)
         except (Skip, KeyError, ValueError, TypeError) as e:
             row["status"] = f"skipped: {e.args[0] if e.args else repr(e)}"
             rows.append(row)
             continue
         row["status"] = _status(d)
         row["reason"] = d.reason
-        row["r4_alone"] = r4_alone(d, tracks, meta, sj.get("artist"), today)
+        row["today_llm"] = today_llm
+        row["r4_alone"] = r4_alone(d, tracks, meta, sj.get("artist"), today, today_llm)
         if d.placement is not None:
             row["stored"] = today
             row["taper"] = list(d.placement.sets)
@@ -436,6 +467,7 @@ def library_summary(rows: list[dict]) -> str:
     merged = [r for r in owned if r.get("sets_merged")]
     out += ["", f"## numbered-set count decreased (any tier), EVERY row ({len(merged)})"]
     out += [f"  {r['slug']}  [{r['tier']}]" for r in merged]
+    out += _g1_lines(rows)
     r4 = [r for r in ev if r.get("r4_alone")]
     out += ["", "## R4 collateral: not owned for `veto: encore-like text`, owned with R4 off",
             f"shows: {len(r4)}"] + [f"  {r['slug']}" for r in r4]

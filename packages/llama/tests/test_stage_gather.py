@@ -3244,7 +3244,7 @@ def _tp_gather(tmp_path, md, *, sub="s", overrides=None, cand=None, ident=TP_IDE
     return compute_gather(sws, StubIA(md), None, cand or _tp_candidate(), ident, **kw)
 
 
-def _not_owned(tracks, meta, *, aliases, today_sets):
+def _not_owned(tracks, meta, *, aliases, today_sets, today_reaches_llm=False):
     return taper_mod.TaperDecision(None, taper_mod.read_taper_structure(""), "none", "oracle")
 
 
@@ -3354,14 +3354,16 @@ def test_owned_low_confidence_uses_reader_coverage(tmp_path):
     assert "low-confidence structure alignment" not in good.show.review_flags
     assert good.show.structure.coverage == 1.0
     assert good.needs_llm == ()
-    # The reader's items match only the two boundary songs: 2 of 7 song tracks.
-    weak_desc = ("Set 1:\nZed One\nZed Two\nCharlie\nSet 2:\nDelta\nZed Three\nZed Four\n"
-                 "Zed Five")
+    # The reader's items match only the four boundary songs: 4 of 7 song tracks.
+    # This show is on today's LLM path, so the taper must mark its encore to own
+    # it at all (G1, llama-db reading of operator ruling (d), 2026-10-22).
+    weak_desc = ("Set 1:\nZed One\nZed Two\nCharlie\nSet 2:\nDelta\nZed Three\nFoxtrot\n"
+                 "Encore:\nGolf")
     weak = _tp_gather(tmp_path, _tp_md(TP_SONGS, weak_desc), sub="weak", setlistfm=slfm)
     assert weak.taper_owned is True
     assert "low-confidence structure alignment" in weak.show.review_flags
     assert weak.needs_llm == ()
-    assert weak.show.structure.coverage == pytest.approx(2 / 7)
+    assert weak.show.structure.coverage == pytest.approx(4 / 7)
     reader = ParsedSetlist(items=[SetlistItem(title=i.title, normalized=normalize_song(i.title),
                                               set=i.set) for i in weak.taper.taper.items])
     assert weak.show.structure.coverage == align(weak.show.tracks, reader).coverage
@@ -3510,9 +3512,10 @@ def test_today_sets_is_step_one_parallel_to_tracks(tmp_path, monkeypatch):
     seen = {}
     real = taper_mod.decide_taper
 
-    def spy(tracks, meta, *, aliases, today_sets):
+    def spy(tracks, meta, *, aliases, today_sets, today_reaches_llm=False):
         seen["n"], seen["today"] = len(tracks), list(today_sets)
-        return real(tracks, meta, aliases=aliases, today_sets=today_sets)
+        return real(tracks, meta, aliases=aliases, today_sets=today_sets,
+                    today_reaches_llm=today_reaches_llm)
 
     md = _tp_md(TP_SONGS, TP_DESC)
     slfm = _FakeSetlistFM(TP_SONGS[:3], TP_SONGS[3:6], TP_SONGS[6:])
@@ -3804,7 +3807,7 @@ def test_filler_only_label_difference_keeps_step_one_alignment(tmp_path, monkeyp
     md = _tp_md(titles, "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot")
     seen = {}
 
-    def filler_only(tracks, meta, *, aliases, today_sets):
+    def filler_only(tracks, meta, *, aliases, today_sets, today_reaches_llm=False):
         labels = list(today_sets)
         assert gather_mod.is_filler(tracks[3].title)
         labels[3] = "2" if labels[3] == "1" else "1"
@@ -3822,3 +3825,57 @@ def test_filler_only_label_difference_keeps_step_one_alignment(tmp_path, monkeyp
     assert _labels(res) == seen["shipped"]                    # ... and ship
     assert res.show.structure.alignment == res.step1_alignment == "deterministic"
     assert _was_notes(res) == []
+
+
+# --- Fix round 2 (t9-fix2), G1 (llama-db reading of operator ruling (d),
+# 2026-10-22): with no recognised taper encore marker, the taper owns nothing
+# when today's path would reach the LLM branch. One predicate, computed in
+# `compute_gather` (canonical items, no anchoring, step-1 coverage under the
+# threshold) and passed to `decide_taper`. Each conjunct is pinned on its own:
+# the test removes exactly one and the no-encore taper owns again.
+_NO_ENC_DESC = "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot\nGolf"
+_G1_REASON = "veto: no encore on today's LLM path"
+
+
+def test_no_taper_encore_on_todays_llm_path_is_exactly_today(tmp_path, monkeypatch):
+    md = _tp_md(TP_SONGS, _NO_ENC_DESC)
+    slfm = _FakeSetlistFM(_MISMATCHED_SLFM)        # step-1 coverage 0, no jerrybase
+    oracle = _oracle(tmp_path, monkeypatch, md, setlistfm=slfm, align_provider=None)
+    res = _tp_gather(tmp_path, md, setlistfm=slfm, align_provider=None)
+    assert res.taper_owned is False and res.taper.reason == _G1_REASON
+    assert "align_structure" in res.needs_llm
+    assert _sans_taper(res) == _sans_taper(oracle)
+
+
+def test_taper_encore_marked_stays_owned_on_todays_llm_path(tmp_path):
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC),
+                     setlistfm=_FakeSetlistFM(_MISMATCHED_SLFM), align_provider=None)
+    assert res.taper_owned is True and res.taper.taper.has_encore
+    assert "align_structure" not in res.needs_llm
+
+
+def test_g1_needs_canonical_items(tmp_path):
+    # No setlist.fm and an empty description: no canonical items; the notes
+    # carry the markers, with no encore.
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, "", notes=_NO_ENC_DESC), align_provider=None)
+    assert res.taper.source == "notes"
+    assert res.taper_owned is True, res.taper.reason
+
+
+def test_g1_needs_no_anchoring(tmp_path, monkeypatch):
+    # setlist.fm shares nothing with the tape (step-1 coverage 0), but jerrybase
+    # anchoring succeeds, so today never reaches the LLM branch.
+    monkeypatch.setattr(jerrybase, "lookup",
+                        lambda a, d: [_jb_event([("Charlie", "1"), ("Golf", "2")])])
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, _NO_ENC_DESC), align_provider=None,
+                     setlistfm=_FakeSetlistFM(_MISMATCHED_SLFM), jerrybase_enabled=True)
+    assert res.step1_alignment == "jerrybase"
+    assert res.taper_owned is True, res.taper.reason
+
+
+def test_g1_needs_weak_step_one(tmp_path):
+    # setlist.fm matches the tape (step-1 coverage 1.0): today ships step 1.
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, _NO_ENC_DESC), align_provider=None,
+                     setlistfm=_FakeSetlistFM(TP_SONGS))
+    assert res.step1_alignment == "deterministic"
+    assert res.taper_owned is True, res.taper.reason

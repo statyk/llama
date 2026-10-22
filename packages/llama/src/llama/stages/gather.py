@@ -1376,8 +1376,16 @@ def compute_gather(
         step1_alignment = alignment
         step1_sets = list(result.sets)
         assert len(step1_sets) == len(tracks), "step-1 labels must be parallel to tracks"
+        threshold = structure_cfg.align_coverage_threshold
+        # THE "today's path would reach the LLM branch" predicate, computed once:
+        # canonical items, no jerrybase anchoring, step-1 coverage under the
+        # threshold. It decides the not-owned LLM branch below, the owned show's
+        # low-confidence flag, and ruling (d)'s no-encore veto inside
+        # `decide_taper` (llama-db reading of operator ruling (d), 2026-10-22:
+        # with no taper encore marker on that path, the taper owns nothing).
+        today_llm = bool(canonical.items) and anchored is None and result.coverage < threshold
         decision = taper.decide_taper(tracks, meta, aliases=family_aliases,
-                                      today_sets=step1_sets)
+                                      today_sets=step1_sets, today_reaches_llm=today_llm)
         taper_owned = decision.placement is not None
         shipped_sets = None
         if taper_owned:
@@ -1393,9 +1401,7 @@ def compute_gather(
                 SetlistItem(title=i.title, normalized=normalize_song(i.title), set=i.set)
                 for i in decision.taper.items])
             reader_coverage = align(tracks, reader, aliases=family_aliases).coverage
-            threshold = structure_cfg.align_coverage_threshold
-            if (canonical.items and anchored is None and result.coverage < threshold
-                    and reader_coverage < threshold):
+            if today_llm and reader_coverage < threshold:
                 flags.append("low-confidence structure alignment")
             shipped_sets = list(decision.placement.sets)
             # `alignment` becomes "taper" only when the taper's labels differ
@@ -1410,7 +1416,7 @@ def compute_gather(
             # Not owned (step 4): exactly today's path from here on -- the
             # anchoring note, else the LLM branch below, then every flag.
             notes.append(anchor_note)
-        elif canonical.items and result.coverage < structure_cfg.align_coverage_threshold:
+        elif today_llm:
             # No usable jerrybase evidence and the alignment is weak: fall back
             # to LLM realignment, then to a review flag.
             llm_result = None

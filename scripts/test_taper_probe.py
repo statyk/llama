@@ -323,3 +323,38 @@ def test_score_grades_a_renumbered_row_only_when_the_adjudicators_fix_was_stripp
     assert got["applied"] == "match"
     assert got["other-fix"] == got["no-fix"] == got["enc-differs"] == \
         "owned, renumbered target (not graded)"
+
+
+@pytest.mark.parametrize("sj, expect", [
+    ({"structure": {"alignment": "llm"}}, True),
+    ({"structure": {"alignment": "deterministic"},
+      "review_flags": ["low-confidence structure alignment"]}, True),
+    ({"structure": {"alignment": "deterministic"}, "review_flags": []}, False),
+    ({}, False),
+])
+def test_stored_llm_path_proxy(sj, expect):
+    assert tp.stored_llm_path(sj) is expect
+
+
+def test_library_passes_the_stored_proxy_for_g1(tmp_path):
+    # A no-encore two-set taper on a show stored as `llm`: G1 declines it; the same show
+    # stored `deterministic` stays owned.
+    root = tmp_path / "root"
+    (root / "cache").mkdir(parents=True)
+    text = "Set 1:\nAlpha\nBravo\nSet 2:\nCharlie\nDelta\nEcho"
+    for slug, alignment in (("llm-show", "llm"), ("det-show", "deterministic")):
+        show = root / "shows" / slug
+        show.mkdir(parents=True)
+        show.joinpath("show.json").write_text(json.dumps({
+            "identifier": "id-" + slug, "artist": "Test Band",
+            "structure": {"alignment": alignment, "source": "setlist.fm"},
+            "tracks": [{"index": i, "set": "1", "title": t, "filename": f"f{i}.mp3",
+                        "title_source": "tags"} for i, t in enumerate(TITLES, 1)]}))
+        (root / "cache" / f"md_id-{slug}.json").write_text(
+            json.dumps({"metadata": {"description": text}}))
+    rows = {r["slug"]: r for r in tp.library_rows(root)}
+    assert rows["llm-show"]["today_llm"] is True
+    assert rows["llm-show"]["reason"] == tp.G1_REASON
+    assert rows["det-show"]["today_llm"] is False and rows["det-show"]["status"] == "owned"
+    assert "declined for `veto: no encore on today's LLM path`: 1" in tp.library_summary(
+        list(rows.values()))

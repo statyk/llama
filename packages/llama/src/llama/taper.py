@@ -75,7 +75,7 @@ token, any spelling `_SET_TOKEN` reads (`Set 1.5:`, `- end of set one`, `Cardina
 inline split cuts an ordinal header before a numbered line (`Third Set` then `1- Truckin`)
 into the items `Third` and `Set` (orchestrator ruling R10, Checkpoint A3, 2026-10-22).
 A continuation of the item's own set (`Set 2 con't` inside set 2) is not set-like
-(orchestrator ruling R9, 2026-10-22, pending llama-db confirmation). Recognised markers are
+(orchestrator ruling R9, 2026-10-22, confirmed by llama-db, 2026-10-22). Recognised markers are
 not items, so they never count, and nothing here makes a marker. Like the encore-like veto,
 it only makes the taper own less.
 
@@ -300,7 +300,7 @@ _ITEM_DECOR = "-–—*~=[]() \t"
 # `Cardinals Set 1 CD 2`). It never makes a marker.
 _SET_LIKE = re.compile(rf"\b{_SET_TOKEN}", re.I)
 # A continuation of the item's own set (`Set 2 con't` inside set 2): not set-like
-# (orchestrator ruling R9, 2026-10-22, pending llama-db confirmation). Used with `.match`
+# (orchestrator ruling R9, 2026-10-22, confirmed by llama-db, 2026-10-22). Used with `.match`
 # on the text right after the token, so it anchors there; no `^`, so that a `.search` would
 # not be an equivalent mutant (fix round 1, finding 2).
 _CONT_AFTER = re.compile(r"\s*[,(]?\s*con(?:'|’)?t", re.I)
@@ -636,8 +636,9 @@ class TaperDecision:
     taper: TaperText
     source: str  # "description" | "notes" | "none"
     reason: str | None  # why not owned (the reader's reason, "veto: track title",
-    # "veto: encore-like text", "veto: set-like text", a placement decline, or
-    # "veto: today's encore")
+    # "veto: encore-like text", "veto: set-like text", a placement decline,
+    # "veto: step-1 break before set 1", "veto: today's encore", or
+    # "veto: no encore on today's LLM path")
 
 
 def _counts(track: Track) -> bool:
@@ -660,6 +661,16 @@ def _comma_parts(title: str) -> list[str]:
     return parts if len(parts) > 1 else []
 
 
+def _hit(track: Track, target: str, aliases: dict[str, str]) -> bool:
+    """Section 3's matching: the track counts (`_counts`) and its title, or a title
+    component of a merged track, is `fuzzy_title_eq` to `target` (already normalized)."""
+    if not _counts(track):
+        return False
+    if fuzzy_title_eq(fuzzy_norm_title(track.title, aliases), target):
+        return True
+    return any(fuzzy_title_eq(c, target) for c in title_components(track.title, aliases))
+
+
 def _place_boundary(tracks: list[Track], left: list[TaperItem], right: list[TaperItem],
                     aliases: dict[str, str], today_sets: list[str]
                     ) -> tuple[int, int, int] | str:
@@ -675,11 +686,7 @@ def _place_boundary(tracks: list[Track], left: list[TaperItem], right: list[Tape
     right_norms = [norm(t) for i in right for t in (i.title, *_comma_parts(i.title))]
 
     def hit(track: Track, target: str) -> bool:
-        if not _counts(track):
-            return False
-        if fuzzy_title_eq(norm(track.title), target):
-            return True
-        return any(fuzzy_title_eq(c, target) for c in title_components(track.title, aliases))
+        return _hit(track, target, aliases)
 
     a_hits = [i for i, t in enumerate(tracks) if hit(t, a_norm)]
     b_hits = [i for i, t in enumerate(tracks) if hit(t, b_norm)]
@@ -762,8 +769,38 @@ def place_taper_structure(tracks: list[Track], taper: TaperText, *,
     return TaperPlacement(sets=tuple(labels), boundaries=tuple(p + 1 for p in bounds))
 
 
+def _step1_break_before_set_1(tracks: list[Track], taper: TaperText, placed: TaperPlacement,
+                              aliases: dict[str, str], today_sets: list[str]) -> bool:
+    """Step 1 has a NUMBERED break (a label change between two numbered sets, never an
+    encore boundary) before the hit of the taper's set-1 first song: a change between
+    tracks k and k+1 with k < h, h the 0-based hit. A break AT the hit (between h and h+1)
+    does not count. The hit is the earliest track, at or before set 1's placed last song,
+    matching set 1's first song item; when that item matches no such track, the next
+    set-1 item's earliest such hit stands in (my call: placement guarantees set 1's last
+    song has one)."""
+    last = placed.boundaries[0] - 1  # 0-based: no set-1 song sits past set 1's boundary
+    h = None
+    for item in (i for i in taper.items if i.set == "1"):
+        target = fuzzy_norm_title(item.title, aliases)
+        hits = [k for k, t in enumerate(tracks[:last + 1]) if _hit(t, target, aliases)]
+        if hits:
+            h = hits[0]
+            break
+    if h is None:
+        return False
+    return any(today_sets[k] != today_sets[k + 1]
+               and today_sets[k] != "encore" and today_sets[k + 1] != "encore"
+               for k in range(min(h, len(today_sets) - 1)))
+
+
 def decide_taper(tracks: list[Track], meta: dict, *, aliases: dict[str, str],
-                 today_sets: list[str]) -> TaperDecision:
+                 today_sets: list[str], today_reaches_llm: bool = False) -> TaperDecision:
+    """The one ownership decision (spec sections 2-4). `today_sets` is step 1's per-track
+    labels; `today_reaches_llm` is gather's own "today's path would reach the LLM branch"
+    predicate (canonical items, no jerrybase anchoring, step-1 coverage under
+    `align_coverage_threshold`), computed once in `compute_gather` and passed in. It
+    defaults to False, the off-path value, for callers with no gather (the probe, unit
+    tests)."""
     text, source = taper_text_for(meta)
     taper = read_taper_structure(text)
     if not taper.asserts:
@@ -781,6 +818,13 @@ def decide_taper(tracks: list[Track], meta: dict, *, aliases: dict[str, str],
     placed = place_taper_structure(tracks, taper, aliases=aliases, today_sets=today_sets)
     if isinstance(placed, str):
         return TaperDecision(None, taper, source, placed)
+    if _step1_break_before_set_1(tracks, taper, placed, aliases, today_sets):
+        # (llama-db reading of operator ruling (d), 2026-10-22; acceptance defect B4,
+        # stevekimockband-2000-03-31): the taper owns nothing when step 1 has a numbered
+        # break before the hit of the taper's set-1 first song. Lines before an explicit
+        # `Set 1` are header text to the reader (section 2), so an unrecognised leading set
+        # (`Happy Hour Set:`) would otherwise fold into set 1 and erase today's break there.
+        return TaperDecision(None, taper, source, "veto: step-1 break before set 1")
     if not taper.has_encore and "encore" in today_sets[placed.boundaries[-1]:]:
         # Operator ruling 2026-10-22 (Checkpoint A, (d)), keep today's encore: the taper
         # marks no encore, and today's step-1 structure has an encore boundary after the
@@ -788,4 +832,12 @@ def decide_taper(tracks: list[Track], meta: dict, *, aliases: dict[str, str],
         # turns ownership off, never a merge. (llama-db reading of operator ruling (d): an
         # `encore` label on any track after that break, `today_sets[boundaries[-1]:]`.)
         return TaperDecision(None, taper, source, "veto: today's encore")
+    if not taper.has_encore and today_reaches_llm:
+        # (llama-db reading of operator ruling (d), 2026-10-22; acceptance defect G): ruling
+        # (d)'s "keep the encore" read as "what today ships". When today's path would reach
+        # the LLM branch, step 1 is not what today ships, so its lack of an encore is
+        # evidence of nothing and today's encore is unknowable offline: with no recognised
+        # taper encore marker the taper owns nothing (johnkadlecik-2013-06-22,
+        # newridersofthepurplesage-2006-04-08, radiators-2010-06-05, jackiegreene-2011-02-12).
+        return TaperDecision(None, taper, source, "veto: no encore on today's LLM path")
     return TaperDecision(placed, taper, source, None)

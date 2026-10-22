@@ -4231,3 +4231,149 @@ def test_set_like_token_in_a_set_three_item():
     d = decide_taper(mk(["Bertha", "Sugaree", "Scarlet Begonias", "Truckin"]),
                      {"description": text}, aliases={}, today_sets=["1", "2", "3", "3"])
     assert d.placement is None and d.reason == "veto: set-like text"
+
+
+# ---------------------------------------------------------------------------------------
+# Fix round 2 (t9-fix2): two acceptance rule defects, ruled by llama-db 2026-10-22
+# ("llama-db reading of operator ruling (d), 2026-10-22"). Every literal below is copied
+# verbatim from `~/.llama/cache/md_<identifier>.json` (named in the comment); the `_TRACKS`
+# and `_STORED` lists are that show's stored `show.json` titles and set labels.
+# ---------------------------------------------------------------------------------------
+
+# B4 -> (b): the taper owns nothing when step 1 has a numbered break before the hit of the
+# taper's set-1 first song.
+
+# stevekimockband-2000-03-31: md_skb2000-03-31.akg.shnf.json (description)
+SKB_2000_03_31 = "Happy Hour Set:\nd1t01 - Cissy Strut -> \nd1t02 - Poonk\nd1t03 - Kissin' the Boo Boo\nd1t04 - Steel Guitar Rag\nd1t05 - Cowboy\nd1t06 - Rainbow's Cadillac\nd1t07 - Band Intros\n\nSet 1:\nd2t01 - Severe Tire Damage -> \nd2t02 - Mr. Broadway -> \nd2t03 - Severe Tire Damage\nd2t04 - Whack\nd2t05 - Soul Roach\nd2t06 - Rainbow's Cadillac\nd3t01 - Berm\n\nSet 2:\nd3t02 - Tongue 'n' Groove\nd3t03 - Jump Back\nd4t01 - Manic Depression -> \nd4t02 - Rollin' & Tumblin'\nd4t03 - Mr. Potato Head\nd4t04 - Golden Road\nd4t05 - Band Intros"
+SKB_2000_03_31_TRACKS = ['Cissy Strut ->', 'Poonk', "Kissin' the Boo Boo", 'Steel Guitar Rag', 'Cowboy', "Rainbow's Cadillac", 'Severe Tire Damage ->', 'Mr. Broadway ->', 'Severe Tire Damage', 'Whack', 'Soul Roach', "Rainbow's Cadillac", 'Berm', "Tongue 'n' Groove", 'Jump Back', 'Manic Depression ->', "Rollin' & Tumblin'", 'Mr. Potato Head', 'Golden Road']
+SKB_2000_03_31_STORED = ['1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '3', '3', '3', '3', '3', '3']
+# Step 1 (acceptance pre-screen acc-explain B4): breaks [6, 13], labels 1/2/3.
+SKB_2000_03_31_STEP1 = ["1"] * 6 + ["2"] * 7 + ["3"] * 6
+
+
+def test_step1_break_before_set_1_real_case_declines():
+    # `Happy Hour Set:` is no marker, so the reader drops its six songs as header text before
+    # `Set 1:`; owning would fold them into set 1 and erase step 1's break after track 6.
+    tracks = _mk_today(SKB_2000_03_31_TRACKS, SKB_2000_03_31_STEP1)
+    d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={},
+                     today_sets=SKB_2000_03_31_STEP1)
+    assert d.placement is None and d.reason == "veto: step-1 break before set 1"
+    # The same tape with no step-1 break before Severe Tire Damage: the taper owns it.
+    flat = ["1"] * 13 + ["2"] * 6
+    d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={}, today_sets=flat)
+    assert d.placement is not None and d.placement.boundaries == (13,)
+
+
+B4_TEXT = "Live at the Hall\nSet 1:\nBertha\nSugaree\nSet 2:\nScarlet Begonias\nTruckin\n"
+
+
+@pytest.mark.parametrize("names, today", [
+    # leading filler/intro tracks before set 1, no step-1 break there
+    (["Tuning", "Intro", "Bertha", "Sugaree", "Scarlet Begonias", "Truckin"],
+     ["1", "1", "1", "1", "2", "2"]),
+    # a pre-show song before set 1 (zero-2008-08-08's `Fool on the Hill`), no break there
+    (["Fool On The Hill", "Bertha", "Sugaree", "Scarlet Begonias", "Truckin"],
+     ["1", "1", "1", "2", "2"]),
+    # step 1's break AT the hit (between the hit and the next track), not before it
+    (["Bertha", "Sugaree", "Scarlet Begonias", "Truckin"], ["1", "2", "2", "2"]),
+    (["Fool On The Hill", "Bertha", "Sugaree", "Scarlet Begonias", "Truckin"],
+     ["1", "1", "2", "2", "2"]),
+])
+def test_no_step1_break_before_set_1_stays_owned(names, today):
+    d = decide_taper(_mk_today(names, today), {"description": B4_TEXT}, aliases={},
+                     today_sets=today)
+    assert d.placement is not None, d.reason
+    assert d.placement.sets[names.index("Bertha")] == "1"
+
+
+def test_step1_break_just_before_the_hit_declines():
+    # One track earlier than the boundary case above: the break falls before the hit.
+    names = ["Fool On The Hill", "Bertha", "Sugaree", "Scarlet Begonias", "Truckin"]
+    today = ["1", "2", "2", "3", "3"]
+    d = decide_taper(_mk_today(names, today), {"description": B4_TEXT}, aliases={},
+                     today_sets=today)
+    assert d.placement is None and d.reason == "veto: step-1 break before set 1"
+
+
+def test_an_encore_boundary_before_set_1_is_not_a_numbered_break():
+    text = "Set 1: Bertha, Sugaree\nSet 2: Scarlet Begonias\nEncore: Ripple\n"
+    names = ["Fool On The Hill", "Bertha", "Sugaree", "Scarlet Begonias", "Ripple"]
+    today = ["1", "encore", "encore", "encore", "encore"]
+    d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
+                     today_sets=today)
+    assert d.placement is not None and d.placement.boundaries == (3, 4), d.reason
+
+
+def test_set_1_first_item_with_no_hit_uses_the_next_set_1_item():
+    text = "Set 1: Zed, Bertha, Sugaree\nSet 2: Scarlet Begonias, Truckin\n"
+    names = ["Fool On The Hill", "Bertha", "Sugaree", "Scarlet Begonias", "Truckin"]
+    today = ["1", "2", "2", "3", "3"]
+    d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
+                     today_sets=today)
+    assert d.placement is None and d.reason == "veto: step-1 break before set 1"
+
+
+def test_a_set_1_song_heard_only_after_set_1_does_not_widen_the_window():
+    # Set 1's first item `Truckin` is on the tape only after set 1's placed last song, so
+    # Bertha stands in for the hit: no step-1 break precedes it.
+    text = "Set 1: Truckin, Bertha\nSet 2: Scarlet Begonias, Sugaree\n"
+    names = ["Bertha", "Scarlet Begonias", "Sugaree", "Truckin"]
+    today = ["1", "2", "2", "2"]
+    d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
+                     today_sets=today)
+    assert d.placement is not None and d.placement.boundaries == (1,), d.reason
+
+
+# G -> G1: with no recognised taper encore marker, on today's LLM path (gather's predicate,
+# `today_reaches_llm`), the taper owns nothing. The four named shows (pre3-moved class G);
+# step 1 has no encore on each (the pre-screen measured it), so the stand-in step 1 here is
+# the stored labels with the stored (LLM) encore relabelled into set 2.
+
+# johnkadlecik-2013-06-22: md_JKB2013-06-22.json (description, excerpt)
+JKB_2013_06_22 = "  Disc 1  Set 1 (58:28) \n  01 Let the Good Times Roll\t 7:13\n  02 Sister Shine\t\t 3:18\n  03 Seen Love\t\t\t 9:48\n  04 The Harder they Come\t10:46\n  05 What's Up (4 non Blondes)\t 5:54\n  06 Desert Trances Intro >\t 1:23\n  07 Desert Trances >\t\t 6:53\n  08 Desert Trances\t\t 4:12\n  09 Hey Pocky Way\t\t 8:57\n  10 Outro\t\t\t 0:04\n\n  Disc 2  Set 2 (31:53) \n  01 Nobody Told Me\t\t 9:18\n  02 Got to get better in \t 9:00\n     a little while\n  03 Russion Lullaby\t\t11:12\n  04 Its Alright -> Complcated\t15:00\n  05 The Wedge >\t 5:27\n  06 Fire on the Mountain ->\t11:56\n\n  Disc 3  Set 2 (46:35) \n  01 Dark Star->\t\t13:14\n  02 Page 43\t\t\t 5:48\n  03 Thats what love will \t 8:43\n     make you do\n  04 Everybody's Tryin'\t\t 8:45\n  05 John Rap > Band Intros\t 1:28\n  06 After Midnight\t\t 8:37\n\n  * Sit in guest - Paul Cates Keyboards"
+JKB_2013_06_22_TRACKS = ['Let the Good Times Roll', 'Sister Shine', 'Seen Love', 'The Harder they Come', "What's Up (4 non Blondes)", 'Desert Trances >', 'Desert Trances', 'Hey Pocky Way', 'Nobody Told Me', 'Got to get better in a little while', 'Russion Lullaby', 'Its Alright -> Complcated', 'The Wedge >', 'Fire on the Mountain ->', 'Dark Star', 'Page 43', 'Thats what love will make you do', "Everybody's Tryin'", 'After Midnight']
+JKB_2013_06_22_STORED = ['1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', 'encore']
+
+# newridersofthepurplesage-2006-04-08: md_nrps2006-04-08.flac16.json (description)
+NRPS_2006_04_08 = "Disc 1\n\nSet 1: \n1. Panama Red\n2. Sing Me a Rainbow\n3. Whatcha Gonna Do\n4. Contract\n5. I Don't Know You\n6. Garden of Eden\n7. Crooked Judge\n8. Sunday Suzie\n9. Louisiana Lady\n10.15 Days Under the Hood\n11.Dead Flowers\n\nSet 2: \n1. Lonesome L.A. Cowboy\n2. Sutter's Mill\n\nDisc 2\n\n3. Take a Letter Maria\n4. One Too Many Stories\n5. Henry\n6. Lochinvar\n7. Let It Bleed\n8. Death & Destruction\n9. Portland Woman\n10.Runnin' Back to You\n11.Rainy Day Women #12 & 35\n12.Truck Drivin' Man\n13.Ripple*"
+NRPS_2006_04_08_TRACKS = ['Panama Red', 'Sing Me a Rainbow', 'Whatcha Gonna Do', 'Contract', "I Don't Know You", 'Garden of Eden', 'Crooked Judge', 'Sunday Suzie', 'Louisiana Lady', '15 Days Under the Hood', 'Dead Flowers', 'Lonesome L.A. Cowboy', "Sutter's Mill", 'Take a Letter Maria', 'One Too Many Stories', 'Henry', 'Lochinvar', 'Let It Bleed', 'Death & Destruction', 'Portland Woman >', "Runnin' Back to You >", 'Rainy Day Women #12 & 35', "Truck Drivin' Man", 'Ripple * (w/Robert Hunter)']
+NRPS_2006_04_08_STORED = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', 'encore', 'encore']
+
+# radiators-2010-06-05: md_rad2010-06-05.2496.json (description)
+RAD_2010_06_05 = "Set One:\n01. tuning > Mackies intro>\n02. Barn Burner\n03. Back To Loveland\n04. Monkey Brain BBQ\n05. You Aint Goin' Nowhere\n06. Sunglasses On > Rockin Pneumonia And Boogie Woogie Flu\n07. Let The Red Wine Flow\n08. Chevrolet > Satisfaction > Chevrolet\n09. Rub It In\n10. The Last Time\n11. Gospel Plow >\n12. Devils Dream\n13. Kenny's outro\n\nSet Two:\n14. tuning > Kenny's intro > tuning \n15. Summertime\n16. Mackies Farm \n17. Alligator Wine > Guilded Splinters \n18. Ring Of Fire\n19. Soul Of A Man \n20. Further On Up the Road\n21. Sloop John B\n22. Not Fade Away > Mona > Bo Diddley > NFA\n23. Kenny, Todd & Mackie calls em' back\n24. Bring It On Home\n25. Smokin' Hole\n26. Train Kept A Rollin' / Kenny outro"
+RAD_2010_06_05_TRACKS = ['tuning > Mackies intro>', 'Barn Burner', 'Back To Loveland', 'Monkey Brain BBQ', "You Aint Goin' Nowhere", "Sunglasses On > Rockin' Pneumonia And Boogie Woogie Flu", 'Let The Red Wine Flow', 'Chevrolet > Satisfaction > Chevrolet', 'Rub It In', 'The Last Time', 'Gospel Plow >', 'Devils Dream', "tuning > Kenny's intro > tuning", 'Summertime', 'Mackies Farm', 'Alligator Wine > Guilded Splinters', 'Ring Of Fire', 'Soul Of A Man', 'Further On Up the Road', 'Sloop John B', 'Not Fade Away > Mona > Bo Diddley > NFA', "Kenny, Todd & Mackie calls em' back", 'Bring It On Home', "Smokin' Hole", "Train Kept A Rollin' / Kenny outro"]
+RAD_2010_06_05_STORED = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', 'encore', 'encore', 'encore', 'encore']
+
+# jackiegreene-2011-02-12: md_jgreene2011-02-12.J.Greene-2-12-11.json (description, excerpt)
+JG_2011_02_12 = "Set 1\n1.Don't Let the Devil Take your mind.\n2.I'm so Gone\n3.Farewell, so long, Goodbye\n4.A moment of Temporary Color-New Speedway Boogie\n5.Shaky Grounde\n6.Gone Wondering\n7.Heard it through the grapevine-Brick in the Wall-Shakedown Street.\n\nSet 2\n8. Funky Time\n9. Shaken\n10.So hard to find my way.\n11.Tell Me Mama.\n12.Medicine\n13.Uphill Mountain\n14.Hollywood-Beatles(cover)\n15.Mexican Girl\n16.Ball an Chain\n17.Sugaree.\n"
+JG_2011_02_12_TRACKS = ["Don't Let the Devil Take your mind", "I'm so Gone", 'Farewell, so long, Goodbye', 'A moment of Temporary Color-New Speedway Boogie', 'Shaky Grounde', "I don't know his songs that well but based on the set list i was given jackie threw in an extra song as there is nothing shown on the list in this slot?", 'Heard it through the grapevine-Brick in the Wall-Shakedown Street', 'Funky Time', 'Shaken', 'So hard to find my way', 'Tell Me Mama', 'Medicine', 'Uphill Mountain', 'Hollywood-Beatles(cover)', 'Mexican Girl', 'Ball an Chain', 'Gone Wondering-Sugaree']
+JG_2011_02_12_STORED = ['1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', 'encore']
+
+G1_CASES = {
+    "johnkadlecik-2013-06-22": (JKB_2013_06_22, JKB_2013_06_22_TRACKS, JKB_2013_06_22_STORED),
+    "newridersofthepurplesage-2006-04-08": (NRPS_2006_04_08, NRPS_2006_04_08_TRACKS,
+                                            NRPS_2006_04_08_STORED),
+    "radiators-2010-06-05": (RAD_2010_06_05, RAD_2010_06_05_TRACKS, RAD_2010_06_05_STORED),
+    "jackiegreene-2011-02-12": (JG_2011_02_12, JG_2011_02_12_TRACKS, JG_2011_02_12_STORED),
+}
+
+
+@pytest.mark.parametrize("slug", sorted(G1_CASES))
+def test_no_taper_encore_on_todays_llm_path_real_cases_decline(slug):
+    text, names, stored = G1_CASES[slug]
+    step1 = ["2" if s == "encore" else s for s in stored]
+    tracks = _mk_today(names, step1)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=step1,
+                     today_reaches_llm=True)
+    assert d.placement is None and d.reason == "veto: no encore on today's LLM path"
+    # Off that path the same text and tape are owned (the rule is what turns it off).
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=step1,
+                     today_reaches_llm=False)
+    assert d.placement is not None and not d.taper.has_encore, d.reason
+
+
+def test_taper_encore_marked_stays_owned_on_todays_llm_path():
+    text = "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin\nEncore: Ripple\n"
+    d = decide_taper(mk(TODAY_ENC_TRACKS), {"description": text}, aliases={},
+                     today_sets=["1"] * 5, today_reaches_llm=True)
+    assert d.placement is not None and d.placement.boundaries == (2, 4), d.reason
