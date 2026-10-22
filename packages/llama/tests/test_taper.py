@@ -4281,6 +4281,14 @@ def test_step1_break_before_set_1_real_case_declines():
     d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={},
                      today_sets=["1"] * 13 + ["2"] * 6, today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (13,)
+    # Step 1 [6, 13] breaks before BOTH hits, so it does not tell the latest hit from the
+    # earliest. A hypothetical step 1 breaking between them (after track 8) does: the earliest
+    # hit (track 7) sees no break before it, the latest (track 9) does.
+    between = ["1"] * 8 + ["2"] * 5 + ["3"] * 6
+    d = decide_taper(_mk_today(SKB_2000_03_31_TRACKS, between),
+                     {"description": SKB_2000_03_31}, aliases={}, today_sets=between,
+                     today_reaches_llm=False)
+    assert d.placement is None and d.reason == "veto: step-1 break before set 1"
 
 
 B4_TEXT = "Live at the Hall\nSet 1:\nBertha\nSugaree\nSet 2:\nScarlet Begonias\nTruckin\n"
