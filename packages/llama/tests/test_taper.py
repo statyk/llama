@@ -4089,7 +4089,7 @@ def test_set_like_tokens_in_a_numbered_set_item(line):
     "The Sun Also Sets",           # no set token
     "Set The Controls For The Heart of The Sun",
     "surprise vocal - this was not on the set list",
-    "DJ Set:", "Set", "CD 2", "Sunset 1", "Reset 2", "Set In Stone", "Sets 1 and 2",
+    "DJ Set:", "CD 2", "Sunset 1", "Reset 2", "Set In Stone", "Sets 1 and 2",
 ])
 def test_set_like_negatives(line):
     tt = read_taper_structure(f"Set 1:\nBertha\nLet It Grow\nSet 2:\nScarlet Begonias\n{line}\n"
@@ -4119,3 +4119,99 @@ def test_encore_like_veto_reason_wins_over_set_like():
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin"])
     d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 4)
     assert d.placement is None and d.reason == "veto: encore-like text"
+
+
+# Fix round 1 (cpa3-fix1), finding 1: an ordinal header before a numbered line is cut by
+# the inline split into the items `Third` and `Set`; a bare `Set` item is set-like (orchestrator
+# ruling R10). darkstarorchestra-2012-05-19: md_DSO2012-05-19.json (description). Its
+# `First` / `Set` items open set 1, so the show flips to not owned: accepted own-less.
+DSO_2012_05_19 = (
+    'First Set\n'
+    '1- Hell In A Bucket\n'
+    '2- Bertha\n'
+    "3- Walkin' Blues\n"
+    '4- Ramble On Rose\n'
+    '5- Beat It On Down The Line\n'
+    '6- Big Railroad Blues\n'
+    "7- Just Like Tom Thumb's Blue\n"
+    '8- Let It Grow\n'
+    'Second Set\n'
+    '9- Sugar Magnolia\n'
+    '10-Foolish Heart\n'
+    "11-Playin' In The Band\n"
+    '12-Terrapin Station\n'
+    "13-Playin' In The Band Jam\n"
+    '14-Drums-Space Jam\n'
+    '15-The Wheel\n'
+    '16-Black Peter\n'
+    '17-Around & Around\n'
+    '18-Sunshine Daydream\n'
+    'Encore\n'
+    '19-Box Of Rain\n'
+    'Bonus Cuts\n'
+    '20-Saint of Circumstance\n'
+    '21-China Cat\n'
+    '22-I Know You Rider\n'
+    '23-Satisfaction\n'
+    '\n'
+    'Original show was 09/12/1991\n'
+    'Madison Square Garden, NYC'
+)
+DSO_2012_05_19_TRACKS = ['Hell In A Bucket', 'Bertha', "Walkin' Blues", 'Ramble On Rose', 'Beat It On Down The Line', 'Big Railroad Blues', "Just Like Tom Thumb's Blues", 'Let It Grow', 'Sugar Magnolia', 'Follish Heart', "Playin' In The Band", 'Terrapin Station', "Playin' In The Band Jam", 'Drums-Space Jam', 'The Wheel', 'Black Peter', 'Around & Around', 'Sunshine Daydream', 'Box Of Rain', 'Gotta Be Heaven', 'China Cat', 'I Know You Rider', 'Satisfaction']
+DSO_2012_05_19_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', 'encore', 'encore', 'encore', 'encore', 'encore']
+
+THIRD_SET_SPLIT = ("Set One:\n1- Bertha\n2- Let It Grow\nSet Two:\n1- Scarlet Begonias\n"
+                   "2- Fire On The Mountain\nThird Set\n1- Truckin\n2- Morning Dew")
+
+
+def test_split_ordinal_header_is_set_like():
+    # The reader leaves `Third Set` as the set-2 items `Third` and `Set`; without the veto set
+    # 3 would merge into set 2 (owned `1 1 2 2 2 2`).
+    tt = read_taper_structure(THIRD_SET_SPLIT)
+    assert tt.asserts is True and ("Set", "2") in [(i.title, i.set) for i in tt.items]
+    assert tt.set_like is True
+    tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Fire On The Mountain", "Truckin",
+                 "Morning Dew"])
+    d = decide_taper(tracks, {"description": THIRD_SET_SPLIT}, aliases={},
+                     today_sets=["1", "1", "2", "2", "3", "3"])
+    assert d.placement is None and d.reason == "veto: set-like text"
+
+
+@pytest.mark.parametrize("line", ["Set", "- Set -", "[Set]", "*set*"])
+def test_bare_set_item_is_set_like(line):
+    tt = read_taper_structure(f"Set 1:\nBertha\nSet 2:\nScarlet Begonias\n{line}\nTruckin\n")
+    assert tt.asserts is True and tt.set_like is True, line
+
+
+def test_bare_set_item_real_case_is_not_owned():
+    tt = read_taper_structure(DSO_2012_05_19)
+    assert tt.asserts is True and label(tt, "Set") == "1" and tt.set_like is True
+    d = decide_taper(_mk_today(DSO_2012_05_19_TRACKS, DSO_2012_05_19_TODAY),
+                     {"description": DSO_2012_05_19}, aliases=GD_SHORTHAND,
+                     today_sets=DSO_2012_05_19_TODAY)
+    assert d.placement is None and d.reason == "veto: set-like text"
+
+
+def test_set_like_checks_every_token_in_an_item():
+    # Finding 2, M1: the item's first token is an exempt continuation of its own set; the
+    # second names another set.
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\nSet 2 con't from set one\n"
+                              "Truckin\n")
+    assert tt.asserts is True and tt.set_like is True
+
+
+def test_continuation_must_follow_the_token_directly():
+    # Finding 2, M2: a `cont.` later in the item is no continuation of the token.
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\n"
+                              "Set 2 starts here (cont. after Drums)\nTruckin\n")
+    assert tt.asserts is True and tt.set_like is True
+
+
+def test_set_like_token_in_a_set_three_item():
+    # Finding 2, M6.
+    text = "Set 1:\nBertha\nSet 2:\nSugaree\nSet 3:\nScarlet Begonias\nend of set two\nTruckin\n"
+    tt = read_taper_structure(text)
+    assert tt.asserts is True and label(tt, "end of set two") == "3" and tt.set_like is True
+    d = decide_taper(mk(["Bertha", "Sugaree", "Scarlet Begonias", "Truckin"]),
+                     {"description": text}, aliases={}, today_sets=["1", "2", "3", "3"])
+    assert d.placement is None and d.reason == "veto: set-like text"

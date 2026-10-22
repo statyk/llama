@@ -67,13 +67,17 @@ matched on song lines and on the song text after a marker, never on the marker i
   does not start.
 
 Set-like text sets `TaperText.set_like`, the input to the own-less set-like veto (llama-db
-ruling, Checkpoint A2, 2026-10-22): an item of a numbered set (`1`/`2`/`3`, never the
-encore, whose items are the notes after the encore songs) holding a word-bounded numbered-set
+ruling, Checkpoint A2, 2026-10-22): an item of a numbered set (`1`/`2`/`3`; the encore's
+items, its songs and any notes after them, are skipped) holding a word-bounded numbered-set
 token, any spelling `_SET_TOKEN` reads (`Set 1.5:`, `- end of set one`, `Cardinals Set 1 CD 2`,
 `set one-(1:05:59)`), means the taper owns nothing: `decide_taper` declines with
-`veto: set-like text`. A continuation of the item's own set (`Set 2 con't` inside set 2) is
-not set-like. Recognised markers are not items, so they never count, and nothing here makes a
-marker. Like the encore-like veto, it only makes the taper own less.
+`veto: set-like text`. So does an item that is exactly `Set` once decoration is stripped: the
+inline split cuts an ordinal header before a numbered line (`Third Set` then `1- Truckin`)
+into the items `Third` and `Set` (orchestrator ruling R10, Checkpoint A3, 2026-10-22).
+A continuation of the item's own set (`Set 2 con't` inside set 2) is not set-like
+(orchestrator ruling R9, 2026-10-22, pending llama-db confirmation). Recognised markers are
+not items, so they never count, and nothing here makes a marker. Like the encore-like veto,
+it only makes the taper own less.
 
 Song items get reader-local cleaning `parse_setlist` does not do (Checkpoint A, R-ITEM; see
 `_song_titles`): at most ONE leading prefix is stripped from a title (`_TRACK_PREFIX`, a
@@ -293,8 +297,11 @@ _ITEM_DECOR = "-–—*~=[]() \t"
 # too, found INSIDE an item of a numbered set (`Set 1.5:`, `- end of set one`,
 # `Cardinals Set 1 CD 2`). It never makes a marker.
 _SET_LIKE = re.compile(rf"\b{_SET_TOKEN}", re.I)
-# A continuation of the item's own set (`Set 2 con't` inside set 2): not set-like.
-_CONT_AFTER = re.compile(r"^\s*[,(]?\s*con(?:'|’)?t", re.I)
+# A continuation of the item's own set (`Set 2 con't` inside set 2): not set-like
+# (orchestrator ruling R9, 2026-10-22, pending llama-db confirmation). Used with `.match`
+# on the text right after the token, so it anchors there; no `^`, so that a `.search` would
+# not be an equivalent mutant (fix round 1, finding 2).
+_CONT_AFTER = re.compile(r"\s*[,(]?\s*con(?:'|’)?t", re.I)
 
 
 _HELD = re.compile(r"^\x00\d+\x00$")
@@ -540,11 +547,15 @@ def _numbered(s: _Scan, number: int, cont: bool, and_encore: bool) -> None:
 
 def _set_like(items: tuple[TaperItem, ...]) -> bool:
     """An item of a numbered set holds a set token (`_SET_LIKE`) that is not a continuation
-    of that same set. Encore items are skipped: they are the notes after the encore songs
-    (`Trey Anastasio plays entire 2nd set and encore`)."""
+    of that same set, or is exactly `Set` once decoration is stripped (the second half of an
+    ordinal header the inline split cut: `Third` / `Set`). Every token in an item is checked.
+    The encore's items (its songs and any notes after them, `Trey Anastasio plays entire 2nd
+    set and encore`) are skipped."""
     for item in items:
         if item.set == "encore":
             continue
+        if item.title.strip(_ITEM_DECOR).lower() == "set":
+            return True
         for m in _SET_LIKE.finditer(item.title):
             token = (m.group("tok") or m.group("ord") or m.group("ordn")).lower()
             number = _TOKEN_NUM.get(token) or int(token)

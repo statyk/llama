@@ -310,9 +310,13 @@ the taper's structure keeps it); a `Disc 2 (Set 2)` show; a notes-only show.
     song line (after track-prefix stripping) starting `E.`, `E)`, `E` plus a digit, or `(E)`.
   An unrecognised encore must never become "no encore": that would fold an encore the taper
   wrote into the last set. On the same principle, set-like text the reader does not recognise
-  (a numbered-set token inside an item of a numbered set, skipping the notes after the encore,
-  and not a continuation of the item's own set such as `Set 2 con't`) means the taper owns
-  nothing: `veto: set-like text` (llama-db ruling, Checkpoint A2, 2026-10-22).
+  (a numbered-set token inside an item of a numbered set, skipping the encore's items) means
+  the taper owns nothing: `veto: set-like text` (llama-db ruling, Checkpoint A2, 2026-10-22).
+  An item that is exactly `Set` once decoration is stripped counts too: the inline split cuts
+  `Third Set` before a `1-` numbered line into `Third` and `Set` (orchestrator ruling R10,
+  Checkpoint A3, 2026-10-22). A continuation of the item's own set, such as `Set 2 con't`
+  inside set 2, is not set-like (orchestrator ruling R9, 2026-10-22, pending llama-db
+  confirmation).
 - Operator ruling 2026-10-22 (Checkpoint A): **keep the encore.** When the taper's text has no
   recognised encore marker and today's step-1 structure has an encore boundary after the
   taper's last placed numbered break, the taper owns nothing (the show is computed as today).
