@@ -4,6 +4,8 @@ Spec: `docs/superpowers/specs/2026-10-22-taper-set-markers-design.md`, Measureme
 Plan: Task 8. Orchestrator ruling R14 added mutants (q) to (y) and the Step A killing tests.
 Orchestrator ruling R16 (fix round 1, after review t8-rev) added mutants o2 and o3, the
 header-side pin for (o), and the corrections below.
+Fix round 2 (t9-fix2) added mutants B4a to B4f and G1a to G1g for llama-db's B4 and G1
+rulings: 13 more, all caught (see "Fix round 2" at the end).
 
 **Result: 32 mutants, 32 caught, 0 survived, 0 hangs.** That is 30 in the first run, plus
 o2 and o3 in fix round 1, where (o) was also re-run. Every mutant turned its predicted test
@@ -199,3 +201,67 @@ glued-token test.
 
 S1 was predicted as "most of test_taper.py red". It went wider, because every `compute_gather`
 call reads the taper text. That is consistent with a sentinel and proves the copy is what runs.
+
+## Fix round 2 (t9-fix2): B4 (b) and G1
+
+llama-db's 2026-10-22 rulings (readings of operator ruling (d)) added two vetoes to
+`decide_taper`: `veto: step-1 break before set 1` (B4 (b), `_step1_break_before_set_1`) and
+`veto: no encore on today's LLM path` (G1, the `today_reaches_llm` argument, computed once in
+`compute_gather` as `today_llm`).
+
+**Setup.** The base was `git archive 26b4f4e`. The instrument was the same as before:
+- each mutant ran in its own fresh copy, from an empty cwd, under `PYTHONPATH` shadowing;
+- each run had its own `PYTHONPYCACHEPREFIX` and a 600 s timeout;
+- imports were asserted to come from the copy;
+- each mutant was checked to be a one-line diff;
+- predictions were logged before the run (`t9-fix2.log`).
+
+The same six test files ran, 795 tests in all.
+
+**Result: 13 mutants, 13 caught, 0 survived, 0 hangs.** Every core-predicted test went red.
+
+| run | red |
+|---|---|
+| S0 (unmutated) | 0 / 795 |
+| S1 sentinel (`raise` at the top of `_step1_break_before_set_1`, reached after every placement) | 91 / 795: taper 49, gather 36, replay 3, taper_probe 2, reapply 1 |
+| S2 sentinel (`raise` in place of G1's `return`) | exactly the 6 tests predicted for G1a |
+
+All paths are under `packages/llama/src/llama/`.
+
+| id | mutation | file:line | predicted (core) | observed red | verdict |
+|---|---|---|---|---|---|
+| B4a | rule removed: `if _step1_break_before_set_1(...):` → `if False:` | taper.py:821 | `test_step1_break_before_set_1_real_case_declines`, `test_step1_break_just_before_the_hit_declines`, `test_set_1_first_item_with_no_hit_uses_the_next_set_1_item` | exactly those 3 | CAUGHT-AS-PREDICTED |
+| B4b | a break AT the hit counts: `range(min(h, ...))` → `range(min(h + 1, ...))` | taper.py:793 | `test_no_step1_break_before_set_1_stays_owned[names2-today2]`, `[names3-today3]` | those 2, plus `test_todays_encore_rule_uses_the_last_of_three_sets` (declared), and `test_a_set_1_song_heard_only_after_set_1_does_not_widen_the_window`, `test_the_hit_is_the_earliest_match_of_set_1s_first_song`, gather `test_owned_low_confidence_needs_no_anchoring` (not declared) | CAUGHT (+1 declared, +3 undeclared, read) |
+| B4c | an encore boundary counts as a numbered break: `and today_sets[k] != "encore" and today_sets[k + 1] != "encore"` → `and True` | taper.py:792 | `test_an_encore_boundary_before_set_1_is_not_a_numbered_break` | exactly that | CAUGHT-AS-PREDICTED |
+| B4d | the hit window not restricted to set 1: `enumerate(tracks[:last + 1])` → `enumerate(tracks)` | taper.py:785 | `test_a_set_1_song_heard_only_after_set_1_does_not_widen_the_window` | exactly that | CAUGHT-AS-PREDICTED |
+| B4e | no fallback to the next set-1 item: `for item in (i for i in taper.items if i.set == "1"):` → `for item in [...][:1]:` | taper.py:783 | `test_set_1_first_item_with_no_hit_uses_the_next_set_1_item` | exactly that | CAUGHT-AS-PREDICTED |
+| B4f | the latest hit instead of the earliest: `h = hits[0]` → `h = hits[-1]` | taper.py:787 | `test_the_hit_is_the_earliest_match_of_set_1s_first_song` | exactly that | CAUGHT-AS-PREDICTED |
+| G1a | rule removed: `if not taper.has_encore and today_reaches_llm:` → `if False:` | taper.py:835 | `test_no_taper_encore_on_todays_llm_path_real_cases_decline[*]` (4), gather `test_no_taper_encore_on_todays_llm_path_is_exactly_today`, probe `test_library_passes_the_stored_proxy_for_g1` | exactly those 6 | CAUGHT-AS-PREDICTED |
+| G1b | `has_encore` conjunct dropped: → `if today_reaches_llm:` | taper.py:835 | `test_taper_encore_marked_stays_owned_on_todays_llm_path` (taper and gather) | those 2, plus gather `test_owned_low_confidence_uses_reader_coverage`, `test_taper_owned_skips_align_structure`, `test_taper_owned_never_calls_the_align_provider` (all declared) | CAUGHT (+3 declared, read) |
+| G1c | `today_reaches_llm` conjunct dropped: → `if not taper.has_encore:` | taper.py:835 | the real cases' off-path half [*] (4), gather `test_g1_needs_canonical_items`, `test_g1_needs_no_anchoring`, `test_g1_needs_weak_step_one`; declared wide | 36: taper 22, gather 10, replay 2, reapply 1, taper_probe 1, every core test among them | CAUGHT (declared wide, read) |
+| G1d | gather passes no predicate: `today_reaches_llm=today_llm` → `today_reaches_llm=False` | stages/gather.py:1388 | gather `test_no_taper_encore_on_todays_llm_path_is_exactly_today` | exactly that | CAUGHT-AS-PREDICTED |
+| G1e | G1's argument drops the canonical-items conjunct: → `anchored is None and result.coverage < threshold` | stages/gather.py:1388 | gather `test_g1_needs_canonical_items` | that, plus `test_owned_low_confidence_needs_canonical_items` (declared) | CAUGHT (+1 declared, read) |
+| G1f | G1's argument drops the anchoring conjunct: → `bool(canonical.items) and result.coverage < threshold` | stages/gather.py:1388 | gather `test_g1_needs_no_anchoring` | that, plus `test_owned_low_confidence_needs_no_anchoring` (declared) | CAUGHT (+1 declared, read) |
+| G1g | G1's argument drops the coverage conjunct: → `bool(canonical.items) and anchored is None` | stages/gather.py:1388 | gather `test_g1_needs_weak_step_one` | that, plus gather `test_owned_low_confidence_needs_weak_step_one`, `test_encore_closer_maps_to_the_taper_encore`, `test_notes_used_when_description_has_no_marker`, `test_owned_show_drops_merge_conflicts_not_owned_keeps_them` (declared), and replay `test_stored_llm_taper_owned_is_replayable`, `test_record_carries_taper_fields`, reapply `test_reapply_processes_a_taper_owned_stored_llm_show` (not declared) | CAUGHT (+4 declared, +3 undeclared, read) |
+
+**Extra reds, read.** Each one fails because of the mutated rule's own behaviour:
+- **B4b:** each undeclared red has a step-1 break directly after the hit, which B4b now counts.
+  - `test_a_set_1_song_heard_only_after_set_1_does_not_widen_the_window` and
+    `test_the_hit_is_the_earliest_match_of_set_1s_first_song`: the hit is track 1, and step 1
+    breaks after it.
+  - gather `test_owned_low_confidence_needs_no_anchoring`: set 1's first two items match
+    nothing, so `Charlie` stands in, and jerrybase's anchored break falls right after it.
+- **G1e, G1f:** the matching `test_owned_low_confidence_needs_*` test is a no-encore taper on
+  the same reduced path, so G1 now fires on it.
+- **G1g:** each extra is a taper-owned, no-encore show with canonical items, no anchoring and
+  strong step-1 coverage, which is now declined. In replay and reapply that is the `_PLACING`
+  text (`Set 1:` / `Set 2:`, no encore).
+- **G1c:** the extras are every owned no-encore test, as declared. Examples:
+  `test_disc_and_set_real_cases_own[corblund-2004-11-04]`, `[soulive-2001-12-15]`, and
+  `test_r_item_real_cases_own_once_their_items_are_clean[greyboyallstars-2012-04-20]`.
+
+**Observation.** The owned low-confidence flag now reads the shared `today_llm` predicate
+(`stages/gather.py:1386`), and so does the not-owned LLM branch. Mutants y1 to y3 above mutated
+the flag's former inline copy of that predicate (`stages/gather.py:1397`). They were not re-run
+against the shared form, so this round does not measure a mutant of the shared predicate. Such
+a mutant would also move the LLM branch. G1e to G1g pin G1's use of each conjunct separately.
