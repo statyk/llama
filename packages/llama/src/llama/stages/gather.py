@@ -1402,7 +1402,9 @@ def compute_gather(
     sel_city = _stripped(sel.coverage) if sel is not None else None
     vote_venue, vote_city = candidate.venue, candidate.city
     venue, city, venue_source = vote_venue, vote_city, "item"
-    tie = venue_tie_break(candidate, sel)       # slice B: a tied vote ships the selected string
+    # slice B: a tied vote ships the selected string; an operator venue override
+    # chooses the venue itself, so it takes no tie-break (and no tie-break city)
+    tie = venue_tie_break(candidate, sel) if overrides.venue is None else None
     if event is not None:
         if not (venue and venue.strip()):
             # Enrichment, byte-identical to before except 1a: a blank

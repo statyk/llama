@@ -3135,6 +3135,27 @@ def test_1a_tie_keeps_the_vote_when_the_cities_conflict(tmp_path, monkeypatch): 
     assert "venue mismatch: archive 'Penn's Landing' vs jerrybase ''" in res.show.review_flags
 
 
+def test_an_operator_venue_override_takes_no_tie_break_city(tmp_path):
+    # jackiegreene-2010-05-29 shape: tied vote, the selected recording's city differs only in case.
+    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                 ("gd73-other", "Frogs Hall", "Angels Camp, California"),
+                 (IDENT, "Frogs Hall Theatre", "angels camp, california"))
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.overrides, Overrides(venue="Operator Venue"))
+    res = compute_gather(sws, StubIA(), None, cand, IDENT, jerrybase_enabled=False)
+    assert (res.show.venue, res.show.city, res.show.venue_source) == (
+        "Operator Venue", "Angels Camp, California", "override")
+
+
+def test_a_city_only_override_keeps_the_tie_broken_venue(tmp_path):
+    cand = _cand("GratefulDead/1973-06-10", "GratefulDead", "1973-06-10",
+                 ("gd73-other", "R.F.K. Stadium", "Washington, DC"), (IDENT, "RFK Stadium", "Washington, DC"))
+    sws = ShowWorkspace(tmp_path / "s")
+    write_artifact(sws.overrides, Overrides(city="Elsewhere"))
+    res = compute_gather(sws, StubIA(), None, cand, IDENT, jerrybase_enabled=False)
+    assert (res.show.venue, res.show.city) == ("RFK Stadium", "Elsewhere")
+
+
 def test_venue_tie_break_unit_cases():
     recs = [RecordingSummary(identifier="a", venue="X Hall", coverage="Austin, TX"),
             RecordingSummary(identifier="b", venue="X Hall ", coverage=None)]
