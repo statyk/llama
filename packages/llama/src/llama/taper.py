@@ -589,6 +589,13 @@ def _counts(track: Track) -> bool:
     return track.title_source != "unresolved" and track.title_source not in TAUTOLOGICAL_TITLE_SOURCES
 
 
+def _comma_parts(title: str) -> list[str]:
+    """The comma parts of an item the comma rule kept whole, else []."""
+    if "," not in title:
+        return []
+    return [p.strip() for p in title.split(",") if p.strip()]
+
+
 def _place_boundary(tracks: list[Track], left: list[TaperItem], right: list[TaperItem],
                     aliases: dict[str, str], today_sets: list[str]
                     ) -> tuple[int, int, int] | str:
@@ -597,8 +604,11 @@ def _place_boundary(tracks: list[Track], left: list[TaperItem], right: list[Tape
         return fuzzy_norm_title(title, aliases)
 
     a_norm, b_norm = norm(left[-1].title), norm(right[0].title)
-    left_norms = [norm(i.title) for i in left]
-    right_norms = [norm(i.title) for i in right]
+    # A comma in an item is one the comma rule kept (`_song_titles`); `_split_songs` splits
+    # every other. The item may still be two songs (`Native End, Open E`), so its comma
+    # parts count as songs of that side too (fix round 1).
+    left_norms = [norm(t) for i in left for t in (i.title, *_comma_parts(i.title))]
+    right_norms = [norm(t) for i in right for t in (i.title, *_comma_parts(i.title))]
 
     def hit(track: Track, target: str) -> bool:
         if not _counts(track):
@@ -616,9 +626,21 @@ def _place_boundary(tracks: list[Track], left: list[TaperItem], right: list[Tape
     a, b = a_hits[0], b_hits[0]
     if a >= b:
         return "songs out of order"
-    if any(fuzzy_title_eq(a_norm, n) for n in right_norms):
+    # A boundary item's later comma part naming a song on the tape (another track, or a
+    # component of its own merged track) means the item may be two songs, and which one
+    # sits at the boundary is unknown: decline rather than guess.
+    for item, pos in ((left[-1], a), (right[0], b)):
+        for part in _comma_parts(item.title)[1:]:
+            p_norm = norm(part)
+            comps = title_components(tracks[pos].title, aliases)
+            if (any(hit(t, p_norm) for k, t in enumerate(tracks) if k != pos)
+                    or (len(comps) > 1 and any(fuzzy_title_eq(c, p_norm) for c in comps))):
+                return f"comma-joined {item.title!r} names a second song on the tape"
+    a_all = [a_norm, *(norm(t) for t in _comma_parts(left[-1].title))]
+    b_all = [b_norm, *(norm(t) for t in _comma_parts(right[0].title))]
+    if any(fuzzy_title_eq(x, n) for x in a_all for n in right_norms):
         return f"{left[-1].title!r} also occurs on the other side"
-    if any(fuzzy_title_eq(b_norm, n) for n in left_norms):
+    if any(fuzzy_title_eq(x, n) for x in b_all for n in left_norms):
         return f"{right[0].title!r} also occurs on the other side"
     for pos in (a, b):
         comps = title_components(tracks[pos].title, aliases)

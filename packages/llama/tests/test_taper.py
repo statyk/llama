@@ -3645,3 +3645,87 @@ def test_todays_encore_rule_uses_the_last_of_three_sets():
     d = decide_taper(tracks, {"description": text}, aliases={},
                      today_sets=["1", "2", "2", "3", "encore"])
     assert d.placement is None and d.reason == "veto: today's encore"
+
+
+# Fix round 1 (t12-fix1), finding 1: a numbered line the comma rule keeps whole may hold two
+# real songs (`05 - Native End, Open E`). `fuzzy_title_eq` tolerates a dropped tail, so the
+# merged item matches its first song alone and would hide its second song from placement's
+# checks. Its comma parts now count for the "other side" and merged-span checks, and a
+# boundary item whose later comma part names a song on the tape declines.
+COMMA_MERGE_TEXT = ("Set 1\n1. Bertha\n2. Sugaree\n3. Jack Straw, Ripple\n"
+                    "Set 2\n4. Scarlet Begonias\n5. Fire on the Mountain\n")
+
+
+def test_comma_merged_boundary_item_never_moves_a_break():
+    tt = read_taper_structure(COMMA_MERGE_TEXT)
+    assert label(tt, "Jack Straw, Ripple") == "1"
+    # Ripple (the taper's set 1) shares a track with Scarlet Begonias (set 2): owning would
+    # label Ripple set 2, a moved break.
+    tracks = mk(["Bertha", "Sugaree", "Jack Straw", "Ripple > Scarlet Begonias",
+                 "Fire on the Mountain"])
+    d = decide_taper(tracks, {"description": COMMA_MERGE_TEXT}, aliases={}, today_sets=["1"] * 5)
+    assert d.placement is None
+    assert d.reason.startswith("unplaced: 1|2"), d.reason
+
+
+def test_comma_merged_boundary_item_on_separate_tracks_declines():
+    # With Ripple on its own track the taper's break does fall after Ripple, but which comma
+    # part closes the set is exactly the one-title question the comma rule cannot answer
+    # (CLAUDE.md's A2: no clean discriminator), so the taper owns nothing rather than guess.
+    tracks = mk(["Bertha", "Sugaree", "Jack Straw", "Ripple", "Scarlet Begonias",
+                 "Fire on the Mountain"])
+    d = decide_taper(tracks, {"description": COMMA_MERGE_TEXT}, aliases={}, today_sets=["1"] * 6)
+    assert d.placement is None
+    assert "comma" in d.reason, d.reason
+
+
+def test_comma_part_counts_for_the_other_side_check():
+    # A comma part on set 1's side names set 2's first song: a title repeated across the
+    # boundary, so unplaced (it was hidden inside the merged item before).
+    text = ("Set 1\n1. Bertha\n2. Jam, Drums\n3. Sugaree\nSet 2\n4. Drums\n5. Ripple\n")
+    tracks = mk(["Bertha", "Jam", "Sugaree", "Drums", "Ripple"])
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5)
+    assert d.placement is None
+    assert d.reason == "unplaced: 1|2 'Drums' also occurs on the other side", d.reason
+
+
+# jackiegreene-2010-12-31: md_jg2010-12-31-Schoepsmk4.json (description)
+JG_2010_12_31 = (
+    'Set 1\n'
+    '\n'
+    "01. Don't let the Devil take your mind\n"
+    "02. I'm so Gone\n"
+    '03. Medicine\n'
+    '04. A Moment of Temporary Color\n'
+    '05. New Speedway Boogie\n'
+    '06. Shaky Ground\n'
+    "07. When You're Walking Away\n"
+    "08. I'm Tore Down\n"
+    '09. Farewll, solong, Goodby\n'
+    '\n'
+    'Set 2\n'
+    '\n'
+    '01. Mexican Girl\n'
+    '02. Shaken\n'
+    '03. So Hard to Find My Way\n'
+    '04. Auld Lang Syne\n'
+    '05. Tell Mama\n'
+    '06. Uphill Mountain\n'
+    '07. Count Down to New Years > After Midnight\n'
+    '08. Hollywood >\n'
+    '09. Tomorrow Never Knows > Taxman > Tomorrow Never Knows \n'
+    '10. Scarlet Bagonias\n'
+    '11. Gone Wandering\n'
+    '12. Animal\n'
+    '13. Ball and Chain'
+)
+JG_2010_12_31_TRACKS = ["Don't let the Devil take your mind", "I'm so Gone", 'Medicine', 'A Moment of Temporary Color', 'New Speedway Boogie', 'Shaky Ground', "When You're Walking Away", "I'm Tore Down", 'Farewll, solong, Goodby', 'Mexican Girl', 'Shaken', 'So Hard to Find My Way', 'Auld Lang Syne', 'Tell Mama', 'Uphill Mountain', 'Count Down to New Years > After Midnight', 'Hollywood >', 'Tomorrow Never Knows > Taxman > Tomorrow Never Knows', 'Scarlet Bagonias', 'Gone Wandering', 'Animal', 'Ball and Chain']
+JG_2010_12_31_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2']
+
+
+def test_single_title_comma_boundary_item_still_owns():
+    # `09. Farewll, solong, Goodby` is one real title on one track, closing set 1.
+    tracks = _mk_today(JG_2010_12_31_TRACKS, JG_2010_12_31_TODAY)
+    d = decide_taper(tracks, {"description": JG_2010_12_31}, aliases={},
+                     today_sets=JG_2010_12_31_TODAY)
+    assert d.placement is not None and d.placement.boundaries == (9,), d.reason
