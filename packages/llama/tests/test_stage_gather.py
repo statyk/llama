@@ -3183,8 +3183,382 @@ def test_venue_tie_break_unit_cases():
 
 
 # --- Held-backlog piece 2, Task 4: the taper's markers own the structure -----
+# (spec docs/superpowers/specs/2026-10-22-taper-set-markers-design.md, sections
+# 2, 4 and 6). Every "exactly today" pin compares against the ORACLE: the same
+# candidate gathered with `llama.taper.decide_taper` patched to a not-owned
+# decision. Ruling R2: the comparison excludes the `taper` field on both sides
+# (`_sans_taper`), since the oracle replaces the decision object by
+# construction; every other field, `step1_alignment` and `taper_owned`
+# included, must be equal.
 
-from llama.models import StructureInfo
+import llama.taper as taper_mod
+from llama.models import SetlistItem, StructureInfo
+from llama.structure import align
+
+TP_IDENT = "tb1999-07-04.sbd.flac16"
+TP_SONGS = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf"]
+TP_DESC = "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot\nEncore:\nGolf"
+
+
+def _tp_md(titles, description="", *, notes=None, lengths=None, creator="Taper Band"):
+    """A one-recording item: lossless originals plus tagged mp3 derivatives."""
+    files = []
+    for i, title in enumerate(titles, 1):
+        stem = f"tb1999-07-04t{i:02d}"
+        files.append({"name": f"{stem}.flac", "source": "original", "format": "Flac",
+                      "md5": f"{i:032x}"})
+        files.append({"name": f"{stem}.mp3", "source": "derivative", "original": f"{stem}.flac",
+                      "format": "VBR MP3", "length": (lengths or {}).get(i, "05:00"),
+                      "md5": f"{i + 100:032x}", "title": title})
+    meta = {"identifier": TP_IDENT, "creator": creator, "date": "1999-07-04",
+            "description": description}
+    if notes is not None:
+        meta["notes"] = notes
+    return {"metadata": meta, "files": files, "reviews": []}
+
+
+def _tp_candidate():
+    return Candidate(performance_id="TaperBand/1999-07-04", collection="TaperBand",
+                     date="1999-07-04", venue="The Hall", city="Somewhere, ST",
+                     recordings=[RecordingSummary(identifier=TP_IDENT)])
+
+
+class _FakeSetlistFM:
+    """`build_canonical`'s setlist.fm client: one fixed setlist. Each set is a
+    list of names; `encore=True` marks the last set as setlist.fm's encore."""
+
+    def __init__(self, *sets, encore=False):
+        self.raw = {"sets": {"set": [
+            {"song": [{"name": n} for n in names],
+             **({"encore": 1} if encore and k == len(sets) - 1 else {})}
+            for k, names in enumerate(sets)]}}
+
+    def setlist(self, artist, date, *, venue=None, city=None):
+        return self.raw
+
+
+def _tp_gather(tmp_path, md, *, sub="s", overrides=None, cand=None, ident=TP_IDENT, **kw):
+    sws = ShowWorkspace(tmp_path / sub)
+    if overrides is not None:
+        write_artifact(sws.overrides, overrides)
+    return compute_gather(sws, StubIA(md), None, cand or _tp_candidate(), ident, **kw)
+
+
+def _not_owned(tracks, meta, *, aliases, today_sets):
+    return taper_mod.TaperDecision(None, taper_mod.read_taper_structure(""), "none", "oracle")
+
+
+def _oracle(tmp_path, monkeypatch, md, **kw):
+    with monkeypatch.context() as m:
+        m.setattr(taper_mod, "decide_taper", _not_owned)
+        return _tp_gather(tmp_path, md, sub="oracle", **kw)
+
+
+def _sans_taper(res):
+    return res._replace(taper=None)
+
+
+def _labels(res):
+    return [t.set for t in res.show.tracks]
+
+
+def _was_notes(res):
+    return [n for n in res.notes if n.startswith("set breaks from the taper's markers")]
+
+
+def test_taper_structure_beats_unlabelled_setlistfm(tmp_path, monkeypatch):
+    md = _tp_md(TP_SONGS, TP_DESC)
+    res = _tp_gather(tmp_path, md, setlistfm=_FakeSetlistFM(TP_SONGS))
+    assert _labels(_oracle(tmp_path, monkeypatch, md, setlistfm=_FakeSetlistFM(TP_SONGS))) == ["1"] * 7
+    assert _labels(res) == ["1", "1", "1", "2", "2", "2", "encore"]
+    assert res.show.structure.source == "setlist.fm"
+    assert res.show.structure.taper_owned is True
+    assert res.show.structure.alignment == "taper"
+    assert res.taper_owned is True
+    assert res.step1_alignment == "deterministic"
+    assert _was_notes(res) == ["set breaks from the taper's markers (was [] ['1'])"]
+    assert not any(n.startswith("set breaks from the taper") for n in res.show.structure.conflicts)
+    assert not any(f.startswith(("setlist evidence shows multiple sets", "single-set"))
+                   for f in res.show.review_flags)
+
+
+def test_taper_agreeing_with_today_keeps_alignment(tmp_path):
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC))
+    assert _labels(res) == ["1", "1", "1", "2", "2", "2", "encore"]
+    assert res.show.structure.alignment == "deterministic"
+    assert res.show.structure.taper_owned is True
+    assert res.taper_owned is True
+    assert _was_notes(res) == []
+
+
+def test_label_rename_at_same_positions_is_recorded(tmp_path, monkeypatch):
+    md = _tp_md(TP_SONGS, TP_DESC)
+    slfm = _FakeSetlistFM(TP_SONGS[:3], TP_SONGS[3:6], TP_SONGS[6:])
+    assert _labels(_oracle(tmp_path, monkeypatch, md, setlistfm=slfm)) == [
+        "1", "1", "1", "2", "2", "2", "3"]
+    res = _tp_gather(tmp_path, md, setlistfm=slfm)
+    assert _labels(res) == ["1", "1", "1", "2", "2", "2", "encore"]
+    assert res.show.set_breaks == [3, 6]
+    assert res.show.structure.alignment == "taper"
+    assert _was_notes(res) == ["set breaks from the taper's markers (was [3, 6] ['1', '2', '3'])"]
+
+
+def test_taper_beats_jerrybase_anchoring(tmp_path, monkeypatch):
+    # A PLF-shaped jerrybase row: one set, closing on the tape's last song.
+    monkeypatch.setattr(jerrybase, "lookup", lambda a, d: [_jb_event([("Golf", "1")])])
+    md = _tp_md(TP_SONGS, "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot\nGolf")
+    oracle = _oracle(tmp_path, monkeypatch, md, jerrybase_enabled=True)
+    assert _labels(oracle) == ["1"] * 7
+    assert oracle.show.structure.alignment == "jerrybase"
+    assert any(c.startswith("set breaks anchored from jerrybase")
+               for c in oracle.show.structure.conflicts)
+    res = _tp_gather(tmp_path, md, jerrybase_enabled=True)
+    assert res.taper_owned is True
+    assert res.step1_alignment == "jerrybase"
+    assert _labels(res) == ["1", "1", "1", "2", "2", "2", "2"]
+    assert res.show.structure.alignment == "taper"
+    assert not any(c.startswith("set breaks anchored from jerrybase")
+                   for c in res.show.structure.conflicts)
+    assert not any(n.startswith("set breaks anchored from jerrybase") for n in res.notes)
+    assert _was_notes(res) == ["set breaks from the taper's markers (was [] ['1'])"]
+
+
+_MISMATCHED_SLFM = ["Zulu One", "Zulu Two", "Zulu Three", "Zulu Four", "Zulu Five",
+                    "Zulu Six", "Zulu Seven"]
+
+
+def test_taper_owned_skips_align_structure(tmp_path, monkeypatch):
+    md = _tp_md(TP_SONGS, TP_DESC)
+    slfm = _FakeSetlistFM(_MISMATCHED_SLFM)
+    oracle = _oracle(tmp_path, monkeypatch, md, setlistfm=slfm, align_provider=None)
+    assert "align_structure" in oracle.needs_llm          # today reaches the LLM branch
+    res = _tp_gather(tmp_path, md, setlistfm=slfm, align_provider=None)
+    assert res.taper_owned is True
+    assert "align_structure" not in res.needs_llm
+
+
+def test_taper_owned_never_calls_the_align_provider(tmp_path):
+    provider = FakeProvider()
+    res = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC),
+                     setlistfm=_FakeSetlistFM(_MISMATCHED_SLFM), align_provider=provider)
+    assert res.taper_owned is True
+    assert provider.calls == []
+
+
+def test_owned_low_confidence_uses_reader_coverage(tmp_path):
+    slfm = _FakeSetlistFM(_MISMATCHED_SLFM)
+    # Step-1 coverage is 0 (setlist.fm shares nothing with the tape), no
+    # anchoring. The reader's items all match: no flag, coverage 1.0.
+    good = _tp_gather(tmp_path, _tp_md(TP_SONGS, TP_DESC), sub="good", setlistfm=slfm)
+    assert good.taper_owned is True
+    assert "low-confidence structure alignment" not in good.show.review_flags
+    assert good.show.structure.coverage == 1.0
+    assert good.needs_llm == ()
+    # The reader's items match only the two boundary songs: 2 of 7 song tracks.
+    weak_desc = ("Set 1:\nZed One\nZed Two\nCharlie\nSet 2:\nDelta\nZed Three\nZed Four\n"
+                 "Zed Five")
+    weak = _tp_gather(tmp_path, _tp_md(TP_SONGS, weak_desc), sub="weak", setlistfm=slfm)
+    assert weak.taper_owned is True
+    assert "low-confidence structure alignment" in weak.show.review_flags
+    assert weak.needs_llm == ()
+    assert weak.show.structure.coverage == pytest.approx(2 / 7)
+    reader = ParsedSetlist(items=[SetlistItem(title=i.title, normalized=normalize_song(i.title),
+                                              set=i.set) for i in weak.taper.taper.items])
+    assert weak.show.structure.coverage == align(weak.show.tracks, reader).coverage
+    # No canonical items at all (no setlist.fm, a description with no setlist;
+    # the notes carry the markers): today never reaches the flag, nor does this.
+    bare = _tp_gather(tmp_path, _tp_md(TP_SONGS, "", notes=TP_DESC), sub="bare")
+    assert bare.taper_owned is True
+    assert "low-confidence structure alignment" not in bare.show.review_flags
+    assert bare.show.structure.coverage == 1.0
+
+
+def test_track_title_veto_is_exactly_today(tmp_path, monkeypatch):
+    titles = TP_SONGS[:6] + ["Encore: Box Of Rain"]
+    md = _tp_md(titles, "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot\nBox Of Rain")
+    res = _tp_gather(tmp_path, md)
+    assert res.taper.reason == "veto: track title"
+    assert res.taper_owned is False
+    assert res.show.structure.taper_owned is False
+    assert _sans_taper(res) == _sans_taper(_oracle(tmp_path, monkeypatch, md))
+
+
+def test_not_owned_is_exactly_today(tmp_path, monkeypatch):
+    # `Charlie` closes set 1 and is listed again in set 2: unplaceable.
+    md = _tp_md(TP_SONGS, "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nCharlie\nFoxtrot\n"
+                          "Encore:\nGolf")
+    res = _tp_gather(tmp_path, md, setlistfm=_FakeSetlistFM(TP_SONGS))
+    assert res.taper.reason.startswith("unplaced:")
+    assert res.taper_owned is False
+    assert _sans_taper(res) == _sans_taper(
+        _oracle(tmp_path, monkeypatch, md, setlistfm=_FakeSetlistFM(TP_SONGS)))
+
+
+def test_structure_override_bypasses_the_taper(tmp_path, monkeypatch):
+    md = _tp_md(TP_SONGS, TP_DESC)
+
+    def boom(*a, **k):
+        raise AssertionError("decide_taper must not run on the override path")
+
+    oracle = _oracle(tmp_path, monkeypatch, md, overrides=Overrides(set_breaks=[3]))
+    monkeypatch.setattr(taper_mod, "decide_taper", boom)
+    res = _tp_gather(tmp_path, md, overrides=Overrides(set_breaks=[3]))
+    assert res.taper_owned is False
+    assert res.taper is None and res.step1_alignment is None
+    assert res.show.structure.alignment == "override"
+    assert res.show.structure.taper_owned is False
+    assert _sans_taper(res) == _sans_taper(oracle)
+
+
+def test_notes_lineage_never_places(tmp_path, monkeypatch):
+    md = _tp_md(TP_SONGS, "\n".join(TP_SONGS),
+                notes="Set 1: MSR> C> DAT\nSet 2: MSC> DAT> CD")
+    res = _tp_gather(tmp_path, md)
+    assert res.taper.source == "notes"
+    assert res.taper_owned is False
+    assert _sans_taper(res) == _sans_taper(_oracle(tmp_path, monkeypatch, md))
+
+
+def test_notes_used_when_description_has_no_marker(tmp_path):
+    md = _tp_md(TP_SONGS, "\n".join(TP_SONGS),
+                notes="Set One: Alpha, Bravo, Charlie\nSet Two: Delta, Echo, Foxtrot, Golf")
+    res = _tp_gather(tmp_path, md)
+    assert res.taper.source == "notes"
+    assert res.taper_owned is True
+    assert _labels(res) == ["1", "1", "1", "2", "2", "2", "2"]
+
+
+def test_segues_and_matched_come_from_step_one(tmp_path, monkeypatch):
+    md = _tp_md(TP_SONGS, "Set 1:\nAlpha > Bravo\nCharlie\nSet 2:\nDelta > Echo\nFoxtrot\n"
+                          "Encore:\nGolf")
+    slfm = _FakeSetlistFM(TP_SONGS)
+    res = _tp_gather(tmp_path, md, setlistfm=slfm)
+    oracle = _oracle(tmp_path, monkeypatch, md, setlistfm=slfm)
+    assert res.taper_owned is True
+    assert _labels(res) != _labels(oracle)
+    assert any(t.segue for t in res.show.tracks)
+    assert ([(t.segue, t.matched) for t in res.show.tracks]
+            == [(t.segue, t.matched) for t in oracle.show.tracks])
+
+
+def test_owned_show_drops_merge_conflicts_not_owned_keeps_them(tmp_path, monkeypatch):
+    titles = ["Alpha", "Bravo", "Charlie > Delta", "Echo", "Foxtrot", "Golf", "Hotel"]
+    md = _tp_md(titles, "Set 1:\nAlpha\nBravo\nCharlie > Delta\nEcho\nSet 2:\nFoxtrot\nGolf\n"
+                        "Hotel")
+    slfm = _FakeSetlistFM(["Alpha", "Bravo", "Charlie"],
+                          ["Delta", "Echo", "Foxtrot", "Golf", "Hotel"])
+    oracle = _oracle(tmp_path, monkeypatch, md, setlistfm=slfm)
+    assert "merged track(s) 3 span a set break" in oracle.show.review_flags
+    res = _tp_gather(tmp_path, md, setlistfm=slfm)
+    assert res.taper_owned is True
+    assert not any(f.startswith("merged track(s)") for f in res.show.review_flags)
+
+
+def test_structure_info_created_without_canonical(tmp_path, monkeypatch):
+    md = _tp_md(TP_SONGS, "", notes=TP_DESC)
+    oracle = _oracle(tmp_path, monkeypatch, md)
+    assert oracle.show.structure is None                  # today: no canonical, no notes
+    res = _tp_gather(tmp_path, md)
+    assert res.taper_owned is True
+    assert res.show.structure is not None
+    assert res.show.structure.taper_owned is True
+    assert res.show.structure.source == "none"
+
+
+def test_today_sets_is_step_one_parallel_to_tracks(tmp_path, monkeypatch):
+    seen = {}
+    real = taper_mod.decide_taper
+
+    def spy(tracks, meta, *, aliases, today_sets):
+        seen["n"], seen["today"] = len(tracks), list(today_sets)
+        return real(tracks, meta, aliases=aliases, today_sets=today_sets)
+
+    md = _tp_md(TP_SONGS, TP_DESC)
+    slfm = _FakeSetlistFM(TP_SONGS[:3], TP_SONGS[3:6], TP_SONGS[6:])
+    monkeypatch.setattr(taper_mod, "decide_taper", spy)
+    _tp_gather(tmp_path, md, setlistfm=slfm)
+    assert seen["n"] == 7 and len(seen["today"]) == 7
+    assert seen["today"] == ["1", "1", "1", "2", "2", "2", "3"]   # step 1's labels
+
+
+# umphreysmcgee-2004-04-14 (um2004-04-14.shnf): the description excerpt and
+# track list, copied verbatim once from ~/.llama/cache/md_um2004-04-14.shnf.json.
+# Its `Disc 3 - Set 2 + Encore` line asserts nothing and the later `e:` starts
+# the encore, so the taper owns the structure, identically to today. "Today" is
+# the shipped show, whose canonical is setlist.fm's (`parse_setlist` does not
+# read `Disc 2 - Set 2`): its set names, copied verbatim once from the cached
+# setlist.fm response (~/.llama/cache/slfm_6f592f90d24abbb461b32c5a41207695adfa1584.json).
+UM_IDENT = "um2004-04-14.shnf"
+UM_DESC = ('Disc 1 - Set 1\n\n01. The Fuzz >\n02. "Jimmy Stewart" >\n03. The Fuzz\n'
+           '04. Nothing Too Fancy >\n05. The Girl is Mine > Jane Says > The Girl is Mine >\n'
+           '06. Nothing Too Fancy\n07. Wife Soup\n08. Slacker >\n09. Professor Wormbog >\n'
+           '10. Slacker\n11. Divisions\n\n\nDisc 2 - Set 2\n\n01. Mail Package\n'
+           '02. Front Porch >\n03. Resolution >\n04. Front Porch\n05. Thin Air\n\n\n'
+           'Disc 3 - Set 2 + Encore\n\n01. The Stranger\n02. Walletsworth\n03. Ocean Billy\n'
+           'e:\n04. Kabump >\n05. Nemo')
+UM_FILES = [  # (name, title, length) of the VBR MP3 derivatives
+    ("um2004-04-14d1t01", "The Fuzz >", "02:44"),
+    ("um2004-04-14d1t02", '"Jimmy Stewart"', "05:49"),
+    ("um2004-04-14d1t03", "The Fuzz", "02:52"),
+    ("um2004-04-14d1t04", "Nothing Too Fancy >", "10:09"),
+    ("um2004-04-14d1t05", "The Girl is Mine > Jane Says > The Girl is Mine >", "03:57"),
+    ("um2004-04-14d1t06", "Nothing Too Fancy", "09:51"),
+    ("um2004-04-14d1t07", "Wife Soup", "09:59"),
+    ("um2004-04-14d1t08", "Slacker >", "02:25"),
+    ("um2004-04-14d1t09", "Professor Wormbog >", "04:33"),
+    ("um2004-04-14d1t10", "Slacker", "05:17"),
+    ("um2004-04-14d1t11", "Divisions", "11:59"),
+    ("um2004-04-14d2t01", "Mail Package", "06:46"),
+    ("um2004-04-14d2t02", "Front Porch >", "01:14"),
+    ("um2004-04-14d2t03", "Resolution >", "06:00"),
+    ("um2004-04-14d2t04", "Front Porch", "05:26"),
+    ("um2004-04-14d2t05", "Thin Air", "27:24"),
+    ("um2004-04-14d3t01", "The Stranger", "09:23"),
+    ("um2004-04-14d3t02", "Walletsworth", "05:32"),
+    ("um2004-04-14d3t03", "Ocean Billy", "13:27"),
+    ("um2004-04-14d3t04", "Kabump >", "07:29"),
+    ("um2004-04-14d3t05", "Nemo", "05:00"),
+]
+
+
+UM_SLFM = (["The Fuzz", "Jimmy Stewart", "The Fuzz", "Nothing Too Fancy", "The Girl Is Mine",
+            "Jane Says", "The Girl Is Mine", "Nothing Too Fancy", "Wife Soup", "Slacker",
+            "Professor Wormbog", "Slacker", "Divisions"],
+           ["Mail Package", "Front Porch", "Resolution", "Front Porch", "Thin Air",
+            "The Stranger", "Walletsworth", "Ocean Billy"],
+           ["Kabump", "Nemo"])
+
+
+def _um_md():
+    files = []
+    for i, (stem, title, length) in enumerate(UM_FILES, 1):
+        files.append({"name": f"{stem}.shn", "source": "original", "format": "Shorten",
+                      "title": title, "md5": f"{i:032x}"})
+        files.append({"name": f"{stem}.mp3", "source": "derivative", "original": f"{stem}.shn",
+                      "format": "VBR MP3", "title": title, "length": length,
+                      "md5": f"{i + 100:032x}"})
+    return {"metadata": {"identifier": UM_IDENT, "creator": "Umphreys McGee",
+                         "date": "2004-04-14", "description": UM_DESC},
+            "files": files, "reviews": []}
+
+
+def test_umphreys_2004_04_14_taper_owned_identical_to_today(tmp_path, monkeypatch):
+    cand = Candidate(performance_id="UmphreysMcGee/2004-04-14", collection="UmphreysMcGee",
+                     date="2004-04-14", venue="Cervante's Masterpiece", city="Denver, CO",
+                     recordings=[RecordingSummary(identifier=UM_IDENT)])
+    md = _um_md()
+    res = _tp_gather(tmp_path, md, cand=cand, ident=UM_IDENT,
+                     setlistfm=_FakeSetlistFM(*UM_SLFM, encore=True))
+    oracle = _oracle(tmp_path, monkeypatch, md, cand=cand, ident=UM_IDENT,
+                     setlistfm=_FakeSetlistFM(*UM_SLFM, encore=True))
+    assert res.taper.source == "description"
+    assert res.taper_owned is True
+    assert _labels(res) == _labels(oracle)
+    assert res.show.set_breaks == oracle.show.set_breaks == [11, 18]
+    assert _labels(res)[-2:] == ["encore", "encore"]
+    assert res.show.review_flags == oracle.show.review_flags
+    assert res.show.structure.alignment == oracle.show.structure.alignment == "deterministic"
+    assert _was_notes(res) == []
 
 
 def test_old_structure_info_reads_without_taper_owned():
