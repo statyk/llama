@@ -3244,7 +3244,7 @@ def _tp_gather(tmp_path, md, *, sub="s", overrides=None, cand=None, ident=TP_IDE
     return compute_gather(sws, StubIA(md), None, cand or _tp_candidate(), ident, **kw)
 
 
-def _not_owned(tracks, meta, *, aliases, today_sets, today_reaches_llm=False):
+def _not_owned(tracks, meta, *, aliases, today_sets, today_reaches_llm):
     return taper_mod.TaperDecision(None, taper_mod.read_taper_structure(""), "none", "oracle")
 
 
@@ -3512,7 +3512,7 @@ def test_today_sets_is_step_one_parallel_to_tracks(tmp_path, monkeypatch):
     seen = {}
     real = taper_mod.decide_taper
 
-    def spy(tracks, meta, *, aliases, today_sets, today_reaches_llm=False):
+    def spy(tracks, meta, *, aliases, today_sets, today_reaches_llm):
         seen["n"], seen["today"] = len(tracks), list(today_sets)
         return real(tracks, meta, aliases=aliases, today_sets=today_sets,
                     today_reaches_llm=today_reaches_llm)
@@ -3586,7 +3586,11 @@ def _um_md():
             "files": files, "reviews": []}
 
 
-def test_umphreys_2004_04_14_taper_owned_identical_to_today(tmp_path, monkeypatch):
+def test_umphreys_2004_04_14_identical_to_today(tmp_path, monkeypatch):
+    # Its reader reading is pinned in test_taper (`Disc 3 - Set 2 + Encore` asserts nothing,
+    # `e:` starts the encore). Since the llama-db ruling of 2026-10-22 on B4 it is NOT
+    # taper-owned: its set-1 opener `The Fuzz` is on the tape twice in set 1, so B4 declines,
+    # and the show is computed exactly as today, which ships the same structure.
     cand = Candidate(performance_id="UmphreysMcGee/2004-04-14", collection="UmphreysMcGee",
                      date="2004-04-14", venue="Cervante's Masterpiece", city="Denver, CO",
                      recordings=[RecordingSummary(identifier=UM_IDENT)])
@@ -3595,8 +3599,10 @@ def test_umphreys_2004_04_14_taper_owned_identical_to_today(tmp_path, monkeypatc
                      setlistfm=_FakeSetlistFM(*UM_SLFM, encore=True))
     oracle = _oracle(tmp_path, monkeypatch, md, cand=cand, ident=UM_IDENT,
                      setlistfm=_FakeSetlistFM(*UM_SLFM, encore=True))
-    assert res.taper.source == "description"
-    assert res.taper_owned is True
+    assert res.taper.source == "description" and res.taper.taper.asserts is True
+    assert res.taper_owned is False
+    assert res.taper.reason == "veto: set 1's first song matches several tracks"
+    assert _sans_taper(res) == _sans_taper(oracle)
     assert _labels(res) == _labels(oracle)
     assert res.show.set_breaks == oracle.show.set_breaks == [11, 18]
     assert _labels(res)[-2:] == ["encore", "encore"]
@@ -3807,7 +3813,7 @@ def test_filler_only_label_difference_keeps_step_one_alignment(tmp_path, monkeyp
     md = _tp_md(titles, "Set 1:\nAlpha\nBravo\nCharlie\nSet 2:\nDelta\nEcho\nFoxtrot")
     seen = {}
 
-    def filler_only(tracks, meta, *, aliases, today_sets, today_reaches_llm=False):
+    def filler_only(tracks, meta, *, aliases, today_sets, today_reaches_llm):
         labels = list(today_sets)
         assert gather_mod.is_filler(tracks[3].title)
         labels[3] = "2" if labels[3] == "1" else "1"

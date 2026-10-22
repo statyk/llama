@@ -2161,7 +2161,7 @@ def test_real_case_declines():
                  "32 Things", "It", "Moth", "Head", "Interstellar Overdrive", "Head",
                  "tuning/banter", "Spaz Medicine", "Buster", "Seat Of My Pants"])
     d = decide_taper(tracks, {"description": MOE_1997_02_21}, aliases={},
-                     today_sets=["1"] * len(tracks))
+                     today_sets=["1"] * len(tracks), today_reaches_llm=False)
     assert d.placement is None and d.reason and d.reason.startswith("unplaced: 2|encore")
     assert "between" in d.reason
     # darkstarorchestra-2005-11-16: NFA opens and closes the same stretch (repeated title).
@@ -2172,7 +2172,7 @@ def test_real_case_declines():
              "Truckin", "NFA", "GDTRFB", "NFA", "Stella Blue", "One More Saturday Night"]
     tracks = mk(names)
     d = decide_taper(tracks, {"description": DSO_2005_11_16}, aliases=GD_SHORTHAND,
-                     today_sets=["1"] * len(tracks))
+                     today_sets=["1"] * len(tracks), today_reaches_llm=False)
     assert d.placement is None and d.reason and "'NFA'" in d.reason
 
 
@@ -2181,7 +2181,8 @@ TWO_SETS = "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin\n"
 
 def test_track_title_encore_vetoes():
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin", "Encore: Box Of Rain"])
-    d = decide_taper(tracks, {"description": TWO_SETS}, aliases={}, today_sets=["1"] * 5)
+    d = decide_taper(tracks, {"description": TWO_SETS}, aliases={}, today_sets=["1"] * 5,
+                     today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: track title"
 
 
@@ -2192,7 +2193,8 @@ def test_track_title_encore_vetoes():
 ])
 def test_encore_like_text_anywhere_vetoes(text):
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin"])
-    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 4)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 4,
+                     today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: encore-like text"
 
 
@@ -2201,7 +2203,8 @@ def test_encore_like_does_not_veto_when_an_encore_is_marked():
             "Encore: Brokedown Palace\n")
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin (Encore)",
                  "Encore: Brokedown Palace"])
-    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5,
+                     today_reaches_llm=False)
     assert d.placement is not None, d.reason
     assert d.placement.sets[-1] == "encore"
 
@@ -2209,10 +2212,10 @@ def test_encore_like_does_not_veto_when_an_encore_is_marked():
 def test_decide_taper_reports_source_and_reader_reason():
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin"])
     d = decide_taper(tracks, {"description": "no marks here", "notes": TWO_SETS},
-                     aliases={}, today_sets=["1"] * 4)
+                     aliases={}, today_sets=["1"] * 4, today_reaches_llm=False)
     assert d.source == "notes" and d.placement is not None and d.reason is None
     d = decide_taper(tracks, {"description": "Set 1: A\nSet 3: B\n"}, aliases={},
-                     today_sets=["1"] * 4)
+                     today_sets=["1"] * 4, today_reaches_llm=False)
     assert d.placement is None and d.reason.startswith("void:")
 
 
@@ -2398,7 +2401,7 @@ def test_veto_gap_real_cases_are_not_owned(slug):
     assert tt.asserts is True and tt.has_encore is False
     assert tt.encore_like is True
     d = decide_taper(_mk_today(names, today), {"description": text}, aliases=GD_SHORTHAND,
-                     today_sets=today)
+                     today_sets=today, today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: encore-like text"
 
 
@@ -2477,10 +2480,10 @@ def test_set_and_encore_with_colon_owns_like_the_real_text():
     assert PGROOVE_SET_AND_ENCORE != PGROOVE_2006_12_29
     tracks = _mk_today(PGROOVE_2006_12_29_TRACKS, PGROOVE_2006_12_29_TODAY)
     real = decide_taper(tracks, {"description": PGROOVE_2006_12_29}, aliases={},
-                        today_sets=PGROOVE_2006_12_29_TODAY)
+                        today_sets=PGROOVE_2006_12_29_TODAY, today_reaches_llm=False)
     assert real.placement is not None and real.placement.boundaries == (6, 12)
     built = decide_taper(tracks, {"description": PGROOVE_SET_AND_ENCORE}, aliases={},
-                         today_sets=PGROOVE_2006_12_29_TODAY)
+                         today_sets=PGROOVE_2006_12_29_TODAY, today_reaches_llm=False)
     assert built.placement == real.placement
     tt = read_taper_structure(PGROOVE_SET_AND_ENCORE)
     assert label(tt, "Robot Waltz") == "2" and label(tt, "Macumba") == "2"
@@ -2566,7 +2569,7 @@ def test_encore_none_real_case_owns_nothing():
     assert tt.asserts is False and tt.reason == "void: encore none"
     d = decide_taper(_mk_today(DSO_2001_11_09_TRACKS, DSO_2001_11_09_TODAY),
                      {"description": DSO_2001_11_09}, aliases=GD_SHORTHAND,
-                     today_sets=DSO_2001_11_09_TODAY)
+                     today_sets=DSO_2001_11_09_TODAY, today_reaches_llm=False)
     assert d.placement is None and d.reason == "void: encore none"
 
 
@@ -2578,7 +2581,7 @@ def test_encore_none_built_case_owns_nothing():
     names = DSO_2001_11_09_TRACKS[:i] + DSO_2001_11_09_TRACKS[i + 1:]
     today = DSO_2001_11_09_TODAY[:i] + DSO_2001_11_09_TODAY[i + 1:]
     d = decide_taper(_mk_today(names, today), {"description": text}, aliases=GD_SHORTHAND,
-                     today_sets=today)
+                     today_sets=today, today_reaches_llm=False)
     assert d.placement is None and d.reason == "void: encore none"
 
 
@@ -2970,7 +2973,8 @@ R_ITEM_CASES = {
 def test_r_item_real_cases_own_once_their_items_are_clean(slug):
     text, names, sources, today, family = R_ITEM_CASES[slug]
     d = decide_taper(_mk_src(names, today, sources), {"description": text},
-                     aliases=GD_SHORTHAND if family else {}, today_sets=today)
+                     aliases=GD_SHORTHAND if family else {}, today_sets=today,
+                     today_reaches_llm=False)
     assert d.placement is not None, d.reason
 
 
@@ -3261,10 +3265,17 @@ ANNOTATED_CASES = {
 }
 
 
-@pytest.mark.parametrize("slug", sorted(ANNOTATED_CASES))
+# joerussosalmostdead-2017-03-11 opens set 1 with `Jam @`, which matches several tracks, so
+# B4's uniqueness rule (llama-db ruling, 2026-10-22) declines it; its headers still read
+# (`test_b4_ambiguous_real_cases_decline`).
+B4_AMBIGUOUS_ANNOTATED = {"joerussosalmostdead-2017-03-11"}
+
+
+@pytest.mark.parametrize("slug", sorted(set(ANNOTATED_CASES) - B4_AMBIGUOUS_ANNOTATED))
 def test_annotated_header_real_cases_own(slug):
     text, names, today, field = ANNOTATED_CASES[slug]
-    d = decide_taper(_mk_today(names, today), {field: text}, aliases={}, today_sets=today)
+    d = decide_taper(_mk_today(names, today), {field: text}, aliases={}, today_sets=today,
+                     today_reaches_llm=False)
     assert d.placement is not None, d.reason
     assert d.source == field
 
@@ -3491,7 +3502,8 @@ N_FORM_CASES = {
 def test_disc_and_set_real_cases_own(slug):
     text, names, sources, today, family = N_FORM_CASES[slug]
     d = decide_taper(_mk_src(names, today, sources), {"description": text},
-                     aliases=GD_SHORTHAND if family else {}, today_sets=today)
+                     aliases=GD_SHORTHAND if family else {}, today_sets=today,
+                     today_reaches_llm=False)
     assert d.placement is not None, d.reason
     assert d.source == "description"
 
@@ -3598,12 +3610,12 @@ def test_todays_encore_real_case_is_kept():
     # the encore. Owning would fold it into set 2.
     tracks = _mk_today(GD_1968_12_07_TRACKS, GD_1968_12_07_TODAY)
     d = decide_taper(tracks, {"description": GD_1968_12_07}, aliases=GD_SHORTHAND,
-                     today_sets=GD_1968_12_07_TODAY)
+                     today_sets=GD_1968_12_07_TODAY, today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: today's encore"
     # The same tape with today's encore relabelled set 2: the taper owns it as before.
     flat = ["1"] * 6 + ["2"] * 5
     d = decide_taper(tracks, {"description": GD_1968_12_07}, aliases=GD_SHORTHAND,
-                     today_sets=flat)
+                     today_sets=flat, today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (6,)
 
 
@@ -3619,7 +3631,8 @@ TODAY_ENC_TRACKS = ["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin", "Rip
 ])
 def test_todays_encore_rule_directions(today, owned):
     text = "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin, Ripple\n"
-    d = decide_taper(mk(TODAY_ENC_TRACKS), {"description": text}, aliases={}, today_sets=today)
+    d = decide_taper(mk(TODAY_ENC_TRACKS), {"description": text}, aliases={}, today_sets=today,
+                     today_reaches_llm=False)
     assert (d.placement is not None) is owned, d.reason
     if not owned:
         assert d.reason == "veto: today's encore"
@@ -3630,7 +3643,7 @@ def test_todays_encore_rule_directions(today, owned):
 def test_todays_encore_rule_off_when_the_taper_marks_an_encore():
     text = "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin\nEncore: Ripple\n"
     d = decide_taper(mk(TODAY_ENC_TRACKS), {"description": text}, aliases={},
-                     today_sets=["1", "1", "2", "encore", "encore"])
+                     today_sets=["1", "1", "2", "encore", "encore"], today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (2, 4)
 
 
@@ -3639,10 +3652,10 @@ def test_todays_encore_rule_uses_the_last_of_three_sets():
     tracks = mk(TODAY_ENC_TRACKS)
     # today's encore sits inside the taper's set 2, before the last break (after track 3)
     d = decide_taper(tracks, {"description": text}, aliases={},
-                     today_sets=["1", "2", "encore", "3", "3"])
+                     today_sets=["1", "2", "encore", "3", "3"], today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (1, 3)
     d = decide_taper(tracks, {"description": text}, aliases={},
-                     today_sets=["1", "2", "2", "3", "encore"])
+                     today_sets=["1", "2", "2", "3", "encore"], today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: today's encore"
 
 
@@ -3662,7 +3675,8 @@ def test_comma_merged_boundary_item_never_moves_a_break():
     # label Ripple set 2, a moved break.
     tracks = mk(["Bertha", "Sugaree", "Jack Straw", "Ripple > Scarlet Begonias",
                  "Fire on the Mountain"])
-    d = decide_taper(tracks, {"description": COMMA_MERGE_TEXT}, aliases={}, today_sets=["1"] * 5)
+    d = decide_taper(tracks, {"description": COMMA_MERGE_TEXT}, aliases={}, today_sets=["1"] * 5,
+                     today_reaches_llm=False)
     assert d.placement is None
     assert d.reason.startswith("unplaced: 1|2"), d.reason
 
@@ -3673,7 +3687,8 @@ def test_comma_merged_boundary_item_on_separate_tracks_declines():
     # (CLAUDE.md's A2: no clean discriminator), so the taper owns nothing rather than guess.
     tracks = mk(["Bertha", "Sugaree", "Jack Straw", "Ripple", "Scarlet Begonias",
                  "Fire on the Mountain"])
-    d = decide_taper(tracks, {"description": COMMA_MERGE_TEXT}, aliases={}, today_sets=["1"] * 6)
+    d = decide_taper(tracks, {"description": COMMA_MERGE_TEXT}, aliases={}, today_sets=["1"] * 6,
+                     today_reaches_llm=False)
     assert d.placement is None
     assert "comma" in d.reason, d.reason
 
@@ -3683,7 +3698,8 @@ def test_comma_part_counts_for_the_other_side_check():
     # boundary, so unplaced (it was hidden inside the merged item before).
     text = ("Set 1\n1. Bertha\n2. Jam, Drums\n3. Sugaree\nSet 2\n4. Drums\n5. Ripple\n")
     tracks = mk(["Bertha", "Jam", "Sugaree", "Drums", "Ripple"])
-    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5,
+                     today_reaches_llm=False)
     assert d.placement is None
     assert d.reason == "unplaced: 1|2 'Drums' also occurs on the other side", d.reason
 
@@ -3726,7 +3742,7 @@ def test_single_title_comma_boundary_item_still_owns():
     # `09. Farewll, solong, Goodby` is one real title on one track, closing set 1.
     tracks = _mk_today(JG_2010_12_31_TRACKS, JG_2010_12_31_TODAY)
     d = decide_taper(tracks, {"description": JG_2010_12_31}, aliases={},
-                     today_sets=JG_2010_12_31_TODAY)
+                     today_sets=JG_2010_12_31_TODAY, today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (9,), d.reason
 
 
@@ -3747,7 +3763,8 @@ def test_comma_inside_parentheses_is_no_song_separator():
             "05. Morning Dew (TH)\n")
     tracks = mk(["Dancing In The Streets", "Cassidy", "Not Fade Away", "Music Never Stopped",
                  "Morning Dew"])
-    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5,
+                     today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (3,), d.reason
 
 
@@ -4030,7 +4047,7 @@ def test_set_like_real_cases_are_not_owned(slug):
     assert item in titles(tt) and label(tt, item) != "encore"
     assert tt.set_like is True
     d = decide_taper(_mk_src(names, today, sources), meta, aliases=GD_SHORTHAND,
-                     today_sets=today)
+                     today_sets=today, today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: set-like text"
 
 
@@ -4042,7 +4059,7 @@ def test_set_like_skips_notes_after_the_encore():
     assert tt.set_like is False
     d = decide_taper(_mk_today(PAF_2006_07_03_TRACKS, PAF_2006_07_03_TODAY),
                      {"description": PAF_2006_07_03}, aliases=GD_SHORTHAND,
-                     today_sets=PAF_2006_07_03_TODAY)
+                     today_sets=PAF_2006_07_03_TODAY, today_reaches_llm=False)
     assert d.placement is not None and d.reason is None
     assert d.placement.boundaries == (5, 16)
 
@@ -4056,7 +4073,8 @@ def test_set_like_notes_after_the_encore_do_not_veto(note):
     tt = read_taper_structure(text)
     assert tt.asserts is True and tt.set_like is False
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin", "Brokedown Palace"])
-    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5,
+                     today_reaches_llm=False)
     assert d.placement is not None and d.reason is None
 
 
@@ -4079,7 +4097,8 @@ def test_set_like_tokens_in_a_numbered_set_item(line):
     assert tt.asserts is True and line.strip("- ") in " ".join(titles(tt))
     assert tt.set_like is True
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin"])
-    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 4)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 4,
+                     today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: set-like text"
 
 
@@ -4125,7 +4144,8 @@ def test_set_like_veto_applies_with_a_marked_encore():
     # thedead-2009-04-25's taper marks its encore, and the veto still applies.
     text = TWO_SETS + "end of set one\nEncore: Brokedown Palace\n"
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin", "Brokedown Palace"])
-    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5,
+                     today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: set-like text"
 
 
@@ -4133,7 +4153,8 @@ def test_encore_like_veto_reason_wins_over_set_like():
     # Both vetoes fire; the older one keeps its reason (no churn in existing reasons).
     text = TWO_SETS + "end of set one\nencore break\n"
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin"])
-    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 4)
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 4,
+                     today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: encore-like text"
 
 
@@ -4189,7 +4210,7 @@ def test_split_ordinal_header_is_set_like():
     tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Fire On The Mountain", "Truckin",
                  "Morning Dew"])
     d = decide_taper(tracks, {"description": THIRD_SET_SPLIT}, aliases={},
-                     today_sets=["1", "1", "2", "2", "3", "3"])
+                     today_sets=["1", "1", "2", "2", "3", "3"], today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: set-like text"
 
 
@@ -4204,7 +4225,7 @@ def test_bare_set_item_real_case_is_not_owned():
     assert tt.asserts is True and label(tt, "Set") == "1" and tt.set_like is True
     d = decide_taper(_mk_today(DSO_2012_05_19_TRACKS, DSO_2012_05_19_TODAY),
                      {"description": DSO_2012_05_19}, aliases=GD_SHORTHAND,
-                     today_sets=DSO_2012_05_19_TODAY)
+                     today_sets=DSO_2012_05_19_TODAY, today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: set-like text"
 
 
@@ -4229,7 +4250,8 @@ def test_set_like_token_in_a_set_three_item():
     tt = read_taper_structure(text)
     assert tt.asserts is True and label(tt, "end of set two") == "3" and tt.set_like is True
     d = decide_taper(mk(["Bertha", "Sugaree", "Scarlet Begonias", "Truckin"]),
-                     {"description": text}, aliases={}, today_sets=["1", "2", "3", "3"])
+                     {"description": text}, aliases={}, today_sets=["1", "2", "3", "3"],
+                     today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: set-like text"
 
 
@@ -4255,12 +4277,25 @@ def test_step1_break_before_set_1_real_case_declines():
     # `Happy Hour Set:` is no marker, so the reader drops its six songs as header text before
     # `Set 1:`; owning would fold them into set 1 and erase step 1's break after track 6.
     tracks = _mk_today(SKB_2000_03_31_TRACKS, SKB_2000_03_31_STEP1)
-    d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={},
-                     today_sets=SKB_2000_03_31_STEP1)
+    # Its set-1 opener `Severe Tire Damage` is on the tape twice (tracks 7 and 9), so since
+    # the uniqueness rule (llama-db ruling, 2026-10-22) it declines on that, before the
+    # break test; with or without step 1's break there, the taper owns nothing.
+    for today in (SKB_2000_03_31_STEP1, ["1"] * 13 + ["2"] * 6):
+        d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={},
+                         today_sets=today, today_reaches_llm=False)
+        assert d.placement is None
+        assert d.reason == "veto: set 1's first song matches several tracks"
+    # With the repeat renamed, the unique hit is track 7 and the break test decides: step 1's
+    # break after track 6 declines; a flat step 1 is owned.
+    names = list(SKB_2000_03_31_TRACKS)
+    assert names[8] == "Severe Tire Damage"
+    names[8] = "Zed Reprise"
+    unique = _mk_today(names, SKB_2000_03_31_STEP1)
+    d = decide_taper(unique, {"description": SKB_2000_03_31}, aliases={},
+                     today_sets=SKB_2000_03_31_STEP1, today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: step-1 break before set 1"
-    # The same tape with no step-1 break before Severe Tire Damage: the taper owns it.
-    flat = ["1"] * 13 + ["2"] * 6
-    d = decide_taper(tracks, {"description": SKB_2000_03_31}, aliases={}, today_sets=flat)
+    d = decide_taper(unique, {"description": SKB_2000_03_31}, aliases={},
+                     today_sets=["1"] * 13 + ["2"] * 6, today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (13,)
 
 
@@ -4281,7 +4316,7 @@ B4_TEXT = "Live at the Hall\nSet 1:\nBertha\nSugaree\nSet 2:\nScarlet Begonias\n
 ])
 def test_no_step1_break_before_set_1_stays_owned(names, today):
     d = decide_taper(_mk_today(names, today), {"description": B4_TEXT}, aliases={},
-                     today_sets=today)
+                     today_sets=today, today_reaches_llm=False)
     assert d.placement is not None, d.reason
     assert d.placement.sets[names.index("Bertha")] == "1"
 
@@ -4291,7 +4326,7 @@ def test_step1_break_just_before_the_hit_declines():
     names = ["Fool On The Hill", "Bertha", "Sugaree", "Scarlet Begonias", "Truckin"]
     today = ["1", "2", "2", "3", "3"]
     d = decide_taper(_mk_today(names, today), {"description": B4_TEXT}, aliases={},
-                     today_sets=today)
+                     today_sets=today, today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: step-1 break before set 1"
 
 
@@ -4300,7 +4335,7 @@ def test_an_encore_boundary_before_set_1_is_not_a_numbered_break():
     names = ["Fool On The Hill", "Bertha", "Sugaree", "Scarlet Begonias", "Ripple"]
     today = ["1", "encore", "encore", "encore", "encore"]
     d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
-                     today_sets=today)
+                     today_sets=today, today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (3, 4), d.reason
 
 
@@ -4309,7 +4344,7 @@ def test_set_1_first_item_with_no_hit_uses_the_next_set_1_item():
     names = ["Fool On The Hill", "Bertha", "Sugaree", "Scarlet Begonias", "Truckin"]
     today = ["1", "2", "2", "3", "3"]
     d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
-                     today_sets=today)
+                     today_sets=today, today_reaches_llm=False)
     assert d.placement is None and d.reason == "veto: step-1 break before set 1"
 
 
@@ -4320,7 +4355,7 @@ def test_a_set_1_song_heard_only_after_set_1_does_not_widen_the_window():
     names = ["Bertha", "Scarlet Begonias", "Sugaree", "Truckin"]
     today = ["1", "2", "2", "2"]
     d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
-                     today_sets=today)
+                     today_sets=today, today_reaches_llm=False)
     assert d.placement is not None and d.placement.boundaries == (1,), d.reason
 
 
@@ -4379,12 +4414,53 @@ def test_taper_encore_marked_stays_owned_on_todays_llm_path():
     assert d.placement is not None and d.placement.boundaries == (2, 4), d.reason
 
 
-def test_the_hit_is_the_earliest_match_of_set_1s_first_song():
-    # Set 1's first song `Bertha` is played twice inside set 1, and step 1 breaks between the
-    # two. The hit is the first `Bertha`, so no step-1 break precedes it: still owned.
-    text = "Set 1: Bertha, Sugaree, Bertha, Jack Straw\nSet 2: Scarlet Begonias, Truckin\n"
-    names = ["Bertha", "Sugaree", "Bertha", "Jack Straw", "Scarlet Begonias", "Truckin"]
-    today = ["1", "2", "2", "2", "3", "3"]
+def test_set_1_first_song_matching_several_tracks_declines():
+    # llama-db ruling, 2026-10-22: a repeated `Jam`-style opener has no one hit to check,
+    # so B4 declines, whatever step 1 says (placement's uniqueness rule).
+    text = "Set 1: Jam, Sugaree, Jam, Jack Straw\nSet 2: Scarlet Begonias, Truckin\n"
+    names = ["Jam", "Sugaree", "Jam", "Jack Straw", "Scarlet Begonias", "Truckin"]
+    for today in (["1", "2", "2", "2", "3", "3"], ["1", "1", "1", "1", "2", "2"]):
+        d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
+                         today_sets=today, today_reaches_llm=False)
+        assert d.placement is None
+        assert d.reason == "veto: set 1's first song matches several tracks"
+
+
+def test_a_repeat_after_set_1_does_not_make_the_hit_ambiguous():
+    # The window is set 1's: a set-1 opener heard again only after set 1's boundary still has
+    # one hit there.
+    text = "Set 1: Jam, Sugaree, Jack Straw\nSet 2: Scarlet Begonias, Truckin\n"
+    names = ["Jam", "Sugaree", "Jack Straw", "Scarlet Begonias", "Truckin", "Jam"]
+    today = ["1", "1", "1", "2", "2", "2"]
     d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
-                     today_sets=today)
-    assert d.placement is not None and d.placement.boundaries == (4,), d.reason
+                     today_sets=today, today_reaches_llm=False)
+    assert d.placement is not None and d.placement.boundaries == (3,), d.reason
+
+
+def test_uniqueness_applies_to_the_item_that_stands_in():
+    # My call (scope note): set 1's first item `Zed` has no hit, so `Jam` stands in, and it
+    # matches two tracks in set 1's window.
+    text = "Set 1: Zed, Jam, Sugaree, Jam, Jack Straw\nSet 2: Scarlet Begonias, Truckin\n"
+    names = ["Jam", "Sugaree", "Jam", "Jack Straw", "Scarlet Begonias", "Truckin"]
+    today = ["1", "1", "1", "1", "2", "2"]
+    d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
+                     today_sets=today, today_reaches_llm=False)
+    assert d.placement is None
+    assert d.reason == "veto: set 1's first song matches several tracks"
+
+
+def test_b4_ambiguous_real_cases_decline():
+    text, names, today, field = ANNOTATED_CASES["joerussosalmostdead-2017-03-11"]
+    assert read_taper_structure(text).asserts is True       # its annotated headers read
+    d = decide_taper(_mk_today(names, today), {field: text}, aliases={}, today_sets=today,
+                     today_reaches_llm=False)
+    assert d.placement is None
+    assert d.reason == "veto: set 1's first song matches several tracks"
+
+
+def test_today_reaches_llm_is_required():
+    # llama-db, 2026-10-22: a veto's input has no default, so no caller can forget it and
+    # silently make G1 fail open.
+    with pytest.raises(TypeError):
+        decide_taper(mk(TODAY_ENC_TRACKS), {"description": TWO_SETS}, aliases={},
+                     today_sets=["1"] * 5)

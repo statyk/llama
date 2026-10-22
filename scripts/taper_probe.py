@@ -28,13 +28,17 @@ Judgment calls (each errs toward the taper owning LESS):
   * A show whose tables cannot give tracks and `today_sets` of equal length is skipped.
   * Library shows with an operator structure override (`set_breaks`/`encore_after`, or
     `structure.source == "override"`) are counted and skipped.
+
+Approximate, direction mixed (NOT under the heading above):
   * G1's predicate (`decide_taper(today_reaches_llm=...)`: canonical items, no anchoring,
     step-1 coverage under the threshold) needs a gather, which the probe does not run. It
-    passes a STORED proxy instead (`stored_llm_path`): the stored show's
-    `structure.alignment` is `llm`, or its `review_flags` hold `low-confidence structure
-    alignment` -- the old gather reached the LLM branch, and the LLM won or did not. Each
-    row records it as `today_llm`; the summaries count the rows it is True on and the rows
-    G1 declined.
+    passes a STORED proxy instead (`stored_llm_path`), explicitly on every call: the stored
+    show's `structure.alignment` is `llm`, or its `review_flags` hold `low-confidence
+    structure alignment` -- the old gather reached the LLM branch, and the LLM won or did
+    not. It errs both ways: False where today's code would now reach the LLM branch but the
+    stored gather did not (the probe owns more), True where today's code would now anchor
+    or align (the probe owns less). Each row records it as `today_llm`; the summaries count
+    the rows it is True on and the rows G1 declined.
 """
 from __future__ import annotations
 
@@ -160,7 +164,7 @@ def stored_llm_path(sj: dict) -> bool:
 
 
 def decide(tracks: list[Track], meta: dict, artist: str | None, today_sets: list[str],
-           today_llm: bool = False):
+           today_llm: bool):
     if len(today_sets) != len(tracks):
         raise Skip("today_sets not parallel to tracks")
     return taper.decide_taper(tracks, meta, aliases=aliases_for(artist), today_sets=today_sets,
@@ -182,7 +186,7 @@ def r4_disabled():
         taper._ENCORE_LIKE_END, taper._ENCORE_LIKE_ITEM, taper._LEADING_NUMBER = saved
 
 
-def r4_alone(decision, tracks, meta, artist, today_sets, today_llm=False) -> bool:
+def r4_alone(decision, tracks, meta, artist, today_sets, today_llm: bool) -> bool:
     """Not owned for `veto: encore-like text` and owned with the R4 rules off."""
     if decision.placement is not None or decision.reason != "veto: encore-like text":
         return False
