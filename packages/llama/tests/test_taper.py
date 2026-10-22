@@ -4377,3 +4377,14 @@ def test_taper_encore_marked_stays_owned_on_todays_llm_path():
     d = decide_taper(mk(TODAY_ENC_TRACKS), {"description": text}, aliases={},
                      today_sets=["1"] * 5, today_reaches_llm=True)
     assert d.placement is not None and d.placement.boundaries == (2, 4), d.reason
+
+
+def test_the_hit_is_the_earliest_match_of_set_1s_first_song():
+    # Set 1's first song `Bertha` is played twice inside set 1, and step 1 breaks between the
+    # two. The hit is the first `Bertha`, so no step-1 break precedes it: still owned.
+    text = "Set 1: Bertha, Sugaree, Bertha, Jack Straw\nSet 2: Scarlet Begonias, Truckin\n"
+    names = ["Bertha", "Sugaree", "Bertha", "Jack Straw", "Scarlet Begonias", "Truckin"]
+    today = ["1", "2", "2", "2", "3", "3"]
+    d = decide_taper(_mk_today(names, today), {"description": text}, aliases={},
+                     today_sets=today)
+    assert d.placement is not None and d.placement.boundaries == (4,), d.reason
