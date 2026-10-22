@@ -70,7 +70,15 @@ from llama.setlist import (
     is_junk_title,
     parse_setlist,
 )
-from llama.structure import is_filler
+from llama.models import Track
+from llama.structure import (
+    _ENCORE_MARKER,
+    TAUTOLOGICAL_TITLE_SOURCES,
+    fuzzy_norm_title,
+    fuzzy_title_eq,
+    is_filler,
+    title_components,
+)
 
 
 @dataclass(frozen=True)
@@ -400,3 +408,128 @@ def taper_text_for(meta: dict) -> tuple[str, str]:
     if notes and _has_marker(notes):
         return notes, "notes"
     return "", "none"
+
+
+# --- Exact placement and the ownership decision (spec sections 2 and 3). ---
+
+
+@dataclass(frozen=True)
+class TaperPlacement:
+    sets: tuple[str, ...]  # per-track labels, parallel to tracks
+    boundaries: tuple[int, ...]  # 1-based track index after which each boundary falls
+
+
+@dataclass(frozen=True)
+class TaperDecision:
+    placement: TaperPlacement | None  # None when not owned
+    taper: TaperText
+    source: str  # "description" | "notes" | "none"
+    reason: str | None  # why not owned
+
+
+def _counts(track: Track) -> bool:
+    return track.title_source != "unresolved" and track.title_source not in TAUTOLOGICAL_TITLE_SOURCES
+
+
+def _place_boundary(tracks: list[Track], left: list[TaperItem], right: list[TaperItem],
+                    aliases: dict[str, str], today_sets: list[str]
+                    ) -> tuple[int, int, int] | str:
+    """(boundary position, a position, b position), 0-based, or the decline reason."""
+    def norm(title: str) -> str:
+        return fuzzy_norm_title(title, aliases)
+
+    a_norm, b_norm = norm(left[-1].title), norm(right[0].title)
+    left_norms = [norm(i.title) for i in left]
+    right_norms = [norm(i.title) for i in right]
+
+    def hit(track: Track, target: str) -> bool:
+        if not _counts(track):
+            return False
+        if fuzzy_title_eq(norm(track.title), target):
+            return True
+        return any(fuzzy_title_eq(c, target) for c in title_components(track.title, aliases))
+
+    a_hits = [i for i, t in enumerate(tracks) if hit(t, a_norm)]
+    b_hits = [i for i, t in enumerate(tracks) if hit(t, b_norm)]
+    if len(a_hits) != 1:
+        return f"last song {left[-1].title!r} matches {len(a_hits)} tracks"
+    if len(b_hits) != 1:
+        return f"first song {right[0].title!r} matches {len(b_hits)} tracks"
+    a, b = a_hits[0], b_hits[0]
+    if a >= b:
+        return "songs out of order"
+    if any(fuzzy_title_eq(a_norm, n) for n in right_norms):
+        return f"{left[-1].title!r} also occurs on the other side"
+    if any(fuzzy_title_eq(b_norm, n) for n in left_norms):
+        return f"{right[0].title!r} also occurs on the other side"
+    for pos in (a, b):
+        comps = title_components(tracks[pos].title, aliases)
+        if len(comps) > 1:
+            on_left = any(fuzzy_title_eq(c, n) for c in comps for n in left_norms)
+            on_right = any(fuzzy_title_eq(c, n) for c in comps for n in right_norms)
+            if on_left and on_right:
+                return "a merged track spans the boundary"
+    for t in tracks[a + 1:b]:
+        if not is_filler(t.title) or not _counts(t):
+            return f"non-filler track {t.title!r} between the songs"
+    splits = [k for k in range(a, b) if k + 1 < len(today_sets) and today_sets[k] != today_sets[k + 1]]
+    if b - a > 1 and splits:
+        if len(splits) > 1:
+            return "today's structure splits the filler run more than once"
+        return splits[0], a, b
+    return a, a, b
+
+
+def place_taper_structure(tracks: list[Track], taper: TaperText, *,
+                          aliases: dict[str, str], today_sets: list[str]
+                          ) -> TaperPlacement | str:
+    """The placement, or a decline reason ("unplaced: <A>|<B> <why>")."""
+    groups: list[tuple[str, list[TaperItem]]] = []
+    for item in taper.items:
+        if groups and groups[-1][0] == item.set:
+            groups[-1][1].append(item)
+        else:
+            groups.append((item.set, [item]))
+    if len(groups) < 2:
+        return "unplaced: fewer than two sets"
+    flat = [i for _, g in groups for i in g]
+    bounds: list[int] = []  # 0-based positions after which a boundary falls
+    prev_b = -1
+    offset = 0
+    for (la, ga), (lb, gb) in zip(groups, groups[1:]):
+        offset += len(ga)
+        left, right = flat[:offset], flat[offset:]
+        # `left`/`right` are every item on each side; the boundary's own songs are the
+        # last of A and the first of B.
+        res = _place_boundary(tracks, left, right, aliases, today_sets)
+        if isinstance(res, str):
+            return f"unplaced: {la}|{lb} {res}"
+        pos, a, b = res
+        if a < prev_b or pos <= (bounds[-1] if bounds else -1):
+            return f"unplaced: {la}|{lb} boundaries out of order"
+        bounds.append(pos)
+        prev_b = b
+    labels: list[str] = []
+    cur = 0
+    for i in range(len(tracks)):
+        labels.append(groups[cur][0])
+        if cur < len(bounds) and i == bounds[cur]:
+            cur += 1
+    return TaperPlacement(sets=tuple(labels), boundaries=tuple(p + 1 for p in bounds))
+
+
+def decide_taper(tracks: list[Track], meta: dict, *, aliases: dict[str, str],
+                 today_sets: list[str]) -> TaperDecision:
+    text, source = taper_text_for(meta)
+    taper = read_taper_structure(text)
+    if not taper.asserts:
+        return TaperDecision(None, taper, source, taper.reason)
+    if not taper.has_encore:
+        if any(_ENCORE_MARKER.search(t.title) for t in tracks):
+            return TaperDecision(None, taper, source, "veto: track title")
+        if taper.encore_like:
+            return TaperDecision(None, taper, source, "veto: encore-like text")
+    placed = place_taper_structure(tracks, taper, aliases=aliases, today_sets=today_sets)
+    if isinstance(placed, str):
+        return TaperDecision(None, taper, source, placed)
+    return TaperDecision(placed, taper, source, None)

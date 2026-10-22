@@ -2012,3 +2012,198 @@ def test_parse_setlist_unchanged(name):
         confidence=confidence,
     )
     assert parse_setlist(globals()[name]) == expected
+
+
+# ---------------------------------------------------------------------------------------
+# Task 2: exact placement and the ownership decision
+# ---------------------------------------------------------------------------------------
+
+from llama.models import Track  # noqa: E402
+from llama.songs import GD_SHORTHAND  # noqa: E402
+from llama.taper import decide_taper, place_taper_structure  # noqa: E402
+
+
+def mk(titles_: list[str], sources: dict[int, str] | None = None) -> list[Track]:
+    sources = sources or {}
+    return [Track(index=i + 1, set="1", title=t, filename=f"t{i + 1:02d}.mp3",
+                  title_source=sources.get(i + 1, "tags")) for i, t in enumerate(titles_)]
+
+
+def tt_of(*items: tuple[str, str]) -> TaperText:
+    return TaperText(items=tuple(TaperItem(t, s) for t, s in items), asserts=True,
+                     has_encore=any(s == "encore" for _, s in items), encore_like=False,
+                     reason=None)
+
+
+def place(tracks, taper, aliases=None, today=None):
+    return place_taper_structure(tracks, taper, aliases=aliases or {},
+                                 today_sets=today or ["1"] * len(tracks))
+
+
+BASE_TAPER = tt_of(("Bertha", "1"), ("Let It Grow", "1"), ("Scarlet Begonias", "2"),
+                   ("Truckin", "2"))
+
+
+def base_tracks(between: list[str]) -> list[Track]:
+    return mk(["Bertha", "Let It Grow", *between, "Scarlet Begonias", "Truckin"])
+
+
+def test_places_when_both_sides_match_uniquely_with_filler_between():
+    tracks = mk(["Bertha", "a1", "b1", "c1", "d1", "e1", "Let It Grow", "tuning",
+                 "Scarlet Begonias", "Truckin"])
+    taper = tt_of(("Bertha", "1"), ("Let It Grow", "1"), ("Scarlet Begonias", "2"),
+                  ("Truckin", "2"))
+    # the unmatched middle tracks are not in the taper's list; they are just tape tracks
+    p = place(tracks, taper)
+    assert not isinstance(p, str), p
+    assert p.boundaries == (7,)
+    assert p.sets == ("1",) * 7 + ("2",) * 3
+
+
+def test_filler_keeps_todays_split_point():
+    tracks = mk(["Let It Grow", "tuning", "banter", "Scarlet Begonias"])
+    taper = tt_of(("Let It Grow", "1"), ("Scarlet Begonias", "2"))
+    p = place(tracks, taper, today=["1", "1", "2", "2"])
+    assert not isinstance(p, str), p
+    assert p.boundaries == (2,)
+    assert p.sets == ("1", "1", "2", "2")
+    p = place(tracks, taper, today=["1"] * 4)
+    assert p.boundaries == (1,)
+
+
+def test_non_filler_between_is_unplaced():
+    for mid in ("Donor Rap", "Space"):
+        r = place(base_tracks([mid]), BASE_TAPER)
+        assert isinstance(r, str) and r.startswith("unplaced: 1|2"), r
+
+
+def test_unresolved_or_tautological_between_is_unplaced():
+    for src in ("unresolved", "setlist-gap"):
+        tracks = mk(["Let It Grow", "tuning", "Scarlet Begonias"], {2: src})
+        r = place(tracks, tt_of(("Let It Grow", "1"), ("Scarlet Begonias", "2")))
+        assert isinstance(r, str) and "between" in r, r
+
+
+def test_missing_or_ambiguous_match_is_unplaced():
+    r = place(mk(["Bertha", "Scarlet Begonias"]), tt_of(("Let It Grow", "1"), ("Scarlet Begonias", "2")))
+    assert isinstance(r, str) and "matches 0 tracks" in r
+    r = place(mk(["Let It Grow", "x", "Let It Grow", "Scarlet Begonias"]),
+              tt_of(("Let It Grow", "1"), ("Scarlet Begonias", "2")))
+    assert isinstance(r, str) and "matches 2 tracks" in r
+
+
+def test_repeated_title_across_boundary_is_unplaced():
+    r = place(mk(["Jam", "Scarlet Begonias"]),
+              tt_of(("Jam", "1"), ("Scarlet Begonias", "2"), ("Jam", "2")))
+    assert isinstance(r, str) and "other side" in r
+    r = place(mk(["Let It Grow", "Jam"]),
+              tt_of(("Jam", "1"), ("Let It Grow", "1"), ("Jam", "2")))
+    assert isinstance(r, str) and "other side" in r
+
+
+def test_merged_track_spanning_the_boundary_is_unplaced():
+    tracks = mk(["Let It Grow", "Space > Scarlet Begonias"])
+    taper = tt_of(("Space", "1"), ("Let It Grow", "1"), ("Scarlet Begonias", "2"))
+    r = place(tracks, taper)
+    assert isinstance(r, str) and "merged" in r, r
+
+
+def test_order_must_increase():
+    r = place(mk(["Scarlet Begonias", "Let It Grow"]),
+              tt_of(("Let It Grow", "1"), ("Scarlet Begonias", "2")))
+    assert isinstance(r, str) and "order" in r
+
+
+def test_tautological_tracks_are_not_evidence():
+    tracks = mk(["Let It Grow", "Scarlet Begonias"], {1: "setlist-gap"})
+    r = place(tracks, tt_of(("Let It Grow", "1"), ("Scarlet Begonias", "2")))
+    assert isinstance(r, str) and "matches 0 tracks" in r
+
+
+def test_encore_boundary_uses_the_same_test():
+    tracks = mk(["Let It Grow", "Scarlet Begonias", "Truckin", "tuning", "Brokedown Palace"])
+    taper = tt_of(("Let It Grow", "1"), ("Scarlet Begonias", "2"), ("Truckin", "2"),
+                  ("Brokedown Palace", "encore"))
+    p = place(tracks, taper)
+    assert not isinstance(p, str), p
+    assert p.boundaries == (1, 3)
+    assert p.sets == ("1", "2", "2", "encore", "encore")
+
+
+def test_every_boundary_must_place():
+    tracks = mk(["A Song", "Donor Rap", "B Song", "C Song"])
+    taper = tt_of(("A Song", "1"), ("B Song", "2"), ("C Song", "3"))
+    r = place(tracks, taper)
+    assert isinstance(r, str) and r.startswith("unplaced: 1|2")
+    tracks = mk(["A Song", "B Song", "Donor Rap", "C Song"])
+    r = place(tracks, taper)
+    assert isinstance(r, str) and r.startswith("unplaced: 2|3")
+
+
+def test_family_aliases_apply():
+    tracks = mk(["Let It Grow", "Scarlet Begonias"])
+    taper = tt_of(("Let It Grow", "1"), ("Scarlet", "2"))
+    assert isinstance(place(tracks, taper), str)
+    assert not isinstance(place(tracks, taper, aliases=GD_SHORTHAND), str)
+
+
+def test_real_case_declines():
+    # moe-1997-02-21: Head and Interstellar Overdrive sit between Moth and the encore.
+    tracks = mk(["tuning/banter", "Rebubula", "Spine Of A Dog", "Mexico", "Threw It All Away",
+                 "Stranger Than Fiction", "Timmy Tucker", "Brent Black", "Happy Hour Hero",
+                 "32 Things", "It", "Moth", "Head", "Interstellar Overdrive", "Head",
+                 "tuning/banter", "Spaz Medicine", "Buster", "Seat Of My Pants"])
+    d = decide_taper(tracks, {"description": MOE_1997_02_21}, aliases={},
+                     today_sets=["1"] * len(tracks))
+    assert d.placement is None and d.reason and d.reason.startswith("unplaced: 2|encore")
+    assert "between" in d.reason
+    # darkstarorchestra-2005-11-16: NFA opens and closes the same stretch (repeated title).
+    names = ["Bertha", "Me and My Uncle", "Sugaree", "BIODTL", "Tennessee Jed", "LL Rain",
+             "BE Women", "Jack Straw", "Row Jimmy", "WRS Prelude", "WRS Part 1", "Let it Grow",
+             "Eyes", "China Doll", "Greatest", "Ramble on", "Big River",
+             "Sing Your Blues Away", "China Cat", "I Know You Rider", "El Paso", "He's Gone",
+             "Truckin", "NFA", "GDTRFB", "NFA", "Stella Blue", "One More Saturday Night"]
+    tracks = mk(names)
+    d = decide_taper(tracks, {"description": DSO_2005_11_16}, aliases=GD_SHORTHAND,
+                     today_sets=["1"] * len(tracks))
+    assert d.placement is None and d.reason and "'NFA'" in d.reason
+
+
+TWO_SETS = "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin\n"
+
+
+def test_track_title_encore_vetoes():
+    tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin", "Encore: Box Of Rain"])
+    d = decide_taper(tracks, {"description": TWO_SETS}, aliases={}, today_sets=["1"] * 5)
+    assert d.placement is None and d.reason == "veto: track title"
+
+
+@pytest.mark.parametrize("text", [
+    "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin (Encore)\n",
+    "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin\nencore break\n",
+    "Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin\nE. Box Of Rain\n",
+])
+def test_encore_like_text_anywhere_vetoes(text):
+    tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin"])
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 4)
+    assert d.placement is None and d.reason == "veto: encore-like text"
+
+
+def test_encore_like_does_not_veto_when_an_encore_is_marked():
+    text = ("Set 1: Bertha, Let It Grow\nSet 2: Scarlet Begonias, Truckin (Encore)\n"
+            "Encore: Brokedown Palace\n")
+    tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin (Encore)",
+                 "Encore: Brokedown Palace"])
+    d = decide_taper(tracks, {"description": text}, aliases={}, today_sets=["1"] * 5)
+    assert d.placement is not None, d.reason
+    assert d.placement.sets[-1] == "encore"
+
+
+def test_decide_taper_reports_source_and_reader_reason():
+    tracks = mk(["Bertha", "Let It Grow", "Scarlet Begonias", "Truckin"])
+    d = decide_taper(tracks, {"description": "no marks here", "notes": TWO_SETS},
+                     aliases={}, today_sets=["1"] * 4)
+    assert d.source == "notes" and d.placement is not None and d.reason is None
+    d = decide_taper(tracks, {"description": "Set 1: A\nSet 3: B\n"}, aliases={},
+                     today_sets=["1"] * 4)
+    assert d.placement is None and d.reason.startswith("void:")
