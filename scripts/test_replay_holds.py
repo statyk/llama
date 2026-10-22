@@ -910,3 +910,232 @@ def test_compare_refuses_mixed_strip_arms_and_writes_no_lists_for_stripped(tmp_p
     assert rh.main(["compare", str(sb), str(sc), "--out", str(out)]) == 0
     assert not list(out.glob("*_list.json"))
     assert "apply lists: not written" in (out / "summary.txt").read_text()
+
+
+# --- Piece 2 (taper markers): taper_cleared / taper_changes / the `taper` note group ---
+
+HELD_SLUG = "gratefuldead-1973-06-10"
+CLEAN_SLUG = "gratefuldead-1973-06-11"
+
+
+def _write(path, arm):
+    path.write_text(json.dumps(arm))
+
+
+def _row(arm, slug):
+    return arm["shows"][slug]
+
+
+def test_taper_cleared_includes_structure_changed_clears(tmp_path):
+    base, cand = _two_arms(tmp_path)
+    arm = json.loads(cand.read_text())
+    # one held base show, three candidate outcomes, then a still-held one
+    row = _row(arm, HELD_SLUG)
+    others = {}
+    for i, outcome in enumerate(("clears", "needs-brief", "structure-changed", "still-held")):
+        slug = f"extra-{i}"
+        others[slug] = outcome
+        arm["shows"][slug] = dict(row, slug=slug, outcome=outcome, state="held")
+    barm = json.loads(base.read_text())
+    for slug in others:
+        barm["shows"][slug] = dict(_row(barm, HELD_SLUG), slug=slug, outcome="still-held")
+    del arm["shows"][HELD_SLUG], barm["shows"][HELD_SLUG]
+    cand.write_text(json.dumps(arm))
+    base.write_text(json.dumps(barm))
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--no-repro-gate"]) == 0
+    text = (out / "taper_cleared.txt").read_text()
+    assert "extra-0" in text and "extra-1" in text and "extra-2" in text
+    assert "extra-3" not in text
+    assert "taper_cleared.txt" in rh.OUTPUT_FILES and "taper_changes.txt" in rh.OUTPUT_FILES
+    assert "taper_cleared.txt: 3 show(s)" in (out / "summary.txt").read_text()
+
+
+def _owned(slug_row, sets, filler=None, source="notes", step1="deterministic"):
+    slug_row.update(taper_owned=True, sets=sets, filler=filler or [False] * len(sets),
+                    taper_source=source, step1_alignment=step1, outcome="clears")
+
+
+def _clone(arm, src, slug, state):
+    arm["shows"][slug] = dict(arm["shows"][src], slug=slug, state=state)
+
+
+def _clone_slugs(tmp_path, arms_fn):
+    """Build both arms, clone the clean show into extra slugs in both arms and
+    the library, then let `arms_fn(base_arm, cand_arm)` shape the rows."""
+    base, cand = _two_arms(tmp_path)
+    root = tmp_path / "lib"
+    return base, cand, root
+
+
+def test_taper_changes_report_tiers_and_states(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    cfg = str(root / "config.toml")
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    deliver = tmp_path / "station"
+    labels = {"moved": ["1", "1", "1", "2", "2"], "renamed": ["1", "1", "2", "2", "2"],
+              "fill": ["1", "1", "1", "2", "2"], "prov": ["1", "1", "2", "2", "2"]}
+    for name, lab in labels.items():
+        slug = f"show-{name}"
+        for arm in (b, c):
+            _clone(arm, CLEAN_SLUG, slug, "delivered" if name == "moved" else "packaged")
+            _row(arm, slug).update(outcome="clears", set_changes=[], segue_changes=[], notes=[])
+        (root / "shows" / slug).mkdir(parents=True)
+        (root / "shows" / slug / "show.json").write_text(json.dumps(
+            {"tracks": [{"index": i + 1, "set": s} for i, s in enumerate(lab)]}))
+        _row(b, slug)["sets"] = lab
+        _row(b, slug)["filler"] = [False] * 5
+    _owned(_row(c, "show-moved"), ["1", "1", "2", "2", "2"], source="notes", step1="jerrybase")
+    _owned(_row(c, "show-renamed"), ["1", "1", "3", "3", "3"], source="description")
+    _owned(_row(c, "show-fill"), ["1", "1", "1", "2", "E"], filler=[False] * 4 + [True])
+    _row(b, "show-fill")["sets"] = ["1", "1", "1", "2", "2"]
+    _owned(_row(c, "show-prov"), labels["prov"])
+    (deliver / "show-moved").mkdir(parents=True)
+    (deliver / "show-moved" / "manifest.json").write_text(json.dumps({"dj_audio": {"profile": "x"}}))
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--config", cfg_with(tmp_path, root, deliver)]) == 0
+    text = (out / "taper_changes.txt").read_text()
+    sec = {name: text.split(f"== {name}")[1].split("\n== ")[0] for name in
+           ("songs moved", "labels renamed", "filler labels only", "provenance only")}
+    assert "show-moved" in sec["songs moved"] and "show-renamed" not in sec["songs moved"]
+    assert "show-renamed" in sec["labels renamed"]
+    assert "show-fill" in sec["filler labels only"]
+    assert "show-prov" in sec["provenance only"]
+    moved = [l for l in sec["songs moved"].splitlines() if "show-moved" in l][0]
+    assert "voiced" in moved and "notes" in moved and "jerrybase" in moved
+    assert "before [3]" in moved and "after [2]" in moved and "stored [3]" in moved
+    assert "packaged" in sec["labels renamed"] and "voiced" not in sec["labels renamed"]
+    assert "description" in sec["labels renamed"]
+
+
+def cfg_with(tmp_path, root, deliver):
+    p = tmp_path / "compare.toml"
+    p.write_text(f'root = "{root}"\ndelivery_path = "{deliver}"\n\n[jerrybase]\nenabled = false\n')
+    return str(p)
+
+
+def test_taper_changes_before_is_stored_labels_with_base_set_changes(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    slug = "show-old"
+    for arm in (b, c):
+        _clone(arm, CLEAN_SLUG, slug, "packaged")
+        _row(arm, slug).update(outcome="clears", notes=[], set_changes=[], segue_changes=[])
+    (root / "shows" / slug).mkdir(parents=True)
+    (root / "shows" / slug / "show.json").write_text(json.dumps(
+        {"tracks": [{"index": i + 1, "set": s} for i, s in enumerate(["1", "1", "1", "1"])]}))
+    # base code moved track 3 and 4 to set 2 (a base row has no `sets` key)
+    _row(b, slug).pop("sets", None)
+    _row(b, slug)["set_changes"] = [{"index": 3, "old": "1", "new": "2"}, {"index": 4, "old": "1", "new": "2"}]
+    _owned(_row(c, slug), ["1", "1", "2", "2"])
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--config",
+                    cfg_with(tmp_path, root, tmp_path / "st")]) == 0
+    text = (out / "taper_changes.txt").read_text()
+    # before == candidate, so the base had already moved it: not a change of this piece
+    assert slug not in text.split("== songs moved")[1].split("\n== ")[0]
+    # and the stored label view differs from the candidate only by what base changed
+    _owned(_row(c, slug), ["1", "2", "2", "2"])
+    _write(cand, c)
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--config",
+                    cfg_with(tmp_path, root, tmp_path / "st")]) == 0
+    moved = (out / "taper_changes.txt").read_text().split("== songs moved")[1].split("\n== ")[0]
+    assert slug in moved and "before [2]" in moved and "stored []" in moved and "after [1]" in moved
+
+
+def test_taper_changes_lists_unreplayable_and_slfm_miss_shipped_rows(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    for arm in (b, c):
+        _clone(arm, CLEAN_SLUG, "show-unrep", "packaged")
+        _clone(arm, CLEAN_SLUG, "show-miss", "delivered")
+        _clone(arm, CLEAN_SLUG, "show-held-unrep", "held")
+    _row(c, "show-unrep").update(outcome="unreplayable", unreplayable="cache miss: x")
+    _row(b, "show-miss")["slfm_miss"] = True
+    _row(c, "show-held-unrep").update(outcome="unreplayable", unreplayable="cache miss: y")
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--no-repro-gate"]) == 0
+    text = (out / "taper_changes.txt").read_text()
+    sec = text.split("== unreplayable or setlist.fm-miss shipped shows")[1]
+    assert "show-unrep" in sec and "cache miss: x" in sec and "show-miss" in sec
+    assert "show-held-unrep" not in sec
+
+
+def test_taper_changes_counts_not_owned_needs_llm_rows(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    stored = ["1", "1", "1", "1"]
+    for slug in ("nl-unowned", "nl-owned"):
+        for arm in (b, c):
+            _clone(arm, CLEAN_SLUG, slug, "packaged")
+            _row(arm, slug).update(set_changes=[], segue_changes=[], notes=[])
+        (root / "shows" / slug).mkdir(parents=True)
+        (root / "shows" / slug / "show.json").write_text(json.dumps(
+            {"tracks": [{"index": i + 1, "set": s} for i, s in enumerate(stored)]}))
+        _row(b, slug).update(outcome="needs-llm", needs_llm=["stored alignment llm"])
+    _row(c, "nl-unowned").update(outcome="needs-llm", needs_llm=["stored alignment llm"],
+                                 taper_owned=False)
+    _owned(_row(c, "nl-owned"), ["1", "1", "2", "2"])
+    _row(c, "nl-owned")["segue_changes"] = [{"index": 2, "old": True, "new": False}]
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--no-repro-gate"]) == 0
+    text = (out / "taper_changes.txt").read_text()
+    assert "needs-LLM in the candidate and not taper-owned (unchanged by this piece, not listed): 1" in text
+    songs = text.split("== songs moved")[1].split("\n== ")[0]
+    assert "nl-owned" in songs and "nl-unowned" not in text
+    assert "before [] after [2] stored []" in songs      # the stored structure is "before"
+
+
+def test_stored_llm_moved_shows_listed_with_segue_changes(tmp_path):
+    base, cand, root = _clone_slugs(tmp_path, None)
+    b, c = json.loads(base.read_text()), json.loads(cand.read_text())
+    for slug in ("llm-moved", "llm-stays"):
+        for arm in (b, c):
+            _clone(arm, CLEAN_SLUG, slug, "packaged")
+        _row(b, slug).update(outcome="needs-llm", needs_llm=["stored alignment llm"])
+    _row(c, "llm-stays").update(outcome="needs-llm", needs_llm=["stored alignment llm"])
+    _owned(_row(c, "llm-moved"), ["1", "1", "2", "2"])
+    _row(c, "llm-moved")["segue_changes"] = [{"index": 2, "old": True, "new": False}]
+    _write(base, b)
+    _write(cand, c)
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out), "--no-repro-gate"]) == 0
+    text = (out / "taper_changes.txt").read_text()
+    sec = text.split("== stored-llm shows now replayable")[1].split("\n== ")[0]
+    assert "llm-moved" in sec and "llm-stays" not in sec
+    assert '"index": 2' in sec and "segue" in sec
+
+
+def test_taper_note_group(tmp_path):
+    notes = [
+        "set breaks from the taper's markers (was [3] ['1', '1', '2'])",
+        "structure has 3 sets but jerrybase shows 2 (taper's markers)",
+        "jerrybase set closer 'Sugar Magnolia' is not at a set break (taper's markers)",
+        "jerrybase set closer 'Sugar Magnolia' is not at a set break",
+    ]
+    def mutate(arm):
+        _clear_it(arm)
+        _row(arm, HELD_SLUG)["notes"] = notes
+    base, cand = _two_arms(tmp_path, mutate)
+    groups = rh._notes_by_group(json.loads(cand.read_text()))
+    assert [n for _, n in groups["taper"]] == notes[:3]
+    assert [n for _, n in groups["5c.1"]] == notes[3:]
+    out = tmp_path / "cmp"
+    assert rh.main(["compare", str(base), str(cand), "--out", str(out)]) == 0
+    assert "== taper (3)" in (out / "notes.txt").read_text()
+    assert "== 5c.1 (1)" in (out / "notes.txt").read_text()
+
+
+def test_taper_reports_not_written_for_stripped_arms(tmp_path):
+    sb, sc = _stripped_arms(tmp_path, True, True)
+    out = tmp_path / "stripped"
+    assert rh.main(["compare", str(sb), str(sc), "--out", str(out)]) == 0
+    assert not (out / "taper_cleared.txt").exists() and not (out / "taper_changes.txt").exists()

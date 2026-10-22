@@ -233,6 +233,7 @@ NOTE_GROUPS = (   # (Contracts id, fixed leading words)
     ("2b", "placeholder tag title:"),
     ("2c", "stripped glued track number:"),
     ("2d", "stripped joined track number:"),
+    ("taper", "set breaks from the taper's markers"),   # also any note ending (taper's markers)
     ("5c.1", "jerrybase set closer "),
     ("4a", "unknown-song flags suppressed by the right-show gate:"),
     ("format sibling tagged", "format sibling tagged"),
@@ -241,7 +242,7 @@ NONE = "  (none)"
 OUTPUT_FILES = ("summary.txt", "drift.txt", "flags.txt", "outcomes.txt", "packaged_exposure.txt",
                 "venue_changes.txt", "title_sources.txt", "structure_changed.txt", "hand_check_sample.txt",
                 "closest_calls.txt", "needs_llm.txt", "notes.txt", "briefings.txt",
-                "narration_candidates.html", "predicted_list.json",
+                "taper_cleared.txt", "taper_changes.txt", "narration_candidates.html", "predicted_list.json",
                 "structure_changed_list.json", "pilot_list.json")
 
 
@@ -533,13 +534,18 @@ def _hand_check(base: dict, cand: dict) -> list[str]:
     return out
 
 
+def _is_taper_note(n: str) -> bool:
+    """Two of the three fixed taper notes are identified by their suffix, not leading words."""
+    return n.startswith("set breaks from the taper's markers") or n.endswith("(taper's markers)")
+
+
 def _notes_by_group(cand: dict) -> dict[str, list[tuple[str, str]]]:
     groups: dict[str, list[tuple[str, str]]] = {g: [] for g, _ in NOTE_GROUPS}
     groups["other"] = []
     for slug, r in sorted(cand["shows"].items()):
         for n in r.get("notes") or []:
             for g, prefix in NOTE_GROUPS:
-                if n.startswith(prefix):
+                if (_is_taper_note(n) if g == "taper" else n.startswith(prefix)):
                     groups[g].append((slug, n))
                     break
             else:
@@ -552,6 +558,141 @@ def _notes_txt(cand: dict) -> list[str]:
     for g, rows in _notes_by_group(cand).items():
         out += _lines(f"== {g} ({len(rows)})", [f"  {s}: {n}" for s, n in rows])
     return out
+
+
+# --- piece 2 (taper markers) reports ---
+
+def _taper_cleared(base: dict, cand: dict) -> list[str]:
+    """Every show held in the base arm whose candidate outcome clears it or is
+    structure-changed (a structure-changed show is a clear a taper rule made)."""
+    out = []
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if b.get("state") != "held" or not _would_clear(c):
+            continue
+        removed = [f for f in _all_flags(b) if f not in _all_flags(c)]
+        out.append(f"{slug}  {c.get('outcome')}"
+                   + (f" (would be {c.get('would_be')})" if c.get("would_be") else "")
+                   + f"  taper_owned: {_j(c.get('taper_owned'))}  source: {_j(c.get('taper_source'))}")
+        out.append(f"  removed: {'; '.join(removed) or '(none)'}")
+        out += [f"  note: {n}" for n in c.get("notes") or []]
+    return out
+
+
+def _stored_labels(root: Path, slug: str) -> list:
+    return [t.get("set") for t in _tracks(_show_json(root, slug))]
+
+
+def _apply_set_changes(labels: list, changes: list[dict] | None) -> list:
+    """The stored labels with a row's `set_changes` applied (`index` is 1-based; a
+    `new` of None means the track is past that tape's end)."""
+    by = {c.get("index"): c.get("new") for c in changes or [] if isinstance(c, dict)}
+    n = max([len(labels), *[i for i in by if isinstance(i, int)]], default=0)
+    out = []
+    for i in range(1, n + 1):
+        v = by[i] if i in by else (labels[i - 1] if i <= len(labels) else None)
+        if v is not None:
+            out.append(v)
+    return out
+
+
+def _label_breaks(labels: list) -> list[int]:
+    """Track numbers after which the set label changes."""
+    return [i for i in range(1, len(labels)) if labels[i - 1] != labels[i]]
+
+
+def _after_labels(c: dict, stored: list) -> list:
+    return list(c["sets"]) if c.get("sets") else _apply_set_changes(stored, c.get("set_changes"))
+
+
+def _before_labels(b: dict, stored: list) -> list:
+    if b.get("outcome") == "needs-llm":
+        return list(stored)            # the stored structure; the base could not replay it
+    if b.get("sets"):
+        return list(b["sets"])
+    return _apply_set_changes(stored, b.get("set_changes"))
+
+
+def _tier(before: list, after: list, filler: list, base_owned: bool, cand_owned: bool) -> str | None:
+    if before == after:
+        return "provenance only" if cand_owned and not base_owned else None
+    if len(before) != len(after) or len(filler) != len(after):
+        return "songs moved"           # cannot compare per track: do not under-report
+    keep = [i for i, f in enumerate(filler) if not f]
+    b, a = [before[i] for i in keep], [after[i] for i in keep]
+    if _label_breaks(b) != _label_breaks(a):
+        return "songs moved"
+    return "labels renamed" if b != a else "filler labels only"
+
+
+def _is_voiced(delivery: Path | None, slug: str) -> bool:
+    if delivery is None:
+        return False
+    from llama.cli import _destination_is_voiced   # a raw-JSON read of manifest.json; writes nothing
+    return _destination_is_voiced(delivery / slug)
+
+
+def _delivery_path(config_path: Path | None) -> Path | None:
+    if config_path is not None and not config_path.exists():
+        raise Refusal(f"no such config: {config_path}")
+    return load_config(config_path or DEFAULT_ROOT / "config.toml").delivery_path   # as `run`
+
+
+TAPER_TIERS = ("songs moved", "labels renamed", "filler labels only", "provenance only")
+
+
+def _taper_changes(base: dict, cand: dict, root: Path, config_path: Path | None) -> tuple[list[str], dict]:
+    delivery, delivery_read = None, False
+    tiers: dict[str, list[str]] = {t: [] for t in TAPER_TIERS}
+    not_owned_nl = 0
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if c.get("state") not in NON_HELD or "unreplayable" in (b.get("outcome"), c.get("outcome")):
+            continue
+        if c.get("outcome") == "needs-llm" and not c.get("taper_owned"):
+            not_owned_nl += 1
+            continue
+        stored = _stored_labels(root, slug)
+        before, after = _before_labels(b, stored), _after_labels(c, stored)
+        filler = list(c.get("filler") or [False] * len(after))
+        tier = _tier(before, after, filler, bool(b.get("taper_owned")), bool(c.get("taper_owned")))
+        if tier is None:
+            continue
+        state = str(c.get("state"))
+        if state == "delivered":
+            if not delivery_read:
+                delivery, delivery_read = _delivery_path(config_path), True
+            if _is_voiced(delivery, slug):
+                state = "voiced"
+        tiers[tier].append(
+            f"  {slug}  [{state}]  before {_j(_label_breaks(before))} after {_j(_label_breaks(after))} "
+            f"stored {_j(_label_breaks(stored))}  source: {c.get('taper_source')}  "
+            f"overruled: {c.get('step1_alignment')}")
+    out = [f"needs-LLM in the candidate and not taper-owned (unchanged by this piece, not listed): "
+           f"{not_owned_nl}", ""]
+    for t in TAPER_TIERS:
+        out += _lines(f"== {t} ({len(tiers[t])})", tiers[t])
+    unrep = []
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if not (c.get("state") in NON_HELD or b.get("state") in NON_HELD):
+            continue
+        arms = (("base", b), ("cand", c))
+        why = [f"{a}: {r.get('unreplayable') or 'unreplayable'}" for a, r in arms
+               if r.get("outcome") == "unreplayable"]
+        why += [f"{a}: setlist.fm miss" for a, r in arms if r.get("slfm_miss")]
+        if why:
+            unrep.append(f"  {slug}  [{c.get('state')}]  {'; '.join(why)}")
+    out += _lines(f"== unreplayable or setlist.fm-miss shipped shows ({len(unrep)})", unrep)
+    moved = []
+    for slug, c in sorted(cand["shows"].items()):
+        b = base["shows"][slug]
+        if "stored alignment llm" in (b.get("needs_llm") or []) and c.get("outcome") != "needs-llm":
+            moved.append(f"  {slug}  [{c.get('state')}]  taper_owned: {_j(c.get('taper_owned'))}  "
+                         f"segue changes: {_j(c.get('segue_changes'))}")
+    out += _lines(f"== stored-llm shows now replayable ({len(moved)})", moved)
+    return out, {**{t: len(v) for t, v in tiers.items()}, "needs-llm not owned": not_owned_nl,
+                 "unreplayable": len(unrep), "stored-llm moved": len(moved)}
 
 
 def _jaccard(x: str, y: str) -> float:
@@ -849,6 +990,12 @@ def compare(args: argparse.Namespace) -> int:
     nl, nb, nc_ = _needs_llm(base, cand)
     _write(out, "needs_llm.txt", nl)
     _write(out, "notes.txt", _notes_txt(cand))
+    stripped = bool(cand.get("structure_overrides_stripped"))
+    tc, tcounts = _taper_cleared(base, cand), {}
+    if not stripped:   # a stripped arm replays without the operator's overrides: not the shipped library
+        _write(out, "taper_cleared.txt", _lines("shows held in base and cleared (or structure-changed) in cand:", tc))
+        tch, tcounts = _taper_changes(base, cand, root, getattr(args, "config", None))
+        _write(out, "taper_changes.txt", tch)
     (out / "narration_candidates.html").write_text(_narration_page(cand, root), encoding="utf-8")
 
     ordered = sorted(cand["shows"].items(), key=lambda kv: _skey(kv[0]))
@@ -856,7 +1003,6 @@ def compare(args: argparse.Namespace) -> int:
     sclist = [_list_row(s, r, r.get("would_be")) for s, r in ordered
               if r.get("outcome") == "structure-changed"]
     pilot = _pilot(predicted)
-    stripped = bool(cand.get("structure_overrides_stripped"))
     if not stripped:   # a stripped arm can never feed `reapply --from-list`
         for name, rows in (("predicted_list.json", predicted),
                            ("structure_changed_list.json", sclist), ("pilot_list.json", pilot)):
@@ -884,7 +1030,10 @@ def compare(args: argparse.Namespace) -> int:
         f"closest_calls.txt: {n_cc} row(s)",
         f"needs_llm.txt: base {nb}, cand {nc_}",
         f"notes.txt: {n_notes} note(s)",
-    ] + ([f"apply lists: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
+    ] + (["taper reports: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
+        f"taper_cleared.txt: {sum(1 for x in tc if not x.startswith(' '))} show(s)",
+        "taper_changes.txt: " + ", ".join(f"{k} {v}" for k, v in tcounts.items()),
+    ]) + ([f"apply lists: not written (arms replayed with --strip-structure-overrides)"] if stripped else [
         f"predicted_list.json: {len(predicted)} row(s)",
         f"structure_changed_list.json: {len(sclist)} row(s)",
         f"pilot_list.json: {len(pilot)} row(s)",
@@ -918,6 +1067,9 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("base", type=Path)
     c.add_argument("cand", type=Path)
     c.add_argument("--out", type=Path, required=True, help="directory for the reports")
+    c.add_argument("--config", type=Path, default=None,
+                   help="config file whose delivery_path the voiced check reads "
+                        "(default ~/.llama/config.toml, as `run`)")
     c.add_argument("--no-repro-gate", action="store_true",
                    help="skip the base-reproduction gate (for a -prev arm, which carries earlier slices)")
     args = ap.parse_args(argv)
