@@ -315,8 +315,8 @@ the taper's structure keeps it); a `Disc 2 (Set 2)` show; a notes-only show.
   An item that is exactly `Set` once decoration is stripped counts too: the inline split cuts
   `Third Set` before a `1-` numbered line into `Third` and `Set` (orchestrator ruling R10,
   Checkpoint A3, 2026-10-22). A continuation of the item's own set, such as `Set 2 con't`
-  inside set 2, is not set-like (orchestrator ruling R9, 2026-10-22, pending llama-db
-  confirmation).
+  inside set 2, is not set-like (orchestrator ruling R9, 2026-10-22, confirmed by llama-db,
+  2026-10-22).
 - Operator ruling 2026-10-22 (Checkpoint A): **keep the encore.** When the taper's text has no
   recognised encore marker and today's step-1 structure has an encore boundary after the
   taper's last placed numbered break, the taper owns nothing (the show is computed as today).
@@ -325,6 +325,30 @@ the taper's structure keeps it); a `Disc 2 (Set 2)` show; a notes-only show.
   after the taper's last placed numbered break, in `decide_taper` after placement, using
   `today_sets`; this also covers an encore starting at the break or running past it, and only
   makes the taper own less.)
+- **No encore on today's LLM path** (llama-db reading of operator ruling (d), 2026-10-22;
+  acceptance defect G): ruling (d)'s "keep the encore" is read as "what today ships". When the
+  taper's text has no recognised encore marker **and** today's path would reach the LLM branch
+  (canonical items, no jerrybase anchoring, step-1 coverage below `align_coverage_threshold`;
+  section 4), the taper owns nothing (`veto: no encore on today's LLM path`). On that path today
+  ships the LLM's structure, not step 1's, so step 1's lack of an encore is evidence of nothing
+  and today's encore is unknowable offline. The predicate is gather's own, computed once in
+  `compute_gather` (the same one that decides the LLM branch and an owned show's low-confidence
+  flag) and passed to `decide_taper`. Measured cases: johnkadlecik-2013-06-22,
+  newridersofthepurplesage-2006-04-08, radiators-2010-06-05, jackiegreene-2011-02-12, each a
+  stored-`llm` show whose LLM structure has the encore. With a taper encore marker the show is
+  still owned. Under section 7 these shows return to needs-LLM in the replay by construction,
+  since the relaxation keys on ownership alone; no other predicate is added there.
+- **A step-1 break before set 1** (llama-db reading of operator ruling (d), 2026-10-22;
+  acceptance defect B4, stevekimockband-2000-03-31): the taper owns nothing
+  (`veto: step-1 break before set 1`) when step 1 has a numbered break (a label change between
+  two numbered sets, not an encore boundary) before the hit of the taper's set-1 first song.
+  Keyed to step 1, like ruling (d). The case: `Happy Hour Set:` / `Set 1:` / `Set 2:`. The
+  leading-block rule above drops lines before an explicit `Set 1` as header text, so placement would
+  fold the Happy Hour songs into set 1 and erase step 1's break after track 6 (step 1 [6, 13]).
+  A break at the hit itself (between the hit and the next track) does not count, and leading
+  filler, intro or pre-show tracks with no step-1 break before set 1 stay owned. (My call: the
+  hit is the earliest track at or before set 1's placed last song matching set 1's first song
+  item; when that item matches none, the next set-1 item's earliest such hit stands in.)
 - The shipped labels are always the taper's: 1..n, and `encore` if it marks one.
 
 ### 3. Placing the taper's structure on the tape
@@ -361,8 +385,11 @@ today's at song level therefore moves no filler.
 
 ### 4. Precedence
 
-**The taper owns the structure** when its text asserts one (section 2) and every boundary of
-that structure is placed (section 3). There is no merge of taper and fallback parts.
+**The taper owns the structure** when its text asserts one (section 2), every boundary of
+that structure is placed (section 3), and none of section 2's vetoes applies: the encore-like
+and track-title vetoes, the set-like veto, a step-1 break before set 1, keep today's encore
+(ruling (d)), and no encore on today's LLM path (the last two read by llama-db from ruling (d),
+2026-10-22). There is no merge of taper and fallback parts.
 
 For each show without an operator structure override, in this order:
 
@@ -496,7 +523,9 @@ candidate), `--all` so non-held shows are covered, plus a cached-corpus check fo
    - "before" is the **base arm's replay**, or the stored structure where the base arm is
      needs-LLM, with the stored value alongside, so old-code drift is not attributed to this
      piece;
-   - rows are tiered: songs moved between sets, filler labels only, provenance only;
+   - rows are tiered: songs moved between sets, labels renamed, filler labels only, segues
+     changed (labels unchanged, segue changes differ from before; each row prints them, R1),
+     provenance only;
    - each row gives state (packaged, delivered, voiced), before and after breaks, the marker
      that drove it, and which source it overruled. Voiced status is read read-only from the
      station root's manifest `dj_audio`, as `deliver`'s voiced check does (llama's
@@ -556,6 +585,19 @@ Not part of the build. After merge and release:
   report-2 pre-screen checks dates for this case.
 - An encore written in a form the reader does not recognise is caught only by section 2's veto
   words; an encore the veto also misses would fold into the last set.
+- On a taper-owned show whose step 1 is in today's LLM branch, segues come from step 1's
+  alignment, so segues the LLM would have restored are lost (measured: 157 real segues over 41
+  of 62 stored-llm shows); segues are a nice-to-have per the operator. (Operator ruling D1 (c),
+  accept, via llama-db, 2026-10-22. The figure is the measurement taken before the no-encore
+  veto on today's LLM path (section 2) was added; that veto shrinks the population, since a
+  show on that path is now owned only when the taper marks an encore. Report 3's
+  `segues changed` tier lists these rows.)
+- On a taper-owned show the jerrybase closer flag becomes a note (section 5), so an encore the
+  taper did not mark folds into the last set without a hold (furthur-2012-07-08).
+- An owned show's low-confidence flag uses `align()`'s coverage of the taper's items (section
+  4), so a correct owned structure can be held where the LLM alignment used to clear it
+  (darkstarorchestra-2009-11-14, deadandcompany-2015-10-29, stringcheeseincident-2005-03-25,
+  all delivered).
 
 ## Left to the builder
 
