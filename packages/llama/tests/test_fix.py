@@ -992,4 +992,5 @@ def test_a_track_number_exclude_without_show_json_refuses_and_changes_nothing(tm
     before = tree_bytes(ws.dir)
     r = cli_invoke(cfg, "fix", "gratefuldead", "--exclude", "3")
     assert r.exit_code == 1 and "resolving a track number needs show.json" in r.output
+    assert f"rebuild it with: llama redo {ws.dir.name} --from gather" in r.output
     assert tree_bytes(ws.dir) == before and not (ws.dir / ".txn").exists()

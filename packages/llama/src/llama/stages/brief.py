@@ -118,7 +118,8 @@ def song_components(title: str) -> list[str]:
     """3b: a title's segue components, normalised. Strips a leading structure
     prefix (`E:`, `E1:`, `Encore:`), trailing segue/footnote markers and one
     trailing parenthetical (then trailing markers again), splits on segues,
-    `normalize_song`s each part and drops empties."""
+    normalises each part with `_song_norm` (curly apostrophes folded first, then
+    `normalize_song`) and drops empties."""
     t = _BRIEF_STRUCTURE_PREFIX.sub("", title)
     t = _BRIEF_TRAILING.sub("", t)
     t = _BRIEF_PAREN.sub("", t)

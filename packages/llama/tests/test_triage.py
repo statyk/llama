@@ -743,7 +743,38 @@ def test_a_failed_metadata_edit_restores_the_overrides(tmp_path, tty, monkeypatc
     r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\ns\n")
     assert r.exit_code == 0, r.output
     assert "error: refused" in r.output and r.output.count(PROMPT) == 2
+    assert "metadata override updated" not in r.output          # a rolled-back edit claims nothing
     assert not ws.overrides.exists()
+
+
+def test_a_successful_metadata_edit_says_updated_after_the_unit(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); _held_show(tmp_path); _stub_redo(monkeypatch)
+    r = cli_invoke(cfg, "triage", input="m\nNew Hall\n\n\n\n\n")
+    assert r.exit_code == 0, r.output
+    assert "metadata override updated" in r.output and "packaged: /pkg" in r.output
+
+
+def test_a_failed_include_that_un_excludes_does_not_claim_the_routing(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show_with_dropped(tmp_path); before = tree_bytes(ws.dir)
+    monkeypatch.setattr(cli, "_redo_show_locked", lambda *a, **k: (_ for _ in ()).throw(LlamaError("boom")))
+    r = cli_invoke(cfg, "triage", input="i\nx3\ns\n")
+    assert "error: boom" in r.output and "was operator-excluded" not in r.output
+    assert tree_bytes(ws.dir) == before
+
+
+def test_a_changed_show_refuses_once_then_the_retry_on_the_reprinted_prompt_applies(tmp_path, tty, monkeypatch):
+    cfg = _cfg(tmp_path); ws = _held_show(tmp_path); calls = _stub_redo(monkeypatch); n = []
+    def picker(show):
+        if not n:                                    # another writer changes the show once
+            write_artifact(ws.overrides, Overrides(exclude=["other.mp3"]))
+        n.append(1); return ["a.mp3"], False
+    monkeypatch.setattr(cli, "_pick_excludes", picker)
+    r = cli_invoke(cfg, "triage", input="e\ne\n")
+    assert r.exit_code == 0, r.output
+    assert r.output.count("changed by another command; run it again") == 1
+    assert r.output.count(PROMPT) == 2 and calls == ["gather"]     # re-printed prompt; retry applied
+    assert "packaged: /pkg" in r.output
+    assert read_overrides(ws).exclude == ["other.mp3", "a.mp3"]
 
 
 def test_a_failed_untitled_resolution_restores_and_returns_to_the_prompt(tmp_path, tty, monkeypatch):

@@ -11,7 +11,8 @@ Documented limitations (spec C2):
   2. A racing `rm` can leave a `.lock`-only husk of the show directory.
   3. SIGKILL (or a restore that itself fails) leaves a stale `.txn/`. The next
      unit deletes it WITHOUT restoring; `llama redo <show> --from gather`
-     repairs the show.
+     repairs the show. A leftover `.txn/` that cannot be removed refuses the
+     unit before anything is written ("cannot remove leftover snapshot").
   4. The unit protects the workspace it is given, while `process_show` writes
      to `show_ws(prov.performance_id)`; a show directory whose name is not
      `slugify(performance_id)` (renamed by hand) is outside the guarantee, as

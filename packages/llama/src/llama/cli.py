@@ -47,7 +47,7 @@ from llama.sessions import (KIND_OTHER, STATE_AWAITING, STATE_COMPLETE, STATE_IN
                             mark_incomplete, mark_paused, read_request,
                             session_state, sweep_verdict)
 from llama.setlistfm import make_client
-from llama.show_unit import ShowView, capture_view, show_unit
+from llama.show_unit import ShowChanged, ShowView, capture_view, show_unit
 from llama.stages.discover import run_discover
 from llama.stages.interpret import run_interpret
 from llama.stages.search import run_search
@@ -1493,7 +1493,8 @@ def _resolve_exclude_tokens(show_ws, tokens) -> list[str]:
     if not any(p.isdigit() for p in parts):
         return parts
     if not show_ws.show.exists():
-        raise LlamaError("resolving a track number needs show.json; reference the file by name instead")
+        raise LlamaError("resolving a track number needs show.json; reference the file by name instead"
+                         f"; rebuild it with: llama redo {show_ws.dir.name} --from gather")
     tracks = read_model(show_ws.show, Show).tracks
     by_index = {t.index: t.filename for t in tracks}
     out = []
@@ -1830,7 +1831,8 @@ def _untitled_resolution(config, ia, ledger, entry, show: Show, view: ShowView
 
 
 def _interactive_resolve(config, ia, ledger, entry) -> None:
-    # Every successful edit leaves the show, so this session-long view stays valid.
+    # Every successful edit leaves the show, so this view stays valid; a ShowChanged
+    # refusal re-enters this function, which re-captures it.
     # Taken BEFORE the re-resolve: anything that changes after it makes the unit refuse.
     view = capture_view(entry.ws)
     try:
@@ -1875,7 +1877,7 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
         if choice == "q":
             raise typer.Exit()
         edit = None
-        lines: list[str] = []   # echoed inside the unit, before the redo's writes
+        lines: list[str] = []   # echoed after the unit succeeds: nothing writes to stdout inside it
         if choice == "e":
             files, wrong_mode = _pick_excludes(read_model(entry.ws.show, Show))
             if wrong_mode:
@@ -1951,6 +1953,11 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             try:
                 status, pkg = _untitled_resolution(config, ia, ledger, entry,
                                                    read_model(entry.ws.show, Show), view)
+            except ShowChanged as exc:
+                typer.echo(f"error: {exc}", err=True)
+                if not entry.ws.provenance.exists():
+                    continue   # the show was removed: today's handling
+                return _interactive_resolve(config, ia, ledger, entry)   # stale view: re-capture
             except (LlamaError, HerderError) as exc:
                 typer.echo(f"error: {exc}", err=True)
                 continue   # restored; back to the same show's prompt
@@ -1966,13 +1973,21 @@ def _interactive_resolve(config, ia, ledger, entry) -> None:
             # a failure restores the show. Call only `_redo_show_locked` here.
             with show_unit(entry.ws, view):
                 edit()
-                for line in lines:
-                    typer.echo(line)
                 pkg = _redo_show_locked(config, ia, ledger,
                                         _resolve_show(config, ledger, entry.slug), stage)
+        except ShowChanged as exc:
+            typer.echo(f"error: {exc}", err=True)
+            if not entry.ws.provenance.exists():
+                continue   # the show was removed: today's handling
+            # Changed by another command: the session-long view is stale, so every
+            # retry would refuse again. Re-capture it (inside the call, BEFORE the
+            # re-resolve), re-print the show and return to its prompt.
+            return _interactive_resolve(config, ia, ledger, entry)
         except (LlamaError, HerderError) as exc:
             typer.echo(f"error: {exc}", err=True)
             continue   # restored; back to the same show's prompt
+        for line in lines:
+            typer.echo(line)
         typer.echo(f"packaged: {pkg}" if pkg else f"still held: {entry.slug}")
         return
 

@@ -59,8 +59,8 @@ binary — `.github/workflows/release.yml` has no transmitter) and `antenna/`
   `[i]nclude dropped`, offered only when the show has `excluded_files`,
   re-admits by x-handle or filename and shares `fix --include`'s
   operator-excluded routing via `_split_include_targets`; each edit is one
-  unit like `fix`'s -- a failure prints `error: …`, restores the show and
-  returns to the same show's prompt, and Ctrl-C ends the walkthrough after the
+  unit like `fix`'s -- a failure prints `error: …` (no "updated" line: those print only after the unit succeeds), restores the show and
+  returns to the same show's prompt -- except `changed by another command`, which re-resolves, re-captures and re-prints the show before its prompt, so a retry works -- and Ctrl-C ends the walkthrough after the
   restore), `llama
   fix <name> <edit-flags>` (overrides/hold editor, auto-redoes;
   `--suggest-titles` is the same title-proposal resolution, one
