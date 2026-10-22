@@ -265,3 +265,37 @@ All paths are under `packages/llama/src/llama/`.
 the flag's former inline copy of that predicate (`stages/gather.py:1397`). They were not re-run
 against the shared form, so this round does not measure a mutant of the shared predicate. Such
 a mutant would also move the LLM branch. G1e to G1g pin G1's use of each conjunct separately.
+
+## Fix round 3 (t9-fix3): R1's needs-LLM branch, B4's uniqueness rule, the required argument
+
+Three changes this round:
+- t9-rev found mutant M1 SURVIVING: the needs-LLM branch of `_segues_before` was untested. The
+  segues-changed test's stored-`llm` base row now carries the candidate's segue changes, the
+  realistic shape.
+- B4 gained a uniqueness rule (llama-db ruling, 2026-10-22). When the item supplying set 1's
+  hit matches more than one track in set 1's window, the taper owns nothing:
+  `veto: set 1's first song matches several tracks`.
+- `today_reaches_llm` became a required keyword argument.
+
+**Setup.** The base was `git archive 722d4d0`, with the same instrument as before:
+fresh copy per mutant, empty cwd, `PYTHONPATH` shadowing, fresh `PYTHONPYCACHEPREFIX`, imports
+asserted to come from the copy, one-line diffs, and predictions logged first (`t9-fix3.log`).
+The same six test files ran, 798 tests in all.
+
+**Result: 4 mutants, 4 caught, 0 survived, 0 hangs.** S0 (unmutated): 0 / 798 red.
+
+| id | mutation | file:line | predicted (core) | observed red | verdict |
+|---|---|---|---|---|---|
+| M1 | `_segues_before` drops the needs-LLM branch: `return [] if b.get("outcome") == "needs-llm" else list(...)` → `return list(b.get("segue_changes") or [])` | scripts/replay_holds.py:635 | `test_taper_changes_segues_changed_tier` | first run (t9-rev, at 9388d09): 0 red, SURVIVED. Re-run: exactly that test | CAUGHT-AS-PREDICTED |
+| U1 | uniqueness check removed: `if len(hits) > 1:` → `if False:` | taper.py (`_step1_break_before_set_1`) | `test_set_1_first_song_matching_several_tracks_declines`, `test_uniqueness_applies_to_the_item_that_stands_in`, `test_b4_ambiguous_real_cases_decline`, `test_step1_break_before_set_1_real_case_declines`, gather `test_umphreys_2004_04_14_identical_to_today` | exactly those 5 | CAUGHT-AS-PREDICTED |
+| U2 | the hit window widened to the whole tape: `enumerate(tracks[:last + 1])` → `enumerate(tracks)` | taper.py (`_step1_break_before_set_1`) | `test_a_repeat_after_set_1_does_not_make_the_hit_ambiguous`, `test_a_set_1_song_heard_only_after_set_1_does_not_widen_the_window` | those 2, plus `test_disc_and_set_real_cases_own[corblund-2004-11-04]` (declared) | CAUGHT (+1 declared, read) |
+| K1 | `today_reaches_llm` defaults again: `today_reaches_llm: bool)` → `today_reaches_llm: bool = False)` | taper.py (`decide_taper`) | `test_today_reaches_llm_is_required` | exactly that | CAUGHT-AS-PREDICTED |
+
+**Extra red, read.**
+- **U2:** corblund-2004-11-04's set-1 opener `(Gonna) Shine up My Boots` is tracks 1 and 34. With
+  the window widened, the opener counts twice, and B4 declines a show the taper should own.
+
+**B4f is superseded.** B4f (the latest hit instead of the earliest) no longer tells anything
+apart: a hit that must be unique has no earliest or latest. Its test,
+`test_the_hit_is_the_earliest_match_of_set_1s_first_song`, became
+`test_set_1_first_song_matching_several_tracks_declines`.
