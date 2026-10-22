@@ -51,9 +51,9 @@ steers.
   none (the correction rests on a sibling recording's description 27, reviews 9, blank lines,
   disc splits or durations), and those are out of scope by definition.
 - By where the marker sits, the 282 split:
-  - **262 in scope**: a description form (set headers 144, disc lines naming a set 67,
-    encore-only 36, inline markers 14, other 1). In about 10 of these the markers are actually
-    in the item's `notes` field.
+  - **262 in a description form** (set headers 144, disc lines naming a set 67, encore-only 36,
+    inline markers 14, other 1). In about 10 of these the markers are actually in the item's
+    `notes` field.
   - **20 out of scope**: the marker is only in filenames (7) or in the taper's track tags (13).
     These stay fixable with `llama fix`.
 - Among the 282, what lost:
@@ -81,41 +81,47 @@ steers.
 - 18 shows carry their markers in the item's `notes` metadata field, which llama never reads.
 - In 8 shows, all `partial`, the adjudicator's target differs from the taper's labels:
   - `derektrucksband-2005-01-09`, `darkstarorchestra-2007-05-08`, `thedead-2009-04-29`: the
-    disputed boundary is an encore the taper did not label, so the fallback's encore ships.
+    disputed boundary is an encore the taper did not label.
   - `gratefuldead-1970-05-15-spans` stays held by `tape spans`.
   - `deadandcompany-2018-06-16`, `gratefuldead-1981-12-31`, `stevekimockband-2003-03-11`,
-    `ekoostikhookah-2009-12-31`: the taper's version ships on the boundaries it marks.
+    `ekoostikhookah-2009-12-31`.
 
-  These are expected disagreements with the adjudicator, not failures, and Measurement 1
-  scores them by these expectations.
+  Wherever the taper owns the structure (section 4) its structure ships, and with no taper
+  encore marker its last set runs to the end of the tape unless section 2's veto applies. These
+  are expected disagreements with the adjudicator, not failures, and Measurement 1 scores them
+  by these expectations.
 - About 10 verdicts carry the adjudicator's `partial-tape` tag: `citizencope-2007-12-29`,
   `gratefuldead-1970-02-11-spans`, `campervanbeethoven-2003-01-18`, `gratefuldead-1970-06-06`,
   `soulcoughing-1998-10-25`, `gratefuldead-1981-12-31`, `derektrucksband-2004-04-15`,
   `darkstarorchestra-2008-02-17`, `darkstarorchestra-2004-04-17`, `waynehancock-2004-04-08`.
   The Measurement 2 pre-screen checks every newly cleared show against this tag.
 
+The rule in this spec covers the 262 minus the encore-only rows and the rows whose markers are
+only forms it does not recognise (bare digits, bare roman numerals, `S1`/`S2`, `E.`, `(E)`, a
+trailing `enc`, inline markers; section 1). How many of those it owns is to be measured by the
+gate before building (Measurement).
+
 ## Goals
 
-1. **Recognise the taper's explicit set/encore markers** in every description form the
-   evidence lists, in the selected recording's description, or in its `notes` field for a part
-   (numbered sets, encore) the description says nothing about.
-2. **The taper's explicit structure wins** over setlist.fm's labels, the LLM alignment and
-   jerrybase anchoring, wherever llama can place the taper's boundaries on the tape.
-3. **Where the taper marks only some boundaries, it wins those, and the existing machinery fills
-   the rest.** Example: an encore-only description sets the encore boundary, and the set break
-   still comes from setlist.fm, alignment or jerrybase.
-4. **A show is not held because jerrybase disagrees with the taper's own text** on a part the
-   taper owns. The disagreement becomes an operator note.
-5. **Measure it with the replay harness** (`scripts/replay_holds.py`, as in Tier 1 and piece 1),
+1. **Recognise the taper's worded set/encore markers** in the selected recording's description,
+   or in its `notes` field when the description has no explicit marker.
+2. **The taper owns the whole structure or nothing.** When its text asserts two or three
+   numbered sets and llama can place every boundary on the tape, exactly the taper's structure
+   ships, over setlist.fm's labels, the LLM alignment and jerrybase anchoring. Otherwise the
+   show is computed exactly as today, every flag included.
+3. **A taper-owned show is not held because jerrybase disagrees with the taper's own text.** The
+   disagreement becomes an operator note.
+4. **Measure it with the replay harness** (`scripts/replay_holds.py`, as in Tier 1 and piece 1),
    including the full list of non-held shows whose structure changes.
 
 ## Non-goals
 
-- **Guessing where a taper's break falls.** If llama cannot place a marked boundary on the tape
-  from evidence on the tape (below), that boundary is not taper-placed and falls back to
-  today's behaviour, holds included. A misplaced break would be llama's error, not the taper's.
-  The 61 alignment failures are expected to shrink as pieces 3–5 land, and are not this piece's
-  target.
+- **Guessing where a taper's break falls.** If llama cannot place every boundary from evidence
+  on the tape (section 3), the taper owns nothing and the show is computed as today, holds
+  included. A misplaced break would be llama's error, not the taper's. The 61 alignment
+  failures are expected to shrink as pieces 3–5 land, and are not this piece's target.
+- **Encore-only descriptions** (about 36 of the 262). They are computed as today and are left for
+  a later piece.
 - **Filenames and track tags as marker sources.** Filename set tokens (`s2t05`, where some
   tapers use `s3` for the encore and `s0` for pre-show) and set labels in track tags are not
   read in this piece. They may be added later if the shipped-show report shows they would earn
@@ -136,14 +142,14 @@ steers.
 
 ## Anti-goals (a failure even if the tests pass)
 
-- **Non-marker text read as a marker.** `E` is not a song, but `E.`, `I`, `S1` and a bare
-  `1:` look like plenty of things. Every marker form is recognised only under its guard
-  (section 1), and each form's false-positive exposure is measured over the cached corpus, not
-  just the 394 (Measurement 5). "J" and "Untitled #12" are real titles (operator rulings), and
-  tests pin that neither becomes a marker.
+- **Non-marker text read as a marker.** Only worded forms are recognised (section 1); bare
+  digits, roman numerals, `S1` and `E.` are not markers at all. Each recognised form's
+  false-positive exposure is measured over the cached corpus, not just the 394
+  (Measurement 5). "J" and "Untitled #12" are real titles (operator rulings), and tests pin
+  that neither becomes a marker.
 - **A taper break silently moved.** When the taper's markers and the tape disagree in a way
-  llama cannot resolve, the show stays held exactly as today. It is never given a nearby
-  break.
+  llama cannot resolve, the taper owns nothing and the show is computed exactly as today. It is
+  never given a nearby break.
 - **A newly cleared show that is wrong**, found only after it airs.
 - **Silent structure changes on shipped shows.** Every shipped show the harness replays, and
   every one it cannot, appears in report 3.
@@ -158,9 +164,9 @@ steers.
   break any reader of old show dirs, and old dirs must still read.
 - Operator overrides (`overrides.set_breaks`/`encore_after`) still win over everything,
   unchanged. Shows fixed overnight with `--set-breaks` keep their override.
-- Offline and deterministic. No LLM call is added. A show that meets the section 4 skip must
-  not reach the `align_structure` LLM fallback. This is how it stops being needs-LLM, together
-  with section 7.
+- Offline and deterministic. No LLM call is added. A taper-owned show must not reach the
+  `align_structure` LLM fallback. This is how it stops being needs-LLM, together with
+  section 7.
 - The protected matchers in CLAUDE.md stay as they are (`normalize_song`, `DEFAULT_ALIASES`, the
   tail-guard constants, `align()`'s lookahead). New marker recognition lives in the
   structure-only reader and a new structure step, not in `parse_setlist` and not by loosening a
@@ -171,182 +177,167 @@ steers.
 ### 1. What counts as the taper's explicit marker
 
 **Sources (operator ruling, 2026-10-22).** The taper's text is the selected recording's
-**description**. Its **`notes`** metadata field (string or list, like `description`) is a
-fallback **per part**: the numbered structure is read from notes only when the description
-asserts no numbered structure (no explicit numbered marker), and the encore only when the
-description has no encore marker. Each part therefore has exactly one source, so there is no
-rule for the two disagreeing. (Example: `railroadearth-2009-01-15` has `Set One`/`Set Two`
-only in notes and an `E:` line in its description, so its numbered part comes from notes and
-its encore from the description.) The per-part split is my call, refining the operator's
-"notes when the description has none".
-
-Notes lines never become canonical setlist items. A notes boundary goes through exactly the
-same guards and placement test as a description boundary. Lineage text such as
-"Set 1: MSR> C> DAT", "Set 2 is seamless" or "Encore: None" asserts nothing, because its items
-match no track (placement needs matches on both sides, section 3).
+**description**. Its **`notes`** metadata field (string or list, like `description`) is read
+only when the description has no explicit marker at all. Notes lines never become canonical
+setlist items, and notes go through the same reader and placement as a description.
+Lineage text such as "Set 1: MSR> C> DAT", "Set 2 is seamless" or "Encore: None" places no
+boundary, because its items match no track (section 3), so the taper owns nothing.
 
 **The parser stays untouched.** `parse_setlist`'s output stays byte-identical. Markers are read
 by a separate, structure-only reader of the chosen recording's description (or notes), used
-only to derive and place taper boundaries. It may reuse `setlist.py`'s regexes and helpers but
-must not change their behaviour for `parse_setlist`. The canonical setlist, `rank_parses`,
-`blend_segues`, `_corroboration`, the title rungs and `--suggest-titles` see no change from this
-piece.
+only to derive and place the taper's structure. It reuses `setlist.py`'s regexes and helpers
+without changing their behaviour for `parse_setlist`. It never truncates; it only reads labels.
+The canonical setlist, `rank_parses`, `blend_segues`, `_corroboration`, the title rungs and
+`--suggest-titles` see no change from this piece.
 
-A marker is explicit when it names a set by number, by ordinal (`First Set`, `Second Set`,
-`Third Set`) or by roman numeral, or names the encore. Forms to recognise are those listed under
-"What the evidence says", plus the existing ones. `Acoustic Set`, `Electric Set`, `Early Set`,
-`Late Set` and similar are **not** explicit for this rule (they may be two shows, or unnumbered),
-though `parse_setlist` keeps parsing them as today. `Early Show`/`Late Show` and act headers
-stay non-markers.
+**Worded markers only (operator ruling, 2026-10-22).** The reader recognises:
 
-**Guards, per form** (requirements, not suggestions):
+- **numbered sets:** the word `Set` followed by 1–3, `one`–`three` or `I`–`III`, word-bounded
+  (`Set Intro` and `Set IV` are not set 1), and the ordinals `First Set`/`Second Set`/
+  `Third Set` and `1st`/`2nd`/`3rd Set`. Any decoration may surround the header (dashes,
+  asterisks, tildes, brackets, parentheses, `=`), and it stands alone on the line or is followed
+  by `:`/`-` and songs. `Disc N (Set M)`, `Disc N - Set M` and `Disc N / Set M` read as set M.
+- **the encore:** a line starting (after decoration) with `Encore`, `Encores`, `ENC` or `E`,
+  either followed by `:` (or `- `) and songs or standing alone on the line (`Encore`,
+  `==encores==`, `Encore ======`, a bare `E`): the existing `_ENCORE_LINE` shapes plus
+  `Encores`/`ENC` and decoration. (My call: alone-on-line forms count, as `parse_setlist`
+  already reads them; Measurement 5 measures their collisions.)
 
-- No marker form ever acts as a truncation point. The reader does not truncate; it only reads
-  labels.
-- Digit forms (`1:`, `2:`, `[1]`): a header only when the text has no line of that same form
-  numbered 4 or higher, and the numbers used run 1, 2 (and 3 if present). An `N:` followed by
-  duration digits (`1:08:07`) is not a marker.
-- Bracketed forms (`[1]`, `[E]`, `[Set One]`): only alone on the line.
-- Bare roman numerals (`I`, `II`, `III`): only alone on the line, or followed only by `:` or
-  `-` and then text. `I Know You Rider` is never a marker.
-- `E.`: only when followed by whitespace and a capital (never `E.Ville`, `E.T.I`, `E.S.P.`).
-- `(E)` and `[N]` followed by prose (a lowercase word, or `With …`), or appearing after the last
-  song, are footnote legends, never markers.
-- `Set I…` needs a word boundary (`Set Intro` and `Set IV` are not set 1).
-- An encore form with collision risk and tiny yield may be dropped by Measurement 5. The builder
-  adds no form the evidence did not list.
+Not recognised, so they assert nothing: bare digits (`1:`, `[1]`), bare roman numerals (`I`,
+`II:`), `S1`/`S2`, `E.`, `(E)`, a trailing `enc`, and inline or parenthetical markers
+(`(start of Set II)`, `(set II)` mid-line). `Acoustic`/`Electric`/`Early`/`Late Set` (they may
+be two shows, or unnumbered), `Early Show`/`Late Show` and act headers stay non-markers, though
+`parse_setlist` keeps parsing them as today. A recognised form with collision risk and tiny
+yield may be dropped by Measurement 5. The builder adds no other form.
 
-**Required negative tests**, on real cases, each asserting no marker or no break:
+**Required negative tests**, on real cases, each asserting no structure asserted:
 `giantsand-1991-01-30` and the other `N:` tracklists (`giantsand` 1989-05-10, 1996-02-03,
 2001-01-08, 2001-03-04, 2004-10-15, 2005-09-02; `calexico` 1998-06-14, 2000-07-01, 2003-04-25;
-`signalpath-2005-06-09`); the `[1]` footnotes of `moe-2002-06-22` and
+`signalpath-2005-06-09`); the DSO bare-digit disc numbering (`darkstarorchestra-2005-11-16`,
+`-2004-04-20`, `-2005-12-03`, `-2004-04-24`); `umphreysmcgee-2004-04-14` and
+`lotus-2005-10-15` (their set-and-encore disc lines assert nothing, and the later `e:` still
+starts the encore); `davidnelsonband-2007-09-07` (a numbered marker after the encore voids the
+structure); the `[1]` footnotes of `moe-2002-06-22` and
 `kinggizzardandthelizardwizard-2025-08-17`; `railroadearth-2008-08-17`'s `(E) With Allie Kral`;
-`antibalasmusic-2003-04-28`'s `[1]…[5]` track numbers; `E.Ville`; `I Know You Rider`; `J`;
-`Untitled #12`; `1:08:07`; "Set I is Bobby and Jerry playing acoustic" (`gd1981-10-16`).
+`antibalasmusic-2003-04-28`'s `[1]…[5]` track numbers; `E.Ville`; `B. E. Women`;
+`E. Rutherford, NJ`; `I Know You Rider`; `J`; `Untitled #12`; `1:08:07`; "Set I is Bobby and
+Jerry playing acoustic" (`gd1981-10-16`); `Set Intro`; `Set IV`.
+
+**Positive tests:** `charliehunter-2001-12-08` is NOT taper-owned (`Early Show`/`Late Show`
+plus an encore only); `gratefulshred-2023-11-10`; a `Disc 2 (Set 2)` show; a notes-only show.
 
 ### 2. What the taper asserts
 
-- A **numbered break** is a change of explicit set number. A leading unlabelled block before the
-  first explicit number counts as set 1 when the first explicit number is 2: `Set II` after an
-  unlabelled block asserts the break before it, and the same holds for `Disc 2 - Set 2` with no
-  `Set 1`, and for `(set II)`. (About 30 of the 282 mark set 2 and later but not set 1.)
-- The taper asserts a numbered structure only if its set numbers run consecutively from 1
-  (1, 2, and 3 if present) and strictly increase, with no numbered marker after its encore
-  marker. A repeated label (continuation headers, `Disc 3 (Set 2 cont.)`) is not a change and
-  asserts nothing. Any decreasing, restarting, skipping or post-encore number means the taper
-  asserts **no** numbered structure; its encore assertion is judged on its own. (My call.)
-- A lone `Set 1` header with no later numbered marker asserts no numbered break, and neither
-  confirms nor denies a set 2.
-- When the taper owns the numbered structure (section 4), the shipped labels are the taper's
-  numbers, which are therefore always 1..n.
-- An **encore boundary** is asserted by an explicit encore marker.
+- **The taper asserts a structure** only when its text names a numbered structure of two or
+  three sets, consecutive from set 1, with or without an encore (operator ruling,
+  2026-10-22). A single numbered set, or an encore marker alone, asserts nothing.
+- **A leading unlabelled block** before the first explicit set marker is set 1 only when the
+  first explicit marker is set 2 (`Set II` after an unlabelled block, or `Disc 2 - Set 2` with
+  no `Set 1`). When the first explicit marker is set 1, lines before it are header text and are
+  ignored. (About 30 of the 282 mark set 2 and later but not set 1.)
+- **Lines that assert nothing:** a header naming both a set and the encore (`Disc 3 - Set 2 +
+  Encore`, `Set One & Encore`); a repeated set number (`Disc 3 (Set 2 cont.)`, `Set 2
+  continued`), which is a continuation; and every encore line after the first, which is also
+  continuation. The first encore marker starts the encore.
+- **Lines that void the structure:** a decreasing, restarting or skipping set number, a set
+  number 4 or higher, an empty set (a header followed directly by another header), or any
+  numbered marker after the encore marker means the taper asserts **no** structure, and the
+  show is computed as today. (My call.)
+- **No encore marker** (operator ruling, 2026-10-22): the taper's last set runs to the end of
+  the tape, so encore songs listed under set 2 ship in set 2, repeating the tape. **Veto** (my
+  call): if the taper's text has no encore marker but some track title on the tape matches
+  `structure._ENCORE_MARKER` (the test `encore_lost` already uses), the taper owns nothing and
+  the show is computed as today.
+- The shipped labels are always the taper's: 1..n, and `encore` if it marks one.
 
-### 3. Placing the taper's boundaries on the tape
+### 3. Placing the taper's structure on the tape
 
-A boundary between taper set A and the next taper set B is **placed** after tape track *t* only
-when all of these hold (my call):
+**The reader's output** is the ordered song items (those that are not `is_filler`), each with
+its taper set label (`1`, `2`, `3`, `encore`). It is produced with `setlist.py`'s existing line
+handling, as `_emit_items` does (`_NOISE`, `_TRACK_PREFIX`, the enumerated `_NUM_PREFIX`,
+segue splitting), plus stripping a leading duration or timestamp (`-04:41.50-`).
 
-- The tape has a matched track for A's **last song item** and one for B's **first song item**
-  (song items are those that are not `is_filler`). Each match must be independent: its
-  `title_source` is not in `TAUTOLOGICAL_TITLE_SOURCES` and not `unresolved`. With track *a*
-  matching A's last song and *b* matching B's first, *a* < *b*.
-- Every track strictly between *a* and *b* is filler (`is_filler`). A tautological, unresolved
-  or song-like track between them leaves the boundary unplaced.
-- Neither *a* nor *b* is a merged track whose components match items on both sides.
-- Neither A's last song title nor B's first song title also occurs on the other side of the
-  boundary in the taper's list (`Jam`, `Drums`, `Space`, reprises). Such a boundary is unplaced.
+**Matching.** A tape track matches an item when `fuzzy_title_eq` holds for its title, or for a
+title component of a merged track, with gather's family aliases. Only tracks whose
+`title_source` is not in `TAUTOLOGICAL_TITLE_SOURCES` and not `unresolved` count. The same test
+decides whether a title "also occurs on the other side" below.
 
-Otherwise the boundary is **unplaced** and falls back; the taper's other boundaries still count.
-This is an exact structural test, never a score or margin threshold. Matching uses
-`fuzzy_norm_title`, title components and gather's family aliases, as today. It is not a new
-fuzzy rule.
+**Placement** (my call). A boundary between taper set A and the next set B (the encore counts as
+the last set) is **placed** only when all of these hold:
 
-**Filler between *a* and *b*** (my call): if today's structure puts its break inside that
-filler run, those filler tracks keep today's labels. Otherwise the filler goes with the set it
-introduces (B), so `Set II intro`/tuning opens set 2. This way a taper boundary that agrees with
-today's at song level moves no filler labels.
+- exactly one tape track matches A's last song item (track *a*) and exactly one matches B's
+  first song item (track *b*), and *a* < *b*;
+- every track strictly between *a* and *b* is `is_filler`;
+- neither *a* nor *b* is a merged track with components on both sides;
+- neither A's last nor B's first song title also occurs on the other side of the boundary in
+  the taper's list (`Jam`, `Drums`, `Space`, reprises).
 
-The encore boundary is placed by the same test, with A the last numbered set and B the encore.
+Otherwise the boundary is unplaced, and so the taper owns nothing. This is an exact structural
+test, never a score or margin threshold, and not a new fuzzy rule.
 
-### 4. Precedence and merging
+**Filler between *a* and *b*** (my call): if today's (step 1) structure splits that filler run,
+the split point stays where today's puts it, with the taper's labels on each side. Otherwise the
+filler goes with B, so `Set II intro`/tuning opens set 2. A taper boundary that agrees with
+today's at song level therefore moves no filler.
+
+### 4. Precedence
+
+**The taper owns the structure** when its text asserts one (section 2) and every boundary of
+that structure is placed (section 3). There is no merge of taper and fallback parts.
 
 For each show without an operator structure override, in this order:
 
-1. **Today's structure:** deterministic alignment of the winning canonical, then jerrybase
-   anchoring, exactly as today. This is the reference for every "was …" note, and the
-   fallback unless step 4 replaces it.
-2. **Taper derivation and placement** (sections 2–3).
-3. **Ownership.** The structure has two independent parts, and each is owned all-or-nothing (my
-   call: the simplest rule that can never ship a half-taper, half-fallback numbered structure):
-   - **Numbered breaks:** the taper owns them only when it asserts a numbered structure
-     (section 2) with at least one break, and **every** numbered break it asserts is placed.
-     Then exactly the taper's numbered breaks ship, with the taper's set numbers, and the
-     fallback's numbered breaks are dropped. Otherwise every numbered break is the fallback's,
-     exactly as now.
-   - **The encore boundary:** the taper owns it when it asserts an encore and the boundary is
-     placed. Then the taper's encore boundary ships. Otherwise the fallback's.
-4. **The `align_structure` LLM path**, only if the skip below does not apply, evaluated exactly
-   as today on the non-taper path. When it runs, its result is the fallback.
-5. **The merge.** Taper-owned parts replace the fallback's. If the taper-owned part and the
-   fallback part cannot combine monotonically (every numbered break before the encore
-   boundary), the show is held with a new flag, `taper set markers conflict with the aligned
-   structure`. This is the safe direction. (My call.)
+1. **Today's structure (step 1):** deterministic alignment of the winning canonical, then
+   jerrybase anchoring, exactly as today. This is the reference for every "was …" note.
+2. **The reader and placement** (sections 1–3).
+3. **If the taper owns the structure**, exactly its structure ships: its numbered breaks and, if
+   it marks one, its encore. The `align_structure` LLM is not called, as successful jerrybase
+   anchoring skips it today.
+4. **Otherwise**, everything from here on is exactly today's path: the LLM branch, then every
+   flag.
 
-jerrybase anchoring therefore never moves or removes a taper-owned boundary, and the PLF
-one-set rows stop erasing tapers' set 2.
+jerrybase anchoring therefore never moves or removes a taper boundary, and the PLF one-set rows
+stop erasing tapers' set 2.
 
-**The LLM skip** (my call). Every shipped boundary is taper-owned when the taper owns the
-numbered breaks and either owns the encore or the show ships no encore boundary. The
-`align_structure` realignment is skipped only when every shipped boundary is taper-owned **and**
-no source asserts an encore the shipped structure lacks: neither an unplaced taper encore marker
-nor a canonical encore item. That mirrors how successful jerrybase anchoring skips it today. A
-show whose numbered breaks still come from a weak alignment (for example an encore-only
-description) goes down the low-coverage path exactly as now. When the skip applies, the
-`low-confidence structure alignment` flag is still raised, with no LLM call, if the coverage of
-the taper's own parse against the tape is below `align_coverage_threshold`. That coverage is
-recorded.
+**Low-confidence flag on a taper-owned show** (my call): raised, with no LLM call, only when
+today's path would have reached the LLM branch (no anchoring and step-1 coverage below
+`align_coverage_threshold`) **and** the coverage of the reader's items aligned with `align()`
+against the tape is also below the threshold. That coverage is recorded.
 
 **Provenance** (my call):
 
-- A new permissive `StructureInfo` field records which parts the taper owns (name the builder's
-  choice, for example `taper_owned: list[str]` with values `numbered` and `encore`; empty or
-  absent on old dirs). Gather also exposes this ownership to its callers in-process (section 7).
-- `StructureInfo.alignment` keeps naming the mechanism of the numbered breaks. It becomes
-  `"taper"` only when the taper owns the numbered breaks **and** they differ at song level from
-  today's structure. Otherwise it keeps today's value (`deterministic`, `jerrybase`, `llm`). An
-  encore-only ownership never changes `alignment`.
+- `StructureInfo` gains one permissive boolean field recording that the taper owns the structure
+  (name the builder's choice, for example `taper_owned`; absent or false on old dirs). Gather
+  also exposes it to its callers in-process (section 7).
+- `StructureInfo.alignment` becomes `"taper"` when the taper owns the structure **and** its
+  breaks differ at song level from the step-1 structure. Otherwise it keeps today's value
+  (`deterministic`, `jerrybase`, `llm`).
 - In that same "differs" case, an operator note records what the taper replaced
-  (`set breaks from the taper's markers (was …)`), following today's jerrybase note pattern.
-- `StructureInfo` is created whenever any part is taper-owned, even when there is no canonical
-  source.
+  (`set breaks from the taper's markers (was …)`, citing the step-1 breaks), following today's
+  jerrybase note pattern.
+- `StructureInfo` is created whenever the taper owns the structure, even when there is no
+  canonical source.
 
 ### 5. Holds and notes
 
-- `structure has N sets but jerrybase shows M` becomes an operator note only when the taper owns
-  the numbered breaks **and** the taper's own numbered set count differs from jerrybase's. If the
-  taper's text agrees with jerrybase's count, the flag is computed as today on the shipped
-  structure. (My call.)
-- **The jerrybase closer tripwire (`closer_contradictions`)**, which reports a closer that sits
-  at no break and does not pair closers with breaks:
-  - it is still skipped entirely when the numbered breaks came from jerrybase anchoring, as
-    today, because anchoring cannot contradict itself. The test is ownership plus mechanism (the
-    taper does not own the numbered breaks and `alignment` is `jerrybase`), not the `alignment`
-    string alone;
-  - otherwise it runs as today, but a hard closer flag becomes an operator note only when the
-    taper owns the break that ends that set (for the last numbered set, the encore boundary)
-    **and** the taper's own last song of that set differs from jerrybase's closer. If the
-    taper's text names the same closer, the hard flag stays: it then catches llama's placement,
-    not the taper's text;
-  - every other closer flag stays hard. (My call: the narrowest version that still removes the
-    PLF-style holds.)
-- When the taper owns the numbered breaks, today's `set breaks anchored from jerrybase (was …)`
-  entry is dropped (it would reach the briefing contradicting the shipped labels), and
-  `merge_conflicts` (the `merged track(s) … span a set break` flag) is computed against the
-  shipped breaks.
-- `structure_guard` (`setlist evidence shows multiple sets but alignment found none`,
-  `single-set structure for a long show`) runs as today on the merged structure. (My call.)
-- The new `taper set markers conflict with the aligned structure` hold (section 4).
-- Every other flag is untouched.
+On a show the taper does not own, every hold and note is computed as today. On a taper-owned
+show (my call: the narrowest version that still removes the PLF-style holds):
+
+- `structure has N sets but jerrybase shows M` becomes an operator note when the taper's own set
+  count differs from jerrybase's. Otherwise it is computed as today.
+- **The jerrybase closer tripwire (`closer_contradictions`)** is skipped, as today, when the
+  shipped numbered breaks came from jerrybase anchoring, because anchoring cannot contradict
+  itself. The test is ownership plus mechanism (the taper does not own the structure and
+  `alignment` is `jerrybase`), not the `alignment` string alone. On a taper-owned show it runs,
+  and a hard closer flag for jerrybase set k (mapped by set number; "last numbered" means
+  jerrybase's last) becomes an operator note when the taper's own last song of set k differs
+  from jerrybase's closer of set k, or the taper has no set k. Otherwise it stays hard: it then
+  catches llama's placement, not the taper's text.
+- Today's `set breaks anchored from jerrybase (was …)` entry is dropped from `notes` and
+  `conflicts` (it would reach the briefing contradicting the shipped labels), and so is
+  `merge_conflicts` (the `merged track(s) … span a set break` flag), since placement already
+  excludes merged tracks at taper boundaries.
+- `structure_guard` runs as today. Every other flag is untouched.
 
 **Where the notes go (my call):** operator notes (`notes.json`, via gather's `op_notes`), never
 `StructureInfo.conflicts`. Conflicts reach the briefing LLM, and the briefing should state the
@@ -373,15 +364,14 @@ deterministic re-gathers wrongly replaced LLM structures (Tier 1 spec: 15 of 84 
 clears, at least 4 of them wrong at a set boundary). Relaxing it is justified only where the
 shipped structure is wholly the taper's, placed by section 3's exact test.
 
-**Relaxation (my call):** a stored `llm` alignment stops making a show needs-LLM only when the
-candidate's gather reports that every shipped boundary is taper-owned (the section 4 skip
-condition, from gather's in-process ownership). It never keys on "the gather made no LLM call"
-or on the `alignment` string. The rule stays exactly as today for every other show. This
-changes `llama/replay.py`, which `reapply` uses, so it is a strict surface. Tests in both
-directions, mutation-pinned: a stored-`llm` show whose candidate is all-taper is replayable; a
-stored-`llm` show whose candidate is deterministic, anchored or only partly taper-owned stays
-needs-LLM (Tier 1's mutant keeps holding). Every stored-`llm` show this moves is listed for the
-pre-screen, with its segue changes.
+**Relaxation (my call):** the relaxation keys on exactly one gather-reported predicate, "the
+taper owns the structure" (section 4's in-process field), and nothing else: never "the gather
+made no LLM call", never the `alignment` string. A stored-`llm` show whose candidate is
+taper-owned is replayable; a stored-`llm` show whose candidate is not taper-owned stays
+needs-LLM exactly as today (Tier 1's mutant keeps holding). This changes `llama/replay.py`,
+which `reapply` uses, so it is a strict surface. Tests in both directions, mutation-pinned, plus
+one on section 2's veto. Every stored-`llm` show this moves is listed for the pre-screen, with
+its segue changes.
 
 **Structure-changed accounting.** Because `alignment` stays unchanged when the taper merely
 agrees (section 4), `replay._structure_changed` needs no change. If the builder still finds a
@@ -390,19 +380,27 @@ which is a `reapply` gate.
 
 ## Measurement and acceptance
 
+**Gate before building** (my call). Before any build task, a read-only prototype of the reader
+and placement runs over the 339 yes/partial shows (tracks from the evidence's `sort1.json`) and
+reports placed, unplaced and owned, and how many owned shows match the adjudicator's target at
+song level. If fewer than half of the in-scope rows the rule covers (see "Why") are owned, the
+work stops and the result goes to the operator.
+
 Replay harness, two arms from clean trees (`main` @ `a26c4d1` as base, the branch as
 candidate), `--all` so non-held shows are covered, plus a cached-corpus check for the reader:
 
 1. **The 394.** For each show in `classified.jsonl` with `taper_explicit` `yes` or `partial`,
-   compare the candidate's shipped breaks to the adjudicator's target on the boundaries the
-   taper marks. Report matches, misses and declines (unplaced, so falling back) by `primary`
-   form, with every miss listed. Expected: most in-scope `yes` rows match, except the
-   alignment-caused ones; filename and track-tag rows are reported apart as out of scope. The 8
-   known disagreements are scored by the expectations under "What the evidence says". Shows
-   that carry an operator structure override are evaluated in an override-ignoring mode
-   (required harness task): it strips only `overrides.set_breaks`/`encore_after`, keeping
-   excludes, includes and titles, since the adjudicator's targets are in post-exclusion
-   numbering. It runs as a script-side scratch transform, is stamped in the arm, and is never a
+   compare the candidate's shipped structure to the adjudicator's target at song level. Report
+   matches, misses and declines (not taper-owned, so computed as today) by `primary` form, with
+   every miss listed; filler-only differences are their own class, not misses. Expected: most
+   in-scope `yes` rows match, except the alignment-caused ones. Encore-only rows and rows whose
+   markers are only unrecognised forms (bare digits, roman numerals, inline) keep today's
+   behaviour. Filename and track-tag rows are reported apart as out of scope. The 8 known
+   disagreements are scored by the expectations under "What the evidence says". Shows that
+   carry an operator structure override are evaluated in an override-ignoring mode (required
+   harness task): it strips only `overrides.set_breaks`/`encore_after`, keeping excludes,
+   includes and titles, since the adjudicator's targets are in post-exclusion numbering. It
+   runs as a script-side scratch transform, is stamped in the arm, and is never a
    `compute_legs` parameter, so it can never feed a `--from-list` apply. (My call.)
 2. **Newly cleared holds.** Every show held in base and not held in candidate is listed. An
    Opus pre-screen of the list runs **before merge**, so a rule defect it finds is fixed on the
@@ -410,8 +408,9 @@ candidate), `--all` so non-held shows are covered, plus a cached-corpus check fo
    `partial-tape` tag. The operator's hand check of the list gates the **apply**, not the merge,
    as in piece 1. (My call.)
 3. **Non-held shows whose structure changes**, in a new harness report (report 3):
-   - "before" is the **base arm's replay**, with the stored value alongside, so old-code drift
-     is not attributed to this piece;
+   - "before" is the **base arm's replay**, or the stored structure where the base arm is
+     needs-LLM, with the stored value alongside, so old-code drift is not attributed to this
+     piece;
    - rows are tiered: songs moved between sets, filler labels only, provenance only;
    - each row gives state (packaged, delivered, voiced), before and after breaks, the marker
      that drove it, and which source it overruled. Voiced status is read read-only from the
@@ -419,24 +418,24 @@ candidate), `--all` so non-held shows are covered, plus a cached-corpus check fo
      `derive_state` has no voiced state);
    - a section lists shipped shows unreplayable in either arm and `slfm_miss` rows, so no
      shipped show the rule could touch is silently absent;
-   - stored-`llm` shipped shows that still need the LLM in the candidate are listed with
-     `after: needs LLM`.
+   - rows that need the LLM in the candidate are split by the candidate's ownership: those not
+     taper-owned are provably unchanged by this piece and are counted, not listed.
 
    An **Opus pre-screen before merge** covers every row with songs moved and a stratified
    sample of the rest by marker form, as for report 2. (My call.) The operator reads the count
    and shape before deciding on re-processing.
 4. **Nothing newly held without explanation, and zero title changes.** Any title change is a
    defect.
-5. **Marker false positives.** Per form, new and existing forms the reader uses alike, count
-   its matches over every cached description and every cached `notes` field (`~/.llama/cache`
-   item metadata, not only shown items) and hand-sample them. The drop criterion is **any
-   non-marker text read as a marker**: a song, track number, footnote, duration, credit,
-   lineage or prose. A form whose sample shows one is dropped or narrowed before merge, never
-   patched around.
-6. Suite green, including the negative tests in section 1. A mutation check (per
+5. **Marker false positives.** Per recognised form, count its raw matches over every cached
+   description and every cached `notes` field (`~/.llama/cache` item metadata, not only shown
+   items) and hand-sample them: every hit on a family artist, plus 30 random others per form
+   (all, if fewer). The drop criterion is a non-marker match that **places a boundary or
+   changes ownership**; lineage text that placement neutralises does not count. A form whose
+   sample shows one is dropped or narrowed before merge, never patched around.
+6. Suite green, including the negative and positive tests in section 1. A mutation check (per
    [[mutation-scoring-needs-a-prediction]]) pins each load-bearing rule: the set-number rule,
-   the placement exactness, jerrybase not moving a taper break, the conflict hold, the
-   per-form guards, and the needs-LLM relaxation in both directions.
+   the placement exactness, jerrybase not moving a taper break, section 2's veto, the forms'
+   word boundaries, and the needs-LLM relaxation in both directions.
 
 The 99% reproduction gate fails on this library regardless of code (piece 1: 13 drift rows).
 Running `compare --no-repro-gate` for this measurement is acceptable. Using it to *apply* needs
@@ -460,14 +459,18 @@ Not part of the build. After merge and release:
   the new rule and may change its breaks without a listing.
 - New `llama get` gathers run the rule with no hand check; the pre-merge pre-screens of reports
   2 and 3 are the check.
-- A long single set whose only break is an encore boundary is not flagged, as today.
-- A taper whose set boundary lands next to a title repeated across it falls back (section 3).
+- Explicit single-set statements ("One Set", "no set break") are not read.
+- `is_filler` is a substring test, so a real song matching the filler pattern between *a* and *b*
+  can move sides.
+- A `Set Break` or `Donor Rap` track between sets, or a title repeated across a boundary, leaves
+  the boundary unplaced, so the show falls back to today's behaviour (section 3).
+- Encore-only descriptions and the unrecognised forms (section 1) keep today's behaviour.
 
 ## Left to the builder
 
-- Exact regexes, within the per-form guards in section 1 and the false-positive measurement.
-- The ownership field's name, where the taper parse's coverage is recorded, and
-  `StructureInfo`'s `source`/`coverage` values when there is no canonical source.
+- Exact regexes, within the forms in section 1 and the false-positive measurement.
+- The ownership field's name, where the reader's coverage is recorded, and `StructureInfo`'s
+  `source`/`coverage` values when there is no canonical source.
 - Note wording, the harness report's file name and format, and test layout.
 - How the required harness changes (report 3, the override-ignoring mode, the section 7
   relaxation in `replay.py`) split into tasks.
@@ -476,7 +479,10 @@ Not part of the build. After merge and release:
 
 None for the operator at this time. Rulings this spec rests on: description as ground truth
 (2026-10-22); the taper's sources (2026-10-22): the description first, the `notes` field only
-when the description has no markers, filenames and track tags out of this piece; delivered shows
-are listed first and re-processing decided after seeing them (2026-10-22); Opus review mode
-(2026-10-22); the scope playback (taper wins where it marks, others fill the rest; disagreement
-is a note; alignment-placement failures out of scope) accepted 2026-10-22.
+when the description has no explicit marker, filenames and track tags out of this piece; the
+whole-structure rule (2026-10-22): the taper owns the whole structure (two or three numbered
+sets, with or without an encore, every boundary placed) or nothing, worded markers only,
+encore-only descriptions out of this piece, and with no encore marker the last set runs to the
+end of the tape; a jerrybase disagreement on a taper-owned show is a note, and
+alignment-placement failures are out of scope (2026-10-22); delivered shows are listed first and
+re-processing decided after seeing them (2026-10-22); Opus review mode (2026-10-22).
