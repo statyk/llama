@@ -350,7 +350,7 @@ the taper's structure keeps it); a `Disc 2 (Set 2)` show; a notes-only show.
   searched among the tracks at or before set 1's placed boundary. When set 1's first song
   matches more than one of those tracks (a repeated `Jam`-style opener), the break test is made
   against the LATEST of them, the own-less reading, so a step-1 break the earliest hit would
-  hide still declines; with no step-1 break in that window the taper still owns the structure
+  hide still declines; with no numbered step-1 break before that hit, the taper still owns the structure
   (llama-db ruling, 2026-10-22, narrowed the same day). (My call: when set 1's first song item
   matches none of those tracks, the next set-1 item stands in, and its latest hit in the window
   is the one checked.) Illustrations from the real-case test fixtures, not a population
