@@ -2429,3 +2429,106 @@ def test_encore_like_e_space_rule_is_case_sensitive():
     # "e ripple" in lower case is not the `E <Title>` shape.
     tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\ne ripple\n")
     assert tt.encore_like is False
+
+
+# Item 2, a header naming a set and the encore asserts nothing, colon or not: the inline
+# split must not turn its `Encore:` into an encore start (cpa-forms' built case).
+# perpetualgroove-2006-12-29: md_pgroove2006-12-29.flac16.json (description)
+PGROOVE_2006_12_29 = (
+    'Disc 1 - Set I\n'
+    '\n'
+    '1. Sundog\n'
+    '2. Space Oddity\n'
+    '3. La Casa Bien\n'
+    '4. TSMM\n'
+    '5. AIM\n'
+    '6. Playground\n'
+    '\n'
+    'Disc 2 - Set II\n'
+    '\n'
+    '1. Crowded Tub\n'
+    '2. Space Paranoids\n'
+    '3. Diamonds on the Soles of Her Shoes\n'
+    '4. Breeze\n'
+    '\n'
+    'Disc 3 - Set II cont\n'
+    '\n'
+    '1. Robot Waltz\n'
+    '2. Macumba\n'
+    '\n'
+    'E:\n'
+    '\n'
+    "3. Walkin' in Place"
+)
+PGROOVE_2006_12_29_TRACKS = ['Sundog', 'Space Oddity', 'La Casa Bien', 'TSMM', 'AIM', 'Playground', 'Crowded Tub', 'Space Paranoids', 'Diamonds on the Soles of Her Shoes', 'Breeze', 'Robot Waltz', 'Macumba', "Walkin' in Place"]
+PGROOVE_2006_12_29_TODAY = ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', 'encore']
+
+PGROOVE_SET_AND_ENCORE = PGROOVE_2006_12_29.replace("Disc 3 - Set II cont", "Disc 3 - Set II + Encore:")
+
+
+def test_set_and_encore_with_colon_owns_like_the_real_text():
+    assert PGROOVE_SET_AND_ENCORE != PGROOVE_2006_12_29
+    tracks = _mk_today(PGROOVE_2006_12_29_TRACKS, PGROOVE_2006_12_29_TODAY)
+    real = decide_taper(tracks, {"description": PGROOVE_2006_12_29}, aliases={},
+                        today_sets=PGROOVE_2006_12_29_TODAY)
+    assert real.placement is not None and real.placement.boundaries == (6, 12)
+    built = decide_taper(tracks, {"description": PGROOVE_SET_AND_ENCORE}, aliases={},
+                         today_sets=PGROOVE_2006_12_29_TODAY)
+    assert built.placement == real.placement
+    tt = read_taper_structure(PGROOVE_SET_AND_ENCORE)
+    assert label(tt, "Robot Waltz") == "2" and label(tt, "Macumba") == "2"
+    assert label(tt, "Walkin' in Place") == "encore"
+
+
+@pytest.mark.parametrize("header", [
+    "Set 2 & Encore:", "Set II & Encore:", "Set 2 / Encore:", "Set 2 + Encore:",
+    "Set 2 and Encore:", "Disc 3 - Set II + Encore:", "Set 2 & Encore", "Set 2 & Encores:",
+])
+def test_set_and_encore_header_never_starts_the_encore(header):
+    text = f"Set 1:\nBertha\nSet 2:\nSugaree\n{header}\nScarlet Begonias\nE: Ripple\n"
+    tt = read_taper_structure(text)
+    assert tt.asserts is True and runs(tt) == ["1", "2", "encore"]
+    assert label(tt, "Scarlet Begonias") == "2"
+    assert label(tt, "Ripple") == "encore"
+    # With no later encore marker there is no encore at all: the header names one, so the
+    # text is encore-like (the veto's input), and nothing labels a song `encore`.
+    tt = read_taper_structure(f"Set 1:\nBertha\nSet 2:\nSugaree\n{header}\nRipple\n")
+    assert tt.has_encore is False and tt.encore_like is True
+    assert label(tt, "Ripple") == "2"
+
+
+def test_set_and_encore_header_inline_songs_keep_the_current_set():
+    tt = read_taper_structure(
+        "Set 1:\nBertha\nSet 2:\nSugaree\nSet 2 & Encore: Scarlet Begonias, E: Ripple\n")
+    assert label(tt, "Scarlet Begonias") == "2"
+    assert label(tt, "Ripple") == "encore"
+    assert "Set 2 &" not in titles(tt) and "Set 2 & Encore:" not in titles(tt)
+
+
+def test_set_and_encore_three_set_live_shape():
+    # "Set 3 / Encore:" (moe2008-01-24's shape): the third set never starts here either.
+    tt = read_taper_structure("Set 1:\nBertha\nSet 2:\nSugaree\nSet 3 / Encore:\nRipple\n")
+    assert tt.has_encore is False and label(tt, "Ripple") == "2"
+
+
+def _joined_split(text: str) -> list[str]:
+    """`_emit_items`'s inline split over the joined lines (the pre-item-2 `_preprocess`)."""
+    import html as _html
+    import re as _re
+    from llama.setlist import _INLINE_MARKER
+    text = _re.sub(r"<br\s*/?>", "\n", text, flags=_re.I)
+    text = _html.unescape(_re.sub(r"<[^>]+>", "\n", text))
+    raw = [ln.strip() for ln in text.splitlines()]
+    return [ln.strip() for ln in _INLINE_MARKER.sub("\n", "\n".join(raw)).splitlines()]
+
+
+@pytest.mark.parametrize("text", [
+    ACOUSTIC_SYNDICATE, GD_1990_03_22, TTB_2019_02_16, DSO_2005_11_16, PAF_2007_10_12,
+    # The split's `\s+` may span a line break: "- set 2 -" then a newline splits before
+    # "set 2", as in `_emit_items` (ratdog-2007-11-03's shape).
+    "Eyes of the World\n     - set 2 - \nPeggy-O\n",
+])
+def test_preprocess_keeps_the_joined_inline_split(text):
+    """(pin) Without a set-and-encore header, `_preprocess` splits exactly as before."""
+    from llama.taper import _preprocess
+    assert _preprocess(text) == _joined_split(text)

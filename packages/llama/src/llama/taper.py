@@ -23,6 +23,11 @@ Recognised forms are EXACTLY the spec's section 1 list, and nothing else:
   `Encore:` that `setlist._INLINE_MARKER` already splits.
 - `Set 4` or higher anywhere in the text, for VOIDING only.
 
+A header naming both a set and the encore (`Set II & Encore:`, `Set 3 / Encore:`,
+`Disc 3 - Set II + Encore:`) asserts nothing, colon or not. It is recognised on the raw line,
+BEFORE `_INLINE_MARKER`'s split, which would otherwise cut it before `Encore:` and start the
+encore there (Checkpoint A).
+
 Everything else (bare digits `1:`/`[1]`, bare roman numerals, `S1`, `E.`, `(E)`, a trailing
 `enc`, parenthetical `(set II)` mid-line, `Early`/`Late`/`Acoustic Set`, `Early Show`, act
 headers) is not a marker.
@@ -139,6 +144,7 @@ _DISC_SET_HEADER = re.compile(
     rf"(?:{_TAIL_ALONE}|{_TAIL_SONGS})",
     re.I,
 )
+_SET_HEADERS = (_SET_HEADER, _DISC_SET_HEADER)
 # Worded encore headers: `Encore`, `Encores`, `==encores==`, `Encore ======`, `(encore)`,
 # `Encore 1:`, `Encore #1:`, `1st Encore:`.
 _ENCORE_HEADER = re.compile(
@@ -199,25 +205,64 @@ _ENCORE_DECORATED_E = re.compile(r"(?<![a-z0-9])e~|-e-", re.I)
 _ITEM_DECOR = "-–—*~=[]() \t"
 
 
+_HELD = re.compile(r"^\x00\d+\x00$")
+
+
+def _set_header_match(core: str) -> re.Match | None:
+    """The numbered-set header regex matching one prefix-stripped line, if any."""
+    for rx in _SET_HEADERS:
+        m = rx.match(core)
+        if m:
+            return m
+    return None
+
+
+def _split_set_and_encore(line: str) -> tuple[str, str] | None:
+    """(header, rest) when the RAW line is a header naming both a set and the encore
+    (`Set II & Encore:`, `Set 3 / Encore: ...`, `Disc 3 - Set II + Encore:`), else None.
+    Tested before `_INLINE_MARKER`'s split, which would otherwise cut the line before its
+    `Encore:` and start the encore there. Any prefix is stripped only to test the shape."""
+    core = _TRACK_PREFIX.sub("", line)
+    core = _NUM_PREFIX.sub("", core)
+    m = _set_header_match(core)
+    if not m or not m.group("andenc"):
+        return None
+    cut = len(line) - len(core) + (m.start("rest") if m.group("rest") is not None else len(core))
+    return line[:cut].strip(), line[cut:].strip()
+
+
 def _preprocess(text: str) -> list[str]:
     """`parse_setlist`'s own preprocessing (no truncation), then `_emit_items`'s inline
-    split, as stripped lines."""
+    split, as stripped lines. A set-and-encore header is kept whole (`_split_set_and_encore`);
+    only the songs after it are split."""
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
     text = re.sub(r"<[^>]+>", "\n", text)
     text = html.unescape(text)
-    raw = [ln.strip() for ln in text.splitlines()]
-    return [ln.strip() for ln in _INLINE_MARKER.sub("\n", "\n".join(raw)).splitlines()]
+    # The split runs over the JOINED lines, exactly as `_emit_items` runs it (its `\s+` may
+    # span a line break). A set-and-encore header is swapped for a placeholder the split
+    # cannot match, and restored after.
+    held: list[str] = []
+    raw: list[str] = []
+    for ln in text.splitlines():
+        ln = ln.strip()
+        both = _split_set_and_encore(ln)
+        if both:
+            raw.append(f"\x00{len(held)}\x00")
+            held.append(both[0])
+            ln = both[1]
+        raw.append(ln)
+    lines = [ln.strip() for ln in _INLINE_MARKER.sub("\n", "\n".join(raw)).splitlines()]
+    return [held[int(ln[1:-1])] if _HELD.match(ln) else ln for ln in lines]
 
 
 def _classify(core: str) -> tuple[str, int | None, bool, bool, str]:
     """(kind, set number, continuation, set-and-encore, rest) for one prefix-stripped line.
     kind is "set" | "encore" | "song"."""
-    for rx in (_SET_HEADER, _DISC_SET_HEADER):
-        m = rx.match(core)
-        if m:
-            token = (m.group("tok") or m.group("ord") or m.group("ordn")).lower()
-            return ("set", _TOKEN_NUM.get(token) or int(token), bool(m.group("cont")),
-                    bool(m.group("andenc")), m.group("rest") or "")
+    m = _set_header_match(core)
+    if m:
+        token = (m.group("tok") or m.group("ord") or m.group("ordn")).lower()
+        return ("set", _TOKEN_NUM.get(token) or int(token), bool(m.group("cont")),
+                bool(m.group("andenc")), m.group("rest") or "")
     for rx in (_ENCORE_HEADER, _E_HEADER):
         m = rx.match(core)
         if m:
